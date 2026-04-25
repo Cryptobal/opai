@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Send } from "lucide-react";
+import { MoreVertical, Send } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CpqDualCurrencyAmount } from "@/components/cpq/CpqDualCurrency";
 import {
@@ -22,6 +22,7 @@ interface MobileBottomBarProps {
   portalButton?: React.ReactNode;
   pdfEmailButton?: React.ReactNode;
   emailButton?: React.ReactNode;
+  actionMenu?: React.ReactNode;
   totalGuards?: number;
   className?: string;
 }
@@ -36,10 +37,12 @@ export function MobileBottomBar({
   portalButton,
   pdfEmailButton,
   emailButton,
+  actionMenu,
   totalGuards,
   className,
 }: MobileBottomBarProps) {
   const [sendSheetOpen, setSendSheetOpen] = useState(false);
+  const [actionSheetOpen, setActionSheetOpen] = useState(false);
 
   const total = salePriceMonthly + additionalLinesTotal;
 
@@ -80,8 +83,18 @@ export function MobileBottomBar({
           </span>
         </div>
 
-        {/* Right: enviar */}
-        <div className="flex items-center gap-1.5 shrink-0 min-w-0 flex-1 justify-end max-w-[58%]">
+        {/* Right: acciones + enviar */}
+        <div className="flex items-center gap-1.5 shrink-0 min-w-0 flex-1 justify-end max-w-[62%]">
+          {actionMenu ? (
+            <button
+              type="button"
+              aria-label="Mas acciones"
+              onClick={() => setActionSheetOpen(true)}
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border/70 bg-muted/30 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <MoreVertical className="h-4 w-4" />
+            </button>
+          ) : null}
           {hasMultipleSendOptions ? (
             <button
               type="button"
@@ -136,6 +149,32 @@ export function MobileBottomBar({
                   {emailButton}
                 </div>
               )}
+            </div>
+          </SheetContent>
+        </Sheet>
+      )}
+
+      {actionMenu && (
+        <Sheet open={actionSheetOpen} onOpenChange={setActionSheetOpen}>
+          <SheetContent
+            side="bottom"
+            className="rounded-t-2xl px-4 pt-3 pb-6"
+          >
+            <SheetHeader className="sr-only">
+              <SheetTitle>Acciones de cotización</SheetTitle>
+              <SheetDescription>Acciones disponibles para esta cotización</SheetDescription>
+            </SheetHeader>
+
+            <div className="flex justify-center mb-4">
+              <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
+            </div>
+
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-1">
+              Acciones de cotización
+            </p>
+
+            <div className="space-y-1" onClick={() => setActionSheetOpen(false)}>
+              {actionMenu}
             </div>
           </SheetContent>
         </Sheet>

@@ -14,7 +14,7 @@ import {
   CPQ_BREAKDOWN_ROW,
   cpqBreakdownAmount,
 } from "@/components/cpq/cpqBreakdownLayout";
-import { ChevronDown, Users, Plus, Copy, Trash2, Moon, Sun, Loader2, Sparkles, RefreshCw, FileText } from "lucide-react";
+import { ChevronDown, Users, Plus, Copy, Trash2, Moon, Sun, Loader2, Sparkles } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { ServiceTemplateButtons } from "@/components/cpq/ServiceTemplateButtons";
 import MarginSection from "@/components/cpq/MarginSection";
@@ -23,6 +23,11 @@ import type { QuoteBreakdownData, PositionBreakdownItem } from "@/types/cpq-brea
 import { FinancialCostsSection, type FinancialCostsData } from "@/components/cpq/FinancialCostsSection";
 import { AdditionalLinesSection, type AdditionalLineItem } from "@/components/cpq/AdditionalLinesSection";
 import { CommercialConditionsSection, type CommercialConditionsData } from "@/components/cpq/CommercialConditionsSection";
+import {
+  CpqPdfPreviewPanel,
+  type CpqPdfPreviewMode,
+  type CpqPdfTemplateSlug,
+} from "@/components/cpq/CpqPdfPreviewPanel";
 import type { ServiceTemplate } from "@/lib/cpq/service-templates";
 import { resolveRolIdFromShiftPattern } from "@/lib/cpq/resolve-cpq-role-from-shift-pattern";
 import type { MarginMode } from "@/types/cpq";
@@ -81,6 +86,7 @@ export const DEFAULT_LEAD_CPQ_CURRENCY: "CLP" | "UF" = "UF";
 export interface CpqCatalogOption {
   id: string;
   name: string;
+  colorHex?: string | null;
 }
 
 interface LeadInstallationCpqProps {
@@ -147,6 +153,20 @@ function normalizeUnitPrice(value: number, unit?: string | null, contractMonths?
   if (n.includes("año") || n.includes("year")) return value / 12;
   if (n.includes("semestre") || n.includes("semester")) return value / 6;
   return value;
+}
+
+function normalizeHexColor(value?: string | null) {
+  if (!value) return null;
+  const match = value.trim().match(/^#?([0-9a-fA-F]{6})$/);
+  return match ? `#${match[1]}` : null;
+}
+
+function hexToRgba(hex: string, alpha: number) {
+  const normalized = hex.replace("#", "");
+  const r = Number.parseInt(normalized.slice(0, 2), 16);
+  const g = Number.parseInt(normalized.slice(2, 4), 16);
+  const b = Number.parseInt(normalized.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
 /* ─── Group name → emoji (for cost categories) ─── */
@@ -904,45 +924,86 @@ export function LeadInstallationCpq({
               existingPositionsCount={config.positions.length}
             />
             {config.positions.map((pos, idx) => (
-              <div key={idx} className="rounded-md border border-border/60 bg-[#0a0a0a] p-2.5 space-y-2">
+              <div key={idx} className="rounded-xl border border-border/60 bg-card/70 p-3 space-y-3">
                 <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 items-start">
-                  <span className="text-[12px] font-semibold min-w-0 break-words">{
-                    (() => {
-                      const pName = cpqPuestos.find(p => p.id === (pos.puestoTrabajoId || catalogDefaults?.puestoId))?.name;
-                      const cName = cpqCargos.find(c => c.id === (pos.cargoId || catalogDefaults?.cargoId))?.name;
-                      const rName = cpqRoles.find(r => r.id === (pos.rolId || catalogDefaults?.rolId))?.name;
-                      const label = [pName, cName, rName].filter(Boolean).join(" · ");
-                      return label || pos.puesto || `Posición ${idx + 1}`;
-                    })()
-                  }</span>
+                  <div className="min-w-0">
+                    <span className="text-sm font-semibold text-foreground min-w-0 break-words">{
+                      (() => {
+                        const pName = cpqPuestos.find(p => p.id === (pos.puestoTrabajoId || catalogDefaults?.puestoId))?.name;
+                        const cName = cpqCargos.find(c => c.id === (pos.cargoId || catalogDefaults?.cargoId))?.name;
+                        const rName = cpqRoles.find(r => r.id === (pos.rolId || catalogDefaults?.rolId))?.name;
+                        const label = [pName, cName, rName].filter(Boolean).join(" · ");
+                        return label || pos.puesto || `Posición ${idx + 1}`;
+                      })()
+                    }</span>
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "h-6 gap-1 rounded-md px-1.5 text-xs font-semibold",
+                          pos.shiftType === "night"
+                            ? "border-violet-500/40 bg-violet-500/10 text-violet-300"
+                            : "border-amber-500/40 bg-amber-500/10 text-amber-300"
+                        )}
+                      >
+                        {pos.shiftType === "night" ? <Moon className="h-2.5 w-2.5" /> : <Sun className="h-2.5 w-2.5" />}
+                        {pos.shiftType === "night" ? "Noche" : "Día"}
+                      </Badge>
+                      {(() => {
+                        const role = cpqRoles.find((r) => r.id === (pos.rolId || catalogDefaults?.rolId));
+                        const roleColor = normalizeHexColor(role?.colorHex);
+                        const roleStyle = roleColor
+                          ? {
+                              borderColor: hexToRgba(roleColor, 0.45),
+                              backgroundColor: hexToRgba(roleColor, 0.14),
+                              color: roleColor,
+                            }
+                          : undefined;
+                        return (
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "h-6 rounded-md px-1.5 text-xs font-semibold",
+                              !roleColor && "border-primary/30 bg-primary/10 text-primary"
+                            )}
+                            style={roleStyle}
+                          >
+                            {role?.name ?? "Rol"}
+                          </Badge>
+                        );
+                      })()}
+                      <Badge variant="outline" className="h-6 rounded-md border-border/60 bg-background/40 px-1.5 text-xs font-medium">
+                        {(pos.cantidad || 1) * (pos.numPuestos || 1)} guardias
+                      </Badge>
+                      <Badge variant="outline" className="h-6 rounded-md border-border/60 bg-background/40 px-1.5 font-mono text-xs font-medium">
+                        {pos.horaInicio || (pos.shiftType === "night" ? "20:00" : "08:00")}-{pos.horaFin || (pos.shiftType === "night" ? "08:00" : "20:00")}
+                      </Badge>
+                    </div>
+                  </div>
                   <div className="flex items-center gap-1 justify-end shrink-0 self-center">
-                    <Badge variant="outline" className="h-5 text-[10px] gap-0.5">
-                      {pos.shiftType === "night" ? <Moon className="h-2.5 w-2.5" /> : <Sun className="h-2.5 w-2.5" />}
-                      {pos.shiftType === "night" ? "Noche" : "Día"}
-                    </Badge>
-                    <Button type="button" variant="outline" size="sm" className="h-6 px-1.5 text-[10px]" onClick={() => clonePosition(idx)}>
-                      <Copy className="h-3 w-3" />
+                    <Button type="button" variant="outline" size="icon" className="h-8 w-8" onClick={() => clonePosition(idx)}>
+                      <Copy className="h-3.5 w-3.5" />
                     </Button>
-                    <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => removePosition(idx)}>
-                      <Trash2 className="h-3 w-3" />
+                    <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removePosition(idx)}>
+                      <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
                 </div>
-                <div className="grid gap-2 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
+                <div className="grid gap-2 sm:grid-cols-3">
                   <div className="space-y-1">
-                    <Label className="text-[10px]">Guardias</Label>
+                    <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Guardias</Label>
                     <input
                       type="number"
                       min={1}
-                      className="flex h-7 w-full rounded-md border border-border/60 bg-[#1a1a1a] px-2 text-xs"
+                      className="flex h-8 w-full rounded-md border border-border/60 bg-card px-2 text-sm"
                       value={pos.cantidad || 1}
                       onChange={(e) => updatePosition(idx, { cantidad: Math.max(1, Number(e.target.value) || 1) })}
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-[10px]">N° Puestos</Label>
+                    <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Puestos</Label>
                     <select
-                      className="flex h-7 w-full rounded-md border border-border/60 bg-[#1a1a1a] px-2 text-xs"
+                      className="flex h-8 w-full rounded-md border border-border/60 bg-card px-2 text-sm"
                       value={pos.numPuestos || 1}
                       onChange={(e) => updatePosition(idx, { numPuestos: Number(e.target.value) })}
                     >
@@ -950,21 +1011,52 @@ export function LeadInstallationCpq({
                     </select>
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-[10px]">Sueldo bruto</Label>
+                    <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Sueldo bruto</Label>
                     <Input
                       type="text"
                       inputMode="numeric"
                       value={formatNumber(pos.baseSalary || 550000)}
                       onChange={(e) => updatePosition(idx, { baseSalary: parseLocalizedNumber(e.target.value) || 550000 })}
-                      className="h-7 text-xs bg-[#1a1a1a] border-border/60"
+                      className="h-8 bg-card text-sm border-border/60"
                     />
                   </div>
+                </div>
+                <div className="grid gap-2 sm:grid-cols-3">
                   <div className="space-y-1">
-                    <Label className="text-[10px]">Turno</Label>
+                    <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Inicio</Label>
+                    <select
+                      className="flex h-8 w-full rounded-md border border-border/60 bg-card px-2 text-sm font-mono"
+                      value={pos.horaInicio || (pos.shiftType === "night" ? "20:00" : "08:00")}
+                      onChange={(e) => updatePosition(idx, { horaInicio: e.target.value })}
+                    >
+                      {Array.from({ length: 96 }, (_, i) => { const h = Math.floor(i / 4); const m = (i % 4) * 15; return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`; }).map((t) => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Término</Label>
+                    <select
+                      className="flex h-8 w-full rounded-md border border-border/60 bg-card px-2 text-sm font-mono"
+                      value={pos.horaFin || (pos.shiftType === "night" ? "08:00" : "20:00")}
+                      onChange={(e) => updatePosition(idx, { horaFin: e.target.value })}
+                    >
+                      {Array.from({ length: 96 }, (_, i) => { const h = Math.floor(i / 4); const m = (i % 4) * 15; return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`; }).map((t) => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Turno</Label>
                     <div className="flex gap-1">
                       <button
                         type="button"
-                        className={cn("flex-1 h-7 rounded-md border text-[10px] font-medium", pos.shiftType !== "night" ? "border-amber-500/40 bg-amber-500/10 text-amber-400" : "border-border text-muted-foreground")}
+                        className={cn(
+                          "flex-1 h-8 rounded-md border text-xs font-semibold transition-colors",
+                          pos.shiftType !== "night"
+                            ? "border-amber-500/50 bg-amber-500/10 text-amber-300"
+                            : "border-amber-500/20 bg-card text-amber-300/60 hover:bg-amber-500/5"
+                        )}
                         onClick={() => {
                           const patch: Partial<LeadPositionItem> = { shiftType: "day", horaInicio: "08:00", horaFin: "20:00" };
                           const allWeekdays = pos.dias?.length === 5 && !pos.dias.includes("sabado");
@@ -977,36 +1069,17 @@ export function LeadInstallationCpq({
                       </button>
                       <button
                         type="button"
-                        className={cn("flex-1 h-7 rounded-md border text-[10px] font-medium", pos.shiftType === "night" ? "border-purple-500/40 bg-purple-500/10 text-purple-400" : "border-border text-muted-foreground")}
+                        className={cn(
+                          "flex-1 h-8 rounded-md border text-xs font-semibold transition-colors",
+                          pos.shiftType === "night"
+                            ? "border-violet-500/50 bg-violet-500/10 text-violet-300"
+                            : "border-violet-500/20 bg-card text-violet-300/60 hover:bg-violet-500/5"
+                        )}
                         onClick={() => updatePosition(idx, { shiftType: "night", horaInicio: "20:00", horaFin: "08:00", baseSalary: 600000 })}
                       >
                         Noche
                       </button>
                     </div>
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-[10px]">Inicio</Label>
-                    <select
-                      className="flex h-7 w-full rounded-md border border-border/60 bg-[#1a1a1a] px-2 text-xs font-mono"
-                      value={pos.horaInicio || (pos.shiftType === "night" ? "20:00" : "08:00")}
-                      onChange={(e) => updatePosition(idx, { horaInicio: e.target.value })}
-                    >
-                      {Array.from({ length: 96 }, (_, i) => { const h = Math.floor(i / 4); const m = (i % 4) * 15; return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`; }).map((t) => (
-                        <option key={t} value={t}>{t}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-[10px]">Término</Label>
-                    <select
-                      className="flex h-7 w-full rounded-md border border-border/60 bg-[#1a1a1a] px-2 text-xs font-mono"
-                      value={pos.horaFin || (pos.shiftType === "night" ? "08:00" : "20:00")}
-                      onChange={(e) => updatePosition(idx, { horaFin: e.target.value })}
-                    >
-                      {Array.from({ length: 96 }, (_, i) => { const h = Math.floor(i / 4); const m = (i % 4) * 15; return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`; }).map((t) => (
-                        <option key={t} value={t}>{t}</option>
-                      ))}
-                    </select>
                   </div>
                 </div>
                 {/* Tipo de Puesto, Cargo, Rol */}
@@ -1014,9 +1087,9 @@ export function LeadInstallationCpq({
                   <div className="grid gap-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                     {cpqPuestos.length > 0 && (
                       <div className="space-y-1">
-                        <Label className="text-[10px]">Tipo de Puesto</Label>
+                        <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Tipo de puesto</Label>
                         <select
-                          className="flex h-7 w-full rounded-md border border-border/60 bg-[#1a1a1a] px-2 text-xs"
+                          className="flex h-8 w-full rounded-md border border-border/60 bg-card px-2 text-sm"
                           value={pos.puestoTrabajoId || catalogDefaults?.puestoId || ""}
                           onChange={(e) => {
                             const selected = cpqPuestos.find((p) => p.id === e.target.value);
@@ -1030,9 +1103,9 @@ export function LeadInstallationCpq({
                     )}
                     {cpqCargos.length > 0 && (
                       <div className="space-y-1">
-                        <Label className="text-[10px]">Cargo</Label>
+                        <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Cargo</Label>
                         <select
-                          className="flex h-7 w-full rounded-md border border-border/60 bg-[#1a1a1a] px-2 text-xs"
+                          className="flex h-8 w-full rounded-md border border-border/60 bg-card px-2 text-sm"
                           value={pos.cargoId || catalogDefaults?.cargoId || ""}
                           onChange={(e) => updatePosition(idx, { cargoId: e.target.value })}
                         >
@@ -1043,9 +1116,9 @@ export function LeadInstallationCpq({
                     )}
                     {cpqRoles.length > 0 && (
                       <div className="space-y-1">
-                        <Label className="text-[10px]">Rol</Label>
+                        <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Rol</Label>
                         <select
-                          className="flex h-7 w-full rounded-md border border-border/60 bg-[#1a1a1a] px-2 text-xs"
+                          className="flex h-8 w-full rounded-md border border-border/60 bg-card px-2 text-sm"
                           value={pos.rolId || catalogDefaults?.rolId || ""}
                           onChange={(e) => updatePosition(idx, { rolId: e.target.value })}
                         >
@@ -1056,8 +1129,9 @@ export function LeadInstallationCpq({
                     )}
                   </div>
                 )}
-                <div className="flex items-center gap-1 flex-wrap">
-                  <span className="text-[10px] text-muted-foreground mr-1">Días:</span>
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Días</Label>
+                  <div className="flex items-center gap-1 flex-wrap">
                   {["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"].map((d) => {
                     const active = pos.dias?.includes(d);
                     return (
@@ -1065,8 +1139,8 @@ export function LeadInstallationCpq({
                         key={d}
                         type="button"
                         className={cn(
-                          "h-5 w-7 rounded text-[9px] font-bold transition-colors",
-                          active ? "bg-primary/15 text-primary border border-primary/30" : "bg-muted text-muted-foreground border border-transparent"
+                          "h-7 min-w-[2rem] rounded-md border px-1 text-xs font-semibold transition-colors",
+                          active ? "border-primary/30 bg-primary/15 text-primary" : "border-border/60 bg-card text-muted-foreground hover:bg-muted/40"
                         )}
                         onClick={() => {
                           const dias = active ? pos.dias.filter((x) => x !== d) : [...(pos.dias || []), d];
@@ -1077,6 +1151,7 @@ export function LeadInstallationCpq({
                       </button>
                     );
                   })}
+                  </div>
                 </div>
                 {(() => {
                   const guards = (pos.cantidad || 1) * (pos.numPuestos || 1);
@@ -1091,71 +1166,43 @@ export function LeadInstallationCpq({
                   const costoTotal = row.employerCostPerGuard * guards;
                   const netG = row.netSalary;
                   return (
-                    <div className="text-[10px] space-y-1.5">
-                      <div className="text-muted-foreground">
-                        {pos.horaInicio}-{pos.horaFin} · {pos.cantidad || 1} guardia(s){(pos.numPuestos || 1) > 1 ? ` × ${pos.numPuestos} puestos = ${guards} guardias totales` : ""}
-                      </div>
-                      <div className="space-y-0.5">
-                        <span className="text-[10px] font-semibold uppercase tracking-wide text-emerald-500">Costo empresa</span>
-                        <div className="flex flex-col gap-0.5">
-                          <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
-                            <span className="text-muted-foreground">Total / mes</span>
-                            <CpqDualCurrencyAmount
-                              clp={Math.round(costoTotal)}
-                              currency={currency}
-                              ufValue={ufValue}
-                              size="xs"
-                              primaryClassName="text-emerald-400 font-semibold"
-                            />
-                          </div>
-                          <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
-                            <span className="text-muted-foreground">/ guardia</span>
-                            <CpqDualCurrencyAmount
-                              clp={Math.round(row.employerCostPerGuard)}
-                              currency={currency}
-                              ufValue={ufValue}
-                              size="xs"
-                              primaryClassName="text-emerald-400/90 font-medium"
-                            />
-                          </div>
+                    <div className="rounded-xl border border-border/60 bg-muted/15 p-3">
+                      <div className="grid gap-3 sm:grid-cols-3">
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Costo empresa / mes</p>
+                          <CpqDualCurrencyAmount
+                            clp={Math.round(costoTotal)}
+                            currency={currency}
+                            ufValue={ufValue}
+                            size="sm"
+                            primaryClassName="font-semibold text-foreground"
+                          />
                         </div>
-                      </div>
-                      {Number.isFinite(netG) && netG >= 0 ? (
-                        <div
-                          className={cn(
-                            "rounded-md border px-2 py-1.5",
-                            "border-sky-500/25 bg-sky-500/[0.07]",
-                          )}
-                        >
-                          <span className="text-[10px] font-semibold uppercase tracking-wide text-sky-400">Sueldo líquido estimado</span>
-                          <div className="mt-0.5 flex flex-wrap items-baseline justify-between gap-x-2">
-                            <span className="text-muted-foreground">/ guardia · mes</span>
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Por guardia</p>
+                          <CpqDualCurrencyAmount
+                            clp={Math.round(row.employerCostPerGuard)}
+                            currency={currency}
+                            ufValue={ufValue}
+                            size="sm"
+                            primaryClassName="font-semibold text-foreground"
+                          />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Sueldo líquido</p>
+                          {Number.isFinite(netG) && netG >= 0 ? (
                             <CpqDualCurrencyAmount
                               clp={Math.round(netG)}
                               currency={currency}
                               ufValue={ufValue}
                               size="sm"
-                              primaryClassName="text-sky-200 font-semibold"
+                              primaryClassName="font-semibold text-foreground"
                             />
-                          </div>
-                          {guards > 1 && (
-                            <div className="mt-1 flex flex-wrap items-baseline justify-between gap-x-2 border-t border-sky-500/20 pt-1">
-                              <span className="text-muted-foreground">Total puesto</span>
-                              <CpqDualCurrencyAmount
-                                clp={Math.round(netG * guards)}
-                                currency={currency}
-                                ufValue={ufValue}
-                                size="xs"
-                                primaryClassName="text-sky-200 font-medium"
-                              />
-                            </div>
+                          ) : (
+                            <p className="mt-1 text-xs text-muted-foreground">Sin estimación</p>
                           )}
                         </div>
-                      ) : (
-                        <p className="text-[10px] text-amber-500/90">
-                          Sueldo líquido: sin estimación (motor nómina).
-                        </p>
-                      )}
+                      </div>
                     </div>
                   );
                 })()}
@@ -1408,14 +1455,6 @@ export function LeadInstallationCpq({
 
 /* ─── PDF Preview sub-component ─── */
 
-const TEMPLATE_SLUGS = [
-  { slug: "standard", label: "Estándar" },
-  { slug: "detailed", label: "Detallado" },
-  { slug: "tender", label: "Licitación" },
-] as const;
-
-type PdfPreviewMode = "cotizacion" | "presentacion";
-
 function PdfPreviewSection({
   leadId,
   config,
@@ -1433,8 +1472,8 @@ function PdfPreviewSection({
 }) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
-  const [selectedSlug, setSelectedSlug] = useState("standard");
-  const [mode, setMode] = useState<PdfPreviewMode>("presentacion");
+  const [selectedSlug, setSelectedSlug] = useState<CpqPdfTemplateSlug>("standard");
+  const [mode, setMode] = useState<CpqPdfPreviewMode>("presentacion");
 
   const commonPayload = {
     accountName: accountName || "Cliente",
@@ -1483,84 +1522,27 @@ function PdfPreviewSection({
     }
   };
 
-  const switchMode = (m: PdfPreviewMode) => {
+  const switchMode = (m: CpqPdfPreviewMode) => {
     setMode(m);
     setPreviewUrl(null);
   };
 
   return (
-    <Card className="shadow-sm overflow-hidden">
-      <div className="px-3 py-2 bg-muted/20 border-b border-border/40 flex flex-wrap items-center gap-2">
-        <div className="flex items-center gap-1 mr-auto">
-          <button
-            type="button"
-            onClick={() => switchMode("cotizacion")}
-            className={cn(
-              "h-7 sm:h-6 rounded-md px-2.5 text-[10px] sm:text-[9px] font-semibold border transition-colors flex items-center gap-1",
-              mode === "cotizacion"
-                ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
-                : "border-transparent bg-muted/40 text-muted-foreground hover:bg-muted"
-            )}
-          >
-            <RefreshCw className="h-3 w-3" />
-            Cotización
-          </button>
-          <button
-            type="button"
-            onClick={() => switchMode("presentacion")}
-            className={cn(
-              "h-7 sm:h-6 rounded-md px-2.5 text-[10px] sm:text-[9px] font-semibold border transition-colors flex items-center gap-1",
-              mode === "presentacion"
-                ? "border-blue-500/40 bg-blue-500/10 text-blue-400"
-                : "border-transparent bg-muted/40 text-muted-foreground hover:bg-muted"
-            )}
-          >
-            <FileText className="h-3 w-3" />
-            Presentación
-          </button>
-        </div>
-        <div className="flex items-center gap-1 flex-wrap">
-          {mode === "cotizacion" && TEMPLATE_SLUGS.map((t) => (
-            <button
-              key={t.slug}
-              type="button"
-              onClick={() => { setSelectedSlug(t.slug); setPreviewUrl(null); }}
-              className={cn(
-                "h-7 sm:h-5 rounded px-2 text-[10px] sm:text-[9px] font-medium border transition-colors",
-                selectedSlug === t.slug
-                  ? "border-primary/40 bg-primary/10 text-primary"
-                  : "border-transparent bg-muted/40 text-muted-foreground hover:bg-muted"
-              )}
-            >
-              {t.label}
-            </button>
-          ))}
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-7 sm:h-5 text-[10px] sm:text-[9px] px-2 ml-1"
-            disabled={previewLoading}
-            onClick={generatePreview}
-          >
-            {previewLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
-            <span className="ml-1">Generar PDF</span>
-          </Button>
-        </div>
-      </div>
-      {previewUrl ? (
-        <iframe
-          src={previewUrl}
-          className="w-full h-[400px] sm:h-[600px] bg-white"
-          title={mode === "presentacion" ? "Preview presentación PDF" : "Preview propuesta PDF"}
-        />
-      ) : (
-        <div className="flex items-center justify-center h-[200px] text-muted-foreground text-[11px]">
-          {mode === "presentacion"
-            ? "Click \"Generar PDF\" para ver la presentación técnica"
-            : "Click \"Generar PDF\" para ver la vista previa real"}
-        </div>
-      )}
-    </Card>
+    <CpqPdfPreviewPanel
+      mode={mode}
+      templateSlug={selectedSlug}
+      previewUrl={previewUrl}
+      loading={previewLoading}
+      onModeChange={switchMode}
+      onTemplateSlugChange={(slug) => {
+        setSelectedSlug(slug);
+        setPreviewUrl(null);
+      }}
+      onGenerate={generatePreview}
+      className="shadow-sm"
+      previewClassName={previewUrl ? "h-[400px] sm:h-[600px]" : "h-[200px] text-[11px]"}
+      emptyCotizacionText="Click en Generar PDF para ver la vista previa real"
+    />
   );
 }
 

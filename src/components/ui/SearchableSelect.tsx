@@ -33,6 +33,7 @@ interface SearchableSelectProps {
   placeholder: string;
   emptyText?: string;
   disabled?: boolean;
+  triggerClassName?: string;
   /** Si true, el dropdown se renderiza en portal para no cortarse en contenedores con overflow */
   dropdownInPortal?: boolean;
   onChange: (id: string) => void;
@@ -46,6 +47,7 @@ export function SearchableSelect({
   placeholder,
   emptyText = "Sin resultados",
   disabled,
+  triggerClassName,
   dropdownInPortal = false,
   onChange,
   onInputChange,
@@ -221,6 +223,7 @@ export function SearchableSelect({
             ? "border-primary/50 ring-2 ring-primary/20 shadow-sm shadow-primary/5"
             : "border-input hover:border-muted-foreground/30 hover:bg-accent/30",
           disabled && "cursor-not-allowed opacity-50",
+          triggerClassName,
         )}
       >
         {selected ? (

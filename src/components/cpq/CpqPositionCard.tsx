@@ -73,6 +73,20 @@ const HOURS_24 = Array.from({ length: 96 }, (_, i) => {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 });
 
+function normalizeHexColor(value?: string | null) {
+  if (!value) return null;
+  const match = value.trim().match(/^#?([0-9a-fA-F]{6})$/);
+  return match ? `#${match[1]}` : null;
+}
+
+function hexToRgba(hex: string, alpha: number) {
+  const normalized = hex.replace("#", "");
+  const r = Number.parseInt(normalized.slice(0, 2), 16);
+  const g = Number.parseInt(normalized.slice(2, 4), 16);
+  const b = Number.parseInt(normalized.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 export function CpqPositionCard({
   quoteId,
   position,
@@ -110,6 +124,15 @@ export function CpqPositionCard({
   const shiftType = getShiftType(draft.startTime);
   const badgeBase = "h-6 rounded-md border px-1.5 text-sm font-semibold leading-none";
   const totalGuards = draft.numGuards * (draft.numPuestos || 1);
+  const selectedRole = roles.find((r) => r.id === draft.rolId);
+  const roleColor = normalizeHexColor(selectedRole?.colorHex);
+  const roleChipStyle = roleColor
+    ? {
+        borderColor: hexToRgba(roleColor, 0.45),
+        backgroundColor: hexToRgba(roleColor, 0.14),
+        color: roleColor,
+      }
+    : undefined;
 
   const persist = useCallback(
     async (d: PositionDraft) => {
@@ -256,7 +279,7 @@ export function CpqPositionCard({
     roles.find((r) => r.id === draft.rolId)?.name ??
     ((draft.weekdays?.length ?? 7) >= 6 ? "6x1" : (draft.weekdays?.length ?? 5) === 5 ? "5x2" : `${draft.weekdays?.length ?? 0}x${7 - (draft.weekdays?.length ?? 0)}`);
 
-  const fieldBg = "bg-[#1a1a1a] border-border/60";
+  const fieldBg = "bg-card border-border/60";
   const selectCls = `flex h-8 w-full rounded-md border px-2 text-sm ${fieldBg}`;
 
   if (readOnly) {
@@ -340,35 +363,60 @@ export function CpqPositionCard({
   }
 
   return (
-    <div className="rounded-md border border-border/60 bg-[#0a0a0a] p-2.5 space-y-2">
-        <div className={cn("grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 items-start", CPQ_BREAKDOWN_SHELL)}>
-          <div className="min-w-0">
-            <div className="text-sm font-semibold break-words">{titleLabel}</div>
-            <div className="flex items-center gap-1 flex-wrap mt-1">
-              <Badge variant="outline" className="h-6 text-sm gap-0.5">
-                {shiftType === "night" ? <Moon className="h-2.5 w-2.5" /> : <Sun className="h-2.5 w-2.5" />}
-                {shiftType === "night" ? "Noche" : "Día"}
-              </Badge>
-              {saving && (
-                <span className="text-sm text-muted-foreground inline-flex items-center gap-0.5">
-                  <Loader2 className="h-3 w-3 animate-spin" /> Guardando…
-                </span>
+    <div className="overflow-hidden rounded-xl border border-border/60 bg-card/70">
+      <div className="flex items-start justify-between gap-3 border-b border-border/50 bg-muted/15 px-3 py-2.5">
+        <div className="min-w-0">
+          <div className="text-sm font-semibold text-foreground break-words">{titleLabel}</div>
+          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+            <Badge
+              variant="outline"
+              className={cn(
+                "h-6 gap-1 rounded-md px-1.5 text-xs font-semibold",
+                shiftType === "night"
+                  ? "border-violet-500/40 bg-violet-500/10 text-violet-300"
+                  : "border-amber-500/40 bg-amber-500/10 text-amber-300"
               )}
-            </div>
-          </div>
-          <div className="flex items-center gap-0.5 shrink-0 self-start">
-            <Button type="button" variant="outline" size="sm" className="h-7 px-1.5 text-sm" onClick={handleClone} title="Duplicar">
-              <Copy className="h-3 w-3" />
-            </Button>
-            <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={handleDelete} title="Eliminar">
-              <Trash2 className="h-3 w-3" />
-            </Button>
+            >
+              {shiftType === "night" ? <Moon className="h-2.5 w-2.5" /> : <Sun className="h-2.5 w-2.5" />}
+              {shiftType === "night" ? "Noche" : "Día"}
+            </Badge>
+            <Badge
+              variant="outline"
+              className={cn(
+                "h-6 rounded-md px-1.5 text-xs font-semibold",
+                !roleColor && "border-primary/30 bg-primary/10 text-primary"
+              )}
+              style={roleChipStyle}
+            >
+              {rotationLabel}
+            </Badge>
+            <Badge variant="outline" className="h-6 rounded-md border-border/60 bg-background/40 px-1.5 text-xs font-medium">
+              {totalGuards} guardia{totalGuards !== 1 ? "s" : ""}
+            </Badge>
+            <Badge variant="outline" className="h-6 rounded-md border-border/60 bg-background/40 px-1.5 font-mono text-xs font-medium">
+              {draft.startTime}-{draft.endTime}
+            </Badge>
+            {saving && (
+              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                <Loader2 className="h-3 w-3 animate-spin" /> Guardando
+              </span>
+            )}
           </div>
         </div>
+        <div className="flex shrink-0 items-center gap-1">
+          <Button type="button" variant="outline" size="icon" className="h-8 w-8" onClick={handleClone} title="Duplicar">
+            <Copy className="h-3.5 w-3.5" />
+          </Button>
+          <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={handleDelete} title="Eliminar">
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      </div>
 
-        <div className="grid gap-2 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="space-y-3 p-3">
+        <div className="grid gap-2 sm:grid-cols-3">
           <div className="space-y-1">
-            <Label className="text-sm">Guardias</Label>
+            <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Guardias</Label>
             <input
               type="number"
               min={1}
@@ -378,7 +426,7 @@ export function CpqPositionCard({
             />
           </div>
           <div className="space-y-1">
-            <Label className="text-sm">Nº Puestos</Label>
+            <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Puestos</Label>
             <select className={selectCls} value={draft.numPuestos} onChange={(e) => updateDraft({ numPuestos: Number(e.target.value) })}>
               {Array.from({ length: 20 }, (_, i) => i + 1).map((n) => (
                 <option key={n} value={n}>{n}</option>
@@ -386,7 +434,7 @@ export function CpqPositionCard({
             </select>
           </div>
           <div className="space-y-1">
-            <Label className="text-sm">Sueldo bruto</Label>
+            <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Sueldo bruto</Label>
             <Input
               type="text"
               inputMode="numeric"
@@ -395,54 +443,13 @@ export function CpqPositionCard({
               className={cn("h-8 text-sm", fieldBg)}
             />
           </div>
-          <div className="space-y-1">
-            <Label className="text-sm">Turno</Label>
-            <div className="flex gap-1">
-              <button
-                type="button"
-                className={cn(
-                  "flex-1 h-8 rounded-md border text-sm font-medium",
-                  shiftType !== "night" ? "border-amber-500/40 bg-amber-500/10 text-amber-400" : "border-border text-muted-foreground"
-                )}
-                onClick={() => updateDraft({ startTime: "08:00", endTime: "20:00" })}
-              >
-                Día
-              </button>
-              <button
-                type="button"
-                className={cn(
-                  "flex-1 h-8 rounded-md border text-sm font-medium",
-                  shiftType === "night" ? "border-purple-500/40 bg-purple-500/10 text-purple-400" : "border-border text-muted-foreground"
-                )}
-                onClick={() => updateDraft({ startTime: "20:00", endTime: "08:00" })}
-              >
-                Noche
-              </button>
-            </div>
-          </div>
-          <div className="space-y-1">
-            <Label className="text-sm">Inicio</Label>
-            <select className={cn(selectCls, "font-mono")} value={draft.startTime} onChange={(e) => updateDraft({ startTime: e.target.value })}>
-              {HOURS_24.map((t) => (
-                <option key={t} value={t}>{t}</option>
-              ))}
-            </select>
-          </div>
-          <div className="space-y-1">
-            <Label className="text-sm">Término</Label>
-            <select className={cn(selectCls, "font-mono")} value={draft.endTime} onChange={(e) => updateDraft({ endTime: e.target.value })}>
-              {HOURS_24.map((t) => (
-                <option key={t} value={t}>{t}</option>
-              ))}
-            </select>
-          </div>
         </div>
 
         {(puestos.length > 0 || cargos.length > 0 || roles.length > 0) && (
-          <div className="grid gap-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-2 sm:grid-cols-3">
             {puestos.length > 0 && (
               <div className="space-y-1">
-                <Label className="text-sm">Tipo de Puesto</Label>
+                <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Tipo de puesto</Label>
                 <select className={selectCls} value={draft.puestoTrabajoId} onChange={(e) => updateDraft({ puestoTrabajoId: e.target.value })}>
                   <option value="">Seleccionar…</option>
                   {puestos.map((p) => (
@@ -453,7 +460,7 @@ export function CpqPositionCard({
             )}
             {cargos.length > 0 && (
               <div className="space-y-1">
-                <Label className="text-sm">Cargo</Label>
+                <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Cargo</Label>
                 <select className={selectCls} value={draft.cargoId} onChange={(e) => updateDraft({ cargoId: e.target.value })}>
                   <option value="">Seleccionar…</option>
                   {cargos.map((c) => (
@@ -464,7 +471,7 @@ export function CpqPositionCard({
             )}
             {roles.length > 0 && (
               <div className="space-y-1">
-                <Label className="text-sm">Rol</Label>
+                <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Rol</Label>
                 <select className={selectCls} value={draft.rolId} onChange={(e) => updateDraft({ rolId: e.target.value })}>
                   <option value="">Seleccionar…</option>
                   {roles.map((r) => (
@@ -476,84 +483,128 @@ export function CpqPositionCard({
           </div>
         )}
 
-        <div className="flex flex-col gap-1.5">
-          <div className="flex items-center gap-1 flex-wrap">
-            <span className="text-sm text-muted-foreground mr-1">Días:</span>
-            {WEEKDAY_ORDER.map((d) => {
-              const active = draft.weekdays.includes(d);
-              return (
-                <button
-                  key={d}
-                  type="button"
-                  className={cn(
-                    "h-6 min-w-[2rem] px-1 rounded text-xs font-bold transition-colors",
-                    active ? "bg-primary/15 text-primary border border-primary/30" : "bg-muted text-muted-foreground border border-transparent"
-                  )}
-                  onClick={() => toggleWeekday(d)}
-                >
-                  {d}
-                </button>
-              );
-            })}
+        <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-end">
+          <div className="space-y-1">
+            <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Días</Label>
+            <div className="flex flex-wrap items-center gap-1">
+              {WEEKDAY_ORDER.map((d) => {
+                const active = draft.weekdays.includes(d);
+                return (
+                  <button
+                    key={d}
+                    type="button"
+                    className={cn(
+                      "h-7 min-w-[2rem] rounded-md border px-1 text-xs font-semibold transition-colors",
+                      active ? "border-primary/30 bg-primary/15 text-primary" : "border-border/60 bg-card text-muted-foreground hover:bg-muted/40"
+                    )}
+                    onClick={() => toggleWeekday(d)}
+                  >
+                    {d}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-          <div className="flex items-center gap-1 flex-wrap">
-            <Button type="button" size="sm" variant="outline" className="h-6 px-2 text-xs" onClick={() => applyWeekdayPreset("weekdays")}>
-              Lun-Vie
-            </Button>
-            <Button type="button" size="sm" variant="outline" className="h-6 px-2 text-xs" onClick={() => applyWeekdayPreset("weekend")}>
-              Sáb-Dom
-            </Button>
-            <Button type="button" size="sm" variant="outline" className="h-6 px-2 text-xs" onClick={() => applyWeekdayPreset("all")}>
-              Todos
-            </Button>
+          <div className="flex gap-1">
+            <button
+              type="button"
+              className={cn(
+                "h-8 rounded-md border px-3 text-xs font-semibold transition-colors",
+                shiftType !== "night"
+                  ? "border-amber-500/50 bg-amber-500/10 text-amber-300"
+                  : "border-amber-500/20 bg-card text-amber-300/60 hover:bg-amber-500/5"
+              )}
+              onClick={() => updateDraft({ startTime: "08:00", endTime: "20:00" })}
+            >
+              Día
+            </button>
+            <button
+              type="button"
+              className={cn(
+                "h-8 rounded-md border px-3 text-xs font-semibold transition-colors",
+                shiftType === "night"
+                  ? "border-violet-500/50 bg-violet-500/10 text-violet-300"
+                  : "border-violet-500/20 bg-card text-violet-300/60 hover:bg-violet-500/5"
+              )}
+              onClick={() => updateDraft({ startTime: "20:00", endTime: "08:00" })}
+            >
+              Noche
+            </button>
+          </div>
+          <div className="flex gap-1">
+            <select className={cn(selectCls, "w-[92px] font-mono")} value={draft.startTime} onChange={(e) => updateDraft({ startTime: e.target.value })}>
+              {HOURS_24.map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+            <select className={cn(selectCls, "w-[92px] font-mono")} value={draft.endTime} onChange={(e) => updateDraft({ endTime: e.target.value })}>
+              {HOURS_24.map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
           </div>
         </div>
 
-        <div className="text-sm space-y-1 pt-1 border-t border-border/40">
-          <div className="text-muted-foreground">
-            {draft.startTime}-{draft.endTime} · {draft.numGuards} guardia(s)
-            {(draft.numPuestos || 1) > 1 ? ` × ${draft.numPuestos} puestos = ${totalGuards} guardias totales` : ""}
-          </div>
-          <div className={cn(CPQ_BREAKDOWN_ROW, "text-sm items-start")}>
-            <div className="text-emerald-400 font-semibold min-w-0 break-words space-y-1">
-              <div>Costo empresa / mes</div>
+        <div className="flex flex-wrap gap-1">
+          <Button type="button" size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => applyWeekdayPreset("weekdays")}>
+            Lun-Vie
+          </Button>
+          <Button type="button" size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => applyWeekdayPreset("weekend")}>
+            Sáb-Dom
+          </Button>
+          <Button type="button" size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => applyWeekdayPreset("all")}>
+            Todos
+          </Button>
+        </div>
+
+        <div className="rounded-xl border border-border/60 bg-muted/15 p-3">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="min-w-0">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Costo empresa / mes</p>
               <CpqDualCurrencyAmount
                 clp={Number(position.monthlyPositionCost)}
                 currency={displayCurrency}
                 ufValue={ufValue}
-                size="xs"
-                primaryClassName="text-emerald-400"
+                size="sm"
+                primaryClassName="font-semibold text-foreground"
                 align="left"
               />
-              <div className="text-muted-foreground font-normal">/ guardia</div>
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Por guardia</p>
               <CpqDualCurrencyAmount
                 clp={Number(position.employerCost)}
                 currency={displayCurrency}
                 ufValue={ufValue}
-                size="xs"
-                primaryClassName="text-emerald-400/85"
+                size="sm"
+                primaryClassName="font-semibold text-foreground"
                 align="left"
               />
-              {position.netSalary != null && Number(position.netSalary) > 0 && (
-                <div className="pt-1.5 mt-1 border-t border-border/40 space-y-0.5">
-                  <span className="text-sky-500 dark:text-sky-400">Sueldo líquido estim. / guardia</span>
-                  <CpqDualCurrencyAmount
-                    clp={Math.round(Number(position.netSalary))}
-                    currency={displayCurrency}
-                    ufValue={ufValue}
-                    size="sm"
-                    primaryClassName="text-sky-600 dark:text-sky-300 font-semibold"
-                    align="left"
-                  />
-                </div>
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Sueldo líquido</p>
+              {position.netSalary != null && Number(position.netSalary) > 0 ? (
+                <CpqDualCurrencyAmount
+                  clp={Math.round(Number(position.netSalary))}
+                  currency={displayCurrency}
+                  ufValue={ufValue}
+                  size="sm"
+                  primaryClassName="font-semibold text-foreground"
+                  align="left"
+                />
+              ) : (
+                <p className="mt-1 text-xs text-muted-foreground">Sin estimación</p>
               )}
             </div>
-            <Button type="button" size="sm" variant="ghost" className="h-7 px-2 text-sm shrink-0 self-center" onClick={handleRecalculate} disabled={recalcLoading}>
-              <RefreshCw className={cn("h-3 w-3 mr-1", recalcLoading && "animate-spin")} />
+          </div>
+          <div className="mt-3 flex justify-end">
+            <Button type="button" size="sm" variant="ghost" className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground" onClick={handleRecalculate} disabled={recalcLoading}>
+              <RefreshCw className={cn("mr-1 h-3 w-3", recalcLoading && "animate-spin")} />
               Recalcular
             </Button>
           </div>
         </div>
+      </div>
     </div>
   );
 }

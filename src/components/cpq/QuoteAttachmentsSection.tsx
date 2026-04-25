@@ -20,6 +20,9 @@ type Attachment = {
 interface QuoteAttachmentsSectionProps {
   quoteId: string;
   isLocked?: boolean;
+  className?: string;
+  defaultExpanded?: boolean;
+  compact?: boolean;
 }
 
 function formatSize(bytes: number): string {
@@ -28,8 +31,14 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function QuoteAttachmentsSection({ quoteId, isLocked }: QuoteAttachmentsSectionProps) {
-  const [expanded, setExpanded] = useState(false);
+export function QuoteAttachmentsSection({
+  quoteId,
+  isLocked,
+  className,
+  defaultExpanded = false,
+  compact = false,
+}: QuoteAttachmentsSectionProps) {
+  const [expanded, setExpanded] = useState(defaultExpanded);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -121,7 +130,7 @@ export function QuoteAttachmentsSection({ quoteId, isLocked }: QuoteAttachmentsS
 
   return (
     <>
-    <Card className="shadow-sm overflow-hidden mt-3" inert={isLocked ? true : undefined}>
+    <Card className={cn("shadow-sm overflow-hidden mt-3", className)} inert={isLocked ? true : undefined}>
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
@@ -138,7 +147,7 @@ export function QuoteAttachmentsSection({ quoteId, isLocked }: QuoteAttachmentsS
         <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform shrink-0", expanded && "rotate-180")} />
       </button>
       {expanded && (
-        <div className="px-4 pb-4 space-y-3">
+        <div className={cn("px-4 pb-4 space-y-3", compact && "px-3 pb-3")}>
           <p className="text-xs text-muted-foreground">
             Los documentos subidos aquí se enviarán como adjuntos al enviar la cotización por correo.
           </p>
@@ -154,7 +163,8 @@ export function QuoteAttachmentsSection({ quoteId, isLocked }: QuoteAttachmentsS
                 setDragOver(false);
               }}
               className={cn(
-                "rounded-lg border-2 border-dashed p-6 text-center transition-colors",
+                "rounded-lg border-2 border-dashed text-center transition-colors",
+                compact ? "p-4" : "p-6",
                 dragOver
                   ? "border-primary bg-primary/5"
                   : "border-muted-foreground/25 hover:border-muted-foreground/50"
@@ -181,7 +191,7 @@ export function QuoteAttachmentsSection({ quoteId, isLocked }: QuoteAttachmentsS
                 {uploading ? (
                   <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                 ) : (
-                  <Paperclip className="h-8 w-8 text-muted-foreground" />
+                  <Paperclip className={cn("text-muted-foreground", compact ? "h-6 w-6" : "h-8 w-8")} />
                 )}
                 <span className="text-sm text-muted-foreground">
                   {uploading ? "Subiendo…" : "Arrastra archivos aquí o haz clic para seleccionar"}
