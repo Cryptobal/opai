@@ -43,7 +43,16 @@ import {
   Phone,
   Send,
   MessageCircle,
+  UserCheck,
+  Mail,
+  Handshake,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { StatusBadge } from "@/components/opai/StatusBadge";
@@ -1740,6 +1749,42 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
     { id: "files", label: "Documentos", icon: FileText, count: fileCount },
   ];
 
+  const [markingContact, setMarkingContact] = useState(false);
+  const CONTACT_CHANNEL_LABELS: Record<string, string> = {
+    whatsapp: "WhatsApp",
+    phone: "llamada",
+    email: "email",
+    in_person: "en persona",
+  };
+  const handleMarkContacted = async (channel: "whatsapp" | "phone" | "email" | "in_person") => {
+    if (markingContact) return;
+    setMarkingContact(true);
+    try {
+      const res = await fetch(`/api/crm/leads/${lead.id}/mark-contacted`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ channel }),
+      });
+      const json = await parseResponseJson<{ success: boolean; data?: CrmLead; error?: string }>(res);
+      if (!json.success || !json.data) {
+        toast.error(json.error || "No se pudo marcar como contactado");
+        return;
+      }
+      setLead((prev) => ({
+        ...prev,
+        firstContactAt: json.data!.firstContactAt ?? prev.firstContactAt,
+        firstContactBy: json.data!.firstContactBy ?? prev.firstContactBy,
+        firstContactChannel: json.data!.firstContactChannel ?? channel,
+      }));
+      toast.success(`Contacto registrado · ${CONTACT_CHANNEL_LABELS[channel]}`);
+    } catch (e) {
+      console.error(e);
+      toast.error("No se pudo marcar como contactado");
+    } finally {
+      setMarkingContact(false);
+    }
+  };
+
   const headerActions: EntityHeaderAction[] = [
     { label: "Eliminar", icon: Trash2, variant: "destructive", onClick: () => setDeleteConfirm(true) },
   ];
@@ -2441,6 +2486,43 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
           actions: headerActions,
           extra: (
             <div className="flex flex-wrap items-center justify-end gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant={lead.firstContactAt ? "outline" : "default"}
+                    className="h-8 gap-1.5"
+                    disabled={markingContact}
+                  >
+                    {markingContact ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : lead.firstContactAt ? (
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                    ) : (
+                      <UserCheck className="h-3.5 w-3.5" />
+                    )}
+                    <span className="text-xs">
+                      {lead.firstContactAt
+                        ? `Contactado · ${CONTACT_CHANNEL_LABELS[lead.firstContactChannel || ""] || lead.firstContactChannel || "—"}`
+                        : "Marcar contactado"}
+                    </span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem onClick={() => handleMarkContacted("whatsapp")}>
+                    <MessageCircle className="h-3.5 w-3.5 mr-2" /> Por WhatsApp
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleMarkContacted("phone")}>
+                    <Phone className="h-3.5 w-3.5 mr-2" /> Por llamada
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleMarkContacted("email")}>
+                    <Mail className="h-3.5 w-3.5 mr-2" /> Por email
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleMarkContacted("in_person")}>
+                    <Handshake className="h-3.5 w-3.5 mr-2" /> En persona
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               {headerAutosaveIndicator}
               {lead.phone ? (
                 <div className="flex items-center gap-1.5">

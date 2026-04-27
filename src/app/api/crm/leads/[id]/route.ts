@@ -39,6 +39,20 @@ export async function GET(
       );
     }
 
+    if (!lead.firstViewedAt) {
+      try {
+        const now = new Date();
+        await prisma.crmLead.update({
+          where: { id: lead.id },
+          data: { firstViewedAt: now, firstViewedBy: ctx.userId },
+        });
+        lead.firstViewedAt = now;
+        lead.firstViewedBy = ctx.userId;
+      } catch (e) {
+        console.warn("Failed to mark lead as viewed", e);
+      }
+    }
+
     return NextResponse.json({ success: true, data: lead });
   } catch (error) {
     console.error("Error fetching lead:", error);
