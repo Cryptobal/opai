@@ -43,6 +43,17 @@ export const NOTIFICATION_TYPES: NotificationTypeDef[] = [
     defaultBell: true,
     defaultEmail: false,
   },
+  {
+    key: "lead_escalation",
+    label: "Lead sin contactar",
+    description:
+      "Alerta cuando un lead lleva más de 30 min sin que un comercial lo contacte (solo en horario hábil)",
+    module: "crm",
+    submodule: "leads",
+    category: "CRM - Leads",
+    defaultBell: true,
+    defaultEmail: false,
+  },
 
   // ── CRM - General (cualquier acceso CRM) ──
   {
