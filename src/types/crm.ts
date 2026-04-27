@@ -22,6 +22,12 @@ export interface CrmLead {
   estimatedDuration?: number | null;
   approvedAt?: string | null;
   approvedBy?: string | null;
+  firstViewedAt?: string | null;
+  firstViewedBy?: string | null;
+  firstContactAt?: string | null;
+  firstContactBy?: string | null;
+  firstContactChannel?: string | null;
+  escalatedAt?: string | null;
   convertedAccountId?: string | null;
   convertedContactId?: string | null;
   convertedDealId?: string | null;

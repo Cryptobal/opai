@@ -46,6 +46,12 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { StatusBadge } from "@/components/opai/StatusBadge";
 import { EntityDetailLayout, useEntityTabs, type EntityTab, type EntityHeaderAction } from "./EntityDetailLayout";
 import { DetailField, DetailFieldGrid } from "./DetailField";
@@ -1673,6 +1679,26 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
     }
   };
 
+  // ─── Mark contacted ───
+  const [markingContacted, setMarkingContacted] = useState(false);
+  const markContacted = async (channel: "whatsapp" | "phone" | "email" | "in_person") => {
+    setMarkingContacted(true);
+    try {
+      const res = await fetch(`/api/crm/leads/${lead.id}/mark-contacted`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ channel }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success("Lead marcado como contactado");
+      router.refresh();
+    } catch {
+      toast.error("No se pudo marcar como contactado");
+    } finally {
+      setMarkingContacted(false);
+    }
+  };
+
   const canConfirmReject = !rejectSendEmail || (rejectEmailSubject.trim().length > 0 && rejectEmailBody.trim().length > 0);
 
   // ─── Metadata helpers ───
@@ -2442,6 +2468,37 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
           extra: (
             <div className="flex flex-wrap items-center justify-end gap-2">
               {headerAutosaveIndicator}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    variant={lead.firstContactAt ? "outline" : "default"}
+                    size="sm"
+                    className="h-8 gap-1 text-xs"
+                    disabled={markingContacted}
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    {lead.firstContactAt
+                      ? `Contactado${lead.firstContactChannel ? ` · ${lead.firstContactChannel}` : ""}`
+                      : "Marcar contactado"}
+                    <ChevronDown className="h-3 w-3 opacity-70" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onSelect={() => markContacted("whatsapp")}>
+                    Por WhatsApp
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => markContacted("phone")}>
+                    Por llamada
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => markContacted("email")}>
+                    Por email
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => markContacted("in_person")}>
+                    En persona
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               {lead.phone ? (
                 <div className="flex items-center gap-1.5">
                   <a href={`tel:+${sanitizePhone(lead.phone || "")}`} title="Llamar"

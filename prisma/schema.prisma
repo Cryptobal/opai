@@ -1715,6 +1715,12 @@ model CrmLead {
   estimatedDuration  Int?      @map("estimated_duration")
   approvedAt         DateTime? @map("approved_at") @db.Timestamptz(6)
   approvedBy         String?   @map("approved_by")
+  firstViewedAt       DateTime? @map("first_viewed_at") @db.Timestamptz(6)
+  firstViewedBy       String?   @map("first_viewed_by")
+  firstContactAt      DateTime? @map("first_contact_at") @db.Timestamptz(6)
+  firstContactBy      String?   @map("first_contact_by")
+  firstContactChannel String?   @map("first_contact_channel") @db.VarChar(20)
+  escalatedAt         DateTime? @map("escalated_at") @db.Timestamptz(6)
   convertedAccountId String?   @map("converted_account_id") @db.Uuid
   convertedContactId String?   @map("converted_contact_id") @db.Uuid
   convertedDealId    String?   @map("converted_deal_id") @db.Uuid
@@ -1726,6 +1732,7 @@ model CrmLead {
   @@index([tenantId], map: "idx_crm_leads_tenant")
   @@index([status], map: "idx_crm_leads_status")
   @@index([createdAt(sort: Desc)], map: "idx_crm_leads_created_desc")
+  @@index([tenantId, status, firstContactAt, escalatedAt], map: "idx_crm_leads_escalation")
   @@map("leads")
   @@schema("crm")
 }

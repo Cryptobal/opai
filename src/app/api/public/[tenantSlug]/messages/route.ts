@@ -55,6 +55,32 @@ export async function POST(
   { params }: { params: Promise<{ tenantSlug: string }> },
 ) {
   const { tenantSlug } = await params;
+
+  // Rate limit por IP — 10 mensajes/hora (fail-open si Redis no disponible)
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? request.headers.get("x-real-ip") ?? "anonymous";
+  try {
+    const { publicMessageRateLimit } = await import("@/lib/rate-limit");
+    if (publicMessageRateLimit) {
+      const { success, limit, remaining, reset } = await publicMessageRateLimit.limit(ip);
+      if (!success) {
+        return NextResponse.json(
+          { success: false, error: "Demasiadas solicitudes. Intenta nuevamente en unos minutos." },
+          {
+            status: 429,
+            headers: {
+              ...corsHeaders,
+              "X-RateLimit-Limit": String(limit),
+              "X-RateLimit-Remaining": String(remaining),
+              "X-RateLimit-Reset": String(reset),
+            },
+          }
+        );
+      }
+    }
+  } catch (rlError) {
+    console.warn("Rate limit check failed, allowing request", rlError);
+  }
+
   const tenant = await resolveTenantFromSlug(tenantSlug);
   if (!tenant) {
     return NextResponse.json(

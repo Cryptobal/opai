@@ -1,3 +1,30 @@
+import { Ratelimit } from "@upstash/ratelimit";
+import { Redis } from "@upstash/redis";
+
+function makeUpstashLimiter(prefix: string, count: number): Ratelimit | null {
+  if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
+    return null;
+  }
+  return new Ratelimit({
+    redis: Redis.fromEnv(),
+    limiter: Ratelimit.slidingWindow(count, "1 h"),
+    analytics: true,
+    prefix,
+  });
+}
+
+/**
+ * Rate limit para endpoint público de creación de leads.
+ * 5 leads / IP / hora. null si UPSTASH no está configurado (caller debe fail-open).
+ */
+export const publicLeadRateLimit = makeUpstashLimiter("ratelimit:public-lead", 5);
+
+/**
+ * Rate limit para endpoint público de mensajes/contacto.
+ * 10 mensajes / IP / hora. null si UPSTASH no está configurado (caller debe fail-open).
+ */
+export const publicMessageRateLimit = makeUpstashLimiter("ratelimit:public-message", 10);
+
 interface RateLimitEntry {
   count: number;
   resetAt: number;

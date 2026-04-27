@@ -29,6 +29,20 @@ export default async function CrmLeadDetailPage({
     redirect("/crm/leads");
   }
 
+  if (!lead.firstViewedAt) {
+    try {
+      await prisma.crmLead.update({
+        where: { id: lead.id },
+        data: {
+          firstViewedAt: new Date(),
+          firstViewedBy: session.user.id,
+        },
+      });
+    } catch (e) {
+      console.warn("Failed to mark lead as viewed", e);
+    }
+  }
+
   const initialLead = JSON.parse(JSON.stringify(lead));
 
   return (
