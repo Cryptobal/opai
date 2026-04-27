@@ -302,7 +302,14 @@ export async function POST(
           </table>`
         : "";
 
-      const baseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || "";
+      const baseUrl = (
+        process.env.NEXTAUTH_URL ||
+        process.env.NEXT_PUBLIC_SITE_URL ||
+        process.env.NEXT_PUBLIC_APP_URL ||
+        process.env.NEXT_PUBLIC_BASE_URL ||
+        process.env.SITE_URL ||
+        "https://opai.cl"
+      ).replace(/\/+$/, "");
       // PNG para que el logo se vea en clientes de correo (muchos bloquean SVG)
       const logoUrl = tenantCfg.logoUrl || tenantCfg.brandingLogoWhite || (baseUrl ? `${baseUrl}/logo.png` : "");
       const headerBg = "#0f2847";
