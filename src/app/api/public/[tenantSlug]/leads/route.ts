@@ -167,6 +167,17 @@ export async function POST(
       } catch (e) {
         console.warn("Lead: failed to create notification", e);
       }
+
+      try {
+        const { sendPushToAdmins } = await import("@/lib/pwa/push-service");
+        const pushTitle = `Nuevo lead: ${data.empresa}`;
+        const dotacionInfo = totalGuards > 0 ? ` · ${totalGuards} guardias` : "";
+        const pushBody = `${data.nombre} ${data.apellido} · ${SERVICIO_LABELS[data.servicio] || data.servicio}${dotacionInfo}`;
+        const pushUrl = leadId ? `/crm/leads/${leadId}` : `/crm/leads`;
+        await sendPushToAdmins(tenantId, "new_lead", pushTitle, pushBody, pushUrl);
+      } catch (e) {
+        console.warn("Lead: failed to send push notification to admins", e);
+      }
     }
 
     // Mensaje WhatsApp para enviar al cliente (prellenado al hacer clic)
@@ -345,7 +356,23 @@ export async function POST(
                 </tbody>
               </table>
               ` : ""}
-              <p style="color: #475569; margin: 0 0 24px; font-size: 15px; line-height: 1.6;">Nuestro equipo comercial te contactará en menos de 12 horas hábiles. Si necesitas más información antes, puedes escribirnos o llamarnos:</p>
+              <p style="color: #475569; margin: 0 0 24px; font-size: 15px; line-height: 1.6;">Un especialista te contactará por WhatsApp o teléfono en los próximos minutos en horario hábil (lunes a viernes 9:00–19:00). Fuera de horario, te contactaremos a primera hora del siguiente día hábil.</p>
+              <table style="width: 100%; margin: 16px 0; border-collapse: collapse;">
+                <tr>
+                  <td style="text-align: center; padding: 8px; font-size: 13px; color: #475569; vertical-align: top;">
+                    <strong style="color: #0f172a; display: block; margin-bottom: 2px;">✓ OS-10</strong>
+                    <span style="font-size: 11px;">Certificados</span>
+                  </td>
+                  <td style="text-align: center; padding: 8px; font-size: 13px; color: #475569; vertical-align: top;">
+                    <strong style="color: #0f172a; display: block; margin-bottom: 2px;">⚡ &lt;5 min</strong>
+                    <span style="font-size: 11px;">Respuesta</span>
+                  </td>
+                  <td style="text-align: center; padding: 8px; font-size: 13px; color: #475569; vertical-align: top;">
+                    <strong style="color: #0f172a; display: block; margin-bottom: 2px;">🛡️ Sin compromiso</strong>
+                    <span style="font-size: 11px;">Cotización gratis</span>
+                  </td>
+                </tr>
+              </table>
               <div style="margin: 24px 0; padding: 20px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; text-align: center;">
                 <p style="margin: 0 0 12px;">
                   <a href="${waUrlCliente}" style="display: inline-block; background: ${ctaBg}; color: #ffffff; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px;">Escribir a ${tenantCfg.commercialName} por WhatsApp</a>

@@ -9,13 +9,13 @@ export const WA_TEMPLATE_DEFAULTS: Record<
 > = {
   lead_commercial: {
     name: "Nuevo lead — Comercial al cliente",
-    body: `Hola {nombre}, ¿cómo estás?
+    body: `Hola {nombre}, soy de Gard Security. ⚡
 
-Recibimos tu solicitud de cotización para {empresa}, ubicada en {direccion}.
+Vi tu solicitud para {empresa} en {direccion}: {servicio}, dotación {dotacion}. Estoy preparando tu cotización ahora.
 
-Estamos preparando una propuesta personalizada para ti. Si tienes alguna duda en el proceso, responde este mensaje y te ayudamos de inmediato.
+¿Tienes 10 minutos hoy para una llamada y te explico cómo lo abordaríamos? Puedo llamarte ya o agendar para más tarde — tú decides.
 
-Servicio: {servicio} | Dotación: {dotacion}
+Si prefieres avanzar por aquí, también puedo enviarte la propuesta directo por este chat.
 
 {tenant_web}`,
     tokens: [
