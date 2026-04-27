@@ -7,18 +7,12 @@
 
 import { Eye, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import {
-    useRoleSimulation,
-    getRoleLabel,
-    getRoleColor,
-} from '@/contexts/RoleSimulationContext';
+import { useRoleSimulation } from '@/contexts/RoleSimulationContext';
 
 export function SimulationBanner() {
-    const { isSimulating, simulatedRole, stopSimulation } = useRoleSimulation();
+    const { isSimulating, simulatedRole, stopSimulation, getRoleLabel } = useRoleSimulation();
 
     if (!isSimulating || !simulatedRole) return null;
-
-    const color = getRoleColor(simulatedRole);
 
     return (
         <div

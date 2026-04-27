@@ -1,7 +1,8 @@
 /**
  * API: Role Templates (CRUD)
- * GET  /api/admin/role-templates — Lista todos los templates del tenant
- * POST /api/admin/role-templates — Crea un nuevo template
+ * GET  /api/admin/role-templates           — Lista todos los templates del tenant (admin)
+ * GET  /api/admin/role-templates?compact=1 — Lista compacta (cualquier autenticado, para RoleSwitcher)
+ * POST /api/admin/role-templates           — Crea un nuevo template
  */
 
 import { NextResponse } from "next/server";
@@ -14,16 +15,66 @@ import {
   mergeRolePermissions,
 } from "@/lib/permissions";
 
-export async function GET() {
+export async function GET(request: Request) {
   const ctx = await requireAuth();
   if (!ctx) return unauthorized();
 
-  // Solo owner/admin pueden gestionar roles
-  if (ctx.userRole !== "owner" && ctx.userRole !== "admin") {
-    return NextResponse.json(
-      { success: false, error: "Solo administradores pueden gestionar roles" },
-      { status: 403 },
-    );
+  const { searchParams } = new URL(request.url);
+  const compact = searchParams.get("compact") === "1";
+
+  if (!compact) {
+    // Modo completo: solo owner/admin
+    if (ctx.userRole !== "owner" && ctx.userRole !== "admin") {
+      return NextResponse.json(
+        { success: false, error: "Solo administradores pueden gestionar roles" },
+        { status: 403 },
+      );
+    }
+  } else {
+    // Modo compact: cualquier autenticado del tenant.
+    // Restringimos los permisos del payload solo a owner/admin (para simulación);
+    // el resto recibe metadata sin el cuerpo completo de permisos.
+  }
+
+  if (compact) {
+    const templates = await prisma.roleTemplate.findMany({
+      where: { tenantId: ctx.tenantId },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        isSystem: true,
+        permissions: true,
+        updatedAt: true,
+      },
+      orderBy: [{ isSystem: "desc" }, { name: "asc" }],
+    });
+
+    const allowSimulation = ctx.userRole === "owner" || ctx.userRole === "admin";
+    return NextResponse.json({
+      success: true,
+      data: templates.map((t) => {
+        const merged =
+          t.isSystem && (t.slug === "owner" || t.slug === "admin")
+            ? mergeRolePermissions(
+                getDefaultPermissions(t.slug),
+                ((t.permissions as unknown as RolePermissions) ?? {
+                  modules: {},
+                  submodules: {},
+                  capabilities: {},
+                }) as RolePermissions,
+              )
+            : (t.permissions as unknown as RolePermissions);
+        return {
+          id: t.id,
+          name: t.name,
+          slug: t.slug,
+          isSystem: t.isSystem,
+          updatedAt: t.updatedAt,
+          permissions: allowSimulation ? merged : null,
+        };
+      }),
+    });
   }
 
   const templates = await prisma.roleTemplate.findMany({

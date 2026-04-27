@@ -79,12 +79,14 @@ export default async function ConfiguracionPage() {
 
   const isAdmin = role === "owner" || role === "admin";
 
+  // Visibilidad la decide únicamente `canView` sobre el rol/template.
+  // El flag `adminOnly` queda solo como pista visual ("Admin") en la UI,
+  // no como bloqueador. Las páginas individuales tienen sus propios guards.
   const visibleSections = CONFIG_SECTIONS.map((section) => ({
     ...section,
-    items: section.items.filter((item) => {
-      if (item.adminOnly && !isAdmin) return false;
-      return canView(perms, "config", item.submodule);
-    }),
+    items: section.items.filter((item) =>
+      canView(perms, "config", item.submodule),
+    ),
   })).filter((section) => section.items.length > 0);
 
   return <ConfigHomeClient sections={visibleSections} isAdmin={isAdmin} />;
