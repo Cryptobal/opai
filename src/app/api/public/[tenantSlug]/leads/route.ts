@@ -388,7 +388,7 @@ export async function POST(
                 </tbody>
               </table>
               ` : ""}
-              <p style="color: #475569; margin: 0 0 24px; font-size: 15px; line-height: 1.6;">Un especialista te contactará por WhatsApp o teléfono en los próximos minutos en horario hábil (lunes a viernes 9:00–19:00). Fuera de horario, te contactaremos a primera hora del siguiente día hábil.</p>
+              <p style="color: #475569; margin: 0 0 24px; font-size: 15px; line-height: 1.6;">Un especialista te contactará por WhatsApp o teléfono dentro de la próxima hora en horario hábil (lunes a viernes 9:00–19:00). Fuera de horario, te contactaremos a primera hora del siguiente día hábil.</p>
               <table style="width: 100%; margin: 16px 0; border-collapse: collapse;">
                 <tr>
                   <td style="text-align: center; padding: 8px; font-size: 13px; color: #475569; vertical-align: top;">
@@ -396,7 +396,7 @@ export async function POST(
                     <span style="font-size: 11px;">Certificados</span>
                   </td>
                   <td style="text-align: center; padding: 8px; font-size: 13px; color: #475569; vertical-align: top;">
-                    <strong style="color: #0f172a; display: block; margin-bottom: 2px;">⚡ &lt;5 min</strong>
+                    <strong style="color: #0f172a; display: block; margin-bottom: 2px;">⚡ &lt;1 hora</strong>
                     <span style="font-size: 11px;">Respuesta</span>
                   </td>
                   <td style="text-align: center; padding: 8px; font-size: 13px; color: #475569; vertical-align: top;">
