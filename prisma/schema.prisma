@@ -1787,6 +1787,27 @@ model UserNotificationPreference {
   @@schema("crm")
 }
 
+/// Cola de emails fallidos (3 intentos sin éxito vía sendEmailWithRetry).
+/// Sirve para reintento manual desde la UI de admin del CRM y como
+/// trazabilidad/observabilidad de fallas de Resend.
+model EmailDeadLetter {
+  id           String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId     String    @map("tenant_id")
+  purpose      String
+  refId        String?   @map("ref_id")
+  payload      Json      @db.JsonB
+  errorMessage String    @map("error_message") @db.Text
+  retryCount   Int       @default(0) @map("retry_count")
+  resolved     Boolean   @default(false)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  resolvedAt   DateTime? @map("resolved_at") @db.Timestamptz(6)
+
+  @@index([tenantId, resolved], map: "idx_email_deadletter_tenant_resolved")
+  @@index([createdAt(sort: Desc)], map: "idx_email_deadletter_created_desc")
+  @@map("email_dead_letters")
+  @@schema("crm")
+}
+
 model CrmIndustry {
   id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   name      String   @unique

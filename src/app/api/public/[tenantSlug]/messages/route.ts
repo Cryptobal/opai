@@ -98,6 +98,91 @@ export async function POST(
       },
     });
 
+    // Heurística: si el mensaje de "contacto" suena a cotización, también lo
+    // promovemos a lead pending. Las denuncias legales nunca se promueven.
+    // Requiere identificación (no anónimo) y email para que el comercial
+    // pueda responder.
+    if (data.type === "contacto" && !data.anonymous && data.email) {
+      const COTIZATION_KEYWORDS = [
+        "cotización",
+        "cotizar",
+        "cotizacion",
+        "presupuesto",
+        "guardia",
+        "guardias",
+        "seguridad",
+        "vigilancia",
+        "OS-10",
+        "OS10",
+        "puesto",
+        "turno",
+        "24/7",
+        "monitoreo",
+      ];
+      const haystack = `${data.subject || ""} ${data.body}`.toLowerCase();
+      const matchCount = COTIZATION_KEYWORDS.filter((k) =>
+        haystack.includes(k.toLowerCase())
+      ).length;
+
+      if (matchCount >= 2) {
+        try {
+          const nameParts = (data.name || "").trim().split(/\s+/).filter(Boolean);
+          const firstName = nameParts[0] || data.name || "Sin nombre";
+          const lastName = nameParts.slice(1).join(" ") || "";
+
+          const lead = await prisma.crmLead.create({
+            data: {
+              tenantId,
+              status: "pending",
+              source: "web_message_promoted",
+              firstName,
+              lastName,
+              email: data.email,
+              phone: data.phone ?? null,
+              companyName: "(de mensaje de contacto)",
+              notes: `[Promovido de mensaje de contacto · matches=${matchCount}]\n\n${data.body}`,
+              serviceType: "guardias_seguridad",
+              metadata: {
+                promotedFromInquiryId: inquiry.id,
+                cotizationMatchCount: matchCount,
+                originalSubject: data.subject ?? null,
+              },
+            },
+          });
+
+          // Mismas notificaciones que un lead normal: bell+email + push.
+          try {
+            const { sendNotification } = await import("@/lib/notification-service");
+            await sendNotification({
+              tenantId,
+              type: "new_lead",
+              title: `Nuevo lead (de mensaje): ${data.name}`,
+              message: `Mensaje promovido a lead — ${data.email}`,
+              data: { leadId: lead.id, inquiryId: inquiry.id, email: data.email },
+              link: `/crm/leads/${lead.id}`,
+            });
+          } catch (e) {
+            console.warn("Promoted lead notification failed", e);
+          }
+          try {
+            const { sendPushToAdmins } = await import("@/lib/pwa/push-service");
+            await sendPushToAdmins(
+              tenantId,
+              "new_lead",
+              `Lead nuevo (mensaje): ${data.name}`,
+              `${data.email} preguntó por servicios`,
+              `/crm/leads/${lead.id}`
+            );
+          } catch (e) {
+            console.warn("Promoted lead push failed", e);
+          }
+        } catch (e) {
+          // Fallar la promoción no debe romper la creación del inquiry.
+          console.error("Failed to promote message to lead", e);
+        }
+      }
+    }
+
     // Send email notification
     const tenantCfg = await getTenantCompanyConfig(tenantId);
     const typeLabel = TYPE_LABELS[data.type] || data.type;
