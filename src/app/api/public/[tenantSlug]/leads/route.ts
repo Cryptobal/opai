@@ -73,6 +73,34 @@ export async function POST(
   { params }: { params: Promise<{ tenantSlug: string }> },
 ) {
   const { tenantSlug } = await params;
+
+  // Rate limit por IP — 5 leads/hora. Fail-open si Redis no responde
+  // o si Upstash no está configurado en este entorno.
+  try {
+    const { getPublicLeadRateLimit, getClientIp } = await import("@/lib/rate-limit");
+    const limiter = getPublicLeadRateLimit();
+    if (limiter) {
+      const ip = getClientIp(request);
+      const { success, limit, remaining, reset } = await limiter.limit(ip);
+      if (!success) {
+        return NextResponse.json(
+          { success: false, error: "Demasiadas solicitudes. Intenta nuevamente en unos minutos." },
+          {
+            status: 429,
+            headers: {
+              ...corsHeaders,
+              "X-RateLimit-Limit": String(limit),
+              "X-RateLimit-Remaining": String(remaining),
+              "X-RateLimit-Reset": String(reset),
+            },
+          },
+        );
+      }
+    }
+  } catch (rlError) {
+    console.warn("Lead rate limit check failed, allowing request", rlError);
+  }
+
   const tenant = await resolveTenantFromSlug(tenantSlug);
   if (!tenant) {
     return NextResponse.json(
