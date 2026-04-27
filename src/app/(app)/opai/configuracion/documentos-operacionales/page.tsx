@@ -3,6 +3,8 @@ import { auth } from "@/lib/auth";
 import { ConfigPageLayout } from "@/components/configuracion/ConfigPageLayout";
 import { GlobalDocumentsClient } from "@/components/opai/GlobalDocumentsClient";
 import { FileText } from "lucide-react";
+import { resolvePermissions } from "@/lib/permissions-server";
+import { canView } from "@/lib/permissions";
 
 export const metadata = { title: "Documentos Operacionales — Configuración" };
 
@@ -12,8 +14,11 @@ export default async function OperationalDocumentsPage() {
     redirect("/opai/login?callbackUrl=/opai/configuracion/documentos-operacionales");
   }
 
-  const role = session.user.role;
-  if (role !== "admin" && role !== "owner") {
+  const perms = await resolvePermissions({
+    role: session.user.role,
+    roleTemplateId: session.user.roleTemplateId,
+  });
+  if (!canView(perms, "config", "documentos_operacionales")) {
     redirect("/opai/configuracion");
   }
 

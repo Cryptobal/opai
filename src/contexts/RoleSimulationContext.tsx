@@ -7,6 +7,7 @@
  * - Solo visual/frontend, nunca afecta datos reales ni tokens.
  * - Se guarda en sessionStorage (se limpia al cerrar el browser).
  * - Al cerrar sesión se limpia siempre.
+ * - Lista de roles + permisos vienen de la BD (no hardcoded).
  */
 
 import {
@@ -20,25 +21,33 @@ import {
 } from 'react';
 import {
     getDefaultPermissions,
+    mergeRolePermissions,
+    EMPTY_PERMISSIONS,
     type RolePermissions,
 } from '@/lib/permissions';
 
-// ── Roles del sistema ──
+// ── Tipos ──
 
-export const SYSTEM_ROLES = [
-    { slug: 'owner', label: 'Propietario' },
-    { slug: 'admin', label: 'Administrador' },
-    { slug: 'editor', label: 'Gerente' },
-    { slug: 'jefe_operaciones', label: 'Jefatura' },
-    { slug: 'central_monitoreo', label: 'Central Monitoreo' },
-    { slug: 'supervisor', label: 'Supervisor' },
-    { slug: 'viewer', label: 'Viewer' },
-] as const;
+export interface SimulableRole {
+    /** Identificador del template en BD */
+    id: string;
+    /** Slug interno del rol (ej. "editor", "supervisor", o un slug custom) */
+    slug: string;
+    /** Nombre visible del rol (proviene del template en BD) */
+    name: string;
+    /** Si es un rol de sistema (no editable / no eliminable) */
+    isSystem: boolean;
+    /** Permisos efectivos del rol (mergeo de defaults + overrides BD) */
+    permissions: RolePermissions | null;
+}
 
-/** Roles que pueden usar el Role Switcher */
+/** Roles reales que pueden usar el RoleSwitcher */
 const ALLOWED_REAL_ROLES = ['owner', 'admin'];
 
 const SESSION_KEY = 'opai_simulated_role';
+
+/** Evento global que dispara un refetch de la lista de roles */
+export const ROLES_UPDATED_EVENT = 'opai-roles-updated';
 
 // ── Color helpers para badges ──
 
@@ -52,12 +61,32 @@ export const ROLE_COLORS: Record<string, { bg: string; text: string; border: str
     viewer: { bg: 'bg-gray-500/15', text: 'text-gray-400', border: 'border-gray-500/30' },
 };
 
-export function getRoleColor(role: string) {
-    return ROLE_COLORS[role] ?? { bg: 'bg-gray-500/15', text: 'text-gray-400', border: 'border-gray-500/30' };
+const FALLBACK_COLOR = { bg: 'bg-slate-500/15', text: 'text-slate-300', border: 'border-slate-500/30' };
+
+/** Pool determinista para roles custom (color se asigna por hash del slug) */
+const CUSTOM_COLOR_POOL: Array<{ bg: string; text: string; border: string }> = [
+    { bg: 'bg-rose-500/15', text: 'text-rose-300', border: 'border-rose-500/30' },
+    { bg: 'bg-pink-500/15', text: 'text-pink-300', border: 'border-pink-500/30' },
+    { bg: 'bg-fuchsia-500/15', text: 'text-fuchsia-300', border: 'border-fuchsia-500/30' },
+    { bg: 'bg-indigo-500/15', text: 'text-indigo-300', border: 'border-indigo-500/30' },
+    { bg: 'bg-teal-500/15', text: 'text-teal-300', border: 'border-teal-500/30' },
+    { bg: 'bg-lime-500/15', text: 'text-lime-300', border: 'border-lime-500/30' },
+    { bg: 'bg-orange-500/15', text: 'text-orange-300', border: 'border-orange-500/30' },
+];
+
+function hashSlug(slug: string): number {
+    let h = 0;
+    for (let i = 0; i < slug.length; i++) {
+        h = (h << 5) - h + slug.charCodeAt(i);
+        h |= 0;
+    }
+    return Math.abs(h);
 }
 
-export function getRoleLabel(role: string) {
-    return SYSTEM_ROLES.find((r) => r.slug === role)?.label ?? role;
+export function getRoleColor(slug: string): { bg: string; text: string; border: string } {
+    if (ROLE_COLORS[slug]) return ROLE_COLORS[slug];
+    if (!slug) return FALLBACK_COLOR;
+    return CUSTOM_COLOR_POOL[hashSlug(slug) % CUSTOM_COLOR_POOL.length];
 }
 
 // ── Context shape ──
@@ -75,10 +104,18 @@ interface RoleSimulationContextType {
     effectivePermissions: RolePermissions;
     /** true si el usuario tiene permiso para usar el Role Switcher */
     canSimulate: boolean;
+    /** Lista de roles disponibles para simular (cargada desde BD) */
+    roles: SimulableRole[];
+    /** true mientras se carga la lista por primera vez */
+    rolesLoading: boolean;
+    /** Devuelve el nombre humano del rol (slug → name) */
+    getRoleLabel: (slug: string) => string;
     /** Inicia la simulación de un rol */
-    startSimulation: (role: string) => void;
+    startSimulation: (slug: string) => void;
     /** Detiene la simulación y vuelve al rol real */
     stopSimulation: () => void;
+    /** Forzar refetch de la lista (útil tras crear/editar/eliminar un rol) */
+    refreshRoles: () => Promise<void>;
 }
 
 const RoleSimulationContext = createContext<RoleSimulationContextType | null>(null);
@@ -99,26 +136,87 @@ export function RoleSimulationProvider({
     const canSimulate = ALLOWED_REAL_ROLES.includes(realRole);
 
     const [simulatedRole, setSimulatedRole] = useState<string | null>(null);
+    const [roles, setRoles] = useState<SimulableRole[]>([]);
+    const [rolesLoading, setRolesLoading] = useState(true);
 
-    // Rehidratar desde sessionStorage
+    const refreshRoles = useCallback(async () => {
+        try {
+            const res = await fetch('/api/admin/role-templates?compact=1', {
+                cache: 'no-store',
+                credentials: 'include',
+            });
+            if (!res.ok) {
+                setRolesLoading(false);
+                return;
+            }
+            const json = await res.json();
+            if (json?.success && Array.isArray(json.data)) {
+                setRoles(
+                    (json.data as Array<{
+                        id: string;
+                        slug: string;
+                        name: string;
+                        isSystem: boolean;
+                        permissions: RolePermissions | null;
+                    }>).map((r) => ({
+                        id: r.id,
+                        slug: r.slug,
+                        name: r.name,
+                        isSystem: !!r.isSystem,
+                        permissions: r.permissions ?? null,
+                    })),
+                );
+            }
+        } catch {
+            // silenciar — el switcher gracefully no aparece sin lista
+        } finally {
+            setRolesLoading(false);
+        }
+    }, []);
+
+    // Carga inicial — solo si el usuario puede simular (evita fetch innecesario)
+    useEffect(() => {
+        if (!canSimulate) {
+            setRolesLoading(false);
+            return;
+        }
+        refreshRoles();
+    }, [canSimulate, refreshRoles]);
+
+    // Suscripción a evento global (cuando se crea/edita/elimina un rol)
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        if (!canSimulate) return;
+        const onUpdate = () => {
+            refreshRoles();
+        };
+        window.addEventListener(ROLES_UPDATED_EVENT, onUpdate);
+        return () => window.removeEventListener(ROLES_UPDATED_EVENT, onUpdate);
+    }, [canSimulate, refreshRoles]);
+
+    // Rehidratar simulación desde sessionStorage cuando ya tengamos roles
     useEffect(() => {
         if (!canSimulate) return;
+        if (rolesLoading) return;
         try {
             const stored = sessionStorage.getItem(SESSION_KEY);
-            if (stored && SYSTEM_ROLES.some((r) => r.slug === stored)) {
+            if (stored && roles.some((r) => r.slug === stored)) {
                 setSimulatedRole(stored);
+            } else if (stored && !roles.some((r) => r.slug === stored)) {
+                // El rol ya no existe (fue eliminado): limpiar
+                sessionStorage.removeItem(SESSION_KEY);
             }
         } catch {
             // SSR o sessionStorage no disponible
         }
-    }, [canSimulate]);
+    }, [canSimulate, rolesLoading, roles]);
 
     const startSimulation = useCallback(
-        (role: string) => {
+        (slug: string) => {
             if (!canSimulate) return;
-            setSimulatedRole(role);
+            setSimulatedRole(slug);
             try {
-                sessionStorage.setItem(SESSION_KEY, role);
+                sessionStorage.setItem(SESSION_KEY, slug);
             } catch {
                 // sessionStorage no disponible
             }
@@ -138,10 +236,33 @@ export function RoleSimulationProvider({
     const isSimulating = canSimulate && simulatedRole !== null && simulatedRole !== realRole;
     const effectiveRole = isSimulating ? simulatedRole! : realRole;
 
-    const effectivePermissions = useMemo(() => {
-        if (!isSimulating) return realPermissions;
-        return getDefaultPermissions(simulatedRole!);
-    }, [isSimulating, simulatedRole, realPermissions]);
+    const effectivePermissions = useMemo<RolePermissions>(() => {
+        if (!isSimulating || !simulatedRole) return realPermissions;
+
+        // 1) Buscar el template en la lista (fuente de verdad: BD)
+        const dbRole = roles.find((r) => r.slug === simulatedRole);
+        const defaults = getDefaultPermissions(simulatedRole);
+
+        if (dbRole?.permissions) {
+            // El servidor ya hizo el merge para owner/admin; para el resto,
+            // mergeamos defaults + overrides BD (overrides ganan).
+            return mergeRolePermissions(defaults, dbRole.permissions);
+        }
+
+        // 2) Sin permiso para ver el cuerpo (no es owner/admin) — usar defaults
+        if (defaults && Object.keys(defaults.modules).length > 0) return defaults;
+
+        return EMPTY_PERMISSIONS;
+    }, [isSimulating, simulatedRole, realPermissions, roles]);
+
+    const getRoleLabel = useCallback(
+        (slug: string) => {
+            const dbRole = roles.find((r) => r.slug === slug);
+            if (dbRole) return dbRole.name;
+            return slug;
+        },
+        [roles],
+    );
 
     const value = useMemo<RoleSimulationContextType>(
         () => ({
@@ -151,10 +272,14 @@ export function RoleSimulationProvider({
             effectiveRole,
             effectivePermissions,
             canSimulate,
+            roles,
+            rolesLoading,
+            getRoleLabel,
             startSimulation,
             stopSimulation,
+            refreshRoles,
         }),
-        [realRole, simulatedRole, isSimulating, effectiveRole, effectivePermissions, canSimulate, startSimulation, stopSimulation],
+        [realRole, simulatedRole, isSimulating, effectiveRole, effectivePermissions, canSimulate, roles, rolesLoading, getRoleLabel, startSimulation, stopSimulation, refreshRoles],
     );
 
     return (
@@ -172,4 +297,11 @@ export function useRoleSimulation() {
         throw new Error('useRoleSimulation must be used within a RoleSimulationProvider');
     }
     return ctx;
+}
+
+/** Helper imperativo: dispara el evento que notifica que la lista de roles cambió */
+export function notifyRolesUpdated() {
+    if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event(ROLES_UPDATED_EVENT));
+    }
 }

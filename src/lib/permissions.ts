@@ -749,6 +749,106 @@ export function getDefaultPermissions(role: string): RolePermissions {
 }
 
 // ═══════════════════════════════════════════════════════════════
+//  DIFF & STATS HELPERS (UI)
+// ═══════════════════════════════════════════════════════════════
+
+export interface PermissionsDiff {
+  modules: ModuleKey[];
+  submodules: string[];
+  capabilities: CapabilityKey[];
+  total: number;
+}
+
+/**
+ * Diferencias entre `current` y `preset` (para indicar "modificado vs preset").
+ * Solo cuenta cambios reales: nivel distinto en módulo, override de submódulo
+ * distinto al heredado del padre del preset, capacidad activada/desactivada.
+ */
+export function diffPermissions(
+  current: RolePermissions,
+  preset: RolePermissions,
+): PermissionsDiff {
+  const modules: ModuleKey[] = [];
+  for (const m of MODULE_KEYS) {
+    const a = current.modules[m] ?? "none";
+    const b = preset.modules[m] ?? "none";
+    if (a !== b) modules.push(m);
+  }
+
+  const submodules: string[] = [];
+  const allSubKeys = new Set<string>([
+    ...Object.keys(current.submodules ?? {}),
+    ...Object.keys(preset.submodules ?? {}),
+  ]);
+  for (const key of allSubKeys) {
+    const [mod, sub] = key.split(".");
+    if (!mod || !sub) continue;
+    const a = getEffectiveLevel(current, mod as ModuleKey, sub);
+    const b = getEffectiveLevel(preset, mod as ModuleKey, sub);
+    if (a !== b) submodules.push(key);
+  }
+
+  const capabilities: CapabilityKey[] = [];
+  for (const c of CAPABILITY_KEYS) {
+    const a = !!current.capabilities[c];
+    const b = !!preset.capabilities[c];
+    if (a !== b) capabilities.push(c);
+  }
+
+  return {
+    modules,
+    submodules,
+    capabilities,
+    total: modules.length + submodules.length + capabilities.length,
+  };
+}
+
+/** Resumen numérico para tarjetas y tabs Resumen */
+export interface PermissionsSummary {
+  /** Cantidad de módulos con al menos `view` (excluye hub si quieres) */
+  accessibleModules: number;
+  /** Total de módulos posibles (de la lista MODULE_KEYS) */
+  totalModules: number;
+  /** Cantidad de submódulos con al menos `view` */
+  accessibleSubmodules: number;
+  /** Total de submódulos definidos en metadata */
+  totalSubmodules: number;
+  /** Capacidades activas */
+  capabilities: number;
+}
+
+export function summarizePermissions(perms: RolePermissions): PermissionsSummary {
+  let accessibleModules = 0;
+  for (const m of MODULE_KEYS) {
+    if (LEVEL_RANK[perms.modules[m] ?? "none"] >= LEVEL_RANK.view) {
+      accessibleModules++;
+    }
+  }
+
+  let accessibleSubmodules = 0;
+  let totalSubmodules = 0;
+  for (const sub of SUBMODULE_META) {
+    totalSubmodules++;
+    if (LEVEL_RANK[getEffectiveLevel(perms, sub.module, sub.submodule)] >= LEVEL_RANK.view) {
+      accessibleSubmodules++;
+    }
+  }
+
+  let capabilities = 0;
+  for (const c of CAPABILITY_KEYS) {
+    if (perms.capabilities[c] === true) capabilities++;
+  }
+
+  return {
+    accessibleModules,
+    totalModules: MODULE_KEYS.length,
+    accessibleSubmodules,
+    totalSubmodules,
+    capabilities,
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════
 //  SYSTEM ROLE TEMPLATE DEFAULTS
 //  (seed: estos se crean como RoleTemplate en la BD)
 // ═══════════════════════════════════════════════════════════════
@@ -779,7 +879,7 @@ export const ROLE_TEMPLATE_SEEDS: RoleTemplateSeed[] = [
   },
   {
     slug: "editor",
-    name: "Gerente",
+    name: "Editor",
     description: "Edición en operaciones, CRM, documentos y CPQ. Payroll y finanzas solo lectura.",
     isSystem: false,
     permissions: DEFAULT_ROLE_PERMISSIONS.editor,
@@ -807,7 +907,7 @@ export const ROLE_TEMPLATE_SEEDS: RoleTemplateSeed[] = [
   },
   {
     slug: "viewer",
-    name: "Viewer",
+    name: "Visualizador",
     description: "Solo lectura en operaciones, CRM y documentos.",
     isSystem: false,
     permissions: DEFAULT_ROLE_PERMISSIONS.viewer,
