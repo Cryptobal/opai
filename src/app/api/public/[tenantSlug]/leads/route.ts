@@ -11,7 +11,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { resolveTenantFromSlug } from "@/lib/tenant";
-import { resend } from "@/lib/resend";
+import { sendEmailWithRetry } from "@/lib/email-retry";
 import { getWaTemplate } from "@/lib/whatsapp-templates";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
 
@@ -306,7 +306,7 @@ export async function POST(
       const headerBg = "#0f2847";
       const ctaBg = "#0f2847";
 
-      await resend.emails.send({
+      await sendEmailWithRetry({
         from: tenantCfg.emailFrom,
         to: tenantCfg.emailContact,
         replyTo: data.email,
@@ -341,10 +341,10 @@ export async function POST(
             </div>
           </div>
         `,
-      });
+      }, { tenantId, purpose: "lead_commercial", refId: leadId });
 
       // Email de confirmación al cliente
-      await resend.emails.send({
+      await sendEmailWithRetry({
         from: tenantCfg.emailFrom,
         to: data.email,
         subject: `Tu solicitud fue recibida — ${tenantCfg.commercialName} te contactará pronto`,
@@ -409,7 +409,7 @@ export async function POST(
             </div>
           </div>
         `,
-      });
+      }, { tenantId, purpose: "lead_client", refId: leadId });
     } catch (emailError) {
       // Log email error but don't fail the lead creation
       console.error("Error sending lead notification email:", emailError);

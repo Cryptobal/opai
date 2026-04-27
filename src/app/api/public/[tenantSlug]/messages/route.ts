@@ -124,6 +124,87 @@ export async function POST(
       },
     });
 
+    // Heurística: si el body contiene palabras de cotización en un mensaje
+    // de contacto identificado, promover a lead pending.
+    if (
+      data.type === "contacto" &&
+      !data.anonymous &&
+      data.email &&
+      (data.name || "").trim().length > 0
+    ) {
+      const cotizationKeywords = [
+        "cotización",
+        "cotizacion",
+        "cotizar",
+        "presupuesto",
+        "guardia",
+        "guardias",
+        "seguridad",
+        "vigilancia",
+        "servicio",
+        "os-10",
+        "os10",
+        "puesto",
+        "turno",
+        "24/7",
+      ];
+      const bodyLower = data.body.toLowerCase();
+      const matchCount = cotizationKeywords.filter((k) =>
+        bodyLower.includes(k)
+      ).length;
+
+      if (matchCount >= 2) {
+        try {
+          const nameParts = (data.name || "").trim().split(/\s+/);
+          const firstName = nameParts[0] || "Sin nombre";
+          const lastName = nameParts.slice(1).join(" ") || "";
+          const lead = await prisma.crmLead.create({
+            data: {
+              tenantId,
+              status: "pending",
+              source: "web_message_promoted",
+              firstName,
+              lastName,
+              email: data.email,
+              phone: data.phone ?? null,
+              companyName: "(de mensaje de contacto)",
+              notes: `[Promovido de mensaje de contacto]\n\n${data.body}`,
+              serviceType: "guardias_seguridad",
+            },
+          });
+          try {
+            const { sendNotification } = await import(
+              "@/lib/notification-service"
+            );
+            await sendNotification({
+              tenantId,
+              type: "new_lead",
+              title: `Nuevo lead (de mensaje): ${data.name}`,
+              message: `Mensaje promovido a lead — ${data.email}`,
+              data: { leadId: lead.id, email: data.email },
+              link: `/crm/leads/${lead.id}`,
+            });
+          } catch (e) {
+            console.warn("Promoted lead notification failed", e);
+          }
+          try {
+            const { sendPushToAdmins } = await import("@/lib/pwa/push-service");
+            await sendPushToAdmins(
+              tenantId,
+              "new_lead",
+              `Lead nuevo (mensaje): ${data.name}`,
+              `${data.email} preguntó por servicios`,
+              `/crm/leads/${lead.id}`
+            );
+          } catch (e) {
+            console.warn("Promoted lead push failed", e);
+          }
+        } catch (e) {
+          console.error("Failed to promote message to lead", e);
+        }
+      }
+    }
+
     // Send email notification
     const tenantCfg = await getTenantCompanyConfig(tenantId);
     const typeLabel = TYPE_LABELS[data.type] || data.type;
