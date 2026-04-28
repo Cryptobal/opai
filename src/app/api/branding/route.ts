@@ -40,6 +40,10 @@ export async function GET(req: NextRequest) {
           appName: "OPAI",
           tagline: "Plataforma de Gestión de Seguridad",
           companyName: "OPAI",
+          phone: "",
+          phoneRaw: "",
+          whatsappLink: "",
+          contactEmail: "",
         },
       });
     }
@@ -63,6 +67,9 @@ export async function GET(req: NextRequest) {
         brandNameUpper: config.brandNameUpper,
         website: config.website,
         contactEmail: config.email,
+        phone: config.phone,
+        phoneRaw: config.phoneRaw,
+        whatsappLink: config.whatsappLink,
       },
     });
   } catch (error) {
@@ -81,6 +88,10 @@ export async function GET(req: NextRequest) {
         appName: "OPAI",
         tagline: "Plataforma de Gestión de Seguridad",
         companyName: "OPAI",
+        phone: "",
+        phoneRaw: "",
+        whatsappLink: "",
+        contactEmail: "",
       },
     });
   }

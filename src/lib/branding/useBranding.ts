@@ -14,6 +14,10 @@ export interface Branding {
   appName: string;
   tagline: string;
   companyName: string;
+  phone: string;
+  phoneRaw: string;
+  whatsappLink: string;
+  contactEmail: string;
 }
 
 const DEFAULTS: Branding = {
@@ -28,6 +32,10 @@ const DEFAULTS: Branding = {
   appName: "OPAI",
   tagline: "Plataforma de Operaciones",
   companyName: "OPAI",
+  phone: "",
+  phoneRaw: "",
+  whatsappLink: "",
+  contactEmail: "",
 };
 
 let cachedBranding: Branding | null = null;

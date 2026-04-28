@@ -358,7 +358,7 @@ export function MarketingChatWidget() {
         const updated = [...prev]
         updated[updated.length - 1] = {
           role: 'assistant',
-          content: 'Disculpa, hubo un error. Puedes escribirnos por WhatsApp al +56 9 8230 7771 o a contacto@opai.cl.',
+          content: 'Disculpa, hubo un error. Puedes escribirnos por WhatsApp al +56 9 6872 7644 o a contacto@opai.cl.',
         }
         return updated
       })
@@ -563,7 +563,7 @@ export function MarketingChatWidget() {
                 Para seguir conversando,{' '}
                 <Link href="/registrarse" style={{ color: 'var(--mk-teal)', textDecoration: 'underline' }}>crea tu cuenta gratis</Link>
                 {' '}o escríbenos por{' '}
-                <a href="https://wa.me/56982307771" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--mk-teal)', textDecoration: 'underline' }}>WhatsApp</a>.
+                <a href="https://wa.me/56968727644" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--mk-teal)', textDecoration: 'underline' }}>WhatsApp</a>.
               </p>
             ) : (
               <form onSubmit={handleSubmit} style={{ display: 'flex', gap: '8px' }}>

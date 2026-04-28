@@ -131,15 +131,15 @@ export function getMockPresentationPayload(): PresentationPayload {
     // CTA y contacto
     cta: {
       meeting_link: 'https://calendar.app.google/MfyKXvYxURJSnUBe9',
-      whatsapp_link: 'https://wa.me/56982307771',
-      phone: '+56 98 230 7771',
+      whatsapp_link: 'https://wa.me/56968727644',
+      phone: '+56 9 6872 7644',
       email: 'comercial@gard.cl',
     },
     
     contact: {
       name: 'Equipo Comercial',
       email: 'comercial@gard.cl',
-      phone: '+56 98 230 7771',
+      phone: '+56 9 6872 7644',
       position: 'Gerente Comercial',
     },
     
@@ -846,7 +846,7 @@ export function getMockPresentationPayload(): PresentationPayload {
       // S29 - Contacto (ELIMINADO - solo Footer)
       s29_contacto: {
         email: 'comercial@gard.cl',
-        phone: '+56 9 8230 7771',
+        phone: '+56 9 6872 7644',
         website: 'www.gard.cl',
         address: 'Lo Fontecilla 201, Las Condes, Chile',
         social_media: {

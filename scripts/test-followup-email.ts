@@ -156,7 +156,7 @@ async function main() {
       lastName: contact.lastName,
       fullName: `${contact.firstName} ${contact.lastName}`.trim(),
       email: contact.email,
-      phone: "+56 9 8230 7771",
+      phone: "+56 9 6872 7644",
       roleTitle: "Director",
     },
     installation: {
