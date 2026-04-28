@@ -627,14 +627,14 @@ export function GuardiaDetailClient({
                 asignaciones={asignaciones} canManageGuardias={canManageGuardias}
                 onBankAccountsChange={(bankAccounts) => setGuardia((prev) => ({ ...prev, bankAccounts }))}
               />
-              <div className="grid grid-cols-2 gap-3 mt-3 pt-3 border-t border-border/40">
-                <div>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Fecha creación</p>
-                  <p className="text-sm">{guardia.createdAt ? new Date(guardia.createdAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 mt-5">
+                <div className="rounded-xl border border-border/60 bg-card/40 p-3 sm:p-4">
+                  <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Fecha creación</p>
+                  <p className="text-[13px] font-medium text-foreground">{guardia.createdAt ? new Date(guardia.createdAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}</p>
                 </div>
-                <div>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Última modificación</p>
-                  <p className="text-sm">{guardia.updatedAt ? new Date(guardia.updatedAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}</p>
+                <div className="rounded-xl border border-border/60 bg-card/40 p-3 sm:p-4">
+                  <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Última modificación</p>
+                  <p className="text-[13px] font-medium text-foreground">{guardia.updatedAt ? new Date(guardia.updatedAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}</p>
                 </div>
               </div>
             </CollapsibleSection>
