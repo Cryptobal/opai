@@ -1641,8 +1641,14 @@ export function CpqQuoteDetail({
       )}
       </div>{/* end sticky header */}
 
-      {/* -- Detail workspace -- */}
-      <div className="grid gap-3 min-w-0 overflow-x-hidden xl:grid-cols-[minmax(0,1fr)_340px] xl:items-start">
+      {/* -- Detail workspace --
+           Cotización enviada (isLocked): layout single-column full-width para que
+           las tablas (puestos, costos, financieros, costos adicionales, etc.) se
+           expandan a la izquierda sin competir con el aside de KPIs. */}
+      <div className={cn(
+        "grid gap-3 min-w-0 overflow-x-hidden xl:items-start",
+        !isLocked && "xl:grid-cols-[minmax(0,1fr)_340px]"
+      )}>
       <div className="space-y-2 min-w-0">
       <div className="hidden xl:flex items-center justify-between gap-4 rounded-lg border border-border/60 bg-card/55 px-4 py-3 shadow-sm">
         <div className="flex items-center gap-3 min-w-0">
@@ -2832,6 +2838,7 @@ export function CpqQuoteDetail({
 
       </div>{/* end main column */}
 
+      {!isLocked && (
       <aside className="hidden xl:block min-w-0">
         <div className="sticky top-4 space-y-3">
           <Card className="overflow-hidden border-border/70 bg-card/80 shadow-sm">
@@ -2980,6 +2987,7 @@ export function CpqQuoteDetail({
           </Card>
         </div>
       </aside>
+      )}
 
       </div>{/* end detail workspace */}
 
