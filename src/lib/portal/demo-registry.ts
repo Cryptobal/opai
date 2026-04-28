@@ -24,7 +24,8 @@ export type DemoKey =
   | "protocolos_list"
   | "cotizaciones_list"
   | "instalaciones_list"
-  | "instalacion_detail";
+  | "instalacion_detail"
+  | "knowledge_team";
 
 type DemoGen<T> = (session: ClienteSession) => T;
 
@@ -161,6 +162,36 @@ const registry: Partial<Record<DemoKey, DemoGen<unknown>>> = {
   instalaciones_list: () => [
     { id: "demo-inst-1", name: "Edificio Corporativo Central", address: "Av. Providencia 1234, Providencia", commune: "Providencia", guardCount: 4, checkpoints: 8, status: "active" },
   ],
+  knowledge_team: () => {
+    const sec = [
+      { sectionId: "demo-s-1", title: "Control de Acceso", icon: "🚪", correct: 28, total: 32, percent: 88 },
+      { sectionId: "demo-s-2", title: "Rondas de Seguridad", icon: "🚶", correct: 19, total: 24, percent: 79 },
+      { sectionId: "demo-s-3", title: "Emergencias", icon: "🚨", correct: 12, total: 16, percent: 75 },
+      { sectionId: "demo-s-4", title: "Atención al Cliente", icon: "🤝", correct: 22, total: 24, percent: 92 },
+    ];
+    const guards = [
+      { guardId: "g_demo1", name: "C. R.", initials: "CR", shift: "Turno día", avgScore: 92, lastExamAt: new Date(Date.now() - 12 * 86400000).toISOString(), pendingCount: 0, trend: "up" as const, status: "approved" as const, sectionScores: { "demo-s-1": 95, "demo-s-2": 88, "demo-s-3": 90, "demo-s-4": 95 } },
+      { guardId: "g_demo2", name: "M. S.", initials: "MS", shift: "Turno noche", avgScore: 78, lastExamAt: new Date(Date.now() - 28 * 86400000).toISOString(), pendingCount: 0, trend: "stable" as const, status: "borderline" as const, sectionScores: { "demo-s-1": 80, "demo-s-2": 75, "demo-s-3": 70, "demo-s-4": 88 } },
+      { guardId: "g_demo3", name: "J. P.", initials: "JP", shift: "Turno día", avgScore: null, lastExamAt: null, pendingCount: 1, trend: null, status: "pending" as const, sectionScores: { "demo-s-1": null, "demo-s-2": null, "demo-s-3": null, "demo-s-4": null } },
+    ];
+    return {
+      installation: { id: "demo-inst-1", name: "Edificio Corporativo Central", commune: "Providencia", address: null, accountName: "Demo Cliente", icon: "🏢" },
+      protocol: { hasProtocol: true, version: 2, sections: sec.map((s) => ({ id: s.sectionId, title: s.title, icon: s.icon, itemCount: 4 })) },
+      kpis: { avgCompliance: 84, activeGuards: 4, evaluatedGuards: 3, pendingCount: 1, lastExamAt: new Date(Date.now() - 12 * 86400000).toISOString(), approvedCount: 1, failedCount: 0 },
+      sectionCompliance: sec,
+      guards,
+      alert: null,
+      evaluatedRatio: 0.75,
+      trend: [
+        { month: "2025-11", avgScore: 75 },
+        { month: "2025-12", avgScore: 78 },
+        { month: "2026-01", avgScore: 82 },
+        { month: "2026-02", avgScore: 80 },
+        { month: "2026-03", avgScore: 84 },
+        { month: "2026-04", avgScore: 86 },
+      ],
+    };
+  },
   instalacion_detail: () => ({
     installation: { id: "demo-inst-1", name: "Edificio Corporativo Central", address: "Av. Providencia 1234, Providencia", commune: "Providencia", lat: -33.4372, lng: -70.6506 },
     guardiasAsignados: [
