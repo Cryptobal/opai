@@ -53,6 +53,12 @@ const BAND_LABEL: Record<string, string> = {
   NOT_RECOMMENDED: "No recomendado",
 };
 
+function splitAlerts(alerts: PsychAlert[]) {
+  const tech = alerts.filter((a) => a.code === "OPEN_ANALYSIS_FAILED");
+  const candidate = alerts.filter((a) => a.code !== "OPEN_ANALYSIS_FAILED");
+  return { tech, candidate };
+}
+
 export function PsychReportPdf(props: Props) {
   return (
     <Document>
@@ -119,30 +125,63 @@ export function PsychReportPdf(props: Props) {
         {props.openAnalysis.length > 0 ? (
           <View style={styles.section} wrap>
             <Text style={styles.sectionTitle}>Análisis cualitativo</Text>
-            {props.openAnalysis.map((o) => (
-              <View key={o.itemId} style={styles.openBox}>
-                <Text>{o.summary || "Sin análisis disponible."}</Text>
-                {o.markers.length > 0 ? (
-                  <Text style={styles.subtitle}>Marcadores: {o.markers.join(", ")}</Text>
-                ) : null}
-              </View>
-            ))}
+            {props.openAnalysis.map((o) => {
+              if (o.error) {
+                return (
+                  <View key={o.itemId} style={[styles.openBox, { backgroundColor: "#fef3c7" }]}>
+                    <Text>Análisis pendiente — error técnico de IA. Reintentar.</Text>
+                  </View>
+                );
+              }
+              if (!o.summary) {
+                return (
+                  <View key={o.itemId} style={styles.openBox}>
+                    <Text>La IA no detectó marcadores relevantes.</Text>
+                  </View>
+                );
+              }
+              return (
+                <View key={o.itemId} style={styles.openBox}>
+                  <Text>{o.summary}</Text>
+                  {o.markers.length > 0 ? (
+                    <Text style={styles.subtitle}>Marcadores: {o.markers.join(", ")}</Text>
+                  ) : null}
+                </View>
+              );
+            })}
           </View>
         ) : null}
 
-        {props.alerts.length > 0 ? (
-          <View style={styles.section} wrap>
-            <Text style={styles.sectionTitle}>Alertas</Text>
-            {props.alerts.map((a, i) => (
-              <View
-                key={`${a.code}-${i}`}
-                style={a.severity === "critical" ? { ...styles.alertRow, ...styles.alertCritical } : styles.alertRow}
-              >
-                <Text>{a.message}</Text>
-              </View>
-            ))}
-          </View>
-        ) : null}
+        {(() => {
+          const { tech, candidate } = splitAlerts(props.alerts);
+          return (
+            <>
+              {candidate.length > 0 ? (
+                <View style={styles.section} wrap>
+                  <Text style={styles.sectionTitle}>Alertas</Text>
+                  {candidate.map((a, i) => (
+                    <View
+                      key={`${a.code}-${i}`}
+                      style={a.severity === "critical" ? { ...styles.alertRow, ...styles.alertCritical } : styles.alertRow}
+                    >
+                      <Text>{a.message}</Text>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+              {tech.length > 0 ? (
+                <View style={styles.section} wrap>
+                  <Text style={styles.sectionTitle}>Calidad técnica</Text>
+                  {tech.map((a, i) => (
+                    <View key={`${a.code}-${i}`} style={styles.alertRow}>
+                      <Text>{a.message}</Text>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+            </>
+          );
+        })()}
 
         {props.reviewer ? (
           <View style={styles.section}>
