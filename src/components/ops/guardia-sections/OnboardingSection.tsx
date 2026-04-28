@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   Check,
@@ -234,79 +233,74 @@ export default function OnboardingSection({
       </div>
 
       {/* Email info */}
-      <Card>
-        <CardContent className="pt-4 space-y-3">
-          <h4 className="text-sm font-medium flex items-center gap-2">
-            <Mail className="h-4 w-4" /> Email de onboarding
-          </h4>
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <div>
-              <p className="text-[10px] text-muted-foreground uppercase">
-                Enviado
-              </p>
-              <p>
-                {data.emailEnviado ? (
-                  <span className="flex items-center gap-1.5">
-                    <Check className="h-3.5 w-3.5 text-green-400" />
-                    {formatDate(data.fechaEnvio)}
-                  </span>
-                ) : (
-                  <span className="text-muted-foreground">No enviado</span>
-                )}
-              </p>
-            </div>
-            <div>
-              <p className="text-[10px] text-muted-foreground uppercase">
-                Abierto
-              </p>
-              <p>
-                {data.emailAbierto ? (
-                  <span className="flex items-center gap-1.5">
-                    <MailOpen className="h-3.5 w-3.5 text-green-400" />
-                    {formatDate(data.fechaAbierto)}
-                  </span>
-                ) : (
-                  <span className="text-muted-foreground">No abierto</span>
-                )}
-              </p>
-            </div>
+      <div className="rounded-xl border border-border/60 bg-card/40 p-4 sm:p-5 space-y-3">
+        <h4 className="text-sm font-semibold flex items-center gap-2 text-foreground">
+          <Mail className="h-4 w-4 text-muted-foreground" /> Email de onboarding
+        </h4>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80 mb-1">
+              Enviado
+            </p>
+            <p className="text-[13px]">
+              {data.emailEnviado ? (
+                <span className="flex items-center gap-1.5">
+                  <Check className="h-3.5 w-3.5 text-emerald-400" />
+                  {formatDate(data.fechaEnvio)}
+                </span>
+              ) : (
+                <span className="text-muted-foreground/70">No enviado</span>
+              )}
+            </p>
           </div>
-          {data.recordatorioEnviado && (
-            <div className="text-xs text-muted-foreground flex items-center gap-1.5">
-              <Clock className="h-3.5 w-3.5" />
-              Recordatorio enviado: {formatDate(data.fechaRecordatorio)}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80 mb-1">
+              Abierto
+            </p>
+            <p className="text-[13px]">
+              {data.emailAbierto ? (
+                <span className="flex items-center gap-1.5">
+                  <MailOpen className="h-3.5 w-3.5 text-emerald-400" />
+                  {formatDate(data.fechaAbierto)}
+                </span>
+              ) : (
+                <span className="text-muted-foreground/70">No abierto</span>
+              )}
+            </p>
+          </div>
+        </div>
+        {data.recordatorioEnviado && (
+          <div className="text-xs text-muted-foreground flex items-center gap-1.5 pt-1 border-t border-border/40">
+            <Clock className="h-3.5 w-3.5" />
+            Recordatorio enviado: {formatDate(data.fechaRecordatorio)}
+          </div>
+        )}
+      </div>
 
       {/* Portal access */}
-      <Card>
-        <CardContent className="pt-4">
-          <h4 className="text-sm font-medium mb-2">Acceso a portales</h4>
-          <PortalAccessRow
-            label="Portal del Guardia"
-            accessed={data.accesoPortalGuardia}
-            date={data.fechaAccesoGuardia}
-          />
-          <PortalAccessRow
-            label="Portal de Rondas"
-            accessed={data.accesoPortalRondas}
-            date={data.fechaAccesoRondas}
-          />
-          <PortalAccessRow
-            label="Portal de Acceso"
-            accessed={data.accesoPortalAcceso}
-            date={data.fechaAccesoAcceso}
-          />
-        </CardContent>
-      </Card>
+      <div className="rounded-xl border border-border/60 bg-card/40 p-4 sm:p-5">
+        <h4 className="text-sm font-semibold text-foreground mb-2">Acceso a portales</h4>
+        <PortalAccessRow
+          label="Portal del Guardia"
+          accessed={data.accesoPortalGuardia}
+          date={data.fechaAccesoGuardia}
+        />
+        <PortalAccessRow
+          label="Portal de Rondas"
+          accessed={data.accesoPortalRondas}
+          date={data.fechaAccesoRondas}
+        />
+        <PortalAccessRow
+          label="Portal de Acceso"
+          accessed={data.accesoPortalAcceso}
+          date={data.fechaAccesoAcceso}
+        />
+      </div>
 
       {/* Timeline de emails */}
       {logs.length > 0 && (
-        <Card>
-          <CardContent className="pt-4">
-            <h4 className="text-sm font-medium mb-3">Historial de emails</h4>
+        <div className="rounded-xl border border-border/60 bg-card/40 p-4 sm:p-5">
+          <h4 className="text-sm font-semibold text-foreground mb-3">Historial de emails</h4>
             <div className="space-y-2">
               {logs.map((log) => (
                 <div
@@ -341,9 +335,8 @@ export default function OnboardingSection({
                   </span>
                 </div>
               ))}
-            </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
 
       {/* Actions */}

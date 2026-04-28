@@ -351,34 +351,38 @@ function getEventDescriptionLines(event: HistoryEvent): string[] {
 
 export default function HistorialSection({ historyEvents }: HistorialSectionProps) {
   if (historyEvents.length === 0) {
-    return <p className="text-sm text-[#7a8a9e] py-1">Sin eventos registrados.</p>;
+    return (
+      <div className="rounded-xl border border-border/60 bg-card/40 p-4 text-sm text-muted-foreground">
+        Sin eventos registrados.
+      </div>
+    );
   }
 
   return (
     <div className="relative pl-6">
       {/* Vertical line */}
-      <div className="absolute left-[7px] top-1 bottom-1 w-px bg-[#1a2332]" />
+      <div className="absolute left-[7px] top-1 bottom-1 w-px bg-border/60" />
 
       {historyEvents.map((event, idx) => {
         const label = EVENT_TYPE_LABEL[event.eventType] || event.eventType.replace(/[_-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-        const nodeColor = EVENT_NODE_COLOR[event.eventType] || "bg-[#4a5568]";
+        const nodeColor = EVENT_NODE_COLOR[event.eventType] || "bg-muted-foreground/40";
         const descriptionLines = getEventDescriptionLines(event);
 
         return (
           <div key={event.id} className={cn("relative pb-4", idx === historyEvents.length - 1 && "pb-0")}>
             {/* Node circle */}
-            <div className={cn("absolute -left-6 top-1 h-3.5 w-3.5 rounded-full border-2 border-[#0a0e14]", nodeColor)} />
+            <div className={cn("absolute -left-6 top-1 h-3.5 w-3.5 rounded-full border-2 border-background", nodeColor)} />
 
             <div className="min-w-0">
-              <p className="text-sm font-medium text-[#e8edf4]">{label}</p>
+              <p className="text-sm font-medium text-foreground">{label}</p>
               {descriptionLines.length > 0 && (
                 <div className="mt-0.5 space-y-0.5">
                   {descriptionLines.map((line, i) => (
-                    <p key={i} className="text-xs text-[#7a8a9e]">{line}</p>
+                    <p key={i} className="text-xs text-muted-foreground">{line}</p>
                   ))}
                 </div>
               )}
-              <p className="text-[11px] text-[#4a5568] mt-0.5">
+              <p className="text-[11px] text-muted-foreground/70 mt-0.5">
                 {formatDate(event.createdAt)}
                 {event.createdByName ? ` · por ${event.createdByName}` : event.createdBy === "system" ? " · por Sistema" : ""}
               </p>

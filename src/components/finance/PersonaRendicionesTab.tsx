@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -98,109 +97,97 @@ export function PersonaRendicionesTab({ adminId }: PersonaRendicionesTabProps) {
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-4">
-        <Card>
-          <CardContent className="pt-4 flex items-center gap-3">
-            <Receipt className="h-5 w-5 text-muted-foreground" />
-            <div>
-              <p className="text-xs text-muted-foreground">Total rendiciones</p>
-              <p className="text-lg font-semibold">{rendiciones.length}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 flex items-center gap-3">
-            <DollarSign className="h-5 w-5 text-emerald-400" />
-            <div>
-              <p className="text-xs text-muted-foreground">Monto aprobado</p>
-              <p className="text-lg font-semibold">{formatCLP(approvedAmount)}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 flex items-center gap-3">
-            <CheckCircle2 className="h-5 w-5 text-purple-400" />
-            <div>
-              <p className="text-xs text-muted-foreground">Monto pagado</p>
-              <p className="text-lg font-semibold">{formatCLP(paidAmount)}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 flex items-center gap-3">
-            <Clock className="h-5 w-5 text-amber-400" />
-            <div>
-              <p className="text-xs text-muted-foreground">Pendientes</p>
-              <p className="text-lg font-semibold">{pendingCount}</p>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid gap-2 sm:gap-3 grid-cols-2 sm:grid-cols-4">
+        <div className="rounded-xl border border-border/60 bg-card/40 p-3 sm:p-4 flex items-center gap-3 transition-colors hover:bg-card/60 hover:border-border">
+          <Receipt className="h-5 w-5 text-muted-foreground shrink-0" />
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Total rendiciones</p>
+            <p className="text-lg font-semibold tabular-nums">{rendiciones.length}</p>
+          </div>
+        </div>
+        <div className="rounded-xl border border-border/60 bg-card/40 p-3 sm:p-4 flex items-center gap-3 transition-colors hover:bg-card/60 hover:border-border">
+          <DollarSign className="h-5 w-5 text-emerald-400 shrink-0" />
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Monto aprobado</p>
+            <p className="text-lg font-semibold tabular-nums">{formatCLP(approvedAmount)}</p>
+          </div>
+        </div>
+        <div className="rounded-xl border border-border/60 bg-card/40 p-3 sm:p-4 flex items-center gap-3 transition-colors hover:bg-card/60 hover:border-border">
+          <CheckCircle2 className="h-5 w-5 text-purple-400 shrink-0" />
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Monto pagado</p>
+            <p className="text-lg font-semibold tabular-nums">{formatCLP(paidAmount)}</p>
+          </div>
+        </div>
+        <div className="rounded-xl border border-border/60 bg-card/40 p-3 sm:p-4 flex items-center gap-3 transition-colors hover:bg-card/60 hover:border-border">
+          <Clock className="h-5 w-5 text-amber-400 shrink-0" />
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Pendientes</p>
+            <p className="text-lg font-semibold tabular-nums">{pendingCount}</p>
+          </div>
+        </div>
       </div>
 
       {rendiciones.length === 0 ? (
-        <Card>
-          <CardContent className="py-10 text-center text-sm text-muted-foreground">
-            No hay rendiciones registradas para esta persona.
-          </CardContent>
-        </Card>
+        <div className="rounded-xl border border-border/60 bg-card/40 py-10 text-center text-sm text-muted-foreground">
+          No hay rendiciones registradas para esta persona.
+        </div>
       ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">Historial de rendiciones</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/30">
-                  <tr>
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Código</th>
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Fecha</th>
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Tipo</th>
-                    <th className="px-3 py-2 text-right font-medium text-muted-foreground">Monto</th>
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Estado</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rendiciones.map((r) => {
-                    const cfg = STATUS_CONFIG[r.status] ?? {
-                      label: r.status,
-                      className: "bg-zinc-500/15 text-zinc-400",
-                    };
-                    return (
-                      <tr
-                        key={r.id}
-                        className="border-b border-border/60 last:border-0 hover:bg-accent/30"
-                      >
-                        <td className="px-3 py-2">
-                          <Link
-                            href={`/finanzas/rendiciones/${r.id}`}
-                            className="text-primary hover:underline"
-                          >
-                            {r.code}
-                          </Link>
-                        </td>
-                        <td className="px-3 py-2">
-                          {format(new Date(r.date), "dd/MM/yyyy", {
-                            locale: es,
-                          })}
-                        </td>
-                        <td className="px-3 py-2">
-                          {TYPE_LABELS[r.type] || r.type}
-                        </td>
-                        <td className="px-3 py-2 text-right font-mono">
-                          {formatCLP(r.amount)}
-                        </td>
-                        <td className="px-3 py-2">
-                          <Badge className={cfg.className}>{cfg.label}</Badge>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="rounded-xl border border-border/60 bg-card/40 overflow-hidden">
+          <div className="px-4 py-3 border-b border-border/40">
+            <p className="text-sm font-semibold text-foreground">Historial de rendiciones</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/20">
+                <tr>
+                  <th className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Código</th>
+                  <th className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Fecha</th>
+                  <th className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Tipo</th>
+                  <th className="px-4 py-2.5 text-right text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Monto</th>
+                  <th className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rendiciones.map((r) => {
+                  const cfg = STATUS_CONFIG[r.status] ?? {
+                    label: r.status,
+                    className: "bg-zinc-500/15 text-zinc-400",
+                  };
+                  return (
+                    <tr
+                      key={r.id}
+                      className="border-b border-border/40 last:border-0 hover:bg-muted/20 transition-colors"
+                    >
+                      <td className="px-4 py-2.5">
+                        <Link
+                          href={`/finanzas/rendiciones/${r.id}`}
+                          className="text-primary hover:underline"
+                        >
+                          {r.code}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-2.5 tabular-nums">
+                        {format(new Date(r.date), "dd/MM/yyyy", {
+                          locale: es,
+                        })}
+                      </td>
+                      <td className="px-4 py-2.5">
+                        {TYPE_LABELS[r.type] || r.type}
+                      </td>
+                      <td className="px-4 py-2.5 text-right font-mono tabular-nums">
+                        {formatCLP(r.amount)}
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <Badge className={cfg.className}>{cfg.label}</Badge>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
       )}
     </div>
   );

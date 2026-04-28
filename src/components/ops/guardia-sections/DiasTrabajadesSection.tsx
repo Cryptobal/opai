@@ -122,7 +122,7 @@ export default function DiasTrabajadesSection({ guardiaId }: DiasTrabajadesSecti
         <>
           {Object.keys(diasTrabajadosSummary).length > 0 && (
             <div>
-              <p className="text-xs font-medium text-muted-foreground mb-2">Resumen por mes</p>
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.08em] mb-2.5">Resumen por mes</p>
               <div className="flex flex-wrap gap-2">
                 {Object.entries(diasTrabajadosSummary)
                   .sort(([a], [b]) => b.localeCompare(a))
@@ -134,10 +134,10 @@ export default function DiasTrabajadesSection({ guardiaId }: DiasTrabajadesSecti
                     return (
                       <div
                         key={monthKey}
-                        className="inline-flex items-center gap-1.5 rounded-md border border-border bg-muted/30 px-2.5 py-1.5 text-sm"
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-border/60 bg-card/40 px-3 py-1.5 text-sm transition-colors hover:bg-card/60 hover:border-border"
                       >
                         <span className="text-muted-foreground">{label}</span>
-                        <span className="font-semibold text-foreground">{count}</span>
+                        <span className="font-semibold text-foreground tabular-nums">{count}</span>
                         <span className="text-muted-foreground text-xs">días</span>
                       </div>
                     );

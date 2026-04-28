@@ -481,7 +481,7 @@ export default function DocumentosSection({
   return (
     <div className="space-y-4">
       {expiringDocs.length > 0 && (
-        <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/[0.08] px-4 py-2.5 text-xs text-amber-200">
           {expiringDocs.length} documento(s) vencido(s) o por vencer
         </div>
       )}
@@ -505,10 +505,10 @@ export default function DocumentosSection({
       />
 
       {/* ── Unified document checklist ── */}
-      <div className="rounded-lg border border-[#1a2332] bg-[#0d1117]/40 divide-y divide-[#1a2332]">
-        <div className="px-3 py-2">
-          <p className="text-xs font-medium text-[#e8edf4]">Documentos del guardia</p>
-          <p className="text-[11px] text-[#7a8a9e]">
+      <div className="rounded-xl border border-border/60 bg-card/40 divide-y divide-border/40">
+        <div className="px-4 py-3">
+          <p className="text-sm font-semibold text-foreground">Documentos del guardia</p>
+          <p className="text-[11px] text-muted-foreground mt-0.5">
             Checklist unificado. Arrastra un archivo sobre cualquier fila para cargarlo.
           </p>
         </div>
@@ -560,9 +560,9 @@ export default function DocumentosSection({
 
               {/* Name + normativa */}
               <div className="min-w-0 flex-1">
-                <p className="text-sm text-[#e8edf4] leading-tight">{slot.label}</p>
+                <p className="text-sm text-foreground leading-tight">{slot.label}</p>
                 {slot.normativa && (
-                  <p className="text-[11px] text-[#5c6b7e] mt-0.5">{slot.normativa}</p>
+                  <p className="text-[11px] text-muted-foreground/70 mt-0.5">{slot.normativa}</p>
                 )}
               </div>
 
@@ -601,7 +601,7 @@ export default function DocumentosSection({
               )}
 
               {doc?.fileUrl && hasExpiration && !canManageDocs && doc.expiresAt && (
-                <span className="text-[11px] text-[#7a8a9e] shrink-0 hidden sm:inline">
+                <span className="text-[11px] text-muted-foreground shrink-0 hidden sm:inline">
                   Vence: {formatExpiration(doc.expiresAt)}
                 </span>
               )}
@@ -617,7 +617,7 @@ export default function DocumentosSection({
                       title={doc.portalVisible ? "Visible en portal" : "Oculto del portal"}
                       onClick={() => handleTogglePortalVisible(doc)}
                     >
-                      {doc.portalVisible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5 text-[#7a8a9e]" />}
+                      {doc.portalVisible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />}
                     </Button>
                   )}
                   <Button variant="ghost" size="icon" className="h-7 w-7" title="Ver" onClick={() => setPreviewDoc(doc)}>
@@ -677,7 +677,7 @@ export default function DocumentosSection({
 
       {/* ── Extra document upload (for additional/duplicate docs) ── */}
       <details className="group">
-        <summary className="text-xs text-[#7a8a9e] cursor-pointer hover:text-[#e8edf4] transition-colors">
+        <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
           Subir documento adicional (duplicados o tipos extra)
         </summary>
         <div className="mt-2 rounded-lg border border-dashed border-primary/40 bg-primary/5 p-3 space-y-2">
@@ -789,9 +789,9 @@ export default function DocumentosSection({
           const expStr = hasExpiration ? formatExpiration(doc.expiresAt) : null;
           const docLabel = label(doc.type);
           return (
-            <div key={doc.id} className="flex flex-wrap items-center gap-2 px-3 py-2 min-w-0 hover:bg-[#111822]/50 transition-colors">
+            <div key={doc.id} className="flex flex-wrap items-center gap-2 px-3 py-2 min-w-0 hover:bg-muted/20 transition-colors">
               {doc.fileUrl ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <X className="h-3.5 w-3.5 text-red-400" />}
-              <span className="text-sm text-[#e8edf4] truncate flex-1 min-w-0">{docLabel}</span>
+              <span className="text-sm text-foreground truncate flex-1 min-w-0">{docLabel}</span>
               {hasExpiration && canManageDocs && (
                 <div className="flex items-center gap-1 shrink-0">
                   <Input
@@ -808,7 +808,7 @@ export default function DocumentosSection({
                 </div>
               )}
               {hasExpiration && !canManageDocs && expStr && (
-                <span className="text-[11px] text-[#7a8a9e] shrink-0 hidden sm:inline">Vence: {expStr}</span>
+                <span className="text-[11px] text-muted-foreground shrink-0 hidden sm:inline">Vence: {expStr}</span>
               )}
               <div className="flex items-center gap-1 shrink-0">
                 {canManageDocs && (
@@ -818,7 +818,7 @@ export default function DocumentosSection({
                     title={doc.portalVisible ? "Visible en portal" : "Oculto del portal"}
                     onClick={() => handleTogglePortalVisible(doc)}
                   >
-                    {doc.portalVisible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5 text-[#7a8a9e]" />}
+                    {doc.portalVisible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />}
                   </Button>
                 )}
                 {doc.fileUrl ? (
@@ -833,7 +833,7 @@ export default function DocumentosSection({
                     </Button>
                   </>
                 ) : (
-                  <span className="text-[11px] text-[#4a5568] shrink-0">Sin archivo</span>
+                  <span className="text-[11px] text-muted-foreground/60 shrink-0">Sin archivo</span>
                 )}
                 {canManageDocs && (
                   <>
@@ -880,8 +880,8 @@ export default function DocumentosSection({
         };
 
         return (
-          <div className="rounded-lg border border-[#1a2332] divide-y divide-[#1a2332]">
-            <p className="px-3 py-2 text-xs font-medium text-[#7a8a9e]">Otros documentos</p>
+          <div className="rounded-xl border border-border/60 bg-card/40 divide-y divide-border/40">
+            <p className="px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Otros documentos</p>
             {rootDocs.map((doc) => renderDocRow(doc))}
             {rootFolders.map((folder) => {
               const folderDocs = docsByFolder[folder.id] ?? [];
@@ -890,7 +890,7 @@ export default function DocumentosSection({
                 <div key={folder.id}>
                   <div
                     className={cn(
-                      "flex items-center gap-2 px-3 py-2 hover:bg-[#111822]/50 cursor-pointer",
+                      "flex items-center gap-2 px-4 py-2 hover:bg-muted/20 cursor-pointer transition-colors",
                       renamingFolderId === folder.id && "py-1"
                     )}
                     onClick={() => setExpandedFolders((prev) => {
@@ -900,7 +900,7 @@ export default function DocumentosSection({
                       return next;
                     })}
                   >
-                    {isExpanded ? <ChevronDown className="h-3.5 w-3.5 text-[#7a8a9e]" /> : <ChevronRight className="h-3.5 w-3.5 text-[#7a8a9e]" />}
+                    {isExpanded ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
                     {renamingFolderId === folder.id ? (
                       <div className="flex items-center gap-1 flex-1" onClick={(e) => e.stopPropagation()}>
                         <Input className="h-6 text-xs flex-1" value={renameValue} onChange={(e) => setRenameValue(e.target.value)}
@@ -909,14 +909,14 @@ export default function DocumentosSection({
                       </div>
                     ) : (
                       <>
-                        <Folder className="h-3.5 w-3.5 text-[#7a8a9e]" />
-                        <span className="text-sm flex-1 truncate">{folder.name}</span>
+                        <Folder className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span className="text-sm flex-1 truncate text-foreground">{folder.name}</span>
                         {canManageDocs && (
                           <>
                             <Button variant="ghost" size="icon" className={cn("h-6 w-6", folder.portalVisible && "text-emerald-400")}
                               title={folder.portalVisible ? "Visible en portal" : "Oculta del portal"}
                               onClick={(e) => { e.stopPropagation(); handleToggleFolderPortalVisible(folder); }}>
-                              {folder.portalVisible ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3 text-[#7a8a9e]" />}
+                              {folder.portalVisible ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3 text-muted-foreground" />}
                             </Button>
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
@@ -942,7 +942,7 @@ export default function DocumentosSection({
         );
       })()}
 
-      <p className="text-[11px] text-[#4a5568]">{documents.length} documento(s)</p>
+      <p className="text-[11px] text-muted-foreground/70">{documents.length} documento(s)</p>
 
       {/* Fullscreen preview modal */}
       {previewDoc?.fileUrl && (
