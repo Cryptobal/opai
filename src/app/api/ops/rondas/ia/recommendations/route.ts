@@ -175,7 +175,7 @@ ${JSON.stringify(dataForAI, null, 2)}
 Responde SOLO en JSON válido, sin markdown ni explicaciones extra:
 [{ "type": "coverage"|"guard"|"schedule"|"template", "priority": "high"|"medium"|"low", "text": "recomendación en español" }]`;
 
-      const result = await aiService.generateJSON(prompt, 2000);
+      const result = await aiService.generateJSON(prompt, 2000, { tenantId: ctx.tenantId });
       const arr = Array.isArray(result) ? result : [];
       recommendations = arr.slice(0, 5).map((r: Record<string, unknown>) => ({
         type: (["coverage", "guard", "schedule", "template"].includes(r.type as string) ? r.type : "coverage") as Recommendation["type"],

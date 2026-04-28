@@ -91,7 +91,7 @@ Reglas:
 - correct_answer es el índice (0-3) de la opción correcta
 - section_reference debe indicar el tema o sección del documento`;
 
-          result = (await aiService.processDocument(pdfBase64, docPrompt, 4000)) as QuestionResult;
+          result = (await aiService.processDocument(pdfBase64, docPrompt, 4000, { tenantId: ctx.tenantId })) as QuestionResult;
           generatedFromDoc = true;
         } catch (docError) {
           console.error("[EXAMS] Error processing global document, falling back to general prompt:", docError);
@@ -109,7 +109,7 @@ Reglas:
 - correct_answer es el índice (0-3) de la opción correcta
 - section_reference debe indicar el tema general`;
 
-        result = (await aiService.generateJSON(fallbackPrompt, 4000)) as QuestionResult;
+        result = (await aiService.generateJSON(fallbackPrompt, 4000, { tenantId: ctx.tenantId })) as QuestionResult;
       }
     } else {
       const sections = await prisma.protocolSection.findMany({
@@ -146,7 +146,7 @@ Reglas:
 - correct_answer es el índice (0-3) de la opción correcta
 - section_reference debe coincidir con una sección del protocolo`;
 
-      result = (await aiService.generateJSON(prompt, 4000)) as QuestionResult;
+      result = (await aiService.generateJSON(prompt, 4000, { tenantId: ctx.tenantId })) as QuestionResult;
     }
 
     const questions = (result.questions ?? []).map((q, i) => ({

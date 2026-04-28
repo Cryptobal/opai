@@ -56,7 +56,7 @@ export async function POST(
 
       let result: { sections: SectionPayload[] };
       try {
-        result = (await aiService.processDocument(base64, EXTRACTION_PROMPT, 4096)) as typeof result;
+        result = (await aiService.processDocument(base64, EXTRACTION_PROMPT, 4096, { tenantId: ctx.tenantId })) as typeof result;
       } catch (err: unknown) {
         if (err instanceof AIError) {
           return NextResponse.json(err.toResponse(), { status: err.clientHttpStatus });

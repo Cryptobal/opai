@@ -39,7 +39,7 @@ Incluye al menos 4 ítems detallados, prácticos y accionables.`;
 
     let aiResponse: { title: string; icon: string; items: Array<{ title: string; description: string }> };
     try {
-      aiResponse = (await aiService.generateJSON(prompt, 4096)) as typeof aiResponse;
+      aiResponse = (await aiService.generateJSON(prompt, 4096, { tenantId: ctx.tenantId })) as typeof aiResponse;
     } catch (err: unknown) {
       if (err instanceof Error && err.message === "NO_AI_CONFIGURED") {
         return NextResponse.json(

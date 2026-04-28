@@ -99,7 +99,7 @@ Requisitos:
       }`;
 
       let description = (
-        await aiService.generateText(prompt, { maxTokens: 500, temperature: 0.7 })
+        await aiService.generateText(prompt, { maxTokens: 500, temperature: 0.7 }, { tenantId: ctx.tenantId })
       ).trim();
       description = description
         .replace(/^#\s*RESUMEN\s*EJECUTIVO\s*\n?/i, "")
@@ -141,7 +141,7 @@ INSTRUCCIONES:
       }`;
 
       let serviceDetail = (
-        await aiService.generateText(prompt, { maxTokens: 400, temperature: 0.7 })
+        await aiService.generateText(prompt, { maxTokens: 400, temperature: 0.7 }, { tenantId: ctx.tenantId })
       ).trim();
 
       return NextResponse.json({ success: true, data: { description: serviceDetail } });

@@ -110,7 +110,7 @@ INSTRUCCIONES ESTRICTAS:
     }`;
 
     const body = (
-      await aiService.generateText(prompt, { maxTokens: 450, temperature: 0.6 })
+      await aiService.generateText(prompt, { maxTokens: 450, temperature: 0.6 }, { tenantId: ctx.tenantId })
     ).trim();
 
     return NextResponse.json({ success: true, data: { body } });

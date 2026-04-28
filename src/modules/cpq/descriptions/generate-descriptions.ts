@@ -147,7 +147,7 @@ Estructura ideal:
   }`;
 
   let description = (
-    await aiService.generateText(prompt, { maxTokens: 500, temperature: 0.7 })
+    await aiService.generateText(prompt, { maxTokens: 500, temperature: 0.7 }, { tenantId: options?.tenantId })
   ).trim();
 
   // Sanitize: remove common AI artifacts (headers, metadata)

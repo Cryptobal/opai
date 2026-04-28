@@ -40,7 +40,7 @@ El título debe ser conciso y la descripción detallada, práctica y accionable.
 
     let aiResponse: { title: string; description: string };
     try {
-      aiResponse = (await aiService.generateJSON(prompt, 2048)) as typeof aiResponse;
+      aiResponse = (await aiService.generateJSON(prompt, 2048, { tenantId: ctx.tenantId })) as typeof aiResponse;
     } catch (err: unknown) {
       if (err instanceof Error && err.message === "NO_AI_CONFIGURED") {
         return NextResponse.json(

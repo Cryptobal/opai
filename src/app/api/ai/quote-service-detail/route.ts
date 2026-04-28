@@ -212,7 +212,7 @@ El servicio contempla:
     }`;
 
     const serviceDetail = (
-      await aiService.generateText(prompt, { maxTokens: 600, temperature: 0.5 })
+      await aiService.generateText(prompt, { maxTokens: 600, temperature: 0.5 }, { tenantId: ctx.tenantId })
     ).trim();
 
     // Save to quote

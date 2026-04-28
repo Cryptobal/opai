@@ -61,7 +61,7 @@ Cada ítem debe ser detallado, práctico y accionable para un guardia de segurid
 
     let aiResponse: { sections: Array<{ title: string; icon: string; items: Array<{ title: string; description: string }> }> };
     try {
-      aiResponse = (await aiService.generateJSON(prompt, 4096)) as typeof aiResponse;
+      aiResponse = (await aiService.generateJSON(prompt, 4096, { tenantId: ctx.tenantId })) as typeof aiResponse;
     } catch (err: unknown) {
       if (err instanceof AIError) {
         return NextResponse.json(err.toResponse(), { status: err.clientHttpStatus });
