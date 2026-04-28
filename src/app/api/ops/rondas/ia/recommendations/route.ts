@@ -4,6 +4,7 @@ import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { canView } from "@/lib/permissions";
 import { formatPersonName } from "@/lib/personas";
 import { AIService } from "@/lib/ai-service";
+import { AIError } from "@/lib/ai-errors";
 import { requireTenantModule } from '@/lib/require-module';
 
 interface Recommendation {
@@ -195,8 +196,11 @@ Responde SOLO en JSON válido, sin markdown ni explicaciones extra:
       },
     });
   } catch (error) {
+    if (error instanceof AIError) {
+      return NextResponse.json(error.toResponse(), { status: error.clientHttpStatus });
+    }
     console.error("[IA] recommendations", error);
-    return NextResponse.json({ success: false, error: "Error interno" }, { status: 500 });
+    return NextResponse.json({ success: false, error: "Error interno", code: "INTERNAL_ERROR" }, { status: 500 });
   }
 }
 

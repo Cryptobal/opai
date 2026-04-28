@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { AIService } from "@/lib/ai-service";
+import { AIError } from "@/lib/ai-errors";
 import { parsePortalClienteSessionCookie } from "@/lib/portal-cliente";
 
 const STATIC_DEMO_DATA = {
@@ -71,6 +72,9 @@ export async function POST() {
 
     return NextResponse.json({ success: true, data: demoData });
   } catch (err) {
+    if (err instanceof AIError) {
+      return NextResponse.json(err.toResponse(), { status: err.clientHttpStatus });
+    }
     console.error("[demo/generate]", err);
     return NextResponse.json({ success: true, data: STATIC_DEMO_DATA });
   }

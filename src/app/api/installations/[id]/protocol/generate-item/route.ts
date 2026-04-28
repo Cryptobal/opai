@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { aiService } from "@/lib/ai-service";
+import { AIError } from "@/lib/ai-errors";
 import { requireAuth, unauthorized, resolveApiPerms, parseBody } from "@/lib/api-auth";
 import { canEdit } from "@/lib/permissions";
 
@@ -59,9 +60,12 @@ El título debe ser conciso y la descripción detallada, práctica y accionable.
 
     return NextResponse.json({ success: true, data: { item: aiResponse } });
   } catch (error) {
+    if (error instanceof AIError) {
+      return NextResponse.json(error.toResponse(), { status: error.clientHttpStatus });
+    }
     console.error("[PROTOCOL_GENERATE_ITEM] Error:", error);
     return NextResponse.json(
-      { success: false, error: "Error al generar ítem con IA" },
+      { success: false, error: "Error al generar ítem con IA", code: "INTERNAL_ERROR" },
       { status: 500 },
     );
   }

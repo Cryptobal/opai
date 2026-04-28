@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { aiService } from "@/lib/ai-service";
+import { AIError } from "@/lib/ai-errors";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
 
@@ -146,8 +147,11 @@ INSTRUCCIONES:
       return NextResponse.json({ success: true, data: { description: serviceDetail } });
     }
   } catch (error) {
+    if (error instanceof AIError) {
+      return NextResponse.json(error.toResponse(), { status: error.clientHttpStatus });
+    }
     console.error("Error generating lead description:", error);
     const message = error instanceof Error ? error.message : "Error al generar descripción";
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    return NextResponse.json({ success: false, error: message, code: "INTERNAL_ERROR" }, { status: 500 });
   }
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { aiService } from "@/lib/ai-service";
+import { AIError } from "@/lib/ai-errors";
 import {
   requireAuth,
   unauthorized,
@@ -160,12 +161,15 @@ Reglas:
 
     return NextResponse.json({ success: true, data: { questions } });
   } catch (error) {
+    if (error instanceof AIError) {
+      return NextResponse.json(error.toResponse(), { status: error.clientHttpStatus });
+    }
     console.error("[EXAMS] Error generating questions:", error);
     const message = error instanceof Error && error.message === "NO_AI_CONFIGURED"
       ? "No hay servicio de IA configurado"
       : "No se pudieron generar las preguntas";
     return NextResponse.json(
-      { success: false, error: message },
+      { success: false, error: message, code: "INTERNAL_ERROR" },
       { status: 500 },
     );
   }
