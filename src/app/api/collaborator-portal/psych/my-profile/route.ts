@@ -22,6 +22,7 @@ const STRENGTH_PREFIX: Record<PsychDimension, string> = {
   REASONING: "Buen razonamiento",
   INTEGRITY: "Alta integridad",
   RESPONSIBILITY: "Alta responsabilidad",
+  VOCATIONAL_FIT: "Vocación de servicio y seguridad",
 };
 
 const MS_PER_MONTH = 30 * 24 * 3600 * 1000;

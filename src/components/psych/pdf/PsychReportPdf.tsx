@@ -80,7 +80,11 @@ export function PsychReportPdf(props: Props) {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Perfil por dimensión</Text>
-          {PSYCH_DIMENSIONS.map((dim) => {
+          {PSYCH_DIMENSIONS.filter(
+            (dim) =>
+              dim !== "VOCATIONAL_FIT" &&
+              (props.dimensionScores[dim]?.itemCount ?? 0) > 0,
+          ).map((dim) => {
             const s = props.dimensionScores[dim]?.score ?? 0;
             const pct = Math.round(s * 100);
             return (
@@ -96,6 +100,21 @@ export function PsychReportPdf(props: Props) {
             );
           })}
         </View>
+
+        {(props.dimensionScores.VOCATIONAL_FIT?.itemCount ?? 0) > 0 ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Ajuste vocacional (informativo)</Text>
+            <View style={styles.bar}>
+              <View style={styles.barLabel}>
+                <Text>Pasión por la seguridad</Text>
+                <Text>{Math.round((props.dimensionScores.VOCATIONAL_FIT.score ?? 0) * 100)}</Text>
+              </View>
+              <View style={styles.barTrack}>
+                <View style={{ ...styles.barFill, width: `${Math.round((props.dimensionScores.VOCATIONAL_FIT.score ?? 0) * 100)}%`, backgroundColor: "#16a34a" }} />
+              </View>
+            </View>
+          </View>
+        ) : null}
 
         {props.openAnalysis.length > 0 ? (
           <View style={styles.section} wrap>

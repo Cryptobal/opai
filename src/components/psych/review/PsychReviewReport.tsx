@@ -43,7 +43,9 @@ export default function PsychReviewReport({ result }: Props) {
         <h3 className="text-base font-semibold text-foreground mb-2">
           Perfil por dimensión
         </h3>
-        {PSYCH_DIMENSIONS.map((dim) => {
+        {PSYCH_DIMENSIONS.filter(
+          (dim) => (result.dimensionScores[dim]?.itemCount ?? 0) > 0,
+        ).map((dim) => {
           const s = result.dimensionScores[dim]?.score ?? 0;
           const pct = Math.round(s * 100);
           return (
