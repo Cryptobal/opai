@@ -45,4 +45,42 @@ describe("aggregateScores — peso 0 en VOCATIONAL_FIT", () => {
     expect(reasoning?.itemCount).toBe(0);
     expect(reasoning?.score).toBe(0.5);
   });
+
+  it("peso 0 + dimensión real con peso > 0: solo la real entra al global", () => {
+    const high: ScoredResponse = { ...lowVocationalResponse, normalizedScore: 1.0 };
+    const lowReal: ScoredResponse = {
+      itemId: "imp1", dimension: "IMPULSE_CONTROL", type: "SJT",
+      normalizedScore: 0.0, weight: 1, latencyMs: 1000, minLatencyMs: 800, fastLatency: false,
+    };
+    const r = aggregateScores({
+      scoredResponses: [high, lowReal],
+      openAnalyses: [],
+      config: baseConfig,
+    });
+    // VOCATIONAL_FIT (peso 0, score 1.0) NO debe contaminar el global.
+    // IMPULSE_CONTROL=0 + 7 dimensiones sin items a 0.5 cada una con peso 1
+    // → (0*1 + 0.5*7) / 8 = 3.5/8 = 0.4375 → globalScore = 43.75.
+    // Sin el guard, VOCATIONAL_FIT contribuiría 1.0*0 = 0 al numerador y 0 al denominador
+    // (porque su peso es 0), por lo que el resultado sería el mismo.
+    // Pero si alguien futurice cambia "peso 0" por "peso pequeño" (ej: 0.001),
+    // este test detecta el bleed-through.
+    expect(r.globalScore).toBeCloseTo(43.75, 2);
+  });
+
+  it("peso NEGATIVO también se trata como informativo (no contamina global)", () => {
+    const negConfig: ResolvedTenantPsychConfig = {
+      ...baseConfig,
+      weights: { ...baseConfig.weights, VOCATIONAL_FIT: -1 },
+    };
+    const high: ScoredResponse = { ...lowVocationalResponse, normalizedScore: 1.0 };
+    const r = aggregateScores({
+      scoredResponses: [high],
+      openAnalyses: [],
+      config: negConfig,
+    });
+    // Sin el guard `tenantWeight <= 0 continue`, este caso restaría:
+    // globalNum = 1.0 * (-1) + 0.5*8 = 3.0, globalDen = -1 + 8 = 7 → ~42.86
+    // Con el guard: globalNum = 0.5*8 = 4, globalDen = 8 → 50.
+    expect(r.globalScore).toBe(50);
+  });
 });
