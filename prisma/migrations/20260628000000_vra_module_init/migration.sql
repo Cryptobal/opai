@@ -45,7 +45,7 @@ BEGIN
   ) THEN
     ALTER TABLE "vra"."section_templates"
       ADD CONSTRAINT "section_templates_tenant_id_fkey"
-        FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+        FOREIGN KEY ("tenant_id") REFERENCES "public"."Tenant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
   END IF;
 
   IF NOT EXISTS (
@@ -103,7 +103,7 @@ BEGIN
   ) THEN
     ALTER TABLE "vra"."reports"
       ADD CONSTRAINT "reports_tenant_id_fkey"
-        FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+        FOREIGN KEY ("tenant_id") REFERENCES "public"."Tenant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
   END IF;
 
   IF NOT EXISTS (
