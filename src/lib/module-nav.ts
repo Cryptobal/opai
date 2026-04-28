@@ -46,6 +46,7 @@ import {
   Smartphone,
   Phone,
   Brain,
+  KeyRound,
   Siren,
   Briefcase,
   // TE
@@ -238,6 +239,7 @@ const CONFIG_ITEMS: (BottomNavItem & { subKey: string })[] = [
   { key: "config-ticket-types", href: "/opai/configuracion/tipos-ticket", label: "Tickets", icon: Ticket, subKey: "tipos_ticket" },
   { key: "config-alertas-cobertura", href: "/opai/configuracion/alertas-cobertura", label: "Alertas", icon: Siren, subKey: "alertas_cobertura" },
   { key: "config-ia", href: "/opai/configuracion/asistente-ia", label: "Asistente IA", icon: Brain, subKey: "asistente_ia" },
+  { key: "config-ia-providers", href: "/opai/configuracion/inteligencia-artificial", label: "Proveedores de IA", icon: KeyRound, subKey: "inteligencia_artificial" },
 ];
 
 /* ── Module detection ── */

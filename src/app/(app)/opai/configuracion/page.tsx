@@ -30,10 +30,31 @@ const CONFIG_SECTIONS: ConfigSection[] = [
       { submodule: "grupos", href: "/opai/configuracion/grupos", title: "Grupos", description: "Grupos organizacionales para cadenas de aprobación", icon: "users" },
       { submodule: "integraciones", href: "/opai/configuracion/integraciones", title: "Integraciones", description: "Gmail y conectores externos", icon: "plug" },
       { submodule: "notificaciones", href: "/opai/configuracion/notificaciones", title: "Notificaciones", description: "Parámetros globales", icon: "bell" },
-      { submodule: "asistente_ia", href: "/opai/configuracion/asistente-ia", title: "Asistente IA", description: "Control de roles, acceso y alcance del chat", icon: "bot", adminOnly: true },
       { submodule: "auditoria", href: "/opai/configuracion/auditoria", title: "Auditoría", description: "Registro de acciones y cambios por usuario", icon: "clipboard-check", adminOnly: true },
       { submodule: "documentos_operacionales", href: "/opai/configuracion/documentos-operacionales", title: "Documentos Operacionales", description: "OS10, seguros, documentos por instalación, guardias", icon: "file-text", adminOnly: true },
       { submodule: "mi_plan", href: "/opai/configuracion/mi-plan", title: "Mi Plan", description: "Plan actual, módulos, add-ons y solicitar upgrade", icon: "credit-card", adminOnly: true },
+    ],
+  },
+  {
+    key: "inteligencia-artificial",
+    title: "Inteligencia Artificial",
+    items: [
+      {
+        submodule: "asistente_ia",
+        href: "/opai/configuracion/asistente-ia",
+        title: "Asistente IA",
+        description: "Control de roles, acceso y alcance del chat conversacional",
+        icon: "bot",
+        adminOnly: true,
+      },
+      {
+        submodule: "inteligencia_artificial",
+        href: "/opai/configuracion/inteligencia-artificial",
+        title: "Proveedores de IA",
+        description: "Conecta tu propia API key (OpenAI, Anthropic, Google) y elige el modelo",
+        icon: "key-round",
+        adminOnly: true,
+      },
     ],
   },
   {
