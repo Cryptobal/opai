@@ -178,6 +178,7 @@ export async function GET(request: NextRequest) {
             tenantId,
             OR: [
               { code: contains },
+              { name: contains },
               { clientName: contains },
               { notes: contains },
               ...(dealIdsForQuotes.length > 0 ? [{ dealId: { in: dealIdsForQuotes } }] : []),
@@ -189,6 +190,7 @@ export async function GET(request: NextRequest) {
           select: {
             id: true,
             code: true,
+            name: true,
             clientName: true,
             status: true,
             dealId: true,
@@ -262,11 +264,12 @@ export async function GET(request: NextRequest) {
         const dealTitle = dealIdForQuote
           ? quoteDealTitleById.get(dealIdForQuote) ?? "Sin negocio"
           : "Sin negocio";
+        const quoteName = quote.name?.trim();
         results.push({
           id: quote.id,
           type: "quote",
           group: "crm",
-          title: quote.code,
+          title: quoteName ? `${quote.code} · ${quoteName}` : quote.code,
           subtitle: [
             `Negocio: ${dealTitle}`,
             quote.clientName,
