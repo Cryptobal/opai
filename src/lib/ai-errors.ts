@@ -133,16 +133,16 @@ export const AI_ERROR_USER_MESSAGES: Record<
   AI_NOT_CONFIGURED: {
     title: "IA no configurada",
     description:
-      "Tu empresa todavía no tiene un proveedor de IA configurado. Configura uno en Configuración → Inteligencia Artificial → Proveedores de IA.",
+      "Tu empresa todavía no tiene un proveedor de IA configurado. Configúralo en Configuración → Inteligencia Artificial.",
     actionLabel: "Configurar IA",
-    actionHref: "/opai/configuracion/ia-providers",
+    actionHref: "/opai/configuracion/inteligencia-artificial",
   },
   AI_QUOTA_EXCEEDED: {
     title: "Cuota de IA agotada",
     description:
       "El proveedor de IA configurado para tu empresa agotó su cuota. Recarga saldo en la cuenta del proveedor o cambia a otro proveedor en la configuración.",
     actionLabel: "Ir a configuración de IA",
-    actionHref: "/opai/configuracion/ia-providers",
+    actionHref: "/opai/configuracion/inteligencia-artificial",
   },
   AI_RATE_LIMITED: {
     title: "Demasiadas solicitudes",
@@ -154,14 +154,14 @@ export const AI_ERROR_USER_MESSAGES: Record<
     description:
       "La API key configurada no es válida. Revisa la configuración de IA.",
     actionLabel: "Revisar configuración",
-    actionHref: "/opai/configuracion/ia-providers",
+    actionHref: "/opai/configuracion/inteligencia-artificial",
   },
   AI_MODEL_NOT_FOUND: {
     title: "Modelo no disponible",
     description:
       "El modelo de IA configurado ya no existe o no está disponible. Elige otro modelo.",
     actionLabel: "Cambiar modelo",
-    actionHref: "/opai/configuracion/ia-providers",
+    actionHref: "/opai/configuracion/inteligencia-artificial",
   },
   AI_PROVIDER_ERROR: {
     title: "Error del proveedor de IA",
