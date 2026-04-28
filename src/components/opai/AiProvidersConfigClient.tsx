@@ -79,7 +79,7 @@ export function AiProvidersConfigClient() {
 
   const fetchProviders = useCallback(async () => {
     try {
-      const res = await fetch("/api/config/ai-providers");
+      const res = await fetch("/api/tenant/ai-providers");
       const json = await res.json();
       if (json.success) setProviders(json.data);
     } catch {
@@ -111,7 +111,7 @@ export function AiProvidersConfigClient() {
   const handleActivate = async (providerId: string) => {
     setActivating(providerId);
     try {
-      const res = await fetch(`/api/config/ai-providers/${providerId}`, {
+      const res = await fetch(`/api/tenant/ai-providers/${providerId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isActive: true }),
@@ -346,7 +346,7 @@ function ProviderConfigDialog({
     }
     setRevealLoading(true);
     try {
-      const res = await fetch(`/api/config/ai-providers/${provider.id}/key`);
+      const res = await fetch(`/api/tenant/ai-providers/${provider.id}/key`);
       const json = await res.json();
       if (json.success) {
         setRevealedKey(json.apiKey);
@@ -379,7 +379,7 @@ function ProviderConfigDialog({
       body.isActive = true;
 
       if (Object.keys(body).length > 0) {
-        const res = await fetch(`/api/config/ai-providers/${provider.id}`, {
+        const res = await fetch(`/api/tenant/ai-providers/${provider.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
@@ -411,7 +411,7 @@ function ProviderConfigDialog({
     const testModelId = provider.models.find((m) => m.id === selectedModelId)?.modelId;
 
     try {
-      const res = await fetch(`/api/config/ai-providers/${provider.id}/test`, {
+      const res = await fetch(`/api/tenant/ai-providers/${provider.id}/test`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
