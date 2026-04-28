@@ -1,6 +1,11 @@
 /**
  * Resuelve TenantPsychConfig a partir del tenantId. Si no existe registro,
  * retorna defaults sin crear fila (la config se persiste al hacer PATCH en el UI).
+ *
+ * Tolerante a esquemas desactualizados: si la BD del tenant no tiene aplicada
+ * alguna columna nueva (p.ej. `weight_vocational` en deploys donde la migración
+ * todavía no corrió), el SELECT de Prisma falla. Lo capturamos y caemos a
+ * defaults para no bloquear los endpoints que dependen de esta config.
  */
 
 import { prisma } from "@/lib/prisma";
@@ -14,12 +19,24 @@ import {
 } from "../constants";
 import type { ResolvedTenantPsychConfig } from "../types";
 
+type TenantConfigRow = Awaited<
+  ReturnType<typeof prisma.tenantPsychConfig.findUnique>
+>;
+
 export async function resolveTenantPsychConfig(
   tenantId: string,
 ): Promise<ResolvedTenantPsychConfig> {
-  const cfg = await prisma.tenantPsychConfig.findUnique({
-    where: { tenantId },
-  });
+  let cfg: TenantConfigRow = null;
+  try {
+    cfg = await prisma.tenantPsychConfig.findUnique({
+      where: { tenantId },
+    });
+  } catch (err) {
+    console.error(
+      "[psych/config] tenant_config read failed; falling back to defaults",
+      err,
+    );
+  }
 
   const weights = {} as Record<PsychDimension, number>;
   for (const dim of PSYCH_DIMENSIONS) {
