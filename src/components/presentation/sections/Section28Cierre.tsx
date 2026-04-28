@@ -33,7 +33,7 @@ interface Section28CierreProps {
   contactEmail?: string;
   /** Tenant phone (formatted for display) */
   contactPhone?: string;
-  /** Tenant phone raw digits for wa.me link (e.g. "56982307771") */
+  /** Tenant phone raw digits for wa.me link (e.g. "56968727644") */
   contactPhoneRaw?: string;
   /** Tenant website */
   website?: string;

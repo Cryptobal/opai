@@ -35,7 +35,7 @@ OPAI es una plataforma SaaS multi-tenant que digitaliza y automatiza toda la ope
 
 - Web: https://www.opai.cl
 - Email: contacto@opai.cl
-- Teléfono: +56 9 8230 7771
+- Teléfono: +56 9 6872 7644
 - LinkedIn: https://www.linkedin.com/company/opai-ai
 
 ## Documentación detallada

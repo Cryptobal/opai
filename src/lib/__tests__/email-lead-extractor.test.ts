@@ -253,7 +253,7 @@ E-mail: jomunozb@sice.com | www.sice.com`;
 
 Carlos Irigoyen Garcés
 Director Administración y Finanzas
-+56 98 230 7771
++56 9 6872 7644
 www.gard.cl
 
 On Wed, Mar 12, 2025 at 1:06 PM Muñoz Burgos, Jaime Orlando <jomunozb@sice.com> wrote:

@@ -531,7 +531,7 @@ export async function notificarSupervisorAceptacion(params: {
       const from = process.env.TWILIO_WHATSAPP_FROM?.trim();
       if (sid && tok && (msSid || from)) {
         const client = Twilio(sid, tok);
-        // Normalizar a E.164: 982307771 → +56982307771
+        // Normalizar a E.164: 968727644 → +56968727644
         let normalized = telAdmin.replace(/[\s\-\(\)\.]/g, "");
         if (/^9\d{8}$/.test(normalized)) normalized = `+56${normalized}`;
         else if (/^56\d{9}$/.test(normalized)) normalized = `+${normalized}`;

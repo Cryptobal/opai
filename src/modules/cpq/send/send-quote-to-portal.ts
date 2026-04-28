@@ -316,7 +316,7 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
   ]
     .filter(Boolean)
     .join(" ");
-  const whatsappBase = (tenantConfig.whatsappLink || "https://wa.me/5698277711").replace(/\?.*$/, "");
+  const whatsappBase = (tenantConfig.whatsappLink || "https://wa.me/56968727644").replace(/\?.*$/, "");
   const whatsappUrl = `${whatsappBase}?text=${encodeURIComponent(whatsappMsg)}`;
 
   const quoteNameForEmail =

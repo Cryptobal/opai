@@ -103,7 +103,7 @@ const orgJsonLd = JSON.stringify({
     '@type': 'ContactPoint',
     contactType: 'customer support',
     email: 'contacto@opai.cl',
-    telephone: '+56982307771',
+    telephone: '+56968727644',
     areaServed: 'CL',
     availableLanguage: 'Spanish',
     hoursAvailable: {

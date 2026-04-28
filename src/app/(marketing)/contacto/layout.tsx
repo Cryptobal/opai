@@ -3,7 +3,7 @@ import type { Metadata } from 'next'
 export const metadata: Metadata = {
   title: 'Contacto | OPAI',
   description:
-    'Contacta al equipo de OPAI. WhatsApp +56 9 8230 7771, email carlos.irigoyen@lx3.ai. Te respondemos en menos de 24 horas.',
+    'Contacta al equipo de OPAI. WhatsApp +56 9 6872 7644, email carlos.irigoyen@lx3.ai. Te respondemos en menos de 24 horas.',
   alternates: { canonical: 'https://www.opai.cl/contacto' },
   openGraph: {
     title: 'Contacto | OPAI',

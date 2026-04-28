@@ -13,8 +13,8 @@ import { TrialBanner } from '@/components/marketing/TrialBanner'
 const contactInfo = [
   {
     label: 'WhatsApp',
-    value: '+56 9 8230 7771',
-    href: 'https://wa.me/56982307771',
+    value: '+56 9 6872 7644',
+    href: 'https://wa.me/56968727644',
     icon: '💬',
   },
   {
