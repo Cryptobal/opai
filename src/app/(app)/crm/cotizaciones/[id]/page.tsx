@@ -94,14 +94,18 @@ export default async function CrmCotizacionDetailPage({
 
   return (
     <>
-      <Breadcrumb
-        items={[
-          { label: "CRM", href: "/crm" },
-          { label: "Cotizaciones", href: "/crm/cotizaciones" },
-          { label: quote?.code || id },
-        ]}
-        className="mb-1"
-      />
+      {/* Breadcrumb sólo en ≥lg: en mobile el sticky header del detalle ya
+          muestra back arrow + código + contexto, por lo que el breadcrumb
+          duplica info y consume ~50px de altura inútil. */}
+      <div className="hidden lg:block mb-1">
+        <Breadcrumb
+          items={[
+            { label: "CRM", href: "/crm" },
+            { label: "Cotizaciones", href: "/crm/cotizaciones" },
+            { label: quote?.code || id },
+          ]}
+        />
+      </div>
       <div className="mb-1">
         <CpqIndicators />
       </div>
