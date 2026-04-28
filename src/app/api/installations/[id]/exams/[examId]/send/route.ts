@@ -8,6 +8,7 @@ import {
   parseBody,
 } from "@/lib/api-auth";
 import { canEdit } from "@/lib/permissions";
+import { notifyGuardOfExam } from "@/lib/protocols/notify-guard-exam";
 
 type Params = { id: string; examId: string };
 
@@ -37,7 +38,10 @@ export async function POST(
 
     const exam = await prisma.exam.findUnique({
       where: { id: examId },
-      include: { _count: { select: { questions: true } } },
+      include: {
+        _count: { select: { questions: true } },
+        installation: { select: { tenantId: true } },
+      },
     });
 
     if (!exam) {
@@ -76,6 +80,21 @@ export async function POST(
 
       return created;
     });
+
+    // Fire-and-forget notifications. Never block the response.
+    if (exam.installation?.tenantId) {
+      const tenantId = exam.installation.tenantId;
+      for (const a of assignments) {
+        void notifyGuardOfExam({
+          examId,
+          examTitle: exam.title,
+          guardId: a.guardId,
+          tenantId,
+          assignmentId: a.id,
+          trigger: "manual",
+        });
+      }
+    }
 
     return NextResponse.json(
       { success: true, data: { assignments, count: assignments.length } },
