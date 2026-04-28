@@ -747,6 +747,46 @@ model PlatformAiModel {
   @@schema("public")
 }
 
+// ── Tenant-level AI Providers (cada tenant puede traer su propia key) ──
+
+model TenantAiProvider {
+  id           String   @id @default(cuid())
+  tenantId     String   @map("tenant_id")
+  name         String
+  providerType String   @map("provider_type")
+  apiKey       String?  @map("api_key") @db.Text
+  baseUrl      String?  @map("base_url")
+  isActive     Boolean  @default(false) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  models TenantAiModel[]
+
+  @@unique([tenantId, providerType], map: "uq_tenant_ai_provider_type")
+  @@index([tenantId], map: "idx_tenant_ai_provider_tenant")
+  @@map("tenant_ai_providers")
+  @@schema("public")
+}
+
+model TenantAiModel {
+  id          String   @id @default(cuid())
+  providerId  String   @map("provider_id")
+  modelId     String   @map("model_id")
+  displayName String   @map("display_name")
+  description String?
+  isDefault   Boolean  @default(false) @map("is_default")
+  costTier    String   @map("cost_tier")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  provider TenantAiProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([providerId], map: "idx_tenant_ai_model_provider")
+  @@map("tenant_ai_models")
+  @@schema("public")
+}
+
 model AiUsageLog {
   id             String   @id @default(cuid())
   tenantId       String?  @map("tenant_id")
