@@ -131,6 +131,7 @@ export function PagosTab({ payments, pendingRendiciones }: PagosTabProps) {
     title: string;
     issues: Array<{
       beneficiary: string;
+      guardiaId: string | null;
       rendiciones: string[];
       missing: string[];
     }>;
@@ -218,6 +219,7 @@ export function PagosTab({ payments, pendingRendiciones }: PagosTabProps) {
             error?: string;
             issues?: Array<{
               beneficiary: string;
+              guardiaId: string | null;
               rendiciones: string[];
               missing: string[];
             }>;
@@ -294,6 +296,7 @@ export function PagosTab({ payments, pendingRendiciones }: PagosTabProps) {
             error?: string;
             issues?: Array<{
               beneficiary: string;
+              guardiaId: string | null;
               rendiciones: string[];
               missing: string[];
             }>;
@@ -821,7 +824,18 @@ export function PagosTab({ payments, pendingRendiciones }: PagosTabProps) {
               {(exportIssues?.issues ?? []).map((issue, idx) => (
                 <li key={`${issue.beneficiary}-${idx}`} className="p-3 space-y-1.5">
                   <div className="flex items-start justify-between gap-3">
-                    <div className="font-medium text-sm">{issue.beneficiary}</div>
+                    {issue.guardiaId ? (
+                      <a
+                        href={`/personas/guardias/${issue.guardiaId}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium text-sm text-primary underline-offset-2 hover:underline"
+                      >
+                        {issue.beneficiary}
+                      </a>
+                    ) : (
+                      <div className="font-medium text-sm">{issue.beneficiary}</div>
+                    )}
                     <div className="text-[11px] text-muted-foreground tabular-nums">
                       {issue.rendiciones.join(", ")}
                     </div>

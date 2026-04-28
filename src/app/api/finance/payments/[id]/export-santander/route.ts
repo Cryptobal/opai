@@ -133,6 +133,7 @@ export async function GET(
             rut: true,
             guardia: {
               select: {
+                id: true,
                 bankAccounts: {
                   orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
                 },
@@ -155,9 +156,9 @@ export async function GET(
       return !persona;
     });
     const personaByAdminId = new Map<string, PersonaWithGuardia>();
+    const stripDiacritics = (s: string) =>
+      s.normalize("NFD").replace(/\p{Mn}/gu, "");
     if (adminsNeedingNameLookup.length > 0) {
-      const stripDiacritics = (s: string) =>
-        s.normalize("NFD").replace(/\p{Mn}/gu, "");
       const tokenize = (s: string) =>
         stripDiacritics(s.toLowerCase())
           .split(/\s+/)
@@ -186,6 +187,7 @@ export async function GET(
             rut: true,
             guardia: {
               select: {
+                id: true,
                 bankAccounts: {
                   orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
                 },
@@ -211,6 +213,27 @@ export async function GET(
       }
     }
 
+    // ── Helper: SBIF lookup robusto (por code, luego por nombre normalizado) ──
+    const normalizeBank = (s: string) =>
+      stripDiacritics(s.toLowerCase()).replace(/[^a-z0-9]/g, "");
+    const banksByName = new Map(
+      CHILE_BANKS.map((b) => [normalizeBank(b.name), b]),
+    );
+    const resolveSbif = (
+      bankCode: string | null | undefined,
+      bankName: string | null | undefined,
+    ): { sbifCode: string; bankCode: string } => {
+      if (bankCode) {
+        const byCode = CHILE_BANKS.find((b) => b.code === bankCode);
+        if (byCode) return { sbifCode: byCode.sbifCode, bankCode };
+      }
+      if (bankName) {
+        const byName = banksByName.get(normalizeBank(bankName));
+        if (byName) return { sbifCode: byName.sbifCode, bankCode: byName.code };
+      }
+      return { sbifCode: "", bankCode: bankCode ?? "" };
+    };
+
     // ── Build rows grouped by beneficiary ──
     type BeneficiaryRow = {
       accountNumber: string;
@@ -221,6 +244,7 @@ export async function GET(
       amount: number;
       email: string;
       rendicionCodes: string[];
+      guardiaId: string | null;
     };
     const rowsByKey = new Map<string, BeneficiaryRow>();
 
@@ -229,17 +253,17 @@ export async function GET(
       if (r.kind === "guardia") {
         const g = guardiaMap.get(r.refId);
         const account = g?.bankAccounts?.[0];
+        const { sbifCode, bankCode } = resolveSbif(account?.bankCode, account?.bankName);
         row = {
           accountNumber: account?.accountNumber ?? "",
-          bankCode: account?.bankCode ?? "",
-          sbifCode: account?.bankCode
-            ? CHILE_BANKS.find((b) => b.code === account.bankCode)?.sbifCode ?? ""
-            : "",
+          bankCode,
+          sbifCode,
           rut: g?.persona?.rut ?? "",
           fullName: `${g?.persona?.firstName ?? ""} ${g?.persona?.lastName ?? ""}`.trim(),
           amount: 0,
           email: g?.persona?.email ?? "",
           rendicionCodes: [],
+          guardiaId: r.refId,
         };
       } else {
         const admin = adminMap.get(r.refId);
@@ -247,12 +271,11 @@ export async function GET(
           (admin?.email ? personaByEmail.get(admin.email.toLowerCase()) : undefined) ??
           personaByAdminId.get(r.refId);
         const account = persona?.guardia?.bankAccounts?.[0];
+        const { sbifCode, bankCode } = resolveSbif(account?.bankCode, account?.bankName);
         row = {
           accountNumber: account?.accountNumber ?? "",
-          bankCode: account?.bankCode ?? "",
-          sbifCode: account?.bankCode
-            ? CHILE_BANKS.find((b) => b.code === account.bankCode)?.sbifCode ?? ""
-            : "",
+          bankCode,
+          sbifCode,
           rut: persona?.rut ?? "",
           fullName: persona
             ? `${persona.firstName ?? ""} ${persona.lastName ?? ""}`.trim()
@@ -260,6 +283,7 @@ export async function GET(
           amount: 0,
           email: admin?.email ?? "",
           rendicionCodes: [],
+          guardiaId: persona?.guardia?.id ?? null,
         };
       }
       const key = `${r.kind}:${r.refId}`;
@@ -279,6 +303,7 @@ export async function GET(
     // ── Validate: every row needs RUT, cuenta destino y código banco ──
     type RowIssue = {
       beneficiary: string;
+      guardiaId: string | null;
       rendiciones: string[];
       missing: string[];
     };
@@ -291,6 +316,7 @@ export async function GET(
       if (missing.length > 0) {
         issues.push({
           beneficiary: row.fullName || "(sin nombre)",
+          guardiaId: row.guardiaId,
           rendiciones: row.rendicionCodes,
           missing,
         });
