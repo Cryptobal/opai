@@ -37,6 +37,7 @@ export async function GET(
             amount: true,
             submitterId: true,
             beneficiaryGuardiaId: true,
+            beneficiaryAdminId: true,
           },
         },
       },
@@ -55,29 +56,59 @@ export async function GET(
     });
     const cuentaOrigen = config?.santanderAccountNumber ?? "";
 
-    // Separate rendiciones: with beneficiary guardia vs submitter-based
-    const guardiaRendiciones = payment.rendiciones.filter((r) => r.beneficiaryGuardiaId);
-    const submitterRendiciones = payment.rendiciones.filter((r) => !r.beneficiaryGuardiaId);
+    // ── Resolve effective beneficiary per rendicion ──
+    // Priority: beneficiaryGuardiaId > beneficiaryAdminId > submitterId
+    type ResolvedRendicion = {
+      rendicionId: string;
+      code: string;
+      amount: number;
+      kind: "guardia" | "admin";
+      refId: string;
+    };
+    const resolved: ResolvedRendicion[] = payment.rendiciones.map((r) => {
+      if (r.beneficiaryGuardiaId) {
+        return {
+          rendicionId: r.id,
+          code: r.code,
+          amount: r.amount,
+          kind: "guardia",
+          refId: r.beneficiaryGuardiaId,
+        };
+      }
+      const adminId = r.beneficiaryAdminId ?? r.submitterId;
+      return {
+        rendicionId: r.id,
+        code: r.code,
+        amount: r.amount,
+        kind: "admin",
+        refId: adminId,
+      };
+    });
 
-    // Fetch beneficiary guardias with bank accounts
-    const guardiaIds = [...new Set(guardiaRendiciones.map((r) => r.beneficiaryGuardiaId!))];
+    const guardiaIds = [
+      ...new Set(resolved.filter((r) => r.kind === "guardia").map((r) => r.refId)),
+    ];
+    const adminIds = [
+      ...new Set(resolved.filter((r) => r.kind === "admin").map((r) => r.refId)),
+    ];
+
     const beneficiaryGuardias = guardiaIds.length > 0
       ? await prisma.opsGuardia.findMany({
           where: { id: { in: guardiaIds } },
           select: {
             id: true,
-            persona: { select: { firstName: true, lastName: true, rut: true, email: true } },
+            persona: {
+              select: { firstName: true, lastName: true, rut: true, email: true },
+            },
             bankAccounts: { orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }] },
           },
         })
       : [];
     const guardiaMap = new Map(beneficiaryGuardias.map((g) => [g.id, g]));
 
-    // Fetch Admin submitters (for rendiciones without beneficiary)
-    const submitterIds = [...new Set(submitterRendiciones.map((r) => r.submitterId))];
-    const admins = submitterIds.length > 0
+    const admins = adminIds.length > 0
       ? await prisma.admin.findMany({
-          where: { id: { in: submitterIds } },
+          where: { id: { in: adminIds } },
           select: { id: true, name: true, email: true },
         })
       : [];
@@ -86,9 +117,16 @@ export async function GET(
     const adminEmails = admins.map((a) => a.email).filter(Boolean);
     const personas = adminEmails.length > 0
       ? await prisma.opsPersona.findMany({
-          where: { tenantId: ctx.tenantId, email: { in: adminEmails } },
+          where: {
+            tenantId: ctx.tenantId,
+            OR: [
+              { email: { in: adminEmails } },
+              { personalEmail: { in: adminEmails } },
+            ],
+          },
           select: {
             email: true,
+            personalEmail: true,
             firstName: true,
             lastName: true,
             rut: true,
@@ -100,65 +138,125 @@ export async function GET(
           },
         })
       : [];
-    const personaByEmail = new Map(personas.map((p) => [p.email, p]));
+    const personaByEmail = new Map<string, (typeof personas)[number]>();
+    for (const p of personas) {
+      if (p.email) personaByEmail.set(p.email.toLowerCase(), p);
+      if (p.personalEmail) personaByEmail.set(p.personalEmail.toLowerCase(), p);
+    }
 
-    // Group amounts by beneficiary key
+    // ── Build rows grouped by beneficiary ──
     type BeneficiaryRow = {
       accountNumber: string;
+      bankCode: string;
       sbifCode: string;
       rut: string;
       fullName: string;
       amount: number;
       email: string;
+      rendicionCodes: string[];
     };
-    const rows: BeneficiaryRow[] = [];
+    const rowsByKey = new Map<string, BeneficiaryRow>();
 
-    // Group guardia-beneficiary rendiciones by guardiaId
-    const byGuardia = new Map<string, number>();
-    for (const r of guardiaRendiciones) {
-      byGuardia.set(r.beneficiaryGuardiaId!, (byGuardia.get(r.beneficiaryGuardiaId!) ?? 0) + r.amount);
-    }
-    for (const [guardiaId, amount] of byGuardia.entries()) {
-      const g = guardiaMap.get(guardiaId);
-      if (!g) continue;
-      const account = g.bankAccounts?.[0];
-      rows.push({
-        accountNumber: account?.accountNumber ?? "",
-        sbifCode: account?.bankCode
-          ? CHILE_BANKS.find((b) => b.code === account.bankCode)?.sbifCode ?? ""
-          : "",
-        rut: g.persona?.rut ?? "",
-        fullName: `${g.persona?.firstName ?? ""} ${g.persona?.lastName ?? ""}`.trim(),
-        amount,
-        email: g.persona?.email ?? "",
-      });
+    for (const r of resolved) {
+      let row: BeneficiaryRow;
+      if (r.kind === "guardia") {
+        const g = guardiaMap.get(r.refId);
+        const account = g?.bankAccounts?.[0];
+        row = {
+          accountNumber: account?.accountNumber ?? "",
+          bankCode: account?.bankCode ?? "",
+          sbifCode: account?.bankCode
+            ? CHILE_BANKS.find((b) => b.code === account.bankCode)?.sbifCode ?? ""
+            : "",
+          rut: g?.persona?.rut ?? "",
+          fullName: `${g?.persona?.firstName ?? ""} ${g?.persona?.lastName ?? ""}`.trim(),
+          amount: 0,
+          email: g?.persona?.email ?? "",
+          rendicionCodes: [],
+        };
+      } else {
+        const admin = adminMap.get(r.refId);
+        const persona = admin?.email
+          ? personaByEmail.get(admin.email.toLowerCase())
+          : undefined;
+        const account = persona?.guardia?.bankAccounts?.[0];
+        row = {
+          accountNumber: account?.accountNumber ?? "",
+          bankCode: account?.bankCode ?? "",
+          sbifCode: account?.bankCode
+            ? CHILE_BANKS.find((b) => b.code === account.bankCode)?.sbifCode ?? ""
+            : "",
+          rut: persona?.rut ?? "",
+          fullName: persona
+            ? `${persona.firstName ?? ""} ${persona.lastName ?? ""}`.trim()
+            : admin?.name ?? "",
+          amount: 0,
+          email: admin?.email ?? "",
+          rendicionCodes: [],
+        };
+      }
+      const key = `${r.kind}:${r.refId}`;
+      const existing = rowsByKey.get(key);
+      if (existing) {
+        existing.amount += r.amount;
+        existing.rendicionCodes.push(r.code);
+      } else {
+        row.amount = r.amount;
+        row.rendicionCodes = [r.code];
+        rowsByKey.set(key, row);
+      }
     }
 
-    // Group submitter rendiciones by submitterId
-    const bySubmitter = new Map<string, number>();
-    for (const r of submitterRendiciones) {
-      bySubmitter.set(r.submitterId, (bySubmitter.get(r.submitterId) ?? 0) + r.amount);
+    const rows = [...rowsByKey.values()];
+
+    // ── Validate: every row needs RUT, cuenta destino y código banco ──
+    type RowIssue = {
+      beneficiary: string;
+      rendiciones: string[];
+      missing: string[];
+    };
+    const issues: RowIssue[] = [];
+    for (const row of rows) {
+      const missing: string[] = [];
+      if (!row.rut) missing.push("RUT");
+      if (!row.accountNumber) missing.push("cuenta destino");
+      if (!row.sbifCode) missing.push(row.bankCode ? "código banco (SBIF)" : "banco destino");
+      if (missing.length > 0) {
+        issues.push({
+          beneficiary: row.fullName || "(sin nombre)",
+          rendiciones: row.rendicionCodes,
+          missing,
+        });
+      }
     }
-    for (const [submitterId, amount] of bySubmitter.entries()) {
-      const admin = adminMap.get(submitterId);
-      if (!admin) continue;
-      const persona = personaByEmail.get(admin.email);
-      const account = persona?.guardia?.bankAccounts?.[0];
-      rows.push({
-        accountNumber: account?.accountNumber ?? "",
-        sbifCode: account?.bankCode
-          ? CHILE_BANKS.find((b) => b.code === account.bankCode)?.sbifCode ?? ""
-          : "",
-        rut: persona?.rut ?? "",
-        fullName: persona
-          ? `${persona.firstName ?? ""} ${persona.lastName ?? ""}`.trim()
-          : admin.name,
-        amount,
-        email: admin.email ?? "",
-      });
+    if (!cuentaOrigen) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Falta configurar la cuenta origen Santander en Finanzas → Configuración.",
+        },
+        { status: 422 },
+      );
+    }
+    if (issues.length > 0) {
+      const summary = issues
+        .map(
+          (i) =>
+            `• ${i.beneficiary} (${i.rendiciones.join(", ")}): falta ${i.missing.join(", ")}`,
+        )
+        .join("\n");
+      return NextResponse.json(
+        {
+          success: false,
+          error: `No se puede exportar: ${issues.length} beneficiario(s) sin datos bancarios completos.\n${summary}\n\nCompleta RUT y cuenta bancaria del beneficiario en su ficha antes de reintentar.`,
+          issues,
+        },
+        { status: 422 },
+      );
     }
 
-    // Build Excel
+    // ── Build Excel ──
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet("Santander", {
       views: [{ state: "frozen", ySplit: 1 }],

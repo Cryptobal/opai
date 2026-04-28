@@ -207,10 +207,21 @@ export function PagosTab({ payments, pendingRendiciones }: PagosTabProps) {
           toast.success(
             `Pago ${paymentCode} creado con ${selectedIds.size} rendición(es)`
           );
-          throw new Error(
+          const message =
             exportData.error ||
-              "Pago creado, pero no se pudo descargar el archivo Santander"
-          );
+            "Pago creado, pero no se pudo descargar el archivo Santander";
+          if (exportRes.status === 422) {
+            toast.error(message, {
+              duration: 12000,
+              style: { whiteSpace: "pre-line" },
+            });
+            setCreateDialogOpen(false);
+            setSelectedIds(new Set());
+            setPaymentNotes("");
+            router.refresh();
+            return;
+          }
+          throw new Error(message);
         }
 
         const blob = await exportRes.blob();
@@ -258,7 +269,12 @@ export function PagosTab({ payments, pendingRendiciones }: PagosTabProps) {
           const data = (await res
             .json()
             .catch(() => ({}))) as { error?: string };
-          throw new Error(data.error || "Error al exportar");
+          const message = data.error || "Error al exportar";
+          if (res.status === 422) {
+            toast.error(message, { duration: 12000, style: { whiteSpace: "pre-line" } });
+            return;
+          }
+          throw new Error(message);
         }
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
