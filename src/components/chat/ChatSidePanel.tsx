@@ -779,10 +779,13 @@ function GroupChannelsSection({
 
   return (
     <div className="opai-chat-mobile-section">
-      <div className="flex items-center w-full group/section gap-1 opai-chat-mobile-section-header">
+      <div
+        className="flex items-center w-full group/section gap-1 opai-chat-mobile-section-header cursor-pointer"
+        onClick={onToggle}
+      >
         <button
           type="button"
-          onClick={onToggle}
+          onClick={(e) => { e.stopPropagation(); onToggle(); }}
           className="flex-1 min-w-0 flex items-center gap-2 px-0 py-0 text-xs font-semibold text-muted-foreground uppercase tracking-wider transition-colors text-left"
         >
           {collapsed ? (
@@ -1017,10 +1020,13 @@ function ChannelSection({
 
   return (
     <div className="opai-chat-mobile-section">
-      <div className="flex items-center w-full group/section gap-1 opai-chat-mobile-section-header">
+      <div
+        className="flex items-center w-full group/section gap-1 opai-chat-mobile-section-header cursor-pointer"
+        onClick={onToggle}
+      >
         <button
           type="button"
-          onClick={onToggle}
+          onClick={(e) => { e.stopPropagation(); onToggle(); }}
           className="flex-1 min-w-0 flex items-center gap-2 px-0 py-0 text-xs font-semibold text-muted-foreground uppercase tracking-wider transition-colors text-left"
         >
           {collapsed ? (
@@ -1213,10 +1219,13 @@ function UserSection({
 }) {
   return (
     <div className="opai-chat-mobile-section">
-      <div className="flex items-center w-full gap-1 opai-chat-mobile-section-header">
+      <div
+        className="flex items-center w-full gap-1 opai-chat-mobile-section-header cursor-pointer"
+        onClick={onToggle}
+      >
         <button
           type="button"
-          onClick={onToggle}
+          onClick={(e) => { e.stopPropagation(); onToggle(); }}
           className="flex-1 min-w-0 flex items-center gap-2 px-0 py-0 text-xs font-semibold text-muted-foreground uppercase tracking-wider transition-colors text-left"
         >
           {collapsed ? (
