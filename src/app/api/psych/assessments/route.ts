@@ -38,14 +38,29 @@ export async function POST(req: NextRequest) {
   if (parsed.error) return parsed.error;
   const body = parsed.data;
 
-  const version = await prisma.psychTestVersion.findUnique({
+  // 1) Match exacto por (code, version). 2) Fallback: cualquier versión
+  // activa del mismo code. Esto evita 404 cuando la BD del tenant no tiene
+  // la versión exacta seedeada o quedó marcada inactiva — escenario observado
+  // en producción donde la versión por defecto del frontend puede no coincidir
+  // con lo seedeado.
+  let version = await prisma.psychTestVersion.findUnique({
     where: {
       code_version: { code: body.versionCode, version: body.versionTag },
     },
   });
   if (!version || !version.isActive) {
+    version = await prisma.psychTestVersion.findFirst({
+      where: { code: body.versionCode, isActive: true },
+      orderBy: { publishedAt: "desc" },
+    });
+  }
+  if (!version) {
     return NextResponse.json(
-      { success: false, error: "Versión del test no encontrada o inactiva" },
+      {
+        success: false,
+        error:
+          "No hay versión activa del test psicolaboral. Contactar al administrador para correr el seed.",
+      },
       { status: 404 },
     );
   }
