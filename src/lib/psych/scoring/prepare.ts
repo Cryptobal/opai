@@ -37,7 +37,11 @@ export interface OpenToAnalyze {
 export interface PreparedBuckets {
   scoredResponses: ScoredResponse[];
   likertSamples: LikertSample[];
-  lieInputs: Array<{ value: unknown; extremeValues: number[] }>;
+  lieInputs: Array<{
+    value: unknown;
+    extremeValues: number[];
+    weights?: Record<number, number>;
+  }>;
   lieHits: Array<{ itemId: string; value: number }>;
   latencyRows: Array<{
     itemId: string;
@@ -128,9 +132,16 @@ export function prepareBuckets(
       }
     }
     if (item.type === "LIE") {
-      const key = item.scoringKey as { extremePositiveValues?: number[] };
+      const key = item.scoringKey as {
+        extremePositiveValues?: number[];
+        weights?: Record<number, number>;
+      };
       const extreme = key.extremePositiveValues ?? [4, 5];
-      out.lieInputs.push({ value: resp.value, extremeValues: extreme });
+      out.lieInputs.push({
+        value: resp.value,
+        extremeValues: extreme,
+        weights: key.weights,
+      });
       const v = Number(
         (resp.value as { value?: unknown })?.value ?? resp.value,
       );

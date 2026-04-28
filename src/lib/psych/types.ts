@@ -50,7 +50,9 @@ export interface OpenScoringKey {
 
 export interface LieScoringKey {
   kind: "lie";
-  // En escala de 5 puntos, "muy de acuerdo" (5) eleva lieScaleScore.
+  /** Map "valor → peso 0..1" para inflación de la escala. Si falta, fallback {4: 1, 5: 1}. */
+  weights?: Record<number, number>;
+  /** Compatibilidad con v1.0.0 — valores que cuentan como hit binario. */
   extremePositiveValues: number[];
 }
 

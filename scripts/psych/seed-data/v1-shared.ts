@@ -23,9 +23,16 @@ export function likertKey(
   return { kind: "likert", scale: 5, direction };
 }
 
-export function lieKey(): LieScoringKey {
-  // "Muy de acuerdo" (5) y "De acuerdo" (4) inflan la escala de mentira.
-  return { kind: "lie", extremePositiveValues: [4, 5] };
+export function lieKey(
+  weights: Record<number, number> = { 4: 0.5, 5: 1.0 },
+): LieScoringKey {
+  // Asimétrico por defecto: "Muy de acuerdo" pesa el doble que "De acuerdo".
+  // Esto evita que respuestas moderadamente deseables se vean iguales que mentiras descaradas.
+  return {
+    kind: "lie",
+    weights,
+    extremePositiveValues: [4, 5], // compat con detector v1
+  };
 }
 
 export interface SeedItem {
