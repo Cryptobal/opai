@@ -31,7 +31,7 @@ export const PSYCH_DIMENSION_LABELS: Record<PsychDimension, string> = {
 
 export const PSYCH_SCORING_VERSION = "1.0.0";
 export const PSYCH_TEST_CODE = "security-guard-v1";
-export const PSYCH_TEST_VERSION = "1.0.0";
+export const PSYCH_TEST_VERSION = "1.1.0";
 
 // Key registrado en ALL_MODULES (src/lib/tenant-modules.ts).
 export const PSYCH_MODULE_KEY = "psych" as const;
