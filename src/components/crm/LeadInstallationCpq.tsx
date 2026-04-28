@@ -331,6 +331,8 @@ export function LeadInstallationCpq({
   const [secMargen, setSecMargen] = useState(true);
   const [secCondiciones, setSecCondiciones] = useState(true);
   const [secDescripciones, setSecDescripciones] = useState(true);
+  const [secDesglose, setSecDesglose] = useState(true);
+  const [secPdf, setSecPdf] = useState(true);
   const [generatingCompany, setGeneratingCompany] = useState(false);
   const [generatingService, setGeneratingService] = useState(false);
   const [aiInstruction, setAiInstruction] = useState("");
@@ -890,16 +892,39 @@ export function LeadInstallationCpq({
 
         return (
           <Card className="shadow-sm overflow-hidden">
-            <div className="px-3 py-2.5">
-              <h2 className="text-sm font-bold">Desglose</h2>
-            </div>
-            <div className="px-3 pb-3">
-              <QuoteBreakdownPanel data={breakdownData} variant="default" />
-            </div>
-            {!estimate.laborPayrollReady && (
-              <div className="px-3 pb-2 text-[10px] text-amber-500/90 font-medium text-center">
-                Calculando mano de obra (motor nómina)…
+            <button
+              type="button"
+              onClick={() => setSecDesglose((v) => !v)}
+              className="flex items-center justify-between w-full px-3 py-2.5 hover:bg-muted/10 transition-colors"
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <h2 className="text-sm font-bold shrink-0">Desglose</h2>
+                {!secDesglose && (
+                  <span className="text-[11px] text-muted-foreground inline-flex items-baseline gap-1.5">
+                    <CpqDualCurrencyAmount
+                      clp={estimate.precioVenta}
+                      currency={currency}
+                      ufValue={ufValue}
+                      size="xs"
+                      inline
+                      primaryClassName="text-emerald-400 font-semibold"
+                    />
+                  </span>
+                )}
               </div>
+              <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", secDesglose && "rotate-180")} />
+            </button>
+            {secDesglose && (
+              <>
+                <div className="px-3 pb-3">
+                  <QuoteBreakdownPanel data={breakdownData} variant="default" />
+                </div>
+                {!estimate.laborPayrollReady && (
+                  <div className="px-3 pb-2 text-[10px] text-amber-500/90 font-medium text-center">
+                    Calculando mano de obra (motor nómina)…
+                  </div>
+                )}
+              </>
             )}
           </Card>
         );
@@ -1437,16 +1462,35 @@ export function LeadInstallationCpq({
         )}
       </Card>
 
-      {/* ── Vista previa de la propuesta (PDF real) ── */}
+      {/* ── PDF y documentos (vista previa real) ── */}
       {config.positions.length > 0 && (
-        <PdfPreviewSection
-          leadId={leadId}
-          config={config}
-          accountName={accountName}
-          installationName={installationName}
-          proposalTemplates={proposalTemplates}
-          ufValue={ufValue}
-        />
+        <Card className="shadow-sm overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setSecPdf((v) => !v)}
+            className="flex items-center justify-between w-full px-3 py-2.5 hover:bg-muted/10 transition-colors"
+          >
+            <div className="flex items-center gap-2 min-w-0">
+              <h2 className="text-sm font-bold shrink-0">PDF y documentos</h2>
+              {!secPdf && (
+                <span className="text-[11px] text-muted-foreground">Vista previa disponible</span>
+              )}
+            </div>
+            <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", secPdf && "rotate-180")} />
+          </button>
+          {secPdf && (
+            <div className="px-3 pb-3">
+              <PdfPreviewSection
+                leadId={leadId}
+                config={config}
+                accountName={accountName}
+                installationName={installationName}
+                proposalTemplates={proposalTemplates}
+                ufValue={ufValue}
+              />
+            </div>
+          )}
+        </Card>
       )}
 
     </div>
