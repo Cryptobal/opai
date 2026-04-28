@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";
 import { Avatar, EmptyState } from "@/components/opai";
-import { ShieldUser, Plus, ExternalLink, Phone, MapPin, Building2, UserPlus, ChevronDown, ChevronRight, Loader2, RefreshCw, MessageCircle, FileCheck, FileX, Download, MoreHorizontal, Key } from "lucide-react";
+import { ShieldUser, Plus, ExternalLink, Phone, MapPin, Building2, UserPlus, ChevronDown, ChevronRight, Loader2, RefreshCw, MessageCircle, FileCheck, FileX, Download, MoreHorizontal, Key, AlertCircle } from "lucide-react";
 import { ListToolbar } from "@/components/shared/ListToolbar";
 import type { ViewMode } from "@/components/shared/ViewToggle";
 import {
@@ -93,6 +93,8 @@ type GuardiaItem = {
   marcacionPin?: string | null;
   marcacionPinVisible?: string | null;
   hasHistorialPenal?: boolean;
+  profileComplete?: boolean;
+  profileMissing?: string[];
   bankAccounts?: Array<{
     id: string;
     bankName: string;
@@ -105,6 +107,20 @@ type GuardiaItem = {
 interface GuardiasClientProps {
   initialGuardias: GuardiaItem[];
   userRole: string;
+}
+
+function ProfileIncompleteBadge({ missing }: { missing?: string[] }) {
+  const list = missing && missing.length > 0 ? missing.join(", ") : "datos básicos";
+  return (
+    <span
+      title={`Ficha incompleta — falta: ${list}`}
+      onClick={(e) => e.stopPropagation()}
+      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-[10px] font-medium border border-amber-300/50 dark:border-amber-700/50 cursor-help"
+    >
+      <AlertCircle className="h-3 w-3" />
+      Incompleta
+    </span>
+  );
 }
 
 export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProps) {
@@ -1014,6 +1030,9 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center gap-2 flex-wrap min-w-0">
                           <p className="text-sm font-semibold truncate">{fullName}</p>
+                          {item.profileComplete === false && (
+                            <ProfileIncompleteBadge missing={item.profileMissing} />
+                          )}
                           {canChangeLifecycle ? (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
@@ -1171,8 +1190,11 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                     {/* Col 2: Nombre + estado + teléfono + mobile extras */}
                     <div className="min-w-0">
                       <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-2 min-w-0">
+                        <div className="flex items-center gap-2 min-w-0 flex-wrap">
                           <p className="text-sm font-semibold truncate min-w-0">{fullName}</p>
+                          {item.profileComplete === false && (
+                            <ProfileIncompleteBadge missing={item.profileMissing} />
+                          )}
                           {canChangeLifecycle ? (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>

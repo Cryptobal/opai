@@ -4,6 +4,7 @@ import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/opai";
 import { GuardiasClient } from "@/components/ops";
+import { computeProfileCompleteness } from "@/lib/postulacion-completeness";
 
 export default async function GuardiasPage() {
   const session = await auth();
@@ -42,6 +43,10 @@ export default async function GuardiasPage() {
           commune: true,
           lat: true,
           lng: true,
+          birthDate: true,
+          sex: true,
+          afp: true,
+          healthSystem: true,
         },
       },
       currentInstallation: {
@@ -66,20 +71,27 @@ export default async function GuardiasPage() {
         take: 1,
       },
       documents: {
-        where: { type: "historial_penal" },
-        select: { id: true },
-        take: 1,
+        select: { id: true, type: true },
       },
     },
     orderBy: [{ isBlacklisted: "asc" }, { createdAt: "desc" }],
   });
 
-  const guardias = guardiasRaw.map(({ marcacionPin, documents, ...g }) => ({
-    ...g,
-    marcacionPinVisible: g.marcacionPinVisible,
-    marcacionPin: marcacionPin ? "[configurado]" : null,
-    hasHistorialPenal: documents.length > 0,
-  }));
+  const guardias = guardiasRaw.map(({ marcacionPin, documents, ...g }) => {
+    const completeness = computeProfileCompleteness({
+      persona: g.persona,
+      hasBankAccount: (g.bankAccounts?.length ?? 0) > 0,
+      hasAnyDocument: documents.length > 0,
+    });
+    return {
+      ...g,
+      marcacionPinVisible: g.marcacionPinVisible,
+      marcacionPin: marcacionPin ? "[configurado]" : null,
+      hasHistorialPenal: documents.some((d) => d.type === "historial_penal"),
+      profileComplete: completeness.complete,
+      profileMissing: completeness.missing,
+    };
+  });
 
   return (
     <div className="space-y-6 min-w-0 overflow-x-hidden">

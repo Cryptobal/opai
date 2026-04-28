@@ -408,6 +408,7 @@ model Admin {
   inventoryPhoneLineAssignments InventoryPhoneLineAssignment[]
   companyPresentationsSent CrmCompanyPresentation[]
   guardiasPlanSeleccionUpdates   OpsGuardia[] @relation("ops_guardia_intended_plan_updated_by")
+  guardiasReferidos              OpsGuardia[] @relation("ops_guardia_referred_by_admin")
   alertasCoberturaCreadas        OpsAlertaCobertura[]    @relation("alertas_cobertura_creador")
   googleId                       String?                 @unique @map("google_id") // Google OAuth sub
   verificacionesFisicas          DocVerificacionFisica[]
@@ -3012,6 +3013,13 @@ model OpsGuardia {
   turnosDisponibles   String[]  @map("turnos_disponibles") @db.Text
   pretensionRentaMin  Int?      @map("pretension_renta_min")
   pretensionRentaMax  Int?      @map("pretension_renta_max")
+
+  // ── Tracking de origen de la postulación (web, whatsapp, referido, ads...) ──
+  source              String?   @map("source")          // web_organico | whatsapp | referido_guardia | google_ads | instagram | otro
+  sourceDetails       Json?     @map("source_details")  // { utm_source, utm_medium, utm_campaign, ref, via, referrer, landingPath, ... }
+  tieneOs10Declarado  String?   @map("tiene_os10_declarado") // si | no | en_tramite — declaración del postulante en form express
+  referredByAdminId   String?   @map("referred_by_admin_id") // FK Admin que envió link WhatsApp
+  referredByAdmin     Admin?    @relation("ops_guardia_referred_by_admin", fields: [referredByAdminId], references: [id], onDelete: SetNull)
 
   // ── TE (Turno Extra) quick-entry fields ──
   estadoUniforme       String?  @map("estado_uniforme") // "completo" | "incompleto"
