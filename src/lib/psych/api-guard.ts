@@ -20,7 +20,7 @@ const READ_ROLES = new Set([
   "editor",
 ]);
 
-const WRITE_ROLES = new Set(["owner", "admin", "rrhh", "gerencia"]);
+const WRITE_ROLES = new Set(["owner", "admin", "rrhh", "gerencia", "editor"]);
 
 const ADMIN_ROLES = new Set(["owner", "admin"]);
 
