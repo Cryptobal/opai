@@ -50,11 +50,11 @@ export const ITEMS_COGNITIVE: SeedItem[] = [
     type: "COGNITIVE",
     dimension: "SUSTAINED_ATTENTION",
     prompt:
-      "Lee la siguiente secuencia: 7-2-9-4-1-8-3. ¿Cuál es el cuarto número desde la izquierda?",
-    options: opts(["4", "9", "1", "8"]),
+      "Memoriza esta secuencia: 5-9-2-7-3-1-8. ¿Qué número está exactamente entre el 2 y el 1?",
+    options: opts(["7-3", "9-7", "3-8", "Sólo el 7 o el 3"]),
     scoringKey: cogKey("A"),
-    weight: 1.0,
-    minLatencyMs: 2_500,
-    maxLatencyMs: 45_000,
+    weight: 1.2,
+    minLatencyMs: 4_000,
+    maxLatencyMs: 60_000,
   },
 ];

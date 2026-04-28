@@ -1,6 +1,6 @@
 /**
- * Consolida los 49 ítems del test security-guard-v1.1.0.
- * = 45 ítems v1.0.0 + 4 ítems VOCATIONAL_FIT.
+ * Consolida los 53 ítems del test security-guard-v1.1.0.
+ * = 45 ítems v1.0.0 + 4 ítems VOCATIONAL_FIT + 4 ítems de cobertura (EMOTIONAL_STABILITY/SUSTAINED_ATTENTION).
  */
 
 import { ITEMS_LIKERT } from "./v1-items-likert";
@@ -9,6 +9,7 @@ import { ITEMS_SJT_B } from "./v1-items-sjt-b";
 import { ITEMS_COGNITIVE } from "./v1-items-cognitive";
 import { ITEMS_LIE_OPEN } from "./v1-items-lie-open";
 import { ITEMS_VOCATIONAL_V1_1 } from "./v1-1-items-vocational";
+import { ITEMS_COVERAGE_V1_1 } from "./v1-1-items-coverage";
 import type { SeedItem } from "./v1-shared";
 
 export const ITEMS_V1_1: SeedItem[] = [
@@ -17,12 +18,13 @@ export const ITEMS_V1_1: SeedItem[] = [
   ...ITEMS_SJT_B,
   ...ITEMS_COGNITIVE,
   ...ITEMS_LIE_OPEN,
+  ...ITEMS_COVERAGE_V1_1,
   ...ITEMS_VOCATIONAL_V1_1,
 ];
 
-if (ITEMS_V1_1.length !== 49) {
+if (ITEMS_V1_1.length !== 53) {
   throw new Error(
-    `Seed security-guard-v1.1.0 debe tener 49 items, encontrados ${ITEMS_V1_1.length}`,
+    `Seed security-guard-v1.1.0 debe tener 53 items, encontrados ${ITEMS_V1_1.length}`,
   );
 }
 
