@@ -4,7 +4,7 @@
  * Uso:
  *   npx tsx scripts/psych/seed-v1-1.ts
  *
- * No toca v1.0.0 — crea/actualiza versión 1.1.0 con 49 items.
+ * No toca v1.0.0 — crea/actualiza versión 1.1.0 con 53 items.
  */
 
 import { PrismaClient, type PsychItemType } from "@prisma/client";

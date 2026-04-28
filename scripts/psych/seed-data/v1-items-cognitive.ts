@@ -50,7 +50,7 @@ export const ITEMS_COGNITIVE: SeedItem[] = [
     type: "COGNITIVE",
     dimension: "SUSTAINED_ATTENTION",
     prompt:
-      "Memoriza esta secuencia: 5-9-2-7-3-1-8. ¿Qué número está exactamente entre el 2 y el 1?",
+      "Memoriza esta secuencia: 5-9-2-7-3-1-8. ¿Qué números están exactamente entre el 2 y el 1?",
     options: opts(["7-3", "9-7", "3-8", "Sólo el 7 o el 3"]),
     scoringKey: cogKey("A"),
     weight: 1.2,

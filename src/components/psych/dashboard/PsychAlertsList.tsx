@@ -42,7 +42,7 @@ export default function PsychAlertsList({ alerts }: { alerts: PsychAlert[] }) {
             <div className="flex-1">
               <p>{a.message}</p>
               <span className="inline-block mt-1 text-[10px] uppercase tracking-wide rounded px-1.5 py-0.5 bg-muted text-muted-foreground">
-                {SOURCE_LABEL[a.source] ?? a.source}
+                {SOURCE_LABEL[a.source ?? "rule"]}
               </span>
             </div>
           </div>

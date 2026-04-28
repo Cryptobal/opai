@@ -62,8 +62,8 @@ export const ITEMS_COVERAGE_V1_1: SeedItem[] = [
     dimension: "SUSTAINED_ATTENTION",
     prompt:
       "Lee con atención: 'El vehículo placa BCDF-12 ingresó a las 14:35, salió a las 15:48, y volvió a las 17:02 con dos pasajeros distintos.' ¿Cuántos minutos estuvo dentro la primera vez?",
-    options: opts(["73 minutos", "1 hora 13 minutos", "1 hora 8 minutos", "67 minutos"]),
-    scoringKey: cogKey("B"),
+    options: opts(["73 minutos", "83 minutos", "63 minutos", "1 hora 8 minutos"]),
+    scoringKey: cogKey("A"),
     weight: 1.2,
     minLatencyMs: 5_000,
     maxLatencyMs: 90_000,
