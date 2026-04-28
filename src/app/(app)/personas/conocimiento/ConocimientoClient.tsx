@@ -7,6 +7,8 @@ import {
   Search,
   SlidersHorizontal,
   ArrowUpDown,
+  LayoutList,
+  LayoutGrid,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -16,12 +18,16 @@ import {
   StatusDot,
 } from "@/components/opai/conocimiento/_primitives";
 import { InstallationCard } from "@/components/opai/conocimiento/InstallationCard";
+import { InstallationTile } from "@/components/opai/conocimiento/InstallationTile";
 import type {
   InstallationStatus,
   OverviewResult,
 } from "@/lib/protocols/knowledge-aggregator-types";
 
 type SortKey = "score_asc" | "score_desc" | "name" | "lastExam";
+type ViewMode = "list" | "grid";
+
+const VIEW_STORAGE_KEY = "opai.knowledge.viewMode";
 
 interface ApiOk {
   success: true;
@@ -54,6 +60,23 @@ export function ConocimientoClient() {
   const [sort, setSort] = useState<SortKey>("score_asc");
   const [showFilters, setShowFilters] = useState(false);
   const [showSort, setShowSort] = useState(false);
+  const [view, setView] = useState<ViewMode>("list");
+
+  // Persist view preference per browser, default to grid on lg+ for new users.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const saved = window.localStorage.getItem(VIEW_STORAGE_KEY) as ViewMode | null;
+    if (saved === "list" || saved === "grid") {
+      setView(saved);
+      return;
+    }
+    if (window.matchMedia?.("(min-width: 1024px)").matches) setView("grid");
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(VIEW_STORAGE_KEY, view);
+  }, [view]);
 
   useEffect(() => {
     let cancelled = false;
@@ -240,10 +263,44 @@ export function ConocimientoClient() {
         </div>
       )}
 
-      <div className="mt-3 flex items-center justify-between relative sticky top-0 z-[5] bg-background/80 backdrop-blur-sm py-1">
+      <div className="mt-3 flex items-center justify-between gap-2 relative sticky top-0 z-[5] bg-background/80 backdrop-blur-sm py-1">
         <div className="text-[10px] text-white/30 font-mono">
           {visibleCount} {visibleCount === 1 ? "instalación" : "instalaciones"}
         </div>
+        <div className="flex items-center gap-1.5">
+          {/* View toggle: list | grid */}
+          <div className="flex p-0.5 rounded-lg bg-white/[0.03] border border-white/10">
+            <button
+              type="button"
+              onClick={() => setView("list")}
+              className={cn(
+                "h-6 px-2 rounded-md text-[11px] font-medium flex items-center gap-1 tap-mock",
+                view === "list"
+                  ? "bg-white/[0.06] text-white"
+                  : "text-white/50 hover:text-white/80",
+              )}
+              aria-label="Vista lista"
+              aria-pressed={view === "list"}
+            >
+              <LayoutList className="h-3 w-3" />
+              <span className="hidden md:inline">Lista</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setView("grid")}
+              className={cn(
+                "h-6 px-2 rounded-md text-[11px] font-medium flex items-center gap-1 tap-mock",
+                view === "grid"
+                  ? "bg-white/[0.06] text-white"
+                  : "text-white/50 hover:text-white/80",
+              )}
+              aria-label="Vista grilla"
+              aria-pressed={view === "grid"}
+            >
+              <LayoutGrid className="h-3 w-3" />
+              <span className="hidden md:inline">Grilla</span>
+            </button>
+          </div>
         <div className="relative">
           <button
             type="button"
@@ -276,36 +333,51 @@ export function ConocimientoClient() {
             </div>
           )}
         </div>
+        </div>
       </div>
 
-      {/* Lista — encuadrada con scroll para no convertirse en una tira infinita */}
+      {/* Lista / Grilla */}
       <div
         className={cn(
-          "mt-3 space-y-2.5 relative",
-          // Frame scrollable: alto visible 70vh, scroll suave dentro de la card.
-          // En desktop crece un poco más para aprovechar el viewport.
-          installations.length > 6
+          "mt-3 relative",
+          // Layout depende del modo
+          view === "list" ? "space-y-2.5" : "grid gap-2.5 grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5",
+          // Frame scrollable solo cuando hay muchos elementos
+          installations.length > (view === "list" ? 6 : 12)
             ? "max-h-[70vh] md:max-h-[78vh] overflow-y-auto pr-1 scrollbar-none rounded-2xl border border-white/[0.04] bg-white/[0.01] p-2"
             : "",
         )}
       >
         {loading && (
           <>
-            {Array.from({ length: 4 }).map((_, i) => (
+            {Array.from({ length: view === "grid" ? 8 : 4 }).map((_, i) => (
               <div
                 key={i}
-                className="card-mock p-4 h-[110px] animate-pulse opacity-70"
+                className={cn(
+                  "card-mock animate-pulse opacity-70",
+                  view === "grid" ? "h-[140px] p-3" : "p-4 h-[110px]",
+                )}
               />
             ))}
           </>
         )}
         {!loading && error && (
-          <div className="card-mock p-4 text-center text-[12px] text-red-300/80">
+          <div
+            className={cn(
+              "card-mock p-4 text-center text-[12px] text-red-300/80",
+              view === "grid" && "col-span-full",
+            )}
+          >
             {error}
           </div>
         )}
         {!loading && !error && installations.length === 0 && (
-          <div className="card-mock p-8 text-center">
+          <div
+            className={cn(
+              "card-mock p-8 text-center",
+              view === "grid" && "col-span-full",
+            )}
+          >
             <Building2 className="h-8 w-8 mx-auto text-white/20 mb-3" />
             <div className="font-display text-[14px] font-semibold mb-1">
               {totalCount === 0
@@ -330,13 +402,21 @@ export function ConocimientoClient() {
 
         {!loading &&
           !error &&
-          installations.map((i) => (
-            <InstallationCard
-              key={i.id}
-              data={i}
-              onClick={() => router.push(`/personas/conocimiento/${i.id}`)}
-            />
-          ))}
+          installations.map((i) =>
+            view === "grid" ? (
+              <InstallationTile
+                key={i.id}
+                data={i}
+                onClick={() => router.push(`/personas/conocimiento/${i.id}`)}
+              />
+            ) : (
+              <InstallationCard
+                key={i.id}
+                data={i}
+                onClick={() => router.push(`/personas/conocimiento/${i.id}`)}
+              />
+            ),
+          )}
       </div>
 
       {!loading && remaining > 0 && (
