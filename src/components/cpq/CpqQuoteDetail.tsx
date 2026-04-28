@@ -50,7 +50,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ArrowLeft, ChevronDown, Copy, RefreshCw, Users, MoreVertical, Trash2, Loader2, Building2, Plus, MessageCircle, Send, Check, Briefcase, Phone, Sparkles, CalendarDays, FileSignature } from "lucide-react";
+import { ArrowLeft, ChevronDown, Copy, RefreshCw, Users, MoreVertical, Trash2, Loader2, Building2, Plus, MessageCircle, Send, Check, CheckCircle2, Briefcase, Phone, PencilLine, Sparkles, CalendarDays, FileSignature } from "lucide-react";
 import { DatosSection } from "@/components/cpq/DatosSection";
 import MarginSection from "@/components/cpq/MarginSection";
 import { QuoteAttachmentsSection } from "@/components/cpq/QuoteAttachmentsSection";
@@ -1256,7 +1256,6 @@ export function CpqQuoteDetail({
   const canSendPortalProposal =
     Boolean(quote) &&
     (positions.length > 0 || (additionalLines?.length ?? 0) > 0) &&
-    quote?.status !== "sent" &&
     Boolean(crmContext.accountId && crmContext.contactId && crmContext.dealId);
   const quoteStatusLabel =
     quote?.status === "sent"
@@ -1279,7 +1278,6 @@ export function CpqQuoteDetail({
     { label: "Contacto", ready: Boolean(crmContext.contactId) },
     { label: "Negocio", ready: Boolean(crmContext.dealId) },
     { label: "Puestos o líneas", ready: positions.length > 0 || (additionalLines?.length ?? 0) > 0 },
-    { label: "Editable", ready: quote?.status !== "sent" },
   ];
 
   const handleGeneratePdfPreview = async () => {
@@ -1427,12 +1425,11 @@ export function CpqQuoteDetail({
               disabled={
                 !quote ||
                 (positions.length === 0 && (additionalLines?.length ?? 0) === 0) ||
-                quote.status === "sent" ||
                 !crmContext.accountId ||
                 !crmContext.contactId ||
                 !crmContext.dealId
               }
-              title="Enviar propuesta (invitación al portal)"
+              title={quote.status === "sent" ? "Reenviar propuesta al portal" : "Enviar propuesta (invitación al portal)"}
               onClick={() => setPortalProposalOpen(true)}
             >
               <Send className="h-3.5 w-3.5" />
@@ -1469,24 +1466,31 @@ export function CpqQuoteDetail({
                       disabled={
                         !quote ||
                         (positions.length === 0 && (additionalLines?.length ?? 0) === 0) ||
-                        quote.status === "sent" ||
                         !crmContext.accountId ||
                         !crmContext.contactId ||
                         !crmContext.dealId
                       }
                     >
-                      <Send className="h-3.5 w-3.5" /> Enviar propuesta al portal
+                      <Send className="h-3.5 w-3.5" /> {quote.status === "sent" ? "Reenviar propuesta al portal" : "Enviar propuesta al portal"}
                     </button>
-                    {quote.status === "sent" ? (
-                      <button className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent" onClick={() => { setOverflowMenuOpen(false); setStatusChangePending("draft"); }} disabled={changingStatus}>
-                        Marcar como borrador
-                      </button>
-                    ) : (
-                      <button className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent" onClick={() => { setOverflowMenuOpen(false); setStatusChangePending("sent"); }} disabled={changingStatus}>
-                        Marcar como enviada
-                      </button>
-                    )}
                   </div>
+                  {quote.status === "sent" ? (
+                    <button
+                      className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent"
+                      onClick={() => { setOverflowMenuOpen(false); setStatusChangePending("draft"); }}
+                      disabled={changingStatus}
+                    >
+                      <PencilLine className="h-3.5 w-3.5" /> Volver a borrador (editar)
+                    </button>
+                  ) : (
+                    <button
+                      className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent"
+                      onClick={() => { setOverflowMenuOpen(false); setStatusChangePending("sent"); }}
+                      disabled={changingStatus}
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5" /> Marcar como enviada
+                    </button>
+                  )}
                   <button className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent" onClick={() => { setOverflowMenuOpen(false); handleClone(); }} disabled={cloning}>
                     <Copy className="h-3.5 w-3.5" /> {cloning ? "Clonando..." : "Clonar cotizacion"}
                   </button>
@@ -2837,7 +2841,7 @@ export function CpqQuoteDetail({
                   onClick={() => setPortalProposalOpen(true)}
                 >
                   <Send className="h-4 w-4" />
-                  Enviar propuesta
+                  {quote.status === "sent" ? "Reenviar propuesta" : "Enviar propuesta"}
                 </Button>
                 <CpqPdfPreviewPanel
                   mode={pdfPreviewMode}
@@ -2916,7 +2920,6 @@ export function CpqQuoteDetail({
             disabled={
               !quote ||
               (positions.length === 0 && (additionalLines?.length ?? 0) === 0) ||
-              quote.status === "sent" ||
               !crmContext.accountId ||
               !crmContext.contactId ||
               !crmContext.dealId
@@ -2924,7 +2927,7 @@ export function CpqQuoteDetail({
             onClick={() => setPortalProposalOpen(true)}
           >
             <Send className="h-4 w-4" />
-            Enviar
+            {quote?.status === "sent" ? "Reenviar" : "Enviar"}
           </Button>
         }
       />
@@ -2953,7 +2956,6 @@ export function CpqQuoteDetail({
               disabled={
                 !quote ||
                 (positions.length === 0 && (additionalLines?.length ?? 0) === 0) ||
-                quote.status === "sent" ||
                 !crmContext.accountId ||
                 !crmContext.dealId
               }
@@ -3157,7 +3159,7 @@ export function CpqQuoteDetail({
             <DialogTitle>Marcar como enviada</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            Marcar esta cotizacion como enviada? Una vez enviada, no podras modificar nada hasta que la vuelvas a borrador.
+            Marcar esta cotizacion como enviada? Una vez enviada, no podrás modificar nada hasta que la vuelvas a borrador. Aun así podrás reenviar la propuesta al cliente las veces que necesites.
           </p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setStatusChangePending(null)} disabled={changingStatus}>
