@@ -13,9 +13,16 @@ CREATE INDEX IF NOT EXISTS "idx_ops_guardias_source"
 CREATE INDEX IF NOT EXISTS "idx_ops_guardias_referred_by_admin"
   ON "ops"."guardias" ("referred_by_admin_id");
 
-ALTER TABLE "ops"."guardias"
-  ADD CONSTRAINT "ops_guardias_referred_by_admin_fk"
-  FOREIGN KEY ("referred_by_admin_id")
-  REFERENCES "public"."admins" ("id")
-  ON DELETE SET NULL
-  ON UPDATE CASCADE;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'ops_guardias_referred_by_admin_fk'
+  ) THEN
+    ALTER TABLE "ops"."guardias"
+      ADD CONSTRAINT "ops_guardias_referred_by_admin_fk"
+      FOREIGN KEY ("referred_by_admin_id")
+      REFERENCES "public"."Admin" ("id")
+      ON DELETE SET NULL
+      ON UPDATE CASCADE;
+  END IF;
+END$$;
