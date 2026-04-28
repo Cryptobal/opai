@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { DetailField, DetailFieldGrid } from "@/components/crm/DetailField";
+import { DetailField, DetailFieldGrid } from "@/components/opai/DetailField";
 import {
   BANK_ACCOUNT_TYPES,
   CHILE_BANKS,
