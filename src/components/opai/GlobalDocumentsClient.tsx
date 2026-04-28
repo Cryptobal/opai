@@ -18,12 +18,14 @@ import {
   User,
   Building2,
   Globe,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { DocStatusBadge } from "@/components/ops/DocStatusBadge";
 import {
@@ -57,6 +59,7 @@ type TipoDoc = {
   order: number;
   capa: string;
   obligatorioEnVisita: boolean;
+  useAsAiKnowledge: boolean;
   documentoActual: { id: string; status: string; fileName: string; expiresAt: string | null } | null;
 };
 
@@ -483,6 +486,14 @@ function EmpresaTab({
                             <div className="flex items-center gap-2 flex-wrap">
                               <p className="text-sm font-medium truncate">{tipo.nombre}</p>
                               {!tipo.obligatorio && <Badge variant="outline" className="text-[10px] px-1.5 py-0">Opcional</Badge>}
+                              {tipo.useAsAiKnowledge && (
+                                <Badge
+                                  className="text-[10px] px-1.5 py-0 bg-emerald-500/15 text-emerald-400 border-transparent"
+                                  title="Este tipo se ofrece como insumo cuando la IA genera protocolos o preguntas de exámenes"
+                                >
+                                  <Sparkles className="h-2.5 w-2.5 mr-0.5" /> IA
+                                </Badge>
+                              )}
                             </div>
                             {tipo.normativa && <p className="text-xs text-muted-foreground truncate">{tipo.normativa}</p>}
                             {doc && (
@@ -499,6 +510,7 @@ function EmpresaTab({
                           </div>
                           <div className="shrink-0">{doc ? <DocStatusBadge status={doc.status} expiresAt={doc.expiresAt} /> : <DocStatusBadge status="sin_documento" />}</div>
                           <VisitaCheckbox tipo={tipo} onRefresh={onRefresh} />
+                          <AiKnowledgeToggle tipo={tipo} onRefresh={onRefresh} />
                           <div className="flex items-center gap-0.5 shrink-0">
                             <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => {
                               setEditTipo(tipo);
@@ -804,14 +816,23 @@ function InstalacionTab({
                   <Building2 className="h-5 w-5 text-zinc-500" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <p className="text-sm font-medium truncate">{tipo.nombre}</p>
                     {!tipo.obligatorio && <Badge variant="outline" className="text-[10px] px-1.5 py-0">Opcional</Badge>}
                     {tipo.tieneVencimiento && <Badge variant="outline" className="text-[10px] px-1.5 py-0">Con vencimiento</Badge>}
+                    {tipo.useAsAiKnowledge && (
+                      <Badge
+                        className="text-[10px] px-1.5 py-0 bg-emerald-500/15 text-emerald-400 border-transparent"
+                        title="Este tipo se ofrece como insumo cuando la IA genera protocolos o preguntas de exámenes"
+                      >
+                        <Sparkles className="h-2.5 w-2.5 mr-0.5" /> IA
+                      </Badge>
+                    )}
                   </div>
                   {tipo.normativa && <p className="text-xs text-muted-foreground truncate">{tipo.normativa}</p>}
                 </div>
                 <VisitaCheckbox tipo={tipo} onRefresh={onRefresh} />
+                <AiKnowledgeToggle tipo={tipo} onRefresh={onRefresh} />
                 <div className="flex items-center gap-0.5 shrink-0">
                   <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => {
                     setEditTipo(tipo);
@@ -974,6 +995,59 @@ function VisitaCheckbox({
       />
       Oblig. visita
     </label>
+  );
+}
+
+/* ══════════════════════════════════════════════════
+   Shared: Toggle "Usar como base de IA"
+   ══════════════════════════════════════════════════ */
+
+function AiKnowledgeToggle({
+  tipo,
+  onRefresh,
+}: {
+  tipo: TipoDoc;
+  onRefresh: () => Promise<void>;
+}) {
+  const [updating, setUpdating] = useState(false);
+  return (
+    <div
+      className="flex items-center gap-1.5 text-xs whitespace-nowrap shrink-0"
+      title="Si está activo, este documento se ofrece como insumo cuando la IA genera protocolos o preguntas de exámenes."
+    >
+      <Sparkles
+        className={cn(
+          "h-3 w-3",
+          tipo.useAsAiKnowledge ? "text-emerald-400" : "text-muted-foreground/60",
+        )}
+      />
+      <Switch
+        checked={!!tipo.useAsAiKnowledge}
+        disabled={updating}
+        onCheckedChange={async (v) => {
+          setUpdating(true);
+          try {
+            const res = await fetch(`/api/operacional/tipos/${tipo.id}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ useAsAiKnowledge: v }),
+            });
+            const json = await res.json();
+            if (json.success) {
+              await onRefresh();
+            } else {
+              toast.error(json.error || "Error al actualizar");
+            }
+          } catch {
+            toast.error("Error al actualizar");
+          } finally {
+            setUpdating(false);
+          }
+        }}
+        aria-label="Usar como base de IA"
+      />
+      <span className="hidden sm:inline text-muted-foreground">Base IA</span>
+    </div>
   );
 }
 
