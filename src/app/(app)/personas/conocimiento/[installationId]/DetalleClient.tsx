@@ -218,7 +218,11 @@ export function DetalleClient({ installationId }: { installationId: string }) {
                 ? "Crear protocolo"
                 : "Reagendar evaluación"
             }
-            primaryHref={`/crm/installations/${installationId}?tab=protocol`}
+            primaryHref={
+              data.alert.kind === "no_protocol"
+                ? `/crm/installations/${installationId}?tab=protocol&subtab=sections`
+                : `/crm/installations/${installationId}?tab=protocol&subtab=exams`
+            }
             secondaryLabel="Descargar reporte"
             secondaryHref={`/api/installations/${installationId}/protocol/client-report/pdf`}
           />
@@ -261,7 +265,9 @@ export function DetalleClient({ installationId }: { installationId: string }) {
             hint="Abrir en CRM →"
             icon={<Edit3 className="h-3.5 w-3.5" />}
             onClick={() =>
-              router.push(`/crm/installations/${installationId}?tab=protocol`)
+              router.push(
+                `/crm/installations/${installationId}?tab=protocol&subtab=sections`,
+              )
             }
           />
           <QuickAction

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { aiService } from "@/lib/ai-service";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
+import { clearKnowledgeCache } from "@/lib/protocols/knowledge-aggregator";
 import { canEdit } from "@/lib/permissions";
 
 type Params = { id: string };
@@ -106,6 +107,8 @@ export async function POST(
         }),
       ),
     );
+
+    clearKnowledgeCache(ctx.tenantId);
 
     return NextResponse.json({ success: true, data: { sections: created } });
   } catch (error) {

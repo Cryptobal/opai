@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, resolveApiPerms, parseBody } from "@/lib/api-auth";
 import { canEdit } from "@/lib/permissions";
+import { clearKnowledgeCache } from "@/lib/protocols/knowledge-aggregator";
 
 type Params = { id: string };
 
@@ -50,6 +51,10 @@ export async function POST(
         order,
       },
     });
+
+    // Personas → Conocimiento usa un cache de 60s del overview por tenant.
+    // Lo invalidamos para que el cambio se vea de inmediato.
+    clearKnowledgeCache(ctx.tenantId);
 
     return NextResponse.json({ success: true, data: section }, { status: 201 });
   } catch (error) {

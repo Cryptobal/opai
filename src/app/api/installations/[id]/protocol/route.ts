@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
+import { clearKnowledgeCache } from "@/lib/protocols/knowledge-aggregator";
 import { canViewInstallations, canEditInstallations } from "@/lib/permissions";
 
 type Params = { id: string };
@@ -135,6 +136,8 @@ export async function POST(
       }
       return results;
     });
+
+    clearKnowledgeCache(ctx.tenantId);
 
     return NextResponse.json({ success: true, data: { created: created.length } }, { status: 201 });
   } catch (error) {

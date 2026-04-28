@@ -240,7 +240,7 @@ export function ConocimientoClient() {
         </div>
       )}
 
-      <div className="mt-3 flex items-center justify-between relative">
+      <div className="mt-3 flex items-center justify-between relative sticky top-0 z-[5] bg-background/80 backdrop-blur-sm py-1">
         <div className="text-[10px] text-white/30 font-mono">
           {visibleCount} {visibleCount === 1 ? "instalación" : "instalaciones"}
         </div>
@@ -278,8 +278,17 @@ export function ConocimientoClient() {
         </div>
       </div>
 
-      {/* Lista */}
-      <div className="mt-3 space-y-2.5 relative">
+      {/* Lista — encuadrada con scroll para no convertirse en una tira infinita */}
+      <div
+        className={cn(
+          "mt-3 space-y-2.5 relative",
+          // Frame scrollable: alto visible 70vh, scroll suave dentro de la card.
+          // En desktop crece un poco más para aprovechar el viewport.
+          installations.length > 6
+            ? "max-h-[70vh] md:max-h-[78vh] overflow-y-auto pr-1 scrollbar-none rounded-2xl border border-white/[0.04] bg-white/[0.01] p-2"
+            : "",
+        )}
+      >
         {loading && (
           <>
             {Array.from({ length: 4 }).map((_, i) => (

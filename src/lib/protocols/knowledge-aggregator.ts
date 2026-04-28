@@ -238,10 +238,14 @@ export async function buildOverview(
 }
 
 async function computeOverview(tenantId: string): Promise<OverviewResult> {
+  // Only ACTIVE installations belong to this view. Prospects, archived,
+  // pending and lost are intentionally excluded — Conocimiento mide la
+  // operación viva, no el funnel comercial.
   const installations = await prisma.crmInstallation.findMany({
     where: {
       tenantId,
-      status: { in: ["active", "prospect"] },
+      status: "active",
+      isActive: true,
     },
     select: {
       id: true,
@@ -396,7 +400,12 @@ export async function buildInstallationDetail(
   },
 ): Promise<InstallationDetailResult | null> {
   const inst = await prisma.crmInstallation.findFirst({
-    where: { id: installationId, tenantId },
+    where: {
+      id: installationId,
+      tenantId,
+      status: "active",
+      isActive: true,
+    },
     select: {
       id: true,
       name: true,
