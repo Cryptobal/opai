@@ -70,7 +70,21 @@ export default function PsychWizard({ token }: Props) {
     latencyMs: number,
   ) {
     await api.respond(itemId, value, latencyMs);
+    // Guardamos la respuesta en el estado local para que "Atrás" pueda
+    // pre-fillearla sin tener que recargar desde el servidor.
+    setPayload((prev) => {
+      if (!prev) return prev;
+      const others = prev.responses.filter((r) => r.itemId !== itemId);
+      return {
+        ...prev,
+        responses: [...others, { itemId, value, latencyMs }],
+      };
+    });
     setCurrentIndex((i) => i + 1);
+  }
+
+  function handleBack() {
+    setCurrentIndex((i) => Math.max(0, i - 1));
   }
 
   async function handleFinish() {
@@ -123,7 +137,9 @@ export default function PsychWizard({ token }: Props) {
         <PsychRunning
           items={payload.version.items}
           currentIndex={currentIndex}
+          responses={payload.responses}
           onAnswered={handleAnswered}
+          onBack={handleBack}
           onFinish={handleFinish}
           primaryColor={color}
         />
