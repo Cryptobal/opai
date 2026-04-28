@@ -12,6 +12,7 @@ export const PSYCH_DIMENSIONS = [
   "REASONING",
   "INTEGRITY",
   "RESPONSIBILITY",
+  "VOCATIONAL_FIT",
 ] as const;
 
 export type PsychDimension = (typeof PSYCH_DIMENSIONS)[number];
@@ -25,11 +26,12 @@ export const PSYCH_DIMENSION_LABELS: Record<PsychDimension, string> = {
   REASONING: "Razonamiento",
   INTEGRITY: "Integridad",
   RESPONSIBILITY: "Responsabilidad",
+  VOCATIONAL_FIT: "Pasión por la seguridad",
 };
 
 export const PSYCH_SCORING_VERSION = "1.0.0";
 export const PSYCH_TEST_CODE = "security-guard-v1";
-export const PSYCH_TEST_VERSION = "1.0.0";
+export const PSYCH_TEST_VERSION = "1.1.0";
 
 // Key registrado en ALL_MODULES (src/lib/tenant-modules.ts).
 export const PSYCH_MODULE_KEY = "psych" as const;
@@ -61,6 +63,7 @@ export const DIMENSION_WEIGHT_FIELD: Record<
   | "weightReasoning"
   | "weightIntegrity"
   | "weightResponsibility"
+  | "weightVocational"
 > = {
   IMPULSE_CONTROL: "weightImpulse",
   FRUSTRATION_TOLERANCE: "weightFrustration",
@@ -70,9 +73,11 @@ export const DIMENSION_WEIGHT_FIELD: Record<
   REASONING: "weightReasoning",
   INTEGRITY: "weightIntegrity",
   RESPONSIBILITY: "weightResponsibility",
+  VOCATIONAL_FIT: "weightVocational",
 };
 
 // Defaults de TenantPsychConfig (para cuando no existe registro).
+// VOCATIONAL_FIT es opt-in: peso 0.0 hasta que el tenant lo active.
 export const PSYCH_DEFAULT_CONFIG = {
   weights: {
     IMPULSE_CONTROL: 1.0,
@@ -83,6 +88,7 @@ export const PSYCH_DEFAULT_CONFIG = {
     REASONING: 1.0,
     INTEGRITY: 1.0,
     RESPONSIBILITY: 1.0,
+    VOCATIONAL_FIT: 0.0,
   } as Record<PsychDimension, number>,
   thresholdFit: 80,
   thresholdCaution: 60,

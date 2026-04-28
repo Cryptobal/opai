@@ -8373,6 +8373,7 @@ model TenantPsychConfig {
   weightReasoning      Float    @default(1.0) @map("weight_reasoning")
   weightIntegrity      Float    @default(1.0) @map("weight_integrity")
   weightResponsibility Float    @default(1.0) @map("weight_responsibility")
+  weightVocational     Float    @default(0.0) @map("weight_vocational")
   thresholdFit         Int      @default(80) @map("threshold_fit")
   thresholdCaution     Int      @default(60) @map("threshold_caution")
   requirePsychReview   Boolean  @default(false) @map("require_psych_review")
