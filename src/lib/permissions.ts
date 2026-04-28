@@ -286,6 +286,7 @@ export const SUBMODULE_META: SubmoduleMeta[] = [
   { key: "config.mi_plan", module: "config", submodule: "mi_plan", label: "Mi Plan", href: "/opai/configuracion/mi-plan" },
   { key: "config.cumplimiento", module: "config", submodule: "cumplimiento", label: "Cumplimiento", href: "/opai/configuracion/cumplimiento" },
   { key: "config.asistente_ia", module: "config", submodule: "asistente_ia", label: "Asistente IA", href: "/opai/configuracion/asistente-ia" },
+  { key: "config.informes_vulnerabilidad", module: "config", submodule: "informes_vulnerabilidad", label: "Informes de Vulnerabilidad", href: "/opai/configuracion/informes-vulnerabilidad" },
   { key: "config.gamificacion", module: "config", submodule: "gamificacion", label: "Gamificación", href: "/opai/configuracion/gamificacion" },
   { key: "config.grupos", module: "config", submodule: "grupos", label: "Grupos", href: "/opai/configuracion/grupos" },
   { key: "config.integraciones", module: "config", submodule: "integraciones", label: "Integraciones", href: "/opai/configuracion/integraciones" },
@@ -457,6 +458,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
       "config.mi_plan": "none",
       "config.gamificacion": "none",
       "config.asistente_ia": "none",
+      "config.informes_vulnerabilidad": "none",
       "config.inteligencia_artificial": "none",
       // Edita
       "config.firmas": "edit",
