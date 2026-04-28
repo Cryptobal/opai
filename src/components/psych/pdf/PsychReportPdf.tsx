@@ -53,6 +53,12 @@ const BAND_LABEL: Record<string, string> = {
   NOT_RECOMMENDED: "No recomendado",
 };
 
+function splitAlerts(alerts: PsychAlert[]) {
+  const tech = alerts.filter((a) => a.code === "OPEN_ANALYSIS_FAILED");
+  const candidate = alerts.filter((a) => a.code !== "OPEN_ANALYSIS_FAILED");
+  return { tech, candidate };
+}
+
 export function PsychReportPdf(props: Props) {
   return (
     <Document>
@@ -80,7 +86,11 @@ export function PsychReportPdf(props: Props) {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Perfil por dimensión</Text>
-          {PSYCH_DIMENSIONS.map((dim) => {
+          {PSYCH_DIMENSIONS.filter(
+            (dim) =>
+              dim !== "VOCATIONAL_FIT" &&
+              (props.dimensionScores[dim]?.itemCount ?? 0) > 0,
+          ).map((dim) => {
             const s = props.dimensionScores[dim]?.score ?? 0;
             const pct = Math.round(s * 100);
             return (
@@ -97,33 +107,81 @@ export function PsychReportPdf(props: Props) {
           })}
         </View>
 
-        {props.openAnalysis.length > 0 ? (
-          <View style={styles.section} wrap>
-            <Text style={styles.sectionTitle}>Análisis cualitativo</Text>
-            {props.openAnalysis.map((o) => (
-              <View key={o.itemId} style={styles.openBox}>
-                <Text>{o.summary || "Sin análisis disponible."}</Text>
-                {o.markers.length > 0 ? (
-                  <Text style={styles.subtitle}>Marcadores: {o.markers.join(", ")}</Text>
-                ) : null}
+        {(props.dimensionScores.VOCATIONAL_FIT?.itemCount ?? 0) > 0 ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Ajuste vocacional (informativo)</Text>
+            <View style={styles.bar}>
+              <View style={styles.barLabel}>
+                <Text>Pasión por la seguridad</Text>
+                <Text>{Math.round((props.dimensionScores.VOCATIONAL_FIT.score ?? 0) * 100)}</Text>
               </View>
-            ))}
+              <View style={styles.barTrack}>
+                <View style={{ ...styles.barFill, width: `${Math.round((props.dimensionScores.VOCATIONAL_FIT.score ?? 0) * 100)}%`, backgroundColor: "#16a34a" }} />
+              </View>
+            </View>
           </View>
         ) : null}
 
-        {props.alerts.length > 0 ? (
+        {props.openAnalysis.length > 0 ? (
           <View style={styles.section} wrap>
-            <Text style={styles.sectionTitle}>Alertas</Text>
-            {props.alerts.map((a, i) => (
-              <View
-                key={`${a.code}-${i}`}
-                style={a.severity === "critical" ? { ...styles.alertRow, ...styles.alertCritical } : styles.alertRow}
-              >
-                <Text>{a.message}</Text>
-              </View>
-            ))}
+            <Text style={styles.sectionTitle}>Análisis cualitativo</Text>
+            {props.openAnalysis.map((o) => {
+              if (o.error) {
+                return (
+                  <View key={o.itemId} style={[styles.openBox, { backgroundColor: "#fef3c7" }]}>
+                    <Text>Análisis pendiente — error técnico de IA. Reintentar.</Text>
+                  </View>
+                );
+              }
+              if (!o.summary) {
+                return (
+                  <View key={o.itemId} style={styles.openBox}>
+                    <Text>La IA no detectó marcadores relevantes.</Text>
+                  </View>
+                );
+              }
+              return (
+                <View key={o.itemId} style={styles.openBox}>
+                  <Text>{o.summary}</Text>
+                  {o.markers.length > 0 ? (
+                    <Text style={styles.subtitle}>Marcadores: {o.markers.join(", ")}</Text>
+                  ) : null}
+                </View>
+              );
+            })}
           </View>
         ) : null}
+
+        {(() => {
+          const { tech, candidate } = splitAlerts(props.alerts);
+          return (
+            <>
+              {candidate.length > 0 ? (
+                <View style={styles.section} wrap>
+                  <Text style={styles.sectionTitle}>Alertas</Text>
+                  {candidate.map((a, i) => (
+                    <View
+                      key={`${a.code}-${i}`}
+                      style={a.severity === "critical" ? { ...styles.alertRow, ...styles.alertCritical } : styles.alertRow}
+                    >
+                      <Text>{a.message}</Text>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+              {tech.length > 0 ? (
+                <View style={styles.section} wrap>
+                  <Text style={styles.sectionTitle}>Calidad técnica</Text>
+                  {tech.map((a, i) => (
+                    <View key={`${a.code}-${i}`} style={styles.alertRow}>
+                      <Text>{a.message}</Text>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+            </>
+          );
+        })()}
 
         {props.reviewer ? (
           <View style={styles.section}>

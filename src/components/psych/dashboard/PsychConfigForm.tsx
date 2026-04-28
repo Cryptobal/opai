@@ -17,6 +17,7 @@ interface ConfigShape {
   weightReasoning: number;
   weightIntegrity: number;
   weightResponsibility: number;
+  weightVocational: number;
   thresholdFit: number;
   thresholdCaution: number;
   requirePsychReview: boolean;
@@ -43,6 +44,7 @@ export default function PsychConfigForm() {
             weightReasoning: c.weights.REASONING,
             weightIntegrity: c.weights.INTEGRITY,
             weightResponsibility: c.weights.RESPONSIBILITY,
+            weightVocational: c.weights.VOCATIONAL_FIT ?? 0,
             thresholdFit: c.thresholdFit,
             thresholdCaution: c.thresholdCaution,
             requirePsychReview: c.requirePsychReview,
@@ -91,7 +93,7 @@ export default function PsychConfigForm() {
                 <label className="text-sm text-foreground/90">{PSYCH_DIMENSION_LABELS[dim]}</label>
                 <input
                   type="range"
-                  min={0.5}
+                  min={dim === "VOCATIONAL_FIT" ? 0 : 0.5}
                   max={2.0}
                   step={0.1}
                   value={value}
@@ -102,6 +104,11 @@ export default function PsychConfigForm() {
             );
           })}
         </div>
+        <p className="text-xs text-muted-foreground mt-3">
+          <strong>Pasión por la seguridad</strong>: peso 0 mantiene la dimensión
+          como informativa (se reporta pero no afecta el puntaje global). Súbelo
+          si quieres priorizar candidatos con vocación de servicio.
+        </p>
       </section>
 
       <section className="bg-card rounded-xl border border-border p-5 space-y-3">

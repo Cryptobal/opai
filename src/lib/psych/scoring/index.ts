@@ -96,8 +96,14 @@ export async function scoreAssessment(
     dimensions,
     openAnalyses,
     lieScore,
+    lieHits: buckets.lieHits,
     straightLining,
+    likertSamples: buckets.likertSamples,
     fastLatency,
+    latencyRows: buckets.latencyRows,
+    scoredResponses: buckets.scoredResponses,
+    items: itemsMap,
+    responsesById: buckets.responsesById,
   });
 
   const dimensionScores: Record<string, { score: number; itemCount: number }> =

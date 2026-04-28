@@ -30,11 +30,13 @@ export default function PsychRadarChart({
   const border = useThemeColor("--border");
   const primary = useThemeColor("--primary");
 
-  const data = PSYCH_DIMENSIONS.map((dim) => ({
-    dimension: PSYCH_DIMENSION_LABELS[dim as PsychDimension],
-    score: Math.round((dimensionScores[dim]?.score ?? 0) * 100),
-    threshold: thresholdFit,
-  }));
+  const data = PSYCH_DIMENSIONS
+    .filter((dim) => (dimensionScores[dim]?.itemCount ?? 0) > 0)
+    .map((dim) => ({
+      dimension: PSYCH_DIMENSION_LABELS[dim as PsychDimension],
+      score: Math.round((dimensionScores[dim]?.score ?? 0) * 100),
+      threshold: thresholdFit,
+    }));
 
   return (
     <div className="w-full aspect-square max-w-md mx-auto md:max-w-none md:aspect-auto md:h-[340px]">
