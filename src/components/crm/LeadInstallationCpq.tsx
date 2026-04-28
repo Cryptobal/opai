@@ -31,6 +31,7 @@ import {
 import type { ServiceTemplate } from "@/lib/cpq/service-templates";
 import { resolveRolIdFromShiftPattern } from "@/lib/cpq/resolve-cpq-role-from-shift-pattern";
 import type { MarginMode } from "@/types/cpq";
+import { AiErrorDialog, type AiErrorPayload } from "@/components/ai/AiErrorDialog";
 
 /* ─── Types ─── */
 
@@ -334,6 +335,8 @@ export function LeadInstallationCpq({
   const [generatingCompany, setGeneratingCompany] = useState(false);
   const [generatingService, setGeneratingService] = useState(false);
   const [aiInstruction, setAiInstruction] = useState("");
+  const [aiError, setAiError] = useState<AiErrorPayload | null>(null);
+  const aiAutoFailedRef = useRef(false);
 
   const update = (patch: Partial<LeadCpqConfig>) => onChange({ ...config, ...patch });
 
@@ -570,11 +573,19 @@ export function LeadInstallationCpq({
           customInstruction: aiInstruction || undefined,
         }),
       });
+      const data = await res.json().catch(() => null);
       if (!res.ok) {
-        const errorData = await res.json().catch(() => null);
-        throw new Error(errorData?.error || `Error ${res.status} al generar descripción`);
+        if (data?.code) {
+          aiAutoFailedRef.current = true;
+          setAiError({
+            code: data.code,
+            message: data.error,
+            providerType: data.providerType,
+          });
+          return;
+        }
+        throw new Error(data?.error || `Error ${res.status} al generar descripción`);
       }
-      const data = await res.json();
       if (data?.success && data.data?.description) {
         if (type === "company") update({ companyDescription: data.data.description });
         else update({ serviceDescription: data.data.description });
@@ -583,6 +594,11 @@ export function LeadInstallationCpq({
       }
     } catch (err) {
       console.error("[Lead IA] Error generating description:", err);
+      aiAutoFailedRef.current = true;
+      setAiError({
+        code: "AI_PROVIDER_ERROR",
+        message: err instanceof Error ? err.message : "Error inesperado",
+      });
     } finally {
       setter(false);
     }
@@ -592,16 +608,20 @@ export function LeadInstallationCpq({
   const autoGenTriggered = useRef(false);
   useEffect(() => {
     if (autoGenTriggered.current) return;
+    if (aiAutoFailedRef.current) return;
     if (config.positions.length === 0) return;
     if (config.companyDescription || config.serviceDescription) return;
     if (generatingCompany || generatingService) return;
     autoGenTriggered.current = true;
-    const timer = setTimeout(() => {
-      generateDescription("company");
-      generateDescription("service");
+    const timer = setTimeout(async () => {
+      await generateDescription("company");
+      if (!aiAutoFailedRef.current) {
+        await generateDescription("service");
+      }
     }, 800);
     return () => clearTimeout(timer);
-  }, [config.positions.length, config.companyDescription, config.serviceDescription]); // eslint-disable-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config.positions.length, config.companyDescription, config.serviceDescription]);
 
   const payrollPreviewSig = useMemo(
     () =>
@@ -1449,6 +1469,7 @@ export function LeadInstallationCpq({
         />
       )}
 
+      <AiErrorDialog error={aiError} onClose={() => setAiError(null)} />
     </div>
   );
 }
