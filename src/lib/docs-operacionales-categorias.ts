@@ -107,6 +107,14 @@ export function categoriaForTipo(args: {
  * Tipos default que se siembran lazy la primera vez que un tenant entra a
  * "Documentos Operacionales", de modo que la categoría "Protocolos y
  * Seguridad" tenga un esqueleto útil sin tener que crear cada uno a mano.
+ *
+ * NOTA: Estos tipos llegan con `useAsAiKnowledge=true` por la migración
+ * `20260628000000_add_ai_knowledge_flag_and_exam_sources` (matchea por
+ * prefijo de código). Si agregas un código nuevo aquí, asegúrate que
+ * comience con uno de estos prefijos: `protocolo`, `plan_evacuacion`,
+ * `plan_contingencia`, `plan_emergencia`, `matriz_riesgo`,
+ * `manual_seguridad`, `evac`, `emergencia`, `seguridad`. De lo contrario
+ * el flag quedará en false y deberá activarse desde la UI.
  */
 export type DefaultTipoSeed = {
   codigo: string;

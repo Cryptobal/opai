@@ -2631,14 +2631,18 @@ model ProtocolSection {
 }
 
 model ProtocolItem {
-  id          String   @id @default(cuid())
-  sectionId   String   @map("section_id")
-  title       String
-  description String   @db.Text
-  order       Int      @default(0)
-  source      String   @default("manual") // manual | ai_generated | ai_from_pdf
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id               String   @id @default(cuid())
+  sectionId        String   @map("section_id")
+  title            String
+  description      String   @db.Text
+  order            Int      @default(0)
+  source           String   @default("manual") // manual | ai_generated | ai_from_pdf
+  /// 1=informativo, 2=importante, 3=crítico (incidente/emergencia)
+  criticality      Int      @default(1)
+  /// true cuando el ítem cumple una norma específica (la cita va en description)
+  legalRequirement Boolean  @default(false) @map("legal_requirement")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   section ProtocolSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
 
@@ -2734,13 +2738,34 @@ model Exam {
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  installation CrmInstallation  @relation(fields: [installationId], references: [id], onDelete: Cascade)
-  questions    ExamQuestion[]
-  assignments  ExamAssignment[]
+  installation    CrmInstallation       @relation(fields: [installationId], references: [id], onDelete: Cascade)
+  questions       ExamQuestion[]
+  assignments     ExamAssignment[]
+  sourceDocuments ExamSourceDocument[]
 
   @@index([installationId], map: "idx_exam_installation")
   @@index([installationId, status], map: "idx_exam_installation_status")
   @@map("exams")
+  @@schema("crm")
+}
+
+/// Trazabilidad de las fuentes documentales usadas para generar un examen.
+/// Permite auditar de qué PDF salieron las preguntas (relevante p/Ley 21.719).
+model ExamSourceDocument {
+  id                  String   @id @default(cuid())
+  examId              String   @map("exam_id")
+  // Una de las dos referencias debe estar set
+  docOperacionalId    String?  @map("doc_operacional_id") @db.Uuid
+  protocolDocumentId  String?  @map("protocol_document_id")
+  fileNameSnapshot    String   @map("file_name_snapshot")
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  exam Exam @relation(fields: [examId], references: [id], onDelete: Cascade)
+
+  @@index([examId], map: "idx_exam_source_doc_exam")
+  @@index([docOperacionalId], map: "idx_exam_source_doc_op")
+  @@index([protocolDocumentId], map: "idx_exam_source_doc_legacy")
+  @@map("exam_source_documents")
   @@schema("crm")
 }
 
@@ -7847,6 +7872,7 @@ model TipoDocOperacional {
   order            Int      @default(0)
   isActive             Boolean  @default(true) @map("is_active")
   obligatorioEnVisita  Boolean  @default(false) @map("obligatorio_en_visita")
+  useAsAiKnowledge     Boolean  @default(false) @map("use_as_ai_knowledge")
   createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
