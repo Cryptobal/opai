@@ -13,6 +13,8 @@ import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -31,6 +33,7 @@ import {
   Square,
   Inbox,
   CheckCircle2,
+  AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FileDropZone } from "@/components/shared/FileDropZone";
@@ -124,6 +127,14 @@ export function PagosTab({ payments, pendingRendiciones }: PagosTabProps) {
   const [expandedPayment, setExpandedPayment] = useState<string | null>(null);
   const [exportingId, setExportingId] = useState<string | null>(null);
   const [uploadingReceiptId, setUploadingReceiptId] = useState<string | null>(null);
+  const [exportIssues, setExportIssues] = useState<{
+    title: string;
+    issues: Array<{
+      beneficiary: string;
+      rendiciones: string[];
+      missing: string[];
+    }>;
+  } | null>(null);
 
   /* ── Selection ── */
 
@@ -203,7 +214,14 @@ export function PagosTab({ payments, pendingRendiciones }: PagosTabProps) {
         if (!exportRes.ok) {
           const exportData = (await exportRes
             .json()
-            .catch(() => ({}))) as { error?: string };
+            .catch(() => ({}))) as {
+            error?: string;
+            issues?: Array<{
+              beneficiary: string;
+              rendiciones: string[];
+              missing: string[];
+            }>;
+          };
           toast.success(
             `Pago ${paymentCode} creado con ${selectedIds.size} rendición(es)`
           );
@@ -211,10 +229,14 @@ export function PagosTab({ payments, pendingRendiciones }: PagosTabProps) {
             exportData.error ||
             "Pago creado, pero no se pudo descargar el archivo Santander";
           if (exportRes.status === 422) {
-            toast.error(message, {
-              duration: 12000,
-              style: { whiteSpace: "pre-line" },
-            });
+            if (exportData.issues && exportData.issues.length > 0) {
+              setExportIssues({
+                title: `Pago ${paymentCode}: faltan datos bancarios`,
+                issues: exportData.issues,
+              });
+            } else {
+              toast.error(message, { duration: 10000 });
+            }
             setCreateDialogOpen(false);
             setSelectedIds(new Set());
             setPaymentNotes("");
@@ -268,10 +290,24 @@ export function PagosTab({ payments, pendingRendiciones }: PagosTabProps) {
         if (!res.ok) {
           const data = (await res
             .json()
-            .catch(() => ({}))) as { error?: string };
+            .catch(() => ({}))) as {
+            error?: string;
+            issues?: Array<{
+              beneficiary: string;
+              rendiciones: string[];
+              missing: string[];
+            }>;
+          };
           const message = data.error || "Error al exportar";
           if (res.status === 422) {
-            toast.error(message, { duration: 12000, style: { whiteSpace: "pre-line" } });
+            if (data.issues && data.issues.length > 0) {
+              setExportIssues({
+                title: "Faltan datos bancarios para exportar",
+                issues: data.issues,
+              });
+            } else {
+              toast.error(message, { duration: 10000 });
+            }
             return;
           }
           throw new Error(message);
@@ -759,6 +795,57 @@ export function PagosTab({ payments, pendingRendiciones }: PagosTabProps) {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Export Santander issues dialog */}
+      <Dialog
+        open={exportIssues !== null}
+        onOpenChange={(open) => {
+          if (!open) setExportIssues(null);
+        }}
+      >
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              {exportIssues?.title ?? "Faltan datos bancarios"}
+            </DialogTitle>
+            <DialogDescription>
+              No se puede exportar el archivo Santander hasta que cada beneficiario
+              tenga RUT, banco y cuenta destino completos en su ficha.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[55vh] overflow-y-auto rounded-md border border-border/40">
+            <ul className="divide-y divide-border/40">
+              {(exportIssues?.issues ?? []).map((issue, idx) => (
+                <li key={`${issue.beneficiary}-${idx}`} className="p-3 space-y-1.5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="font-medium text-sm">{issue.beneficiary}</div>
+                    <div className="text-[11px] text-muted-foreground tabular-nums">
+                      {issue.rendiciones.join(", ")}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {issue.missing.map((m) => (
+                      <Badge
+                        key={m}
+                        variant="outline"
+                        className="text-[10px] uppercase tracking-wide border-amber-500/40 text-amber-500"
+                      >
+                        Falta {m}
+                      </Badge>
+                    ))}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setExportIssues(null)}>
+              Entendido
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

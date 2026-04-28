@@ -115,7 +115,7 @@ export async function GET(
     const adminMap = new Map(admins.map((a) => [a.id, a]));
 
     const adminEmails = admins.map((a) => a.email).filter(Boolean);
-    const personas = adminEmails.length > 0
+    const personasByEmailQuery = adminEmails.length > 0
       ? await prisma.opsPersona.findMany({
           where: {
             tenantId: ctx.tenantId,
@@ -125,6 +125,7 @@ export async function GET(
             ],
           },
           select: {
+            id: true,
             email: true,
             personalEmail: true,
             firstName: true,
@@ -132,16 +133,82 @@ export async function GET(
             rut: true,
             guardia: {
               select: {
-                bankAccounts: { orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }] },
+                bankAccounts: {
+                  orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
+                },
               },
             },
           },
         })
       : [];
-    const personaByEmail = new Map<string, (typeof personas)[number]>();
-    for (const p of personas) {
+    type PersonaWithGuardia = (typeof personasByEmailQuery)[number];
+    const personaByEmail = new Map<string, PersonaWithGuardia>();
+    for (const p of personasByEmailQuery) {
       if (p.email) personaByEmail.set(p.email.toLowerCase(), p);
       if (p.personalEmail) personaByEmail.set(p.personalEmail.toLowerCase(), p);
+    }
+
+    // Fallback: admins cuyo email no calzó con ningún email/personalEmail de persona.
+    // Buscamos por nombre dentro del tenant y tomamos match único con guardia + cuenta.
+    const adminsNeedingNameLookup = admins.filter((a) => {
+      const persona = a.email ? personaByEmail.get(a.email.toLowerCase()) : undefined;
+      return !persona;
+    });
+    const personaByAdminId = new Map<string, PersonaWithGuardia>();
+    if (adminsNeedingNameLookup.length > 0) {
+      const stripDiacritics = (s: string) =>
+        s.normalize("NFD").replace(/\p{Mn}/gu, "");
+      const tokenize = (s: string) =>
+        stripDiacritics(s.toLowerCase())
+          .split(/\s+/)
+          .filter((t) => t.length >= 2);
+
+      // Cargamos todas las personas del tenant que tienen guardia con bankAccounts no vacías
+      // (acotado por el conjunto de candidatos: nombres que comparten al menos un token).
+      const allTokens = [
+        ...new Set(adminsNeedingNameLookup.flatMap((a) => tokenize(a.name))),
+      ];
+      if (allTokens.length > 0) {
+        const candidatePersonas = await prisma.opsPersona.findMany({
+          where: {
+            tenantId: ctx.tenantId,
+            OR: allTokens.flatMap((t) => [
+              { firstName: { contains: t, mode: "insensitive" as const } },
+              { lastName: { contains: t, mode: "insensitive" as const } },
+            ]),
+          },
+          select: {
+            id: true,
+            email: true,
+            personalEmail: true,
+            firstName: true,
+            lastName: true,
+            rut: true,
+            guardia: {
+              select: {
+                bankAccounts: {
+                  orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
+                },
+              },
+            },
+          },
+        });
+
+        for (const a of adminsNeedingNameLookup) {
+          const tokens = tokenize(a.name);
+          if (tokens.length === 0) continue;
+          const matches = candidatePersonas.filter((p) => {
+            const haystack = stripDiacritics(`${p.firstName} ${p.lastName}`.toLowerCase());
+            return tokens.every((t) => haystack.includes(t));
+          });
+          // Preferir matches con guardia + bankAccounts no vacíos para evitar ambigüedad
+          const usable = matches.filter(
+            (m) => (m.guardia?.bankAccounts.length ?? 0) > 0,
+          );
+          const pick = usable.length === 1 ? usable[0] : matches.length === 1 ? matches[0] : null;
+          if (pick) personaByAdminId.set(a.id, pick);
+        }
+      }
     }
 
     // ── Build rows grouped by beneficiary ──
@@ -176,9 +243,9 @@ export async function GET(
         };
       } else {
         const admin = adminMap.get(r.refId);
-        const persona = admin?.email
-          ? personaByEmail.get(admin.email.toLowerCase())
-          : undefined;
+        const persona =
+          (admin?.email ? personaByEmail.get(admin.email.toLowerCase()) : undefined) ??
+          personaByAdminId.get(r.refId);
         const account = persona?.guardia?.bankAccounts?.[0];
         row = {
           accountNumber: account?.accountNumber ?? "",
