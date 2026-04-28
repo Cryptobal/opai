@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useRegisterChatPageContext } from "@/components/opai/ChatPageContextProvider";
 import { MapPin, ExternalLink, Trash2, Pencil, Loader2, LayoutGrid, Plus, QrCode, Copy, RefreshCw, Moon, UserPlus, UserMinus, Search, CalendarDays, AlertTriangle, Info, Users, Briefcase, FileText, ClipboardList, Shield, ShieldCheck, Receipt, Package, UserCircle, BookOpen, History, MessageCircle, Route, Fingerprint, Clock, FileCheck, ChevronDown, Power } from "lucide-react";
 import { InstalacionRondasTab } from "./InstalacionRondasTab";
@@ -2053,8 +2053,24 @@ export function CrmInstallationDetailClient({
   const QuotesIcon = CRM_MODULES.quotes.icon;
 
   // ── Tabs ──
-  const { activeTab, setActiveTab } = useEntityTabs("general");
-  const [protocolSubTab, setProtocolSubTab] = useState<ProtocolSubTabId>("sections");
+  // Permite deep-link via querystring:
+  //   /crm/installations/[id]?tab=protocol           → tab "protocolo"
+  //   /crm/installations/[id]?tab=protocol&subtab=exams → tab "protocolo" / sub-tab "exams"
+  // Usado, por ejemplo, desde el módulo Personas → Conocimiento.
+  const searchParams = useSearchParams();
+  const initialTab = searchParams?.get("tab");
+  const initialSub = searchParams?.get("subtab") as ProtocolSubTabId | null;
+  const tabAlias: Record<string, string> = { protocol: "protocolo", protocolo: "protocolo" };
+  const { activeTab, setActiveTab } = useEntityTabs(
+    initialTab && (tabAlias[initialTab] ?? initialTab)
+      ? (tabAlias[initialTab] ?? initialTab)
+      : "general",
+  );
+  const [protocolSubTab, setProtocolSubTab] = useState<ProtocolSubTabId>(
+    initialSub && ["sections", "documents", "exams", "client"].includes(initialSub)
+      ? initialSub
+      : "sections",
+  );
 
   const [fileCount, setFileCount] = useState(0);
   useEffect(() => {

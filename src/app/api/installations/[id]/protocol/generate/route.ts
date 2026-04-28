@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { aiService } from "@/lib/ai-service";
 import { requireAuth, unauthorized, resolveApiPerms, parseBody } from "@/lib/api-auth";
+import { clearKnowledgeCache } from "@/lib/protocols/knowledge-aggregator";
 import { canEdit } from "@/lib/permissions";
 
 type Params = { id: string };
@@ -111,6 +112,8 @@ Cada ítem debe ser detallado, práctico y accionable para un guardia de segurid
         }),
       ),
     );
+
+    clearKnowledgeCache(ctx.tenantId);
 
     return NextResponse.json({ success: true, data: { sections: created } });
   } catch (error) {
