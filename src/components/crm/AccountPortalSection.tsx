@@ -53,6 +53,8 @@ const MODULE_LABELS: Record<keyof PortalConfig, string> = {
   comparativa: 'Vista comparativa',
   alertas: 'Alertas',
   gamificacion: 'Gamificación',
+  conocimiento: 'Conocimiento del equipo',
+  canSeeGuardNames: 'Mostrar nombres de guardia (Conocimiento)',
 }
 
 export function AccountPortalSection({ accountId, contacts, accountStatus, accountIsActive, onRefresh }: Props) {
