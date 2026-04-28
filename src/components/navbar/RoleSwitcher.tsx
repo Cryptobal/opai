@@ -45,20 +45,6 @@ export function RoleSwitcher() {
     const [query, setQuery] = useState('');
     const inputRef = useRef<HTMLInputElement>(null);
 
-    // Atajo de teclado: ⌘⇧R (Mac) / Ctrl+Shift+R (Win/Linux)
-    useEffect(() => {
-        const onKey = (e: KeyboardEvent) => {
-            const isMac = navigator.platform.toLowerCase().includes('mac');
-            const modifier = isMac ? e.metaKey : e.ctrlKey;
-            if (modifier && e.shiftKey && (e.key === 'r' || e.key === 'R')) {
-                e.preventDefault();
-                setOpen((prev) => !prev);
-            }
-        };
-        window.addEventListener('keydown', onKey);
-        return () => window.removeEventListener('keydown', onKey);
-    }, []);
-
     // Reset query al cerrar
     useEffect(() => {
         if (!open) setQuery('');
@@ -129,7 +115,7 @@ export function RoleSwitcher() {
                     )}
                     aria-label="Cambiar rol de simulación"
                     aria-expanded={open}
-                    title="Simular rol (⌘⇧R)"
+                    title="Simular rol"
                 >
                     <Eye className="h-3 w-3 opacity-70 shrink-0" />
                     <span className="hidden sm:inline whitespace-nowrap min-w-0">{activeLabel}</span>
@@ -147,14 +133,9 @@ export function RoleSwitcher() {
             >
                 {/* Header */}
                 <div className="px-3 py-2.5 border-b border-border/50 shrink-0">
-                    <div className="flex items-center justify-between gap-2">
-                        <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground/70">
-                            Simular vista de rol
-                        </p>
-                        <kbd className="hidden sm:inline-flex items-center gap-0.5 rounded border border-border/50 bg-muted/40 px-1 py-0.5 text-[9px] font-mono text-muted-foreground/60">
-                            ⌘⇧R
-                        </kbd>
-                    </div>
+                    <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground/70">
+                        Simular vista de rol
+                    </p>
                     {isSimulating && (
                         <p className="text-[10px] text-amber-400/80 mt-0.5">
                             Rol real: {getRoleLabel(realRole)}
