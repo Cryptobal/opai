@@ -88,6 +88,24 @@ module.exports = {
           darker: '#050810',
           light: '#1a1f2e',
         },
+
+        // ============================================
+        // OPAI · Conocimiento — design tokens (literal hex)
+        // Ver: src/components/opai/conocimiento/_primitives.tsx
+        // ============================================
+        ink: '#0D1117',
+        surface: '#0F1620',
+        surface2: '#141C28',
+        brand: '#0066FF',
+        brand2: '#3B82F6',
+        status: {
+          ok: '#10B981',
+          okSoft: '#34D399',
+          warn: '#F59E0B',
+          warnSoft: '#FBBF24',
+          danger: '#EF4444',
+          dangerSoft: '#F87171',
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -96,9 +114,16 @@ module.exports = {
       },
       fontFamily: {
         sans: ['"Inter Variable"', '"Inter"', 'system-ui', '-apple-system', 'sans-serif'],
-        mono: ['"Geist Mono Variable"', '"JetBrains Mono"', '"Fira Code"', 'ui-monospace', 'monospace'],
-        display: ['"Outfit Variable"', '"Outfit"', 'system-ui', 'sans-serif'],
-        body: ['"Instrument Sans"', '"Inter Variable"', 'system-ui', 'sans-serif'],
+        display: ['var(--font-exo2)', '"Exo 2"', 'system-ui', 'sans-serif'],
+        body: ['var(--font-dm-sans)', '"DM Sans"', 'system-ui', 'sans-serif'],
+        mono: ['var(--font-jetbrains)', '"JetBrains Mono"', 'ui-monospace', 'monospace'],
+      },
+      boxShadow: {
+        'glow-brand': '0 0 0 1px rgba(0,102,255,0.25), 0 8px 30px -12px rgba(0,102,255,0.45)',
+        'ring-soft': 'inset 0 0 0 1px rgba(255,255,255,0.06)',
+      },
+      backgroundImage: {
+        'grain-svg': "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='0.85' numOctaves='3' /%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' /%3E%3C/svg%3E\")",
       },
       animation: {
         // ── OPAI Motion System ──
