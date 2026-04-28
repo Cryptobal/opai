@@ -1658,6 +1658,24 @@ export function CpqQuoteDetail({
               <>
                 <div className="fixed inset-0 z-20" onClick={() => setOverflowMenuOpen(false)} />
                 <div className="absolute right-0 top-full z-30 mt-1 min-w-[210px] rounded-md border bg-popover p-1 shadow-md">
+                  {quote.status === "sent" ? (
+                    <button
+                      className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent"
+                      onClick={() => { setOverflowMenuOpen(false); setStatusChangePending("draft"); }}
+                      disabled={changingStatus}
+                    >
+                      <PencilLine className="h-3.5 w-3.5" /> Volver a borrador (editar)
+                    </button>
+                  ) : (
+                    <button
+                      className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent"
+                      onClick={() => { setOverflowMenuOpen(false); setStatusChangePending("sent"); }}
+                      disabled={changingStatus}
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5" /> Marcar como enviada
+                    </button>
+                  )}
+                  <div className="my-1 h-px bg-border" />
                   <button className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent" onClick={() => { setOverflowMenuOpen(false); handleClone(); }} disabled={cloning}>
                     <Copy className="h-3.5 w-3.5" /> {cloning ? "Clonando..." : "Clonar cotizacion"}
                   </button>
