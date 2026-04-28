@@ -50,7 +50,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ArrowLeft, ChevronDown, Copy, RefreshCw, Users, MoreVertical, Trash2, Loader2, Building2, Plus, MessageCircle, Send, Check, CheckCircle2, Briefcase, Phone, PencilLine, Sparkles, CalendarDays, FileSignature } from "lucide-react";
+import { ArrowLeft, ChevronDown, Copy, RefreshCw, Users, MoreVertical, Trash2, Loader2, Building2, Plus, MessageCircle, Send, Check, CheckCircle2, Briefcase, Phone, PencilLine, Sparkles, CalendarDays, FileSignature, Eye } from "lucide-react";
 import { DatosSection } from "@/components/cpq/DatosSection";
 import MarginSection from "@/components/cpq/MarginSection";
 import { QuoteAttachmentsSection } from "@/components/cpq/QuoteAttachmentsSection";
@@ -1498,6 +1498,31 @@ export function CpqQuoteDetail({
                   <button className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent" onClick={() => { setOverflowMenuOpen(false); refresh(); }}>
                     <RefreshCw className="h-3.5 w-3.5" /> Refrescar
                   </button>
+                  {crmContext.accountId ? (
+                    <button
+                      className="flex w-full items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent"
+                      onClick={() => {
+                        void handlePortalVisibilityChange(!portalListedEffective);
+                      }}
+                      disabled={portalVisibilitySaving}
+                    >
+                      <span className="flex items-center gap-2">
+                        <Eye className="h-3.5 w-3.5" />
+                        <span>Visible en portal</span>
+                      </span>
+                      <span className={cn(
+                        "inline-flex h-4 w-7 items-center rounded-full border transition-colors shrink-0",
+                        portalListedEffective
+                          ? "bg-emerald-500/80 border-emerald-500/60"
+                          : "bg-muted border-border"
+                      )}>
+                        <span className={cn(
+                          "inline-block h-3 w-3 rounded-full bg-white transition-transform",
+                          portalListedEffective ? "translate-x-3.5" : "translate-x-0.5"
+                        )} />
+                      </span>
+                    </button>
+                  ) : null}
                   <div className="my-1 h-px bg-border" />
                   <button className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs text-destructive hover:bg-accent" onClick={() => { setOverflowMenuOpen(false); setDeleteConfirmOpen(true); }} disabled={deleting || isLocked}>
                     <Trash2 className="h-3.5 w-3.5" /> {deleting ? "Eliminando..." : "Eliminar"}
@@ -1508,18 +1533,39 @@ export function CpqQuoteDetail({
           </div>
         </div>
       </div>
-      {/* Row 2: subtítulo (nombre cotización · cuenta · contacto) — una sola línea, truncada */}
-      {(quote.name || quote.clientName || crmContext.contactId) && (
-        <div className="text-[11px] sm:text-xs text-muted-foreground truncate mt-0.5 leading-tight pl-8">
-          {quote.name && <span className="text-foreground/80 font-medium">{quote.name}</span>}
-          {quote.name && (quote.clientName || crmContext.contactId) ? <span className="mx-1">·</span> : null}
-          {quote.clientName}
-          {crmContext.contactId && (() => {
-            const c = crmContacts.find((x) => x.id === crmContext.contactId);
-            return c ? ` · ${[c.firstName, c.lastName].filter(Boolean).join(" ")}` : "";
-          })()}
-        </div>
-      )}
+      {/* Row 2: subtítulo en una sola línea, truncado, sin duplicar nombres */}
+      {(() => {
+        const contactFull = (() => {
+          if (!crmContext.contactId) return "";
+          const c = crmContacts.find((x) => x.id === crmContext.contactId);
+          return c ? [c.firstName, c.lastName].filter(Boolean).join(" ") : "";
+        })();
+        const account = (quote.clientName || "").trim();
+        const installation = (quote.name || "").trim();
+        // Si la cuenta ya está incluida en el nombre de la cotización
+        // (o viceversa), evitamos duplicar — el usuario lee mejor.
+        const hasAccountInName =
+          installation && account &&
+          installation.toLowerCase().includes(account.toLowerCase());
+        const primary = installation || account;
+        const showAccountSeparately = !hasAccountInName && account && installation;
+        const parts = [
+          primary,
+          showAccountSeparately ? account : null,
+          contactFull,
+        ].filter(Boolean);
+        if (parts.length === 0) return null;
+        return (
+          <div className="text-[11px] sm:text-xs text-muted-foreground mt-0.5 leading-tight truncate">
+            {parts.map((p, i) => (
+              <span key={i}>
+                {i > 0 && <span className="mx-1 text-muted-foreground/50">·</span>}
+                <span className={i === 0 ? "text-foreground/80 font-medium" : undefined}>{p}</span>
+              </span>
+            ))}
+          </div>
+        );
+      })()}
       {/* Row 3: totales + (a la derecha) save indicator + portal toggle */}
       <div className="mt-1.5 flex items-center justify-between gap-2 min-w-0">
         <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0 text-sm tabular-nums min-w-0">
@@ -1570,20 +1616,6 @@ export function CpqQuoteDetail({
           {!isLocked && (savingQuote || savingFinancials) && (
             <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" aria-hidden />
           )}
-          {crmContext.accountId ? (
-            <Switch
-              id="cpq-portal-visible"
-              checked={portalListedEffective}
-              disabled={portalVisibilitySaving}
-              onCheckedChange={(v) => void handlePortalVisibilityChange(v)}
-              title={
-                portalListedEffective
-                  ? "Visible en portal del cliente"
-                  : "Oculto del portal del cliente"
-              }
-              className="scale-75 origin-right"
-            />
-          ) : null}
         </div>
       </div>
       {guardsBreakdownOpen && roleSummary.length > 0 && (
@@ -1714,8 +1746,8 @@ export function CpqQuoteDetail({
           </div>
         </div>
       </div>
-      {/* -- Section: Datos (scroll-mt-14: visible below sticky header when scrolled) -- */}
-      <Card className="overflow-visible rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-14">
+      {/* -- Section: Datos (scroll-mt-32: visible below sticky header when scrolled) -- */}
+      <Card className="overflow-visible rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-32">
         <button type="button" onClick={() => setSecDatos(v => !v)} className="flex items-center justify-between w-full border-b border-border/50 bg-muted/20 px-4 py-3 hover:bg-muted/30 transition-colors">
           <div className="flex items-center gap-2 min-w-0">
             <h2 className="text-sm font-semibold text-primary shrink-0">Datos</h2>
@@ -1754,7 +1786,7 @@ export function CpqQuoteDetail({
       </Card>
 
       {/* -- Section: Condiciones Comerciales -- */}
-      <Card className="overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-14" inert={isLocked ? true : undefined}>
+      <Card className="overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-32" inert={isLocked ? true : undefined}>
         <button type="button" onClick={() => setSecCondiciones(v => !v)} className="flex items-center justify-between w-full border-b border-border/50 bg-muted/20 px-4 py-3 hover:bg-muted/30 transition-colors">
           <div className="flex items-center gap-2 min-w-0">
             <h2 className="text-sm font-semibold text-primary shrink-0">Condiciones comerciales</h2>
@@ -1995,7 +2027,7 @@ export function CpqQuoteDetail({
       </Card>
 
       {/* -- Section: Desglose detallado (precio de venta, margen financiero) -- */}
-      <Card className="overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-14 xl:hidden">
+      <Card className="overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-32 xl:hidden">
         <button type="button" onClick={() => setSecDesglose(v => !v)} className="flex items-center justify-between w-full border-b border-border/50 bg-muted/20 px-4 py-3 hover:bg-muted/30 transition-colors">
           <div className="flex items-center gap-2 min-w-0">
             <h2 className="text-sm font-semibold text-primary shrink-0">Desglose</h2>
@@ -2593,7 +2625,7 @@ export function CpqQuoteDetail({
       </Card>
 
       {/* -- Section: Contenido AI (Descripcion + Detalle servicio) -- */}
-      <Card className="overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-14" inert={isLocked ? true : undefined}>
+      <Card className="overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-32" inert={isLocked ? true : undefined}>
         <button type="button" onClick={() => setSecAiContent(v => !v)} className="flex items-center justify-between w-full border-b border-border/50 bg-muted/20 px-4 py-3 hover:bg-muted/30 transition-colors">
           <div className="flex items-center gap-2 min-w-0">
             <Sparkles className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -2690,7 +2722,7 @@ export function CpqQuoteDetail({
       </Card>
 
       {/* -- Section: Incluye (items incluidos en la cotización) -- */}
-      <Card className="overflow-visible rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-14">
+      <Card className="overflow-visible rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-32">
         <button
           type="button"
           onClick={() => setSecIncluye((v) => !v)}
@@ -2714,7 +2746,7 @@ export function CpqQuoteDetail({
       </Card>
 
       {/* -- Section: PDF y documentos -- */}
-      <Card className="overflow-visible rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-14 xl:hidden">
+      <Card className="overflow-visible rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-32 xl:hidden">
         <button
           type="button"
           onClick={() => setSecPdf((v) => !v)}
