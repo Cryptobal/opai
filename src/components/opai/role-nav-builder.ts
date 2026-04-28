@@ -47,6 +47,7 @@ import {
   Siren,
   Briefcase,
   Brain,
+  GraduationCap,
 } from 'lucide-react';
 import type { NavItem } from '@/components/opai/AppSidebar';
 import {
@@ -164,6 +165,7 @@ export function buildNavItems({
       badge: moduleBadges.personas,
       children: [
         { href: '/personas/guardias', label: 'Listado', icon: User, badge: notes.guard },
+        { href: '/personas/conocimiento', label: 'Conocimiento', icon: GraduationCap, badge: notes.knowledge_alert },
         isModuleEnabled('ops_onboarding') && { href: '/personas/onboarding', label: 'Onboarding', icon: UserRoundCheck },
         { href: '/personas/comunicaciones', label: 'Comunicaciones', icon: Bell },
         { href: '/personas/guardias/sueldos-rut', label: 'Sueldos por RUT', icon: DollarSign },
