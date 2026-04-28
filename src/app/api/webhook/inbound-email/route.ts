@@ -156,6 +156,7 @@ export async function POST(request: NextRequest) {
         fromEmail: from,
         ownDomain: tenantCfg.website || undefined,
         ownCompanyName: tenantCfg.commercialName || undefined,
+        tenantId,
       });
     } catch (extractErr) {
       console.warn("[inbound-email] Extract failed, creating lead from envelope:", extractErr);

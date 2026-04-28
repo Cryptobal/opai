@@ -116,10 +116,11 @@ Responde SOLO con JSON válido:
 }
 
 export async function generateProposalAIContent(
-  input: ProposalAIInput
+  input: ProposalAIInput,
+  tenantId?: string,
 ): Promise<ProposalAIContent> {
   const prompt = buildPrompt(input);
-  const raw = await aiService.generateJSON(prompt, 4096);
+  const raw = await aiService.generateJSON(prompt, 4096, tenantId ? { tenantId } : undefined);
 
   const obj = raw as Record<string, unknown>;
   const descripcionBreve = String(obj.descripcionBreve ?? '').trim();

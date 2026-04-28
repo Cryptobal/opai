@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { aiService } from "@/lib/ai-service";
+import { AIError } from "@/lib/ai-errors";
 import {
   requireAuth,
   unauthorized,
@@ -90,7 +91,7 @@ Reglas:
 - correct_answer es el índice (0-3) de la opción correcta
 - section_reference debe indicar el tema o sección del documento`;
 
-          result = (await aiService.processDocument(pdfBase64, docPrompt, 4000)) as QuestionResult;
+          result = (await aiService.processDocument(pdfBase64, docPrompt, 4000, { tenantId: ctx.tenantId })) as QuestionResult;
           generatedFromDoc = true;
         } catch (docError) {
           console.error("[EXAMS] Error processing global document, falling back to general prompt:", docError);
@@ -108,7 +109,7 @@ Reglas:
 - correct_answer es el índice (0-3) de la opción correcta
 - section_reference debe indicar el tema general`;
 
-        result = (await aiService.generateJSON(fallbackPrompt, 4000)) as QuestionResult;
+        result = (await aiService.generateJSON(fallbackPrompt, 4000, { tenantId: ctx.tenantId })) as QuestionResult;
       }
     } else {
       const sections = await prisma.protocolSection.findMany({
@@ -145,7 +146,7 @@ Reglas:
 - correct_answer es el índice (0-3) de la opción correcta
 - section_reference debe coincidir con una sección del protocolo`;
 
-      result = (await aiService.generateJSON(prompt, 4000)) as QuestionResult;
+      result = (await aiService.generateJSON(prompt, 4000, { tenantId: ctx.tenantId })) as QuestionResult;
     }
 
     const questions = (result.questions ?? []).map((q, i) => ({
@@ -160,12 +161,15 @@ Reglas:
 
     return NextResponse.json({ success: true, data: { questions } });
   } catch (error) {
+    if (error instanceof AIError) {
+      return NextResponse.json(error.toResponse(), { status: error.clientHttpStatus });
+    }
     console.error("[EXAMS] Error generating questions:", error);
     const message = error instanceof Error && error.message === "NO_AI_CONFIGURED"
       ? "No hay servicio de IA configurado"
       : "No se pudieron generar las preguntas";
     return NextResponse.json(
-      { success: false, error: message },
+      { success: false, error: message, code: "INTERNAL_ERROR" },
       { status: 500 },
     );
   }

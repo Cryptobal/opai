@@ -319,7 +319,7 @@ export async function buildProposalProps(
       })),
       existingAiDescription: quote.aiDescription ?? undefined,
       providerName: companyConfig.commercialName || undefined,
-    });
+    }, tenantId);
 
     await prisma.cpqQuote.update({
       where: { id: quotationId },

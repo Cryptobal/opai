@@ -398,7 +398,7 @@ export async function POST(
           unitPrice: i.unitPrice,
           specifications: i.specifications,
         })),
-      });
+      }, ctx.tenantId);
     } catch {
       aiContent = {
         descripcionBreve: `Servicio de seguridad integral para ${accountName}`,

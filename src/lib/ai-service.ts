@@ -5,7 +5,11 @@
  * this service so switching providers is transparent.
  */
 
-import { getPlatformAIConfig } from "@/lib/platform-ai-service";
+import {
+  getPlatformAIConfig,
+  getAIConfigForTenant,
+} from "@/lib/platform-ai-service";
+import { AIError, classifyProviderError } from "@/lib/ai-errors";
 
 export type AIConfig = {
   providerType: string;
@@ -19,10 +23,12 @@ export class AIService {
    * Returns the currently active platform-level provider + default model
    * config, or null if no provider is configured.
    */
-  async getActiveConfig(): Promise<AIConfig | null> {
-    const cfg = await getPlatformAIConfig();
+  async getActiveConfig(ctx?: { tenantId?: string }): Promise<AIConfig | null> {
+    const cfg = ctx?.tenantId
+      ? await getAIConfigForTenant(ctx.tenantId)
+      : await getPlatformAIConfig();
     if (!cfg) {
-      console.warn("[ai-service] No platform AI provider configured");
+      console.warn("[ai-service] No AI provider configured for ctx", ctx);
       return null;
     }
     return {
@@ -38,10 +44,11 @@ export class AIService {
    */
   async generateJSON(
     prompt: string,
-    maxTokens?: number
+    maxTokens?: number,
+    ctx?: { tenantId?: string },
   ): Promise<object> {
-    const config = await this.getActiveConfig();
-    if (!config) throw new Error("NO_AI_CONFIGURED");
+    const config = await this.getActiveConfig(ctx);
+    if (!config) throw new AIError("AI_NOT_CONFIGURED", "No hay un proveedor de IA configurado.");
 
     let rawText: string;
     switch (config.providerType) {
@@ -55,7 +62,7 @@ export class AIService {
         rawText = await this.callGoogle(config, prompt, maxTokens);
         break;
       default:
-        throw new Error(`Proveedor no soportado: ${config.providerType}`);
+        throw new AIError("AI_PROVIDER_ERROR", `Proveedor no soportado: ${config.providerType}`, config.providerType);
     }
 
     return this.parseJSON(rawText);
@@ -67,10 +74,11 @@ export class AIService {
   async processDocument(
     pdfBase64: string,
     prompt: string,
-    maxTokens?: number
+    maxTokens?: number,
+    ctx?: { tenantId?: string },
   ): Promise<object> {
-    const config = await this.getActiveConfig();
-    if (!config) throw new Error("NO_AI_CONFIGURED");
+    const config = await this.getActiveConfig(ctx);
+    if (!config) throw new AIError("AI_NOT_CONFIGURED", "No hay un proveedor de IA configurado.");
 
     let rawText: string;
     switch (config.providerType) {
@@ -99,7 +107,7 @@ export class AIService {
         );
         break;
       default:
-        throw new Error(`Proveedor no soportado: ${config.providerType}`);
+        throw new AIError("AI_PROVIDER_ERROR", `Proveedor no soportado: ${config.providerType}`, config.providerType);
     }
 
     return this.parseJSON(rawText);
@@ -111,10 +119,11 @@ export class AIService {
    */
   async generateText(
     prompt: string,
-    opts?: { maxTokens?: number; temperature?: number }
+    opts?: { maxTokens?: number; temperature?: number },
+    ctx?: { tenantId?: string },
   ): Promise<string> {
-    const config = await this.getActiveConfig();
-    if (!config) throw new Error("NO_AI_CONFIGURED");
+    const config = await this.getActiveConfig(ctx);
+    if (!config) throw new AIError("AI_NOT_CONFIGURED", "No hay un proveedor de IA configurado.");
 
     const maxTokens = opts?.maxTokens ?? 4096;
     const temperature = opts?.temperature;
@@ -127,7 +136,7 @@ export class AIService {
       case "google":
         return this.callGoogleText(config, prompt, maxTokens, temperature);
       default:
-        throw new Error(`Proveedor no soportado: ${config.providerType}`);
+        throw new AIError("AI_PROVIDER_ERROR", `Proveedor no soportado: ${config.providerType}`, config.providerType);
     }
   }
 
@@ -182,8 +191,8 @@ export class AIService {
     });
 
     if (!res.ok) {
-      const body = await res.text();
-      throw new Error(`Anthropic ${res.status}: ${body}`);
+      const text = await res.text();
+      throw classifyProviderError("anthropic", res.status, text);
     }
 
     const data = await res.json();
@@ -210,8 +219,8 @@ export class AIService {
     });
 
     if (!res.ok) {
-      const body = await res.text();
-      throw new Error(`OpenAI ${res.status}: ${body}`);
+      const text = await res.text();
+      throw classifyProviderError("openai", res.status, text);
     }
 
     const data = await res.json();
@@ -234,8 +243,8 @@ export class AIService {
     });
 
     if (!res.ok) {
-      const body = await res.text();
-      throw new Error(`Google AI ${res.status}: ${body}`);
+      const text = await res.text();
+      throw classifyProviderError("google", res.status, text);
     }
 
     const data = await res.json();
@@ -269,7 +278,7 @@ export class AIService {
 
     if (!res.ok) {
       const text = await res.text();
-      throw new Error(`Anthropic ${res.status}: ${text}`);
+      throw classifyProviderError("anthropic", res.status, text);
     }
 
     const data = await res.json();
@@ -301,7 +310,7 @@ export class AIService {
 
     if (!res.ok) {
       const text = await res.text();
-      throw new Error(`OpenAI ${res.status}: ${text}`);
+      throw classifyProviderError("openai", res.status, text);
     }
 
     const data = await res.json();
@@ -329,7 +338,7 @@ export class AIService {
 
     if (!res.ok) {
       const text = await res.text();
-      throw new Error(`Google AI ${res.status}: ${text}`);
+      throw classifyProviderError("google", res.status, text);
     }
 
     const data = await res.json();
@@ -374,8 +383,8 @@ export class AIService {
     });
 
     if (!res.ok) {
-      const body = await res.text();
-      throw new Error(`Anthropic ${res.status}: ${body}`);
+      const text = await res.text();
+      throw classifyProviderError("anthropic", res.status, text);
     }
 
     const data = await res.json();
@@ -417,8 +426,8 @@ export class AIService {
     });
 
     if (!res.ok) {
-      const body = await res.text();
-      throw new Error(`OpenAI ${res.status}: ${body}`);
+      const text = await res.text();
+      throw classifyProviderError("openai", res.status, text);
     }
 
     const data = await res.json();
@@ -449,8 +458,8 @@ export class AIService {
     });
 
     if (!res.ok) {
-      const body = await res.text();
-      throw new Error(`Google AI ${res.status}: ${body}`);
+      const text = await res.text();
+      throw classifyProviderError("google", res.status, text);
     }
 
     const data = await res.json();

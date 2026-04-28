@@ -4,6 +4,7 @@ import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { canView } from "@/lib/permissions";
 import { formatPersonName } from "@/lib/personas";
 import { AIService } from "@/lib/ai-service";
+import { AIError } from "@/lib/ai-errors";
 import { requireTenantModule } from '@/lib/require-module';
 
 interface Recommendation {
@@ -174,7 +175,7 @@ ${JSON.stringify(dataForAI, null, 2)}
 Responde SOLO en JSON válido, sin markdown ni explicaciones extra:
 [{ "type": "coverage"|"guard"|"schedule"|"template", "priority": "high"|"medium"|"low", "text": "recomendación en español" }]`;
 
-      const result = await aiService.generateJSON(prompt, 2000);
+      const result = await aiService.generateJSON(prompt, 2000, { tenantId: ctx.tenantId });
       const arr = Array.isArray(result) ? result : [];
       recommendations = arr.slice(0, 5).map((r: Record<string, unknown>) => ({
         type: (["coverage", "guard", "schedule", "template"].includes(r.type as string) ? r.type : "coverage") as Recommendation["type"],
@@ -195,8 +196,11 @@ Responde SOLO en JSON válido, sin markdown ni explicaciones extra:
       },
     });
   } catch (error) {
+    if (error instanceof AIError) {
+      return NextResponse.json(error.toResponse(), { status: error.clientHttpStatus });
+    }
     console.error("[IA] recommendations", error);
-    return NextResponse.json({ success: false, error: "Error interno" }, { status: 500 });
+    return NextResponse.json({ success: false, error: "Error interno", code: "INTERNAL_ERROR" }, { status: 500 });
   }
 }
 

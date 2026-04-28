@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { aiService } from "@/lib/ai-service";
+import { AIError } from "@/lib/ai-errors";
 import { requireAuth, unauthorized, resolveApiPerms, parseBody } from "@/lib/api-auth";
 import { clearKnowledgeCache } from "@/lib/protocols/knowledge-aggregator";
 import { canEdit } from "@/lib/permissions";
@@ -61,8 +62,11 @@ Cada ítem debe ser detallado, práctico y accionable para un guardia de segurid
 
     let aiResponse: { sections: Array<{ title: string; icon: string; items: Array<{ title: string; description: string }> }> };
     try {
-      aiResponse = (await aiService.generateJSON(prompt, 4096)) as typeof aiResponse;
+      aiResponse = (await aiService.generateJSON(prompt, 4096, { tenantId: ctx.tenantId })) as typeof aiResponse;
     } catch (err: unknown) {
+      if (err instanceof AIError) {
+        return NextResponse.json(err.toResponse(), { status: err.clientHttpStatus });
+      }
       const msg = err instanceof Error ? err.message : String(err);
       console.error("[PROTOCOL_GENERATE] AI error:", msg);
       if (msg === "NO_AI_CONFIGURED") {
@@ -117,9 +121,12 @@ Cada ítem debe ser detallado, práctico y accionable para un guardia de segurid
 
     return NextResponse.json({ success: true, data: { sections: created } });
   } catch (error) {
+    if (error instanceof AIError) {
+      return NextResponse.json(error.toResponse(), { status: error.clientHttpStatus });
+    }
     console.error("[PROTOCOL_GENERATE] Error:", error);
     return NextResponse.json(
-      { success: false, error: "Error al generar protocolo con IA" },
+      { success: false, error: "Error al generar protocolo con IA", code: "INTERNAL_ERROR" },
       { status: 500 },
     );
   }

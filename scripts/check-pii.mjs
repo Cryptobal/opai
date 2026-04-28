@@ -32,6 +32,8 @@ const ALLOWED_RUT_PLACEHOLDERS = new Set([
   "11.111.111-1", "22.222.222-2", "12.345.678-5",
   // Common placeholder values used in input fields across the UI.
   "12.345.678-9", "76.123.456-7",
+  // Example RUT used in email-lead-extractor.ts docstring to illustrate format.
+  "77.985.438-8",
 ]);
 
 const SAMPLE_PATHS_ALLOWLIST = [

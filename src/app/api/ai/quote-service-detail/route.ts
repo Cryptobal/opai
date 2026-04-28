@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { aiService } from "@/lib/ai-service";
+import { AIError } from "@/lib/ai-errors";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { createCrmHistoryLog } from "@/lib/crm-history";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
@@ -211,7 +212,7 @@ El servicio contempla:
     }`;
 
     const serviceDetail = (
-      await aiService.generateText(prompt, { maxTokens: 600, temperature: 0.5 })
+      await aiService.generateText(prompt, { maxTokens: 600, temperature: 0.5 }, { tenantId: ctx.tenantId })
     ).trim();
 
     // Save to quote
@@ -234,10 +235,13 @@ El servicio contempla:
       data: { serviceDetail },
     });
   } catch (error) {
+    if (error instanceof AIError) {
+      return NextResponse.json(error.toResponse(), { status: error.clientHttpStatus });
+    }
     console.error("Error generating AI service detail:", error);
     const message = error instanceof Error ? error.message : "Failed to generate service detail";
     return NextResponse.json(
-      { success: false, error: message },
+      { success: false, error: message, code: "INTERNAL_ERROR" },
       { status: 500 }
     );
   }
