@@ -317,6 +317,31 @@ export function CpqQuoteDetail({
   const [secAiContent, setSecAiContent] = useState(true);
   const [secDesglose, setSecDesglose] = useState(true);
   const [secAuditoria, setSecAuditoria] = useState(false);
+  const [secPdf, setSecPdf] = useState(true);
+  const [secIncluye, setSecIncluye] = useState(true);
+  // Cuando la cotización está "Enviada", auto-plegamos todas las secciones la
+  // primera vez que entramos para mostrar un resumen tipo dashboard. El usuario
+  // puede expandir manualmente lo que necesite revisar.
+  const sentAutoCollapseRef = useRef(false);
+  useEffect(() => {
+    if (quote?.status === "sent" && !sentAutoCollapseRef.current) {
+      sentAutoCollapseRef.current = true;
+      setSecDatos(false);
+      setSecCondiciones(false);
+      setSecPuestos(false);
+      setSecCostos(false);
+      setSecLineas(false);
+      setSecFinancieros(false);
+      setSecMargen(false);
+      setSecAiContent(false);
+      setSecDesglose(false);
+      setSecPdf(false);
+      setSecIncluye(false);
+    }
+    if (quote?.status !== "sent") {
+      sentAutoCollapseRef.current = false;
+    }
+  }, [quote?.status]);
   const [guardsBreakdownOpen, setGuardsBreakdownOpen] = useState(false);
   const [pdfPreviewMode, setPdfPreviewMode] = useState<CpqPdfPreviewMode>("presentacion");
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
@@ -1357,67 +1382,30 @@ export function CpqQuoteDetail({
 
   return (
     <div className="space-y-3 pb-4 lg:pb-4 overflow-x-hidden min-w-0">
-      {/* -- Compact header -- */}
-      <div className="sticky top-[53px] z-10 bg-background/95 backdrop-blur-xl border-b border-border/40 -mx-4 px-4 py-1.5 mb-1 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 xl:hidden">
-      <div className="flex items-start gap-2 min-h-[40px] min-w-0">
-        <Link href="/crm/cotizaciones" className="shrink-0 pt-0.5">
+      {/* -- Compact header (mobile/tablet) -- */}
+      <div className="sticky top-[53px] z-10 bg-background/95 backdrop-blur-xl border-b border-border/40 -mx-4 px-3 py-1.5 mb-1 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 xl:hidden">
+      {/* Row 1: back · code · status · acciones */}
+      <div className="flex items-center gap-1.5 min-w-0">
+        <Link href="/crm/cotizaciones" className="shrink-0 -ml-1">
           <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
             <ArrowLeft className="h-4 w-4" />
           </Button>
         </Link>
-        <div className="flex-1 min-w-0 min-h-0">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0 pr-1">
-            <h1 className="text-base font-bold tracking-tight shrink-0 max-w-[100%] sm:max-w-none truncate">{quote.code}</h1>
-            {quote.name && (
-              <span className="text-sm font-medium truncate text-foreground/80 min-w-0 basis-full sm:basis-auto sm:max-w-[40%]">
-                — {quote.name}
-              </span>
+        <div className="flex-1 min-w-0 flex items-center gap-1.5">
+          <h1 className="text-[15px] sm:text-base font-bold tracking-tight truncate min-w-0">
+            {quote.code}
+          </h1>
+          <Badge
+            variant="outline"
+            className={cn(
+              "h-5 shrink-0 px-1.5 text-[10px] font-medium whitespace-nowrap",
+              quoteStatusClassName
             )}
-            <Badge
-              variant="outline"
-              className={cn(
-                "text-xs h-6 shrink-0 font-medium whitespace-nowrap w-fit max-lg:basis-full max-lg:mt-0.5",
-                quoteStatusClassName
-              )}
-            >
-              {quoteStatusLabel}
-            </Badge>
-          </div>
-          <span className="text-sm text-muted-foreground truncate block">
-            {quote.clientName || "Sin cliente"}
-            {crmContext.contactId && (() => {
-              const c = crmContacts.find((x) => x.id === crmContext.contactId);
-              return c ? ` · ${c.firstName} ${c.lastName}`.trim() : "";
-            })()}
-          </span>
-          {crmContext.accountId ? (
-            <div className="flex items-center gap-2 mt-1.5 flex-wrap max-w-full">
-              <Label htmlFor="cpq-portal-visible" className="text-sm text-muted-foreground font-normal cursor-pointer shrink-0">
-                Visible en portal del cliente
-              </Label>
-              <Switch
-                id="cpq-portal-visible"
-                checked={portalListedEffective}
-                disabled={portalVisibilitySaving}
-                onCheckedChange={(v) => void handlePortalVisibilityChange(v)}
-                title={
-                  portalListedEffective
-                    ? "El prospecto o cliente puede ver esta cotización en su portal"
-                    : "Activa para mostrar la cotización en el portal aunque esté en borrador"
-                }
-              />
-              {portalVisibilitySaving ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground shrink-0" aria-hidden />
-              ) : null}
-              <span className="text-xs text-muted-foreground/80 leading-tight hidden sm:inline max-w-[220px]">
-                {quote.status === "draft"
-                  ? "Puedes dejarla visible mientras editas en borrador."
-                  : "Desactiva para ocultarla del portal sin cambiar el estado."}
-              </span>
-            </div>
-          ) : null}
+          >
+            {quoteStatusLabel}
+          </Badge>
         </div>
-        <div className="flex items-center gap-1 shrink-0 pt-0.5">
+        <div className="flex items-center gap-1 shrink-0">
           <div className="hidden lg:flex xl:hidden items-center gap-1 border-r border-border/60 pr-2 mr-1">
             <Button
               size="sm"
@@ -1520,24 +1508,27 @@ export function CpqQuoteDetail({
           </div>
         </div>
       </div>
-      <div className="mt-1.5 pt-1.5 border-t border-border/40 flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between min-w-0">
-        <div className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1.5 min-w-0">
-          {!isLocked && (savingQuote || savingFinancials) && (
-            <Loader2 className="h-3 w-3 animate-spin shrink-0 text-muted-foreground" aria-hidden />
-          )}
-          <span className="leading-tight">{headerPersistLabel}</span>
+      {/* Row 2: subtítulo (nombre cotización · cuenta · contacto) — una sola línea, truncada */}
+      {(quote.name || quote.clientName || crmContext.contactId) && (
+        <div className="text-[11px] sm:text-xs text-muted-foreground truncate mt-0.5 leading-tight pl-8">
+          {quote.name && <span className="text-foreground/80 font-medium">{quote.name}</span>}
+          {quote.name && (quote.clientName || crmContext.contactId) ? <span className="mx-1">·</span> : null}
+          {quote.clientName}
+          {crmContext.contactId && (() => {
+            const c = crmContacts.find((x) => x.id === crmContext.contactId);
+            return c ? ` · ${[c.firstName, c.lastName].filter(Boolean).join(" ")}` : "";
+          })()}
         </div>
-        <div className="flex flex-col items-start sm:items-end gap-0.5 min-w-0 max-w-full xl:hidden">
-          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0 text-sm tabular-nums min-w-0 max-w-full">
-            <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
-              Total / mes
-            </span>
-            <span className="font-semibold text-foreground">{formatCurrency(billingMonthlyTotal)}</span>
+      )}
+      {/* Row 3: totales + (a la derecha) save indicator + portal toggle */}
+      <div className="mt-1.5 flex items-center justify-between gap-2 min-w-0">
+        <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0 text-sm tabular-nums min-w-0">
             {ufValue != null && ufValue > 0 && (
-              <span className="font-medium text-emerald-600 dark:text-emerald-400">
+              <span className="font-semibold text-emerald-600 dark:text-emerald-400">
                 {(billingMonthlyTotal / ufValue).toFixed(2)} UF
               </span>
             )}
+            <span className="text-foreground/85 text-[13px]">{formatCurrency(billingMonthlyTotal)}</span>
             {stats.totalGuards > 0 && (
               <button
                 type="button"
@@ -1574,30 +1565,48 @@ export function CpqQuoteDetail({
                 )}
               </button>
             )}
-          </div>
-          {guardsBreakdownOpen && roleSummary.length > 0 && (
-            <div
-              id="guards-breakdown-row"
-              className="flex w-full items-center gap-1.5 overflow-x-auto pt-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-              role="list"
-              aria-label="Desglose de guardias por rol"
-            >
-              {roleSummary.map((item, idx) => (
-                <span
-                  key={`${item.label}-${idx}`}
-                  role="listitem"
-                  className="inline-flex items-center gap-1 rounded-md border border-border/50 bg-muted/30 px-1.5 py-0.5 text-xs whitespace-nowrap shrink-0"
-                >
-                  <span className="font-mono font-semibold text-foreground tabular-nums">
-                    {item.qty}×
-                  </span>
-                  <span className="text-muted-foreground">{item.label}</span>
-                </span>
-              ))}
-            </div>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          {!isLocked && (savingQuote || savingFinancials) && (
+            <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" aria-hidden />
           )}
+          {crmContext.accountId ? (
+            <Switch
+              id="cpq-portal-visible"
+              checked={portalListedEffective}
+              disabled={portalVisibilitySaving}
+              onCheckedChange={(v) => void handlePortalVisibilityChange(v)}
+              title={
+                portalListedEffective
+                  ? "Visible en portal del cliente"
+                  : "Oculto del portal del cliente"
+              }
+              className="scale-75 origin-right"
+            />
+          ) : null}
         </div>
       </div>
+      {guardsBreakdownOpen && roleSummary.length > 0 && (
+        <div
+          id="guards-breakdown-row"
+          className="mt-1 flex w-full items-center gap-1.5 overflow-x-auto pt-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          role="list"
+          aria-label="Desglose de guardias por rol"
+        >
+          {roleSummary.map((item, idx) => (
+            <span
+              key={`${item.label}-${idx}`}
+              role="listitem"
+              className="inline-flex items-center gap-1 rounded-md border border-border/50 bg-muted/30 px-1.5 py-0.5 text-xs whitespace-nowrap shrink-0"
+            >
+              <span className="font-mono font-semibold text-foreground tabular-nums">
+                {item.qty}×
+              </span>
+              <span className="text-muted-foreground">{item.label}</span>
+            </span>
+          ))}
+        </div>
+      )}
       </div>{/* end sticky header */}
 
       {/* -- Detail workspace -- */}
@@ -2681,34 +2690,83 @@ export function CpqQuoteDetail({
       </Card>
 
       {/* -- Section: Incluye (items incluidos en la cotización) -- */}
-      <QuoteIncludesEditor quoteId={quoteId} isLocked={isLocked} />
+      <Card className="overflow-visible rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-14">
+        <button
+          type="button"
+          onClick={() => setSecIncluye((v) => !v)}
+          className="flex items-center justify-between w-full border-b border-border/50 bg-muted/20 px-4 py-3 hover:bg-muted/30 transition-colors"
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <h2 className="text-sm font-semibold text-primary shrink-0">Incluye</h2>
+            {!secIncluye && (
+              <span className="text-xs text-muted-foreground truncate">
+                Items incluidos en la propuesta
+              </span>
+            )}
+          </div>
+          <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform shrink-0", secIncluye && "rotate-180")} />
+        </button>
+        {secIncluye && (
+          <div className="px-3 pb-3 pt-3 bg-card/60 sm:px-4 sm:pb-4 sm:pt-4">
+            <QuoteIncludesEditor quoteId={quoteId} isLocked={isLocked} />
+          </div>
+        )}
+      </Card>
 
-      <CpqPdfPreviewPanel
-        mode={pdfPreviewMode}
-        templateSlug={pdfTemplateSlug}
-        previewUrl={pdfPreviewUrl}
-        loading={pdfPreviewLoading}
-        onModeChange={(mode) => {
-          setPdfPreviewMode(mode);
-          setPdfPreviewUrl(null);
-        }}
-        onTemplateSlugChange={(slug) => {
-          setPdfTemplateSlug(slug);
-          setPdfPreviewUrl(null);
-        }}
-        onGenerate={handleGeneratePdfPreview}
-        className="xl:hidden"
-        previewClassName={pdfPreviewUrl ? "h-[420px] sm:h-[620px]" : undefined}
-        footer={
-          <QuoteAttachmentsSection
-            quoteId={quoteId}
-            isLocked={isLocked}
-            defaultExpanded
-            compact
-            className="mt-0 border-border/60 bg-background/40 shadow-none"
-          />
-        }
-      />
+      {/* -- Section: PDF y documentos -- */}
+      <Card className="overflow-visible rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-14 xl:hidden">
+        <button
+          type="button"
+          onClick={() => setSecPdf((v) => !v)}
+          className="flex items-center justify-between w-full border-b border-border/50 bg-muted/20 px-4 py-3 hover:bg-muted/30 transition-colors"
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <h2 className="text-sm font-semibold text-primary shrink-0">PDF y documentos</h2>
+            {!secPdf && (
+              <span className="text-xs text-muted-foreground truncate">
+                {pdfPreviewLoading
+                  ? "Generando…"
+                  : pdfPreviewUrl
+                    ? "Vista previa lista"
+                    : pdfPreviewMode === "presentacion"
+                      ? "Presentación · sin generar"
+                      : "Cotización · sin generar"}
+              </span>
+            )}
+          </div>
+          <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform shrink-0", secPdf && "rotate-180")} />
+        </button>
+        {secPdf && (
+          <div className="px-3 pb-3 pt-3 bg-card/60 sm:px-4 sm:pb-4 sm:pt-4">
+            <CpqPdfPreviewPanel
+              mode={pdfPreviewMode}
+              templateSlug={pdfTemplateSlug}
+              previewUrl={pdfPreviewUrl}
+              loading={pdfPreviewLoading}
+              onModeChange={(mode) => {
+                setPdfPreviewMode(mode);
+                setPdfPreviewUrl(null);
+              }}
+              onTemplateSlugChange={(slug) => {
+                setPdfTemplateSlug(slug);
+                setPdfPreviewUrl(null);
+              }}
+              onGenerate={handleGeneratePdfPreview}
+              className="border-0 shadow-none"
+              previewClassName={pdfPreviewUrl ? "h-[420px] sm:h-[620px]" : undefined}
+              footer={
+                <QuoteAttachmentsSection
+                  quoteId={quoteId}
+                  isLocked={isLocked}
+                  defaultExpanded
+                  compact
+                  className="mt-0 border-border/60 bg-background/40 shadow-none"
+                />
+              }
+            />
+          </div>
+        )}
+      </Card>
 
       {/* -- Section: Auditoría (registro de todos los cambios) -- */}
       <Card className="overflow-visible rounded-xl border-border/70 bg-card/85 shadow-sm">
