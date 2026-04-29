@@ -666,15 +666,37 @@ export class AIService {
   // ── JSON parsing ──
 
   private parseJSON(text: string): object {
-    let clean = text.trim();
-    if (clean.startsWith("```json")) clean = clean.slice(7);
-    if (clean.startsWith("```")) clean = clean.slice(3);
-    if (clean.endsWith("```")) clean = clean.slice(0, -3);
-    clean = clean.trim();
+    let clean = (text ?? "").trim();
+    // Quitar fences markdown (``` o ```json) iniciales y finales
+    clean = clean.replace(/^```(?:json|JSON)?\s*/m, "").replace(/```\s*$/m, "").trim();
+
+    // Intento directo
     try {
       return JSON.parse(clean);
     } catch {
-      throw new Error("La respuesta de la IA no es un JSON válido");
+      // Fallback 1: extraer el primer objeto/array balanceado más probable.
+      const objStart = clean.indexOf("{");
+      const arrStart = clean.indexOf("[");
+      const candidates: Array<{ start: number; end: number }> = [];
+      if (objStart >= 0) {
+        const end = clean.lastIndexOf("}");
+        if (end > objStart) candidates.push({ start: objStart, end });
+      }
+      if (arrStart >= 0) {
+        const end = clean.lastIndexOf("]");
+        if (end > arrStart) candidates.push({ start: arrStart, end });
+      }
+      for (const c of candidates) {
+        const slice = clean.slice(c.start, c.end + 1);
+        try {
+          return JSON.parse(slice);
+        } catch {
+          // continúa con el siguiente candidato
+        }
+      }
+
+      const preview = clean.length > 200 ? `${clean.slice(0, 200)}…` : clean;
+      throw new Error(`La respuesta de la IA no es un JSON válido. Preview: ${preview}`);
     }
   }
 }
