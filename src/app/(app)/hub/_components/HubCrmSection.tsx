@@ -7,7 +7,6 @@ import { HubCollapsibleSection } from './HubCollapsibleSection';
 import { HubClosingKpis } from './HubClosingKpis';
 import { HubHotDealsTable } from './HubHotDealsTable';
 import { HubHotDealsMobile } from './HubHotDealsMobile';
-import { HubMiniFunnel } from './HubMiniFunnel';
 import { HubStaleDeals } from './HubStaleDeals';
 import { HubPendingLeads } from './HubPendingLeads';
 import { HubPortalRanking } from './HubPortalRanking';
@@ -29,7 +28,7 @@ function getStoredLastSeen(): number {
 export function HubCrmSection({ closingData, sellerFirstName, upcomingProjects = [] }: HubClosingSectionProps) {
   const [activeTab, setActiveTab] = useState('hot');
   const [leadsLastSeenCount, setLeadsLastSeenCount] = useState(0);
-  const { kpis, hotDeals, staleDeals, closedDeals, pendingLeads, funnel, portalTopUsers } = closingData;
+  const { kpis, hotDeals, staleDeals, closedDeals, pendingLeads, portalTopUsers } = closingData;
 
   useEffect(() => {
     setLeadsLastSeenCount(getStoredLastSeen());
@@ -66,7 +65,6 @@ export function HubCrmSection({ closingData, sellerFirstName, upcomingProjects =
       badgeVariant: 'alert' as const,
     },
     { id: 'stale', label: '⚠️ Sin actividad', badge: staleDeals.length },
-    { id: 'funnel', label: 'Embudo' },
     ...(portalTopUsers.length > 0
       ? [{ id: 'portal', label: 'Portal' }]
       : []),
@@ -181,7 +179,6 @@ export function HubCrmSection({ closingData, sellerFirstName, upcomingProjects =
             tenantName={closingData.commercialName}
           />
         )}
-        {activeTab === 'funnel' && <HubMiniFunnel funnel={funnel} />}
         {activeTab === 'portal' && <HubPortalRanking users={portalTopUsers} />}
       </div>
     </HubCollapsibleSection>

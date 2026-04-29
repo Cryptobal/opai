@@ -23,9 +23,10 @@ export function HubPersonasSection({ metrics }: HubPersonasSectionProps) {
     >
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <HubKpiLinkCard
-          href="/personas/guardias?filter=onboarding"
+          href="/personas/onboarding"
           title="En onboarding"
           value={metrics.enOnboarding}
+          description="postulantes + seleccionados"
           icon={<Users className="h-4 w-4" />}
           variant="blue"
         />

@@ -438,8 +438,12 @@ export async function getClosingHubData(
   for (const deal of openDeals) {
     if (deal.stage.isClosedWon || deal.stage.isClosedLost || deal.stage.isAccepted) continue;
     const eng = getDealEngagement(deal);
+    // "Caliente" = el cliente HA INTERACTUADO con el portal.
+    // Antes incluíamos también deals con proposalSentAt aunque no tuvieran
+    // engagement, pero eso llenaba la tabla con propuestas que nadie había
+    // visto. Ahora exigimos al menos una vista, descarga o login del portal.
     const hasPortalEngagement = eng.totalViews > 0 || eng.totalDownloads > 0 || eng.totalLogins > 0;
-    if (!hasPortalEngagement && !deal.proposalSentAt) continue;
+    if (!hasPortalEngagement) continue;
 
     const lastActivity = getLastPortalActivity(eng);
     const contactName = [deal.primaryContact?.lastName, deal.primaryContact?.firstName]

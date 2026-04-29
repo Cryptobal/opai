@@ -34,7 +34,6 @@ function colorIntensity(value: number, max: number, hue: string): string {
 }
 
 const HUE_BY_COL: Record<string, string> = {
-  total: '255,255,255',
   p1: '239,68,68',
   p2: '249,115,22',
   p3: '234,179,8',
@@ -70,7 +69,7 @@ export function HubTicketsMatrix() {
   }
 
   const max: Record<string, number> = {
-    total: 0, p1: 0, p2: 0, p3: 0, p4: 0, breached: 0,
+    p1: 0, p2: 0, p3: 0, p4: 0, breached: 0,
   };
   for (const r of data.installations) {
     for (const k of Object.keys(max)) {
@@ -134,6 +133,20 @@ export function HubTicketsMatrix() {
                 </td>
                 {COL_HEADERS.map((c) => {
                   const v = (row as unknown as Record<string, number>)[c.key];
+                  // Columna "Total" se muestra como número plano (sin celda
+                  // pintada blanca translúcida — antes era ilegible).
+                  if (c.key === 'total') {
+                    return (
+                      <td
+                        key={c.key}
+                        className="text-center font-bold tabular-nums px-0.5 md:px-1 py-0.5 md:py-1"
+                      >
+                        <span className="inline-block min-w-[26px] md:min-w-[36px] py-0.5 md:py-1 text-foreground">
+                          {v}
+                        </span>
+                      </td>
+                    );
+                  }
                   return (
                     <td
                       key={c.key}
