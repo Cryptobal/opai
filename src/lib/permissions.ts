@@ -473,6 +473,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
       "config.tipos_ticket": "edit",
       "config.alertas_cobertura": "edit",
       "config.ats": "edit",
+      // Inventario: editor puede gestionar todo (incluye eliminar bodegas/productos)
+      "ops.inventario": "full",
       // Solo lectura
       "config.usuarios": "view",
       "config.grupos": "view",
@@ -562,6 +564,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
       "ops.supervision": "full",
       "ops.rondas": "edit",
       "ops.alertas_cobertura": "edit",
+      "ops.inventario": "edit",
       "finance.rendiciones": "edit",
     },
     capabilities: {

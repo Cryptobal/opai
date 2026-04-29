@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
-import { ensureInventarioAccess } from "@/lib/inventory";
+import {
+  ensureInventarioAccess,
+  ensureInventarioEdit,
+  ensureInventarioDelete,
+} from "@/lib/inventory";
+import { createOpsAuditLog } from "@/lib/ops";
 import { requireTenantModule } from '@/lib/require-module';
 import { z } from "zod";
 
@@ -78,7 +83,7 @@ export async function PATCH(
 
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbidden = await ensureInventarioAccess(ctx);
+    const forbidden = await ensureInventarioEdit(ctx);
     if (forbidden) return forbidden;
 
     const { id } = await params;
@@ -155,6 +160,14 @@ export async function PATCH(
       },
     });
 
+    await createOpsAuditLog(
+      ctx,
+      "inventario.phone_line.updated",
+      "inventario.phone_line",
+      id,
+      { changes: parsed.data },
+    );
+
     return NextResponse.json(updated);
   } catch (e) {
     console.error("[inventario/phone-lines/[id] PATCH]", e);
@@ -175,7 +188,7 @@ export async function DELETE(
 
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbidden = await ensureInventarioAccess(ctx);
+    const forbidden = await ensureInventarioDelete(ctx);
     if (forbidden) return forbidden;
 
     const { id } = await params;
@@ -202,6 +215,14 @@ export async function DELETE(
     }
 
     await prisma.inventoryPhoneLine.delete({ where: { id } });
+
+    await createOpsAuditLog(
+      ctx,
+      "inventario.phone_line.deleted",
+      "inventario.phone_line",
+      id,
+      { phoneNumber: phoneLine.phoneNumber },
+    );
 
     return NextResponse.json({ success: true });
   } catch (e) {

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
-import { ensureInventarioAccess } from "@/lib/inventory";
+import { ensureInventarioAccess, ensureInventarioEdit } from "@/lib/inventory";
+import { createOpsAuditLog } from "@/lib/ops";
 import { requireTenantModule } from '@/lib/require-module';
 import { z } from "zod";
 
@@ -70,7 +71,7 @@ export async function POST(request: NextRequest) {
 
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbidden = await ensureInventarioAccess(ctx);
+    const forbidden = await ensureInventarioEdit(ctx);
     if (forbidden) return forbidden;
 
     const body = await request.json();
@@ -147,6 +148,20 @@ export async function POST(request: NextRequest) {
         },
       });
     });
+
+    if (purchase) {
+      await createOpsAuditLog(
+        ctx,
+        "inventario.purchase.created",
+        "inventario.purchase",
+        purchase.id,
+        {
+          date: parsed.data.date,
+          totalLines: parsed.data.lines.length,
+          totalQuantity: parsed.data.lines.reduce((s, l) => s + l.quantity, 0),
+        },
+      );
+    }
 
     return NextResponse.json(purchase);
   } catch (e) {

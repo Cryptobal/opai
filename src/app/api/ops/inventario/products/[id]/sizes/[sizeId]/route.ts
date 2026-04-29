@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
-import { ensureInventarioAccess } from "@/lib/inventory";
+import { ensureInventarioDelete } from "@/lib/inventory";
+import { createOpsAuditLog } from "@/lib/ops";
 import { requireTenantModule } from '@/lib/require-module';
 
 export async function DELETE(
@@ -14,7 +15,7 @@ export async function DELETE(
 
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbidden = await ensureInventarioAccess(ctx);
+    const forbidden = await ensureInventarioDelete(ctx);
     if (forbidden) return forbidden;
 
     const { id, sizeId } = await params;
@@ -77,6 +78,14 @@ export async function DELETE(
       }
       await tx.inventoryProductSize.delete({ where: { id: sizeId } });
     });
+
+    await createOpsAuditLog(
+      ctx,
+      "inventario.product.size.deleted",
+      "inventario.product",
+      id,
+      { sizeId, sizeCode: size.sizeCode },
+    );
 
     return NextResponse.json({ success: true });
   } catch (e) {

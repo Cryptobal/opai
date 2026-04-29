@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
-import { ensureInventarioAccess } from "@/lib/inventory";
+import { ensureInventarioAccess, ensureInventarioEdit } from "@/lib/inventory";
+import { createOpsAuditLog } from "@/lib/ops";
 import { requireTenantModule } from '@/lib/require-module';
 import { z } from "zod";
 
@@ -104,7 +105,7 @@ export async function POST(request: NextRequest) {
 
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbidden = await ensureInventarioAccess(ctx);
+    const forbidden = await ensureInventarioEdit(ctx);
     if (forbidden) return forbidden;
 
     const body = await request.json();
@@ -153,6 +154,14 @@ export async function POST(request: NextRequest) {
         },
       },
     });
+
+    await createOpsAuditLog(
+      ctx,
+      "inventario.phone_line.created",
+      "inventario.phone_line",
+      phoneLine.id,
+      { phoneNumber: phoneLine.phoneNumber, carrier: phoneLine.carrier },
+    );
 
     return NextResponse.json(phoneLine);
   } catch (e) {

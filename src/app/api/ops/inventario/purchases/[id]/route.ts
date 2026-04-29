@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
-import { ensureInventarioAccess } from "@/lib/inventory";
+import {
+  ensureInventarioEdit,
+  ensureInventarioDelete,
+} from "@/lib/inventory";
+import { createOpsAuditLog } from "@/lib/ops";
 import { requireTenantModule } from '@/lib/require-module';
 import { z } from "zod";
 
@@ -28,7 +32,7 @@ export async function PUT(
 
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbidden = await ensureInventarioAccess(ctx);
+    const forbidden = await ensureInventarioEdit(ctx);
     if (forbidden) return forbidden;
 
     const { id } = await params;
@@ -139,6 +143,14 @@ export async function PUT(
       });
     });
 
+    await createOpsAuditLog(
+      ctx,
+      "inventario.purchase.updated",
+      "inventario.purchase",
+      id,
+      { date: parsed.data.date, totalLines: parsed.data.lines.length },
+    );
+
     return NextResponse.json(purchase);
   } catch (e: unknown) {
     if (e instanceof Error && e.message === "NOT_FOUND") {
@@ -165,7 +177,7 @@ export async function DELETE(
 
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbidden = await ensureInventarioAccess(ctx);
+    const forbidden = await ensureInventarioDelete(ctx);
     if (forbidden) return forbidden;
 
     const { id } = await params;
@@ -199,6 +211,14 @@ export async function DELETE(
       // Delete purchase (cascade deletes lines)
       await tx.inventoryPurchase.delete({ where: { id } });
     });
+
+    await createOpsAuditLog(
+      ctx,
+      "inventario.purchase.deleted",
+      "inventario.purchase",
+      id,
+      {},
+    );
 
     return NextResponse.json({ success: true });
   } catch (e: unknown) {
