@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { OpaiSurface } from "@/components/opai";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -305,7 +305,7 @@ export function InventarioBodegasManager({ canDelete }: Props) {
             Mostrar inactivas
           </label>
         </div>
-        <Button size="sm" className="gap-2" onClick={openNew}>
+        <Button size="sm" variant="outline" className="gap-2" onClick={openNew}>
           <Plus className="h-4 w-4" /> Nueva bodega
         </Button>
       </div>
@@ -315,39 +315,35 @@ export function InventarioBodegasManager({ canDelete }: Props) {
           <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Cargando bodegas…
         </div>
       ) : filtered.length === 0 ? (
-        <Card>
-          <CardContent className="py-10 text-center">
-            <WarehouseIcon className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
-            <p className="text-sm font-medium">Sin bodegas</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              {search || typeFilter !== "all"
-                ? "Ninguna coincide con el filtro actual."
-                : "Crea la primera bodega para registrar stock."}
-            </p>
-          </CardContent>
-        </Card>
+        <OpaiSurface className="py-10 text-center">
+          <WarehouseIcon className="mx-auto mb-3 h-8 w-8 text-muted-foreground/60" />
+          <p className="text-sm font-medium">Sin bodegas</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            {search || typeFilter !== "all"
+              ? "Ninguna coincide con el filtro actual."
+              : "Crea la primera bodega para registrar stock."}
+          </p>
+        </OpaiSurface>
       ) : (
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((w) => {
             const meta = TYPE_META[w.type];
             const Icon = meta.icon;
             return (
-              <div
+              <OpaiSurface
                 key={w.id}
-                className={cn(
-                  "group relative flex flex-col gap-2 rounded-xl border bg-card p-3 transition-colors",
-                  !w.active && "opacity-60",
-                )}
+                hoverable
+                className={cn("flex flex-col gap-2", !w.active && "opacity-60")}
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-start gap-2.5 min-w-0">
                     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                      <Icon className="h-4.5 w-4.5" />
+                      <Icon className="h-[18px] w-[18px]" />
                     </span>
                     <div className="min-w-0">
                       <p className="truncate text-sm font-semibold">{w.name}</p>
                       <div className="mt-0.5 flex flex-wrap items-center gap-1">
-                        <Badge variant="secondary" className="text-[10px]">
+                        <Badge variant="outline" className="text-[10px] font-mono uppercase tracking-wider border-foreground/10 bg-foreground/5 text-muted-foreground">
                           {meta.label}
                         </Badge>
                         {!w.active && (
@@ -380,11 +376,11 @@ export function InventarioBodegasManager({ canDelete }: Props) {
                   </div>
                 )}
 
-                <div className="mt-1 flex items-center gap-1 border-t pt-2">
+                <div className="mt-1 flex items-center gap-1 border-t border-foreground/[0.06] pt-2">
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="h-8 flex-1 gap-1 text-xs"
+                    className="h-8 flex-1 gap-1 text-xs text-muted-foreground hover:text-foreground"
                     onClick={() => openEdit(w)}
                   >
                     <Pencil className="h-3 w-3" />
@@ -393,7 +389,7 @@ export function InventarioBodegasManager({ canDelete }: Props) {
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="h-8 flex-1 gap-1 text-xs"
+                    className="h-8 flex-1 gap-1 text-xs text-muted-foreground hover:text-foreground"
                     onClick={() => handleToggleActive(w)}
                   >
                     <Power className="h-3 w-3" />
@@ -410,7 +406,7 @@ export function InventarioBodegasManager({ canDelete }: Props) {
                     </Button>
                   )}
                 </div>
-              </div>
+              </OpaiSurface>
             );
           })}
         </div>

@@ -2,13 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { OpaiSurface } from "@/components/opai";
 import {
   Dialog,
   DialogContent,
@@ -592,15 +586,9 @@ export function InventarioComprasClient() {
   const unmatchedCount = importLines.filter((l) => !l.matched).length;
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <div>
-          <CardTitle>Ingresos</CardTitle>
-          <CardDescription>
-            Registra compras de uniformes. El stock se actualiza automáticamente.
-          </CardDescription>
-        </div>
-        <div className="flex gap-2">
+    <OpaiSurface className="space-y-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex gap-2 ml-auto">
           {/* Import Excel Dialog */}
           <Dialog open={importDialogOpen} onOpenChange={(open) => {
             setImportDialogOpen(open);
@@ -989,8 +977,8 @@ export function InventarioComprasClient() {
             </DialogContent>
           </Dialog>
         </div>
-      </CardHeader>
-      <CardContent>
+      </div>
+      <div>
         {loading ? (
           <p className="text-sm text-muted-foreground">Cargando...</p>
         ) : error ? (
@@ -998,27 +986,29 @@ export function InventarioComprasClient() {
             {error}
           </div>
         ) : purchases.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground py-6 text-center">
             No hay compras registradas. Crea productos, bodegas y registra tu primera compra.
           </p>
         ) : (
           <div className="space-y-2">
             {purchases.map((p) => (
-              <div key={p.id} className="rounded-lg border p-3">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <span className="font-medium">
-                      {new Date(p.date).toLocaleDateString("es-CL")}
-                    </span>
-                    {p.notes && (
-                      <span className="ml-2 text-xs text-muted-foreground">{p.notes}</span>
-                    )}
+              <OpaiSurface key={p.id} variant="tight" hoverable>
+                <div className="flex justify-between items-start gap-3">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-baseline gap-x-2">
+                      <span className="text-sm font-semibold tabular-nums">
+                        {new Date(p.date).toLocaleDateString("es-CL")}
+                      </span>
+                      {p.notes && (
+                        <span className="text-xs text-muted-foreground/80 truncate">{p.notes}</span>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex gap-1">
+                  <div className="flex gap-1 shrink-0">
                     <button
                       type="button"
                       onClick={() => startEdit(p)}
-                      className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                      className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-foreground/5 transition-colors"
                       title="Editar"
                     >
                       <Pencil className="h-3.5 w-3.5" />
@@ -1034,20 +1024,22 @@ export function InventarioComprasClient() {
                     </button>
                   </div>
                 </div>
-                <ul className="mt-2 text-sm text-muted-foreground">
+                <ul className="mt-2 space-y-0.5 text-xs text-muted-foreground font-mono">
                   {p.lines.map((l) => (
-                    <li key={l.id}>
-                      {l.quantity} x {l.variant.product.name}
-                      {l.variant.size && ` ${l.variant.size.sizeCode}`} → {l.warehouse.name} (
-                      ${Number(l.unitCost).toLocaleString("es-CL")}/u)
+                    <li key={l.id} className="truncate">
+                      {l.quantity} × {l.variant.product.name}
+                      {l.variant.size && ` ${l.variant.size.sizeCode}`} → {l.warehouse.name}{" "}
+                      <span className="text-muted-foreground/60">
+                        (${Number(l.unitCost).toLocaleString("es-CL")}/u)
+                      </span>
                     </li>
                   ))}
                 </ul>
-              </div>
+              </OpaiSurface>
             ))}
           </div>
         )}
-      </CardContent>
+      </div>
 
       {/* Edit purchase dialog */}
       <Dialog open={editDialogOpen} onOpenChange={(open) => {
@@ -1198,6 +1190,6 @@ export function InventarioComprasClient() {
           </form>
         </DialogContent>
       </Dialog>
-    </Card>
+    </OpaiSurface>
   );
 }

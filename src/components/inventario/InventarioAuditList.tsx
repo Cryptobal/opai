@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
+import { OpaiSurface } from "@/components/opai";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -231,15 +231,13 @@ export function InventarioAuditList() {
           <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Cargando auditoría…
         </div>
       ) : filtered.length === 0 ? (
-        <Card>
-          <CardContent className="py-10 text-center">
-            <Clock className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
-            <p className="text-sm font-medium">Sin eventos registrados</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Las acciones del inventario aparecerán aquí en cuanto ocurran.
-            </p>
-          </CardContent>
-        </Card>
+        <OpaiSurface className="py-10 text-center">
+          <Clock className="mx-auto mb-2 h-8 w-8 text-muted-foreground/60" />
+          <p className="text-sm font-medium">Sin eventos registrados</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Las acciones del inventario aparecerán aquí en cuanto ocurran.
+          </p>
+        </OpaiSurface>
       ) : (
         <div className="space-y-1.5">
           {filtered.map((entry) => {
@@ -250,11 +248,20 @@ export function InventarioAuditList() {
             const actionLabel = ACTION_LABELS[entry.action] ?? entry.action;
 
             return (
-              <button
+              <OpaiSurface
                 key={entry.id}
-                type="button"
+                variant="tight"
+                hoverable
+                role="button"
+                tabIndex={0}
                 onClick={() => setExpandedId(expanded ? null : entry.id)}
-                className="w-full rounded-lg border bg-card p-3 text-left transition-colors hover:bg-muted/30"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setExpandedId(expanded ? null : entry.id);
+                  }
+                }}
+                className="cursor-pointer text-left"
               >
                 <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3">
                   <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", tone.bg, tone.color)}>
@@ -284,27 +291,27 @@ export function InventarioAuditList() {
                   />
                 </div>
                 {expanded && (
-                  <div className="mt-3 space-y-1.5 rounded-md bg-muted/30 p-3 text-xs">
+                  <div className="mt-3 space-y-1.5 rounded-md bg-foreground/[0.03] p-3 text-xs">
                     <div className="grid gap-1 sm:grid-cols-2">
                       <div>
-                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Fecha</p>
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-mono">Fecha</p>
                         <p className="font-mono">{formatExact(entry.createdAt)}</p>
                       </div>
                       {entry.user?.email && (
                         <div>
-                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Email</p>
+                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-mono">Email</p>
                           <p className="truncate">{entry.user.email}</p>
                         </div>
                       )}
                       {entry.ipAddress && (
                         <div>
-                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">IP</p>
+                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-mono">IP</p>
                           <p className="font-mono">{entry.ipAddress}</p>
                         </div>
                       )}
                       {entry.entityId && (
                         <div>
-                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Entidad</p>
+                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-mono">Entidad</p>
                           <p className="font-mono break-all">{entry.entityId}</p>
                         </div>
                       )}
@@ -313,15 +320,15 @@ export function InventarioAuditList() {
                       typeof entry.details === "object" &&
                       Object.keys(entry.details as Record<string, unknown>).length > 0 && (
                         <div>
-                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Detalle</p>
-                          <pre className="mt-0.5 whitespace-pre-wrap rounded bg-background p-2 text-[11px] leading-relaxed">
+                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-mono">Detalle</p>
+                          <pre className="mt-0.5 whitespace-pre-wrap rounded bg-background/60 p-2 text-[11px] leading-relaxed">
 {JSON.stringify(entry.details, null, 2)}
                           </pre>
                         </div>
                       )}
                   </div>
                 )}
-              </button>
+              </OpaiSurface>
             );
           })}
         </div>

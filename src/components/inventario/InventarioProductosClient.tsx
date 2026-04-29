@@ -437,14 +437,13 @@ export function InventarioProductosClient() {
       ) : displayView === "cards" ? (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {filteredProducts.map((p) => (
-            <div
-              key={p.id}
-              className="rounded-lg border border-border p-4 transition-colors hover:border-primary/30 hover:bg-accent/30"
-            >
+            <OpaiSurface key={p.id} hoverable>
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
-                  <p className="font-medium text-sm">{p.name}</p>
-                  {p.sku && <p className="text-[11px] text-muted-foreground mt-0.5">SKU: {p.sku}</p>}
+                  <p className="font-semibold text-sm truncate">{p.name}</p>
+                  {p.sku && (
+                    <p className="text-[11px] text-muted-foreground/70 mt-0.5 font-mono">SKU: {p.sku}</p>
+                  )}
                 </div>
                 <div className="flex items-center gap-1">
                   <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => openEdit(p)} title="Editar">
@@ -470,15 +469,25 @@ export function InventarioProductosClient() {
                   </Button>
                 </div>
               </div>
-              <div className="flex items-center gap-2 mt-2 flex-wrap">
-                <Badge variant={p.category === "uniform" ? "default" : "secondary"} className="text-[10px]">
+              <div className="flex items-center gap-1 mt-2 flex-wrap">
+                <Badge
+                  variant="outline"
+                  className="text-[10px] font-mono uppercase tracking-wider border-foreground/10 bg-foreground/5 text-muted-foreground"
+                >
                   {p.category === "uniform" ? "Uniforme" : "Activo"}
                 </Badge>
-                <Badge variant={p.active ? "secondary" : "outline"} className="text-[10px]">
+                <Badge
+                  variant="outline"
+                  className={
+                    p.active
+                      ? "text-[10px] border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                      : "text-[10px] text-muted-foreground"
+                  }
+                >
                   {p.active ? "Vigente" : "Inactivo"}
                 </Badge>
                 {p.sizes.length > 0 && (
-                  <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                  <span className="text-[11px] text-muted-foreground/80 flex items-center gap-1 font-mono">
                     <Ruler className="h-3 w-3" />
                     {p.sizes.map((s) => s.sizeCode).join(", ")}
                   </span>
@@ -491,28 +500,40 @@ export function InventarioProductosClient() {
                   </Button>
                 </Link>
               </div>
-            </div>
+            </OpaiSurface>
           ))}
         </div>
       ) : (
         <div className="space-y-2">
           {filteredProducts.map((p) => (
-            <div
+            <OpaiSurface
               key={p.id}
-              className="flex items-center justify-between rounded-lg border border-border p-3 transition-colors hover:bg-accent/40"
+              variant="tight"
+              hoverable
+              className="flex items-center justify-between"
             >
-              <div className="flex items-center gap-3">
-                <div>
-                  <p className="font-medium text-sm">{p.name}</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <Badge variant={p.category === "uniform" ? "default" : "secondary"} className="text-[10px]">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="min-w-0">
+                  <p className="font-semibold text-sm truncate">{p.name}</p>
+                  <div className="flex items-center gap-1 mt-1 flex-wrap">
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] font-mono uppercase tracking-wider border-foreground/10 bg-foreground/5 text-muted-foreground"
+                    >
                       {p.category === "uniform" ? "Uniforme" : "Activo"}
                     </Badge>
-                    <Badge variant={p.active ? "secondary" : "outline"} className="text-[10px]">
+                    <Badge
+                      variant="outline"
+                      className={
+                        p.active
+                          ? "text-[10px] border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                          : "text-[10px] text-muted-foreground"
+                      }
+                    >
                       {p.active ? "Vigente" : "Inactivo"}
                     </Badge>
                     {p.sizes.length > 0 && (
-                      <span className="text-xs text-muted-foreground flex items-center gap-1">
+                      <span className="text-xs text-muted-foreground/80 flex items-center gap-1 font-mono">
                         <Ruler className="h-3 w-3" />
                         {p.sizes.map((s) => s.sizeCode).join(", ")}
                       </span>
@@ -520,7 +541,7 @@ export function InventarioProductosClient() {
                   </div>
                 </div>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-1 shrink-0">
                 <Button variant="ghost" size="icon" onClick={() => openEdit(p)} title="Editar">
                   <Pencil className="h-4 w-4" />
                 </Button>
@@ -547,7 +568,7 @@ export function InventarioProductosClient() {
                   </Button>
                 </Link>
               </div>
-            </div>
+            </OpaiSurface>
           ))}
         </div>
       )}

@@ -20,6 +20,12 @@ export type { PageHeaderProps } from './PageHeader';
 export { OpaiPageHero } from './PageHero';
 export type { OpaiPageHeroProps } from './PageHero';
 
+export { OpaiSurface, OpaiSectionHeader } from './Surface';
+export type { OpaiSurfaceProps, OpaiSectionHeaderProps } from './Surface';
+
+export { OpaiSurface, OpaiSectionHeader } from './Surface';
+export type { OpaiSurfaceProps, OpaiSectionHeaderProps } from './Surface';
+
 // UI Components
 export { KpiCard } from './KpiCard';
 export type { KpiCardProps, TrendType } from './KpiCard';

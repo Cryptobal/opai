@@ -2,13 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { OpaiSurface, OpaiSectionHeader } from "@/components/opai";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -165,98 +159,80 @@ export function InventarioStockClient({ canEdit }: Props) {
   const totalUnits = stock.reduce((sum, s) => sum + s.quantity, 0);
 
   return (
-    <Card>
-      <CardHeader className="space-y-3 sm:space-y-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-          <div className="min-w-0">
-            <CardTitle className="flex items-center gap-2">
-              <Package className="h-5 w-5 text-muted-foreground" />
-              Stock por bodega
-            </CardTitle>
-            <CardDescription className="mt-1">
-              Niveles actuales de inventario. El stock mínimo se configura en cada producto.
-            </CardDescription>
-          </div>
-          {canEdit && (
-            <div className="shrink-0">
-              <InventarioTransferDialog onCompleted={fetchData} />
-            </div>
-          )}
-        </div>
+    <OpaiSurface className="space-y-4">
+      {/* KPIs */}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <OpaiSurface variant="tight">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-mono">Variantes</p>
+          <p className="mt-0.5 text-base font-semibold tabular-nums">{stock.length}</p>
+        </OpaiSurface>
+        <OpaiSurface variant="tight">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-mono">Unidades</p>
+          <p className="mt-0.5 text-base font-semibold tabular-nums">{totalUnits.toLocaleString("es-CL")}</p>
+        </OpaiSurface>
+        <OpaiSurface variant="tight" className={cn(criticalCount > 0 && "border-red-500/30 bg-red-500/5")}>
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-mono">Agotados</p>
+          <p className={cn("mt-0.5 text-base font-semibold tabular-nums", criticalCount > 0 && "text-red-600 dark:text-red-400")}>
+            {criticalCount}
+          </p>
+        </OpaiSurface>
+        <OpaiSurface variant="tight" className={cn(lowCount > 0 && "border-amber-500/30 bg-amber-500/5")}>
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-mono">Bajo mínimo</p>
+          <p className={cn("mt-0.5 text-base font-semibold tabular-nums", lowCount > 0 && "text-amber-600 dark:text-amber-400")}>
+            {lowCount}
+          </p>
+        </OpaiSurface>
+      </div>
 
-        {/* Resumen */}
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <div className="rounded-lg border bg-muted/30 p-2.5">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Variantes</p>
-            <p className="mt-0.5 text-base font-semibold tabular-nums">{stock.length}</p>
-          </div>
-          <div className="rounded-lg border bg-muted/30 p-2.5">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Unidades</p>
-            <p className="mt-0.5 text-base font-semibold tabular-nums">{totalUnits.toLocaleString("es-CL")}</p>
-          </div>
-          <div className={cn("rounded-lg border p-2.5", criticalCount > 0 ? "border-red-500/30 bg-red-500/5" : "bg-muted/30")}>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Agotados</p>
-            <p className={cn("mt-0.5 text-base font-semibold tabular-nums", criticalCount > 0 && "text-red-600 dark:text-red-400")}>
-              {criticalCount}
-            </p>
-          </div>
-          <div className={cn("rounded-lg border p-2.5", lowCount > 0 ? "border-amber-500/30 bg-amber-500/5" : "bg-muted/30")}>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Bajo mínimo</p>
-            <p className={cn("mt-0.5 text-base font-semibold tabular-nums", lowCount > 0 && "text-amber-600 dark:text-amber-400")}>
-              {lowCount}
-            </p>
-          </div>
+      {/* Filtros */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <div className="relative flex-1 sm:max-w-xs">
+          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/70" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar producto…"
+            className="pl-8 h-9"
+          />
         </div>
-
-        {/* Filtros */}
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <div className="relative flex-1 sm:max-w-xs">
-            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar producto…"
-              className="pl-8 h-9"
-            />
-          </div>
-          <Select value={selectedWarehouseId || "all"} onValueChange={(v) => setWarehouseFilter(v === "all" ? "" : v)}>
-            <SelectTrigger className="h-9 w-full sm:w-56">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas las bodegas</SelectItem>
-              {warehouses.map((w) => (
-                <SelectItem key={w.id} value={w.id}>
-                  {w.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <div className="flex gap-1.5 shrink-0">
-            <Button
-              type="button"
-              size="sm"
-              variant={filter === "all" ? "default" : "outline"}
-              onClick={() => setFilter("all")}
-              className="h-9 text-xs"
-            >
-              Todos ({stock.length})
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant={filter === "alerts" ? "default" : "outline"}
-              onClick={() => setFilter("alerts")}
-              className="h-9 gap-1 text-xs"
-            >
-              <AlertTriangle className="h-3 w-3" />
-              Alertas ({criticalCount + lowCount})
-            </Button>
-          </div>
+        <Select value={selectedWarehouseId || "all"} onValueChange={(v) => setWarehouseFilter(v === "all" ? "" : v)}>
+          <SelectTrigger className="h-9 w-full sm:w-56">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas las bodegas</SelectItem>
+            {warehouses.map((w) => (
+              <SelectItem key={w.id} value={w.id}>
+                {w.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <div className="flex gap-1.5 shrink-0">
+          <Button
+            type="button"
+            size="sm"
+            variant={filter === "all" ? "default" : "outline"}
+            onClick={() => setFilter("all")}
+            className="h-9 text-xs"
+          >
+            Todos ({stock.length})
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={filter === "alerts" ? "default" : "outline"}
+            onClick={() => setFilter("alerts")}
+            className="h-9 gap-1 text-xs"
+          >
+            <AlertTriangle className="h-3 w-3" />
+            Alertas ({criticalCount + lowCount})
+          </Button>
+          {canEdit && <InventarioTransferDialog onCompleted={fetchData} />}
         </div>
-      </CardHeader>
+      </div>
 
-      <CardContent>
+      <div>
         {loading ? (
           <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
             <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Cargando stock…
@@ -267,7 +243,7 @@ export function InventarioStockClient({ canEdit }: Props) {
           </div>
         ) : filtered.length === 0 ? (
           <div className="py-10 text-center">
-            <Package className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
+            <Package className="mx-auto mb-2 h-8 w-8 text-muted-foreground/60" />
             <p className="text-sm font-medium">
               {filter === "alerts"
                 ? "No hay alertas de stock"
@@ -301,10 +277,10 @@ export function InventarioStockClient({ canEdit }: Props) {
                       const status = getStatus(s.quantity, s.variant.minStock);
                       const meta = STATUS_META[status];
                       return (
-                        <div
+                        <OpaiSurface
                           key={s.id}
+                          variant="tight"
                           className={cn(
-                            "rounded-lg border p-3",
                             meta.row,
                             status !== "ok" && "border-l-2 border-l-current",
                           )}
@@ -328,21 +304,21 @@ export function InventarioStockClient({ canEdit }: Props) {
                               )}
                             </div>
                           </div>
-                        </div>
+                        </OpaiSurface>
                       );
                     })}
                   </div>
 
                   {/* Desktop: tabla */}
-                  <div className="hidden overflow-hidden rounded-lg border sm:block">
+                  <OpaiSurface variant="bare" className="hidden overflow-hidden sm:block">
                     <table className="w-full text-sm">
-                      <thead className="bg-muted/50 text-xs">
+                      <thead className="bg-foreground/[0.03] text-xs">
                         <tr>
-                          <th className="p-2 text-left font-medium">Producto / Talla</th>
-                          <th className="p-2 text-right font-medium">Cantidad</th>
-                          <th className="p-2 text-right font-medium">Mín</th>
-                          <th className="p-2 text-right font-medium">Costo prom.</th>
-                          <th className="p-2 text-center font-medium">Estado</th>
+                          <th className="p-2.5 text-left font-mono uppercase tracking-wider text-[10px] text-muted-foreground/70">Producto / Talla</th>
+                          <th className="p-2.5 text-right font-mono uppercase tracking-wider text-[10px] text-muted-foreground/70">Cantidad</th>
+                          <th className="p-2.5 text-right font-mono uppercase tracking-wider text-[10px] text-muted-foreground/70">Mín</th>
+                          <th className="p-2.5 text-right font-mono uppercase tracking-wider text-[10px] text-muted-foreground/70">Costo prom.</th>
+                          <th className="p-2.5 text-center font-mono uppercase tracking-wider text-[10px] text-muted-foreground/70">Estado</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -350,20 +326,20 @@ export function InventarioStockClient({ canEdit }: Props) {
                           const status = getStatus(s.quantity, s.variant.minStock);
                           const meta = STATUS_META[status];
                           return (
-                            <tr key={s.id} className={cn("border-t", meta.row)}>
-                              <td className="p-2 truncate">{variantLabel(s)}</td>
-                              <td className={cn("p-2 text-right font-semibold tabular-nums", meta.text)}>
+                            <tr key={s.id} className={cn("border-t border-foreground/[0.06]", meta.row)}>
+                              <td className="p-2.5 truncate">{variantLabel(s)}</td>
+                              <td className={cn("p-2.5 text-right font-semibold tabular-nums", meta.text)}>
                                 {s.quantity}
                               </td>
-                              <td className="p-2 text-right tabular-nums text-muted-foreground">
+                              <td className="p-2.5 text-right tabular-nums text-muted-foreground">
                                 {s.variant.minStock || "-"}
                               </td>
-                              <td className="p-2 text-right tabular-nums">
+                              <td className="p-2.5 text-right tabular-nums">
                                 {s.avgCost != null
                                   ? `$${Number(s.avgCost).toLocaleString("es-CL")}`
                                   : "-"}
                               </td>
-                              <td className="p-2 text-center">
+                              <td className="p-2.5 text-center">
                                 {status !== "ok" && (
                                   <Badge variant="outline" className={cn("text-[10px]", meta.chip)}>
                                     {meta.label}
@@ -375,13 +351,13 @@ export function InventarioStockClient({ canEdit }: Props) {
                         })}
                       </tbody>
                     </table>
-                  </div>
+                  </OpaiSurface>
                 </div>
               );
             })}
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </OpaiSurface>
   );
 }

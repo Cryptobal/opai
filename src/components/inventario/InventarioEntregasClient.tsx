@@ -2,13 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { OpaiSurface } from "@/components/opai";
 import {
   Sheet,
   SheetContent,
@@ -348,69 +342,58 @@ export function InventarioEntregasClient({ currentUserId, canEdit }: Props) {
   }, [movements]);
 
   return (
-    <Card>
-      <CardHeader className="space-y-3">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0">
-            <CardTitle className="flex items-center gap-2">
-              <Truck className="h-5 w-5 text-muted-foreground" />
-              Entregas a guardias
-            </CardTitle>
-            <CardDescription className="mt-1">
-              Registra la entrega de uniformes. El stock se descuenta de la bodega seleccionada.
-            </CardDescription>
-          </div>
-          {canEdit && (
-            <Button size="sm" className="gap-2 shrink-0" onClick={() => setSheetOpen(true)}>
-              <Plus className="h-4 w-4" />
-              Nueva entrega
-            </Button>
-          )}
-        </div>
+    <OpaiSurface className="space-y-4">
+      <div className="flex justify-end">
+        {canEdit && (
+          <Button size="sm" variant="outline" className="gap-2" onClick={() => setSheetOpen(true)}>
+            <Plus className="h-4 w-4" />
+            Nueva entrega
+          </Button>
+        )}
+      </div>
 
-        <div className="grid grid-cols-3 gap-2">
-          <div className="rounded-lg border bg-muted/30 p-2.5">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Total</p>
-            <p className="mt-0.5 text-base font-semibold tabular-nums">{summary.total}</p>
-          </div>
-          <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-2.5">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Confirmadas</p>
-            <p className="mt-0.5 text-base font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
-              {summary.confirmed}
-            </p>
-          </div>
-          <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-2.5">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Pendientes</p>
-            <p className="mt-0.5 text-base font-semibold tabular-nums text-amber-600 dark:text-amber-400">
-              {summary.pending}
-            </p>
-          </div>
-        </div>
+      <div className="grid grid-cols-3 gap-2">
+        <OpaiSurface variant="tight">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-mono">Total</p>
+          <p className="mt-0.5 text-base font-semibold tabular-nums">{summary.total}</p>
+        </OpaiSurface>
+        <OpaiSurface variant="tight" className="border-emerald-500/30 bg-emerald-500/5">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-mono">Confirmadas</p>
+          <p className="mt-0.5 text-base font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
+            {summary.confirmed}
+          </p>
+        </OpaiSurface>
+        <OpaiSurface variant="tight" className="border-amber-500/30 bg-amber-500/5">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-mono">Pendientes</p>
+          <p className="mt-0.5 text-base font-semibold tabular-nums text-amber-600 dark:text-amber-400">
+            {summary.pending}
+          </p>
+        </OpaiSurface>
+      </div>
 
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <div className="relative flex-1 sm:max-w-xs">
-            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar guardia, instalación o autor…"
-              className="pl-8 h-9"
-            />
-          </div>
-          <Select value={confirmedFilter} onValueChange={(v) => setConfirmedFilter(v as typeof confirmedFilter)}>
-            <SelectTrigger className="h-9 w-full sm:w-44">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas</SelectItem>
-              <SelectItem value="pending">Pendientes</SelectItem>
-              <SelectItem value="confirmed">Confirmadas</SelectItem>
-            </SelectContent>
-          </Select>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <div className="relative flex-1 sm:max-w-xs">
+          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/70" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar guardia, instalación o autor…"
+            className="pl-8 h-9"
+          />
         </div>
-      </CardHeader>
+        <Select value={confirmedFilter} onValueChange={(v) => setConfirmedFilter(v as typeof confirmedFilter)}>
+          <SelectTrigger className="h-9 w-full sm:w-44">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas</SelectItem>
+            <SelectItem value="pending">Pendientes</SelectItem>
+            <SelectItem value="confirmed">Confirmadas</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
-      <CardContent>
+      <div>
         {loading ? (
           <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
             <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Cargando entregas…
@@ -443,7 +426,8 @@ export function InventarioEntregasClient({ currentUserId, canEdit }: Props) {
               const creatorName = m.createdByUser?.name ?? m.createdByUser?.email ?? null;
 
               return (
-                <li key={m.id} className="rounded-xl border bg-card p-3">
+                <li key={m.id}>
+                <OpaiSurface variant="default" hoverable>
                   <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3">
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
                       <UserRoundCheck className="h-5 w-5" />
@@ -479,7 +463,7 @@ export function InventarioEntregasClient({ currentUserId, canEdit }: Props) {
                     <InventoryReceptionBadge status={receptionStatusFromMovement(m.confirmationStatus)} />
                   </div>
 
-                  <ul className="mt-2 space-y-0.5 rounded-md bg-muted/30 p-2 text-xs text-muted-foreground">
+                  <ul className="mt-2 space-y-0.5 rounded-md bg-foreground/[0.03] p-2 text-xs text-muted-foreground">
                     {m.lines.map((l, i) => (
                       <li key={i} className="flex items-center justify-between">
                         <span className="truncate">
@@ -521,12 +505,13 @@ export function InventarioEntregasClient({ currentUserId, canEdit }: Props) {
                       </Button>
                     </div>
                   )}
+                </OpaiSurface>
                 </li>
               );
             })}
           </ul>
         )}
-      </CardContent>
+      </div>
 
       {/* Sheet de nueva entrega */}
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
@@ -765,6 +750,6 @@ export function InventarioEntregasClient({ currentUserId, canEdit }: Props) {
           </form>
         </SheetContent>
       </Sheet>
-    </Card>
+    </OpaiSurface>
   );
 }

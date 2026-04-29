@@ -2,13 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { OpaiSurface } from "@/components/opai";
 import {
   Dialog,
   DialogContent,
@@ -138,28 +132,26 @@ export function InventarioProductoSizesClient({
 
   if (category === "asset") {
     return (
-      <Card>
-        <CardContent className="pt-5">
-          <p className="text-sm text-muted-foreground">
-            Los activos no usan tallas. Este producto tiene una única variante para compras y stock.
-          </p>
-        </CardContent>
-      </Card>
+      <OpaiSurface>
+        <p className="text-sm text-muted-foreground">
+          Los activos no usan tallas. Este producto tiene una única variante para compras y stock.
+        </p>
+      </OpaiSurface>
     );
   }
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <div>
-          <CardTitle>Tallas</CardTitle>
-          <CardDescription>
+    <OpaiSurface className="space-y-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h2 className="text-sm font-semibold tracking-tight">Tallas</h2>
+          <p className="text-[11px] text-muted-foreground/70 font-mono mt-0.5">
             Ej: S, M, L, XL para camisas; 40, 41, 42 para zapatos.
-          </CardDescription>
+          </p>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button>
+            <Button variant="outline">
               <Plus className="h-4 w-4 mr-2" />
               Agregar talla
             </Button>
@@ -193,15 +185,15 @@ export function InventarioProductoSizesClient({
             </form>
           </DialogContent>
         </Dialog>
-      </CardHeader>
-      <CardContent>
+      </div>
+      <div>
         {sizes.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground py-4 text-center">
             No hay tallas. Agrega al menos una para poder comprar y llevar stock.
           </p>
         ) : (
-          <div className="rounded-lg border overflow-hidden">
-            <div className="grid grid-cols-12 gap-2 p-2 bg-muted/50 text-xs font-medium">
+          <OpaiSurface variant="bare" className="overflow-hidden">
+            <div className="grid grid-cols-12 gap-2 p-2.5 bg-foreground/[0.03] text-[10px] font-mono uppercase tracking-wider text-muted-foreground/70">
               <span className="col-span-3">Talla</span>
               <span className="col-span-4">Stock mínimo</span>
               <span className="col-span-5"></span>
@@ -212,7 +204,7 @@ export function InventarioProductoSizesClient({
               return (
                 <div
                   key={s.id}
-                  className="grid grid-cols-12 gap-2 p-2 border-t text-sm items-center"
+                  className="grid grid-cols-12 gap-2 p-2.5 border-t border-foreground/[0.06] text-sm items-center"
                 >
                   <span className="col-span-3 font-medium">
                     {s.sizeCode}
@@ -272,9 +264,9 @@ export function InventarioProductoSizesClient({
                 </div>
               );
             })}
-          </div>
+          </OpaiSurface>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </OpaiSurface>
   );
 }

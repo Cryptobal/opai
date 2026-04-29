@@ -2,13 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { OpaiSurface } from "@/components/opai";
 import {
   Dialog,
   DialogContent,
@@ -124,17 +118,11 @@ export function InventarioActivosClient() {
   };
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <div>
-          <CardTitle>Activos</CardTitle>
-          <CardDescription>
-            Celulares, radios y equipos. Registra número de teléfono y asigna a instalaciones.
-          </CardDescription>
-        </div>
+    <OpaiSurface className="space-y-4">
+      <div className="flex justify-end">
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button onClick={() => setForm({ variantId: "", serialNumber: "", phoneNumber: "", phoneCarrier: "", notes: "" })}>
+            <Button variant="outline" onClick={() => setForm({ variantId: "", serialNumber: "", phoneNumber: "", phoneCarrier: "", notes: "" })}>
               <Plus className="h-4 w-4 mr-2" />
               Nuevo activo
             </Button>
@@ -205,8 +193,8 @@ export function InventarioActivosClient() {
             </form>
           </DialogContent>
         </Dialog>
-      </CardHeader>
-      <CardContent>
+      </div>
+      <div>
         {loading ? (
           <p className="text-sm text-muted-foreground">Cargando...</p>
         ) : error ? (
@@ -214,39 +202,47 @@ export function InventarioActivosClient() {
             {error}
           </div>
         ) : assets.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground py-6 text-center">
             No hay activos. Crea productos tipo &quot;activo&quot; (ej. Celular) y regístralos aquí.
           </p>
         ) : (
           <div className="space-y-2">
             {assets.map((a) => (
-              <div
+              <OpaiSurface
                 key={a.id}
-                className="flex items-center justify-between rounded-lg border p-3"
+                variant="tight"
+                hoverable
+                className="flex items-center justify-between"
               >
-                <div>
-                  <p className="font-medium">
-                    {a.variant?.product.name ?? "Activo"} {a.serialNumber && `(${a.serialNumber})`}
+                <div className="min-w-0">
+                  <p className="font-semibold text-sm">
+                    {a.variant?.product.name ?? "Activo"}{" "}
+                    {a.serialNumber && (
+                      <span className="text-muted-foreground/70 font-mono text-xs">({a.serialNumber})</span>
+                    )}
                   </p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <Badge variant="secondary">
+                  <div className="flex flex-wrap items-center gap-2 mt-1">
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] font-mono uppercase tracking-wider border-foreground/10 bg-foreground/5 text-muted-foreground"
+                    >
                       {statusLabels[a.status] ?? a.status}
                     </Badge>
                     {a.phoneNumber && (
-                      <span className="text-sm">{a.phoneNumber}</span>
+                      <span className="text-xs font-mono text-muted-foreground">{a.phoneNumber}</span>
                     )}
                     {a.assignments[0] && (
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-xs text-muted-foreground/80">
                         → {a.assignments[0].installation.name}
                       </span>
                     )}
                   </div>
                 </div>
-              </div>
+              </OpaiSurface>
             ))}
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </OpaiSurface>
   );
 }

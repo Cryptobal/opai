@@ -2,13 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { OpaiSurface } from "@/components/opai";
 import {
   Dialog,
   DialogContent,
@@ -424,14 +418,8 @@ export function InventarioLineasClient() {
   // ── Render ─────────────────────────────────────────
   return (
     <>
-      <Card>
-        <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <CardTitle>Líneas Telefónicas</CardTitle>
-            <CardDescription>
-              Líneas SIM y números asignados a instalaciones. Gestiona compañía, plan y estado.
-            </CardDescription>
-          </div>
+      <OpaiSurface className="space-y-4">
+        <div className="flex justify-end">
           <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="outline"
@@ -441,13 +429,13 @@ export function InventarioLineasClient() {
               <Download className="h-4 w-4 mr-2" />
               Exportar
             </Button>
-            <Button onClick={openCreate}>
+            <Button variant="outline" onClick={openCreate}>
               <Plus className="h-4 w-4 mr-2" />
               Nueva línea
             </Button>
           </div>
-        </CardHeader>
-        <CardContent>
+        </div>
+        <div>
           {/* ── Filters ── */}
           <div className="mb-4 flex flex-wrap items-center gap-2">
             <div className="relative flex-1 min-w-[200px] max-w-xs">
@@ -666,8 +654,8 @@ export function InventarioLineasClient() {
               })}
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </OpaiSurface>
 
       {/* ── Create/Edit Dialog ── */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
