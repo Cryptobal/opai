@@ -10,6 +10,7 @@ export type AIErrorCode =
   | "AI_RATE_LIMITED"
   | "AI_INVALID_KEY"
   | "AI_MODEL_NOT_FOUND"
+  | "AI_INPUT_INVALID"
   | "AI_PROVIDER_ERROR";
 
 export class AIError extends Error {
@@ -162,6 +163,11 @@ export const AI_ERROR_USER_MESSAGES: Record<
       "El modelo de IA configurado ya no existe o no está disponible. Elige otro modelo.",
     actionLabel: "Cambiar modelo",
     actionHref: "/opai/configuracion/inteligencia-artificial",
+  },
+  AI_INPUT_INVALID: {
+    title: "Entrada inválida para IA",
+    description:
+      "La solicitud enviada al proveedor de IA no es válida (imágenes vacías, formato incorrecto, etc.).",
   },
   AI_PROVIDER_ERROR: {
     title: "Error del proveedor de IA",

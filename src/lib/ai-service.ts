@@ -141,6 +141,85 @@ export class AIService {
   }
 
   /**
+   * Sends text + images for vision analysis. Returns parsed JSON.
+   * Used by the VRA pipeline to enrich photos with technical descriptions
+   * and auto-suggested vulnerability links.
+   *
+   * @param images Array of base64 strings (without data URI prefix). Caller is
+   *               responsible for resizing/compressing before passing.
+   * @param mimeTypes Array matching images. Only "image/jpeg" or "image/png" supported.
+   */
+  async generateFromImages(
+    images: string[],
+    mimeTypes: string[],
+    prompt: string,
+    opts?: { maxTokens?: number; modelOverride?: string },
+    ctx?: { tenantId?: string },
+  ): Promise<object> {
+    if (images.length === 0) throw new AIError("AI_INPUT_INVALID", "No hay imágenes para analizar.");
+    if (images.length !== mimeTypes.length) {
+      throw new AIError("AI_INPUT_INVALID", "Mismatch entre images y mimeTypes.");
+    }
+    const config = await this.getActiveConfig(ctx);
+    if (!config) throw new AIError("AI_NOT_CONFIGURED", "No hay un proveedor de IA configurado.");
+
+    const effectiveConfig: AIConfig = opts?.modelOverride
+      ? { ...config, modelId: opts.modelOverride }
+      : config;
+    const maxTokens = opts?.maxTokens ?? 2048;
+
+    let rawText: string;
+    switch (effectiveConfig.providerType) {
+      case "anthropic":
+        rawText = await this.callAnthropicVision(effectiveConfig, images, mimeTypes, prompt, maxTokens);
+        break;
+      case "openai":
+        rawText = await this.callOpenAIVision(effectiveConfig, images, mimeTypes, prompt, maxTokens);
+        break;
+      case "google":
+        rawText = await this.callGoogleVision(effectiveConfig, images, mimeTypes, prompt, maxTokens);
+        break;
+      default:
+        throw new AIError("AI_PROVIDER_ERROR", `Proveedor no soportado: ${effectiveConfig.providerType}`, effectiveConfig.providerType);
+    }
+
+    return this.parseJSON(rawText);
+  }
+
+  /**
+   * Generates JSON with explicit model override. Useful when a feature needs
+   * a different model than the tenant default (e.g. vision on a smaller model).
+   */
+  async generateJSONWithModel(
+    prompt: string,
+    modelOverride: string,
+    maxTokens?: number,
+    ctx?: { tenantId?: string },
+  ): Promise<object> {
+    const config = await this.getActiveConfig(ctx);
+    if (!config) throw new AIError("AI_NOT_CONFIGURED", "No hay un proveedor de IA configurado.");
+
+    const effectiveConfig: AIConfig = { ...config, modelId: modelOverride };
+
+    let rawText: string;
+    switch (effectiveConfig.providerType) {
+      case "anthropic":
+        rawText = await this.callAnthropic(effectiveConfig, prompt, maxTokens);
+        break;
+      case "openai":
+        rawText = await this.callOpenAI(effectiveConfig, prompt, maxTokens);
+        break;
+      case "google":
+        rawText = await this.callGoogle(effectiveConfig, prompt, maxTokens);
+        break;
+      default:
+        throw new AIError("AI_PROVIDER_ERROR", `Proveedor no soportado: ${effectiveConfig.providerType}`, effectiveConfig.providerType);
+    }
+
+    return this.parseJSON(rawText);
+  }
+
+  /**
    * Sends a simple test prompt to verify the provider connection works.
    * Used by the "Test connection" button in the config UI.
    */
@@ -462,6 +541,124 @@ export class AIService {
       throw classifyProviderError("google", res.status, text);
     }
 
+    const data = await res.json();
+    return data.candidates[0].content.parts[0].text;
+  }
+
+  // ── Provider-specific vision calls ──
+
+  private async callAnthropicVision(
+    config: AIConfig,
+    images: string[],
+    mimeTypes: string[],
+    prompt: string,
+    maxTokens = 2048,
+  ): Promise<string> {
+    const imageBlocks = images.map((img, i) => ({
+      type: "image" as const,
+      source: {
+        type: "base64" as const,
+        media_type: mimeTypes[i],
+        data: img,
+      },
+    }));
+
+    const res = await fetch(`${config.baseUrl}/v1/messages`, {
+      method: "POST",
+      headers: {
+        "x-api-key": config.apiKey,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        model: config.modelId,
+        max_tokens: maxTokens,
+        messages: [
+          {
+            role: "user",
+            content: [...imageBlocks, { type: "text", text: prompt }],
+          },
+        ],
+      }),
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw classifyProviderError("anthropic", res.status, text);
+    }
+    const data = await res.json();
+    return data.content[0].text;
+  }
+
+  private async callOpenAIVision(
+    config: AIConfig,
+    images: string[],
+    mimeTypes: string[],
+    prompt: string,
+    maxTokens = 2048,
+  ): Promise<string> {
+    const imageBlocks = images.map((img, i) => ({
+      type: "image_url" as const,
+      image_url: { url: `data:${mimeTypes[i]};base64,${img}` },
+    }));
+
+    const res = await fetch(`${config.baseUrl}/v1/chat/completions`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${config.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: config.modelId,
+        max_tokens: maxTokens,
+        messages: [
+          {
+            role: "user",
+            content: [...imageBlocks, { type: "text", text: prompt }],
+          },
+        ],
+        response_format: { type: "json_object" },
+      }),
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw classifyProviderError("openai", res.status, text);
+    }
+    const data = await res.json();
+    return data.choices[0].message.content;
+  }
+
+  private async callGoogleVision(
+    config: AIConfig,
+    images: string[],
+    mimeTypes: string[],
+    prompt: string,
+    maxTokens = 2048,
+  ): Promise<string> {
+    const parts = [
+      ...images.map((img, i) => ({
+        inline_data: { mime_type: mimeTypes[i], data: img },
+      })),
+      { text: prompt },
+    ];
+
+    const res = await fetch(
+      `${config.baseUrl}/v1beta/models/${config.modelId}:generateContent?key=${config.apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts }],
+          generationConfig: { maxOutputTokens: maxTokens, responseMimeType: "application/json" },
+        }),
+      },
+    );
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw classifyProviderError("google", res.status, text);
+    }
     const data = await res.json();
     return data.candidates[0].content.parts[0].text;
   }
