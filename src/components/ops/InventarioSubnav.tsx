@@ -26,5 +26,7 @@ const INVENTARIO_ITEMS: SubNavItem[] = [
 ];
 
 export function InventarioSubnav() {
-  return <SubNav items={INVENTARIO_ITEMS} />;
+  // En mobile el bottom nav global ya muestra los mismos items (módulo Inventario);
+  // ocultamos el subnav arriba para evitar duplicación visual.
+  return <SubNav items={INVENTARIO_ITEMS} className="hidden lg:block" />;
 }
