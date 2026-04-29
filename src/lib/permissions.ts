@@ -114,6 +114,7 @@ export const SUBMODULE_KEYS = {
     "alertas_cobertura",
     "ats",
     "psicolaboral",
+    "conocimiento",
   ] as const,
   finance: [
     "rendiciones",
@@ -302,6 +303,7 @@ export const SUBMODULE_META: SubmoduleMeta[] = [
   { key: "config.inteligencia_artificial", module: "config", submodule: "inteligencia_artificial", label: "Inteligencia Artificial", href: "/opai/configuracion/inteligencia-artificial" },
   { key: "config.alertas_cobertura", module: "config", submodule: "alertas_cobertura", label: "Alertas Cobertura", href: "/opai/configuracion/alertas-cobertura" },
   { key: "config.psicolaboral", module: "config", submodule: "psicolaboral", label: "Psicolaboral", href: "/opai/configuracion/psicolaboral" },
+  { key: "config.conocimiento", module: "config", submodule: "conocimiento", label: "Conocimiento", href: "/opai/configuracion/conocimiento" },
   // ── Fiscalización DT ──
   { key: "fiscalizacion.marcaciones", module: "fiscalizacion", submodule: "marcaciones", label: "Marcaciones", href: "/fiscalizacion" },
   { key: "fiscalizacion.asistencia", module: "fiscalizacion", submodule: "asistencia", label: "Asistencia", href: "/fiscalizacion" },
@@ -1001,6 +1003,7 @@ export function pathToPermission(
   if (pathname.startsWith("/opai/configuracion/gamificacion")) return { module: "config", submodule: "gamificacion" };
   if (pathname.startsWith("/opai/configuracion/alertas-cobertura")) return { module: "config", submodule: "alertas_cobertura" };
   if (pathname.startsWith("/opai/configuracion/ats")) return { module: "config", submodule: "ats" };
+  if (pathname.startsWith("/opai/configuracion/conocimiento")) return { module: "config", submodule: "conocimiento" };
   if (pathname.startsWith("/opai/configuracion")) return { module: "config" };
 
   // Finance submodules

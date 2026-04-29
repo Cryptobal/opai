@@ -185,7 +185,10 @@ export function ExamsSubTab({ installationId }: Props) {
   const [aiLoading, setAiLoading] = useState(false);
   const [questionCount, setQuestionCount] = useState(10);
   const [schedule, setSchedule] = useState<Schedule>("now");
-  const [recurMonths, setRecurMonths] = useState(3);
+  // Recurring frequency in days. `null` = inherit tenant default.
+  const [recurDays, setRecurDays] = useState<number | null>(null);
+  // Tenant default loaded lazily when user picks "recurring".
+  const [tenantDefaultDays, setTenantDefaultDays] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
 
   // AI knowledge sources (DocOperacional + legacy fallback) for security_general
@@ -342,6 +345,21 @@ export function ExamsSubTab({ installationId }: Props) {
     };
   }, [historyGuardId, base]);
 
+  // Fetch tenant knowledge default once when user picks "recurring"
+  useEffect(() => {
+    if (schedule !== "recurring" || tenantDefaultDays !== null) return;
+    let cancelled = false;
+    fetch("/api/configuracion/knowledge")
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((json: { success?: boolean; data?: { recurringDefaultDays?: number } }) => {
+        if (!cancelled && json?.success && json.data?.recurringDefaultDays) {
+          setTenantDefaultDays(json.data.recurringDefaultDays);
+        }
+      })
+      .catch(() => { /* fallback al placeholder genérico */ });
+    return () => { cancelled = true; };
+  }, [schedule, tenantDefaultDays]);
+
   // Fetch AI knowledge sources when needed
   useEffect(() => {
     if (!createOpen || newType !== "security_general") return;
@@ -445,7 +463,8 @@ export function ExamsSubTab({ installationId }: Props) {
         title: newTitle.trim(),
         type: newType,
         scheduleType: scheduleTypeMap[schedule],
-        recurringMonths: schedule === "recurring" ? recurMonths : undefined,
+        // recurringDays: null = hereda default tenant; positivo = override
+        recurringDays: schedule === "recurring" ? recurDays : undefined,
         passingScore: 60,
         questions: questions.map((q, i) => ({
           questionText: q.text,
@@ -527,7 +546,7 @@ export function ExamsSubTab({ installationId }: Props) {
     setQuestions([]);
     setQuestionCount(10);
     setSchedule("now");
-    setRecurMonths(3);
+    setRecurDays(null);
     setSelectedDocIds([]);
     setAiSources([]);
     setUsedSources([]);
@@ -990,21 +1009,48 @@ export function ExamsSubTab({ installationId }: Props) {
                   ))}
                 </div>
                 {schedule === "recurring" && (
-                  <div className="flex items-center gap-2 pt-1">
-                    <Label className="text-xs whitespace-nowrap">
-                      Cada
-                    </Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      max={24}
-                      className="w-20 h-8 text-xs"
-                      value={recurMonths}
-                      onChange={(e) =>
-                        setRecurMonths(Number(e.target.value) || 1)
-                      }
-                    />
-                    <span className="text-xs text-muted-foreground">meses</span>
+                  <div className="space-y-1.5 pt-1">
+                    <div className="flex items-center gap-2">
+                      <Label className="text-xs whitespace-nowrap">Cada</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={365}
+                        placeholder={
+                          tenantDefaultDays != null
+                            ? `${tenantDefaultDays}`
+                            : "default tenant"
+                        }
+                        className="w-24 h-8 text-xs"
+                        value={recurDays ?? ""}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          if (v === "") {
+                            setRecurDays(null);
+                            return;
+                          }
+                          const n = Number.parseInt(v, 10);
+                          setRecurDays(Number.isFinite(n) && n > 0 ? n : null);
+                        }}
+                      />
+                      <span className="text-xs text-muted-foreground">días</span>
+                      {recurDays !== null && (
+                        <button
+                          type="button"
+                          onClick={() => setRecurDays(null)}
+                          className="text-[11px] text-primary hover:underline"
+                        >
+                          Heredar del tenant
+                        </button>
+                      )}
+                    </div>
+                    {recurDays === null && (
+                      <p className="text-[11px] text-muted-foreground">
+                        {tenantDefaultDays != null
+                          ? `Hereda del default tenant: ${tenantDefaultDays} días.`
+                          : "Hereda del default tenant configurado en /opai/configuracion/conocimiento."}
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
