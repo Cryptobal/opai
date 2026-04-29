@@ -3643,19 +3643,26 @@ model OpsSupervisionGuardEvaluation {
 }
 
 model OpsSupervisionFinding {
-  id                String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId          String    @map("tenant_id")
-  visitId           String    @map("visit_id") @db.Uuid
-  installationId    String    @map("installation_id") @db.Uuid
-  guardId           String?   @map("guard_id") @db.Uuid
-  category          String
-  severity          String    @default("minor")
-  description       String    @db.Text
-  photoUrl          String?   @map("photo_url")
-  ticketId          String?   @map("ticket_id") @db.Uuid
-  status            String    @default("open")
-  resolvedAt        DateTime? @map("resolved_at") @db.Timestamptz(6)
-  verifiedInVisitId String?   @map("verified_in_visit_id") @db.Uuid
+  id                 String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId           String    @map("tenant_id")
+  visitId            String    @map("visit_id") @db.Uuid
+  installationId     String    @map("installation_id") @db.Uuid
+  guardId            String?   @map("guard_id") @db.Uuid
+  category           String
+  severity           String    @default("minor")
+  description        String    @db.Text
+  photoUrl           String?   @map("photo_url")
+  ticketId           String?   @map("ticket_id") @db.Uuid
+  status             String    @default("open")
+  /// Campos opcionales usados cuando la visita es vulnerability_assessment.
+  /// Localización física libre del hallazgo (ej: "Pieza de bombas", "Reja del acceso principal", "Techo bodega norte").
+  location           String?
+  /// Tag amplio opcional (Norte, Sur, Este, Oeste, Interior, Exterior, Tecnología, Perimetral, Acceso).
+  sectorTag          String?   @map("sector_tag")
+  /// Factores que agravan el hallazgo (ej: "Sin iluminación nocturna y sin cobertura CCTV").
+  aggravatingFactors String?   @map("aggravating_factors") @db.Text
+  resolvedAt         DateTime? @map("resolved_at") @db.Timestamptz(6)
+  verifiedInVisitId  String?   @map("verified_in_visit_id") @db.Uuid
 
   // Agrupación por documento (dedup): un hallazgo persistente por (installation + tipoDoc|guardiaDocCode)
   tipoDocId           String?  @map("tipo_doc_id") @db.Uuid

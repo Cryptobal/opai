@@ -12,9 +12,10 @@ import type { NearbyInstallation, DotacionGuard, VisitData } from "./types";
 
 type Props = {
   onCheckedIn: (visit: VisitData, dotacion: DotacionGuard[], guardsExpected: number) => void;
+  mode?: "regular" | "vra";
 };
 
-export function Step1CheckIn({ onCheckedIn }: Props) {
+export function Step1CheckIn({ onCheckedIn, mode = "regular" }: Props) {
   const [loadingLocation, setLoadingLocation] = useState(false);
   const [loadingInstallations, setLoadingInstallations] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -140,6 +141,7 @@ export function Step1CheckIn({ onCheckedIn }: Props) {
           lat: location.lat,
           lng: location.lng,
           startedVia: "mobile",
+          visitType: mode === "vra" ? "vulnerability_assessment" : "regular",
         }),
       });
       const json = await res.json();

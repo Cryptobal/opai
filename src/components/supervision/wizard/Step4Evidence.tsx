@@ -19,6 +19,7 @@ type Props = {
   onNext: () => void;
   onPrev: () => void;
   saving: boolean;
+  mode?: "regular" | "vra";
 };
 
 async function compressImage(file: File, maxSizeKB: number = 800): Promise<File> {
@@ -87,6 +88,7 @@ export function Step4Evidence({
   onNext,
   onPrev,
   saving,
+  mode = "regular",
 }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
@@ -380,6 +382,7 @@ export function Step4Evidence({
         <FindingModal
           visitId={visit.id}
           guardId={null}
+          mode={mode}
           onClose={() => setShowFindingModal(false)}
           onCreated={(finding) => {
             onFindingCreated(finding);

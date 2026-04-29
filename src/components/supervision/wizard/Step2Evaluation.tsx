@@ -26,6 +26,7 @@ type Props = {
   onNext: () => void;
   onPrev: () => void;
   saving: boolean;
+  mode?: "regular" | "vra";
 };
 
 const RATING_LABELS: Record<number, string> = {
@@ -124,6 +125,7 @@ export function Step2Evaluation({
   onNext,
   onPrev,
   saving,
+  mode = "regular",
 }: Props) {
   const [showFindingModal, setShowFindingModal] = useState(false);
   const [findingGuardId, setFindingGuardId] = useState<string | null>(null);
@@ -370,6 +372,7 @@ export function Step2Evaluation({
         <FindingModal
           visitId={visit.id}
           guardId={findingGuardId}
+          mode={mode}
           onClose={() => setShowFindingModal(false)}
           onCreated={(finding) => {
             onFindingCreated(finding);

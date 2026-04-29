@@ -69,6 +69,7 @@ type Props = {
   onNext: () => void;
   onPrev: () => void;
   saving: boolean;
+  mode?: "regular" | "vra";
 };
 
 export function Step3Checklist({
@@ -102,6 +103,7 @@ export function Step3Checklist({
   onNext,
   onPrev,
   saving,
+  mode = "regular",
 }: Props) {
   const [showFindingModal, setShowFindingModal] = useState(false);
   const [bookAutoFindingId, setBookAutoFindingId] = useState<string | null>(null);
@@ -1207,6 +1209,7 @@ export function Step3Checklist({
         <FindingModal
           visitId={visit.id}
           guardId={null}
+          mode={mode}
           onClose={() => setShowFindingModal(false)}
           onCreated={(finding) => {
             onFindingCreated(finding);

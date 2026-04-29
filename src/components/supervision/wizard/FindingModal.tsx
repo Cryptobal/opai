@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, X } from "lucide-react";
+import { AlertTriangle, X, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -14,12 +15,30 @@ type Props = {
   guardId: string | null;
   onClose: () => void;
   onCreated: (finding: Finding) => void;
+  mode?: "regular" | "vra";
 };
 
-export function FindingModal({ visitId, guardId, onClose, onCreated }: Props) {
-  const [category, setCategory] = useState<string>("personal");
-  const [severity, setSeverity] = useState<string>("minor");
+const SECTOR_SUGGESTIONS = [
+  "Norte",
+  "Sur",
+  "Este",
+  "Oeste",
+  "Perimetral",
+  "Interior",
+  "Exterior",
+  "Tecnología",
+  "Acceso",
+];
+
+export function FindingModal({ visitId, guardId, onClose, onCreated, mode = "regular" }: Props) {
+  const isVra = mode === "vra";
+  const [category, setCategory] = useState<string>(isVra ? "infrastructure" : "personal");
+  const [severity, setSeverity] = useState<string>(isVra ? "major" : "minor");
   const [description, setDescription] = useState("");
+  // Campos VRA
+  const [location, setLocation] = useState("");
+  const [sectorTag, setSectorTag] = useState("");
+  const [aggravatingFactors, setAggravatingFactors] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -40,6 +59,9 @@ export function FindingModal({ visitId, guardId, onClose, onCreated }: Props) {
           category,
           severity,
           description: description.trim(),
+          location: isVra ? location.trim() || null : null,
+          sectorTag: isVra ? sectorTag.trim() || null : null,
+          aggravatingFactors: isVra ? aggravatingFactors.trim() || null : null,
         }),
       });
       const json = await res.json();
@@ -59,8 +81,12 @@ export function FindingModal({ visitId, guardId, onClose, onCreated }: Props) {
       <div className="w-full max-w-lg rounded-t-xl border bg-card p-4 shadow-xl sm:rounded-xl">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="flex items-center gap-2 text-base font-medium">
-            <AlertTriangle className="h-4 w-4 text-amber-400" />
-            Registrar hallazgo
+            {isVra ? (
+              <ShieldAlert className="h-4 w-4 text-orange-400" />
+            ) : (
+              <AlertTriangle className="h-4 w-4 text-amber-400" />
+            )}
+            {isVra ? "Registrar hallazgo de vulnerabilidad" : "Registrar hallazgo"}
           </h3>
           <button
             type="button"
@@ -117,11 +143,72 @@ export function FindingModal({ visitId, guardId, onClose, onCreated }: Props) {
             <Textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Describe el hallazgo encontrado..."
+              placeholder={
+                isVra
+                  ? "Ej: Perforación activa en muro perimetral oeste con técnica de erosión y golpe directo. Hay dos orificios visibles."
+                  : "Describe el hallazgo encontrado..."
+              }
               rows={3}
               className="text-sm"
             />
           </div>
+
+          {isVra && (
+            <>
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1.5">
+                  <ShieldAlert className="h-3 w-3 text-orange-400" />
+                  Localización física
+                </Label>
+                <Input
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  placeholder="Ej: Pieza de bombas, Reja del acceso principal, Techo bodega norte..."
+                  className="text-sm h-12"
+                  list="vra-location-suggestions"
+                />
+                <datalist id="vra-location-suggestions">
+                  <option value="Muro perimetral oeste" />
+                  <option value="Reja del acceso principal" />
+                  <option value="Caseta de vigilancia" />
+                  <option value="Techo bodega central" />
+                  <option value="Pieza de bombas" />
+                  <option value="Patio de carga" />
+                  <option value="Sector estacionamiento" />
+                </datalist>
+                <p className="text-[11px] text-muted-foreground">
+                  Sé específico. La IA usa esta localización para situar el hallazgo en el mapa del informe.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Sector (etiqueta amplia)</Label>
+                <Input
+                  value={sectorTag}
+                  onChange={(e) => setSectorTag(e.target.value)}
+                  placeholder="Ej: Norte, Perimetral, Interior, Tecnología..."
+                  className="text-sm h-12"
+                  list="vra-sector-suggestions"
+                />
+                <datalist id="vra-sector-suggestions">
+                  {SECTOR_SUGGESTIONS.map((s) => (
+                    <option key={s} value={s} />
+                  ))}
+                </datalist>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Factores agravantes (opcional)</Label>
+                <Textarea
+                  value={aggravatingFactors}
+                  onChange={(e) => setAggravatingFactors(e.target.value)}
+                  placeholder="Ej: Sin iluminación nocturna y sin cobertura CCTV en este sector."
+                  rows={2}
+                  className="text-sm"
+                />
+              </div>
+            </>
+          )}
 
           {error && (
             <p className="rounded-md bg-destructive/10 p-2 text-sm text-red-400">{error}</p>

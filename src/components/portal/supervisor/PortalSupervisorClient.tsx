@@ -47,6 +47,7 @@ export function PortalSupervisorClient() {
     null
   );
   const [wizardOpen, setWizardOpen] = useState(false);
+  const [wizardMode, setWizardMode] = useState<"regular" | "vra">("regular");
   const [activeInstallationId, setActiveInstallationId] = useState<string | undefined>();
   const [showCrearTE, setShowCrearTE] = useState(false);
   const [showIngresoTE, setShowIngresoTE] = useState(false);
@@ -149,6 +150,7 @@ export function PortalSupervisorClient() {
   function handleDashboardAction(
     action:
       | "nueva-visita"
+      | "nueva-visita-vra"
       | "novedad"
       | "turno-extra"
       | "rendicion"
@@ -158,6 +160,12 @@ export function PortalSupervisorClient() {
     switch (action) {
       case "nueva-visita":
         setActiveSection("visitas");
+        setWizardMode("regular");
+        setWizardOpen(true);
+        break;
+      case "nueva-visita-vra":
+        setActiveSection("visitas");
+        setWizardMode("vra");
         setWizardOpen(true);
         break;
       case "turno-extra":
@@ -193,6 +201,7 @@ export function PortalSupervisorClient() {
     switch (action) {
       case "nueva-visita":
         setActiveSection("visitas");
+        setWizardMode("regular");
         setWizardOpen(true);
         break;
       case "turno-extra":
@@ -464,6 +473,7 @@ export function PortalSupervisorClient() {
       {/* Visit wizard — full-screen overlay */}
       {wizardOpen && (
         <SupervisorVisitaWizard
+          mode={wizardMode}
           onClose={() => {
             setWizardOpen(false);
             setActiveSection("visitas");

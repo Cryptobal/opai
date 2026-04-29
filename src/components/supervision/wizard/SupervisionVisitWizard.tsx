@@ -25,8 +25,12 @@ import type {
   GuardDocCheckResult,
 } from "./types";
 
-export function SupervisionVisitWizard({ onComplete }: { onComplete?: () => void } = {}) {
+export function SupervisionVisitWizard({
+  onComplete,
+  mode = "regular",
+}: { onComplete?: () => void; mode?: "regular" | "vra" } = {}) {
   const router = useRouter();
+  const isVraMode = mode === "vra";
 
   // Core state
   const [currentStep, setCurrentStep] = useState<WizardStep>(1);
@@ -87,6 +91,10 @@ export function SupervisionVisitWizard({ onComplete }: { onComplete?: () => void
   const [validationPhotoFile, setValidationPhotoFile] = useState<File | null>(null);
   const [validationPhotoPreview, setValidationPhotoPreview] = useState<string | null>(null);
   const [validationType, setValidationType] = useState<"signature" | "photo" | null>(null);
+
+  // Estado del dialog post-checkout en modo VRA
+  const [showVraGenerateDialog, setShowVraGenerateDialog] = useState(false);
+  const [creatingVraReport, setCreatingVraReport] = useState(false);
 
   // Step 1 callback: after check-in
   function handleCheckedIn(visitData: VisitData, dotacion: DotacionGuard[], guardsExpected: number) {
@@ -678,13 +686,43 @@ export function SupervisionVisitWizard({ onComplete }: { onComplete?: () => void
       }
 
       toast.success("Visita finalizada correctamente");
-      if (onComplete) onComplete();
-      else router.push("/ops/supervision/historial");
+
+      // Modo VRA: ofrecer generar el informe automáticamente
+      if (isVraMode) {
+        setShowVraGenerateDialog(true);
+      } else {
+        if (onComplete) onComplete();
+        else router.push("/ops/supervision/historial");
+      }
     } catch (e) {
       const message = e instanceof Error ? e.message : "Error al finalizar visita";
       toast.error(message);
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleCreateVraReport() {
+    if (!visit) return;
+    setCreatingVraReport(true);
+    try {
+      const res = await fetch(`/api/vra/reports/from-visit/${visit.id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error);
+      const reportId = json.report.id;
+      toast.success(
+        json.alreadyExisted
+          ? "Informe ya existe — abriendo wizard"
+          : `Informe creado · ${json.importedFindings} hallazgos · ${json.importedPhotos} fotos importadas`,
+      );
+      router.push(`/opai/vra/${reportId}/edit`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Error creando informe");
+      setCreatingVraReport(false);
     }
   }
 
@@ -884,7 +922,7 @@ export function SupervisionVisitWizard({ onComplete }: { onComplete?: () => void
       )}
 
       {/* Step content */}
-      {currentStep === 1 && <Step1CheckIn onCheckedIn={handleCheckedIn} />}
+      {currentStep === 1 && <Step1CheckIn onCheckedIn={handleCheckedIn} mode={mode} />}
 
       {currentStep === 2 && visit && (
         <Step2Evaluation
@@ -901,6 +939,7 @@ export function SupervisionVisitWizard({ onComplete }: { onComplete?: () => void
           onNext={handleStep2Next}
           onPrev={() => setCurrentStep(1)}
           saving={saving}
+          mode={mode}
         />
       )}
 
@@ -947,6 +986,7 @@ export function SupervisionVisitWizard({ onComplete }: { onComplete?: () => void
           onNext={handleStep3Next}
           onPrev={() => setCurrentStep(2)}
           saving={saving}
+          mode={mode}
         />
       )}
 
@@ -962,6 +1002,7 @@ export function SupervisionVisitWizard({ onComplete }: { onComplete?: () => void
           onNext={handleStep4Next}
           onPrev={() => setCurrentStep(3)}
           saving={saving}
+          mode={mode}
         />
       )}
 
@@ -1000,6 +1041,58 @@ export function SupervisionVisitWizard({ onComplete }: { onComplete?: () => void
           onPrev={() => setCurrentStep(4)}
           saving={saving}
         />
+      )}
+
+      {/* Dialog post-checkout VRA: ofrecer generar informe ahora */}
+      {showVraGenerateDialog && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-md rounded-t-xl sm:rounded-xl bg-zinc-900 border border-zinc-800 p-6 space-y-4 shadow-xl">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-orange-500/20 flex items-center justify-center flex-shrink-0">
+                <span className="text-2xl">🛡️</span>
+              </div>
+              <div>
+                <h3 className="font-semibold text-zinc-100">Visita VRA finalizada</h3>
+                <p className="text-xs text-zinc-400">
+                  Capturaste {findings.length} hallazgo(s) y {capturedPhotos.length} foto(s)
+                </p>
+              </div>
+            </div>
+
+            <p className="text-sm text-zinc-300">
+              ¿Querés generar el <strong>informe de vulnerabilidad</strong> ahora mismo? La IA
+              tomará tus hallazgos y fotos como insumo y armará todas las secciones automáticamente.
+            </p>
+
+            <div className="flex flex-col gap-2 pt-2">
+              <button
+                type="button"
+                onClick={handleCreateVraReport}
+                disabled={creatingVraReport}
+                className="w-full px-4 py-3 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-medium text-sm flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {creatingVraReport ? "Creando informe..." : "Sí, generar informe ahora"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowVraGenerateDialog(false);
+                  if (onComplete) onComplete();
+                  else router.push("/ops/supervision/historial");
+                }}
+                disabled={creatingVraReport}
+                className="w-full px-4 py-3 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-medium text-sm disabled:opacity-50"
+              >
+                Más tarde — generar desde escritorio
+              </button>
+            </div>
+
+            <p className="text-[11px] text-zinc-500 text-center pt-1">
+              Si elegís &quot;más tarde&quot;, los datos quedan guardados en la visita y podés
+              importarlos al crear el informe en el módulo VRA.
+            </p>
+          </div>
+        </div>
       )}
     </div>
   );

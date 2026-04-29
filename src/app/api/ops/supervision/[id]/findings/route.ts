@@ -21,6 +21,10 @@ const findingSchema = z.object({
   photoUrl: z.string().url().nullable().optional(),
   tipoDocId: z.string().uuid().nullable().optional(),
   guardiaDocCode: z.string().max(200).nullable().optional(),
+  // Campos VRA — solo se llenan cuando la visita es vulnerability_assessment
+  location: z.string().max(200).nullable().optional(),
+  sectorTag: z.string().max(80).nullable().optional(),
+  aggravatingFactors: z.string().max(2000).nullable().optional(),
 });
 
 const ESCALATION_THRESHOLD = 3;
@@ -430,6 +434,9 @@ export async function POST(
           lastDetectedAt: nowCreate,
           lastDetectedVisitId: id,
           ...(ticketId ? { ticketId } : {}),
+          location: parsed.data.location ?? null,
+          sectorTag: parsed.data.sectorTag ?? null,
+          aggravatingFactors: parsed.data.aggravatingFactors ?? null,
         },
       });
 

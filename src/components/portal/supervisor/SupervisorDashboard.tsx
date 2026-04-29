@@ -13,6 +13,7 @@ import {
   LayoutGrid,
   UserPlus,
   FileEdit,
+  ShieldAlert,
 } from "lucide-react";
 import { KpiCard } from "@/components/opai/KpiCard";
 import { SupervisorSession } from "@/lib/portal-supervisor";
@@ -31,6 +32,7 @@ interface Props {
   onAction: (
     action:
       | "nueva-visita"
+      | "nueva-visita-vra"
       | "novedad"
       | "turno-extra"
       | "rendicion"
@@ -204,6 +206,12 @@ export function SupervisorDashboard({
             icon={<Plus size={18} />}
             color="bg-amber-500 hover:bg-amber-400"
             onClick={() => onAction("novedad")}
+          />
+          <QuickAction
+            label="Visita VRA"
+            icon={<ShieldAlert size={18} />}
+            color="bg-orange-600 hover:bg-orange-500"
+            onClick={() => onAction("nueva-visita-vra")}
           />
         </div>
       </div>
