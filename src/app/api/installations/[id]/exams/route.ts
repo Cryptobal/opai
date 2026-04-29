@@ -20,6 +20,12 @@ const questionSchema = z.object({
   order: z.number().int().min(0).default(0),
 });
 
+const sourceSchema = z.object({
+  id: z.string().min(1),
+  origin: z.enum(["doc_operacional", "protocol_document_legacy"]),
+  fileName: z.string().min(1),
+});
+
 const createExamSchema = z.object({
   title: z.string().min(1).max(300),
   type: z.enum(["protocol", "security_general"]).default("protocol"),
@@ -27,6 +33,7 @@ const createExamSchema = z.object({
   recurringMonths: z.number().int().positive().optional(),
   passingScore: z.number().int().min(0).max(100).default(60),
   questions: z.array(questionSchema).optional(),
+  sources: z.array(sourceSchema).optional(),
 });
 
 export async function GET(
@@ -137,10 +144,24 @@ export async function POST(
         });
       }
 
+      if (data.sources?.length) {
+        await tx.examSourceDocument.createMany({
+          data: data.sources.map((s) => ({
+            examId: created.id,
+            docOperacionalId:
+              s.origin === "doc_operacional" ? s.id : null,
+            protocolDocumentId:
+              s.origin === "protocol_document_legacy" ? s.id : null,
+            fileNameSnapshot: s.fileName,
+          })),
+        });
+      }
+
       return tx.exam.findUnique({
         where: { id: created.id },
         include: {
           questions: { orderBy: { order: "asc" } },
+          sourceDocuments: true,
           _count: { select: { questions: true } },
         },
       });

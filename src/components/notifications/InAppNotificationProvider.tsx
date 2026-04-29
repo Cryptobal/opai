@@ -127,6 +127,11 @@ export function InAppNotificationProvider({
 
   useEffect(() => {
     if (!tenantId || !userId) return;
+    if (!pusherKey || !pusherCluster) {
+      // En entornos sin Pusher configurado (dev local) no podemos
+      // instanciar el cliente; saltamos en silencio.
+      return;
+    }
 
     let pusherInstance: any = null;
     let channel: any = null;

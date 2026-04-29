@@ -188,10 +188,25 @@ export function ExamsSubTab({ installationId }: Props) {
   const [recurMonths, setRecurMonths] = useState(3);
   const [saving, setSaving] = useState(false);
 
-  // Global documents for security_general
-  const [globalDocs, setGlobalDocs] = useState<Array<{ id: string; fileName: string; fileSize: number | null }>>([]);
+  // AI knowledge sources (DocOperacional + legacy fallback) for security_general
+  type AiSource = {
+    id: string;
+    origin: "doc_operacional" | "protocol_document_legacy";
+    scope: "global" | "instalacion";
+    fileName: string;
+    fileSize: number | null;
+    tipoCodigo: string | null;
+    tipoNombre: string | null;
+  };
+  const [aiSources, setAiSources] = useState<AiSource[]>([]);
   const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
-  const [globalDocsLoading, setGlobalDocsLoading] = useState(false);
+  const [aiSourcesLoading, setAiSourcesLoading] = useState(false);
+  type UsedAiSource = {
+    id: string;
+    origin: "doc_operacional" | "protocol_document_legacy";
+    fileName: string;
+  };
+  const [usedSources, setUsedSources] = useState<UsedAiSource[]>([]);
 
   // Send dialog
   const [sendExamId, setSendExamId] = useState<string | null>(null);
@@ -327,20 +342,26 @@ export function ExamsSubTab({ installationId }: Props) {
     };
   }, [historyGuardId, base]);
 
-  // Fetch global docs when needed
+  // Fetch AI knowledge sources when needed
   useEffect(() => {
     if (!createOpen || newType !== "security_general") return;
     let cancelled = false;
-    setGlobalDocsLoading(true);
-    fetch("/api/config/global-documents")
-      .then((r) => r.ok ? r.json() : Promise.reject())
-      .then((json: { success?: boolean; data?: Array<{ id: string; fileName: string; fileSize: number | null }> }) => {
-        if (!cancelled && json.success) setGlobalDocs(json.data ?? []);
+    setAiSourcesLoading(true);
+    fetch(`${base}/ai-sources`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((json: { success?: boolean; data?: AiSource[] }) => {
+        if (!cancelled && json.success) setAiSources(json.data ?? []);
       })
-      .catch(() => { /* ignore */ })
-      .finally(() => { if (!cancelled) setGlobalDocsLoading(false); });
-    return () => { cancelled = true; };
-  }, [createOpen, newType]);
+      .catch(() => {
+        /* ignore */
+      })
+      .finally(() => {
+        if (!cancelled) setAiSourcesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [createOpen, newType, base]);
 
   // ----- Actions -----
 
@@ -356,7 +377,14 @@ export function ExamsSubTab({ installationId }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ questionCount, type: newType, documentIds: selectedDocIds }),
       });
-      const json = (await res.json()) as { success?: boolean; data?: { questions?: Array<{ questionText?: string; options?: string[]; correctAnswer?: number }> }; error?: string };
+      const json = (await res.json()) as {
+        success?: boolean;
+        data?: {
+          questions?: Array<{ questionText?: string; options?: string[]; correctAnswer?: number }>;
+          sources?: UsedAiSource[];
+        };
+        error?: string;
+      };
       if (!res.ok) {
         const msg = json?.error ?? "No se pudieron generar preguntas.";
         if (msg.includes("secciones") || msg.includes("protocolo")) {
@@ -385,6 +413,7 @@ export function ExamsSubTab({ installationId }: Props) {
         };
       });
       setQuestions(mapped);
+      setUsedSources(json?.data?.sources ?? []);
       toast.success(mapped.length > 0 ? `Se generaron ${mapped.length} preguntas` : "No se generaron preguntas. Agrega manualmente.");
     } catch {
       toast.error("No se pudieron generar preguntas. Verifica la configuración de IA.");
@@ -426,6 +455,7 @@ export function ExamsSubTab({ installationId }: Props) {
           sectionRef: "",
           order: i,
         })),
+        sources: newType === "security_general" ? usedSources : undefined,
       };
       const res = await fetch(base, {
         method: "POST",
@@ -499,6 +529,8 @@ export function ExamsSubTab({ installationId }: Props) {
     setSchedule("now");
     setRecurMonths(3);
     setSelectedDocIds([]);
+    setAiSources([]);
+    setUsedSources([]);
   }
 
   // ----- Question editing helpers -----
@@ -697,50 +729,96 @@ export function ExamsSubTab({ installationId }: Props) {
                 <div className="space-y-2">
                   <Label>Documentos base para generar preguntas</Label>
                   <p className="text-xs text-muted-foreground">
-                    Selecciona los documentos globales (OS10, manuales) de los que se generarán las preguntas.
+                    Selecciona los documentos marcados como base de IA (Plan
+                    de Evacuación, Plan de Contingencia, Matriz de Riesgos,
+                    etc.) de los que se generarán las preguntas.
                   </p>
-                  {globalDocsLoading ? (
+                  {aiSourcesLoading ? (
                     <div className="flex items-center gap-2 py-3 text-sm text-muted-foreground">
                       <Loader2 className="h-4 w-4 animate-spin" />
                       Cargando documentos...
                     </div>
-                  ) : globalDocs.length === 0 ? (
+                  ) : aiSources.length === 0 ? (
                     <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
                       <p className="text-xs text-amber-400">
-                        No hay documentos globales. Sube documentos en{" "}
-                        <a href="/opai/configuracion/documentos-operacionales" className="underline font-medium" target="_blank">
-                          Configuración → Documentos Globales
+                        No hay documentos disponibles para la IA. Sube
+                        documentos y activa el switch &quot;Usar como base de
+                        IA&quot; en{" "}
+                        <a
+                          href="/opai/configuracion/documentos-operacionales"
+                          className="underline font-medium"
+                          target="_blank"
+                        >
+                          Configuración → Documentos Operacionales
                         </a>
+                        .
                       </p>
                     </div>
                   ) : (
-                    <div className="space-y-1.5 max-h-[200px] overflow-y-auto rounded-lg border p-2">
-                      {globalDocs.map((doc) => (
-                        <label
-                          key={doc.id}
-                          className={`flex items-center gap-3 rounded-md px-3 py-2 cursor-pointer transition-colors ${
-                            selectedDocIds.includes(doc.id) ? "bg-primary/10 border border-primary/30" : "hover:bg-muted/40"
-                          }`}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={selectedDocIds.includes(doc.id)}
-                            onChange={(e) =>
-                              setSelectedDocIds((prev) =>
-                                e.target.checked ? [...prev, doc.id] : prev.filter((x) => x !== doc.id)
-                              )
-                            }
-                            className="accent-primary"
-                          />
-                          <FileText className="h-4 w-4 text-blue-500 shrink-0" />
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-medium truncate">{doc.fileName}</p>
-                            {doc.fileSize && (
-                              <p className="text-[10px] text-muted-foreground">{(doc.fileSize / 1024 / 1024).toFixed(1)} MB</p>
-                            )}
+                    <div className="space-y-2 max-h-[260px] overflow-y-auto rounded-lg border p-2">
+                      {(["global", "instalacion"] as const).map((scope) => {
+                        const docs = aiSources.filter((s) => s.scope === scope);
+                        if (docs.length === 0) return null;
+                        return (
+                          <div key={scope} className="space-y-1">
+                            <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/80 px-1">
+                              {scope === "global"
+                                ? "📋 Empresa (globales)"
+                                : "📍 Esta instalación"}
+                            </p>
+                            {docs.map((doc) => (
+                              <label
+                                key={doc.id}
+                                className={`flex items-center gap-3 rounded-md px-3 py-2 cursor-pointer transition-colors ${
+                                  selectedDocIds.includes(doc.id)
+                                    ? "bg-primary/10 border border-primary/30"
+                                    : "hover:bg-muted/40"
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={selectedDocIds.includes(doc.id)}
+                                  onChange={(e) =>
+                                    setSelectedDocIds((prev) =>
+                                      e.target.checked
+                                        ? [...prev, doc.id]
+                                        : prev.filter((x) => x !== doc.id),
+                                    )
+                                  }
+                                  className="accent-primary"
+                                />
+                                <FileText className="h-4 w-4 text-blue-500 shrink-0" />
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm font-medium truncate">
+                                    {doc.fileName}
+                                  </p>
+                                  <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                                    {doc.tipoNombre && (
+                                      <span className="truncate">
+                                        {doc.tipoNombre}
+                                      </span>
+                                    )}
+                                    {doc.fileSize != null && (
+                                      <span>
+                                        {(doc.fileSize / 1024 / 1024).toFixed(1)}{" "}
+                                        MB
+                                      </span>
+                                    )}
+                                    {doc.origin === "protocol_document_legacy" && (
+                                      <Badge
+                                        variant="outline"
+                                        className="text-[9px] px-1 py-0"
+                                      >
+                                        legacy
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </div>
+                              </label>
+                            ))}
                           </div>
-                        </label>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>

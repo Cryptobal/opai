@@ -39,6 +39,9 @@ export async function POST() {
           obligatorioEnVisita: seed.obligatorioEnVisita,
           normativa: seed.normativa,
           order: seed.order,
+          // Los tipos de la categoría "Protocolos y Seguridad" llegan con
+          // el flag activo para que la IA pueda leerlos al instante.
+          useAsAiKnowledge: true,
         },
       });
       created += 1;

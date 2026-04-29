@@ -37,6 +37,7 @@ export async function PUT(
     }
     if (body.order !== undefined) data.order = body.order;
     if (body.obligatorioEnVisita !== undefined) data.obligatorioEnVisita = body.obligatorioEnVisita;
+    if (body.useAsAiKnowledge !== undefined) data.useAsAiKnowledge = !!body.useAsAiKnowledge;
 
     const updated = await prisma.tipoDocOperacional.update({
       where: { id },

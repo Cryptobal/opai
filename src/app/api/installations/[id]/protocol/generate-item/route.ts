@@ -4,6 +4,7 @@ import { aiService } from "@/lib/ai-service";
 import { AIError } from "@/lib/ai-errors";
 import { requireAuth, unauthorized, resolveApiPerms, parseBody } from "@/lib/api-auth";
 import { canEdit } from "@/lib/permissions";
+import { buildGenerateItemPrompt } from "@/lib/protocols/prompts";
 
 type Params = { id: string };
 
@@ -34,11 +35,14 @@ export async function POST(
     if (parsed.error) return parsed.error;
     const { sectionTitle, description } = parsed.data;
 
-    const prompt = `Dentro de la sección "${sectionTitle}" de un protocolo de seguridad para una empresa de guardias en Chile, genera un procedimiento detallado sobre: "${description}"
-Responde ÚNICAMENTE con el siguiente JSON válido: {"title":"...","description":"..."}
-El título debe ser conciso y la descripción detallada, práctica y accionable.`;
+    const prompt = buildGenerateItemPrompt({ sectionTitle, description });
 
-    let aiResponse: { title: string; description: string };
+    let aiResponse: {
+      title: string;
+      description: string;
+      criticality?: number;
+      legalRequirement?: boolean;
+    };
     try {
       aiResponse = (await aiService.generateJSON(prompt, 2048, { tenantId: ctx.tenantId })) as typeof aiResponse;
     } catch (err: unknown) {

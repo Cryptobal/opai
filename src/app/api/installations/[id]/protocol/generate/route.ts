@@ -6,6 +6,11 @@ import { AIError } from "@/lib/ai-errors";
 import { requireAuth, unauthorized, resolveApiPerms, parseBody } from "@/lib/api-auth";
 import { clearKnowledgeCache } from "@/lib/protocols/knowledge-aggregator";
 import { canEdit } from "@/lib/permissions";
+import {
+  getAiKnowledgeSources,
+  rankSourcesForPrompt,
+} from "@/lib/protocols/ai-knowledge-sources";
+import { buildGenerateProtocolPrompt } from "@/lib/protocols/prompts";
 
 type Params = { id: string };
 
@@ -30,6 +35,19 @@ const bodySchema = z.object({
   context: z.string().optional(),
 });
 
+type ProtocolAiResponse = {
+  sections: Array<{
+    title: string;
+    icon: string;
+    items: Array<{
+      title: string;
+      description: string;
+      criticality?: number;
+      legalRequirement?: boolean;
+    }>;
+  }>;
+};
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<Params> },
@@ -51,18 +69,48 @@ export async function POST(
     const { installationType, context } = parsed.data;
 
     const { id } = await params;
-    const typeLabel = installationTypeLabels[installationType];
 
-    const prompt = `Eres un experto en seguridad privada en Chile. Genera un protocolo de seguridad completo para un/a ${typeLabel}.
-${context ? `Contexto adicional: ${context}` : ""}
-Responde ÚNICAMENTE con el siguiente JSON válido, sin markdown, sin backticks, sin texto adicional:
-{"sections":[{"title":"...","icon":"emoji","items":[{"title":"...","description":"..."}]}]}
-Incluye mínimo estas áreas: Control de Acceso, Rondas de Seguridad, Emergencias, Apertura y Cierre, Registro de Visitas, Equipamiento del Guardia, Normas Específicas del lugar.
-Cada ítem debe ser detallado, práctico y accionable para un guardia de seguridad.`;
+    const [installation, sources] = await Promise.all([
+      prisma.crmInstallation.findFirst({
+        where: { id, tenantId: ctx.tenantId },
+        include: { account: true },
+      }),
+      getAiKnowledgeSources({ tenantId: ctx.tenantId, installationId: id }),
+    ]);
 
-    let aiResponse: { sections: Array<{ title: string; icon: string; items: Array<{ title: string; description: string }> }> };
+    const prompt = buildGenerateProtocolPrompt({
+      installationTypeLabel: installationTypeLabels[installationType],
+      installationName: installation?.name ?? null,
+      installationAddress: installation?.address ?? null,
+      installationDescription: installation?.notes ?? null,
+      accountName: installation?.account?.name ?? null,
+      accountIndustria: installation?.account?.industry ?? null,
+      freeContext: context ?? null,
+      hasGroundingDocuments: sources.length > 0,
+    });
+
+    let aiResponse: ProtocolAiResponse;
     try {
-      aiResponse = (await aiService.generateJSON(prompt, 4096, { tenantId: ctx.tenantId })) as typeof aiResponse;
+      if (sources.length > 0) {
+        // Tomamos el PDF de mayor prioridad como ancla. Multi-doc requiere
+        // soporte específico del provider; para mantener la compatibilidad
+        // actual usamos un solo PDF de referencia y dejamos que el resto
+        // del contexto (CRM + normativa) lo aporte el prompt.
+        const ranked = rankSourcesForPrompt(sources);
+        const anchor = ranked[0];
+        const pdfRes = await fetch(anchor.fileUrl);
+        if (!pdfRes.ok) throw new Error(`PDF fetch ${pdfRes.status}`);
+        const pdfBase64 = Buffer.from(await pdfRes.arrayBuffer()).toString(
+          "base64",
+        );
+        aiResponse = (await aiService.processDocument(pdfBase64, prompt, 4096, {
+          tenantId: ctx.tenantId,
+        })) as ProtocolAiResponse;
+      } else {
+        aiResponse = (await aiService.generateJSON(prompt, 4096, {
+          tenantId: ctx.tenantId,
+        })) as ProtocolAiResponse;
+      }
     } catch (err: unknown) {
       if (err instanceof AIError) {
         return NextResponse.json(err.toResponse(), { status: err.clientHttpStatus });
@@ -71,12 +119,21 @@ Cada ítem debe ser detallado, práctico y accionable para un guardia de segurid
       console.error("[PROTOCOL_GENERATE] AI error:", msg);
       if (msg === "NO_AI_CONFIGURED") {
         return NextResponse.json(
-          { success: false, error: "NO_AI_CONFIGURED", message: "No hay un proveedor de IA configurado. Configura uno en Ajustes > IA." },
+          {
+            success: false,
+            error: "NO_AI_CONFIGURED",
+            message:
+              "No hay un proveedor de IA configurado. Configura uno en Ajustes > IA.",
+          },
           { status: 400 },
         );
       }
       return NextResponse.json(
-        { success: false, error: msg, message: `Error del proveedor de IA: ${msg}` },
+        {
+          success: false,
+          error: msg,
+          message: `Error del proveedor de IA: ${msg}`,
+        },
         { status: 502 },
       );
     }
@@ -109,6 +166,13 @@ Cada ítem debe ser detallado, práctico y accionable para un guardia de segurid
                 description: item.description,
                 order: iIdx,
                 source: "ai_generated",
+                criticality:
+                  typeof item.criticality === "number" &&
+                  item.criticality >= 1 &&
+                  item.criticality <= 3
+                    ? Math.round(item.criticality)
+                    : 1,
+                legalRequirement: !!item.legalRequirement,
               })),
             },
           },
@@ -119,10 +183,23 @@ Cada ítem debe ser detallado, práctico y accionable para un guardia de segurid
 
     clearKnowledgeCache(ctx.tenantId);
 
-    return NextResponse.json({ success: true, data: { sections: created } });
+    return NextResponse.json({
+      success: true,
+      data: {
+        sections: created,
+        groundingSources: sources.map((s) => ({
+          id: s.id,
+          fileName: s.fileName,
+          tipoNombre: s.tipoNombre,
+          scope: s.scope,
+        })),
+      },
+    });
   } catch (error) {
     if (error instanceof AIError) {
-      return NextResponse.json(error.toResponse(), { status: error.clientHttpStatus });
+      return NextResponse.json(error.toResponse(), {
+        status: error.clientHttpStatus,
+      });
     }
     console.error("[PROTOCOL_GENERATE] Error:", error);
     return NextResponse.json(
