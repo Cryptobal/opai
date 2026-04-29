@@ -2507,10 +2507,197 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
         </div>
     );
 
+  /* ── Toolbar superior de acciones del lead (sticky bajo el header, estilo CPQ) ──
+   * Reemplaza la antigua barra inferior. Visualmente:
+   *   ┌──────────────────────────────────────────────────────────┐
+   *   │ Banner de estado (info / verificación completada)         │
+   *   │ [Guardar] [Rechazar]            [Verificar y aprobar] [Enviar] │
+   *   └──────────────────────────────────────────────────────────┘
+   * En mobile: secundarios y primarios cada uno en su propia fila para
+   * que no queden apretados; en ≥sm todo entra en una sola línea.   */
+  const showApproveAndSend =
+    duplicateChecked &&
+    approveForm.email.trim() &&
+    installations.some((i) => i.dotacion.length > 0 || (cpqConfigs[i._key]?.positions?.length ?? 0) > 0);
+  const approveLabel = !duplicateChecked
+    ? "Verificar y aprobar"
+    : duplicates.length > 0 || existingContact || installationConflicts.length > 0
+      ? "Confirmar (con conflictos)"
+      : "Confirmar aprobación";
+  const hasConflicts =
+    duplicateChecked && (duplicates.length > 0 || existingContact !== null || installationConflicts.length > 0);
+  const filledInstallations = installations.filter((i) => i.name.trim());
+  const leadActionBar = isEditable ? (
+    <div className="border-t border-border/40 bg-muted/15 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 xl:-mx-10 xl:px-10 2xl:-mx-12 2xl:px-12 py-2.5 space-y-2">
+      {/* Status — compacto, ocupa la mínima altura posible */}
+      {duplicateChecked ? (
+        <div
+          className={cn(
+            "rounded-md border px-2.5 py-1.5 text-xs",
+            hasConflicts
+              ? "border-amber-500/30 bg-amber-500/5"
+              : "border-emerald-500/30 bg-emerald-500/5"
+          )}
+        >
+          <p
+            className={cn(
+              "inline-flex items-center gap-1.5 text-[11px] font-medium",
+              hasConflicts ? "text-amber-400" : "text-emerald-400"
+            )}
+          >
+            {hasConflicts ? (
+              <AlertTriangle className="h-3.5 w-3.5" />
+            ) : (
+              <CheckCircle2 className="h-3.5 w-3.5" />
+            )}
+            {hasConflicts
+              ? "Verificación con conflictos — al confirmar se creará:"
+              : "Verificación completada — al confirmar se creará:"}
+          </p>
+          <div className="mt-1 flex flex-wrap gap-1.5">
+            <Badge variant="outline" className="h-5 gap-1 px-1.5 text-[10px] font-normal">
+              <Building2 className="h-3 w-3" />
+              {useExistingAccountId ? (
+                <>
+                  <span className="text-amber-400">Usar:</span>
+                  <span className="max-w-[120px] truncate">
+                    {duplicates.find((d) => d.id === useExistingAccountId)?.name || "existente"}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="text-emerald-400">Nueva:</span>
+                  <span className="max-w-[140px] truncate">{approveForm.accountName}</span>
+                </>
+              )}
+            </Badge>
+            <Badge variant="outline" className="h-5 gap-1 px-1.5 text-[10px] font-normal">
+              <Users className="h-3 w-3" />
+              {existingContact ? (
+                contactResolution === "use_existing" ? (
+                  <>
+                    <span className="text-amber-400">Mantener:</span>
+                    <span className="max-w-[120px] truncate">{existingContact.firstName}</span>
+                  </>
+                ) : contactResolution === "overwrite" ? (
+                  <>
+                    <span className="text-amber-400">Sobrescribir:</span>
+                    <span className="max-w-[120px] truncate">{existingContact.firstName}</span>
+                  </>
+                ) : (
+                  <span className="text-emerald-400">Nuevo contacto</span>
+                )
+              ) : (
+                <>
+                  <span className="text-emerald-400">Nuevo:</span>
+                  <span className="max-w-[140px] truncate">
+                    {approveForm.contactFirstName} {approveForm.contactLastName}
+                  </span>
+                </>
+              )}
+            </Badge>
+            <Badge variant="outline" className="h-5 gap-1 px-1.5 text-[10px] font-normal">
+              <Briefcase className="h-3 w-3" />
+              <span className="max-w-[140px] truncate">{approveForm.dealTitle}</span>
+            </Badge>
+            {filledInstallations.length > 0 && (
+              <Badge variant="outline" className="h-5 gap-1 px-1.5 text-[10px] font-normal">
+                <MapPin className="h-3 w-3" />
+                <span className="max-w-[160px] truncate">
+                  {filledInstallations.map((i) => i.name).join(", ")}
+                </span>
+              </Badge>
+            )}
+          </div>
+        </div>
+      ) : (
+        <p className="hidden sm:flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <Info className="h-3.5 w-3.5 text-muted-foreground/70 shrink-0" aria-hidden />
+          Nada se crea hasta que hagas clic en &quot;Verificar y aprobar&quot; y luego confirmes.
+        </p>
+      )}
+
+      {/* Acciones — secundarias a la izquierda, primarias a la derecha */}
+      <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-2">
+        <div className="flex gap-1.5 sm:gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={saveLeadDraft}
+            disabled={approving || savingLead}
+            className="h-8 flex-1 gap-1.5 px-2.5 text-xs sm:flex-initial sm:px-3"
+            title="Guardar el borrador del lead en estado «en revisión» (no crea nada todavía)"
+          >
+            {savingLead ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+            ) : (
+              <Save className="h-3.5 w-3.5" aria-hidden />
+            )}
+            <span>Guardar</span>
+            <span className="hidden md:inline">en revisión</span>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={openRejectModal}
+            disabled={approving || savingLead}
+            className="h-8 flex-1 gap-1.5 px-2.5 text-xs text-destructive hover:text-destructive sm:flex-initial sm:px-3"
+            title="Rechazar el lead (puedes incluir motivo y enviar correo)"
+          >
+            <XCircle className="h-3.5 w-3.5" aria-hidden />
+            Rechazar
+          </Button>
+        </div>
+        <div className="flex gap-1.5 sm:ml-auto sm:gap-2">
+          <Button
+            onClick={approveLead}
+            disabled={approving || savingLead || sendingExpress}
+            size="sm"
+            className={cn(
+              "h-8 flex-1 gap-1.5 px-3 text-xs font-medium shadow-sm sm:flex-initial",
+              hasConflicts
+                ? "bg-amber-600 text-white hover:bg-amber-700"
+                : "bg-emerald-600 text-white hover:bg-emerald-700"
+            )}
+            title={
+              !duplicateChecked
+                ? "Comprobar duplicados de cuenta/contacto e instalaciones antes de aprobar"
+                : "Confirmar y crear cuenta, contacto, negocio y cotizaciones"
+            }
+          >
+            {approving ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+            ) : (
+              <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
+            )}
+            <span className="truncate">{approveLabel}</span>
+          </Button>
+          {showApproveAndSend && (
+            <Button
+              onClick={approveAndSend}
+              disabled={approving || savingLead || sendingExpress}
+              size="sm"
+              className="h-8 flex-1 gap-1.5 px-3 text-xs font-medium bg-cyan-600 text-white shadow-sm hover:bg-cyan-700 sm:flex-initial"
+              title="Aprobar y enviar la propuesta al cliente por email + portal"
+            >
+              {sendingExpress ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+              ) : (
+                <Send className="h-3.5 w-3.5" aria-hidden />
+              )}
+              <span className="truncate">
+                <span className="hidden sm:inline">Aprobar y </span>Enviar
+              </span>
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
+  ) : null;
+
   return (
     <>
       <EntityDetailLayout
-        className={isEditable ? "pb-52 sm:pb-28" : undefined}
         breadcrumb={["CRM", "Prospectos", lead.companyName || fullName]}
         breadcrumbHrefs={["/crm", "/crm/leads"]}
         header={{
@@ -2579,6 +2766,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
         activeTab={activeTab}
         onTabChange={setActiveTab}
         stickyMeta={leadStickyMeta}
+        pipelineBar={leadActionBar}
       >
         {activeTab === "general" && generalContent}
         {activeTab === "account" && isEditable && accountContent}
@@ -2597,76 +2785,6 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
         )}
         {activeTab === "files" && <FileAttachments entityType="lead" entityId={lead.id} readOnly={!isEditable} title="Documentos" />}
       </EntityDetailLayout>
-
-      {/* ── Sticky action bar for editable leads ── */}
-      {/* pointer-events-none en el contenedor: si el scroll deja campos (p. ej. dirección Maps) bajo esta barra, los clics llegan al input y no se “comen” el overlay sticky. Los botones llevan pointer-events-auto. */}
-      {isEditable && (
-        <div className="sticky bottom-14 lg:bottom-0 -mx-4 sm:-mx-6 lg:-mx-8 xl:-mx-10 2xl:-mx-12 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] z-10 pointer-events-none">
-          {!duplicateChecked && (
-            <p className="text-xs text-muted-foreground mb-2 w-full text-center sm:text-left">
-              Nada se crea hasta que hagas clic en &quot;Verificar y aprobar&quot; y luego confirmes.
-            </p>
-          )}
-          {duplicateChecked && (
-            <div className="mb-2 rounded-md border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-xs text-foreground space-y-1">
-              <p className="font-medium text-emerald-400">Verificación completada — al confirmar se creará:</p>
-              <div className="flex flex-wrap gap-2 mt-1.5">
-                <Badge variant="outline" className="gap-1.5 text-[11px]">
-                  <Building2 className="h-3 w-3" />
-                  {useExistingAccountId
-                    ? <><span className="text-amber-400">Usar:</span> {duplicates.find((d) => d.id === useExistingAccountId)?.name || "existente"}</>
-                    : <><span className="text-emerald-400">Nueva:</span> {approveForm.accountName}</>}
-                </Badge>
-                <Badge variant="outline" className="gap-1.5 text-[11px]">
-                  <Users className="h-3 w-3" />
-                  {existingContact
-                    ? contactResolution === "use_existing"
-                      ? <><span className="text-amber-400">Mantener:</span> {existingContact.firstName}</>
-                      : contactResolution === "overwrite"
-                        ? <><span className="text-amber-400">Sobrescribir:</span> {existingContact.firstName}</>
-                        : <span className="text-emerald-400">Nuevo contacto</span>
-                    : <><span className="text-emerald-400">Nuevo:</span> {approveForm.contactFirstName} {approveForm.contactLastName}</>}
-                </Badge>
-                <Badge variant="outline" className="gap-1.5 text-[11px]">
-                  <Briefcase className="h-3 w-3" />
-                  {approveForm.dealTitle}
-                </Badge>
-                {installations.filter((i) => i.name.trim()).length > 0 && (
-                  <Badge variant="outline" className="gap-1.5 text-[11px]">
-                    <MapPin className="h-3 w-3" />
-                    {installations.filter((i) => i.name.trim()).map((i) => i.name).join(", ")}
-                  </Badge>
-                )}
-              </div>
-            </div>
-          )}
-          {/* Mobile: Aprobar first (top, thumb-reachable), then others */}
-          <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2">
-            <Button variant="outline" size="sm" onClick={saveLeadDraft} disabled={approving || savingLead} className="pointer-events-auto sm:order-1">
-              {savingLead ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-              Guardar en revisión
-            </Button>
-            <Button variant="outline" size="sm" onClick={openRejectModal} disabled={approving || savingLead} className="pointer-events-auto text-destructive hover:text-destructive sm:order-2">
-              <XCircle className="mr-2 h-4 w-4" />
-              Rechazar
-            </Button>
-            <Button onClick={approveLead} disabled={approving || savingLead || sendingExpress} className="pointer-events-auto sm:order-3">
-              {approving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
-              {!duplicateChecked
-                ? "Verificar y aprobar"
-                : (duplicates.length > 0 || existingContact || installationConflicts.length > 0)
-                  ? "Confirmar aprobación (con conflictos)"
-                  : "Confirmar aprobación"}
-            </Button>
-            {duplicateChecked && approveForm.email.trim() && installations.some((i) => i.dotacion.length > 0 || (cpqConfigs[i._key]?.positions?.length ?? 0) > 0) && (
-              <Button onClick={approveAndSend} disabled={approving || savingLead || sendingExpress} className="pointer-events-auto sm:order-4 bg-emerald-600 hover:bg-emerald-700 text-white">
-                {sendingExpress ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-                Aprobar y Enviar
-              </Button>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* ── Approval Success Modal ── */}
       <Dialog open={!!approvalResult} onOpenChange={(open) => { if (!open) { setApprovalResult(null); router.push("/crm/leads"); } }}>
