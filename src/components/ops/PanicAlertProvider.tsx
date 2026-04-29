@@ -168,9 +168,15 @@ export function PanicAlertProvider({ tenantId, children }: PanicAlertProviderPro
   // Pusher subscription — global listener for panic alerts
   useEffect(() => {
     if (!tenantId) return;
+    const pusherKey = process.env.NEXT_PUBLIC_PUSHER_KEY;
+    const pusherCluster = process.env.NEXT_PUBLIC_PUSHER_CLUSTER;
+    if (!pusherKey || !pusherCluster) {
+      // Sin Pusher configurado (dev local) saltamos en silencio.
+      return;
+    }
 
-    const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY!, {
-      cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
+    const pusher = new Pusher(pusherKey, {
+      cluster: pusherCluster,
     });
     const channel = pusher.subscribe(`monitoreo-${tenantId}`);
 

@@ -16,7 +16,7 @@ export function usePusher(
 
   useEffect(() => {
     const instance = getPusherClient(authEndpoint, authParams);
-    pusherRef.current = instance;
+    pusherRef.current = instance ?? null;
 
     return () => {
       disconnectPusher();
