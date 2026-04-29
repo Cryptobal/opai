@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { OpaiSurface } from "@/components/opai";
+import { Surface } from "@/components/opai-ds";
 import {
   Dialog,
   DialogContent,
@@ -132,26 +132,26 @@ export function InventarioProductoSizesClient({
 
   if (category === "asset") {
     return (
-      <OpaiSurface>
-        <p className="text-sm text-muted-foreground">
+      <Surface elevation={1} padding="md">
+        <p className="text-sm text-ds-text-3">
           Los activos no usan tallas. Este producto tiene una única variante para compras y stock.
         </p>
-      </OpaiSurface>
+      </Surface>
     );
   }
 
   return (
-    <OpaiSurface className="space-y-4">
+    <Surface elevation={1} padding="md" className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <h2 className="text-sm font-semibold tracking-tight">Tallas</h2>
-          <p className="text-[11px] text-muted-foreground/70 font-mono mt-0.5">
+          <h2 className="text-sm font-semibold tracking-tight text-ds-text-1">Tallas</h2>
+          <p className="text-[12px] text-ds-text-3 mt-0.5">
             Ej: S, M, L, XL para camisas; 40, 41, 42 para zapatos.
           </p>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button variant="outline">
+            <Button variant="outline" className="h-10 sm:h-9">
               <Plus className="h-4 w-4 mr-2" />
               Agregar talla
             </Button>
@@ -173,14 +173,15 @@ export function InventarioProductoSizesClient({
                     onChange={(e) => setSizesText(e.target.value)}
                     placeholder="Ej: S, M, L, XL o 40,41,42"
                     required
+                    className="h-10 sm:h-9"
                   />
                 </div>
               </div>
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} className="h-10 sm:h-9">
                   Cancelar
                 </Button>
-                <Button type="submit">Agregar</Button>
+                <Button type="submit" className="h-10 sm:h-9">Agregar</Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -188,12 +189,12 @@ export function InventarioProductoSizesClient({
       </div>
       <div>
         {sizes.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-4 text-center">
+          <p className="text-sm text-ds-text-3 py-4 text-center">
             No hay tallas. Agrega al menos una para poder comprar y llevar stock.
           </p>
         ) : (
-          <OpaiSurface variant="bare" className="overflow-hidden">
-            <div className="grid grid-cols-12 gap-2 p-2.5 bg-foreground/[0.03] text-[10px] font-mono uppercase tracking-wider text-muted-foreground/70">
+          <div className="overflow-hidden rounded-ds-md border border-ds-border-default">
+            <div className="grid grid-cols-12 gap-2 p-3 bg-ds-surface-3 text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4">
               <span className="col-span-3">Talla</span>
               <span className="col-span-4">Stock mínimo</span>
               <span className="col-span-5"></span>
@@ -204,12 +205,12 @@ export function InventarioProductoSizesClient({
               return (
                 <div
                   key={s.id}
-                  className="grid grid-cols-12 gap-2 p-2.5 border-t border-foreground/[0.06] text-sm items-center"
+                  className="grid grid-cols-12 gap-2 p-3 border-t border-ds-border-subtle text-sm items-center"
                 >
-                  <span className="col-span-3 font-medium">
+                  <span className="col-span-3 font-medium text-ds-text-1">
                     {s.sizeCode}
                     {s.sizeLabel && (
-                      <span className="ml-1 text-xs text-muted-foreground">({s.sizeLabel})</span>
+                      <span className="ml-1 text-[12px] text-ds-text-3">({s.sizeLabel})</span>
                     )}
                   </span>
                   <span className="col-span-4">
@@ -225,12 +226,12 @@ export function InventarioProductoSizesClient({
                             if (e.key === "Escape") setEditingMinStockId(null);
                           }}
                           autoFocus
-                          className="w-16 h-7 rounded border border-input bg-background px-2 text-sm"
+                          className="w-16 h-9 rounded-ds-sm border border-ds-border-default bg-ds-surface-2 px-2 text-sm text-ds-text-1"
                         />
                         <button
                           onClick={() => handleSaveMinStock(variant.id)}
                           disabled={savingMinStock}
-                          className="text-emerald-600 hover:text-emerald-500"
+                          className="text-status-ok-fg hover:opacity-80"
                         >
                           <Check className="h-3.5 w-3.5" />
                         </button>
@@ -241,21 +242,21 @@ export function InventarioProductoSizesClient({
                           setEditingMinStockId(variant.id);
                           setEditMinStockValue(String(variant.minStock));
                         }}
-                        className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
+                        className="inline-flex items-center gap-1.5 text-ds-text-3 hover:text-ds-text-1 transition-colors"
                         title="Editar stock mínimo"
                       >
-                        <span className="tabular-nums">{variant.minStock || "-"}</span>
+                        <span className="ds-num">{variant.minStock || "-"}</span>
                         <Pencil className="h-3 w-3" />
                       </button>
                     ) : (
-                      <span className="text-xs text-muted-foreground">-</span>
+                      <span className="text-[12px] text-ds-text-4">-</span>
                     )}
                   </span>
                   <span className="col-span-5 flex justify-end">
                     <button
                       type="button"
                       onClick={() => handleDeleteSize(s)}
-                      className="text-muted-foreground hover:text-destructive"
+                      className="text-ds-text-3 hover:text-status-danger-fg"
                       title="Eliminar talla"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -264,9 +265,9 @@ export function InventarioProductoSizesClient({
                 </div>
               );
             })}
-          </OpaiSurface>
+          </div>
         )}
       </div>
-    </OpaiSurface>
+    </Surface>
   );
 }

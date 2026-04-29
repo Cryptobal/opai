@@ -1,8 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { OpaiSurface } from "@/components/opai";
-import { Badge } from "@/components/ui/badge";
+import { Surface, Tag, IconBubble, Spinner, EmptyState, type IconBubbleVariant } from "@/components/opai-ds";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -19,7 +18,6 @@ import {
   ChevronDown,
   ChevronRight,
   Clock,
-  Loader2,
   Package,
   Phone,
   RefreshCcw,
@@ -86,20 +84,20 @@ const ACTION_LABELS: Record<string, string> = {
   "inventario.phone_line.unassigned": "Desvinculó línea",
 };
 
-function actionTone(action: string): { color: string; bg: string; icon: typeof Package } {
+function actionTone(action: string): { variant: IconBubbleVariant; icon: typeof Package } {
   if (action.endsWith(".deleted") || action.endsWith(".reverted")) {
-    return { color: "text-red-600 dark:text-red-400", bg: "bg-red-500/10", icon: Truck };
+    return { variant: "danger", icon: Truck };
   }
   if (action.endsWith(".created")) {
-    return { color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-500/10", icon: Package };
+    return { variant: "ok", icon: Package };
   }
   if (action.endsWith(".updated")) {
-    return { color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-500/10", icon: RefreshCcw };
+    return { variant: "warn", icon: RefreshCcw };
   }
   if (action.includes("transfer")) {
-    return { color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-500/10", icon: ArrowLeftRight };
+    return { variant: "info", icon: ArrowLeftRight };
   }
-  return { color: "text-muted-foreground", bg: "bg-muted/40", icon: Package };
+  return { variant: "neutral", icon: Package };
 }
 
 function formatRelative(iso: string) {
@@ -189,11 +187,11 @@ export function InventarioAuditList() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar por usuario o acción…"
-            className="h-9"
+            className="h-10 sm:h-9"
           />
         </div>
         <Select value={entity || "all"} onValueChange={(v) => { setEntity(v === "all" ? "" : v); setPage(1); }}>
-          <SelectTrigger className="h-9 w-full sm:w-44">
+          <SelectTrigger className="h-10 sm:h-9 w-full sm:w-44">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -209,17 +207,17 @@ export function InventarioAuditList() {
             type="date"
             value={from}
             onChange={(e) => { setFrom(e.target.value); setPage(1); }}
-            className="h-9 w-[160px]"
+            className="h-10 sm:h-9 w-[160px]"
             aria-label="Desde"
           />
           <Input
             type="date"
             value={to}
             onChange={(e) => { setTo(e.target.value); setPage(1); }}
-            className="h-9 w-[160px]"
+            className="h-10 sm:h-9 w-[160px]"
             aria-label="Hasta"
           />
-          <Button size="sm" variant="outline" className="gap-2" onClick={() => fetchData()}>
+          <Button size="sm" variant="outline" className="gap-2 h-10 sm:h-9" onClick={() => fetchData()}>
             <RefreshCcw className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">Refrescar</span>
           </Button>
@@ -227,30 +225,28 @@ export function InventarioAuditList() {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Cargando auditoría…
-        </div>
+        <Spinner block label="Cargando auditoría…" />
       ) : filtered.length === 0 ? (
-        <OpaiSurface className="py-10 text-center">
-          <Clock className="mx-auto mb-2 h-8 w-8 text-muted-foreground/60" />
-          <p className="text-sm font-medium">Sin eventos registrados</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Las acciones del inventario aparecerán aquí en cuanto ocurran.
-          </p>
-        </OpaiSurface>
+        <Surface elevation={1} padding="none">
+          <EmptyState
+            icon={Clock}
+            title="Sin eventos registrados"
+            description="Las acciones del inventario aparecerán aquí en cuanto ocurran."
+          />
+        </Surface>
       ) : (
-        <div className="space-y-1.5">
+        <div className="space-y-1.5 ds-list-cascade">
           {filtered.map((entry) => {
             const tone = actionTone(entry.action);
-            const Icon = tone.icon;
             const expanded = expandedId === entry.id;
             const userName = entry.user?.name ?? entry.user?.email ?? "Sistema";
             const actionLabel = ACTION_LABELS[entry.action] ?? entry.action;
 
             return (
-              <OpaiSurface
+              <Surface
                 key={entry.id}
-                variant="tight"
+                elevation={1}
+                padding="sm"
                 hoverable
                 role="button"
                 tabIndex={0}
@@ -264,55 +260,53 @@ export function InventarioAuditList() {
                 className="cursor-pointer text-left"
               >
                 <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3">
-                  <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", tone.bg, tone.color)}>
-                    <Icon className="h-4 w-4" />
-                  </span>
+                  <IconBubble icon={tone.icon} variant={tone.variant} size="md" />
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold">{actionLabel}</p>
-                    <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                    <p className="text-[14px] font-semibold text-ds-text-1">{actionLabel}</p>
+                    <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[12px] text-ds-text-3">
                       <span className="inline-flex items-center gap-1">
                         <User className="h-3 w-3" />
                         {userName}
                       </span>
                       <span aria-hidden>·</span>
-                      <span title={formatExact(entry.createdAt)}>{formatRelative(entry.createdAt)}</span>
+                      <span title={formatExact(entry.createdAt)} className="font-mono">{formatRelative(entry.createdAt)}</span>
                       {entry.entity && (
-                        <Badge variant="outline" className="text-[10px]">
+                        <Tag variant="neutral" size="sm">
                           {entry.entity.replace("inventario.", "")}
-                        </Badge>
+                        </Tag>
                       )}
                     </div>
                   </div>
                   <ChevronDown
                     className={cn(
-                      "h-4 w-4 shrink-0 text-muted-foreground transition-transform",
+                      "h-4 w-4 shrink-0 text-ds-text-4 transition-transform",
                       expanded && "rotate-180",
                     )}
                   />
                 </div>
                 {expanded && (
-                  <div className="mt-3 space-y-1.5 rounded-md bg-foreground/[0.03] p-3 text-xs">
+                  <div className="mt-3 space-y-1.5 rounded-ds-md bg-ds-surface-2 p-3 text-xs">
                     <div className="grid gap-1 sm:grid-cols-2">
                       <div>
-                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-mono">Fecha</p>
-                        <p className="font-mono">{formatExact(entry.createdAt)}</p>
+                        <p className="text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4">Fecha</p>
+                        <p className="font-mono text-ds-text-2">{formatExact(entry.createdAt)}</p>
                       </div>
                       {entry.user?.email && (
                         <div>
-                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-mono">Email</p>
-                          <p className="truncate">{entry.user.email}</p>
+                          <p className="text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4">Email</p>
+                          <p className="truncate text-ds-text-2">{entry.user.email}</p>
                         </div>
                       )}
                       {entry.ipAddress && (
                         <div>
-                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-mono">IP</p>
-                          <p className="font-mono">{entry.ipAddress}</p>
+                          <p className="text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4">IP</p>
+                          <p className="font-mono text-ds-text-2">{entry.ipAddress}</p>
                         </div>
                       )}
                       {entry.entityId && (
                         <div>
-                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-mono">Entidad</p>
-                          <p className="font-mono break-all">{entry.entityId}</p>
+                          <p className="text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4">Entidad</p>
+                          <p className="font-mono break-all text-ds-text-2">{entry.entityId}</p>
                         </div>
                       )}
                     </div>
@@ -320,22 +314,22 @@ export function InventarioAuditList() {
                       typeof entry.details === "object" &&
                       Object.keys(entry.details as Record<string, unknown>).length > 0 && (
                         <div>
-                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-mono">Detalle</p>
-                          <pre className="mt-0.5 whitespace-pre-wrap rounded bg-background/60 p-2 text-[11px] leading-relaxed">
+                          <p className="text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4">Detalle</p>
+                          <pre className="mt-0.5 whitespace-pre-wrap rounded-ds-sm bg-ds-surface-3 p-2 text-[12px] leading-relaxed text-ds-text-2">
 {JSON.stringify(entry.details, null, 2)}
                           </pre>
                         </div>
                       )}
                   </div>
                 )}
-              </OpaiSurface>
+              </Surface>
             );
           })}
         </div>
       )}
 
       {pagination && pagination.totalPages > 1 && (
-        <div className="flex items-center justify-between gap-2 pt-2 text-xs text-muted-foreground">
+        <div className="flex items-center justify-between gap-2 pt-2 text-[12px] text-ds-text-3">
           <span>
             Página {pagination.page} de {pagination.totalPages} · {pagination.total} eventos
           </span>
@@ -343,7 +337,7 @@ export function InventarioAuditList() {
             <Button
               size="sm"
               variant="outline"
-              className="h-8 px-2"
+              className="h-9 px-2"
               disabled={pagination.page <= 1}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
             >
@@ -352,7 +346,7 @@ export function InventarioAuditList() {
             <Button
               size="sm"
               variant="outline"
-              className="h-8 px-2"
+              className="h-9 px-2"
               disabled={pagination.page >= pagination.totalPages}
               onClick={() => setPage((p) => p + 1)}
             >
