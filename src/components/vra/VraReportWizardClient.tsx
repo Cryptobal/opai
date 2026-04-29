@@ -288,6 +288,38 @@ function Step1Base({
   const [title, setTitle] = useState(report.title);
   const [savingTitle, setSavingTitle] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importSummary, setImportSummary] = useState<{
+    loading: boolean;
+    visitsCount: number;
+    findingsAvailable: number;
+    photosAvailable: number;
+  }>({ loading: true, visitsCount: 0, findingsAvailable: 0, photosAvailable: 0 });
+
+  // Pre-fetch availability summary al montar
+  useEffect(() => {
+    fetch(`/api/vra/reports/${report.id}/available-imports`)
+      .then((r) => r.json())
+      .then((json) => {
+        if (!json.success) {
+          setImportSummary((s) => ({ ...s, loading: false }));
+          return;
+        }
+        const visits = (json.visits ?? []) as AvailableVisit[];
+        let findingsAvailable = 0;
+        let photosAvailable = 0;
+        for (const v of visits) {
+          findingsAvailable += v.findings.filter((f) => !f.alreadyImported).length;
+          photosAvailable += v.photos.filter((p) => !p.alreadyImported).length;
+        }
+        setImportSummary({
+          loading: false,
+          visitsCount: visits.length,
+          findingsAvailable,
+          photosAvailable,
+        });
+      })
+      .catch(() => setImportSummary((s) => ({ ...s, loading: false })));
+  }, [report.id]);
 
   const saveTitle = async () => {
     if (title === report.title) return;
@@ -309,12 +341,21 @@ function Step1Base({
     }
   };
 
+  // Solo mostrar la sección de importar si hay algo disponible
+  const hasImportableContent =
+    !importSummary.loading &&
+    importSummary.visitsCount > 0 &&
+    (importSummary.findingsAvailable > 0 || importSummary.photosAvailable > 0);
+
   return (
     <Card className="p-6 space-y-6">
       <div>
         <h2 className="text-lg font-semibold mb-1">Base del informe</h2>
         <p className="text-sm text-muted-foreground">
-          Configura el título y opcionalmente importa fotos y hallazgos de visitas técnicas previas.
+          Configura el título.{" "}
+          {hasImportableContent
+            ? "Opcionalmente importa fotos y hallazgos de visitas técnicas previas."
+            : "En los siguientes pasos vas a cargar las fotos y los hallazgos de la inspección."}
         </p>
       </div>
 
@@ -328,21 +369,59 @@ function Step1Base({
         </div>
       </div>
 
-      <div className="border rounded-md p-4 bg-muted/30">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h3 className="font-medium">Importar de visitas técnicas previas (opcional)</h3>
-            <p className="text-sm text-muted-foreground mt-1">
-              Si tienes visitas a esta instalación con hallazgos o fotos relevantes, puedes
-              traerlos como punto de partida. Después podrás editarlos o agregar más.
-            </p>
-          </div>
-          <Button variant="outline" onClick={() => setImportDialogOpen(true)} className="gap-1.5 flex-shrink-0">
-            <ImagePlus className="h-4 w-4" />
-            Importar
-          </Button>
+      {importSummary.loading && (
+        <div className="border rounded-md p-3 bg-muted/30 flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Buscando visitas técnicas previas...
         </div>
-      </div>
+      )}
+
+      {hasImportableContent && (
+        <div className="border rounded-md p-4 bg-muted/30">
+          <div className="flex items-start justify-between gap-3 flex-wrap">
+            <div className="min-w-0">
+              <h3 className="font-medium flex items-center gap-2 flex-wrap">
+                Importar de visitas técnicas previas
+                <Badge variant="secondary" className="text-[10px]">
+                  Opcional
+                </Badge>
+              </h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                Hay <strong>{importSummary.visitsCount}</strong>{" "}
+                {importSummary.visitsCount === 1 ? "visita previa" : "visitas previas"} a esta
+                instalación con{" "}
+                {importSummary.findingsAvailable > 0 && (
+                  <>
+                    <strong>{importSummary.findingsAvailable}</strong>{" "}
+                    {importSummary.findingsAvailable === 1
+                      ? "hallazgo disponible"
+                      : "hallazgos disponibles"}
+                  </>
+                )}
+                {importSummary.findingsAvailable > 0 && importSummary.photosAvailable > 0 && " y "}
+                {importSummary.photosAvailable > 0 && (
+                  <>
+                    <strong>{importSummary.photosAvailable}</strong>{" "}
+                    {importSummary.photosAvailable === 1
+                      ? "foto disponible"
+                      : "fotos disponibles"}
+                  </>
+                )}
+                . Podés traer lo relevante como punto de partida.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => setImportDialogOpen(true)}
+              className="gap-1.5 flex-shrink-0"
+            >
+              <ImagePlus className="h-4 w-4" />
+              Importar de {importSummary.visitsCount}{" "}
+              {importSummary.visitsCount === 1 ? "visita" : "visitas"}
+            </Button>
+          </div>
+        </div>
+      )}
 
       <div className="flex justify-end">
         <Button onClick={onNext} className="gap-1.5">
