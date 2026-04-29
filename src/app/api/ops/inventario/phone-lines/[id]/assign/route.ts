@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
-import { ensureInventarioAccess } from "@/lib/inventory";
+import { ensureInventarioEdit } from "@/lib/inventory";
+import { createOpsAuditLog } from "@/lib/ops";
 import { requireTenantModule } from '@/lib/require-module';
 import { z } from "zod";
 
@@ -26,7 +27,7 @@ export async function POST(
 
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbidden = await ensureInventarioAccess(ctx);
+    const forbidden = await ensureInventarioEdit(ctx);
     if (forbidden) return forbidden;
 
     const { id } = await params;
@@ -77,6 +78,17 @@ export async function POST(
       },
     });
 
+    await createOpsAuditLog(
+      ctx,
+      "inventario.phone_line.assigned",
+      "inventario.phone_line",
+      id,
+      {
+        installationId: assignment.installationId,
+        assignedToUserId: assignment.assignedToUserId,
+      },
+    );
+
     return NextResponse.json(assignment);
   } catch (e) {
     console.error("[inventario/phone-lines/[id]/assign POST]", e);
@@ -97,7 +109,7 @@ export async function DELETE(
 
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbidden = await ensureInventarioAccess(ctx);
+    const forbidden = await ensureInventarioEdit(ctx);
     if (forbidden) return forbidden;
 
     const { id } = await params;
@@ -129,6 +141,14 @@ export async function DELETE(
       where: { id: active.id },
       data: { returnedAt: new Date() },
     });
+
+    await createOpsAuditLog(
+      ctx,
+      "inventario.phone_line.unassigned",
+      "inventario.phone_line",
+      id,
+      { assignmentId: active.id },
+    );
 
     return NextResponse.json({ success: true });
   } catch (e) {

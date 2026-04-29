@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
-import { ensureInventarioAccess } from "@/lib/inventory";
+import { ensureInventarioAccess, ensureInventarioEdit } from "@/lib/inventory";
+import { createOpsAuditLog } from "@/lib/ops";
 import { requireTenantModule } from '@/lib/require-module';
 
 export async function GET(request: NextRequest) {
@@ -57,7 +58,7 @@ export async function PATCH(request: NextRequest) {
 
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbidden = await ensureInventarioAccess(ctx);
+    const forbidden = await ensureInventarioEdit(ctx);
     if (forbidden) return forbidden;
 
     const body = await request.json();
@@ -85,6 +86,14 @@ export async function PATCH(request: NextRequest) {
       where: { id },
       data: { minStock },
     });
+
+    await createOpsAuditLog(
+      ctx,
+      "inventario.stock.min_updated",
+      "inventario.stock",
+      id,
+      { warehouseId: record.warehouseId, variantId: record.variantId, minStock },
+    );
 
     return NextResponse.json({ success: true, minStock: updated.minStock });
   } catch (e) {

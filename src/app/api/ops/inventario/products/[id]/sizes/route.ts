@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
-import { ensureInventarioAccess } from "@/lib/inventory";
+import { ensureInventarioAccess, ensureInventarioEdit } from "@/lib/inventory";
+import { createOpsAuditLog } from "@/lib/ops";
 import { requireTenantModule } from '@/lib/require-module';
 import { z } from "zod";
 import { parseSizesInput } from "@/lib/inventory-product-catalog";
@@ -62,7 +63,7 @@ export async function POST(
 
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbidden = await ensureInventarioAccess(ctx);
+    const forbidden = await ensureInventarioEdit(ctx);
     if (forbidden) return forbidden;
 
     const { id } = await params;
@@ -132,6 +133,14 @@ export async function POST(
       where: { id: size.id },
       include: { variants: true },
     });
+
+    await createOpsAuditLog(
+      ctx,
+      "inventario.product.size.created",
+      "inventario.product",
+      id,
+      { sizeId: size.id, sizeCode: normalizedSizeCode },
+    );
 
     return NextResponse.json(sizeWithVariant ?? size);
   } catch (e) {
