@@ -40,6 +40,13 @@ const getShiftHours = (startTime: string, endTime: string) => {
   return (endMinutes - startMinutes) / 60;
 };
 
+const normalizeCatalogLabel = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+
 export function CreatePositionModal({ quoteId, onCreated, disabled }: CreatePositionModalProps) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -73,9 +80,36 @@ export function CreatePositionModal({ quoteId, onCreated, disabled }: CreatePosi
         fetch("/api/cpq/roles?active=true").then((r) => r.json()),
         fetch("/api/cpq/puestos?active=true").then((r) => r.json()),
       ]).then(([c, r, p]) => {
-        setCargos(c.data || []);
-        setRoles(r.data || []);
-        setPuestos(p.data || []);
+        const nextCargos = c.data || [];
+        const nextRoles = r.data || [];
+        const nextPuestos = p.data || [];
+        setCargos(nextCargos);
+        setRoles(nextRoles);
+        setPuestos(nextPuestos);
+
+        const defaultPuesto =
+          nextPuestos.find((item: CpqPuestoTrabajo) => {
+            const label = normalizeCatalogLabel(item.name || "");
+            return label.includes("control") && label.includes("acceso");
+          }) ??
+          nextPuestos.find((item: CpqPuestoTrabajo) =>
+            normalizeCatalogLabel(item.name || "").includes("acceso")
+          ) ??
+          nextPuestos[0];
+
+        const defaultCargo =
+          nextCargos.find((item: CpqCargo) => normalizeCatalogLabel(item.name || "") === "guardia") ??
+          nextCargos.find((item: CpqCargo) =>
+            normalizeCatalogLabel(item.name || "").includes("guardia")
+          ) ??
+          nextCargos[0];
+
+        setForm((prev) => ({
+          ...prev,
+          puestoTrabajoId: prev.puestoTrabajoId || defaultPuesto?.id || "",
+          cargoId: prev.cargoId || defaultCargo?.id || "",
+          rolId: prev.rolId || nextRoles[0]?.id || "",
+        }));
       }).catch(console.error);
     }
   }, [open]);
