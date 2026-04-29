@@ -5,6 +5,7 @@ import { resolvePagePerms, canView, canEdit } from "@/lib/permissions-server";
 import { PageHeader, ModuleCard } from "@/components/opai";
 import { InventarioKpisCard } from "@/components/inventario/InventarioKpisCard";
 import { InventarioSubnav } from "@/components/ops/InventarioSubnav";
+import { InventarioTransferDialog } from "@/components/inventario/InventarioTransferDialog";
 import { Button } from "@/components/ui/button";
 import {
   Warehouse,
@@ -79,12 +80,15 @@ export default async function InventarioPage() {
         description="Gestión de uniformes, activos y teléfonos por instalación."
         actions={
           allowEdit ? (
-            <Link href="/ops/inventario/configuracion">
-              <Button size="sm" variant="outline" className="gap-2">
-                <Settings2 className="h-4 w-4" />
-                <span className="hidden sm:inline">Configuración</span>
-              </Button>
-            </Link>
+            <>
+              <InventarioTransferDialog />
+              <Link href="/ops/inventario/configuracion">
+                <Button size="sm" variant="outline" className="gap-2">
+                  <Settings2 className="h-4 w-4" />
+                  <span className="hidden sm:inline">Configuración</span>
+                </Button>
+              </Link>
+            </>
           ) : null
         }
       />
