@@ -7,7 +7,8 @@
  */
 
 import { prisma } from "@/lib/prisma";
-import { notifyGuardOfExam } from "@/lib/protocols/notify-guard-exam";
+import { getKnowledgeConfig } from "@/lib/knowledge/config";
+import { createAssignmentAndNotify } from "@/lib/knowledge/dispatch-helpers";
 
 export interface AutoAssignParams {
   guardId: string;
@@ -37,6 +38,8 @@ export async function assignOnAssignmentExams(
 
     if (exams.length === 0) return result;
 
+    const cfg = await getKnowledgeConfig(params.tenantId);
+
     for (const exam of exams) {
       if (exam._count.questions === 0) {
         result.examsSkipped += 1;
@@ -57,29 +60,35 @@ export async function assignOnAssignmentExams(
         continue;
       }
 
-      const assignment = await prisma.examAssignment.create({
-        data: {
+      const lastAttempt = await prisma.examAssignment.aggregate({
+        where: { examId: exam.id, guardId: params.guardId },
+        _max: { attemptNumber: true },
+      });
+
+      try {
+        await createAssignmentAndNotify({
+          examId: exam.id,
+          examTitle: exam.title,
+          guardId: params.guardId,
+          tenantId: params.tenantId,
+          trigger: "on_assignment",
+          triggeredByUserId: null,
+          attemptNumber: (lastAttempt._max.attemptNumber ?? 0) + 1,
+          deadlineDays: cfg.deadlineDays,
+          emailEnabled: cfg.emailEnabled,
+        });
+        result.examsCreated += 1;
+      } catch (err) {
+        console.error("[knowledge-recurring] auto-assign create failed", {
           examId: exam.id,
           guardId: params.guardId,
-          status: "sent",
-        },
-      });
-      result.examsCreated += 1;
-
-      // Fire-and-forget notification.
-      void notifyGuardOfExam({
-        examId: exam.id,
-        examTitle: exam.title,
-        guardId: params.guardId,
-        tenantId: params.tenantId,
-        assignmentId: assignment.id,
-        trigger: "on_assignment",
-      }).catch((err) => {
-        console.error("[auto-assign-exams] notify failed", err);
-      });
+          err,
+        });
+        result.examsSkipped += 1;
+      }
     }
   } catch (err) {
-    console.error("[auto-assign-exams] failed", {
+    console.error("[knowledge-recurring] auto-assign-exams failed", {
       guardId: params.guardId,
       installationId: params.installationId,
       err,

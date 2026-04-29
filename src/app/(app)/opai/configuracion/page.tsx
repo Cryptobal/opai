@@ -86,6 +86,7 @@ const CONFIG_SECTIONS: ConfigSection[] = [
       { submodule: "alertas_cobertura", href: "/opai/configuracion/alertas-cobertura", title: "Alertas de Cobertura", description: "Oleadas, tiempos y canales", icon: "siren" },
       { submodule: "ats", href: "/opai/configuracion/ats", title: "ATS — Reclutamiento", description: "Match score, canales y distribución", icon: "briefcase" },
       { submodule: "psicolaboral", href: "/opai/configuracion/psicolaboral", title: "Psicolaboral", description: "Pesos, umbrales y plantillas de invitación", icon: "brain", adminOnly: true },
+      { submodule: "conocimiento", href: "/opai/configuracion/conocimiento", title: "Conocimiento", description: "Frecuencia de exámenes recurrentes, recordatorios y deadlines", icon: "graduation-cap" },
       { submodule: "informes_vulnerabilidad", href: "/opai/configuracion/informes-vulnerabilidad", title: "Informes de Vulnerabilidad", description: "Configura las secciones de informes generados por IA", icon: "shield-alert", adminOnly: true },
     ],
   },

@@ -2057,6 +2057,7 @@ type ExamListItem = {
   score: number | null;
   completedAt: string | null;
   sentAt: string;
+  dueAt: string | null;
 };
 
 type ExamApiItem = {
@@ -2070,6 +2071,7 @@ type ExamApiItem = {
   score?: number | null;
   completedAt?: string | null;
   sentAt?: string;
+  dueAt?: string | null;
 };
 
 type ExamDetail = {
@@ -2088,6 +2090,26 @@ type SubmitResult = {
   correctCount: number;
   results: Array<{ questionId: string; correct: boolean; selectedAnswer: number; correctAnswer: number }>;
 };
+
+function formatExamDue(dueAt: string | null): { label: string; className: string } | null {
+  if (!dueAt) return null;
+  const dueMs = new Date(dueAt).getTime();
+  if (!Number.isFinite(dueMs)) return null;
+  const days = Math.ceil((dueMs - Date.now()) / (1000 * 60 * 60 * 24));
+  if (days < 0) {
+    return {
+      label: `Vencido hace ${Math.abs(days)}d`,
+      className: "text-red-500 font-medium",
+    };
+  }
+  if (days === 0) {
+    return { label: "¡Vence hoy!", className: "text-red-500 font-medium" };
+  }
+  if (days <= 3) {
+    return { label: `Vence en ${days}d`, className: "text-amber-500 font-medium" };
+  }
+  return { label: `Vence en ${days}d`, className: "text-muted-foreground" };
+}
 
 function ExamenesSection({ session, onBack }: { session: GuardSession; onBack: () => void }) {
   const [exams, setExams] = useState<{ pending: ExamListItem[]; completed: ExamListItem[] }>({ pending: [], completed: [] });
@@ -2116,6 +2138,7 @@ function ExamenesSection({ session, onBack }: { session: GuardSession; onBack: (
             score: a.score ?? null,
             completedAt: a.completedAt ?? null,
             sentAt: a.sentAt ?? "",
+            dueAt: a.dueAt ?? null,
           });
           setExams({
             pending: (json.data.pending ?? []).map(mapItem),
@@ -2422,21 +2445,32 @@ function ExamenesSection({ session, onBack }: { session: GuardSession; onBack: (
           {exams.pending.length > 0 && (
             <div className="space-y-2">
               <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Pendientes</h3>
-              {exams.pending.map((e) => (
-                <button
-                  key={e.assignmentId}
-                  onClick={() => openExam(e.assignmentId)}
-                  className="w-full rounded-xl border border-amber-500/30 bg-card p-4 shadow-sm text-left active:bg-accent transition-colors"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold truncate">{e.examTitle}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{e.questionCount} preguntas</p>
+              {exams.pending.map((e) => {
+                const due = formatExamDue(e.dueAt);
+                return (
+                  <button
+                    key={e.assignmentId}
+                    onClick={() => openExam(e.assignmentId)}
+                    className="w-full rounded-xl border border-amber-500/30 bg-card p-4 shadow-sm text-left active:bg-accent transition-colors"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold truncate">{e.examTitle}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {e.questionCount} preguntas
+                          {due && (
+                            <>
+                              {" · "}
+                              <span className={due.className}>{due.label}</span>
+                            </>
+                          )}
+                        </p>
+                      </div>
+                      <Badge variant="warning" className="shrink-0 text-[10px]">Pendiente</Badge>
                     </div>
-                    <Badge variant="warning" className="shrink-0 text-[10px]">Pendiente</Badge>
-                  </div>
-                </button>
-              ))}
+                  </button>
+                );
+              })}
             </div>
           )}
 

@@ -16,6 +16,7 @@ const updateExamSchema = z.object({
   status: z.enum(["draft", "active", "archived"]).optional(),
   scheduleType: z.enum(["manual", "on_assignment", "recurring"]).optional(),
   recurringMonths: z.number().int().positive().nullable().optional(),
+  recurringDays: z.number().int().positive().nullable().optional(),
   passingScore: z.number().int().min(0).max(100).optional(),
 });
 
@@ -120,6 +121,7 @@ export async function PUT(
         ...(data.status !== undefined && { status: data.status }),
         ...(data.scheduleType !== undefined && { scheduleType: data.scheduleType }),
         ...(data.recurringMonths !== undefined && { recurringMonths: data.recurringMonths }),
+        ...(data.recurringDays !== undefined && { recurringDays: data.recurringDays }),
         ...(data.passingScore !== undefined && { passingScore: data.passingScore }),
       },
       include: {

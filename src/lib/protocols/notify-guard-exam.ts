@@ -10,11 +10,24 @@
  *  - `POST /api/installations/[id]/exams/[examId]/send`
  *  - the `on_assignment` hook (`assignOnAssignmentExams`)
  *  - the `recurring` cron (`/api/cron/exam-recurring`)
+ *
+ * Returns a `NotifyResult` so callers can persist the outcome (Ley 21.719).
  */
 
 import { prisma } from "@/lib/prisma";
 
 export type NotifyTrigger = "manual" | "on_assignment" | "recurring";
+
+export type NotifyEmailStatus =
+  | "sent"
+  | "failed"
+  | "skipped_no_email"
+  | "skipped_no_resend";
+
+export interface NotifyResult {
+  status: NotifyEmailStatus;
+  error?: string;
+}
 
 export interface NotifyParams {
   examId: string;
@@ -25,7 +38,7 @@ export interface NotifyParams {
   trigger?: NotifyTrigger;
 }
 
-export async function notifyGuardOfExam(params: NotifyParams): Promise<void> {
+export async function notifyGuardOfExam(params: NotifyParams): Promise<NotifyResult> {
   try {
     const guard = await prisma.opsGuardia.findUnique({
       where: { id: params.guardId },
@@ -48,7 +61,7 @@ export async function notifyGuardOfExam(params: NotifyParams): Promise<void> {
         guardId: params.guardId,
         trigger: params.trigger,
       });
-      return;
+      return { status: "skipped_no_email" };
     }
 
     if (!process.env.RESEND_API_KEY || /test|dummy/i.test(process.env.RESEND_API_KEY ?? "")) {
@@ -57,7 +70,7 @@ export async function notifyGuardOfExam(params: NotifyParams): Promise<void> {
         examId: params.examId,
         email,
       });
-      return;
+      return { status: "skipped_no_resend" };
     }
 
     const { resend, getTenantEmailConfig } = await import("@/lib/resend");
@@ -94,12 +107,18 @@ export async function notifyGuardOfExam(params: NotifyParams): Promise<void> {
       subject,
       html,
     });
+
+    return { status: "sent" };
   } catch (err) {
     console.error("[notify-guard-exam] failed", {
       guardId: params.guardId,
       examId: params.examId,
       err,
     });
+    return {
+      status: "failed",
+      error: err instanceof Error ? err.message : String(err),
+    };
   }
 }
 
