@@ -109,7 +109,7 @@ export function categoriaForTipo(args: {
  * Seguridad" tenga un esqueleto útil sin tener que crear cada uno a mano.
  *
  * NOTA: Estos tipos llegan con `useAsAiKnowledge=true` por la migración
- * `20260628000000_add_ai_knowledge_flag_and_exam_sources` (matchea por
+ * `20260629000000_add_ai_knowledge_flag_and_exam_sources` (matchea por
  * prefijo de código). Si agregas un código nuevo aquí, asegúrate que
  * comience con uno de estos prefijos: `protocolo`, `plan_evacuacion`,
  * `plan_contingencia`, `plan_emergencia`, `matriz_riesgo`,

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useRegisterChatPageContext } from "@/components/opai/ChatPageContextProvider";
-import { MapPin, ExternalLink, Trash2, Pencil, Loader2, LayoutGrid, Plus, QrCode, Copy, RefreshCw, Moon, UserPlus, UserMinus, Search, CalendarDays, AlertTriangle, Info, Users, Briefcase, FileText, ClipboardList, Shield, ShieldCheck, Receipt, Package, UserCircle, BookOpen, History, MessageCircle, Route, Fingerprint, Clock, FileCheck, ChevronDown, Power } from "lucide-react";
+import { MapPin, ExternalLink, Trash2, Pencil, Loader2, LayoutGrid, Plus, QrCode, Copy, RefreshCw, Moon, UserPlus, UserMinus, Search, CalendarDays, AlertTriangle, Info, Users, Briefcase, FileText, ClipboardList, Shield, ShieldAlert, ShieldCheck, Receipt, Package, UserCircle, BookOpen, History, MessageCircle, Route, Fingerprint, Clock, FileCheck, ChevronDown, Power } from "lucide-react";
 import { InstalacionRondasTab } from "./InstalacionRondasTab";
 import { InstalacionMarcacionesTab } from "@/components/ops/InstalacionMarcacionesTab";
 import { PuestoFormModal, type PuestoFormData } from "@/components/shared/PuestoFormModal";
@@ -49,6 +49,7 @@ import { UnifiedDevicesSection } from "@/components/devices/UnifiedDevicesSectio
 import { InstallationPhoneLines } from "@/components/inventario/InstallationPhoneLines";
 import { InstalacionDocumentosGuardiasTab } from "./InstalacionDocumentosGuardiasTab";
 import { InstalacionDocsOperacionalesTab } from "@/components/ops/InstalacionDocsOperacionalesTab";
+import { InstalacionVraReportsTab } from "@/components/vra/InstalacionVraReportsTab";
 
 const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
 
@@ -2084,6 +2085,7 @@ export function CrmInstallationDetailClient({
     { id: "general", label: "General", icon: Info },
     { id: "staffing", label: "Puestos", icon: Users },
     { id: "dotacion", label: "Dotación", icon: ClipboardList },
+    { id: "informes-vulnerabilidad", label: "Informes de Vulnerabilidad", icon: ShieldAlert },
     { id: "protocolo", label: "Protocolo", icon: BookOpen },
     { id: "docs-operacionales", label: "Docs. Operacionales", icon: ShieldCheck },
     { id: "rondas", label: "Rondas", icon: Route },
@@ -2653,6 +2655,9 @@ export function CrmInstallationDetailClient({
         )}
         {activeTab === "dotacion" && (
           <DotacionSection installation={installation} canEdit={canEditDotacion} />
+        )}
+        {activeTab === "informes-vulnerabilidad" && (
+          <InstalacionVraReportsTab installationId={installation.id} />
         )}
         {activeTab === "protocolo" && (
           <ProtocolTab
