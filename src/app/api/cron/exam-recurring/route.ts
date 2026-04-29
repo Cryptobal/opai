@@ -1,23 +1,35 @@
 /**
  * POST /api/cron/exam-recurring
  *
- * For every active exam with `scheduleType: "recurring"` and a non-null
- * `recurringMonths`, ensures that each currently-active guard on the
- * installation has a fresh `ExamAssignment` if the previous one is older
- * than `recurringMonths` months (or the guard never had one).
+ * Para cada examen activo `scheduleType: "recurring"`:
+ *  - Resuelve la frecuencia en días (exam.recurringDays > recurringMonths*30 > tenant default).
+ *  - Por cada guardia activo en la instalación, si no tiene asignación pendiente
+ *    y la última (completada o enviada) es más vieja que el cutoff, crea una nueva
+ *    `ExamAssignment` con tracking completo y notifica.
+ *  - Persiste un `ExamRecurringDispatchRun` por tenant con contadores y errores
+ *    (Ley 21.719: prueba de entrega).
  *
- * Auth: `Authorization: Bearer ${CRON_SECRET}` (same pattern as
- * `/api/cron/biometric-cleanup`).
- *
- * Schedule: daily 03:00 UTC (see vercel.json).
+ * Auth: `Authorization: Bearer ${CRON_SECRET}`.
+ * Schedule: diario 03:00 UTC (vercel.json).
  */
 
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { notifyGuardOfExam } from "@/lib/protocols/notify-guard-exam";
+import { getKnowledgeConfig, resolveRecurringDays } from "@/lib/knowledge/config";
+import { createAssignmentAndNotify } from "@/lib/knowledge/dispatch-helpers";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
+
+interface RunAccumulator {
+  id: string;
+  examsProcessed: number;
+  assignmentsCreated: number;
+  emailsSent: number;
+  emailsFailed: number;
+  emailsSkipped: number;
+  errors: Array<{ examId: string; message: string }>;
+}
 
 export async function POST(request: Request) {
   const cronSecret = request.headers.get("authorization")?.replace("Bearer ", "");
@@ -26,22 +38,29 @@ export async function POST(request: Request) {
   }
 
   const now = new Date();
-  let processed = 0;
-  let created = 0;
-  let skipped = 0;
-  let errors = 0;
+  const summary = {
+    processed: 0,
+    created: 0,
+    emailsSent: 0,
+    emailsFailed: 0,
+    emailsSkipped: 0,
+    skipped: 0,
+    errors: [] as Array<{ examId: string; message: string }>,
+  };
+
+  const runByTenant = new Map<string, RunAccumulator>();
 
   try {
     const exams = await prisma.exam.findMany({
       where: {
         status: "active",
         scheduleType: "recurring",
-        recurringMonths: { not: null },
       },
       select: {
         id: true,
         title: true,
         installationId: true,
+        recurringDays: true,
         recurringMonths: true,
         installation: { select: { id: true, tenantId: true } },
         _count: { select: { questions: true } },
@@ -49,20 +68,42 @@ export async function POST(request: Request) {
     });
 
     for (const exam of exams) {
-      processed += 1;
+      summary.processed += 1;
+
+      const tenantId = exam.installation?.tenantId;
+      if (!tenantId || exam._count.questions === 0) {
+        summary.skipped += 1;
+        continue;
+      }
+
+      // Lazy-create dispatch run por tenant
+      if (!runByTenant.has(tenantId)) {
+        const run = await prisma.examRecurringDispatchRun.create({
+          data: { tenantId, triggerSource: "cron", startedAt: now },
+          select: { id: true },
+        });
+        runByTenant.set(tenantId, {
+          id: run.id,
+          examsProcessed: 0,
+          assignmentsCreated: 0,
+          emailsSent: 0,
+          emailsFailed: 0,
+          emailsSkipped: 0,
+          errors: [],
+        });
+      }
+      const run = runByTenant.get(tenantId)!;
+      run.examsProcessed += 1;
+
       try {
-        if (!exam.recurringMonths || exam._count.questions === 0) {
-          skipped += 1;
-          continue;
-        }
-        const tenantId = exam.installation?.tenantId;
-        if (!tenantId) {
-          skipped += 1;
+        const cfg = await getKnowledgeConfig(tenantId);
+        const recurringDays = resolveRecurringDays(exam, cfg.recurringDefaultDays);
+        if (recurringDays <= 0) {
+          summary.skipped += 1;
           continue;
         }
 
-        const cutoff = new Date(now);
-        cutoff.setMonth(cutoff.getMonth() - exam.recurringMonths);
+        const cutoff = new Date(now.getTime() - recurringDays * 24 * 60 * 60 * 1000);
 
         const activeAssigns = await prisma.opsAsignacionGuardia.findMany({
           where: { installationId: exam.installationId, isActive: true },
@@ -71,8 +112,6 @@ export async function POST(request: Request) {
         });
 
         for (const a of activeAssigns) {
-          // Don't double-create if there is already a non-completed
-          // assignment we sent for this exam.
           const pending = await prisma.examAssignment.findFirst({
             where: {
               examId: exam.id,
@@ -82,64 +121,83 @@ export async function POST(request: Request) {
             select: { id: true },
           });
           if (pending) {
-            skipped += 1;
+            summary.skipped += 1;
             continue;
           }
 
           const last = await prisma.examAssignment.findFirst({
             where: { examId: exam.id, guardId: a.guardiaId },
             orderBy: [{ completedAt: "desc" }, { sentAt: "desc" }],
-            select: {
-              completedAt: true,
-              sentAt: true,
-              attemptNumber: true,
-            },
+            select: { completedAt: true, sentAt: true, attemptNumber: true },
           });
 
           const reference = last?.completedAt ?? last?.sentAt ?? null;
           if (reference && reference > cutoff) {
-            skipped += 1;
+            summary.skipped += 1;
             continue;
           }
 
-          const assignment = await prisma.examAssignment.create({
-            data: {
-              examId: exam.id,
-              guardId: a.guardiaId,
-              status: "sent",
-              attemptNumber: (last?.attemptNumber ?? 0) + 1,
-            },
-          });
-          created += 1;
-
-          void notifyGuardOfExam({
+          const result = await createAssignmentAndNotify({
             examId: exam.id,
             examTitle: exam.title,
             guardId: a.guardiaId,
             tenantId,
-            assignmentId: assignment.id,
             trigger: "recurring",
+            triggeredByUserId: null,
+            attemptNumber: (last?.attemptNumber ?? 0) + 1,
+            deadlineDays: cfg.deadlineDays,
+            emailEnabled: cfg.emailEnabled,
+            dispatchRunId: run.id,
           });
+
+          summary.created += 1;
+          run.assignmentsCreated += 1;
+
+          if (result.emailStatus === "sent") {
+            summary.emailsSent += 1;
+            run.emailsSent += 1;
+          } else if (result.emailStatus === "failed") {
+            summary.emailsFailed += 1;
+            run.emailsFailed += 1;
+          } else {
+            summary.emailsSkipped += 1;
+            run.emailsSkipped += 1;
+          }
         }
       } catch (err) {
-        errors += 1;
-        console.error("[cron/exam-recurring] exam failed", { examId: exam.id, err });
+        const message = err instanceof Error ? err.message : String(err);
+        summary.errors.push({ examId: exam.id, message });
+        run.errors.push({ examId: exam.id, message });
+        console.error("[knowledge-recurring] exam failed", { examId: exam.id, err });
       }
     }
   } catch (err) {
-    console.error("[cron/exam-recurring] fatal", err);
-    return NextResponse.json(
-      { success: false, processed, created, skipped, errors: errors + 1 },
-      { status: 500 },
-    );
+    console.error("[knowledge-recurring] fatal", err);
   }
+
+  // Cerrar dispatch runs con contadores finales
+  const finishedAt = new Date();
+  await Promise.all(
+    Array.from(runByTenant.values()).map((run) =>
+      prisma.examRecurringDispatchRun.update({
+        where: { id: run.id },
+        data: {
+          finishedAt,
+          examsProcessed: run.examsProcessed,
+          assignmentsCreated: run.assignmentsCreated,
+          emailsSent: run.emailsSent,
+          emailsFailed: run.emailsFailed,
+          emailsSkipped: run.emailsSkipped,
+          errors: run.errors.length > 0 ? run.errors : undefined,
+        },
+      }),
+    ),
+  );
 
   return NextResponse.json({
     success: true,
-    processed,
-    created,
-    skipped,
-    errors,
+    ...summary,
+    tenantRuns: runByTenant.size,
     timestamp: now.toISOString(),
   });
 }

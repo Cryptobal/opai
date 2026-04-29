@@ -2735,16 +2735,18 @@ model Exam {
   type            String   @default("protocol") // protocol | security_general
   status          String   @default("draft") // draft | active | archived
   scheduleType    String   @default("manual") @map("schedule_type") // manual | on_assignment | recurring
-  recurringMonths Int?     @map("recurring_months")
+  recurringMonths Int?     @map("recurring_months") /// @deprecated — usar recurringDays
+  recurringDays   Int?     @map("recurring_days")
   passingScore    Int      @default(60) @map("passing_score")
   createdBy       String   @map("created_by")
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  installation    CrmInstallation       @relation(fields: [installationId], references: [id], onDelete: Cascade)
+  installation    CrmInstallation            @relation(fields: [installationId], references: [id], onDelete: Cascade)
   questions       ExamQuestion[]
   assignments     ExamAssignment[]
   sourceDocuments ExamSourceDocument[]
+  dispatchRuns    ExamRecurringDispatchRun[]
 
   @@index([installationId], map: "idx_exam_installation")
   @@index([installationId, status], map: "idx_exam_installation_status")
@@ -2755,13 +2757,13 @@ model Exam {
 /// Trazabilidad de las fuentes documentales usadas para generar un examen.
 /// Permite auditar de qué PDF salieron las preguntas (relevante p/Ley 21.719).
 model ExamSourceDocument {
-  id                  String   @id @default(cuid())
-  examId              String   @map("exam_id")
+  id                 String   @id @default(cuid())
+  examId             String   @map("exam_id")
   // Una de las dos referencias debe estar set
-  docOperacionalId    String?  @map("doc_operacional_id") @db.Uuid
-  protocolDocumentId  String?  @map("protocol_document_id")
-  fileNameSnapshot    String   @map("file_name_snapshot")
-  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  docOperacionalId   String?  @map("doc_operacional_id") @db.Uuid
+  protocolDocumentId String?  @map("protocol_document_id")
+  fileNameSnapshot   String   @map("file_name_snapshot")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   exam Exam @relation(fields: [examId], references: [id], onDelete: Cascade)
 
@@ -2804,16 +2806,55 @@ model ExamAssignment {
   timeTakenSecs Int?      @map("time_taken_secs")
   attemptNumber Int       @default(1) @map("attempt_number")
   portalVisible Boolean   @default(true) @map("portal_visible")
-  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  exam  Exam       @relation(fields: [examId], references: [id], onDelete: Cascade)
-  guard OpsGuardia @relation(fields: [guardId], references: [id], onDelete: Cascade)
+  // Tracking de envío y recordatorios (Ley 21.719)
+  trigger            String    @default("manual") @map("trigger") // manual | on_assignment | recurring
+  triggeredByUserId  String?   @map("triggered_by_user_id")
+  dueAt              DateTime? @map("due_at") @db.Timestamptz(6)
+  notificationSentAt DateTime? @map("notification_sent_at") @db.Timestamptz(6)
+  notificationStatus String    @default("pending") @map("notification_status") // pending | sent | failed | skipped_no_email | skipped_no_resend | skipped_disabled
+  notificationError  String?   @map("notification_error")
+  reminderSentAt     DateTime? @map("reminder_sent_at") @db.Timestamptz(6)
+  dispatchRunId      String?   @map("dispatch_run_id")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  exam        Exam                      @relation(fields: [examId], references: [id], onDelete: Cascade)
+  guard       OpsGuardia                @relation(fields: [guardId], references: [id], onDelete: Cascade)
+  dispatchRun ExamRecurringDispatchRun? @relation(fields: [dispatchRunId], references: [id], onDelete: SetNull)
 
   @@index([examId], map: "idx_exam_assignment_exam")
   @@index([guardId], map: "idx_exam_assignment_guard")
   @@index([examId, guardId], map: "idx_exam_assignment_exam_guard")
   @@index([portalVisible], map: "idx_exam_assignment_portal_visible")
+  @@index([status, dueAt], map: "idx_exam_assignment_status_due")
+  @@index([trigger, sentAt(sort: Desc)], map: "idx_exam_assignment_trigger_sent")
   @@map("exam_assignments")
+  @@schema("crm")
+}
+
+/// Resumen auditable de cada corrida del cron `/api/cron/exam-recurring`.
+/// Útil para Ley 21.719 (probar entrega) y monitoreo operativo.
+model ExamRecurringDispatchRun {
+  id                 String    @id @default(cuid())
+  tenantId           String    @map("tenant_id")
+  startedAt          DateTime  @default(now()) @map("started_at") @db.Timestamptz(6)
+  finishedAt         DateTime? @map("finished_at") @db.Timestamptz(6)
+  examId             String?   @map("exam_id")
+  examsProcessed     Int       @default(0) @map("exams_processed")
+  assignmentsCreated Int       @default(0) @map("assignments_created")
+  emailsSent         Int       @default(0) @map("emails_sent")
+  emailsFailed       Int       @default(0) @map("emails_failed")
+  emailsSkipped      Int       @default(0) @map("emails_skipped")
+  errors             Json?     @db.JsonB
+  triggerSource      String    @default("cron") @map("trigger_source") // cron | manual_replay
+
+  exam        Exam?            @relation(fields: [examId], references: [id], onDelete: SetNull)
+  assignments ExamAssignment[]
+
+  @@index([tenantId, startedAt(sort: Desc)], map: "idx_dispatch_run_tenant_started")
+  @@index([examId, startedAt(sort: Desc)], map: "idx_dispatch_run_exam_started")
+  @@map("exam_recurring_dispatch_runs")
   @@schema("crm")
 }
 
