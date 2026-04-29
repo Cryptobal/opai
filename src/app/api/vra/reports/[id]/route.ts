@@ -85,28 +85,54 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<Pa
 
 /**
  * DELETE /api/vra/reports/[id]
- * Soft delete: marca como archived. No borra el DocOperacional asociado.
+ * - Por defecto: soft delete (status=archived, portalVisible=false). Cualquier usuario.
+ * - Con ?hard=true: borra permanente (informe + secciones + findings + photos + caches).
+ *   Solo permitido para owner / admin. NO borra el DocOperacional generado (queda
+ *   en el sistema documental como histórico inmutable).
  */
-export async function DELETE(_request: NextRequest, { params }: { params: Promise<Params> }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<Params> }) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const { id } = await params;
+    const url = new URL(request.url);
+    const hard = url.searchParams.get("hard") === "true";
 
     const report = await prisma.vraReport.findFirst({
       where: { id, tenantId: ctx.tenantId },
-      select: { id: true },
+      select: { id: true, docOperacionalId: true },
     });
     if (!report) {
       return NextResponse.json({ success: false, error: "Informe no encontrado" }, { status: 404 });
     }
 
+    if (hard) {
+      // Restringir hard delete a roles administrativos
+      const role = ctx.userRole?.toLowerCase();
+      if (role !== "owner" && role !== "admin") {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Solo el propietario o un administrador puede eliminar permanentemente un informe.",
+          },
+          { status: 403 },
+        );
+      }
+
+      // Cascade Prisma se encarga de sections / findings / photos via onDelete: Cascade.
+      // El DocOperacional NO se borra (queda como evidencia en el sistema documental).
+      await prisma.vraReport.delete({ where: { id } });
+
+      return NextResponse.json({ success: true, hard: true });
+    }
+
+    // Soft delete por defecto
     await prisma.vraReport.update({
       where: { id },
       data: { status: "archived", portalVisible: false },
     });
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, hard: false });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ success: false, error: msg }, { status: 500 });

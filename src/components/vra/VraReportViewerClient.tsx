@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ChevronLeft,
   Download,
@@ -12,6 +13,7 @@ import {
   Loader2,
   Sparkles,
   ExternalLink,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -78,10 +80,24 @@ const RISK_LABELS: Record<string, string> = {
 };
 
 export function VraReportViewerClient({ report: initialReport }: { report: Report }) {
+  const router = useRouter();
   const [report, setReport] = useState(initialReport);
   const [exporting, setExporting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [regenerating, setRegenerating] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<string>(report.sections[0]?.id ?? "");
+  const [userRole, setUserRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/me")
+      .then((r) => r.json())
+      .then((j) => {
+        if (j.success) setUserRole((j.user.role ?? "").toLowerCase());
+      })
+      .catch(() => {});
+  }, []);
+
+  const isAdmin = userRole === "owner" || userRole === "admin";
 
   const numbering = useMemo(() => computeNumbering(report.sections), [report.sections]);
 
@@ -131,6 +147,22 @@ export function VraReportViewerClient({ report: initialReport }: { report: Repor
       setReport({ ...report, portalVisible: newVal });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Error");
+    }
+  };
+
+  const handleDelete = async () => {
+    const confirmMsg = `¿Eliminar permanentemente el informe "${report.title}"?\n\nEsto borra el informe completo: hallazgos, fotos cargadas, secciones generadas. El PDF en Documentos Operacionales (si existe) se mantiene como histórico.\n\nEsta acción no se puede deshacer.`;
+    if (!confirm(confirmMsg)) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/vra/reports/${report.id}?hard=true`, { method: "DELETE" });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error);
+      toast.success("Informe eliminado");
+      router.push(`/crm/installations/${report.installation.id}?tab=informes-vulnerabilidad`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error eliminando");
+      setDeleting(false);
     }
   };
 
@@ -253,6 +285,22 @@ export function VraReportViewerClient({ report: initialReport }: { report: Repor
                     <ExternalLink className="h-3.5 w-3.5" />
                     Abrir PDF
                   </a>
+                </Button>
+              )}
+              {isAdmin && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="gap-1.5 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950 border-red-200 dark:border-red-900"
+                >
+                  {deleting ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-3.5 w-3.5" />
+                  )}
+                  Eliminar
                 </Button>
               )}
             </div>

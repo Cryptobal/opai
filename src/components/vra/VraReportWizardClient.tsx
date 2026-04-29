@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -16,7 +16,6 @@ import {
   Camera,
   ListChecks,
   FileText,
-  Eye,
   AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -148,10 +147,39 @@ export function VraReportWizardClient({ report: initialReport }: { report: Repor
   const [findings, setFindings] = useState<Finding[]>(initialReport.userFindings);
   const [photos, setPhotos] = useState<Photo[]>(initialReport.userPhotos);
   const [generating, setGenerating] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/me")
+      .then((r) => r.json())
+      .then((j) => {
+        if (j.success) setUserRole((j.user.role ?? "").toLowerCase());
+      })
+      .catch(() => {});
+  }, []);
+
+  const isAdmin = userRole === "owner" || userRole === "admin";
+
+  const handleDeleteReport = async () => {
+    const confirmMsg = `¿Eliminar permanentemente este borrador?\n\n"${report.title}"\n\nSe borran ${findings.length} hallazgo(s) y ${photos.length} foto(s) cargados.\n\nEsta acción no se puede deshacer.`;
+    if (!confirm(confirmMsg)) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/vra/reports/${report.id}?hard=true`, { method: "DELETE" });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error);
+      toast.success("Borrador eliminado");
+      router.push(`/crm/installations/${report.installation.id}?tab=informes-vulnerabilidad`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error eliminando");
+      setDeleting(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 flex-wrap">
         <Button variant="ghost" size="sm" asChild>
           <Link
             href={`/crm/installations/${report.installation.id}?tab=informes-vulnerabilidad`}
@@ -167,6 +195,18 @@ export function VraReportWizardClient({ report: initialReport }: { report: Repor
             {report.installation.name} · {report.installation.address}
           </p>
         </div>
+        {isAdmin && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleDeleteReport}
+            disabled={deleting}
+            className="gap-1.5 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950 border-red-200 dark:border-red-900"
+          >
+            {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+            Eliminar borrador
+          </Button>
+        )}
       </div>
 
       {/* Stepper */}

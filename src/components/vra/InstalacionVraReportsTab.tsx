@@ -14,6 +14,7 @@ import {
   EyeOff,
   Loader2,
   Pencil,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -66,6 +67,19 @@ export function InstalacionVraReportsTab({ installationId }: { installationId: s
   const [items, setItems] = useState<UnifiedReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
+
+  // Pre-fetch del rol para decidir si mostrar botón eliminar
+  useEffect(() => {
+    fetch("/api/me")
+      .then((r) => r.json())
+      .then((j) => {
+        if (j.success) setUserRole((j.user.role ?? "").toLowerCase());
+      })
+      .catch(() => {});
+  }, []);
+
+  const isAdmin = userRole === "owner" || userRole === "admin";
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -101,6 +115,21 @@ export function InstalacionVraReportsTab({ installationId }: { installationId: s
       toast.error(err instanceof Error ? err.message : "Error creando borrador");
     } finally {
       setCreating(false);
+    }
+  };
+
+  const handleDeleteReport = async (item: UnifiedReport) => {
+    if (item.kind !== "vra") return;
+    const confirmMsg = `¿Eliminar permanentemente el informe "${item.title}"?\n\nEsto borra el informe, sus hallazgos, fotos y secciones generadas. El PDF en Documentos Operacionales (si existe) se mantiene como histórico.\n\nEsta acción no se puede deshacer.`;
+    if (!confirm(confirmMsg)) return;
+    try {
+      const res = await fetch(`/api/vra/reports/${item.id}?hard=true`, { method: "DELETE" });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error);
+      toast.success("Informe eliminado");
+      load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error eliminando");
     }
   };
 
@@ -253,6 +282,17 @@ export function InstalacionVraReportsTab({ installationId }: { installationId: s
                   >
                     {item.portalVisible ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
                   </Button>
+                  {isAdmin && item.kind === "vra" && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDeleteReport(item)}
+                      title="Eliminar informe"
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
                 </div>
               </div>
             </Card>
