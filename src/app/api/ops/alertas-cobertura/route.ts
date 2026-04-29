@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse, after } from "next/server";
-import { Prisma } from "@prisma/client";
+import { Prisma, OpsAlertaCoberturaEstado } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+
+const ESTADOS_VALIDOS = new Set<string>(
+  Object.values(OpsAlertaCoberturaEstado),
+);
 import { requireAuth, parseBody, resolveApiPerms } from "@/lib/api-auth";
 import { ensureOpsAccess, createOpsAuditLog } from "@/lib/ops";
 import { canView, hasCapability } from "@/lib/permissions";
@@ -45,8 +49,19 @@ export async function GET(request: NextRequest) {
     const where: Record<string, unknown> = { tenantId: ctx.tenantId };
 
     if (estado) {
-      const estados = estado.split(",").map((e) => e.trim());
-      where.estado = estados.length === 1 ? estados[0] : { in: estados };
+      // Filtrar solo valores que existen en el enum de Prisma. Algunos valores
+      // del cliente (p.ej. "PENDIENTE_CONFIRMACION", "NO_CUBIERTA") son estados
+      // lógicos derivados que no existen en la columna `estado`, por lo que se
+      // ignoran para evitar `Invalid value for argument 'in'` en Prisma.
+      const estados = estado
+        .split(",")
+        .map((e) => e.trim())
+        .filter((e) => e.length > 0 && ESTADOS_VALIDOS.has(e));
+      if (estados.length === 1) {
+        where.estado = estados[0];
+      } else if (estados.length > 1) {
+        where.estado = { in: estados };
+      }
     }
     if (installationId) where.installationId = installationId;
     if (creadaPorId) where.creadaPorId = creadaPorId;

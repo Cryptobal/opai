@@ -1203,7 +1203,7 @@ export function CpqQuoteCosts({
         />
       )}
 
-    <div className={cn("mx-auto w-full max-w-5xl rounded-xl border bg-card overflow-hidden", CPQ_BREAKDOWN_SHELL)}>
+    <div className={cn("w-full rounded-xl border bg-card overflow-hidden", CPQ_BREAKDOWN_SHELL)}>
       {/* ── DIRECTOS ── */}
       <div className={cn(CPQ_BREAKDOWN_ROW, "px-3 py-1.5 bg-emerald-500/5 text-xs")}>
         <span className="text-xs font-bold uppercase tracking-[0.08em] text-emerald-500 break-words min-w-0">

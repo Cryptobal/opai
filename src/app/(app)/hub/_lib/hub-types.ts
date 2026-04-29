@@ -383,6 +383,20 @@ export interface ClosingStaleDeal {
   daysSinceLastView: number | null;
 }
 
+export interface ClosingClosedDeal {
+  id: string;
+  companyName: string;
+  dealTitle: string;
+  contactName: string;
+  contactPhone: string | null;
+  contactEmail: string | null;
+  stageName: string;
+  stageColor: string | null;
+  amount: number;
+  totalPuestos: number;
+  closedAt: Date | null;
+}
+
 export interface ClosingPendingLead {
   id: string;
   companyName: string | null;
@@ -404,6 +418,7 @@ export interface ClosingHubData {
   kpis: ClosingHubKpis;
   hotDeals: ClosingHotDeal[];
   staleDeals: ClosingStaleDeal[];
+  closedDeals: ClosingClosedDeal[];
   pendingLeads: ClosingPendingLead[];
   funnel: ClosingFunnel;
   portalTopUsers: ClosingPortalTopUser[];

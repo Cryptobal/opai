@@ -294,6 +294,29 @@ async function downloadLogoToR2(logoUrl: string, tenantId?: string): Promise<str
 const BROWSER_UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
+function describeFetchFailure(err: unknown): string | null {
+  const error = err as { name?: string; code?: string; cause?: { code?: string; name?: string } } | null;
+  if (!error) return null;
+  const code = error.code || error.cause?.code;
+  const name = error.name || error.cause?.name;
+  if (name === "AbortError") {
+    return "El sitio web demoró demasiado en responder. Intenta nuevamente o verifica que la URL sea correcta.";
+  }
+  if (code === "UND_ERR_CONNECT_TIMEOUT") {
+    return "El sitio web no respondió a tiempo. Es posible que esté caído o bloquee tráfico desde Vercel.";
+  }
+  if (code === "ENOTFOUND" || code === "EAI_AGAIN") {
+    return "No se pudo resolver el dominio del sitio. Verifica que la URL sea correcta.";
+  }
+  if (code === "ECONNREFUSED") {
+    return "El sitio rechazó la conexión.";
+  }
+  if (code === "ECONNRESET") {
+    return "El sitio cerró la conexión inesperadamente.";
+  }
+  return null;
+}
+
 async function fetchWithRetry(
   url: string,
   maxAttempts = 2,
@@ -331,10 +354,9 @@ async function fetchWithRetry(
       return await res.text();
     } catch (err: unknown) {
       lastError = err instanceof Error ? err : new Error(String(err));
-      if (lastError.name === "AbortError") {
-        lastError = new Error(
-          "El sitio web demoró demasiado en responder. Intenta nuevamente o verifica que la URL sea correcta.",
-        );
+      const friendly = describeFetchFailure(err);
+      if (friendly) {
+        lastError = new Error(friendly);
       }
       if (attempt < maxAttempts - 1) {
         await new Promise((r) => setTimeout(r, 1000));
@@ -453,13 +475,24 @@ async function fetchWebHints(companyName: string): Promise<string[]> {
   if (!companyName.trim()) return [];
   const query = encodeURIComponent(`${companyName} representante legal rut razón social`);
   const url = `https://duckduckgo.com/html/?q=${query}`;
-  const response = await fetch(url, {
-    headers: {
-      "User-Agent": `Mozilla/5.0 (compatible; OPAI-Bot/1.0; +${process.env.NEXT_PUBLIC_SITE_URL || ""})`,
-      Accept: "text/html",
-    },
-    cache: "no-store",
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      headers: {
+        "User-Agent": `Mozilla/5.0 (compatible; OPAI-Bot/1.0; +${process.env.NEXT_PUBLIC_SITE_URL || ""})`,
+        Accept: "text/html",
+      },
+      cache: "no-store",
+      signal: controller.signal,
+    });
+  } catch {
+    // Si DuckDuckGo no responde, seguimos sin pistas — no es crítico.
+    return [];
+  } finally {
+    clearTimeout(timer);
+  }
   if (!response.ok) return [];
   const html = await response.text();
   const snippets = [
@@ -629,8 +662,18 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : "No se pudo analizar el sitio web.";
-    console.error("Error in company enrich:", error);
+    const friendly = describeFetchFailure(error);
+    const msg = friendly
+      ? friendly
+      : error instanceof Error
+        ? error.message
+        : "No se pudo analizar el sitio web.";
+    if (friendly) {
+      // Site no disponible / bloqueado / DNS — log en warn para no inflar errors.
+      console.warn("[company-enrich] sitio externo no accesible:", msg);
+    } else {
+      console.error("Error in company enrich:", error);
+    }
     return NextResponse.json({ success: false, error: msg }, { status: 500 });
   }
 }

@@ -170,6 +170,14 @@ function hexToRgba(hex: string, alpha: number) {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
+function normalizeCatalogLabel(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
 /* ─── Group name → emoji (for cost categories) ─── */
 const GROUP_ICON: Record<string, string> = {
   Uniformes: "\uD83E\uDDE5",
@@ -497,14 +505,27 @@ export function LeadInstallationCpq({
   };
 
   const addPosition = () => {
+    const defaultPuesto =
+      cpqPuestos.find((p) => {
+        const label = normalizeCatalogLabel(p.name || "");
+        return label.includes("control") && label.includes("acceso");
+      }) ??
+      cpqPuestos.find((p) => normalizeCatalogLabel(p.name || "").includes("acceso")) ??
+      cpqPuestos[0];
+    const defaultCargo =
+      cpqCargos.find((c) => normalizeCatalogLabel(c.name || "") === "guardia") ??
+      cpqCargos.find((c) => normalizeCatalogLabel(c.name || "").includes("guardia")) ??
+      cpqCargos[0];
+    const defaultRol = cpqRoles[0];
+
     update({
       positions: [
         ...config.positions,
         {
-          puestoTrabajoId: catalogDefaults?.puestoId,
-          puesto: catalogDefaults?.puestoName || "Control de Acceso",
-          cargoId: catalogDefaults?.cargoId,
-          rolId: catalogDefaults?.rolId,
+          puestoTrabajoId: catalogDefaults?.puestoId || defaultPuesto?.id,
+          puesto: catalogDefaults?.puestoName || defaultPuesto?.name || "Control de Acceso",
+          cargoId: catalogDefaults?.cargoId || defaultCargo?.id,
+          rolId: catalogDefaults?.rolId || defaultRol?.id,
           baseSalary: 550000,
           shiftType: "day",
           cantidad: 2,
