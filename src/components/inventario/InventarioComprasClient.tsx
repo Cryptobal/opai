@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { OpaiSurface } from "@/components/opai";
+import { Surface, Tag, IconBubble, EmptyState, Spinner } from "@/components/opai-ds";
 import {
   Dialog,
   DialogContent,
@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Upload, X, FileSpreadsheet, AlertTriangle, Check, Download, Trash2, Pencil } from "lucide-react";
+import { Plus, Upload, X, FileSpreadsheet, AlertTriangle, Check, Download, Trash2, Pencil, ShoppingCart } from "lucide-react";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 type Purchase = {
@@ -586,7 +586,7 @@ export function InventarioComprasClient() {
   const unmatchedCount = importLines.filter((l) => !l.matched).length;
 
   return (
-    <OpaiSurface className="space-y-4">
+    <div className="space-y-4 ds-page-enter">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex gap-2 ml-auto">
           {/* Import Excel Dialog */}
@@ -598,7 +598,7 @@ export function InventarioComprasClient() {
             }
           }}>
             <DialogTrigger asChild>
-              <Button variant="outline">
+              <Button variant="outline" className="h-10 sm:h-9">
                 <Upload className="h-4 w-4 mr-2" />
                 Importar Excel
               </Button>
@@ -648,7 +648,7 @@ export function InventarioComprasClient() {
                     <Download className="h-4 w-4 mr-1.5" />
                     Descargar Plantilla
                   </Button>
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-[12px] text-ds-text-3">
                     Columnas: Producto, Talla, Cantidad, Costo Unitario, Bodega
                   </span>
                 </div>
@@ -676,7 +676,7 @@ export function InventarioComprasClient() {
                       <div>
                         <Label>Bodega por defecto</Label>
                         <select
-                          className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                          className="w-full h-10 sm:h-9 rounded-ds-md border border-ds-border-default bg-ds-surface-2 px-3 text-sm text-ds-text-1"
                           value={importDefaultWarehouseId}
                           onChange={(e) => setImportDefaultWarehouseId(e.target.value)}
                         >
@@ -692,47 +692,45 @@ export function InventarioComprasClient() {
 
                     {/* Summary badges */}
                     <div className="flex gap-3">
-                      <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-400">
-                        <Check className="h-3 w-3" />
+                      <Tag variant="ok" size="md" icon={Check}>
                         {matchedCount} matcheados
-                      </span>
+                      </Tag>
                       {unmatchedCount > 0 && (
-                        <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-700 dark:text-amber-400">
-                          <AlertTriangle className="h-3 w-3" />
+                        <Tag variant="warn" size="md" icon={AlertTriangle}>
                           {unmatchedCount} sin match
-                        </span>
+                        </Tag>
                       )}
-                      <span className="text-xs text-muted-foreground self-center">
+                      <span className="text-[12px] text-ds-text-3 self-center">
                         Total: {importLines.length} líneas
                       </span>
                     </div>
 
                     {/* Preview table */}
-                    <div className="rounded-lg border overflow-hidden">
+                    <div className="rounded-ds-md border border-ds-border-default overflow-hidden">
                       <div className="max-h-64 overflow-y-auto">
                         <table className="w-full text-sm">
-                          <thead className="bg-muted/50 sticky top-0">
+                          <thead className="bg-ds-surface-3 sticky top-0">
                             <tr>
-                              <th className="text-left p-2 font-medium">Producto</th>
-                              <th className="text-left p-2 font-medium">Talla</th>
-                              <th className="text-right p-2 font-medium">Cant.</th>
-                              <th className="text-right p-2 font-medium">Costo U.</th>
-                              <th className="text-left p-2 font-medium">Bodega</th>
-                              <th className="text-center p-2 font-medium">Match</th>
+                              <th className="text-left p-2 text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4">Producto</th>
+                              <th className="text-left p-2 text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4">Talla</th>
+                              <th className="text-right p-2 text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4">Cant.</th>
+                              <th className="text-right p-2 text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4">Costo U.</th>
+                              <th className="text-left p-2 text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4">Bodega</th>
+                              <th className="text-center p-2 text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4">Match</th>
                               <th className="p-2"></th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y">
+                          <tbody className="divide-y divide-ds-border-subtle">
                             {importLines.map((line, idx) => (
                               <tr
                                 key={idx}
                                 className={
                                   line.matched
                                     ? ""
-                                    : "bg-amber-500/5"
+                                    : "bg-status-warn-soft/40"
                                 }
                               >
-                                <td className="p-2">
+                                <td className="p-2 text-ds-text-1">
                                   {line.producto}
                                   {!line.matched && line.variantId === "" && (
                                     <div className="mt-1">
@@ -755,26 +753,26 @@ export function InventarioComprasClient() {
                                     </div>
                                   )}
                                 </td>
-                                <td className="p-2">{line.talla}</td>
-                                <td className="p-2 text-right">{line.cantidad}</td>
-                                <td className="p-2 text-right">
+                                <td className="p-2 text-ds-text-2">{line.talla}</td>
+                                <td className="p-2 text-right ds-num text-ds-text-1">{line.cantidad}</td>
+                                <td className="p-2 text-right ds-num text-ds-text-2">
                                   {line.costoUnitario > 0
                                     ? `$${line.costoUnitario.toLocaleString("es-CL")}`
                                     : "-"}
                                 </td>
-                                <td className="p-2">{line.bodega || "(defecto)"}</td>
+                                <td className="p-2 text-ds-text-2">{line.bodega || "(defecto)"}</td>
                                 <td className="p-2 text-center">
                                   {line.matched ? (
-                                    <Check className="h-4 w-4 text-emerald-500 mx-auto" />
+                                    <Check className="h-4 w-4 text-status-ok-fg mx-auto" />
                                   ) : (
-                                    <AlertTriangle className="h-4 w-4 text-amber-500 mx-auto" />
+                                    <AlertTriangle className="h-4 w-4 text-status-warn-fg mx-auto" />
                                   )}
                                 </td>
                                 <td className="p-2">
                                   <button
                                     type="button"
                                     onClick={() => removeImportLine(idx)}
-                                    className="text-muted-foreground hover:text-foreground"
+                                    className="text-ds-text-3 hover:text-ds-text-1"
                                   >
                                     <X className="h-3.5 w-3.5" />
                                   </button>
@@ -789,7 +787,7 @@ export function InventarioComprasClient() {
                 )}
 
                 {importResult && (
-                  <div className="rounded-lg border border-emerald-500/50 bg-emerald-500/10 p-3 text-sm text-emerald-700 dark:text-emerald-400">
+                  <div className="rounded-ds-md border border-status-ok-border bg-status-ok-soft p-3 text-sm text-status-ok-fg">
                     {importResult}
                   </div>
                 )}
@@ -869,12 +867,12 @@ export function InventarioComprasClient() {
                         return (
                           <div key={i} className="rounded-lg border border-border p-3 space-y-2">
                             <div className="flex items-center justify-between">
-                              <span className="text-xs font-medium text-muted-foreground">Línea {i + 1}</span>
+                              <span className="text-[12px] font-medium text-ds-text-3">Línea {i + 1}</span>
                               {form.lines.length > 1 && (
                                 <button
                                   type="button"
                                   onClick={() => removeCompraLine(i)}
-                                  className="text-muted-foreground hover:text-destructive transition-colors"
+                                  className="text-ds-text-3 hover:text-status-danger-fg transition-colors"
                                 >
                                   <Trash2 className="h-3.5 w-3.5" />
                                 </button>
@@ -885,7 +883,7 @@ export function InventarioComprasClient() {
                             <div>
                               <Label className="text-xs">Producto</Label>
                               <select
-                                className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                                className="w-full h-10 sm:h-9 rounded-ds-md border border-ds-border-default bg-ds-surface-2 px-3 text-sm text-ds-text-1"
                                 value={line.productId}
                                 onChange={(e) => updateCompraLine(i, { productId: e.target.value })}
                               >
@@ -904,7 +902,7 @@ export function InventarioComprasClient() {
                                 <div className="col-span-3">
                                   <Label className="text-xs">Talla</Label>
                                   <select
-                                    className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                                    className="w-full h-10 sm:h-9 rounded-ds-md border border-ds-border-default bg-ds-surface-2 px-3 text-sm text-ds-text-1"
                                     value={line.variantId}
                                     onChange={(e) => updateCompraLine(i, { variantId: e.target.value })}
                                   >
@@ -944,7 +942,7 @@ export function InventarioComprasClient() {
                                 <div className="col-span-4">
                                   <Label className="text-xs">Bodega</Label>
                                   <select
-                                    className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                                    className="w-full h-10 sm:h-9 rounded-ds-md border border-ds-border-default bg-ds-surface-2 px-3 text-sm text-ds-text-1"
                                     value={line.warehouseId}
                                     onChange={(e) =>
                                       updateCompraLine(i, { warehouseId: e.target.value })
@@ -980,35 +978,43 @@ export function InventarioComprasClient() {
       </div>
       <div>
         {loading ? (
-          <p className="text-sm text-muted-foreground">Cargando...</p>
+          <Spinner block label="Cargando…" />
         ) : error ? (
-          <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-4 text-sm text-amber-700 dark:text-amber-400">
-            {error}
-          </div>
+          <Surface elevation={1} padding="md" className="border-status-warn-border bg-status-warn-soft">
+            <p className="text-sm text-status-warn-fg">{error}</p>
+          </Surface>
         ) : purchases.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-6 text-center">
-            No hay compras registradas. Crea productos, bodegas y registra tu primera compra.
-          </p>
+          <Surface elevation={1} padding="none">
+            <EmptyState
+              icon={ShoppingCart}
+              title="Sin compras registradas"
+              description="Crea productos, bodegas y registra tu primera compra."
+            />
+          </Surface>
         ) : (
-          <div className="space-y-2">
+          <ul className="space-y-2 ds-list-cascade">
             {purchases.map((p) => (
-              <OpaiSurface key={p.id} variant="tight" hoverable>
+              <li key={p.id}>
+              <Surface elevation={1} padding="sm" hoverable>
                 <div className="flex justify-between items-start gap-3">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-baseline gap-x-2">
-                      <span className="text-sm font-semibold tabular-nums">
-                        {new Date(p.date).toLocaleDateString("es-CL")}
-                      </span>
-                      {p.notes && (
-                        <span className="text-xs text-muted-foreground/80 truncate">{p.notes}</span>
-                      )}
+                  <div className="flex items-start gap-3 min-w-0">
+                    <IconBubble icon={ShoppingCart} variant="info" size="md" />
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-baseline gap-x-2">
+                        <span className="text-[14px] font-semibold ds-num text-ds-text-1">
+                          {new Date(p.date).toLocaleDateString("es-CL")}
+                        </span>
+                        {p.notes && (
+                          <span className="text-[12px] text-ds-text-3 truncate">{p.notes}</span>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <div className="flex gap-1 shrink-0">
                     <button
                       type="button"
                       onClick={() => startEdit(p)}
-                      className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-foreground/5 transition-colors"
+                      className="p-2 rounded-ds-sm text-ds-text-3 hover:text-ds-text-1 hover:bg-ds-surface-3 transition-colors"
                       title="Editar"
                     >
                       <Pencil className="h-3.5 w-3.5" />
@@ -1017,27 +1023,28 @@ export function InventarioComprasClient() {
                       type="button"
                       onClick={() => handleDelete(p.id)}
                       disabled={deleting === p.id}
-                      className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
+                      className="p-2 rounded-ds-sm text-ds-text-3 hover:text-status-danger-fg hover:bg-status-danger-soft transition-colors disabled:opacity-50"
                       title="Eliminar"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   </div>
                 </div>
-                <ul className="mt-2 space-y-0.5 text-xs text-muted-foreground font-mono">
+                <ul className="mt-2 space-y-0.5 text-[12px] text-ds-text-3 font-mono">
                   {p.lines.map((l) => (
                     <li key={l.id} className="truncate">
                       {l.quantity} × {l.variant.product.name}
                       {l.variant.size && ` ${l.variant.size.sizeCode}`} → {l.warehouse.name}{" "}
-                      <span className="text-muted-foreground/60">
+                      <span className="text-ds-text-4 ds-num">
                         (${Number(l.unitCost).toLocaleString("es-CL")}/u)
                       </span>
                     </li>
                   ))}
                 </ul>
-              </OpaiSurface>
+              </Surface>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
       </div>
 
@@ -1087,12 +1094,12 @@ export function InventarioComprasClient() {
                     return (
                       <div key={i} className="rounded-lg border border-border p-3 space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-medium text-muted-foreground">Línea {i + 1}</span>
+                          <span className="text-[12px] font-medium text-ds-text-3">Línea {i + 1}</span>
                           {editForm.lines.length > 1 && (
                             <button
                               type="button"
                               onClick={() => removeEditLine(i)}
-                              className="text-muted-foreground hover:text-destructive transition-colors"
+                              className="text-ds-text-3 hover:text-status-danger-fg transition-colors"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </button>
@@ -1101,7 +1108,7 @@ export function InventarioComprasClient() {
                         <div>
                           <Label className="text-xs">Producto</Label>
                           <select
-                            className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                            className="w-full h-10 sm:h-9 rounded-ds-md border border-ds-border-default bg-ds-surface-2 px-3 text-sm text-ds-text-1"
                             value={line.productId}
                             onChange={(e) => updateEditLine(i, { productId: e.target.value })}
                           >
@@ -1118,7 +1125,7 @@ export function InventarioComprasClient() {
                             <div className="col-span-3">
                               <Label className="text-xs">Talla</Label>
                               <select
-                                className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                                className="w-full h-10 sm:h-9 rounded-ds-md border border-ds-border-default bg-ds-surface-2 px-3 text-sm text-ds-text-1"
                                 value={line.variantId}
                                 onChange={(e) => updateEditLine(i, { variantId: e.target.value })}
                               >
@@ -1158,7 +1165,7 @@ export function InventarioComprasClient() {
                             <div className="col-span-4">
                               <Label className="text-xs">Bodega</Label>
                               <select
-                                className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                                className="w-full h-10 sm:h-9 rounded-ds-md border border-ds-border-default bg-ds-surface-2 px-3 text-sm text-ds-text-1"
                                 value={line.warehouseId}
                                 onChange={(e) =>
                                   updateEditLine(i, { warehouseId: e.target.value })
@@ -1185,11 +1192,11 @@ export function InventarioComprasClient() {
               <Button type="button" variant="outline" onClick={() => setEditDialogOpen(false)}>
                 Cancelar
               </Button>
-              <Button type="submit">Guardar cambios</Button>
+              <Button type="submit" className="h-10 sm:h-9">Guardar cambios</Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
-    </OpaiSurface>
+    </div>
   );
 }

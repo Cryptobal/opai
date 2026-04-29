@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { OpaiSurface } from "@/components/opai";
+import { Surface, Tag, IconBubble, EmptyState, Spinner } from "@/components/opai-ds";
 import {
   Dialog,
   DialogContent,
@@ -14,7 +14,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import {
   Plus,
@@ -25,7 +24,6 @@ import {
   Unlink,
   ChevronDown,
   ChevronUp,
-  Loader2,
   Search,
   Download,
 } from "lucide-react";
@@ -77,12 +75,6 @@ const STATUS_LABELS: Record<string, string> = {
   active: "Activa",
   suspended: "Suspendida",
   cancelled: "Cancelada",
-};
-
-const STATUS_COLORS: Record<string, string> = {
-  active: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
-  suspended: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
-  cancelled: "bg-red-500/15 text-red-700 dark:text-red-400",
 };
 
 const emptyForm = {
@@ -416,20 +408,24 @@ export function InventarioLineasClient() {
   };
 
   // ── Render ─────────────────────────────────────────
+  const statusToTagVariant = (s: string): "ok" | "warn" | "danger" | "neutral" =>
+    s === "active" ? "ok" : s === "suspended" ? "warn" : s === "cancelled" ? "danger" : "neutral";
+
   return (
     <>
-      <OpaiSurface className="space-y-4">
+      <div className="space-y-4 ds-page-enter">
         <div className="flex justify-end">
           <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="outline"
+              className="h-10 sm:h-9"
               onClick={handleExportExcel}
               disabled={loading || lines.length === 0}
             >
               <Download className="h-4 w-4 mr-2" />
               Exportar
             </Button>
-            <Button variant="outline" onClick={openCreate}>
+            <Button variant="outline" className="h-10 sm:h-9" onClick={openCreate}>
               <Plus className="h-4 w-4 mr-2" />
               Nueva línea
             </Button>
@@ -439,18 +435,18 @@ export function InventarioLineasClient() {
           {/* ── Filters ── */}
           <div className="mb-4 flex flex-wrap items-center gap-2">
             <div className="relative flex-1 min-w-[200px] max-w-xs">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-ds-text-4" />
               <Input
                 placeholder="Buscar número o etiqueta..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 h-9"
+                className="pl-9 h-10 sm:h-9"
               />
             </div>
             <select
               value={filterCarrier}
               onChange={(e) => setFilterCarrier(e.target.value)}
-              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+              className="h-10 sm:h-9 rounded-ds-md border border-ds-border-default bg-ds-surface-2 px-3 text-sm text-ds-text-1"
             >
               <option value="">Compañía</option>
               {CARRIERS.map((c) => (
@@ -460,14 +456,14 @@ export function InventarioLineasClient() {
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+              className="h-10 sm:h-9 rounded-ds-md border border-ds-border-default bg-ds-surface-2 px-3 text-sm text-ds-text-1"
             >
               <option value="">Estado</option>
               <option value="active">Activa</option>
               <option value="suspended">Suspendida</option>
               <option value="cancelled">Cancelada</option>
             </select>
-            <label className="flex items-center gap-1.5 text-sm cursor-pointer">
+            <label className="flex items-center gap-1.5 text-sm text-ds-text-3 cursor-pointer">
               <input
                 type="checkbox"
                 checked={filterUnassigned}
@@ -480,6 +476,7 @@ export function InventarioLineasClient() {
               <Button
                 variant="ghost"
                 size="sm"
+                className="h-9"
                 onClick={() => {
                   setFilterCarrier("");
                   setFilterStatus("");
@@ -495,51 +492,56 @@ export function InventarioLineasClient() {
 
           {/* ── Table ── */}
           {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-            </div>
+            <Spinner block label="Cargando…" />
           ) : error ? (
-            <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-4 text-sm text-amber-700 dark:text-amber-400">
-              {error}
-            </div>
+            <Surface elevation={1} padding="md" className="border-status-warn-border bg-status-warn-soft">
+              <p className="text-sm text-status-warn-fg">{error}</p>
+            </Surface>
           ) : lines.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-8 text-center">
-              {hasActiveFilters
-                ? "No se encontraron líneas con los filtros aplicados."
-                : "No hay líneas telefónicas. Crea una para comenzar."}
-            </p>
+            <Surface elevation={1} padding="none">
+              <EmptyState
+                icon={Phone}
+                title={hasActiveFilters ? "Sin coincidencias" : "Sin líneas telefónicas"}
+                description={
+                  hasActiveFilters
+                    ? "No se encontraron líneas con los filtros aplicados."
+                    : "Crea una para comenzar."
+                }
+              />
+            </Surface>
           ) : (
-            <div className="space-y-2">
+            <ul className="space-y-2 ds-list-cascade">
               {lines.map((line) => {
                 const activeAssignment = line.assignments[0] ?? null;
                 const isExpanded = expandedId === line.id;
 
                 return (
-                  <div key={line.id} className="rounded-lg border">
+                  <li key={line.id}>
+                  <Surface elevation={1} padding="none" className="overflow-hidden">
                     <div className="flex items-center justify-between p-3 gap-3">
                       <div className="flex items-center gap-3 min-w-0 flex-1">
-                        <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <IconBubble icon={Phone} variant="info" size="md" />
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <a
                               href={`tel:${line.phoneNumber}`}
-                              className="font-medium hover:underline whitespace-nowrap"
+                              className="text-[14px] font-mono font-medium text-ds-text-1 hover:underline whitespace-nowrap"
                             >
                               {formatPhone(line.phoneNumber)}
                             </a>
-                            <Badge className={CARRIER_COLORS[line.carrier] ?? CARRIER_COLORS.otro}>
+                            <span className={`inline-flex items-center h-5 px-2 text-[11px] font-medium leading-none rounded-full ${CARRIER_COLORS[line.carrier] ?? CARRIER_COLORS.otro}`}>
                               {line.carrier.charAt(0).toUpperCase() + line.carrier.slice(1)}
-                            </Badge>
-                            <Badge className={STATUS_COLORS[line.status] ?? ""}>
+                            </span>
+                            <Tag variant={statusToTagVariant(line.status)} size="sm">
                               {STATUS_LABELS[line.status] ?? line.status}
-                            </Badge>
+                            </Tag>
                             {line.planType && (
-                              <span className="text-xs text-muted-foreground">
+                              <span className="text-[12px] text-ds-text-3">
                                 {line.planType === "prepago" ? "Prepago" : "Contrato"}
                               </span>
                             )}
                           </div>
-                          <div className="flex items-center gap-2 mt-0.5 text-sm text-muted-foreground">
+                          <div className="flex items-center gap-2 mt-0.5 text-[13px] text-ds-text-3">
                             {line.label && <span>{line.label}</span>}
                             {activeAssignment && (
                               <span>
@@ -561,7 +563,7 @@ export function InventarioLineasClient() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8"
+                            className="h-9 w-9"
                             title="Desvincular"
                             onClick={() => handleUnassign(line.id)}
                           >
@@ -571,7 +573,7 @@ export function InventarioLineasClient() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8"
+                          className="h-9 w-9"
                           title="Asignar a instalación o usuario"
                           onClick={() => openAssign(line.id)}
                         >
@@ -580,7 +582,7 @@ export function InventarioLineasClient() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8"
+                          className="h-9 w-9"
                           title="Editar"
                           onClick={() => openEdit(line)}
                         >
@@ -589,7 +591,7 @@ export function InventarioLineasClient() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8"
+                          className="h-9 w-9 text-status-danger-fg"
                           title="Eliminar"
                           onClick={() => handleDelete(line)}
                         >
@@ -598,7 +600,7 @@ export function InventarioLineasClient() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8"
+                          className="h-9 w-9"
                           title="Historial"
                           onClick={() => toggleHistory(line.id)}
                         >
@@ -613,33 +615,33 @@ export function InventarioLineasClient() {
 
                     {/* Expanded history */}
                     {isExpanded && (
-                      <div className="border-t px-3 py-3 bg-muted/30">
-                        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2">
+                      <div className="border-t border-ds-border-subtle px-3 py-3 bg-ds-surface-2">
+                        <p className="text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4 mb-2">
                           Historial de asignaciones
                         </p>
                         {historyLoading ? (
-                          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                          <Spinner size="sm" />
                         ) : historyData.length === 0 ? (
-                          <p className="text-sm text-muted-foreground">Sin asignaciones previas.</p>
+                          <p className="text-sm text-ds-text-3">Sin asignaciones previas.</p>
                         ) : (
                           <div className="space-y-1.5">
                             {historyData.map((a) => (
                               <div key={a.id} className="flex items-center gap-2 text-sm">
-                                <span className="font-medium">
+                                <span className="font-medium text-ds-text-1">
                                   {a.installation
                                     ? a.installation.name
                                     : a.assignedToUser
                                       ? a.assignedToUser.name
                                       : "—"}
                                 </span>
-                                <span className="text-muted-foreground">
+                                <span className="text-ds-text-3 font-mono text-[12px]">
                                   {new Date(a.assignedAt).toLocaleDateString("es-CL")}
                                   {a.returnedAt
                                     ? ` → ${new Date(a.returnedAt).toLocaleDateString("es-CL")}`
                                     : " → actual"}
                                 </span>
                                 {a.notes && (
-                                  <span className="text-xs text-muted-foreground italic">
+                                  <span className="text-[12px] text-ds-text-4 italic">
                                     ({a.notes})
                                   </span>
                                 )}
@@ -649,13 +651,14 @@ export function InventarioLineasClient() {
                         )}
                       </div>
                     )}
-                  </div>
+                  </Surface>
+                  </li>
                 );
               })}
-            </div>
+            </ul>
           )}
         </div>
-      </OpaiSurface>
+      </div>
 
       {/* ── Create/Edit Dialog ── */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -677,6 +680,7 @@ export function InventarioLineasClient() {
                   onChange={(e) => setForm((f) => ({ ...f, phoneNumber: e.target.value }))}
                   placeholder="+56 9 1234 5678"
                   required
+                  className="h-10 sm:h-9"
                 />
               </div>
               <div>
@@ -684,7 +688,7 @@ export function InventarioLineasClient() {
                 <select
                   value={form.carrier}
                   onChange={(e) => setForm((f) => ({ ...f, carrier: e.target.value }))}
-                  className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+                  className="w-full h-10 sm:h-9 rounded-ds-md border border-ds-border-default bg-ds-surface-2 px-3 text-sm text-ds-text-1"
                   required
                 >
                   {CARRIERS.map((c) => (
@@ -700,7 +704,7 @@ export function InventarioLineasClient() {
                   <select
                     value={form.planType}
                     onChange={(e) => setForm((f) => ({ ...f, planType: e.target.value }))}
-                    className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+                    className="w-full h-10 sm:h-9 rounded-ds-md border border-ds-border-default bg-ds-surface-2 px-3 text-sm text-ds-text-1"
                   >
                     <option value="">Sin especificar</option>
                     <option value="prepago">Prepago</option>
@@ -712,7 +716,7 @@ export function InventarioLineasClient() {
                   <select
                     value={form.status}
                     onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
-                    className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+                    className="w-full h-10 sm:h-9 rounded-ds-md border border-ds-border-default bg-ds-surface-2 px-3 text-sm text-ds-text-1"
                   >
                     <option value="active">Activa</option>
                     <option value="suspended">Suspendida</option>
@@ -726,6 +730,7 @@ export function InventarioLineasClient() {
                   value={form.label}
                   onChange={(e) => setForm((f) => ({ ...f, label: e.target.value }))}
                   placeholder="Ej: Garita, Supervisor, Rondín..."
+                  className="h-10 sm:h-9"
                 />
               </div>
               <div>
@@ -734,15 +739,16 @@ export function InventarioLineasClient() {
                   value={form.notes}
                   onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
                   placeholder="Opcional"
+                  className="h-10 sm:h-9"
                 />
               </div>
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>
+              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} disabled={saving} className="h-10 sm:h-9">
                 Cancelar
               </Button>
-              <Button type="submit" disabled={saving}>
-                {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              <Button type="submit" disabled={saving} className="h-10 sm:h-9">
+                {saving && <Spinner size="sm" className="mr-2" />}
                 {editingId ? "Guardar" : "Crear"}
               </Button>
             </DialogFooter>
@@ -833,21 +839,23 @@ export function InventarioLineasClient() {
                   value={assignNotes}
                   onChange={(e) => setAssignNotes(e.target.value)}
                   placeholder="Motivo del cambio (opcional)"
+                  className="h-10 sm:h-9"
                 />
               </div>
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setAssignDialogOpen(false)} disabled={saving}>
+              <Button type="button" variant="outline" onClick={() => setAssignDialogOpen(false)} disabled={saving} className="h-10 sm:h-9">
                 Cancelar
               </Button>
               <Button
                 type="submit"
+                className="h-10 sm:h-9"
                 disabled={
                   saving ||
                   (assignTargetType === "installation" ? !assignInstallationId : !assignUserId)
                 }
               >
-                {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                {saving && <Spinner size="sm" className="mr-2" />}
                 Asignar
               </Button>
             </DialogFooter>
