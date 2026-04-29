@@ -54,7 +54,7 @@ function isPublicPath(pathname: string): boolean {
   if (pathname.startsWith('/marcacion/oposicion/')) return true; // Página pública de oposición
   if (pathname.startsWith('/api/marcacion/oposicion/')) return true; // API pública de oposición
   if (pathname.startsWith('/ronda/')) return true; // Rondas de seguridad (pública)
-  // Portal guardia y cliente usan auth propia (PIN). Supervisor usa NextAuth.
+  // Portal guardia y cliente usan auth propia (PIN). El ERP usa NextAuth.
   if (pathname.startsWith('/portal/guardia')) return true;
   if (pathname.startsWith('/portal/cliente')) return true;
   if (pathname.startsWith('/portal/rondas')) return true;
@@ -78,7 +78,7 @@ function isPublicPath(pathname: string): boolean {
   if (pathname.startsWith('/api/fx/sync')) return true; // FX sync cron (protegido por CRON_SECRET)
   if (pathname.startsWith('/api/public')) return true;
   if (pathname.startsWith('/api/patrol')) return true; // Patrol API (auth propia con PIN)
-  // Portal guardia y cliente usan auth propia (PIN). Supervisor usa NextAuth.
+  // Portal guardia y cliente usan auth propia (PIN). El ERP usa NextAuth.
   if (pathname.startsWith('/api/portal/guardia')) return true;
   if (pathname.startsWith('/api/portal/cliente')) return true;
   if (pathname.startsWith('/api/portal/rondas')) return true;
@@ -191,42 +191,15 @@ export default auth((req) => {
     return Response.redirect(new URL('/hub', req.nextUrl.origin));
   }
 
-  // Authenticated user on /welcome → skip to hub (only for ERP sessions)
+  // Authenticated user on /welcome → skip to hub
   if (pathname === '/welcome' && req.auth) {
-    const sessionPortal = (req.auth as any)?.portal as string | undefined;
-    // Only redirect to hub if the session is for the ERP (opai) or has no portal set (legacy)
-    if (!sessionPortal || sessionPortal === 'opai') {
-      return Response.redirect(new URL('/hub', req.nextUrl.origin));
-    }
-    // Supervisor or other portal sessions stay on /welcome (portal selector)
+    return Response.redirect(new URL('/hub', req.nextUrl.origin));
   }
 
   // ── Portal-aware session isolation ──
-  // Prevent Auth.js sessions from leaking between ERP admin and supervisor portal.
+  // Prevent Auth.js sessions from leaking between ERP admin sessions and other contexts.
   if (req.auth) {
     const sessionPortal = (req.auth as any)?.portal as string | undefined;
-
-    // Supervisor portal: ensure session was created for supervisor context
-    // Exception: owner/admin with ERP session can access supervisor portal (switch without re-login)
-    if (pathname.startsWith('/portal/supervisor') || pathname.startsWith('/api/portal/supervisor')) {
-      const userRole = (req.auth as { user?: { role?: string } })?.user?.role ?? '';
-      const isAdminOrOwner = userRole === 'owner' || userRole === 'admin';
-      const allowed = sessionPortal === 'supervisor' || (sessionPortal === 'opai' && isAdminOrOwner);
-
-      if (sessionPortal && !allowed) {
-        // ERP session (non-admin) trying to access supervisor portal — treat as unauthenticated
-        if (pathname.startsWith('/api/')) {
-          return Response.json(
-            { success: false, error: 'Sesión no válida para este portal' },
-            { status: 401 },
-          );
-        }
-        const loginUrl = new URL('/opai/login', req.nextUrl.origin);
-        loginUrl.searchParams.set('portal', 'supervisor');
-        loginUrl.searchParams.set('callbackUrl', pathname);
-        return Response.redirect(loginUrl);
-      }
-    }
 
     // ERP routes: ensure session was created for ERP context
     if (
@@ -243,7 +216,7 @@ export default auth((req) => {
       pathname.startsWith('/inventario')
     ) {
       if (sessionPortal && sessionPortal !== 'opai') {
-        // Supervisor session trying to access ERP — treat as unauthenticated
+        // Non-ERP portal session trying to access ERP — treat as unauthenticated
         if (pathname.startsWith('/api/')) {
           return Response.json(
             { success: false, error: 'Sesión no válida para este portal' },

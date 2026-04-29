@@ -235,7 +235,6 @@ export function buildNavItems({
         isModuleEnabled('portal_guardia') && { href: '/portal/guardia', label: 'Portal Guardia', icon: Shield },
         isModuleEnabled('ops_rondas') && { href: '/portal/rondas', label: 'Portal Rondas', icon: Route },
         isModuleEnabled('portal_cliente') && { href: '/portal/cliente', label: 'Portal Cliente', icon: Users },
-        isModuleEnabled('portal_supervisor') && { href: '/portal/supervisor', label: 'Portal Supervisor', icon: ClipboardCheck },
         isModuleEnabled('portal_marcacion') && { href: '/portal/marcacion', label: 'Portal Marcación', icon: Fingerprint },
         isModuleEnabled('control_acceso') && { href: '/portal/acceso', label: 'Control de Acceso', icon: ScanLine },
       ].filter(Boolean) as NavItem['children'],

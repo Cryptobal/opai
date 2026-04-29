@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   ArrowLeft, Eye, LogIn, Search, Users, Building2,
-  MapPin, Calendar, Route, ClipboardCheck, Ticket, Activity,
+  MapPin, Calendar, Route, Ticket, Activity,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,10 +16,9 @@ const PORTAL_LABELS: Record<string, string> = {
   guardia: 'Portal Guardia',
   rondas: 'Portal Rondas',
   cliente: 'Portal de Clientes',
-  supervisor: 'Portal Supervisor',
 };
 
-const VALID_PORTALS = ['guardia', 'rondas', 'cliente', 'supervisor'];
+const VALID_PORTALS = ['guardia', 'rondas', 'cliente'];
 
 const DAYS_OPTIONS = [
   { value: 7, label: '7 días' },
@@ -96,7 +95,6 @@ export default function PortalRankingPage() {
     rondas: `Guardias con más rondas ejecutadas (últimos ${days} días)`,
     guardia: `Guardias más activos en el portal (últimos ${days} días)`,
     cliente: `Contactos más activos en el portal (últimos ${days} días)`,
-    supervisor: `Supervisores con más visitas realizadas (últimos ${days} días)`,
   };
 
   return (
@@ -116,9 +114,9 @@ export default function PortalRankingPage() {
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
             placeholder={
-              portalId === 'cliente' ? 'Buscar cliente o contacto...'
-                : portalId === 'supervisor' ? 'Buscar supervisor...'
-                  : 'Buscar guardia o instalación...'
+              portalId === 'cliente'
+                ? 'Buscar cliente o contacto...'
+                : 'Buscar guardia o instalación...'
             }
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -165,7 +163,6 @@ function RankingTable({ portalId, entries }: { portalId: string; entries: Rankin
   if (portalId === 'rondas') return <RondasTable entries={entries} />;
   if (portalId === 'guardia') return <GuardiaTable entries={entries} />;
   if (portalId === 'cliente') return <ClienteTable entries={entries} />;
-  if (portalId === 'supervisor') return <SupervisorTable entries={entries} />;
   return null;
 }
 
@@ -282,38 +279,6 @@ function ClienteTable({ entries }: { entries: RankingEntry[] }) {
           </span>
           <span className="flex items-center justify-center gap-1 text-sm tabular-nums text-muted-foreground">
             <Eye className="h-3 w-3" /> {e.totalQuoteViews ?? 0}
-          </span>
-          <span className="text-right text-xs text-muted-foreground">
-            {e.lastAccessAt ? timeAgo(e.lastAccessAt) : '—'}
-          </span>
-        </div>
-      ))}
-    </>
-  );
-}
-
-function SupervisorTable({ entries }: { entries: RankingEntry[] }) {
-  return (
-    <>
-      <div className="bg-muted/30 px-4 py-2 text-xs uppercase tracking-wider text-muted-foreground grid"
-        style={{ gridTemplateColumns: '32px 1.5fr 100px 100px' }}
-      >
-        <span>#</span>
-        <span>Supervisor</span>
-        <span className="text-center">Visitas</span>
-        <span className="text-right">Última visita</span>
-      </div>
-      {entries.map((e, idx) => (
-        <div key={e.userId} className="px-4 py-2.5 border-b border-border/50 grid items-center hover:bg-accent/10 transition-colors"
-          style={{ gridTemplateColumns: '32px 1.5fr 100px 100px' }}
-        >
-          <RankNumber idx={idx} />
-          <div className="flex items-center gap-1.5 min-w-0">
-            <ClipboardCheck className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
-            <span className="text-sm font-medium truncate">{e.userName}</span>
-          </div>
-          <span className="flex items-center justify-center gap-1 text-sm tabular-nums text-muted-foreground">
-            <ClipboardCheck className="h-3 w-3" /> {e.totalActions}
           </span>
           <span className="text-right text-xs text-muted-foreground">
             {e.lastAccessAt ? timeAgo(e.lastAccessAt) : '—'}

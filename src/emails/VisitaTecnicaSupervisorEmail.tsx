@@ -103,7 +103,7 @@ export const VisitaTecnicaSupervisorEmail = ({
               alt={brandName}
               style={logo}
             />
-            <Text style={headerTagline}>Portal Supervisor · Visita Técnica</Text>
+            <Text style={headerTagline}>OPAI · Visita Técnica</Text>
           </Section>
 
           {/* Hero */}
@@ -204,7 +204,7 @@ export const VisitaTecnicaSupervisorEmail = ({
           {/* Portal CTA */}
           <Section style={{ textAlign: "center", padding: "8px 0 24px" }}>
             <Button style={portalButton} href={portalUrl}>
-              Ir a mi portal de supervisor
+              Ver mis visitas
             </Button>
           </Section>
 

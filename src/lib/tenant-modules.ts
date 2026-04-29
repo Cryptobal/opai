@@ -29,7 +29,6 @@ export const ALL_MODULES = [
   "contratos",
   // Supervision (Profesional)
   "ops_supervision",
-  "portal_supervisor",
   "alertas_cobertura",
   "chat",
   "gamificacion",
@@ -68,14 +67,12 @@ export const PLAN_MODULES: Record<string, TenantModuleKey[]> = {
     "ops_asistencia", "ops_pauta", "ops_pce", "ops_turnos_extra",
     "ops_refuerzos", "ops_onboarding", "ops_audit",
     "personas", "tickets", "documentos", "contratos",
-    "portal_supervisor",
   ],
   profesional: [
     "hub", "config", "portal_guardia", "portal_marcacion",
     "ops_asistencia", "ops_pauta", "ops_pce", "ops_turnos_extra",
     "ops_refuerzos", "ops_onboarding", "ops_audit",
     "personas", "tickets", "documentos", "contratos",
-    "portal_supervisor",
     // Profesional extras
     "ops_supervision", "alertas_cobertura",
     "chat", "gamificacion", "protocolos_ia", "reportes_dt",

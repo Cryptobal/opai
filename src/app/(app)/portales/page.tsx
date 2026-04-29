@@ -6,7 +6,7 @@
  */
 
 import { useState } from 'react';
-import { Shield, Route, Monitor, Users, ClipboardCheck, ScanLine, Fingerprint } from 'lucide-react';
+import { Shield, Route, Monitor, Users, ScanLine, Fingerprint } from 'lucide-react';
 import { PageHeader } from '@/components/opai';
 import { PortalCard } from '@/components/portales/PortalCard';
 import { PortalViewer } from '@/components/portales/PortalViewer';
@@ -48,15 +48,6 @@ const PORTALS: PortalDef[] = [
         href: '/portal/cliente',
         icon: Users,
         accentColor: 'from-teal-500/25 to-teal-400/5',
-    },
-    {
-        id: 'supervisor',
-        name: 'Portal de supervisor',
-        description:
-            'Hub para supervisores de terreno. Visitas de supervisión, asignaciones, check-in y actividades del día.',
-        href: '/portal/supervisor',
-        icon: ClipboardCheck,
-        accentColor: 'from-violet-500/25 to-violet-400/5',
     },
     {
         id: 'marcacion',

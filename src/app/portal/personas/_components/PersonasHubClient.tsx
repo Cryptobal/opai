@@ -2,19 +2,18 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Shield, Users, Building2 } from "lucide-react";
+import { Shield, Building2 } from "lucide-react";
 import { UnifiedLoginCard } from "@/components/auth/UnifiedLoginCard";
 
 // Kept in sync with GuardPortalClient for the session detection pass.
 const GUARD_SESSION_KEY = "guard_portal_session";
 const GUARD_SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
-type ActiveSession = "guardia" | "supervisor" | "cliente";
+type ActiveSession = "guardia" | "cliente";
 type HubState = "loading" | "login" | "redirecting" | "select";
 
 interface SessionCheckResult {
   guardia: boolean;
-  supervisor: boolean;
   cliente: boolean;
   tenantId?: string | null;
 }
@@ -41,13 +40,12 @@ async function fetchBranding(): Promise<TenantBrand | null> {
 async function detectActiveSessions(): Promise<SessionCheckResult> {
   const result: SessionCheckResult = {
     guardia: false,
-    supervisor: false,
     cliente: false,
     tenantId: null,
   };
 
-  // Run the three checks independently — any can fail without affecting
-  // the others (Promise.allSettled, not Promise.all).
+  // Run the checks independently — any can fail without affecting the
+  // others (Promise.allSettled, not Promise.all).
   const checks = await Promise.allSettled([
     // Guardia: localStorage
     (async () => {
@@ -64,16 +62,6 @@ async function detectActiveSessions(): Promise<SessionCheckResult> {
       } catch {
         return null;
       }
-    })(),
-    // Supervisor: NextAuth cookie
-    (async () => {
-      const res = await fetch("/api/portal/supervisor/session", {
-        credentials: "include",
-      });
-      if (!res.ok) return null;
-      const data = await res.json();
-      if (!data?.success || !data?.data) return null;
-      return { tenantId: (data.data.tenantId ?? null) as string | null };
     })(),
     // Cliente: cookie
     (async () => {
@@ -92,10 +80,6 @@ async function detectActiveSessions(): Promise<SessionCheckResult> {
     if (!result.tenantId) result.tenantId = checks[0].value.tenantId;
   }
   if (checks[1].status === "fulfilled" && checks[1].value) {
-    result.supervisor = true;
-    if (!result.tenantId) result.tenantId = checks[1].value.tenantId;
-  }
-  if (checks[2].status === "fulfilled" && checks[2].value) {
     result.cliente = true;
   }
 
@@ -105,17 +89,12 @@ async function detectActiveSessions(): Promise<SessionCheckResult> {
 function activeList(sessions: SessionCheckResult): ActiveSession[] {
   const list: ActiveSession[] = [];
   if (sessions.guardia) list.push("guardia");
-  if (sessions.supervisor) list.push("supervisor");
   if (sessions.cliente) list.push("cliente");
   return list;
 }
 
 function portalHref(role: ActiveSession): string {
-  return role === "guardia"
-    ? "/portal/guardia"
-    : role === "supervisor"
-      ? "/portal/supervisor"
-      : "/portal/cliente";
+  return role === "guardia" ? "/portal/guardia" : "/portal/cliente";
 }
 
 export function PersonasHubClient() {
@@ -136,8 +115,7 @@ export function PersonasHubClient() {
           const roles = rolesParam
             .split(",")
             .filter(
-              (r): r is ActiveSession =>
-                r === "guardia" || r === "supervisor" || r === "cliente",
+              (r): r is ActiveSession => r === "guardia" || r === "cliente",
             );
           if (roles.length > 0) {
             setAvailableRoles(roles);
@@ -282,13 +260,6 @@ function RoleSelector({
       accent: "#2dd4bf",
       glow: "rgba(45,212,191,0.14)",
     },
-    supervisor: {
-      name: "Supervisor",
-      description: "Gestión de equipo e instalaciones",
-      Icon: Users,
-      accent: "#8b5cf6",
-      glow: "rgba(139,92,246,0.14)",
-    },
     cliente: {
       name: "Cliente",
       description: "Reportes, cotizaciones e incidentes",
@@ -347,7 +318,6 @@ function RoleSelector({
             const Icon = cfg.Icon;
             const hasSession =
               (role === "guardia" && sessions?.guardia) ||
-              (role === "supervisor" && sessions?.supervisor) ||
               (role === "cliente" && sessions?.cliente) ||
               false;
             return (
