@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { resolvePagePerms, canView } from "@/lib/permissions-server";
+import { resolvePagePerms, canView, canEdit } from "@/lib/permissions-server";
 import { PageHeader } from "@/components/opai";
 import { InventarioStockClient } from "@/components/inventario/InventarioStockClient";
 import { InventarioSubnav } from "@/components/ops/InventarioSubnav";
@@ -16,6 +16,8 @@ export default async function InventarioStockPage() {
     redirect("/hub");
   }
 
+  const allowEdit = canEdit(perms, "ops", "inventario");
+
   return (
     <div className="space-y-6 min-w-0">
       <PageHeader
@@ -24,7 +26,7 @@ export default async function InventarioStockPage() {
       />
       <InventarioSubnav />
       <Suspense fallback={<p className="text-sm sm:text-base text-muted-foreground">Cargando stock…</p>}>
-        <InventarioStockClient />
+        <InventarioStockClient canEdit={allowEdit} />
       </Suspense>
     </div>
   );

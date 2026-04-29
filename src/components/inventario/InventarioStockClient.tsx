@@ -9,8 +9,26 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { AlertTriangle } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  AlertTriangle,
+  ArrowLeftRight,
+  Loader2,
+  Package,
+  Search,
+  Warehouse as WarehouseIcon,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { InventarioTransferDialog } from "@/components/inventario/InventarioTransferDialog";
 
 type StockRecord = {
   id: string;
@@ -33,13 +51,27 @@ function getStatus(qty: number, min: number): StockStatus {
   return "ok";
 }
 
-const STATUS_STYLES: Record<StockStatus, { bg: string; text: string; label: string }> = {
-  critical: { bg: "bg-red-500/10", text: "text-red-600 dark:text-red-400", label: "Agotado" },
-  low: { bg: "bg-amber-500/10", text: "text-amber-600 dark:text-amber-400", label: "Bajo mínimo" },
-  ok: { bg: "", text: "", label: "" },
+const STATUS_META: Record<StockStatus, { label: string; chip: string; row: string; text: string }> = {
+  critical: {
+    label: "Agotado",
+    chip: "bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/30",
+    row: "bg-red-500/[0.04]",
+    text: "text-red-600 dark:text-red-400",
+  },
+  low: {
+    label: "Bajo mínimo",
+    chip: "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30",
+    row: "bg-amber-500/[0.04]",
+    text: "text-amber-600 dark:text-amber-400",
+  },
+  ok: { label: "OK", chip: "", row: "", text: "" },
 };
 
-export function InventarioStockClient() {
+interface Props {
+  canEdit: boolean;
+}
+
+export function InventarioStockClient({ canEdit }: Props) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -50,6 +82,7 @@ export function InventarioStockClient() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "alerts">("all");
+  const [search, setSearch] = useState("");
   const [selectedWarehouseId, setSelectedWarehouseId] = useState(warehouseIdFromUrl);
 
   useEffect(() => {
@@ -62,7 +95,7 @@ export function InventarioStockClient() {
       .then((data) => {
         if (Array.isArray(data)) {
           setWarehouses(
-            data.map((w: { id: string; name: string }) => ({ id: w.id, name: w.name }))
+            data.map((w: { id: string; name: string }) => ({ id: w.id, name: w.name })),
           );
         }
       })
@@ -104,13 +137,17 @@ export function InventarioStockClient() {
       ? `${s.variant.product.name} ${s.variant.size.sizeCode}`
       : s.variant.product.name;
 
-  const filtered = useMemo(
-    () =>
-      filter === "alerts"
-        ? stock.filter((s) => getStatus(s.quantity, s.variant.minStock) !== "ok")
-        : stock,
-    [stock, filter]
-  );
+  const filtered = useMemo(() => {
+    let result = stock;
+    if (filter === "alerts") {
+      result = result.filter((s) => getStatus(s.quantity, s.variant.minStock) !== "ok");
+    }
+    const q = search.trim().toLowerCase();
+    if (q) {
+      result = result.filter((s) => variantLabel(s).toLowerCase().includes(q));
+    }
+    return result;
+  }, [stock, filter, search]);
 
   const byWarehouse = useMemo(() => {
     return filtered.reduce<Record<string, StockRecord[]>>((acc, s) => {
@@ -121,147 +158,227 @@ export function InventarioStockClient() {
     }, {});
   }, [filtered]);
 
-  // Summary counts (respecta filtro de bodega actual)
-  const criticalCount = stock.filter((s) => getStatus(s.quantity, s.variant.minStock) === "critical").length;
+  const criticalCount = stock.filter(
+    (s) => getStatus(s.quantity, s.variant.minStock) === "critical",
+  ).length;
   const lowCount = stock.filter((s) => getStatus(s.quantity, s.variant.minStock) === "low").length;
+  const totalUnits = stock.reduce((sum, s) => sum + s.quantity, 0);
 
   return (
     <Card>
-      <CardHeader className="space-y-4">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <CardTitle>Stock por bodega</CardTitle>
-            <CardDescription>
+      <CardHeader className="space-y-3 sm:space-y-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0">
+            <CardTitle className="flex items-center gap-2">
+              <Package className="h-5 w-5 text-muted-foreground" />
+              Stock por bodega
+            </CardTitle>
+            <CardDescription className="mt-1">
               Niveles actuales de inventario. El stock mínimo se configura en cada producto.
             </CardDescription>
           </div>
-          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end w-full lg:w-auto">
-            <div className="flex flex-col gap-1.5 min-w-0 flex-1 sm:max-w-xs">
-              <Label htmlFor="inv-stock-warehouse" className="text-xs text-muted-foreground">
-                Bodega
-              </Label>
-              <select
-                id="inv-stock-warehouse"
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-                value={selectedWarehouseId}
-                onChange={(e) => setWarehouseFilter(e.target.value)}
-              >
-                <option value="">Todas las bodegas</option>
-                {warehouses.map((w) => (
-                  <option key={w.id} value={w.id}>
-                    {w.name}
-                  </option>
-                ))}
-              </select>
+          {canEdit && (
+            <div className="shrink-0">
+              <InventarioTransferDialog onCompleted={fetchData} />
             </div>
-            <div className="flex gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={() => setFilter("all")}
-                className={`text-xs px-3 py-1.5 rounded-md border transition-colors ${
-                  filter === "all"
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "bg-background text-muted-foreground border-input hover:bg-muted"
-                }`}
-              >
-                Todos ({stock.length})
-              </button>
-              <button
-                type="button"
-                onClick={() => setFilter("alerts")}
-                className={`text-xs px-3 py-1.5 rounded-md border transition-colors ${
-                  filter === "alerts"
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "bg-background text-muted-foreground border-input hover:bg-muted"
-                }`}
-              >
-                <AlertTriangle className="h-3 w-3 inline mr-1" />
-                Alertas ({criticalCount + lowCount})
-              </button>
-            </div>
+          )}
+        </div>
+
+        {/* Resumen */}
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div className="rounded-lg border bg-muted/30 p-2.5">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Variantes</p>
+            <p className="mt-0.5 text-base font-semibold tabular-nums">{stock.length}</p>
+          </div>
+          <div className="rounded-lg border bg-muted/30 p-2.5">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Unidades</p>
+            <p className="mt-0.5 text-base font-semibold tabular-nums">{totalUnits.toLocaleString("es-CL")}</p>
+          </div>
+          <div className={cn("rounded-lg border p-2.5", criticalCount > 0 ? "border-red-500/30 bg-red-500/5" : "bg-muted/30")}>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Agotados</p>
+            <p className={cn("mt-0.5 text-base font-semibold tabular-nums", criticalCount > 0 && "text-red-600 dark:text-red-400")}>
+              {criticalCount}
+            </p>
+          </div>
+          <div className={cn("rounded-lg border p-2.5", lowCount > 0 ? "border-amber-500/30 bg-amber-500/5" : "bg-muted/30")}>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Bajo mínimo</p>
+            <p className={cn("mt-0.5 text-base font-semibold tabular-nums", lowCount > 0 && "text-amber-600 dark:text-amber-400")}>
+              {lowCount}
+            </p>
+          </div>
+        </div>
+
+        {/* Filtros */}
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="relative flex-1 sm:max-w-xs">
+            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar producto…"
+              className="pl-8 h-9"
+            />
+          </div>
+          <Select value={selectedWarehouseId || "all"} onValueChange={(v) => setWarehouseFilter(v === "all" ? "" : v)}>
+            <SelectTrigger className="h-9 w-full sm:w-56">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas las bodegas</SelectItem>
+              {warehouses.map((w) => (
+                <SelectItem key={w.id} value={w.id}>
+                  {w.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div className="flex gap-1.5 shrink-0">
+            <Button
+              type="button"
+              size="sm"
+              variant={filter === "all" ? "default" : "outline"}
+              onClick={() => setFilter("all")}
+              className="h-9 text-xs"
+            >
+              Todos ({stock.length})
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={filter === "alerts" ? "default" : "outline"}
+              onClick={() => setFilter("alerts")}
+              className="h-9 gap-1 text-xs"
+            >
+              <AlertTriangle className="h-3 w-3" />
+              Alertas ({criticalCount + lowCount})
+            </Button>
           </div>
         </div>
       </CardHeader>
-      <CardContent>
-        {/* Alert summary */}
-        {(criticalCount > 0 || lowCount > 0) && (
-          <div className="flex gap-3 mb-4">
-            {criticalCount > 0 && (
-              <div className="flex items-center gap-1.5 rounded-md bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400">
-                <AlertTriangle className="h-3.5 w-3.5" />
-                {criticalCount} agotado{criticalCount > 1 ? "s" : ""}
-              </div>
-            )}
-            {lowCount > 0 && (
-              <div className="flex items-center gap-1.5 rounded-md bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-600 dark:text-amber-400">
-                <AlertTriangle className="h-3.5 w-3.5" />
-                {lowCount} bajo mínimo
-              </div>
-            )}
-          </div>
-        )}
 
+      <CardContent>
         {loading ? (
-          <p className="text-sm text-muted-foreground">Cargando...</p>
+          <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Cargando stock…
+          </div>
         ) : error ? (
           <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-4 text-sm text-amber-700 dark:text-amber-400">
             {error}
           </div>
         ) : filtered.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            {filter === "alerts"
-              ? "No hay alertas de stock. Todo en orden."
-              : "No hay stock. Registra una compra para ver el inventario."}
-          </p>
+          <div className="py-10 text-center">
+            <Package className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
+            <p className="text-sm font-medium">
+              {filter === "alerts"
+                ? "No hay alertas de stock"
+                : "Sin stock que mostrar"}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {filter === "alerts"
+                ? "Todo en orden, no hay productos por debajo del mínimo."
+                : "Registra una compra para ver el inventario."}
+            </p>
+          </div>
         ) : (
-          <div className="space-y-4">
-            {Object.entries(byWarehouse).map(([whName, items]) => (
-              <div key={items[0]?.warehouse.id ?? whName}>
-                <h3 className="font-semibold mb-2">{whName}</h3>
-                <div className="rounded-lg border overflow-x-auto">
-                  <div className="min-w-[520px]">
-                    <div className="grid grid-cols-12 gap-2 p-2 bg-muted/50 text-xs font-medium">
-                      <span className="col-span-4">Producto / Talla</span>
-                      <span className="col-span-2 text-right">Cantidad</span>
-                      <span className="col-span-2 text-right">Mín</span>
-                      <span className="col-span-2 text-right">Costo prom.</span>
-                      <span className="col-span-2 text-center">Estado</span>
-                    </div>
+          <div className="space-y-5">
+            {Object.entries(byWarehouse).map(([whName, items]) => {
+              const subtotal = items.reduce((sum, s) => sum + s.quantity, 0);
+              return (
+                <div key={items[0]?.warehouse.id ?? whName}>
+                  <div className="mb-2 flex items-center justify-between">
+                    <h3 className="flex items-center gap-2 text-sm font-semibold">
+                      <WarehouseIcon className="h-4 w-4 text-muted-foreground" />
+                      {whName}
+                    </h3>
+                    <span className="text-xs text-muted-foreground tabular-nums">
+                      {subtotal.toLocaleString("es-CL")} unid.
+                    </span>
+                  </div>
+
+                  {/* Mobile: cards */}
+                  <div className="space-y-1.5 sm:hidden">
                     {items.map((s) => {
                       const status = getStatus(s.quantity, s.variant.minStock);
-                      const styles = STATUS_STYLES[status];
-
+                      const meta = STATUS_META[status];
                       return (
                         <div
                           key={s.id}
-                          className={`grid grid-cols-12 gap-2 p-2 border-t text-sm items-center ${styles.bg}`}
+                          className={cn(
+                            "rounded-lg border p-3",
+                            meta.row,
+                            status !== "ok" && "border-l-2 border-l-current",
+                          )}
                         >
-                          <span className="col-span-4 truncate">{variantLabel(s)}</span>
-                          <span className={`col-span-2 text-right font-medium tabular-nums ${status === "critical" ? "text-red-600 dark:text-red-400" : status === "low" ? "text-amber-600 dark:text-amber-400" : ""}`}>
-                            {s.quantity}
-                          </span>
-                          <span className="col-span-2 text-right tabular-nums text-muted-foreground">
-                            {s.variant.minStock || "-"}
-                          </span>
-                          <span className="col-span-2 text-right tabular-nums">
-                            {s.avgCost != null
-                              ? `$${Number(s.avgCost).toLocaleString("es-CL")}`
-                              : "-"}
-                          </span>
-                          <span className="col-span-2 text-center">
-                            {status !== "ok" && (
-                              <span className={`text-xs px-2 py-0.5 rounded-full ${styles.bg} ${styles.text} font-medium`}>
-                                {styles.label}
-                              </span>
-                            )}
-                          </span>
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-semibold">{variantLabel(s)}</p>
+                              <p className="mt-0.5 text-xs text-muted-foreground tabular-nums">
+                                Mínimo: {s.variant.minStock || "—"}
+                                {s.avgCost != null ? ` · Costo: $${Number(s.avgCost).toLocaleString("es-CL")}` : ""}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className={cn("text-xl font-bold tabular-nums leading-none", meta.text)}>
+                                {s.quantity}
+                              </p>
+                              {status !== "ok" && (
+                                <Badge variant="outline" className={cn("mt-1 text-[10px]", meta.chip)}>
+                                  {meta.label}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       );
                     })}
                   </div>
+
+                  {/* Desktop: tabla */}
+                  <div className="hidden overflow-hidden rounded-lg border sm:block">
+                    <table className="w-full text-sm">
+                      <thead className="bg-muted/50 text-xs">
+                        <tr>
+                          <th className="p-2 text-left font-medium">Producto / Talla</th>
+                          <th className="p-2 text-right font-medium">Cantidad</th>
+                          <th className="p-2 text-right font-medium">Mín</th>
+                          <th className="p-2 text-right font-medium">Costo prom.</th>
+                          <th className="p-2 text-center font-medium">Estado</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {items.map((s) => {
+                          const status = getStatus(s.quantity, s.variant.minStock);
+                          const meta = STATUS_META[status];
+                          return (
+                            <tr key={s.id} className={cn("border-t", meta.row)}>
+                              <td className="p-2 truncate">{variantLabel(s)}</td>
+                              <td className={cn("p-2 text-right font-semibold tabular-nums", meta.text)}>
+                                {s.quantity}
+                              </td>
+                              <td className="p-2 text-right tabular-nums text-muted-foreground">
+                                {s.variant.minStock || "-"}
+                              </td>
+                              <td className="p-2 text-right tabular-nums">
+                                {s.avgCost != null
+                                  ? `$${Number(s.avgCost).toLocaleString("es-CL")}`
+                                  : "-"}
+                              </td>
+                              <td className="p-2 text-center">
+                                {status !== "ok" && (
+                                  <Badge variant="outline" className={cn("text-[10px]", meta.chip)}>
+                                    {meta.label}
+                                  </Badge>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </CardContent>
