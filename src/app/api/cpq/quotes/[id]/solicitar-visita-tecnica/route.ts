@@ -143,7 +143,7 @@ export async function POST(
         ? `https://www.google.com/maps?q=${installation.lat},${installation.lng}`
         : null;
 
-    const portalUrl = `${process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || ""}/portal/supervisor`;
+    const portalUrl = `${process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || ""}/ops/supervision/mis-visitas`;
 
     // Enviar email a todos los supervisores seleccionados
     const emailConfig = await getTenantEmailConfig(ctx.tenantId);
@@ -243,7 +243,7 @@ export async function POST(
       "",
       `Supervisores notificados: ${allSupervisors.map((s) => s.name).join(", ")}`,
       "",
-      `Portal supervisor: ${portalUrl}`,
+      `Mis visitas: ${portalUrl}`,
     ].filter(Boolean).join("\n");
 
     const gcalGuests = allSupervisors.map((s) => s.email).join(",");

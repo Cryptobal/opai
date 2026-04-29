@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-const VALID_PORTALS = ["guardia", "rondas", "cliente", "supervisor"];
+const VALID_PORTALS = ["guardia", "rondas", "cliente"];
 
 export async function GET(request: NextRequest) {
   const session = await auth();
@@ -25,7 +25,6 @@ export async function GET(request: NextRequest) {
     if (portalType === "rondas") return handleRondas(tenantId, since);
     if (portalType === "guardia") return handleGuardia(tenantId, since);
     if (portalType === "cliente") return handleCliente(tenantId, since);
-    if (portalType === "supervisor") return handleSupervisor(tenantId, since);
     return NextResponse.json({ success: true, data: [] });
   } catch (error) {
     console.error("[Portales Ranking] Error:", error);
@@ -285,41 +284,3 @@ async function handleCliente(tenantId: string, since: Date) {
   return NextResponse.json({ success: true, data });
 }
 
-async function handleSupervisor(tenantId: string, since: Date) {
-  const visitas = await prisma.opsVisitaSupervision.groupBy({
-    by: ["supervisorId"],
-    where: {
-      tenantId,
-      checkInAt: { gte: since },
-      status: { in: ["completed", "in_progress"] },
-    },
-    _count: { id: true },
-    _max: { checkInAt: true },
-  });
-
-  if (visitas.length === 0) return NextResponse.json({ success: true, data: [] });
-
-  const supervisorIds = visitas.map((v) => v.supervisorId);
-
-  const admins = await prisma.admin.findMany({
-    where: { id: { in: supervisorIds } },
-    select: { id: true, name: true, email: true },
-  });
-  const adminMap = new Map(admins.map((a) => [a.id, a]));
-
-  const data = visitas
-    .sort((a, b) => b._count.id - a._count.id)
-    .slice(0, 50)
-    .map((v) => {
-      const admin = adminMap.get(v.supervisorId);
-      return {
-        userId: v.supervisorId,
-        userName: admin?.name ?? admin?.email ?? "Desconocido",
-        totalActions: v._count.id,
-        actionLabel: "visitas",
-        lastAccessAt: v._max.checkInAt?.toISOString() ?? null,
-      };
-    });
-
-  return NextResponse.json({ success: true, data });
-}

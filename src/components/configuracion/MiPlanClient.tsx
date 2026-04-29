@@ -58,7 +58,7 @@ const MODULE_LABELS: Record<string, string> = {
   ops_pauta: 'Pauta', ops_pce: 'PCE', ops_turnos_extra: 'Turnos Extra',
   ops_refuerzos: 'Refuerzos', ops_onboarding: 'Onboarding', ops_audit: 'Auditoria',
   personas: 'Personas', tickets: 'Tickets', documentos: 'Documentos',
-  contratos: 'Contratos', ops_supervision: 'Supervision', portal_supervisor: 'Portal Supervisor',
+  contratos: 'Contratos', ops_supervision: 'Supervision',
   alertas_cobertura: 'Alertas Cobertura', chat: 'Chat', gamificacion: 'Gamificacion',
   protocolos_ia: 'Protocolos IA', reportes_dt: 'Reportes DT', crm: 'CRM',
   cpq: 'CPQ', ops_rondas: 'Rondas', ops_inventario: 'Inventario',

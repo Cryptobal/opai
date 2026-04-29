@@ -561,8 +561,6 @@ function getNotificationClickUrl(
         return `/portal/rondas?section=chat&channel=${channelId}`;
       case 'cliente':
         return `/portal/cliente?section=chat&channel=${channelId}`;
-      case 'supervisor':
-        return `/portal/supervisor?section=chat&channel=${channelId}`;
     }
   }
   // Fallback for subscriptions without portalType

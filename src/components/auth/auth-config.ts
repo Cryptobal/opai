@@ -12,7 +12,7 @@ export const PORTAL_CONFIG = {
     id: "personas",
     label: "Personas",
     name: "Opai Personas",
-    subtitle: "Guardia · Supervisor · Cliente",
+    subtitle: "Guardia · Cliente",
     accent: "#2dd4bf",
     accentRgb: "45, 212, 191",
     href: "/portal/personas",
@@ -47,15 +47,6 @@ export const PORTAL_CONFIG = {
     accent: "#10b981",
     accentRgb: "16, 185, 129",
     href: "/portal/rondas",
-  },
-  supervisor: {
-    id: "supervisor",
-    label: "Supervisor",
-    name: "Supervisor",
-    subtitle: "Hub Operacional",
-    accent: "#8b5cf6",
-    accentRgb: "139, 92, 246",
-    href: "/portal/supervisor",
   },
   cliente: {
     id: "cliente",
@@ -99,7 +90,7 @@ export function getHubForPortal(portalId: PortalId | "home"): HubId | "home" {
   if (portalId === "terreno" || portalId === "marcacion" || portalId === "rondas" || portalId === "acceso") {
     return "terreno";
   }
-  if (portalId === "personas" || portalId === "guardia" || portalId === "supervisor" || portalId === "cliente") {
+  if (portalId === "personas" || portalId === "guardia" || portalId === "cliente") {
     return "personas";
   }
   return "opai";

@@ -1,11 +1,10 @@
-const CACHE_NAME = 'opai-v4';
+const CACHE_NAME = 'opai-v5';
 const OFFLINE_URL = '/offline.html';
 
 const PRECACHE_URLS = [
   '/portal/cliente',
   '/portal/guardia',
   '/portal/rondas',
-  '/portal/supervisor',
   '/portal/acceso',
   '/portal/marcacion',
   '/opai/login',

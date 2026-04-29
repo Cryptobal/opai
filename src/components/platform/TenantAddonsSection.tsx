@@ -123,7 +123,6 @@ const MODULE_LABELS: Record<string, { name: string; category: string }> = {
   ops_audit: { name: 'Log de Auditoría', category: 'Operaciones' },
   documentos: { name: 'Documentos', category: 'Operaciones' },
   contratos: { name: 'Contratos', category: 'Operaciones' },
-  portal_supervisor: { name: 'Portal Supervisor', category: 'Operaciones' },
   ops_supervision: { name: 'Supervisión de Campo GPS', category: 'Profesional' },
   alertas_cobertura: { name: 'Alertas de Cobertura', category: 'Profesional' },
   chat: { name: 'Chat Real-time', category: 'Profesional' },
