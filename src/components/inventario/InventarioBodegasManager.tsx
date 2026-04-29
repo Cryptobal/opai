@@ -2,10 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { OpaiSurface } from "@/components/opai";
+import { Surface, Tag, IconBubble, EmptyState, Spinner } from "@/components/opai-ds";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import {
   Sheet,
   SheetContent,
@@ -23,7 +22,6 @@ import {
 } from "@/components/ui/select";
 import {
   Building2,
-  Loader2,
   MapPin,
   Pencil,
   Plus,
@@ -275,16 +273,16 @@ export function InventarioBodegasManager({ canDelete }: Props) {
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center min-w-0">
           <div className="relative w-full sm:w-72">
-            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ds-text-4" />
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar bodega…"
-              className="pl-8 h-9"
+              className="pl-8 h-10 sm:h-9"
             />
           </div>
           <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as typeof typeFilter)}>
-            <SelectTrigger className="h-9 w-full sm:w-44">
+            <SelectTrigger className="h-10 sm:h-9 w-full sm:w-44">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -295,61 +293,61 @@ export function InventarioBodegasManager({ canDelete }: Props) {
               <SelectItem value="other">Otro ({counts.other})</SelectItem>
             </SelectContent>
           </Select>
-          <label className="flex items-center gap-2 text-xs text-muted-foreground sm:ml-2">
+          <label className="flex items-center gap-2 text-[12px] text-ds-text-3 sm:ml-2">
             <input
               type="checkbox"
               checked={showInactive}
               onChange={(e) => setShowInactive(e.target.checked)}
-              className="h-4 w-4 rounded border-border"
+              className="h-4 w-4 rounded border-ds-border-default"
             />
             Mostrar inactivas
           </label>
         </div>
-        <Button size="sm" variant="outline" className="gap-2" onClick={openNew}>
+        <Button size="sm" variant="outline" className="gap-2 h-10 sm:h-9" onClick={openNew}>
           <Plus className="h-4 w-4" /> Nueva bodega
         </Button>
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Cargando bodegas…
-        </div>
+        <Spinner block label="Cargando bodegas…" />
       ) : filtered.length === 0 ? (
-        <OpaiSurface className="py-10 text-center">
-          <WarehouseIcon className="mx-auto mb-3 h-8 w-8 text-muted-foreground/60" />
-          <p className="text-sm font-medium">Sin bodegas</p>
-          <p className="text-xs text-muted-foreground mt-1">
-            {search || typeFilter !== "all"
-              ? "Ninguna coincide con el filtro actual."
-              : "Crea la primera bodega para registrar stock."}
-          </p>
-        </OpaiSurface>
+        <Surface elevation={1} padding="none">
+          <EmptyState
+            icon={WarehouseIcon}
+            title="Sin bodegas"
+            description={
+              search || typeFilter !== "all"
+                ? "Ninguna coincide con el filtro actual."
+                : "Crea la primera bodega para registrar stock."
+            }
+          />
+        </Surface>
       ) : (
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 ds-list-cascade">
           {filtered.map((w) => {
             const meta = TYPE_META[w.type];
             const Icon = meta.icon;
             return (
-              <OpaiSurface
+              <Surface
                 key={w.id}
+                elevation={1}
+                padding="md"
                 hoverable
                 className={cn("flex flex-col gap-2", !w.active && "opacity-60")}
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-start gap-2.5 min-w-0">
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                      <Icon className="h-[18px] w-[18px]" />
-                    </span>
+                    <IconBubble icon={Icon} variant="brand" size="md" />
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold">{w.name}</p>
+                      <p className="truncate text-[14px] font-semibold text-ds-text-1">{w.name}</p>
                       <div className="mt-0.5 flex flex-wrap items-center gap-1">
-                        <Badge variant="outline" className="text-[10px] font-mono uppercase tracking-wider border-foreground/10 bg-foreground/5 text-muted-foreground">
+                        <Tag variant="neutral" size="sm">
                           {meta.label}
-                        </Badge>
+                        </Tag>
                         {!w.active && (
-                          <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                          <Tag variant="neutral" size="sm">
                             Inactiva
-                          </Badge>
+                          </Tag>
                         )}
                       </div>
                     </div>
@@ -357,7 +355,7 @@ export function InventarioBodegasManager({ canDelete }: Props) {
                 </div>
 
                 {(w.supervisor || w.installation || w.notes) && (
-                  <div className="space-y-1 text-xs text-muted-foreground">
+                  <div className="space-y-1 text-[12px] text-ds-text-3">
                     {w.supervisor && (
                       <div className="flex items-center gap-1.5 truncate">
                         <User className="h-3 w-3 shrink-0" />
@@ -371,16 +369,16 @@ export function InventarioBodegasManager({ canDelete }: Props) {
                       </div>
                     )}
                     {w.notes && (
-                      <p className="line-clamp-2 text-[11px] text-muted-foreground/80">{w.notes}</p>
+                      <p className="line-clamp-2 text-[12px] text-ds-text-4">{w.notes}</p>
                     )}
                   </div>
                 )}
 
-                <div className="mt-1 flex items-center gap-1 border-t border-foreground/[0.06] pt-2">
+                <div className="mt-1 flex items-center gap-1 border-t border-ds-border-subtle pt-2">
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="h-8 flex-1 gap-1 text-xs text-muted-foreground hover:text-foreground"
+                    className="h-9 flex-1 gap-1 text-xs text-ds-text-3 hover:text-ds-text-1"
                     onClick={() => openEdit(w)}
                   >
                     <Pencil className="h-3 w-3" />
@@ -389,7 +387,7 @@ export function InventarioBodegasManager({ canDelete }: Props) {
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="h-8 flex-1 gap-1 text-xs text-muted-foreground hover:text-foreground"
+                    className="h-9 flex-1 gap-1 text-xs text-ds-text-3 hover:text-ds-text-1"
                     onClick={() => handleToggleActive(w)}
                   >
                     <Power className="h-3 w-3" />
@@ -399,14 +397,14 @@ export function InventarioBodegasManager({ canDelete }: Props) {
                     <Button
                       size="sm"
                       variant="ghost"
-                      className="h-8 gap-1 px-2 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      className="h-9 gap-1 px-2 text-xs text-status-danger-fg hover:bg-status-danger-soft hover:text-status-danger-fg"
                       onClick={() => handleDelete(w)}
                     >
                       <Trash2 className="h-3 w-3" />
                     </Button>
                   )}
                 </div>
-              </OpaiSurface>
+              </Surface>
             );
           })}
         </div>
@@ -434,6 +432,7 @@ export function InventarioBodegasManager({ canDelete }: Props) {
                 onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                 placeholder="Ej: Bodega central, Supervisor Juan"
                 required
+                className="h-10 sm:h-9"
               />
             </div>
 
@@ -443,7 +442,7 @@ export function InventarioBodegasManager({ canDelete }: Props) {
                 value={form.type}
                 onValueChange={(v) => setForm((f) => ({ ...f, type: v as Warehouse["type"] }))}
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-10 sm:h-9">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -464,7 +463,7 @@ export function InventarioBodegasManager({ canDelete }: Props) {
                     setForm((f) => ({ ...f, supervisorId: v === "none" ? "" : v }))
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="h-10 sm:h-9">
                     <SelectValue placeholder="Sin asignar" />
                   </SelectTrigger>
                   <SelectContent>
@@ -488,7 +487,7 @@ export function InventarioBodegasManager({ canDelete }: Props) {
                     setForm((f) => ({ ...f, installationId: v === "none" ? "" : v }))
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="h-10 sm:h-9">
                     <SelectValue placeholder="Sin asignar" />
                   </SelectTrigger>
                   <SelectContent>
@@ -511,26 +510,26 @@ export function InventarioBodegasManager({ canDelete }: Props) {
                 value={form.notes}
                 onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
                 placeholder="Comentarios u observaciones (opcional)"
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                className="w-full rounded-ds-md border border-ds-border-default bg-ds-surface-2 px-3 py-2 text-sm text-ds-text-1 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
               />
             </div>
 
-            <label className="flex items-center gap-2 rounded-md border p-3 text-sm">
+            <label className="flex items-center gap-2 rounded-ds-md border border-ds-border-default p-3 text-sm">
               <input
                 type="checkbox"
                 checked={form.active}
                 onChange={(e) => setForm((f) => ({ ...f, active: e.target.checked }))}
-                className="h-4 w-4 rounded border-border"
+                className="h-4 w-4 rounded border-ds-border-default"
               />
               <span>Bodega activa</span>
             </label>
 
             <SheetFooter className="flex-col gap-2 pt-2 sm:flex-row sm:justify-end">
-              <Button type="button" variant="outline" onClick={() => setSheetOpen(false)}>
+              <Button type="button" variant="outline" onClick={() => setSheetOpen(false)} className="h-10 sm:h-9">
                 Cancelar
               </Button>
-              <Button type="submit" disabled={saving} className="gap-2">
-                {saving && <Loader2 className="h-3 w-3 animate-spin" />}
+              <Button type="submit" disabled={saving} className="gap-2 h-10 sm:h-9">
+                {saving && <Spinner size="sm" />}
                 {editingId ? "Guardar cambios" : "Crear bodega"}
               </Button>
             </SheetFooter>
