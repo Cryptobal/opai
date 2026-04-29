@@ -821,7 +821,7 @@ function GroupChannelsSection({
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="h-6 w-6 flex shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground opacity-0 group-hover/section:opacity-100 transition-opacity"
+                  className="hidden lg:flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground opacity-0 group-hover/section:opacity-100 transition-opacity"
                   onClick={(e) => e.stopPropagation()}
                   aria-label="Notificaciones de la sección Grupos"
                 >
@@ -870,7 +870,7 @@ function GroupChannelsSection({
                   <DropdownMenuTrigger asChild>
                     <button
                       type="button"
-                      className="opacity-0 group-hover/sub:opacity-100 mr-2 h-6 w-6 flex shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground"
+                      className="hidden lg:flex opacity-0 group-hover/sub:opacity-100 mr-2 h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground"
                       onClick={(e) => e.stopPropagation()}
                       aria-label="Notificaciones del grupo"
                     >
@@ -1065,7 +1065,7 @@ function ChannelSection({
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="h-6 w-6 flex shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground opacity-0 group-hover/section:opacity-100 transition-opacity"
+                  className="hidden lg:flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground opacity-0 group-hover/section:opacity-100 transition-opacity"
                   onClick={(e) => e.stopPropagation()}
                   aria-label="Notificaciones de la sección"
                 >

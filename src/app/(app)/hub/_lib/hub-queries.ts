@@ -1432,16 +1432,6 @@ export function getAlerts(
   const alerts: HubAlert[] = [];
 
   if (opsMetrics) {
-    if (opsMetrics.unresolvedAlerts > 0) {
-      alerts.push({
-        id: 'round-alerts',
-        severity: opsMetrics.criticalAlerts > 0 ? 'critical' : 'warning',
-        message: `${opsMetrics.unresolvedAlerts} alerta(s) de ronda sin resolver${opsMetrics.criticalAlerts > 0 ? ` (${opsMetrics.criticalAlerts} crítica(s))` : ''}`,
-        href: '/ops/rondas/alertas',
-        count: opsMetrics.unresolvedAlerts,
-      });
-    }
-
     if (opsMetrics.attendance.absent > 0) {
       alerts.push({
         id: 'attendance-absent',
@@ -1471,17 +1461,6 @@ export function getAlerts(
       message: `${crmMetrics.followUpsOverdueCount} seguimiento(s) vencido(s)`,
       href: '/crm/deals?focus=followup-overdue',
       count: crmMetrics.followUpsOverdueCount,
-    });
-  }
-
-  if (financeMetrics && financeMetrics.pendingApprovalCount > 0) {
-    alerts.push({
-      id: 'rendiciones-pending',
-      severity:
-        financeMetrics.pendingApprovalCount >= 5 ? 'warning' : 'info',
-      message: `${financeMetrics.pendingApprovalCount} rendición(es) pendiente(s) de aprobación`,
-      href: '/finanzas/aprobaciones',
-      count: financeMetrics.pendingApprovalCount,
     });
   }
 
