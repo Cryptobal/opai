@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { OpaiSurface } from "@/components/opai";
 import { Plus, Pencil, Ruler, Package, Trash2, PowerOff, UploadCloud } from "lucide-react";
 import { ListToolbar } from "@/components/shared/ListToolbar";
 import type { ViewMode } from "@/components/shared/ViewToggle";
