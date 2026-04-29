@@ -11,16 +11,15 @@ import {
   SheetDescription,
 } from '@/components/ui/sheet';
 import {
-  BriefcaseBusiness,
-  Plus,
-  Send,
-  UserPlus,
-  UserRoundCheck,
+  ChevronRight,
   Clock3,
   MapPin,
   Receipt,
+  UserPlus,
+  UserRoundCheck,
   Zap,
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import type { HubQuickActionsProps } from '../_lib/hub-types';
 
 interface QuickAction {
@@ -35,14 +34,6 @@ export function HubQuickActions({ perms }: HubQuickActionsProps) {
 
   const actions: QuickAction[] = [];
 
-  if (perms.canOpenLeads) {
-    actions.push({
-      href: '/crm/leads',
-      label: 'Nuevo Lead',
-      icon: <UserPlus className="h-4 w-4" />,
-      primary: true,
-    });
-  }
   if (perms.hasSupervisionCheckin) {
     actions.push({
       href: '/ops/supervision/nueva-visita',
@@ -71,13 +62,6 @@ export function HubQuickActions({ perms }: HubQuickActionsProps) {
       icon: <UserRoundCheck className="h-4 w-4" />,
     });
   }
-  if (perms.canApproveTE) {
-    actions.push({
-      href: '/ops/turnos-extra',
-      label: 'Aprobar TE',
-      icon: <Clock3 className="h-4 w-4" />,
-    });
-  }
   if (perms.canManageRefuerzos) {
     actions.push({
       href: '/ops/refuerzos',
@@ -85,29 +69,11 @@ export function HubQuickActions({ perms }: HubQuickActionsProps) {
       icon: <Clock3 className="h-4 w-4" />,
     });
   }
-  if (perms.canOpenDeals) {
-    actions.push({
-      href: '/crm/deals',
-      label: 'Ver Pipeline',
-      icon: <BriefcaseBusiness className="h-4 w-4" />,
-    });
-  }
-  if (perms.canOpenQuotes) {
-    actions.push({
-      href: '/crm/cotizaciones',
-      label: 'Cotizaciones',
-      icon: <Send className="h-4 w-4" />,
-    });
-  }
-  if (perms.canCreateProposal) {
-    actions.push({
-      href: '/opai/templates',
-      label: 'Nueva Propuesta',
-      icon: <Plus className="h-4 w-4" />,
-    });
-  }
 
   if (actions.length === 0) return null;
+
+  // Marcar la primera acción como primary para darle énfasis visual.
+  if (actions[0]) actions[0].primary = true;
 
   return (
     <>
@@ -127,28 +93,62 @@ export function HubQuickActions({ perms }: HubQuickActionsProps) {
         ))}
       </div>
 
-      {/* Mobile: compact trigger + bottom sheet */}
+      {/* Mobile: prominent trigger + bottom sheet */}
       <div className="lg:hidden">
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-2 rounded-full"
+        <button
+          type="button"
           onClick={() => setOpen(true)}
+          className={cn(
+            'group relative flex h-11 w-full items-center justify-between gap-2 overflow-hidden rounded-full',
+            'border border-primary/30 bg-gradient-to-r from-primary/15 via-primary/10 to-primary/5',
+            'px-4 text-sm font-semibold text-primary shadow-sm',
+            'transition-all active:scale-[0.99] hover:border-primary/50 hover:shadow-md',
+          )}
+          aria-label={`Abrir acciones rápidas (${actions.length})`}
         >
-          <Zap className="h-4 w-4" />
-          Acciones rápidas
-          <span className="ml-0.5 text-xs text-muted-foreground">{actions.length}</span>
-        </Button>
+          <span className="flex items-center gap-2">
+            <span
+              className={cn(
+                'flex h-7 w-7 items-center justify-center rounded-full',
+                'bg-primary text-primary-foreground shadow-sm',
+              )}
+            >
+              <Zap className="h-3.5 w-3.5" />
+            </span>
+            <span className="tracking-tight">Acciones rápidas</span>
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span
+              className={cn(
+                'inline-flex h-6 min-w-[1.5rem] items-center justify-center rounded-full',
+                'bg-primary px-1.5 text-xs font-bold text-primary-foreground',
+              )}
+            >
+              {actions.length}
+            </span>
+            <ChevronRight className="h-4 w-4 text-primary/70 transition-transform group-hover:translate-x-0.5" />
+          </span>
+        </button>
 
         <Sheet open={open} onOpenChange={setOpen}>
-          <SheetContent side="bottom" className="rounded-t-2xl pb-8">
-            <SheetHeader className="pb-3">
-              <SheetTitle className="text-base">Acciones rápidas</SheetTitle>
+          <SheetContent
+            side="bottom"
+            className="rounded-t-3xl border-t pb-[env(safe-area-inset-bottom,1rem)]"
+          >
+            <span
+              aria-hidden="true"
+              className="mx-auto -mt-2 mb-3 block h-1.5 w-10 rounded-full bg-muted-foreground/30"
+            />
+            <SheetHeader className="pb-3 text-left">
+              <SheetTitle className="flex items-center gap-2 text-base">
+                <Zap className="h-4 w-4 text-primary" />
+                Acciones rápidas
+              </SheetTitle>
               <SheetDescription className="sr-only">
                 Selecciona una acción
               </SheetDescription>
             </SheetHeader>
-            <div className="grid grid-cols-2 gap-2 max-h-[60vh] overflow-y-auto">
+            <div className="grid gap-2 max-h-[65vh] overflow-y-auto sm:grid-cols-2">
               {actions.map((action) => (
                 <Link
                   key={action.href}
@@ -156,13 +156,34 @@ export function HubQuickActions({ perms }: HubQuickActionsProps) {
                   onClick={() => setOpen(false)}
                   className="min-w-0"
                 >
-                  <Button
-                    variant={action.primary ? 'default' : 'outline'}
-                    className="w-full justify-start gap-2 h-12 px-3 text-sm min-w-0"
+                  <div
+                    className={cn(
+                      'flex h-14 w-full items-center gap-3 rounded-2xl border px-3 transition-colors',
+                      action.primary
+                        ? 'border-primary/40 bg-primary/10 text-primary hover:bg-primary/15'
+                        : 'border-border/60 bg-muted/30 text-foreground hover:border-border hover:bg-muted/50',
+                    )}
                   >
-                    <span className="shrink-0">{action.icon}</span>
-                    <span className="flex-1 min-w-0 truncate text-left">{action.label}</span>
-                  </Button>
+                    <span
+                      className={cn(
+                        'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl',
+                        action.primary
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-background text-foreground border border-border/60',
+                      )}
+                    >
+                      {action.icon}
+                    </span>
+                    <span className="flex-1 min-w-0 truncate text-left text-sm font-semibold">
+                      {action.label}
+                    </span>
+                    <ChevronRight
+                      className={cn(
+                        'h-4 w-4 shrink-0',
+                        action.primary ? 'text-primary/70' : 'text-muted-foreground',
+                      )}
+                    />
+                  </div>
                 </Link>
               ))}
             </div>
