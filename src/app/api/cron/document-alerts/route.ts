@@ -119,6 +119,44 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // 1.5. Activate documents whose effectiveDate has arrived (approved → active)
+    let activatedCount = 0;
+    const approvedDocs = await prisma.document.findMany({
+      where: {
+        status: "approved",
+        effectiveDate: { not: null, lte: today },
+      },
+      select: {
+        id: true,
+        tenantId: true,
+        title: true,
+        effectiveDate: true,
+      },
+    });
+
+    for (const doc of approvedDocs) {
+      await prisma.$transaction([
+        prisma.document.update({
+          where: { id: doc.id },
+          data: { status: "active" },
+        }),
+        prisma.docHistory.create({
+          data: {
+            documentId: doc.id,
+            action: "status_changed",
+            details: {
+              from: "approved",
+              to: "active",
+              automated: true,
+              reason: "effective_date_reached",
+            },
+            createdBy: "system",
+          },
+        }),
+      ]);
+      activatedCount++;
+    }
+
     // 2. Find documents that have expired
     const expiredDocs = await prisma.document.findMany({
       where: {
@@ -244,6 +282,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       data: {
+        activatedCount,
         checked: activeDocuments.length + expiredDocs.length,
         expiringNotified: expiringCount,
         expiredNotified: expiredCount,
