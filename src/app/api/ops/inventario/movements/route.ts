@@ -14,7 +14,7 @@ const lineSchema = z.object({
 });
 
 const createDeliverySchema = z.object({
-  type: z.literal("delivery").optional().default("delivery"),
+  type: z.literal("delivery"),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   fromWarehouseId: z.string().uuid(),
   guardiaId: z.string().uuid(),
@@ -33,7 +33,7 @@ const createTransferSchema = z.object({
 });
 
 const createMovementSchema = z.discriminatedUnion("type", [
-  createDeliverySchema.required({ type: true }),
+  createDeliverySchema,
   createTransferSchema,
 ]);
 
@@ -129,7 +129,12 @@ export async function POST(request: NextRequest) {
     const forbidden = await ensureInventarioEdit(ctx);
     if (forbidden) return forbidden;
 
-    const body = await request.json();
+    const rawBody = await request.json();
+    // Compatibilidad: el cliente legacy de Entregas no envía `type`. Asumimos delivery.
+    const body =
+      rawBody && typeof rawBody === "object" && !("type" in rawBody)
+        ? { ...rawBody, type: "delivery" }
+        : rawBody;
     const parsed = createMovementSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
@@ -139,7 +144,9 @@ export async function POST(request: NextRequest) {
     }
 
     if (parsed.data.type === "transfer") {
-      if (parsed.data.fromWarehouseId === parsed.data.toWarehouseId) {
+      // Extraer a constantes para preservar narrowing dentro del callback async.
+      const transferData = parsed.data;
+      if (transferData.fromWarehouseId === transferData.toWarehouseId) {
         return NextResponse.json(
           { success: false, error: "La bodega de origen y destino no pueden ser la misma." },
           { status: 400 },
@@ -151,18 +158,18 @@ export async function POST(request: NextRequest) {
           data: {
             tenantId: ctx.tenantId,
             type: "transfer",
-            date: new Date(parsed.data.date),
-            fromWarehouseId: parsed.data.fromWarehouseId,
-            toWarehouseId: parsed.data.toWarehouseId,
-            notes: parsed.data.notes ?? null,
+            date: new Date(transferData.date),
+            fromWarehouseId: transferData.fromWarehouseId,
+            toWarehouseId: transferData.toWarehouseId,
+            notes: transferData.notes ?? null,
             createdBy: ctx.userId,
           },
         });
 
-        for (const line of parsed.data.lines) {
+        for (const line of transferData.lines) {
           const stockOrigen = await tx.inventoryStock.findFirst({
             where: {
-              warehouseId: parsed.data.fromWarehouseId,
+              warehouseId: transferData.fromWarehouseId,
               variantId: line.variantId,
               tenantId: ctx.tenantId,
             },
@@ -190,7 +197,7 @@ export async function POST(request: NextRequest) {
 
           const stockDestino = await tx.inventoryStock.findFirst({
             where: {
-              warehouseId: parsed.data.toWarehouseId,
+              warehouseId: transferData.toWarehouseId,
               variantId: line.variantId,
               tenantId: ctx.tenantId,
             },
@@ -211,7 +218,7 @@ export async function POST(request: NextRequest) {
             await tx.inventoryStock.create({
               data: {
                 tenantId: ctx.tenantId,
-                warehouseId: parsed.data.toWarehouseId,
+                warehouseId: transferData.toWarehouseId,
                 variantId: line.variantId,
                 quantity: line.quantity,
                 avgCost: unitCost,
@@ -241,8 +248,8 @@ export async function POST(request: NextRequest) {
           {
             fromWarehouseId: movement.fromWarehouseId,
             toWarehouseId: movement.toWarehouseId,
-            totalLines: parsed.data.lines.length,
-            totalQuantity: parsed.data.lines.reduce((s, l) => s + l.quantity, 0),
+            totalLines: transferData.lines.length,
+            totalQuantity: transferData.lines.reduce((s, l) => s + l.quantity, 0),
           },
         );
       }
@@ -250,7 +257,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(movement);
     }
 
-    // ── DELIVERY (legacy default) ──
+    // ── DELIVERY ──
     const deliveryData = parsed.data;
     const movement = await prisma.$transaction(async (tx) => {
       const mov = await tx.inventoryMovement.create({
