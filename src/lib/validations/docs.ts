@@ -144,3 +144,92 @@ export const declineSignatureSchema = z.object({
   token: z.string().min(10),
   reason: z.string().min(3).max(500),
 });
+
+// ──────────────────────────────────────────────────────────────────
+//  Upload Contract Schema — used by POST /api/crm/accounts/[id]/contracts
+// ──────────────────────────────────────────────────────────────────
+
+export const CONTRACT_CATEGORIES = [
+  "contrato_cliente",
+  "contrato_servicio",
+  "contrato_confidencialidad",
+  "acuerdo_nivel_servicio",
+  "adendum",
+] as const;
+
+export type ContractCategory = (typeof CONTRACT_CATEGORIES)[number];
+
+export const CONTRACT_CATEGORY_LABELS: Record<ContractCategory, string> = {
+  contrato_cliente: "Contrato Cliente",
+  contrato_servicio: "Contrato de Servicio",
+  contrato_confidencialidad: "Acuerdo de Confidencialidad (NDA)",
+  acuerdo_nivel_servicio: "Acuerdo de Nivel de Servicio (SLA)",
+  adendum: "Adendum / Anexo",
+};
+
+/**
+ * Validates fields parsed from the multipart upload of a manual contract PDF.
+ * The actual `file` is validated separately (magic bytes + size) in the route.
+ */
+export const uploadContractSchema = z
+  .object({
+    title: z.string().trim().min(1, "Título requerido").max(300),
+    category: z.enum(CONTRACT_CATEGORIES).default("contrato_cliente"),
+    effectiveDate: z.string().optional().nullable(),
+    expirationDate: z.string().optional().nullable(),
+    durationMonths: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(600)
+      .optional()
+      .nullable(),
+    alertDaysBefore: z.coerce.number().int().min(1).max(365).default(30),
+    signedExternally: z.coerce.boolean().default(false),
+    signedAt: z.string().optional().nullable(),
+    signedBy: z.string().trim().max(200).optional().nullable(),
+    notes: z.string().trim().max(2000).optional().nullable(),
+  })
+  .superRefine((val, ctx) => {
+    if (val.effectiveDate && val.expirationDate) {
+      const eff = new Date(val.effectiveDate);
+      const exp = new Date(val.expirationDate);
+      if (Number.isFinite(eff.getTime()) && Number.isFinite(exp.getTime()) && exp < eff) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["expirationDate"],
+          message: "La fecha de vencimiento debe ser posterior a la fecha de inicio",
+        });
+      }
+    }
+    if (val.signedExternally && !val.signedAt) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["signedAt"],
+        message: "Si fue firmado externamente, indica la fecha de firma",
+      });
+    }
+  });
+
+/**
+ * Computes expirationDate from effectiveDate + durationMonths.
+ * Mirrors the convention used by `generate-service-contract.ts`:
+ *   end = start + N months − 1 day (so a 12-month contract starting 2026-01-01
+ *   expires on 2026-12-31, not 2027-01-01).
+ *
+ * Returns ISO date string (YYYY-MM-DD) or null if inputs are insufficient.
+ */
+export function computeExpirationFromDuration(
+  effectiveDate: string | null | undefined,
+  durationMonths: number | null | undefined,
+): string | null {
+  if (!effectiveDate || !durationMonths || durationMonths <= 0) return null;
+  const m = effectiveDate.slice(0, 10).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return null;
+  const startYear = Number(m[1]);
+  const startMonth = Number(m[2]) - 1;
+  const startDay = Number(m[3]);
+  const end = new Date(Date.UTC(startYear, startMonth + durationMonths, startDay));
+  end.setUTCDate(end.getUTCDate() - 1);
+  return end.toISOString().slice(0, 10);
+}
