@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
-import { PageHeader } from "@/components/opai";
+import { OpaiPageHero } from "@/components/opai";
 import { InventarioComprasClient } from "@/components/inventario/InventarioComprasClient";
 import { InventarioSubnav } from "@/components/ops/InventarioSubnav";
 
@@ -16,13 +16,17 @@ export default async function InventarioComprasPage() {
   }
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHeader
-        title="Compras"
-        description="Registrar ingresos de uniformes y activos. Asocia a factura más adelante."
-      />
+    <div className="min-w-0">
       <InventarioSubnav />
-      <InventarioComprasClient />
+      <section className="relative w-full pb-32 space-y-5">
+        <OpaiPageHero
+          eyebrow={["Operaciones", "Inventario", "Compras"]}
+          title="Ingresos de inventario"
+          subtitle="compras y abastecimiento"
+          description="Registra cada ingreso a bodega. El stock se actualiza con costo promedio ponderado y queda asociable a futuras facturas."
+        />
+        <InventarioComprasClient />
+      </section>
     </div>
   );
 }

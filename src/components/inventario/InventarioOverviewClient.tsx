@@ -15,7 +15,8 @@ import {
   Warehouse as WarehouseIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Blob, KpiCard, Pill, StatusDot } from "@/components/opai/conocimiento/_primitives";
+import { OpaiPageHero } from "@/components/opai";
+import { KpiCard, Pill, StatusDot } from "@/components/opai/conocimiento/_primitives";
 import { InventarioTransferDialog } from "@/components/inventario/InventarioTransferDialog";
 import { cn } from "@/lib/utils";
 
@@ -114,56 +115,40 @@ export function InventarioOverviewClient({ canEdit }: Props) {
         : "ok";
 
   return (
-    <section className="relative grain-overlay max-w-md mx-auto md:max-w-3xl lg:max-w-6xl px-4 pt-5 pb-32">
-      <Blob color="brand" className="-top-10 -left-20 w-72 h-72" />
-      <Blob color="warn" className="-top-16 right-0 w-64 h-64 opacity-50" />
-
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-1.5 text-[11px] text-white/40 font-mono mb-3 relative">
-        <span>Operaciones</span>
-        <span className="text-white/20">/</span>
-        <span className="text-white/80">Inventario</span>
-      </div>
-
-      {/* Hero */}
-      <div className="relative flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div className="min-w-0">
-          <h1 className="font-display text-2xl md:text-3xl font-bold leading-tight tracking-tight">
-            Tu operación
-            <br />
-            <span className="text-white/40">en una sola vista</span>
-          </h1>
-          <p className="text-[13px] text-white/50 mt-2 leading-relaxed max-w-xl">
-            Stock, movimientos y costo asignado de uniformes y activos. Toca cualquier acceso
-            arriba o desde el menú inferior para entrar al detalle.
-          </p>
-        </div>
-        {canEdit && (
-          <div className="flex items-center gap-2 shrink-0">
-            <InventarioTransferDialog
-              trigger={
+    <section className="relative w-full pb-32">
+      <OpaiPageHero
+        eyebrow={["Operaciones", "Inventario"]}
+        title="Tu operación"
+        subtitle="en una sola vista"
+        description="Stock, movimientos y costo asignado de uniformes y activos. Toca cualquier acceso arriba o desde el menú inferior para entrar al detalle."
+        actions={
+          canEdit ? (
+            <>
+              <InventarioTransferDialog
+                trigger={
+                  <Button size="sm" variant="outline" className="gap-2">
+                    <ArrowLeftRight className="h-4 w-4" />
+                    <span className="hidden sm:inline">Mover stock</span>
+                  </Button>
+                }
+              />
+              <Link href="/ops/inventario/configuracion">
                 <Button size="sm" variant="outline" className="gap-2">
-                  <ArrowLeftRight className="h-4 w-4" />
-                  <span className="hidden sm:inline">Mover stock</span>
+                  <Settings2 className="h-4 w-4" />
+                  <span className="hidden sm:inline">Configuración</span>
                 </Button>
-              }
-            />
-            <Link href="/ops/inventario/configuracion">
-              <Button size="sm" variant="outline" className="gap-2">
-                <Settings2 className="h-4 w-4" />
-                <span className="hidden sm:inline">Configuración</span>
-              </Button>
-            </Link>
-          </div>
-        )}
-      </div>
+              </Link>
+            </>
+          ) : null
+        }
+      />
 
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 mt-5 relative">
         <KpiCard
           label="Productos activos"
           value={loading ? "—" : String(data?.counts.products ?? 0)}
-          rightSlot={<Package className="h-3.5 w-3.5 text-white/30" />}
+          rightSlot={<Package className="h-3.5 w-3.5 text-muted-foreground/60" />}
           hint={
             data
               ? `${data.counts.warehouses} ${data.counts.warehouses === 1 ? "bodega" : "bodegas"}`
@@ -181,7 +166,7 @@ export function InventarioOverviewClient({ canEdit }: Props) {
           }
           threshold="ok"
           hint={data ? `${data.stock.totalItems.toLocaleString("es-CL")} unidades` : undefined}
-          rightSlot={<WarehouseIcon className="h-3.5 w-3.5 text-white/30" />}
+          rightSlot={<WarehouseIcon className="h-3.5 w-3.5 text-muted-foreground/60" />}
         />
         <KpiCard
           label="Asignado a guardias"
@@ -197,7 +182,7 @@ export function InventarioOverviewClient({ canEdit }: Props) {
               ? `${data.counts.deliveriesLast30d} ${data.counts.deliveriesLast30d === 1 ? "entrega" : "entregas"} 30 d`
               : undefined
           }
-          rightSlot={<UserRoundCheck className="h-3.5 w-3.5 text-white/30" />}
+          rightSlot={<UserRoundCheck className="h-3.5 w-3.5 text-muted-foreground/60" />}
         />
         <KpiCard
           label="Alertas de stock"
@@ -226,7 +211,7 @@ export function InventarioOverviewClient({ canEdit }: Props) {
 
       {/* Loading */}
       {loading && (
-        <div className="mt-10 flex items-center justify-center gap-2 text-sm text-white/40">
+        <div className="mt-10 flex items-center justify-center gap-2 text-sm text-muted-foreground/70">
           <Loader2 className="h-4 w-4 animate-spin" /> Cargando…
         </div>
       )}
@@ -238,7 +223,7 @@ export function InventarioOverviewClient({ canEdit }: Props) {
             <div className="flex items-center justify-between mb-3">
               <div>
                 <h2 className="text-sm font-semibold tracking-tight">Movimientos recientes</h2>
-                <p className="text-[11px] text-white/40 font-mono mt-0.5">
+                <p className="text-[11px] text-muted-foreground/70 font-mono mt-0.5">
                   Últimas {data.recentMovements.length} acciones del módulo
                 </p>
               </div>
@@ -250,11 +235,11 @@ export function InventarioOverviewClient({ canEdit }: Props) {
               </Link>
             </div>
             {data.recentMovements.length === 0 ? (
-              <p className="rounded-md border border-white/10 bg-white/[0.02] p-3 text-center text-xs text-white/40">
+              <p className="rounded-md border border-border/60 bg-muted/30 p-3 text-center text-xs text-muted-foreground/70">
                 Aún no hay movimientos. Crea una entrega o registra una compra.
               </p>
             ) : (
-              <ul className="divide-y divide-white/5">
+              <ul className="divide-y divide-border/40">
                 {data.recentMovements.map((m) => {
                   const isDelivery = m.type === "delivery";
                   const isTransfer = m.type === "transfer";
@@ -279,7 +264,7 @@ export function InventarioOverviewClient({ canEdit }: Props) {
                               ? "bg-blue-500/10 text-blue-300"
                               : isDelivery
                                 ? "bg-emerald-500/10 text-emerald-300"
-                                : "bg-white/5 text-white/60",
+                                : "bg-muted/40 text-foreground/70",
                           )}
                         >
                           <Icon className="h-4 w-4" />
@@ -295,13 +280,13 @@ export function InventarioOverviewClient({ canEdit }: Props) {
                               {m.totalUnits} u.
                             </Pill>
                           </div>
-                          <p className="text-[11px] text-white/40 mt-0.5 truncate font-mono">
+                          <p className="text-[11px] text-muted-foreground/70 mt-0.5 truncate font-mono">
                             {formatRelativeDate(m.date)}
                             {m.installationName ? ` · ${m.installationName}` : ""}
                             {m.createdByName ? ` · ${m.createdByName}` : ""}
                           </p>
                           {m.summary && (
-                            <p className="text-[11px] text-white/55 mt-0.5 truncate">
+                            <p className="text-[11px] text-foreground/70 mt-0.5 truncate">
                               {m.summary}
                               {m.lineCount > 2 && ` +${m.lineCount - 2}`}
                             </p>
@@ -323,7 +308,7 @@ export function InventarioOverviewClient({ canEdit }: Props) {
                   <AlertTriangle className="h-3.5 w-3.5 text-amber-400" />
                   Alertas de stock
                 </h2>
-                <p className="text-[11px] text-white/40 font-mono mt-0.5">
+                <p className="text-[11px] text-muted-foreground/70 font-mono mt-0.5">
                   {data.stock.outOfStockCount} agotados · {data.stock.belowMinimumCount} bajo mínimo
                 </p>
               </div>
@@ -357,7 +342,7 @@ export function InventarioOverviewClient({ canEdit }: Props) {
                         {a.type === "critical" ? "Agotado" : `${a.quantity}/${a.minStock}`}
                       </Pill>
                     </div>
-                    <p className="text-[11px] text-white/40 mt-0.5 truncate font-mono">
+                    <p className="text-[11px] text-muted-foreground/70 mt-0.5 truncate font-mono">
                       {a.warehouse}
                     </p>
                   </li>
@@ -372,14 +357,14 @@ export function InventarioOverviewClient({ canEdit }: Props) {
               <div className="flex items-center justify-between mb-3">
                 <div>
                   <h2 className="text-sm font-semibold tracking-tight">Top por guardia</h2>
-                  <p className="text-[11px] text-white/40 font-mono mt-0.5">Costo asignado vigente</p>
+                  <p className="text-[11px] text-muted-foreground/70 font-mono mt-0.5">Costo asignado vigente</p>
                 </div>
               </div>
               <ul className="space-y-1.5">
                 {data.topByGuardia.map((g) => (
                   <li
                     key={g.guardiaId}
-                    className="flex items-center justify-between gap-2 rounded-md border border-white/10 bg-white/[0.02] px-2.5 py-2"
+                    className="flex items-center justify-between gap-2 rounded-md border border-border/60 bg-muted/30 px-2.5 py-2"
                   >
                     <span className="text-xs truncate">{g.guardiaName}</span>
                     <span className="text-xs font-semibold tabular-nums shrink-0">
@@ -397,17 +382,17 @@ export function InventarioOverviewClient({ canEdit }: Props) {
               <div className="flex items-center justify-between mb-3">
                 <div>
                   <h2 className="text-sm font-semibold tracking-tight flex items-center gap-1.5">
-                    <Building2 className="h-3.5 w-3.5 text-white/40" />
+                    <Building2 className="h-3.5 w-3.5 text-muted-foreground/70" />
                     Top por instalación
                   </h2>
-                  <p className="text-[11px] text-white/40 font-mono mt-0.5">Costo asignado vigente</p>
+                  <p className="text-[11px] text-muted-foreground/70 font-mono mt-0.5">Costo asignado vigente</p>
                 </div>
               </div>
               <ul className="space-y-1.5">
                 {data.topByInstallation.map((i) => (
                   <li
                     key={i.installationId}
-                    className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 rounded-md border border-white/10 bg-white/[0.02] px-2.5 py-2"
+                    className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 rounded-md border border-border/60 bg-muted/30 px-2.5 py-2"
                   >
                     <Link
                       href={`/crm/installations/${i.installationId}`}
@@ -418,7 +403,7 @@ export function InventarioOverviewClient({ canEdit }: Props) {
                     <span className="text-xs font-semibold tabular-nums">
                       {formatCurrency(i.totalCost)}
                     </span>
-                    <ArrowRight className="h-3 w-3 text-white/30" />
+                    <ArrowRight className="h-3 w-3 text-muted-foreground/60" />
                   </li>
                 ))}
               </ul>

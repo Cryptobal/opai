@@ -1,8 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { canDelete, canView } from "@/lib/permissions-server";
-import { resolvePagePerms } from "@/lib/permissions-server";
-import { PageHeader } from "@/components/opai";
+import { canDelete, canView, resolvePagePerms } from "@/lib/permissions-server";
+import { OpaiPageHero } from "@/components/opai";
 import { InventarioSubnav } from "@/components/ops/InventarioSubnav";
 import { InventarioConfigClient } from "@/components/inventario/InventarioConfigClient";
 
@@ -19,15 +18,17 @@ export default async function InventarioConfiguracionPage() {
   const allowDelete = canDelete(perms, "ops", "inventario");
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHeader
-        title="Configuración de Inventario"
-        description="Gestiona bodegas y revisa el historial de cambios del módulo."
-        backHref="/ops/inventario"
-        backLabel="Inventario"
-      />
+    <div className="min-w-0">
       <InventarioSubnav />
-      <InventarioConfigClient canDelete={allowDelete} />
+      <section className="relative w-full pb-32 space-y-5">
+        <OpaiPageHero
+          eyebrow={["Operaciones", "Inventario", "Configuración"]}
+          title="Configuración"
+          subtitle="bodegas y auditoría del módulo"
+          description="Gestiona bodegas y revisa el historial de cambios. Toda acción del módulo queda registrada con autor, IP y detalle."
+        />
+        <InventarioConfigClient canDelete={allowDelete} />
+      </section>
     </div>
   );
 }

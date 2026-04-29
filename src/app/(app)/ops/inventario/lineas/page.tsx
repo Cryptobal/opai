@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
-import { PageHeader } from "@/components/opai";
+import { OpaiPageHero } from "@/components/opai";
 import { InventarioLineasClient } from "@/components/inventario/InventarioLineasClient";
 import { InventarioSubnav } from "@/components/ops/InventarioSubnav";
 
@@ -16,13 +16,17 @@ export default async function InventarioLineasPage() {
   }
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHeader
-        title="Líneas Telefónicas"
-        description="Gestión de líneas SIM y números telefónicos. Asignación a instalaciones e historial."
-      />
+    <div className="min-w-0">
       <InventarioSubnav />
-      <InventarioLineasClient />
+      <section className="relative w-full pb-32 space-y-5">
+        <OpaiPageHero
+          eyebrow={["Operaciones", "Inventario", "Líneas"]}
+          title="Líneas telefónicas"
+          subtitle="SIM cards y números corporativos"
+          description="Gestiona los números asignados a guardias, supervisores e instalaciones. Historial completo de movimientos."
+        />
+        <InventarioLineasClient />
+      </section>
     </div>
   );
 }

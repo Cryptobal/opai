@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView, canEdit } from "@/lib/permissions-server";
-import { PageHeader } from "@/components/opai";
+import { OpaiPageHero } from "@/components/opai";
 import { InventarioEntregasClient } from "@/components/inventario/InventarioEntregasClient";
 import { InventarioSubnav } from "@/components/ops/InventarioSubnav";
 
@@ -18,13 +18,17 @@ export default async function InventarioEntregasPage() {
   const allowEdit = canEdit(perms, "ops", "inventario");
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHeader
-        title="Entregas a guardias"
-        description="Registrar entrega de uniformes a un guardia. Descuenta stock de la bodega."
-      />
+    <div className="min-w-0">
       <InventarioSubnav />
-      <InventarioEntregasClient currentUserId={session.user.id} canEdit={allowEdit} />
+      <section className="relative w-full pb-32 space-y-5">
+        <OpaiPageHero
+          eyebrow={["Operaciones", "Inventario", "Entregas"]}
+          title="Entregas a guardias"
+          subtitle="trazabilidad y firma de recepción"
+          description="Cada entrega descuenta stock de la bodega y queda asociada al guardia y la instalación. El portal del guardia recibe push para confirmar."
+        />
+        <InventarioEntregasClient currentUserId={session.user.id} canEdit={allowEdit} />
+      </section>
     </div>
   );
 }

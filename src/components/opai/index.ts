@@ -17,6 +17,9 @@ export { AppLayoutClient } from './AppLayoutClient';
 export { PageHeader } from './PageHeader';
 export type { PageHeaderProps } from './PageHeader';
 
+export { OpaiPageHero } from './PageHero';
+export type { OpaiPageHeroProps } from './PageHero';
+
 // UI Components
 export { KpiCard } from './KpiCard';
 export type { KpiCardProps, TrendType } from './KpiCard';

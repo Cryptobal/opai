@@ -1,8 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView, canDelete } from "@/lib/permissions-server";
-import { Card, CardContent } from "@/components/ui/card";
-import { PageHeader } from "@/components/opai";
+import { OpaiPageHero } from "@/components/opai";
 import { InventarioBodegasManager } from "@/components/inventario/InventarioBodegasManager";
 import { InventarioSubnav } from "@/components/ops/InventarioSubnav";
 
@@ -19,17 +18,19 @@ export default async function InventarioBodegasPage() {
   const allowDelete = canDelete(perms, "ops", "inventario");
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHeader
-        title="Bodegas"
-        description="Bodegas virtuales: central, supervisores, instalaciones."
-      />
+    <div className="min-w-0">
       <InventarioSubnav />
-      <Card>
-        <CardContent className="p-3 sm:p-4">
+      <section className="relative w-full pb-32 space-y-5">
+        <OpaiPageHero
+          eyebrow={["Operaciones", "Inventario", "Bodegas"]}
+          title="Bodegas virtuales"
+          subtitle="central, supervisores e instalaciones"
+          description="Cada bodega almacena stock independiente. Mueve unidades entre ellas con auditoría completa."
+        />
+        <div className="card-mock p-3 sm:p-4">
           <InventarioBodegasManager canDelete={allowDelete} />
-        </CardContent>
-      </Card>
+        </div>
+      </section>
     </div>
   );
 }
