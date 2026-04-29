@@ -38,7 +38,40 @@ export function HubInstallationHealthSection() {
       .catch(() => setLoading(false));
   }, []);
 
-  if (loading || !data?.success || data.installations.length === 0) return null;
+  if (loading) {
+    return (
+      <HubCollapsibleSection icon={<Activity className="h-4 w-4" />} title="Salud por instalación">
+        <p className="text-xs text-muted-foreground">Cargando…</p>
+      </HubCollapsibleSection>
+    );
+  }
+
+  // Empty state explícito (antes retornaba null y la sección desaparecía,
+  // dificultando entender que el feature existe pero aún no hay scores).
+  if (!data?.success || data.installations.length === 0) {
+    return (
+      <HubCollapsibleSection icon={<Activity className="h-4 w-4" />} title="Salud por instalación">
+        <p className="text-xs md:text-sm text-muted-foreground">
+          Aún no hay scores calculados. El cálculo se actualiza periódicamente vía
+          <code className="mx-1 rounded bg-muted px-1 py-0.5 text-[11px]">OpsInstallationHealthScore</code>
+          — comenzará a poblarse con la primera ronda de visitas + checklist + dotación.
+        </p>
+        <button
+          type="button"
+          onClick={() => setShowFormula((s) => !s)}
+          className="mt-2 inline-flex items-center gap-1 text-[11px] text-primary/70 hover:text-primary"
+        >
+          <Info className="h-3.5 w-3.5" />
+          ¿Cómo se calcula?
+        </button>
+        {showFormula && (
+          <div className="mt-2 rounded-md border border-primary/30 bg-primary/5 p-2 text-[10px] md:text-xs text-muted-foreground">
+            <p className="whitespace-pre-line">{FORMULA_TOOLTIPS.installationHealth}</p>
+          </div>
+        )}
+      </HubCollapsibleSection>
+    );
+  }
 
   const worstScore = data.installations[0]?.score ?? 100;
 
@@ -63,10 +96,10 @@ export function HubInstallationHealthSection() {
         <button
           type="button"
           onClick={() => setShowFormula((s) => !s)}
-          className="text-muted-foreground hover:text-primary"
+          className="text-primary/70 hover:text-primary"
           aria-label="Cómo se calcula"
         >
-          <Info className="h-3 w-3 md:h-3.5 md:w-3.5" />
+          <Info className="h-4 w-4" />
         </button>
       </div>
 

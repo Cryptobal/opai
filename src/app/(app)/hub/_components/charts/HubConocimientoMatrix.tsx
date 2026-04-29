@@ -68,10 +68,10 @@ export function HubConocimientoMatrix() {
           <button
             type="button"
             onClick={() => setShowFormula((s) => !s)}
-            className="text-muted-foreground hover:text-primary"
+            className="text-primary/70 hover:text-primary"
             aria-label="Cómo se calcula"
           >
-            <Info className="h-3 w-3 md:h-3.5 md:w-3.5" />
+            <Info className="h-4 w-4" />
           </button>
         </div>
         <Link

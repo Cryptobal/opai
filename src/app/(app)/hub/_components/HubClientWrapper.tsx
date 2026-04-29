@@ -22,7 +22,6 @@ import { HubActivitySection } from './HubActivitySection';
 import { HubAtsSection } from './HubAtsSection';
 import { HubPayrollSection } from './HubPayrollSection';
 import { HubPersonasSection } from './HubPersonasSection';
-import { HubPresentationButton } from './HubPresentationButton';
 import type {
   HubPerms,
   ClosingHubData,
@@ -76,16 +75,10 @@ export function HubClientWrapper({
 
   return (
     <div className="space-y-4 min-w-0 max-w-screen-2xl">
-      {/* Header con saludo + botón de modo presentación */}
-      <div className="flex items-start justify-between gap-3 flex-wrap">
-        <div className="min-w-0 flex-1">
-          <HubGreeting
-            firstName={firstName}
-            pendingFollowUpsCount={pendingFollowUpsCount}
-          />
-        </div>
-        <HubPresentationButton />
-      </div>
+      <HubGreeting
+        firstName={firstName}
+        pendingFollowUpsCount={pendingFollowUpsCount}
+      />
 
       <HubQuickActions perms={hubPerms} />
       <HubAlertsBanner alerts={alerts} />

@@ -3,10 +3,14 @@
 /**
  * HubHeatmapBase — heatmap genérico responsive.
  *
- * - Mobile (default): celdas 14px, fuente 8-10px.
- * - Desktop (md+): celdas 28px, fuente 11-12px (ajustable con `desktopCellSize`).
- * - Cada fila es clickeable (onClick / href).
- * - Tooltip con info de fórmula vía `formulaTooltip`.
+ * - Mobile (default): celdas 14px, labels ~110px.
+ * - Desktop (md+): celdas configurables (default 28px), labels ~180px.
+ * - Cada fila puede ser clickeable (href).
+ * - Tooltip opcional con info de fórmula.
+ *
+ * El sizing usa CSS vars scoped a `.hub-hm-root` vía styled-jsx (clase
+ * normal, NO `:root` ni `:global`). Cualquier media query activa el bloque
+ * desktop y ambas vars se propagan por cascade a celdas/headers/labels.
  */
 
 import { useState } from 'react';
@@ -15,20 +19,15 @@ import { ChevronRight, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export interface HeatmapColumn {
-  /** Etiqueta de la columna (ej. "1", "2", "Lun", "P1") */
   label: string;
-  /** Sub-etiqueta opcional (ej. mes, día de semana) */
   sublabel?: string;
 }
 
 export interface HeatmapRow {
   id: string;
   label: string;
-  /** Valores por columna (mismo orden que `columns`) */
   values: number[];
-  /** Métrica de resumen para mostrar a la derecha (ej. promedio, total) */
   summary?: { value: string | number; color?: string; label?: string };
-  /** Link al hacer click en la fila (toda la fila navega) */
   href?: string;
 }
 
@@ -37,26 +36,21 @@ export interface HubHeatmapBaseProps {
   subtitle?: string;
   rows: HeatmapRow[];
   columns: HeatmapColumn[];
-  /** Función que mapea valor → color (rgba/hex). Default: emerald scale. */
   colorFn?: (value: number, max: number) => string;
-  /** Etiqueta de leyenda izquierda (ej. "Menos") */
   legendLeft?: string;
-  /** Etiqueta de leyenda derecha (ej. "Más") */
   legendRight?: string;
-  /** Link al dashboard completo. */
   detailHref?: string;
   detailLabel?: string;
-  /** Tooltip con la fórmula de cálculo */
   formulaTooltip?: string;
-  /** Tamaño de celda en desktop (default 28). En mobile siempre 14. */
+  /** Tamaño de celda en desktop (default 28). Mobile siempre 14. */
   desktopCellSize?: number;
-  /** Ancho de columna de etiquetas (default mobile 110, desktop 180) */
+  /** Ancho columna de etiquetas. Default mobile 110, desktop 180. */
   labelColWidth?: { mobile: number; desktop: number };
-  /** Estado vacío personalizado */
   emptyState?: React.ReactNode;
-  /** Mostrar loader */
   loading?: boolean;
 }
+
+const MOBILE_CELL_PX = 14;
 
 const DEFAULT_COLOR_SCALE = (value: number, max: number): string => {
   if (value <= 0) return 'rgba(255,255,255,0.04)';
@@ -102,8 +96,12 @@ export function HubHeatmapBase({
     );
   }
 
+  // CSS var con fallback: si por alguna razón --hm-cell no está, usa mobile.
+  const cellVar = `var(--hm-cell, ${MOBILE_CELL_PX}px)`;
+  const labelVar = `var(--hm-label, ${labelColWidth.mobile}px)`;
+
   return (
-    <div className="rounded-lg border border-border bg-card p-3 md:p-4">
+    <div className="rounded-lg border border-border bg-card p-3 md:p-4 hub-hm-root">
       {/* Header */}
       <div className="flex items-center justify-between mb-2 md:mb-3">
         <div className="min-w-0">
@@ -113,10 +111,10 @@ export function HubHeatmapBase({
               <button
                 type="button"
                 onClick={() => setShowFormula((s) => !s)}
-                className="text-muted-foreground hover:text-primary transition-colors"
+                className="text-primary/70 hover:text-primary transition-colors"
                 aria-label="Cómo se calcula"
               >
-                <Info className="h-3 w-3 md:h-3.5 md:w-3.5" />
+                <Info className="h-4 w-4" />
               </button>
             )}
           </div>
@@ -148,16 +146,11 @@ export function HubHeatmapBase({
         <div className="inline-block min-w-full">
           {/* Column headers */}
           <div
-            className={cn(
-              'grid gap-px mb-1',
-              `ml-[${labelColWidth.mobile}px] md:ml-[${labelColWidth.desktop}px]`
-            )}
+            className="grid gap-px mb-1"
             style={{
-              marginLeft: `var(--label-col-w)`,
-              gridTemplateColumns: `repeat(${columns.length}, var(--cell-size)) 1fr`,
-              ['--label-col-w' as string]: `${labelColWidth.mobile}px`,
-              ['--cell-size' as string]: '14px',
-            } as React.CSSProperties}
+              marginLeft: labelVar,
+              gridTemplateColumns: `repeat(${columns.length}, ${cellVar}) 1fr`,
+            }}
           >
             {columns.map((col, i) => (
               <div
@@ -186,24 +179,25 @@ export function HubHeatmapBase({
               >
                 <div
                   className="pr-2 text-[10px] md:text-xs text-muted-foreground truncate"
-                  style={{ width: 'var(--label-col-w-row)', ['--label-col-w-row' as string]: `${labelColWidth.mobile}px` } as React.CSSProperties}
+                  style={{ width: labelVar }}
                 >
                   {row.label}
                 </div>
                 <div
                   className="grid gap-px"
-                  style={{
-                    gridTemplateColumns: `repeat(${columns.length}, var(--cell-size-row))`,
-                    ['--cell-size-row' as string]: '14px',
-                  } as React.CSSProperties}
+                  style={{ gridTemplateColumns: `repeat(${columns.length}, ${cellVar})` }}
                 >
                   {columns.map((col, idx) => {
                     const value = row.values[idx] ?? 0;
                     return (
                       <div
                         key={`cell-${row.id}-${idx}`}
-                        className="rounded-sm h-3.5 w-3.5"
-                        style={{ backgroundColor: colorFn(value, max) }}
+                        className="rounded-sm"
+                        style={{
+                          backgroundColor: colorFn(value, max),
+                          height: cellVar,
+                          width: cellVar,
+                        }}
                         title={`${row.label} — ${col.label}: ${value}`}
                       />
                     );
@@ -239,18 +233,17 @@ export function HubHeatmapBase({
         <span className="text-[9px] md:text-[10px] text-muted-foreground">{legendRight}</span>
       </div>
 
-      {/* Tailwind responsive sizes — applied via inline style overrides above with media query */}
+      {/* CSS vars scoped a .hub-hm-root vía styled-jsx (clase normal,
+          NO :root global). Cascade hacia celdas/headers/labels. */}
       <style jsx>{`
+        .hub-hm-root {
+          --hm-cell: ${MOBILE_CELL_PX}px;
+          --hm-label: ${labelColWidth.mobile}px;
+        }
         @media (min-width: 768px) {
-          :global(.rounded-lg [style*='--label-col-w']) {
-            --label-col-w: ${labelColWidth.desktop}px !important;
-            --label-col-w-row: ${labelColWidth.desktop}px !important;
-            --cell-size: ${desktopCellSize}px !important;
-            --cell-size-row: ${desktopCellSize}px !important;
-          }
-          :global(.rounded-lg [style*='--cell-size']) > div {
-            height: ${desktopCellSize}px !important;
-            width: ${desktopCellSize}px !important;
+          .hub-hm-root {
+            --hm-cell: ${desktopCellSize}px;
+            --hm-label: ${labelColWidth.desktop}px;
           }
         }
       `}</style>

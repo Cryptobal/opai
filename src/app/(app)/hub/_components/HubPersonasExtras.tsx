@@ -53,10 +53,10 @@ export function HubPersonasExtras() {
             <button
               type="button"
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowFormulaPostulantes((s) => !s); }}
-              className="text-muted-foreground hover:text-primary"
+              className="text-primary/70 hover:text-primary"
               aria-label="Cómo se calcula"
             >
-              <Info className="h-3 w-3" />
+              <Info className="h-4 w-4" />
             </button>
           </div>
           {postulantes.delta !== 0 && (

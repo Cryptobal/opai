@@ -196,7 +196,7 @@ export async function getClosingHubData(
           select: { firstName: true, lastName: true, email: true, phone: true, portalLastAccessAt: true },
         },
         stage: {
-          select: { name: true, color: true, order: true, isClosedWon: true, isClosedLost: true },
+          select: { name: true, color: true, order: true, isClosedWon: true, isClosedLost: true, isAccepted: true },
         },
         quotes: { select: { quoteId: true } },
         followUpLogs: {
@@ -233,12 +233,13 @@ export async function getClosingHubData(
     prisma.crmDeal.count({
       where: { tenantId, proposalSentAt: { gte: thirtyDaysAgo } },
     }),
-    // Won deals in 30d (via stage history)
+    // Won deals in 30d (via stage history) — incluye tanto isClosedWon como
+    // isAccepted (en este negocio "Adjudicado" se marca como isAccepted).
     prisma.crmDealStageHistory.findMany({
       where: {
         tenantId,
         changedAt: { gte: thirtyDaysAgo },
-        toStage: { is: { isClosedWon: true } },
+        toStage: { is: { OR: [{ isClosedWon: true }, { isAccepted: true }] } },
         deal: { is: { proposalSentAt: { not: null } } },
       },
       select: { dealId: true },
@@ -430,11 +431,12 @@ export async function getClosingHubData(
   }
 
   // Build hot deals: open deals with portal engagement or proposal sent
-  // EXCLUYE etapas cerradas (Adjudicado / Perdido) — el deal sigue como 'open'
-  // hasta que se cierra explícitamente, pero su stage ya puede ser closedWon/closedLost.
+  // EXCLUYE etapas cerradas (Adjudicado/Aceptado/Perdido) — un deal puede seguir
+  // con status='open' aunque su stage ya sea closedWon, isAccepted o closedLost.
+  // En este negocio "Adjudicado" usa isAccepted (proyecto aceptado, por iniciar).
   const hotDealCandidates: ClosingHotDeal[] = [];
   for (const deal of openDeals) {
-    if (deal.stage.isClosedWon || deal.stage.isClosedLost) continue;
+    if (deal.stage.isClosedWon || deal.stage.isClosedLost || deal.stage.isAccepted) continue;
     const eng = getDealEngagement(deal);
     const hasPortalEngagement = eng.totalViews > 0 || eng.totalDownloads > 0 || eng.totalLogins > 0;
     if (!hasPortalEngagement && !deal.proposalSentAt) continue;
@@ -491,7 +493,10 @@ export async function getClosingHubData(
             select: { firstName: true, lastName: true, phone: true, email: true },
           },
           stageHistory: {
-            where: { toStage: { is: { isClosedWon: true } }, changedAt: { gte: thirtyDaysAgo } },
+            where: {
+              toStage: { is: { OR: [{ isClosedWon: true }, { isAccepted: true }] } },
+              changedAt: { gte: thirtyDaysAgo },
+            },
             orderBy: { changedAt: 'desc' },
             take: 1,
             select: { changedAt: true },
@@ -523,8 +528,10 @@ export async function getClosingHubData(
     .sort((a, b) => (b.closedAt?.getTime() ?? 0) - (a.closedAt?.getTime() ?? 0));
 
   // Build stale deals: no portal activity (login/view/download) in 7+ days
+  // (también excluye stages cerrados/aceptados igual que hot deals)
   const staleDealCandidates: ClosingStaleDeal[] = [];
   for (const deal of openDeals) {
+    if (deal.stage.isClosedWon || deal.stage.isClosedLost || deal.stage.isAccepted) continue;
     if (!deal.proposalSentAt) continue;
     const eng = getDealEngagement(deal);
     const lastPortalActivity = getLastPortalActivity(eng);
@@ -1209,8 +1216,10 @@ export async function getOpsMetrics(
     prisma.opsPuestoOperativo.count({
       where: { tenantId, active: true },
     }),
+    // Guardias activos = status active AND asignados a una instalación
+    // (excluye postulantes/seleccionados que aún no operan en terreno)
     prisma.opsGuardia.count({
-      where: { tenantId, status: 'active' },
+      where: { tenantId, status: 'active', currentInstallationId: { not: null } },
     }),
     prisma.opsGuardia.count({
       where: { tenantId, status: 'active', createdAt: { gte: monthStart } },

@@ -35,60 +35,60 @@ export function HubExecutiveKpis({
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 md:gap-3">
-      <Link href="/crm/deals?status=open">
+      <Link href="/crm/deals?status=open" className="block h-full">
         <KpiCard
           title="UF en negociación"
           value={fmtUF(mrrUf)}
           icon={<TrendingUp className="h-4 w-4" />}
           variant="emerald"
-          className="cursor-pointer hover:ring-2 hover:ring-primary/25"
+          className="h-full cursor-pointer hover:ring-2 hover:ring-primary/25"
         />
       </Link>
-      <Link href="/crm/installations?status=active">
+      <Link href="/crm/installations?status=active" className="block h-full">
         <KpiCard
           title="Instalaciones activas"
           value={installationsActivas}
           icon={<Building2 className="h-4 w-4" />}
           variant="blue"
-          className="cursor-pointer hover:ring-2 hover:ring-primary/25"
+          className="h-full cursor-pointer hover:ring-2 hover:ring-primary/25"
         />
       </Link>
-      <Link href="/personas/guardias">
+      <Link href="/personas/guardias" className="block h-full">
         <KpiCard
           title="Guardias activos"
           value={guardias}
           icon={<Users className="h-4 w-4" />}
           variant="sky"
-          className="cursor-pointer hover:ring-2 hover:ring-primary/25"
+          className="h-full cursor-pointer hover:ring-2 hover:ring-primary/25"
         />
       </Link>
-      <Link href="/ops/pauta-diaria">
+      <Link href="/ops/pauta-diaria" className="block h-full">
         <KpiCard
           title="Cobertura hoy"
           value={`${cobertura}%`}
           icon={<ShieldCheck className="h-4 w-4" />}
           variant={cobertura >= 95 ? 'emerald' : cobertura >= 80 ? 'amber' : 'red'}
-          className="cursor-pointer hover:ring-2 hover:ring-primary/25"
+          className="h-full cursor-pointer hover:ring-2 hover:ring-primary/25"
         />
       </Link>
-      <Link href="/ops/tickets">
+      <Link href="/ops/tickets" className="block h-full">
         <KpiCard
           title="Tickets activos"
           value={ticketsActivos}
           description={ticketMetrics.p1PendingCount > 0 ? `${ticketMetrics.p1PendingCount} P1 pendientes` : undefined}
           icon={<Ticket className="h-4 w-4" />}
           variant={ticketMetrics.p1PendingCount > 0 || ticketMetrics.breachedCount > 0 ? 'red' : 'default'}
-          className="cursor-pointer hover:ring-2 hover:ring-primary/25"
+          className="h-full cursor-pointer hover:ring-2 hover:ring-primary/25"
         />
       </Link>
-      <Link href="/crm/accounts">
+      <Link href="/crm/accounts" className="block h-full">
         <KpiCard
           title="Contratos en alerta"
           value={totalContratosAlerta}
           description={contratosVencidos > 0 ? `${contratosVencidos} vencidos` : `${contratosPorVencer} por vencer`}
           icon={<FileSignature className="h-4 w-4" />}
           variant={contratosVencidos > 0 ? 'red' : contratosPorVencer > 0 ? 'amber' : 'default'}
-          className="cursor-pointer hover:ring-2 hover:ring-primary/25"
+          className="h-full cursor-pointer hover:ring-2 hover:ring-primary/25"
         />
       </Link>
     </div>

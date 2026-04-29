@@ -11,6 +11,9 @@ interface HeatmapResponse {
   grid: number[][];
 }
 
+const MOBILE_CELL_PX = 14;
+const DESKTOP_CELL_PX = 28;
+
 function getCurrentMonthString() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
@@ -86,8 +89,10 @@ export function HubVisitHeatmap() {
     year: 'numeric',
   });
 
+  const gridCols = `var(--vh-cell, ${MOBILE_CELL_PX}px)`;
+
   return (
-    <div className="rounded-lg border border-border bg-card p-3 md:p-4">
+    <div className="rounded-lg border border-border bg-card p-3 md:p-4 hub-vh-root">
       <div className="flex items-center justify-between mb-2 md:mb-3">
         <div className="flex items-center gap-1.5">
           <p className="text-xs md:text-sm font-semibold capitalize">
@@ -96,10 +101,10 @@ export function HubVisitHeatmap() {
           <button
             type="button"
             onClick={() => setShowFormula((s) => !s)}
-            className="text-muted-foreground hover:text-primary"
+            className="text-primary/70 hover:text-primary"
             aria-label="Cómo se calcula"
           >
-            <Info className="h-3 w-3 md:h-3.5 md:w-3.5" />
+            <Info className="h-4 w-4" />
           </button>
         </div>
         <Link
@@ -123,9 +128,7 @@ export function HubVisitHeatmap() {
           {/* Day numbers header */}
           <div
             className="grid gap-px mb-1 ml-[110px] md:ml-[200px]"
-            style={{
-              gridTemplateColumns: `repeat(${data.days.length}, var(--cell-w))`,
-            }}
+            style={{ gridTemplateColumns: `repeat(${data.days.length}, ${gridCols})` }}
           >
             {data.days.map((d) => (
               <div
@@ -147,9 +150,7 @@ export function HubVisitHeatmap() {
               </div>
               <div
                 className="grid gap-px"
-                style={{
-                  gridTemplateColumns: `repeat(${data.days.length}, var(--cell-w))`,
-                }}
+                style={{ gridTemplateColumns: `repeat(${data.days.length}, ${gridCols})` }}
               >
                 {data.days.map((day, colIdx) => {
                   const value = data.grid[rowIdx]?.[colIdx] ?? 0;
@@ -180,9 +181,16 @@ export function HubVisitHeatmap() {
         <span className="text-[9px] md:text-[10px] text-muted-foreground">Más</span>
       </div>
 
+      {/* CSS var --vh-cell scoped to .hub-vh-root via styled-jsx (no :root globals). */}
       <style jsx>{`
-        :root { --cell-w: 14px; }
-        @media (min-width: 768px) { :root { --cell-w: 28px; } }
+        .hub-vh-root {
+          --vh-cell: ${MOBILE_CELL_PX}px;
+        }
+        @media (min-width: 768px) {
+          .hub-vh-root {
+            --vh-cell: ${DESKTOP_CELL_PX}px;
+          }
+        }
       `}</style>
     </div>
   );
