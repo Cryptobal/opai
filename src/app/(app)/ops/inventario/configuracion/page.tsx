@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { canDelete, canView, resolvePagePerms } from "@/lib/permissions-server";
-import { OpaiPageHero } from "@/components/opai";
+import { PageHero } from "@/components/opai-ds";
 import { InventarioSubnav } from "@/components/ops/InventarioSubnav";
 import { InventarioConfigClient } from "@/components/inventario/InventarioConfigClient";
 
@@ -21,7 +21,7 @@ export default async function InventarioConfiguracionPage() {
     <div className="min-w-0">
       <InventarioSubnav />
       <section className="relative w-full pb-32 space-y-5">
-        <OpaiPageHero
+        <PageHero
           eyebrow={["Operaciones", "Inventario", "Configuración"]}
           title="Configuración"
           subtitle="bodegas y auditoría del módulo"

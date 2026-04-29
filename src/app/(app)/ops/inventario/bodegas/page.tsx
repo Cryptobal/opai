@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView, canDelete } from "@/lib/permissions-server";
-import { OpaiPageHero } from "@/components/opai";
+import { PageHero, Surface } from "@/components/opai-ds";
 import { InventarioBodegasManager } from "@/components/inventario/InventarioBodegasManager";
 import { InventarioSubnav } from "@/components/ops/InventarioSubnav";
 
@@ -21,15 +21,15 @@ export default async function InventarioBodegasPage() {
     <div className="min-w-0">
       <InventarioSubnav />
       <section className="relative w-full pb-32 space-y-5">
-        <OpaiPageHero
+        <PageHero
           eyebrow={["Operaciones", "Inventario", "Bodegas"]}
           title="Bodegas virtuales"
           subtitle="central, supervisores e instalaciones"
           description="Cada bodega almacena stock independiente. Mueve unidades entre ellas con auditoría completa."
         />
-        <div className="card-mock p-3 sm:p-4">
+        <Surface elevation={1} padding="md">
           <InventarioBodegasManager canDelete={allowDelete} />
-        </div>
+        </Surface>
       </section>
     </div>
   );
