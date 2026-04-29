@@ -10,6 +10,7 @@ import {
   Layers,
   Smartphone,
   Phone,
+  Settings2,
 } from "lucide-react";
 
 const INVENTARIO_ITEMS: SubNavItem[] = [
@@ -21,6 +22,7 @@ const INVENTARIO_ITEMS: SubNavItem[] = [
   { href: "/ops/inventario/stock", label: "Stock", icon: Layers },
   { href: "/ops/inventario/activos", label: "Activos", icon: Smartphone },
   { href: "/ops/inventario/lineas", label: "Líneas", icon: Phone },
+  { href: "/ops/inventario/configuracion", label: "Configuración", icon: Settings2 },
 ];
 
 export function InventarioSubnav() {

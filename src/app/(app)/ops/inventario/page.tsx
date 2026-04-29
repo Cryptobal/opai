@@ -1,9 +1,11 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { auth } from "@/lib/auth";
-import { resolvePagePerms, canView } from "@/lib/permissions-server";
+import { resolvePagePerms, canView, canEdit } from "@/lib/permissions-server";
 import { PageHeader, ModuleCard } from "@/components/opai";
 import { InventarioKpisCard } from "@/components/inventario/InventarioKpisCard";
 import { InventarioSubnav } from "@/components/ops/InventarioSubnav";
+import { Button } from "@/components/ui/button";
 import {
   Warehouse,
   ShoppingCart,
@@ -11,6 +13,7 @@ import {
   Smartphone,
   Shirt,
   UserRoundCheck,
+  Settings2,
 } from "lucide-react";
 
 export default async function InventarioPage() {
@@ -22,6 +25,8 @@ export default async function InventarioPage() {
   if (!canView(perms, "ops", "inventario")) {
     redirect("/hub");
   }
+
+  const allowEdit = canEdit(perms, "ops", "inventario");
 
   const modules: {
     href: string;
@@ -72,6 +77,16 @@ export default async function InventarioPage() {
       <PageHeader
         title="Inventario"
         description="Gestión de uniformes, activos y teléfonos por instalación."
+        actions={
+          allowEdit ? (
+            <Link href="/ops/inventario/configuracion">
+              <Button size="sm" variant="outline" className="gap-2">
+                <Settings2 className="h-4 w-4" />
+                <span className="hidden sm:inline">Configuración</span>
+              </Button>
+            </Link>
+          ) : null
+        }
       />
       <InventarioSubnav />
       <InventarioKpisCard />
