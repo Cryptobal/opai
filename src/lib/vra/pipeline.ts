@@ -240,8 +240,18 @@ export async function runVraGenerationPipeline(params: {
     const installation = await buildInstallationContext(report.installationId, tenantId);
     if (!installation) throw new Error("Instalación no encontrada");
 
-    const findings = await buildFindingsContext(report.installationId, tenantId, report.visitId);
-    const photos = await buildPhotosContext(report.installationId, tenantId, report.visitId);
+    const findings = await buildFindingsContext(
+      report.installationId,
+      tenantId,
+      report.visitId,
+      reportId,
+    );
+    const photos = await buildPhotosContext(
+      report.installationId,
+      tenantId,
+      report.visitId,
+      reportId,
+    );
 
     // 2) Cargar plantillas activas del tenant
     const templates = await prisma.vraSectionTemplate.findMany({

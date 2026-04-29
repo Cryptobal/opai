@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Sparkles,
   Upload,
@@ -12,7 +13,7 @@ import {
   Eye,
   EyeOff,
   Loader2,
-  Plus,
+  Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -61,6 +62,7 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 export function InstalacionVraReportsTab({ installationId }: { installationId: string }) {
+  const router = useRouter();
   const [items, setItems] = useState<UnifiedReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -93,15 +95,10 @@ export function InstalacionVraReportsTab({ installationId }: { installationId: s
       });
       const json = await res.json();
       if (!json.success) throw new Error(json.error);
-      toast.success("Borrador creado. Generando informe...");
-      const genRes = await fetch(`/api/vra/reports/${json.report.id}/generate`, { method: "POST" });
-      const genJson = await genRes.json();
-      if (!genJson.success) throw new Error(genJson.error);
-      toast.success("Informe generado correctamente");
-      load();
-      window.location.href = `/opai/vra/${json.report.id}`;
+      toast.success("Borrador creado. Captura los datos para que la IA pueda generar.");
+      router.push(`/opai/vra/${json.report.id}/edit`);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Error generando");
+      toast.error(err instanceof Error ? err.message : "Error creando borrador");
     } finally {
       setCreating(false);
     }
@@ -141,7 +138,7 @@ export function InstalacionVraReportsTab({ installationId }: { installationId: s
         <div className="flex flex-col sm:flex-row gap-2">
           <Button onClick={handleCreateNew} disabled={creating} className="gap-1.5">
             {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-            {creating ? "Generando..." : "Nuevo informe con IA"}
+            {creating ? "Creando..." : "Nuevo informe"}
           </Button>
           <Button variant="outline" asChild>
             <Link href={`/crm/installations/${installationId}?tab=docs-operacionales`} className="gap-1.5">
@@ -219,7 +216,15 @@ export function InstalacionVraReportsTab({ installationId }: { installationId: s
                   )}
                 </div>
                 <div className="flex items-center gap-1 flex-shrink-0">
-                  {item.kind === "vra" && (
+                  {item.kind === "vra" && item.status === "draft" && (
+                    <Button variant="default" size="sm" asChild>
+                      <Link href={`/opai/vra/${item.id}/edit`} className="gap-1.5">
+                        <Pencil className="h-3.5 w-3.5" />
+                        Continuar captura
+                      </Link>
+                    </Button>
+                  )}
+                  {item.kind === "vra" && item.status !== "draft" && (
                     <Button variant="ghost" size="sm" asChild>
                       <Link href={`/opai/vra/${item.id}`} className="gap-1.5">
                         <ExternalLink className="h-3.5 w-3.5" />

@@ -48,8 +48,18 @@ export async function POST(
     }
 
     const installation = await buildInstallationContext(report.installationId, ctx.tenantId);
-    const findings = await buildFindingsContext(report.installationId, ctx.tenantId, report.visitId);
-    const photos = await buildPhotosContext(report.installationId, ctx.tenantId, report.visitId);
+    const findings = await buildFindingsContext(
+      report.installationId,
+      ctx.tenantId,
+      report.visitId,
+      report.id,
+    );
+    const photos = await buildPhotosContext(
+      report.installationId,
+      ctx.tenantId,
+      report.visitId,
+      report.id,
+    );
 
     const previousSections: Record<string, unknown> = {};
     for (const s of report.sections) {

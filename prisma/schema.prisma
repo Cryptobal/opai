@@ -8637,6 +8637,8 @@ model VraReport {
   visit          OpsVisitaSupervision? @relation(fields: [visitId], references: [id], onDelete: SetNull)
   docOperacional DocOperacional?       @relation(fields: [docOperacionalId], references: [id], onDelete: SetNull)
   sections       VraReportSection[]
+  userFindings   VraReportFinding[]
+  userPhotos     VraReportPhoto[]
 
   @@index([tenantId], map: "idx_vra_reports_tenant")
   @@index([installationId], map: "idx_vra_reports_installation")
@@ -8679,5 +8681,75 @@ model VraReportSection {
   @@index([reportId], map: "idx_vra_report_sections_report")
   @@index([status], map: "idx_vra_report_sections_status")
   @@map("report_sections")
+  @@schema("vra")
+}
+
+/// Hallazgo capturado por el usuario en el wizard de creación del informe VRA.
+/// Independiente de OpsSupervisionFinding (que viene de visitas técnicas).
+/// El pipeline IA combina ambas fuentes al generar las secciones.
+model VraReportFinding {
+  id                    String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  reportId              String   @map("report_id") @db.Uuid
+  description           String   @db.Text
+  /// critical | high | medium | low
+  severity              String   @default("medium")
+  /// Localización física libre. Ej: "Pieza de bombas", "Reja del acceso principal",
+  /// "Techo bodega norte", "Interior caseta de vigilancia". String libre, no enum.
+  location              String?
+  /// Tag amplio opcional para agrupar (Norte, Sur, Este, Oeste, Interior, Exterior,
+  /// Tecnología, Perimetral, Acceso). String libre con sugerencias en UI.
+  sectorTag             String?  @map("sector_tag")
+  /// Categoría del sistema afectado. Ej: Perimetral, CCTV, Iluminación, Cerco,
+  /// Estructural, Operacional, Normativo, Acceso. String libre con sugerencias.
+  category              String?
+  /// Factores que agravan el hallazgo (ej: "Sin iluminación nocturna y sin cobertura CCTV").
+  aggravatingFactors    String?  @map("aggravating_factors") @db.Text
+  /// Importado desde un finding de visita técnica (OpsSupervisionFinding). Solo trazabilidad.
+  importedFromFindingId String?  @map("imported_from_finding_id") @db.Uuid
+  sortOrder             Int      @default(0) @map("sort_order")
+  createdBy             String?  @map("created_by")
+  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  report VraReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId], map: "idx_vra_report_findings_report")
+  @@index([reportId, sortOrder], map: "idx_vra_report_findings_order")
+  @@index([severity], map: "idx_vra_report_findings_severity")
+  @@map("report_findings")
+  @@schema("vra")
+}
+
+/// Foto subida por el usuario directamente al informe VRA o importada
+/// desde una visita técnica. El pipeline IA la incluye en el contexto
+/// de generación y en la galería del PDF/viewer.
+model VraReportPhoto {
+  id                  String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  reportId            String    @map("report_id") @db.Uuid
+  storageKey          String    @map("storage_key")
+  publicUrl           String    @map("public_url")
+  fileName            String?   @map("file_name")
+  mimeType            String?   @map("mime_type")
+  fileSize            Int?      @map("file_size")
+  caption             String?   @db.Text
+  /// IDs de VraReportFinding a los que esta foto sirve como evidencia.
+  /// Array para soportar fotos que evidencian múltiples hallazgos.
+  linkedFindingIds    String[]  @default([]) @map("linked_finding_ids")
+  gpsLat              Decimal?  @map("gps_lat") @db.Decimal(10, 7)
+  gpsLng              Decimal?  @map("gps_lng") @db.Decimal(10, 7)
+  takenAt             DateTime? @map("taken_at") @db.Timestamptz(6)
+  /// Si la foto fue importada de una visita técnica, IDs de origen para trazabilidad.
+  importedFromVisitId String?   @map("imported_from_visit_id") @db.Uuid
+  importedFromPhotoId String?   @map("imported_from_photo_id") @db.Uuid
+  sortOrder           Int       @default(0) @map("sort_order")
+  createdBy           String?   @map("created_by")
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  report VraReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId], map: "idx_vra_report_photos_report")
+  @@index([reportId, sortOrder], map: "idx_vra_report_photos_order")
+  @@map("report_photos")
   @@schema("vra")
 }
