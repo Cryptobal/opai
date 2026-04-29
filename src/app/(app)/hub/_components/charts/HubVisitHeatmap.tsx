@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Info } from 'lucide-react';
+import { FORMULA_TOOLTIPS } from '../../_lib/hub-formula-tooltips';
 
 interface HeatmapResponse {
   installations: { id: string; name: string }[];
@@ -27,6 +28,7 @@ export function HubVisitHeatmap() {
   const [data, setData] = useState<HeatmapResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showFormula, setShowFormula] = useState(false);
   const month = useMemo(() => getCurrentMonthString(), []);
 
   useEffect(() => {
@@ -48,9 +50,7 @@ export function HubVisitHeatmap() {
         setError(err instanceof Error ? err.message : 'Error cargando heatmap');
         setLoading(false);
       });
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [month]);
 
   if (loading) {
@@ -87,48 +87,68 @@ export function HubVisitHeatmap() {
   });
 
   return (
-    <div className="rounded-lg border border-border bg-card p-3">
-      <div className="flex items-center justify-between mb-2">
-        <p className="text-xs font-semibold capitalize">
-          Heatmap de visitas — {monthLabel}
-        </p>
+    <div className="rounded-lg border border-border bg-card p-3 md:p-4">
+      <div className="flex items-center justify-between mb-2 md:mb-3">
+        <div className="flex items-center gap-1.5">
+          <p className="text-xs md:text-sm font-semibold capitalize">
+            Visitas de supervisión — {monthLabel}
+          </p>
+          <button
+            type="button"
+            onClick={() => setShowFormula((s) => !s)}
+            className="text-muted-foreground hover:text-primary"
+            aria-label="Cómo se calcula"
+          >
+            <Info className="h-3 w-3 md:h-3.5 md:w-3.5" />
+          </button>
+        </div>
         <Link
           href="/ops/supervision/dashboard"
-          className="flex items-center gap-0.5 text-[10px] font-medium text-primary hover:underline"
+          className="flex items-center gap-0.5 text-[10px] md:text-xs font-medium text-primary hover:underline"
         >
-          Ver dashboard completo
+          Ver dashboard
           <ChevronRight className="h-3 w-3" />
         </Link>
       </div>
+
+      {showFormula && (
+        <div className="mb-3 rounded-md border border-primary/30 bg-primary/5 p-2 text-[10px] md:text-xs text-muted-foreground">
+          <span className="font-semibold text-primary">¿Cómo se calcula?</span>
+          <p className="mt-1 whitespace-pre-line">{FORMULA_TOOLTIPS.visitasHeatmap}</p>
+        </div>
+      )}
 
       <div className="overflow-x-auto -mx-1 px-1">
         <div className="inline-block min-w-full">
           {/* Day numbers header */}
           <div
-            className="grid gap-px ml-[120px] mb-1"
+            className="grid gap-px mb-1 ml-[110px] md:ml-[200px]"
             style={{
-              gridTemplateColumns: `repeat(${data.days.length}, 14px)`,
+              gridTemplateColumns: `repeat(${data.days.length}, var(--cell-w))`,
             }}
           >
             {data.days.map((d) => (
               <div
                 key={`day-${d}`}
-                className="text-[8px] text-center text-muted-foreground tabular-nums"
+                className="text-[8px] md:text-[11px] text-center text-muted-foreground tabular-nums"
               >
                 {d}
               </div>
             ))}
           </div>
-          {/* Rows */}
           {data.installations.map((inst, rowIdx) => (
-            <div key={inst.id} className="flex items-center gap-px mb-px">
-              <div className="w-[120px] pr-2 text-[10px] text-muted-foreground truncate">
+            <Link
+              key={inst.id}
+              href={`/ops/supervision/dashboard?installation=${inst.id}`}
+              className="flex items-center gap-px mb-px hover:bg-accent/30 rounded-sm transition-colors"
+            >
+              <div className="w-[110px] md:w-[200px] pr-2 text-[10px] md:text-xs text-muted-foreground truncate">
                 {inst.name}
               </div>
               <div
                 className="grid gap-px"
                 style={{
-                  gridTemplateColumns: `repeat(${data.days.length}, 14px)`,
+                  gridTemplateColumns: `repeat(${data.days.length}, var(--cell-w))`,
                 }}
               >
                 {data.days.map((day, colIdx) => {
@@ -136,30 +156,34 @@ export function HubVisitHeatmap() {
                   return (
                     <div
                       key={`cell-${inst.id}-${day}`}
-                      className="h-3.5 w-3.5 rounded-sm"
+                      className="rounded-sm h-3.5 w-3.5 md:h-7 md:w-7"
                       style={{ backgroundColor: getCellColor(value) }}
                       title={`${inst.name} — día ${day}: ${value} visita(s)`}
                     />
                   );
                 })}
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       </div>
 
-      {/* Legend */}
       <div className="flex items-center justify-end gap-1.5 mt-3">
-        <span className="text-[9px] text-muted-foreground">Menos</span>
+        <span className="text-[9px] md:text-[10px] text-muted-foreground">Menos</span>
         {[0, 1, 2, 3, 4].map((v) => (
           <div
             key={`legend-${v}`}
-            className="h-2.5 w-2.5 rounded-sm"
+            className="h-2.5 w-2.5 md:h-3.5 md:w-3.5 rounded-sm"
             style={{ backgroundColor: getCellColor(v) }}
           />
         ))}
-        <span className="text-[9px] text-muted-foreground">Más</span>
+        <span className="text-[9px] md:text-[10px] text-muted-foreground">Más</span>
       </div>
+
+      <style jsx>{`
+        :root { --cell-w: 14px; }
+        @media (min-width: 768px) { :root { --cell-w: 28px; } }
+      `}</style>
     </div>
   );
 }

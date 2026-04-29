@@ -13,6 +13,7 @@ import { HubCollapsibleSection } from './HubCollapsibleSection';
 import { HubMiniDonut } from './charts/HubMiniDonut';
 import { HubSegmentedBar } from './charts/HubSegmentedBar';
 import { HubSparkline } from './charts/HubSparkline';
+import { HubRondasHeatmap } from './charts/HubRondasHeatmap';
 import type { OpsMetrics } from '../_lib/hub-types';
 
 interface HubOperationsSectionProps {
@@ -184,6 +185,11 @@ export function HubOperationsSection({ opsMetrics }: HubOperationsSectionProps) 
           </div>
           <HubSegmentedBar segments={roundsSegments} />
         </div>
+      </div>
+
+      {/* Heatmap de rondas — últimos 30 días */}
+      <div className="mt-4">
+        <HubRondasHeatmap />
       </div>
     </HubCollapsibleSection>
   );

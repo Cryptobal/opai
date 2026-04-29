@@ -8,6 +8,7 @@
 
 import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
 import {
   resolvePagePerms,
   canView,
@@ -103,6 +104,11 @@ export default async function HubPage() {
 
   const firstName = session.user.name?.split(' ')[0] || 'Usuario';
 
+  // Nuevo: contar instalaciones activas (KPI ejecutivo)
+  const installationsActivas = await prisma.crmInstallation.count({
+    where: { tenantId, status: 'active' },
+  });
+
   return (
     <HubClientWrapper
       firstName={firstName}
@@ -119,6 +125,7 @@ export default async function HubPage() {
       atsMetrics={atsMetrics}
       payrollMetrics={payrollMetrics}
       personasMetrics={personasMetrics}
+      installationsActivas={installationsActivas}
     />
   );
 }

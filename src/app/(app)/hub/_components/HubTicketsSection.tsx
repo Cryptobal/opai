@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { HubKpiLinkCard } from './HubKpiLinkCard';
 import { HubCollapsibleSection } from './HubCollapsibleSection';
+import { HubTicketsMatrix } from './charts/HubTicketsMatrix';
 import type { HubTicketsSectionProps } from '../_lib/hub-types';
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -147,6 +148,11 @@ export function HubTicketsSection({ ticketMetrics }: HubTicketsSectionProps) {
           </Link>
         </div>
       )}
+
+      {/* Matriz de tickets por instalación */}
+      <div className="mt-4">
+        <HubTicketsMatrix />
+      </div>
     </HubCollapsibleSection>
   );
 }

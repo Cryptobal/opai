@@ -29,7 +29,7 @@ function getStoredLastSeen(): number {
 export function HubCrmSection({ closingData, sellerFirstName, upcomingProjects = [] }: HubClosingSectionProps) {
   const [activeTab, setActiveTab] = useState('hot');
   const [leadsLastSeenCount, setLeadsLastSeenCount] = useState(0);
-  const { kpis, hotDeals, staleDeals, pendingLeads, funnel, portalTopUsers } = closingData;
+  const { kpis, hotDeals, staleDeals, closedDeals, pendingLeads, funnel, portalTopUsers } = closingData;
 
   useEffect(() => {
     setLeadsLastSeenCount(getStoredLastSeen());
@@ -53,6 +53,9 @@ export function HubCrmSection({ closingData, sellerFirstName, upcomingProjects =
 
   const tabs = [
     { id: 'hot', label: '🔥 Calientes', badge: hotDeals.length },
+    ...(closedDeals.length > 0
+      ? [{ id: 'closed', label: '✅ Cierres 30d', badge: closedDeals.length }]
+      : []),
     ...(upcomingProjects.length > 0
       ? [{ id: 'upcoming', label: '📅 Por iniciar', badge: upcomingProjects.length }]
       : []),
@@ -133,6 +136,40 @@ export function HubCrmSection({ closingData, sellerFirstName, upcomingProjects =
               </>
             )}
           </>
+        )}
+
+        {activeTab === 'closed' && (
+          <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 overflow-hidden">
+            <div className="bg-emerald-500/10 px-3 py-2 text-xs font-bold text-emerald-400 uppercase tracking-wider">
+              Adjudicados últimos 30 días
+            </div>
+            {closedDeals.length === 0 ? (
+              <div className="p-4 text-center text-sm text-muted-foreground">
+                No hay cierres recientes.
+              </div>
+            ) : (
+              <div className="divide-y divide-border">
+                {closedDeals.map((deal) => (
+                  <a
+                    key={deal.id}
+                    href={`/crm/deals/${deal.id}`}
+                    className="flex items-center justify-between gap-3 px-3 py-2.5 hover:bg-accent/30 transition-colors"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-medium truncate">{deal.companyName}</div>
+                      <div className="text-[11px] text-muted-foreground truncate">
+                        {deal.contactName} · {deal.totalPuestos} puestos
+                        {deal.closedAt && ` · cerrado ${new Date(deal.closedAt).toLocaleDateString('es-CL')}`}
+                      </div>
+                    </div>
+                    <div className="text-sm font-bold text-emerald-400 tabular-nums whitespace-nowrap">
+                      {formatCLP(Math.round(deal.amount))}
+                    </div>
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
         )}
 
         {activeTab === 'upcoming' && <HubUpcomingProjects projects={upcomingProjects} />}

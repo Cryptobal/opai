@@ -2,6 +2,8 @@ import { Users, FileWarning, AlarmClock } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { HubCollapsibleSection } from './HubCollapsibleSection';
 import { HubKpiLinkCard } from './HubKpiLinkCard';
+import { HubConocimientoMatrix } from './charts/HubConocimientoMatrix';
+import { HubPersonasExtras } from './HubPersonasExtras';
 import type { PersonasMetrics } from '../_lib/hub-types';
 
 interface HubPersonasSectionProps {
@@ -43,6 +45,14 @@ export function HubPersonasSection({ metrics }: HubPersonasSectionProps) {
           variant={metrics.contratosPorVencer > 0 ? 'amber' : 'default'}
           description="30 días"
         />
+      </div>
+
+      {/* Postulantes semana + Cumpleaños */}
+      <HubPersonasExtras />
+
+      {/* Heatmap de conocimiento por instalación */}
+      <div className="mt-4">
+        <HubConocimientoMatrix />
       </div>
     </HubCollapsibleSection>
   );

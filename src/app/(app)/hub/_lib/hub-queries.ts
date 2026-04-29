@@ -430,8 +430,11 @@ export async function getClosingHubData(
   }
 
   // Build hot deals: open deals with portal engagement or proposal sent
+  // EXCLUYE etapas cerradas (Adjudicado / Perdido) — el deal sigue como 'open'
+  // hasta que se cierra explícitamente, pero su stage ya puede ser closedWon/closedLost.
   const hotDealCandidates: ClosingHotDeal[] = [];
   for (const deal of openDeals) {
+    if (deal.stage.isClosedWon || deal.stage.isClosedLost) continue;
     const eng = getDealEngagement(deal);
     const hasPortalEngagement = eng.totalViews > 0 || eng.totalDownloads > 0 || eng.totalLogins > 0;
     if (!hasPortalEngagement && !deal.proposalSentAt) continue;
@@ -468,6 +471,56 @@ export async function getClosingHubData(
     (b.lastViewedAt?.getTime() ?? 0) - (a.lastViewedAt?.getTime() ?? 0)
   ));
   const hotDeals = hotDealCandidates.slice(0, 10);
+
+  // ── Cierres recientes 30 días ──
+  // Toma los wonDealRows (deals que pasaron a una etapa closedWon en últimos 30d)
+  // y construye una lista enriquecida con info de la cuenta y monto.
+  const wonDealIds = wonDealRows.map((r) => r.dealId);
+  const recentWonDeals = wonDealIds.length > 0
+    ? await prisma.crmDeal.findMany({
+        where: { id: { in: wonDealIds }, tenantId },
+        select: {
+          id: true,
+          title: true,
+          amount: true,
+          totalPuestos: true,
+          activeQuotationId: true,
+          account: { select: { id: true, name: true } },
+          stage: { select: { name: true, color: true } },
+          primaryContact: {
+            select: { firstName: true, lastName: true, phone: true, email: true },
+          },
+          stageHistory: {
+            where: { toStage: { is: { isClosedWon: true } }, changedAt: { gte: thirtyDaysAgo } },
+            orderBy: { changedAt: 'desc' },
+            take: 1,
+            select: { changedAt: true },
+          },
+          quotes: { select: { quoteId: true } },
+        },
+      })
+    : [];
+
+  const closedDeals: import('./hub-types').ClosingClosedDeal[] = recentWonDeals
+    .map((deal) => {
+      const summary = resolveDealActiveQuotationSummary(deal, quoteById, ufValue);
+      const contactName = [deal.primaryContact?.lastName, deal.primaryContact?.firstName]
+        .filter(Boolean).join(' ') || 'Sin contacto';
+      return {
+        id: deal.id,
+        companyName: deal.account?.name ?? 'Sin empresa',
+        dealTitle: deal.title,
+        contactName,
+        contactPhone: deal.primaryContact?.phone ?? null,
+        contactEmail: deal.primaryContact?.email ?? null,
+        stageName: deal.stage.name,
+        stageColor: deal.stage.color,
+        amount: summary ? summary.amountClp : Number(deal.amount),
+        totalPuestos: deal.totalPuestos,
+        closedAt: deal.stageHistory[0]?.changedAt ?? null,
+      };
+    })
+    .sort((a, b) => (b.closedAt?.getTime() ?? 0) - (a.closedAt?.getTime() ?? 0));
 
   // Build stale deals: no portal activity (login/view/download) in 7+ days
   const staleDealCandidates: ClosingStaleDeal[] = [];
@@ -680,6 +733,7 @@ export async function getClosingHubData(
     },
     hotDeals,
     staleDeals,
+    closedDeals,
     pendingLeads,
     portalTopUsers,
     funnel: {
