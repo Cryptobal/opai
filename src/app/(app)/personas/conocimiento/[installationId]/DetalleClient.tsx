@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Edit3,
   FileDown,
+  Send,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -44,12 +45,42 @@ function daysAgo(iso: string | null): string {
   return `${days}d`;
 }
 
+type DispatchUpcoming = {
+  examId: string;
+  examTitle: string;
+  guardId: string;
+  guardName: string;
+  nextDispatchAt: string;
+  daysUntil: number;
+};
+
+type DispatchRun = {
+  id: string;
+  startedAt: string;
+  finishedAt: string | null;
+  examsProcessed: number;
+  assignmentsCreated: number;
+  emailsSent: number;
+  emailsFailed: number;
+  emailsSkipped: number;
+  triggerSource: string;
+};
+
+type DispatchHistory = {
+  upcoming: DispatchUpcoming[];
+  runs: DispatchRun[];
+};
+
 export function DetalleClient({ installationId }: { installationId: string }) {
   const router = useRouter();
   const [data, setData] = useState<InstallationDetailResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [heatmapOpen, setHeatmapOpen] = useState(true);
+  const [dispatchOpen, setDispatchOpen] = useState(false);
+  const [dispatchHistory, setDispatchHistory] = useState<DispatchHistory | null>(null);
+  const [dispatchLoading, setDispatchLoading] = useState(false);
+  const [dispatchError, setDispatchError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -78,6 +109,36 @@ export function DetalleClient({ installationId }: { installationId: string }) {
       cancelled = true;
     };
   }, [installationId]);
+
+  // Lazy-load dispatch history when the section is first opened.
+  useEffect(() => {
+    if (!dispatchOpen || dispatchHistory || dispatchLoading) return;
+    let cancelled = false;
+    setDispatchLoading(true);
+    setDispatchError(null);
+    fetch(
+      `/api/personas/conocimiento/installations/${installationId}/dispatch-history`,
+      { cache: "no-store" },
+    )
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((json: { success?: boolean; data?: DispatchHistory; error?: string }) => {
+        if (cancelled) return;
+        if (json?.success && json.data) {
+          setDispatchHistory(json.data);
+        } else {
+          setDispatchError(json?.error ?? "No se pudo cargar el historial");
+        }
+      })
+      .catch((e: Error) => {
+        if (!cancelled) setDispatchError(e.message);
+      })
+      .finally(() => {
+        if (!cancelled) setDispatchLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [dispatchOpen, dispatchHistory, dispatchLoading, installationId]);
 
   // Telemetry — fire when detail loads.
   useEffect(() => {
@@ -255,6 +316,32 @@ export function DetalleClient({ installationId }: { installationId: string }) {
           )}
         </div>
 
+        {/* Envíos automáticos */}
+        <div className="mb-5 card-mock-tight overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setDispatchOpen((v) => !v)}
+            className="w-full flex items-center justify-between px-3 py-2.5 text-left tap-mock"
+          >
+            <span className="font-display text-[13px] font-semibold flex items-center gap-1.5">
+              <Send className="h-3.5 w-3.5 text-white/60" />
+              Envíos automáticos
+            </span>
+            {dispatchOpen ? (
+              <ChevronDown className="h-4 w-4 text-white/40" />
+            ) : (
+              <ChevronRight className="h-4 w-4 text-white/40" />
+            )}
+          </button>
+          {dispatchOpen && (
+            <DispatchPanel
+              loading={dispatchLoading}
+              error={dispatchError}
+              history={dispatchHistory}
+            />
+          )}
+        </div>
+
         {/* Guardias */}
         <GuardsList guards={data.guards} title="Guardias evaluados" />
 
@@ -357,6 +444,133 @@ function QuickAction({
       </div>
       <div className="font-display text-[13px] font-semibold mt-1">{hint}</div>
     </button>
+  );
+}
+
+function DispatchPanel({
+  loading,
+  error,
+  history,
+}: {
+  loading: boolean;
+  error: string | null;
+  history: DispatchHistory | null;
+}) {
+  if (loading) {
+    return (
+      <div className="px-3 py-4 text-[12px] text-white/50">Cargando historial...</div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="px-3 py-4 text-[12px] text-red-300/80">{error}</div>
+    );
+  }
+  if (!history) return null;
+
+  return (
+    <div className="px-3 py-3 space-y-4 border-t border-white/5">
+      {/* Próximos envíos */}
+      <div>
+        <div className="text-[10px] uppercase tracking-wider text-white/40 font-mono mb-2">
+          Próximos envíos
+        </div>
+        {history.upcoming.length === 0 ? (
+          <div className="text-[12px] text-white/40 py-2">
+            Sin envíos recurrentes programados.
+          </div>
+        ) : (
+          <ul className="space-y-1.5 max-h-[260px] overflow-y-auto pr-1">
+            {history.upcoming.map((u) => (
+              <li
+                key={`${u.examId}-${u.guardId}`}
+                className="flex items-center justify-between gap-2 text-[12px]"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-white/85">{u.guardName || "—"}</div>
+                  <div className="truncate text-white/40 text-[11px]">
+                    {u.examTitle}
+                  </div>
+                </div>
+                <DaysUntilBadge days={u.daysUntil} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {/* Historial de corridas */}
+      <div>
+        <div className="text-[10px] uppercase tracking-wider text-white/40 font-mono mb-2">
+          Historial de corridas
+        </div>
+        {history.runs.length === 0 ? (
+          <div className="text-[12px] text-white/40 py-2">Sin corridas registradas.</div>
+        ) : (
+          <ul className="space-y-1.5 max-h-[260px] overflow-y-auto pr-1">
+            {history.runs.map((r) => {
+              const date = new Date(r.startedAt);
+              return (
+                <li
+                  key={r.id}
+                  className="flex items-center justify-between gap-2 text-[11px]"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="text-white/75">
+                      {date.toLocaleString("es-CL", {
+                        dateStyle: "short",
+                        timeStyle: "short",
+                      })}
+                    </div>
+                    <div className="text-white/40">
+                      {r.examsProcessed} ex · {r.assignmentsCreated} asign
+                      {r.triggerSource !== "cron" ? ` · ${r.triggerSource}` : ""}
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0 space-y-0.5">
+                    <div className="text-emerald-300/80">
+                      ✓ {r.emailsSent}
+                    </div>
+                    {r.emailsFailed > 0 && (
+                      <div className="text-red-300/80">✗ {r.emailsFailed}</div>
+                    )}
+                    {r.emailsSkipped > 0 && (
+                      <div className="text-white/40">— {r.emailsSkipped}</div>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function DaysUntilBadge({ days }: { days: number }) {
+  // ≤ 0: vencido (rojo); 1–7: próximo (ámbar); >7: ok (neutro).
+  const color =
+    days <= 0
+      ? "bg-red-500/15 text-red-300 border-red-500/20"
+      : days <= 7
+        ? "bg-amber-500/15 text-amber-300 border-amber-500/20"
+        : "bg-white/[0.04] text-white/60 border-white/10";
+  const text =
+    days < 0
+      ? `vencido ${Math.abs(days)}d`
+      : days === 0
+        ? "hoy"
+        : `en ${days}d`;
+  return (
+    <span
+      className={cn(
+        "shrink-0 text-[10px] font-mono px-1.5 py-0.5 rounded border",
+        color,
+      )}
+    >
+      {text}
+    </span>
   );
 }
 
