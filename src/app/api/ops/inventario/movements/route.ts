@@ -92,7 +92,24 @@ export async function GET(request: NextRequest) {
       take: 100,
     });
 
-    return NextResponse.json(movements);
+    // Resolver nombre del autor (createdBy → Admin) en una sola query.
+    const creatorIds = Array.from(
+      new Set(movements.map((m) => m.createdBy).filter((v): v is string => !!v)),
+    );
+    const creators = creatorIds.length
+      ? await prisma.admin.findMany({
+          where: { id: { in: creatorIds } },
+          select: { id: true, name: true, email: true },
+        })
+      : [];
+    const creatorMap = new Map(creators.map((c) => [c.id, c]));
+
+    const enriched = movements.map((m) => ({
+      ...m,
+      createdByUser: m.createdBy ? creatorMap.get(m.createdBy) ?? null : null,
+    }));
+
+    return NextResponse.json(enriched);
   } catch (e) {
     console.error("[inventario/movements GET]", e);
     return NextResponse.json(

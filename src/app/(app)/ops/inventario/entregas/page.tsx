@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { resolvePagePerms, canView } from "@/lib/permissions-server";
+import { resolvePagePerms, canView, canEdit } from "@/lib/permissions-server";
 import { PageHeader } from "@/components/opai";
 import { InventarioEntregasClient } from "@/components/inventario/InventarioEntregasClient";
 import { InventarioSubnav } from "@/components/ops/InventarioSubnav";
@@ -15,6 +15,8 @@ export default async function InventarioEntregasPage() {
     redirect("/hub");
   }
 
+  const allowEdit = canEdit(perms, "ops", "inventario");
+
   return (
     <div className="space-y-6 min-w-0">
       <PageHeader
@@ -22,7 +24,7 @@ export default async function InventarioEntregasPage() {
         description="Registrar entrega de uniformes a un guardia. Descuenta stock de la bodega."
       />
       <InventarioSubnav />
-      <InventarioEntregasClient />
+      <InventarioEntregasClient currentUserId={session.user.id} canEdit={allowEdit} />
     </div>
   );
 }
