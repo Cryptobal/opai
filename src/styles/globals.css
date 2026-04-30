@@ -1137,11 +1137,15 @@ html {
   }
 }
 
-/* ── OPAI · Conocimiento — design utilities ──────────────────── */
-/* Used by the Personas → Conocimiento module and the                  */
-/* Portal Cliente "Conocimiento del equipo" sub-tab.                   */
-/* See: src/components/opai/conocimiento/_primitives.tsx               */
+/* ── Shared utilities (post-Conocimiento cleanup) ─────────────── */
+/* The dark-only Conocimiento mockup classes (card-mock, pill-mock, */
+/* bar-mock, tap-mock, hm-cell, blob-mock, badge-dot, num-tabular) */
+/* were removed in the 3B cleanup. Replacements live in opai-ds.   */
+/* These remaining classes have unrelated consumers and stay.      */
 @layer utilities {
+  /* grain-overlay: still consumed by legacy OpaiPageHero
+     (src/components/opai/PageHero.tsx). Removed when the legacy
+     OpaiPageHero is deleted in the final cleanup session. */
   .grain-overlay::before {
     content: "";
     position: absolute;
@@ -1151,66 +1155,10 @@ html {
     background-image: theme('backgroundImage.grain-svg');
   }
 
-  .num-tabular { font-variant-numeric: tabular-nums; }
-
+  /* scrollbar-none: generic scrollbar utility used by Bitácora,
+     GuardiaDetalle, MonitoreoSidePanel — not Conocimiento-specific. */
   .scrollbar-none::-webkit-scrollbar { display: none; }
   .scrollbar-none { scrollbar-width: none; }
-
-  /* Card base del mockup */
-  .card-mock {
-    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
-    border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 16px;
-  }
-  .card-mock-tight {
-    background: rgba(255,255,255,0.02);
-    border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 12px;
-  }
-
-  /* Bar de progreso */
-  .bar-mock {
-    height: 6px;
-    border-radius: 999px;
-    background: rgba(255,255,255,0.06);
-    position: relative;
-    overflow: hidden;
-  }
-  .bar-mock > i {
-    display: block;
-    height: 100%;
-    border-radius: 999px;
-  }
-
-  /* Pill */
-  .pill-mock {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 9px;
-    border-radius: 999px;
-    font-size: 11px;
-    font-weight: 500;
-    border: 1px solid;
-  }
-
-  /* Heatmap cell */
-  .hm-cell { aspect-ratio: 1/1; border-radius: 6px; }
-
-  /* Tap feedback */
-  .tap-mock { transition: transform 200ms; }
-  .tap-mock:active { transform: scale(0.98); }
-
-  /* Blob de fondo decorativo */
-  .blob-mock { filter: blur(60px); opacity: 0.35; pointer-events: none; }
-
-  /* Badge dot */
-  .badge-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 999px;
-    display: inline-block;
-  }
 }
 
 /* ── OPAI DS v3 — utilities ───────────────────────────────────── */

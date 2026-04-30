@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
+  Building2,
   ChevronDown,
   ChevronRight,
   Edit3,
@@ -12,14 +13,16 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  Blob,
-  CompactKpi,
-  Pill,
-  StatusDot,
+  Surface,
+  Stat,
+  StatGrid,
+  Tag,
+  Spinner,
+  Skeleton,
   thresholdFromScore,
-  thresholdText,
   type Threshold,
-} from "@/components/opai/conocimiento/_primitives";
+} from "@/components/opai-ds";
+import { Button } from "@/components/ui/button";
 import { SectionComplianceList } from "@/components/opai/conocimiento/SectionComplianceList";
 import { HeatmapMatrix } from "@/components/opai/conocimiento/HeatmapMatrix";
 import { GuardsList } from "@/components/opai/conocimiento/GuardsList";
@@ -31,19 +34,26 @@ function thresholdFromCompliance(score: number | null): Threshold {
   return thresholdFromScore(score);
 }
 
-function blobColor(t: Threshold): "brand" | "danger" | "ok" | "warn" {
-  if (t === "danger") return "danger";
-  if (t === "warn") return "warn";
-  if (t === "ok") return "ok";
-  return "brand";
-}
-
 function daysAgo(iso: string | null): string {
   if (!iso) return "—";
   const ms = Date.now() - new Date(iso).getTime();
   const days = Math.max(0, Math.round(ms / (1000 * 60 * 60 * 24)));
   return `${days}d`;
 }
+
+const ICON_TILE_BG: Record<Threshold, string> = {
+  ok:      "bg-status-ok-soft border-status-ok-border",
+  warn:    "bg-status-warn-soft border-status-warn-border",
+  danger:  "bg-status-danger-soft border-status-danger-border",
+  neutral: "bg-ds-surface-2 border-ds-border-default",
+};
+
+const STAT_VARIANT_FROM_THRESHOLD = {
+  ok: "ok",
+  warn: "warn",
+  danger: "danger",
+  neutral: "default",
+} as const;
 
 type DispatchUpcoming = {
   examId: string;
@@ -148,7 +158,6 @@ export function DetalleClient({ installationId }: { installationId: string }) {
       dataLayer?: Array<Record<string, unknown>>;
     };
     w.dataLayer = w.dataLayer ?? [];
-    // We hash on client only for telemetry purposes.
     void hashId(installationId).then((h) =>
       w.dataLayer!.push({
         event: "knowledge_installation_viewed",
@@ -159,11 +168,11 @@ export function DetalleClient({ installationId }: { installationId: string }) {
 
   if (loading) {
     return (
-      <section className="relative grain-overlay max-w-md mx-auto md:max-w-3xl px-4 pt-5 pb-32">
+      <section className="relative max-w-md mx-auto md:max-w-3xl px-4 pt-5 pb-32">
         <div className="space-y-3">
-          <div className="card-mock h-24 animate-pulse" />
-          <div className="card-mock h-32 animate-pulse" />
-          <div className="card-mock h-64 animate-pulse" />
+          <Skeleton shape="rect" className="h-24" />
+          <Skeleton shape="rect" className="h-32" />
+          <Skeleton shape="rect" className="h-64" />
         </div>
       </section>
     );
@@ -171,18 +180,25 @@ export function DetalleClient({ installationId }: { installationId: string }) {
 
   if (error || !data) {
     return (
-      <section className="relative grain-overlay max-w-md mx-auto md:max-w-3xl px-4 pt-5 pb-32">
-        <button
-          type="button"
+      <section className="relative max-w-md mx-auto md:max-w-3xl px-4 pt-5 pb-32">
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={() => router.push("/personas/conocimiento")}
-          className="flex items-center gap-1 text-[12px] text-white/60 hover:text-white tap-mock mb-4"
+          className="mb-4 gap-1.5"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
           Volver
-        </button>
-        <div className="card-mock p-6 text-center text-[12px] text-red-300/80">
-          {error ?? "No se pudo cargar el detalle."}
-        </div>
+        </Button>
+        <Surface
+          elevation={1}
+          padding="md"
+          className="border-status-danger-border bg-status-danger-soft text-center"
+        >
+          <p className="text-[13px] text-status-danger-fg">
+            {error ?? "No se pudo cargar el detalle."}
+          </p>
+        </Surface>
       </section>
     );
   }
@@ -195,194 +211,179 @@ export function DetalleClient({ installationId }: { installationId: string }) {
     .join(" · ");
 
   return (
-    <section className="relative grain-overlay max-w-md mx-auto md:max-w-3xl px-4 pt-5 pb-32">
-      <Blob color={blobColor(t)} className="-top-10 right-0 w-72 h-72" />
+    <section className="relative max-w-md mx-auto md:max-w-3xl px-4 pt-5 pb-32 ds-page-enter">
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => router.push("/personas/conocimiento")}
+        className="mb-4 gap-1.5 -ml-2"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" />
+        Conocimiento
+      </Button>
 
-      <div className="relative">
-        <button
-          type="button"
-          onClick={() => router.push("/personas/conocimiento")}
-          className="flex items-center gap-1 text-[12px] text-white/60 hover:text-white tap-mock mb-4"
+      {/* Header */}
+      <div className="flex items-start gap-3 mb-5">
+        <div
+          className={cn(
+            "h-12 w-12 rounded-ds-lg grid place-items-center shrink-0 text-xl border",
+            ICON_TILE_BG[t],
+          )}
         >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          Conocimiento
-        </button>
-
-        {/* Header */}
-        <div className="flex items-start gap-3 mb-4">
-          <div
-            className={cn(
-              "w-12 h-12 rounded-xl grid place-items-center shrink-0 text-xl",
-              t === "danger"
-                ? "bg-red-500/10 border border-red-500/20"
-                : t === "warn"
-                  ? "bg-amber-500/10 border border-amber-500/20"
-                  : t === "ok"
-                    ? "bg-emerald-500/10 border border-emerald-500/20"
-                    : "bg-white/[0.03] border border-white/10",
+          {data.installation.icon || <Building2 className="h-5 w-5 text-ds-text-3" />}
+        </div>
+        <div className="flex-1 min-w-0">
+          <h1 className="font-display text-xl sm:text-2xl font-bold leading-tight tracking-tight text-ds-text-1 truncate">
+            {data.installation.name}
+          </h1>
+          <p className="text-[13px] text-ds-text-3 truncate">
+            {accountLine || "—"}
+          </p>
+          <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+            {data.protocol.hasProtocol ? (
+              <Tag variant="neutral" size="sm" dot>
+                Protocolo v{data.protocol.version ?? 1}
+              </Tag>
+            ) : (
+              <Tag variant="warn" size="sm">Sin protocolo</Tag>
             )}
-          >
-            {data.installation.icon}
-          </div>
-          <div className="flex-1 min-w-0">
-            <h1 className="font-display text-xl font-bold leading-tight tracking-tight truncate">
-              {data.installation.name}
-            </h1>
-            <p className="text-[12px] text-white/50 truncate">
-              {accountLine || "—"}
-            </p>
-            <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-              {data.protocol.hasProtocol ? (
-                <Pill variant="neutral">
-                  <StatusDot threshold="ok" />
-                  Protocolo v{data.protocol.version ?? 1}
-                </Pill>
-              ) : (
-                <Pill variant="warn">Sin protocolo</Pill>
-              )}
-              <Pill variant="neutral">
-                {data.kpis.evaluatedGuards}/{data.kpis.activeGuards} evaluados
-              </Pill>
-            </div>
+            <Tag variant="neutral" size="sm">
+              {data.kpis.evaluatedGuards}/{data.kpis.activeGuards} evaluados
+            </Tag>
           </div>
         </div>
+      </div>
 
-        {/* KPIs */}
-        <div className="grid grid-cols-3 gap-2 mb-5">
-          <CompactKpi
+      {/* KPIs */}
+      <div className="mb-5">
+        <StatGrid cols={2} lgCols={3}>
+          <Stat
             label="Cumpl."
             value={compliance !== null ? `${compliance}%` : "—"}
-            threshold={t}
+            variant={STAT_VARIANT_FROM_THRESHOLD[t]}
           />
-          <CompactKpi
+          <Stat
             label="Guardias"
-            value={
-              <>
-                {data.kpis.activeGuards}{" "}
-                <span className="text-xs text-white/40">act.</span>
-              </>
-            }
+            value={data.kpis.activeGuards}
+            hint="activos"
           />
-          <CompactKpi
+          <Stat
             label="Última eval."
             value={daysAgo(data.kpis.lastExamAt)}
           />
-        </div>
+        </StatGrid>
+      </div>
 
-        {/* Acción recomendada */}
-        {data.alert && data.alert.kind !== "none" && (
-          <ActionCard
-            kind={data.alert.kind}
-            message={data.alert.message ?? ""}
-            primaryLabel={
-              data.alert.kind === "no_protocol"
-                ? "Crear protocolo"
-                : "Reagendar evaluación"
-            }
-            primaryHref={
-              data.alert.kind === "no_protocol"
-                ? `/crm/installations/${installationId}?tab=protocol&subtab=sections`
-                : `/crm/installations/${installationId}?tab=protocol&subtab=exams`
-            }
-            secondaryLabel="Descargar reporte"
-            secondaryHref={`/api/installations/${installationId}/protocol/client-report/pdf`}
+      {/* Acción recomendada */}
+      {data.alert && data.alert.kind !== "none" && (
+        <ActionCard
+          message={data.alert.message ?? ""}
+          primaryLabel={
+            data.alert.kind === "no_protocol"
+              ? "Crear protocolo"
+              : "Reagendar evaluación"
+          }
+          primaryHref={
+            data.alert.kind === "no_protocol"
+              ? `/crm/installations/${installationId}?tab=protocol&subtab=sections`
+              : `/crm/installations/${installationId}?tab=protocol&subtab=exams`
+          }
+          secondaryLabel="Descargar reporte"
+          secondaryHref={`/api/installations/${installationId}/protocol/client-report/pdf`}
+        />
+      )}
+
+      {/* Cumplimiento por sección */}
+      <SectionComplianceList
+        sections={data.sectionCompliance}
+        title="Cumplimiento por sección"
+      />
+
+      {/* Heatmap colapsable */}
+      <Surface elevation={1} padding="none" className="mb-5 overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setHeatmapOpen((v) => !v)}
+          className="w-full flex items-center justify-between px-3.5 py-3 text-left ds-tap"
+        >
+          <span className="font-display text-[14px] font-semibold text-ds-text-1">
+            Mapa de calor
+          </span>
+          {heatmapOpen ? (
+            <ChevronDown className="h-4 w-4 text-ds-text-3" />
+          ) : (
+            <ChevronRight className="h-4 w-4 text-ds-text-3" />
+          )}
+        </button>
+        {heatmapOpen && (
+          <HeatmapMatrix sections={data.protocol.sections} guards={data.guards} />
+        )}
+      </Surface>
+
+      {/* Envíos automáticos */}
+      <Surface elevation={1} padding="none" className="mb-5 overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setDispatchOpen((v) => !v)}
+          className="w-full flex items-center justify-between px-3.5 py-3 text-left ds-tap"
+        >
+          <span className="font-display text-[14px] font-semibold text-ds-text-1 flex items-center gap-2">
+            <Send className="h-3.5 w-3.5 text-ds-text-3" />
+            Envíos automáticos
+          </span>
+          {dispatchOpen ? (
+            <ChevronDown className="h-4 w-4 text-ds-text-3" />
+          ) : (
+            <ChevronRight className="h-4 w-4 text-ds-text-3" />
+          )}
+        </button>
+        {dispatchOpen && (
+          <DispatchPanel
+            loading={dispatchLoading}
+            error={dispatchError}
+            history={dispatchHistory}
           />
         )}
+      </Surface>
 
-        {/* Cumplimiento por sección */}
-        <SectionComplianceList
-          sections={data.sectionCompliance}
-          title="Cumplimiento por sección"
+      {/* Guardias */}
+      <GuardsList guards={data.guards} title="Guardias evaluados" />
+
+      {/* Acciones rápidas */}
+      <div className="grid grid-cols-2 gap-2">
+        <QuickAction
+          label="Editar protocolo"
+          hint="Abrir en CRM →"
+          icon={Edit3}
+          onClick={() =>
+            router.push(
+              `/crm/installations/${installationId}?tab=protocol&subtab=sections`,
+            )
+          }
         />
-
-        {/* Heatmap colapsable */}
-        <div className="mb-5 card-mock-tight overflow-hidden">
-          <button
-            type="button"
-            onClick={() => setHeatmapOpen((v) => !v)}
-            className="w-full flex items-center justify-between px-3 py-2.5 text-left tap-mock"
-          >
-            <span className="font-display text-[13px] font-semibold">
-              Mapa de calor
-            </span>
-            {heatmapOpen ? (
-              <ChevronDown className="h-4 w-4 text-white/40" />
-            ) : (
-              <ChevronRight className="h-4 w-4 text-white/40" />
-            )}
-          </button>
-          {heatmapOpen && (
-            <HeatmapMatrix sections={data.protocol.sections} guards={data.guards} />
-          )}
-        </div>
-
-        {/* Envíos automáticos */}
-        <div className="mb-5 card-mock-tight overflow-hidden">
-          <button
-            type="button"
-            onClick={() => setDispatchOpen((v) => !v)}
-            className="w-full flex items-center justify-between px-3 py-2.5 text-left tap-mock"
-          >
-            <span className="font-display text-[13px] font-semibold flex items-center gap-1.5">
-              <Send className="h-3.5 w-3.5 text-white/60" />
-              Envíos automáticos
-            </span>
-            {dispatchOpen ? (
-              <ChevronDown className="h-4 w-4 text-white/40" />
-            ) : (
-              <ChevronRight className="h-4 w-4 text-white/40" />
-            )}
-          </button>
-          {dispatchOpen && (
-            <DispatchPanel
-              loading={dispatchLoading}
-              error={dispatchError}
-              history={dispatchHistory}
-            />
-          )}
-        </div>
-
-        {/* Guardias */}
-        <GuardsList guards={data.guards} title="Guardias evaluados" />
-
-        {/* Acciones rápidas */}
-        <div className="grid grid-cols-2 gap-2">
-          <QuickAction
-            label="Editar protocolo"
-            hint="Abrir en CRM →"
-            icon={<Edit3 className="h-3.5 w-3.5" />}
-            onClick={() =>
-              router.push(
-                `/crm/installations/${installationId}?tab=protocol&subtab=sections`,
-              )
-            }
-          />
-          <QuickAction
-            label="Reporte cliente"
-            hint="Descargar PDF"
-            icon={<FileDown className="h-3.5 w-3.5" />}
-            onClick={() => {
-              window.open(
-                `/api/installations/${installationId}/protocol/client-report/pdf`,
-                "_blank",
-              );
-            }}
-          />
-        </div>
+        <QuickAction
+          label="Reporte cliente"
+          hint="Descargar PDF"
+          icon={FileDown}
+          onClick={() => {
+            window.open(
+              `/api/installations/${installationId}/protocol/client-report/pdf`,
+              "_blank",
+            );
+          }}
+        />
       </div>
     </section>
   );
 }
 
 function ActionCard({
-  kind,
   message,
   primaryLabel,
   primaryHref,
   secondaryLabel,
   secondaryHref,
 }: {
-  kind: string;
   message: string;
   primaryLabel: string;
   primaryHref: string;
@@ -390,34 +391,24 @@ function ActionCard({
   secondaryHref: string;
 }) {
   return (
-    <div className="card-mock p-4 mb-5 relative overflow-hidden">
-      <Blob color="brand" className="-top-10 -right-12 w-40 h-40" />
-      <div className="relative">
-        <div className="text-[10px] uppercase tracking-wider text-brand2 font-mono mb-1.5">
-          Acción recomendada
-        </div>
-        <p className="text-[13px] text-white/85 leading-relaxed mb-3">
-          {message}
-        </p>
-        <div className="flex gap-2">
-          <a
-            href={primaryHref}
-            className="bg-brand hover:bg-brand2 text-white text-[12px] font-semibold tap-mock h-9 px-3 rounded-lg flex items-center gap-1.5"
-          >
-            {primaryLabel}
-          </a>
-          <a
-            href={secondaryHref}
-            target="_blank"
-            rel="noreferrer"
-            className="border border-white/10 hover:bg-white/[0.04] text-white text-[12px] font-medium tap-mock h-9 px-3 rounded-lg flex items-center gap-1.5"
-          >
+    <Surface elevation={2} padding="md" className="mb-5" accent="brand">
+      <p className="text-[11px] font-mono uppercase tracking-[0.08em] text-primary mb-1.5">
+        Acción recomendada
+      </p>
+      <p className="text-[14px] text-ds-text-1 leading-relaxed mb-3">
+        {message}
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <Button asChild size="sm" className="h-10">
+          <a href={primaryHref}>{primaryLabel}</a>
+        </Button>
+        <Button asChild size="sm" variant="outline" className="h-10">
+          <a href={secondaryHref} target="_blank" rel="noreferrer">
             {secondaryLabel}
           </a>
-        </div>
+        </Button>
       </div>
-      <span className="sr-only">{kind}</span>
-    </div>
+    </Surface>
   );
 }
 
@@ -429,21 +420,35 @@ function QuickAction({
 }: {
   label: string;
   hint: string;
-  icon?: React.ReactNode;
+  icon: React.ComponentType<{ className?: string }>;
   onClick: () => void;
 }) {
+  const Icon = icon;
   return (
-    <button
-      type="button"
+    <Surface
+      elevation={1}
+      padding="sm"
+      tappable
+      hoverable
       onClick={onClick}
-      className="card-mock-tight p-3 text-left tap-mock"
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      className="text-left"
     >
-      <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-white/40 font-mono">
-        {icon}
+      <span className="flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4">
+        <Icon className="h-3.5 w-3.5" />
         {label}
-      </div>
-      <div className="font-display text-[13px] font-semibold mt-1">{hint}</div>
-    </button>
+      </span>
+      <p className="font-display text-[14px] font-semibold mt-1 text-ds-text-1">
+        {hint}
+      </p>
+    </Surface>
   );
 }
 
@@ -458,39 +463,41 @@ function DispatchPanel({
 }) {
   if (loading) {
     return (
-      <div className="px-3 py-4 text-[12px] text-white/50">Cargando historial...</div>
+      <div className="px-3.5 py-4">
+        <Spinner size="sm" label="Cargando historial…" />
+      </div>
     );
   }
   if (error) {
     return (
-      <div className="px-3 py-4 text-[12px] text-red-300/80">{error}</div>
+      <p className="px-3.5 py-4 text-[13px] text-status-danger-fg">{error}</p>
     );
   }
   if (!history) return null;
 
   return (
-    <div className="px-3 py-3 space-y-4 border-t border-white/5">
+    <div className="px-3.5 py-3 space-y-4 border-t border-ds-border-subtle">
       {/* Próximos envíos */}
       <div>
-        <div className="text-[10px] uppercase tracking-wider text-white/40 font-mono mb-2">
+        <p className="text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4 mb-2">
           Próximos envíos
-        </div>
+        </p>
         {history.upcoming.length === 0 ? (
-          <div className="text-[12px] text-white/40 py-2">
+          <p className="text-[13px] text-ds-text-3 py-2">
             Sin envíos recurrentes programados.
-          </div>
+          </p>
         ) : (
           <ul className="space-y-1.5 max-h-[260px] overflow-y-auto pr-1">
             {history.upcoming.map((u) => (
               <li
                 key={`${u.examId}-${u.guardId}`}
-                className="flex items-center justify-between gap-2 text-[12px]"
+                className="flex items-center justify-between gap-2 text-[13px]"
               >
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-white/85">{u.guardName || "—"}</div>
-                  <div className="truncate text-white/40 text-[11px]">
+                  <p className="truncate text-ds-text-1">{u.guardName || "—"}</p>
+                  <p className="truncate text-ds-text-3 text-[12px]">
                     {u.examTitle}
-                  </div>
+                  </p>
                 </div>
                 <DaysUntilBadge days={u.daysUntil} />
               </li>
@@ -501,11 +508,11 @@ function DispatchPanel({
 
       {/* Historial de corridas */}
       <div>
-        <div className="text-[10px] uppercase tracking-wider text-white/40 font-mono mb-2">
+        <p className="text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4 mb-2">
           Historial de corridas
-        </div>
+        </p>
         {history.runs.length === 0 ? (
-          <div className="text-[12px] text-white/40 py-2">Sin corridas registradas.</div>
+          <p className="text-[13px] text-ds-text-3 py-2">Sin corridas registradas.</p>
         ) : (
           <ul className="space-y-1.5 max-h-[260px] overflow-y-auto pr-1">
             {history.runs.map((r) => {
@@ -513,29 +520,27 @@ function DispatchPanel({
               return (
                 <li
                   key={r.id}
-                  className="flex items-center justify-between gap-2 text-[11px]"
+                  className="flex items-center justify-between gap-2 text-[12px]"
                 >
                   <div className="min-w-0 flex-1">
-                    <div className="text-white/75">
+                    <p className="text-ds-text-2">
                       {date.toLocaleString("es-CL", {
                         dateStyle: "short",
                         timeStyle: "short",
                       })}
-                    </div>
-                    <div className="text-white/40">
+                    </p>
+                    <p className="text-ds-text-4">
                       {r.examsProcessed} ex · {r.assignmentsCreated} asign
                       {r.triggerSource !== "cron" ? ` · ${r.triggerSource}` : ""}
-                    </div>
+                    </p>
                   </div>
-                  <div className="text-right shrink-0 space-y-0.5">
-                    <div className="text-emerald-300/80">
-                      ✓ {r.emailsSent}
-                    </div>
+                  <div className="text-right shrink-0 space-y-0.5 ds-num">
+                    <p className="text-status-ok-fg">✓ {r.emailsSent}</p>
                     {r.emailsFailed > 0 && (
-                      <div className="text-red-300/80">✗ {r.emailsFailed}</div>
+                      <p className="text-status-danger-fg">✗ {r.emailsFailed}</p>
                     )}
                     {r.emailsSkipped > 0 && (
-                      <div className="text-white/40">— {r.emailsSkipped}</div>
+                      <p className="text-ds-text-4">— {r.emailsSkipped}</p>
                     )}
                   </div>
                 </li>
@@ -549,13 +554,8 @@ function DispatchPanel({
 }
 
 function DaysUntilBadge({ days }: { days: number }) {
-  // ≤ 0: vencido (rojo); 1–7: próximo (ámbar); >7: ok (neutro).
-  const color =
-    days <= 0
-      ? "bg-red-500/15 text-red-300 border-red-500/20"
-      : days <= 7
-        ? "bg-amber-500/15 text-amber-300 border-amber-500/20"
-        : "bg-white/[0.04] text-white/60 border-white/10";
+  const variant: "danger" | "warn" | "neutral" =
+    days <= 0 ? "danger" : days <= 7 ? "warn" : "neutral";
   const text =
     days < 0
       ? `vencido ${Math.abs(days)}d`
@@ -563,14 +563,9 @@ function DaysUntilBadge({ days }: { days: number }) {
         ? "hoy"
         : `en ${days}d`;
   return (
-    <span
-      className={cn(
-        "shrink-0 text-[10px] font-mono px-1.5 py-0.5 rounded border",
-        color,
-      )}
-    >
+    <Tag variant={variant} size="sm">
       {text}
-    </span>
+    </Tag>
   );
 }
 
@@ -583,5 +578,3 @@ async function hashId(id: string): Promise<string> {
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
 }
-
-void thresholdText;

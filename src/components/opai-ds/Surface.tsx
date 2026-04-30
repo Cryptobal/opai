@@ -47,6 +47,17 @@ const PADDING: Record<Padding, string> = {
   lg: "p-5 sm:p-6",
 };
 
+type Accent = "ok" | "warn" | "danger" | "info" | "brand" | "neutral";
+
+const ACCENT_BG: Record<Accent, string> = {
+  ok:      "bg-status-ok",
+  warn:    "bg-status-warn",
+  danger:  "bg-status-danger",
+  info:    "bg-status-info",
+  brand:   "bg-primary",
+  neutral: "bg-ds-text-4/30",
+};
+
 export interface SurfaceProps extends HTMLAttributes<HTMLDivElement> {
   elevation?: Elevation;
   padding?: Padding;
@@ -58,6 +69,9 @@ export interface SurfaceProps extends HTMLAttributes<HTMLDivElement> {
   selected?: boolean;
   /** Ocultar shadow (cards anidadas). */
   flat?: boolean;
+  /** Acento lateral (rail de 3px a la izquierda). Útil para indicar
+   *  threshold/estado sin cambiar el bg de la card. */
+  accent?: Accent;
   children: ReactNode;
 }
 
@@ -70,6 +84,7 @@ export const Surface = forwardRef<HTMLDivElement, SurfaceProps>(
       tappable = false,
       selected = false,
       flat = false,
+      accent,
       className,
       children,
       ...rest
@@ -90,10 +105,20 @@ export const Surface = forwardRef<HTMLDivElement, SurfaceProps>(
           hoverable &&
             "transition-colors duration-fast hover:border-ds-border-strong hover:bg-ds-surface-2",
           tappable && "ds-tap cursor-pointer",
+          accent && "relative overflow-hidden",
           className,
         )}
         {...rest}
       >
+        {accent && (
+          <span
+            aria-hidden
+            className={cn(
+              "absolute left-0 top-0 bottom-0 w-[3px]",
+              ACCENT_BG[accent],
+            )}
+          />
+        )}
         {children}
       </div>
     );

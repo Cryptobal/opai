@@ -25,27 +25,35 @@ export function PortalProtocolos({
   return (
     <div className="space-y-3">
       {showKnowledge && (
-        <div className="flex gap-1 mt-1 p-0.5 rounded-lg bg-white/[0.03] border border-white/5">
+        <div
+          role="tablist"
+          aria-label="Vista del protocolo"
+          className="flex gap-1 mt-1 p-0.5 rounded-ds-md bg-ds-surface-1 border border-ds-border-default"
+        >
           <button
             type="button"
+            role="tab"
+            aria-selected={tab === "protocol"}
             onClick={() => setTab("protocol")}
             className={cn(
-              "flex-1 py-2 text-[11px] font-medium rounded-md tap-mock",
+              "flex-1 py-2 text-[12px] font-medium rounded ds-tap transition-colors",
               tab === "protocol"
-                ? "bg-white/[0.06] text-white"
-                : "text-white/50",
+                ? "bg-ds-surface-3 text-ds-text-1"
+                : "text-ds-text-3 hover:text-ds-text-1",
             )}
           >
             Protocolo
           </button>
           <button
             type="button"
+            role="tab"
+            aria-selected={tab === "knowledge"}
             onClick={() => setTab("knowledge")}
             className={cn(
-              "flex-1 py-2 text-[11px] font-medium rounded-md tap-mock",
+              "flex-1 py-2 text-[12px] font-medium rounded ds-tap transition-colors",
               tab === "knowledge"
-                ? "bg-white/[0.06] text-white"
-                : "text-white/50",
+                ? "bg-ds-surface-3 text-ds-text-1"
+                : "text-ds-text-3 hover:text-ds-text-1",
             )}
           >
             Conocimiento del equipo

@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import ExcelJS from "exceljs";
+import { CARRIERS, CARRIER_COLORS } from "@/lib/inventory/carrier-colors";
 
 // ── Types ──────────────────────────────────────────────
 type PhoneLineAssignment = {
@@ -61,16 +62,6 @@ type Installation = { id: string; name: string };
 type SystemUser = { id: string; name: string; email: string };
 
 // ── Constants ──────────────────────────────────────────
-const CARRIERS = ["movistar", "entel", "wom", "claro", "otro"];
-
-const CARRIER_COLORS: Record<string, string> = {
-  movistar: "bg-green-500/15 text-green-700 dark:text-green-400",
-  entel: "bg-red-500/15 text-red-700 dark:text-red-400",
-  wom: "bg-purple-500/15 text-purple-700 dark:text-purple-400",
-  claro: "bg-red-600/15 text-red-800 dark:text-red-300",
-  otro: "bg-zinc-500/15 text-zinc-700 dark:text-zinc-400",
-};
-
 const STATUS_LABELS: Record<string, string> = {
   active: "Activa",
   suspended: "Suspendida",
@@ -529,7 +520,7 @@ export function InventarioLineasClient() {
                             >
                               {formatPhone(line.phoneNumber)}
                             </a>
-                            <span className={`inline-flex items-center h-5 px-2 text-[11px] font-medium leading-none rounded-full ${CARRIER_COLORS[line.carrier] ?? CARRIER_COLORS.otro}`}>
+                            <span className={`inline-flex items-center h-5 px-2 text-[12px] font-medium leading-none rounded-full ${CARRIER_COLORS[line.carrier] ?? CARRIER_COLORS.otro}`}>
                               {line.carrier.charAt(0).toUpperCase() + line.carrier.slice(1)}
                             </span>
                             <Tag variant={statusToTagVariant(line.status)} size="sm">

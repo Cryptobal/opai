@@ -14,4 +14,6 @@ export { Skeleton, type SkeletonProps } from "./Skeleton";
 export { MetricBar, type MetricBarProps } from "./MetricBar";
 export { DataTable, type DataTableProps, type DataTableColumn } from "./DataTable";
 export { Toolbar, type ToolbarProps } from "./Toolbar";
+export { HeatGrid, type HeatGridProps, type HeatGridRow, type HeatGridColumn } from "./HeatGrid";
+export { Avatar, type AvatarProps, type AvatarVariant } from "./Avatar";
 export { thresholdFromScore, type Threshold } from "./tokens";
