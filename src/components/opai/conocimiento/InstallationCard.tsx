@@ -1,15 +1,15 @@
 "use client";
 
+import { Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  Bar,
-  Pill,
+  Surface,
+  Tag,
   StatusDot,
-  thresholdBorderLeft,
+  MetricBar,
   thresholdFromScore,
-  thresholdText,
   type Threshold,
-} from "./_primitives";
+} from "@/components/opai-ds";
 import type { OverviewInstallation } from "@/lib/protocols/knowledge-aggregator-types";
 
 function daysAgo(iso: string): number {
@@ -17,7 +17,10 @@ function daysAgo(iso: string): number {
   return Math.max(0, Math.round(ms / (1000 * 60 * 60 * 24)));
 }
 
-function thresholdFromStatus(status: OverviewInstallation["status"], score: number | null): Threshold {
+function thresholdFromStatus(
+  status: OverviewInstallation["status"],
+  score: number | null,
+): Threshold {
   if (status === "no_protocol" || status === "no_evaluated") return "neutral";
   if (status === "critical") return "danger";
   if (status === "warning") return "warn";
@@ -25,12 +28,26 @@ function thresholdFromStatus(status: OverviewInstallation["status"], score: numb
   return thresholdFromScore(score);
 }
 
-const ICON_TILE_STYLE: Record<Threshold, string> = {
-  ok: "bg-emerald-500/10 border border-emerald-500/20",
-  warn: "bg-amber-500/10 border border-amber-500/20",
-  danger: "bg-red-500/10 border border-red-500/20",
-  neutral: "bg-white/[0.03] border border-white/10 border-dashed opacity-60",
+const VALUE_COLOR: Record<Threshold, string> = {
+  ok:      "text-status-ok-fg",
+  warn:    "text-status-warn-fg",
+  danger:  "text-status-danger-fg",
+  neutral: "text-ds-text-3",
 };
+
+const ICON_TILE: Record<Threshold, string> = {
+  ok:      "bg-status-ok-soft border border-status-ok-border",
+  warn:    "bg-status-warn-soft border border-status-warn-border",
+  danger:  "bg-status-danger-soft border border-status-danger-border",
+  neutral: "bg-ds-surface-2 border border-dashed border-ds-border-default opacity-60",
+};
+
+const ACCENT_FROM_THRESHOLD = {
+  ok: "ok",
+  warn: "warn",
+  danger: "danger",
+  neutral: "neutral",
+} as const;
 
 export function InstallationCard({
   data,
@@ -43,86 +60,101 @@ export function InstallationCard({
   const accountLine = [data.accountName, data.commune].filter(Boolean).join(" · ");
 
   return (
-    <button
-      type="button"
+    <Surface
+      elevation={1}
+      padding="md"
+      tappable
+      hoverable
+      accent={ACCENT_FROM_THRESHOLD[t]}
       onClick={onClick}
-      className="w-full text-left card-mock p-4 tap-mock relative overflow-hidden"
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      className="text-left w-full"
     >
-      <div className={cn("absolute left-0 top-0 bottom-0 w-1", thresholdBorderLeft(t))} />
       <div className="flex items-start gap-3">
         <div
           className={cn(
-            "w-10 h-10 rounded-lg grid place-items-center shrink-0 text-base",
-            ICON_TILE_STYLE[t],
+            "h-10 w-10 rounded-ds-md grid place-items-center shrink-0 text-base",
+            ICON_TILE[t],
           )}
         >
-          {data.icon}
+          {data.icon || <Building2 className="h-4 w-4 text-ds-text-3" />}
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <div className="font-display font-semibold text-[14px] truncate">
+              <p className="font-display font-semibold text-[14px] text-ds-text-1 truncate">
                 {data.name}
-              </div>
-              <div className="text-[11px] text-white/40 truncate">
+              </p>
+              <p className="text-[12px] text-ds-text-3 truncate">
                 {accountLine || "—"}
-              </div>
+              </p>
             </div>
             {data.avgScore !== null ? (
               <div className="text-right shrink-0">
-                <div
+                <p
                   className={cn(
-                    "font-display text-xl font-bold num-tabular leading-none",
-                    thresholdText(t),
+                    "font-display text-xl font-bold leading-none ds-num",
+                    VALUE_COLOR[t],
                   )}
                 >
                   {Math.round(data.avgScore)}
                   <span className="text-sm">%</span>
-                </div>
-                <div className="text-[10px] text-white/40 font-mono mt-0.5">cumpl.</div>
+                </p>
+                <p className="text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4 mt-0.5">
+                  cumpl.
+                </p>
               </div>
             ) : (
               <div className="text-right shrink-0">
-                <div className="font-display text-xs text-white/40 leading-none mt-1">
+                <p className="font-display text-xs text-ds-text-3 leading-none mt-1">
                   {data.hasProtocol ? "Sin evaluar" : "Sin protocolo"}
-                </div>
+                </p>
               </div>
             )}
           </div>
 
           {data.avgScore !== null && (
-            <Bar value={data.avgScore} threshold={t} className="mt-2.5" />
+            <MetricBar value={data.avgScore} threshold={t} className="mt-2.5" />
           )}
 
-          <div className="flex items-center gap-3 mt-2.5 text-[10px] text-white/50 font-mono flex-wrap">
+          <div className="flex items-center gap-3 mt-2.5 text-[12px] text-ds-text-3 flex-wrap">
             {data.hasProtocol && (
-              <span className="flex items-center gap-1">
-                <StatusDot threshold="ok" />
+              <span className="flex items-center gap-1.5">
+                <StatusDot kind="ok" />
                 Protocolo v{data.protocolVersion ?? 1}
               </span>
             )}
             <span>
               {data.evaluatedGuards}/{data.activeGuards} evaluados
             </span>
-            {data.lastExamAt && <span>hace {daysAgo(data.lastExamAt)}d</span>}
+            {data.lastExamAt && (
+              <span>hace {daysAgo(data.lastExamAt)}d</span>
+            )}
           </div>
 
           <div className="flex items-center gap-1.5 mt-2 flex-wrap">
             {data.failedCount > 0 && (
-              <Pill variant="danger">⚠ {data.failedCount} reprobados</Pill>
+              <Tag variant="danger" size="sm">⚠ {data.failedCount} reprobados</Tag>
             )}
             {data.pendingCount > 0 && (
-              <Pill variant="warn">{data.pendingCount} pendientes</Pill>
+              <Tag variant="warn" size="sm">{data.pendingCount} pendientes</Tag>
             )}
             {!data.hasProtocol && (
               <>
-                <Pill variant="neutral">📋 Crear protocolo</Pill>
-                <Pill variant="brand">✨ con IA</Pill>
+                <Tag variant="neutral" size="sm">📋 Crear protocolo</Tag>
+                <Tag variant="brand" size="sm">✨ con IA</Tag>
               </>
             )}
           </div>
         </div>
       </div>
-    </button>
+    </Surface>
   );
 }

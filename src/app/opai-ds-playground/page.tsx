@@ -20,6 +20,8 @@ import {
   MetricBar,
   Toolbar,
   DataTable,
+  HeatGrid,
+  Avatar,
   type DataTableColumn,
 } from "@/components/opai-ds";
 import { Button } from "@/components/ui/button";
@@ -234,6 +236,74 @@ export default function PlaygroundPage() {
               r.status === "critical" ? "danger" : r.status === "low" ? "warn" : "default"
             }
           />
+        </Section>
+
+        {/* Avatar */}
+        <Section title="Avatar — iniciales con threshold opcional">
+          <Surface elevation={1} padding="md">
+            <div className="flex flex-wrap items-center gap-3">
+              <Avatar initials="JR" />
+              <Avatar initials="MC" variant="ok" />
+              <Avatar initials="LP" variant="warn" />
+              <Avatar initials="AR" variant="danger" />
+              <Avatar initials="SG" variant="brand" />
+              <Avatar initials="??" variant="neutral" />
+            </div>
+            <div className="mt-3 flex items-center gap-3">
+              <Avatar initials="JR" size="sm" />
+              <Avatar initials="JR" size="md" />
+              <Avatar initials="JR" size="lg" />
+            </div>
+          </Surface>
+        </Section>
+
+        {/* HeatGrid */}
+        <Section title="HeatGrid — matriz de calor filas × columnas">
+          <Surface elevation={1} padding="md">
+            <HeatGrid
+              rowHeaderLabel="guardia"
+              rows={[
+                { id: "g1", label: "Juan Pérez" },
+                { id: "g2", label: "María C." },
+                { id: "g3", label: "Luis Ramírez" },
+                { id: "g4", label: "Ana Silva" },
+              ]}
+              columns={[
+                { id: "ing", shortLabel: "ING", fullLabel: "Ingreso" },
+                { id: "ron", shortLabel: "RON", fullLabel: "Rondas" },
+                { id: "eme", shortLabel: "EME", fullLabel: "Emergencias" },
+                { id: "rep", shortLabel: "REP", fullLabel: "Reportes" },
+                { id: "com", shortLabel: "COM", fullLabel: "Comunicación" },
+              ]}
+              getScore={(r, c) => {
+                const m: Record<string, Record<string, number | null>> = {
+                  g1: { ing: 92, ron: 85, eme: 78, rep: null, com: 88 },
+                  g2: { ing: 65, ron: 70, eme: 55, rep: 80, com: 90 },
+                  g3: { ing: 45, ron: 50, eme: 40, rep: 60, com: 65 },
+                  g4: { ing: 95, ron: 92, eme: null, rep: 88, com: 90 },
+                };
+                return m[r]?.[c] ?? null;
+              }}
+            />
+          </Surface>
+        </Section>
+
+        {/* Surface accent */}
+        <Section title="Surface — ahora con prop accent (rail lateral)">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <Surface elevation={1} padding="md" accent="ok">
+              <p className="text-sm text-ds-text-1">accent ok</p>
+            </Surface>
+            <Surface elevation={1} padding="md" accent="warn">
+              <p className="text-sm text-ds-text-1">accent warn</p>
+            </Surface>
+            <Surface elevation={1} padding="md" accent="danger">
+              <p className="text-sm text-ds-text-1">accent danger</p>
+            </Surface>
+            <Surface elevation={1} padding="md" accent="brand">
+              <p className="text-sm text-ds-text-1">accent brand</p>
+            </Surface>
+          </div>
         </Section>
 
         {/* EmptyState */}

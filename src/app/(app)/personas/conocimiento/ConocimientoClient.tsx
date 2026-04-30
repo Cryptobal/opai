@@ -9,14 +9,18 @@ import {
   ArrowUpDown,
   LayoutList,
   LayoutGrid,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  Blob,
-  KpiCard,
-  Pill,
-  StatusDot,
-} from "@/components/opai/conocimiento/_primitives";
+  PageHero,
+  Surface,
+  Stat,
+  StatGrid,
+  EmptyState,
+  Skeleton,
+} from "@/components/opai-ds";
+import { Button } from "@/components/ui/button";
 import { InstallationCard } from "@/components/opai/conocimiento/InstallationCard";
 import { InstallationTile } from "@/components/opai/conocimiento/InstallationTile";
 import type {
@@ -129,132 +133,100 @@ export function ConocimientoClient() {
     return kpis.avgCompliance !== null ? Math.round(kpis.avgCompliance) : null;
   }, [kpis]);
 
+  const protocolPct =
+    kpis && kpis.totalInstallations
+      ? Math.round((kpis.withProtocol / kpis.totalInstallations) * 100)
+      : null;
+
   return (
-    <section className="relative grain-overlay max-w-md mx-auto md:max-w-3xl lg:max-w-5xl px-4 pt-5 pb-32">
-      <Blob color="brand" className="-top-10 -left-20 w-72 h-72" />
-
-      <div className="flex items-center gap-1.5 text-[11px] text-white/40 font-mono mb-3 relative">
-        <span>Personas</span>
-        <span className="text-white/20">/</span>
-        <span className="text-white/80">Conocimiento</span>
-      </div>
-
-      <h1 className="font-display text-2xl md:text-3xl font-bold leading-tight tracking-tight relative">
-        El protocolo
-        <br />
-        <span className="text-white/40">a través de tu operación</span>
-      </h1>
-      <p className="text-[13px] text-white/50 mt-2 leading-relaxed relative">
-        Estado de protocolos y conocimiento de tus guardias en cada instalación.
-        Toca cualquier tarjeta para entrar al detalle.
-      </p>
+    <section className="relative max-w-md mx-auto md:max-w-3xl lg:max-w-5xl px-4 pt-5 pb-32 ds-page-enter">
+      <PageHero
+        eyebrow={["Personas", "Conocimiento"]}
+        title="El protocolo"
+        subtitle="a través de tu operación"
+        description="Estado de protocolos y conocimiento de tus guardias en cada instalación. Toca cualquier tarjeta para entrar al detalle."
+      />
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 mt-5 relative">
-        <KpiCard
-          label="Instalaciones"
-          value={kpis ? String(kpis.totalInstallations) : "—"}
-          rightSlot={<Building2 className="h-3.5 w-3.5 text-white/30" />}
-          hint={kpis ? `${kpis.totalEvaluations} evaluaciones` : undefined}
-        />
-        <KpiCard
-          label="Con protocolo"
-          value={
-            kpis
-              ? `${
-                  kpis.totalInstallations
-                    ? Math.round((kpis.withProtocol / kpis.totalInstallations) * 100)
-                    : 0
-                }%`
-              : "—"
-          }
-          threshold="ok"
-          bar={
-            kpis && kpis.totalInstallations
-              ? Math.round((kpis.withProtocol / kpis.totalInstallations) * 100)
-              : 0
-          }
-          rightSlot={
-            kpis ? (
-              <span className="text-[10px] text-white/30 font-mono">
-                {kpis.withProtocol}/{kpis.totalInstallations}
-              </span>
-            ) : undefined
-          }
-        />
-        <KpiCard
-          label="Cumplimiento"
-          value={compliancePct !== null ? `${compliancePct}%` : "—"}
-          threshold={
-            compliancePct === null
-              ? "neutral"
-              : compliancePct >= 80
-                ? "ok"
-                : compliancePct >= 60
-                  ? "warn"
-                  : "danger"
-          }
-          hint={kpis && kpis.totalEvaluations ? `${kpis.totalEvaluations} evaluaciones` : undefined}
-          rightSlot={
-            compliancePct !== null && compliancePct < 80 ? (
-              <Pill variant={compliancePct < 60 ? "danger" : "warn"}>prom.</Pill>
-            ) : undefined
-          }
-        />
-        <KpiCard
-          label="Atención"
-          value={kpis ? String(kpis.criticalInstallations) : "—"}
-          threshold={
-            kpis && kpis.criticalInstallations > 0 ? "danger" : "neutral"
-          }
-          hint="requieren refuerzo"
-          rightSlot={
-            kpis && kpis.criticalInstallations > 0 ? (
-              <StatusDot threshold="danger" pulse />
-            ) : undefined
-          }
-        />
+      <div className="mt-6">
+        <StatGrid lgCols={4}>
+          <Stat
+            label="Instalaciones"
+            value={kpis ? kpis.totalInstallations : "—"}
+            animate={!!kpis}
+            icon={Building2}
+            hint={kpis ? `${kpis.totalEvaluations} evaluaciones` : undefined}
+          />
+          <Stat
+            label="Con protocolo"
+            value={protocolPct !== null ? `${protocolPct}%` : "—"}
+            variant="ok"
+            hint={kpis ? `${kpis.withProtocol}/${kpis.totalInstallations}` : undefined}
+          />
+          <Stat
+            label="Cumplimiento"
+            value={compliancePct !== null ? `${compliancePct}%` : "—"}
+            variant={
+              compliancePct === null
+                ? "default"
+                : compliancePct >= 80
+                  ? "ok"
+                  : compliancePct >= 60
+                    ? "warn"
+                    : "danger"
+            }
+            hint={
+              kpis && kpis.totalEvaluations
+                ? `${kpis.totalEvaluations} evaluaciones`
+                : undefined
+            }
+          />
+          <Stat
+            label="Atención"
+            value={kpis ? kpis.criticalInstallations : "—"}
+            animate={!!kpis}
+            variant={kpis && kpis.criticalInstallations > 0 ? "danger" : "default"}
+            hint="requieren refuerzo"
+          />
+        </StatGrid>
       </div>
 
       {/* Buscador + filtros */}
-      <div className="mt-5 flex items-center gap-2 relative">
+      <div className="mt-5 flex items-center gap-2">
         <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-white/30" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ds-text-4" />
           <input
             type="text"
             placeholder="Buscar instalación o cliente…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 h-10 rounded-lg bg-white/[0.03] border border-white/10 text-[13px] text-white placeholder:text-white/30 focus:outline-none focus:border-brand/40"
+            className="w-full pl-9 pr-3 h-10 rounded-ds-md bg-ds-surface-1 border border-ds-border-default text-[15px] sm:text-[14px] text-ds-text-1 placeholder:text-ds-text-4 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors"
           />
         </div>
-        <button
+        <Button
           type="button"
+          size="sm"
+          variant={showFilters ? "default" : "outline"}
           onClick={() => setShowFilters((v) => !v)}
-          className={cn(
-            "h-10 px-3 rounded-lg border tap-mock flex items-center gap-1.5 text-[12px] font-medium",
-            showFilters
-              ? "border-brand/40 bg-brand/10 text-brand2"
-              : "border-white/10 bg-white/[0.03] text-white/70",
-          )}
+          className="h-10 gap-1.5"
         >
           <SlidersHorizontal className="h-3.5 w-3.5" />
           Filtros
-        </button>
+        </Button>
       </div>
 
       {showFilters && (
-        <div className="mt-3 flex gap-1.5 flex-wrap relative">
+        <div className="mt-3 flex gap-1.5 flex-wrap ds-list-cascade">
           {STATUS_FILTERS.map((f) => (
             <button
               type="button"
               key={f.key}
               onClick={() => setStatusFilter(f.key)}
               className={cn(
-                "px-2.5 h-7 rounded-full border text-[11px] font-medium tap-mock",
+                "px-3 h-8 rounded-full border text-[12px] font-medium ds-tap transition-colors",
                 statusFilter === f.key
-                  ? "border-brand/40 bg-brand/10 text-brand2"
-                  : "border-white/10 bg-white/[0.03] text-white/60",
+                  ? "border-primary/40 bg-primary/10 text-primary"
+                  : "border-ds-border-default bg-ds-surface-1 text-ds-text-2 hover:bg-ds-surface-2",
               )}
             >
               {f.label}
@@ -263,21 +235,21 @@ export function ConocimientoClient() {
         </div>
       )}
 
-      <div className="mt-3 flex items-center justify-between gap-2 relative sticky top-0 z-[5] bg-background/80 backdrop-blur-sm py-1">
-        <div className="text-[10px] text-white/30 font-mono">
+      <div className="mt-3 flex items-center justify-between gap-2 sticky top-0 z-[5] bg-background/80 backdrop-blur-sm py-1">
+        <p className="text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4">
           {visibleCount} {visibleCount === 1 ? "instalación" : "instalaciones"}
-        </div>
+        </p>
         <div className="flex items-center gap-1.5">
-          {/* View toggle: list | grid */}
-          <div className="flex p-0.5 rounded-lg bg-white/[0.03] border border-white/10">
+          {/* View toggle */}
+          <div className="flex p-0.5 rounded-ds-md bg-ds-surface-1 border border-ds-border-default">
             <button
               type="button"
               onClick={() => setView("list")}
               className={cn(
-                "h-6 px-2 rounded-md text-[11px] font-medium flex items-center gap-1 tap-mock",
+                "h-7 px-2.5 rounded text-[12px] font-medium flex items-center gap-1 ds-tap transition-colors",
                 view === "list"
-                  ? "bg-white/[0.06] text-white"
-                  : "text-white/50 hover:text-white/80",
+                  ? "bg-ds-surface-3 text-ds-text-1"
+                  : "text-ds-text-3 hover:text-ds-text-1",
               )}
               aria-label="Vista lista"
               aria-pressed={view === "list"}
@@ -289,10 +261,10 @@ export function ConocimientoClient() {
               type="button"
               onClick={() => setView("grid")}
               className={cn(
-                "h-6 px-2 rounded-md text-[11px] font-medium flex items-center gap-1 tap-mock",
+                "h-7 px-2.5 rounded text-[12px] font-medium flex items-center gap-1 ds-tap transition-colors",
                 view === "grid"
-                  ? "bg-white/[0.06] text-white"
-                  : "text-white/50 hover:text-white/80",
+                  ? "bg-ds-surface-3 text-ds-text-1"
+                  : "text-ds-text-3 hover:text-ds-text-1",
               )}
               aria-label="Vista grilla"
               aria-pressed={view === "grid"}
@@ -301,103 +273,120 @@ export function ConocimientoClient() {
               <span className="hidden md:inline">Grilla</span>
             </button>
           </div>
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => setShowSort((v) => !v)}
-            className="h-7 px-2.5 rounded-lg border border-white/10 bg-white/[0.03] text-white/70 text-[11px] font-medium tap-mock flex items-center gap-1.5"
-          >
-            <ArrowUpDown className="h-3 w-3" />
-            {SORT_LABELS[sort]}
-          </button>
-          {showSort && (
-            <div className="absolute right-0 top-9 z-10 w-44 rounded-lg border border-white/10 bg-[#0F1620] shadow-glow-brand p-1">
-              {(Object.keys(SORT_LABELS) as SortKey[]).map((k) => (
-                <button
-                  type="button"
-                  key={k}
-                  onClick={() => {
-                    setSort(k);
-                    setShowSort(false);
-                  }}
-                  className={cn(
-                    "w-full text-left px-2.5 h-7 rounded-md text-[11px]",
-                    sort === k
-                      ? "bg-brand/15 text-brand2"
-                      : "text-white/70 hover:bg-white/[0.04]",
-                  )}
-                >
-                  {SORT_LABELS[k]}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+          {/* Sort */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowSort((v) => !v)}
+              className="h-8 px-2.5 rounded-ds-md border border-ds-border-default bg-ds-surface-1 text-ds-text-2 text-[12px] font-medium ds-tap flex items-center gap-1.5 hover:bg-ds-surface-2 transition-colors"
+            >
+              <ArrowUpDown className="h-3 w-3" />
+              {SORT_LABELS[sort]}
+            </button>
+            {showSort && (
+              <div className="absolute right-0 top-9 z-10 w-44 rounded-ds-md border border-ds-border-default bg-ds-surface-2 shadow-ds-lg p-1">
+                {(Object.keys(SORT_LABELS) as SortKey[]).map((k) => (
+                  <button
+                    type="button"
+                    key={k}
+                    onClick={() => {
+                      setSort(k);
+                      setShowSort(false);
+                    }}
+                    className={cn(
+                      "w-full text-left px-2.5 h-8 rounded text-[12px] transition-colors",
+                      sort === k
+                        ? "bg-primary/15 text-primary"
+                        : "text-ds-text-2 hover:bg-ds-surface-3",
+                    )}
+                  >
+                    {SORT_LABELS[k]}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Lista / Grilla */}
       <div
         className={cn(
-          "mt-3 relative",
-          // Layout depende del modo
-          view === "list" ? "space-y-2.5" : "grid gap-2.5 grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5",
-          // Frame scrollable solo cuando hay muchos elementos
+          "mt-3",
+          view === "list"
+            ? "space-y-2.5"
+            : "grid gap-2.5 grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5",
           installations.length > (view === "list" ? 6 : 12)
-            ? "max-h-[70vh] md:max-h-[78vh] overflow-y-auto pr-1 scrollbar-none rounded-2xl border border-white/[0.04] bg-white/[0.01] p-2"
+            ? "max-h-[70vh] md:max-h-[78vh] overflow-y-auto pr-1 ds-scroll-x rounded-ds-lg border border-ds-border-subtle bg-ds-surface-0 p-2"
             : "",
         )}
       >
         {loading && (
           <>
             {Array.from({ length: view === "grid" ? 8 : 4 }).map((_, i) => (
-              <div
+              <Skeleton
                 key={i}
-                className={cn(
-                  "card-mock animate-pulse opacity-70",
-                  view === "grid" ? "h-[140px] p-3" : "p-4 h-[110px]",
-                )}
+                shape="rect"
+                className={cn(view === "grid" ? "h-[140px]" : "h-[110px]")}
               />
             ))}
           </>
         )}
         {!loading && error && (
-          <div
+          <Surface
+            elevation={1}
+            padding="md"
             className={cn(
-              "card-mock p-4 text-center text-[12px] text-red-300/80",
+              "border-status-danger-border bg-status-danger-soft text-center",
               view === "grid" && "col-span-full",
             )}
           >
-            {error}
-          </div>
+            <p className="text-[13px] text-status-danger-fg">{error}</p>
+          </Surface>
         )}
         {!loading && !error && installations.length === 0 && (
-          <div
-            className={cn(
-              "card-mock p-8 text-center",
-              view === "grid" && "col-span-full",
-            )}
+          <Surface
+            elevation={1}
+            padding="none"
+            className={view === "grid" ? "col-span-full" : ""}
           >
-            <Building2 className="h-8 w-8 mx-auto text-white/20 mb-3" />
-            <div className="font-display text-[14px] font-semibold mb-1">
-              {totalCount === 0
-                ? "Aún no hay instalaciones"
-                : "Sin resultados con esos filtros"}
-            </div>
-            <p className="text-[12px] text-white/50 mb-4">
-              {totalCount === 0
-                ? "Crea tu primera instalación para empezar a evaluar el conocimiento del equipo."
-                : "Ajusta la búsqueda o quita los filtros para ver más."}
-            </p>
-            {totalCount === 0 && (
-              <a
-                href="/crm/installations/new"
-                className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-brand hover:bg-brand2 text-white text-[12px] font-semibold"
-              >
-                Crear primera instalación
-              </a>
-            )}
-          </div>
+            <EmptyState
+              icon={Building2}
+              title={
+                totalCount === 0
+                  ? "Aún no hay instalaciones"
+                  : "Sin resultados con esos filtros"
+              }
+              description={
+                totalCount === 0
+                  ? "Crea tu primera instalación para empezar a evaluar el conocimiento del equipo."
+                  : "Ajusta la búsqueda o quita los filtros para ver más."
+              }
+              action={
+                totalCount === 0 ? (
+                  <Button asChild>
+                    <a href="/crm/installations/new">Crear primera instalación</a>
+                  </Button>
+                ) : undefined
+              }
+              secondary={
+                totalCount > 0 ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setSearch("");
+                      setStatusFilter("all");
+                    }}
+                    className="gap-1.5"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                    Limpiar filtros
+                  </Button>
+                ) : undefined
+              }
+            />
+          </Surface>
         )}
 
         {!loading &&
@@ -420,11 +409,9 @@ export function ConocimientoClient() {
       </div>
 
       {!loading && remaining > 0 && (
-        <div className="mt-5 text-center">
-          <div className="text-[10px] text-white/30 font-mono">
-            {remaining} instalaciones más coinciden con esta vista
-          </div>
-        </div>
+        <p className="mt-5 text-center text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4">
+          {remaining} instalaciones más coinciden con esta vista
+        </p>
       )}
     </section>
   );

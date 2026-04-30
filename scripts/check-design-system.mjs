@@ -44,9 +44,15 @@ const MIGRATED_PATHS = [
   "src/components/inventario/",
   "src/app/(app)/ops/inventario/",
   "src/components/opai-ds/",
+  // Conocimiento — fase A: page + componentes hojas. _primitives.tsx
+  // sigue intacto porque Portal Cliente lo consume; se elimina en fase B.
+  "src/components/opai/conocimiento/InstallationCard.tsx",
+  "src/components/opai/conocimiento/InstallationTile.tsx",
+  "src/components/opai/conocimiento/SectionComplianceList.tsx",
+  "src/components/opai/conocimiento/GuardsList.tsx",
+  "src/components/opai/conocimiento/HeatmapMatrix.tsx",
+  "src/app/(app)/personas/conocimiento/",
   // Agregar aquí cuando se migren:
-  // "src/components/opai/conocimiento/",
-  // "src/app/(app)/personas/conocimiento/",
   // "src/components/personas/",
   // "src/components/crm/",
   // "src/components/documentos/",
@@ -77,6 +83,8 @@ const DS_SOURCE_PATHS = [
   "src/components/opai-ds/MetricBar.tsx",
   "src/components/opai-ds/Toolbar.tsx",
   "src/components/opai-ds/DataTable.tsx",
+  "src/components/opai-ds/HeatGrid.tsx",
+  "src/components/opai-ds/Avatar.tsx",
 ];
 // Nota: NO incluye index.ts ni tokens.ts. Esos son barrel/helpers, no
 // definen patrones visuales y deben seguir las mismas reglas que app code.

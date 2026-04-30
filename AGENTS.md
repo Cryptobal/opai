@@ -163,7 +163,7 @@ Estado actual de la migración. Cuando termina cada módulo, agregarlo a `MIGRAT
 | Módulo              | Estado      | Path principal                                                |
 |---------------------|-------------|---------------------------------------------------------------|
 | Inventario          | ✅ Migrado  | `src/components/inventario/`, `src/app/(app)/ops/inventario/` |
-| Conocimiento        | ⏳ Pendiente | `src/components/opai/conocimiento/`                           |
+| Conocimiento        | 🟡 Parcial — page + componentes migrados; `_primitives.tsx` aún usado por Portal Cliente | `src/components/opai/conocimiento/` (excepto `_primitives.tsx`), `src/app/(app)/personas/conocimiento/` |
 | Personas            | ⏳ Pendiente | `src/components/personas/`                                    |
 | ATS                 | ⏳ Pendiente | `src/components/ats/`                                         |
 | CRM                 | ⏳ Pendiente | `src/components/crm/`                                         |
