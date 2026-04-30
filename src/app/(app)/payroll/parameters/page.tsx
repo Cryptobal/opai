@@ -6,12 +6,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { DataTable, type DataTableColumn } from "@/components/opai";
+import { DataTable, EmptyState, type DataTableColumn } from "@/components/opai-ds";
 import { PageHeader } from "@/components/opai-ds";
 import { PayrollSubnav } from "@/components/payroll/PayrollSubnav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, AlertCircle, Info } from "lucide-react";
+import { Calendar, AlertCircle, Info, Inbox } from "lucide-react";
 import { formatCLP, formatNumber } from "@/lib/utils";
 
 export default function PayrollParameters() {
@@ -394,21 +394,52 @@ export default function PayrollParameters() {
           <CardTitle className="text-sm">Asignación Familiar 2026 (IPS)</CardTitle>
         </CardHeader>
         <CardContent>
-          {data.family_allowance?.tranches ? (
-            <DataTable
-              compact
-              columns={[
-                { key: "tramo", label: "Tramo" },
-                { key: "from_clp", label: "Renta Desde", render: (v: number) => <span className="font-mono">{formatCLP(v)}</span> },
-                { key: "to_clp", label: "Renta Hasta", render: (v: number | null) => <span className="font-mono">{v ? formatCLP(v) : "Sin límite"}</span> },
-                { key: "amount_per_dependent", label: "Por Carga", className: "text-right", render: (v: number) => <span className="font-mono">{v > 0 ? formatCLP(v) : "—"}</span> },
-                { key: "amount_maternal", label: "Maternal", className: "text-right", render: (v: number) => <span className="font-mono">{v > 0 ? formatCLP(v) : "—"}</span> },
-                { key: "amount_invalidity", label: "Invalidez", className: "text-right", render: (v: number) => <span className="font-mono">{v > 0 ? formatCLP(v) : "—"}</span> },
-              ] satisfies DataTableColumn[]}
-              data={data.family_allowance.tranches.map((t: any, i: number) => ({ ...t, tramo: String.fromCharCode(65 + i) }))}
-              emptyMessage="No configurado"
-            />
-          ) : (
+          {data.family_allowance?.tranches ? (() => {
+            const familyRows = data.family_allowance.tranches.map((t: any, i: number) => ({ ...t, tramo: String.fromCharCode(65 + i) }));
+            const familyColumns: DataTableColumn<any>[] = [
+              {
+                id: "tramo",
+                header: "Tramo",
+                cell: (row) => row.tramo,
+              },
+              {
+                id: "from_clp",
+                header: "Renta Desde",
+                cell: (row) => <span className="font-mono">{formatCLP(row.from_clp)}</span>,
+              },
+              {
+                id: "to_clp",
+                header: "Renta Hasta",
+                cell: (row) => <span className="font-mono">{row.to_clp ? formatCLP(row.to_clp) : "Sin límite"}</span>,
+              },
+              {
+                id: "amount_per_dependent",
+                header: "Por Carga",
+                align: "right",
+                cell: (row) => <span className="font-mono">{row.amount_per_dependent > 0 ? formatCLP(row.amount_per_dependent) : "—"}</span>,
+              },
+              {
+                id: "amount_maternal",
+                header: "Maternal",
+                align: "right",
+                cell: (row) => <span className="font-mono">{row.amount_maternal > 0 ? formatCLP(row.amount_maternal) : "—"}</span>,
+              },
+              {
+                id: "amount_invalidity",
+                header: "Invalidez",
+                align: "right",
+                cell: (row) => <span className="font-mono">{row.amount_invalidity > 0 ? formatCLP(row.amount_invalidity) : "—"}</span>,
+              },
+            ];
+            return (
+              <DataTable
+                columns={familyColumns}
+                rows={familyRows}
+                rowKey={(r) => r.tramo}
+                empty={<EmptyState icon={Inbox} title="No configurado" compact />}
+              />
+            );
+          })() : (
             <p className="text-sm text-muted-foreground">No configurado</p>
           )}
         </CardContent>
@@ -420,19 +451,52 @@ export default function PayrollParameters() {
           <CardTitle className="text-sm">Tramos Impuesto Único de Segunda Categoría (SII)</CardTitle>
         </CardHeader>
         <CardContent>
-          <DataTable
-            compact
-            columns={[
-              { key: "tramo", label: "Tramo" },
-              { key: "from_clp", label: "Desde (CLP)", render: (v: number) => <span className="font-mono">{formatCLP(v)}</span> },
-              { key: "to_clp", label: "Hasta (CLP)", render: (v: number | null) => <span className="font-mono">{v ? formatCLP(v) : "Sin límite"}</span> },
-              { key: "factor", label: "Factor", className: "text-right", render: (v: number) => <span className="font-mono">{fmtPct(v, 1)}%</span> },
-              { key: "rebate_clp", label: "Rebaja (CLP)", className: "text-right", render: (v: number) => <span className="font-mono">{v > 0 ? formatCLP(v) : "—"}</span> },
-              { key: "effective_rate_max", label: "Tasa Efectiva Máx.", className: "text-right", render: (v: number) => <span className="font-mono text-muted-foreground">{v > 0 ? `${fmtPct(v, 1)}%` : "Exento"}</span> },
-            ] satisfies DataTableColumn[]}
-            data={data.tax_brackets.map((b: any, i: number) => ({ ...b, tramo: i + 1 }))}
-            emptyMessage="No hay tramos configurados"
-          />
+          {(() => {
+            const taxRows = data.tax_brackets.map((b: any, i: number) => ({ ...b, tramo: i + 1 }));
+            const taxColumns: DataTableColumn<any>[] = [
+              {
+                id: "tramo",
+                header: "Tramo",
+                cell: (row) => row.tramo,
+              },
+              {
+                id: "from_clp",
+                header: "Desde (CLP)",
+                cell: (row) => <span className="font-mono">{formatCLP(row.from_clp)}</span>,
+              },
+              {
+                id: "to_clp",
+                header: "Hasta (CLP)",
+                cell: (row) => <span className="font-mono">{row.to_clp ? formatCLP(row.to_clp) : "Sin límite"}</span>,
+              },
+              {
+                id: "factor",
+                header: "Factor",
+                align: "right",
+                cell: (row) => <span className="font-mono">{fmtPct(row.factor, 1)}%</span>,
+              },
+              {
+                id: "rebate_clp",
+                header: "Rebaja (CLP)",
+                align: "right",
+                cell: (row) => <span className="font-mono">{row.rebate_clp > 0 ? formatCLP(row.rebate_clp) : "—"}</span>,
+              },
+              {
+                id: "effective_rate_max",
+                header: "Tasa Efectiva Máx.",
+                align: "right",
+                cell: (row) => <span className="font-mono text-muted-foreground">{row.effective_rate_max > 0 ? `${fmtPct(row.effective_rate_max, 1)}%` : "Exento"}</span>,
+              },
+            ];
+            return (
+              <DataTable
+                columns={taxColumns}
+                rows={taxRows}
+                rowKey={(r) => String(r.tramo)}
+                empty={<EmptyState icon={Inbox} title="No hay tramos configurados" compact />}
+              />
+            );
+          })()}
         </CardContent>
       </Card>
 
