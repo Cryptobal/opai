@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { Warehouse } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView, canDelete } from "@/lib/permissions-server";
 import { PageHero, Surface } from "@/components/opai-ds";
@@ -20,8 +21,10 @@ export default async function InventarioBodegasPage() {
   return (
     <div className="min-w-0">
       <InventarioSubnav />
-      <section className="relative w-full pb-32 space-y-5">
+      <section className="relative w-full pb-32 space-y-6">
         <PageHero
+          icon={Warehouse}
+          iconTone="emerald"
           eyebrow={["Operaciones", "Inventario", "Bodegas"]}
           title="Bodegas virtuales"
           subtitle="central, supervisores e instalaciones"
