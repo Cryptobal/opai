@@ -293,7 +293,7 @@ export function InventarioBodegasManager({ canDelete }: Props) {
               <SelectItem value="other">Otro ({counts.other})</SelectItem>
             </SelectContent>
           </Select>
-          <label className="flex items-center gap-2 text-[12px] text-ds-text-3 sm:ml-2">
+          <label className="flex items-center gap-2 text-xs text-ds-text-3 sm:ml-2">
             <input
               type="checkbox"
               checked={showInactive}
@@ -336,11 +336,11 @@ export function InventarioBodegasManager({ canDelete }: Props) {
                 className={cn("flex flex-col gap-2", !w.active && "opacity-60")}
               >
                 <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-start gap-2.5 min-w-0">
+                  <div className="flex items-start gap-3 min-w-0">
                     <IconBubble icon={Icon} variant="brand" size="md" />
                     <div className="min-w-0">
-                      <p className="truncate text-[14px] font-semibold text-ds-text-1">{w.name}</p>
-                      <div className="mt-0.5 flex flex-wrap items-center gap-1">
+                      <p className="truncate text-base font-semibold tracking-tight text-ds-text-1">{w.name}</p>
+                      <div className="mt-1 flex flex-wrap items-center gap-1">
                         <Tag variant="neutral" size="sm">
                           {meta.label}
                         </Tag>
@@ -355,21 +355,21 @@ export function InventarioBodegasManager({ canDelete }: Props) {
                 </div>
 
                 {(w.supervisor || w.installation || w.notes) && (
-                  <div className="space-y-1 text-[12px] text-ds-text-3">
+                  <div className="space-y-1.5 text-xs text-ds-text-3">
                     {w.supervisor && (
                       <div className="flex items-center gap-1.5 truncate">
-                        <User className="h-3 w-3 shrink-0" />
+                        <User className="h-3.5 w-3.5 shrink-0 text-ds-text-4" strokeWidth={1.75} />
                         <span className="truncate">{w.supervisor.name}</span>
                       </div>
                     )}
                     {w.installation && (
                       <div className="flex items-center gap-1.5 truncate">
-                        <Building2 className="h-3 w-3 shrink-0" />
+                        <Building2 className="h-3.5 w-3.5 shrink-0 text-ds-text-4" strokeWidth={1.75} />
                         <span className="truncate">{w.installation.name}</span>
                       </div>
                     )}
                     {w.notes && (
-                      <p className="line-clamp-2 text-[12px] text-ds-text-4">{w.notes}</p>
+                      <p className="line-clamp-2 text-xs text-ds-text-4">{w.notes}</p>
                     )}
                   </div>
                 )}
@@ -510,7 +510,7 @@ export function InventarioBodegasManager({ canDelete }: Props) {
                 value={form.notes}
                 onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
                 placeholder="Comentarios u observaciones (opcional)"
-                className="w-full rounded-ds-md border border-ds-border-default bg-ds-surface-2 px-3 py-2 text-sm text-ds-text-1 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                className="w-full rounded-ds-md border border-ds-border-default bg-ds-surface-2 px-3 py-2 text-sm text-ds-text-1 placeholder:text-ds-text-4 focus:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-ring transition-colors duration-150"
               />
             </div>
 

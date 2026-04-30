@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Surface, Tag, EmptyState, Spinner, IconBubble } from "@/components/opai-ds";
+import { Surface, Tag, EmptyState, Spinner, IconBubble, type TagVariant } from "@/components/opai-ds";
 import {
   Dialog,
   DialogContent,
@@ -98,13 +99,14 @@ export function InventarioActivosClient() {
           phoneCarrier: "",
           notes: "",
         });
+        toast.success("Activo creado");
         fetchData();
       } else {
-        alert(data.error || "Error al crear activo");
+        toast.error(data.error || "Error al crear activo");
       }
     } catch (e) {
       console.error(e);
-      alert("Error al crear activo");
+      toast.error("Error al crear activo");
     }
   };
 
@@ -116,8 +118,16 @@ export function InventarioActivosClient() {
     retired: "Dado de baja",
   };
 
+  const statusVariants: Record<string, TagVariant> = {
+    available: "ok",
+    assigned: "info",
+    maintenance: "warn",
+    broken: "danger",
+    retired: "neutral",
+  };
+
   return (
-    <div className="space-y-4 ds-page-enter">
+    <div className="space-y-5 ds-page-enter">
       <div className="flex justify-end">
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
@@ -219,21 +229,21 @@ export function InventarioActivosClient() {
                 <Surface elevation={1} padding="sm" hoverable className="flex items-center gap-3">
                   <IconBubble icon={Smartphone} variant="brand" size="md" />
                   <div className="min-w-0 flex-1">
-                    <p className="text-[14px] font-semibold text-ds-text-1">
-                      {a.variant?.product.name ?? "Activo"}{" "}
+                    <p className="text-sm font-semibold tracking-tight text-ds-text-1 truncate">
+                      {a.variant?.product.name ?? "Activo"}
                       {a.serialNumber && (
-                        <span className="text-ds-text-4 font-mono text-[12px]">({a.serialNumber})</span>
+                        <span className="ml-1.5 text-ds-text-4 font-mono text-xs">({a.serialNumber})</span>
                       )}
                     </p>
-                    <div className="flex flex-wrap items-center gap-2 mt-1">
-                      <Tag variant="neutral" size="sm">
+                    <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                      <Tag variant={statusVariants[a.status] ?? "neutral"} size="sm">
                         {statusLabels[a.status] ?? a.status}
                       </Tag>
                       {a.phoneNumber && (
-                        <span className="text-[12px] font-mono text-ds-text-3">{a.phoneNumber}</span>
+                        <span className="text-xs font-mono tabular-nums text-ds-text-3">{a.phoneNumber}</span>
                       )}
                       {a.assignments[0] && (
-                        <span className="text-[12px] text-ds-text-3">
+                        <span className="text-xs text-ds-text-3 truncate">
                           → {a.assignments[0].installation.name}
                         </span>
                       )}

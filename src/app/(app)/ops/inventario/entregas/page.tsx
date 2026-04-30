@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { Truck } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView, canEdit } from "@/lib/permissions-server";
 import { PageHero } from "@/components/opai-ds";
@@ -20,8 +21,10 @@ export default async function InventarioEntregasPage() {
   return (
     <div className="min-w-0">
       <InventarioSubnav />
-      <section className="relative w-full pb-32 space-y-5">
+      <section className="relative w-full pb-32 space-y-6">
         <PageHero
+          icon={Truck}
+          iconTone="emerald"
           eyebrow={["Operaciones", "Inventario", "Entregas"]}
           title="Entregas a guardias"
           subtitle="trazabilidad y firma de recepción"

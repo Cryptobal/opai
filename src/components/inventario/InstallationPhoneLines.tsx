@@ -159,7 +159,7 @@ export function InstallationPhoneLines({ installationId }: { installationId: str
                   <Phone className="h-4 w-4 text-ds-text-4 shrink-0" />
                   <a
                     href={`tel:${line.phoneNumber}`}
-                    className="text-[13px] font-mono font-medium text-ds-text-1 hover:underline whitespace-nowrap"
+                    className="text-sm font-mono font-medium tabular-nums text-ds-text-1 hover:underline whitespace-nowrap"
                   >
                     {formatPhone(line.phoneNumber)}
                   </a>
@@ -167,7 +167,7 @@ export function InstallationPhoneLines({ installationId }: { installationId: str
                     {line.carrier.charAt(0).toUpperCase() + line.carrier.slice(1)}
                   </Badge>
                   {line.label && (
-                    <span className="text-[12px] text-ds-text-3 truncate">{line.label}</span>
+                    <span className="text-xs text-ds-text-3 truncate">{line.label}</span>
                   )}
                 </div>
                 <Button

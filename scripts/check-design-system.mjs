@@ -88,8 +88,11 @@ const DS_SOURCE_PATHS = [
   "src/components/opai-ds/MetricBar.tsx",
   "src/components/opai-ds/Toolbar.tsx",
   "src/components/opai-ds/DataTable.tsx",
+  "src/components/opai-ds/DataView.tsx",
   "src/components/opai-ds/HeatGrid.tsx",
   "src/components/opai-ds/Avatar.tsx",
+  "src/components/opai-ds/Breadcrumbs.tsx",
+  "src/components/opai-ds/KPICard.tsx",
 ];
 // Nota: NO incluye index.ts ni tokens.ts. Esos son barrel/helpers, no
 // definen patrones visuales y deben seguir las mismas reglas que app code.

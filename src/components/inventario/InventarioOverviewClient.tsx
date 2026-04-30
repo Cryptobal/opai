@@ -16,8 +16,8 @@ import {
 import { Button } from "@/components/ui/button";
 import {
   PageHero,
-  Stat,
-  StatGrid,
+  KPICard,
+  KPIGrid,
   Tag,
   Surface,
   SectionHeader,
@@ -132,6 +132,8 @@ export function InventarioOverviewClient({ canEdit }: Props) {
   return (
     <section className="relative w-full pb-32 space-y-6 ds-page-enter">
       <PageHero
+        icon={Package}
+        iconTone="emerald"
         eyebrow={["Operaciones", "Inventario"]}
         title="Tu operación"
         subtitle="en una sola vista"
@@ -158,20 +160,21 @@ export function InventarioOverviewClient({ canEdit }: Props) {
         }
       />
 
-      {/* KPIs */}
-      <StatGrid lgCols={4}>
-        <Stat
+      {/* KPIs — 4 cards con IconTile prominente arriba (KPICard, no Stat). */}
+      <KPIGrid lgCols={4}>
+        <KPICard
           label="Productos activos"
           value={loading ? "—" : (data?.counts.products ?? 0)}
           animate={!loading}
           icon={Package}
+          iconTone="emerald"
           hint={
             data
               ? `${data.counts.warehouses} ${data.counts.warehouses === 1 ? "bodega" : "bodegas"}`
               : undefined
           }
         />
-        <Stat
+        <KPICard
           label="Valor en bodega"
           value={
             loading
@@ -182,13 +185,14 @@ export function InventarioOverviewClient({ canEdit }: Props) {
           }
           variant="brand"
           icon={WarehouseIcon}
+          iconTone="emerald"
           hint={
             data
               ? `${data.stock.totalItems.toLocaleString("es-CL")} unidades`
               : undefined
           }
         />
-        <Stat
+        <KPICard
           label="Asignado a guardias"
           value={
             loading
@@ -198,25 +202,33 @@ export function InventarioOverviewClient({ canEdit }: Props) {
                 : "$0"
           }
           icon={UserRoundCheck}
+          iconTone="emerald"
           hint={
             data
               ? `${data.counts.deliveriesLast30d} ${data.counts.deliveriesLast30d === 1 ? "entrega" : "entregas"} 30 d`
               : undefined
           }
         />
-        <Stat
+        <KPICard
           label="Alertas de stock"
           value={loading ? "—" : stockAlertsTotal}
           animate={!loading}
           variant={stockAlertsTotal > 0 ? stockVariant : "default"}
           icon={AlertTriangle}
+          iconVariant={
+            stockAlertsTotal === 0
+              ? "ok"
+              : stockVariant === "danger"
+                ? "danger"
+                : "warn"
+          }
           hint={
             data && stockAlertsTotal > 0
               ? `${data.stock.outOfStockCount} agotados · ${data.stock.belowMinimumCount} bajo mínimo`
               : "todo en orden"
           }
         />
-      </StatGrid>
+      </KPIGrid>
 
       {loading && <Spinner block label="Cargando información…" />}
 
@@ -230,7 +242,7 @@ export function InventarioOverviewClient({ canEdit }: Props) {
               actions={
                 <Link
                   href="/ops/inventario/entregas"
-                  className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                  className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 hover:underline transition-colors duration-150"
                 >
                   Ver todas <ArrowRight className="h-3 w-3" />
                 </Link>
@@ -268,7 +280,7 @@ export function InventarioOverviewClient({ canEdit }: Props) {
                         <IconBubble icon={Icon} variant={bubbleVariant} size="md" />
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
-                            <p className="text-[14px] font-medium text-ds-text-1 truncate">
+                            <p className="text-sm font-medium text-ds-text-1 truncate">
                               {isTransfer
                                 ? `${m.fromWarehouse ?? "—"} → ${m.toWarehouse ?? "—"}`
                                 : (m.guardiaName ?? "Movimiento")}
@@ -277,13 +289,13 @@ export function InventarioOverviewClient({ canEdit }: Props) {
                               {m.totalUnits} u.
                             </Tag>
                           </div>
-                          <p className="mt-0.5 text-[12px] font-mono text-ds-text-4 truncate">
+                          <p className="mt-0.5 text-xs font-mono text-ds-text-4 truncate">
                             {formatRelativeDate(m.date)}
                             {m.installationName ? ` · ${m.installationName}` : ""}
                             {m.createdByName ? ` · ${m.createdByName}` : ""}
                           </p>
                           {m.summary && (
-                            <p className="mt-1 text-[13px] text-ds-text-3 truncate">
+                            <p className="mt-1 text-sm text-ds-text-3 truncate">
                               {m.summary}
                               {m.lineCount > 2 && ` +${m.lineCount - 2}`}
                             </p>
@@ -310,7 +322,7 @@ export function InventarioOverviewClient({ canEdit }: Props) {
               actions={
                 <Link
                   href="/ops/inventario/stock"
-                  className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                  className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 hover:underline transition-colors duration-150"
                 >
                   Ver stock <ArrowRight className="h-3 w-3" />
                 </Link>
@@ -322,7 +334,7 @@ export function InventarioOverviewClient({ canEdit }: Props) {
                 <p className="text-sm font-medium text-status-ok-fg">
                   Todo en orden
                 </p>
-                <p className="mt-0.5 text-[12px] text-status-ok-fg/80">
+                <p className="mt-0.5 text-xs text-status-ok-fg">
                   No hay alertas activas.
                 </p>
               </div>
@@ -344,7 +356,7 @@ export function InventarioOverviewClient({ canEdit }: Props) {
                           kind={a.type === "critical" ? "danger" : "warn"}
                           pulse={a.type === "critical"}
                         />
-                        <span className="text-[13px] font-medium text-ds-text-1 truncate">
+                        <span className="text-sm font-medium text-ds-text-1 truncate">
                           {a.label}
                         </span>
                       </div>
@@ -355,7 +367,7 @@ export function InventarioOverviewClient({ canEdit }: Props) {
                         {a.type === "critical" ? "Agotado" : `${a.quantity}/${a.minStock}`}
                       </Tag>
                     </div>
-                    <p className="mt-1 text-[12px] font-mono text-ds-text-4 truncate">
+                    <p className="mt-1 text-xs font-mono text-ds-text-4 truncate">
                       {a.warehouse}
                     </p>
                   </li>
@@ -374,10 +386,10 @@ export function InventarioOverviewClient({ canEdit }: Props) {
                     key={g.guardiaId}
                     className="flex items-center justify-between gap-2 rounded-ds-md border border-ds-border-subtle bg-ds-surface-2 px-3 py-2.5"
                   >
-                    <span className="text-[13px] text-ds-text-1 truncate">
+                    <span className="text-sm text-ds-text-1 truncate">
                       {g.guardiaName}
                     </span>
-                    <span className="text-[13px] font-semibold ds-num text-ds-text-1 shrink-0">
+                    <span className="text-sm font-mono font-semibold tabular-nums text-ds-text-1 shrink-0">
                       {formatCurrency(g.totalCost)}
                     </span>
                   </li>
@@ -406,11 +418,11 @@ export function InventarioOverviewClient({ canEdit }: Props) {
                   >
                     <Link
                       href={`/crm/installations/${i.installationId}`}
-                      className="text-[13px] text-ds-text-1 truncate hover:underline"
+                      className="text-sm text-ds-text-1 truncate hover:underline"
                     >
                       {i.installationName}
                     </Link>
-                    <span className="text-[13px] font-semibold ds-num text-ds-text-1 shrink-0">
+                    <span className="text-sm font-mono font-semibold tabular-nums text-ds-text-1 shrink-0">
                       {formatCurrency(i.totalCost)}
                     </span>
                     <ArrowRight className="h-3.5 w-3.5 text-ds-text-4" />

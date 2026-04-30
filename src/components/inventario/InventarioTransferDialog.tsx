@@ -287,13 +287,13 @@ export function InventarioTransferDialog({ trigger, onCompleted }: Props) {
             </div>
 
             {!fromWarehouseId ? (
-              <p className="rounded-ds-md border border-dashed border-ds-border-default p-3 text-center text-[12px] text-ds-text-3">
+              <p className="rounded-ds-md border border-dashed border-ds-border-default p-3 text-center text-xs text-ds-text-3">
                 Selecciona la bodega de origen para ver el stock disponible.
               </p>
             ) : loadingStock ? (
               <Spinner block label="Cargando stock…" />
             ) : variantOptions.length === 0 ? (
-              <p className="rounded-ds-md border border-dashed border-ds-border-default p-3 text-center text-[12px] text-ds-text-3">
+              <p className="rounded-ds-md border border-dashed border-ds-border-default p-3 text-center text-xs text-ds-text-3">
                 Esta bodega no tiene stock disponible para mover.
               </p>
             ) : (
@@ -374,7 +374,7 @@ export function InventarioTransferDialog({ trigger, onCompleted }: Props) {
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Comentario interno sobre la transferencia"
-              className="w-full rounded-ds-md border border-ds-border-default bg-ds-surface-2 px-3 py-2 text-sm text-ds-text-1 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+              className="w-full rounded-ds-md border border-ds-border-default bg-ds-surface-2 px-3 py-2 text-sm text-ds-text-1 placeholder:text-ds-text-4 focus:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-ring transition-colors duration-150"
             />
           </div>
         </div>

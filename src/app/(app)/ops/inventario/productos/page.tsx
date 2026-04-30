@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { Package } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { PageHero } from "@/components/opai-ds";
@@ -18,8 +19,10 @@ export default async function InventarioProductosPage() {
   return (
     <div className="min-w-0">
       <InventarioSubnav />
-      <section className="relative w-full pb-32 space-y-5">
+      <section className="relative w-full pb-32 space-y-6">
         <PageHero
+          icon={Package}
+          iconTone="emerald"
           eyebrow={["Operaciones", "Inventario", "Productos"]}
           title="Catálogo de productos"
           subtitle="uniformes, activos y tallas"

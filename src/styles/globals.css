@@ -124,6 +124,32 @@
     --ds-shadow-lg: 0 12px 24px -8px hsl(220 30% 10% / 0.12), 0 4px 8px -4px hsl(220 30% 10% / 0.06);
     --ds-shadow-glow-brand: 0 0 0 1px hsl(var(--primary) / 0.18), 0 6px 24px -8px hsl(var(--primary) / 0.32);
 
+    /* ============================================
+       OPAI Refined Industrial — Categorical tints
+       Para IconTile y agrupaciones visuales NO semánticas.
+       NO usar para estados (ok/warn/danger/info → status-*).
+       ============================================ */
+    --tint-violet:     251 91% 95%;
+    --tint-violet-fg:  263 69% 42%;
+    --tint-rose:       356 100% 94%;
+    --tint-rose-fg:    347 89% 41%;
+    --tint-amber:       47 96% 89%;
+    --tint-amber-fg:    28 95% 37%;
+    --tint-emerald:    152 81% 90%;
+    --tint-emerald-fg: 162 94% 24%;
+    --tint-sky:        204 94% 94%;
+    --tint-sky-fg:     200 95% 33%;
+    --tint-teal:       167 85% 89%;
+    --tint-teal-fg:    173 80% 28%;
+
+    /* Motion tokens — duraciones y curvas estándar.
+       Consumir desde lib/motion.ts (TS) o en CSS directamente. */
+    --motion-duration-fast: 150ms;
+    --motion-duration-base: 200ms;
+    --motion-duration-slow: 300ms;
+    --motion-easing-standard: cubic-bezier(0.2, 0, 0, 1);
+    --motion-easing-emphasized: cubic-bezier(0.3, 0, 0, 1);
+
   }
 
   .dark {
@@ -218,6 +244,22 @@
     --ds-shadow-md: 0 4px 12px -2px hsl(220 60% 2% / 0.55), 0 2px 4px -2px hsl(220 60% 2% / 0.45);
     --ds-shadow-lg: 0 12px 24px -8px hsl(220 60% 2% / 0.6), 0 4px 8px -4px hsl(220 60% 2% / 0.45);
     --ds-shadow-glow-brand: 0 0 0 1px hsl(var(--primary) / 0.28), 0 6px 24px -8px hsl(var(--primary) / 0.45);
+
+    /* Categorical tints — dark variants.
+       Container: tono profundo (saturado oscuro). Foreground: tono claro
+       (200-300 range) para legibilidad sobre el container. */
+    --tint-violet:     268 60% 22%;
+    --tint-violet-fg:  251 92% 84%;
+    --tint-rose:       343 65% 22%;
+    --tint-rose-fg:      0 96% 84%;
+    --tint-amber:       28 70% 20%;
+    --tint-amber-fg:    49 95% 70%;
+    --tint-emerald:    164 60% 18%;
+    --tint-emerald-fg: 152 76% 67%;
+    --tint-sky:        200 65% 22%;
+    --tint-sky-fg:     199 94% 78%;
+    --tint-teal:       172 75% 18%;
+    --tint-teal-fg:    169 76% 70%;
 
   }
 

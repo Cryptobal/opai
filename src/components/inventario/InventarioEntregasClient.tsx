@@ -423,12 +423,12 @@ export function InventarioEntregasClient({ currentUserId, canEdit }: Props) {
                     <IconBubble icon={UserRoundCheck} variant={confirmed ? "ok" : "warn"} size="md" rounded="circle" />
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-1.5">
-                        <p className="text-[14px] font-semibold text-ds-text-1 truncate">{guardiaName}</p>
+                        <p className="text-sm font-semibold tracking-tight text-ds-text-1 truncate">{guardiaName}</p>
                         <Tag variant="neutral" size="sm">
                           {totalUnits} unid.
                         </Tag>
                       </div>
-                      <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px] text-ds-text-3">
+                      <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-ds-text-3">
                         <span>{new Date(m.date).toLocaleDateString("es-CL")}</span>
                         <span aria-hidden>·</span>
                         <span className="inline-flex items-center gap-1 truncate">
@@ -443,7 +443,7 @@ export function InventarioEntregasClient({ currentUserId, canEdit }: Props) {
                         )}
                       </div>
                       {(creatorName || isOwn) && (
-                        <p className="mt-1 inline-flex items-center gap-1 text-[12px] text-ds-text-4">
+                        <p className="mt-1 inline-flex items-center gap-1 text-xs text-ds-text-4">
                           <User className="h-2.5 w-2.5" />
                           Por {isOwn ? "ti" : creatorName}
                         </p>
@@ -452,7 +452,7 @@ export function InventarioEntregasClient({ currentUserId, canEdit }: Props) {
                     <InventoryReceptionBadge status={receptionStatusFromMovement(m.confirmationStatus)} />
                   </div>
 
-                  <ul className="mt-2 space-y-0.5 rounded-ds-md bg-ds-surface-2 p-2 text-[12px] text-ds-text-3">
+                  <ul className="mt-2 space-y-0.5 rounded-ds-md bg-ds-surface-2 p-2 text-xs text-ds-text-3">
                     {m.lines.map((l, i) => (
                       <li key={i} className="flex items-center justify-between">
                         <span className="truncate">
@@ -465,7 +465,7 @@ export function InventarioEntregasClient({ currentUserId, canEdit }: Props) {
                   </ul>
 
                   {confirmed && (
-                    <p className="mt-2 text-[12px] text-status-ok-fg">
+                    <p className="mt-2 text-xs text-status-ok-fg">
                       Recepcionado{" "}
                       {new Date(m.confirmedAt!).toLocaleString("es-CL", {
                         dateStyle: "short",
@@ -573,7 +573,7 @@ export function InventarioEntregasClient({ currentUserId, canEdit }: Props) {
                 className="h-10 sm:h-9 bg-ds-surface-3"
               />
               {form.guardiaId && !form.installationId && (
-                <p className="text-[12px] text-status-warn-fg mt-1">
+                <p className="text-xs text-status-warn-fg mt-1">
                   Este guardia no tiene instalación asignada actualmente.
                 </p>
               )}
@@ -605,7 +605,7 @@ export function InventarioEntregasClient({ currentUserId, canEdit }: Props) {
                 </Button>
               </div>
               {!form.fromWarehouseId ? (
-                <p className="rounded-ds-md border border-dashed border-ds-border-default p-3 text-center text-[12px] text-ds-text-3">
+                <p className="rounded-ds-md border border-dashed border-ds-border-default p-3 text-center text-xs text-ds-text-3">
                   Selecciona una bodega para ver el stock disponible.
                 </p>
               ) : (
@@ -618,7 +618,7 @@ export function InventarioEntregasClient({ currentUserId, canEdit }: Props) {
                     return (
                       <div key={i} className="rounded-ds-md border border-ds-border-default p-3 space-y-2 bg-ds-surface-2">
                         <div className="flex items-center justify-between">
-                          <span className="text-[12px] font-medium text-ds-text-3">Línea {i + 1}</span>
+                          <span className="text-xs font-medium text-ds-text-3">Línea {i + 1}</span>
                           {form.lines.length > 1 && (
                             <button
                               type="button"

@@ -171,7 +171,9 @@ export function InventarioStockClient({ canEdit }: Props) {
                 ? "text-status-warn-fg"
                 : "text-ds-text-1";
           return (
-            <span className={cn("font-semibold", color)}>{s.quantity}</span>
+            <span className={cn("font-mono font-semibold tabular-nums", color)}>
+              {s.quantity.toLocaleString("es-CL")}
+            </span>
           );
         },
       },
@@ -180,7 +182,7 @@ export function InventarioStockClient({ canEdit }: Props) {
         header: "Mín",
         align: "right",
         cell: (s) => (
-          <span className="text-ds-text-3">
+          <span className="font-mono tabular-nums text-ds-text-3">
             {s.variant.minStock || "—"}
           </span>
         ),
@@ -191,9 +193,13 @@ export function InventarioStockClient({ canEdit }: Props) {
         align: "right",
         hideOnMobile: true,
         cell: (s) =>
-          s.avgCost != null
-            ? `$${Number(s.avgCost).toLocaleString("es-CL")}`
-            : "—",
+          s.avgCost != null ? (
+            <span className="font-mono tabular-nums text-ds-text-1">
+              ${Number(s.avgCost).toLocaleString("es-CL")}
+            </span>
+          ) : (
+            <span className="text-ds-text-4">—</span>
+          ),
       },
       {
         id: "status",
@@ -217,7 +223,7 @@ export function InventarioStockClient({ canEdit }: Props) {
   );
 
   return (
-    <div className="space-y-5 ds-page-enter">
+    <div className="space-y-6 ds-page-enter">
       {/* KPIs */}
       <StatGrid lgCols={4}>
         <Stat label="Variantes" value={stock.length} animate icon={Package} />
@@ -322,12 +328,12 @@ export function InventarioStockClient({ canEdit }: Props) {
             const subtotal = items.reduce((sum, s) => sum + s.quantity, 0);
             return (
               <div key={items[0]?.warehouse.id ?? whName}>
-                <div className="mb-2.5 flex items-center justify-between">
-                  <h3 className="inline-flex items-center gap-2 text-[15px] font-semibold text-ds-text-1">
-                    <WarehouseIcon className="h-4 w-4 text-ds-text-3" />
+                <div className="mb-3 flex items-center justify-between">
+                  <h3 className="inline-flex items-center gap-2 text-base font-semibold tracking-tight text-ds-text-1">
+                    <WarehouseIcon className="h-4 w-4 text-ds-text-3" strokeWidth={1.75} />
                     {whName}
                   </h3>
-                  <span className="text-[12px] font-mono ds-num text-ds-text-3">
+                  <span className="text-xs font-mono ds-num text-ds-text-3">
                     {subtotal.toLocaleString("es-CL")} unid.
                   </span>
                 </div>
@@ -365,17 +371,22 @@ export function InventarioStockClient({ canEdit }: Props) {
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0 flex-1">
-                              <p className="text-[14px] font-semibold text-ds-text-1 truncate">
+                              <p className="text-sm font-semibold text-ds-text-1 truncate">
                                 {variantLabel(s)}
                               </p>
-                              <p className="mt-0.5 text-[12px] text-ds-text-3">
+                              <p className="mt-1 text-xs text-ds-text-3">
                                 Mínimo:{" "}
-                                <span className="ds-num">
+                                <span className="ds-num font-mono">
                                   {s.variant.minStock || "—"}
                                 </span>
-                                {s.avgCost != null
-                                  ? ` · Costo: $${Number(s.avgCost).toLocaleString("es-CL")}`
-                                  : ""}
+                                {s.avgCost != null && (
+                                  <>
+                                    {" · Costo: "}
+                                    <span className="ds-num font-mono">
+                                      ${Number(s.avgCost).toLocaleString("es-CL")}
+                                    </span>
+                                  </>
+                                )}
                               </p>
                             </div>
                             <div className="text-right">

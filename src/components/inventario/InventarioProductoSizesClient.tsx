@@ -145,7 +145,7 @@ export function InventarioProductoSizesClient({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <h2 className="text-sm font-semibold tracking-tight text-ds-text-1">Tallas</h2>
-          <p className="text-[12px] text-ds-text-3 mt-0.5">
+          <p className="text-xs text-ds-text-3 mt-0.5">
             Ej: S, M, L, XL para camisas; 40, 41, 42 para zapatos.
           </p>
         </div>
@@ -210,7 +210,7 @@ export function InventarioProductoSizesClient({
                   <span className="col-span-3 font-medium text-ds-text-1">
                     {s.sizeCode}
                     {s.sizeLabel && (
-                      <span className="ml-1 text-[12px] text-ds-text-3">({s.sizeLabel})</span>
+                      <span className="ml-1 text-xs text-ds-text-3">({s.sizeLabel})</span>
                     )}
                   </span>
                   <span className="col-span-4">
@@ -249,7 +249,7 @@ export function InventarioProductoSizesClient({
                         <Pencil className="h-3 w-3" />
                       </button>
                     ) : (
-                      <span className="text-[12px] text-ds-text-4">-</span>
+                      <span className="text-xs text-ds-text-4">-</span>
                     )}
                   </span>
                   <span className="col-span-5 flex justify-end">

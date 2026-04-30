@@ -648,7 +648,7 @@ export function InventarioComprasClient() {
                     <Download className="h-4 w-4 mr-1.5" />
                     Descargar Plantilla
                   </Button>
-                  <span className="text-[12px] text-ds-text-3">
+                  <span className="text-xs text-ds-text-3">
                     Columnas: Producto, Talla, Cantidad, Costo Unitario, Bodega
                   </span>
                 </div>
@@ -700,7 +700,7 @@ export function InventarioComprasClient() {
                           {unmatchedCount} sin match
                         </Tag>
                       )}
-                      <span className="text-[12px] text-ds-text-3 self-center">
+                      <span className="text-xs text-ds-text-3 self-center">
                         Total: {importLines.length} líneas
                       </span>
                     </div>
@@ -727,7 +727,7 @@ export function InventarioComprasClient() {
                                 className={
                                   line.matched
                                     ? ""
-                                    : "bg-status-warn-soft/40"
+                                    : "bg-status-warn-soft"
                                 }
                               >
                                 <td className="p-2 text-ds-text-1">
@@ -865,9 +865,9 @@ export function InventarioComprasClient() {
                       {form.lines.map((line, i) => {
                         const sizes = line.productId ? getSizesForCompraProduct(line.productId) : [];
                         return (
-                          <div key={i} className="rounded-lg border border-border p-3 space-y-2">
+                          <div key={i} className="rounded-ds-md border border-ds-border-default p-3 space-y-2">
                             <div className="flex items-center justify-between">
-                              <span className="text-[12px] font-medium text-ds-text-3">Línea {i + 1}</span>
+                              <span className="text-xs font-medium text-ds-text-3">Línea {i + 1}</span>
                               {form.lines.length > 1 && (
                                 <button
                                   type="button"
@@ -1001,11 +1001,11 @@ export function InventarioComprasClient() {
                     <IconBubble icon={ShoppingCart} variant="info" size="md" />
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-baseline gap-x-2">
-                        <span className="text-[14px] font-semibold ds-num text-ds-text-1">
+                        <span className="text-sm font-mono font-semibold tabular-nums text-ds-text-1">
                           {new Date(p.date).toLocaleDateString("es-CL")}
                         </span>
                         {p.notes && (
-                          <span className="text-[12px] text-ds-text-3 truncate">{p.notes}</span>
+                          <span className="text-xs text-ds-text-3 truncate">{p.notes}</span>
                         )}
                       </div>
                     </div>
@@ -1030,7 +1030,7 @@ export function InventarioComprasClient() {
                     </button>
                   </div>
                 </div>
-                <ul className="mt-2 space-y-0.5 text-[12px] text-ds-text-3 font-mono">
+                <ul className="mt-2 space-y-0.5 text-xs text-ds-text-3 font-mono">
                   {p.lines.map((l) => (
                     <li key={l.id} className="truncate">
                       {l.quantity} × {l.variant.product.name}
@@ -1092,9 +1092,9 @@ export function InventarioComprasClient() {
                   {editForm.lines.map((line, i) => {
                     const sizes = line.productId ? getSizesForCompraProduct(line.productId) : [];
                     return (
-                      <div key={i} className="rounded-lg border border-border p-3 space-y-2">
+                      <div key={i} className="rounded-ds-md border border-ds-border-default p-3 space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className="text-[12px] font-medium text-ds-text-3">Línea {i + 1}</span>
+                          <span className="text-xs font-medium text-ds-text-3">Línea {i + 1}</span>
                           {editForm.lines.length > 1 && (
                             <button
                               type="button"
