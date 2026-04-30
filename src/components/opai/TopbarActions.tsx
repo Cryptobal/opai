@@ -11,7 +11,7 @@ import { useNotifications } from "@/contexts/NotificationContext";
 import { Badge } from "@/components/ui/badge";
 import { ThemeToggle } from "./ThemeToggle";
 import { RoleSwitcher } from "@/components/navbar/RoleSwitcher";
-import { Avatar } from "./Avatar";
+import { Avatar } from "@/components/opai-ds";
 import {
   DropdownMenu,
   DropdownMenuContent,

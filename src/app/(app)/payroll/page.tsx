@@ -2,7 +2,9 @@
  * PAYROLL MODULE - DASHBOARD
  */
 
-import { PageHeader, ModuleCard } from "@/components/opai";
+import Link from "next/link";
+import { PageHeader } from "@/components/opai";
+import { Surface } from "@/components/opai-ds";
 import { PayrollSubnav } from "@/components/payroll/PayrollSubnav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calculator, FileText, Settings, CalendarDays, Wallet, ClipboardCheck } from "lucide-react";
@@ -55,15 +57,24 @@ export default function PayrollDashboard() {
       <PayrollSubnav />
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 min-w-0">
-        {modules.map((item) => (
-          <ModuleCard
-            key={item.href}
-            title={item.title}
-            description={item.description}
-            icon={item.icon}
-            href={item.href}
-          />
-        ))}
+        {modules.map((item) => {
+          const Icon = item.icon;
+          return (
+            <Link key={item.href} href={item.href} className="block">
+              <Surface elevation={1} padding="md" hoverable className="h-full">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-ds-md bg-primary/10 text-primary shrink-0">
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-display text-[14px] font-semibold text-ds-text-1">{item.title}</p>
+                    <p className="text-[12px] text-ds-text-3 mt-0.5">{item.description}</p>
+                  </div>
+                </div>
+              </Surface>
+            </Link>
+          );
+        })}
       </div>
 
       {/* Info */}

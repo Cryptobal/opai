@@ -9,7 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
-import { EmptyState, LoadingSpinner } from "@/components/opai";
+import { EmptyState } from "@/components/opai";
+import { Spinner } from "@/components/opai-ds";
 import {
   Dialog,
   DialogContent,
@@ -1437,7 +1438,7 @@ export function OpsPautaMensualClient({
         {/* Installation cards */}
         {overviewLoading ? (
           <div className="flex items-center justify-center py-16">
-            <LoadingSpinner size="md" />
+            <Spinner size="md" />
           </div>
         ) : overviewData.length === 0 ? (
           <Card>
@@ -1623,7 +1624,7 @@ export function OpsPautaMensualClient({
             <div className="flex items-center gap-2 flex-wrap">
               {loading ? (
                 <div className="flex items-center gap-2 text-xs">
-                  <LoadingSpinner size="sm" />
+                  <Spinner size="sm" />
                   <span className="text-muted-foreground">Cargando…</span>
                 </div>
               ) : items.length > 0 ? (
@@ -1799,7 +1800,7 @@ export function OpsPautaMensualClient({
           <CardContent className="pt-3 pb-2.5">
             {loading && matrix.length === 0 ? (
               <div className="flex items-center justify-center py-12">
-                <LoadingSpinner size="md" />
+                <Spinner size="md" />
               </div>
             ) : (
               <>

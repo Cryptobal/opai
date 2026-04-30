@@ -27,26 +27,11 @@ export type { OpaiSurfaceProps, OpaiSectionHeaderProps } from './Surface';
 export { DataTable } from './DataTable';
 export type { DataTableColumn, DataTableProps } from './DataTable';
 
-export { FilterBar } from './FilterBar';
-export type { FilterBarProps } from './FilterBar';
-
-export { ModuleCard } from './ModuleCard';
-
-export { LoadingSpinner } from './LoadingSpinner';
-
-export { FormField } from './FormField';
-
 export { EmptyState } from './EmptyState';
 export type { EmptyStateProps } from './EmptyState';
 
 export { LoadingState } from './LoadingState';
 export type { LoadingStateProps, LoadingStateType } from './LoadingState';
-
-export { Avatar } from './Avatar';
-export { Stepper } from './Stepper';
-export { Breadcrumb } from './Breadcrumb';
-export type { BreadcrumbItem } from './Breadcrumb';
-export { StatusBadge } from './StatusBadge';
 
 // Theme
 export { ThemeProvider, useTheme } from './ThemeProvider';

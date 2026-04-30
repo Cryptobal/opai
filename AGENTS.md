@@ -264,18 +264,19 @@ Status:
 |---|---|---|
 | `KpiCard` | `Stat` | ✅ Eliminado en 4A |
 | `KpiGrid` | `StatGrid` | ✅ Eliminado en 4A |
-| `EmptyState` | `EmptyState` (DS v3) | ⏳ 4B |
-| `DataTable` | `DataTable` (DS v3) | ⏳ 4C |
-| `FilterBar` | `Toolbar` | ⏳ 4D |
-| `LoadingSpinner` | `Spinner` | ⏳ 4D |
-| `Avatar` | `Avatar` (DS v3) | ⏳ 4D |
-| `Breadcrumb` | (a evaluar) | ⏳ 4D |
-| `StatusBadge` | `Tag` | ⏳ 4D |
-| `Stepper` | (a evaluar) | ⏳ 4D |
-| `LoadingState` | (a evaluar) | ⏳ 4D |
-| `ModuleCard` | (a evaluar) | ⏳ 4D |
-| `SubNav` | (a evaluar) | ⏳ 4D |
-| `PageHeader` | (mover a opai-ds, no migrar) | ⏳ 4D |
+| `EmptyState` | `EmptyState` (DS v3) | 🟡 Call sites CC migrados (22) en PR 4B; archivo legacy aún consumido por DataTable.tsx legacy |
+| `DataTable` | `DataTable` (DS v3) | 🟡 13 CC migrados en PR 4C; 3 SC pages pendientes (4C2) |
+| `Avatar` | `Avatar` (DS v3, ahora con `photoUrl` + `name`) | ✅ Eliminado en 4D |
+| `Breadcrumb` | `Breadcrumbs` (DS v3) | ✅ Eliminado en 4D |
+| `LoadingSpinner` | `Spinner` (DS v3) | ✅ Eliminado en 4D |
+| `StatusBadge` | `StatusTag` (wrapper local sobre `Tag` DS v3) | ✅ Eliminado en 4D |
+| `FilterBar` | inline `<div>` con tokens DS (Toolbar es estructurado, no children-based) | ✅ Eliminado en 4D |
+| `ModuleCard` | inline con `Surface` (DS v3) | ✅ Eliminado en 4D |
+| `Stepper` | (sin uso) | ✅ Eliminado en 4D |
+| `FormField` | (sin uso) | ✅ Eliminado en 4D |
+| `LoadingState` | (sin reemplazo directo, usado solo internamente por DataTable legacy) | 🟡 se borra en 4C2 |
+| `SubNav` | (a evaluar) | ⏳ 4D2 |
+| `PageHeader` | (mover a opai-ds, no migrar) | ⏳ 4D2 (80 imports) |
 | `OpaiSurface`, `OpaiPageHero`, `OpaiSectionHeader` | (eliminar, ya nadie los usa) | ⏳ 4E |
 
 ### Cuándo crear un nuevo primitive en `opai-ds/`

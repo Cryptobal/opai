@@ -28,7 +28,7 @@ import {
 } from "lucide-react";
 import { TePeriodSelector } from "./TePeriodSelector";
 import { formatPersonName } from "@/lib/personas";
-import { LoadingSpinner } from "@/components/opai";
+import { Spinner } from "@/components/opai-ds";
 
 /* ── types ── */
 
@@ -288,7 +288,7 @@ export function TeDashboard() {
               <CardContent className="px-4 pb-3">
                 {detailLoading ? (
                   <div className="flex items-center justify-center py-4">
-                    <LoadingSpinner size="sm" />
+                    <Spinner size="sm" />
                   </div>
                 ) : detailRows.length === 0 ? (
                   <p className="text-sm text-muted-foreground py-4 text-center">Sin registros en este período</p>
@@ -404,7 +404,7 @@ export function TeDashboard() {
         <CardContent className="px-4 pb-4">
           {loading ? (
             <div className="flex items-center justify-center h-[200px]">
-              <LoadingSpinner size="md" />
+              <Spinner size="md" />
             </div>
           ) : evolution.length < 2 ? (
             <div className="flex flex-col items-center justify-center text-sm text-muted-foreground h-[200px] gap-1">

@@ -1,9 +1,10 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, hasModuleAccess, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHeader, ModuleCard } from "@/components/opai";
-import { Stat, StatGrid } from "@/components/opai-ds";
+import { PageHeader } from "@/components/opai";
+import { Stat, StatGrid, Surface } from "@/components/opai-ds";
 import { OpsGlobalSearch } from "@/components/ops/OpsGlobalSearch";
 import {
   Route,
@@ -176,17 +177,27 @@ export default async function OpsDashboardPage() {
 
       {/* -- Módulos: compactos en mobile para ver más sin scroll -- */}
       <div className="grid grid-cols-2 gap-2 sm:gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {modules.map((item) => (
-          <ModuleCard
-            key={item.href}
-            title={item.title}
-            description={item.description}
-            icon={item.icon}
-            href={item.href}
-            count={item.count ?? undefined}
-            compactOnMobile
-          />
-        ))}
+        {modules.map((item) => {
+          const Icon = item.icon;
+          return (
+            <Link key={item.href} href={item.href} className="block">
+              <Surface elevation={1} padding="sm" hoverable className="h-full">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-ds-md bg-primary/10 text-primary shrink-0">
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-display text-[13px] sm:text-[14px] font-semibold text-ds-text-1">{item.title}</p>
+                    <p className="hidden sm:block text-[12px] text-ds-text-3 mt-0.5">{item.description}</p>
+                    {item.count != null && (
+                      <p className="font-display text-lg sm:text-2xl font-bold text-ds-text-1 ds-num mt-2">{item.count}</p>
+                    )}
+                  </div>
+                </div>
+              </Surface>
+            </Link>
+          );
+        })}
       </div>
     </div>
   );

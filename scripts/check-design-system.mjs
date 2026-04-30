@@ -62,6 +62,13 @@ const MIGRATED_PATHS = [
   // archivos completos: estos archivos siguen teniendo colores hardcoded
   // y otros patrones legacy fuera del KPI. Cuando un módulo termine su
   // migración completa (no solo KPIs), agregar el path aquí.
+  //
+  // Paso 4D — cluster final chico (Avatar, Breadcrumb, LoadingSpinner,
+  // StatusBadge, FilterBar, ModuleCard, Stepper, FormField). 8 componentes
+  // legacy eliminados. Mismo criterio: los call sites NO se agregan a
+  // MIGRATED_PATHS porque siguen teniendo otros patrones legacy fuera de
+  // los componentes migrados. Único helper nuevo agregado: StatusTag.
+  "src/components/ops/StatusTag.tsx",
   // Agregar aquí cuando se migren:
   // "src/components/personas/",
   // "src/components/crm/",

@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { CalendarCheck2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { EmptyState, LoadingSpinner } from "@/components/opai";
+import { EmptyState } from "@/components/opai";
+import { Spinner } from "@/components/opai-ds";
 import { hasOpsCapability } from "@/lib/ops-rbac";
 import { toast } from "sonner";
 
@@ -181,7 +182,7 @@ export function AsistenciaDiariaClient({
       {/* Content */}
       {hook.loading && hook.items.length === 0 ? (
         <div className="flex items-center justify-center py-16">
-          <LoadingSpinner size="md" />
+          <Spinner size="md" />
         </div>
       ) : hook.items.length === 0 ? (
         <Card>
