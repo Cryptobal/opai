@@ -187,7 +187,7 @@ export default async function CRMPage() {
           <Stat
             label="Leads este mes"
             value={leadsThisMonth}
-            icon={Users}
+            icon={<Users />}
             trend={leadsMonthDelta !== 0 ? leadsMonthDelta : undefined}
             hint={`${leadsPrevMonth} mes anterior`}
             className="h-full transition-all hover:ring-2 hover:ring-primary/25"
@@ -196,7 +196,7 @@ export default async function CRMPage() {
         <Stat
           label="Estado leads"
           value={`${leadsPending + leadsInReview}`}
-          icon={AlertTriangle}
+          icon={<AlertTriangle />}
           hint={`${leadsPending} pendientes · ${leadsInReview} en revisión`}
           variant="warn"
         />
@@ -204,7 +204,7 @@ export default async function CRMPage() {
           <Stat
             label="Portafolio activo"
             value={accountsActive}
-            icon={Building2}
+            icon={<Building2 />}
             hint={`${installationsActive} instalaciones`}
             className="h-full transition-all hover:ring-2 hover:ring-primary/25"
           />
@@ -213,7 +213,7 @@ export default async function CRMPage() {
           <Stat
             label="Pipeline abierto"
             value={openDealsCount}
-            icon={TrendingUp}
+            icon={<TrendingUp />}
             hint={openDealsAmountFormatted}
             className="h-full transition-all hover:ring-2 hover:ring-primary/25"
           />

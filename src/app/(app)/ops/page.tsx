@@ -151,25 +151,25 @@ export default async function OpsDashboardPage() {
         <Stat
           label="Instalaciones activas"
           value={activeInstallations}
-          icon={Building2}
+          icon={<Building2 />}
           variant="brand"
         />
         <Stat
           label="Guardias asignados"
           value={`${guardsAssigned}/${slotsTotal}`}
-          icon={Users}
+          icon={<Users />}
           variant="ok"
         />
         <Stat
           label="Vacantes (PPC)"
           value={vacantes}
-          icon={ShieldAlert}
+          icon={<ShieldAlert />}
           variant={vacantes > 0 ? "warn" : "ok"}
         />
         <Stat
           label="Cobertura dotación"
           value={`${slotsTotal > 0 ? Math.round((guardsAssigned / slotsTotal) * 100) : 0}%`}
-          icon={Users}
+          icon={<Users />}
           variant="brand"
         />
       </StatGrid>

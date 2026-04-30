@@ -11,7 +11,7 @@
  *  - Opcional: IconTile xl a la izquierda (icon + iconVariant | iconTone).
  */
 
-import { ReactNode } from "react";
+import { ReactNode, type ReactElement } from "react";
 import { type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { IconTile, type IconBubbleVariant, type IconBubbleTone } from "./IconBubble";
@@ -26,8 +26,13 @@ export interface PageHeroProps {
   description?: ReactNode;
   /** Botones / actions a la derecha. */
   actions?: ReactNode;
-  /** Ícono Lucide para IconTile xl a la izquierda del título. */
-  icon?: LucideIcon;
+  /**
+   * Ícono Lucide para IconTile xl a la izquierda del título. Acepta el
+   * componente o el elemento ya renderizado (`<Icon />`). Server
+   * Components DEBEN pasar el elemento renderizado para evitar errores
+   * de serialización RSC (los lucide icons son `forwardRef`).
+   */
+  icon?: LucideIcon | ReactElement;
   /** Variante semántica del IconTile. Ignorada si `iconTone` está definido. */
   iconVariant?: IconBubbleVariant;
   /** Tono categórico del IconTile (ej: "emerald" para Inventario). */

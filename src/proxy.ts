@@ -42,6 +42,11 @@ function isPublicPath(pathname: string): boolean {
   if (pathname === '/llms.txt' || pathname === '/llms-full.txt') return true;
   if (pathname.startsWith('/.well-known/')) return true;
 
+  // Sentry tunnel (next.config.js → tunnelRoute: "/monitoring")
+  // Sin esto, los eventos de Sentry son redirigidos a login y CORS los bloquea,
+  // dejando al equipo ciego ante errores de Server Components en producción.
+  if (pathname.startsWith('/monitoring')) return true;
+
   // Placeholders de módulos
   if (pathname === '/hub' || pathname === '/crm') return true;
 

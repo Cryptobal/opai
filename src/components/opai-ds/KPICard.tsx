@@ -22,7 +22,7 @@
  * usar Stat. Ambos coexisten — son decisiones visuales distintas.
  */
 
-import { ReactNode, useEffect, useRef, useState } from "react";
+import { ReactNode, type ReactElement, useEffect, useRef, useState } from "react";
 import { ArrowDownRight, ArrowUpRight, Minus, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Surface } from "./Surface";
@@ -47,8 +47,13 @@ export interface KPICardProps {
   hint?: ReactNode;
   /** Variant semántico: solo afecta el color del valor. */
   variant?: KPIVariant;
-  /** Ícono para el IconTile arriba. */
-  icon?: LucideIcon;
+  /**
+   * Ícono para el IconTile arriba. Acepta el componente Lucide o el
+   * elemento ya renderizado (`<Icon />`). Server Components DEBEN pasar
+   * el elemento renderizado (los lucide icons son `forwardRef` y no
+   * cruzan la frontera Server → Client como prop).
+   */
+  icon?: LucideIcon | ReactElement;
   /** Variant semántica del IconTile. Default "brand". Ignorada si `iconTone` está definido. */
   iconVariant?: IconBubbleVariant;
   /** Tono categórico del IconTile (preferir para módulos con identidad). */

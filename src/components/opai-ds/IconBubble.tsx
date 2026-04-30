@@ -29,6 +29,7 @@
  *    con variant (tone gana si ambos están).
  */
 
+import { cloneElement, isValidElement, type ReactElement } from "react";
 import { cn } from "@/lib/utils";
 import { type LucideIcon } from "lucide-react";
 import { type Tone, toneClasses } from "@/lib/design-system/tokens";
@@ -70,7 +71,13 @@ const SIZE_ICON: Record<IconBubbleSize, string> = {
 };
 
 export interface IconBubbleProps {
-  icon: LucideIcon;
+  /**
+   * Acepta el componente Lucide (`Icon`) o el elemento ya renderizado
+   * (`<Icon />`). Server Components DEBEN pasar el elemento renderizado
+   * para evitar errores de serialización RSC al cruzar la frontera
+   * Server → Client (los lucide icons son `forwardRef` y no se serializan).
+   */
+  icon: LucideIcon | ReactElement;
   /** Variante semántica (estados / brand / neutral). Ignorada si `tone` está definido. */
   variant?: IconBubbleVariant;
   /** Tono categórico (no semántico). Tiene precedencia sobre `variant`. */
@@ -82,7 +89,7 @@ export interface IconBubbleProps {
 }
 
 export function IconBubble({
-  icon: Icon,
+  icon,
   variant = "neutral",
   tone,
   size = "md",
@@ -92,6 +99,19 @@ export function IconBubble({
   const useTone = tone !== undefined;
   const containerColor = useTone ? toneClasses(tone) : VARIANT_BG[variant];
   const iconColor = useTone ? "" : VARIANT_FG[variant];
+  const iconClassName = cn(SIZE_ICON[size], iconColor);
+
+  let iconNode;
+  if (isValidElement(icon)) {
+    const props = (icon.props ?? {}) as { className?: string; strokeWidth?: number };
+    iconNode = cloneElement(icon as ReactElement<{ className?: string; strokeWidth?: number }>, {
+      className: cn(iconClassName, props.className),
+      strokeWidth: props.strokeWidth ?? 1.75,
+    });
+  } else {
+    const Icon = icon as LucideIcon;
+    iconNode = <Icon className={iconClassName} strokeWidth={1.75} />;
+  }
 
   return (
     <span
@@ -104,7 +124,7 @@ export function IconBubble({
         className,
       )}
     >
-      <Icon className={cn(SIZE_ICON[size], iconColor)} strokeWidth={1.75} />
+      {iconNode}
     </span>
   );
 }
