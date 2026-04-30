@@ -142,6 +142,23 @@ const MIGRATED_PATHS = [
   // /crm/deals/[id] ya quedó migrada por 5A.2 (heredada de
   // EntityDetailLayout).
   "src/app/(app)/crm/deals/page.tsx",
+  // Cluster 5A.5 — Lista de Cotizaciones migrada al patrón hero DS v3.
+  // Solo /crm/cotizaciones page (SC) se agrega: queda 100% limpia tras
+  // el cambio a <PageHero> (preservando CpqIndicators como `actions`).
+  // CrmCotizacionesClient.tsx (CC) NO se agrega: mismo criterio que
+  // 4A/4B/4C/4D/5A.1/5A.2/5A.3/5A.4 — el archivo migra el EmptyState
+  // al DS v3 (consolidado al export de @/components/opai-ds) pero sigue
+  // teniendo drift legacy fuera de eso (text-[10px]/text-[11px] en
+  // badges/chips de la lista y cards, hardcoded emerald/amber/red en
+  // STATUS_MAP). Se agregará cuando se haga su pasada de limpieza
+  // completa en una sub-fase futura.
+  // CpqQuoteDetail.tsx NO se agrega: solo se hace cleanup mínimo del
+  // EmptyState interno del tab "Puestos". Sus headers transaccionales
+  // (mobile sticky + desktop card) NO son candidatos al hero pattern
+  // por diseño (status, portal toggle, send-invoice, generate-PDF,
+  // contexto CRM). Se evaluará en una sub-fase futura del CPQ si
+  // decidimos auditar el archivo completo.
+  "src/app/(app)/crm/cotizaciones/page.tsx",
   // Agregar aquí cuando se migren:
   // "src/components/personas/",
   // "src/components/crm/",

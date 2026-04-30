@@ -14,7 +14,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { EmptyState } from "@/components/opai/EmptyState";
+import { EmptyState } from "@/components/opai-ds";
 import { CreatePositionModal } from "@/components/cpq/CreatePositionModal";
 import { CpqPositionCard } from "@/components/cpq/CpqPositionCard";
 import { CpqQuoteCosts } from "@/components/cpq/CpqQuoteCosts";
@@ -2156,7 +2156,7 @@ export function CpqQuoteDetail({
             )}
             {positions.length === 0 ? (
               <EmptyState
-                icon={<Users className="h-6 w-6" />}
+                icon={Users}
                 title="Sin puestos"
                 description="Agrega el primer puesto para comenzar."
                 compact
