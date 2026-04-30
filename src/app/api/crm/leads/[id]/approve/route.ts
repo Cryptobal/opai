@@ -201,7 +201,11 @@ export async function POST(
     const seenIds = new Set(exactDuplicates.map((d) => d.id));
     let duplicates: { id: string; name: string; rut: string | null; type: string }[] = [...exactDuplicates];
 
-    if (accountName.length >= 2) {
+    // Búsqueda por similitud sólo cuando el nombre tiene cuerpo suficiente.
+    // Antes con 2+ chars y threshold 0.45 cualquier "Cliente" matcheaba contra
+    // cuentas que tenían "Cliente XYZ" → conflicto falso. Subimos a >=4 chars
+    // y threshold 0.7 para que sólo aparezcan candidatos realmente parecidos.
+    if (accountName.length >= 4) {
       const terms = getSearchTerms(accountName);
       if (terms.length > 0) {
         const candidates = await prisma.crmAccount.findMany({
@@ -212,7 +216,7 @@ export async function POST(
           select: { id: true, name: true, rut: true, type: true },
           take: 50,
         });
-        const THRESHOLD = 0.45;
+        const THRESHOLD = 0.7;
         const similar = candidates
           .filter((c) => !seenIds.has(c.id))
           .map((c) => ({ ...c, score: nameSimilarity(accountName, c.name) }))

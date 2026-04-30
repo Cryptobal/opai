@@ -2845,7 +2845,13 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
                   <FileText className="mr-2 h-4 w-4" />
                   Ir al CPQ — Revisar y ajustar
                 </Button>
-                {approveForm.email.trim() && approvalResult.quotes.length > 0 && (
+                {/* Botón "Enviar propuesta ahora" — siempre visible cuando se
+                    creó la cotización. Antes estaba gateado por
+                    approveForm.email.trim(), pero el endpoint /send-portal usa
+                    el email del contacto recién creado (vía recipientContactId),
+                    no el del formulario. Si el form quedaba sin email el botón
+                    desaparecía aunque el contacto sí lo tuviera. */}
+                {approvalResult.quotes.length > 0 && (
                   <Button
                     variant="default"
                     className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
