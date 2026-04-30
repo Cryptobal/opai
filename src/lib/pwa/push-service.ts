@@ -108,12 +108,30 @@ async function calculateBadgeCount(
       for (const count of unreads.values()) chatUnreads += count;
     }
 
-    // Bell notification unreads (admin only)
+    // Bell notification unreads (admin only) — per-user via NotificationReadState
     let bellUnreads = 0;
     if (userType === 'admin') {
-      bellUnreads = await prisma.notification.count({
-        where: { tenantId, read: false },
+      const allTenantNotifs = await prisma.notification.findMany({
+        where: { tenantId },
+        select: { id: true, read: true, data: true },
       });
+      if (allTenantNotifs.length > 0) {
+        const readStateRows = await prisma.notificationReadState.findMany({
+          where: {
+            userId,
+            notificationId: { in: allTenantNotifs.map((n) => n.id) },
+          },
+          select: { notificationId: true },
+        });
+        const readSet = new Set(readStateRows.map((r) => r.notificationId));
+        bellUnreads = allTenantNotifs.filter((n) => {
+          const d = (n.data as Record<string, unknown> | null) ?? {};
+          const targetUserId =
+            typeof d.targetUserId === 'string' ? d.targetUserId : null;
+          if (targetUserId) return targetUserId === userId && !n.read;
+          return !readSet.has(n.id);
+        }).length;
+      }
     }
 
     return chatUnreads + bellUnreads;
@@ -179,7 +197,48 @@ async function batchCalculateBadgeCounts(
       excludedByUser.set(key, set);
     }
 
-    // 3. For each user, batch their unread counts using batchUnreadCounts
+    // 3a. Pre-compute per-admin bell unreads with a single global query
+    // (instead of one count() per admin recipient). Uses NotificationReadState
+    // to respect per-user read tracking for broadcast notifications.
+    const adminIds = recipients
+      .filter((r) => r.subscriberType === 'ADMIN')
+      .map((r) => r.subscriberId);
+
+    const unreadByAdminId = new Map<string, number>();
+    if (adminIds.length > 0) {
+      const allTenantNotifs = await prisma.notification.findMany({
+        where: { tenantId },
+        select: { id: true, read: true, data: true },
+      });
+      if (allTenantNotifs.length > 0) {
+        const readRows = await prisma.notificationReadState.findMany({
+          where: {
+            userId: { in: adminIds },
+            notificationId: { in: allTenantNotifs.map((n) => n.id) },
+          },
+          select: { notificationId: true, userId: true },
+        });
+        const readByUser = new Map<string, Set<string>>();
+        for (const adminId of adminIds) readByUser.set(adminId, new Set());
+        for (const row of readRows) {
+          readByUser.get(row.userId)!.add(row.notificationId);
+        }
+
+        for (const adminId of adminIds) {
+          const readSet = readByUser.get(adminId)!;
+          const count = allTenantNotifs.filter((n) => {
+            const d = (n.data as Record<string, unknown> | null) ?? {};
+            const targetUserId =
+              typeof d.targetUserId === 'string' ? d.targetUserId : null;
+            if (targetUserId) return targetUserId === adminId && !n.read;
+            return !readSet.has(n.id);
+          }).length;
+          unreadByAdminId.set(adminId, count);
+        }
+      }
+    }
+
+    // 3b. For each user, batch their unread counts using batchUnreadCounts
     // (single SQL per user, much better than N×3 queries)
     await Promise.all(
       recipients.map(async (r) => {
@@ -204,12 +263,10 @@ async function batchCalculateBadgeCounts(
           for (const count of unreads.values()) chatUnreads += count;
         }
 
-        // Bell notification unreads (admin only)
+        // Bell notification unreads (admin only) — pre-computed per-user above
         let bellUnreads = 0;
         if (r.subscriberType === 'ADMIN') {
-          bellUnreads = await prisma.notification.count({
-            where: { tenantId, read: false },
-          });
+          bellUnreads = unreadByAdminId.get(r.subscriberId) ?? 0;
         }
 
         badgeCounts.set(key, chatUnreads + bellUnreads);
