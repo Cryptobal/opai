@@ -36,6 +36,8 @@ import {
   AlertTriangle,
   XCircle,
   CalendarClock,
+  Pencil,
+  ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DOC_STATUS_CONFIG } from "@/lib/docs/token-registry";
@@ -134,6 +136,18 @@ export function AccountContractsSection({
   const [uploadSignedBy, setUploadSignedBy] = useState("");
   const [uploadNotes, setUploadNotes] = useState("");
   const [uploadSaving, setUploadSaving] = useState(false);
+
+  // Edit dialog state (only for manually uploaded contracts)
+  const [editOpen, setEditOpen] = useState(false);
+  const [editContract, setEditContract] = useState<Contract | null>(null);
+  const [editStatus, setEditStatus] = useState<"active" | "expired" | "renewed">(
+    "active",
+  );
+  const [editEffective, setEditEffective] = useState("");
+  const [editExpiration, setEditExpiration] = useState("");
+  const [editIndefinite, setEditIndefinite] = useState(false);
+  const [editAlertDays, setEditAlertDays] = useState<string>("30");
+  const [editSaving, setEditSaving] = useState(false);
 
   // Action loading states
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
@@ -261,6 +275,70 @@ export function AccountContractsSection({
       toast.error("Error de conexión");
     } finally {
       setUploadSaving(false);
+    }
+  };
+
+  // ─── Edit dialog: open / save ──────────────────────────────────
+  const openEditDialog = (contract: Contract) => {
+    setEditContract(contract);
+    const allowedStatus =
+      contract.status === "expired" || contract.status === "renewed"
+        ? contract.status
+        : "active";
+    setEditStatus(allowedStatus);
+    setEditEffective(contract.effectiveDate?.slice(0, 10) ?? "");
+    setEditExpiration(contract.expirationDate?.slice(0, 10) ?? "");
+    setEditIndefinite(!contract.expirationDate);
+    setEditAlertDays(String(contract.alertDaysBefore ?? 30));
+    setEditOpen(true);
+  };
+
+  const editError = useMemo(() => {
+    if (!editContract) return null;
+    if (!editIndefinite && editEffective && editExpiration) {
+      if (new Date(editExpiration) < new Date(editEffective)) {
+        return "La fecha de vencimiento debe ser posterior a la fecha de inicio";
+      }
+    }
+    return null;
+  }, [editContract, editIndefinite, editEffective, editExpiration]);
+
+  const handleEditSave = async () => {
+    if (!editContract) return;
+    if (editError) {
+      toast.error(editError);
+      return;
+    }
+    setEditSaving(true);
+    try {
+      const payload: Record<string, unknown> = {
+        status: editStatus,
+        effectiveDate: editEffective || null,
+        expirationDate: editIndefinite ? null : editExpiration || null,
+        alertDaysBefore: Number(editAlertDays) || 30,
+      };
+      const res = await fetch(
+        `/api/crm/accounts/${accountId}/contracts/${editContract.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+      );
+      const data = await res.json();
+      if (data.success) {
+        toast.success("Contrato actualizado");
+        setEditOpen(false);
+        setEditContract(null);
+        fetchContracts();
+        onRefresh?.();
+      } else {
+        toast.error(data.error || "Error al actualizar contrato");
+      }
+    } catch {
+      toast.error("Error de conexión");
+    } finally {
+      setEditSaving(false);
     }
   };
 
@@ -476,7 +554,9 @@ export function AccountContractsSection({
             const statusCfg = getStatusConfig(c.status);
             const sigLabel = getSignatureLabel(c.signatureStatus, c.signedAt);
             const isLoading = actionLoading[c.id];
-            const isUpload = !c.templateName && c.signatureStatus === "external";
+            // Es un upload manual cualquier doc con PDF que no nació de una
+            // plantilla (independiente de si se marcó firma externa o no).
+            const isUpload = !c.templateName && !!c.pdfUrl;
 
             return (
               <div
@@ -545,15 +625,45 @@ export function AccountContractsSection({
                 </div>
 
                 <div className="flex items-center gap-1 shrink-0 self-end sm:self-center">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 w-7 p-0"
-                    title="Ver documento"
-                    onClick={() => router.push(`/opai/documentos/${c.id}`)}
-                  >
-                    <Eye className="h-3.5 w-3.5" />
-                  </Button>
+                  {isUpload && c.pdfUrl ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0"
+                      title="Ver PDF"
+                      asChild
+                    >
+                      <a
+                        href={c.pdfUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                      </a>
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0"
+                      title="Ver en Gestión Documental"
+                      onClick={() => router.push(`/opai/documentos/${c.id}`)}
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                  {isUpload && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0"
+                      title="Editar fechas y estado"
+                      onClick={() => openEditDialog(c)}
+                      disabled={isLoading}
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
                   {c.pdfUrl && (
                     <Button
                       variant="ghost"
@@ -783,6 +893,126 @@ export function AccountContractsSection({
             >
               {uploadSaving && <Loader2 className="h-4 w-4 animate-spin mr-1.5" />}
               Subir Contrato
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── Edit Dialog (uploads manuales) ─────────────────────── */}
+      <Dialog
+        open={editOpen}
+        onOpenChange={(open) => {
+          setEditOpen(open);
+          if (!open) setEditContract(null);
+        }}
+      >
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Editar contrato</DialogTitle>
+            <DialogDescription>
+              Actualiza el estado, las fechas y la alerta de vencimiento del PDF
+              cargado manualmente.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {editContract && (
+              <div className="rounded-md bg-muted/50 px-3 py-2 text-xs flex items-center gap-2">
+                <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="truncate flex-1">{editContract.title}</span>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label>Estado</Label>
+              <Select
+                value={editStatus}
+                onValueChange={(v) =>
+                  setEditStatus(v as "active" | "expired" | "renewed")
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Activo</SelectItem>
+                  <SelectItem value="expired">Vencido / Inactivo</SelectItem>
+                  <SelectItem value="renewed">Renovado</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground">
+                «Por vencer» se calcula automáticamente desde la fecha de
+                término y los días de alerta.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Fecha de inicio</Label>
+                <Input
+                  type="date"
+                  value={editEffective}
+                  onChange={(e) => setEditEffective(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Fecha de término</Label>
+                <Input
+                  type="date"
+                  value={editExpiration}
+                  onChange={(e) => {
+                    setEditExpiration(e.target.value);
+                    if (e.target.value) setEditIndefinite(false);
+                  }}
+                  disabled={editIndefinite}
+                />
+              </div>
+            </div>
+
+            <label className="flex items-center gap-2 cursor-pointer">
+              <Checkbox
+                checked={editIndefinite}
+                onCheckedChange={(v) => {
+                  const next = v === true;
+                  setEditIndefinite(next);
+                  if (next) setEditExpiration("");
+                }}
+              />
+              <span className="text-sm">
+                Sin fecha de término (contrato indefinido)
+              </span>
+            </label>
+
+            <div className="space-y-2">
+              <Label>Días de alerta antes de vencer</Label>
+              <Input
+                type="number"
+                min={1}
+                max={365}
+                value={editAlertDays}
+                onChange={(e) => setEditAlertDays(e.target.value)}
+                disabled={editIndefinite}
+              />
+            </div>
+
+            {editError && (
+              <div className="flex items-start gap-2 rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                {editError}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleEditSave}
+              disabled={editSaving || !!editError}
+            >
+              {editSaving && <Loader2 className="h-4 w-4 animate-spin mr-1.5" />}
+              Guardar cambios
             </Button>
           </DialogFooter>
         </DialogContent>
