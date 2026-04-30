@@ -84,11 +84,11 @@ export function InventarioGuardiaAssignmentsSection({ guardiaId }: { guardiaId: 
         {assignments.map((a) => (
           <div key={a.id} className="flex flex-wrap items-start justify-between gap-2 p-3">
             <div className="min-w-0 flex-1">
-              <p className="text-[14px] font-medium text-ds-text-1">
+              <p className="text-sm font-medium text-ds-text-1">
                 {a.variant.product.name}
                 {a.variant.size && ` ${a.variant.size.sizeCode}`}
               </p>
-              <p className="text-[12px] text-ds-text-3">
+              <p className="text-xs text-ds-text-3">
                 Cantidad: {a.quantity} · Entregado:{" "}
                 {new Date(a.deliveredAt).toLocaleDateString("es-CL")}
                 {a.movement.installation && ` · ${a.movement.installation.name}`}

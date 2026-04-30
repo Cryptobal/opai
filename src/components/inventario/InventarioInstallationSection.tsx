@@ -80,7 +80,7 @@ export function InventarioInstallationSection({ installationId }: { installation
           </p>
           <p className="font-display text-lg font-semibold ds-num text-ds-text-1">{formatCurrency(totalCost)}</p>
           {(uniformsCost > 0 || assetsCost > 0) && (
-            <p className="text-[12px] text-ds-text-3 mt-1">
+            <p className="text-xs text-ds-text-3 mt-1">
               Uniformes: {formatCurrency(uniformsCost)}
               {assetsCost > 0 && ` · Activos: ${formatCurrency(assetsCost)}`}
             </p>
@@ -102,13 +102,13 @@ export function InventarioInstallationSection({ installationId }: { installation
             {movements.map((m) => (
               <div key={m.id} className="p-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-[14px] font-medium text-ds-text-1 min-w-0">
+                  <p className="text-sm font-medium text-ds-text-1 min-w-0">
                     {new Date(m.date).toLocaleDateString("es-CL")} ·{" "}
                     {formatPersonName(m.guardia.persona.firstName, m.guardia.persona.lastName)}
                   </p>
                   <InventoryReceptionBadge status={receptionStatusFromMovement(m.confirmationStatus)} />
                 </div>
-                <ul className="text-[12px] text-ds-text-3 mt-1">
+                <ul className="text-xs text-ds-text-3 mt-1">
                   {m.lines.map((l, i) => (
                     <li key={i}>
                       {l.quantity} x {l.variant.product.name}
@@ -137,14 +137,14 @@ export function InventarioInstallationSection({ installationId }: { installation
             {assets.map((a) => (
               <div key={a.id} className="p-3 flex justify-between items-center">
                 <div>
-                  <p className="text-[14px] font-medium text-ds-text-1">
+                  <p className="text-sm font-medium text-ds-text-1">
                     {a.variant?.product.name ?? "Activo"}
                     {a.phoneNumber && (
                       <span className="text-ds-text-3 ml-2 font-mono">{a.phoneNumber}</span>
                     )}
                   </p>
                   {Number(a.purchaseCost ?? 0) > 0 && (
-                    <p className="text-[12px] text-ds-text-3 ds-num">
+                    <p className="text-xs text-ds-text-3 ds-num">
                       {formatCurrency(Number(a.purchaseCost!))}
                     </p>
                   )}
