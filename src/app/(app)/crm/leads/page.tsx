@@ -6,7 +6,8 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/opai-ds";
+import { PageHero } from "@/components/opai-ds";
+import { Inbox } from "lucide-react";
 import { CrmLeadsClient } from "@/components/crm";
 
 type LeadStatusFilter = "all" | "pending" | "approved" | "rejected";
@@ -40,9 +41,13 @@ export default async function CrmLeadsPage({
 
   return (
     <>
-      <PageHeader
+      <PageHero
+        icon={<Inbox />}
+        iconTone="violet"
+        eyebrow={["Comercial", "Leads"]}
         title="Prospectos"
-        description="Solicitudes entrantes y aprobación manual"
+        subtitle="solicitudes entrantes y aprobación manual"
+        description="Revisa, aprueba o rechaza leads recibidos por el cotizador web, email o entrada manual."
       />
       <CrmLeadsClient
         initialLeads={initialLeads}

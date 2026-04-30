@@ -6,8 +6,7 @@ import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { resolvePagePerms, canView, hasModuleAccess } from '@/lib/permissions-server';
 import { prisma } from '@/lib/prisma';
-import { PageHeader } from '@/components/opai-ds';
-import { Stat, StatGrid } from '@/components/opai-ds';
+import { PageHero, Stat, StatGrid } from '@/components/opai-ds';
 import {
   LeadsByMonthChart,
   QuotesByMonthChart,
@@ -18,7 +17,7 @@ import {
 } from '@/components/crm/CrmDashboardCharts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import Link from 'next/link';
-import { Users, AlertTriangle, Building2, TrendingUp } from 'lucide-react';
+import { Users, AlertTriangle, Building2, TrendingUp, BarChart3 } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -180,7 +179,14 @@ export default async function CRMPage() {
 
   return (
     <div className="space-y-4 sm:space-y-6 min-w-0 overflow-x-hidden">
-      <PageHeader title="CRM" description="Pipeline comercial y gestión de clientes" />
+      <PageHero
+        icon={<BarChart3 />}
+        iconTone="violet"
+        eyebrow={["Comercial"]}
+        title="Pipeline comercial"
+        subtitle="y gestión de clientes"
+        description="Resumen ejecutivo de leads, cuentas activas, pipeline abierto y conversión."
+      />
       {/* ─── Resumen ejecutivo ─── */}
       <StatGrid lgCols={4}>
         <Link href="/crm/leads" className="min-w-0">

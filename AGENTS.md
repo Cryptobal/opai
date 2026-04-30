@@ -172,6 +172,37 @@ Estado actual de la migración. Cuando termina cada módulo, agregarlo a `MIGRAT
 | Documentos          | ⏳ Pendiente | `src/components/docs/`, `src/components/opai/Documentos*`     |
 | Hub / Configuración | ⏳ Pendiente | `src/app/(app)/hub/`, `src/app/(app)/configuracion/`          |
 
+### Cluster 5 — Migración visual al DS v3 (hero pattern)
+
+Después del cluster 4 (consolidación de primitives), el cluster 5
+aplica el hero pattern (`<PageHero icon iconTone eyebrow title subtitle
+description />`) módulo por módulo, sub-módulo por sub-módulo.
+
+#### Asignación de tonos por módulo (consistencia visual)
+
+| Módulo | iconTone | Descripción |
+|---|---|---|
+| Operaciones / Inventario | `emerald` | Verde, ya en uso |
+| Comercial / CRM | `violet` | Violeta — pipeline comercial |
+| Personas | `sky` | Celeste — talento |
+| Payroll | `amber` | Ámbar — finanzas operativas |
+| Finanzas | `teal` | Teal — finanzas estratégicas |
+| Documentos | `rose` | Rosa — gestión documental |
+
+> Estos tonos se asignan UNA vez aquí y se respetan en todo el cluster 5.
+> Si una sub-fase necesita reasignar, abrir issue antes.
+
+#### 5A — Comercial (en progreso)
+
+- ✅ 5A.1 — Dashboard CRM + Leads list
+- ⏳ 5A.2 — Cuentas (lista + ficha)
+- ⏳ 5A.3 — Contactos (lista + ficha)
+- ⏳ 5A.4 — Negocios (lista + ficha)
+- ⏳ 5A.5 — Cotizaciones (lista + CPQ ficha)
+- ⏳ 5A.6 — Lead detail (ficha grande)
+- ⏳ 5A.7 — Instalaciones (lista + ficha)
+- ⏳ 5A.8 — Prospección (Apollo)
+
 ### Escape hatch (uso restringido)
 
 Si un archivo *necesita* legítimamente romper una regla (ej: integración con librería externa que requiere clase específica), agregar como **primera línea**:
