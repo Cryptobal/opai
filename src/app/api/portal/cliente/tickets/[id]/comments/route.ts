@@ -13,7 +13,7 @@ import { NextRequest, NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requirePortalClienteAuth } from "@/lib/portal-cliente";
-import { sendNotification, sendNotificationToUser } from "@/lib/notification-service";
+import { notify } from "@/lib/notifications/notify";
 import { normalizeTicketAttachments } from "@/lib/portal-cliente-ticket-attachments";
 
 export async function POST(
@@ -120,28 +120,17 @@ export async function POST(
       /* non-critical */
     }
 
-    sendNotification({
+    notify({
       tenantId: session.tenantId,
       type: "ticket_from_client_portal",
+      audience: "admin",
       title: `Comentario en ticket ${ticket.code}`,
-      message: `${contactName} comentó en "${ticket.title}"${
+      body: `${contactName} comentó en "${ticket.title}"${
         attachments.length > 0 ? ` (${attachments.length} adjunto/s)` : ""
       }`,
-      data: { ticketId: id, code: ticket.code, contactName },
+      data: { ticketId: id, code: ticket.code, contactName, assignedTo: ticket.assignedTo },
       link: `/ops/tickets/${id}`,
     }).catch(() => {});
-
-    if (ticket.assignedTo) {
-      sendNotificationToUser({
-        tenantId: session.tenantId,
-        type: "ticket_from_client_portal",
-        title: `Comentario de cliente en ${ticket.code}`,
-        message: `${contactName} comentó en "${ticket.title}"`,
-        data: { ticketId: id, code: ticket.code, contactName },
-        link: `/ops/tickets/${id}`,
-        targetUserId: ticket.assignedTo,
-      }).catch(() => {});
-    }
 
     return NextResponse.json({ success: true, data: comment }, { status: 201 });
   } catch (error) {
