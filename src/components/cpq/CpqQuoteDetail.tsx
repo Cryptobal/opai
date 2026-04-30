@@ -1382,8 +1382,11 @@ export function CpqQuoteDetail({
 
   return (
     <div className="space-y-3 pb-4 lg:pb-4 overflow-x-hidden min-w-0">
-      {/* -- Compact header (mobile/tablet) -- */}
-      <div className="sticky top-[53px] z-10 bg-background/95 backdrop-blur-xl border-b border-border/40 -mx-4 px-3 py-1.5 mb-1 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 xl:hidden">
+      {/* -- Compact header (mobile/tablet) --
+           Bg-background opaco (no /95) + shadow inferior para que el contenido
+           que pasa por debajo al hacer scroll no se vea a través del header
+           y "se sobreponga" visualmente sobre la primera sección (Datos). */}
+      <div className="sticky top-[53px] z-20 bg-background border-b border-border/60 shadow-sm -mx-4 px-3 py-1.5 mb-2 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 xl:hidden">
       {/* Row 1: back · code · status · acciones */}
       <div className="flex items-center gap-1.5 min-w-0">
         <Link href="/crm/cotizaciones" className="shrink-0 -ml-1">
