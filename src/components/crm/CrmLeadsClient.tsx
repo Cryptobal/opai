@@ -21,7 +21,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { CrmLead } from "@/types";
 import { Plus, Loader2, ChevronRight, UserPlus, Phone, Mail, Trash2 } from "lucide-react";
 import { StatusTag } from "@/components/ops/StatusTag";
-import { EmptyState } from "@/components/opai/EmptyState";
+import { EmptyState } from "@/components/opai-ds";
 import { CrmDates } from "@/components/crm/CrmDates";
 import { CrmToolbar } from "./CrmToolbar";
 import { LeadSourceBadge } from "./LeadSourceBadge";
@@ -331,7 +331,7 @@ export function CrmLeadsClient({
         <CardContent className="pt-5">
           {filteredLeads.length === 0 ? (
             <EmptyState
-              icon={<UserPlus className="h-8 w-8" />}
+              icon={UserPlus}
               title="Sin prospectos"
               description={
                 search || statusFilter !== "all"

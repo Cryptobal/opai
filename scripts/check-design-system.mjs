@@ -100,6 +100,15 @@ const MIGRATED_PATHS = [
   "src/app/(app)/ops/audit-pautas/page.tsx",
   "src/components/audit/AuditLogsTable.tsx",
   "src/components/audit/PautasAuditTable.tsx",
+  // Cluster 5A.1 — Dashboard CRM + Leads list (hero pattern DS v3).
+  // Solo las 2 pages SC se agregan: ambas quedan 100% limpias tras la
+  // migración a <PageHero>. CrmLeadsClient.tsx (CC) NO se agrega:
+  // mismo criterio que 4A/4B/4C/4D — el archivo migra el EmptyState al
+  // DS v3 pero sigue teniendo drift legacy fuera de eso (text-[10px]
+  // en Badges de la lista). Se agregará cuando se haga su pasada de
+  // limpieza completa en una sub-fase futura.
+  "src/app/(app)/crm/page.tsx",
+  "src/app/(app)/crm/leads/page.tsx",
   // Agregar aquí cuando se migren:
   // "src/components/personas/",
   // "src/components/crm/",
