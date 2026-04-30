@@ -80,11 +80,37 @@ const RULES = [
   // ─── Tipografía mínima ───────────────────────────────────────
   {
     id: "no-tiny-text",
+    // text-[10px] siempre prohibido. text-[11px] solo prohibido cuando NO va
+    // acompañado de las 3 marcas de eyebrow (font-mono + uppercase + tracking-).
+    // Estrategia: detectamos tanto text-[10px] (siempre malo) como text-[11px]
+    // y luego en validación per-match revisamos si está dentro del patrón eyebrow.
     test: /text-\[(10|11)px\]/g,
     message: "Tipografía menor a 12px no es legible en mobile.",
-    fix: "Usa text-[12px] (font-mono) o text-[13px] (body) — ver opai-ds.",
+    fix: "Usa text-[12px] o text-[13px]. Si es un eyebrow decorativo, agrega font-mono + uppercase + tracking-[0.08em] (ej: text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4).",
     severity: "error",
     scope: "tsx",
+    // Función de validación contextual: si retorna true, el match SE PERMITE.
+    // Recibe el match, el texto completo del archivo y el índice del match.
+    allowIfContext: (match, content, index) => {
+      // text-[10px] nunca se permite, sin excepciones
+      if (match[0] === "text-[10px]") return false;
+
+      // text-[11px]: aceptar solo si está en un className que también incluya
+      // font-mono + uppercase + tracking-* (las 3 marcas del eyebrow).
+      // Buscamos el className contenedor: retrocedemos hasta el className=" más cercano
+      // y avanzamos hasta el cierre " correspondiente.
+      const before = content.lastIndexOf('className="', index);
+      if (before === -1) return false;
+      const after = content.indexOf('"', index);
+      if (after === -1 || after - before > 800) return false;
+      const classBlock = content.slice(before, after);
+
+      const hasMono = /\bfont-mono\b/.test(classBlock);
+      const hasUpper = /\buppercase\b/.test(classBlock);
+      const hasTracking = /\btracking-/.test(classBlock);
+
+      return hasMono && hasUpper && hasTracking;
+    },
   },
 
   // ─── Colores hardcoded (deben ir por token semántico) ────────
@@ -342,6 +368,11 @@ for (const file of files) {
     const re = new RegExp(rule.test.source, rule.test.flags);
     let match;
     while ((match = re.exec(content)) !== null) {
+      // Permitir match si la regla define un contexto válido
+      if (rule.allowIfContext && rule.allowIfContext(match, content, match.index)) {
+        continue;
+      }
+
       // Localizar línea
       const upToMatch = content.slice(0, match.index);
       const lineNumber = upToMatch.split("\n").length;
