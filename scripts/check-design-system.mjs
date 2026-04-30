@@ -119,6 +119,16 @@ const MIGRATED_PATHS = [
   // de estado mobile / Badges de cards). Se agregarán cuando se haga
   // su pasada de limpieza completa en una sub-fase futura.
   "src/app/(app)/crm/accounts/page.tsx",
+  // Cluster 5A.3 — Lista de Contactos migrada al patrón hero DS v3.
+  // Solo /crm/contacts page (SC) se agrega: queda 100% limpia tras
+  // el cambio a <PageHero>. CrmContactsClient.tsx (CC) NO se agrega:
+  // mismo criterio que 4A/4B/4C/4D/5A.1/5A.2 — el archivo migra el
+  // EmptyState al DS v3 pero sigue teniendo drift legacy fuera de eso
+  // (text-[10px] en Badges/chips de la lista, hardcoded emerald). Se
+  // agregará cuando se haga su pasada de limpieza completa en una
+  // sub-fase futura. La ficha /crm/contacts/[id] ya quedó migrada
+  // por 5A.2 (heredada de EntityDetailLayout).
+  "src/app/(app)/crm/contacts/page.tsx",
   // Agregar aquí cuando se migren:
   // "src/components/personas/",
   // "src/components/crm/",

@@ -6,7 +6,8 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/opai-ds";
+import { PageHero } from "@/components/opai-ds";
+import { UserCircle } from "lucide-react";
 import { CrmContactsClient } from "@/components/crm";
 
 export default async function CrmContactsPage() {
@@ -35,9 +36,13 @@ export default async function CrmContactsPage() {
 
   return (
     <>
-      <PageHeader
+      <PageHero
+        icon={<UserCircle />}
+        iconTone="violet"
+        eyebrow={["Comercial", "Contactos"]}
         title="Contactos"
-        description="Personas clave por cliente"
+        subtitle="personas clave por cliente"
+        description="Directorio de contactos vinculados a cuentas. Cada contacto tiene su historial de comunicación, notas y deals asociados."
       />
       <CrmContactsClient
         initialContacts={initialContacts}
