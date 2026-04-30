@@ -144,6 +144,26 @@ module.exports = {
           'border-default': 'hsl(var(--ds-border-default))',
           'border-strong':  'hsl(var(--ds-border-strong))',
         },
+
+        // ============================================
+        // OPAI Refined Industrial — Categorical tints
+        // Para IconTile y agrupaciones visuales NO semánticas.
+        // NO confundir con status-* (ok/warn/danger/info).
+        // ============================================
+        tint: {
+          violet:        'hsl(var(--tint-violet))',
+          'violet-fg':   'hsl(var(--tint-violet-fg))',
+          rose:          'hsl(var(--tint-rose))',
+          'rose-fg':     'hsl(var(--tint-rose-fg))',
+          amber:         'hsl(var(--tint-amber))',
+          'amber-fg':    'hsl(var(--tint-amber-fg))',
+          emerald:       'hsl(var(--tint-emerald))',
+          'emerald-fg':  'hsl(var(--tint-emerald-fg))',
+          sky:           'hsl(var(--tint-sky))',
+          'sky-fg':      'hsl(var(--tint-sky-fg))',
+          teal:          'hsl(var(--tint-teal))',
+          'teal-fg':     'hsl(var(--tint-teal-fg))',
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -158,7 +178,11 @@ module.exports = {
         sans: ['"Inter Variable"', '"Inter"', 'system-ui', '-apple-system', 'sans-serif'],
         display: ['"Outfit Variable"', '"Outfit"', 'system-ui', 'sans-serif'],
         body: ['var(--font-dm-sans)', '"DM Sans"', 'system-ui', 'sans-serif'],
-        mono: ['var(--font-jetbrains)', '"JetBrains Mono"', 'ui-monospace', 'monospace'],
+        // Geist Mono primero (cargado vía @fontsource-variable/geist-mono en globals.css)
+        // — no negociable para datos: precios, stock, SKU, fechas, IDs.
+        // Probamos ambas variantes de nombre (depende de versión del package)
+        // y caemos en JetBrains si Geist no resolviera.
+        mono: ['"Geist Mono Variable"', '"Geist Mono"', 'var(--font-jetbrains)', '"JetBrains Mono"', 'ui-monospace', 'monospace'],
       },
       boxShadow: {
         'glow-brand': '0 0 0 1px rgba(0,102,255,0.25), 0 8px 30px -12px rgba(0,102,255,0.45)',
