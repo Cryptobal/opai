@@ -8,7 +8,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { EmptyState, StatusBadge, KpiCard, KpiGrid, FilterBar, LoadingSpinner } from "@/components/opai";
+import { EmptyState, StatusBadge, FilterBar, LoadingSpinner } from "@/components/opai";
+import { Stat, StatGrid } from "@/components/opai-ds";
 import { Clock3, FileDown, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { formatPersonName } from "@/lib/personas";
 
@@ -631,11 +632,11 @@ export function OpsRefuerzosClient({
         </Button>
       </div>
 
-      <KpiGrid columns={3}>
-        <KpiCard title="Turnos" value={totals.count} />
-        <KpiCard title="Monto total" value={formatMoney(totals.amount)} />
-        <KpiCard title="Pendiente facturar" value={formatMoney(totals.pendingAmount)} variant="amber" />
-      </KpiGrid>
+      <StatGrid lgCols={3}>
+        <Stat label="Turnos" value={totals.count} />
+        <Stat label="Monto total" value={formatMoney(totals.amount)} />
+        <Stat label="Pendiente facturar" value={formatMoney(totals.pendingAmount)} variant="warn" />
+      </StatGrid>
 
       <FilterBar>
         <div className="relative flex-1 min-w-[200px]">

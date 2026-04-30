@@ -4,8 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Users, Calendar, Shield, CheckCircle2, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrustScoreGauge, NivelBadge, getTrustScoreColor } from "@/components/gamification";
-import { KpiCard } from "@/components/opai/KpiCard";
-import { KpiGrid } from "@/components/opai/KpiGrid";
+import { Stat, StatGrid } from "@/components/opai-ds";
 import { LoadingState } from "@/components/opai/LoadingState";
 import { EmptyState } from "@/components/opai/EmptyState";
 import { ClienteSession } from "@/lib/portal-cliente-types";
@@ -194,32 +193,32 @@ export function PortalDesempeno({ session, selectedInstallation, isProspect }: P
       </Card>
 
       {/* ── 2. KPIs Grid ── */}
-      <KpiGrid columns={4}>
-        <KpiCard
-          title="Guardias activos"
+      <StatGrid lgCols={4}>
+        <Stat
+          label="Guardias activos"
           value={data.kpis.guardiasActivos}
-          icon={<Users className="h-4 w-4" />}
-          variant="teal"
+          icon={Users}
+          variant="brand"
         />
-        <KpiCard
-          title="Asistencia mes"
+        <Stat
+          label="Asistencia mes"
           value={`${data.kpis.asistenciaMes}%`}
-          icon={<Calendar className="h-4 w-4" />}
-          variant="emerald"
+          icon={Calendar}
+          variant="ok"
         />
-        <KpiCard
-          title="Rondas completadas"
+        <Stat
+          label="Rondas completadas"
           value={`${data.kpis.rondasCompletadas}%`}
-          icon={<Shield className="h-4 w-4" />}
-          variant="blue"
+          icon={Shield}
+          variant="brand"
         />
-        <KpiCard
-          title="Días sin incidentes"
+        <Stat
+          label="Días sin incidentes"
           value={data.kpis.diasSinIncidentes}
-          icon={<CheckCircle2 className="h-4 w-4" />}
-          variant="amber"
+          icon={CheckCircle2}
+          variant="warn"
         />
-      </KpiGrid>
+      </StatGrid>
 
       {/* ── 3. Guard Ranking Table ── */}
       <Card>

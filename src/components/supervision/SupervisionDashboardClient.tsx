@@ -11,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { KpiCard, KpiGrid } from "@/components/opai";
+import { Stat, StatGrid } from "@/components/opai-ds";
 import { MoreHorizontal, CheckCircle2, XCircle, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -140,12 +140,12 @@ export function SupervisionDashboardClient({
         </DropdownMenu>
       </div>
 
-      <KpiGrid columns={4}>
-        <KpiCard title="Visitas totales" value={totals.total} />
-        <KpiCard title="Completadas" value={totals.completed} variant="emerald" />
-        <KpiCard title="Críticas" value={totals.criticas} variant="amber" />
-        <KpiCard title="Pendientes" value={totals.pendientes} variant="blue" />
-      </KpiGrid>
+      <StatGrid lgCols={4}>
+        <Stat label="Visitas totales" value={totals.total} />
+        <Stat label="Completadas" value={totals.completed} variant="ok" />
+        <Stat label="Críticas" value={totals.criticas} variant="warn" />
+        <Stat label="Pendientes" value={totals.pendientes} variant="brand" />
+      </StatGrid>
 
       <Card>
         <CardHeader>

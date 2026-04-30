@@ -6,7 +6,8 @@ import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { resolvePagePerms, canView, hasModuleAccess } from '@/lib/permissions-server';
 import { prisma } from '@/lib/prisma';
-import { PageHeader, KpiCard, KpiGrid } from '@/components/opai';
+import { PageHeader } from '@/components/opai';
+import { Stat, StatGrid } from '@/components/opai-ds';
 import {
   LeadsByMonthChart,
   QuotesByMonthChart,
@@ -181,44 +182,43 @@ export default async function CRMPage() {
     <div className="space-y-4 sm:space-y-6 min-w-0 overflow-x-hidden">
       <PageHeader title="CRM" description="Pipeline comercial y gestión de clientes" />
       {/* ─── Resumen ejecutivo ─── */}
-      <KpiGrid columns={4}>
+      <StatGrid lgCols={4}>
         <Link href="/crm/leads" className="min-w-0">
-          <KpiCard
-            title="Leads este mes"
+          <Stat
+            label="Leads este mes"
             value={leadsThisMonth}
-            icon={<Users className="h-4 w-4" />}
-            trend={leadsMonthDelta > 0 ? 'up' : leadsMonthDelta < 0 ? 'down' : undefined}
-            trendValue={leadsMonthDelta !== 0 ? `${leadsMonthDelta > 0 ? '+' : ''}${leadsMonthDelta}%` : undefined}
-            description={`${leadsPrevMonth} mes anterior`}
+            icon={Users}
+            trend={leadsMonthDelta !== 0 ? leadsMonthDelta : undefined}
+            hint={`${leadsPrevMonth} mes anterior`}
             className="h-full transition-all hover:ring-2 hover:ring-primary/25"
           />
         </Link>
-        <KpiCard
-          title="Estado leads"
+        <Stat
+          label="Estado leads"
           value={`${leadsPending + leadsInReview}`}
-          icon={<AlertTriangle className="h-4 w-4" />}
-          description={`${leadsPending} pendientes · ${leadsInReview} en revisión`}
-          variant="amber"
+          icon={AlertTriangle}
+          hint={`${leadsPending} pendientes · ${leadsInReview} en revisión`}
+          variant="warn"
         />
         <Link href="/crm/accounts" className="min-w-0">
-          <KpiCard
-            title="Portafolio activo"
+          <Stat
+            label="Portafolio activo"
             value={accountsActive}
-            icon={<Building2 className="h-4 w-4" />}
-            description={`${installationsActive} instalaciones`}
+            icon={Building2}
+            hint={`${installationsActive} instalaciones`}
             className="h-full transition-all hover:ring-2 hover:ring-primary/25"
           />
         </Link>
         <Link href="/crm/deals" className="min-w-0">
-          <KpiCard
-            title="Pipeline abierto"
+          <Stat
+            label="Pipeline abierto"
             value={openDealsCount}
-            icon={<TrendingUp className="h-4 w-4" />}
-            description={openDealsAmountFormatted}
+            icon={TrendingUp}
+            hint={openDealsAmountFormatted}
             className="h-full transition-all hover:ring-2 hover:ring-primary/25"
           />
         </Link>
-      </KpiGrid>
+      </StatGrid>
 
       {/* ─── Gráficos históricos ─── */}
       <div className="grid gap-4 lg:grid-cols-2 min-w-0">

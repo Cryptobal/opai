@@ -3,7 +3,8 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { resolvePagePerms, canView, hasCapability } from "@/lib/permissions-server";
-import { PageHeader, KpiCard, KpiGrid } from "@/components/opai";
+import { PageHeader } from "@/components/opai";
+import { Stat, StatGrid } from "@/components/opai-ds";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -242,37 +243,37 @@ export default async function HistorialPage() {
       />
 
       {/* ── KPIs ── */}
-      <KpiGrid columns={4}>
-        <KpiCard
-          title="Visitas hoy"
+      <StatGrid lgCols={4}>
+        <Stat
+          label="Visitas hoy"
           value={todayCount}
-          variant="blue"
-          icon={<MapPin className="h-4 w-4" />}
+          variant="brand"
+          icon={MapPin}
         />
-        <KpiCard
-          title="Visitas este mes"
+        <Stat
+          label="Visitas este mes"
           value={monthCount}
-          variant="purple"
-          icon={<Clock className="h-4 w-4" />}
+          variant="brand"
+          icon={Clock}
         />
-        <KpiCard
-          title="Calificaci\u00f3n promedio"
+        <Stat
+          label="Calificaci\u00f3n promedio"
           value={avgRating !== null ? avgRating.toFixed(1) : "--"}
-          description={
+          hint={
             ratedVisits.length > 0
               ? `${ratedVisits.length} visita${ratedVisits.length > 1 ? "s" : ""} calificada${ratedVisits.length > 1 ? "s" : ""}`
               : "Sin calificaciones"
           }
-          variant="emerald"
-          icon={<Star className="h-4 w-4" />}
+          variant="ok"
+          icon={Star}
         />
-        <KpiCard
-          title="Hallazgos abiertos"
+        <Stat
+          label="Hallazgos abiertos"
           value={openFindings}
-          variant={openFindings > 0 ? "amber" : "default"}
-          icon={<AlertTriangle className="h-4 w-4" />}
+          variant={openFindings > 0 ? "warn" : "default"}
+          icon={AlertTriangle}
         />
-      </KpiGrid>
+      </StatGrid>
 
       {/* ── Route Suggestions ── */}
       {suggestions.length > 0 && (

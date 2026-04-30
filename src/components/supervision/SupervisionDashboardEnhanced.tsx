@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { KpiCard, KpiGrid } from "@/components/opai";
+import { Stat, StatGrid } from "@/components/opai-ds";
 import {
   BarChart,
   Bar,
@@ -131,42 +131,32 @@ export function SupervisionDashboardEnhanced({
       </div>
 
       {/* Row 1: KPI Cards with trends */}
-      <KpiGrid columns={3}>
-        <KpiCard
-          title="Visitas totales"
+      <StatGrid lgCols={3}>
+        <Stat
+          label="Visitas totales"
           value={t?.visitas ?? 0}
-          trend={t && t.trendTotal !== 0 ? (t.trendTotal > 0 ? "up" : "down") : "neutral"}
-          trendValue={t ? `${t.trendTotal > 0 ? "+" : ""}${t.trendTotal}%` : undefined}
+          trend={t?.trendTotal ?? undefined}
         />
-        <KpiCard
-          title="Completadas"
+        <Stat
+          label="Completadas"
           value={t?.visitasCompleted ?? 0}
-          variant="emerald"
-          trend={t && t.trendCompleted !== 0 ? (t.trendCompleted > 0 ? "up" : "down") : "neutral"}
-          trendValue={t ? `${t.trendCompleted > 0 ? "+" : ""}${t.trendCompleted}%` : undefined}
+          variant="ok"
+          trend={t?.trendCompleted ?? undefined}
         />
-        <KpiCard
-          title="Críticas"
-          value={t?.criticas ?? 0}
-          variant="amber"
-        />
-        <KpiCard
-          title="Pendientes"
-          value={t?.pendientes ?? 0}
-          variant="blue"
-        />
-        <KpiCard
-          title="Duración promedio"
+        <Stat label="Críticas" value={t?.criticas ?? 0} variant="warn" />
+        <Stat label="Pendientes" value={t?.pendientes ?? 0} variant="brand" />
+        <Stat
+          label="Duración promedio"
           value={t ? `${t.avgDurationMin}min` : "—"}
-          variant="purple"
+          variant="brand"
         />
-        <KpiCard
-          title="Calificación promedio"
+        <Stat
+          label="Calificación promedio"
           value={t?.avgRating !== null && t?.avgRating !== undefined ? t.avgRating.toFixed(1) : "—"}
-          variant="teal"
-          icon={<Star className="h-4 w-4" />}
+          variant="brand"
+          icon={Star}
         />
-      </KpiGrid>
+      </StatGrid>
 
       {/* Row 2: Charts */}
       <div className="grid gap-4 lg:grid-cols-2">

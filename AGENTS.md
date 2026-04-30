@@ -165,6 +165,7 @@ Estado actual de la migración. Cuando termina cada módulo, agregarlo a `MIGRAT
 | Inventario          | ✅ Migrado  | `src/components/inventario/`, `src/app/(app)/ops/inventario/` |
 | Conocimiento        | ✅ Migrado  | `src/components/opai/conocimiento/`, `src/app/(app)/personas/conocimiento/` |
 | Portal Cliente (parcial) | 🟡 Parcial — Conocimiento del equipo migrado; otras vistas pendientes | `src/components/portal/cliente/PortalConocimientoEquipo.tsx`, `PortalProtocolos.tsx` |
+| `@/components/opai` consolidación 4A | 🟡 KpiCard/KpiGrid eliminados — call sites migrados a `Stat`/`StatGrid` en 23 archivos (ops, finance, supervision, payroll, crm, cpq, admin, hub, gamification, portal). Resto del file aún tiene drift, no se agrega a MIGRATED_PATHS hasta migración completa. | (transversal, ver mapping abajo) |
 | Personas            | ⏳ Pendiente | `src/components/personas/`                                    |
 | ATS                 | ⏳ Pendiente | `src/components/ats/`                                         |
 | CRM                 | ⏳ Pendiente | `src/components/crm/`                                         |
@@ -249,6 +250,33 @@ exports están reemplazados:
 | `<Blob>` | (eliminado, era decorativo) |
 | `thresholdFromScore`, `Threshold` | exportadas por `@/components/opai-ds` |
 | `thresholdText`, `thresholdFill`, `thresholdBorderLeft` | (eliminados, lógica interna del DS) |
+
+### Componentes legacy de `@/components/opai` — en migración
+
+`@/components/opai` es la versión "intermedia" del DS (post-shadcn,
+pre-DS v3). Se está consolidando hacia `@/components/opai-ds`. Después
+de los pasos 4A-4E, `@/components/opai` queda con un set mínimo
+(AppShell, AppSidebar, ThemeProvider, etc. — utilitarios de layout).
+
+Status:
+
+| Legacy en `@/components/opai` | Reemplazo en `@/components/opai-ds` | Status |
+|---|---|---|
+| `KpiCard` | `Stat` | ✅ Eliminado en 4A |
+| `KpiGrid` | `StatGrid` | ✅ Eliminado en 4A |
+| `EmptyState` | `EmptyState` (DS v3) | ⏳ 4B |
+| `DataTable` | `DataTable` (DS v3) | ⏳ 4C |
+| `FilterBar` | `Toolbar` | ⏳ 4D |
+| `LoadingSpinner` | `Spinner` | ⏳ 4D |
+| `Avatar` | `Avatar` (DS v3) | ⏳ 4D |
+| `Breadcrumb` | (a evaluar) | ⏳ 4D |
+| `StatusBadge` | `Tag` | ⏳ 4D |
+| `Stepper` | (a evaluar) | ⏳ 4D |
+| `LoadingState` | (a evaluar) | ⏳ 4D |
+| `ModuleCard` | (a evaluar) | ⏳ 4D |
+| `SubNav` | (a evaluar) | ⏳ 4D |
+| `PageHeader` | (mover a opai-ds, no migrar) | ⏳ 4D |
+| `OpaiSurface`, `OpaiPageHero`, `OpaiSectionHeader` | (eliminar, ya nadie los usa) | ⏳ 4E |
 
 ### Cuándo crear un nuevo primitive en `opai-ds/`
 
