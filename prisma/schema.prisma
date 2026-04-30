@@ -840,21 +840,6 @@ model AiUsageLog {
   @@schema("public")
 }
 
-model PortalNotificationPreference {
-  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId    String   @map("tenant_id")
-  userType    String   @map("user_type")
-  userId      String   @map("user_id")
-  portalType  String   @map("portal_type")
-  preferences Json     @default("{}") @db.JsonB
-  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  @@unique([userType, userId, portalType], map: "uq_portal_notif_prefs")
-  @@index([tenantId], map: "idx_portal_notif_prefs_tenant")
-  @@map("portal_notification_preferences")
-  @@schema("public")
-}
-
 // ============================================
 // FX MODULE (Financial Rates)
 // ============================================
@@ -1844,23 +1829,7 @@ model NotificationReadState {
   @@schema("crm")
 }
 
-model UserNotificationPreference {
-  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  userId      String   @map("user_id")
-  tenantId    String   @map("tenant_id")
-  preferences Json     @default("{}") @db.JsonB
-  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  @@unique([userId, tenantId], map: "uq_user_notification_prefs_user_tenant")
-  @@index([userId], map: "idx_user_notification_prefs_user")
-  @@index([tenantId], map: "idx_user_notification_prefs_tenant")
-  @@map("user_notification_preferences")
-  @@schema("crm")
-}
-
 /// Unified notification preferences (admin + portal users).
-/// Replaces UserNotificationPreference and PortalNotificationPreference; both legacy
-/// tables coexist until the deprecation block, with this table backfilled on migration.
 /// preferences JSON shape: Record<notifKey, { bell?: boolean; email?: boolean; push?: boolean }>
 model NotificationPreference {
   id              String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
