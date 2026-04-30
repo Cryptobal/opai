@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { PageHeader } from "@/components/opai";
-import { UserNotificationPrefsClient } from "@/components/opai/UserNotificationPrefsClient";
+import { UnifiedNotificationPrefsClient } from "@/components/opai/UnifiedNotificationPrefsClient";
 import { QuietHoursCard } from "@/components/opai/QuietHoursCard";
 
 export const metadata = {
@@ -23,12 +23,12 @@ export default async function MisNotificacionesPage({ searchParams }: Props) {
     <div className="space-y-6 min-w-0">
       <PageHeader
         title="Mis Notificaciones"
-        description="Configura qué notificaciones recibes por campana y por correo electrónico"
+        description="Configura qué notificaciones recibes por campana, email y push"
         backHref="/opai/perfil"
         backLabel="Mi Perfil"
       />
       <QuietHoursCard />
-      <UserNotificationPrefsClient highlightType={params.type} />
+      <UnifiedNotificationPrefsClient highlightType={params.type} />
     </div>
   );
 }
