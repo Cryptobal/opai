@@ -7,7 +7,7 @@ import {
   hasCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/opai";
+import { PageHeader } from "@/components/opai-ds";
 import { PagosProveedoresClient } from "@/components/finance/PagosProveedoresClient";
 
 export default async function PagosProveedoresPage() {

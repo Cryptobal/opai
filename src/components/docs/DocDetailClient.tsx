@@ -34,7 +34,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { PageHeader } from "@/components/opai";
+import { PageHeader } from "@/components/opai-ds";
 import { ContractEditor } from "./ContractEditor";
 import { SignatureRequestModal } from "./SignatureRequestModal";
 import { SendForReviewModal } from "./SendForReviewModal";

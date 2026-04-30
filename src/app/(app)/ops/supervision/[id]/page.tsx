@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { resolvePagePerms, canView, canEdit, canDelete, hasCapability } from "@/lib/permissions-server";
-import { PageHeader } from "@/components/opai";
+import { PageHeader } from "@/components/opai-ds";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

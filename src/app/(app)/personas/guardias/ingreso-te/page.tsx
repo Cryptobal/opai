@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { hasOpsCapability } from "@/lib/ops-rbac";
-import { PageHeader } from "@/components/opai";
+import { PageHeader } from "@/components/opai-ds";
 import { GuardiaTeIngresoForm } from "@/components/ops/GuardiaTeIngresoForm";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 

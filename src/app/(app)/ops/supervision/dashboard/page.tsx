@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView, hasCapability } from "@/lib/permissions-server";
-import { PageHeader } from "@/components/opai";
+import { PageHeader } from "@/components/opai-ds";
 import { SupervisionDashboardEnhanced } from "@/components/supervision/SupervisionDashboardEnhanced";
 import { SupervisionReportes } from "@/components/supervision/SupervisionReportes";
 import { getPeriodBounds, PERIOD_OPTIONS } from "@/lib/supervision-periods";

@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canDelete, canEdit, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/opai";
+import { PageHeader } from "@/components/opai-ds";
 import { OpsGlobalSearch } from "@/components/ops/OpsGlobalSearch";
 import { OpsRefuerzosClient, PautasSubnav } from "@/components/ops";
 import { resolveRefuerzoStatus } from "@/lib/ops-refuerzos";

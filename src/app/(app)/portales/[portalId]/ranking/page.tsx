@@ -9,7 +9,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { PageHeader } from '@/components/opai';
+import { PageHeader } from '@/components/opai-ds';
 import { timeAgo } from '@/lib/utils';
 
 const PORTAL_LABELS: Record<string, string> = {

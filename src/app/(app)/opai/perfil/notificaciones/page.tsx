@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { PageHeader } from "@/components/opai";
+import { PageHeader } from "@/components/opai-ds";
 import { UserNotificationPrefsClient } from "@/components/opai/UserNotificationPrefsClient";
 
 export const metadata = {

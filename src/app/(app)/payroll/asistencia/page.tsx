@@ -1,4 +1,4 @@
-import { PageHeader } from "@/components/opai";
+import { PageHeader } from "@/components/opai-ds";
 import { PayrollSubnav } from "@/components/payroll/PayrollSubnav";
 import { PayrollAsistenciaCierreClient } from "@/components/payroll/PayrollAsistenciaCierreClient";
 

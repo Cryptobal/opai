@@ -7,7 +7,7 @@ import {
   canEdit,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/opai";
+import { PageHeader } from "@/components/opai-ds";
 import { ProveedoresClient } from "@/components/finance/ProveedoresClient";
 
 export default async function ProveedoresPage() {

@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
-import { PageHeader } from "@/components/opai";
+import { PageHeader } from "@/components/opai-ds";
 import { OpsControlNocturnoDetailClient } from "@/components/ops/OpsControlNocturnoDetailClient";
 import { OpsGlobalSearch } from "@/components/ops/OpsGlobalSearch";
 import { Info } from "lucide-react";
