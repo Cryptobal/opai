@@ -10,7 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { addDays } from "date-fns";
 import { getGuardiaDocumentosConfig } from "@/lib/guardia-documentos-config";
-import { sendNotification } from "@/lib/notification-service";
+import { notify } from "@/lib/notifications/notify";
 
 export async function GET(request: NextRequest) {
   try {
@@ -131,13 +131,11 @@ async function processGuardiaDocExpiryNotifications(tenantId: string) {
       continue;
     }
 
-    // Usar el servicio centralizado para respetar las preferencias por usuario
-    // (bell + email) definidas en UserNotificationPreference.
-    await sendNotification({
+    await notify({
       tenantId,
       type,
       title,
-      message,
+      body: message,
       link: `/personas/guardias/${doc.guardiaId}`,
       data: {
         guardiaId: doc.guardiaId,

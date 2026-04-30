@@ -17,7 +17,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { sendNotification } from "@/lib/notification-service";
+import { notify } from "@/lib/notifications/notify";
 import { TICKET_TEAM_CONFIG } from "@/lib/tickets";
 
 export const dynamic = "force-dynamic";
@@ -127,26 +127,21 @@ export async function GET(request: NextRequest) {
           `\n\nPor equipo:\n${teamSummary}` +
           `\n\nEste resumen se envía una vez al día. Para ver el detalle, abre OPAI.`;
 
-        // Enviar sólo email — los bells ya se crearon en tiempo real desde
-        // el cron sla-monitor (cada 15 min) cuando ocurrió cada breach.
-        // useTypeDefaultForMissing=true porque este digest es benigno y debe
-        // llegar por defecto a usuarios que aún no abrieron sus preferencias
-        // a configurar este tipo. Los que lo hayan desactivado explícitamente
-        // (email=false) se respetan.
-        await sendNotification({
+        // Email-only digest — bells were created in real time by sla-monitor
+        // (every 15 min) when each breach occurred.
+        await notify({
           tenantId,
           type: "ticket_sla_breached_batch",
           title,
-          message,
+          body: message,
+          link: `/opai/ops/tickets?status=overdue`,
           data: {
             count: total,
             ticketIds: tickets.map((t) => t.id),
             date: now.toISOString().slice(0, 10),
             digest: true,
           },
-          link: `/ops/tickets?status=overdue`,
-          channels: ["email"],
-          useTypeDefaultForMissing: true,
+          forceChannels: { bell: false, email: true, push: false },
         });
         emailsSent++;
       } catch (e) {

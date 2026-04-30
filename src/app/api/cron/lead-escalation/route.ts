@@ -71,18 +71,19 @@ export async function GET(request: NextRequest) {
   let escalated = 0;
   for (const lead of leads) {
     try {
-      const { sendPushToAdmins } = await import("@/lib/pwa/push-service");
+      const { notify } = await import("@/lib/notifications/notify");
       const minutesSince = Math.round(
         (now.getTime() - lead.createdAt.getTime()) / 60000
       );
       const empresa = lead.companyName ?? "Lead";
-      await sendPushToAdmins(
-        lead.tenantId,
-        "lead_escalation",
-        "⚠️ Lead sin contactar",
-        `${empresa} hace ${minutesSince} min sin respuesta`,
-        `/crm/leads/${lead.id}`
-      );
+      await notify({
+        tenantId: lead.tenantId,
+        type: "lead_escalation",
+        title: "⚠️ Lead sin contactar",
+        body: `${empresa} hace ${minutesSince} min sin respuesta`,
+        link: `/crm/leads/${lead.id}`,
+        data: { leadId: lead.id },
+      });
       await prisma.crmLead.update({
         where: { id: lead.id },
         data: { escalatedAt: new Date() },

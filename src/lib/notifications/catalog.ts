@@ -291,19 +291,24 @@ export const UNIFIED_NOTIFICATION_TYPES: UnifiedNotificationType[] = [
   // ── Operaciones - Tickets ──
   {
     key: 'ticket_created', label: 'Ticket creado',
-    description: 'Cuando se crea un ticket (admin) o un cliente lo crea en su portal',
+    description: 'Cuando se crea un ticket (admin) o un cliente/guardia lo crea desde su portal',
     module: 'ops', submodule: 'tickets', category: 'Operaciones - Tickets',
-    audiences: ['admin', 'cliente'],
+    audiences: ['admin', 'cliente', 'guardia'],
     defaults: {
       admin: adminBell(true),
       cliente: { push: true, email: true },
+      guardia: { push: true, email: false },
     },
   },
   {
     key: 'ticket_updated', label: 'Ticket actualizado',
     description: 'Cuando un ticket cambia de estado',
     module: 'ops', submodule: 'tickets', category: 'Operaciones - Tickets',
-    audiences: ['cliente'], defaults: { cliente: { push: true, email: false } },
+    audiences: ['cliente', 'guardia'],
+    defaults: {
+      cliente: { push: true, email: false },
+      guardia: { push: true, email: false },
+    },
   },
   {
     key: 'ticket_needs_approval', label: 'Ticket pendiente de aprobación',
@@ -414,6 +419,13 @@ export const UNIFIED_NOTIFICATION_TYPES: UnifiedNotificationType[] = [
     description: 'Solicitud para confirmar si el guardia se presentó al turno',
     module: 'ops', submodule: 'alertas_cobertura', category: 'Operaciones - Cobertura',
     audiences: ['admin'], defaults: { admin: adminBell() },
+  },
+  {
+    key: 'alerta_cobertura_confirmada', label: 'Turno extra confirmado',
+    description: 'Para el guardia: su turno extra fue confirmado por el supervisor',
+    module: 'ops', submodule: 'alertas_cobertura', category: 'Operaciones - Cobertura',
+    audiences: ['guardia'],
+    defaults: { guardia: { push: true, email: true } },
   },
   {
     key: 'alerta_cobertura_expirada', label: 'Alerta de cobertura expirada',

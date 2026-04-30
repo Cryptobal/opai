@@ -12,7 +12,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { addDays, format } from "date-fns";
-import { sendNotification } from "@/lib/notification-service";
+import { notify } from "@/lib/notifications/notify";
 import { calcDocStatus } from "@/lib/docs-operacionales";
 
 export async function GET(request: NextRequest) {
@@ -139,11 +139,11 @@ async function processTenant(tenantId: string) {
         skipped++;
         continue;
       }
-      await sendNotification({
+      await notify({
         tenantId,
         type: "doc_operacional_expired",
         title: `Documento vencido: ${doc.tipo.nombre}`,
-        message: `${doc.tipo.nombre} (${ubicacion}) ${dueText}. Requiere renovación.`,
+        body: `${doc.tipo.nombre} (${ubicacion}) ${dueText}. Requiere renovación.`,
         link: doc.installationId
           ? `/opai/documentos-operativos`
           : `/opai/configuracion/documentos-operacionales`,
@@ -170,11 +170,11 @@ async function processTenant(tenantId: string) {
         skipped++;
         continue;
       }
-      await sendNotification({
+      await notify({
         tenantId,
         type: "doc_operacional_expiring",
         title: `Documento por vencer: ${doc.tipo.nombre}`,
-        message: `${doc.tipo.nombre} (${ubicacion}) ${dueText}.`,
+        body: `${doc.tipo.nombre} (${ubicacion}) ${dueText}.`,
         link: doc.installationId
           ? `/opai/documentos-operativos`
           : `/opai/configuracion/documentos-operacionales`,
