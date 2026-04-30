@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { KpiCard } from "@/components/opai";
+import { Stat } from "@/components/opai-ds";
 import {
   Dialog,
   DialogContent,
@@ -475,9 +475,9 @@ export function PayrollPeriodDetailClient({ periodId }: { periodId: string }) {
       {/* Summary */}
       {period.liquidaciones.length > 0 && (
         <div className="grid gap-3 sm:grid-cols-3">
-          <KpiCard title="Total Bruto" value={formatCLP(totalGross)} />
-          <KpiCard title="Total Líquido" value={formatCLP(totalNet)} variant="emerald" />
-          <KpiCard title="Costo Empleador" value={formatCLP(totalEmployer)} variant="amber" />
+          <Stat label="Total Bruto" value={formatCLP(totalGross)} />
+          <Stat label="Total Líquido" value={formatCLP(totalNet)} variant="ok" />
+          <Stat label="Costo Empleador" value={formatCLP(totalEmployer)} variant="warn" />
         </div>
       )}
 

@@ -2,7 +2,8 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, hasModuleAccess, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHeader, KpiCard, KpiGrid, ModuleCard } from "@/components/opai";
+import { PageHeader, ModuleCard } from "@/components/opai";
+import { Stat, StatGrid } from "@/components/opai-ds";
 import { OpsGlobalSearch } from "@/components/ops/OpsGlobalSearch";
 import {
   Route,
@@ -146,32 +147,32 @@ export default async function OpsDashboardPage() {
       <OpsGlobalSearch className="w-full sm:max-w-xs" />
 
       {/* -- KPI Dotación -- */}
-      <KpiGrid columns={4}>
-        <KpiCard
-          title="Instalaciones activas"
+      <StatGrid lgCols={4}>
+        <Stat
+          label="Instalaciones activas"
           value={activeInstallations}
-          icon={<Building2 className="h-4.5 w-4.5" />}
-          variant="blue"
+          icon={Building2}
+          variant="brand"
         />
-        <KpiCard
-          title="Guardias asignados"
+        <Stat
+          label="Guardias asignados"
           value={`${guardsAssigned}/${slotsTotal}`}
-          icon={<Users className="h-4.5 w-4.5" />}
-          variant="emerald"
+          icon={Users}
+          variant="ok"
         />
-        <KpiCard
-          title="Vacantes (PPC)"
+        <Stat
+          label="Vacantes (PPC)"
           value={vacantes}
-          icon={<ShieldAlert className="h-4.5 w-4.5" />}
-          variant={vacantes > 0 ? "amber" : "emerald"}
+          icon={ShieldAlert}
+          variant={vacantes > 0 ? "warn" : "ok"}
         />
-        <KpiCard
-          title="Cobertura dotación"
+        <Stat
+          label="Cobertura dotación"
           value={`${slotsTotal > 0 ? Math.round((guardsAssigned / slotsTotal) * 100) : 0}%`}
-          icon={<Users className="h-4.5 w-4.5" />}
-          variant="sky"
+          icon={Users}
+          variant="brand"
         />
-      </KpiGrid>
+      </StatGrid>
 
       {/* -- Módulos: compactos en mobile para ver más sin scroll -- */}
       <div className="grid grid-cols-2 gap-2 sm:gap-3 sm:grid-cols-2 xl:grid-cols-3">

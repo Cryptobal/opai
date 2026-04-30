@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/opai/EmptyState";
-import { KpiCard } from "@/components/opai";
+import { Stat } from "@/components/opai-ds";
 import { FileText, ChevronRight, Plus, Loader2, MessageSquare, ExternalLink, CalendarClock, Zap } from "lucide-react";
 import { formatCLP, formatNumber, formatUFSuffix } from "@/lib/utils";
 import { clpToUf } from "@/lib/uf-utils";
@@ -142,10 +142,10 @@ export function CrmCotizacionesClient({
     <div className="space-y-4">
       {/* KPI summary */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <KpiCard title="Total" value={String(counts.total)} size="sm" />
-        <KpiCard title="Borradores" value={String(counts.draft)} size="sm" variant="amber" />
-        <KpiCard title="Enviadas" value={String(counts.sent)} size="sm" variant="blue" />
-        <KpiCard title="Aprobadas" value={String(counts.approved)} size="sm" variant="emerald" />
+        <Stat label="Total" value={String(counts.total)} />
+        <Stat label="Borradores" value={String(counts.draft)} variant="warn" />
+        <Stat label="Enviadas" value={String(counts.sent)} variant="brand" />
+        <Stat label="Aprobadas" value={String(counts.approved)} variant="ok" />
       </div>
 
       {/* ── Toolbar ── */}

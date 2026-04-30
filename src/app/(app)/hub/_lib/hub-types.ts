@@ -4,7 +4,9 @@
  */
 
 import type { ReactNode } from 'react';
-import type { KpiVariant, TrendType } from '@/components/opai/KpiCard';
+
+export type TrendType = 'up' | 'down' | 'neutral';
+export type KpiVariant = 'default' | 'blue' | 'emerald' | 'purple' | 'amber' | 'red' | 'indigo' | 'sky' | 'teal';
 
 /* ------------------------------------------------------------------ */
 /* Resolved permissions (passed from page to sections)                */

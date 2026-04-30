@@ -6,7 +6,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { PageHeader, KpiCard } from "@/components/opai";
+import { PageHeader } from "@/components/opai";
+import { Stat } from "@/components/opai-ds";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,7 +16,7 @@ import { CreateQuoteModal } from "@/components/cpq/CreateQuoteModal";
 import { CpqQuotesList } from "@/components/cpq/CpqQuotesList";
 import { formatCurrency } from "@/components/cpq/utils";
 import type { CpqQuote } from "@/types/cpq";
-import { FileText, Plus, Settings, Globe } from "lucide-react";
+import { FileText, Info, Plus, Settings, Globe } from "lucide-react";
 import { isCpqQuoteListedInClientPortal } from "@/lib/cpq-portal-visibility";
 
 interface CpqDashboardProps {
@@ -100,32 +101,33 @@ export function CpqDashboard({ initialQuotes }: CpqDashboardProps) {
       </div>
 
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
-        <KpiCard
-          title="Cotizaciones"
-          value={totals.totalQuotes}
-          variant="blue"
-          size="lg"
-        />
-        <KpiCard
-          title="Costo mensual"
+        <Stat label="Cotizaciones" value={totals.totalQuotes} variant="brand" />
+        <Stat
+          label="Costo mensual"
           value={formatCurrency(totals.totalMonthly)}
-          variant="emerald"
-          size="lg"
+          variant="ok"
         />
-        <KpiCard
-          title="Visibles en portal"
-          value={totals.visibleInPortal}
-          variant="teal"
-          size="lg"
-          icon={<Globe className="h-4 w-4" />}
-          description="Prospecto / cliente"
-          titleInfoTooltip={
-            <span className="text-xs max-w-xs block">
+        <div className="relative">
+          <Stat
+            label="Visibles en portal"
+            value={totals.visibleInPortal}
+            variant="brand"
+            icon={Globe}
+            hint="Prospecto / cliente"
+          />
+          <span
+            className="group/info absolute top-3 right-9 sm:top-3.5 sm:right-10 inline-flex"
+            tabIndex={0}
+            role="button"
+            aria-label="Más información sobre cotizaciones visibles"
+          >
+            <Info className="h-3.5 w-3.5 text-ds-text-4 hover:text-ds-text-2 cursor-help" aria-hidden />
+            <span className="pointer-events-none absolute right-0 top-full mt-1.5 hidden w-64 max-w-[calc(100vw-2rem)] rounded-md border border-border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-lg group-hover/info:block group-focus-within/info:block z-50">
               Cotizaciones que el cliente puede ver en su portal (según estado y el interruptor
               &quot;Visible en portal del cliente&quot;).
             </span>
-          }
-        />
+          </span>
+        </div>
         <Card className="border-muted/40 bg-card p-4">
           <p className="text-xs uppercase text-muted-foreground">Leyenda estado</p>
           <div className="mt-2 flex flex-wrap items-center gap-2">

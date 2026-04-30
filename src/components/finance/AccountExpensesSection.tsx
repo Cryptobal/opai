@@ -6,8 +6,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { KpiCard, DataTable } from "@/components/opai";
+import { DataTable } from "@/components/opai";
 import type { DataTableColumn } from "@/components/opai";
+import { Stat } from "@/components/opai-ds";
 
 interface AccountExpensesSectionProps {
   accountId: string;
@@ -159,20 +160,10 @@ export function AccountExpensesSection({
     <div className="space-y-4">
       {/* Summary KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <KpiCard title="Total rendiciones" value={data.totals.count} size="sm" />
-        <KpiCard title="Gasto total" value={fmtCLP(data.totals.total)} size="sm" />
-        <KpiCard
-          title="Pagado"
-          value={fmtCLP(data.totals.paid)}
-          size="sm"
-          variant="purple"
-        />
-        <KpiCard
-          title="Pendiente"
-          value={fmtCLP(data.totals.pending)}
-          size="sm"
-          variant="amber"
-        />
+        <Stat label="Total rendiciones" value={data.totals.count} />
+        <Stat label="Gasto total" value={fmtCLP(data.totals.total)} />
+        <Stat label="Pagado" value={fmtCLP(data.totals.paid)} variant="brand" />
+        <Stat label="Pendiente" value={fmtCLP(data.totals.pending)} variant="warn" />
       </div>
 
       {/* Rendiciones table */}

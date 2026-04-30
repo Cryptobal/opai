@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { KpiCard, KpiGrid } from "@/components/opai";
+import { Stat, StatGrid } from "@/components/opai-ds";
 import {
   Select,
   SelectContent,
@@ -176,28 +176,28 @@ export function SupervisionHallazgos() {
   return (
     <div className="space-y-4">
       {/* ── KPIs ── */}
-      <KpiGrid columns={3}>
-        <KpiCard
-          title="Abiertos"
+      <StatGrid lgCols={3}>
+        <Stat
+          label="Abiertos"
           value={data?.kpis.totalOpen ?? 0}
-          icon={<AlertTriangle className="h-4 w-4" />}
+          icon={AlertTriangle}
         />
-        <KpiCard
-          title="Críticos"
+        <Stat
+          label="Críticos"
           value={data?.kpis.totalCritical ?? 0}
-          icon={<AlertTriangle className="h-4 w-4 text-red-400" />}
-          variant="red"
+          icon={AlertTriangle}
+          variant="danger"
         />
-        <KpiCard
-          title="Resolución promedio"
+        <Stat
+          label="Resolución promedio"
           value={
             data?.kpis.avgResolutionHours != null
               ? `${data.kpis.avgResolutionHours}h`
               : "—"
           }
-          icon={<Clock className="h-4 w-4" />}
+          icon={Clock}
         />
-      </KpiGrid>
+      </StatGrid>
 
       {/* ── Filters ── */}
       <div className="flex flex-wrap items-center gap-2">

@@ -26,7 +26,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
-import { KpiCard, KpiGrid } from "@/components/opai";
+import { Stat, StatGrid } from "@/components/opai-ds";
 
 // ─── Tipos ───
 
@@ -363,16 +363,16 @@ export function OpsMarcacionesClient({ initialClients }: OpsMarcacionesClientPro
       </div>
 
       {/* -- Dashboard resumen -- */}
-      <KpiGrid columns={4}>
-        <KpiCard title="Marcaciones hoy" value={stats.totalHoy} variant="blue" />
-        <KpiCard title="Entradas hoy" value={stats.entradasHoy} variant="emerald" />
-        <KpiCard title="Salidas hoy" value={stats.salidasHoy} variant="amber" />
-        <KpiCard
-          title="Fuera de radio"
+      <StatGrid lgCols={4}>
+        <Stat label="Marcaciones hoy" value={stats.totalHoy} variant="brand" />
+        <Stat label="Entradas hoy" value={stats.entradasHoy} variant="ok" />
+        <Stat label="Salidas hoy" value={stats.salidasHoy} variant="warn" />
+        <Stat
+          label="Fuera de radio"
           value={stats.fueraRadioHoy}
-          variant={stats.fueraRadioHoy > 0 ? "amber" : "default"}
+          variant={stats.fueraRadioHoy > 0 ? "warn" : "default"}
         />
-      </KpiGrid>
+      </StatGrid>
 
       {/* ── Filtros ── */}
       <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-card p-3">

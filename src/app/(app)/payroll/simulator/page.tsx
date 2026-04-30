@@ -6,7 +6,8 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { PageHeader, KpiCard } from "@/components/opai";
+import { PageHeader } from "@/components/opai";
+import { Stat } from "@/components/opai-ds";
 import { PayrollSubnav } from "@/components/payroll/PayrollSubnav";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -423,9 +424,9 @@ export default function PayrollSimulator() {
             <div className="space-y-4">
               {/* KPIs principales */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <KpiCard title="Líquido" value={fmt(result.net_salary)} variant="emerald" size="lg" />
-                <KpiCard title="Costo Empresa" value={fmt(result.total_employer_cost)} variant="blue" size="lg" />
-                <KpiCard title="Descuentos" value={fmt(result.total_deductions)} variant="default" />
+                <Stat label="Líquido" value={fmt(result.net_salary)} variant="ok" />
+                <Stat label="Costo Empresa" value={fmt(result.total_employer_cost)} variant="brand" />
+                <Stat label="Descuentos" value={fmt(result.total_deductions)} />
               </div>
 
               {/* Desglose completo */}

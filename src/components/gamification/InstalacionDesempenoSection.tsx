@@ -12,8 +12,7 @@ import {
   Minus,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { KpiCard } from "@/components/opai/KpiCard";
-import { KpiGrid } from "@/components/opai/KpiGrid";
+import { Stat, StatGrid } from "@/components/opai-ds";
 import { LoadingState } from "@/components/opai/LoadingState";
 import { EmptyState } from "@/components/opai/EmptyState";
 import {
@@ -128,36 +127,32 @@ export function InstalacionDesempenoSection({ instalacionId }: Props) {
 
         {/* Right: KPI Grid */}
         <div className="flex-1 min-w-0">
-          <KpiGrid columns={2}>
-            <KpiCard
-              title="Guardias"
+          <StatGrid lgCols={2}>
+            <Stat
+              label="Guardias"
               value={totalGuardias}
-              variant="teal"
-              size="sm"
-              icon={<Users className="h-4 w-4" />}
+              variant="brand"
+              icon={Users}
             />
-            <KpiCard
-              title="Asistencia %"
+            <Stat
+              label="Asistencia %"
               value={`${avgAsistencia.toFixed(0)}%`}
-              variant="emerald"
-              size="sm"
-              icon={<Calendar className="h-4 w-4" />}
+              variant="ok"
+              icon={Calendar}
             />
-            <KpiCard
-              title="Rondas %"
+            <Stat
+              label="Rondas %"
               value={`${avgRondas.toFixed(0)}%`}
-              variant="blue"
-              size="sm"
-              icon={<Shield className="h-4 w-4" />}
+              variant="brand"
+              icon={Shield}
             />
-            <KpiCard
-              title="Badges este mes"
+            <Stat
+              label="Badges este mes"
               value={badgesEsteMes}
-              variant="purple"
-              size="sm"
-              icon={<CheckCircle2 className="h-4 w-4" />}
+              variant="brand"
+              icon={CheckCircle2}
             />
-          </KpiGrid>
+          </StatGrid>
         </div>
       </div>
 

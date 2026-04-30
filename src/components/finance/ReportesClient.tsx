@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { KpiCard, KpiGrid } from "@/components/opai";
+import { Stat, StatGrid } from "@/components/opai-ds";
 import {
   Download,
   Loader2,
@@ -166,19 +166,19 @@ export function ReportesClient({
   return (
     <div className="space-y-6">
       {/* Grand total cards */}
-      <KpiGrid columns={4}>
-        <KpiCard title="Total rendiciones" value={totalCount} />
-        <KpiCard title="Monto total" value={fmtCLP.format(totalAmount)} />
+      <StatGrid lgCols={4}>
+        <Stat label="Total rendiciones" value={totalCount} />
+        <Stat label="Monto total" value={fmtCLP.format(totalAmount)} />
         {typeSummary.map((ts) => (
-          <KpiCard
+          <Stat
             key={ts.type}
-            title={TYPE_LABELS[ts.type] ?? ts.type}
+            label={TYPE_LABELS[ts.type] ?? ts.type}
             value={fmtCLP.format(ts.amount)}
-            icon={ts.type === "MILEAGE" ? <Car className="h-4 w-4" /> : <Receipt className="h-4 w-4" />}
-            description={`${ts.count} rendición(es)`}
+            icon={ts.type === "MILEAGE" ? Car : Receipt}
+            hint={`${ts.count} rendición(es)`}
           />
         ))}
-      </KpiGrid>
+      </StatGrid>
 
       {/* Status breakdown */}
       <Card>

@@ -11,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { KpiCard, KpiGrid } from "@/components/opai";
+import { Stat, StatGrid } from "@/components/opai-ds";
 import {
   BarChart,
   Bar,
@@ -256,63 +256,41 @@ export function SupervisionReportes({
       </div>
 
       {/* ===== 2. Executive Summary KPIs ===== */}
-      <KpiGrid columns={4}>
-        <KpiCard
-          title="Visitas totales"
+      <StatGrid lgCols={4}>
+        <Stat
+          label="Visitas totales"
           value={t?.visitas ?? 0}
-          icon={<FileText className="h-4 w-4" />}
-          trend={
-            t && t.trendTotal !== 0
-              ? t.trendTotal > 0
-                ? "up"
-                : "down"
-              : "neutral"
-          }
-          trendValue={
-            t
-              ? `${t.trendTotal > 0 ? "+" : ""}${t.trendTotal}%`
-              : undefined
-          }
+          icon={FileText}
+          trend={t?.trendTotal ?? undefined}
         />
-        <KpiCard
-          title="Completadas"
+        <Stat
+          label="Completadas"
           value={t?.visitasCompleted ?? 0}
-          variant="emerald"
-          icon={<TrendingUp className="h-4 w-4" />}
-          trend={
-            t && t.trendCompleted !== 0
-              ? t.trendCompleted > 0
-                ? "up"
-                : "down"
-              : "neutral"
-          }
-          trendValue={
-            t
-              ? `${t.trendCompleted > 0 ? "+" : ""}${t.trendCompleted}%`
-              : undefined
-          }
+          variant="ok"
+          icon={TrendingUp}
+          trend={t?.trendCompleted ?? undefined}
         />
-        <KpiCard
-          title="Cobertura"
+        <Stat
+          label="Cobertura"
           value={t ? `${t.coveragePct}%` : "—"}
-          variant="blue"
-          description={
+          variant="brand"
+          hint={
             t
               ? `${t.instalacionesVisitadas} de ${t.instalacionesAsignadas} instalaciones`
               : undefined
           }
         />
-        <KpiCard
-          title="Calificación promedio"
+        <Stat
+          label="Calificación promedio"
           value={
             t?.avgRating !== null && t?.avgRating !== undefined
               ? t.avgRating.toFixed(1)
               : "—"
           }
-          variant="teal"
-          icon={<Star className="h-4 w-4" />}
+          variant="brand"
+          icon={Star}
         />
-      </KpiGrid>
+      </StatGrid>
 
       {/* ===== 3. Charts Grid ===== */}
       <div className="grid gap-4 lg:grid-cols-2">

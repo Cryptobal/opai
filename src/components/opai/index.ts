@@ -24,12 +24,6 @@ export { OpaiSurface, OpaiSectionHeader } from './Surface';
 export type { OpaiSurfaceProps, OpaiSectionHeaderProps } from './Surface';
 
 // UI Components
-export { KpiCard } from './KpiCard';
-export type { KpiCardProps, TrendType } from './KpiCard';
-
-export { KpiGrid } from './KpiGrid';
-export type { KpiGridProps } from './KpiGrid';
-
 export { DataTable } from './DataTable';
 export type { DataTableColumn, DataTableProps } from './DataTable';
 

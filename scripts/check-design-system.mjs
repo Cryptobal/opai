@@ -57,6 +57,11 @@ const MIGRATED_PATHS = [
   // no están migrados y se hacen en sesiones futuras.
   "src/components/portal/cliente/PortalConocimientoEquipo.tsx",
   "src/components/portal/cliente/PortalProtocolos.tsx",
+  // Paso 4A — solo migró KpiCard/KpiGrid → Stat/StatGrid.
+  // Los call sites NO se agregan a MIGRATED_PATHS porque el guard valida
+  // archivos completos: estos archivos siguen teniendo colores hardcoded
+  // y otros patrones legacy fuera del KPI. Cuando un módulo termine su
+  // migración completa (no solo KPIs), agregar el path aquí.
   // Agregar aquí cuando se migren:
   // "src/components/personas/",
   // "src/components/crm/",
