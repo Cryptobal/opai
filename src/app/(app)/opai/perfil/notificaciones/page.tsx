@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { PageHeader } from "@/components/opai";
 import { UserNotificationPrefsClient } from "@/components/opai/UserNotificationPrefsClient";
+import { QuietHoursCard } from "@/components/opai/QuietHoursCard";
 
 export const metadata = {
   title: "Mis Notificaciones - OPAI",
@@ -26,6 +27,7 @@ export default async function MisNotificacionesPage({ searchParams }: Props) {
         backHref="/opai/perfil"
         backLabel="Mi Perfil"
       />
+      <QuietHoursCard />
       <UserNotificationPrefsClient highlightType={params.type} />
     </div>
   );
