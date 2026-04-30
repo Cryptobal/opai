@@ -277,7 +277,7 @@ Status:
 | `LoadingState` | (sin reemplazo directo, usado solo internamente por DataTable legacy) | 🟡 se borra en 4C2 |
 | `SubNav` | (a evaluar) | ⏳ 4D2 |
 | `PageHeader` | (mover a opai-ds, no migrar) | ⏳ 4D2 (80 imports) |
-| `OpaiSurface`, `OpaiPageHero`, `OpaiSectionHeader` | (eliminar, ya nadie los usa) | ⏳ 4E |
+| `OpaiSurface`, `OpaiPageHero`, `OpaiSectionHeader` | (eliminados, sin consumers) | ✅ Eliminado en 4E |
 
 ### Cuándo crear un nuevo primitive en `opai-ds/`
 

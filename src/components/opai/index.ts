@@ -17,12 +17,6 @@ export { AppLayoutClient } from './AppLayoutClient';
 export { PageHeader } from './PageHeader';
 export type { PageHeaderProps } from './PageHeader';
 
-export { OpaiPageHero } from './PageHero';
-export type { OpaiPageHeroProps } from './PageHero';
-
-export { OpaiSurface, OpaiSectionHeader } from './Surface';
-export type { OpaiSurfaceProps, OpaiSectionHeaderProps } from './Surface';
-
 // UI Components
 export { DataTable } from './DataTable';
 export type { DataTableColumn, DataTableProps } from './DataTable';
