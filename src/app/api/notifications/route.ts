@@ -593,8 +593,8 @@ function visibleNotificationsWhere(
 // NOTE: Anteriormente aquí existía ensureGuardiaDocExpiryNotifications(),
 // que se ejecutaba como side-effect del GET. Ahora las notificaciones de
 // documentos de guardia por vencer/vencidos son creadas por el cron job en
-// /api/cron/guardia-doc-notifications, que usa sendNotification() para
-// respetar las preferencias por usuario (bell/email).
+// /api/cron/guardia-doc-notifications, que usa notify() para respetar las
+// preferencias por usuario (bell/email/push).
 
 export async function GET(request: NextRequest) {
   try {
