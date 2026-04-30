@@ -4,7 +4,8 @@
  * Lista todos los templates disponibles con preview y estadísticas.
  */
 
-import { PageHeader, DocumentosSubnav } from '@/components/opai';
+import { DocumentosSubnav } from '@/components/opai';
+import { PageHeader } from '@/components/opai-ds';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { FileText, Eye, Calendar } from 'lucide-react';

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { PageHeader } from "@/components/opai";
+import { PageHeader } from "@/components/opai-ds";
 import { UnifiedNotificationPrefsClient } from "@/components/opai/UnifiedNotificationPrefsClient";
 import { QuietHoursCard } from "@/components/opai/QuietHoursCard";
 

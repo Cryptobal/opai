@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { PageHeader } from "@/components/opai";
+import { PageHeader } from "@/components/opai-ds";
 import { ChipTabs } from "@/components/ui/chip-tabs";
 import { Send, History, FileText } from "lucide-react";
 import TemplatesListClient from "@/components/comunicaciones/TemplatesListClient";

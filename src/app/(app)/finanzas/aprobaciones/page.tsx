@@ -7,7 +7,7 @@ import {
   hasCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/opai";
+import { PageHeader } from "@/components/opai-ds";
 import { AprobacionesClient } from "@/components/finance/AprobacionesClient";
 
 export default async function AprobacionesPage() {

@@ -2,7 +2,7 @@ import { redirect, notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/opai";
+import { PageHeader } from "@/components/opai-ds";
 import { AtsCreateJobClient, type AtsJobEditData } from "@/components/ats/AtsCreateJobClient";
 import { getAtsSnippets } from "@/lib/ats/snippets";
 

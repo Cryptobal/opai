@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { isTenantModuleEnabled } from "@/lib/tenant-modules";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/opai";
+import { PageHeader } from "@/components/opai-ds";
 import { Breadcrumbs } from "@/components/opai-ds";
 import PsychAssessmentDetail from "@/components/psych/dashboard/PsychAssessmentDetail";
 

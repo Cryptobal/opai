@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
-import { PageHeader } from "@/components/opai";
+import { PageHeader } from "@/components/opai-ds";
 import { AlertasCoberturaClient } from "@/components/ops/alertas-cobertura/AlertasCoberturaClient";
 
 export default async function AlertasCoberturaPage() {

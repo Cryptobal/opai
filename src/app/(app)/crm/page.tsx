@@ -6,7 +6,7 @@ import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { resolvePagePerms, canView, hasModuleAccess } from '@/lib/permissions-server';
 import { prisma } from '@/lib/prisma';
-import { PageHeader } from '@/components/opai';
+import { PageHeader } from '@/components/opai-ds';
 import { Stat, StatGrid } from '@/components/opai-ds';
 import {
   LeadsByMonthChart,

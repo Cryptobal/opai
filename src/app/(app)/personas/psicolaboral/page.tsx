@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { isTenantModuleEnabled } from "@/lib/tenant-modules";
-import { PageHeader } from "@/components/opai";
+import { PageHeader } from "@/components/opai-ds";
 import { Breadcrumbs } from "@/components/opai-ds";
 import PsychDashboardClient from "@/components/psych/dashboard/PsychDashboardClient";
 

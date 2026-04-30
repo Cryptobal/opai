@@ -11,7 +11,7 @@ import {
   collectLinkedQuoteIds,
   resolveDealActiveQuotationSummary,
 } from "@/lib/crm-deal-active-quotation";
-import { PageHeader } from "@/components/opai";
+import { PageHeader } from "@/components/opai-ds";
 import { CrmDealsClient } from "@/components/crm";
 import { triggerFollowUpProcessing } from "@/lib/followup-selfheal";
 

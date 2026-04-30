@@ -14,15 +14,6 @@ export type { AppSidebarProps, NavItem, NavSubItem } from './AppSidebar';
 
 export { AppLayoutClient } from './AppLayoutClient';
 
-export { PageHeader } from './PageHeader';
-export type { PageHeaderProps } from './PageHeader';
-
-export { OpaiPageHero } from './PageHero';
-export type { OpaiPageHeroProps } from './PageHero';
-
-export { OpaiSurface, OpaiSectionHeader } from './Surface';
-export type { OpaiSurfaceProps, OpaiSectionHeaderProps } from './Surface';
-
 // UI Components
 export { DataTable } from './DataTable';
 export type { DataTableColumn, DataTableProps } from './DataTable';
@@ -45,8 +36,6 @@ export { DocumentosTopbar } from './DocumentosTopbar';
 export { ReloadButton } from './ReloadButton';
 
 // Navigation
-export { SubNav } from './SubNav';
-export type { SubNavItem } from './SubNav';
 export { BottomNav } from './BottomNav';
 export { CommandPalette } from './CommandPalette';
 

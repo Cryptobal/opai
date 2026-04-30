@@ -275,9 +275,25 @@ Status:
 | `Stepper` | (sin uso) | ✅ Eliminado en 4D |
 | `FormField` | (sin uso) | ✅ Eliminado en 4D |
 | `LoadingState` | (sin reemplazo directo, usado solo internamente por DataTable legacy) | 🟡 se borra en 4C2 |
+| `SubNav` | `SubNav` (DS v3, mismo archivo movido) | ✅ Movido a opai-ds en 4D2 |
+| `PageHeader` | `PageHeader` (DS v3, mismo archivo movido) | ✅ Movido a opai-ds en 4D2 |
+| `OpaiSurface`, `OpaiPageHero`, `OpaiSectionHeader` | (eliminar, ya nadie los usa) | ⏳ 4E |
 | `SubNav` | (a evaluar) | ⏳ 4D2 |
 | `PageHeader` | (mover a opai-ds, no migrar) | ⏳ 4D2 (80 imports) |
-| `OpaiSurface`, `OpaiPageHero`, `OpaiSectionHeader` | (eliminar, ya nadie los usa) | ⏳ 4E |
+| `OpaiSurface`, `OpaiPageHero`, `OpaiSectionHeader` | (eliminados, sin consumers) | ✅ Eliminado en 4E |
+
+### Estado de `@/components/opai` post 4D2
+
+Después de 4D2, `@/components/opai/index.ts` exporta solo:
+- `AppShell`, `AppSidebar`, `AppLayoutClient` (layout)
+- `ThemeProvider`, `ThemeToggle`, `ThemeLogo` (theming)
+- `DataTable`, `EmptyState`, `LoadingState` (legacy bloqueado por 4C2 —
+  esos 3 archivos siguen en `@/components/opai/` hasta que las 3 pages SC
+  pendientes se refactoreen a SC+CC wrapper)
+
+Cuando 4C2 se complete, la única responsabilidad de `@/components/opai/`
+serán los componentes de layout/theming, que probablemente se queden ahí
+(no son DS sino infrastructure).
 
 ### Cuándo crear un nuevo primitive en `opai-ds/`
 

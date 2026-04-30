@@ -1,6 +1,6 @@
 "use client";
 
-import { SubNav } from "@/components/opai";
+import { SubNav } from "@/components/opai-ds";
 import { LayoutDashboard, ClipboardList, CalendarDays, UserRoundCheck, Clock3, ShieldAlert, Shield, Ban } from "lucide-react";
 
 export function PersonasSubnav() {

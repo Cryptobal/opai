@@ -1,6 +1,6 @@
 "use client";
 
-import { SubNav, type SubNavItem } from "@/components/opai/SubNav";
+import { SubNav, type SubNavItem } from "@/components/opai-ds/SubNav";
 import { usePermissions } from "@/lib/permissions-context";
 import { canView, type RolePermissions } from "@/lib/permissions";
 import {

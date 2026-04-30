@@ -91,7 +91,7 @@ function AppShellInner({
   return (
     <>
       <PlatformDataAttribute />
-      <div className="relative min-h-[100dvh] overflow-x-hidden">
+      <div className="relative min-h-[100dvh] overflow-x-clip">
         {/* ── Mobile topbar (redesigned — no hamburger, no sidebar) ── */}
         {sidebar && (
           <header
@@ -197,7 +197,7 @@ function AppShellInner({
                 {children}
               </div>
             ) : (
-              <div className="w-full max-w-full pt-4 pb-28 lg:pt-0 lg:pb-6 animate-in-page min-w-0 overflow-x-hidden px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12" role="region">
+              <div className="w-full max-w-full pt-4 pb-28 lg:pt-0 lg:pb-6 animate-in-page min-w-0 overflow-x-clip px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12" role="region">
                 {children}
               </div>
             )}

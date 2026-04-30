@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { SubNav, type SubNavItem } from "@/components/opai/SubNav";
+import { SubNav, type SubNavItem } from "@/components/opai-ds/SubNav";
 import { Button } from "@/components/ui/button";
 import { LayoutGrid, BarChart2, History, Plus, AlertTriangle, Users } from "lucide-react";
 

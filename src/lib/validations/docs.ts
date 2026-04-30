@@ -185,7 +185,22 @@ export const uploadContractSchema = z
       .optional()
       .nullable(),
     alertDaysBefore: z.coerce.number().int().min(1).max(365).default(30),
-    signedExternally: z.coerce.boolean().default(false),
+    // NOTE: `z.coerce.boolean()` uses the JS `Boolean()` constructor under the
+    // hood, which converts ANY non-empty string (including the literal "false")
+    // to `true`. Since this field arrives via FormData as a string, we must
+    // preprocess it manually so "false" stays false.
+    signedExternally: z
+      .preprocess((v) => {
+        if (typeof v === "boolean") return v;
+        if (typeof v === "string") {
+          const s = v.trim().toLowerCase();
+          if (s === "true" || s === "1" || s === "on" || s === "yes") return true;
+          if (s === "false" || s === "0" || s === "" || s === "off" || s === "no")
+            return false;
+        }
+        return Boolean(v);
+      }, z.boolean())
+      .default(false),
     signedAt: z.string().optional().nullable(),
     signedBy: z.string().trim().max(200).optional().nullable(),
     notes: z.string().trim().max(2000).optional().nullable(),
