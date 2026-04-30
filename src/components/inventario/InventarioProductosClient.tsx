@@ -426,7 +426,7 @@ export function InventarioProductosClient() {
         <Surface elevation={1} padding="md" className="border-status-warn-border bg-status-warn-soft">
           <p className="text-sm text-status-warn-fg">{error}</p>
           <p className="mt-2 text-[12px] opacity-80 text-status-warn-fg">
-            Ejecuta <code className="rounded bg-black/10 px-1 dark:bg-white/10">npm run db:migrate</code> después de configurar DATABASE_URL en .env.local
+            Ejecuta <code className="rounded bg-ds-surface-3 px-1 font-mono text-[12px]">npm run db:migrate</code> después de configurar DATABASE_URL en .env.local
           </p>
         </Surface>
       ) : filteredProducts.length === 0 ? (

@@ -17,6 +17,7 @@ import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { Phone, Plus, Unlink, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Spinner } from "@/components/opai-ds";
+import { CARRIER_COLORS } from "@/lib/inventory/carrier-colors";
 
 type AssignedLine = {
   id: string;
@@ -33,14 +34,6 @@ type AvailableLine = {
   phoneNumber: string;
   carrier: string;
   label: string | null;
-};
-
-const CARRIER_COLORS: Record<string, string> = {
-  movistar: "bg-green-500/15 text-green-700 dark:text-green-400",
-  entel: "bg-red-500/15 text-red-700 dark:text-red-400",
-  wom: "bg-purple-500/15 text-purple-700 dark:text-purple-400",
-  claro: "bg-red-600/15 text-red-800 dark:text-red-300",
-  otro: "bg-zinc-500/15 text-zinc-700 dark:text-zinc-400",
 };
 
 function formatPhone(n: string) {
