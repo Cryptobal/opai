@@ -167,17 +167,17 @@ export async function POST(request: NextRequest) {
         ticket.updatedAt instanceof Date ? ticket.updatedAt.toISOString() : String(ticket.updatedAt),
     };
 
-    // Send notifications: approval group + email + push to guard
-    // (dynamic imports: push-service throws at module level if VAPID keys are absent)
+    // Notify approval group (bell + email + push) and the guardia (push) via
+    // the unified notify() service. The detailed confirmation email to the
+    // guardia (with ticket name + status) keeps a custom template below
+    // because notify()'s generic template doesn't carry that copy.
     try {
-      const { sendNotificationToUsers } = await import("@/lib/notification-service");
+      const { notify } = await import("@/lib/notifications/notify");
       const { resend, getTenantEmailConfig } = await import("@/lib/resend");
       const { render } = await import("@react-email/render");
       const NotificationEmail = (await import("@/emails/NotificationEmail")).default;
 
       const targetUserIds: string[] = [];
-
-      // Notify first approval group
       if (needsApproval && ticketType.approvalSteps.length > 0) {
         const firstStep = ticketType.approvalSteps[0];
         if (firstStep.approverGroupId) {
@@ -192,19 +192,21 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      if (targetUserIds.length > 0) {
-        await sendNotificationToUsers({
+      const uniqueTargets = [...new Set(targetUserIds)];
+      if (uniqueTargets.length > 0) {
+        await notify({
           tenantId: effectiveTenantId,
           type: "ticket_created",
+          targetIds: uniqueTargets,
+          targetType: "ADMIN",
           title: `Nuevo ticket portal: ${ticket.code} - ${title}`,
-          message: `Tipo: ${ticketType.name} · Origen: Portal del guardia${needsApproval ? " · Pendiente de aprobación" : ""}`,
+          body: `Tipo: ${ticketType.name} · Origen: Portal del guardia${needsApproval ? " · Pendiente de aprobación" : ""}`,
+          link: `/opai/ops/tickets/${ticket.id}`,
           data: { ticketId: ticket.id, code: ticket.code, source: "portal" },
-          link: `/ops/tickets/${ticket.id}`,
-          targetUserIds: [...new Set(targetUserIds)],
         });
       }
 
-      // Send email to the guard that their ticket was submitted
+      // Custom confirmation email to the guard (template-specific copy)
       const guardPersona = await prisma.opsGuardia.findFirst({
         where: { id: guardAuth.guardiaId },
         select: {
@@ -234,16 +236,17 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // Push to the guard (ticket received confirmation)
-      const { sendPushToPortalUser } = await import("@/lib/pwa/push-service");
-      await sendPushToPortalUser({
+      // Push confirmation to the guard who submitted the ticket
+      await notify({
         tenantId: effectiveTenantId,
-        notifKey: "ticket_created",
-        userType: "guardia",
-        userId: guardAuth.guardiaId,
-        portalType: "guardia",
+        type: "ticket_created",
+        targetIds: [guardAuth.guardiaId],
+        targetType: "GUARD",
+        audience: "guardia",
         title: `Solicitud ${ticket.code} recibida`,
         body: `Tu solicitud "${title}" está ${needsApproval ? "pendiente de aprobación" : "en proceso"}.`,
+        data: { ticketId: ticket.id, code: ticket.code },
+        forceChannels: { email: false }, // dedicated email already sent above
       });
     } catch (err) {
       console.error("[Portal Guardia] Error sending notifications:", err);

@@ -79,18 +79,18 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Push: new CRM lead — notify admins
+    // New CRM lead — notify admins (bell + push, email per user pref)
     try {
-      const { sendPushToAdmins } = await import('@/lib/pwa/push-service');
-      await sendPushToAdmins(
-        ctx.tenantId,
-        'lead_new',
-        'Nuevo lead registrado',
-        `${lead.firstName} ${lead.lastName}${lead.companyName ? ` — ${lead.companyName}` : ''}`,
-        `/opai/crm/leads`,
-      );
+      const { notify } = await import('@/lib/notifications/notify');
+      await notify({
+        tenantId: ctx.tenantId,
+        type: 'new_lead',
+        title: 'Nuevo lead registrado',
+        body: `${lead.firstName} ${lead.lastName}${lead.companyName ? ` — ${lead.companyName}` : ''}`,
+        link: '/opai/crm/leads',
+      });
     } catch (err) {
-      console.error('[CRM] Error sending lead_new push:', err);
+      console.error('[CRM] Error notifying new_lead:', err);
     }
 
     // Apollo auto-enrich (background, non-blocking)

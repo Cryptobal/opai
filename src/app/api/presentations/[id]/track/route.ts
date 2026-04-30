@@ -105,42 +105,25 @@ async function notifyProposalViewed(presentationId: string, tenantId: string) {
     );
     const whatsappUrl = waDigits ? `https://wa.me/${waDigits}?text=${waText}` : undefined;
 
-    // Create internal notification (bell + email) respetando preferencias del usuario.
-    // sendNotificationToUser usa UserNotificationPreference para decidir bell/email.
-    const { sendNotificationToUser } = await import('@/lib/notification-service');
-    await sendNotificationToUser({
+    // Single targeted notification to the deal owner (bell + email + push,
+    // respeta preferencias del usuario y override de tenant).
+    const { notify } = await import('@/lib/notifications/notify');
+    await notify({
       tenantId,
-      targetUserId,
       type: 'quote_viewed',
+      targetIds: [targetUserId],
+      targetType: 'ADMIN',
       title: `${clientName} abrió tu propuesta`,
-      message: deal.title,
+      body: deal.title,
+      link: dealUrl,
       data: {
         dealId: deal.id,
         accountId: deal.accountId,
         presentationId,
       },
-      link: dealUrl,
       emailSecondaryAction: whatsappUrl
-        ? {
-            url: whatsappUrl,
-            label: "Enviar WhatsApp",
-            color: "#25D366",
-          }
-        : null,
-    });
-
-    // Send web push notification
-    const { sendPushToPortalUser } = await import('@/lib/pwa/push-service');
-    await sendPushToPortalUser({
-      tenantId,
-      notifKey: 'quote_viewed',
-      userType: 'admin',
-      userId: targetUserId,
-      portalType: 'app',
-      title: `📄 ${clientName} abrió tu propuesta`,
-      body: deal.title,
-      url: dealUrl,
-      tag: `proposal-viewed-${presentationId}`,
+        ? { url: whatsappUrl, label: 'Enviar WhatsApp', color: '#25D366' }
+        : undefined,
     });
   } catch (err) {
     console.error('[track] Error sending proposal_viewed notification:', err);

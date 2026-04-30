@@ -279,38 +279,38 @@ export async function POST(
         ? `${decider} aprobó el paso "${currentApproval.stepLabel}"`
         : `${decider} rechazó el ticket: ${body.comment ?? "sin comentario"}`;
 
-      const { sendNotificationToUsers } = await import("@/lib/notification-service");
-      await sendNotificationToUsers({
+      const { notify } = await import("@/lib/notifications/notify");
+      await notify({
         tenantId: ctx.tenantId,
         type: decision === "approved" ? "ticket_approved" : "ticket_rejected",
+        targetIds: targetUserIds,
+        targetType: "ADMIN",
         title: notifTitle,
-        message: notifMessage,
+        body: notifMessage,
+        link: `/opai/ops/tickets/${ticketId}`,
         data: { ticketId, code: ticket.code, decision, step: currentApproval.stepLabel },
-        link: `/ops/tickets/${ticketId}`,
-        targetUserIds,
       });
 
-      // Push to the guardia if ticket came from portal
-      // (dynamic import: push-service throws at module level if VAPID keys are absent)
+      // Push to the guardia who originated the ticket via portal
       if (ticket.guardiaId) {
         const comment = typeof body.comment === "string" ? body.comment : null;
-        const { sendPushToPortalUser } = await import("@/lib/pwa/push-service");
-        await sendPushToPortalUser({
+        await notify({
           tenantId: ctx.tenantId,
-          notifKey: "ticket_updated",
-          userType: "guardia",
-          userId: ticket.guardiaId,
-          portalType: "guardia",
+          type: "ticket_updated",
+          targetIds: [ticket.guardiaId],
+          targetType: "GUARD",
+          audience: "guardia",
           title: decision === "approved"
             ? `Solicitud ${ticket.code} aprobada`
             : `Solicitud ${ticket.code} rechazada`,
           body: decision === "approved"
             ? `${decider} aprobó tu solicitud "${ticket.title}"`
             : `${decider} rechazó tu solicitud: ${comment ?? "sin comentario"}`,
+          data: { ticketId, code: ticket.code },
         });
       }
     } catch (err) {
-      console.error("[OPS] Error sending ticket approval notifications:", err);
+      console.error("[OPS] Error notifying ticket approval:", err);
     }
 
     return NextResponse.json(

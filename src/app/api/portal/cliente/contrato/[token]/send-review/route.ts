@@ -108,37 +108,25 @@ export async function POST(
       },
     });
 
-    // In-app notification (consolidated)
+    // Consolidated notification (bell + push). Email keeps a separate template
+    // below because it needs the diff list for each suggestion.
     try {
-      const { sendNotification } = await import("@/lib/notification-service");
-      await sendNotification({
+      const { notify } = await import("@/lib/notifications/notify");
+      await notify({
         tenantId: document.tenantId,
         type: "contract_suggestion",
         title: `Revisión recibida: ${newSuggestions.length} cambio(s) al contrato`,
-        message: `El cliente envió ${newSuggestions.length} sugerencia(s) en "${document.title}".`,
+        body: `El cliente envió sus comentarios en "${document.title}".`,
+        link: `/opai/docs/documentos/${document.id}`,
         data: {
           documentId: document.id,
           suggestionsCount: newSuggestions.length,
           batch: true,
         },
-        link: `/opai/documentos/${document.id}`,
+        forceChannels: { email: false }, // dedicated email below
       });
     } catch (e) {
-      console.warn("Failed to send batch review notification:", e);
-    }
-
-    // Push notification (consolidated)
-    try {
-      const { sendPushToAdmins } = await import("@/lib/pwa/push-service");
-      await sendPushToAdmins(
-        document.tenantId,
-        "contract_suggestion",
-        `Revisión de contrato: ${newSuggestions.length} cambio(s)`,
-        `El cliente envió sus comentarios en "${document.title}".`,
-        `/opai/documentos/${document.id}`
-      );
-    } catch (e) {
-      console.warn("Failed to send batch review push:", e);
+      console.warn("Failed to notify contract_suggestion:", e);
     }
 
     // Consolidated email to admins

@@ -4,8 +4,7 @@ import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureInventarioAccess, ensureInventarioEdit } from "@/lib/inventory";
 import { createOpsAuditLog } from "@/lib/ops";
 import { requireTenantModule } from '@/lib/require-module';
-import { sendNotification } from "@/lib/notification-service";
-import { sendPushToPortalUser } from "@/lib/pwa/push-service";
+import { notify } from "@/lib/notifications/notify";
 import { z } from "zod";
 
 const lineSchema = z.object({
@@ -349,27 +348,29 @@ export async function POST(request: NextRequest) {
         .join(", ");
       const installationName = movement.installation?.name || "";
 
-      // Bell notification for admins
-      sendNotification({
+      // Bell + email + push to admins (broadcast on admin audience)
+      notify({
         tenantId: ctx.tenantId,
         type: "inventory_delivery",
+        audience: "admin",
         title: `Entrega a ${guardiaName}`,
-        message: `${itemsSummary}${installationName ? ` en ${installationName}` : ""}`,
-        link: "/ops/inventario/entregas",
-      }).catch((err) => console.error("[inventory_delivery bell]", err));
+        body: `${itemsSummary}${installationName ? ` en ${installationName}` : ""}`,
+        link: "/opai/ops/inventario/entregas",
+        data: { movementId: movement.id, guardiaId: deliveryData.guardiaId },
+      }).catch((err) => console.error("[inventory_delivery admin]", err));
 
-      // Push notification to guard's portal
-      sendPushToPortalUser({
+      // Push to the guard's portal so they can confirm reception
+      notify({
         tenantId: ctx.tenantId,
-        notifKey: "inventory_delivery",
-        userType: "guardia",
-        userId: deliveryData.guardiaId,
-        portalType: "guardia",
+        type: "inventory_delivery",
+        audience: "guardia",
+        targetIds: [deliveryData.guardiaId],
+        targetType: "GUARD",
         title: "Entrega de equipamiento",
         body: `Se te ha entregado: ${itemsSummary}${installationName ? ` en ${installationName}` : ""}. Confirma la recepción en tu portal.`,
-        url: "/portal/guardia?section=equipamiento",
-        tag: `inv-delivery-${movement.id}`,
-      }).catch((err) => console.error("[inventory_delivery push]", err));
+        link: "/portal/guardia?section=equipamiento",
+        data: { movementId: movement.id },
+      }).catch((err) => console.error("[inventory_delivery guard]", err));
 
       // Audit log
       await createOpsAuditLog(
@@ -408,24 +409,28 @@ export async function POST(request: NextRequest) {
         const outNames = outOfStockItems
           .map((s) => `${s.variant.product.name}${s.variant.size ? ` ${s.variant.size.sizeCode}` : ""}`)
           .join(", ");
-        sendNotification({
+        notify({
           tenantId: ctx.tenantId,
           type: "inventory_delivery",
+          audience: "admin",
           title: "Stock agotado",
-          message: `${outNames} en ${outOfStockItems[0].warehouse.name} llegó a 0 unidades.`,
-          link: "/ops/inventario/stock",
-        }).catch((err) => console.error("[stock_alert bell]", err));
+          body: `${outNames} en ${outOfStockItems[0].warehouse.name} llegó a 0 unidades.`,
+          link: "/opai/ops/inventario/stock",
+          data: { stockAlert: "out_of_stock", warehouseId: outOfStockItems[0].warehouseId },
+        }).catch((err) => console.error("[stock_alert out]", err));
       } else if (lowStockItems.length > 0) {
         const lowNames = lowStockItems
           .map((s) => `${s.variant.product.name}${s.variant.size ? ` ${s.variant.size.sizeCode}` : ""} (${s.quantity}/${s.variant.minStock})`)
           .join(", ");
-        sendNotification({
+        notify({
           tenantId: ctx.tenantId,
           type: "inventory_delivery",
+          audience: "admin",
           title: "Stock bajo mínimo",
-          message: `${lowNames} en ${lowStockItems[0].warehouse.name}`,
-          link: "/ops/inventario/stock",
-        }).catch((err) => console.error("[stock_alert bell]", err));
+          body: `${lowNames} en ${lowStockItems[0].warehouse.name}`,
+          link: "/opai/ops/inventario/stock",
+          data: { stockAlert: "low", warehouseId: lowStockItems[0].warehouseId },
+        }).catch((err) => console.error("[stock_alert low]", err));
       }
     }
 

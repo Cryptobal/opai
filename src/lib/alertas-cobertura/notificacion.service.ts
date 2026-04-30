@@ -8,10 +8,9 @@
  */
 
 import { prisma } from "@/lib/prisma";
-import { sendPushToPortalUser, sendPushToSpecificAdmins } from "@/lib/pwa/push-service";
+import { notify } from "@/lib/notifications/notify";
 import { sendSystemChatMessage } from "@/lib/chat-system-message";
 import { getPusherServer } from "@/lib/chat";
-import { sendNotificationToUser } from "@/lib/notification-service";
 import { resend, getTenantEmailConfig } from "@/lib/resend";
 import { render } from "@react-email/render";
 import AlertaCoberturaEmail from "@/emails/AlertaCoberturaEmail";
@@ -115,16 +114,17 @@ export async function notificarGuardiaAlerta(params: {
   // === PUSH (guardias internos con suscripción al portal guardia) ===
   if (params.esInterno && canalesConfig.includes("PUSH")) {
     try {
-      await sendPushToPortalUser({
+      await notify({
         tenantId: params.tenantId,
-        notifKey: "alerta_cobertura",
-        userType: "guardia",
-        userId: params.guardiaId,
-        portalType: "guardia",
+        type: "alerta_cobertura_nueva",
+        audience: "guardia",
+        targetIds: [params.guardiaId],
+        targetType: "GUARD",
         title: titulo,
         body: cuerpo,
-        url: linkAceptar,
-        tag: `alerta-cobertura-${params.alertaId}`,
+        link: linkAceptar,
+        data: { alertaId: params.alertaId },
+        forceChannels: { email: false }, // dedicated email below with custom template
       });
       resultado.push = true;
     } catch (e: any) {
@@ -391,18 +391,22 @@ export async function notificarSupervisorAceptacion(params: {
 }): Promise<void> {
   const linkAlerta = `/ops/alertas-cobertura/${params.alertaId}`;
 
-  // 1. Push al admin que creó la alerta
+  // 1. Bell + push al admin que creó la alerta. Email se maneja con
+  //    template custom (incluye datos de contacto del guardia + WhatsApp).
   try {
-    await sendPushToSpecificAdmins(
-      params.tenantId,
-      [params.creadaPorId],
-      "alerta_cobertura_aceptada",
-      "Cobertura Resuelta",
-      `${params.guardiaNombre} aceptó el turno en ${params.instalacionNombre}`,
-      linkAlerta,
-    );
+    await notify({
+      tenantId: params.tenantId,
+      type: "alerta_cobertura_aceptada",
+      targetIds: [params.creadaPorId],
+      targetType: "ADMIN",
+      title: "Cobertura Resuelta",
+      body: `${params.guardiaNombre} aceptó el turno en ${params.instalacionNombre}`,
+      link: linkAlerta,
+      data: { alertaId: params.alertaId, guardiaId: params.guardiaId },
+      forceChannels: { email: false }, // dedicated custom email below
+    });
   } catch (e) {
-    console.error("[AlertaCobertura:Notif] Push supervisor error:", e);
+    console.error("[AlertaCobertura:Notif] notify supervisor error:", e);
   }
 
   // 2. Email al admin + (si hay tenant whatsapp configurado) WhatsApp al admin
@@ -594,22 +598,7 @@ export async function notificarSupervisorAceptacion(params: {
     }
   }
 
-  // 4. Notificación bell
-  try {
-    await sendNotificationToUser({
-      tenantId: params.tenantId,
-      targetUserId: params.creadaPorId,
-      type: "alerta_cobertura_aceptada",
-      title: "Cobertura Resuelta",
-      message: `${params.guardiaNombre} aceptó el turno en ${params.instalacionNombre}`,
-      link: linkAlerta,
-      data: { alertaId: params.alertaId },
-    });
-  } catch (e) {
-    console.error("[AlertaCobertura:Notif] Bell error:", e);
-  }
-
-  // 5. Pusher real-time (dashboard se actualiza)
+  // 4. Pusher real-time (dashboard se actualiza)
   try {
     const pusher = getPusherServer();
     await pusher.trigger(`alertas-cobertura-${params.tenantId}`, "alerta-aceptada", {
@@ -636,33 +625,20 @@ export async function notificarSupervisorConfirmacion(params: {
 }): Promise<void> {
   const linkAlerta = `/ops/alertas-cobertura/${params.alertaId}`;
 
-  // Push
+  // Bell + push to the admin who created the alert
   try {
-    await sendPushToSpecificAdmins(
-      params.tenantId,
-      [params.creadaPorId],
-      "alerta_cobertura_confirmar",
-      "Confirmación de Cobertura",
-      `¿Se presentó ${params.guardiaNombre} al turno en ${params.instalacionNombre}?`,
-      linkAlerta,
-    );
-  } catch (e) {
-    console.error("[AlertaCobertura:Notif] Push confirmación error:", e);
-  }
-
-  // Bell notification
-  try {
-    await sendNotificationToUser({
+    await notify({
       tenantId: params.tenantId,
-      targetUserId: params.creadaPorId,
       type: "alerta_cobertura_confirmar",
+      targetIds: [params.creadaPorId],
+      targetType: "ADMIN",
       title: "Confirmar Asistencia",
-      message: `¿Se presentó ${params.guardiaNombre} al turno en ${params.instalacionNombre}?`,
+      body: `¿Se presentó ${params.guardiaNombre} al turno en ${params.instalacionNombre}?`,
       link: linkAlerta,
       data: { alertaId: params.alertaId },
     });
   } catch (e) {
-    console.error("[AlertaCobertura:Notif] Bell confirmación error:", e);
+    console.error("[AlertaCobertura:Notif] notify confirmación error:", e);
   }
 
   // Pusher real-time
@@ -698,19 +674,20 @@ export async function notificarGuardiaConfirmacion(params: {
 
   // Push al guardia
   try {
-    await sendPushToPortalUser({
+    await notify({
       tenantId: params.tenantId,
-      notifKey: "alerta_cobertura_confirmada",
-      userType: "guardia",
-      userId: params.guardiaId,
-      portalType: "guardia",
+      type: "alerta_cobertura_confirmada",
+      audience: "guardia",
+      targetIds: [params.guardiaId],
+      targetType: "GUARD",
       title: "✅ Turno Extra Confirmado",
       body: mensaje,
-      url: `/portal/guardia?section=alertas-cobertura`,
-      tag: `alerta-confirmada-${params.alertaId}`,
+      link: `/portal/guardia?section=alertas-cobertura`,
+      data: { alertaId: params.alertaId },
+      forceChannels: { email: false }, // dedicated email below
     });
   } catch (e) {
-    console.error("[AlertaCobertura:Notif] Push guardia confirmación error:", e);
+    console.error("[AlertaCobertura:Notif] notify guardia confirmación error:", e);
   }
 
   // Email al guardia

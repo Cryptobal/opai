@@ -178,31 +178,20 @@ export async function POST(
             },
           });
 
-          // Mismas notificaciones que un lead normal: bell+email + push.
+          // Same notifications as a regular lead: bell + email + push.
           try {
-            const { sendNotification } = await import("@/lib/notification-service");
-            await sendNotification({
+            const { notify } = await import("@/lib/notifications/notify");
+            await notify({
               tenantId,
               type: "new_lead",
-              title: `Nuevo lead (de mensaje): ${data.name}`,
-              message: `Mensaje promovido a lead — ${data.email}`,
-              data: { leadId: lead.id, inquiryId: inquiry.id, email: data.email },
+              title: `Lead nuevo (mensaje): ${data.name}`,
+              body: `${data.email} preguntó por servicios`,
+              emailBody: `Mensaje promovido a lead — ${data.email}`,
               link: `/crm/leads/${lead.id}`,
+              data: { leadId: lead.id, inquiryId: inquiry.id, email: data.email },
             });
           } catch (e) {
-            console.warn("Promoted lead notification failed", e);
-          }
-          try {
-            const { sendPushToAdmins } = await import("@/lib/pwa/push-service");
-            await sendPushToAdmins(
-              tenantId,
-              "new_lead",
-              `Lead nuevo (mensaje): ${data.name}`,
-              `${data.email} preguntó por servicios`,
-              `/crm/leads/${lead.id}`
-            );
-          } catch (e) {
-            console.warn("Promoted lead push failed", e);
+            console.warn("Promoted lead notify failed", e);
           }
         } catch (e) {
           // Fallar la promoción no debe romper la creación del inquiry.

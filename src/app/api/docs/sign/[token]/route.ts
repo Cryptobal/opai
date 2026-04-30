@@ -425,31 +425,18 @@ export async function POST(
       }
 
       try {
-        const { sendNotification } = await import("@/lib/notification-service");
-        await sendNotification({
+        const { notify } = await import("@/lib/notifications/notify");
+        await notify({
           tenantId: result.tenantId,
-          type: "document_signed_completed",
+          type: "document_signed",
           title: `Documento firmado: ${result.documentTitle}`,
-          message: `Todos los firmantes han firmado el documento "${result.documentTitle}".`,
+          body: `"${result.documentTitle}" ha sido firmado`,
+          emailBody: `Todos los firmantes han firmado el documento "${result.documentTitle}".`,
+          link: `/opai/docs/documentos/${result.documentId}`,
           data: { documentId: result.documentId, requestId: result.requestId },
-          link: `/opai/documentos/${result.documentId}`,
         });
-      } catch (e) {
-        console.warn("Sign: failed to create completion notification", e);
-      }
-
-      // Push: document fully signed — notify admins
-      try {
-        const { sendPushToAdmins } = await import('@/lib/pwa/push-service');
-        await sendPushToAdmins(
-          result.tenantId,
-          'document_signed',
-          'Documento firmado',
-          `"${result.documentTitle}" ha sido firmado`,
-          `/opai/docs/documentos/${result.documentId}`,
-        );
       } catch (err) {
-        console.error('[DOCS] Error sending document_signed push:', err);
+        console.error('[DOCS] Error notifying document_signed:', err);
       }
 
       // Trigger service contract automation if applicable

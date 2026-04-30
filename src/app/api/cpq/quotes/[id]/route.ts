@@ -211,21 +211,22 @@ export async function PATCH(
       }
     }
 
-    // Push: quote accepted or rejected
+    // Quote accepted or rejected — notify admins via bell + email + push
     if (body.status === 'accepted' || body.status === 'rejected') {
       try {
-        const { sendPushToAdmins } = await import('@/lib/pwa/push-service');
+        const { notify } = await import('@/lib/notifications/notify');
         const notifKey = body.status === 'accepted' ? 'quote_accepted' : 'quote_rejected';
         const statusLabel = body.status === 'accepted' ? 'aceptada' : 'rechazada';
-        await sendPushToAdmins(
-          ctx.tenantId,
-          notifKey,
-          `Cotización ${statusLabel}`,
-          `La cotización "${quote?.name || quote?.clientName || quote?.id}" fue ${statusLabel}`,
-          `/opai/cpq/cotizaciones/${id}`,
-        );
+        await notify({
+          tenantId: ctx.tenantId,
+          type: notifKey,
+          title: `Cotización ${statusLabel}`,
+          body: `La cotización "${quote?.name || quote?.clientName || quote?.id}" fue ${statusLabel}`,
+          link: `/opai/cpq/cotizaciones/${id}`,
+          data: { quoteId: id },
+        });
       } catch (err) {
-        console.error('[CPQ] Error sending quote status push:', err);
+        console.error('[CPQ] Error notifying quote status:', err);
       }
     }
 
