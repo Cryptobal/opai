@@ -6,8 +6,7 @@ import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { EmptyState } from "@/components/opai/EmptyState";
-import { Stat } from "@/components/opai-ds";
+import { EmptyState, Stat } from "@/components/opai-ds";
 import { FileText, ChevronRight, Plus, Loader2, MessageSquare, ExternalLink, CalendarClock, Zap } from "lucide-react";
 import { formatCLP, formatNumber, formatUFSuffix } from "@/lib/utils";
 import { clpToUf } from "@/lib/uf-utils";
@@ -180,7 +179,7 @@ export function CrmCotizacionesClient({
         <CardContent className="pt-5">
           {filteredQuotes.length === 0 ? (
             <EmptyState
-              icon={<FileText className="h-8 w-8" />}
+              icon={FileText}
               title="Sin cotizaciones"
               description={
                 search || statusFilter !== "all"
