@@ -1879,6 +1879,32 @@ model NotificationPreference {
   @@schema("public")
 }
 
+/// Push outbox for coalescing bursty notifications. The flush-push-outbox
+/// cron drains rows whose scheduledFor has passed, sending one coalesced
+/// banner per group_key. Critical types bypass the outbox entirely.
+model PushOutbox {
+  id              String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId        String    @map("tenant_id")
+  subscriberType  String    @map("subscriber_type")
+  subscriberId    String    @map("subscriber_id")
+  notifKey        String    @map("notif_key")
+  groupKey        String    @map("group_key")
+  title           String
+  body            String
+  url             String?
+  data            Json      @default("{}")
+  count           Int       @default(1)
+  scheduledFor    DateTime  @map("scheduled_for") @db.Timestamptz(6)
+  sentAt          DateTime? @map("sent_at") @db.Timestamptz(6)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([scheduledFor], map: "idx_push_outbox_due")
+  @@index([subscriberType, subscriberId, groupKey], map: "idx_push_outbox_group")
+  @@map("push_outbox")
+  @@schema("public")
+}
+
 /// Cola de emails fallidos (3 intentos sin éxito vía sendEmailWithRetry).
 /// Sirve para reintento manual desde la UI de admin del CRM y como
 /// trazabilidad/observabilidad de fallas de Resend.
