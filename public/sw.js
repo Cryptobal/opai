@@ -208,11 +208,13 @@ self.addEventListener('push', (event) => {
     })
     .catch(() => {});
 
+  // Notify any open clients so useBadgeSync re-fetches the real per-user count
+  // from /api/badge/count instead of trusting the value embedded in the payload.
   const promiseChain = self.registration.showNotification(title, options)
-    .then(() => {
-      // Set real badge count from payload
-      if (navigator.setAppBadge && notifData?.badgeCount) {
-        return navigator.setAppBadge(notifData.badgeCount);
+    .then(() => self.clients.matchAll({ type: 'window', includeUncontrolled: true }))
+    .then((openClients) => {
+      for (const client of openClients) {
+        client.postMessage({ type: 'BADGE_SYNC' });
       }
     })
     .catch(() => {});

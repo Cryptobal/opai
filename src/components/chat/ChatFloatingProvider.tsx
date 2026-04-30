@@ -277,21 +277,12 @@ export function ChatSidePanelProvider({
     return () => clearInterval(interval);
   }, [currentUserId, fetchChannels]);
 
-  // Only count unreads from channels set to ALL (exclude MUTED and MENTIONS_ONLY)
+  // Only count unreads from channels set to ALL (exclude MUTED and MENTIONS_ONLY).
+  // Used for the in-app chat header badge; PWA app badge is managed by useBadgeSync.
   const totalUnread = channels.reduce(
     (sum, ch) => sum + (ch.notificationPreference === 'ALL' ? ch.unreadCount : 0),
     0,
   );
-
-  // Sync PWA app badge with real unread count
-  useEffect(() => {
-    if (typeof navigator === 'undefined') return;
-    if (totalUnread > 0 && 'setAppBadge' in navigator) {
-      (navigator as any).setAppBadge(totalUnread).catch(() => {});
-    } else if (totalUnread === 0 && 'clearAppBadge' in navigator) {
-      (navigator as any).clearAppBadge().catch(() => {});
-    }
-  }, [totalUnread]);
 
   const selectChannel = useCallback((id: string | null) => {
     setSelectedChannelId(id);
