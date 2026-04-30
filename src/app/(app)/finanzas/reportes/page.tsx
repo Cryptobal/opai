@@ -7,7 +7,7 @@ import {
   hasCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/opai";
+import { PageHeader } from "@/components/opai-ds";
 import { ReportesClient } from "@/components/finance/ReportesClient";
 
 export default async function ReportesPage() {

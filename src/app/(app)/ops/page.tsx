@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, hasModuleAccess, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/opai";
+import { PageHeader } from "@/components/opai-ds";
 import { Stat, StatGrid, Surface } from "@/components/opai-ds";
 import { OpsGlobalSearch } from "@/components/ops/OpsGlobalSearch";
 import {

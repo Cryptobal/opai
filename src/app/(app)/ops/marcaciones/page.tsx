@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/opai";
+import { PageHeader } from "@/components/opai-ds";
 import { OpsMarcacionesClient } from "@/components/ops/OpsMarcacionesClient";
 import { OpsGlobalSearch } from "@/components/ops/OpsGlobalSearch";
 export default async function OpsMarcacionesPage() {

@@ -1,5 +1,5 @@
 "use client";
-import { SubNav } from "@/components/opai/SubNav";
+import { SubNav } from "@/components/opai-ds/SubNav";
 import { FileText, FolderOpen, ClipboardCheck, LayoutTemplate } from "lucide-react";
 
 const DOCS_NAV_ITEMS = [

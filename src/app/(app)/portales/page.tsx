@@ -7,7 +7,7 @@
 
 import { useState } from 'react';
 import { Shield, Route, Monitor, Users, ScanLine, Fingerprint } from 'lucide-react';
-import { PageHeader } from '@/components/opai';
+import { PageHeader } from '@/components/opai-ds';
 import { PortalCard } from '@/components/portales/PortalCard';
 import { PortalViewer } from '@/components/portales/PortalViewer';
 import type { LucideIcon } from 'lucide-react';

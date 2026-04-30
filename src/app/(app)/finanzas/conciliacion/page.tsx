@@ -7,7 +7,7 @@ import {
   hasCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/opai";
+import { PageHeader } from "@/components/opai-ds";
 import { ConciliacionClient } from "@/components/finance/ConciliacionClient";
 
 export default async function ConciliacionPage() {

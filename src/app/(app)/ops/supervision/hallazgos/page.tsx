@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
-import { PageHeader } from "@/components/opai";
+import { PageHeader } from "@/components/opai-ds";
 import { SupervisionHallazgos } from "@/components/supervision/SupervisionHallazgos";
 export default async function HallazgosPage() {
   const session = await auth();

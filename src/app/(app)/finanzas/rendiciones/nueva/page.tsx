@@ -6,7 +6,7 @@ import {
   hasCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/opai";
+import { PageHeader } from "@/components/opai-ds";
 import { RendicionForm } from "@/components/finance/RendicionForm";
 
 export default async function NuevaRendicionPage() {

@@ -14,7 +14,8 @@ import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { resolvePagePerms, hasModuleAccess } from '@/lib/permissions-server';
-import { PageHeader, ReloadButton, DocumentosSubnav } from '@/components/opai';
+import { ReloadButton, DocumentosSubnav } from '@/components/opai';
+import { PageHeader } from '@/components/opai-ds';
 import { DocumentosContent } from '@/components/opai/DocumentosContent';
 import Link from 'next/link';
 

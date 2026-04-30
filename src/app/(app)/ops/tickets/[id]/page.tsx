@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
-import { PageHeader } from "@/components/opai";
+import { PageHeader } from "@/components/opai-ds";
 import { TicketDetailClient } from "@/components/ops/tickets";
 import { TicketsSubnav } from "@/components/ops/TicketsSubnav";
 import { prisma } from "@/lib/prisma";

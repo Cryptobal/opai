@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
-import { PageHeader } from "@/components/opai";
+import { PageHeader } from "@/components/opai-ds";
 import { SupervisionGrilla } from "@/components/supervision/SupervisionGrilla";
 export default async function OpsSupervisionPage({
   searchParams,

@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { PageHeader } from "@/components/opai";
+import { PageHeader } from "@/components/opai-ds";
 import { ModificacionesTurnosClient } from "@/components/reportes-dt/ModificacionesTurnosClient";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";

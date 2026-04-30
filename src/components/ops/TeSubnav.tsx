@@ -1,6 +1,6 @@
 "use client";
 
-import { SubNav } from "@/components/opai";
+import { SubNav } from "@/components/opai-ds";
 import { ClipboardList, CheckCircle2, Layers, Banknote } from "lucide-react";
 
 export function TeSubnav() {

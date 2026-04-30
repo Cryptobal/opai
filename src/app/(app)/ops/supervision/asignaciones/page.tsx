@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canEdit, hasCapability } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/opai";
+import { PageHeader } from "@/components/opai-ds";
 import { SupervisorAssignmentsClient } from "@/components/supervision/SupervisorAssignmentsClient";
 
 export default async function SupervisionAsignacionesPage() {
