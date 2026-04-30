@@ -23,7 +23,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { EmptyState, DataTable, type DataTableColumn } from "@/components/opai";
+import { DataTable, EmptyState, type DataTableColumn } from "@/components/opai-ds";
 import {
   ArrowLeft,
   Check,
@@ -253,18 +253,18 @@ function ListView({
     }
   };
 
-  const listViewColumns: DataTableColumn[] = useMemo(
+  const listViewColumns: DataTableColumn<ReconciliationRow>[] = useMemo(
     () => [
       {
-        key: "period",
-        label: "Período",
-        render: (_v, r: ReconciliationRow) =>
+        id: "period",
+        header: "Período",
+        cell: (r) =>
           `${MONTH_LABELS[r.periodMonth - 1]} ${r.periodYear}`,
       },
       {
-        key: "bankAccount",
-        label: "Cuenta bancaria",
-        render: (_v, r: ReconciliationRow) => (
+        id: "bankAccount",
+        header: "Cuenta bancaria",
+        cell: (r) => (
           <>
             <div>{r.bankAccount.bankName}</div>
             <div className="text-xs text-muted-foreground font-mono">
@@ -274,31 +274,31 @@ function ListView({
         ),
       },
       {
-        key: "bankBalance",
-        label: "Saldo banco",
-        className: "text-right font-mono text-xs",
-        render: (v: number) => fmtCLP.format(v),
+        id: "bankBalance",
+        header: "Saldo banco",
+        align: "right",
+        cell: (r) => fmtCLP.format(r.bankBalance),
       },
       {
-        key: "bookBalance",
-        label: "Saldo libro",
-        className: "text-right font-mono text-xs",
-        render: (v: number) => fmtCLP.format(v),
+        id: "bookBalance",
+        header: "Saldo libro",
+        align: "right",
+        cell: (r) => fmtCLP.format(r.bookBalance),
       },
       {
-        key: "difference",
-        label: "Diferencia",
-        className: "text-right font-mono text-xs",
-        render: (v: number) => (
-          <span className={cn("font-medium", v !== 0 && "text-amber-400")}>
-            {fmtCLP.format(v)}
+        id: "difference",
+        header: "Diferencia",
+        align: "right",
+        cell: (r) => (
+          <span className={cn("font-medium", r.difference !== 0 && "text-amber-400")}>
+            {fmtCLP.format(r.difference)}
           </span>
         ),
       },
       {
-        key: "status",
-        label: "Estado",
-        render: (_v: string, r: ReconciliationRow) => {
+        id: "status",
+        header: "Estado",
+        cell: (r) => {
           const stCfg = STATUS_CONFIG[r.status] ?? {
             label: r.status,
             className: "bg-muted",
@@ -314,10 +314,10 @@ function ListView({
         },
       },
       {
-        key: "_count",
-        label: "Conciliaciones",
-        className: "text-center font-mono text-xs",
-        render: (_v, r: ReconciliationRow) => r._count.matches,
+        id: "_count",
+        header: "Conciliaciones",
+        align: "center",
+        cell: (r) => r._count.matches,
       },
     ],
     []
@@ -366,7 +366,7 @@ function ListView({
       {/* Content */}
       {filtered.length === 0 ? (
         <EmptyState
-          icon={<Landmark className="h-10 w-10" />}
+          icon={Landmark}
           title="Sin conciliaciones"
           description={
             bankFilter !== "ALL"
@@ -387,11 +387,11 @@ function ListView({
           {/* Desktop table */}
           <div className="hidden md:block">
             <DataTable
-              compact
               columns={listViewColumns}
-              data={filtered}
+              rows={filtered}
+              rowKey={(row) => row.id}
               onRowClick={(row) => onSelect(row.id)}
-              emptyMessage="Sin conciliaciones"
+              empty={<EmptyState icon={Landmark} title="Sin conciliaciones" compact />}
             />
           </div>
 
@@ -681,52 +681,49 @@ function DetailView({
     }
   };
 
-  const matchesColumns: DataTableColumn[] = useMemo(
+  const matchesColumns: DataTableColumn<ReconciliationDetail["matches"][number]>[] = useMemo(
     () => [
       {
-        key: "bankTransaction",
-        label: "Fecha",
-        className: "text-xs",
-        render: (_v, m: ReconciliationDetail["matches"][number]) =>
+        id: "bankTransaction",
+        header: "Fecha",
+        cell: (m) =>
           format(new Date(m.bankTransaction.transactionDate), "dd MMM yyyy", {
             locale: es,
           }),
       },
       {
-        key: "description",
-        label: "Descripción",
-        render: (_v, m: ReconciliationDetail["matches"][number]) =>
-          m.bankTransaction.description,
+        id: "description",
+        header: "Descripción",
+        cell: (m) => m.bankTransaction.description,
       },
       {
-        key: "amount",
-        label: "Monto",
-        className: "text-right font-mono text-xs",
-        render: (_v, m: ReconciliationDetail["matches"][number]) =>
-          fmtCLP.format(m.bankTransaction.amount),
+        id: "amount",
+        header: "Monto",
+        align: "right",
+        cell: (m) => fmtCLP.format(m.bankTransaction.amount),
       },
       {
-        key: "reference",
-        label: "Referencia",
-        className: "text-xs text-muted-foreground font-mono",
-        render: (_v, m: ReconciliationDetail["matches"][number]) =>
-          m.bankTransaction.reference ?? "\u2014",
+        id: "reference",
+        header: "Referencia",
+        cell: (m) => (
+          <span className="text-xs text-muted-foreground font-mono">
+            {m.bankTransaction.reference ?? "\u2014"}
+          </span>
+        ),
       },
       {
-        key: "matchType",
-        label: "Tipo",
-        className: "text-xs",
-        render: (v: string) => (
+        id: "matchType",
+        header: "Tipo",
+        cell: (m) => (
           <Badge variant="outline" className="text-xs">
-            {v}
+            {m.matchType}
           </Badge>
         ),
       },
       {
-        key: "associated",
-        label: "Registro asociado",
-        className: "text-xs",
-        render: (_v, m: ReconciliationDetail["matches"][number]) => {
+        id: "associated",
+        header: "Registro asociado",
+        cell: (m) => {
           if (m.paymentRecord) {
             return (
               <span>
@@ -766,7 +763,7 @@ function DetailView({
           Volver
         </Button>
         <EmptyState
-          icon={<Landmark className="h-10 w-10" />}
+          icon={Landmark}
           title="No encontrada"
           description="No se pudo cargar la conciliación."
         />
@@ -1033,10 +1030,10 @@ function DetailView({
           {/* Desktop table */}
           <div className="hidden md:block">
             <DataTable
-              compact
               columns={matchesColumns}
-              data={detail.matches}
-              emptyMessage="No hay movimientos conciliados"
+              rows={detail.matches}
+              rowKey={(row) => row.id}
+              empty={<EmptyState icon={Landmark} title="No hay movimientos conciliados" compact />}
             />
           </div>
 

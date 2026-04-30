@@ -24,7 +24,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { DataTable, EmptyState, type DataTableColumn } from "@/components/opai";
+import { DataTable, EmptyState, type DataTableColumn } from "@/components/opai-ds";
 import {
   Landmark,
   ArrowLeftRight,
@@ -324,12 +324,12 @@ function AccountsTab({
     }
   };
 
-  const accountColumns = useMemo<DataTableColumn[]>(() => {
-    const cols: DataTableColumn[] = [
+  const accountColumns = useMemo<DataTableColumn<BankAccountRow>[]>(() => {
+    const cols: DataTableColumn<BankAccountRow>[] = [
       {
-        key: "bankName",
-        label: "Banco",
-        render: (_v, row: BankAccountRow) => (
+        id: "bankName",
+        header: "Banco",
+        cell: (row) => (
           <div className="flex items-center gap-1.5">
             {row.bankName}
             {row.isDefault && (
@@ -339,9 +339,9 @@ function AccountsTab({
         ),
       },
       {
-        key: "accountType",
-        label: "Tipo",
-        render: (_v, row: BankAccountRow) => {
+        id: "accountType",
+        header: "Tipo",
+        cell: (row) => {
           const typeCfg = ACCOUNT_TYPE_LABELS[row.accountType] ?? {
             label: row.accountType,
             className: "bg-muted",
@@ -354,14 +354,14 @@ function AccountsTab({
         },
       },
       {
-        key: "accountNumber",
-        label: "N. Cuenta",
-        className: "font-mono text-xs",
+        id: "accountNumber",
+        header: "N. Cuenta",
+        cell: (row) => <span className="font-mono text-xs">{row.accountNumber}</span>,
       },
       {
-        key: "holderName",
-        label: "Titular",
-        render: (_v, row: BankAccountRow) => (
+        id: "holderName",
+        header: "Titular",
+        cell: (row) => (
           <div>
             <div>{row.holderName}</div>
             <div className="text-xs text-muted-foreground font-mono">
@@ -371,21 +371,21 @@ function AccountsTab({
         ),
       },
       {
-        key: "currency",
-        label: "Moneda",
-        className: "text-xs",
+        id: "currency",
+        header: "Moneda",
+        cell: (row) => <span className="text-xs">{row.currency}</span>,
       },
       {
-        key: "currentBalance",
-        label: "Saldo",
-        className: "text-right font-mono text-xs font-medium",
-        render: (v) => fmtCLP.format(v),
+        id: "currentBalance",
+        header: "Saldo",
+        align: "right",
+        cell: (row) => fmtCLP.format(row.currentBalance),
       },
       {
-        key: "isActive",
-        label: "Estado",
-        className: "text-center",
-        render: (_v, row: BankAccountRow) => (
+        id: "isActive",
+        header: "Estado",
+        align: "center",
+        cell: (row) => (
           <Badge
             variant="outline"
             className={cn(
@@ -402,9 +402,9 @@ function AccountsTab({
     ];
     if (canManage) {
       cols.push({
-        key: "_actions",
-        label: "",
-        render: (_v, row: BankAccountRow) => (
+        id: "_actions",
+        header: "",
+        cell: (row) => (
           <div className="flex items-center gap-1">
             <Button
               variant="ghost"
@@ -463,7 +463,7 @@ function AccountsTab({
       {/* Content */}
       {filtered.length === 0 ? (
         <EmptyState
-          icon={<Landmark className="h-10 w-10" />}
+          icon={Landmark}
           title="Sin cuentas bancarias"
           description={
             search
@@ -485,9 +485,9 @@ function AccountsTab({
           <div className="hidden md:block">
             <DataTable
               columns={accountColumns}
-              data={filtered}
-              compact
-              emptyMessage="Sin cuentas bancarias"
+              rows={filtered}
+              rowKey={(row) => row.id}
+              empty={<EmptyState icon={Landmark} title="Sin cuentas bancarias" compact />}
             />
           </div>
 
@@ -746,30 +746,36 @@ function TransactionsTab({ accounts }: { accounts: BankAccountRow[] }) {
     loadTransactions();
   }, [loadTransactions]);
 
-  const transactionColumns = useMemo<DataTableColumn[]>(
+  const transactionColumns = useMemo<DataTableColumn<TransactionRow>[]>(
     () => [
       {
-        key: "transactionDate",
-        label: "Fecha",
-        className: "text-xs text-muted-foreground",
-        render: (v) =>
-          format(new Date(v), "dd MMM yyyy", { locale: es }),
+        id: "transactionDate",
+        header: "Fecha",
+        cell: (row) => (
+          <span className="text-xs text-muted-foreground">
+            {format(new Date(row.transactionDate), "dd MMM yyyy", { locale: es })}
+          </span>
+        ),
       },
       {
-        key: "description",
-        label: "Descripción",
+        id: "description",
+        header: "Descripción",
+        cell: (row) => row.description,
       },
       {
-        key: "reference",
-        label: "Referencia",
-        className: "text-xs text-muted-foreground font-mono",
-        render: (v) => v ?? "—",
+        id: "reference",
+        header: "Referencia",
+        cell: (row) => (
+          <span className="text-xs text-muted-foreground font-mono">
+            {row.reference ?? "—"}
+          </span>
+        ),
       },
       {
-        key: "amount",
-        label: "Monto",
-        className: "text-right font-mono text-xs font-medium",
-        render: (_v, row: TransactionRow) => (
+        id: "amount",
+        header: "Monto",
+        align: "right",
+        cell: (row) => (
           <span
             className={
               row.amount >= 0 ? "text-emerald-400" : "text-red-400"
@@ -780,15 +786,15 @@ function TransactionsTab({ accounts }: { accounts: BankAccountRow[] }) {
         ),
       },
       {
-        key: "balance",
-        label: "Saldo",
-        className: "text-right font-mono text-xs",
-        render: (v) => (v != null ? fmtCLP.format(v) : "—"),
+        id: "balance",
+        header: "Saldo",
+        align: "right",
+        cell: (row) => (row.balance != null ? fmtCLP.format(row.balance) : "—"),
       },
       {
-        key: "reconciliationStatus",
-        label: "Estado",
-        render: (_v, row: TransactionRow) => {
+        id: "reconciliationStatus",
+        header: "Estado",
+        cell: (row) => {
           const rcCfg = RECONC_STATUS_CONFIG[row.reconciliationStatus] ?? {
             label: row.reconciliationStatus,
             className: "bg-muted",
@@ -852,13 +858,13 @@ function TransactionsTab({ accounts }: { accounts: BankAccountRow[] }) {
         </div>
       ) : !selectedAccount ? (
         <EmptyState
-          icon={<ArrowLeftRight className="h-10 w-10" />}
+          icon={ArrowLeftRight}
           title="Seleccione una cuenta"
           description="Elija una cuenta bancaria para ver sus movimientos."
         />
       ) : transactions.length === 0 ? (
         <EmptyState
-          icon={<ArrowLeftRight className="h-10 w-10" />}
+          icon={ArrowLeftRight}
           title="Sin movimientos"
           description="No hay movimientos registrados para esta cuenta."
         />
@@ -872,9 +878,9 @@ function TransactionsTab({ accounts }: { accounts: BankAccountRow[] }) {
           <div className="hidden md:block">
             <DataTable
               columns={transactionColumns}
-              data={transactions}
-              compact
-              emptyMessage="Sin movimientos"
+              rows={transactions}
+              rowKey={(row) => row.id}
+              empty={<EmptyState icon={ArrowLeftRight} title="Sin movimientos" compact />}
             />
           </div>
 
@@ -1000,7 +1006,7 @@ function ImportTab({
   if (!canManage) {
     return (
       <EmptyState
-        icon={<Upload className="h-10 w-10" />}
+        icon={Upload}
         title="Sin permisos"
         description="No tiene permisos para importar cartolas."
       />

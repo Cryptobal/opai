@@ -14,9 +14,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { EmptyState } from "@/components/opai";
 import { StatusTag } from "@/components/ops/StatusTag";
-import { Spinner } from "@/components/opai-ds";
+import { EmptyState, Spinner } from "@/components/opai-ds";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { AlertTriangle, Clock3, FileDown, Plus, Search, BarChart3, List, UserX } from "lucide-react";
 import { formatPersonName } from "@/lib/personas";
@@ -668,7 +667,7 @@ export function TeTurnosClient({
 
           {filtered.length === 0 ? (
             <EmptyState
-              icon={<Clock3 className="h-8 w-8" />}
+              icon={Clock3}
               title="Sin turnos extra"
               description="No hay registros para los filtros seleccionados."
               compact

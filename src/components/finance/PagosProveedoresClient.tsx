@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { Textarea } from "@/components/ui/textarea";
-import { EmptyState } from "@/components/opai";
+import { EmptyState } from "@/components/opai-ds";
 import {
   Banknote,
   CheckCircle2,
@@ -321,7 +321,7 @@ function PaymentsListTab({ canManage }: { canManage: boolean }) {
 
       {filtered.length === 0 ? (
         <EmptyState
-          icon={<Banknote className="h-10 w-10" />}
+          icon={Banknote}
           title="Sin pagos"
           description={
             typeFilter !== "ALL" || dateFrom || dateTo
@@ -703,7 +703,7 @@ function NewPaymentTab({
   if (!canManage) {
     return (
       <EmptyState
-        icon={<Banknote className="h-10 w-10" />}
+        icon={Banknote}
         title="Sin permisos"
         description="No tienes permisos para registrar pagos."
       />
@@ -869,7 +869,7 @@ function NewPaymentTab({
               </div>
             ) : unpaidDtes.length === 0 ? (
               <EmptyState
-                icon={<FileText className="h-10 w-10" />}
+                icon={FileText}
                 title="Sin documentos pendientes"
                 description="Este proveedor no tiene documentos pendientes de pago."
               />

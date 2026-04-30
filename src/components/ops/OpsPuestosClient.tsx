@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { EmptyState } from "@/components/opai";
+import { EmptyState } from "@/components/opai-ds";
 import {
   Dialog,
   DialogContent,
@@ -426,7 +426,7 @@ export function OpsPuestosClient({
           <Card>
             <CardContent className="py-6">
               <EmptyState
-                icon={<Building2 className="h-7 w-7" />}
+                icon={Building2}
                 title="Sin puestos"
                 description="No hay puestos activos. Configúralos desde el CRM."
                 action={
@@ -582,7 +582,7 @@ export function OpsPuestosClient({
         <Card>
           <CardContent className="py-6">
             <EmptyState
-              icon={<Building2 className="h-7 w-7" />}
+              icon={Building2}
               title="Sin resultados"
               description={
                 searchQuery

@@ -6,8 +6,7 @@ import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { EmptyState } from "@/components/opai";
-import { Spinner } from "@/components/opai-ds";
+import { EmptyState, Spinner } from "@/components/opai-ds";
 import { CalendarCheck2, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Info, Loader2, RotateCcw, MapPin, Clock, X } from "lucide-react";
 import { CollapsibleSection } from "@/components/crm/CollapsibleSection";
 import {
@@ -601,7 +600,7 @@ export function OpsPautaDiariaClient({
         <Card>
           <CardContent className="pt-5">
             <EmptyState
-              icon={<CalendarCheck2 className="h-8 w-8 text-white" />}
+              icon={CalendarCheck2}
               title="Sin asistencia"
               description="No hay puestos para la fecha seleccionada. Genera primero la pauta mensual."
               compact

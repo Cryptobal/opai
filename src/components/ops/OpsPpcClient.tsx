@@ -17,8 +17,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
-import { EmptyState } from "@/components/opai";
-import { Spinner } from "@/components/opai-ds";
+import { EmptyState, Spinner } from "@/components/opai-ds";
 import { formatPersonName } from "@/lib/personas";
 import {
   AlertTriangle,
@@ -561,7 +560,7 @@ export function OpsPpcClient({ initialClients }: OpsPpcClientProps) {
         <Card>
           <CardContent className="pt-5">
             <EmptyState
-              icon={<AlertTriangle className="h-8 w-8" />}
+              icon={AlertTriangle}
               title="Sin PPC"
               description="No hay puestos por cubrir para los filtros actuales."
               compact

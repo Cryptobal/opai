@@ -5,9 +5,8 @@ import { TrustScoreGauge } from "./TrustScoreGauge";
 import { StatusBadge, normalizeStatus } from "./StatusBadge";
 import { FilterPills } from "./FilterPills";
 import { AlertDistributionChart } from "./AlertDistributionChart";
-import { DataTable } from "@/components/opai";
-import type { DataTableColumn } from "@/components/opai";
-import { Activity, AlertTriangle, Calendar, ChevronDown, Loader2, Trophy } from "lucide-react";
+import { DataTable, EmptyState, type DataTableColumn } from "@/components/opai-ds";
+import { Activity, AlertTriangle, Calendar, ChevronDown, Inbox, Loader2, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /* ─── Types ─── */
@@ -147,18 +146,18 @@ export function RondasDashboardClient({ initialData }: { initialData?: Dashboard
     count: p.id !== "all" ? (counts[p.id] ?? 0) : undefined,
   }));
 
-  const columns: DataTableColumn[] = [
+  const columns: DataTableColumn<DashRow>[] = [
     {
-      key: "templateName",
-      label: "Ronda",
-      render: (_v: unknown, row: DashRow) => (
+      id: "templateName",
+      header: "Ronda",
+      cell: (row) => (
         <span className="text-[11px] text-[#94a3b8]">{row.templateName}</span>
       ),
     },
     {
-      key: "instalacion",
-      label: "Instalacion / Guardia",
-      render: (_v: unknown, row: DashRow) => (
+      id: "instalacion",
+      header: "Instalacion / Guardia",
+      cell: (row) => (
         <div>
           <p className="text-[12px] font-medium text-[#f1f5f9]">{row.installationName}</p>
           <p className="text-[10px] text-[#94a3b8]">{row.guardiaName ?? "Sin asignar"}</p>
@@ -166,24 +165,24 @@ export function RondasDashboardClient({ initialData }: { initialData?: Dashboard
       ),
     },
     {
-      key: "status",
-      label: "Estado",
-      render: (_v: unknown, row: DashRow) => <StatusBadge status={row.status} />,
+      id: "status",
+      header: "Estado",
+      cell: (row) => <StatusBadge status={row.status} />,
     },
     {
-      key: "scheduledAt",
-      label: "Hora",
-      render: (_v: unknown, row: DashRow) => (
+      id: "scheduledAt",
+      header: "Hora",
+      cell: (row) => (
         <span className="text-[12px] text-[#94a3b8] tabular-nums">
           {new Date(row.scheduledAt).toLocaleString("es-CL", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
         </span>
       ),
     },
     {
-      key: "progreso",
-      label: "Progreso",
-      className: "min-w-[120px]",
-      render: (_v: unknown, row: DashRow) => {
+      id: "progreso",
+      header: "Progreso",
+      width: "min-w-[120px]",
+      cell: (row) => {
         const pct = row.checkpointsTotal > 0 ? Math.round((row.checkpointsCompletados / row.checkpointsTotal) * 100) : 0;
         return (
           <div className="space-y-0.5">
@@ -199,9 +198,9 @@ export function RondasDashboardClient({ initialData }: { initialData?: Dashboard
       },
     },
     {
-      key: "trust",
-      label: "Trust",
-      render: (_v: unknown, row: DashRow) => <TrustScoreGauge score={row.trustScore} size="sm" />,
+      id: "trust",
+      header: "Trust",
+      cell: (row) => <TrustScoreGauge score={row.trustScore} size="sm" />,
     },
   ];
 
@@ -374,8 +373,9 @@ export function RondasDashboardClient({ initialData }: { initialData?: Dashboard
         </div>
         <DataTable
           columns={columns}
-          data={filtered}
-          emptyMessage="Sin rondas para este filtro."
+          rows={filtered}
+          rowKey={(row) => row.id}
+          empty={<EmptyState icon={Inbox} title="Sin rondas para este filtro." compact />}
         />
       </div>
     </div>

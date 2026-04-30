@@ -6,9 +6,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { DataTable } from "@/components/opai";
-import type { DataTableColumn } from "@/components/opai";
-import { Stat } from "@/components/opai-ds";
+import { DataTable, EmptyState, Stat, type DataTableColumn } from "@/components/opai-ds";
+import { Receipt } from "lucide-react";
 
 interface AccountExpensesSectionProps {
   accountId: string;
@@ -62,42 +61,40 @@ interface ByInstallation {
   [key: string]: { total: number; count: number };
 }
 
-const columns: DataTableColumn[] = [
+const columns: DataTableColumn<RendicionRow>[] = [
   {
-    key: "code",
-    label: "Código",
-    render: (value, row) => (
+    id: "code",
+    header: "Código",
+    cell: (row) => (
       <Link
         href={`/finanzas/rendiciones/${row.id}`}
         className="text-primary hover:underline text-xs"
       >
-        {value}
+        {row.code}
       </Link>
     ),
   },
   {
-    key: "date",
-    label: "Fecha",
-    render: (value) =>
-      value ? format(new Date(value), "dd/MM/yy", { locale: es }) : "-",
+    id: "date",
+    header: "Fecha",
+    cell: (row) =>
+      row.date ? format(new Date(row.date), "dd/MM/yy", { locale: es }) : "-",
   },
   {
-    key: "amount",
-    label: "Monto",
-    className: "text-right",
-    render: (value) => (
-      <span className="font-mono">{fmtCLP(value || 0)}</span>
-    ),
+    id: "amount",
+    header: "Monto",
+    align: "right",
+    cell: (row) => fmtCLP(row.amount || 0),
   },
   {
-    key: "status",
-    label: "Estado",
-    render: (value) => (
+    id: "status",
+    header: "Estado",
+    cell: (row) => (
       <Badge
         variant="secondary"
-        className={`text-[10px] ${STATUS_COLORS[value] || ""}`}
+        className={`text-[10px] ${STATUS_COLORS[row.status] || ""}`}
       >
-        {STATUS_LABELS[value] || value}
+        {STATUS_LABELS[row.status] || row.status}
       </Badge>
     ),
   },
@@ -169,8 +166,9 @@ export function AccountExpensesSection({
       {/* Rendiciones table */}
       <DataTable
         columns={columns}
-        data={data.rendiciones.slice(0, 20)}
-        compact
+        rows={data.rendiciones.slice(0, 20)}
+        rowKey={(row) => row.id}
+        empty={<EmptyState icon={Receipt} title="Sin rendiciones" compact />}
       />
       {data.rendiciones.length > 20 && (
         <p className="text-xs text-muted-foreground mt-2 text-center">

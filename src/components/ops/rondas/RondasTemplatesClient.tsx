@@ -4,9 +4,9 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { RondaTemplateForm } from "@/components/ops/rondas/ronda-template-form";
 import { Button } from "@/components/ui/button";
-import { DataTable } from "@/components/opai";
-import type { DataTableColumn } from "@/components/opai";
+import { DataTable, EmptyState, type DataTableColumn } from "@/components/opai-ds";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { FileText } from "lucide-react";
 
 interface InstallationOption {
   id: string;
@@ -58,28 +58,28 @@ export function RondasTemplatesClient({
     setRows(tplJson.data);
   };
 
-  const columns: DataTableColumn[] = [
+  const columns: DataTableColumn<TemplateItem>[] = [
     {
-      key: "name",
-      label: "Nombre",
-      render: (_v, row) => (
+      id: "name",
+      header: "Nombre",
+      cell: (row) => (
         <div>
           <p className="font-medium">{row.name}</p>
           {row.description && <p className="text-muted-foreground">{row.description}</p>}
         </div>
       ),
     },
-    { key: "orderMode", label: "Orden" },
+    { id: "orderMode", header: "Orden", cell: (row) => row.orderMode },
     {
-      key: "checkpoints",
-      label: "Checkpoints",
-      render: (v) => v.map((c: any) => c.checkpoint.name).join(", "),
+      id: "checkpoints",
+      header: "Checkpoints",
+      cell: (row) => row.checkpoints.map((c) => c.checkpoint.name).join(", "),
     },
     {
-      key: "actions",
-      label: "Acciones",
-      className: "text-right",
-      render: (_v, row) => (
+      id: "actions",
+      header: "Acciones",
+      align: "right",
+      cell: (row) => (
         <Button
           size="sm"
           variant="outline"
@@ -136,8 +136,9 @@ export function RondasTemplatesClient({
 
       <DataTable
         columns={columns}
-        data={rows}
-        emptyMessage="Sin plantillas creadas."
+        rows={rows}
+        rowKey={(row) => row.id}
+        empty={<EmptyState icon={FileText} title="Sin plantillas creadas." compact />}
       />
     </div>
   );

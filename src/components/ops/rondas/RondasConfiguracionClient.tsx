@@ -8,9 +8,9 @@ import { CheckpointMapCreator } from "@/components/ops/rondas/CheckpointMapCreat
 import { RondaTemplateForm, type EditingTemplate } from "@/components/ops/rondas/ronda-template-form";
 import { ProgramacionForm, type EditingProgramacion } from "@/components/ops/rondas/programacion-form";
 import { previewSlotTimes } from "@/lib/rondas/schedule-engine";
-import { DataTable } from "@/components/opai";
-import type { DataTableColumn } from "@/components/opai";
+import { DataTable, EmptyState, type DataTableColumn } from "@/components/opai-ds";
 import { Button } from "@/components/ui/button";
+import { Inbox } from "lucide-react";
 
 interface Client {
   id: string;
@@ -127,24 +127,24 @@ export function RondasConfiguracionClient({
     }
   }, [installations]);
 
-  const programacionColumns: DataTableColumn[] = [
-    { key: "rondaTemplate", label: "Plantilla", render: (_v, row) => row.rondaTemplate?.name ?? "—" },
+  const programacionColumns: DataTableColumn<any>[] = [
+    { id: "rondaTemplate", header: "Plantilla", cell: (row) => row.rondaTemplate?.name ?? "—" },
     {
-      key: "diasSemana",
-      label: "Días",
-      render: (v) => {
+      id: "diasSemana",
+      header: "Días",
+      cell: (row) => {
         const labels = ["D", "L", "M", "X", "J", "V", "S"];
-        return (v as number[]).map((d) => labels[d]).join(" ");
+        return (row.diasSemana as number[]).map((d) => labels[d]).join(" ");
       },
     },
-    { key: "horario", label: "Horario", render: (_v, row) => `${row.horaInicio} - ${row.horaFin}` },
+    { id: "horario", header: "Horario", cell: (row) => `${row.horaInicio} - ${row.horaFin}` },
     {
-      key: "frecuenciaMinutos",
-      label: "Horarios de rondas",
-      render: (_v, row) => {
+      id: "frecuenciaMinutos",
+      header: "Horarios de rondas",
+      cell: (row) => {
         const custom = row.horariosCustom as string[] | null;
         const slots = previewSlotTimes(row.horaInicio, row.horaFin, row.frecuenciaMinutos, custom);
-        const label = custom && custom.length > 0 ? `${custom.length} horarios manuales` : `Cada ${_v} min`;
+        const label = custom && custom.length > 0 ? `${custom.length} horarios manuales` : `Cada ${row.frecuenciaMinutos} min`;
         return (
           <div className="space-y-1">
             <span className="text-[11px] text-[#64748b]">{label}</span>
@@ -159,17 +159,17 @@ export function RondasConfiguracionClient({
         );
       },
     },
-    { key: "toleranciaMinutos", label: "Tolerancia", render: (v) => `${v} min` },
+    { id: "toleranciaMinutos", header: "Tolerancia", cell: (row) => `${row.toleranciaMinutos} min` },
     {
-      key: "isActive",
-      label: "Estado",
-      render: (v, row) => (
+      id: "isActive",
+      header: "Estado",
+      cell: (row) => (
         <Button
           size="sm"
           variant="outline"
-          className={`h-7 text-xs ${v ? "text-emerald-500" : "text-muted-foreground"}`}
+          className={`h-7 text-xs ${row.isActive ? "text-emerald-500" : "text-muted-foreground"}`}
           onClick={async () => {
-            const newState = !v;
+            const newState = !row.isActive;
             const res = await fetch(`/api/ops/rondas/programacion/${row.id}`, {
               method: "PATCH",
               headers: { "Content-Type": "application/json" },
@@ -182,15 +182,15 @@ export function RondasConfiguracionClient({
             }
           }}
         >
-          {v ? "Activa" : "Inactiva"}
+          {row.isActive ? "Activa" : "Inactiva"}
         </Button>
       ),
     },
     {
-      key: "actions",
-      label: "",
-      className: "text-right",
-      render: (_v, row) => (
+      id: "actions",
+      header: "",
+      align: "right",
+      cell: (row) => (
         <div className="flex gap-1 justify-end">
           <Button
             size="sm"
@@ -518,7 +518,7 @@ export function RondasConfiguracionClient({
               }
             }}
           />
-          <DataTable columns={programacionColumns} data={programaciones} emptyMessage="Sin programaciones." />
+          <DataTable columns={programacionColumns} rows={programaciones} rowKey={(row) => row.id} empty={<EmptyState icon={Inbox} title="Sin programaciones." compact />} />
         </div>
       )}
 

@@ -8,9 +8,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { EmptyState } from "@/components/opai";
 import { StatusTag } from "@/components/ops/StatusTag";
-import { Spinner, Stat, StatGrid } from "@/components/opai-ds";
+import { EmptyState, Spinner, Stat, StatGrid } from "@/components/opai-ds";
 import { Clock3, FileDown, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { formatPersonName } from "@/lib/personas";
 
@@ -676,7 +675,7 @@ export function OpsRefuerzosClient({
         <CardContent className="pt-5">
           {filtered.length === 0 ? (
             <EmptyState
-              icon={<Clock3 className="h-8 w-8" />}
+              icon={Clock3}
               title="Sin turnos de refuerzo"
               description="No hay resultados para los filtros seleccionados."
               compact

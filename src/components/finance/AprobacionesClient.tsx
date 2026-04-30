@@ -17,7 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { EmptyState } from "@/components/opai";
+import { EmptyState } from "@/components/opai-ds";
 import { Stat, StatGrid } from "@/components/opai-ds";
 import {
   CheckCircle2,
@@ -182,7 +182,7 @@ export function AprobacionesClient({
       {/* List */}
       {filtered.length === 0 ? (
         <EmptyState
-          icon={<Inbox className="h-10 w-10" />}
+          icon={Inbox}
           title="Sin aprobaciones pendientes"
           description={
             search.trim()
