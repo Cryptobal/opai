@@ -22,9 +22,15 @@ export function InventarioConfigClient({ canDelete }: Props) {
   const [tab, setTab] = useState<TabId>("bodegas");
 
   return (
-    <div className="space-y-4 ds-page-enter">
-      {/* Tabs estilo war room (pills) */}
-      <div className="flex flex-wrap gap-1 rounded-full border border-ds-border-subtle p-1 bg-ds-surface-2 w-fit">
+    <div className="space-y-5 ds-page-enter">
+      {/* Tabs: chip elevado neutro. El estado activo se eleva sobre la
+          superficie del segmento sin recurrir a translucidez de primary
+          (issue D6 #4: bg-primary/15 fallaba contraste en dark). */}
+      <div
+        role="tablist"
+        aria-label="Secciones de configuración"
+        className="inline-flex rounded-ds-md border border-ds-border-subtle bg-ds-surface-1 p-1"
+      >
         {TABS.map((t) => {
           const Icon = t.icon;
           const isActive = tab === t.id;
@@ -32,15 +38,25 @@ export function InventarioConfigClient({ canDelete }: Props) {
             <button
               key={t.id}
               type="button"
+              role="tab"
+              aria-selected={isActive}
               onClick={() => setTab(t.id)}
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors",
+                "relative inline-flex items-center gap-1.5 rounded-ds-sm px-3.5 py-1.5 text-sm font-medium",
+                "transition-colors duration-200 ease-[cubic-bezier(0.2,0,0,1)]",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-ds-surface-1",
                 isActive
-                  ? "bg-primary/15 text-primary border border-primary/30"
-                  : "text-ds-text-3 hover:text-ds-text-1 hover:bg-ds-surface-3 border border-transparent",
+                  ? "bg-ds-surface-3 text-ds-text-1 shadow-ds-xs"
+                  : "text-ds-text-3 hover:text-ds-text-1",
               )}
             >
-              <Icon className="h-3.5 w-3.5" />
+              <Icon
+                className={cn(
+                  "h-4 w-4",
+                  isActive ? "text-primary" : "text-ds-text-4",
+                )}
+                strokeWidth={1.75}
+              />
               {t.label}
             </button>
           );

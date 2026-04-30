@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { Settings2 } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { canDelete, canView, resolvePagePerms } from "@/lib/permissions-server";
 import { PageHero } from "@/components/opai-ds";
@@ -20,8 +21,10 @@ export default async function InventarioConfiguracionPage() {
   return (
     <div className="min-w-0">
       <InventarioSubnav />
-      <section className="relative w-full pb-32 space-y-5">
+      <section className="relative w-full pb-32 space-y-6">
         <PageHero
+          icon={Settings2}
+          iconTone="emerald"
           eyebrow={["Operaciones", "Inventario", "Configuración"]}
           title="Configuración"
           subtitle="bodegas y auditoría del módulo"
