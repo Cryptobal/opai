@@ -32,4 +32,5 @@ export {
 export { Toolbar, type ToolbarProps } from "./Toolbar";
 export { HeatGrid, type HeatGridProps, type HeatGridRow, type HeatGridColumn } from "./HeatGrid";
 export { Avatar, type AvatarProps, type AvatarVariant } from "./Avatar";
+export { Breadcrumbs, type BreadcrumbsProps, type BreadcrumbItem } from "./Breadcrumbs";
 export { thresholdFromScore, type Threshold } from "./tokens";

@@ -27,6 +27,23 @@ function isTouchLikeDevice() {
   return window.matchMedia("(pointer: coarse)").matches || navigator.maxTouchPoints > 0;
 }
 
+/**
+ * Hook que detecta el viewport mobile (<md = 768px). Usa matchMedia con
+ * listener para mantener sincronía con resize. SSR-safe (default false).
+ */
+function useIsMobileViewport(): boolean {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(max-width: 767.98px)");
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+  return isMobile;
+}
+
 interface SearchableSelectProps {
   value: string;
   options: SearchableOption[];
@@ -61,6 +78,7 @@ export function SearchableSelect({
   const listRef = useRef<HTMLDivElement | null>(null);
   const searchRef = useRef<HTMLInputElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const isMobile = useIsMobileViewport();
 
   const updatePortalRect = useCallback(() => {
     const trigger = triggerRef.current;
@@ -257,8 +275,157 @@ export function SearchableSelect({
         />
       </button>
 
-      {/* Dropdown (inline o en portal para no cortarse) */}
+      {/* Dropdown (desktop: popover anclado | mobile: bottom sheet vía portal) */}
       {open && !disabled && (() => {
+        const searchInput = (
+          <div className="flex items-center gap-2 border-b border-border/60 px-3 py-2">
+            <Search className="h-4 w-4 shrink-0 text-muted-foreground/50" />
+            <input
+              ref={searchRef}
+              type="text"
+              placeholder="Buscar..."
+              value={query}
+              className="flex-1 min-w-0 bg-transparent text-sm sm:text-sm outline-none placeholder:text-muted-foreground/50"
+              style={isMobile ? { fontSize: 16 } : undefined}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                onInputChange?.(e.target.value);
+              }}
+              onKeyDown={handleKeyDown}
+            />
+            {query && (
+              <span className="shrink-0 rounded-md bg-muted/50 px-1.5 py-0.5 text-xs font-medium text-muted-foreground tabular-nums">
+                {filtered.length}
+              </span>
+            )}
+          </div>
+        );
+
+        const optionsList = (
+          <div
+            ref={listRef}
+            className={cn(
+              "overflow-auto overscroll-contain p-1",
+              isMobile ? "flex-1" : "max-h-[min(18rem,65vh)]",
+            )}
+          >
+            {filtered.length === 0 ? (
+              <div className="flex flex-col items-center justify-center gap-1.5 px-3 py-8 text-muted-foreground">
+                <Search className="h-5 w-5 opacity-40" />
+                <span className="text-sm">{emptyText}</span>
+                {query && (
+                  <span className="text-sm opacity-60">
+                    Prueba con otro término
+                  </span>
+                )}
+              </div>
+            ) : (
+              filtered.map((opt, i) => {
+                const isSelected = opt.id === value;
+                const isHighlighted = i === highlightIdx;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    data-item
+                    className={cn(
+                      "flex w-full items-center gap-2.5 rounded-lg text-left text-sm transition-colors duration-75",
+                      isMobile ? "px-3 py-3" : "px-2.5 py-2",
+                      isHighlighted && "bg-accent text-accent-foreground",
+                      !isHighlighted && "hover:bg-accent/50",
+                      isSelected && !isHighlighted && "bg-primary/5",
+                    )}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onMouseEnter={() => setHighlightIdx(i)}
+                    onClick={() => {
+                      onChange(opt.id);
+                      setOpen(false);
+                      if (!isTouchLikeDevice()) focusTrigger();
+                    }}
+                  >
+                    {isSelected && (
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-primary/10">
+                        <Check className="h-3 w-3 text-primary" />
+                      </span>
+                    )}
+                    {opt.icon && !isSelected && (
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center text-muted-foreground/60">
+                        {opt.icon}
+                      </span>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className={cn(
+                        "truncate",
+                        isSelected ? "font-semibold text-primary" : "font-normal",
+                      )}>
+                        {highlightMatch(opt.label)}
+                      </div>
+                      {opt.description && (
+                        <div className="truncate text-sm text-muted-foreground/70 mt-0.5">
+                          {highlightMatch(opt.description)}
+                        </div>
+                      )}
+                    </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        );
+
+        const counterFooter = filtered.length > 0 && options.length > 5 && (
+          <div className="border-t border-border/40 px-3 py-1.5">
+            <span className="text-xs text-muted-foreground/50">
+              {filtered.length} de {options.length} opciones
+            </span>
+          </div>
+        );
+
+        // Mobile: bottom sheet en portal con backdrop. Search sticky arriba,
+        // lista flex-1 scrollable. Cancel en footer para cerrar sin elegir.
+        if (isMobile && typeof document !== "undefined") {
+          return createPortal(
+            <>
+              <div
+                aria-hidden
+                className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm animate-in fade-in-0 duration-150"
+                onClick={() => setOpen(false)}
+              />
+              <div
+                role="dialog"
+                aria-modal="true"
+                ref={portalRef}
+                className={cn(
+                  "fixed inset-x-0 bottom-0 z-50 flex flex-col",
+                  "bg-popover border-t border-border/80 rounded-t-2xl shadow-xl",
+                  "animate-in slide-in-from-bottom duration-200",
+                  "max-h-[85dvh]",
+                )}
+                style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+              >
+                <div
+                  aria-hidden
+                  className="mx-auto mt-2 mb-1 h-1 w-9 rounded-full bg-muted-foreground/30"
+                />
+                {searchInput}
+                {optionsList}
+                {counterFooter}
+                <div className="border-t border-border/60 px-3 py-2">
+                  <button
+                    type="button"
+                    onClick={() => setOpen(false)}
+                    className="w-full rounded-lg bg-muted py-2.5 text-sm font-medium text-foreground hover:bg-muted/80 active:bg-muted transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            </>,
+            document.body,
+          );
+        }
+
+        // Desktop: popover anclado al trigger.
         const dropdownContent = (
           <div
             ref={dropdownInPortal ? portalRef : undefined}
@@ -273,100 +440,9 @@ export function SearchableSelect({
                 : undefined
             }
           >
-            {/* Search input */}
-            <div className="flex items-center gap-2 border-b border-border/60 px-3 py-2">
-              <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
-              <input
-                ref={searchRef}
-                type="text"
-                placeholder="Buscar..."
-                value={query}
-                className="flex-1 min-w-0 bg-transparent text-sm outline-none placeholder:text-muted-foreground/50"
-                onChange={(e) => {
-                  setQuery(e.target.value);
-                  onInputChange?.(e.target.value);
-                }}
-                onKeyDown={handleKeyDown}
-              />
-              {query && (
-                <span className="shrink-0 rounded-md bg-muted/50 px-1.5 py-0.5 text-xs font-medium text-muted-foreground tabular-nums">
-                  {filtered.length}
-                </span>
-              )}
-            </div>
-
-            {/* Options list: altura que no corte en la sección y se adapte al viewport */}
-            <div ref={listRef} className="max-h-[min(18rem,65vh)] overflow-auto overscroll-contain p-1">
-              {filtered.length === 0 ? (
-                <div className="flex flex-col items-center justify-center gap-1.5 px-3 py-8 text-muted-foreground">
-                  <Search className="h-5 w-5 opacity-40" />
-                  <span className="text-sm">{emptyText}</span>
-                  {query && (
-                    <span className="text-sm opacity-60">
-                      Prueba con otro término
-                    </span>
-                  )}
-                </div>
-              ) : (
-                filtered.map((opt, i) => {
-                  const isSelected = opt.id === value;
-                  const isHighlighted = i === highlightIdx;
-                  return (
-                    <button
-                      key={opt.id}
-                      type="button"
-                      data-item
-                      className={cn(
-                        "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors duration-75",
-                        isHighlighted && "bg-accent text-accent-foreground",
-                        !isHighlighted && "hover:bg-accent/50",
-                        isSelected && !isHighlighted && "bg-primary/5",
-                      )}
-                      onMouseDown={(e) => e.preventDefault()}
-                      onMouseEnter={() => setHighlightIdx(i)}
-                      onClick={() => {
-                        onChange(opt.id);
-                        setOpen(false);
-                        if (!isTouchLikeDevice()) focusTrigger();
-                      }}
-                    >
-                      {isSelected && (
-                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-primary/10">
-                          <Check className="h-3 w-3 text-primary" />
-                        </span>
-                      )}
-                      {opt.icon && !isSelected && (
-                        <span className="flex h-5 w-5 shrink-0 items-center justify-center text-muted-foreground/60">
-                          {opt.icon}
-                        </span>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <div className={cn(
-                          "truncate",
-                          isSelected ? "font-semibold text-primary" : "font-normal",
-                        )}>
-                          {highlightMatch(opt.label)}
-                        </div>
-                        {opt.description && (
-                          <div className="truncate text-sm text-muted-foreground/70 mt-0.5">
-                            {highlightMatch(opt.description)}
-                          </div>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })
-              )}
-            </div>
-
-            {/* Footer with count */}
-            {filtered.length > 0 && options.length > 5 && (
-              <div className="border-t border-border/40 px-3 py-1.5">
-                <span className="text-xs text-muted-foreground/50">
-                  {filtered.length} de {options.length} opciones
-                </span>
-              </div>
-            )}
+            {searchInput}
+            {optionsList}
+            {counterFooter}
           </div>
         );
         return dropdownInPortal && typeof document !== "undefined"
