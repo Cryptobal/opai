@@ -9,6 +9,8 @@ type Params = { id: string };
 
 const resolveSchema = z.object({
   note: z.string().max(2000).optional(),
+  resolutionPhotoUrl: z.string().url().optional(),
+  verifiedInVisitId: z.string().uuid().optional(),
 });
 
 export async function POST(
@@ -78,6 +80,13 @@ export async function POST(
           status: "resolved",
           resolvedAt: when,
           updatedAt: when,
+          ...(parsed.data.resolutionPhotoUrl
+            ? { resolutionPhotoUrl: parsed.data.resolutionPhotoUrl }
+            : {}),
+          ...(note ? { resolutionNote: note } : {}),
+          ...(parsed.data.verifiedInVisitId
+            ? { verifiedInVisitId: parsed.data.verifiedInVisitId }
+            : {}),
         },
       });
 
@@ -99,11 +108,17 @@ export async function POST(
           },
         });
 
+        const photoLine = parsed.data.resolutionPhotoUrl
+          ? `\n\nFoto de resolución: ${parsed.data.resolutionPhotoUrl}`
+          : "";
+        const commentBody =
+          `✅ Hallazgo resuelto manualmente por ${actorName}.${note ? ` Nota: ${note}` : ""}${photoLine}`.trim();
+
         await tx.opsTicketComment.create({
           data: {
             ticketId: finding.ticketId,
             userId: ctx.userId,
-            body: `✅ Hallazgo resuelto manualmente por ${actorName}. ${note ? `Nota: ${note}` : ""}`.trim(),
+            body: commentBody,
             isInternal: false,
           },
         });

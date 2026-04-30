@@ -12,6 +12,7 @@ import {
   MessageSquare,
   BookOpen,
   Image as ImageIcon,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,6 +30,7 @@ import type {
   PhotoCategory,
   VisitData,
   SurveyData,
+  PendingFinding,
 } from "./types";
 
 type Props = {
@@ -61,6 +63,8 @@ type Props = {
   onFinalize: () => void;
   onPrev: () => void;
   saving: boolean;
+  pendingFindings: PendingFinding[];
+  onRemovePendingFinding: (source: string) => void;
 };
 
 // Client Survey — 9 questions
@@ -201,6 +205,8 @@ export function Step5Closure({
   onFinalize,
   onPrev,
   saving,
+  pendingFindings,
+  onRemovePendingFinding,
 }: Props) {
   const validationPhotoInputRef = useRef<HTMLInputElement>(null);
 
@@ -713,6 +719,38 @@ export function Step5Closure({
             </div>
           )}
         </div>
+
+        {/* Pending findings preview — se generan al finalizar */}
+        {pendingFindings.length > 0 && (
+          <div className="space-y-2 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
+            <div className="flex items-center gap-2 text-sm font-medium text-amber-400">
+              <AlertTriangle className="h-4 w-4" />
+              Hallazgos a generar al finalizar ({pendingFindings.length})
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Estos se crearán como hallazgos críticos al cerrar la visita. Si alguno
+              fue un error, elimínalo aquí.
+            </p>
+            <div className="space-y-1">
+              {pendingFindings.map((pf) => (
+                <div
+                  key={pf.localId}
+                  className="flex items-center justify-between gap-2 rounded border bg-background/50 p-2 text-xs"
+                >
+                  <span className="flex-1">{pf.description}</span>
+                  <button
+                    type="button"
+                    onClick={() => onRemovePendingFinding(pf.source)}
+                    className="text-destructive hover:text-destructive/80"
+                    title="Cancelar este hallazgo"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Navigation */}
         <div className="flex gap-3">
