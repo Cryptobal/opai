@@ -1858,6 +1858,27 @@ model UserNotificationPreference {
   @@schema("crm")
 }
 
+/// Unified notification preferences (admin + portal users).
+/// Replaces UserNotificationPreference and PortalNotificationPreference; both legacy
+/// tables coexist until the deprecation block, with this table backfilled on migration.
+/// preferences JSON shape: Record<notifKey, { bell?: boolean; email?: boolean; push?: boolean }>
+model NotificationPreference {
+  id              String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId        String   @map("tenant_id")
+  subscriberType  String   @map("subscriber_type")
+  subscriberId    String   @map("subscriber_id")
+  preferences     Json     @default("{}") @db.JsonB
+  quietHoursStart Int?     @map("quiet_hours_start")
+  quietHoursEnd   Int?     @map("quiet_hours_end")
+  quietHoursTz    String?  @map("quiet_hours_tz")
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([subscriberType, subscriberId], map: "uq_notif_prefs")
+  @@index([tenantId], map: "idx_notif_prefs_tenant")
+  @@map("notification_preferences")
+  @@schema("public")
+}
+
 /// Cola de emails fallidos (3 intentos sin éxito vía sendEmailWithRetry).
 /// Sirve para reintento manual desde la UI de admin del CRM y como
 /// trazabilidad/observabilidad de fallas de Resend.
