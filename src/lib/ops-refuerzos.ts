@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { resend, getTenantEmailConfig } from "@/lib/resend";
-import { sendNotificationToUsers } from "@/lib/notification-service";
+import { notify } from "@/lib/notifications/notify";
 import type { AuthContext } from "@/lib/api-auth";
 import { createOpsAuditLog } from "@/lib/ops";
 
@@ -369,16 +369,17 @@ export async function createRefuerzoSolicitud(ctx: AuthContext, body: CreateRefu
     }
   }
 
-  await sendNotificationToUsers({
+  await notify({
     tenantId: ctx.tenantId,
     type: "refuerzo_solicitud_created",
+    targetIds: notifTargetIds,
+    targetType: "ADMIN",
     title: requiresApproval
       ? "Solicitud de refuerzo pendiente de aprobación"
       : "Nueva solicitud de turno de refuerzo",
-    message: `${installation.name} · ${guardiaName}`,
+    body: `${installation.name} · ${guardiaName}`,
     link: created.ticketId ? `/ops/tickets/${created.ticketId}` : `/ops/refuerzos`,
     data: { refuerzoId: created.id, installationId: installation.id, ticketId: created.ticketId },
-    targetUserIds: notifTargetIds,
   });
 
   return created;
@@ -464,15 +465,18 @@ export async function executeRefuerzoApproval(
   const approvalTargetIds: string[] = [];
   if (refuerzo.ticket?.reportedBy) approvalTargetIds.push(refuerzo.ticket.reportedBy);
 
-  await sendNotificationToUsers({
-    tenantId: ctx.tenantId,
-    type: "refuerzo_solicitud_created",
-    title: "Turno de refuerzo aprobado",
-    message: `${refuerzo.installation.name} · ${guardiaName} — Turno extra y item facturable creados`,
-    link: `/ops/refuerzos`,
-    data: { refuerzoId: refuerzo.id, ticketId },
-    targetUserIds: approvalTargetIds,
-  });
+  if (approvalTargetIds.length > 0) {
+    await notify({
+      tenantId: ctx.tenantId,
+      type: "refuerzo_solicitud_created",
+      targetIds: approvalTargetIds,
+      targetType: "ADMIN",
+      title: "Turno de refuerzo aprobado",
+      body: `${refuerzo.installation.name} · ${guardiaName} — Turno extra y item facturable creados`,
+      link: `/ops/refuerzos`,
+      data: { refuerzoId: refuerzo.id, ticketId },
+    });
+  }
 }
 
 /* ── Post-rejection: mark refuerzo as rejected ─────────────────────── */
@@ -507,13 +511,16 @@ export async function executeRefuerzoRejection(
   const rejectionTargetIds: string[] = [];
   if (refuerzo.ticket?.reportedBy) rejectionTargetIds.push(refuerzo.ticket.reportedBy);
 
-  await sendNotificationToUsers({
-    tenantId: ctx.tenantId,
-    type: "refuerzo_solicitud_created",
-    title: "Turno de refuerzo rechazado",
-    message: `${refuerzo.installation.name} · ${guardiaName}`,
-    link: `/ops/refuerzos`,
-    data: { refuerzoId: refuerzo.id, ticketId },
-    targetUserIds: rejectionTargetIds,
-  });
+  if (rejectionTargetIds.length > 0) {
+    await notify({
+      tenantId: ctx.tenantId,
+      type: "refuerzo_solicitud_created",
+      targetIds: rejectionTargetIds,
+      targetType: "ADMIN",
+      title: "Turno de refuerzo rechazado",
+      body: `${refuerzo.installation.name} · ${guardiaName}`,
+      link: `/ops/refuerzos`,
+      data: { refuerzoId: refuerzo.id, ticketId },
+    });
+  }
 }
