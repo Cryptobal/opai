@@ -52,6 +52,11 @@ const MIGRATED_PATHS = [
   "src/components/opai/conocimiento/GuardsList.tsx",
   "src/components/opai/conocimiento/HeatmapMatrix.tsx",
   "src/app/(app)/personas/conocimiento/",
+  // Portal Cliente — fase 3B: tab Conocimiento del equipo migrada.
+  // Otros archivos del portal cliente (Bitácora, GuardiaDetalle, etc.)
+  // no están migrados y se hacen en sesiones futuras.
+  "src/components/portal/cliente/PortalConocimientoEquipo.tsx",
+  "src/components/portal/cliente/PortalProtocolos.tsx",
   // Agregar aquí cuando se migren:
   // "src/components/personas/",
   // "src/components/crm/",

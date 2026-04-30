@@ -5,13 +5,16 @@ import { Check, Download, Phone } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePortalData } from "@/hooks/usePortalData";
 import {
-  Blob,
-  CompactKpi,
+  Surface,
+  Stat,
+  StatGrid,
   StatusDot,
+  IconBubble,
+  Skeleton,
+  EmptyState,
   thresholdFromScore,
-  thresholdText,
   type Threshold,
-} from "@/components/opai/conocimiento/_primitives";
+} from "@/components/opai-ds";
 import { SectionComplianceList } from "@/components/opai/conocimiento/SectionComplianceList";
 import { ClienteSession } from "@/lib/portal-cliente-types";
 import type {
@@ -27,6 +30,13 @@ interface Props {
 interface ClientPayload extends Omit<InstallationDetailResult, "trend"> {
   trend: InstallationDetailMonthlyAvg[];
 }
+
+const VALUE_COLOR: Record<Threshold, string> = {
+  ok:      "text-status-ok-fg",
+  warn:    "text-status-warn-fg",
+  danger:  "text-status-danger-fg",
+  neutral: "text-ds-text-3",
+};
 
 function daysAgo(iso: string | null): number | null {
   if (!iso) return null;
@@ -84,93 +94,103 @@ export function PortalConocimientoEquipo({ session, installationId }: Props) {
   if (loading) {
     return (
       <div className="space-y-2.5 mt-3">
-        <div className="card-mock h-40 animate-pulse" />
-        <div className="card-mock h-16 animate-pulse" />
-        <div className="card-mock-tight h-32 animate-pulse" />
+        <Skeleton shape="rect" className="h-40" />
+        <Skeleton shape="rect" className="h-16" />
+        <Skeleton shape="rect" className="h-32" />
       </div>
     );
   }
 
   if (!data || (!data.protocol.hasProtocol && evaluatedGuards === 0 && activeGuards === 0)) {
     return (
-      <div className="card-mock p-5 text-center mt-3">
-        <p className="font-display text-[14px] font-semibold mb-1">
-          Aún no hay evaluaciones del equipo
-        </p>
-        <p className="text-[12px] text-white/55 leading-relaxed">
-          Tu proveedor está preparando la evaluación inicial del equipo. Te
-          avisaremos en cuanto esté lista.
-        </p>
-      </div>
+      <Surface elevation={1} padding="none" className="mt-3">
+        <EmptyState
+          icon={Check}
+          tone="brand"
+          title="Aún no hay evaluaciones del equipo"
+          description="Tu proveedor está preparando la evaluación inicial del equipo. Te avisaremos en cuanto esté lista."
+        />
+      </Surface>
     );
   }
 
   return (
-    <section className="relative">
-      <Blob color={t === "danger" ? "danger" : t === "warn" ? "warn" : "ok"} className="-top-10 -left-10 w-72 h-72" />
-
+    <section className="relative ds-page-enter">
       {/* Hero card */}
-      <div className="card-mock mt-1 p-5 relative overflow-hidden">
-        <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-emerald-500/20 blur-3xl pointer-events-none" />
+      <Surface
+        elevation={2}
+        padding="lg"
+        accent={t === "neutral" ? "brand" : t}
+        className="mt-1"
+      >
         <div className="relative">
-          <div className="flex items-center gap-2 mb-2">
-            <StatusDot threshold={t === "neutral" ? "ok" : t} pulse />
-            <span
-              className={cn(
-                "text-[10px] uppercase tracking-wider font-mono",
-                t === "danger"
-                  ? "text-red-300"
-                  : t === "warn"
-                    ? "text-amber-300"
-                    : "text-emerald-300",
-              )}
-            >
-              vigente
-            </span>
+          <div
+            aria-hidden
+            className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-status-ok/20 blur-3xl pointer-events-none"
+          />
+          <div className="relative">
+            <div className="flex items-center gap-2 mb-2">
+              <StatusDot kind={t === "neutral" ? "ok" : t} pulse glow />
+              <span
+                className={cn(
+                  "text-[11px] font-mono uppercase tracking-[0.08em]",
+                  t === "danger"
+                    ? "text-status-danger-fg"
+                    : t === "warn"
+                      ? "text-status-warn-fg"
+                      : "text-status-ok-fg",
+                )}
+              >
+                vigente
+              </span>
+            </div>
+            <p className="font-display text-[16px] font-semibold leading-snug mb-1 text-ds-text-1">
+              {headline}
+            </p>
+            <div className="flex items-baseline gap-2">
+              <span
+                className={cn(
+                  "font-display text-5xl font-bold leading-none ds-num",
+                  compliance !== null ? VALUE_COLOR[t] : "text-ds-text-4",
+                )}
+              >
+                {compliance !== null ? Math.round(compliance) : "—"}
+                <span className="text-2xl">{compliance !== null ? "%" : ""}</span>
+              </span>
+              <span className="text-[12px] font-mono text-ds-text-4">
+                cumplimiento
+              </span>
+            </div>
+            <p className="text-[13px] text-ds-text-3 mt-3 leading-relaxed">
+              {evaluatedGuards} de {activeGuards} guardias evaluados en los últimos 30
+              días.
+              {lastExamDays !== null
+                ? ` Última evaluación: hace ${lastExamDays} días.`
+                : null}
+            </p>
           </div>
-          <div className="font-display text-[15px] font-semibold leading-snug mb-1">
-            {headline}
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span
-              className={cn(
-                "font-display text-5xl font-bold num-tabular leading-none",
-                compliance !== null ? thresholdText(t) : "text-white/40",
-              )}
-            >
-              {compliance !== null ? Math.round(compliance) : "—"}
-              <span className="text-2xl">{compliance !== null ? "%" : ""}</span>
-            </span>
-            <span className="text-[11px] text-white/40 font-mono">
-              cumplimiento
-            </span>
-          </div>
-          <p className="text-[12px] text-white/60 mt-3 leading-relaxed">
-            {evaluatedGuards} de {activeGuards} guardias evaluados en los últimos 30
-            días.
-            {lastExamDays !== null
-              ? ` Última evaluación: hace ${lastExamDays} días.`
-              : null}
-          </p>
         </div>
-      </div>
+      </Surface>
 
       {/* KPIs */}
-      <div className="grid grid-cols-3 gap-2 mt-3">
-        <CompactKpi
-          label="Aprobados"
-          value={`${approvedCount}/${Math.max(evaluatedGuards, approvedCount)}`}
-          threshold="ok"
-        />
-        <CompactKpi
-          label="Pendientes"
-          value={pendingCount}
-          threshold={pendingCount > 0 ? "warn" : "neutral"}
-        />
-        <CompactKpi
-          label="Última"
-          value={lastExamDays !== null ? `${lastExamDays}d` : "—"}
-        />
+      <div className="mt-3">
+        <StatGrid cols={2} lgCols={3}>
+          <Stat
+            label="Aprobados"
+            value={`${approvedCount}/${Math.max(evaluatedGuards, approvedCount)}`}
+            variant="ok"
+          />
+          <Stat
+            label="Pendientes"
+            value={pendingCount}
+            variant={pendingCount > 0 ? "warn" : "default"}
+            animate
+          />
+          <Stat
+            label="Última"
+            value={lastExamDays !== null ? `${lastExamDays}d` : "—"}
+          />
+        </StatGrid>
       </div>
 
       <SectionComplianceList
@@ -180,20 +200,20 @@ export function PortalConocimientoEquipo({ session, installationId }: Props) {
       />
 
       {/* Trust badge */}
-      <div className="mt-3 card-mock-tight p-4 flex items-start gap-3">
-        <div className="w-8 h-8 rounded-full bg-emerald-500/20 grid place-items-center shrink-0">
-          <Check className="w-4 h-4 text-emerald-400" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="font-display text-[12px] font-semibold text-emerald-300">
-            Tu proveedor capacita activamente
+      <Surface elevation={1} padding="md" className="mt-3">
+        <div className="flex items-start gap-3">
+          <IconBubble icon={Check} variant="ok" size="md" rounded="circle" />
+          <div className="flex-1 min-w-0">
+            <p className="font-display text-[13px] font-semibold text-status-ok-fg">
+              Tu proveedor capacita activamente
+            </p>
+            <p className="text-[12px] text-ds-text-3 leading-relaxed mt-1">
+              Las evaluaciones se actualizan cada 6 meses y al ingreso de cada
+              guardia nuevo. Te notificaremos cualquier baja de cumplimiento.
+            </p>
           </div>
-          <p className="text-[11px] text-white/55 leading-relaxed mt-1">
-            Las evaluaciones se actualizan cada 6 meses y al ingreso de cada
-            guardia nuevo. Te notificaremos cualquier baja de cumplimiento.
-          </p>
         </div>
-      </div>
+      </Surface>
 
       {/* Trend chart */}
       {trend.length >= 2 && <TrendChart data={trend} />}
@@ -201,7 +221,7 @@ export function PortalConocimientoEquipo({ session, installationId }: Props) {
       {/* Acciones cliente */}
       <div className="mt-5 grid grid-cols-2 gap-2">
         <ClientAction
-          icon={<Download className="h-3.5 w-3.5" />}
+          icon={Download}
           label="Descargar reporte"
           hint={`PDF · ${currentMonth}`}
           onClick={() => {
@@ -219,7 +239,7 @@ export function PortalConocimientoEquipo({ session, installationId }: Props) {
           }}
         />
         <ClientAction
-          icon={<Phone className="h-3.5 w-3.5" />}
+          icon={Phone}
           label="Hablar con tu KAM"
           hint={session.ejecutivoName ?? "Atención cliente"}
           onClick={() => {
@@ -237,28 +257,44 @@ function ClientAction({
   hint,
   onClick,
 }: {
-  icon: React.ReactNode;
+  icon: React.ComponentType<{ className?: string }>;
   label: string;
   hint: string;
   onClick: () => void;
 }) {
+  const Icon = icon;
   return (
-    <button
-      type="button"
+    <Surface
+      elevation={1}
+      padding="sm"
+      tappable
+      hoverable
       onClick={onClick}
-      className="card-mock-tight p-3 text-left tap-mock"
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      className="text-left"
     >
-      <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-white/40 font-mono">
-        {icon}
+      <span className="flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4">
+        <Icon className="h-3.5 w-3.5" />
         {label}
-      </div>
-      <div className="font-display text-[13px] font-semibold mt-1 truncate">
+      </span>
+      <p className="font-display text-[14px] font-semibold mt-1 truncate text-ds-text-1">
         {hint}
-      </div>
-    </button>
+      </p>
+    </Surface>
   );
 }
 
+/**
+ * Mini gráfico de tendencia 6 meses. Sin librería externa: SVG inline
+ * con stroke/fill via clases Tailwind del DS para que respeten light + dark.
+ */
 function TrendChart({ data }: { data: InstallationDetailMonthlyAvg[] }) {
   const width = 280;
   const height = 80;
@@ -278,8 +314,21 @@ function TrendChart({ data }: { data: InstallationDetailMonthlyAvg[] }) {
   const last = points[points.length - 1].value;
   const first = points[0].value;
   const trendUp = last - first;
-  const stroke = trendUp > 1 ? "#10B981" : trendUp < -1 ? "#EF4444" : "#F59E0B";
-  const fillId = `trend-fill-${stroke.replace("#", "")}`;
+
+  // Threshold semántico para el color del trend
+  const trendKind: "ok" | "warn" | "danger" =
+    trendUp > 1 ? "ok" : trendUp < -1 ? "danger" : "warn";
+
+  // currentColor del SVG sigue al "text-status-*-fg" del contenedor;
+  // así stroke/fill respetan light + dark sin variables extra.
+  const colorClass =
+    trendKind === "ok"
+      ? "text-status-ok-fg"
+      : trendKind === "danger"
+        ? "text-status-danger-fg"
+        : "text-status-warn-fg";
+
+  const fillId = `trend-fill-${trendKind}`;
   const path = points
     .map((p, i) => `${i === 0 ? "M" : "L"} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`)
     .join(" ");
@@ -288,36 +337,37 @@ function TrendChart({ data }: { data: InstallationDetailMonthlyAvg[] }) {
   } L ${points[0].x.toFixed(2)} ${height - padY} Z`;
 
   return (
-    <div className="card-mock p-3 mt-3">
+    <Surface elevation={1} padding="sm" className="mt-3">
       <div className="flex items-center justify-between mb-1.5">
-        <span className="font-display text-[12px] font-semibold">
+        <span className="font-display text-[13px] font-semibold text-ds-text-1">
           Tendencia 6 meses
         </span>
-        <span
-          className="text-[10px] font-mono"
-          style={{ color: stroke }}
-        >
+        <span className={cn("text-[12px] font-mono ds-num", colorClass)}>
           {trendUp > 0 ? "↑" : trendUp < 0 ? "↓" : "·"} {Math.round(Math.abs(trendUp))}pp
         </span>
       </div>
-      <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-20">
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        className={cn("w-full h-20", colorClass)}
+        aria-hidden
+      >
         <defs>
           <linearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={stroke} stopOpacity="0.35" />
-            <stop offset="100%" stopColor={stroke} stopOpacity="0" />
+            <stop offset="0%" stopColor="currentColor" stopOpacity="0.35" />
+            <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
           </linearGradient>
         </defs>
         <path d={area} fill={`url(#${fillId})`} />
-        <path d={path} fill="none" stroke={stroke} strokeWidth={1.5} />
+        <path d={path} fill="none" strokeWidth={1.5} stroke="currentColor" />
         {points.map((p, i) => (
-          <circle key={i} cx={p.x} cy={p.y} r={2} fill={stroke} />
+          <circle key={i} cx={p.x} cy={p.y} r={2} fill="currentColor" />
         ))}
       </svg>
-      <div className="flex justify-between text-[9px] text-white/30 font-mono mt-1">
+      <div className="flex justify-between text-[11px] font-mono uppercase tracking-[0.06em] text-ds-text-4 mt-1">
         {points.map((p, i) => (
           <span key={i}>{p.label.slice(5)}</span>
         ))}
       </div>
-    </div>
+    </Surface>
   );
 }
