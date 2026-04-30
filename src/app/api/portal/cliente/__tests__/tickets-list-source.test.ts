@@ -50,9 +50,8 @@ vi.mock("@/lib/resend", () => ({
     companyName: "X",
   }),
 }));
-vi.mock("@/lib/notification-service", () => ({
-  sendNotification: vi.fn().mockResolvedValue(undefined),
-  sendNotificationToUser: vi.fn().mockResolvedValue(undefined),
+vi.mock("@/lib/notifications/notify", () => ({
+  notify: vi.fn().mockResolvedValue({ delivered: 0 }),
 }));
 
 function makeRequest(url: string): unknown {
