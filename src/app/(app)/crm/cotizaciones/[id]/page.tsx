@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { Breadcrumb } from "@/components/opai";
+import { Breadcrumbs } from "@/components/opai-ds";
 import { CpqQuoteDetail } from "@/components/cpq/CpqQuoteDetail";
 import { CpqIndicators } from "@/components/cpq/CpqIndicators";
 import { z } from "zod";
@@ -98,7 +98,7 @@ export default async function CrmCotizacionDetailPage({
           muestra back arrow + código + contexto, por lo que el breadcrumb
           duplica info y consume ~50px de altura inútil. */}
       <div className="hidden lg:block mb-1">
-        <Breadcrumb
+        <Breadcrumbs
           items={[
             { label: "CRM", href: "/crm" },
             { label: "Cotizaciones", href: "/crm/cotizaciones" },

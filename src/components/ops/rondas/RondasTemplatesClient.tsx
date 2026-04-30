@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { RondaTemplateForm } from "@/components/ops/rondas/ronda-template-form";
 import { Button } from "@/components/ui/button";
-import { DataTable, FilterBar } from "@/components/opai";
+import { DataTable } from "@/components/opai";
 import type { DataTableColumn } from "@/components/opai";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
@@ -103,7 +103,7 @@ export function RondasTemplatesClient({
 
   return (
     <div className="space-y-4">
-      <FilterBar>
+      <div className="flex flex-wrap items-center gap-3 p-3 rounded-ds-md bg-ds-surface-1 border border-ds-border-default">
         <SearchableSelect
           value={installationId}
           options={installations.map((installation) => ({
@@ -113,7 +113,7 @@ export function RondasTemplatesClient({
           placeholder="Seleccionar instalación..."
           onChange={(val) => { void loadInstallationData(val); }}
         />
-      </FilterBar>
+      </div>
 
       <RondaTemplateForm
         installationId={installationId}

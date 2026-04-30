@@ -20,7 +20,7 @@ import {
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { CrmLead } from "@/types";
 import { Plus, Loader2, ChevronRight, UserPlus, Phone, Mail, Trash2 } from "lucide-react";
-import { StatusBadge } from "@/components/opai/StatusBadge";
+import { StatusTag } from "@/components/ops/StatusTag";
 import { EmptyState } from "@/components/opai/EmptyState";
 import { CrmDates } from "@/components/crm/CrmDates";
 import { CrmToolbar } from "./CrmToolbar";
@@ -356,7 +356,7 @@ export function CrmLeadsClient({
                     {/* Header: company + status */}
                     <div className="flex items-start justify-between gap-2">
                       <p className="font-medium text-sm truncate">{lead.companyName || "Empresa sin nombre"}</p>
-                      <StatusBadge status={lead.status} />
+                      <StatusTag status={lead.status} />
                     </div>
 
                     {/* Contact info */}
@@ -438,7 +438,7 @@ export function CrmLeadsClient({
                         {/* Row 1: Company + badges */}
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-medium text-sm">{lead.companyName || "Empresa sin nombre"}</p>
-                          <StatusBadge status={lead.status} />
+                          <StatusTag status={lead.status} />
                           <LeadSourceBadge source={lead.source} />
                           {totalGuards > 0 && (
                             <Badge variant="success" className="text-[10px] px-1.5 py-0">

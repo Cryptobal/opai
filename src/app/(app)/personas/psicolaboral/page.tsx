@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { isTenantModuleEnabled } from "@/lib/tenant-modules";
-import { PageHeader, Breadcrumb } from "@/components/opai";
+import { PageHeader } from "@/components/opai";
+import { Breadcrumbs } from "@/components/opai-ds";
 import PsychDashboardClient from "@/components/psych/dashboard/PsychDashboardClient";
 
 export const dynamic = "force-dynamic";
@@ -33,7 +34,7 @@ export default async function PsychHomePage() {
 
   return (
     <div className="space-y-6 min-w-0 overflow-x-hidden">
-      <Breadcrumb
+      <Breadcrumbs
         items={[
           { label: "Inicio", href: "/hub" },
           { label: "Personas", href: "/personas/guardias" },

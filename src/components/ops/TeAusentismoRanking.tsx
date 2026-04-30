@@ -16,7 +16,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { TePeriodSelector } from "./TePeriodSelector";
-import { LoadingSpinner } from "@/components/opai";
+import { Spinner } from "@/components/opai-ds";
 
 /* ── types ── */
 
@@ -148,7 +148,7 @@ function RankingRow({ item, from, to }: { item: RankItem; from: string; to: stri
             <div className="px-3 pb-3 pt-1">
               {loadingDetail ? (
                 <div className="flex items-center justify-center py-2">
-                  <LoadingSpinner size="sm" />
+                  <Spinner size="sm" />
                 </div>
               ) : details.length === 0 ? (
                 <p className="text-xs text-muted-foreground py-2">Sin registros de detalle</p>
@@ -286,7 +286,7 @@ export function TeAusentismoRanking() {
         <CardContent className="px-0 pb-1">
           {loading ? (
             <div className="flex items-center justify-center py-8">
-              <LoadingSpinner size="md" />
+              <Spinner size="md" />
             </div>
           ) : !data || data.rankings.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-sm text-muted-foreground gap-1">

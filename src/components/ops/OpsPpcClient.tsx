@@ -17,7 +17,8 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
-import { EmptyState, LoadingSpinner } from "@/components/opai";
+import { EmptyState } from "@/components/opai";
+import { Spinner } from "@/components/opai-ds";
 import { formatPersonName } from "@/lib/personas";
 import {
   AlertTriangle,
@@ -448,7 +449,7 @@ export function OpsPpcClient({ initialClients }: OpsPpcClientProps) {
         <CardContent className="px-4 pb-4">
           {historyLoading ? (
             <div className="flex items-center justify-center h-[200px]">
-              <LoadingSpinner size="md" />
+              <Spinner size="md" />
             </div>
           ) : history.length < 2 ? (
             <div className="flex flex-col items-center justify-center text-sm text-muted-foreground h-[200px] gap-1">
@@ -544,7 +545,7 @@ export function OpsPpcClient({ initialClients }: OpsPpcClientProps) {
             </div>
             <div className="flex items-end gap-2 pb-1.5">
               {loading ? (
-                <LoadingSpinner size="sm" />
+                <Spinner size="sm" />
               ) : (
                 <p className="text-xs text-muted-foreground">
                   {data?.total ?? 0} puesto(s) por cubrir

@@ -14,7 +14,7 @@ import {
   BarChart,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { LoadingSpinner } from "@/components/opai";
+import { Spinner } from "@/components/opai-ds";
 import { Badge } from "@/components/ui/badge";
 import {
   ChevronDown,
@@ -261,7 +261,7 @@ export function PpcInstallationRanking() {
     return (
       <Card>
         <CardContent className="py-8 flex items-center justify-center">
-          <LoadingSpinner size="md" />
+          <Spinner size="md" />
         </CardContent>
       </Card>
     );

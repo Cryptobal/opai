@@ -8,8 +8,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { EmptyState, StatusBadge, FilterBar, LoadingSpinner } from "@/components/opai";
-import { Stat, StatGrid } from "@/components/opai-ds";
+import { EmptyState } from "@/components/opai";
+import { StatusTag } from "@/components/ops/StatusTag";
+import { Spinner, Stat, StatGrid } from "@/components/opai-ds";
 import { Clock3, FileDown, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { formatPersonName } from "@/lib/personas";
 
@@ -638,7 +639,7 @@ export function OpsRefuerzosClient({
         <Stat label="Pendiente facturar" value={formatMoney(totals.pendingAmount)} variant="warn" />
       </StatGrid>
 
-      <FilterBar>
+      <div className="flex flex-wrap items-center gap-3 p-3 rounded-ds-md bg-ds-surface-1 border border-ds-border-default">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -669,7 +670,7 @@ export function OpsRefuerzosClient({
           />
           Pendientes de facturar
         </label>
-      </FilterBar>
+      </div>
 
       <Card>
         <CardContent className="pt-5">
@@ -706,7 +707,7 @@ export function OpsRefuerzosClient({
                     )}
                   </div>
                   <div className="flex items-center gap-2">
-                    <StatusBadge status={item.status} />
+                    <StatusTag status={item.status} />
                     {item.status === "pendiente_aprobacion" && item.ticket && (
                       <span className="inline-flex items-center rounded-full border border-yellow-300 bg-yellow-50 px-2 py-0.5 text-xs font-medium text-yellow-700">
                         Pendiente aprobación
@@ -981,7 +982,7 @@ export function OpsRefuerzosClient({
                   disabled={!createForm.installationId || puestosLoading}
                   onChange={(id) => setCreateForm((f) => ({ ...f, puestoId: id }))}
                 />
-                {puestosLoading ? <LoadingSpinner size="sm" /> : null}
+                {puestosLoading ? <Spinner size="sm" /> : null}
               </div>
             </div>
             <div>

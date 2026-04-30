@@ -56,7 +56,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { StatusBadge } from "@/components/opai/StatusBadge";
 import { EntityDetailLayout, useEntityTabs, type EntityTab, type EntityHeaderAction } from "./EntityDetailLayout";
 import { DetailField, DetailFieldGrid } from "./DetailField";
 import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";

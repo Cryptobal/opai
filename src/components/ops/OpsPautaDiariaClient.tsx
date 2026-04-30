@@ -6,7 +6,8 @@ import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { EmptyState, LoadingSpinner } from "@/components/opai";
+import { EmptyState } from "@/components/opai";
+import { Spinner } from "@/components/opai-ds";
 import { CalendarCheck2, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Info, Loader2, RotateCcw, MapPin, Clock, X } from "lucide-react";
 import { CollapsibleSection } from "@/components/crm/CollapsibleSection";
 import {
@@ -495,7 +496,7 @@ export function OpsPautaDiariaClient({
                 Exportar HE día
               </Button>
               {loading ? (
-                <LoadingSpinner size="sm" />
+                <Spinner size="sm" />
               ) : items.length > 0 ? (
                 <span className="text-emerald-400" title="Pauta cargada">
                   <CalendarCheck2 className="h-4 w-4" aria-hidden />
@@ -594,7 +595,7 @@ export function OpsPautaDiariaClient({
       {/* Content grouped by installation */}
       {loading && items.length === 0 ? (
         <div className="flex items-center justify-center py-16">
-          <LoadingSpinner size="md" />
+          <Spinner size="md" />
         </div>
       ) : items.length === 0 ? (
         <Card>

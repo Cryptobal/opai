@@ -14,7 +14,9 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { EmptyState, StatusBadge, LoadingSpinner } from "@/components/opai";
+import { EmptyState } from "@/components/opai";
+import { StatusTag } from "@/components/ops/StatusTag";
+import { Spinner } from "@/components/opai-ds";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { AlertTriangle, Clock3, FileDown, Plus, Search, BarChart3, List, UserX } from "lucide-react";
 import { formatPersonName } from "@/lib/personas";
@@ -594,7 +596,7 @@ export function TeTurnosClient({
                   Hoy
                 </button>
               )}
-              {regLoading && <LoadingSpinner size="sm" className="ml-1" />}
+              {regLoading && <Spinner size="sm" className="ml-1" />}
             </div>
           </div>
           <div className="grid gap-3 md:grid-cols-3">
@@ -751,7 +753,7 @@ export function TeTurnosClient({
                   </div>
 
                   <div className="flex items-center gap-2 flex-wrap">
-                    <StatusBadge status={item.status} />
+                    <StatusTag status={item.status} />
                     {item.status === "rejected" && item.rejectionReason && (
                       <span className="text-[10px] text-red-400 max-w-48 truncate" title={item.rejectionReason}>
                         {item.rejectionReason}

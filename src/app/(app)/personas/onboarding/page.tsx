@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
-import { PageHeader, Breadcrumb } from "@/components/opai";
+import { PageHeader } from "@/components/opai";
+import { Breadcrumbs } from "@/components/opai-ds";
 import { OnboardingDashboardClient } from "@/components/ops/OnboardingDashboardClient";
 
 export default async function OnboardingPage() {
@@ -18,7 +19,7 @@ export default async function OnboardingPage() {
 
   return (
     <div className="space-y-6 min-w-0 overflow-x-hidden">
-      <Breadcrumb
+      <Breadcrumbs
         items={[
           { label: "Inicio", href: "/hub" },
           { label: "Personas", href: "/personas/guardias" },
