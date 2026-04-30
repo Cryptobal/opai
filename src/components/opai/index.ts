@@ -19,6 +19,8 @@ export type { OpaiPageHeroProps } from './PageHero';
 
 export { OpaiSurface, OpaiSectionHeader } from './Surface';
 export type { OpaiSurfaceProps, OpaiSectionHeaderProps } from './Surface';
+export { PageHeader } from './PageHeader';
+export type { PageHeaderProps } from './PageHeader';
 
 // UI Components
 export { DataTable } from './DataTable';

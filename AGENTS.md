@@ -278,6 +278,9 @@ Status:
 | `SubNav` | `SubNav` (DS v3, mismo archivo movido) | ✅ Movido a opai-ds en 4D2 |
 | `PageHeader` | `PageHeader` (DS v3, mismo archivo movido) | ✅ Movido a opai-ds en 4D2 |
 | `OpaiSurface`, `OpaiPageHero`, `OpaiSectionHeader` | (eliminar, ya nadie los usa) | ⏳ 4E |
+| `SubNav` | (a evaluar) | ⏳ 4D2 |
+| `PageHeader` | (mover a opai-ds, no migrar) | ⏳ 4D2 (80 imports) |
+| `OpaiSurface`, `OpaiPageHero`, `OpaiSectionHeader` | (eliminados, sin consumers) | ✅ Eliminado en 4E |
 
 ### Estado de `@/components/opai` post 4D2
 
