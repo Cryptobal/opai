@@ -509,8 +509,8 @@ async function getRoleExcludedNotificationTypes(ctx: AuthContext): Promise<strin
 }
 
 async function getUserBellDisabledTypes(ctx: AuthContext): Promise<string[]> {
-  const record = await prisma.userNotificationPreference.findUnique({
-    where: { userId_tenantId: { userId: ctx.userId, tenantId: ctx.tenantId } },
+  const record = await prisma.notificationPreference.findUnique({
+    where: { subscriberType_subscriberId: { subscriberType: "ADMIN", subscriberId: ctx.userId } },
   });
   if (!record?.preferences) return [];
   const prefs = record.preferences as unknown as UserNotifPrefsMap;

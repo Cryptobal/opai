@@ -1515,8 +1515,8 @@ export async function getNotifications(
     .map((t) => t.key);
 
   // 2. Get user bell-disabled types
-  const userPrefRecord = await prisma.userNotificationPreference.findUnique({
-    where: { userId_tenantId: { userId, tenantId } },
+  const userPrefRecord = await prisma.notificationPreference.findUnique({
+    where: { subscriberType_subscriberId: { subscriberType: "ADMIN", subscriberId: userId } },
   });
   const userDisabledTypes: string[] = [];
   if (userPrefRecord?.preferences) {

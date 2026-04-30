@@ -23,9 +23,9 @@ export async function GET() {
 
     const perms = await resolveApiPerms(ctx);
 
-    const record = await prisma.userNotificationPreference.findUnique({
+    const record = await prisma.notificationPreference.findUnique({
       where: {
-        userId_tenantId: { userId: ctx.userId, tenantId: ctx.tenantId },
+        subscriberType_subscriberId: { subscriberType: "ADMIN", subscriberId: ctx.userId },
       },
     });
 
@@ -106,9 +106,9 @@ export async function PUT(request: NextRequest) {
       )
     );
 
-    const existing = await prisma.userNotificationPreference.findUnique({
+    const existing = await prisma.notificationPreference.findUnique({
       where: {
-        userId_tenantId: { userId: ctx.userId, tenantId: ctx.tenantId },
+        subscriberType_subscriberId: { subscriberType: "ADMIN", subscriberId: ctx.userId },
       },
     });
 
@@ -126,12 +126,13 @@ export async function PUT(request: NextRequest) {
       }
     }
 
-    await prisma.userNotificationPreference.upsert({
+    await prisma.notificationPreference.upsert({
       where: {
-        userId_tenantId: { userId: ctx.userId, tenantId: ctx.tenantId },
+        subscriberType_subscriberId: { subscriberType: "ADMIN", subscriberId: ctx.userId },
       },
       create: {
-        userId: ctx.userId,
+        subscriberType: "ADMIN",
+        subscriberId: ctx.userId,
         tenantId: ctx.tenantId,
         preferences: merged as any,
       },

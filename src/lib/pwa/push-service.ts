@@ -340,9 +340,10 @@ export async function sendPushToPortalUser({
 
   // 1. Check user-level preferences (portal users only)
   if (userType !== 'admin') {
-    const prefs = await prisma.portalNotificationPreference.findUnique({
+    const subType = userType === 'guardia' ? 'GUARD' : 'CLIENT';
+    const prefs = await prisma.notificationPreference.findUnique({
       where: {
-        userType_userId_portalType: { userType, userId, portalType },
+        subscriberType_subscriberId: { subscriberType: subType, subscriberId: userId },
       },
     });
     if (prefs) {
@@ -705,14 +706,18 @@ export async function sendChatPushNotifications({
     const portalRecipients = recipients.filter((r) => r.subscriberType !== 'ADMIN');
     const portalPrefsMap = new Map<string, Record<string, { push?: boolean }>>();
     if (portalRecipients.length > 0) {
-      const portalPrefs = await prisma.portalNotificationPreference.findMany({
+      const portalPrefs = await prisma.notificationPreference.findMany({
         where: {
-          userId: { in: portalRecipients.map((r) => r.subscriberId) },
+          subscriberType: { in: portalRecipients.map((r) => r.subscriberType) },
+          subscriberId: { in: portalRecipients.map((r) => r.subscriberId) },
         },
-        select: { userType: true, userId: true, preferences: true },
+        select: { subscriberType: true, subscriberId: true, preferences: true },
       });
+      const subTypeToUserType: Record<string, string> = { GUARD: 'guardia', CLIENT: 'cliente', RONDAS: 'rondas' };
       for (const pp of portalPrefs) {
-        portalPrefsMap.set(`${pp.userType}:${pp.userId}`, pp.preferences as Record<string, { push?: boolean }>);
+        const userTypeKey = subTypeToUserType[pp.subscriberType];
+        if (!userTypeKey) continue;
+        portalPrefsMap.set(`${userTypeKey}:${pp.subscriberId}`, pp.preferences as Record<string, { push?: boolean }>);
       }
     }
 
