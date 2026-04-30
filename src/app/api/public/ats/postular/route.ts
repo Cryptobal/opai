@@ -304,12 +304,13 @@ export async function POST(request: NextRequest) {
     // Send notification (non-blocking)
     try {
       const fullName = `${body.firstName} ${body.lastName}`.trim();
-      const { sendNotification } = await import("@/lib/notification-service");
-      await sendNotification({
+      const { notify } = await import("@/lib/notifications/notify");
+      await notify({
         tenantId,
         type: "new_postulacion",
+        audience: "admin",
         title: `Nueva postulación ATS: ${fullName}`,
-        message: `${fullName} postuló a "${job.titulo}" desde la página pública.`,
+        body: `${fullName} postuló a "${job.titulo}" desde la página pública.`,
         link: `/ops/ats/${job.id}`,
         data: {
           guardiaId,
