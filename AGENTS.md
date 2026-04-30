@@ -264,8 +264,8 @@ Status:
 |---|---|---|
 | `KpiCard` | `Stat` | ✅ Eliminado en 4A |
 | `KpiGrid` | `StatGrid` | ✅ Eliminado en 4A |
-| `EmptyState` | `EmptyState` (DS v3) | 🟡 Call sites CC migrados (22) en PR 4B; archivo legacy aún consumido por DataTable.tsx legacy |
-| `DataTable` | `DataTable` (DS v3) | 🟡 13 CC migrados en PR 4C; 3 SC pages pendientes (4C2) |
+| `EmptyState` | `EmptyState` (DS v3) | 🟡 Call sites CC migrados (22) en PR 4B + 3 pages en 4C2; archivo legacy aún consumido por ~27 archivos vía direct-path imports |
+| `DataTable` | `DataTable` (DS v3) | 🟡 13 CC migrados en PR 4C + 3 pages (auditoria/audit-pautas/payroll) en 4C2; ~7 archivos restantes vía direct-path |
 | `Avatar` | `Avatar` (DS v3, ahora con `photoUrl` + `name`) | ✅ Eliminado en 4D |
 | `Breadcrumb` | `Breadcrumbs` (DS v3) | ✅ Eliminado en 4D |
 | `LoadingSpinner` | `Spinner` (DS v3) | ✅ Eliminado en 4D |
@@ -274,7 +274,7 @@ Status:
 | `ModuleCard` | inline con `Surface` (DS v3) | ✅ Eliminado en 4D |
 | `Stepper` | (sin uso) | ✅ Eliminado en 4D |
 | `FormField` | (sin uso) | ✅ Eliminado en 4D |
-| `LoadingState` | (sin reemplazo directo, usado solo internamente por DataTable legacy) | 🟡 se borra en 4C2 |
+| `LoadingState` | (sin reemplazo directo, usado solo internamente por DataTable legacy) | 🟡 deletion bloqueada — ~6 archivos en gamification/portal lo importan directo |
 | `SubNav` | `SubNav` (DS v3, mismo archivo movido) | ✅ Movido a opai-ds en 4D2 |
 | `PageHeader` | `PageHeader` (DS v3, mismo archivo movido) | ✅ Movido a opai-ds en 4D2 |
 | `OpaiSurface`, `OpaiPageHero`, `OpaiSectionHeader` | (eliminar, ya nadie los usa) | ⏳ 4E |
@@ -291,9 +291,35 @@ Después de 4D2, `@/components/opai/index.ts` exporta solo:
   esos 3 archivos siguen en `@/components/opai/` hasta que las 3 pages SC
   pendientes se refactoreen a SC+CC wrapper)
 
-Cuando 4C2 se complete, la única responsabilidad de `@/components/opai/`
-serán los componentes de layout/theming, que probablemente se queden ahí
-(no son DS sino infrastructure).
+### Estado de `@/components/opai` post 4C2
+
+Tras 4C2 las 3 pages que importaban DataTable/EmptyState/LoadingState
+desde el barrel `@/components/opai` quedaron migradas:
+
+- `src/app/(app)/opai/configuracion/auditoria/page.tsx` (SC + nuevo
+  `<AuditLogsTable>` CC en `src/components/audit/`)
+- `src/app/(app)/ops/audit-pautas/page.tsx` (SC + nuevo
+  `<PautasAuditTable>` CC en `src/components/audit/`, exporta
+  `formatAction`/`formatEntity` que la SC consume para el `<select>`)
+- `src/app/(app)/payroll/parameters/page.tsx` (CC standalone, migración
+  mecánica de la API legacy a DS v3)
+
+**La deletion final de `DataTable.tsx`/`EmptyState.tsx`/`LoadingState.tsx`
+NO se ejecutó** — se descubrió que ~27 archivos adicionales aún los
+importan via direct-path (`from "@/components/opai/DataTable"` etc.), no
+via el barrel. La regla 6.1 del plan exigía 0 matches en ambos greps
+para borrar; el grep de direct-path tenía 27 matches. La consolidación
+real cierra cuando se migren esos archivos en sesiones follow-up:
+
+- `src/components/crm/` (≈12 archivos, mayormente EmptyState)
+- `src/components/gamification/` (≈7 archivos, mix de DataTable/EmptyState/LoadingState)
+- `src/components/portal/` y `src/components/portal/cliente/` (3 archivos)
+- `src/components/cpq/CpqQuoteDetail.tsx`
+- `src/components/ops/guardia-sections/` (2 archivos con DataTable)
+- `src/app/(app)/opai/configuracion/gamificacion/GamificacionConfigClient.tsx`
+
+Cuando todos esos call sites se migren, los 3 legacy components se
+pueden borrar y quitar del barrel `index.ts`.
 
 ### Cuándo crear un nuevo primitive en `opai-ds/`
 

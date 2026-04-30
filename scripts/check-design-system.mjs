@@ -82,6 +82,24 @@ const MIGRATED_PATHS = [
   // MIGRATED_PATHS porque siguen teniendo otros patrones legacy fuera de
   // los componentes migrados. Único helper nuevo agregado: StatusTag.
   "src/components/ops/StatusTag.tsx",
+  // Paso 4C2 — refactor 3 pages legacy + nuevos audit/* CCs.
+  // SC pages (auditoria, audit-pautas) refactoreadas al patrón SC + CC
+  // wrapper para resolver el problema de cell functions cruzando la
+  // frontera RSC. payroll/parameters (CC standalone) migración mecánica.
+  //
+  // Solo se agregan las 2 SC pages + 2 nuevos audit/* CCs porque están
+  // 100% limpios. payroll/parameters/page.tsx NO se agrega (mismo
+  // criterio que 4A/4B/4C/4D): el archivo sigue teniendo colores
+  // hardcoded fuera del DataTable migrado.
+  //
+  // NOTA: la deletion final de DataTable/EmptyState/LoadingState legacy
+  // queda pendiente de una sesión follow-up que migre los ~27 archivos
+  // restantes (crm/, gamification/, portal/, cpq/, ops/guardia-sections/)
+  // que importan via direct-path (`@/components/opai/<Component>`).
+  "src/app/(app)/opai/configuracion/auditoria/page.tsx",
+  "src/app/(app)/ops/audit-pautas/page.tsx",
+  "src/components/audit/AuditLogsTable.tsx",
+  "src/components/audit/PautasAuditTable.tsx",
   // Agregar aquí cuando se migren:
   // "src/components/personas/",
   // "src/components/crm/",
