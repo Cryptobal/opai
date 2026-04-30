@@ -24,22 +24,36 @@ SELECT "tenant_id", 'ADMIN', "user_id", "preferences", "updated_at"
 FROM "crm"."user_notification_preferences"
 ON CONFLICT ("subscriber_type", "subscriber_id") DO NOTHING;
 
--- Backfill from PortalNotificationPreference (guards/clients).
--- Multiple portal rows for the same user_type/user_id (one per portalType) are merged
--- by deep-merging preferences JSON; the most recently updated row wins on conflicts.
+-- Backfill from PortalNotificationPreference. The legacy table is unique on
+-- (user_type, user_id, portal_type), so a single user can have several rows
+-- (one per portal). To satisfy the unified table's (subscriber_type,
+-- subscriber_id) uniqueness — and to avoid "ON CONFLICT DO UPDATE command
+-- cannot affect row a second time" — we pick the most recently updated row
+-- per (subscriber_type, subscriber_id) via DISTINCT ON. The legacy table is
+-- preserved (cleanup is in a later block), so any per-portal divergence is
+-- still recoverable from the source.
 INSERT INTO "public"."notification_preferences"
   ("tenant_id", "subscriber_type", "subscriber_id", "preferences", "updated_at")
-SELECT
+SELECT DISTINCT ON ("subscriber_type", "subscriber_id")
   "tenant_id",
-  CASE
-    WHEN "user_type" = 'guardia' THEN 'GUARD'
-    WHEN "user_type" = 'contact' THEN 'CLIENT'
-    ELSE 'ADMIN'
-  END AS "subscriber_type",
-  "user_id",
+  "subscriber_type",
+  "subscriber_id",
   "preferences",
   "updated_at"
-FROM "public"."portal_notification_preferences"
+FROM (
+  SELECT
+    "tenant_id",
+    CASE
+      WHEN "user_type" = 'guardia' THEN 'GUARD'
+      WHEN "user_type" = 'contact' THEN 'CLIENT'
+      ELSE 'ADMIN'
+    END AS "subscriber_type",
+    "user_id" AS "subscriber_id",
+    "preferences",
+    "updated_at"
+  FROM "public"."portal_notification_preferences"
+) src
+ORDER BY "subscriber_type", "subscriber_id", "updated_at" DESC
 ON CONFLICT ("subscriber_type", "subscriber_id") DO UPDATE
   SET "preferences" = "notification_preferences"."preferences" || EXCLUDED."preferences",
       "updated_at"  = GREATEST("notification_preferences"."updated_at", EXCLUDED."updated_at");
