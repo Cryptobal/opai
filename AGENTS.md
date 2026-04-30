@@ -209,6 +209,47 @@ hardcoded en documentación inline (ej: "este componente reemplaza
 al viejo `card-mock`"). Los comentarios sirven precisamente para
 documentar la migración.
 
+### Legacy classes — eliminadas
+
+Las siguientes clases CSS fueron eliminadas de `globals.css` cuando todos
+los módulos que las usaban se migraron a `opai-ds`:
+
+- `.card-mock`, `.card-mock-tight` → reemplazadas por `<Surface elevation={1} padding="md|sm">`
+- `.bar-mock` → reemplazada por `<MetricBar value={...} threshold="..."/>`
+- `.pill-mock` → reemplazada por `<Tag variant="..." size="sm">`
+- `.tap-mock` → reemplazada por la utility `ds-tap` o por `<Surface tappable>`
+- `.blob-mock` → eliminada sin reemplazo
+- `.badge-dot` → reemplazada por `<StatusDot kind="..."/>`
+- `.hm-cell` → reemplazada por `<HeatGrid>`
+- `.num-tabular` → reemplazada por `ds-num`
+
+Las clases `.grain-overlay` y `.scrollbar-none` siguen definidas:
+`.grain-overlay` aún la usa `OpaiPageHero` legacy (se elimina en la
+sesión de cleanup final); `.scrollbar-none` es una utility genérica
+con consumidores fuera del flow de Conocimiento.
+
+Si alguien las invoca por error, el guard las detecta como
+`no-card-mock`, `no-pill-mock`, `no-bar-mock`. Las reglas siguen
+activas como red de seguridad incluso después de la eliminación.
+
+### Legacy primitives — eliminados
+
+`src/components/opai/conocimiento/_primitives.tsx` fue eliminado. Sus
+exports están reemplazados:
+
+| Antes (`_primitives`) | Ahora (`opai-ds`) |
+|---|---|
+| `<KpiCard>` | `<Stat>` |
+| `<CompactKpi>` | `<Stat>` (con valor más pequeño) |
+| `<Pill>` | `<Tag size="sm">` |
+| `<Bar>` | `<MetricBar>` |
+| `<StatusDot threshold>` | `<StatusDot kind>` |
+| `<HeatmapCell>` | `<HeatGrid>` (cell rendering interno) |
+| `<GuardAvatar>` | `<Avatar variant>` |
+| `<Blob>` | (eliminado, era decorativo) |
+| `thresholdFromScore`, `Threshold` | exportadas por `@/components/opai-ds` |
+| `thresholdText`, `thresholdFill`, `thresholdBorderLeft` | (eliminados, lógica interna del DS) |
+
 ### Cuándo crear un nuevo primitive en `opai-ds/`
 
 Si necesitas un componente que no existe en `/opai-ds-playground`, **proponerlo como primitive** antes de implementarlo inline. Criterio:
