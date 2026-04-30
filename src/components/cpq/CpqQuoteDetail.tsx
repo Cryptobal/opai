@@ -1381,13 +1381,16 @@ export function CpqQuoteDetail({
   }
 
   return (
-    <div className="space-y-3 pb-4 lg:pb-4 overflow-x-hidden min-w-0">
+    <div className="space-y-3 pb-4 lg:pb-4 overflow-x-clip min-w-0">
       {/* -- Compact header (mobile/tablet) --
            Bg-background opaco (no /95) + shadow inferior para que el contenido
            que pasa por debajo al hacer scroll no se vea a través del header
            y "se sobreponga" visualmente sobre la primera sección (Datos).
            pb-2 + mb-3 dan respiro suficiente para que la pill de guardias
-           (última fila del header) no quede pegada al título "Datos". */}
+           (última fila del header) no quede pegada al título "Datos".
+           overflow-x-clip en el wrapper (no -hidden): hidden rompe
+           position: sticky al crear scroll container — clip recorta igual
+           sin establecer contexto de scroll, así el sticky usa el viewport. */}
       <div className="sticky top-[53px] z-20 bg-background border-b border-border/60 shadow-sm -mx-4 px-3 pt-1.5 pb-2 mb-3 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 xl:hidden">
       {/* Row 1: back · code · status · acciones */}
       <div className="flex items-center gap-1.5 min-w-0">
@@ -1678,7 +1681,7 @@ export function CpqQuoteDetail({
            las tablas (puestos, costos, financieros, costos adicionales, etc.) se
            expandan a la izquierda sin competir con el aside de KPIs. */}
       <div className={cn(
-        "grid gap-3 min-w-0 overflow-x-hidden xl:items-start",
+        "grid gap-3 min-w-0 overflow-x-clip xl:items-start",
         !isLocked && "xl:grid-cols-[minmax(0,1fr)_340px]"
       )}>
       <div className="space-y-2 min-w-0">
