@@ -262,8 +262,8 @@ export function InventarioAuditList() {
                 <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3">
                   <IconBubble icon={tone.icon} variant={tone.variant} size="md" />
                   <div className="min-w-0">
-                    <p className="text-[14px] font-semibold text-ds-text-1">{actionLabel}</p>
-                    <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[12px] text-ds-text-3">
+                    <p className="text-sm font-semibold tracking-tight text-ds-text-1">{actionLabel}</p>
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-ds-text-3">
                       <span className="inline-flex items-center gap-1">
                         <User className="h-3 w-3" />
                         {userName}
@@ -315,7 +315,7 @@ export function InventarioAuditList() {
                       Object.keys(entry.details as Record<string, unknown>).length > 0 && (
                         <div>
                           <p className="text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4">Detalle</p>
-                          <pre className="mt-0.5 whitespace-pre-wrap rounded-ds-sm bg-ds-surface-3 p-2 text-[12px] leading-relaxed text-ds-text-2">
+                          <pre className="mt-0.5 whitespace-pre-wrap rounded-ds-sm bg-ds-surface-3 p-2 text-xs leading-relaxed text-ds-text-2">
 {JSON.stringify(entry.details, null, 2)}
                           </pre>
                         </div>
@@ -329,7 +329,7 @@ export function InventarioAuditList() {
       )}
 
       {pagination && pagination.totalPages > 1 && (
-        <div className="flex items-center justify-between gap-2 pt-2 text-[12px] text-ds-text-3">
+        <div className="flex items-center justify-between gap-2 pt-2 text-xs text-ds-text-3">
           <span>
             Página {pagination.page} de {pagination.totalPages} · {pagination.total} eventos
           </span>
