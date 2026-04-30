@@ -60,6 +60,9 @@ export type Finding = {
   photoUrl: string | null;
   createdAt: string;
   ticketCode: string | null;
+  /** Doc-identity para dedup visual con pendingFindings del Step 3. */
+  tipoDocId?: string | null;
+  guardiaDocCode?: string | null;
 };
 
 export type PhotoCategory = {

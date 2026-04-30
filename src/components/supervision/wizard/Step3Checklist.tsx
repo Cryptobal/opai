@@ -133,6 +133,25 @@ export function Step3Checklist({
     ...documentResults,
   ];
 
+  // Map de open findings (visitas previas) por doc-key, para dedup visual con
+  // pendingFindings del Step 3. Si hay match, el supervisor ya ve el hallazgo
+  // en la sección "Hallazgos pendientes" — no mostramos otro mensaje en el doc card.
+  // Backend dedupea por tipoDocId/guardiaDocCode al persistir en checkout.
+  const docKeyForType = (t: InstalacionDocumentType): string =>
+    t.tipoDocId ? `tipo:${t.tipoDocId}` : `code:${t.code}`;
+  const openFindingDocKeys = new Set<string>();
+  for (const f of openFindings) {
+    if (f.tipoDocId) openFindingDocKeys.add(`tipo:${f.tipoDocId}`);
+    if (f.guardiaDocCode && !f.guardId) openFindingDocKeys.add(`code:${f.guardiaDocCode}`);
+  }
+  const guardDocKey = (code: string, guardId: string) => `gd:${code}:${guardId}`;
+  const openGuardFindingKeys = new Set<string>();
+  for (const f of openFindings) {
+    if (f.guardiaDocCode && f.guardId) {
+      openGuardFindingKeys.add(guardDocKey(f.guardiaDocCode, f.guardId));
+    }
+  }
+
   // Guard document handlers — pending findings, persisted at checkout
   function handleGuardDocToggle(guardId: string, code: string, present: boolean) {
     const sourceKey = `guardia:${code}:${guardId}`;
@@ -619,11 +638,19 @@ export function Step3Checklist({
 
                       {/* No: pending finding (se persiste al cierre) */}
                       {result?.isChecked === false && (
-                        <div className="mt-2 rounded-lg bg-amber-500/10 p-2 text-xs">
-                          <p className="text-amber-400">
-                            ⏳ Se creará hallazgo al cerrar la visita: &quot;{doc.label} no presente&quot;
-                          </p>
-                        </div>
+                        openFindingDocKeys.has(docKeyForType(doc)) ? (
+                          <div className="mt-2 rounded-lg bg-blue-500/10 p-2 text-xs">
+                            <p className="text-blue-300">
+                              🔗 Ya existe un hallazgo abierto para este documento — gestiónalo en &quot;Hallazgos pendientes&quot; abajo.
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="mt-2 rounded-lg bg-amber-500/10 p-2 text-xs">
+                            <p className="text-amber-400">
+                              ⏳ Se creará hallazgo al cerrar la visita: &quot;{doc.label} no presente&quot;
+                            </p>
+                          </div>
+                        )
                       )}
                     </div>
                   );
@@ -785,11 +812,19 @@ export function Step3Checklist({
 
                                 {/* No: pending finding (se persiste al cierre) */}
                                 {isDocNo && (
-                                  <div className="mt-2 rounded-lg bg-amber-500/10 p-2 text-xs">
-                                    <p className="text-amber-400">
-                                      ⏳ Se creará hallazgo al cerrar la visita: &quot;{docType.label} no presente&quot;
-                                    </p>
-                                  </div>
+                                  openGuardFindingKeys.has(guardDocKey(docType.code, guard.guardiaId)) ? (
+                                    <div className="mt-2 rounded-lg bg-blue-500/10 p-2 text-xs">
+                                      <p className="text-blue-300">
+                                        🔗 Ya existe un hallazgo abierto para este guardia y documento — gestiónalo abajo.
+                                      </p>
+                                    </div>
+                                  ) : (
+                                    <div className="mt-2 rounded-lg bg-amber-500/10 p-2 text-xs">
+                                      <p className="text-amber-400">
+                                        ⏳ Se creará hallazgo al cerrar la visita: &quot;{docType.label} no presente&quot;
+                                      </p>
+                                    </div>
+                                  )
                                 )}
                               </div>
                             );
@@ -1002,11 +1037,19 @@ export function Step3Checklist({
                     </p>
                   )}
                 </div>
-                <div className="mt-2 rounded-lg bg-amber-500/10 p-2 text-xs">
-                  <p className="text-amber-400">
-                    ⏳ Se creará hallazgo al cerrar la visita: &quot;Libro de novedades no presente&quot;
-                  </p>
-                </div>
+                {openFindingDocKeys.has("code:libro_novedades") ? (
+                  <div className="mt-2 rounded-lg bg-blue-500/10 p-2 text-xs">
+                    <p className="text-blue-300">
+                      🔗 Ya existe un hallazgo abierto para el libro — gestiónalo en &quot;Hallazgos pendientes&quot; abajo.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="mt-2 rounded-lg bg-amber-500/10 p-2 text-xs">
+                    <p className="text-amber-400">
+                      ⏳ Se creará hallazgo al cerrar la visita: &quot;Libro de novedades no presente&quot;
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>
