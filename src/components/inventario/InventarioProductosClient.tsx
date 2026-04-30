@@ -283,7 +283,7 @@ export function InventarioProductosClient() {
                     id="bulk-catalog"
                     value={bulkText}
                     onChange={(e) => setBulkText(e.target.value)}
-                    className="min-h-[260px] w-full rounded-ds-md border border-ds-border-default bg-ds-surface-2 px-3 py-2 text-sm text-ds-text-1 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                    className="min-h-[260px] w-full rounded-ds-md border border-ds-border-default bg-ds-surface-2 px-3 py-2 text-sm text-ds-text-1 placeholder:text-ds-text-4 focus:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-ring transition-colors duration-150"
                     placeholder="Ej: Calzado|35,36,37"
                   />
                 </div>
@@ -404,7 +404,7 @@ export function InventarioProductosClient() {
       />
 
       <div className="flex items-center gap-2">
-        <span className="text-[12px] text-ds-text-3">Estado:</span>
+        <span className="text-xs text-ds-text-3">Estado:</span>
         <Select value={activeFilter} onValueChange={setActiveFilter}>
           <SelectTrigger className="h-9 w-[170px]">
             <SelectValue />
@@ -425,8 +425,8 @@ export function InventarioProductosClient() {
       ) : error ? (
         <Surface elevation={1} padding="md" className="border-status-warn-border bg-status-warn-soft">
           <p className="text-sm text-status-warn-fg">{error}</p>
-          <p className="mt-2 text-[12px] opacity-80 text-status-warn-fg">
-            Ejecuta <code className="rounded bg-ds-surface-3 px-1 font-mono text-[12px]">npm run db:migrate</code> después de configurar DATABASE_URL en .env.local
+          <p className="mt-2 text-xs text-status-warn-fg">
+            Ejecuta <code className="rounded bg-ds-surface-3 px-1 font-mono text-xs">npm run db:migrate</code> después de configurar DATABASE_URL en .env.local
           </p>
         </Surface>
       ) : filteredProducts.length === 0 ? (
@@ -447,9 +447,9 @@ export function InventarioProductosClient() {
             <Surface key={p.id} elevation={1} padding="md" hoverable>
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
-                  <p className="text-[14px] font-semibold text-ds-text-1 truncate">{p.name}</p>
+                  <p className="text-sm font-semibold tracking-tight text-ds-text-1 truncate">{p.name}</p>
                   {p.sku && (
-                    <p className="text-[12px] text-ds-text-4 mt-0.5 font-mono">SKU: {p.sku}</p>
+                    <p className="text-xs text-ds-text-4 mt-0.5 font-mono">SKU: {p.sku}</p>
                   )}
                 </div>
                 <div className="flex items-center gap-1">
@@ -484,7 +484,7 @@ export function InventarioProductosClient() {
                   {p.active ? "Vigente" : "Inactivo"}
                 </Tag>
                 {p.sizes.length > 0 && (
-                  <span className="text-[12px] text-ds-text-3 flex items-center gap-1 font-mono">
+                  <span className="text-xs text-ds-text-3 flex items-center gap-1 font-mono">
                     <Ruler className="h-3 w-3" />
                     {p.sizes.map((s) => s.sizeCode).join(", ")}
                   </span>
@@ -512,7 +512,7 @@ export function InventarioProductosClient() {
             >
               <div className="flex items-center gap-3 min-w-0">
                 <div className="min-w-0">
-                  <p className="text-[14px] font-semibold text-ds-text-1 truncate">{p.name}</p>
+                  <p className="text-sm font-semibold tracking-tight text-ds-text-1 truncate">{p.name}</p>
                   <div className="flex items-center gap-1 mt-1 flex-wrap">
                     <Tag variant="neutral" size="sm">
                       {p.category === "uniform" ? "Uniforme" : "Activo"}
@@ -521,7 +521,7 @@ export function InventarioProductosClient() {
                       {p.active ? "Vigente" : "Inactivo"}
                     </Tag>
                     {p.sizes.length > 0 && (
-                      <span className="text-[12px] text-ds-text-3 flex items-center gap-1 font-mono">
+                      <span className="text-xs text-ds-text-3 flex items-center gap-1 font-mono">
                         <Ruler className="h-3 w-3" />
                         {p.sizes.map((s) => s.sizeCode).join(", ")}
                       </span>
