@@ -83,6 +83,7 @@ model Tenant {
   verificacionesFisicas          DocVerificacionFisica[]
   vraSectionTemplates            VraSectionTemplate[]
   vraReports                     VraReport[]
+  aiActionLogs                   AiActionLog[]
 
   @@index([slug])
   @@index([active])
@@ -414,6 +415,7 @@ model Admin {
   alertasCoberturaCreadas       OpsAlertaCobertura[]           @relation("alertas_cobertura_creador")
   googleId                      String?                        @unique @map("google_id") // Google OAuth sub
   verificacionesFisicas         DocVerificacionFisica[]
+  aiActionLogs                  AiActionLog[]
 
   @@index([email])
   @@index([status])
@@ -610,6 +612,32 @@ model AiChatMessage {
 
   @@index([conversationId, createdAt], map: "idx_ai_chat_msg_conv_created")
   @@index([tenantId], map: "idx_ai_chat_msg_tenant")
+  @@schema("public")
+}
+
+/// Auditoría de acciones de escritura ejecutadas por el asistente IA.
+/// Registra cada create/update/delete que el chatbot intentó, con resultado.
+model AiActionLog {
+  id               String   @id @default(cuid())
+  tenantId         String   @map("tenant_id")
+  userId           String   @map("user_id")
+  conversationId   String?  @map("conversation_id")
+  toolName         String   @map("tool_name")
+  args             Json     @db.JsonB
+  status           String // "success" | "denied" | "validation_error" | "internal_error"
+  resultEntityId   String?  @map("result_entity_id")
+  resultEntityType String?  @map("result_entity_type")
+  errorMessage     String?  @map("error_message") @db.Text
+  durationMs       Int      @map("duration_ms")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   Admin  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt], map: "idx_ai_action_log_tenant_created")
+  @@index([userId, createdAt], map: "idx_ai_action_log_user_created")
+  @@index([toolName, createdAt], map: "idx_ai_action_log_tool_created")
+  @@map("ai_action_log")
   @@schema("public")
 }
 
