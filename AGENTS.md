@@ -180,6 +180,34 @@ Si un archivo *necesita* legítimamente romper una regla (ej: integración con l
 
 El guard saltará ese archivo. **Cada uso queda visible** con `git grep "@ds-allow-legacy"` y debe justificarse en code review.
 
+### Zona "DS source of truth"
+
+Los archivos en `src/components/opai-ds/` listados en `DS_SOURCE_PATHS`
+(en `scripts/check-design-system.mjs`) son la **fuente de verdad** del
+sistema. Ahí se *definen* los patrones visuales que el resto del código
+consume. Por eso esos archivos tienen permitido:
+
+- Usar `text-[11px]` sin las 3 marcas eyebrow (ej. `MetricBar` muestra
+  un valor numérico con `font-mono` solo, `Tag` size sm tiene
+  `text-[11px]` por diseño).
+
+Sigue prohibido en esa zona, sin excepción:
+- `text-[10px]`
+- Colores hardcoded (emerald/amber/red/blue Tailwind).
+- Patrones dark-only (`text-white/N`, `bg-white/N`).
+- Clases legacy (`card-mock`, `pill-mock`, `bar-mock`).
+
+Si se agrega un componente nuevo a `opai-ds/`, hay que agregarlo también
+a `DS_SOURCE_PATHS` para que se beneficie de esta zona.
+
+### Comentarios y JSDoc
+
+El guard ignora matches dentro de comentarios `//`, `/* */` y JSDoc
+`/** */`. Por eso es seguro mencionar clases legacy o tokens
+hardcoded en documentación inline (ej: "este componente reemplaza
+al viejo `card-mock`"). Los comentarios sirven precisamente para
+documentar la migración.
+
 ### Cuándo crear un nuevo primitive en `opai-ds/`
 
 Si necesitas un componente que no existe en `/opai-ds-playground`, **proponerlo como primitive** antes de implementarlo inline. Criterio:

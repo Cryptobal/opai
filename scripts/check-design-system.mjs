@@ -52,6 +52,35 @@ const MIGRATED_PATHS = [
   // "src/components/documentos/",
 ];
 
+// ───────────────────────────────────────────────────────────────────
+// DS_SOURCE_PATHS — archivos que DEFINEN el design system.
+// Aquí se permiten patrones que en código de aplicación serían drift,
+// porque el DS toma decisiones que después el resto consume.
+//
+// Ejemplos legítimos en esta zona (NO en otros archivos):
+//   - text-[11px] sin marcas eyebrow (numéricos mono, pills chicos)
+//   - tamaños arbitrarios definidos como variants de un componente
+//
+// Sigue prohibido aquí: text-[10px], colores hardcoded, dark-only.
+// ───────────────────────────────────────────────────────────────────
+const DS_SOURCE_PATHS = [
+  "src/components/opai-ds/Surface.tsx",
+  "src/components/opai-ds/SectionHeader.tsx",
+  "src/components/opai-ds/PageHero.tsx",
+  "src/components/opai-ds/Stat.tsx",
+  "src/components/opai-ds/Tag.tsx",
+  "src/components/opai-ds/StatusDot.tsx",
+  "src/components/opai-ds/IconBubble.tsx",
+  "src/components/opai-ds/EmptyState.tsx",
+  "src/components/opai-ds/Spinner.tsx",
+  "src/components/opai-ds/Skeleton.tsx",
+  "src/components/opai-ds/MetricBar.tsx",
+  "src/components/opai-ds/Toolbar.tsx",
+  "src/components/opai-ds/DataTable.tsx",
+];
+// Nota: NO incluye index.ts ni tokens.ts. Esos son barrel/helpers, no
+// definen patrones visuales y deben seguir las mismas reglas que app code.
+
 // Carpetas SIEMPRE excluidas (legacy permitido por diseño).
 const ALWAYS_EXCLUDED = [
   "src/app/(marketing)/",
@@ -90,15 +119,18 @@ const RULES = [
     severity: "error",
     scope: "tsx",
     // Función de validación contextual: si retorna true, el match SE PERMITE.
-    // Recibe el match, el texto completo del archivo y el índice del match.
-    allowIfContext: (match, content, index) => {
+    // Recibe el match, el texto completo del archivo, el índice del match y
+    // el path del archivo (opcional, usado para excepciones por zona).
+    allowIfContext: (match, content, index, filePath) => {
       // text-[10px] nunca se permite, sin excepciones
       if (match[0] === "text-[10px]") return false;
 
-      // text-[11px]: aceptar solo si está en un className que también incluya
-      // font-mono + uppercase + tracking-* (las 3 marcas del eyebrow).
-      // Buscamos el className contenedor: retrocedemos hasta el className=" más cercano
-      // y avanzamos hasta el cierre " correspondiente.
+      // text-[11px] en archivos DS source: permitido (decisión del DS).
+      if (filePath && isDsSource(filePath)) return true;
+
+      // text-[11px] en código de aplicación: aceptar SOLO si está en un
+      // className que también incluya font-mono + uppercase + tracking-*
+      // (las 3 marcas del eyebrow editorial).
       const before = content.lastIndexOf('className="', index);
       if (before === -1) return false;
       const after = content.indexOf('"', index);
@@ -318,6 +350,101 @@ function isMigrated(path) {
   return MIGRATED_PATHS.some((p) => path.startsWith(p));
 }
 
+function isDsSource(path) {
+  return DS_SOURCE_PATHS.includes(path);
+}
+
+/**
+ * Devuelve una versión del contenido en la que los comentarios JS/TS/CSS
+ * se reemplazan por espacios del mismo largo, preservando offsets de
+ * caracteres y números de línea. Las reglas regex se aplican sobre esta
+ * versión "limpia"; al reportar la línea, los offsets siguen siendo
+ * correctos respecto al archivo original.
+ *
+ * Cubre:
+ *   //  comentario hasta fin de línea
+ *   / * ... * /  bloque (incluye JSDoc / ** ... * /)
+ *
+ * Mantiene strings y JSX literal intactos: solo neutraliza comentarios.
+ */
+function stripComments(src) {
+  let out = "";
+  let i = 0;
+  const len = src.length;
+  let inSingle = false;        // string '...'
+  let inDouble = false;        // string "..."
+  let inTemplate = false;      // template `...`
+  let inLineComment = false;   // //
+  let inBlockComment = false;  // /* */
+
+  while (i < len) {
+    const ch = src[i];
+    const next = src[i + 1];
+
+    if (inLineComment) {
+      if (ch === "\n") {
+        inLineComment = false;
+        out += ch; // preserve newline
+      } else {
+        out += " ";
+      }
+      i++;
+      continue;
+    }
+
+    if (inBlockComment) {
+      if (ch === "*" && next === "/") {
+        inBlockComment = false;
+        out += "  ";
+        i += 2;
+      } else {
+        out += ch === "\n" ? "\n" : " ";
+        i++;
+      }
+      continue;
+    }
+
+    if (inSingle || inDouble || inTemplate) {
+      // Escape sequence: copy verbatim
+      if (ch === "\\" && i + 1 < len) {
+        out += ch + src[i + 1];
+        i += 2;
+        continue;
+      }
+      if (inSingle && ch === "'") inSingle = false;
+      else if (inDouble && ch === '"') inDouble = false;
+      else if (inTemplate && ch === "`") inTemplate = false;
+      out += ch;
+      i++;
+      continue;
+    }
+
+    // Detect comment starts
+    if (ch === "/" && next === "/") {
+      inLineComment = true;
+      out += "  ";
+      i += 2;
+      continue;
+    }
+    if (ch === "/" && next === "*") {
+      inBlockComment = true;
+      out += "  ";
+      i += 2;
+      continue;
+    }
+
+    // Detect string starts
+    if (ch === "'") inSingle = true;
+    else if (ch === '"') inDouble = true;
+    else if (ch === "`") inTemplate = true;
+
+    out += ch;
+    i++;
+  }
+
+  return out;
+}
+
 function getScope(path) {
   const ext = extname(path);
   if (ext === ".css") return "css";
@@ -359,6 +486,7 @@ for (const file of files) {
   }
 
   const lines = content.split("\n");
+  const scanContent = stripComments(content);
   const fileIsMigrated = isMigrated(file);
 
   for (const rule of RULES) {
@@ -367,9 +495,9 @@ for (const file of files) {
 
     const re = new RegExp(rule.test.source, rule.test.flags);
     let match;
-    while ((match = re.exec(content)) !== null) {
+    while ((match = re.exec(scanContent)) !== null) {
       // Permitir match si la regla define un contexto válido
-      if (rule.allowIfContext && rule.allowIfContext(match, content, match.index)) {
+      if (rule.allowIfContext && rule.allowIfContext(match, content, match.index, file)) {
         continue;
       }
 
