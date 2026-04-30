@@ -109,6 +109,16 @@ const MIGRATED_PATHS = [
   // limpieza completa en una sub-fase futura.
   "src/app/(app)/crm/page.tsx",
   "src/app/(app)/crm/leads/page.tsx",
+  // Cluster 5A.2 — EntityDetailLayout (header compartido por 6 fichas
+  // de detalle) + lista de Cuentas migrados al patrón hero DS v3.
+  // Solo /crm/accounts page (SC) se agrega: queda 100% limpia tras
+  // el cambio a <PageHero>. EntityDetailLayout.tsx y CrmAccountsClient.tsx
+  // (CC) NO se agregan: mismo criterio que 4A/4B/4C/4D/5A.1 — los
+  // archivos migran su parte (header visual / EmptyState al DS v3) pero
+  // siguen teniendo drift legacy fuera de eso (text-[10px] en chip
+  // de estado mobile / Badges de cards). Se agregarán cuando se haga
+  // su pasada de limpieza completa en una sub-fase futura.
+  "src/app/(app)/crm/accounts/page.tsx",
   // Agregar aquí cuando se migren:
   // "src/components/personas/",
   // "src/components/crm/",

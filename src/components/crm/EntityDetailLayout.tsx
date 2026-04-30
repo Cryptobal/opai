@@ -150,35 +150,33 @@ export function EntityDetailLayout({
             return (
               <nav
                 aria-label="Breadcrumb"
-                className="flex items-center gap-1 text-xs text-muted-foreground mb-1.5 sm:mb-3"
+                className="flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4 mb-2 sm:mb-3"
               >
                 {/* Mobile: sólo back link al padre — ahorra una fila completa */}
                 {parentHref && parentLabel ? (
                   <Link
                     href={parentHref}
-                    className="sm:hidden inline-flex items-center gap-0.5 text-muted-foreground hover:text-foreground transition-colors truncate max-w-[60%]"
+                    className="sm:hidden inline-flex items-center gap-1 text-ds-text-4 hover:text-ds-text-2 transition-colors truncate max-w-[60%]"
                   >
                     <ChevronRight className="h-3 w-3 rotate-180 shrink-0" />
                     <span className="truncate">{parentLabel}</span>
                   </Link>
                 ) : null}
-                {/* Desktop: breadcrumb completo */}
-                <span className="hidden sm:flex items-center gap-1 flex-wrap">
+                {/* Desktop: breadcrumb completo, separador "/" */}
+                <span className="hidden sm:flex items-center gap-1.5 flex-wrap">
                   {breadcrumb.map((segment, i) => {
                     const isLast = i === breadcrumb.length - 1;
                     const href = breadcrumbHrefs?.[i];
                     return (
-                      <span key={i} className="flex items-center gap-1 min-w-0">
+                      <span key={i} className="flex items-center gap-1.5 min-w-0">
                         {i > 0 && (
-                          <ChevronRight className="h-3 w-3 text-muted-foreground/50 shrink-0" />
+                          <span aria-hidden className="text-ds-text-4/60">/</span>
                         )}
                         {isLast || !href ? (
                           <span
                             className={cn(
                               "truncate max-w-[200px]",
-                              isLast
-                                ? "text-foreground font-medium"
-                                : "text-muted-foreground"
+                              isLast ? "text-ds-text-2" : ""
                             )}
                           >
                             {segment}
@@ -186,7 +184,7 @@ export function EntityDetailLayout({
                         ) : (
                           <Link
                             href={href}
-                            className="hover:text-foreground transition-colors truncate max-w-[200px]"
+                            className="hover:text-ds-text-2 transition-colors truncate max-w-[200px]"
                           >
                             {segment}
                           </Link>
@@ -222,12 +220,12 @@ export function EntityDetailLayout({
                     <img
                       src={header.avatar.photoUrl}
                       alt=""
-                      className="h-8 w-8 sm:h-10 sm:w-10 rounded-full border border-border bg-background object-contain"
+                      className="h-10 w-10 sm:h-12 sm:w-12 rounded-full border border-border bg-background object-contain"
                     />
                   ) : (
                     <div
                       className={cn(
-                        "flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-full text-xs sm:text-sm font-semibold",
+                        "flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full text-sm sm:text-base font-semibold",
                         header.avatar.color?.startsWith("#") || header.avatar.color?.startsWith("rgb")
                           ? "text-white"
                           : header.avatar.color || "bg-primary/10 text-primary"
@@ -239,7 +237,7 @@ export function EntityDetailLayout({
                       }
                     >
                       {AvatarIcon ? (
-                        <AvatarIcon className="h-4 w-4 sm:h-5 sm:w-5" />
+                        <AvatarIcon className="h-5 w-5 sm:h-6 sm:w-6" />
                       ) : (
                         header.avatar.initials || "?"
                       )}
@@ -251,7 +249,7 @@ export function EntityDetailLayout({
               {/* Info — el nombre puede usar 2 líneas en mobile para no truncar agresivamente */}
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2.5 flex-wrap">
-                  <h1 className="text-base sm:text-lg font-semibold tracking-tight leading-tight line-clamp-2 sm:truncate min-w-0">
+                  <h1 className="text-xl sm:text-2xl font-display font-semibold tracking-tight leading-tight line-clamp-2 sm:truncate min-w-0">
                     {header.title}
                   </h1>
                   {/* Badge: al lado del título solo en ≥sm. En mobile va inline debajo, compacto. */}
@@ -274,7 +272,7 @@ export function EntityDetailLayout({
                   )}
                 </div>
                 {header.subtitle && (
-                  <p className="text-xs sm:text-sm text-muted-foreground mt-0.5 truncate lg:hidden">
+                  <p className="text-sm text-ds-text-3 mt-1 truncate lg:hidden">
                     {header.subtitle}
                   </p>
                 )}
