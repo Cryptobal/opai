@@ -24,7 +24,7 @@ export default async function InventarioStockPage() {
       <InventarioSubnav />
       <section className="relative w-full pb-32 space-y-6">
         <PageHero
-          icon={Layers}
+          icon={<Layers />}
           iconTone="emerald"
           eyebrow={["Operaciones", "Inventario", "Stock"]}
           title="Stock por bodega"

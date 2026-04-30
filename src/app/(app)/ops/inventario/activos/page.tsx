@@ -21,7 +21,7 @@ export default async function InventarioActivosPage() {
       <InventarioSubnav />
       <section className="relative w-full pb-32 space-y-6">
         <PageHero
-          icon={Smartphone}
+          icon={<Smartphone />}
           iconTone="emerald"
           eyebrow={["Operaciones", "Inventario", "Activos"]}
           title="Activos y equipos"

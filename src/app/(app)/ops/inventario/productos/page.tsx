@@ -21,7 +21,7 @@ export default async function InventarioProductosPage() {
       <InventarioSubnav />
       <section className="relative w-full pb-32 space-y-6">
         <PageHero
-          icon={Package}
+          icon={<Package />}
           iconTone="emerald"
           eyebrow={["Operaciones", "Inventario", "Productos"]}
           title="Catálogo de productos"

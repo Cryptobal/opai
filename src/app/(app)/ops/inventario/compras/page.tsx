@@ -21,7 +21,7 @@ export default async function InventarioComprasPage() {
       <InventarioSubnav />
       <section className="relative w-full pb-32 space-y-6">
         <PageHero
-          icon={ShoppingCart}
+          icon={<ShoppingCart />}
           iconTone="emerald"
           eyebrow={["Operaciones", "Inventario", "Compras"]}
           title="Ingresos de inventario"

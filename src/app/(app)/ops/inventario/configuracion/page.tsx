@@ -23,7 +23,7 @@ export default async function InventarioConfiguracionPage() {
       <InventarioSubnav />
       <section className="relative w-full pb-32 space-y-6">
         <PageHero
-          icon={Settings2}
+          icon={<Settings2 />}
           iconTone="emerald"
           eyebrow={["Operaciones", "Inventario", "Configuración"]}
           title="Configuración"

@@ -248,13 +248,13 @@ export default async function HistorialPage() {
           label="Visitas hoy"
           value={todayCount}
           variant="brand"
-          icon={MapPin}
+          icon={<MapPin />}
         />
         <Stat
           label="Visitas este mes"
           value={monthCount}
           variant="brand"
-          icon={Clock}
+          icon={<Clock />}
         />
         <Stat
           label="Calificaci\u00f3n promedio"
@@ -265,13 +265,13 @@ export default async function HistorialPage() {
               : "Sin calificaciones"
           }
           variant="ok"
-          icon={Star}
+          icon={<Star />}
         />
         <Stat
           label="Hallazgos abiertos"
           value={openFindings}
           variant={openFindings > 0 ? "warn" : "default"}
-          icon={AlertTriangle}
+          icon={<AlertTriangle />}
         />
       </StatGrid>
 

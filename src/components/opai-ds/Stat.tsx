@@ -16,8 +16,8 @@
  *  - Trend opcional (delta + flecha).
  */
 
-import { ReactNode, useEffect, useRef, useState } from "react";
-import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
+import { ReactNode, ReactElement, cloneElement, isValidElement, useEffect, useRef, useState } from "react";
+import { ArrowDownRight, ArrowUpRight, Minus, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Surface } from "./Surface";
 
@@ -45,8 +45,13 @@ export interface StatProps {
   /** Texto secundario, metadata. */
   hint?: ReactNode;
   variant?: StatVariant;
-  /** Ícono Lucide (componente, no instancia). */
-  icon?: React.ComponentType<{ className?: string }>;
+  /**
+   * Acepta el componente Lucide o el elemento ya renderizado (`<Icon />`).
+   * Los Server Components DEBEN pasar el elemento renderizado para evitar
+   * errores de serialización RSC (los lucide icons son `forwardRef` y no
+   * cruzan la frontera Server → Client como prop).
+   */
+  icon?: LucideIcon | ReactElement;
   /** Tendencia: número entre -100 y 100. + es up, - es down, 0 es flat. */
   trend?: number;
   /** Animación count-up (solo si value es number). */
@@ -85,7 +90,7 @@ export function Stat({
   value,
   hint,
   variant = "default",
-  icon: Icon,
+  icon,
   trend,
   animate = false,
   onClick,
@@ -123,9 +128,17 @@ export function Stat({
         <span className="text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4">
           {label}
         </span>
-        {Icon && (
-          <Icon className="h-3.5 w-3.5 text-ds-text-4 shrink-0" />
-        )}
+        {icon && (() => {
+          const iconClassName = "h-3.5 w-3.5 text-ds-text-4 shrink-0";
+          if (isValidElement(icon)) {
+            const props = (icon.props ?? {}) as { className?: string };
+            return cloneElement(icon as ReactElement<{ className?: string }>, {
+              className: cn(iconClassName, props.className),
+            });
+          }
+          const Icon = icon as LucideIcon;
+          return <Icon className={iconClassName} />;
+        })()}
       </div>
 
       <div className="mt-1.5 flex items-baseline gap-2">

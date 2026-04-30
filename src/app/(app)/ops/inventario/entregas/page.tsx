@@ -23,7 +23,7 @@ export default async function InventarioEntregasPage() {
       <InventarioSubnav />
       <section className="relative w-full pb-32 space-y-6">
         <PageHero
-          icon={Truck}
+          icon={<Truck />}
           iconTone="emerald"
           eyebrow={["Operaciones", "Inventario", "Entregas"]}
           title="Entregas a guardias"

@@ -1,10 +1,15 @@
-import { ReactNode } from "react";
+import { ReactNode, type ReactElement } from "react";
 import { type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { IconBubble } from "./IconBubble";
 
 export interface EmptyStateProps {
-  icon: LucideIcon;
+  /**
+   * Componente Lucide o elemento ya renderizado (`<Icon />`). Server
+   * Components DEBEN pasar el elemento renderizado: los lucide icons son
+   * `forwardRef` y no cruzan la frontera Server → Client como prop.
+   */
+  icon: LucideIcon | ReactElement;
   title: string;
   description?: ReactNode;
   /** CTA principal. */

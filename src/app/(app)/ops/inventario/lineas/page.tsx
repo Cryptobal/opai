@@ -21,7 +21,7 @@ export default async function InventarioLineasPage() {
       <InventarioSubnav />
       <section className="relative w-full pb-32 space-y-6">
         <PageHero
-          icon={Phone}
+          icon={<Phone />}
           iconTone="emerald"
           eyebrow={["Operaciones", "Inventario", "Líneas"]}
           title="Líneas telefónicas"
