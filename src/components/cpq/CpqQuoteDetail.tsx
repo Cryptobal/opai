@@ -1385,8 +1385,10 @@ export function CpqQuoteDetail({
       {/* -- Compact header (mobile/tablet) --
            Bg-background opaco (no /95) + shadow inferior para que el contenido
            que pasa por debajo al hacer scroll no se vea a través del header
-           y "se sobreponga" visualmente sobre la primera sección (Datos). */}
-      <div className="sticky top-[53px] z-20 bg-background border-b border-border/60 shadow-sm -mx-4 px-3 py-1.5 mb-2 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 xl:hidden">
+           y "se sobreponga" visualmente sobre la primera sección (Datos).
+           pb-2 + mb-3 dan respiro suficiente para que la pill de guardias
+           (última fila del header) no quede pegada al título "Datos". */}
+      <div className="sticky top-[53px] z-20 bg-background border-b border-border/60 shadow-sm -mx-4 px-3 pt-1.5 pb-2 mb-3 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 xl:hidden">
       {/* Row 1: back · code · status · acciones */}
       <div className="flex items-center gap-1.5 min-w-0">
         <Link href="/crm/cotizaciones" className="shrink-0 -ml-1">
@@ -1410,21 +1412,41 @@ export function CpqQuoteDetail({
         </div>
         <div className="flex items-center gap-1 shrink-0">
           <div className="hidden lg:flex xl:hidden items-center gap-1 border-r border-border/60 pr-2 mr-1">
-            <Button
-              size="sm"
-              className="h-7 w-7 p-0 bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-sm"
-              disabled={
+            {(() => {
+              const contactForSend = crmContext.contactId
+                ? crmContacts.find((x) => x.id === crmContext.contactId)
+                : null;
+              const missingEmail = !!crmContext.contactId && !contactForSend?.email;
+              const baseDisabled =
                 !quote ||
                 (positions.length === 0 && (additionalLines?.length ?? 0) === 0) ||
                 !crmContext.accountId ||
                 !crmContext.contactId ||
-                !crmContext.dealId
-              }
-              title={quote.status === "sent" ? "Reenviar propuesta al portal" : "Enviar propuesta (invitación al portal)"}
-              onClick={() => setPortalProposalOpen(true)}
-            >
-              <Send className="h-3.5 w-3.5" />
-            </Button>
+                !crmContext.dealId;
+              return (
+                <Button
+                  size="sm"
+                  className="h-7 w-7 p-0 bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-sm"
+                  disabled={baseDisabled}
+                  title={
+                    missingEmail
+                      ? "El contacto no tiene email cargado"
+                      : quote.status === "sent"
+                        ? "Reenviar propuesta al portal"
+                        : "Enviar propuesta (invitación al portal)"
+                  }
+                  onClick={() => {
+                    if (missingEmail) {
+                      toast.error("El contacto no tiene email. Edítalo desde la sección Datos antes de enviar.");
+                      return;
+                    }
+                    setPortalProposalOpen(true);
+                  }}
+                >
+                  <Send className="h-3.5 w-3.5" />
+                </Button>
+              );
+            })()}
           </div>
           {/* Desktop: acciones de estado (en móvil van al menú ⋮ para no duplicar el badge de estado) */}
           <div className="hidden lg:flex xl:hidden items-center gap-1">
@@ -1452,6 +1474,13 @@ export function CpqQuoteDetail({
                       className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent font-medium"
                       onClick={() => {
                         setOverflowMenuOpen(false);
+                        const contactForSend = crmContext.contactId
+                          ? crmContacts.find((x) => x.id === crmContext.contactId)
+                          : null;
+                        if (crmContext.contactId && !contactForSend?.email) {
+                          toast.error("El contacto no tiene email. Edítalo desde la sección Datos antes de enviar.");
+                          return;
+                        }
                         setPortalProposalOpen(true);
                       }}
                       disabled={
@@ -1756,7 +1785,7 @@ export function CpqQuoteDetail({
         </div>
       </div>
       {/* -- Section: Datos (scroll-mt-32: visible below sticky header when scrolled) -- */}
-      <Card className="overflow-visible rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-32">
+      <Card className="overflow-visible rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-44 sm:scroll-mt-32">
         <button type="button" onClick={() => setSecDatos(v => !v)} className="flex items-center justify-between w-full border-b border-border/50 bg-muted/20 px-4 py-3 hover:bg-muted/30 transition-colors">
           <div className="flex items-center gap-2 min-w-0">
             <h2 className="text-sm font-semibold text-primary shrink-0">Datos</h2>
@@ -1795,7 +1824,7 @@ export function CpqQuoteDetail({
       </Card>
 
       {/* -- Section: Condiciones Comerciales -- */}
-      <Card className="overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-32" inert={isLocked ? true : undefined}>
+      <Card className="overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-44 sm:scroll-mt-32" inert={isLocked ? true : undefined}>
         <button type="button" onClick={() => setSecCondiciones(v => !v)} className="flex items-center justify-between w-full border-b border-border/50 bg-muted/20 px-4 py-3 hover:bg-muted/30 transition-colors">
           <div className="flex items-center gap-2 min-w-0">
             <h2 className="text-sm font-semibold text-primary shrink-0">Condiciones comerciales</h2>
@@ -2036,7 +2065,7 @@ export function CpqQuoteDetail({
       </Card>
 
       {/* -- Section: Desglose detallado (precio de venta, margen financiero) -- */}
-      <Card className="overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-32 xl:hidden">
+      <Card className="overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-44 xl:hidden sm:scroll-mt-32">
         <button type="button" onClick={() => setSecDesglose(v => !v)} className="flex items-center justify-between w-full border-b border-border/50 bg-muted/20 px-4 py-3 hover:bg-muted/30 transition-colors">
           <div className="flex items-center gap-2 min-w-0">
             <h2 className="text-sm font-semibold text-primary shrink-0">Desglose</h2>
@@ -2634,7 +2663,7 @@ export function CpqQuoteDetail({
       </Card>
 
       {/* -- Section: Contenido AI (Descripcion + Detalle servicio) -- */}
-      <Card className="overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-32" inert={isLocked ? true : undefined}>
+      <Card className="overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-44 sm:scroll-mt-32" inert={isLocked ? true : undefined}>
         <button type="button" onClick={() => setSecAiContent(v => !v)} className="flex items-center justify-between w-full border-b border-border/50 bg-muted/20 px-4 py-3 hover:bg-muted/30 transition-colors">
           <div className="flex items-center gap-2 min-w-0">
             <Sparkles className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -2731,7 +2760,7 @@ export function CpqQuoteDetail({
       </Card>
 
       {/* -- Section: Incluye (items incluidos en la cotización) -- */}
-      <Card className="overflow-visible rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-32">
+      <Card className="overflow-visible rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-44 sm:scroll-mt-32">
         <button
           type="button"
           onClick={() => setSecIncluye((v) => !v)}
@@ -2755,7 +2784,7 @@ export function CpqQuoteDetail({
       </Card>
 
       {/* -- Section: PDF y documentos -- */}
-      <Card className="overflow-visible rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-32 xl:hidden">
+      <Card className="overflow-visible rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-44 xl:hidden sm:scroll-mt-32">
         <button
           type="button"
           onClick={() => setSecPdf((v) => !v)}
@@ -3033,22 +3062,39 @@ export function CpqQuoteDetail({
             </button>
           </>
         }
-        portalButton={
-          <Button
-            className="w-full h-11 gap-2 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white"
-            disabled={
-              !quote ||
-              (positions.length === 0 && (additionalLines?.length ?? 0) === 0) ||
-              !crmContext.accountId ||
-              !crmContext.contactId ||
-              !crmContext.dealId
-            }
-            onClick={() => setPortalProposalOpen(true)}
-          >
-            <Send className="h-4 w-4" />
-            {quote?.status === "sent" ? "Reenviar" : "Enviar"}
-          </Button>
-        }
+        portalButton={(() => {
+          const contactForSend = crmContext.contactId
+            ? crmContacts.find((x) => x.id === crmContext.contactId)
+            : null;
+          const missingEmail = !!crmContext.contactId && !contactForSend?.email;
+          const baseDisabled =
+            !quote ||
+            (positions.length === 0 && (additionalLines?.length ?? 0) === 0) ||
+            !crmContext.accountId ||
+            !crmContext.contactId ||
+            !crmContext.dealId;
+          // Click silencioso cuando el contacto no tiene email: antes el modal
+          // simplemente no se renderizaba (return null) y el botón parecía
+          // roto. Ahora el botón queda habilitado pero al click muestra un
+          // mensaje accionable explicando qué falta para enviar.
+          return (
+            <Button
+              className="w-full h-11 gap-2 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white"
+              disabled={baseDisabled}
+              title={missingEmail ? "El contacto no tiene email cargado" : undefined}
+              onClick={() => {
+                if (missingEmail) {
+                  toast.error("El contacto no tiene email. Edítalo desde la sección Datos antes de enviar.");
+                  return;
+                }
+                setPortalProposalOpen(true);
+              }}
+            >
+              <Send className="h-4 w-4" />
+              {quote?.status === "sent" ? "Reenviar" : "Enviar"}
+            </Button>
+          );
+        })()}
       />
 
       {crmContext.dealId &&
