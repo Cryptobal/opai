@@ -1,7 +1,7 @@
 /**
  * API Route: /api/cron/docs-operacionales-alerts
  * GET - Verifica documentos operacionales próximos a vencer o vencidos
- * y crea notificaciones (bell + email) usando `sendNotification`.
+ * y crea notificaciones (bell + email + push) usando `notify`.
  *
  * Cubre documentos globales (capa="global") y por instalación (capa="instalacion").
  * Respeta `tipo.diasAlerta` como ventana de alerta.

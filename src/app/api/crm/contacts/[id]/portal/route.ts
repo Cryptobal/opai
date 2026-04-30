@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { requireCrmEdit } from "@/lib/api-auth-crm";
-import { sendNotification } from "@/lib/notification-service";
+import { notify } from "@/lib/notifications/notify";
 import { requireTenantModule } from '@/lib/require-module';
 
 function generatePin(): string {
@@ -49,11 +49,12 @@ export async function POST(
         },
       });
 
-      void sendNotification({
+      void notify({
         tenantId: ctx.tenantId,
         type: "portal_cliente_access_granted",
+        audience: "admin",
         title: "Acceso al portal del cliente habilitado",
-        message: `Se generó PIN de portal para ${contact.firstName} ${contact.lastName} (${contact.account.name})`,
+        body: `Se generó PIN de portal para ${contact.firstName} ${contact.lastName} (${contact.account.name})`,
         link: `/crm/accounts/${contact.accountId}?tab=portal`,
       });
 
@@ -86,11 +87,12 @@ export async function POST(
         },
       });
 
-      void sendNotification({
+      void notify({
         tenantId: ctx.tenantId,
         type: "portal_cliente_access_revoked",
+        audience: "admin",
         title: "Acceso al portal del cliente revocado",
-        message: `Se revocó el acceso al portal de ${contact.firstName} ${contact.lastName} (${contact.account.name})`,
+        body: `Se revocó el acceso al portal de ${contact.firstName} ${contact.lastName} (${contact.account.name})`,
         link: `/crm/accounts/${contact.accountId}?tab=portal`,
       });
 

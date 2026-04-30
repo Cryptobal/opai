@@ -301,154 +301,6 @@ async function sendToSubscription(
   }
 }
 
-// ── sendPushToPortalUser (Prompt 2 — enriched payload) ──
-
-interface SendPushParams {
-  tenantId: string;
-  notifKey: string;
-  userType: UserType;
-  userId: string;
-  portalType: 'cliente' | 'guardia' | 'rondas' | 'app';
-  title: string;
-  body: string;
-  url?: string;
-  tag?: string;
-  notificationId?: string;
-  badgeCount?: number;
-  icon?: string;
-  image?: string;
-  timestamp?: number;
-}
-
-export async function sendPushToPortalUser({
-  tenantId,
-  notifKey,
-  userType,
-  userId,
-  portalType,
-  title,
-  body,
-  url,
-  tag,
-  notificationId,
-  badgeCount,
-  icon,
-  image,
-  timestamp,
-}: SendPushParams) {
-  ensureVapidInitialized();
-
-  // 1. Check user-level preferences (portal users only)
-  if (userType !== 'admin') {
-    const prefs = await prisma.portalNotificationPreference.findUnique({
-      where: {
-        userType_userId_portalType: { userType, userId, portalType },
-      },
-    });
-    if (prefs) {
-      const prefMap = prefs.preferences as Record<string, { push?: boolean }>;
-      if (prefMap[notifKey]?.push === false) return;
-    }
-  }
-
-  // 1b. Check global config
-  if (!(await isGloballyEnabled(tenantId, notifKey))) return;
-
-  // 2. Get active push subscriptions — filtered by portal to avoid cross-portal notifications
-  const subscriberType = toChatSenderType(userType);
-  const subscriptions = await prisma.chatPushSubscription.findMany({
-    where: {
-      tenantId,
-      subscriberType: subscriberType,
-      subscriberId: userId,
-      portalType: portalType,
-      isActive: true,
-    },
-  });
-
-  if (subscriptions.length === 0) return;
-
-  // 3. Calculate real badge count if not provided (Prompt 1)
-  const realBadgeCount = badgeCount ?? await calculateBadgeCount(tenantId, userType, userId);
-
-  // 4. Build enriched payload (Prompt 2)
-  const defaultIcon = '/icons/icon-192x192.png';
-
-  const payload = JSON.stringify({
-    title,
-    body,
-    icon: icon || defaultIcon,
-    badge: '/iconos_azul/icon-72x72.png',
-    image: image || undefined,
-    tag: tag || notifKey,
-    renotify: !!tag,
-    silent: false,
-    timestamp: timestamp || Date.now(),
-    data: {
-      url,
-      type: notifKey === 'chat_message' ? 'chat_message' : 'system_notification',
-      ...(notificationId && { notificationId }),
-      badgeCount: realBadgeCount,
-    },
-  });
-
-  // 5. Send to each subscription
-  await Promise.allSettled(subscriptions.map((sub) => sendToSubscription(sub, payload)));
-}
-
-// ── Broadcast to Admins ──
-
-export async function sendPushToAdmins(
-  tenantId: string,
-  notifKey: string,
-  title: string,
-  body: string,
-  url?: string,
-): Promise<void> {
-  const admins = await prisma.admin.findMany({
-    where: { tenantId, role: { in: ['owner', 'admin'] }, status: 'active' },
-    select: { id: true },
-  });
-  await Promise.allSettled(
-    admins.map((admin) =>
-      sendPushToPortalUser({
-        tenantId,
-        notifKey,
-        userType: 'admin',
-        userId: admin.id,
-        portalType: 'app',
-        title: `\uD83D\uDD14 ${title}`,
-        body,
-        url,
-      })
-    )
-  );
-}
-
-export async function sendPushToSpecificAdmins(
-  tenantId: string,
-  adminIds: string[],
-  notifKey: string,
-  title: string,
-  body: string,
-  url?: string,
-): Promise<void> {
-  if (adminIds.length === 0) return;
-  await Promise.allSettled(
-    adminIds.map((userId) =>
-      sendPushToPortalUser({
-        tenantId,
-        notifKey,
-        userType: 'admin',
-        userId,
-        portalType: 'app',
-        title: `\uD83D\uDD14 ${title}`,
-        body,
-        url,
-      })
-    )
-  );
-}
 
 // ── Chat Message Push Notifications ──
 
@@ -705,14 +557,18 @@ export async function sendChatPushNotifications({
     const portalRecipients = recipients.filter((r) => r.subscriberType !== 'ADMIN');
     const portalPrefsMap = new Map<string, Record<string, { push?: boolean }>>();
     if (portalRecipients.length > 0) {
-      const portalPrefs = await prisma.portalNotificationPreference.findMany({
+      const portalPrefs = await prisma.notificationPreference.findMany({
         where: {
-          userId: { in: portalRecipients.map((r) => r.subscriberId) },
+          subscriberType: { in: portalRecipients.map((r) => r.subscriberType) },
+          subscriberId: { in: portalRecipients.map((r) => r.subscriberId) },
         },
-        select: { userType: true, userId: true, preferences: true },
+        select: { subscriberType: true, subscriberId: true, preferences: true },
       });
+      const subTypeToUserType: Record<string, string> = { GUARD: 'guardia', CLIENT: 'cliente', RONDAS: 'rondas' };
       for (const pp of portalPrefs) {
-        portalPrefsMap.set(`${pp.userType}:${pp.userId}`, pp.preferences as Record<string, { push?: boolean }>);
+        const userTypeKey = subTypeToUserType[pp.subscriberType];
+        if (!userTypeKey) continue;
+        portalPrefsMap.set(`${userTypeKey}:${pp.subscriberId}`, pp.preferences as Record<string, { push?: boolean }>);
       }
     }
 

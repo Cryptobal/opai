@@ -10,7 +10,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { uploadFile } from "@/lib/storage";
-import { sendNotification, sendNotificationToUser } from "@/lib/notification-service";
+import { notify } from "@/lib/notifications/notify";
 import { parseTicketIdFromEmail } from "@/lib/tickets-email";
 
 export const dynamic = "force-dynamic";
@@ -236,11 +236,12 @@ export async function POST(request: NextRequest) {
       ticketId = orphanTicket.id;
 
       // Notify about orphan
-      sendNotification({
+      notify({
         tenantId,
         type: "ticket_new_email_reply",
+        audience: "admin",
         title: `Email huérfano: ${orphanCode}`,
-        message: `Se recibió un email de ${email.from.email} que no pudo ser asociado a un ticket existente. Se creó ${orphanCode}.`,
+        body: `Se recibió un email de ${email.from.email} que no pudo ser asociado a un ticket existente. Se creó ${orphanCode}.`,
         data: { ticketId: orphanTicket.id, code: orphanCode, fromEmail: email.from.email },
         link: `/ops/tickets/${orphanTicket.id}`,
       }).catch(() => {});
@@ -333,7 +334,7 @@ export async function POST(request: NextRequest) {
       tenantId: ticket.tenantId,
       type: "ticket_new_email_reply",
       title: `Respuesta en ${ticket.code}`,
-      message: `${email.from.name || email.from.email} respondió en "${ticket.title}"`,
+      body: `${email.from.name || email.from.email} respondió en "${ticket.title}"`,
       data: {
         ticketId: ticketId!,
         code: ticket.code,
@@ -343,12 +344,16 @@ export async function POST(request: NextRequest) {
     };
 
     if (ticket.assignedTo) {
-      sendNotificationToUser({
+      notify({
         ...notifPayload,
-        targetUserId: ticket.assignedTo,
+        targetIds: [ticket.assignedTo],
+        targetType: "ADMIN",
       }).catch(() => {});
     } else {
-      sendNotification(notifPayload).catch(() => {});
+      notify({
+        ...notifPayload,
+        audience: "admin",
+      }).catch(() => {});
     }
 
     return NextResponse.json({ success: true, ticketId });

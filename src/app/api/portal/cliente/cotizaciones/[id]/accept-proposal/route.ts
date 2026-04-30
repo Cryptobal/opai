@@ -5,7 +5,7 @@ import { parsePortalClienteSessionCookie } from "@/lib/portal-cliente";
 import { resend } from "@/lib/resend";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
 import { cpqQuoteListedInClientPortalWhere } from "@/lib/cpq-portal-visibility";
-import { sendNotification } from "@/lib/notification-service";
+import { notify } from "@/lib/notifications/notify";
 
 export async function POST(
   request: Request,
@@ -155,12 +155,12 @@ export async function POST(
 
     // 8. Internal bell notification
     try {
-      await sendNotification({
+      await notify({
         tenantId: session.tenantId,
         type: "quote_approved_portal",
+        audience: "admin",
         title: `Propuesta aceptada: ${account?.name}`,
-        message: `${account?.name} aceptó la propuesta ${quote.code} (${quote.monthlyCost} ${quote.currency}/mes). La cuenta ha sido activada.`,
-        emailMessage: null,
+        body: `${account?.name} aceptó la propuesta ${quote.code} (${quote.monthlyCost} ${quote.currency}/mes). La cuenta ha sido activada.`,
         link: quote.dealId ? `/crm/deals/${quote.dealId}` : `/crm/cotizaciones/${quoteId}`,
         data: { quoteId, quoteCode: quote.code, dealId: quote.dealId },
       });

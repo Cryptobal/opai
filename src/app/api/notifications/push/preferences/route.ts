@@ -26,9 +26,11 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid userType or portalType' }, { status: 400 });
     }
 
-    const prefs = await prisma.portalNotificationPreference.findUnique({
-      where: { userType_userId_portalType: { userType, userId, portalType } },
+    const subType = userType === 'guardia' ? 'GUARD' : userType === 'admin' ? 'ADMIN' : 'CLIENT';
+    const prefs = await prisma.notificationPreference.findUnique({
+      where: { subscriberType_subscriberId: { subscriberType: subType, subscriberId: userId } },
     });
+    void portalType;
 
     return NextResponse.json({ preferences: prefs?.preferences || {} });
   } catch (error) {
@@ -57,11 +59,13 @@ export async function PUT(req: NextRequest) {
       }
     }
 
-    await prisma.portalNotificationPreference.upsert({
-      where: { userType_userId_portalType: { userType, userId, portalType } },
+    const subType = userType === 'guardia' ? 'GUARD' : userType === 'admin' ? 'ADMIN' : 'CLIENT';
+    await prisma.notificationPreference.upsert({
+      where: { subscriberType_subscriberId: { subscriberType: subType, subscriberId: userId } },
       update: { preferences: cleanedPreferences },
-      create: { tenantId, userType, userId, portalType, preferences: cleanedPreferences },
+      create: { tenantId, subscriberType: subType, subscriberId: userId, preferences: cleanedPreferences },
     });
+    void portalType;
 
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureOpsAccess } from "@/lib/ops";
-import { sendNotificationToUsers } from "@/lib/notification-service";
+import { notify } from "@/lib/notifications/notify";
 import type { TicketComment } from "@/lib/tickets";
 
 type Params = { id: string };
@@ -188,17 +188,18 @@ export async function POST(
             where: { id: ticketId },
             select: { code: true, title: true },
           });
-          await sendNotificationToUsers({
+          await notify({
             tenantId: ctx.tenantId,
             type: mentionedGroupIds.length > 0 ? "mention_group" : "ticket_mention",
+            targetIds: uniqueIds,
+            targetType: "ADMIN",
             title: `Te mencionaron en ticket ${ticketInfo?.code ?? ""}`,
-            message:
+            body:
               body.body.length > 100
                 ? body.body.slice(0, 100) + "..."
                 : body.body,
             link: `/ops/tickets/${ticketId}`,
             data: { ticketId, commentId: comment.id, groupIds: mentionedGroupIds },
-            targetUserIds: uniqueIds,
           });
         }
       }

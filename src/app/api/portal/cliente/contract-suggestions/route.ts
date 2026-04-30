@@ -140,12 +140,13 @@ export async function POST(request: NextRequest) {
         where: { id: documentId },
         select: { title: true },
       });
-      const { sendNotification } = await import("@/lib/notification-service");
-      await sendNotification({
+      const { notify } = await import("@/lib/notifications/notify");
+      await notify({
         tenantId,
         type: "contract_suggestion",
+        audience: "admin",
         title: `Sugerencia de edición en contrato`,
-        message: `El cliente sugirió cambios en la cláusula ${clauseNumber} del documento "${document?.title ?? "Contrato"}"`,
+        body: `El cliente sugirió cambios en la cláusula ${clauseNumber} del documento "${document?.title ?? "Contrato"}"`,
         data: { documentId, suggestionId: suggestion.id, clauseNumber },
         link: `/opai/documentos/${documentId}`,
       });

@@ -87,26 +87,6 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Create default preferences if they don't exist (portal users only)
-    if (userType !== 'admin') {
-      const existing = await prisma.portalNotificationPreference.findUnique({
-        where: { userType_userId_portalType: { userType, userId: resolvedUserId, portalType } },
-      });
-
-      if (!existing) {
-        const { PORTAL_NOTIFICATION_TYPES } = await import('@/lib/pwa/portal-notification-types');
-        const defaults: Record<string, any> = {};
-        for (const t of PORTAL_NOTIFICATION_TYPES) {
-          if (t.portals.includes(portalType as any)) {
-            defaults[t.key] = { push: t.defaultPush, email: t.defaultEmail };
-          }
-        }
-        await prisma.portalNotificationPreference.create({
-          data: { tenantId: resolvedTenantId, userType, userId: resolvedUserId, portalType, preferences: defaults },
-        });
-      }
-    }
-
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('[push/subscribe] Error:', error);

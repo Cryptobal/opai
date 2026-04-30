@@ -277,15 +277,16 @@ export async function POST(
               },
             });
 
-            import("@/lib/notification-service").then(({ sendNotificationToUsers }) => {
-              sendNotificationToUsers({
+            import("@/lib/notifications/notify").then(({ notify }) => {
+              notify({
                 tenantId: ctx.tenantId,
                 type: "ticket_created",
+                targetIds: [ctx.userId],
+                targetType: "ADMIN",
                 title: `Ticket escalado a P1 por recurrencia`,
-                message: `${installationName}: ${description.slice(0, 100)} — ${newCount} visitas.`,
+                body: `${installationName}: ${description.slice(0, 100)} — ${newCount} visitas.`,
                 data: { ticketId: existingFinding!.ticketId, code: ticketCode },
                 link: `/ops/tickets/${existingFinding!.ticketId}`,
-                targetUserIds: [ctx.userId],
               }).catch(() => { /* non-blocking */ });
             }).catch(() => { /* non-blocking */ });
           } catch (escErr) {
@@ -396,15 +397,16 @@ export async function POST(
           ticketId = ticket.id;
           ticketCode = ticket.code;
 
-          import("@/lib/notification-service").then(({ sendNotificationToUsers }) => {
-            sendNotificationToUsers({
+          import("@/lib/notifications/notify").then(({ notify }) => {
+            notify({
               tenantId: ctx.tenantId,
               type: "ticket_created",
+              targetIds: [ctx.userId],
+              targetType: "ADMIN",
               title: `Hallazgo ${severityLabel} en supervisión`,
-              message: `${installationName}: ${description.slice(0, 100)}`,
+              body: `${installationName}: ${description.slice(0, 100)}`,
               data: { ticketId: ticket.id, code: ticket.code },
               link: `/ops/tickets/${ticket.id}`,
-              targetUserIds: [ctx.userId],
             }).catch(() => { /* non-blocking */ });
           }).catch(() => { /* non-blocking */ });
         }

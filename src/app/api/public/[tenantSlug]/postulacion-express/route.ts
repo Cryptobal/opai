@@ -215,12 +215,13 @@ export async function POST(
     if (createdGuardia) {
       try {
         const fullName = `${body.firstName} ${body.lastName}`.trim();
-        const { sendNotification } = await import("@/lib/notification-service");
-        await sendNotification({
+        const { notify } = await import("@/lib/notifications/notify");
+        await notify({
           tenantId,
           type: "new_postulacion",
+          audience: "admin",
           title: `Nueva postulación express: ${fullName}`,
-          message: `${fullName} envió el formulario express de postulación (origen: ${
+          body: `${fullName} envió el formulario express de postulación (origen: ${
             body.source ?? "web"
           }).`,
           link: `/personas/guardias/${createdGuardia.id}`,
