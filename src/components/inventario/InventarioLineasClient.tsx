@@ -404,7 +404,7 @@ export function InventarioLineasClient() {
 
   return (
     <>
-      <div className="space-y-4 ds-page-enter">
+      <div className="space-y-5 ds-page-enter">
         <div className="flex justify-end">
           <div className="flex flex-wrap items-center gap-2">
             <Button
@@ -516,23 +516,23 @@ export function InventarioLineasClient() {
                           <div className="flex items-center gap-2 flex-wrap">
                             <a
                               href={`tel:${line.phoneNumber}`}
-                              className="text-[14px] font-mono font-medium text-ds-text-1 hover:underline whitespace-nowrap"
+                              className="text-sm font-mono font-medium tabular-nums text-ds-text-1 hover:underline whitespace-nowrap"
                             >
                               {formatPhone(line.phoneNumber)}
                             </a>
-                            <span className={`inline-flex items-center h-5 px-2 text-[12px] font-medium leading-none rounded-full ${CARRIER_COLORS[line.carrier] ?? CARRIER_COLORS.otro}`}>
+                            <span className={`inline-flex items-center h-5 px-2 text-xs font-medium leading-none rounded-full ${CARRIER_COLORS[line.carrier] ?? CARRIER_COLORS.otro}`}>
                               {line.carrier.charAt(0).toUpperCase() + line.carrier.slice(1)}
                             </span>
                             <Tag variant={statusToTagVariant(line.status)} size="sm">
                               {STATUS_LABELS[line.status] ?? line.status}
                             </Tag>
                             {line.planType && (
-                              <span className="text-[12px] text-ds-text-3">
+                              <span className="text-xs text-ds-text-3">
                                 {line.planType === "prepago" ? "Prepago" : "Contrato"}
                               </span>
                             )}
                           </div>
-                          <div className="flex items-center gap-2 mt-0.5 text-[13px] text-ds-text-3">
+                          <div className="flex items-center gap-2 mt-1 text-sm text-ds-text-3">
                             {line.label && <span>{line.label}</span>}
                             {activeAssignment && (
                               <span>
@@ -625,14 +625,14 @@ export function InventarioLineasClient() {
                                       ? a.assignedToUser.name
                                       : "—"}
                                 </span>
-                                <span className="text-ds-text-3 font-mono text-[12px]">
+                                <span className="text-ds-text-3 font-mono text-xs">
                                   {new Date(a.assignedAt).toLocaleDateString("es-CL")}
                                   {a.returnedAt
                                     ? ` → ${new Date(a.returnedAt).toLocaleDateString("es-CL")}`
                                     : " → actual"}
                                 </span>
                                 {a.notes && (
-                                  <span className="text-[12px] text-ds-text-4 italic">
+                                  <span className="text-xs text-ds-text-4 italic">
                                     ({a.notes})
                                   </span>
                                 )}
