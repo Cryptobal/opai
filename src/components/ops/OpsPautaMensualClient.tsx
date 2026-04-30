@@ -9,8 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
-import { EmptyState } from "@/components/opai";
-import { Spinner } from "@/components/opai-ds";
+import { EmptyState, Spinner } from "@/components/opai-ds";
 import {
   Dialog,
   DialogContent,
@@ -1444,7 +1443,7 @@ export function OpsPautaMensualClient({
           <Card>
             <CardContent className="pt-8 pb-8">
               <EmptyState
-                icon={<Building2 className="h-8 w-8" />}
+                icon={Building2}
                 title="Sin instalaciones"
                 description="No hay instalaciones activas configuradas."
                 compact
@@ -1455,7 +1454,7 @@ export function OpsPautaMensualClient({
           <Card>
             <CardContent className="pt-8 pb-8">
               <EmptyState
-                icon={<Search className="h-8 w-8" />}
+                icon={Search}
                 title="Sin resultados"
                 description={overviewSearch.trim() ? `No hay instalaciones ni clientes que coincidan con "${overviewSearch.trim()}".` : "No hay instalaciones activas configuradas."}
                 compact
@@ -1759,7 +1758,7 @@ export function OpsPautaMensualClient({
           <CardContent className="pt-4 pb-3">
             {emptyReason === "no_puestos" ? (
               <EmptyState
-                icon={<CalendarDays className="h-8 w-8 text-white" />}
+                icon={CalendarDays}
                 title="Sin puestos configurados"
                 description={`${installations.find((i) => i.id === installationId)?.name ?? "Esta instalación"} no tiene puestos activos. Configura puestos desde el CRM o desde Puestos operativos.`}
                 action={
@@ -1783,7 +1782,7 @@ export function OpsPautaMensualClient({
               />
             ) : (
               <EmptyState
-                icon={<CalendarDays className="h-8 w-8 text-white" />}
+                icon={CalendarDays}
                 title="Sin pauta"
                 description={
                   installationId

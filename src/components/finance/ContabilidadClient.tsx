@@ -25,7 +25,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { EmptyState, DataTable, type DataTableColumn } from "@/components/opai";
+import { DataTable, type DataTableColumn } from "@/components/opai";
+import { EmptyState } from "@/components/opai-ds";
 import {
   BookText,
   FileSpreadsheet,
@@ -353,7 +354,7 @@ function AccountsTab({
 
       {filtered.length === 0 ? (
         <EmptyState
-          icon={<BookText className="h-10 w-10" />}
+          icon={BookText}
           title="Sin cuentas"
           description="No hay cuentas en el plan contable. Puedes inicializar el plan de cuentas estándar chileno o crear cuentas manualmente."
           action={
@@ -674,7 +675,7 @@ function JournalTab({
 
       {filtered.length === 0 ? (
         <EmptyState
-          icon={<FileSpreadsheet className="h-10 w-10" />}
+          icon={FileSpreadsheet}
           title="Sin asientos"
           description="No hay asientos contables registrados."
           action={
@@ -887,7 +888,7 @@ function LedgerTab({ accounts }: { accounts: AccountRow[] }) {
 
       {ledgerData.length === 0 ? (
         <EmptyState
-          icon={<BookOpen className="h-10 w-10" />}
+          icon={BookOpen}
           title="Sin movimientos"
           description="Seleccione una cuenta y rango de fechas para ver el libro mayor."
         />
@@ -1051,7 +1052,7 @@ function PeriodsTab({
 
       {periods.length === 0 ? (
         <EmptyState
-          icon={<Calendar className="h-10 w-10 text-white" />}
+          icon={Calendar}
           title="Sin períodos"
           description="No hay períodos contables abiertos."
           action={

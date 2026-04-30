@@ -37,7 +37,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import { EmptyState } from "@/components/opai";
+import { EmptyState } from "@/components/opai-ds";
 import { DOC_STATUS_CONFIG, DOC_CATEGORIES } from "@/lib/docs/token-registry";
 import type { DocDocument } from "@/types/docs";
 import { useCanDelete } from "@/lib/permissions-context";
@@ -269,7 +269,7 @@ export function DocsClient() {
         </div>
       ) : filtered.length === 0 ? (
         <EmptyState
-          icon={<FileText className="h-10 w-10" />}
+          icon={FileText}
           title="No hay documentos"
           description="Crea un nuevo documento o genera uno desde un template"
           action={

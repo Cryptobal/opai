@@ -24,7 +24,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { DataTable, EmptyState, type DataTableColumn } from "@/components/opai";
+import { DataTable, type DataTableColumn } from "@/components/opai";
+import { EmptyState } from "@/components/opai-ds";
 import {
   Landmark,
   ArrowLeftRight,
@@ -463,7 +464,7 @@ function AccountsTab({
       {/* Content */}
       {filtered.length === 0 ? (
         <EmptyState
-          icon={<Landmark className="h-10 w-10" />}
+          icon={Landmark}
           title="Sin cuentas bancarias"
           description={
             search
@@ -852,13 +853,13 @@ function TransactionsTab({ accounts }: { accounts: BankAccountRow[] }) {
         </div>
       ) : !selectedAccount ? (
         <EmptyState
-          icon={<ArrowLeftRight className="h-10 w-10" />}
+          icon={ArrowLeftRight}
           title="Seleccione una cuenta"
           description="Elija una cuenta bancaria para ver sus movimientos."
         />
       ) : transactions.length === 0 ? (
         <EmptyState
-          icon={<ArrowLeftRight className="h-10 w-10" />}
+          icon={ArrowLeftRight}
           title="Sin movimientos"
           description="No hay movimientos registrados para esta cuenta."
         />
@@ -1000,7 +1001,7 @@ function ImportTab({
   if (!canManage) {
     return (
       <EmptyState
-        icon={<Upload className="h-10 w-10" />}
+        icon={Upload}
         title="Sin permisos"
         description="No tiene permisos para importar cartolas."
       />

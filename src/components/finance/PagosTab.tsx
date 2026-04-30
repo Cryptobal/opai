@@ -18,8 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { EmptyState } from "@/components/opai";
-import { Stat, StatGrid } from "@/components/opai-ds";
+import { EmptyState, Stat, StatGrid } from "@/components/opai-ds";
 import {
   Wallet,
   Plus,
@@ -438,7 +437,7 @@ export function PagosTab({ payments, pendingRendiciones }: PagosTabProps) {
         <div className="space-y-3">
           {pendingRendiciones.length === 0 ? (
             <EmptyState
-              icon={<Inbox className="h-10 w-10" />}
+              icon={Inbox}
               title="Sin rendiciones pendientes de pago"
               description="Las rendiciones aprobadas aparecerán aquí."
             />
@@ -576,7 +575,7 @@ export function PagosTab({ payments, pendingRendiciones }: PagosTabProps) {
 
           {filteredPayments.length === 0 ? (
             <EmptyState
-              icon={<Wallet className="h-10 w-10" />}
+              icon={Wallet}
               title="Sin pagos registrados"
               description="Los pagos procesados aparecerán aquí."
             />

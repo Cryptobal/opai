@@ -21,7 +21,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { DataTable, EmptyState, type DataTableColumn } from "@/components/opai";
+import { DataTable, type DataTableColumn } from "@/components/opai";
+import { EmptyState } from "@/components/opai-ds";
 import {
   Plus,
   Search,
@@ -360,7 +361,7 @@ export function ProveedoresClient({ suppliers, accounts, canManage }: Props) {
       {/* Content */}
       {filtered.length === 0 ? (
         <EmptyState
-          icon={<Building2 className="h-10 w-10" />}
+          icon={Building2}
           title="Sin proveedores"
           description={
             search || statusFilter !== "ALL"

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { EmptyState } from "@/components/opai";
+import { EmptyState } from "@/components/opai-ds";
 import { ShieldAlert } from "lucide-react";
 import { formatPersonName } from "@/lib/personas";
 
@@ -58,7 +58,7 @@ export function ListaNegraClient({ initialItems }: ListaNegraClientProps) {
       <CardContent className="pt-5">
         {items.length === 0 ? (
           <EmptyState
-            icon={<ShieldAlert className="h-8 w-8" />}
+            icon={ShieldAlert}
             title="Lista negra vacía"
             description="No hay guardias bloqueados actualmente."
             compact

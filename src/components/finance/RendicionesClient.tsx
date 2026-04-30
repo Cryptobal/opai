@@ -26,7 +26,8 @@ import {
 import { DateRangePicker, type DateRange } from "@/components/ui/date-range-picker";
 import { PagosTab } from "@/components/finance/PagosTab";
 import type { Payment, PendingRendicion } from "@/components/finance/PagosTab";
-import { EmptyState, DataTable, type DataTableColumn } from "@/components/opai";
+import { DataTable, type DataTableColumn } from "@/components/opai";
+import { EmptyState } from "@/components/opai-ds";
 import {
   Plus,
   Receipt,
@@ -705,7 +706,7 @@ function RendicionesClientInner({
           {/* Table / empty */}
           {filtered.length === 0 ? (
             <EmptyState
-              icon={<Receipt className="h-10 w-10" />}
+              icon={Receipt}
               title="Sin rendiciones"
               description={
                 hasActiveFilters

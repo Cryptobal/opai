@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { EmptyState } from "@/components/opai";
+import { EmptyState } from "@/components/opai-ds";
 import { useCanEdit } from "@/lib/permissions-context";
 import {
   Dialog,
@@ -207,7 +207,7 @@ export function OpsControlNocturnoListClient(_props: Props) {
       {/* Lista de reportes */}
       {filteredReportes.length === 0 ? (
         <EmptyState
-          icon={<Moon className="h-10 w-10" />}
+          icon={Moon}
           title="Sin reportes nocturnos"
           description={reportes.length === 0
             ? "Crea el primer reporte de control nocturno."

@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { EmptyState } from "@/components/opai";
+import { EmptyState } from "@/components/opai-ds";
 import { StatusTag } from "@/components/ops/StatusTag";
 import { FileDown, Layers3 } from "lucide-react";
 
@@ -163,7 +163,7 @@ export function TeLotesClient({
         <CardContent className="pt-5">
           {filtered.length === 0 ? (
             <EmptyState
-              icon={<Layers3 className="h-8 w-8" />}
+              icon={Layers3}
               title="Sin lotes"
               description="Crea el primer lote desde turnos aprobados."
               compact

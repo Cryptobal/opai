@@ -63,6 +63,11 @@ const MIGRATED_PATHS = [
   // y otros patrones legacy fuera del KPI. Cuando un módulo termine su
   // migración completa (no solo KPIs), agregar el path aquí.
   //
+  // Paso 4B — consolidó EmptyState legacy → EmptyState DS v3 en 22 call sites
+  // (docs/, finance/, ops/). Mismo criterio que 4A: los call sites NO se
+  // agregan porque siguen teniendo otros patrones legacy (text-[10px],
+  // hardcoded colors, etc.) fuera del EmptyState migrado.
+  //
   // Paso 4D — cluster final chico (Avatar, Breadcrumb, LoadingSpinner,
   // StatusBadge, FilterBar, ModuleCard, Stepper, FormField). 8 componentes
   // legacy eliminados. Mismo criterio: los call sites NO se agregan a

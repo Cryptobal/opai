@@ -16,7 +16,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { EmptyState, DataTable, type DataTableColumn } from "@/components/opai";
+import { DataTable, type DataTableColumn } from "@/components/opai";
+import { EmptyState } from "@/components/opai-ds";
 import {
   Dialog,
   DialogContent,
@@ -307,7 +308,7 @@ function DtesTab({ dtes, canManage }: { dtes: DteRow[]; canManage: boolean }) {
 
       {filtered.length === 0 ? (
         <EmptyState
-          icon={<FileText className="h-10 w-10" />}
+          icon={FileText}
           title="Sin documentos"
           description="No hay DTEs emitidos."
           action={
@@ -548,7 +549,7 @@ function FoliosTab({ canManage }: { canManage: boolean }) {
 
       {folios.length === 0 ? (
         <EmptyState
-          icon={<Hash className="h-10 w-10" />}
+          icon={Hash}
           title="Sin datos de folios"
           description="No hay información de folios disponible."
         />
@@ -786,7 +787,7 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
 
       {filtered.length === 0 ? (
         <EmptyState
-          icon={<FileInput className="h-10 w-10" />}
+          icon={FileInput}
           title="Sin documentos recibidos"
           description="No hay DTEs recibidos registrados."
           action={

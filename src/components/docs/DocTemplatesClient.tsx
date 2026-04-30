@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { DOC_CATEGORIES, WA_USAGE_SLUGS } from "@/lib/docs/token-registry";
 import type { DocTemplate } from "@/types/docs";
-import { EmptyState } from "@/components/opai";
+import { EmptyState } from "@/components/opai-ds";
 import { useCanDelete } from "@/lib/permissions-context";
 
 function getCategoryLabel(module: string, category: string): string {
@@ -151,7 +151,7 @@ function DocTemplatesInner() {
         </div>
       ) : filtered.length === 0 ? (
         <EmptyState
-          icon={<LayoutTemplate className="h-10 w-10" />}
+          icon={LayoutTemplate}
           title="No hay templates de documentos"
           description="Crea tu primer template para empezar a generar documentos"
           action={

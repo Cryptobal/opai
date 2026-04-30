@@ -3,8 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { CalendarCheck2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { EmptyState } from "@/components/opai";
-import { Spinner } from "@/components/opai-ds";
+import { EmptyState, Spinner } from "@/components/opai-ds";
 import { hasOpsCapability } from "@/lib/ops-rbac";
 import { toast } from "sonner";
 
@@ -188,7 +187,7 @@ export function AsistenciaDiariaClient({
         <Card>
           <CardContent className="pt-5">
             <EmptyState
-              icon={<CalendarCheck2 className="h-8 w-8 text-white" />}
+              icon={CalendarCheck2}
               title="Sin asistencia"
               description="No hay puestos para la fecha seleccionada. Genera primero la pauta mensual."
               compact

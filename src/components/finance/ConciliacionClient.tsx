@@ -23,7 +23,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { EmptyState, DataTable, type DataTableColumn } from "@/components/opai";
+import { DataTable, type DataTableColumn } from "@/components/opai";
+import { EmptyState } from "@/components/opai-ds";
 import {
   ArrowLeft,
   Check,
@@ -366,7 +367,7 @@ function ListView({
       {/* Content */}
       {filtered.length === 0 ? (
         <EmptyState
-          icon={<Landmark className="h-10 w-10" />}
+          icon={Landmark}
           title="Sin conciliaciones"
           description={
             bankFilter !== "ALL"
@@ -766,7 +767,7 @@ function DetailView({
           Volver
         </Button>
         <EmptyState
-          icon={<Landmark className="h-10 w-10" />}
+          icon={Landmark}
           title="No encontrada"
           description="No se pudo cargar la conciliación."
         />

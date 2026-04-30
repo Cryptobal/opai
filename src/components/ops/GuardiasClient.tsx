@@ -8,8 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";
-import { EmptyState } from "@/components/opai";
-import { Avatar } from "@/components/opai-ds";
+import { Avatar, EmptyState } from "@/components/opai-ds";
 import { ShieldUser, Plus, ExternalLink, Phone, MapPin, Building2, UserPlus, ChevronDown, ChevronRight, Loader2, RefreshCw, MessageCircle, FileCheck, FileX, Download, MoreHorizontal, Key, AlertCircle } from "lucide-react";
 import { ListToolbar } from "@/components/shared/ListToolbar";
 import type { ViewMode } from "@/components/shared/ViewToggle";
@@ -1001,7 +1000,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
 
           {filtered.length === 0 ? (
             <EmptyState
-              icon={<ShieldUser className="h-8 w-8" />}
+              icon={ShieldUser}
               title="Sin personas"
               description="Agrega personas para habilitar asignación en pauta. Haz clic en una persona para ver su ficha, documentos, cuentas bancarias e historial."
               compact
@@ -1420,7 +1419,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                 </div>
               ) : !gridData ? (
                 <EmptyState
-                  icon={<ShieldUser className="h-8 w-8" />}
+                  icon={ShieldUser}
                   title="Sin datos"
                   description="No se pudieron cargar los datos de la grilla."
                   compact
