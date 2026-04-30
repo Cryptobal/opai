@@ -3693,6 +3693,8 @@ model OpsSupervisionFinding {
   severity           String    @default("minor")
   description        String    @db.Text
   photoUrl           String?   @map("photo_url")
+  resolutionPhotoUrl String?   @map("resolution_photo_url")
+  resolutionNote     String?   @map("resolution_note") @db.Text
   ticketId           String?   @map("ticket_id") @db.Uuid
   status             String    @default("open")
   /// Campos opcionales usados cuando la visita es vulnerability_assessment.

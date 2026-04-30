@@ -30,8 +30,10 @@ import type {
   DocumentCheckResult,
   GuardDocCheckResult,
   DotacionGuard,
+  PendingFinding,
 } from "./types";
 import { FindingModal } from "./FindingModal";
+import { ResolveFindingModal } from "./ResolveFindingModal";
 
 type Props = {
   visit: VisitData;
@@ -66,6 +68,9 @@ type Props = {
   dotacionGuards?: DotacionGuard[];
   onFindingCreated: (finding: Finding) => void;
   onFindingStatusChange: (findingId: string, status: string) => void;
+  onAddPendingFinding: (pf: PendingFinding) => void;
+  onRemovePendingFinding: (source: string) => void;
+  onFindingResolvedLocally?: (findingId: string) => void;
   onNext: () => void;
   onPrev: () => void;
   saving: boolean;
@@ -100,14 +105,16 @@ export function Step3Checklist({
   dotacionGuards = [],
   onFindingCreated,
   onFindingStatusChange,
+  onAddPendingFinding,
+  onRemovePendingFinding,
+  onFindingResolvedLocally,
   onNext,
   onPrev,
   saving,
   mode = "regular",
 }: Props) {
   const [showFindingModal, setShowFindingModal] = useState(false);
-  const [bookAutoFindingId, setBookAutoFindingId] = useState<string | null>(null);
-  const [bookAutoTicketCode, setBookAutoTicketCode] = useState<string | null>(null);
+  const [resolvingFinding, setResolvingFinding] = useState<Finding | null>(null);
   const bookPhotoInputRef = useRef<HTMLInputElement>(null);
   const puestoPhotoInputRef = useRef<HTMLInputElement>(null);
   const docPhotoInputRef = useRef<HTMLInputElement>(null);
@@ -126,8 +133,13 @@ export function Step3Checklist({
     ...documentResults,
   ];
 
-  // Guard document handlers
+  // Guard document handlers — pending findings, persisted at checkout
   function handleGuardDocToggle(guardId: string, code: string, present: boolean) {
+    const sourceKey = `guardia:${code}:${guardId}`;
+    const guardResult = guardDocResults.find((g) => g.guardiaId === guardId);
+    const existingDoc = guardResult?.docs.find((d) => d.code === code);
+    const localId = existingDoc?.pendingLocalId ?? crypto.randomUUID();
+
     const updated = guardDocResults.map((g) => {
       if (g.guardiaId !== guardId) return g;
       return {
@@ -137,8 +149,7 @@ export function Step3Checklist({
             ? {
                 ...d,
                 isChecked: present,
-                autoFindingId: present ? null : d.autoFindingId,
-                autoTicketCode: present ? null : d.autoTicketCode,
+                pendingLocalId: present ? null : localId,
               }
             : d,
         ),
@@ -146,58 +157,23 @@ export function Step3Checklist({
     });
     onGuardDocResultsChange?.(updated);
 
-    // Auto-create finding when "No"
-    const guardResult = guardDocResults.find((g) => g.guardiaId === guardId);
-    const existingDoc = guardResult?.docs.find((d) => d.code === code);
-    if (!present && visit.id && !existingDoc?.autoFindingId) {
+    if (!present) {
       const docType = guardDocTypes.find((d) => d.code === code);
       const guard = dotacionGuards.find((g) => g.guardId === guardId);
       const docLabel = docType?.label ?? code;
       const guardLabel = guard?.guardName ?? guardId;
-
-      fetch(`/api/ops/supervision/${visit.id}/findings`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          category: "documentation",
-          severity: "critical",
-          description: `${docLabel} no presente — Guardia: ${guardLabel}`,
-          guardId,
-          guardiaDocCode: code,
-        }),
-      })
-        .then((res) => res.json())
-        .then((json) => {
-          if (json.success) {
-            const updatedWithFinding = guardDocResults.map((g) => {
-              if (g.guardiaId !== guardId) return g;
-              return {
-                ...g,
-                docs: g.docs.map((d) =>
-                  d.code === code
-                    ? {
-                        ...d,
-                        isChecked: false,
-                        autoFindingId: json.data.id,
-                        autoTicketCode: json.data.ticketCode ?? null,
-                      }
-                    : d,
-                ),
-              };
-            });
-            onGuardDocResultsChange?.(updatedWithFinding);
-            onFindingCreated({
-              ...json.data,
-              ticketCode: json.data.ticketCode ?? null,
-            });
-            toast.success(
-              `Hallazgo creado${json.data.ticketCode ? ` — Ticket #${json.data.ticketCode}` : ""}`,
-            );
-          }
-        })
-        .catch(() => {
-          toast.error("Error al crear hallazgo automatico");
-        });
+      onAddPendingFinding({
+        localId,
+        category: "documentation",
+        severity: "critical",
+        description: `${docLabel} no presente — Guardia: ${guardLabel}`,
+        guardId,
+        tipoDocId: null,
+        guardiaDocCode: code,
+        source: sourceKey,
+      });
+    } else {
+      onRemovePendingFinding(sourceKey);
     }
   }
 
@@ -280,18 +256,22 @@ export function Step3Checklist({
     }
   }
 
-  async function handleDocCheck(code: string, present: boolean) {
+  function handleDocCheck(code: string, present: boolean) {
     const isGlobal = isGlobalDoc(code);
     const targetResults = isGlobal ? globalDocumentResults : documentResults;
+    const sourceKey = `${isGlobal ? "global" : "instalacion"}:${code}`;
 
-    // Update checked status
+    const existingResult = targetResults.find((dr) => dr.code === code);
+    const localId =
+      existingResult?.pendingLocalId ?? (present ? null : crypto.randomUUID());
+
+    // Update checked status + pendingLocalId in one shot
     const updatedResults = targetResults.map((dr) =>
       dr.code === code
         ? {
             ...dr,
             isChecked: present,
-            autoFindingId: present ? null : dr.autoFindingId,
-            autoTicketCode: present ? null : dr.autoTicketCode,
+            pendingLocalId: present ? null : localId,
           }
         : dr,
     );
@@ -310,95 +290,45 @@ export function Step3Checklist({
       });
     }
 
-    // If "No" and haven't already created a finding, auto-create
-    const existingResult = targetResults.find((dr) => dr.code === code);
-    if (!present && visit.id && !existingResult?.autoFindingId) {
+    if (!present && localId) {
       const docType = allInstDocs.find((d) => d.code === code);
       const docLabel = docType?.label ?? code;
       const tipoDocId = docType?.tipoDocId ?? null;
-
-      try {
-        const res = await fetch(`/api/ops/supervision/${visit.id}/findings`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            category: "documentation",
-            severity: "critical",
-            description: `${docLabel} no presente`,
-            ...(tipoDocId ? { tipoDocId } : { guardiaDocCode: code }),
-          }),
-        });
-        const json = await res.json();
-        if (json.success) {
-          const findingUpdated = targetResults.map((dr) =>
-            dr.code === code
-              ? {
-                  ...dr,
-                  isChecked: false,
-                  autoFindingId: json.data.id,
-                  autoTicketCode: json.data.ticketCode ?? null,
-                }
-              : dr,
-          );
-          if (isGlobal) {
-            onGlobalDocumentResultsChange?.(findingUpdated);
-          } else {
-            onDocumentResultsChange(findingUpdated);
-          }
-          // Also notify parent about the finding
-          onFindingCreated({
-            ...json.data,
-            ticketCode: json.data.ticketCode ?? null,
-          });
-          toast.success(
-            `Hallazgo creado${json.data.ticketCode ? ` — Ticket #${json.data.ticketCode}` : ""}`,
-          );
-        }
-      } catch {
-        toast.error("Error al crear hallazgo automatico");
-      }
+      onAddPendingFinding({
+        localId,
+        category: "documentation",
+        severity: "critical",
+        description: `${docLabel} no presente`,
+        guardId: null,
+        tipoDocId,
+        guardiaDocCode: tipoDocId ? null : code,
+        source: sourceKey,
+      });
+    } else {
+      onRemovePendingFinding(sourceKey);
     }
   }
 
   // Libro de novedades Sí/No handler (when not part of documentTypes)
-  async function handleBookCheck(present: boolean) {
+  function handleBookCheck(present: boolean) {
     onBookChange({ bookUpToDate: present, bookLastEntryDate, bookNotes });
 
+    const sourceKey = "instalacion:libro_novedades";
     if (present) {
-      setBookAutoFindingId(null);
-      setBookAutoTicketCode(null);
+      onRemovePendingFinding(sourceKey);
       return;
     }
 
-    // Auto-create finding when "No" and not already created
-    if (!bookAutoFindingId && visit.id) {
-      try {
-        const res = await fetch(`/api/ops/supervision/${visit.id}/findings`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            category: "documentation",
-            severity: "critical",
-            description: "Libro de novedades no presente",
-            guardiaDocCode: "libro_novedades",
-          }),
-        });
-        const json = await res.json();
-        if (json.success) {
-          setBookAutoFindingId(json.data.id);
-          setBookAutoTicketCode(json.data.ticketCode ?? null);
-          onFindingCreated({
-            ...json.data,
-            ticketCode: json.data.ticketCode ?? null,
-          });
-          toast.success(
-            `Hallazgo creado${json.data.ticketCode ? ` — Ticket #${json.data.ticketCode}` : ""}`,
-          );
-        }
-      } catch {
-        toast.error("Error al crear hallazgo automático");
-      }
-    }
+    onAddPendingFinding({
+      localId: crypto.randomUUID(),
+      category: "documentation",
+      severity: "critical",
+      description: "Libro de novedades no presente",
+      guardId: null,
+      tipoDocId: null,
+      guardiaDocCode: "libro_novedades",
+      source: sourceKey,
+    });
   }
 
   function handleDocPhotoCapture(e: React.ChangeEvent<HTMLInputElement>) {
@@ -456,21 +386,19 @@ export function Step3Checklist({
   const libroInDocTypes = allInstDocs.some((d) => d.code === "libro_novedades");
   const bookRequiredFilled = libroInDocTypes || bookUpToDate !== null;
   const bookNotesRequired = !libroInDocTypes && bookUpToDate === false;
-  const bookPhotoRequired = !libroInDocTypes && bookUpToDate === true;
-  const bookPhotoFulfilled = bookPhotoRequired ? !!bookPhotoPreview : true;
-  const whenBookNoRequireFinding = !libroInDocTypes && bookUpToDate === false;
-  const findingRequiredFulfilled = !whenBookNoRequireFinding || findingsCount > 0 || !!bookAutoFindingId;
+  // Foto del libro ahora es opcional cuando el libro está al día (Sí). El hallazgo
+  // por libro ausente se persiste recién al cerrar la visita (ver pendingFindings).
+  const bookPhotoFulfilled = true;
   const puestoPhotoFulfilled = !!puestoPhotoPreview;
 
-  // Document results validation: all required docs must be answered (Sí with photo, or No with auto-finding)
+  // Document results validation: solo basta haber respondido Sí o No.
+  // Foto opcional en Sí, hallazgo se generará al cerrar visita en No.
   const allRequiredDocsAnswered = allInstDocs
     .filter((d) => d.required)
     .every((d) => {
       const result = allInstResults.find((dr) => dr.code === d.code);
       if (!result) return false;
-      if (result.isChecked === true) return !!result.photoPreview; // Sí requires photo
-      if (result.isChecked === false) return !!result.autoFindingId; // No requires auto-finding created
-      return false;
+      return result.isChecked === true || result.isChecked === false;
     });
   function handlePuestoPhotoCapture(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -655,7 +583,7 @@ export function Step3Checklist({
                             />
                           </div>
                           <div>
-                            <label className="text-xs text-muted-foreground">Foto ultima pagina (obligatoria)</label>
+                            <label className="text-xs text-muted-foreground">Foto ultima pagina (opcional)</label>
                             <div className="mt-1 flex items-center gap-2">
                               {result.photoPreview ? (
                                 <div className="relative">
@@ -689,18 +617,12 @@ export function Step3Checklist({
                         </div>
                       )}
 
-                      {/* No: auto-finding confirmation */}
+                      {/* No: pending finding (se persiste al cierre) */}
                       {result?.isChecked === false && (
-                        <div className="mt-2 rounded-lg bg-red-500/10 p-2 text-xs">
-                          {result.autoFindingId ? (
-                            <p className="text-emerald-400">
-                              &#10003; Hallazgo creado{result.autoTicketCode ? ` — Ticket #${result.autoTicketCode}` : ""}
-                            </p>
-                          ) : (
-                            <p className="text-red-400">
-                              Se creara hallazgo critico: &quot;{doc.label} no presente&quot;
-                            </p>
-                          )}
+                        <div className="mt-2 rounded-lg bg-amber-500/10 p-2 text-xs">
+                          <p className="text-amber-400">
+                            ⏳ Se creará hallazgo al cerrar la visita: &quot;{doc.label} no presente&quot;
+                          </p>
                         </div>
                       )}
                     </div>
@@ -861,21 +783,12 @@ export function Step3Checklist({
                                   </div>
                                 )}
 
-                                {/* No: warning */}
+                                {/* No: pending finding (se persiste al cierre) */}
                                 {isDocNo && (
-                                  <div className="mt-2 rounded-lg bg-red-500/10 p-2 text-xs">
-                                    {docResult?.autoFindingId ? (
-                                      <p className="text-emerald-400">
-                                        &#10003; Hallazgo creado
-                                        {docResult.autoTicketCode
-                                          ? ` — Ticket #${docResult.autoTicketCode}`
-                                          : ""}
-                                      </p>
-                                    ) : (
-                                      <p className="text-red-400">
-                                        Se generara hallazgo critico
-                                      </p>
-                                    )}
+                                  <div className="mt-2 rounded-lg bg-amber-500/10 p-2 text-xs">
+                                    <p className="text-amber-400">
+                                      ⏳ Se creará hallazgo al cerrar la visita: &quot;{docType.label} no presente&quot;
+                                    </p>
                                   </div>
                                 )}
                               </div>
@@ -1019,7 +932,7 @@ export function Step3Checklist({
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-xs">Foto ultima pagina del libro (obligatoria)</Label>
+                  <Label className="text-xs">Foto ultima pagina del libro (opcional)</Label>
                   <input
                     ref={bookPhotoInputRef}
                     type="file"
@@ -1089,16 +1002,10 @@ export function Step3Checklist({
                     </p>
                   )}
                 </div>
-                <div className="mt-2 rounded-lg bg-red-500/10 p-2 text-xs">
-                  {bookAutoFindingId ? (
-                    <p className="text-emerald-400">
-                      &#10003; Hallazgo creado{bookAutoTicketCode ? ` — Ticket #${bookAutoTicketCode}` : ""}
-                    </p>
-                  ) : (
-                    <p className="text-red-400">
-                      Se creara hallazgo critico: &quot;Libro de novedades no presente&quot;
-                    </p>
-                  )}
+                <div className="mt-2 rounded-lg bg-amber-500/10 p-2 text-xs">
+                  <p className="text-amber-400">
+                    ⏳ Se creará hallazgo al cerrar la visita: &quot;Libro de novedades no presente&quot;
+                  </p>
                 </div>
               </div>
             )}
@@ -1150,7 +1057,7 @@ export function Step3Checklist({
                         variant="outline"
                         size="sm"
                         className="flex-1 text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-300"
-                        onClick={() => onFindingStatusChange(finding.id, "verified")}
+                        onClick={() => setResolvingFinding(finding)}
                       >
                         <CheckCircle2 className="mr-1 h-3 w-3" />
                         Resuelto
@@ -1181,8 +1088,6 @@ export function Step3Checklist({
                 saving ||
                 !bookRequiredFilled ||
                 (bookNotesRequired && !bookNotes.trim()) ||
-                !bookPhotoFulfilled ||
-                !findingRequiredFulfilled ||
                 !puestoPhotoFulfilled ||
                 !allRequiredDocsAnswered
               }
@@ -1193,13 +1098,11 @@ export function Step3Checklist({
             </Button>
           </div>
 
-          {(!bookRequiredFilled || !bookPhotoFulfilled || !findingRequiredFulfilled || !puestoPhotoFulfilled || !allRequiredDocsAnswered) && (
+          {(!bookRequiredFilled || !puestoPhotoFulfilled || !allRequiredDocsAnswered) && (
             <p className="text-center text-xs text-amber-400">
               {!bookRequiredFilled && "Debes indicar si el libro de novedades esta al dia. "}
               {!puestoPhotoFulfilled && "Debes tomar la foto del puesto de guardia. "}
-              {bookUpToDate === true && !bookPhotoFulfilled && "Debes fotografiar la ultima pagina del libro. "}
-              {bookUpToDate === false && !findingRequiredFulfilled && "Debes registrar un hallazgo (libro no presente). "}
-              {!allRequiredDocsAnswered && "Documentos obligatorios requieren respuesta con foto (Si) o hallazgo creado (No). "}
+              {!allRequiredDocsAnswered && "Documentos obligatorios requieren una respuesta (Si o No). "}
             </p>
           )}
         </CardContent>
@@ -1214,6 +1117,22 @@ export function Step3Checklist({
           onCreated={(finding) => {
             onFindingCreated(finding);
             setShowFindingModal(false);
+          }}
+        />
+      )}
+
+      {resolvingFinding && (
+        <ResolveFindingModal
+          visitId={visit.id}
+          finding={{
+            id: resolvingFinding.id,
+            description: resolvingFinding.description,
+            severity: resolvingFinding.severity,
+          }}
+          onClose={() => setResolvingFinding(null)}
+          onResolved={(id) => {
+            onFindingResolvedLocally?.(id);
+            setResolvingFinding(null);
           }}
         />
       )}

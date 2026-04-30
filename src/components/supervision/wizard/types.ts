@@ -127,6 +127,9 @@ export type DocumentCheckResult = {
   lastEntryDate: string | null;
   photoFile: File | null;
   photoPreview: string | null;
+  /** ID local del pendingFinding asociado (si isChecked === false). */
+  pendingLocalId: string | null;
+  /** Solo se llena DESPUÉS del checkout, cuando el backend devuelve el ID real. */
   autoFindingId: string | null;
   autoTicketCode: string | null;
 };
@@ -156,3 +159,17 @@ export const INSTALLATION_STATES = [
   { value: "incidencia", label: "Con observaciones" },
   { value: "critico", label: "Crítico" },
 ] as const;
+
+/** Hallazgo en estado tentativo (creado solo en local, persistido al cerrar visita). */
+export type PendingFinding = {
+  /** ID local temporal (uuid v4 generado client-side, distinto del ID que asigna el backend). */
+  localId: string;
+  category: "personal" | "infrastructure" | "documentation" | "operational";
+  severity: "critical" | "major" | "minor";
+  description: string;
+  guardId: string | null;
+  tipoDocId: string | null;
+  guardiaDocCode: string | null;
+  /** Identificador del slot UI que generó este pending: "<capa>:<code>" o "<capa>:<code>:<guardId>". */
+  source: string;
+};

@@ -23,6 +23,7 @@ import type {
   InstalacionDocumentType,
   DocumentCheckResult,
   GuardDocCheckResult,
+  PendingFinding,
 } from "./types";
 
 export function SupervisionVisitWizard({
@@ -47,6 +48,7 @@ export function SupervisionVisitWizard({
   const [installationState, setInstallationState] = useState("normal");
   const [installationStateNotes, setInstallationStateNotes] = useState("");
   const [findings, setFindings] = useState<Finding[]>([]);
+  const [pendingFindings, setPendingFindings] = useState<PendingFinding[]>([]);
 
   // Step 3: Checklist + Book
   const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
@@ -100,6 +102,13 @@ export function SupervisionVisitWizard({
   function handleCheckedIn(visitData: VisitData, dotacion: DotacionGuard[], guardsExpected: number) {
     setVisit(visitData);
     setGuards(dotacion);
+
+    // Rehidrata pendingFindings desde draftData si existen (recuperación tras crash)
+    const draftPending = (visitData.draftData as { pendingFindings?: PendingFinding[] } | null)
+      ?.pendingFindings;
+    if (Array.isArray(draftPending) && draftPending.length > 0) {
+      setPendingFindings(draftPending);
+    }
 
     // Initialize evaluations from dotation
     const initialEvals: GuardEvaluation[] = dotacion.map((g) => ({
@@ -186,6 +195,7 @@ export function SupervisionVisitWizard({
             lastEntryDate: null,
             photoFile: null,
             photoPreview: null,
+            pendingLocalId: null,
             autoFindingId: null,
             autoTicketCode: null,
           })),
@@ -218,6 +228,7 @@ export function SupervisionVisitWizard({
             lastEntryDate: null,
             photoFile: null,
             photoPreview: null,
+            pendingLocalId: null,
             autoFindingId: null,
             autoTicketCode: null,
           })),
@@ -254,6 +265,7 @@ export function SupervisionVisitWizard({
               lastEntryDate: null,
               photoFile: null,
               photoPreview: null,
+              pendingLocalId: null,
               autoFindingId: null,
               autoTicketCode: null,
             })),
@@ -288,13 +300,21 @@ export function SupervisionVisitWizard({
   }
 
   /** Collect and POST all doc verificaciones to the verificaciones-fisicas endpoint */
-  async function saveVerificaciones() {
+  async function saveVerificaciones(overrides?: {
+    global?: DocumentCheckResult[];
+    instalacion?: DocumentCheckResult[];
+    guardia?: GuardDocCheckResult[];
+  }) {
     if (!visit) return;
     if (verificacionesSaved) return;
 
+    const globalSrc = overrides?.global ?? globalDocResults;
+    const instSrc = overrides?.instalacion ?? documentResults;
+    const guardSrc = overrides?.guardia ?? guardDocResults;
+
     // Upload all doc verification photos first
     const globalPhotoUrls: Record<string, string> = {};
-    for (const result of globalDocResults) {
+    for (const result of globalSrc) {
       if (result.photoFile) {
         const url = await uploadDocPhoto(visit.id, result.photoFile, result.code);
         if (url) globalPhotoUrls[result.code] = url;
@@ -302,7 +322,7 @@ export function SupervisionVisitWizard({
     }
 
     const instalacionPhotoUrls: Record<string, string> = {};
-    for (const result of documentResults) {
+    for (const result of instSrc) {
       if (result.photoFile) {
         const url = await uploadDocPhoto(visit.id, result.photoFile, result.code);
         if (url) instalacionPhotoUrls[result.code] = url;
@@ -310,7 +330,7 @@ export function SupervisionVisitWizard({
     }
 
     const guardPhotoUrls: Record<string, Record<string, string>> = {};
-    for (const guardResult of guardDocResults) {
+    for (const guardResult of guardSrc) {
       guardPhotoUrls[guardResult.guardiaId] = {};
       for (const doc of guardResult.docs) {
         if (doc.photoFile) {
@@ -332,7 +352,7 @@ export function SupervisionVisitWizard({
     }> = [];
 
     // Global doc results — use tipoDocId (UUID) so la grilla los pueda indexar
-    for (const result of globalDocResults) {
+    for (const result of globalSrc) {
       const tipo = globalDocTypes.find((t) => t.code === result.code);
       verificaciones.push({
         ...(tipo?.tipoDocId ? { tipoDocId: tipo.tipoDocId } : { guardiaDocType: result.code }),
@@ -345,7 +365,7 @@ export function SupervisionVisitWizard({
     }
 
     // Installation doc results — use tipoDocId (UUID)
-    for (const result of documentResults) {
+    for (const result of instSrc) {
       const tipo = documentTypes.find((t) => t.code === result.code);
       verificaciones.push({
         ...(tipo?.tipoDocId ? { tipoDocId: tipo.tipoDocId } : { guardiaDocType: result.code }),
@@ -358,7 +378,7 @@ export function SupervisionVisitWizard({
     }
 
     // Guard doc results — keep guardiaDocType (by design, capa guardia uses codes)
-    for (const guardResult of guardDocResults) {
+    for (const guardResult of guardSrc) {
       for (const doc of guardResult.docs) {
         const guardUrls = guardPhotoUrls[guardResult.guardiaId] ?? {};
         verificaciones.push({
@@ -478,8 +498,9 @@ export function SupervisionVisitWizard({
         bookPhotoUrl = photoJson.data.photoUrl;
       }
 
-      // Save verificaciones (global + instalacion + guardia docs) — also uploads doc photos
-      await saveVerificaciones();
+      // NOTE: saveVerificaciones se ejecuta al cierre (handleFinalize), no aquí.
+      // Esto permite que los hallazgos diferidos (pendingFindings) se persistan
+      // primero y mappeen su `hallazgoId` real en cada verificación.
 
       // Save book data + legacy document checklist
       const documentChecklist: Record<string, boolean> = {};
@@ -658,6 +679,55 @@ export function SupervisionVisitWizard({
         }).catch(() => { /* non-blocking */ });
       }
 
+      // 1) Persistir pendingFindings en orden (resuelve hallazgos diferidos del Step 3)
+      const localToReal = new Map<string, { id: string; ticketCode: string | null }>();
+      for (const pf of pendingFindings) {
+        const findingRes = await fetch(`/api/ops/supervision/${visit.id}/findings`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            category: pf.category,
+            severity: pf.severity,
+            description: pf.description,
+            guardId: pf.guardId,
+            ...(pf.tipoDocId ? { tipoDocId: pf.tipoDocId } : {}),
+            ...(pf.guardiaDocCode ? { guardiaDocCode: pf.guardiaDocCode } : {}),
+          }),
+        });
+        const findingJson = await findingRes.json().catch(() => ({}));
+        if (!findingRes.ok || !findingJson.success) {
+          toast.error(`Error al crear hallazgo: ${pf.description.slice(0, 50)}`);
+          throw new Error(findingJson.error ?? "Error al crear hallazgo diferido");
+        }
+        localToReal.set(pf.localId, {
+          id: findingJson.data.id,
+          ticketCode: findingJson.data.ticketCode ?? null,
+        });
+      }
+
+      // 2) Remap pendingLocalId → IDs reales sobre los doc results
+      const remap = (arr: DocumentCheckResult[]): DocumentCheckResult[] =>
+        arr.map((dr) => {
+          if (!dr.pendingLocalId) return dr;
+          const real = localToReal.get(dr.pendingLocalId);
+          return real
+            ? { ...dr, autoFindingId: real.id, autoTicketCode: real.ticketCode }
+            : dr;
+        });
+      const remappedGlobal = remap(globalDocResults);
+      const remappedDoc = remap(documentResults);
+      const remappedGuard = guardDocResults.map((g) => ({ ...g, docs: remap(g.docs) }));
+      setGlobalDocResults(remappedGlobal);
+      setDocumentResults(remappedDoc);
+      setGuardDocResults(remappedGuard);
+
+      // 3) Persistir verificaciones físicas con los IDs reales
+      await saveVerificaciones({
+        global: remappedGlobal,
+        instalacion: remappedDoc,
+        guardia: remappedGuard,
+      });
+
       const res = await fetch(`/api/ops/supervision/${visit.id}/checkout`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -737,6 +807,18 @@ export function SupervisionVisitWizard({
     return { lat: coords.latitude, lng: coords.longitude };
   }
 
+  // Pending finding handlers — created locally on toggle, persisted at checkout
+  function addPendingFinding(pf: PendingFinding) {
+    setPendingFindings((prev) => {
+      const filtered = prev.filter((p) => p.source !== pf.source);
+      return [...filtered, pf];
+    });
+  }
+
+  function removePendingFinding(source: string) {
+    setPendingFindings((prev) => prev.filter((p) => p.source !== source));
+  }
+
   // Finding handlers
   function handleFindingCreated(finding: Finding) {
     setFindings((prev) => [...prev, finding]);
@@ -800,6 +882,7 @@ export function SupervisionVisitWizard({
           ).length,
           checklistCount: checklistResults.filter((r) => r.isChecked).length,
           photosCount: capturedPhotos.length,
+          pendingFindings,
         },
       };
 
@@ -983,6 +1066,11 @@ export function SupervisionVisitWizard({
           dotacionGuards={guards}
           onFindingCreated={handleFindingCreated}
           onFindingStatusChange={handleFindingStatusChange}
+          onAddPendingFinding={addPendingFinding}
+          onRemovePendingFinding={removePendingFinding}
+          onFindingResolvedLocally={(id) =>
+            setOpenFindings((prev) => prev.filter((f) => f.id !== id))
+          }
           onNext={handleStep3Next}
           onPrev={() => setCurrentStep(2)}
           saving={saving}
@@ -1040,6 +1128,8 @@ export function SupervisionVisitWizard({
           onFinalize={handleFinalize}
           onPrev={() => setCurrentStep(4)}
           saving={saving}
+          pendingFindings={pendingFindings}
+          onRemovePendingFinding={removePendingFinding}
         />
       )}
 
