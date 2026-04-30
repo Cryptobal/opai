@@ -56,7 +56,7 @@ import {
 import { cn, formatCLP, formatUFSuffix } from "@/lib/utils";
 import { useLocalStorage } from "@/lib/hooks";
 import { CrmAccount, CrmDeal, CrmPipelineStage } from "@/types";
-import { EmptyState } from "@/components/opai/EmptyState";
+import { EmptyState } from "@/components/opai-ds";
 import { GripVertical, Loader2, Plus, ExternalLink, TrendingUp, ChevronRight, ChevronDown, Clock3, FileText, MessageSquare } from "lucide-react";
 import { CrmToolbar } from "./CrmToolbar";
 import type { ViewMode } from "@/components/shared/ViewToggle";
@@ -1156,14 +1156,14 @@ export function CrmDealsClient({
         <>
           {deals.length === 0 ? (
             <EmptyState
-              icon={<TrendingUp className="h-8 w-8" />}
+              icon={TrendingUp}
               title="Sin negocios"
               description="No hay negocios creados todavía."
               compact
             />
           ) : filteredDeals.length === 0 ? (
             <EmptyState
-              icon={<TrendingUp className="h-8 w-8" />}
+              icon={TrendingUp}
               title="Sin resultados"
               description="No hay negocios para los filtros o búsqueda seleccionados."
               compact
@@ -1257,7 +1257,7 @@ export function CrmDealsClient({
             {filteredDeals.length === 0 ? (
               <div className="p-5">
                 <EmptyState
-                  icon={<TrendingUp className="h-8 w-8" />}
+                  icon={TrendingUp}
                   title="Sin negocios"
                   description={
                     search || stageFilter !== "all"
