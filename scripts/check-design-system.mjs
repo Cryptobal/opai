@@ -88,6 +88,7 @@ const DS_SOURCE_PATHS = [
   "src/components/opai-ds/MetricBar.tsx",
   "src/components/opai-ds/Toolbar.tsx",
   "src/components/opai-ds/DataTable.tsx",
+  "src/components/opai-ds/DataView.tsx",
   "src/components/opai-ds/HeatGrid.tsx",
   "src/components/opai-ds/Avatar.tsx",
 ];

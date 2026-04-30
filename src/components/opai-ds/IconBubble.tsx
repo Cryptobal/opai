@@ -1,30 +1,41 @@
 "use client";
 
 /**
- * OPAI DS v3 — IconBubble
+ * OPAI DS v3 — IconBubble (alias: IconTile)
  *
  * Wrapper estandarizado para íconos de Lucide. Resuelve el feedback
- * de Carlos: "los íconos deben tener un diseño impresionante, moderno,
+ * original: "los íconos deben tener un diseño impresionante, moderno,
  * minimalista, no plano de colores tampoco arcoíris".
  *
  * Composición visual:
  *   - Contenedor cuadrado redondeado (rounded-ds-md o rounded-full según prop).
- *   - Background: gradient sutil from-{variant}/15 to-{variant}/5.
- *   - Inset ring: 1px de --ds-text-1/0.06 (light) o white/6 (dark).
+ *   - Background: gradient sutil from-{variant}/15 to-{variant}/5
+ *     o tinte sólido categórico (cuando se usa `tone`).
  *   - Sombra externa: shadow-ds-xs.
- *   - Ícono Lucide centrado con color {variant}.
+ *   - Ícono Lucide centrado, strokeWidth 1.75.
  *
- * Variantes semánticas — NO arcoíris: solo se usan donde *aporta* significado.
- *   - brand: el principal, para el módulo "Inventario" y CTAs primarias.
- *   - neutral: para acciones secundarias / metadata.
- *   - ok / warn / danger / info: para estado real.
+ * Dos modos visuales mutuamente excluyentes:
+ *
+ * 1. SEMÁNTICO (`variant`, default) — NO arcoíris: variantes solo donde
+ *    *aporta* significado.
+ *    - brand: el principal, para módulos y CTAs primarias.
+ *    - neutral: para acciones secundarias / metadata.
+ *    - ok / warn / danger / info: para estado real.
+ *
+ * 2. CATEGÓRICO (`tone`) — para agrupar visualmente categorías sin
+ *    significado de estado (ej: tipos de movimiento de inventario,
+ *    secciones de un módulo). Render plano y sólido sobre tint-*.
+ *    Usar con disciplina: máximo 2-3 tonos por superficie. NO mezclar
+ *    con variant (tone gana si ambos están).
  */
 
 import { cn } from "@/lib/utils";
 import { type LucideIcon } from "lucide-react";
+import { type Tone, toneClasses } from "@/lib/design-system/tokens";
 
 export type IconBubbleVariant = "brand" | "neutral" | "ok" | "warn" | "danger" | "info";
 export type IconBubbleSize = "sm" | "md" | "lg" | "xl";
+export type IconBubbleTone = Tone;
 
 const VARIANT_BG: Record<IconBubbleVariant, string> = {
   brand:   "bg-gradient-to-br from-primary/20 to-primary/5",
@@ -60,7 +71,10 @@ const SIZE_ICON: Record<IconBubbleSize, string> = {
 
 export interface IconBubbleProps {
   icon: LucideIcon;
+  /** Variante semántica (estados / brand / neutral). Ignorada si `tone` está definido. */
   variant?: IconBubbleVariant;
+  /** Tono categórico (no semántico). Tiene precedencia sobre `variant`. */
+  tone?: IconBubbleTone;
   size?: IconBubbleSize;
   /** Forma circular en vez de redondeada. */
   rounded?: "square" | "circle";
@@ -70,10 +84,15 @@ export interface IconBubbleProps {
 export function IconBubble({
   icon: Icon,
   variant = "neutral",
+  tone,
   size = "md",
   rounded = "square",
   className,
 }: IconBubbleProps) {
+  const useTone = tone !== undefined;
+  const containerColor = useTone ? toneClasses(tone) : VARIANT_BG[variant];
+  const iconColor = useTone ? "" : VARIANT_FG[variant];
+
   return (
     <span
       className={cn(
@@ -81,11 +100,20 @@ export function IconBubble({
         "ds-ring-inset shadow-ds-xs",
         rounded === "circle" ? "rounded-full" : "rounded-ds-md",
         SIZE_BOX[size],
-        VARIANT_BG[variant],
+        containerColor,
         className,
       )}
     >
-      <Icon className={cn(SIZE_ICON[size], VARIANT_FG[variant])} strokeWidth={1.75} />
+      <Icon className={cn(SIZE_ICON[size], iconColor)} strokeWidth={1.75} />
     </span>
   );
 }
+
+/**
+ * Alias semántico de IconBubble. Preferir este nombre en código nuevo
+ * cuando se use con `tone` (categórico). Misma API.
+ */
+export const IconTile = IconBubble;
+export type IconTileProps = IconBubbleProps;
+export type IconTileTone = IconBubbleTone;
+export type IconTileSize = IconBubbleSize;
