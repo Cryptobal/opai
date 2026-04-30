@@ -68,6 +68,14 @@ const MIGRATED_PATHS = [
   // agregan porque siguen teniendo otros patrones legacy (text-[10px],
   // hardcoded colors, etc.) fuera del EmptyState migrado.
   //
+  // Paso 4C — consolidó DataTable legacy → DataTable DS v3 en 13 Client
+  // Components (8 finance/ + 5 ops/rondas/). Mismo criterio: call sites NO
+  // se agregan. Especialmente Rondas/* tiene drift dark-only (text-[#94a3b8],
+  // bg-[#0a0f1c]) que se aborda en una sesión futura específica de Rondas.
+  // Los 3 Server Component pages (auditoria, audit-pautas, payroll/parameters)
+  // NO se migraron — quedan con DataTable legacy hasta sesión 4F (column
+  // defs con render functions no cruzan la frontera RSC).
+  //
   // Paso 4D — cluster final chico (Avatar, Breadcrumb, LoadingSpinner,
   // StatusBadge, FilterBar, ModuleCard, Stepper, FormField). 8 componentes
   // legacy eliminados. Mismo criterio: los call sites NO se agregan a

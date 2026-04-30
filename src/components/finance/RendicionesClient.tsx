@@ -26,8 +26,7 @@ import {
 import { DateRangePicker, type DateRange } from "@/components/ui/date-range-picker";
 import { PagosTab } from "@/components/finance/PagosTab";
 import type { Payment, PendingRendicion } from "@/components/finance/PagosTab";
-import { DataTable, type DataTableColumn } from "@/components/opai";
-import { EmptyState } from "@/components/opai-ds";
+import { DataTable, EmptyState, type DataTableColumn } from "@/components/opai-ds";
 import {
   Plus,
   Receipt,
@@ -412,15 +411,15 @@ function RendicionesClientInner({
 
   const showSelection = canApprove || canPay;
 
-  const tableColumns: DataTableColumn[] = useMemo(
+  const tableColumns: DataTableColumn<RendicionRow>[] = useMemo(
     () => [
       ...(showSelection
         ? [
             {
-              key: "_select",
-              label: "",
-              className: "w-10",
-              render: (_: unknown, row: RendicionRow) => {
+              id: "_select",
+              header: "",
+              width: "w-10",
+              cell: (row: RendicionRow) => {
                 if (!isSelectable(row.status)) return <div className="w-4" />;
                 return (
                   <div
@@ -459,13 +458,13 @@ function RendicionesClientInner({
                   </div>
                 );
               },
-            } satisfies DataTableColumn,
+            } satisfies DataTableColumn<RendicionRow>,
           ]
         : []),
       {
-        key: "code",
-        label: "Código",
-        render: (value: string, row: RendicionRow) => (
+        id: "code",
+        header: "Código",
+        cell: (row) => (
           <button
             type="button"
             onClick={(e) => {
@@ -474,71 +473,67 @@ function RendicionesClientInner({
             }}
             className="font-mono text-xs text-primary underline hover:text-primary/80"
           >
-            {value}
+            {row.code}
           </button>
         ),
       },
       {
-        key: "date",
-        label: "Fecha",
-        render: (value: string) => (
+        id: "date",
+        header: "Fecha",
+        cell: (row) => (
           <span className="text-muted-foreground">
-            {format(new Date(value), "dd MMM yyyy", { locale: es })}
+            {format(new Date(row.date), "dd MMM yyyy", { locale: es })}
           </span>
         ),
       },
       {
-        key: "type",
-        label: "Tipo",
-        render: (value: string) => (
+        id: "type",
+        header: "Tipo",
+        cell: (row) => (
           <span className="inline-flex items-center gap-1 text-xs">
-            {value === "MILEAGE" ? (
+            {row.type === "MILEAGE" ? (
               <Car className="h-3 w-3" />
             ) : (
               <Receipt className="h-3 w-3" />
             )}
-            {TYPE_LABELS[value] ?? value}
+            {TYPE_LABELS[row.type] ?? row.type}
           </span>
         ),
       },
       {
-        key: "itemName",
-        label: "Ítem",
-        render: (value: string | null) => (
-          <span className="text-muted-foreground">{value ?? "—"}</span>
+        id: "itemName",
+        header: "Ítem",
+        cell: (row) => (
+          <span className="text-muted-foreground">{row.itemName ?? "—"}</span>
         ),
       },
       {
-        key: "description",
-        label: "Motivo",
-        render: (value: string | null) =>
-          value ? (
+        id: "description",
+        header: "Motivo",
+        cell: (row) =>
+          row.description ? (
             <span
               className="text-muted-foreground text-xs max-w-[150px] truncate block"
-              title={value}
+              title={row.description}
             >
-              {value}
+              {row.description}
             </span>
           ) : (
             <span className="text-muted-foreground">—</span>
           ),
       },
       {
-        key: "amount",
-        label: "Monto",
-        className: "text-right",
-        render: (value: number) => (
-          <span className="font-medium tabular-nums">
-            {fmtCLP.format(value)}
-          </span>
-        ),
+        id: "amount",
+        header: "Monto",
+        align: "right",
+        cell: (row) => <span className="font-medium">{fmtCLP.format(row.amount)}</span>,
       },
       {
-        key: "status",
-        label: "Estado",
-        render: (value: string) => {
-          const statusCfg = STATUS_CONFIG[value] ?? {
-            label: value,
+        id: "status",
+        header: "Estado",
+        cell: (row) => {
+          const statusCfg = STATUS_CONFIG[row.status] ?? {
+            label: row.status,
             className: "bg-muted text-muted-foreground",
           };
           return (
@@ -547,20 +542,20 @@ function RendicionesClientInner({
         },
       },
       {
-        key: "submitterName",
-        label: "Solicitante",
-        render: (value: string) => (
-          <span className="text-muted-foreground text-xs">{value}</span>
+        id: "submitterName",
+        header: "Solicitante",
+        cell: (row) => (
+          <span className="text-muted-foreground text-xs">{row.submitterName}</span>
         ),
       },
       {
-        key: "beneficiaryName",
-        label: "Destinatario",
-        render: (value: string | null) =>
-          value ? (
+        id: "beneficiaryName",
+        header: "Destinatario",
+        cell: (row) =>
+          row.beneficiaryName ? (
             <span className="text-xs text-emerald-400 flex items-center gap-1">
               <ArrowRight className="h-3 w-3" />
-              {value}
+              {row.beneficiaryName}
             </span>
           ) : (
             <span className="text-muted-foreground text-xs">—</span>
@@ -734,11 +729,12 @@ function RendicionesClientInner({
               <div className="hidden md:block">
                 <DataTable
                   columns={tableColumns}
-                  data={filtered}
+                  rows={filtered}
+                  rowKey={(row) => row.id}
                   onRowClick={(row) =>
                     isSelectable(row.status) ? toggleSelect(row.id) : undefined
                   }
-                  compact
+                  empty={<EmptyState icon={Receipt} title="Sin rendiciones" compact />}
                 />
               </div>
 

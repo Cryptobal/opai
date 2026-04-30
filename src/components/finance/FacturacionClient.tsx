@@ -16,8 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { DataTable, type DataTableColumn } from "@/components/opai";
-import { EmptyState } from "@/components/opai-ds";
+import { DataTable, EmptyState, type DataTableColumn } from "@/components/opai-ds";
 import {
   Dialog,
   DialogContent,
@@ -326,24 +325,24 @@ function DtesTab({ dtes, canManage }: { dtes: DteRow[]; canManage: boolean }) {
         <>
           {/* Desktop table */}
           <div className="hidden md:block">
-            <DataTable
+            <DataTable<DteRow>
               columns={[
                 {
-                  key: "dteType",
-                  label: "Tipo",
-                  render: (v: number) => (
-                    <span className="text-xs">{DTE_TYPE_LABELS[v] ?? `Tipo ${v}`}</span>
+                  id: "dteType",
+                  header: "Tipo",
+                  cell: (row) => (
+                    <span className="text-xs">{DTE_TYPE_LABELS[row.dteType] ?? `Tipo ${row.dteType}`}</span>
                   ),
                 },
                 {
-                  key: "folio",
-                  label: "Folio",
-                  render: (v: number) => <span className="font-mono text-xs">{v}</span>,
+                  id: "folio",
+                  header: "Folio",
+                  cell: (row) => <span className="font-mono text-xs">{row.folio}</span>,
                 },
                 {
-                  key: "receiverName",
-                  label: "Receptor",
-                  render: (_v: string, row: DteRow) => (
+                  id: "receiverName",
+                  header: "Receptor",
+                  cell: (row) => (
                     <div>
                       <div>{row.receiverName}</div>
                       <div className="text-xs text-muted-foreground font-mono">{row.receiverRut}</div>
@@ -351,28 +350,28 @@ function DtesTab({ dtes, canManage }: { dtes: DteRow[]; canManage: boolean }) {
                   ),
                 },
                 {
-                  key: "netAmount",
-                  label: "Neto",
-                  className: "text-right",
-                  render: (v: number) => <span className="font-mono text-xs">{fmtCLP.format(v)}</span>,
+                  id: "netAmount",
+                  header: "Neto",
+                  align: "right",
+                  cell: (row) => fmtCLP.format(row.netAmount),
                 },
                 {
-                  key: "taxAmount",
-                  label: "IVA",
-                  className: "text-right",
-                  render: (v: number) => <span className="font-mono text-xs">{fmtCLP.format(v)}</span>,
+                  id: "taxAmount",
+                  header: "IVA",
+                  align: "right",
+                  cell: (row) => fmtCLP.format(row.taxAmount),
                 },
                 {
-                  key: "totalAmount",
-                  label: "Total",
-                  className: "text-right",
-                  render: (v: number) => <span className="font-mono text-xs font-medium">{fmtCLP.format(v)}</span>,
+                  id: "totalAmount",
+                  header: "Total",
+                  align: "right",
+                  cell: (row) => <span className="font-medium">{fmtCLP.format(row.totalAmount)}</span>,
                 },
                 {
-                  key: "siiStatus",
-                  label: "Estado SII",
-                  render: (v: string) => {
-                    const stCfg = SII_STATUS_CONFIG[v] ?? { label: v, className: "bg-muted" };
+                  id: "siiStatus",
+                  header: "Estado SII",
+                  cell: (row) => {
+                    const stCfg = SII_STATUS_CONFIG[row.siiStatus] ?? { label: row.siiStatus, className: "bg-muted" };
                     return (
                       <Badge variant="outline" className={cn("text-xs", stCfg.className)}>
                         {stCfg.label}
@@ -381,18 +380,18 @@ function DtesTab({ dtes, canManage }: { dtes: DteRow[]; canManage: boolean }) {
                   },
                 },
                 {
-                  key: "createdAt",
-                  label: "Fecha",
-                  render: (v: string) => (
+                  id: "createdAt",
+                  header: "Fecha",
+                  cell: (row) => (
                     <span className="text-muted-foreground text-xs">
-                      {format(new Date(v), "dd MMM yyyy", { locale: es })}
+                      {format(new Date(row.createdAt), "dd MMM yyyy", { locale: es })}
                     </span>
                   ),
                 },
                 {
-                  key: "_actions",
-                  label: "",
-                  render: (_v: unknown, row: DteRow) => (
+                  id: "_actions",
+                  header: "",
+                  cell: (row) => (
                     <div className="flex items-center gap-1">
                       <Button
                         variant="ghost"
@@ -436,9 +435,10 @@ function DtesTab({ dtes, canManage }: { dtes: DteRow[]; canManage: boolean }) {
                     </div>
                   ),
                 },
-              ] satisfies DataTableColumn[]}
-              data={filtered}
-              compact
+              ] satisfies DataTableColumn<DteRow>[]}
+              rows={filtered}
+              rowKey={(row) => row.id}
+              empty={<EmptyState icon={FileText} title="Sin documentos" compact />}
             />
           </div>
 
@@ -557,34 +557,35 @@ function FoliosTab({ canManage }: { canManage: boolean }) {
         <>
           {/* Desktop table */}
           <div className="hidden md:block">
-            <DataTable
+            <DataTable<FolioStatus>
               columns={[
                 {
-                  key: "dteType",
-                  label: "Tipo DTE",
-                  render: (v: number) => <>{DTE_TYPE_LABELS[v] ?? `Tipo ${v}`}</>,
+                  id: "dteType",
+                  header: "Tipo DTE",
+                  cell: (row) => <>{DTE_TYPE_LABELS[row.dteType] ?? `Tipo ${row.dteType}`}</>,
                 },
                 {
-                  key: "lastFolio",
-                  label: "Último folio",
-                  className: "text-center",
-                  render: (v: number) => <span className="font-mono text-xs">{v || "—"}</span>,
+                  id: "lastFolio",
+                  header: "Último folio",
+                  align: "center",
+                  cell: (row) => <span className="font-mono text-xs">{row.lastFolio || "—"}</span>,
                 },
                 {
-                  key: "nextFolio",
-                  label: "Siguiente folio",
-                  className: "text-center",
-                  render: (v: number) => <span className="font-mono text-xs">{v}</span>,
+                  id: "nextFolio",
+                  header: "Siguiente folio",
+                  align: "center",
+                  cell: (row) => <span className="font-mono text-xs">{row.nextFolio}</span>,
                 },
                 {
-                  key: "totalIssued",
-                  label: "Total emitidos",
-                  className: "text-center",
-                  render: (v: number) => <span className="font-mono text-xs">{v}</span>,
+                  id: "totalIssued",
+                  header: "Total emitidos",
+                  align: "center",
+                  cell: (row) => <span className="font-mono text-xs">{row.totalIssued}</span>,
                 },
-              ] satisfies DataTableColumn[]}
-              data={folios}
-              compact
+              ] satisfies DataTableColumn<FolioStatus>[]}
+              rows={folios}
+              rowKey={(row) => String(row.dteType)}
+              empty={<EmptyState icon={Hash} title="Sin datos de folios" compact />}
             />
           </div>
 
@@ -803,24 +804,24 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
         <>
           {/* Desktop table */}
           <div className="hidden md:block">
-            <DataTable
+            <DataTable<ReceivedDteRow>
               columns={[
                 {
-                  key: "dteType",
-                  label: "Tipo",
-                  render: (v: number) => (
-                    <span className="text-xs">{DTE_TYPE_LABELS[v] ?? `Tipo ${v}`}</span>
+                  id: "dteType",
+                  header: "Tipo",
+                  cell: (row) => (
+                    <span className="text-xs">{DTE_TYPE_LABELS[row.dteType] ?? `Tipo ${row.dteType}`}</span>
                   ),
                 },
                 {
-                  key: "folio",
-                  label: "Folio",
-                  render: (v: number) => <span className="font-mono text-xs">{v}</span>,
+                  id: "folio",
+                  header: "Folio",
+                  cell: (row) => <span className="font-mono text-xs">{row.folio}</span>,
                 },
                 {
-                  key: "issuerName",
-                  label: "Emisor",
-                  render: (_v: string, row: ReceivedDteRow) => (
+                  id: "issuerName",
+                  header: "Emisor",
+                  cell: (row) => (
                     <div>
                       <div>{row.issuerName}</div>
                       <div className="text-xs text-muted-foreground font-mono">{row.issuerRut}</div>
@@ -828,37 +829,37 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
                   ),
                 },
                 {
-                  key: "date",
-                  label: "Fecha",
-                  render: (v: string) => (
+                  id: "date",
+                  header: "Fecha",
+                  cell: (row) => (
                     <span className="text-muted-foreground text-xs">
-                      {format(new Date(v), "dd MMM yyyy", { locale: es })}
+                      {format(new Date(row.date), "dd MMM yyyy", { locale: es })}
                     </span>
                   ),
                 },
                 {
-                  key: "netAmount",
-                  label: "Neto",
-                  className: "text-right",
-                  render: (v: number) => <span className="font-mono text-xs">{fmtCLP.format(v)}</span>,
+                  id: "netAmount",
+                  header: "Neto",
+                  align: "right",
+                  cell: (row) => fmtCLP.format(row.netAmount),
                 },
                 {
-                  key: "taxAmount",
-                  label: "IVA",
-                  className: "text-right",
-                  render: (v: number) => <span className="font-mono text-xs">{fmtCLP.format(v)}</span>,
+                  id: "taxAmount",
+                  header: "IVA",
+                  align: "right",
+                  cell: (row) => fmtCLP.format(row.taxAmount),
                 },
                 {
-                  key: "totalAmount",
-                  label: "Total",
-                  className: "text-right",
-                  render: (v: number) => <span className="font-mono text-xs font-medium">{fmtCLP.format(v)}</span>,
+                  id: "totalAmount",
+                  header: "Total",
+                  align: "right",
+                  cell: (row) => <span className="font-medium">{fmtCLP.format(row.totalAmount)}</span>,
                 },
                 {
-                  key: "receptionStatus",
-                  label: "Recepción",
-                  render: (v: string) => {
-                    const recCfg = RECEPTION_STATUS_CONFIG[v] ?? { label: v, className: "bg-muted" };
+                  id: "receptionStatus",
+                  header: "Recepción",
+                  cell: (row) => {
+                    const recCfg = RECEPTION_STATUS_CONFIG[row.receptionStatus] ?? { label: row.receptionStatus, className: "bg-muted" };
                     return (
                       <Badge variant="outline" className={cn("text-xs", recCfg.className)}>
                         {recCfg.label}
@@ -867,10 +868,10 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
                   },
                 },
                 {
-                  key: "paymentStatus",
-                  label: "Pago",
-                  render: (v: string) => {
-                    const payCfg = PAYMENT_STATUS_CONFIG[v] ?? { label: v, className: "bg-muted" };
+                  id: "paymentStatus",
+                  header: "Pago",
+                  cell: (row) => {
+                    const payCfg = PAYMENT_STATUS_CONFIG[row.paymentStatus] ?? { label: row.paymentStatus, className: "bg-muted" };
                     return (
                       <Badge variant="outline" className={cn("text-xs", payCfg.className)}>
                         {payCfg.label}
@@ -878,9 +879,10 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
                     );
                   },
                 },
-              ] satisfies DataTableColumn[]}
-              data={filtered}
-              compact
+              ] satisfies DataTableColumn<ReceivedDteRow>[]}
+              rows={filtered}
+              rowKey={(row) => row.id}
+              empty={<EmptyState icon={FileInput} title="Sin documentos recibidos" compact />}
             />
           </div>
 

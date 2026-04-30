@@ -21,8 +21,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { DataTable, type DataTableColumn } from "@/components/opai";
-import { EmptyState } from "@/components/opai-ds";
+import { DataTable, EmptyState, type DataTableColumn } from "@/components/opai-ds";
 import {
   Plus,
   Search,
@@ -225,18 +224,16 @@ export function ProveedoresClient({ suppliers, accounts, canManage }: Props) {
   };
 
   const tableColumns = useMemo(() => {
-    const cols: DataTableColumn[] = [
+    const cols: DataTableColumn<SupplierRow>[] = [
       {
-        key: "rut",
-        label: "RUT",
-        render: (_v: string, row: SupplierRow) => (
-          <span className="font-mono text-xs">{row.rut}</span>
-        ),
+        id: "rut",
+        header: "RUT",
+        cell: (row) => <span className="font-mono text-xs">{row.rut}</span>,
       },
       {
-        key: "name",
-        label: "Razón Social",
-        render: (_v: string, row: SupplierRow) => (
+        id: "name",
+        header: "Razón Social",
+        cell: (row) => (
           <div>
             <div>{row.name}</div>
             {row.tradeName && (
@@ -246,29 +243,29 @@ export function ProveedoresClient({ suppliers, accounts, canManage }: Props) {
         ),
       },
       {
-        key: "email",
-        label: "Email",
-        render: (_v: string | null, row: SupplierRow) => (
+        id: "email",
+        header: "Email",
+        cell: (row) => (
           <span className="text-muted-foreground">{row.email ?? "—"}</span>
         ),
       },
       {
-        key: "phone",
-        label: "Teléfono",
-        render: (_v: string | null, row: SupplierRow) => (
+        id: "phone",
+        header: "Teléfono",
+        cell: (row) => (
           <span className="text-muted-foreground">{row.phone ?? "—"}</span>
         ),
       },
       {
-        key: "paymentTermDays",
-        label: "Días pago",
-        className: "text-center",
-        render: (v: number) => <span>{v}</span>,
+        id: "paymentTermDays",
+        header: "Días pago",
+        align: "center",
+        cell: (row) => row.paymentTermDays,
       },
       {
-        key: "isActive",
-        label: "Estado",
-        render: (_v: boolean, row: SupplierRow) => (
+        id: "isActive",
+        header: "Estado",
+        cell: (row) => (
           <Badge
             variant="outline"
             className={cn(
@@ -286,9 +283,9 @@ export function ProveedoresClient({ suppliers, accounts, canManage }: Props) {
 
     if (canManage) {
       cols.push({
-        key: "_actions",
-        label: "",
-        render: (_v: unknown, row: SupplierRow) => (
+        id: "_actions",
+        header: "",
+        cell: (row) => (
           <div className="flex items-center gap-1">
             <Button
               variant="ghost"
@@ -383,9 +380,9 @@ export function ProveedoresClient({ suppliers, accounts, canManage }: Props) {
           <div className="hidden md:block">
             <DataTable
               columns={tableColumns}
-              data={filtered}
-              compact
-              emptyMessage="Sin proveedores"
+              rows={filtered}
+              rowKey={(row) => row.id}
+              empty={<EmptyState icon={Building2} title="Sin proveedores" compact />}
             />
           </div>
 

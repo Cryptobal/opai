@@ -25,8 +25,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { DataTable, type DataTableColumn } from "@/components/opai";
-import { EmptyState } from "@/components/opai-ds";
+import { DataTable, EmptyState, type DataTableColumn } from "@/components/opai-ds";
 import {
   BookText,
   FileSpreadsheet,
@@ -376,23 +375,22 @@ function AccountsTab({
         <>
           {/* Desktop table */}
           <div className="hidden md:block">
-            <DataTable
-              compact
+            <DataTable<AccountRow>
               columns={[
                 {
-                  key: "code",
-                  label: "Código",
-                  render: (_v, row) => (
+                  id: "code",
+                  header: "Código",
+                  cell: (row) => (
                     <span className="font-mono text-xs" style={{ paddingLeft: `${(row.level - 1) * 16}px` }}>
                       {row.code}
                     </span>
                   ),
                 },
-                { key: "name", label: "Nombre" },
+                { id: "name", header: "Nombre", cell: (row) => row.name },
                 {
-                  key: "type",
-                  label: "Tipo",
-                  render: (_v, row) => {
+                  id: "type",
+                  header: "Tipo",
+                  cell: (row) => {
                     const typeCfg = ACCOUNT_TYPE_CONFIG[row.type] ?? { label: row.type, className: "bg-muted" };
                     return (
                       <Badge variant="outline" className={cn("text-xs", typeCfg.className)}>
@@ -401,49 +399,55 @@ function AccountsTab({
                     );
                   },
                 },
-                { key: "level", label: "Nivel", className: "text-center", render: (v) => <span className="text-muted-foreground">{v}</span> },
                 {
-                  key: "acceptsEntries",
-                  label: "Movimientos",
-                  className: "text-center",
-                  render: (v) =>
-                    v ? (
+                  id: "level",
+                  header: "Nivel",
+                  align: "center",
+                  cell: (row) => <span className="text-muted-foreground">{row.level}</span>,
+                },
+                {
+                  id: "acceptsEntries",
+                  header: "Movimientos",
+                  align: "center",
+                  cell: (row) =>
+                    row.acceptsEntries ? (
                       <span className="text-emerald-400 text-xs">Sí</span>
                     ) : (
                       <span className="text-muted-foreground text-xs">No</span>
                     ),
                 },
                 {
-                  key: "isActive",
-                  label: "Estado",
-                  render: (v) => (
+                  id: "isActive",
+                  header: "Estado",
+                  cell: (row) => (
                     <Badge
                       variant="outline"
                       className={cn(
                         "text-xs",
-                        v
+                        row.isActive
                           ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
                           : "bg-zinc-500/15 text-zinc-400 border-zinc-500/30"
                       )}
                     >
-                      {v ? "Activa" : "Inactiva"}
+                      {row.isActive ? "Activa" : "Inactiva"}
                     </Badge>
                   ),
                 },
                 ...(canManage
                   ? [{
-                      key: "_actions",
-                      label: "",
-                      render: (_v: any, row: any) => (
+                      id: "_actions",
+                      header: "",
+                      cell: (row: AccountRow) => (
                         <Button variant="ghost" size="sm" onClick={() => openEdit(row)}>
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
                       ),
-                    }]
+                    } satisfies DataTableColumn<AccountRow>]
                   : []),
-              ] as DataTableColumn[]}
-              data={filtered}
-              emptyMessage="Sin cuentas"
+              ]}
+              rows={filtered}
+              rowKey={(row) => row.id}
+              empty={<EmptyState icon={BookText} title="Sin cuentas" compact />}
             />
           </div>
 
@@ -693,27 +697,26 @@ function JournalTab({
         <>
           {/* Desktop table */}
           <div className="hidden md:block">
-            <DataTable
-              compact
+            <DataTable<JournalRow>
               columns={[
                 {
-                  key: "number",
-                  label: "N°",
-                  render: (v) => <span className="font-mono text-xs">{v}</span>,
+                  id: "number",
+                  header: "N°",
+                  cell: (row) => <span className="font-mono text-xs">{row.number}</span>,
                 },
                 {
-                  key: "date",
-                  label: "Fecha",
-                  render: (v) => (
+                  id: "date",
+                  header: "Fecha",
+                  cell: (row) => (
                     <span className="text-muted-foreground">
-                      {format(new Date(v), "dd MMM yyyy", { locale: es })}
+                      {format(new Date(row.date), "dd MMM yyyy", { locale: es })}
                     </span>
                   ),
                 },
                 {
-                  key: "description",
-                  label: "Descripción",
-                  render: (_v, row) => (
+                  id: "description",
+                  header: "Descripción",
+                  cell: (row) => (
                     <div>
                       <div>{row.description}</div>
                       {row.reference && (
@@ -723,22 +726,22 @@ function JournalTab({
                   ),
                 },
                 {
-                  key: "totalDebit",
-                  label: "Debe",
-                  className: "text-right",
-                  render: (v) => <span className="font-mono text-xs">{fmtCLP.format(v)}</span>,
+                  id: "totalDebit",
+                  header: "Debe",
+                  align: "right",
+                  cell: (row) => fmtCLP.format(row.totalDebit),
                 },
                 {
-                  key: "totalCredit",
-                  label: "Haber",
-                  className: "text-right",
-                  render: (v) => <span className="font-mono text-xs">{fmtCLP.format(v)}</span>,
+                  id: "totalCredit",
+                  header: "Haber",
+                  align: "right",
+                  cell: (row) => fmtCLP.format(row.totalCredit),
                 },
                 {
-                  key: "status",
-                  label: "Estado",
-                  render: (v) => {
-                    const stCfg = JOURNAL_STATUS_CONFIG[v] ?? { label: v, className: "bg-muted" };
+                  id: "status",
+                  header: "Estado",
+                  cell: (row) => {
+                    const stCfg = JOURNAL_STATUS_CONFIG[row.status] ?? { label: row.status, className: "bg-muted" };
                     return (
                       <Badge variant="outline" className={cn("text-xs", stCfg.className)}>
                         {stCfg.label}
@@ -747,8 +750,9 @@ function JournalTab({
                   },
                 },
               ]}
-              data={filtered}
-              emptyMessage="Sin asientos"
+              rows={filtered}
+              rowKey={(row) => row.id}
+              empty={<EmptyState icon={FileSpreadsheet} title="Sin asientos" compact />}
             />
           </div>
 
@@ -896,53 +900,49 @@ function LedgerTab({ accounts }: { accounts: AccountRow[] }) {
         <>
           {/* Desktop table */}
           <div className="hidden md:block">
-            <DataTable
-              compact
+            <DataTable<LedgerEntry>
               columns={[
                 {
-                  key: "date",
-                  label: "Fecha",
-                  render: (v) => (
+                  id: "date",
+                  header: "Fecha",
+                  cell: (row) => (
                     <span className="text-muted-foreground">
-                      {format(new Date(v), "dd MMM yyyy", { locale: es })}
+                      {format(new Date(row.date), "dd MMM yyyy", { locale: es })}
                     </span>
                   ),
                 },
                 {
-                  key: "journalEntryNumber",
-                  label: "N° Asiento",
-                  render: (v) => <span className="font-mono text-xs">#{v}</span>,
+                  id: "journalEntryNumber",
+                  header: "N° Asiento",
+                  cell: (row) => <span className="font-mono text-xs">#{row.journalEntryNumber}</span>,
                 },
-                { key: "description", label: "Descripción" },
+                { id: "description", header: "Descripción", cell: (row) => row.description },
                 {
-                  key: "debit",
-                  label: "Debe",
-                  className: "text-right",
-                  render: (v) => (
-                    <span className="font-mono text-xs">{v > 0 ? fmtCLP.format(v) : ""}</span>
-                  ),
+                  id: "debit",
+                  header: "Debe",
+                  align: "right",
+                  cell: (row) => (row.debit > 0 ? fmtCLP.format(row.debit) : ""),
                 },
                 {
-                  key: "credit",
-                  label: "Haber",
-                  className: "text-right",
-                  render: (v) => (
-                    <span className="font-mono text-xs">{v > 0 ? fmtCLP.format(v) : ""}</span>
-                  ),
+                  id: "credit",
+                  header: "Haber",
+                  align: "right",
+                  cell: (row) => (row.credit > 0 ? fmtCLP.format(row.credit) : ""),
                 },
                 {
-                  key: "balance",
-                  label: "Saldo",
-                  className: "text-right",
-                  render: (v) => (
-                    <span className={cn("font-mono text-xs font-medium", v < 0 ? "text-red-400" : "")}>
-                      {fmtCLP.format(v)}
+                  id: "balance",
+                  header: "Saldo",
+                  align: "right",
+                  cell: (row) => (
+                    <span className={cn("font-medium", row.balance < 0 ? "text-red-400" : "")}>
+                      {fmtCLP.format(row.balance)}
                     </span>
                   ),
                 },
               ]}
-              data={ledgerData}
-              emptyMessage="Sin movimientos"
+              rows={ledgerData}
+              rowKey={(_row, i) => String(i)}
+              empty={<EmptyState icon={BookOpen} title="Sin movimientos" compact />}
             />
           </div>
 
@@ -1068,35 +1068,34 @@ function PeriodsTab({
         <>
           {/* Desktop table */}
           <div className="hidden md:block">
-            <DataTable
-              compact
+            <DataTable<PeriodRow>
               columns={[
                 {
-                  key: "month",
-                  label: "Período",
-                  render: (_v, row) => (
+                  id: "month",
+                  header: "Período",
+                  cell: (row) => (
                     <span className="font-medium">{MONTH_NAMES[row.month - 1]} {row.year}</span>
                   ),
                 },
                 {
-                  key: "startDate",
-                  label: "Inicio",
-                  render: (v) => (
-                    <span className="text-muted-foreground">{format(new Date(v), "dd/MM/yyyy")}</span>
+                  id: "startDate",
+                  header: "Inicio",
+                  cell: (row) => (
+                    <span className="text-muted-foreground">{format(new Date(row.startDate), "dd/MM/yyyy")}</span>
                   ),
                 },
                 {
-                  key: "endDate",
-                  label: "Fin",
-                  render: (v) => (
-                    <span className="text-muted-foreground">{format(new Date(v), "dd/MM/yyyy")}</span>
+                  id: "endDate",
+                  header: "Fin",
+                  cell: (row) => (
+                    <span className="text-muted-foreground">{format(new Date(row.endDate), "dd/MM/yyyy")}</span>
                   ),
                 },
                 {
-                  key: "status",
-                  label: "Estado",
-                  render: (v) => {
-                    const stCfg = PERIOD_STATUS_CONFIG[v] ?? { label: v, className: "bg-muted" };
+                  id: "status",
+                  header: "Estado",
+                  cell: (row) => {
+                    const stCfg = PERIOD_STATUS_CONFIG[row.status] ?? { label: row.status, className: "bg-muted" };
                     return (
                       <Badge variant="outline" className={cn("text-xs", stCfg.className)}>
                         {stCfg.label}
@@ -1106,9 +1105,9 @@ function PeriodsTab({
                 },
                 ...(canManage
                   ? [{
-                      key: "_actions",
-                      label: "",
-                      render: (_v: any, row: any) =>
+                      id: "_actions",
+                      header: "",
+                      cell: (row: PeriodRow) =>
                         row.status === "OPEN" ? (
                           <Button
                             variant="ghost"
@@ -1124,11 +1123,12 @@ function PeriodsTab({
                             Cerrar
                           </Button>
                         ) : null,
-                    }]
+                    } satisfies DataTableColumn<PeriodRow>]
                   : []),
-              ] as DataTableColumn[]}
-              data={periods}
-              emptyMessage="Sin períodos"
+              ]}
+              rows={periods}
+              rowKey={(row) => row.id}
+              empty={<EmptyState icon={Calendar} title="Sin períodos" compact />}
             />
           </div>
 
