@@ -155,7 +155,7 @@ async function sendMentionNotifications(input: {
 
   if (mentionResolution.resolvedRecipientIds.length === 0) return;
 
-  const { sendNotificationToUser } = await import("@/lib/notification-service");
+  const { notify } = await import("@/lib/notifications/notify");
   const directMentionSet = new Set(mentionResolution.userMentionIds);
 
   await Promise.allSettled(
@@ -175,13 +175,15 @@ async function sendMentionNotifications(input: {
         focusReply: true,
       });
 
-      return sendNotificationToUser({
+      return notify({
         tenantId,
         type,
+        targetIds: [targetUserId],
+        targetType: "ADMIN",
         title,
-        message: content.slice(0, 220),
-        emailMessage: content,
-        link,
+        body: content.slice(0, 220),
+        emailBody: content,
+        link: link ?? undefined,
         data: {
           noteId: rootNoteId,
           rootNoteId,
@@ -193,7 +195,6 @@ async function sendMentionNotifications(input: {
           mentionedGroupIds: mentionResolution.groupMentionIds,
           authorId: actorUserId,
         },
-        targetUserId,
       });
     })
   );
@@ -236,7 +237,7 @@ async function sendThreadReplyNotifications(input: {
   );
   if (recipients.length === 0) return;
 
-  const { sendNotificationToUser } = await import("@/lib/notification-service");
+  const { notify } = await import("@/lib/notifications/notify");
   const link = buildNoteDeepLink({
     entityType,
     entityId,
@@ -247,13 +248,15 @@ async function sendThreadReplyNotifications(input: {
 
   await Promise.allSettled(
     recipients.map((targetUserId) =>
-      sendNotificationToUser({
+      notify({
         tenantId,
         type: "note_thread_reply",
+        targetIds: [targetUserId],
+        targetType: "ADMIN",
         title: `${actorName} respondió en un hilo`,
-        message: content.slice(0, 220),
-        emailMessage: content,
-        link,
+        body: content.slice(0, 220),
+        emailBody: content,
+        link: link ?? undefined,
         data: {
           noteId: rootNoteId,
           rootNoteId,
@@ -262,7 +265,6 @@ async function sendThreadReplyNotifications(input: {
           entityId,
           authorId: actorUserId,
         },
-        targetUserId,
       })
     )
   );
