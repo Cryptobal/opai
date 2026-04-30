@@ -13,7 +13,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -21,9 +20,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeftRight, Loader2, Plus, Trash2, Warehouse as WarehouseIcon } from "lucide-react";
+import { ArrowLeftRight, Plus, Trash2, Warehouse as WarehouseIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { Tag, Spinner } from "@/components/opai-ds";
 
 type Warehouse = { id: string; name: string; type: string };
 
@@ -191,7 +191,7 @@ export function InventarioTransferDialog({ trigger, onCompleted }: Props) {
     >
       <DialogTrigger asChild>
         {trigger ?? (
-          <Button size="sm" variant="outline" className="gap-2">
+          <Button size="sm" variant="outline" className="gap-2 h-10 sm:h-9">
             <ArrowLeftRight className="h-4 w-4" />
             <span className="hidden sm:inline">Mover stock</span>
           </Button>
@@ -218,12 +218,13 @@ export function InventarioTransferDialog({ trigger, onCompleted }: Props) {
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
+                className="h-10 sm:h-9"
               />
             </div>
             <div className="space-y-1.5">
               <Label>Origen</Label>
               <Select value={fromWarehouseId} onValueChange={setFromWarehouseId}>
-                <SelectTrigger>
+                <SelectTrigger className="h-10 sm:h-9">
                   <SelectValue placeholder="Selecciona bodega" />
                 </SelectTrigger>
                 <SelectContent>
@@ -238,7 +239,7 @@ export function InventarioTransferDialog({ trigger, onCompleted }: Props) {
             <div className="space-y-1.5">
               <Label>Destino</Label>
               <Select value={toWarehouseId} onValueChange={setToWarehouseId}>
-                <SelectTrigger>
+                <SelectTrigger className="h-10 sm:h-9">
                   <SelectValue placeholder="Selecciona bodega" />
                 </SelectTrigger>
                 <SelectContent>
@@ -253,19 +254,19 @@ export function InventarioTransferDialog({ trigger, onCompleted }: Props) {
           </div>
 
           {fromWarehouse && toWarehouse && (
-            <div className="flex items-center gap-2 rounded-md bg-muted/40 p-2 text-xs">
+            <div className="flex items-center gap-2 rounded-ds-md bg-ds-surface-2 p-2 text-xs">
               <span className="flex items-center gap-1">
-                <WarehouseIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                <strong className="font-semibold">{fromWarehouse.name}</strong>
+                <WarehouseIcon className="h-3.5 w-3.5 text-ds-text-3" />
+                <strong className="font-semibold text-ds-text-1">{fromWarehouse.name}</strong>
               </span>
-              <ArrowLeftRight className="h-3 w-3 text-muted-foreground" />
+              <ArrowLeftRight className="h-3 w-3 text-ds-text-4" />
               <span className="flex items-center gap-1">
-                <WarehouseIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                <strong className="font-semibold">{toWarehouse.name}</strong>
+                <WarehouseIcon className="h-3.5 w-3.5 text-ds-text-3" />
+                <strong className="font-semibold text-ds-text-1">{toWarehouse.name}</strong>
               </span>
-              <Badge variant="outline" className="ml-auto text-[10px]">
+              <Tag variant="neutral" size="sm" className="ml-auto">
                 {totalQty} unidad{totalQty === 1 ? "" : "es"} a mover
-              </Badge>
+              </Tag>
             </div>
           )}
 
@@ -277,7 +278,7 @@ export function InventarioTransferDialog({ trigger, onCompleted }: Props) {
                 type="button"
                 size="sm"
                 variant="outline"
-                className="h-7 gap-1 text-xs"
+                className="h-9 gap-1 text-xs"
                 onClick={handleAddLine}
                 disabled={!fromWarehouseId}
               >
@@ -286,15 +287,13 @@ export function InventarioTransferDialog({ trigger, onCompleted }: Props) {
             </div>
 
             {!fromWarehouseId ? (
-              <p className="rounded-md border border-dashed p-3 text-center text-xs text-muted-foreground">
+              <p className="rounded-ds-md border border-dashed border-ds-border-default p-3 text-center text-[12px] text-ds-text-3">
                 Selecciona la bodega de origen para ver el stock disponible.
               </p>
             ) : loadingStock ? (
-              <div className="flex items-center justify-center py-6 text-sm text-muted-foreground">
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Cargando stock…
-              </div>
+              <Spinner block label="Cargando stock…" />
             ) : variantOptions.length === 0 ? (
-              <p className="rounded-md border border-dashed p-3 text-center text-xs text-muted-foreground">
+              <p className="rounded-ds-md border border-dashed border-ds-border-default p-3 text-center text-[12px] text-ds-text-3">
                 Esta bodega no tiene stock disponible para mover.
               </p>
             ) : (
@@ -307,7 +306,7 @@ export function InventarioTransferDialog({ trigger, onCompleted }: Props) {
                     <div key={idx} className="grid grid-cols-[minmax(0,1fr)_90px_auto] items-end gap-2">
                       <div className="space-y-1">
                         {idx === 0 && (
-                          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                          <span className="text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4">
                             Producto
                           </span>
                         )}
@@ -315,7 +314,7 @@ export function InventarioTransferDialog({ trigger, onCompleted }: Props) {
                           value={line.variantId}
                           onValueChange={(v) => handleLineChange(idx, { variantId: v })}
                         >
-                          <SelectTrigger className="h-9">
+                          <SelectTrigger className="h-10 sm:h-9">
                             <SelectValue placeholder="Selecciona producto" />
                           </SelectTrigger>
                           <SelectContent>
@@ -324,7 +323,7 @@ export function InventarioTransferDialog({ trigger, onCompleted }: Props) {
                               return (
                                 <SelectItem key={v.variantId} value={v.variantId} disabled={used}>
                                   {v.label}{" "}
-                                  <span className="text-muted-foreground">· {v.available} disp.</span>
+                                  <span className="text-ds-text-3">· {v.available} disp.</span>
                                 </SelectItem>
                               );
                             })}
@@ -333,7 +332,7 @@ export function InventarioTransferDialog({ trigger, onCompleted }: Props) {
                       </div>
                       <div className="space-y-1">
                         {idx === 0 && (
-                          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                          <span className="text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4">
                             Cantidad
                           </span>
                         )}
@@ -347,14 +346,14 @@ export function InventarioTransferDialog({ trigger, onCompleted }: Props) {
                               quantity: Math.max(1, Number(e.target.value) || 1),
                             })
                           }
-                          className={cn("h-9", overflow && "border-red-500 text-red-600")}
+                          className={cn("h-10 sm:h-9", overflow && "border-status-danger text-status-danger-fg")}
                         />
                       </div>
                       <Button
                         type="button"
                         size="icon"
                         variant="ghost"
-                        className="h-9 w-9 text-muted-foreground hover:text-destructive"
+                        className="h-10 w-10 sm:h-9 sm:w-9 text-ds-text-3 hover:text-status-danger-fg"
                         onClick={() => handleRemoveLine(idx)}
                         disabled={lines.length === 1}
                       >
@@ -375,17 +374,17 @@ export function InventarioTransferDialog({ trigger, onCompleted }: Props) {
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Comentario interno sobre la transferencia"
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+              className="w-full rounded-ds-md border border-ds-border-default bg-ds-surface-2 px-3 py-2 text-sm text-ds-text-1 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
             />
           </div>
         </div>
 
         <DialogFooter className="flex-col gap-2 pt-2 sm:flex-row sm:justify-end">
-          <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+          <Button type="button" variant="outline" onClick={() => setOpen(false)} className="h-10 sm:h-9">
             Cancelar
           </Button>
-          <Button type="button" onClick={handleSubmit} disabled={submitting} className="gap-2">
-            {submitting && <Loader2 className="h-3 w-3 animate-spin" />}
+          <Button type="button" onClick={handleSubmit} disabled={submitting} className="gap-2 h-10 sm:h-9">
+            {submitting && <Spinner size="sm" />}
             <ArrowLeftRight className="h-4 w-4" />
             Mover stock
           </Button>

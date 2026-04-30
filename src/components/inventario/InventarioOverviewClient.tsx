@@ -7,7 +7,6 @@ import {
   ArrowLeftRight,
   ArrowRight,
   Building2,
-  Loader2,
   Package,
   Settings2,
   Truck,
@@ -15,8 +14,18 @@ import {
   Warehouse as WarehouseIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { OpaiPageHero } from "@/components/opai";
-import { KpiCard, Pill, StatusDot } from "@/components/opai/conocimiento/_primitives";
+import {
+  PageHero,
+  Stat,
+  StatGrid,
+  Tag,
+  Surface,
+  SectionHeader,
+  IconBubble,
+  EmptyState,
+  Spinner,
+  StatusDot,
+} from "@/components/opai-ds";
 import { InventarioTransferDialog } from "@/components/inventario/InventarioTransferDialog";
 import { cn } from "@/lib/utils";
 
@@ -72,7 +81,11 @@ interface Props {
 }
 
 const formatCurrency = (n: number) =>
-  new Intl.NumberFormat("es-CL", { style: "currency", currency: "CLP", maximumFractionDigits: 0 }).format(n);
+  new Intl.NumberFormat("es-CL", {
+    style: "currency",
+    currency: "CLP",
+    maximumFractionDigits: 0,
+  }).format(n);
 
 const formatRelativeDate = (iso: string) => {
   const date = new Date(iso);
@@ -107,16 +120,18 @@ export function InventarioOverviewClient({ canEdit }: Props) {
     };
   }, []);
 
-  const stockThreshold =
-    data?.stock?.outOfStockCount ?? 0 > 0
+  const stockAlertsTotal =
+    (data?.stock.outOfStockCount ?? 0) + (data?.stock.belowMinimumCount ?? 0);
+  const stockVariant: "ok" | "warn" | "danger" =
+    (data?.stock.outOfStockCount ?? 0) > 0
       ? "danger"
       : (data?.stock.belowMinimumCount ?? 0) > 0
         ? "warn"
         : "ok";
 
   return (
-    <section className="relative w-full pb-32">
-      <OpaiPageHero
+    <section className="relative w-full pb-32 space-y-6 ds-page-enter">
+      <PageHero
         eyebrow={["Operaciones", "Inventario"]}
         title="Tu operación"
         subtitle="en una sola vista"
@@ -126,14 +141,14 @@ export function InventarioOverviewClient({ canEdit }: Props) {
             <>
               <InventarioTransferDialog
                 trigger={
-                  <Button size="sm" variant="outline" className="gap-2">
+                  <Button size="sm" variant="outline" className="gap-2 h-10">
                     <ArrowLeftRight className="h-4 w-4" />
                     <span className="hidden sm:inline">Mover stock</span>
                   </Button>
                 }
               />
               <Link href="/ops/inventario/configuracion">
-                <Button size="sm" variant="outline" className="gap-2">
+                <Button size="sm" variant="outline" className="gap-2 h-10">
                   <Settings2 className="h-4 w-4" />
                   <span className="hidden sm:inline">Configuración</span>
                 </Button>
@@ -144,18 +159,19 @@ export function InventarioOverviewClient({ canEdit }: Props) {
       />
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 mt-5 relative">
-        <KpiCard
+      <StatGrid lgCols={4}>
+        <Stat
           label="Productos activos"
-          value={loading ? "—" : String(data?.counts.products ?? 0)}
-          rightSlot={<Package className="h-3.5 w-3.5 text-muted-foreground/60" />}
+          value={loading ? "—" : (data?.counts.products ?? 0)}
+          animate={!loading}
+          icon={Package}
           hint={
             data
               ? `${data.counts.warehouses} ${data.counts.warehouses === 1 ? "bodega" : "bodegas"}`
               : undefined
           }
         />
-        <KpiCard
+        <Stat
           label="Valor en bodega"
           value={
             loading
@@ -164,11 +180,15 @@ export function InventarioOverviewClient({ canEdit }: Props) {
                 ? formatCurrency(data.stock.totalValue)
                 : "$0"
           }
-          threshold="ok"
-          hint={data ? `${data.stock.totalItems.toLocaleString("es-CL")} unidades` : undefined}
-          rightSlot={<WarehouseIcon className="h-3.5 w-3.5 text-muted-foreground/60" />}
+          variant="brand"
+          icon={WarehouseIcon}
+          hint={
+            data
+              ? `${data.stock.totalItems.toLocaleString("es-CL")} unidades`
+              : undefined
+          }
         />
-        <KpiCard
+        <Stat
           label="Asignado a guardias"
           value={
             loading
@@ -177,116 +197,93 @@ export function InventarioOverviewClient({ canEdit }: Props) {
                 ? formatCurrency(data.summary.totalGeneral)
                 : "$0"
           }
+          icon={UserRoundCheck}
           hint={
             data
               ? `${data.counts.deliveriesLast30d} ${data.counts.deliveriesLast30d === 1 ? "entrega" : "entregas"} 30 d`
               : undefined
           }
-          rightSlot={<UserRoundCheck className="h-3.5 w-3.5 text-muted-foreground/60" />}
         />
-        <KpiCard
+        <Stat
           label="Alertas de stock"
-          value={
-            loading
-              ? "—"
-              : data
-                ? String(
-                    (data.stock.outOfStockCount ?? 0) + (data.stock.belowMinimumCount ?? 0),
-                  )
-                : "0"
-          }
-          threshold={stockThreshold}
+          value={loading ? "—" : stockAlertsTotal}
+          animate={!loading}
+          variant={stockAlertsTotal > 0 ? stockVariant : "default"}
+          icon={AlertTriangle}
           hint={
-            data && (data.stock.outOfStockCount > 0 || data.stock.belowMinimumCount > 0)
+            data && stockAlertsTotal > 0
               ? `${data.stock.outOfStockCount} agotados · ${data.stock.belowMinimumCount} bajo mínimo`
               : "todo en orden"
           }
-          rightSlot={
-            data && (data.stock.outOfStockCount > 0 || data.stock.belowMinimumCount > 0) ? (
-              <StatusDot threshold={stockThreshold} pulse={data.stock.outOfStockCount > 0} />
-            ) : undefined
-          }
         />
-      </div>
+      </StatGrid>
 
-      {/* Loading */}
-      {loading && (
-        <div className="mt-10 flex items-center justify-center gap-2 text-sm text-muted-foreground/70">
-          <Loader2 className="h-4 w-4 animate-spin" /> Cargando…
-        </div>
-      )}
+      {loading && <Spinner block label="Cargando información…" />}
 
       {!loading && data && (
-        <div className="mt-6 grid gap-4 lg:grid-cols-3">
+        <div className="grid gap-4 lg:grid-cols-3">
           {/* Movimientos recientes */}
-          <div className="card-mock p-4 lg:col-span-2 relative">
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <h2 className="text-sm font-semibold tracking-tight">Movimientos recientes</h2>
-                <p className="text-[11px] text-muted-foreground/70 font-mono mt-0.5">
-                  Últimas {data.recentMovements.length} acciones del módulo
-                </p>
-              </div>
-              <Link
-                href="/ops/inventario/entregas"
-                className="text-[11px] text-emerald-400 hover:underline inline-flex items-center gap-1"
-              >
-                Ver todas <ArrowRight className="h-3 w-3" />
-              </Link>
-            </div>
+          <Surface elevation={1} padding="md" className="lg:col-span-2">
+            <SectionHeader
+              title="Movimientos recientes"
+              hint={`Últimas ${data.recentMovements.length} acciones del módulo`}
+              actions={
+                <Link
+                  href="/ops/inventario/entregas"
+                  className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                >
+                  Ver todas <ArrowRight className="h-3 w-3" />
+                </Link>
+              }
+            />
+
             {data.recentMovements.length === 0 ? (
-              <p className="rounded-md border border-border/60 bg-muted/30 p-3 text-center text-xs text-muted-foreground/70">
-                Aún no hay movimientos. Crea una entrega o registra una compra.
-              </p>
+              <EmptyState
+                compact
+                icon={Truck}
+                title="Aún no hay movimientos"
+                description="Crea una entrega o registra una compra para empezar a ver el historial aquí."
+              />
             ) : (
-              <ul className="divide-y divide-border/40">
+              <ul className="mt-4 divide-y divide-ds-border-subtle ds-list-cascade">
                 {data.recentMovements.map((m) => {
                   const isDelivery = m.type === "delivery";
                   const isTransfer = m.type === "transfer";
-                  const Icon = isTransfer
-                    ? ArrowLeftRight
+                  const Icon = isTransfer ? ArrowLeftRight : isDelivery ? UserRoundCheck : Truck;
+                  const bubbleVariant: "info" | "ok" | "neutral" = isTransfer
+                    ? "info"
                     : isDelivery
-                      ? UserRoundCheck
-                      : Truck;
-                  const variant: "ok" | "warn" | "neutral" =
+                      ? "ok"
+                      : "neutral";
+                  const tagVariant: "ok" | "warn" | "neutral" =
                     m.confirmationStatus === "confirmed"
                       ? "ok"
                       : isDelivery
                         ? "warn"
                         : "neutral";
+
                   return (
-                    <li key={m.id} className="py-2.5 first:pt-0 last:pb-0">
+                    <li key={m.id} className="py-3 first:pt-0 last:pb-0">
                       <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3">
-                        <span
-                          className={cn(
-                            "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
-                            isTransfer
-                              ? "bg-blue-500/10 text-blue-300"
-                              : isDelivery
-                                ? "bg-emerald-500/10 text-emerald-300"
-                                : "bg-muted/40 text-foreground/70",
-                          )}
-                        >
-                          <Icon className="h-4 w-4" />
-                        </span>
+                        <IconBubble icon={Icon} variant={bubbleVariant} size="md" />
                         <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            <p className="text-sm font-medium truncate">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-[14px] font-medium text-ds-text-1 truncate">
                               {isTransfer
                                 ? `${m.fromWarehouse ?? "—"} → ${m.toWarehouse ?? "—"}`
                                 : (m.guardiaName ?? "Movimiento")}
                             </p>
-                            <Pill variant={variant === "neutral" ? "neutral" : variant}>
+                            <Tag variant={tagVariant} size="sm">
                               {m.totalUnits} u.
-                            </Pill>
+                            </Tag>
                           </div>
-                          <p className="text-[11px] text-muted-foreground/70 mt-0.5 truncate font-mono">
+                          <p className="mt-0.5 text-[12px] font-mono text-ds-text-4 truncate">
                             {formatRelativeDate(m.date)}
                             {m.installationName ? ` · ${m.installationName}` : ""}
                             {m.createdByName ? ` · ${m.createdByName}` : ""}
                           </p>
                           {m.summary && (
-                            <p className="text-[11px] text-foreground/70 mt-0.5 truncate">
+                            <p className="mt-1 text-[13px] text-ds-text-3 truncate">
                               {m.summary}
                               {m.lineCount > 2 && ` +${m.lineCount - 2}`}
                             </p>
@@ -298,116 +295,129 @@ export function InventarioOverviewClient({ canEdit }: Props) {
                 })}
               </ul>
             )}
-          </div>
+          </Surface>
 
           {/* Alertas de stock */}
-          <div className="card-mock p-4 relative">
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <h2 className="text-sm font-semibold tracking-tight flex items-center gap-1.5">
-                  <AlertTriangle className="h-3.5 w-3.5 text-amber-400" />
+          <Surface elevation={1} padding="md">
+            <SectionHeader
+              title={
+                <span className="inline-flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-status-warn-fg" />
                   Alertas de stock
-                </h2>
-                <p className="text-[11px] text-muted-foreground/70 font-mono mt-0.5">
-                  {data.stock.outOfStockCount} agotados · {data.stock.belowMinimumCount} bajo mínimo
-                </p>
-              </div>
-              <Link
-                href="/ops/inventario/stock"
-                className="text-[11px] text-emerald-400 hover:underline inline-flex items-center gap-1"
-              >
-                Ver stock <ArrowRight className="h-3 w-3" />
-              </Link>
-            </div>
+                </span>
+              }
+              hint={`${data.stock.outOfStockCount} agotados · ${data.stock.belowMinimumCount} bajo mínimo`}
+              actions={
+                <Link
+                  href="/ops/inventario/stock"
+                  className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                >
+                  Ver stock <ArrowRight className="h-3 w-3" />
+                </Link>
+              }
+            />
 
             {data.alerts.length === 0 ? (
-              <div className="rounded-md border border-emerald-500/20 bg-emerald-500/5 p-3 text-center text-xs text-emerald-300">
-                Todo en orden. No hay alertas activas.
+              <div className="mt-4 rounded-ds-md border border-status-ok-border bg-status-ok-soft p-4 text-center">
+                <p className="text-sm font-medium text-status-ok-fg">
+                  Todo en orden
+                </p>
+                <p className="mt-0.5 text-[12px] text-status-ok-fg/80">
+                  No hay alertas activas.
+                </p>
               </div>
             ) : (
-              <ul className="space-y-1.5">
+              <ul className="mt-4 space-y-2 ds-list-cascade">
                 {data.alerts.map((a, i) => (
                   <li
                     key={i}
                     className={cn(
-                      "rounded-md border px-2.5 py-2",
+                      "rounded-ds-md border px-3 py-2.5",
                       a.type === "critical"
-                        ? "border-red-500/30 bg-red-500/5"
-                        : "border-amber-500/30 bg-amber-500/5",
+                        ? "border-status-danger-border bg-status-danger-soft"
+                        : "border-status-warn-border bg-status-warn-soft",
                     )}
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-medium truncate">{a.label}</span>
-                      <Pill variant={a.type === "critical" ? "danger" : "warn"}>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <StatusDot
+                          kind={a.type === "critical" ? "danger" : "warn"}
+                          pulse={a.type === "critical"}
+                        />
+                        <span className="text-[13px] font-medium text-ds-text-1 truncate">
+                          {a.label}
+                        </span>
+                      </div>
+                      <Tag
+                        variant={a.type === "critical" ? "danger" : "warn"}
+                        size="sm"
+                      >
                         {a.type === "critical" ? "Agotado" : `${a.quantity}/${a.minStock}`}
-                      </Pill>
+                      </Tag>
                     </div>
-                    <p className="text-[11px] text-muted-foreground/70 mt-0.5 truncate font-mono">
+                    <p className="mt-1 text-[12px] font-mono text-ds-text-4 truncate">
                       {a.warehouse}
                     </p>
                   </li>
                 ))}
               </ul>
             )}
-          </div>
+          </Surface>
 
           {/* Top por guardia */}
           {data.topByGuardia.length > 0 && (
-            <div className="card-mock p-4 relative">
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <h2 className="text-sm font-semibold tracking-tight">Top por guardia</h2>
-                  <p className="text-[11px] text-muted-foreground/70 font-mono mt-0.5">Costo asignado vigente</p>
-                </div>
-              </div>
-              <ul className="space-y-1.5">
+            <Surface elevation={1} padding="md">
+              <SectionHeader title="Top por guardia" hint="Costo asignado vigente" />
+              <ul className="mt-4 space-y-1.5 ds-list-cascade">
                 {data.topByGuardia.map((g) => (
                   <li
                     key={g.guardiaId}
-                    className="flex items-center justify-between gap-2 rounded-md border border-border/60 bg-muted/30 px-2.5 py-2"
+                    className="flex items-center justify-between gap-2 rounded-ds-md border border-ds-border-subtle bg-ds-surface-2 px-3 py-2.5"
                   >
-                    <span className="text-xs truncate">{g.guardiaName}</span>
-                    <span className="text-xs font-semibold tabular-nums shrink-0">
+                    <span className="text-[13px] text-ds-text-1 truncate">
+                      {g.guardiaName}
+                    </span>
+                    <span className="text-[13px] font-semibold ds-num text-ds-text-1 shrink-0">
                       {formatCurrency(g.totalCost)}
                     </span>
                   </li>
                 ))}
               </ul>
-            </div>
+            </Surface>
           )}
 
           {/* Top por instalación */}
           {data.topByInstallation.length > 0 && (
-            <div className="card-mock p-4 lg:col-span-2 relative">
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <h2 className="text-sm font-semibold tracking-tight flex items-center gap-1.5">
-                    <Building2 className="h-3.5 w-3.5 text-muted-foreground/70" />
+            <Surface elevation={1} padding="md" className="lg:col-span-2">
+              <SectionHeader
+                title={
+                  <span className="inline-flex items-center gap-2">
+                    <Building2 className="h-4 w-4 text-ds-text-3" />
                     Top por instalación
-                  </h2>
-                  <p className="text-[11px] text-muted-foreground/70 font-mono mt-0.5">Costo asignado vigente</p>
-                </div>
-              </div>
-              <ul className="space-y-1.5">
+                  </span>
+                }
+                hint="Costo asignado vigente"
+              />
+              <ul className="mt-4 space-y-1.5 ds-list-cascade">
                 {data.topByInstallation.map((i) => (
                   <li
                     key={i.installationId}
-                    className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 rounded-md border border-border/60 bg-muted/30 px-2.5 py-2"
+                    className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 rounded-ds-md border border-ds-border-subtle bg-ds-surface-2 px-3 py-2.5 transition-colors hover:bg-ds-surface-3"
                   >
                     <Link
                       href={`/crm/installations/${i.installationId}`}
-                      className="text-xs truncate hover:underline"
+                      className="text-[13px] text-ds-text-1 truncate hover:underline"
                     >
                       {i.installationName}
                     </Link>
-                    <span className="text-xs font-semibold tabular-nums">
+                    <span className="text-[13px] font-semibold ds-num text-ds-text-1 shrink-0">
                       {formatCurrency(i.totalCost)}
                     </span>
-                    <ArrowRight className="h-3 w-3 text-muted-foreground/60" />
+                    <ArrowRight className="h-3.5 w-3.5 text-ds-text-4" />
                   </li>
                 ))}
               </ul>
-            </div>
+            </Surface>
           )}
         </div>
       )}

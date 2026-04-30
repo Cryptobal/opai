@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView, canEdit } from "@/lib/permissions-server";
-import { OpaiPageHero } from "@/components/opai";
+import { PageHero } from "@/components/opai-ds";
 import { InventarioStockClient } from "@/components/inventario/InventarioStockClient";
 import { InventarioSubnav } from "@/components/ops/InventarioSubnav";
 
@@ -22,7 +22,7 @@ export default async function InventarioStockPage() {
     <div className="min-w-0">
       <InventarioSubnav />
       <section className="relative w-full pb-32 space-y-5">
-        <OpaiPageHero
+        <PageHero
           eyebrow={["Operaciones", "Inventario", "Stock"]}
           title="Stock por bodega"
           subtitle="niveles y alertas"

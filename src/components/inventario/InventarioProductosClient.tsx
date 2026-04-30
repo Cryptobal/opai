@@ -21,8 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { OpaiSurface } from "@/components/opai";
+import { Surface, Tag, EmptyState, Spinner } from "@/components/opai-ds";
 import { Plus, Pencil, Ruler, Package, Trash2, PowerOff, UploadCloud } from "lucide-react";
 import { ListToolbar } from "@/components/shared/ListToolbar";
 import type { ViewMode } from "@/components/shared/ViewToggle";
@@ -250,7 +249,7 @@ export function InventarioProductosClient() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 ds-page-enter">
       {/* Toolbar */}
       <ListToolbar
         search={search}
@@ -284,15 +283,15 @@ export function InventarioProductosClient() {
                     id="bulk-catalog"
                     value={bulkText}
                     onChange={(e) => setBulkText(e.target.value)}
-                    className="min-h-[260px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    className="min-h-[260px] w-full rounded-ds-md border border-ds-border-default bg-ds-surface-2 px-3 py-2 text-sm text-ds-text-1 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                     placeholder="Ej: Calzado|35,36,37"
                   />
                 </div>
                 <DialogFooter>
-                  <Button type="button" variant="outline" onClick={() => setBulkDialogOpen(false)}>
+                  <Button type="button" variant="outline" onClick={() => setBulkDialogOpen(false)} className="h-10 sm:h-9">
                     Cancelar
                   </Button>
-                  <Button type="button" onClick={handleBulkCreate}>
+                  <Button type="button" onClick={handleBulkCreate} className="h-10 sm:h-9">
                     Procesar lote
                   </Button>
                 </DialogFooter>
@@ -325,6 +324,7 @@ export function InventarioProductosClient() {
                         onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                         placeholder="Ej: Camisa, Zapato, Celular"
                         required
+                        className="h-10 sm:h-9"
                       />
                     </div>
                     <div>
@@ -334,6 +334,7 @@ export function InventarioProductosClient() {
                         value={form.sku}
                         onChange={(e) => setForm((f) => ({ ...f, sku: e.target.value }))}
                         placeholder="Código interno"
+                        className="h-10 sm:h-9"
                       />
                     </div>
                     <div>
@@ -342,7 +343,7 @@ export function InventarioProductosClient() {
                         value={form.category}
                         onValueChange={(v) => setForm((f) => ({ ...f, category: v as "uniform" | "asset" }))}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger className="h-10 sm:h-9">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -357,7 +358,7 @@ export function InventarioProductosClient() {
                         value={form.active ? "active" : "inactive"}
                         onValueChange={(v) => setForm((f) => ({ ...f, active: v === "active" }))}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger className="h-10 sm:h-9">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -373,6 +374,7 @@ export function InventarioProductosClient() {
                         value={form.notes}
                         onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
                         placeholder="Observaciones del producto"
+                        className="h-10 sm:h-9"
                       />
                     </div>
                     {!editingId && form.category === "uniform" && (
@@ -383,15 +385,16 @@ export function InventarioProductosClient() {
                           value={form.sizesText}
                           onChange={(e) => setForm((f) => ({ ...f, sizesText: e.target.value }))}
                           placeholder="Ej: XS,S,M,L,XL"
+                          className="h-10 sm:h-9"
                         />
                       </div>
                     )}
                   </div>
                   <DialogFooter>
-                    <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                    <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} className="h-10 sm:h-9">
                       Cancelar
                     </Button>
-                    <Button type="submit">Guardar</Button>
+                    <Button type="submit" className="h-10 sm:h-9">Guardar</Button>
                   </DialogFooter>
                 </form>
               </DialogContent>
@@ -401,9 +404,9 @@ export function InventarioProductosClient() {
       />
 
       <div className="flex items-center gap-2">
-        <span className="text-xs text-muted-foreground">Estado:</span>
+        <span className="text-[12px] text-ds-text-3">Estado:</span>
         <Select value={activeFilter} onValueChange={setActiveFilter}>
-          <SelectTrigger className="h-8 w-[170px]">
+          <SelectTrigger className="h-9 w-[170px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -418,42 +421,45 @@ export function InventarioProductosClient() {
 
       {/* Content */}
       {loading ? (
-        <p className="text-sm text-muted-foreground py-8 text-center">Cargando...</p>
+        <Spinner block label="Cargando…" />
       ) : error ? (
-        <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-4 text-sm text-amber-700 dark:text-amber-400">
-          {error}
-          <p className="mt-2 text-xs opacity-80">
-            Ejecuta <code className="rounded bg-black/10 px-1">npm run db:migrate</code> después de configurar DATABASE_URL en .env.local
+        <Surface elevation={1} padding="md" className="border-status-warn-border bg-status-warn-soft">
+          <p className="text-sm text-status-warn-fg">{error}</p>
+          <p className="mt-2 text-[12px] opacity-80 text-status-warn-fg">
+            Ejecuta <code className="rounded bg-black/10 px-1 dark:bg-white/10">npm run db:migrate</code> después de configurar DATABASE_URL en .env.local
           </p>
-        </div>
+        </Surface>
       ) : filteredProducts.length === 0 ? (
-        <div className="rounded-md border border-dashed border-border p-8 text-center">
-          <Package className="mx-auto h-10 w-10 text-muted-foreground/30" />
-          <p className="mt-2 text-sm text-muted-foreground">
-            {products.length === 0
-              ? "No hay productos. Crea uno para comenzar."
-              : "No hay productos para los filtros seleccionados."}
-          </p>
-        </div>
+        <Surface elevation={1} padding="none">
+          <EmptyState
+            icon={Package}
+            title={products.length === 0 ? "No hay productos" : "Sin coincidencias"}
+            description={
+              products.length === 0
+                ? "Crea uno para comenzar."
+                : "No hay productos para los filtros seleccionados."
+            }
+          />
+        </Surface>
       ) : displayView === "cards" ? (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 ds-list-cascade">
           {filteredProducts.map((p) => (
-            <OpaiSurface key={p.id} hoverable>
+            <Surface key={p.id} elevation={1} padding="md" hoverable>
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
-                  <p className="font-semibold text-sm truncate">{p.name}</p>
+                  <p className="text-[14px] font-semibold text-ds-text-1 truncate">{p.name}</p>
                   {p.sku && (
-                    <p className="text-[11px] text-muted-foreground/70 mt-0.5 font-mono">SKU: {p.sku}</p>
+                    <p className="text-[12px] text-ds-text-4 mt-0.5 font-mono">SKU: {p.sku}</p>
                   )}
                 </div>
                 <div className="flex items-center gap-1">
-                  <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => openEdit(p)} title="Editar">
+                  <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" onClick={() => openEdit(p)} title="Editar">
                     <Pencil className="h-3.5 w-3.5" />
                   </Button>
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7 shrink-0"
+                    className="h-9 w-9 shrink-0"
                     onClick={() => toggleActive(p, !p.active)}
                     title={p.active ? "Desactivar" : "Activar"}
                   >
@@ -462,7 +468,7 @@ export function InventarioProductosClient() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7 shrink-0 text-destructive hover:text-destructive"
+                    className="h-9 w-9 shrink-0 text-status-danger-fg hover:text-status-danger-fg"
                     onClick={() => handleDeleteProduct(p)}
                     title="Eliminar"
                   >
@@ -471,24 +477,14 @@ export function InventarioProductosClient() {
                 </div>
               </div>
               <div className="flex items-center gap-1 mt-2 flex-wrap">
-                <Badge
-                  variant="outline"
-                  className="text-[10px] font-mono uppercase tracking-wider border-foreground/10 bg-foreground/5 text-muted-foreground"
-                >
+                <Tag variant="neutral" size="sm">
                   {p.category === "uniform" ? "Uniforme" : "Activo"}
-                </Badge>
-                <Badge
-                  variant="outline"
-                  className={
-                    p.active
-                      ? "text-[10px] border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                      : "text-[10px] text-muted-foreground"
-                  }
-                >
+                </Tag>
+                <Tag variant={p.active ? "ok" : "neutral"} size="sm">
                   {p.active ? "Vigente" : "Inactivo"}
-                </Badge>
+                </Tag>
                 {p.sizes.length > 0 && (
-                  <span className="text-[11px] text-muted-foreground/80 flex items-center gap-1 font-mono">
+                  <span className="text-[12px] text-ds-text-3 flex items-center gap-1 font-mono">
                     <Ruler className="h-3 w-3" />
                     {p.sizes.map((s) => s.sizeCode).join(", ")}
                   </span>
@@ -496,45 +492,36 @@ export function InventarioProductosClient() {
               </div>
               <div className="mt-3">
                 <Link href={`/ops/inventario/productos/${p.id}`}>
-                  <Button variant="outline" size="sm" className="h-7 text-xs w-full">
+                  <Button variant="outline" size="sm" className="h-9 text-xs w-full">
                     Tallas y variantes
                   </Button>
                 </Link>
               </div>
-            </OpaiSurface>
+            </Surface>
           ))}
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-2 ds-list-cascade">
           {filteredProducts.map((p) => (
-            <OpaiSurface
+            <Surface
               key={p.id}
-              variant="tight"
+              elevation={1}
+              padding="sm"
               hoverable
               className="flex items-center justify-between"
             >
               <div className="flex items-center gap-3 min-w-0">
                 <div className="min-w-0">
-                  <p className="font-semibold text-sm truncate">{p.name}</p>
+                  <p className="text-[14px] font-semibold text-ds-text-1 truncate">{p.name}</p>
                   <div className="flex items-center gap-1 mt-1 flex-wrap">
-                    <Badge
-                      variant="outline"
-                      className="text-[10px] font-mono uppercase tracking-wider border-foreground/10 bg-foreground/5 text-muted-foreground"
-                    >
+                    <Tag variant="neutral" size="sm">
                       {p.category === "uniform" ? "Uniforme" : "Activo"}
-                    </Badge>
-                    <Badge
-                      variant="outline"
-                      className={
-                        p.active
-                          ? "text-[10px] border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                          : "text-[10px] text-muted-foreground"
-                      }
-                    >
+                    </Tag>
+                    <Tag variant={p.active ? "ok" : "neutral"} size="sm">
                       {p.active ? "Vigente" : "Inactivo"}
-                    </Badge>
+                    </Tag>
                     {p.sizes.length > 0 && (
-                      <span className="text-xs text-muted-foreground/80 flex items-center gap-1 font-mono">
+                      <span className="text-[12px] text-ds-text-3 flex items-center gap-1 font-mono">
                         <Ruler className="h-3 w-3" />
                         {p.sizes.map((s) => s.sizeCode).join(", ")}
                       </span>
@@ -543,12 +530,13 @@ export function InventarioProductosClient() {
                 </div>
               </div>
               <div className="flex gap-1 shrink-0">
-                <Button variant="ghost" size="icon" onClick={() => openEdit(p)} title="Editar">
+                <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => openEdit(p)} title="Editar">
                   <Pencil className="h-4 w-4" />
                 </Button>
                 <Button
                   variant="ghost"
                   size="icon"
+                  className="h-9 w-9"
                   onClick={() => toggleActive(p, !p.active)}
                   title={p.active ? "Desactivar" : "Activar"}
                 >
@@ -557,19 +545,19 @@ export function InventarioProductosClient() {
                 <Button
                   variant="ghost"
                   size="icon"
+                  className="h-9 w-9 text-status-danger-fg hover:text-status-danger-fg"
                   onClick={() => handleDeleteProduct(p)}
                   title="Eliminar"
-                  className="text-destructive hover:text-destructive"
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
                 <Link href={`/ops/inventario/productos/${p.id}`}>
-                  <Button variant="ghost" size="sm">
+                  <Button variant="ghost" size="sm" className="h-9">
                     Tallas
                   </Button>
                 </Link>
               </div>
-            </OpaiSurface>
+            </Surface>
           ))}
         </div>
       )}

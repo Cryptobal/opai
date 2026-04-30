@@ -2,7 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { OpaiSurface } from "@/components/opai";
+import {
+  Surface,
+  Stat,
+  StatGrid,
+  Tag,
+  EmptyState,
+  Spinner,
+  IconBubble,
+} from "@/components/opai-ds";
 import {
   Sheet,
   SheetContent,
@@ -13,7 +21,6 @@ import {
 } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -29,7 +36,6 @@ import {
 } from "@/components/inventario/InventoryReceptionBadge";
 import {
   Building2,
-  Loader2,
   Plus,
   Search,
   Trash2,
@@ -342,47 +348,34 @@ export function InventarioEntregasClient({ currentUserId, canEdit }: Props) {
   }, [movements]);
 
   return (
-    <OpaiSurface className="space-y-4">
+    <div className="space-y-4 ds-page-enter">
       <div className="flex justify-end">
         {canEdit && (
-          <Button size="sm" variant="outline" className="gap-2" onClick={() => setSheetOpen(true)}>
+          <Button size="sm" variant="outline" className="gap-2 h-10 sm:h-9" onClick={() => setSheetOpen(true)}>
             <Plus className="h-4 w-4" />
             Nueva entrega
           </Button>
         )}
       </div>
 
-      <div className="grid grid-cols-3 gap-2">
-        <OpaiSurface variant="tight">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-mono">Total</p>
-          <p className="mt-0.5 text-base font-semibold tabular-nums">{summary.total}</p>
-        </OpaiSurface>
-        <OpaiSurface variant="tight" className="border-emerald-500/30 bg-emerald-500/5">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-mono">Confirmadas</p>
-          <p className="mt-0.5 text-base font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
-            {summary.confirmed}
-          </p>
-        </OpaiSurface>
-        <OpaiSurface variant="tight" className="border-amber-500/30 bg-amber-500/5">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-mono">Pendientes</p>
-          <p className="mt-0.5 text-base font-semibold tabular-nums text-amber-600 dark:text-amber-400">
-            {summary.pending}
-          </p>
-        </OpaiSurface>
-      </div>
+      <StatGrid lgCols={3}>
+        <Stat label="Total" value={summary.total} animate />
+        <Stat label="Confirmadas" value={summary.confirmed} animate variant={summary.confirmed > 0 ? "ok" : "default"} />
+        <Stat label="Pendientes" value={summary.pending} animate variant={summary.pending > 0 ? "warn" : "default"} />
+      </StatGrid>
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <div className="relative flex-1 sm:max-w-xs">
-          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/70" />
+          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ds-text-4" />
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar guardia, instalación o autor…"
-            className="pl-8 h-9"
+            className="pl-8 h-10 sm:h-9"
           />
         </div>
         <Select value={confirmedFilter} onValueChange={(v) => setConfirmedFilter(v as typeof confirmedFilter)}>
-          <SelectTrigger className="h-9 w-full sm:w-44">
+          <SelectTrigger className="h-10 sm:h-9 w-full sm:w-44">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -395,23 +388,21 @@ export function InventarioEntregasClient({ currentUserId, canEdit }: Props) {
 
       <div>
         {loading ? (
-          <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Cargando entregas…
-          </div>
+          <Spinner block label="Cargando entregas…" />
         ) : filtered.length === 0 ? (
-          <div className="py-10 text-center">
-            <Truck className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
-            <p className="text-sm font-medium">
-              {search || confirmedFilter !== "all" ? "Sin resultados" : "Sin entregas registradas"}
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {canEdit
-                ? "Usa Nueva entrega para registrar la primera."
-                : "Aún no hay entregas en el sistema."}
-            </p>
-          </div>
+          <Surface elevation={1} padding="none">
+            <EmptyState
+              icon={Truck}
+              title={search || confirmedFilter !== "all" ? "Sin resultados" : "Sin entregas registradas"}
+              description={
+                canEdit
+                  ? "Usa Nueva entrega para registrar la primera."
+                  : "Aún no hay entregas en el sistema."
+              }
+            />
+          </Surface>
         ) : (
-          <ul className="space-y-2">
+          <ul className="space-y-2 ds-list-cascade">
             {filtered.map((m) => {
               const confirmed = m.confirmationStatus === "confirmed" && m.confirmedAt;
               const isOwn = currentUserId && m.createdBy === currentUserId;
@@ -427,19 +418,17 @@ export function InventarioEntregasClient({ currentUserId, canEdit }: Props) {
 
               return (
                 <li key={m.id}>
-                <OpaiSurface variant="default" hoverable>
+                <Surface elevation={1} padding="md" hoverable>
                   <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3">
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-                      <UserRoundCheck className="h-5 w-5" />
-                    </span>
+                    <IconBubble icon={UserRoundCheck} variant={confirmed ? "ok" : "warn"} size="md" rounded="circle" />
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-1.5">
-                        <p className="text-sm font-semibold truncate">{guardiaName}</p>
-                        <Badge variant="outline" className="text-[10px]">
+                        <p className="text-[14px] font-semibold text-ds-text-1 truncate">{guardiaName}</p>
+                        <Tag variant="neutral" size="sm">
                           {totalUnits} unid.
-                        </Badge>
+                        </Tag>
                       </div>
-                      <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+                      <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px] text-ds-text-3">
                         <span>{new Date(m.date).toLocaleDateString("es-CL")}</span>
                         <span aria-hidden>·</span>
                         <span className="inline-flex items-center gap-1 truncate">
@@ -454,7 +443,7 @@ export function InventarioEntregasClient({ currentUserId, canEdit }: Props) {
                         )}
                       </div>
                       {(creatorName || isOwn) && (
-                        <p className="mt-1 inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                        <p className="mt-1 inline-flex items-center gap-1 text-[12px] text-ds-text-4">
                           <User className="h-2.5 w-2.5" />
                           Por {isOwn ? "ti" : creatorName}
                         </p>
@@ -463,20 +452,20 @@ export function InventarioEntregasClient({ currentUserId, canEdit }: Props) {
                     <InventoryReceptionBadge status={receptionStatusFromMovement(m.confirmationStatus)} />
                   </div>
 
-                  <ul className="mt-2 space-y-0.5 rounded-md bg-foreground/[0.03] p-2 text-xs text-muted-foreground">
+                  <ul className="mt-2 space-y-0.5 rounded-ds-md bg-ds-surface-2 p-2 text-[12px] text-ds-text-3">
                     {m.lines.map((l, i) => (
                       <li key={i} className="flex items-center justify-between">
                         <span className="truncate">
                           {l.variant.product.name}
                           {l.variant.size && ` ${l.variant.size.sizeCode}`}
                         </span>
-                        <span className="ml-2 shrink-0 tabular-nums font-mono">×{l.quantity}</span>
+                        <span className="ml-2 shrink-0 ds-num font-mono">×{l.quantity}</span>
                       </li>
                     ))}
                   </ul>
 
                   {confirmed && (
-                    <p className="mt-2 text-xs text-emerald-600 dark:text-emerald-400">
+                    <p className="mt-2 text-[12px] text-status-ok-fg">
                       Recepcionado{" "}
                       {new Date(m.confirmedAt!).toLocaleString("es-CL", {
                         dateStyle: "short",
@@ -492,12 +481,12 @@ export function InventarioEntregasClient({ currentUserId, canEdit }: Props) {
                         type="button"
                         size="sm"
                         variant="outline"
-                        className="h-8 gap-1 text-xs text-destructive border-destructive/40 hover:bg-destructive/10"
+                        className="h-9 gap-1 text-xs text-status-danger-fg border-status-danger-border hover:bg-status-danger-soft"
                         disabled={undoingId === m.id}
                         onClick={() => handleUndo(m)}
                       >
                         {undoingId === m.id ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
+                          <Spinner size="sm" />
                         ) : (
                           <Undo2 className="h-3 w-3" />
                         )}
@@ -505,7 +494,7 @@ export function InventarioEntregasClient({ currentUserId, canEdit }: Props) {
                       </Button>
                     </div>
                   )}
-                </OpaiSurface>
+                </Surface>
                 </li>
               );
             })}
@@ -536,6 +525,7 @@ export function InventarioEntregasClient({ currentUserId, canEdit }: Props) {
                   value={form.date}
                   onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
                   required
+                  className="h-10 sm:h-9"
                 />
               </div>
               <div className="space-y-1.5">
@@ -550,7 +540,7 @@ export function InventarioEntregasClient({ currentUserId, canEdit }: Props) {
                     }))
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="h-10 sm:h-9">
                     <SelectValue placeholder="Seleccionar bodega" />
                   </SelectTrigger>
                   <SelectContent>
@@ -580,10 +570,10 @@ export function InventarioEntregasClient({ currentUserId, canEdit }: Props) {
                 readOnly
                 disabled
                 placeholder={form.guardiaId ? "Sin instalación asignada" : "Selecciona un guardia primero"}
-                className="bg-muted"
+                className="h-10 sm:h-9 bg-ds-surface-3"
               />
               {form.guardiaId && !form.installationId && (
-                <p className="text-xs text-amber-500 mt-1">
+                <p className="text-[12px] text-status-warn-fg mt-1">
                   Este guardia no tiene instalación asignada actualmente.
                 </p>
               )}
@@ -596,6 +586,7 @@ export function InventarioEntregasClient({ currentUserId, canEdit }: Props) {
                 value={form.notes}
                 onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
                 placeholder="Comentario interno"
+                className="h-10 sm:h-9"
               />
             </div>
 
@@ -606,7 +597,7 @@ export function InventarioEntregasClient({ currentUserId, canEdit }: Props) {
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="h-7 gap-1 text-xs"
+                  className="h-9 gap-1 text-xs"
                   onClick={addLine}
                   disabled={!form.fromWarehouseId}
                 >
@@ -614,7 +605,7 @@ export function InventarioEntregasClient({ currentUserId, canEdit }: Props) {
                 </Button>
               </div>
               {!form.fromWarehouseId ? (
-                <p className="rounded-md border border-dashed p-3 text-center text-xs text-muted-foreground">
+                <p className="rounded-ds-md border border-dashed border-ds-border-default p-3 text-center text-[12px] text-ds-text-3">
                   Selecciona una bodega para ver el stock disponible.
                 </p>
               ) : (
@@ -625,14 +616,14 @@ export function InventarioEntregasClient({ currentUserId, canEdit }: Props) {
                     const maxQty = line.variantId ? getAvailableStock(line.variantId, i) : 1;
 
                     return (
-                      <div key={i} className="rounded-lg border p-3 space-y-2 bg-muted/20">
+                      <div key={i} className="rounded-ds-md border border-ds-border-default p-3 space-y-2 bg-ds-surface-2">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-medium text-muted-foreground">Línea {i + 1}</span>
+                          <span className="text-[12px] font-medium text-ds-text-3">Línea {i + 1}</span>
                           {form.lines.length > 1 && (
                             <button
                               type="button"
                               onClick={() => removeLine(i)}
-                              className="text-muted-foreground hover:text-destructive transition-colors"
+                              className="text-ds-text-3 hover:text-status-danger-fg transition-colors"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </button>
@@ -645,7 +636,7 @@ export function InventarioEntregasClient({ currentUserId, canEdit }: Props) {
                             value={line.productId}
                             onValueChange={(v) => updateLine(i, { productId: v })}
                           >
-                            <SelectTrigger className="h-9">
+                            <SelectTrigger className="h-10 sm:h-9">
                               <SelectValue placeholder="Seleccionar producto" />
                             </SelectTrigger>
                             <SelectContent>
@@ -666,7 +657,7 @@ export function InventarioEntregasClient({ currentUserId, canEdit }: Props) {
                                 value={line.variantId}
                                 onValueChange={(v) => updateLine(i, { variantId: v })}
                               >
-                                <SelectTrigger className="h-9">
+                                <SelectTrigger className="h-10 sm:h-9">
                                   <SelectValue placeholder="Selecciona talla" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -694,7 +685,7 @@ export function InventarioEntregasClient({ currentUserId, canEdit }: Props) {
                                   updateLine(i, { quantity: Math.min(val, maxQty) });
                                 }}
                                 disabled={!line.variantId}
-                                className="h-9"
+                                className="h-10 sm:h-9"
                               />
                             </div>
                           </div>
@@ -702,20 +693,20 @@ export function InventarioEntregasClient({ currentUserId, canEdit }: Props) {
 
                         {line.variantId && selectedSize && (
                           <div className="flex items-center gap-2 text-xs">
-                            <Badge
-                              variant="outline"
-                              className={cn(
+                            <Tag
+                              variant={
                                 selectedSize.stock > 5
-                                  ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                                  ? "ok"
                                   : selectedSize.stock > 0
-                                    ? "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400"
-                                    : "border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400",
-                              )}
+                                    ? "warn"
+                                    : "danger"
+                              }
+                              size="sm"
                             >
                               Stock: {selectedSize.stock}
-                            </Badge>
+                            </Tag>
                             {line.quantity > 0 && (
-                              <span className="text-muted-foreground">
+                              <span className={cn("text-ds-text-3")}>
                                 Quedará: {selectedSize.stock - line.quantity}
                               </span>
                             )}
@@ -729,7 +720,7 @@ export function InventarioEntregasClient({ currentUserId, canEdit }: Props) {
             </div>
 
             <SheetFooter className="flex-col gap-2 pt-2 sm:flex-row sm:justify-end">
-              <Button type="button" variant="outline" onClick={() => setSheetOpen(false)}>
+              <Button type="button" variant="outline" onClick={() => setSheetOpen(false)} className="h-10 sm:h-9">
                 Cancelar
               </Button>
               <Button
@@ -741,15 +732,15 @@ export function InventarioEntregasClient({ currentUserId, canEdit }: Props) {
                   !form.installationId ||
                   !form.lines.some((l) => l.variantId && l.quantity > 0)
                 }
-                className="gap-2"
+                className="gap-2 h-10 sm:h-9"
               >
-                {submitting && <Loader2 className="h-3 w-3 animate-spin" />}
+                {submitting && <Spinner size="sm" />}
                 Registrar entrega
               </Button>
             </SheetFooter>
           </form>
         </SheetContent>
       </Sheet>
-    </OpaiSurface>
+    </div>
   );
 }

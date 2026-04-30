@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
-import { OpaiPageHero } from "@/components/opai";
+import { PageHero } from "@/components/opai-ds";
 import { InventarioComprasClient } from "@/components/inventario/InventarioComprasClient";
 import { InventarioSubnav } from "@/components/ops/InventarioSubnav";
 
@@ -19,7 +19,7 @@ export default async function InventarioComprasPage() {
     <div className="min-w-0">
       <InventarioSubnav />
       <section className="relative w-full pb-32 space-y-5">
-        <OpaiPageHero
+        <PageHero
           eyebrow={["Operaciones", "Inventario", "Compras"]}
           title="Ingresos de inventario"
           subtitle="compras y abastecimiento"

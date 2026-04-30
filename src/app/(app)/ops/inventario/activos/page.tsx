@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
-import { OpaiPageHero } from "@/components/opai";
+import { PageHero } from "@/components/opai-ds";
 import { InventarioActivosClient } from "@/components/inventario/InventarioActivosClient";
 import { InventarioSubnav } from "@/components/ops/InventarioSubnav";
 
@@ -19,7 +19,7 @@ export default async function InventarioActivosPage() {
     <div className="min-w-0">
       <InventarioSubnav />
       <section className="relative w-full pb-32 space-y-5">
-        <OpaiPageHero
+        <PageHero
           eyebrow={["Operaciones", "Inventario", "Activos"]}
           title="Activos y equipos"
           subtitle="celulares, radios y trazabilidad por instalación"

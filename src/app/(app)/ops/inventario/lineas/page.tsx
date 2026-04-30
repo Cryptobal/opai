@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
-import { OpaiPageHero } from "@/components/opai";
+import { PageHero } from "@/components/opai-ds";
 import { InventarioLineasClient } from "@/components/inventario/InventarioLineasClient";
 import { InventarioSubnav } from "@/components/ops/InventarioSubnav";
 
@@ -19,7 +19,7 @@ export default async function InventarioLineasPage() {
     <div className="min-w-0">
       <InventarioSubnav />
       <section className="relative w-full pb-32 space-y-5">
-        <OpaiPageHero
+        <PageHero
           eyebrow={["Operaciones", "Inventario", "Líneas"]}
           title="Líneas telefónicas"
           subtitle="SIM cards y números corporativos"

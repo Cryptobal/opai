@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { Phone, Plus, Unlink, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { Spinner } from "@/components/opai-ds";
 
 type AssignedLine = {
   id: string;
@@ -130,42 +131,42 @@ export function InstallationPhoneLines({ installationId }: { installationId: str
 
   if (loading) {
     return (
-      <div className="rounded-lg border border-border bg-card p-4 sm:p-5">
-        <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+      <div className="rounded-ds-md border border-ds-border-default bg-ds-surface-1 p-4 sm:p-5">
+        <h3 className="mb-3 text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4">
           Líneas Telefónicas
         </h3>
-        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+        <Spinner size="sm" />
       </div>
     );
   }
 
   return (
     <>
-      <div className="rounded-lg border border-border bg-card p-4 sm:p-5">
+      <div className="rounded-ds-md border border-ds-border-default bg-ds-surface-1 p-4 sm:p-5">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+          <h3 className="text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4">
             Líneas Telefónicas
           </h3>
-          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={openAssignDialog}>
+          <Button variant="ghost" size="sm" className="h-9 text-xs" onClick={openAssignDialog}>
             <Plus className="h-3.5 w-3.5 mr-1" />
             Asignar
           </Button>
         </div>
 
         {lines.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Sin líneas asignadas.</p>
+          <p className="text-sm text-ds-text-3">Sin líneas asignadas.</p>
         ) : (
           <div className="space-y-2">
             {lines.map((line) => (
               <div
                 key={line.id}
-                className="flex items-center justify-between gap-2 rounded-md border px-3 py-2"
+                className="flex items-center justify-between gap-2 rounded-ds-md border border-ds-border-subtle bg-ds-surface-2 px-3 py-2"
               >
                 <div className="flex items-center gap-2 min-w-0">
-                  <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <Phone className="h-4 w-4 text-ds-text-4 shrink-0" />
                   <a
                     href={`tel:${line.phoneNumber}`}
-                    className="font-medium hover:underline whitespace-nowrap"
+                    className="text-[13px] font-mono font-medium text-ds-text-1 hover:underline whitespace-nowrap"
                   >
                     {formatPhone(line.phoneNumber)}
                   </a>
@@ -173,13 +174,13 @@ export function InstallationPhoneLines({ installationId }: { installationId: str
                     {line.carrier.charAt(0).toUpperCase() + line.carrier.slice(1)}
                   </Badge>
                   {line.label && (
-                    <span className="text-xs text-muted-foreground truncate">{line.label}</span>
+                    <span className="text-[12px] text-ds-text-3 truncate">{line.label}</span>
                   )}
                 </div>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7 shrink-0"
+                  className="h-9 w-9 shrink-0"
                   title="Desvincular"
                   onClick={() => handleUnassign(line.id)}
                 >

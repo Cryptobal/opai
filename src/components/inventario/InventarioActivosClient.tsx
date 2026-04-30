@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { OpaiSurface } from "@/components/opai";
+import { Surface, Tag, EmptyState, Spinner, IconBubble } from "@/components/opai-ds";
 import {
   Dialog,
   DialogContent,
@@ -14,8 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Plus } from "lucide-react";
+import { Plus, Smartphone } from "lucide-react";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 type Asset = {
@@ -118,11 +117,11 @@ export function InventarioActivosClient() {
   };
 
   return (
-    <OpaiSurface className="space-y-4">
+    <div className="space-y-4 ds-page-enter">
       <div className="flex justify-end">
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button variant="outline" onClick={() => setForm({ variantId: "", serialNumber: "", phoneNumber: "", phoneCarrier: "", notes: "" })}>
+            <Button variant="outline" className="h-10 sm:h-9" onClick={() => setForm({ variantId: "", serialNumber: "", phoneNumber: "", phoneCarrier: "", notes: "" })}>
               <Plus className="h-4 w-4 mr-2" />
               Nuevo activo
             </Button>
@@ -157,6 +156,7 @@ export function InventarioActivosClient() {
                     value={form.serialNumber}
                     onChange={(e) => setForm((f) => ({ ...f, serialNumber: e.target.value }))}
                     placeholder="Opcional"
+                    className="h-10 sm:h-9"
                   />
                 </div>
                 <div>
@@ -165,6 +165,7 @@ export function InventarioActivosClient() {
                     value={form.phoneNumber}
                     onChange={(e) => setForm((f) => ({ ...f, phoneNumber: e.target.value }))}
                     placeholder="+56912345678"
+                    className="h-10 sm:h-9"
                   />
                 </div>
                 <div>
@@ -173,6 +174,7 @@ export function InventarioActivosClient() {
                     value={form.phoneCarrier}
                     onChange={(e) => setForm((f) => ({ ...f, phoneCarrier: e.target.value }))}
                     placeholder="Entel, Movistar, etc."
+                    className="h-10 sm:h-9"
                   />
                 </div>
                 <div>
@@ -181,14 +183,15 @@ export function InventarioActivosClient() {
                     value={form.notes}
                     onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
                     placeholder="Opcional"
+                    className="h-10 sm:h-9"
                   />
                 </div>
               </div>
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} className="h-10 sm:h-9">
                   Cancelar
                 </Button>
-                <Button type="submit">Crear</Button>
+                <Button type="submit" className="h-10 sm:h-9">Crear</Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -196,53 +199,52 @@ export function InventarioActivosClient() {
       </div>
       <div>
         {loading ? (
-          <p className="text-sm text-muted-foreground">Cargando...</p>
+          <Spinner block label="Cargando…" />
         ) : error ? (
-          <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-4 text-sm text-amber-700 dark:text-amber-400">
-            {error}
-          </div>
+          <Surface elevation={1} padding="md" className="border-status-warn-border bg-status-warn-soft">
+            <p className="text-sm text-status-warn-fg">{error}</p>
+          </Surface>
         ) : assets.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-6 text-center">
-            No hay activos. Crea productos tipo &quot;activo&quot; (ej. Celular) y regístralos aquí.
-          </p>
+          <Surface elevation={1} padding="none">
+            <EmptyState
+              icon={Smartphone}
+              title="No hay activos"
+              description='Crea productos tipo "activo" (ej. Celular) y regístralos aquí.'
+            />
+          </Surface>
         ) : (
-          <div className="space-y-2">
+          <ul className="space-y-2 ds-list-cascade">
             {assets.map((a) => (
-              <OpaiSurface
-                key={a.id}
-                variant="tight"
-                hoverable
-                className="flex items-center justify-between"
-              >
-                <div className="min-w-0">
-                  <p className="font-semibold text-sm">
-                    {a.variant?.product.name ?? "Activo"}{" "}
-                    {a.serialNumber && (
-                      <span className="text-muted-foreground/70 font-mono text-xs">({a.serialNumber})</span>
-                    )}
-                  </p>
-                  <div className="flex flex-wrap items-center gap-2 mt-1">
-                    <Badge
-                      variant="outline"
-                      className="text-[10px] font-mono uppercase tracking-wider border-foreground/10 bg-foreground/5 text-muted-foreground"
-                    >
-                      {statusLabels[a.status] ?? a.status}
-                    </Badge>
-                    {a.phoneNumber && (
-                      <span className="text-xs font-mono text-muted-foreground">{a.phoneNumber}</span>
-                    )}
-                    {a.assignments[0] && (
-                      <span className="text-xs text-muted-foreground/80">
-                        → {a.assignments[0].installation.name}
-                      </span>
-                    )}
+              <li key={a.id}>
+                <Surface elevation={1} padding="sm" hoverable className="flex items-center gap-3">
+                  <IconBubble icon={Smartphone} variant="brand" size="md" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[14px] font-semibold text-ds-text-1">
+                      {a.variant?.product.name ?? "Activo"}{" "}
+                      {a.serialNumber && (
+                        <span className="text-ds-text-4 font-mono text-[12px]">({a.serialNumber})</span>
+                      )}
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2 mt-1">
+                      <Tag variant="neutral" size="sm">
+                        {statusLabels[a.status] ?? a.status}
+                      </Tag>
+                      {a.phoneNumber && (
+                        <span className="text-[12px] font-mono text-ds-text-3">{a.phoneNumber}</span>
+                      )}
+                      {a.assignments[0] && (
+                        <span className="text-[12px] text-ds-text-3">
+                          → {a.assignments[0].installation.name}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </OpaiSurface>
+                </Surface>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
       </div>
-    </OpaiSurface>
+    </div>
   );
 }
