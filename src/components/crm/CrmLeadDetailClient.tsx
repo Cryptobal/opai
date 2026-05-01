@@ -1912,7 +1912,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
         {/* Solicitud del cliente — siempre visible en General */}
         {(lead.serviceType || lead.notes) && (
           <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-4 space-y-3">
-            <h4 className="text-sm font-medium text-blue-400 flex items-center gap-2">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-blue-400 flex items-center gap-2">
               <FileText className="h-4 w-4 text-blue-400 shrink-0" />
               Solicitud
             </h4>
@@ -1933,7 +1933,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
         {/* Datos Apollo — visibles solo si hay datos reales */}
         {apolloData && (apolloData.person?.title || apolloData.person?.seniority || apolloData.person?.linkedinUrl || apolloData.organization?.name || apolloData.organization?.industry) && (
           <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-4 space-y-3">
-            <h4 className="text-sm font-medium text-amber-400 flex items-center gap-2">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-amber-400 flex items-center gap-2">
               <Sparkles className="h-4 w-4" />
               Datos Apollo
             </h4>
@@ -1982,7 +1982,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
         {/* Entidades creadas (lead aprobado) */}
         {lead.status === "approved" && convertedEntities && (
           <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-4 space-y-3">
-            <h4 className="text-sm font-medium text-emerald-400 flex items-center gap-2">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-emerald-400 flex items-center gap-2">
               <CheckCircle2 className="h-4 w-4" />
               Registros creados
             </h4>
@@ -2065,7 +2065,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
         {/* Rejection info */}
         {lead.status === "rejected" && rejectionInfo && (
           <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 space-y-3">
-            <h4 className="text-sm font-medium text-destructive flex items-center gap-2">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-destructive flex items-center gap-2">
               <XCircle className="h-4 w-4" />
               Información del rechazo
             </h4>
@@ -2090,7 +2090,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
       <div className="space-y-3">
         {duplicates.length > 0 && (
           <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
-            <div className="flex items-center gap-2 text-amber-400 text-sm font-medium">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-amber-400">
               <AlertTriangle className="h-4 w-4" />
               Cuenta con el mismo nombre ya existe
             </div>
@@ -2118,7 +2118,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
         )}
         {existingContact && (
           <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
-            <div className="flex items-center gap-2 text-amber-400 text-sm font-medium">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-amber-400">
               <AlertTriangle className="h-4 w-4" />
               Ya existe un contacto con este email
             </div>
@@ -2143,7 +2143,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
         )}
         {installationConflicts.length > 0 && (
           <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
-            <div className="flex items-center gap-2 text-amber-400 text-sm font-medium">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-amber-400">
               <AlertTriangle className="h-4 w-4" />
               Instalación con el mismo nombre ya existe en esta cuenta
             </div>
@@ -2173,7 +2173,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
 
     // TAB: Account
     const accountContent = (
-        <div className="space-y-4 rounded-lg border border-border bg-card p-4 sm:p-5">
+        <div className="space-y-4 rounded-xl border border-border bg-card p-4 sm:p-5">
           {conflictAlerts}
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
             <div className="space-y-1.5 md:col-span-2 lg:col-span-3">
@@ -2224,7 +2224,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
                 </div>
               </div>
               <Input value={approveForm.website} onChange={(e) => updateApproveForm("website", e.target.value)} placeholder="https://www.empresa.cl" className={inputClassName} />
-              <p className="text-[10px] text-muted-foreground">Se detecta automáticamente desde el dominio del email. Se asocia a la cuenta.</p>
+              <p className="text-xs text-muted-foreground">Se detecta automáticamente desde el dominio del email. Se asocia a la cuenta.</p>
             </div>
             <div className="space-y-1.5 md:col-span-2 lg:col-span-3">
               <Label>Información de la empresa</Label>
@@ -2232,12 +2232,12 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
                 placeholder="Resumen comercial de qué hace la empresa..." className={`w-full min-h-[96px] resize-y rounded-md border px-3 py-2 text-sm ${inputClassName}`} rows={4} />
               {detectedCompanyLogoUrl && (
                 <div className="space-y-2 rounded-md border border-border bg-muted/20 p-2">
-                  <div className="text-[10px] text-muted-foreground">Logo detectado</div>
+                  <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Logo detectado</div>
                   <div className="flex items-center gap-3">
                     <img src={detectedCompanyLogoUrl} alt="Logo empresa detectado" className="h-12 w-12 rounded border border-border bg-background object-contain" />
-                    <span className="truncate text-[10px] text-muted-foreground">{detectedCompanyLogoUrl}</span>
+                    <span className="truncate text-xs text-muted-foreground">{detectedCompanyLogoUrl}</span>
                   </div>
-                  <Button type="button" variant="ghost" size="sm" className="h-6 px-2 text-[10px]"
+                  <Button type="button" variant="ghost" size="sm" className="h-6 px-2 text-xs"
                     onClick={async () => { try { await navigator.clipboard.writeText(detectedCompanyLogoUrl); toast.success("URL del logo copiada."); } catch { toast.error("No se pudo copiar."); } }}>
                     Copiar URL
                   </Button>
@@ -2250,7 +2250,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
 
     // TAB: Contacts
     const contactsContent = (
-        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 rounded-lg border border-border bg-card p-4 sm:p-5">
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 rounded-xl border border-border bg-card p-4 sm:p-5">
           <div className="space-y-1.5">
             <Label>Nombre *</Label>
             <Input value={approveForm.contactFirstName} onChange={(e) => updateApproveForm("contactFirstName", e.target.value)} placeholder="Nombre" className={inputClassName} />
@@ -2276,7 +2276,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
 
     // TAB: Deals
     const dealsContent = (
-        <div className="space-y-3 rounded-lg border border-border bg-card p-4 sm:p-5">
+        <div className="space-y-3 rounded-xl border border-border bg-card p-4 sm:p-5">
           <div className="space-y-1.5">
             <Label>Título del negocio</Label>
             <Input value={approveForm.dealTitle} onChange={(e) => updateApproveForm("dealTitle", e.target.value)} placeholder="Oportunidad para..." className={inputClassName} />
@@ -2286,7 +2286,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
             <textarea value={approveForm.notes} onChange={(e) => updateApproveForm("notes", e.target.value)}
               placeholder="Descripción de la solicitud (se copiará al negocio y cotización)..."
               className={`w-full min-h-[120px] resize-y rounded-md border px-3 py-2 text-sm ${inputClassName}`} rows={5} />
-            <p className="text-[10px] text-muted-foreground">Esta solicitud se agregará al negocio y a las cotizaciones creadas.</p>
+            <p className="text-xs text-muted-foreground">Esta solicitud se agregará al negocio y a las cotizaciones creadas.</p>
           </div>
         </div>
     );
@@ -2500,7 +2500,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
             </div>
             );
           })}
-          <p className="text-[10px] text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             Cada instalación tiene su propia configuración. El nombre de cotización sigue al nombre de la instalación hasta que lo edites. Con la fila plegada ves total UF/CLP y márgenes según la moneda elegida.
           </p>
         </div>
@@ -2995,7 +2995,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
                   <Label>Mensaje *</Label>
                   <textarea value={rejectEmailBody} onChange={(e) => setRejectEmailBody(e.target.value)} placeholder="Contenido del correo..."
                     className={`w-full min-h-[140px] rounded-md border px-3 py-2 text-sm ${inputClassName}`} rows={6} />
-                  <p className="text-[10px] text-muted-foreground">La firma configurada en el sistema se agrega automáticamente al momento del envío.</p>
+                  <p className="text-xs text-muted-foreground">La firma configurada en el sistema se agrega automáticamente al momento del envío.</p>
                 </div>
               </div>
             )}
