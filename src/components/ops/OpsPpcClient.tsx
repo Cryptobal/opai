@@ -82,10 +82,10 @@ function toDateInput(date: Date): string {
 }
 
 const REASON_META: Record<string, { label: string; color: string; bgColor: string; icon: typeof UserX }> = {
-  sin_guardia: { label: "Sin guardia", color: "text-status-warn-fg", bgColor: "bg-amber-400/10", icon: UserX },
-  vacaciones: { label: "Vacaciones", color: "text-status-ok-fg", bgColor: "bg-emerald-400/10", icon: Palmtree },
-  licencia: { label: "Licencia", color: "text-status-warn-fg", bgColor: "bg-yellow-400/10", icon: Stethoscope },
-  permiso: { label: "Permiso", color: "text-status-warn-fg", bgColor: "bg-orange-400/10", icon: Clock3 },
+  sin_guardia: { label: "Sin guardia", color: "text-status-warn-fg", bgColor: "bg-status-warn-soft", icon: UserX },
+  vacaciones: { label: "Vacaciones", color: "text-status-ok-fg", bgColor: "bg-status-ok-soft", icon: Palmtree },
+  licencia: { label: "Licencia", color: "text-status-warn-fg", bgColor: "bg-status-warn-soft", icon: Stethoscope },
+  permiso: { label: "Permiso", color: "text-status-warn-fg", bgColor: "bg-status-warn-soft", icon: Clock3 },
 };
 
 /* ── Chart tooltip ─────────────────────────────── */
@@ -173,9 +173,9 @@ function InstallationCard({
   }, [items]);
 
   const severityColor = items.length >= 5
-    ? "border-status-danger-border bg-red-500/[0.03]"
+    ? "border-status-danger-border bg-status-danger-soft/30"
     : items.length >= 3
-      ? "border-status-warn-border bg-amber-500/[0.03]"
+      ? "border-status-warn-border bg-status-warn-soft/30"
       : "border-border";
 
   return (

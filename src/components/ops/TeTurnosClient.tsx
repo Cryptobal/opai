@@ -15,7 +15,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { StatusTag } from "@/components/ops/StatusTag";
-import { EmptyState, Spinner } from "@/components/opai-ds";
+import { EmptyState, Spinner, Tag } from "@/components/opai-ds";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { AlertTriangle, Clock3, FileDown, Plus, Search, BarChart3, List, UserX } from "lucide-react";
 import { formatPersonName } from "@/lib/personas";
@@ -698,24 +698,16 @@ export function TeTurnosClient({
                         <p className="text-sm font-medium">
                           {formatPersonName(item.guardia.persona.firstName, item.guardia.persona.lastName)}
                         </p>
-                        <span
-                          className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
-                            (item.tipo ?? "turno_extra") === "hora_extra"
-                              ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-status-info-fg"
-                              : "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-status-ok-fg"
-                          }`}
-                        >
+                        <Tag variant={(item.tipo ?? "turno_extra") === "hora_extra" ? "info" : "ok"} size="sm">
                           {(item.tipo ?? "turno_extra") === "hora_extra" ? "HE" : "TE"}
-                        </span>
+                        </Tag>
                         {item.isManual && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-status-warn-fg font-medium">
-                            Manual
-                          </span>
+                          <Tag variant="warn" size="sm">Manual</Tag>
                         )}
                         {item.refuerzoSolicitud && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300 font-medium">
+                          <Tag variant="brand" size="sm">
                             Refuerzo{item.refuerzoSolicitud.name ? `: ${item.refuerzoSolicitud.name}` : ""}
-                          </span>
+                          </Tag>
                         )}
                         {(() => {
                           const consec = getConsecutive(item);
@@ -725,7 +717,7 @@ export function TeTurnosClient({
                             <span
                               className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-medium ${
                                 isAlert
-                                  ? "bg-status-danger-soft text-status-danger-fg dark:bg-red-500/30 dark:text-status-danger-fg"
+                                  ? "bg-status-danger-soft text-status-danger-fg"
                                   : "bg-muted text-muted-foreground"
                               }`}
                               title={consec >= 5 ? `${consec} días consecutivos con TE — evite rachas largas` : `${consec} día(s) consecutivo(s) con TE`}

@@ -2,7 +2,8 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/opai-ds";
+import { PageHero } from "@/components/opai-ds";
+import { CalendarDays } from "lucide-react";
 import { OpsPautaMensualClient, PautasSubnav } from "@/components/ops";
 
 export default async function OpsPautaMensualPage() {
@@ -38,9 +39,13 @@ export default async function OpsPautaMensualPage() {
 
   return (
     <div className="space-y-6 min-w-0">
-      <PageHeader
+      <PageHero
+        icon={<CalendarDays />}
+        iconTone="emerald"
+        eyebrow={["Operaciones", "Pauta mensual"]}
         title="Pauta mensual"
-        description="Genera el plan del mes y asigna guardias por puesto y día."
+        subtitle="plan operativo del mes"
+        description="Genera el plan del mes y asigna guardias por puesto y día. Controla las horas planificadas, los turnos extra y las brechas de cobertura."
       />
       <PautasSubnav />
       <OpsPautaMensualClient
