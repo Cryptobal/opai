@@ -438,6 +438,24 @@ export async function POST(request: NextRequest) {
           data: { ticketId: ticket.id, code: ticket.code },
         });
       }
+
+      // Notificar al nuevo responsable si fue asignado al crear el ticket.
+      if (ticket.assignedTo && ticket.assignedTo !== ctx.userId) {
+        const { notifyTicketAssigned } = await import(
+          "@/lib/notifications/notify-ticket-assigned"
+        );
+        await notifyTicketAssigned({
+          tenantId: ctx.tenantId,
+          ticketId: ticket.id,
+          ticketCode: ticket.code,
+          ticketTitle: ticket.title,
+          ticketPriority: ticket.priority,
+          ticketAssignedTeam: ticket.assignedTeam,
+          assigneeId: ticket.assignedTo,
+          assignedById: ctx.userId,
+          source: "creation",
+        });
+      }
     } catch (err) {
       console.error("[OPS] Error notifying ticket creation:", err);
     }

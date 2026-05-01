@@ -328,6 +328,33 @@ export async function PATCH(
       );
     }
 
+    // Notificar al nuevo responsable si cambió la asignación.
+    if (
+      body.assignedTo !== undefined &&
+      body.assignedTo &&
+      body.assignedTo !== existing.assignedTo &&
+      body.assignedTo !== ctx.userId
+    ) {
+      try {
+        const { notifyTicketAssigned } = await import(
+          "@/lib/notifications/notify-ticket-assigned"
+        );
+        await notifyTicketAssigned({
+          tenantId: ctx.tenantId,
+          ticketId: id,
+          ticketCode: existing.code,
+          ticketTitle: existing.title,
+          ticketPriority: existing.priority,
+          ticketAssignedTeam: body.assignedTeam ?? existing.assignedTeam,
+          assigneeId: body.assignedTo,
+          assignedById: ctx.userId,
+          source: "patch",
+        });
+      } catch (notifyErr) {
+        console.error("[OPS] Error notificando asignación:", notifyErr);
+      }
+    }
+
     // Sync bidireccional: si el status pasa a terminal, cerrar findings asociados
     // para que dedup futuras NO los tomen como canónicos.
     if (body.status !== undefined) {

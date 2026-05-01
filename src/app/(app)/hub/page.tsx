@@ -92,7 +92,7 @@ export default async function HubPage() {
     hubPerms.hasOps ? getOpsMetrics(tenantId) : null,
     getRecentActivity(tenantId),
     getNotifications(tenantId, session.user.id, perms),
-    getTicketMetrics(tenantId),
+    getTicketMetrics(tenantId, session.user.id),
     hubPerms.hasSupervision ? getSupervisionMetrics(tenantId) : null,
     hubPerms.hasCrm ? getUpcomingProjects(tenantId) : [],
     hubPerms.hasAts ? getAtsMetrics(tenantId) : null,

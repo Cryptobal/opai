@@ -101,6 +101,7 @@ const TYPE_SOURCE_MODULE: Record<string, SourceModuleKey> = {
   new_te_ingreso: "guardia",
   refuerzo_solicitud_created: "operaciones",
   ticket_created: "operaciones",
+  ticket_assigned: "operaciones",
   ticket_approved: "operaciones",
   ticket_rejected: "operaciones",
   ticket_sla_breached: "operaciones",
@@ -539,6 +540,7 @@ function visibleNotificationsWhere(
     "mention",
     "ticket_mention",
     "ticket_created",
+    "ticket_assigned",
   ];
 
   const orConditions: Prisma.NotificationWhereInput[] = [
@@ -573,6 +575,7 @@ function visibleNotificationsWhere(
     "refuerzo_solicitud_created",
     "ticket_mention",
     "ticket_created",
+    "ticket_assigned",
   ]) {
     if (baseExclusions.includes(targetedType)) continue; // Skip if role excludes it
     orConditions.push({

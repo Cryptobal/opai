@@ -65,6 +65,7 @@ export interface TicketType {
   origin: TicketOrigin;
   requiresApproval: boolean;
   assignedTeam: TicketTeam;
+  defaultAssignedToUserId: string | null;
   defaultPriority: TicketPriority;
   slaHours: number;
   icon: string | null;
@@ -301,6 +302,20 @@ export const TICKET_TEAM_CONFIG: Record<TicketTeam, { label: string }> = {
   inventario: { label: "Inventario" },
   finanzas: { label: "Finanzas" },
   it_admin: { label: "IT / Admin" },
+};
+
+/**
+ * Mapeo entre `assignedTeam` (string del ticket) y `slug` del AdminGroup.
+ * Se usa para resolver los miembros de un equipo al notificar tickets sin
+ * responsable específico.
+ */
+export const TICKET_TEAM_TO_GROUP_SLUG: Record<TicketTeam, string> = {
+  postventa: "operaciones",
+  ops: "operaciones",
+  rrhh: "rrhh",
+  inventario: "inventario",
+  finanzas: "finanzas",
+  it_admin: "it_admin",
 };
 
 export const TICKET_SOURCE_CONFIG: Record<TicketSource, { label: string }> = {

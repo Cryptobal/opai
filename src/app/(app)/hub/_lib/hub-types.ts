@@ -210,6 +210,7 @@ export interface TicketMetrics {
   breachedCount: number;
   p1PendingCount: number;
   unassignedCount: number;
+  myAssignedActiveCount: number;
   urgentTickets: TicketUrgentItem[];
   moduleActive: boolean;
 }
