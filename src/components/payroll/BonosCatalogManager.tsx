@@ -273,7 +273,7 @@ export function BonosCatalogManager() {
                       onClick={() => handleToggleActive(bono)}
                       title={bono.isActive ? "Desactivar" : "Activar"}
                     >
-                      <span className={`h-2 w-2 rounded-full ${bono.isActive ? "bg-emerald-400" : "bg-muted-foreground"}`} />
+                      <span className={`h-2 w-2 rounded-full ${bono.isActive ? "bg-status-ok" : "bg-muted-foreground"}`} />
                     </Button>
                     <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(bono)}>
                       <Pencil className="h-3.5 w-3.5" />

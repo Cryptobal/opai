@@ -1008,6 +1008,41 @@ const MIGRATED_PATHS = [
   // - ChatNewDmModal (1 hex): avatar circle.
   "src/components/configuracion/MiPlanClient.tsx",
   "src/components/chat/ChatNewDmModal.tsx",
+  // Cluster 5F.1 — Payroll. Primer sub-step del cluster Payroll
+  // (Liquidaciones y Nómina). Establece iconTone='amber' (ámbar dorado)
+  // como convención visual del cluster (diferenciado de Operaciones
+  // emerald, Comercial violet, Personas sky).
+  //
+  // 7 pages migradas al patrón hero (iconTone amber) + 9 hex residuales
+  // eliminados en 3 components con drift + 8 components ya limpios
+  // certificados. Cero cambios funcionales (liquidaciones, simulator,
+  // anticipos, parámetros legales, asistencia, periodos — sin tocar).
+  //
+  // Solo se agregan a MIGRATED_PATHS los archivos que quedan 100% limpios
+  // tras la migración de color (sin drift tipográfico residual). Mismo
+  // criterio que 4A/4B/4C/4D/5A/5B/5C/5D+5E — los siguientes archivos
+  // completaron su migración granular de color drift pero siguen teniendo
+  // drift tipográfico legacy fuera del color (text-[10px]/text-[11px] sin
+  // marcas eyebrow). Se agregarán cuando se haga su pasada de limpieza
+  // tipográfica completa:
+  //   - simulator/page.tsx (1 hex)
+  //   - AnticipoProcessClient (1)
+  //   - BonosCatalogManager (6)
+  //   - GuardiaLiquidacionesTab (6)
+  //   - HolidaysManager (2)
+  //   - PayrollAsistenciaCierreClient (1)
+  //   - PayrollPeriodDetailClient (~30)
+  //   - SueldosRutListClient (~13)
+  "src/app/(app)/payroll/page.tsx",
+  "src/app/(app)/payroll/anticipos/page.tsx",
+  "src/app/(app)/payroll/asistencia/page.tsx",
+  "src/app/(app)/payroll/parameters/page.tsx",
+  "src/app/(app)/payroll/periodos/page.tsx",
+  "src/app/(app)/payroll/periodos/[id]/page.tsx",
+  "src/components/payroll/PayrollConfigTabs.tsx",
+  "src/components/payroll/PayrollParametersEditor.tsx",
+  "src/components/payroll/PayrollPeriodListClient.tsx",
+  "src/components/payroll/PayrollSubnav.tsx",
   // Agregar aquí cuando se migren:
   // "src/components/personas/",
   // "src/components/crm/",

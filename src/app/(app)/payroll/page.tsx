@@ -3,11 +3,11 @@
  */
 
 import Link from "next/link";
-import { PageHeader } from "@/components/opai-ds";
+import { PageHero } from "@/components/opai-ds";
 import { Surface } from "@/components/opai-ds";
 import { PayrollSubnav } from "@/components/payroll/PayrollSubnav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calculator, FileText, Settings, CalendarDays, Wallet, ClipboardCheck } from "lucide-react";
+import { Calculator, FileText, Settings, CalendarDays, Wallet, ClipboardCheck, Banknote } from "lucide-react";
 
 export default function PayrollDashboard() {
   const modules = [
@@ -16,43 +16,47 @@ export default function PayrollDashboard() {
       title: "Períodos de Pago",
       description: "Liquidaciones mensuales, asistencias y generación de archivos.",
       icon: CalendarDays,
-      color: "text-status-ok-fg bg-emerald-400/10",
+      color: "text-status-ok-fg bg-status-ok-soft",
     },
     {
       href: "/payroll/asistencia",
       title: "Cierre de Asistencia",
       description: "Verifica y cierra el período de asistencia previo a procesar nómina.",
       icon: ClipboardCheck,
-      color: "text-status-info-fg bg-cyan-400/10",
+      color: "text-status-info-fg bg-status-info-soft",
     },
     {
       href: "/payroll/anticipos",
       title: "Anticipos",
       description: "Generación y pago de anticipos mensuales a guardias.",
       icon: Wallet,
-      color: "text-status-warn-fg bg-amber-400/10",
+      color: "text-status-warn-fg bg-status-warn-soft",
     },
     {
       href: "/payroll/simulator",
       title: "Simulador de Liquidación",
       description: "Simula liquidaciones con descuentos legales y costo empleador.",
       icon: Calculator,
-      color: "text-status-ok-fg bg-emerald-400/10",
+      color: "text-status-ok-fg bg-status-ok-soft",
     },
     {
       href: "/payroll/parameters",
       title: "Parámetros Legales",
       description: "Versiones de tasas, topes y tramos impositivos vigentes.",
       icon: FileText,
-      color: "text-status-info-fg bg-blue-400/10",
+      color: "text-status-info-fg bg-status-info-soft",
     },
   ];
 
   return (
     <div className="space-y-6 min-w-0">
-      <PageHeader
+      <PageHero
+        icon={<Banknote />}
+        iconTone="amber"
+        eyebrow={["Payroll", "Dashboard"]}
         title="Payroll"
-        description="Sistema de liquidaciones y costeo para Chile"
+        subtitle="liquidaciones y costeo"
+        description="Sistema de liquidaciones y costeo para Chile."
       />
       <PayrollSubnav />
 
