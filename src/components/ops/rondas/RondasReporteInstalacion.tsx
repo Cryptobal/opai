@@ -146,7 +146,7 @@ function getCellColor(cell: GridCell): string {
   if (cell.esperadas === 0) return "bg-muted/5";
   if (cell.completadas === cell.esperadas) return "bg-status-ok-soft border border-status-ok-border";
   if (cell.completadas >= cell.esperadas * 0.7) return "bg-status-warn-soft border border-status-warn-border";
-  if (cell.completadas > 0) return "bg-orange-500/15 border border-orange-500/20";
+  if (cell.completadas > 0) return "bg-status-warn-soft border border-status-warn-border";
   return "bg-status-danger-soft border border-status-danger-border";
 }
 
@@ -410,7 +410,7 @@ export function RondasReporteInstalacion({
               70-99%
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded bg-orange-500/15 border border-orange-500/20" />{" "}
+              <span className="w-3 h-3 rounded bg-status-warn-soft border border-status-warn-border" />{" "}
               1-69%
             </span>
             <span className="flex items-center gap-1.5">
@@ -806,7 +806,7 @@ function EjecucionCard({
       {ej.status !== "no_realizada" && ej.status !== "pendiente" && (
         <button
           onClick={() => onViewMap(ej)}
-          className="inline-flex items-center gap-1.5 rounded-md bg-status-info-soft px-3 py-1.5 text-xs font-medium text-status-info-fg hover:bg-teal-500/25 transition-colors"
+          className="inline-flex items-center gap-1.5 rounded-md bg-status-info-soft px-3 py-1.5 text-xs font-medium text-status-info-fg hover:brightness-110 transition-colors"
         >
           <MapPin className="h-3.5 w-3.5" />
           Ver recorrido

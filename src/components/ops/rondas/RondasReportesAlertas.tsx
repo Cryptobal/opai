@@ -66,8 +66,8 @@ const TIPO_CONFIG: Record<string, { label: string; cls: string; icon: typeof Ale
   // Legacy types that may still exist in data:
   incidente_guardia: { label: "Incidente", cls: "bg-status-warn-soft text-status-warn-fg", icon: AlertTriangle },
   ia_anomalia: { label: "IA", cls: "bg-status-info-soft text-status-info-fg", icon: Zap },
-  ronda_no_realizada: { label: "No realizada", cls: "bg-orange-500/15 text-status-warn-fg", icon: Clock },
-  checkpoint_omitido: { label: "CP omitido", cls: "bg-purple-500/15 text-purple-400", icon: Eye },
+  ronda_no_realizada: { label: "No realizada", cls: "bg-status-warn-soft text-status-warn-fg", icon: Clock },
+  checkpoint_omitido: { label: "CP omitido", cls: "bg-tint-violet text-tint-violet-fg", icon: Eye },
 };
 
 const ALERT_TYPE_VISIBILITY: Array<{ tipo: string; label: string; defaultVisible: boolean }> = [
@@ -196,7 +196,7 @@ function AlertaRowItem({
 
           {alerta.resolutionNotes && (
             <div className="rounded-md bg-emerald-950/20 border border-status-ok-border px-3 py-2">
-              <p className="text-[10px] uppercase text-emerald-400/70 font-semibold mb-0.5">Notas de resolucion</p>
+              <p className="text-[10px] uppercase text-status-ok-fg/70 font-semibold mb-0.5">Notas de resolucion</p>
               <p className="text-xs text-status-ok-fg">{alerta.resolutionNotes}</p>
             </div>
           )}

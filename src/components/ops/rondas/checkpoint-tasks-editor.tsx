@@ -37,7 +37,7 @@ const TASK_TYPES = [
 const TYPE_COLORS: Record<string, string> = {
   boolean: "border-status-ok-border text-status-ok-fg",
   checklist: "border-status-info-border text-status-info-fg",
-  select: "border-purple-500/30 text-purple-500",
+  select: "border-tint-violet-fg/30 text-tint-violet-fg",
   text: "border-status-warn-border text-status-warn-fg",
   number: "border-status-info-border text-status-info-fg",
   photo: "border-pink-500/30 text-pink-500",

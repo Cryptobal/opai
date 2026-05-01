@@ -296,7 +296,7 @@ export function RondasConfiguracionClient({
                 >
                   <span className={[
                     "w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0",
-                    stepDone ? "bg-green-500/20 text-status-ok-fg" : isActive ? "bg-[#2dd4bf]/20 text-[#2dd4bf]" : "bg-white/10 text-[#64748b]",
+                    stepDone ? "bg-status-ok-soft text-status-ok-fg" : isActive ? "bg-[#2dd4bf]/20 text-[#2dd4bf]" : "bg-white/10 text-[#64748b]",
                   ].join(" ")}>
                     {stepDone ? "✓" : i + 1}
                   </span>
@@ -422,7 +422,7 @@ export function RondasConfiguracionClient({
                   <span className={[
                     "text-[10px] font-semibold rounded-full border px-2 py-0.5 shrink-0",
                     tpl.isActive !== false
-                      ? "bg-status-ok-soft text-status-ok-fg border-green-500/20"
+                      ? "bg-status-ok-soft text-status-ok-fg border-status-ok-border"
                       : "bg-white/5 text-[#94a3b8] border-white/10",
                   ].join(" ")}>
                     {tpl.isActive !== false ? "Activa" : "Inactiva"}

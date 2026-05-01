@@ -297,7 +297,7 @@ export function RondasAlertasClient({
             "Botón de pánico (activado por guardia)",
           ].map((item) => (
             <div key={item} className="flex items-center gap-1.5">
-              <span className="w-1 h-1 rounded-full bg-cyan-400 shrink-0" />
+              <span className="w-1 h-1 rounded-full bg-status-info shrink-0" />
               <span className="text-[11px] text-[#94a3b8]">{item}</span>
             </div>
           ))}

@@ -3,7 +3,8 @@ import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { getActiveTurnoId } from "@/lib/rondas/get-active-turno";
-import { PageHeader } from "@/components/opai-ds";
+import { PageHero } from "@/components/opai-ds";
+import { BellRing } from "lucide-react";
 import { RondasAlertasClient } from "@/components/ops/rondas";
 import { RondasSubnav } from "@/components/ops/RondasSubnav";
 
@@ -49,9 +50,13 @@ export default async function RondasAlertasPage() {
 
   return (
     <div className="space-y-6 min-w-0">
-      <PageHeader
+      <PageHero
+        icon={<BellRing />}
+        iconTone="emerald"
+        eyebrow={["Operaciones", "Rondas", "Alertas"]}
         title="Alertas de rondas"
-        description="Alertas y anomalías detectadas en las rondas."
+        subtitle="incidencias activas"
+        description="Gestión de alertas activas, resueltas e históricas: pánico, batería baja, velocidad anómala, rondas no realizadas."
       />
       <RondasSubnav />
       <RondasAlertasClient
