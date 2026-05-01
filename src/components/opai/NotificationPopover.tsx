@@ -528,7 +528,7 @@ export function NotificationPopover({
                     className={cn(
                       "group/notif flex items-start gap-2.5 p-3 hover:bg-accent/50 transition-colors",
                       !n.read && "bg-primary/5",
-                      isSystem && "border-l-2 border-status-warn-border bg-amber-500/[0.04]"
+                      isSystem && "border-l-2 border-status-warn-border bg-status-warn-soft/30"
                     )}
                   >
                     {/* Read/Unread toggle circle */}

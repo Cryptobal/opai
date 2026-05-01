@@ -1043,6 +1043,44 @@ const MIGRATED_PATHS = [
   "src/components/payroll/PayrollParametersEditor.tsx",
   "src/components/payroll/PayrollPeriodListClient.tsx",
   "src/components/payroll/PayrollSubnav.tsx",
+  // Cluster 5F.2a — Command Palette + Notifications cleanup. 30 hex
+  // residuales eliminados en 6 components con drift; otros 10 components
+  // del sistema de notificaciones ya estaban limpios y se certifican.
+  //
+  // Decisiones arquitectónicas:
+  //   - CommandPalette: 'deal' → tint-violet (categórico CRM, consistente
+  //     con ChatMessage del 5D+5E). Resto al patrón status-* semántico.
+  //   - MODULE_BADGE_STYLES: finanzas → tint-teal (correlación con cluster
+  //     5F.2c destino), payroll → tint-amber (correlación con cluster 5F.1),
+  //     hub → tint-violet (categórico admin). Resto al status-* semántico.
+  //   - System notification highlight unificado a status-warn-soft/30.
+  //   - ChatToast avatar palette migrado preservando variedad (4-5 colores).
+  //
+  // Cero cambios funcionales. Cmd+K search, navigation, mark read, delete,
+  // popover, side panel, hub widget, chat toasts — todo igual.
+  //
+  // Solo se agregan a MIGRATED_PATHS los archivos que quedan 100% limpios
+  // tras la migración de color. Mismo criterio que 4A/4B/4C/4D/5A/5B/5C/
+  // 5D+5E/5F.1 — los siguientes archivos completaron su migración granular
+  // de color drift pero siguen teniendo drift tipográfico legacy fuera del
+  // color (text-[10px]/text-[11px] sin marcas eyebrow). Se agregarán cuando
+  // se haga su pasada de limpieza tipográfica completa:
+  //   - CommandPalette.tsx (8 instancias text-[10px]/text-[11px])
+  //   - NotificationListClient.tsx (4)
+  //   - NotificationPopover.tsx (6)
+  //   - NotificationSidePanel.tsx (12)
+  //   - NotificationBell.tsx (2)
+  //   - HubNotifications.tsx (1)
+  "src/components/opai/command-palette/CommandPaletteProvider.tsx",
+  "src/components/opai/CommandPalette.tsx",
+  "src/components/opai/NotificationConfigClient.tsx",
+  "src/components/opai/UnifiedNotificationPrefsClient.tsx",
+  "src/components/notifications/ChatToast.tsx",
+  "src/components/notifications/InAppNotificationProvider.tsx",
+  "src/components/notifications/NotificationSidePanelContext.tsx",
+  "src/components/notifications/SoundSettings.tsx",
+  "src/components/pwa/InAppNotificationProvider.tsx",
+  "src/components/pwa/NotificationSettings.tsx",
   // Agregar aquí cuando se migren:
   // "src/components/personas/",
   // "src/components/crm/",

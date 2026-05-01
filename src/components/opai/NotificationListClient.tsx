@@ -140,21 +140,21 @@ const MODULE_LABELS: Record<string, string> = {
 };
 
 const MODULE_BADGE_STYLES: Record<string, string> = {
-  lead: "border-sky-400/40 bg-status-info-soft text-sky-700 dark:text-status-info-fg",
-  negocio: "border-emerald-400/40 bg-status-ok-soft text-status-ok-fg dark:text-status-ok-fg",
+  lead: "border-status-info-border bg-status-info-soft text-status-info-fg",
+  negocio: "border-status-ok-border bg-status-ok-soft text-status-ok-fg",
   cotizacion: "border-fuchsia-400/40 bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-300",
-  contrato: "border-amber-400/40 bg-status-warn-soft text-status-warn-fg dark:text-status-warn-fg",
-  operaciones: "border-indigo-400/40 bg-status-info-soft text-indigo-700 dark:text-status-info-fg",
-  guardia: "border-orange-400/40 bg-status-warn-soft text-orange-700 dark:text-status-warn-fg",
-  cuenta: "border-cyan-400/40 bg-status-info-soft text-cyan-700 dark:text-status-info-fg",
+  contrato: "border-status-warn-border bg-status-warn-soft text-status-warn-fg",
+  operaciones: "border-status-info-border bg-status-info-soft text-status-info-fg",
+  guardia: "border-status-warn-border bg-status-warn-soft text-status-warn-fg",
+  cuenta: "border-status-info-border bg-status-info-soft text-status-info-fg",
   contacto: "border-violet-400/40 bg-violet-500/10 text-violet-700 dark:text-violet-300",
-  instalacion: "border-teal-400/40 bg-status-info-soft text-teal-700 dark:text-status-info-fg",
-  documentos: "border-yellow-400/40 bg-status-warn-soft text-yellow-700 dark:text-status-warn-fg",
-  crm: "border-blue-400/40 bg-status-info-soft text-blue-700 dark:text-status-info-fg",
-  finanzas: "border-lime-400/40 bg-lime-500/10 text-lime-700 dark:text-lime-300",
-  payroll: "border-rose-400/40 bg-status-danger-soft text-rose-700 dark:text-status-danger-fg",
+  instalacion: "border-status-info-border bg-status-info-soft text-status-info-fg",
+  documentos: "border-status-warn-border bg-status-warn-soft text-status-warn-fg",
+  crm: "border-status-info-border bg-status-info-soft text-status-info-fg",
+  finanzas: "border-tint-teal-fg/40 bg-tint-teal text-tint-teal-fg",
+  payroll: "border-tint-amber-fg/40 bg-tint-amber text-tint-amber-fg",
   configuracion: "border-slate-400/40 bg-slate-500/10 text-slate-700 dark:text-slate-300",
-  hub: "border-purple-400/40 bg-purple-500/10 text-purple-700 dark:text-purple-300",
+  hub: "border-tint-violet-fg/40 bg-tint-violet text-tint-violet-fg",
   sistema: "border-zinc-400/40 bg-zinc-500/10 text-zinc-700 dark:text-zinc-300",
 };
 
@@ -607,7 +607,7 @@ export function NotificationListClient() {
                     className={cn(
                       "group flex items-start gap-3 py-3 hover:bg-accent/50 transition-colors -mx-2 px-2 rounded",
                       !n.read && "bg-primary/5",
-                      isSystem && "border-l-2 border-status-warn-border bg-amber-500/[0.04]"
+                      isSystem && "border-l-2 border-status-warn-border bg-status-warn-soft/30"
                     )}
                   >
                     <button
