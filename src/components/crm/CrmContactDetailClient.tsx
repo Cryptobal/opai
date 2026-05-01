@@ -851,7 +851,7 @@ export function CrmContactDetailClient({
           </DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1.5">
-              <Label className="text-xs">Plantilla (solo mail)</Label>
+              <Label>Plantilla (solo mail)</Label>
               <select className={selectCn} value={selectedTemplateId} onChange={(e) => selectTemplate(e.target.value)} disabled={sending}>
                 <option value="">Sin plantilla</option>
                 {docTemplatesMail.length > 0 && (
@@ -863,7 +863,7 @@ export function CrmContactDetailClient({
             </div>
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <Label className="text-xs">Para</Label>
+                <Label>Para</Label>
                 {!showCcBcc && <button type="button" onClick={() => setShowCcBcc(true)} className="text-[11px] text-primary hover:underline">CC / BCC</button>}
               </div>
               <input value={contact.email || ""} disabled className={`h-9 w-full rounded-md border px-3 text-sm ${inputCn} opacity-70`} />
@@ -871,21 +871,21 @@ export function CrmContactDetailClient({
             {showCcBcc && (
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <Label className="text-xs">CC</Label>
+                  <Label>CC</Label>
                   <input value={emailCc} onChange={(e) => setEmailCc(e.target.value)} className={`h-9 w-full rounded-md border px-3 text-sm ${inputCn}`} placeholder="copia@empresa.com" disabled={sending} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">BCC</Label>
+                  <Label>BCC</Label>
                   <input value={emailBcc} onChange={(e) => setEmailBcc(e.target.value)} className={`h-9 w-full rounded-md border px-3 text-sm ${inputCn}`} placeholder="oculto@empresa.com" disabled={sending} />
                 </div>
               </div>
             )}
             <div className="space-y-1.5">
-              <Label className="text-xs">Asunto</Label>
+              <Label>Asunto</Label>
               <input value={emailSubject} onChange={(e) => setEmailSubject(e.target.value)} className={`h-9 w-full rounded-md border px-3 text-sm ${inputCn}`} placeholder="Asunto" disabled={sending} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Mensaje</Label>
+              <Label>Mensaje</Label>
               <ContractEditor content={emailTiptapContent} onChange={handleTiptapChange} editable={!sending} placeholder="Escribe tu mensaje aquí..." filterModules={["system"]} />
             </div>
             {signatureHtml && (
@@ -908,7 +908,7 @@ export function CrmContactDetailClient({
           <DialogHeader><DialogTitle>Editar contacto</DialogTitle></DialogHeader>
           <div className="grid gap-3 md:grid-cols-2">
             <div className="space-y-1.5 md:col-span-2">
-              <Label className="text-xs">Cuenta</Label>
+              <Label>Cuenta</Label>
               <select
                 className={selectCn}
                 value={editForm.accountId}
@@ -924,23 +924,23 @@ export function CrmContactDetailClient({
               </select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Nombre *</Label>
+              <Label>Nombre *</Label>
               <Input value={editForm.firstName} onChange={(e) => setEditForm((p) => ({ ...p, firstName: e.target.value }))} className={inputCn} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Apellido *</Label>
+              <Label>Apellido *</Label>
               <Input value={editForm.lastName} onChange={(e) => setEditForm((p) => ({ ...p, lastName: e.target.value }))} className={inputCn} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Email *</Label>
+              <Label>Email *</Label>
               <Input value={editForm.email} onChange={(e) => setEditForm((p) => ({ ...p, email: e.target.value }))} className={inputCn} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Teléfono</Label>
+              <Label>Teléfono</Label>
               <Input value={editForm.phone} onChange={(e) => setEditForm((p) => ({ ...p, phone: e.target.value }))} className={inputCn} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Cargo</Label>
+              <Label>Cargo</Label>
               <Input value={editForm.roleTitle} onChange={(e) => setEditForm((p) => ({ ...p, roleTitle: e.target.value }))} className={inputCn} />
             </div>
             <div className="flex items-end">

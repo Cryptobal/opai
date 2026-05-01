@@ -86,7 +86,7 @@ function TruncatedText({ label, text, maxChars = 200, className }: { label?: str
   const isLong = text.length > maxChars;
   return (
     <div className={cn("space-y-1.5", className)}>
-      {label && <Label className="text-xs text-muted-foreground">{label}</Label>}
+      {label && <Label>{label}</Label>}
       <p className="text-sm whitespace-pre-wrap break-words">
         {isLong && !expanded ? text.slice(0, maxChars) + "..." : text}
       </p>
@@ -1912,7 +1912,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
         {/* Solicitud del cliente — siempre visible en General */}
         {(lead.serviceType || lead.notes) && (
           <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-4 space-y-3">
-            <h4 className="text-sm font-medium text-blue-400 flex items-center gap-2">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-blue-400 flex items-center gap-2">
               <FileText className="h-4 w-4 text-blue-400 shrink-0" />
               Solicitud
             </h4>
@@ -1933,7 +1933,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
         {/* Datos Apollo — visibles solo si hay datos reales */}
         {apolloData && (apolloData.person?.title || apolloData.person?.seniority || apolloData.person?.linkedinUrl || apolloData.organization?.name || apolloData.organization?.industry) && (
           <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-4 space-y-3">
-            <h4 className="text-sm font-medium text-amber-400 flex items-center gap-2">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-amber-400 flex items-center gap-2">
               <Sparkles className="h-4 w-4" />
               Datos Apollo
             </h4>
@@ -1960,7 +1960,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
                   {apolloData.organization.annualRevenue && <DetailField label="Revenue anual" value={apolloData.organization.annualRevenue} />}
                   {apolloData.organization.keywords && apolloData.organization.keywords.length > 0 && (
                     <div className="md:col-span-2 lg:col-span-3">
-                      <Label className="text-xs text-muted-foreground">Keywords</Label>
+                      <Label>Keywords</Label>
                       <div className="flex flex-wrap gap-1 mt-1">
                         {apolloData.organization.keywords.slice(0, 10).map((k) => (
                           <Badge key={k} variant="outline" className="text-[10px]">{k}</Badge>
@@ -1982,7 +1982,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
         {/* Entidades creadas (lead aprobado) */}
         {lead.status === "approved" && convertedEntities && (
           <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-4 space-y-3">
-            <h4 className="text-sm font-medium text-emerald-400 flex items-center gap-2">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-emerald-400 flex items-center gap-2">
               <CheckCircle2 className="h-4 w-4" />
               Registros creados
             </h4>
@@ -2065,7 +2065,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
         {/* Rejection info */}
         {lead.status === "rejected" && rejectionInfo && (
           <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 space-y-3">
-            <h4 className="text-sm font-medium text-destructive flex items-center gap-2">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-destructive flex items-center gap-2">
               <XCircle className="h-4 w-4" />
               Información del rechazo
             </h4>
@@ -2090,7 +2090,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
       <div className="space-y-3">
         {duplicates.length > 0 && (
           <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
-            <div className="flex items-center gap-2 text-amber-400 text-sm font-medium">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-amber-400">
               <AlertTriangle className="h-4 w-4" />
               Cuenta con el mismo nombre ya existe
             </div>
@@ -2118,7 +2118,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
         )}
         {existingContact && (
           <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
-            <div className="flex items-center gap-2 text-amber-400 text-sm font-medium">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-amber-400">
               <AlertTriangle className="h-4 w-4" />
               Ya existe un contacto con este email
             </div>
@@ -2143,7 +2143,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
         )}
         {installationConflicts.length > 0 && (
           <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
-            <div className="flex items-center gap-2 text-amber-400 text-sm font-medium">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-amber-400">
               <AlertTriangle className="h-4 w-4" />
               Instalación con el mismo nombre ya existe en esta cuenta
             </div>
@@ -2173,31 +2173,31 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
 
     // TAB: Account
     const accountContent = (
-        <div className="space-y-4 rounded-lg border border-border bg-card p-4 sm:p-5">
+        <div className="space-y-4 rounded-xl border border-border bg-card p-4 sm:p-5">
           {conflictAlerts}
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
             <div className="space-y-1.5 md:col-span-2 lg:col-span-3">
-              <Label className="text-xs">Nombre de empresa *</Label>
+              <Label>Nombre de empresa *</Label>
               <Input value={approveForm.accountName} onChange={(e) => updateApproveForm("accountName", e.target.value)} placeholder="Nombre de la empresa" className={inputClassName} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">RUT</Label>
+              <Label>RUT</Label>
               <Input value={approveForm.rut} onChange={(e) => updateApproveForm("rut", e.target.value)} placeholder="76.123.456-7" className={inputClassName} />
             </div>
             <div className="space-y-1.5 md:col-span-2">
-              <Label className="text-xs">Razón social (empresa)</Label>
+              <Label>Razón social (empresa)</Label>
               <Input value={approveForm.legalName} onChange={(e) => updateApproveForm("legalName", e.target.value)} placeholder="Empresa SpA / Ltda / S.A." className={inputClassName} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Representante legal</Label>
+              <Label>Representante legal</Label>
               <Input value={approveForm.legalRepresentativeName} onChange={(e) => updateApproveForm("legalRepresentativeName", e.target.value)} placeholder="Nombre completo" className={inputClassName} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">RUT representante legal</Label>
+              <Label>RUT representante legal</Label>
               <Input value={approveForm.legalRepresentativeRut} onChange={(e) => updateApproveForm("legalRepresentativeRut", e.target.value)} placeholder="12.345.678-9" className={inputClassName} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Industria</Label>
+              <Label>Industria</Label>
               <SearchableSelect
                 value={approveForm.industry}
                 options={industries.map((i) => ({ id: i.name, label: i.name }))}
@@ -2206,12 +2206,12 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Segmento</Label>
+              <Label>Segmento</Label>
               <Input value={approveForm.segment} onChange={(e) => updateApproveForm("segment", e.target.value)} placeholder="Corporativo, PYME..." className={inputClassName} />
             </div>
             <div className="space-y-1.5 md:col-span-2 lg:col-span-3">
               <div className="flex items-center justify-between gap-2">
-                <Label className="text-xs">Página web</Label>
+                <Label>Página web</Label>
                 <div className="flex items-center gap-2">
                   <Button type="button" size="sm" variant="outline" className="h-7 text-xs" onClick={enrichCompanyInfoFromWebsite} disabled={enrichingCompanyInfo || !approveForm.website.trim()}>
                     {enrichingCompanyInfo && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
@@ -2224,20 +2224,20 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
                 </div>
               </div>
               <Input value={approveForm.website} onChange={(e) => updateApproveForm("website", e.target.value)} placeholder="https://www.empresa.cl" className={inputClassName} />
-              <p className="text-[10px] text-muted-foreground">Se detecta automáticamente desde el dominio del email. Se asocia a la cuenta.</p>
+              <p className="text-xs text-muted-foreground">Se detecta automáticamente desde el dominio del email. Se asocia a la cuenta.</p>
             </div>
             <div className="space-y-1.5 md:col-span-2 lg:col-span-3">
-              <Label className="text-xs">Información de la empresa</Label>
+              <Label>Información de la empresa</Label>
               <textarea value={approveForm.companyInfo} onChange={(e) => updateApproveForm("companyInfo", e.target.value)}
                 placeholder="Resumen comercial de qué hace la empresa..." className={`w-full min-h-[96px] resize-y rounded-md border px-3 py-2 text-sm ${inputClassName}`} rows={4} />
               {detectedCompanyLogoUrl && (
                 <div className="space-y-2 rounded-md border border-border bg-muted/20 p-2">
-                  <div className="text-[10px] text-muted-foreground">Logo detectado</div>
+                  <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Logo detectado</div>
                   <div className="flex items-center gap-3">
                     <img src={detectedCompanyLogoUrl} alt="Logo empresa detectado" className="h-12 w-12 rounded border border-border bg-background object-contain" />
-                    <span className="truncate text-[10px] text-muted-foreground">{detectedCompanyLogoUrl}</span>
+                    <span className="truncate text-xs text-muted-foreground">{detectedCompanyLogoUrl}</span>
                   </div>
-                  <Button type="button" variant="ghost" size="sm" className="h-6 px-2 text-[10px]"
+                  <Button type="button" variant="ghost" size="sm" className="h-6 px-2 text-xs"
                     onClick={async () => { try { await navigator.clipboard.writeText(detectedCompanyLogoUrl); toast.success("URL del logo copiada."); } catch { toast.error("No se pudo copiar."); } }}>
                     Copiar URL
                   </Button>
@@ -2250,25 +2250,25 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
 
     // TAB: Contacts
     const contactsContent = (
-        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 rounded-lg border border-border bg-card p-4 sm:p-5">
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 rounded-xl border border-border bg-card p-4 sm:p-5">
           <div className="space-y-1.5">
-            <Label className="text-xs">Nombre *</Label>
+            <Label>Nombre *</Label>
             <Input value={approveForm.contactFirstName} onChange={(e) => updateApproveForm("contactFirstName", e.target.value)} placeholder="Nombre" className={inputClassName} />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Apellido</Label>
+            <Label>Apellido</Label>
             <Input value={approveForm.contactLastName} onChange={(e) => updateApproveForm("contactLastName", e.target.value)} placeholder="Apellido" className={inputClassName} />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Cargo</Label>
+            <Label>Cargo</Label>
             <Input value={approveForm.roleTitle} onChange={(e) => updateApproveForm("roleTitle", e.target.value)} placeholder="Gerente, jefe..." className={inputClassName} />
           </div>
           <div className="space-y-1.5 md:col-span-2 lg:col-span-1">
-            <Label className="text-xs">Email</Label>
+            <Label>Email</Label>
             <Input value={approveForm.email} onChange={(e) => updateApproveForm("email", e.target.value)} placeholder="correo@empresa.com" className={inputClassName} />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Teléfono</Label>
+            <Label>Teléfono</Label>
             <Input value={approveForm.phone} onChange={(e) => updateApproveForm("phone", e.target.value)} placeholder="+56 9 1234 5678" className={inputClassName} />
           </div>
         </div>
@@ -2276,17 +2276,17 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
 
     // TAB: Deals
     const dealsContent = (
-        <div className="space-y-3 rounded-lg border border-border bg-card p-4 sm:p-5">
+        <div className="space-y-3 rounded-xl border border-border bg-card p-4 sm:p-5">
           <div className="space-y-1.5">
-            <Label className="text-xs">Título del negocio</Label>
+            <Label>Título del negocio</Label>
             <Input value={approveForm.dealTitle} onChange={(e) => updateApproveForm("dealTitle", e.target.value)} placeholder="Oportunidad para..." className={inputClassName} />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Solicitud</Label>
+            <Label>Solicitud</Label>
             <textarea value={approveForm.notes} onChange={(e) => updateApproveForm("notes", e.target.value)}
               placeholder="Descripción de la solicitud (se copiará al negocio y cotización)..."
               className={`w-full min-h-[120px] resize-y rounded-md border px-3 py-2 text-sm ${inputClassName}`} rows={5} />
-            <p className="text-[10px] text-muted-foreground">Esta solicitud se agregará al negocio y a las cotizaciones creadas.</p>
+            <p className="text-xs text-muted-foreground">Esta solicitud se agregará al negocio y a las cotizaciones creadas.</p>
           </div>
         </div>
     );
@@ -2429,7 +2429,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
                         className="flex items-center justify-between w-full px-3 py-2.5 hover:bg-muted/10 transition-colors"
                       >
                         <div className="flex items-center gap-2 min-w-0">
-                          <h2 className="text-sm font-bold shrink-0">Datos básicos</h2>
+                          <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground shrink-0">Datos básicos</h2>
                           {!datosOpen && summary && (
                             <span className="text-[11px] text-muted-foreground truncate">{summary}</span>
                           )}
@@ -2500,7 +2500,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
             </div>
             );
           })}
-          <p className="text-[10px] text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             Cada instalación tiene su propia configuración. El nombre de cotización sigue al nombre de la instalación hasta que lo edites. Con la fila plegada ves total UF/CLP y márgenes según la moneda elegida.
           </p>
         </div>
@@ -2774,7 +2774,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
         {activeTab === "installations" && isEditable && (
           <div className="space-y-4">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <h3 className="text-sm font-medium">Instalaciones y Dotación</h3>
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Instalaciones y Dotación</h3>
               <Button type="button" variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={addInstallation}>
                 <Plus className="h-3 w-3" /> Nueva instalación
               </Button>
@@ -2964,13 +2964,13 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-1.5">
-              <Label className="text-xs">Motivo *</Label>
+              <Label>Motivo *</Label>
               <select className={selectClassName} value={rejectReason} onChange={(e) => setRejectReason(e.target.value as LeadRejectReason)}>
                 {REJECTION_REASON_OPTIONS.map((opt) => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
               </select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Nota interna</Label>
+              <Label>Nota interna</Label>
               <textarea value={rejectNote} onChange={(e) => setRejectNote(e.target.value)} placeholder="Contexto interno del rechazo..."
                 className={`w-full min-h-[80px] resize-none rounded-md border px-3 py-2 text-sm ${inputClassName}`} rows={3} />
             </div>
@@ -2981,21 +2981,21 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
             {rejectSendEmail && (
               <div className="space-y-3 rounded-md border border-border p-3">
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Template (opcional)</Label>
+                  <Label>Template (opcional)</Label>
                   <select className={selectClassName} value={rejectTemplateId} onChange={(e) => applyRejectTemplate(e.target.value)}>
                     <option value="">Sin template</option>
                     {docTemplatesReject.map((t) => (<option key={t.id} value={t.id}>{t.name}</option>))}
                   </select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Asunto *</Label>
+                  <Label>Asunto *</Label>
                   <Input value={rejectEmailSubject} onChange={(e) => setRejectEmailSubject(e.target.value)} placeholder="Asunto del correo" className={inputClassName} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Mensaje *</Label>
+                  <Label>Mensaje *</Label>
                   <textarea value={rejectEmailBody} onChange={(e) => setRejectEmailBody(e.target.value)} placeholder="Contenido del correo..."
                     className={`w-full min-h-[140px] rounded-md border px-3 py-2 text-sm ${inputClassName}`} rows={6} />
-                  <p className="text-[10px] text-muted-foreground">La firma configurada en el sistema se agrega automáticamente al momento del envío.</p>
+                  <p className="text-xs text-muted-foreground">La firma configurada en el sistema se agrega automáticamente al momento del envío.</p>
                 </div>
               </div>
             )}

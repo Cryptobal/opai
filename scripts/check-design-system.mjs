@@ -159,6 +159,22 @@ const MIGRATED_PATHS = [
   // contexto CRM). Se evaluará en una sub-fase futura del CPQ si
   // decidimos auditar el archivo completo.
   "src/app/(app)/crm/cotizaciones/page.tsx",
+  // Cluster 5A.6 — Patrón tipográfico unificado en CRM.
+  // <Label> base ahora default text-xs uppercase tracking-wide
+  // text-muted-foreground. Las 5 fichas del CRM (Lead, Account,
+  // Contact, Deal, Installation) limpiaron sus 101 overrides
+  // redundantes de Label y unificaron 8 headings (h2/h3) al mismo
+  // patrón con font-semibold. Esto unifica el lenguaje tipográfico
+  // entre tabs editables y tabs read-only (DetailField).
+  //
+  // Solo se agrega src/components/ui/label.tsx (queda 100% limpio
+  // tras el cambio del default). Los 5 Crm*DetailClient.tsx NO se
+  // agregan: mismo criterio que 4A/4B/4C/4D/5A.1/5A.2/5A.3/5A.4/5A.5
+  // — los archivos completaron su parte tipográfica pero siguen
+  // teniendo drift legacy fuera de eso (hardcoded amber/emerald/red,
+  // text-[10px] en chips, etc.). Se agregarán cuando se haga su
+  // pasada de limpieza completa en una sub-fase futura.
+  "src/components/ui/label.tsx",
   // Agregar aquí cuando se migren:
   // "src/components/personas/",
   // "src/components/crm/",
