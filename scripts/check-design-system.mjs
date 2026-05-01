@@ -690,6 +690,48 @@ const MIGRATED_PATHS = [
   "src/app/(app)/ops/alertas-cobertura/[alertaId]/page.tsx",
   "src/components/ops/alertas-cobertura/AlertasCoberturaClient.tsx",
   "src/components/ops/alertas-cobertura/CountdownTimer.tsx",
+  //
+  // Cluster 5B.6+7 — Control Nocturno + Asistencia Diaria.
+  // Combo de cierre: ambos módulos estaban casi 100% limpios post-5B.0
+  // (8 de 10 components con drift de color = 0). Sólo 1 page + 1
+  // component requirieron tocarse — 7 hex residuales eliminados en
+  // total.
+  //
+  // - control-nocturno/[id] page (3 hex): banner informativo migrado de
+  //   blue-200/blue-50/blue-800/blue-200 → status-info-*; link hover
+  //   text-blue-900/text-blue-100 → hover:brightness-110. PageHeader
+  //   reemplazado por PageHero (Moon, iconTone emerald) consistente
+  //   con el resto de pages ops.
+  // - AsistenciaShiftCard (4 hex): 2 badges GPS bg-yellow-500/20 →
+  //   bg-status-warn-soft; botón danger states (border-rose-500 +
+  //   bg-rose-500/25 + border-rose-500/50 + hover:bg-rose-500/20) →
+  //   status-danger-* tokens.
+  //
+  // Pages redirects (control-nocturno/page.tsx, /kpis/page.tsx) NO se
+  // tocaron — son redirects de ~5 líneas a /ops/rondas/monitoreo
+  // (módulo deprecado). Igual se agregan a MIGRATED_PATHS porque
+  // están limpios (cero drift).
+  //
+  // Sólo se agregan los 3 SC pages + 2 CCs ya 100% limpios
+  // (AsistenciaDiariaClient, ModalMarcarAsistencia). Los 7 CCs
+  // restantes (ControlNocturnoKpisCharts, ControlNocturnoKpisClient,
+  // OpsControlNocturnoDetailClient, OpsControlNocturnoListClient,
+  // AsistenciaHeader, AsistenciaInstallationGroup, AsistenciaShiftCard)
+  // NO se agregan a MIGRATED_PATHS: mismo criterio que 4A/4B/4C/4D/
+  // 5A.1..5A.8/5B.1.a/5B.1.b/5B.2.a/5B.2.b.1/5B.2.b.2/5B.2.c/5B.3/
+  // 5B.4/5B.5 — completaron su migración granular de color drift pero
+  // siguen teniendo drift tipográfico legacy (text-[10px]/text-[11px]
+  // en chips categóricos, badges GPS/Face ID/PIN/Manual, captions de
+  // KPIs, contadores y leyendas de cards). Se agregarán cuando se haga
+  // su pasada de limpieza tipográfica completa en una sub-fase futura.
+  //
+  // CIERRE DEL CLUSTER 5B.6+7 — ambos módulos alineados al DS v3 a
+  // nivel de color. Próximo cluster: 5B.8 (ATS Reclutamiento) — ~3 h.
+  "src/app/(app)/ops/control-nocturno/page.tsx",
+  "src/app/(app)/ops/control-nocturno/[id]/page.tsx",
+  "src/app/(app)/ops/control-nocturno/kpis/page.tsx",
+  "src/components/ops/asistencia-diaria/AsistenciaDiariaClient.tsx",
+  "src/components/ops/asistencia-diaria/modals/ModalMarcarAsistencia.tsx",
   // Agregar aquí cuando se migren:
   // "src/components/personas/",
   // "src/components/crm/",

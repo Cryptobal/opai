@@ -341,7 +341,7 @@ export function AsistenciaShiftCard({
                       <Clock className="h-3.5 w-3.5" />
                       {new Date(entrada.timestamp).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}
                       {entrada.gpsStatus === "fuera_rango" && (
-                        <span className="ml-0.5 text-[9px] bg-yellow-500/20 text-status-warn-fg px-1 rounded">GPS</span>
+                        <span className="ml-0.5 text-[9px] bg-status-warn-soft text-status-warn-fg px-1 rounded">GPS</span>
                       )}
                     </span>
                   )}
@@ -350,7 +350,7 @@ export function AsistenciaShiftCard({
                       <MapPin className="h-3.5 w-3.5" />
                       {new Date(salida.timestamp).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}
                       {salida.gpsStatus === "fuera_rango" && (
-                        <span className="ml-0.5 text-[9px] bg-yellow-500/20 text-status-warn-fg px-1 rounded">GPS</span>
+                        <span className="ml-0.5 text-[9px] bg-status-warn-soft text-status-warn-fg px-1 rounded">GPS</span>
                       )}
                     </span>
                   )}
@@ -405,8 +405,8 @@ export function AsistenciaShiftCard({
                 variant="outline"
                 className={`h-7 w-7 p-0 ${
                   status === "no_asistio"
-                    ? "border-rose-500 bg-rose-500/25 text-status-danger-fg"
-                    : "border-rose-500/50 text-status-danger-fg hover:bg-rose-500/20"
+                    ? "border-status-danger bg-status-danger-soft text-status-danger-fg"
+                    : "border-status-danger-border text-status-danger-fg hover:bg-status-danger-soft"
                 }`}
                 disabled={isSaving || isLocked || !canExecuteOps}
                 onClick={() => onMarkAbsent(item)}

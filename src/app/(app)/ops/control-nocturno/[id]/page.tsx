@@ -2,10 +2,10 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
-import { PageHeader } from "@/components/opai-ds";
+import { PageHero } from "@/components/opai-ds";
 import { OpsControlNocturnoDetailClient } from "@/components/ops/OpsControlNocturnoDetailClient";
 import { OpsGlobalSearch } from "@/components/ops/OpsGlobalSearch";
-import { Info } from "lucide-react";
+import { Info, Moon } from "lucide-react";
 type Props = { params: Promise<{ id: string }> };
 
 export default async function OpsControlNocturnoDetailPage({ params }: Props) {
@@ -22,23 +22,27 @@ export default async function OpsControlNocturnoDetailPage({ params }: Props) {
 
   return (
     <div className="space-y-6 min-w-0">
-      <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-950">
+      <div className="rounded-lg border border-status-info-border bg-status-info-soft p-4">
         <div className="flex items-start gap-3">
-          <Info className="h-5 w-5 text-status-info-fg dark:text-status-info-fg mt-0.5 shrink-0" />
-          <div className="text-sm sm:text-base text-blue-800 dark:text-blue-200">
+          <Info className="h-5 w-5 text-status-info-fg mt-0.5 shrink-0" />
+          <div className="text-sm sm:text-base text-status-info-fg">
             <p className="font-medium">Este módulo fue integrado al Monitor de Rondas.</p>
             <p className="mt-1">
               Los reportes nuevos se generan desde el Monitor.{" "}
-              <Link href="/ops/rondas/monitoreo" className="font-medium underline underline-offset-2 hover:text-blue-900 dark:hover:text-blue-100">
+              <Link href="/ops/rondas/monitoreo" className="font-medium underline underline-offset-2 hover:brightness-110">
                 Ir al Monitor de Rondas &rarr;
               </Link>
             </p>
           </div>
         </div>
       </div>
-      <PageHeader
+      <PageHero
+        icon={<Moon />}
+        iconTone="emerald"
+        eyebrow={["Operaciones", "Control Nocturno", "Reporte"]}
         title="Reporte nocturno"
-        description="Detalle del control de guardia nocturna."
+        subtitle="histórico de control de guardia"
+        description="Detalle del control de guardia nocturna. Este módulo fue integrado al Monitor de Rondas."
       />
       <OpsGlobalSearch className="w-full sm:max-w-xs" />
       <OpsControlNocturnoDetailClient reporteId={id} userRole={session.user.role} />
