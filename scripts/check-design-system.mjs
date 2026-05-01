@@ -639,6 +639,57 @@ const MIGRATED_PATHS = [
   "src/app/(app)/ops/supervision/hallazgos/page.tsx",
   "src/app/(app)/ops/supervision/historial/page.tsx",
   "src/app/(app)/ops/supervision/nueva-visita/page.tsx",
+  //
+  // Cluster 5B.5 — Alertas Cobertura.
+  // Migra el page wrapper raíz al patrón hero (iconTone emerald,
+  // Megaphone) y limpia 9 hex residuales en 4 componentes:
+  //
+  // - AlertaDetalleClient (4 hex): badge categórico "Externo"
+  //   bg-purple-500/20 + text-purple-400 + border-purple-500/30 →
+  //   bg-tint-violet + text-tint-violet-fg + border-tint-violet-fg/30;
+  //   botón confirmar hover hover:bg-emerald-700 → hover:brightness-110;
+  //   cell oleada activa border-teal-400 + bg-teal-400/30 →
+  //   border-status-info-border + bg-status-info-soft (preserva
+  //   animate-pulse); badge categórico repetido en tabla notificaciones
+  //   bg-purple-500/20 + text-purple-400 + border-purple-500/30 →
+  //   bg-tint-violet + text-tint-violet-fg + border-tint-violet-fg/30.
+  // - AlertasCoberturaClient (2 hex): badge categórico "Externo" →
+  //   tint-violet; botón crear hover hover:bg-emerald-700 →
+  //   hover:brightness-110.
+  // - CrearAlertaDialog (1 hex): badge numérico de step en preview
+  //   bg-teal-500/20 → bg-status-info-soft.
+  // - IndiceGeografico (2 hex): card hover hover:border-teal-500/40 →
+  //   hover:border-status-info-border; card alerta urgente
+  //   border-orange-500/20 → border-status-warn-border.
+  //
+  // CountdownTimer ya estaba limpio post-5B.0 — sólo se certifica.
+  //
+  // NO TOCADO en este cluster:
+  // - [alertaId]/page.tsx — no tiene PageHeader propio (lo maneja el
+  //   AlertaDetalleClient). Se agrega a MIGRATED_PATHS porque está
+  //   limpio (sólo wrapper de auth + render del client).
+  // - Notification flow, asignación de guardias, countdown timers,
+  //   índice geográfico, mapa — todo igual.
+  //
+  // CIERRE DEL CLUSTER 5B.5 (Alertas Cobertura) — todo el módulo
+  // alineado al DS v3 a nivel de color. Próximo cluster: 5B.6
+  // (Control Nocturno) — ~2 h.
+  //
+  // Sólo se agregan los 2 SC pages + 2 CCs ya 100% limpios
+  // (AlertasCoberturaClient, CountdownTimer). Los 3 CCs restantes
+  // (AlertaDetalleClient, CrearAlertaDialog, IndiceGeografico) NO se
+  // agregan a MIGRATED_PATHS: mismo criterio que 4A/4B/4C/4D/
+  // 5A.1..5A.8/5B.1.a/5B.1.b/5B.2.a/5B.2.b.1/5B.2.b.2/5B.2.c/5B.3/
+  // 5B.4 — completaron su migración granular de color drift pero
+  // siguen teniendo drift tipográfico legacy (text-[10px] en chips
+  // categóricos, badges de notificación, leyendas de oleadas, contadores
+  // del wizard de creación, captions de cards geográficas). Se agregarán
+  // cuando se haga su pasada de limpieza tipográfica completa en una
+  // sub-fase futura.
+  "src/app/(app)/ops/alertas-cobertura/page.tsx",
+  "src/app/(app)/ops/alertas-cobertura/[alertaId]/page.tsx",
+  "src/components/ops/alertas-cobertura/AlertasCoberturaClient.tsx",
+  "src/components/ops/alertas-cobertura/CountdownTimer.tsx",
   // Agregar aquí cuando se migren:
   // "src/components/personas/",
   // "src/components/crm/",

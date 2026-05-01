@@ -162,7 +162,7 @@ export function IndiceGeografico() {
         {data.map((item) => (
           <Card
             key={item.installationId}
-            className="cursor-pointer transition-all hover:border-teal-500/40"
+            className="cursor-pointer transition-all hover:border-status-info-border"
             onClick={() => setSelectedId(item.installationId)}
           >
             <CardContent className="p-4 space-y-2">
@@ -229,7 +229,7 @@ export function IndiceGeografico() {
                     <p className="text-lg font-bold text-status-warn-fg">{selected.anillos.medianos_5_15km}</p>
                     <p className="text-[10px] text-muted-foreground">5-15km</p>
                   </div>
-                  <div className="rounded-lg bg-status-warn-soft border border-orange-500/20 p-2.5 text-center">
+                  <div className="rounded-lg bg-status-warn-soft border border-status-warn-border p-2.5 text-center">
                     <p className="text-lg font-bold text-status-warn-fg">{selected.anillos.lejanos_15_30km}</p>
                     <p className="text-[10px] text-muted-foreground">15-30km</p>
                   </div>

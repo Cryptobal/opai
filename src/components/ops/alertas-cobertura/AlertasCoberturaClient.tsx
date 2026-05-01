@@ -556,7 +556,7 @@ function AlertaAceptadaCard({
             <CardTitle className="text-base">{alerta.installation?.name ?? (alerta.libreComuna ? `Cobertura — ${alerta.libreComuna}` : (alerta.libreAddress ?? "Cobertura"))}</CardTitle>
           </div>
           {alerta.esInternoAceptacion === false && (
-            <Badge variant="outline" className="bg-purple-500/20 text-purple-400 border-purple-500/30">
+            <Badge variant="outline" className="bg-tint-violet text-tint-violet-fg border-tint-violet-fg/30">
               Externo
             </Badge>
           )}
@@ -601,7 +601,7 @@ function AlertaAceptadaCard({
           <Button
             variant="default"
             size="sm"
-            className="bg-status-ok hover:bg-emerald-700"
+            className="bg-status-ok hover:brightness-110"
             onClick={() => onConfirmar(true)}
           >
             <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
