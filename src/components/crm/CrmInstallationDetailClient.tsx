@@ -791,7 +791,7 @@ function DotacionSection({ installation, canEdit: canEditProp = false }: { insta
           <div className="space-y-3">
             {/* Fecha de inicio en instalación */}
             <div className="space-y-1.5">
-              <Label className="text-xs flex items-center gap-1.5">
+              <Label className="flex items-center gap-1.5">
                 <CalendarDays className="h-3.5 w-3.5 text-white" />
                 Fecha de inicio en instalación
                 <span className="relative group" tabIndex={0} role="button" aria-label="Más información">
@@ -814,7 +814,7 @@ function DotacionSection({ installation, canEdit: canEditProp = false }: { insta
 
             {/* Buscador de guardias */}
             <div className="space-y-1.5">
-              <Label className="text-xs flex items-center gap-1.5">
+              <Label className="flex items-center gap-1.5">
                 <Search className="h-3.5 w-3.5" />
                 Buscar guardia (solo contratados activos)
               </Label>
@@ -930,7 +930,7 @@ function DotacionSection({ installation, canEdit: canEditProp = false }: { insta
           </DialogHeader>
           <div className="space-y-3 py-2">
             <div className="space-y-1.5">
-              <Label className="text-xs">Fecha de término</Label>
+              <Label>Fecha de término</Label>
               <input
                 type="date"
                 value={unassignDate}
@@ -2507,11 +2507,11 @@ export function CrmInstallationDetailClient({
       content: (
         <div className="space-y-6">
           <div>
-            <h3 className="text-sm font-medium mb-3">Marcación asistencia</h3>
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Marcación asistencia</h3>
             <MarcacionAsistenciaSection installation={installation} />
           </div>
           <div>
-            <h3 className="text-sm font-medium mb-3">Marcación rondas</h3>
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Marcación rondas</h3>
             <MarcacionRondasSection installation={installation} />
           </div>
         </div>
@@ -2639,7 +2639,7 @@ export function CrmInstallationDetailClient({
               <InstallationPhoneLines installationId={installation.id} />
             </div>
             <div className="mt-6 rounded-lg border border-border bg-card p-4 sm:p-5">
-              <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-zinc-500">Dispositivos Vinculados</h3>
+              <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Dispositivos Vinculados</h3>
               <UnifiedDevicesSection installationId={installation.id} pairingCode={installation.pairingCode ?? null} />
             </div>
           </>
@@ -2754,7 +2754,7 @@ export function CrmInstallationDetailClient({
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label className="text-xs">Ciudad</Label>
+                <Label>Ciudad</Label>
                 <Input
                   value={editForm.city}
                   onChange={(e) => setEditForm((p) => ({ ...p, city: e.target.value }))}
@@ -2764,7 +2764,7 @@ export function CrmInstallationDetailClient({
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs">Comuna</Label>
+                <Label>Comuna</Label>
                 <Input
                   value={editForm.commune}
                   onChange={(e) => setEditForm((p) => ({ ...p, commune: e.target.value }))}
@@ -2823,7 +2823,7 @@ export function CrmInstallationDetailClient({
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label className="text-xs">Fecha inicio</Label>
+                <Label>Fecha inicio</Label>
                 <Input
                   type="date"
                   value={editForm.startDate}
@@ -2833,7 +2833,7 @@ export function CrmInstallationDetailClient({
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs">Fecha término</Label>
+                <Label>Fecha término</Label>
                 <Input
                   type="date"
                   value={editForm.endDate}
@@ -2968,23 +2968,23 @@ export function CrmInstallationDetailClient({
           </DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1.5">
-              <Label className="text-xs">Nombre *</Label>
+              <Label>Nombre *</Label>
               <Input value={newContactForm.firstName} onChange={(e) => setNewContactForm((p) => ({ ...p, firstName: e.target.value }))} placeholder="Nombre" />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Apellido</Label>
+              <Label>Apellido</Label>
               <Input value={newContactForm.lastName} onChange={(e) => setNewContactForm((p) => ({ ...p, lastName: e.target.value }))} placeholder="Apellido" />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Email</Label>
+              <Label>Email</Label>
               <Input type="email" value={newContactForm.email} onChange={(e) => setNewContactForm((p) => ({ ...p, email: e.target.value }))} placeholder="email@ejemplo.com" />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Teléfono</Label>
+              <Label>Teléfono</Label>
               <Input value={newContactForm.phone} onChange={(e) => setNewContactForm((p) => ({ ...p, phone: e.target.value }))} placeholder="+56 9 1234 5678" />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Cargo</Label>
+              <Label>Cargo</Label>
               <Input value={newContactForm.roleTitle} onChange={(e) => setNewContactForm((p) => ({ ...p, roleTitle: e.target.value }))} placeholder="Cargo o rol" />
             </div>
           </div>

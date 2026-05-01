@@ -1355,15 +1355,15 @@ export function CrmAccountDetailClient({
           </DialogHeader>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5 sm:col-span-2">
-              <Label className="text-xs">Nombre *</Label>
+              <Label>Nombre *</Label>
               <Input value={accountForm.name} onChange={(e) => setAccountForm((p) => ({ ...p, name: e.target.value }))} className={inputCn} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">RUT</Label>
+              <Label>RUT</Label>
               <Input value={accountForm.rut} onChange={(e) => setAccountForm((p) => ({ ...p, rut: e.target.value }))} className={inputCn} placeholder="76.123.456-7" />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Razón social</Label>
+              <Label>Razón social</Label>
               <Input
                 value={accountForm.legalName}
                 onChange={(e) => setAccountForm((p) => ({ ...p, legalName: e.target.value }))}
@@ -1372,7 +1372,7 @@ export function CrmAccountDetailClient({
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Representante legal</Label>
+              <Label>Representante legal</Label>
               <Input
                 value={accountForm.legalRepresentativeName}
                 onChange={(e) =>
@@ -1383,7 +1383,7 @@ export function CrmAccountDetailClient({
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">RUT representante legal</Label>
+              <Label>RUT representante legal</Label>
               <Input
                 value={accountForm.legalRepresentativeRut}
                 onChange={(e) =>
@@ -1394,7 +1394,7 @@ export function CrmAccountDetailClient({
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Notaría (personería)</Label>
+              <Label>Notaría (personería)</Label>
               <Input
                 value={accountForm.notaryName}
                 onChange={(e) => setAccountForm((p) => ({ ...p, notaryName: e.target.value }))}
@@ -1403,7 +1403,7 @@ export function CrmAccountDetailClient({
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Fecha escritura pública</Label>
+              <Label>Fecha escritura pública</Label>
               <Input
                 value={accountForm.notaryDate}
                 onChange={(e) => setAccountForm((p) => ({ ...p, notaryDate: e.target.value }))}
@@ -1412,35 +1412,35 @@ export function CrmAccountDetailClient({
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Industria</Label>
+              <Label>Industria</Label>
               <Input value={accountForm.industry} onChange={(e) => setAccountForm((p) => ({ ...p, industry: e.target.value }))} className={inputCn} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Segmento</Label>
+              <Label>Segmento</Label>
               <Input value={accountForm.segment} onChange={(e) => setAccountForm((p) => ({ ...p, segment: e.target.value }))} className={inputCn} placeholder="Corporativo, PYME..." />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Sitio web</Label>
+              <Label>Sitio web</Label>
               <Input value={accountForm.website} onChange={(e) => setAccountForm((p) => ({ ...p, website: e.target.value }))} className={inputCn} placeholder="https://..." />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Dirección</Label>
+              <Label>Dirección</Label>
               <Input value={accountForm.address} onChange={(e) => setAccountForm((p) => ({ ...p, address: e.target.value }))} className={inputCn} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Comuna</Label>
+              <Label>Comuna</Label>
               <Input value={accountForm.commune} onChange={(e) => setAccountForm((p) => ({ ...p, commune: e.target.value }))} className={inputCn} placeholder="Lo Barnechea, Providencia..." />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Fecha inicio</Label>
+              <Label>Fecha inicio</Label>
               <Input type="date" value={accountForm.startDate} onChange={(e) => setAccountForm((p) => ({ ...p, startDate: e.target.value }))} className={inputCn} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Fecha término</Label>
+              <Label>Fecha término</Label>
               <Input type="date" value={accountForm.endDate} onChange={(e) => setAccountForm((p) => ({ ...p, endDate: e.target.value }))} className={inputCn} />
             </div>
             <div className="space-y-1.5 sm:col-span-2">
-              <Label className="text-xs">Notas</Label>
+              <Label>Notas</Label>
               <textarea
                 value={accountForm.notes}
                 onChange={(e) => setAccountForm((p) => ({ ...p, notes: e.target.value }))}
@@ -1467,23 +1467,23 @@ export function CrmAccountDetailClient({
           </DialogHeader>
           <div className="grid gap-3 md:grid-cols-2">
             <div className="space-y-1.5">
-              <Label className="text-xs">Nombre *</Label>
+              <Label>Nombre *</Label>
               <Input value={editForm.firstName} onChange={(e) => setEditForm((p) => ({ ...p, firstName: e.target.value }))} className={inputCn} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Apellido *</Label>
+              <Label>Apellido *</Label>
               <Input value={editForm.lastName} onChange={(e) => setEditForm((p) => ({ ...p, lastName: e.target.value }))} className={inputCn} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Email *</Label>
+              <Label>Email *</Label>
               <Input value={editForm.email} onChange={(e) => setEditForm((p) => ({ ...p, email: e.target.value }))} className={inputCn} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Teléfono</Label>
+              <Label>Teléfono</Label>
               <Input value={editForm.phone} onChange={(e) => setEditForm((p) => ({ ...p, phone: e.target.value }))} className={inputCn} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Cargo</Label>
+              <Label>Cargo</Label>
               <Input value={editForm.roleTitle} onChange={(e) => setEditForm((p) => ({ ...p, roleTitle: e.target.value }))} className={inputCn} />
             </div>
             <div className="flex items-end">
@@ -1511,23 +1511,23 @@ export function CrmAccountDetailClient({
           </DialogHeader>
           <div className="grid gap-3 md:grid-cols-2">
             <div className="space-y-1.5">
-              <Label className="text-xs">Nombre *</Label>
+              <Label>Nombre *</Label>
               <Input value={newContactForm.firstName} onChange={(e) => setNewContactForm((p) => ({ ...p, firstName: e.target.value }))} className={inputCn} placeholder="Nombre" />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Apellido</Label>
+              <Label>Apellido</Label>
               <Input value={newContactForm.lastName} onChange={(e) => setNewContactForm((p) => ({ ...p, lastName: e.target.value }))} className={inputCn} placeholder="Apellido" />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Email *</Label>
+              <Label>Email *</Label>
               <Input value={newContactForm.email} onChange={(e) => setNewContactForm((p) => ({ ...p, email: e.target.value }))} className={inputCn} placeholder="correo@empresa.com" />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Teléfono</Label>
+              <Label>Teléfono</Label>
               <Input value={newContactForm.phone} onChange={(e) => setNewContactForm((p) => ({ ...p, phone: e.target.value }))} className={inputCn} placeholder="+56 9 1234 5678" />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Cargo</Label>
+              <Label>Cargo</Label>
               <Input value={newContactForm.roleTitle} onChange={(e) => setNewContactForm((p) => ({ ...p, roleTitle: e.target.value }))} className={inputCn} placeholder="Gerente, jefe..." />
             </div>
             <div className="flex items-end">
