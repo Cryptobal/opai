@@ -597,11 +597,11 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
               <Shield className="h-4 w-4 text-status-info-fg" />
               <div className="text-left">
                 <p className="text-sm font-medium text-status-info-fg">{ticket.guardiaName}</p>
-                <p className="text-[10px] text-blue-400/60">
+                <p className="text-[10px] text-status-info-fg/60">
                   {[ticket.guardiaRut, ticket.guardiaCode].filter(Boolean).join(" · ")}
                 </p>
               </div>
-              <ChevronRight className="ml-auto h-3.5 w-3.5 text-blue-400/50" />
+              <ChevronRight className="ml-auto h-3.5 w-3.5 text-status-info-fg/50" />
             </button>
           </div>
         )}
@@ -663,11 +663,11 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
             <button
               type="button"
               onClick={() => setAssigningUser(true)}
-              className="flex items-center gap-2 rounded-lg border border-status-warn-border bg-yellow-500/5 px-3 py-2 text-sm text-status-warn-fg transition-colors hover:bg-status-warn-soft"
+              className="flex items-center gap-2 rounded-lg border border-status-warn-border bg-status-warn-soft/30 px-3 py-2 text-sm text-status-warn-fg transition-colors hover:bg-status-warn-soft"
             >
               <UserCircle className="h-4 w-4" />
               <span className="font-medium">Sin asignar</span>
-              <span className="text-xs text-yellow-500/60 ml-auto">Asignar</span>
+              <span className="text-xs text-status-warn-fg/60 ml-auto">Asignar</span>
             </button>
           )}
         </div>
