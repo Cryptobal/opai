@@ -103,10 +103,10 @@ function useCurrentHour() {
 }
 
 function trustBg(score: number | null): string {
-  if (score == null) return "bg-zinc-800/30";
-  if (score >= 80) return "bg-emerald-500/12 border-status-ok-border";
-  if (score >= 60) return "bg-amber-500/12 border-amber-500/25";
-  return "bg-red-500/12 border-red-500/25";
+  if (score == null) return "bg-muted/30";
+  if (score >= 80) return "bg-status-ok-soft border-status-ok-border";
+  if (score >= 60) return "bg-status-warn-soft border-status-warn-border";
+  return "bg-status-danger-soft border-status-danger-border";
 }
 
 function trustTextColor(score: number | null): string {
@@ -160,27 +160,27 @@ function getCellState(
       return { ...base, bg: "bg-status-ok-soft border-status-ok-border", border: "border border-solid", icon: "\u270B", textColor: "text-status-ok-fg" };
     }
     if (ronda.status === "omitida") {
-      return { ...base, bg: "bg-red-500/12 border-red-500/25", border: "border border-solid", icon: "\u2715", textColor: "text-status-danger-fg" };
+      return { ...base, bg: "bg-status-danger-soft border-status-danger-border", border: "border border-solid", icon: "\u2715", textColor: "text-status-danger-fg" };
     }
     if (ronda.status === "no_aplica") {
       return { ...base, bg: "bg-zinc-800/20", border: "border border-dashed border-zinc-700/20", icon: "\u2014", textColor: "text-zinc-600", subtle: true };
     }
     if (ronda.status === "pendiente" && isPastSlot) {
-      return { ...base, bg: "bg-status-danger-soft border-red-500/25", border: "border border-solid", icon: "\u2715", textColor: "text-status-danger-fg" };
+      return { ...base, bg: "bg-status-danger-soft border-status-danger-border", border: "border border-solid", icon: "\u2715", textColor: "text-status-danger-fg" };
     }
     if (ronda.status === "pendiente" && isCurrentSlot) {
       return { ...base, bg: "bg-status-info-soft border-status-info-border", border: "border border-solid", textColor: "text-status-info-fg", pulse: true };
     }
     // Future with expected ronda — subtle indigo tint (not red)
-    return { ...base, bg: "bg-indigo-500/[0.04] border-indigo-500/10", border: "border border-dashed", textColor: "text-indigo-400/40" };
+    return { ...base, bg: "bg-status-info-soft/30 border-status-info-border/30", border: "border border-dashed", textColor: "text-status-info-fg/40" };
   }
 
   // CELL WITHOUT EXPECTED RONDA (manual check-in)
   if (ronda.status === "completada") {
-    return { ...base, bg: "bg-emerald-500/6 border-emerald-500/12", border: "border border-dashed", icon: "\u270B", textColor: "text-status-ok-fg" };
+    return { ...base, bg: "bg-status-ok-soft/50 border-status-ok-border/50", border: "border border-dashed", icon: "\u270B", textColor: "text-status-ok-fg" };
   }
   if (ronda.status === "omitida") {
-    return { ...base, bg: "bg-amber-500/8 border-amber-500/15", border: "border border-dashed", icon: "\u270B\uD83D\uDCDD", textColor: "text-status-warn-fg" };
+    return { ...base, bg: "bg-status-warn-soft/50 border-status-warn-border/50", border: "border border-dashed", icon: "\u270B\uD83D\uDCDD", textColor: "text-status-warn-fg" };
   }
   if (isPastSlot) {
     return { ...base, bg: "bg-[#0a0f1c]/30", icon: "\u00B7", subtle: true, textColor: "text-zinc-700" };
@@ -235,9 +235,9 @@ function GridRow({
   const isDescubierta = cobertura === "descubierta";
 
   const rowBg = isDescubierta
-    ? "bg-red-500/[0.06] border-l-[3px] border-l-red-500"
+    ? "bg-status-danger-soft/30 border-l-[3px] border-l-status-danger"
     : isSelected
-      ? "bg-cyan-500/[0.04] ring-1 ring-inset ring-cyan-500/20"
+      ? "bg-status-info-soft/30 ring-1 ring-inset ring-status-info-border"
       : "";
 
   // First present guard's hora for the read-only Lleg. columns
@@ -324,7 +324,7 @@ function GridRow({
         const state = getCellState(ronda, isCurrentSlot, isPastSlot);
 
         return (
-          <td key={slot} className={`px-0.5 py-1 ${isCurrentSlot ? "bg-cyan-500/[0.03]" : ""}`}>
+          <td key={slot} className={`px-0.5 py-1 ${isCurrentSlot ? "bg-status-info-soft/20" : ""}`}>
             <div
               onClick={() => onCellClick?.({
                 ronda,
@@ -523,8 +523,8 @@ function GridHeaderBar({
           {totalInstalaciones} inst. &middot; {totalSlots} slots
         </span>
         {isSaving && (
-          <div className="flex items-center gap-1.5 text-[10px] text-cyan-400/60">
-            <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+          <div className="flex items-center gap-1.5 text-[10px] text-status-info-fg/60">
+            <div className="w-1.5 h-1.5 rounded-full bg-status-info animate-pulse" />
             Guardando
           </div>
         )}
@@ -545,7 +545,7 @@ function GridHeaderBar({
           <button
             onClick={handleRefresh}
             disabled={refreshing}
-            className="px-2.5 py-1 rounded bg-status-info-soft border border-status-info-border text-[10px] text-status-info-fg font-medium hover:bg-cyan-500/20 hover:border-cyan-500/50 transition-colors disabled:opacity-50"
+            className="px-2.5 py-1 rounded bg-status-info-soft border border-status-info-border text-[10px] text-status-info-fg font-medium hover:brightness-110 transition-colors disabled:opacity-50"
             title="Re-sincronizar guardias desde la pauta diaria"
           >
             {refreshing ? "Refrescando..." : "Refrescar de pauta"}
@@ -602,7 +602,7 @@ function GridNotesSection({
         onChange={isReadOnly ? undefined : (e) => handleChange(e.target.value)}
         readOnly={isReadOnly}
         rows={2}
-        className={`w-full bg-[#0a0f1c] border border-[#1a1f2e] rounded-lg px-3 py-2 text-xs text-[#94a3b8] focus:border-cyan-500/50 focus:outline-none resize-none ${isReadOnly ? "opacity-60 cursor-default" : ""}`}
+        className={`w-full bg-[#0a0f1c] border border-[#1a1f2e] rounded-lg px-3 py-2 text-xs text-[#94a3b8] focus:border-status-info-border focus:outline-none resize-none ${isReadOnly ? "opacity-60 cursor-default" : ""}`}
         placeholder="Notas generales del turno..."
       />
 
@@ -730,7 +730,7 @@ export default function MonitoreoGrid({
                   data-current-slot={i === currentSlotIdx}
                   className={`w-16 px-1 py-2 text-center font-medium text-[10px] ${
                     i === currentSlotIdx
-                      ? "text-status-info-fg border-b-2 border-cyan-500"
+                      ? "text-status-info-fg border-b-2 border-status-info"
                       : "text-[#475569]"
                   }`}
                 >

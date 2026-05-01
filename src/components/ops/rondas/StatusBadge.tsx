@@ -3,14 +3,14 @@ import { cn } from "@/lib/utils";
 type StatusVariant = "en_curso" | "completada" | "atrasada" | "pendiente" | "no_realizada" | "critica" | "warning" | "info";
 
 const STATUS_CONFIG: Record<StatusVariant, { label: string; dot: string; bg: string; text: string; border: string }> = {
-  en_curso:      { label: "En curso",      dot: "bg-blue-400",    bg: "bg-status-info-soft",   text: "text-status-info-fg",   border: "border-status-info-border" },
-  completada:    { label: "Completada",    dot: "bg-green-400",   bg: "bg-status-ok-soft",  text: "text-status-ok-fg",  border: "border-green-500/20" },
-  atrasada:      { label: "Atrasada",      dot: "bg-red-400",     bg: "bg-status-danger-soft",    text: "text-status-danger-fg",    border: "border-status-danger-border" },
-  pendiente:     { label: "Pendiente",     dot: "bg-amber-400",   bg: "bg-status-warn-soft",  text: "text-status-warn-fg",  border: "border-status-warn-border" },
-  no_realizada:  { label: "No realizada",  dot: "bg-[#64748b]",   bg: "bg-white/5",       text: "text-[#94a3b8]",  border: "border-white/10" },
-  critica:       { label: "Crítica",       dot: "bg-red-400 animate-pulse", bg: "bg-status-danger-soft",    text: "text-status-danger-fg",    border: "border-status-danger-border" },
-  warning:       { label: "Warning",       dot: "bg-amber-400",   bg: "bg-status-warn-soft",  text: "text-status-warn-fg",  border: "border-status-warn-border" },
-  info:          { label: "Info",          dot: "bg-blue-400",    bg: "bg-status-info-soft",   text: "text-status-info-fg",   border: "border-status-info-border" },
+  en_curso:      { label: "En curso",      dot: "bg-status-info",   bg: "bg-status-info-soft",   text: "text-status-info-fg",   border: "border-status-info-border" },
+  completada:    { label: "Completada",    dot: "bg-status-ok",     bg: "bg-status-ok-soft",     text: "text-status-ok-fg",     border: "border-status-ok-border" },
+  atrasada:      { label: "Atrasada",      dot: "bg-status-danger", bg: "bg-status-danger-soft", text: "text-status-danger-fg", border: "border-status-danger-border" },
+  pendiente:     { label: "Pendiente",     dot: "bg-status-warn",   bg: "bg-status-warn-soft",   text: "text-status-warn-fg",   border: "border-status-warn-border" },
+  no_realizada:  { label: "No realizada",  dot: "bg-[#64748b]",     bg: "bg-white/5",            text: "text-[#94a3b8]",        border: "border-white/10" },
+  critica:       { label: "Crítica",       dot: "bg-status-danger animate-pulse", bg: "bg-status-danger-soft", text: "text-status-danger-fg", border: "border-status-danger-border" },
+  warning:       { label: "Warning",       dot: "bg-status-warn",   bg: "bg-status-warn-soft",   text: "text-status-warn-fg",   border: "border-status-warn-border" },
+  info:          { label: "Info",          dot: "bg-status-info",   bg: "bg-status-info-soft",   text: "text-status-info-fg",   border: "border-status-info-border" },
 };
 
 export function normalizeStatus(raw: string): StatusVariant {

@@ -311,6 +311,46 @@ const MIGRATED_PATHS = [
   // se haga su pasada de limpieza tipográfica completa en una sub-fase futura.
   "src/app/(app)/ops/rondas/page.tsx",
   "src/app/(app)/ops/rondas/centro-ia/page.tsx",
+  // Cluster 5B.2.b.1 — Monitoreo Grid + componentes compartidos
+  // (primer sub-step del Monitoreo de Rondas). Migra los 5 archivos
+  // foundationales del Monitoreo en tiempo real:
+  // - StatusBadge: STATUS_CONFIG dots (bg-blue/green/red/amber-400) →
+  //   bg-status-{info,ok,danger,warn}. completada.border (green-500/20)
+  //   → status-ok-border. 'no_realizada' preservado con hex #64748b +
+  //   white/5/10 (color neutro intencional del estado "no realizada").
+  // - CoverageChip: STATUS_BAR_COLOR map (emerald/blue/red-400) → status-*.
+  //   'reemplazo' (purple-400) → tint-violet-fg (categórico tipo "EXTRA",
+  //   consistente con SHIFT_COLORS de Pauta Mensual). Hovers con
+  //   opacidades arbitrarias (/[0.08], /[0.12], /[0.15]) → /30, /50.
+  // - MonitoreoTurnoHeader: trustBorder() hex /25 /8 → status-*-soft + border.
+  //   Iniciar turno button (cyan-600/700) → bg-status-info hover:brightness-110.
+  //   EN VIVO ping (emerald-400) → status-ok. KPI chips → status-* tokens.
+  //   Action button text (red-400/70) → status-danger-fg/70.
+  // - MonitoreoGrid: trustBg() hex /12 /25 → status-*-soft + border.
+  //   getCellState() 5 cases (omitida, pendiente+past, future expected,
+  //   completada manual, omitida manual) → status-*-soft/border con
+  //   opacidades estándar /30, /50. rowBg, current slot highlight, live
+  //   indicator, action button hover, textarea focus, tab activo →
+  //   status-{danger,info}-* tokens.
+  // - mobile/CoverageSummary: 2 hex bg-amber-400 → bg-status-warn.
+  //
+  // Archivos NO migrados aún en este cluster (vienen en 5B.2.b.2): GuardPanel,
+  // MonitoreoSidePanel, MonitoreoGuardPanel, MonitoreoGridCellModal,
+  // RondasMonitoreoClient, MobileMonitorView, MobileInstallationCard,
+  // InstallationDetailModal, alerta-card, PanicAlertBanner, CoberturaSheet,
+  // CerrarTurnoModal, monitoreo-map.
+  //
+  // NO TOCADO: hex de "dashboard mode" (#0a0f1c, #1a1f2e, #64748b, #94a3b8,
+  // #f1f5f9, #475569) — Bloomberg-style intentional dark. Lógica de polling,
+  // trust score, coverage status, KPI updates, modales intactos.
+  //
+  // Los 5 CCs NO se agregan a MIGRATED_PATHS: mismo criterio que
+  // 4A/4B/4C/4D/5A.1..5A.8/5B.1.a/5B.1.b/5B.2.a — los archivos completaron su
+  // migración granular de color drift + STATUS_CONFIG/STATUS_BAR_COLOR/
+  // trustBg/getCellState pero siguen teniendo drift tipográfico legacy fuera
+  // de eso (text-[10px]/text-[11px] en cells de la grilla, KPI chips,
+  // CoverageChip bars, mobile labels). Se agregarán cuando se haga su pasada
+  // de limpieza tipográfica completa en una sub-fase futura.
   // Agregar aquí cuando se migren:
   // "src/components/personas/",
   // "src/components/crm/",
