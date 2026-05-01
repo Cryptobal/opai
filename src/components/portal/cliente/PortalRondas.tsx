@@ -68,7 +68,7 @@ const STATUS_CONFIG: Record<
 > = {
   en_curso: {
     label: "En curso",
-    color: "bg-yellow-500/20 text-status-warn-fg",
+    color: "bg-status-warn-soft text-status-warn-fg",
     icon: Clock,
   },
   completada: {
@@ -350,7 +350,7 @@ export function PortalRondas({ selectedInstallation }: Props) {
               {selected.incidentes.map((inc) => (
                 <div
                   key={inc.id}
-                  className="bg-zinc-900 border border-red-900/40 rounded-lg p-3"
+                  className="bg-zinc-900 border border-status-danger-border rounded-lg p-3"
                 >
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-xs font-medium text-status-danger-fg">
@@ -387,7 +387,7 @@ export function PortalRondas({ selectedInstallation }: Props) {
                   <div
                     className={cn(
                       "w-2 h-2 rounded-full flex-shrink-0",
-                      m.geoValidada ? "bg-emerald-400" : "bg-amber-400"
+                      m.geoValidada ? "bg-status-ok" : "bg-status-warn"
                     )}
                   />
                   <div className="flex-1 min-w-0">
@@ -474,7 +474,7 @@ export function PortalRondas({ selectedInstallation }: Props) {
             className={cn(
               "text-[11px] font-medium px-2.5 py-1 rounded-full border transition-colors",
               range === opt.key
-                ? "bg-status-info-soft border-teal-400/40 text-status-info-fg"
+                ? "bg-status-info-soft border-status-info-border text-status-info-fg"
                 : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200",
             )}
           >

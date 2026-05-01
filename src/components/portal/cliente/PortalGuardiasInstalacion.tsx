@@ -229,7 +229,7 @@ export function PortalGuardiasInstalacion({ installationId }: Props) {
                 onClick={() => setExpandedId(isOpen ? null : g.id)}
                 className="w-full flex items-center gap-3 px-3 py-3 text-left hover:bg-white/[0.02] transition-colors"
               >
-                <div className="h-9 w-9 rounded-full bg-teal-600/20 border border-status-info-border flex items-center justify-center shrink-0">
+                <div className="h-9 w-9 rounded-full bg-status-info-soft border border-status-info-border flex items-center justify-center shrink-0">
                   <span className="text-xs font-semibold text-status-info-fg">
                     {g.iniciales}
                   </span>

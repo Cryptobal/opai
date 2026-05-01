@@ -86,7 +86,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
 
 const PRIORITY_CONFIG: Record<string, { label: string; color: string }> = {
   p1: { label: 'P1', color: 'text-status-danger-fg bg-status-danger-soft border-status-danger-border' },
-  p2: { label: 'P2', color: 'text-status-warn-fg bg-status-warn-soft border-orange-500/20' },
+  p2: { label: 'P2', color: 'text-status-warn-fg bg-status-warn-soft border-status-warn-border' },
   p3: { label: 'P3', color: 'text-zinc-400 bg-zinc-700/50 border-zinc-600/20' },
   p4: { label: 'P4', color: 'text-zinc-500 bg-zinc-800 border-zinc-700/20' },
 }

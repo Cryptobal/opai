@@ -78,7 +78,7 @@ export function ProtocolSignModal({
             type="text"
             value={firmanteNombre}
             onChange={(e) => setFirmanteNombre(e.target.value)}
-            className="w-full h-9 rounded-lg border border-zinc-700 bg-zinc-800 px-3 text-sm text-white focus:outline-none focus:border-teal-400"
+            className="w-full h-9 rounded-lg border border-zinc-700 bg-zinc-800 px-3 text-sm text-white focus:outline-none focus:border-status-info-border"
           />
         </div>
 
@@ -89,7 +89,7 @@ export function ProtocolSignModal({
             value={firmanteRut}
             onChange={(e) => setFirmanteRut(e.target.value)}
             placeholder="12.345.678-9"
-            className="w-full h-9 rounded-lg border border-zinc-700 bg-zinc-800 px-3 text-sm text-white focus:outline-none focus:border-teal-400"
+            className="w-full h-9 rounded-lg border border-zinc-700 bg-zinc-800 px-3 text-sm text-white focus:outline-none focus:border-status-info-border"
           />
         </div>
 

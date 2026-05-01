@@ -121,7 +121,7 @@ export function PortalDocsOperacionales({ selectedInstallation, isProspect }: Pr
 
   if (isProspect) {
     return (
-      <div className="rounded-lg border border-teal-500/20 bg-teal-500/5 px-4 py-3 text-xs text-teal-300/80">
+      <div className="rounded-lg border border-status-info-border bg-status-info-soft/30 px-4 py-3 text-xs text-status-info-fg/80">
         Al activar tu servicio, aquí encontrarás el cumplimiento normativo completo de tu instalación (OS10, DT, seguros).
       </div>
     );

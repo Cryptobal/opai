@@ -12,7 +12,7 @@ const SECTIONS = [
     title: 'Seguridad Integral',
     color: 'text-status-info-fg',
     bg: 'bg-status-info-soft',
-    border: 'border-teal-500/15',
+    border: 'border-status-info-border',
     items: [
       'Guardias seleccionados con evaluación psicométrica y verificación de antecedentes',
       'Protocolos operativos diseñados para cada tipo de instalación',
@@ -38,7 +38,7 @@ const SECTIONS = [
     title: 'Cumplimiento Normativo',
     color: 'text-status-info-fg',
     bg: 'bg-status-info-soft',
-    border: 'border-blue-500/15',
+    border: 'border-status-info-border',
     items: [
       'OS-10 y documentación actualizada de todos los guardias',
       'Contratos laborales al día con fiscalización interna',
@@ -51,7 +51,7 @@ const SECTIONS = [
     title: 'Diferenciadores',
     color: 'text-status-warn-fg',
     bg: 'bg-status-warn-soft',
-    border: 'border-amber-500/15',
+    border: 'border-status-warn-border',
     items: [
       'Única empresa en Chile con sistema operativo propio de seguridad',
       'Transparencia total: el cliente ve todo en tiempo real',
@@ -64,7 +64,7 @@ const SECTIONS = [
     title: 'Certificaciones',
     color: 'text-status-ok-fg',
     bg: 'bg-status-ok-soft',
-    border: 'border-emerald-500/15',
+    border: 'border-status-ok-border',
     items: [
       'Empresa de seguridad autorizada por OS-10 de Carabineros',
       'Procesos alineados con estándares ISO 9001',
@@ -77,7 +77,7 @@ const SECTIONS = [
     title: 'Portal del Cliente',
     color: 'text-status-info-fg',
     bg: 'bg-status-info-soft',
-    border: 'border-sky-500/15',
+    border: 'border-status-info-border',
     items: [
       'Acceso 24/7 a métricas, reportes y documentación',
       'Chat directo con tu ejecutivo sin intermediarios',

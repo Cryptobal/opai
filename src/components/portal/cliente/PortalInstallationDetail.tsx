@@ -149,7 +149,7 @@ export function PortalInstallationDetail({
               <p className="text-[10px] text-zinc-500 uppercase tracking-wider">Rondas hoy</p>
             </div>
             <div className="text-center">
-              <p className="text-lg font-bold text-purple-400">{demoSummary.trustScore}</p>
+              <p className="text-lg font-bold text-tint-violet-fg">{demoSummary.trustScore}</p>
               <p className="text-[10px] text-zinc-500 uppercase tracking-wider">Trust Score</p>
             </div>
           </div>

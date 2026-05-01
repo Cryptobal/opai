@@ -112,12 +112,12 @@ const ICON_COMPONENTS: Record<string, typeof CheckCircle2> = {
 };
 
 const PROSPECT_CAPABILITY_CARDS = [
-  { icon: MapPin, title: "Rondas GPS en vivo", desc: "Ve dónde está tu guardia con verificación por geofencing", section: "rondas", color: "text-status-ok-fg", bg: "bg-status-ok-soft", border: "border-emerald-500/15" },
-  { icon: Star, title: "Trust Score", desc: "Guardias evaluados con datos reales: asistencia, rondas, capacitación", section: "desempeno", color: "text-status-warn-fg", bg: "bg-status-warn-soft", border: "border-amber-500/15" },
-  { icon: FileText, title: "Documentación digital", desc: "Contratos, OS-10, antecedentes — todo en un click", section: "documentacion", color: "text-status-info-fg", bg: "bg-status-info-soft", border: "border-blue-500/15" },
+  { icon: MapPin, title: "Rondas GPS en vivo", desc: "Ve dónde está tu guardia con verificación por geofencing", section: "rondas", color: "text-status-ok-fg", bg: "bg-status-ok-soft", border: "border-status-ok-border" },
+  { icon: Star, title: "Trust Score", desc: "Guardias evaluados con datos reales: asistencia, rondas, capacitación", section: "desempeno", color: "text-status-warn-fg", bg: "bg-status-warn-soft", border: "border-status-warn-border" },
+  { icon: FileText, title: "Documentación digital", desc: "Contratos, OS-10, antecedentes — todo en un click", section: "documentacion", color: "text-status-info-fg", bg: "bg-status-info-soft", border: "border-status-info-border" },
   { icon: Bot, title: "IA predictiva", desc: "Protocolos y análisis automáticos con inteligencia artificial", section: "desempeno", color: "text-violet-400", bg: "bg-violet-500/10", border: "border-violet-500/15" },
-  { icon: ShieldCheck, title: "Control de acceso", desc: "QR, lectura de cédula, registro digital en tiempo real", section: "control-acceso", color: "text-status-info-fg", bg: "bg-status-info-soft", border: "border-sky-500/15" },
-  { icon: MessageSquare, title: "Chat directo", desc: "Habla con tu equipo 24/7 sin salir del portal", section: "chat", color: "text-status-info-fg", bg: "bg-status-info-soft", border: "border-teal-500/15" },
+  { icon: ShieldCheck, title: "Control de acceso", desc: "QR, lectura de cédula, registro digital en tiempo real", section: "control-acceso", color: "text-status-info-fg", bg: "bg-status-info-soft", border: "border-status-info-border" },
+  { icon: MessageSquare, title: "Chat directo", desc: "Habla con tu equipo 24/7 sin salir del portal", section: "chat", color: "text-status-info-fg", bg: "bg-status-info-soft", border: "border-status-info-border" },
 ];
 
 // Accesos directos para CLIENTES activos (reorganizados hacia las vistas clave
@@ -647,7 +647,7 @@ export function PortalDashboard({ selectedInstallation, onNavigate }: Props) {
       <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
         <h3 className="text-sm font-semibold mb-3">Tu ejecutivo</h3>
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-teal-600/30 border border-status-info-border flex items-center justify-center">
+          <div className="w-10 h-10 rounded-full bg-status-info-soft border border-status-info-border flex items-center justify-center">
             <span className="text-sm font-semibold text-status-info-fg">
               {session.ejecutivoName ? session.ejecutivoName.charAt(0).toUpperCase() : "G"}
             </span>
@@ -661,7 +661,7 @@ export function PortalDashboard({ selectedInstallation, onNavigate }: Props) {
           <div className="flex items-center gap-2">
             <button
               onClick={() => onNavigate("chat")}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-teal-600/20 text-status-info-fg hover:bg-teal-600/30"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-status-info-soft text-status-info-fg hover:brightness-110"
             >
               <MessageSquare className="w-3.5 h-3.5" /> Chat
             </button>
@@ -715,7 +715,7 @@ function RondaEnCursoHero({
     >
       <div className="flex items-center gap-3">
         <div className="h-10 w-10 rounded-xl flex items-center justify-center bg-status-warn-soft relative">
-          <span className="absolute inset-0 rounded-xl bg-amber-400/30 animate-ping" aria-hidden />
+          <span className="absolute inset-0 rounded-xl bg-status-warn/30 animate-ping" aria-hidden />
           <MapPin className="h-5 w-5 text-status-warn-fg relative" />
         </div>
         <div className="flex-1 min-w-0">
@@ -737,7 +737,7 @@ function RondaEnCursoHero({
       <div className="mt-3">
         <div className="h-1 bg-black/30 rounded-full overflow-hidden">
           <div
-            className="h-full bg-amber-400 rounded-full transition-all"
+            className="h-full bg-status-warn rounded-full transition-all"
             style={{ width: `${pct}%` }}
           />
         </div>
@@ -771,7 +771,7 @@ function ServiceStatusHero({
       }
     : isIncomplete
       ? {
-          border: "border-amber-500/25",
+          border: "border-status-warn-border",
           bg: "bg-status-warn-soft",
           icon: AlertTriangle,
           color: "text-status-warn-fg",
@@ -830,10 +830,10 @@ function TeamCard({
   const warn = team.os10PorVencer > 0;
   const bad = team.os10Vencido > 0;
   const tone = bad
-    ? "border-status-danger-border bg-red-500/[0.02]"
+    ? "border-status-danger-border bg-status-danger-soft/30"
     : warn
-    ? "border-status-warn-border bg-amber-500/[0.02]"
-    : "border-status-ok-border bg-emerald-500/[0.02]";
+    ? "border-status-warn-border bg-status-warn-soft/30"
+    : "border-status-ok-border bg-status-ok-soft/30";
   return (
     <button
       onClick={() => onNavigate("instalacion-detalle")}
@@ -882,7 +882,7 @@ function TicketsCard({
   return (
     <button
       onClick={() => onNavigate("tickets")}
-      className="rounded-xl border border-status-info-border bg-blue-500/[0.02] p-4 text-left transition-colors active:scale-[0.99]"
+      className="rounded-xl border border-status-info-border bg-status-info-soft/30 p-4 text-left transition-colors active:scale-[0.99]"
     >
       <div className="flex items-center gap-2 mb-3">
         <Ticket className="h-4 w-4 text-status-info-fg" />

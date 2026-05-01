@@ -64,8 +64,8 @@ export function PortalAccessControl({ session, selectedInstallation, isProspect 
                 </div>
                 <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
                   entry.status === "Autorizado"
-                    ? "bg-emerald-900/40 text-status-ok-fg"
-                    : "bg-red-900/40 text-status-danger-fg"
+                    ? "bg-status-ok-soft text-status-ok-fg"
+                    : "bg-status-danger-soft text-status-danger-fg"
                 }`}>
                   {entry.status}
                 </span>

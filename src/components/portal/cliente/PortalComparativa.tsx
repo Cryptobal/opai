@@ -55,10 +55,10 @@ export function PortalComparativa({ session, isProspect }: Props) {
         <div className="bg-zinc-800/60 border border-zinc-700/50 rounded-xl p-5 space-y-3">
           <p className="text-sm text-zinc-300 font-medium">Benchmarks del servicio</p>
           <ul className="space-y-2 text-xs text-zinc-400">
-            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Compara rendimiento entre instalaciones</li>
-            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Métricas de rondas, asistencia y tickets</li>
-            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Ranking automático de instalaciones</li>
-            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Gráficos interactivos por periodo</li>
+            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-status-info" />Compara rendimiento entre instalaciones</li>
+            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-status-info" />Métricas de rondas, asistencia y tickets</li>
+            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-status-info" />Ranking automático de instalaciones</li>
+            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-status-info" />Gráficos interactivos por periodo</li>
           </ul>
         </div>
       </div>
@@ -208,11 +208,11 @@ export function PortalComparativa({ session, isProspect }: Props) {
                   className={cn(
                     'w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0',
                     idx === 0
-                      ? 'bg-yellow-500/20 text-status-warn-fg'
+                      ? 'bg-status-warn-soft text-status-warn-fg'
                       : idx === 1
                       ? 'bg-zinc-400/20 text-zinc-300'
                       : idx === 2
-                      ? 'bg-orange-500/20 text-status-warn-fg'
+                      ? 'bg-status-warn-soft text-status-warn-fg'
                       : 'bg-zinc-800 text-zinc-500'
                   )}
                 >
