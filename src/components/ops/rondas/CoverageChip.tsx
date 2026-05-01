@@ -17,10 +17,10 @@ interface CoverageChipProps {
 }
 
 const STATUS_BAR_COLOR: Record<string, string> = {
-  presente: "bg-emerald-400",
-  reemplazo: "bg-purple-400",
-  en_camino: "bg-blue-400",
-  no_viene: "bg-red-400",
+  presente: "bg-status-ok",
+  reemplazo: "bg-tint-violet-fg",
+  en_camino: "bg-status-info",
+  no_viene: "bg-status-danger",
   pendiente: "bg-slate-500",
   ppc: "bg-status-warn",
 };
@@ -76,7 +76,7 @@ export function CoverageChip({
     return (
       <button
         onClick={onClick}
-        className="flex items-center gap-1.5 px-1.5 py-1 rounded cursor-pointer w-full bg-amber-500/[0.08] hover:bg-amber-500/[0.15] transition-colors group"
+        className="flex items-center gap-1.5 px-1.5 py-1 rounded cursor-pointer w-full bg-status-warn-soft/30 hover:bg-status-warn-soft/50 transition-colors group"
       >
         <div className="flex gap-[2px] flex-shrink-0">
           {ppcGuards.map((_, i) => (
@@ -101,7 +101,7 @@ export function CoverageChip({
       const g = guardias[i];
       // PPC guards get amber bar when still unassigned
       if (g.guardiaNombre === "PPC") {
-        bars.push(g.status === "no_viene" ? "bg-red-400" : "bg-status-warn");
+        bars.push(g.status === "no_viene" ? "bg-status-danger" : "bg-status-warn");
       } else {
         bars.push(STATUS_BAR_COLOR[g.status] ?? "bg-slate-600");
       }
@@ -122,7 +122,7 @@ export function CoverageChip({
       onClick={onClick}
       className={`flex items-center gap-1.5 px-1.5 py-1 rounded cursor-pointer w-full transition-colors group ${
         isDescubierta
-          ? "bg-red-500/[0.08] hover:bg-red-500/[0.12]"
+          ? "bg-status-danger-soft/30 hover:bg-status-danger-soft/50"
           : "hover:bg-slate-800/60"
       }`}
     >
@@ -153,7 +153,7 @@ export function CoverageChip({
           <span className="text-slate-600"> +{moreCount}</span>
         )}
         {ppcCount > 0 && (
-          <span className="text-amber-400/70"> +{ppcCount} PPC</span>
+          <span className="text-status-warn-fg/70"> +{ppcCount} PPC</span>
         )}
       </span>
 

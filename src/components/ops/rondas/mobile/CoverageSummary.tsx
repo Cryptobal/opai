@@ -58,7 +58,7 @@ export function CoverageSummary({ instalaciones }: CoverageSummaryProps) {
         <div className="h-2.5 bg-slate-700 rounded-full overflow-hidden flex">
           <div className="bg-status-ok h-full transition-all duration-500"
             style={{ width: `${(noche.presentes / Math.max(noche.total, 1)) * 100}%` }} />
-          <div className="bg-amber-400 h-full transition-all duration-500"
+          <div className="bg-status-warn h-full transition-all duration-500"
             style={{ width: `${(noche.enCamino / Math.max(noche.total, 1)) * 100}%` }} />
           <div className="bg-status-danger h-full transition-all duration-500"
             style={{ width: `${(noche.noViene / Math.max(noche.total, 1)) * 100}%` }} />
@@ -88,7 +88,7 @@ export function CoverageSummary({ instalaciones }: CoverageSummaryProps) {
         <div className="h-2.5 bg-slate-700 rounded-full overflow-hidden flex">
           <div className="bg-status-ok h-full transition-all duration-500"
             style={{ width: `${(dia.presentes / Math.max(dia.total, 1)) * 100}%` }} />
-          <div className="bg-amber-400 h-full transition-all duration-500"
+          <div className="bg-status-warn h-full transition-all duration-500"
             style={{ width: `${(dia.enCamino / Math.max(dia.total, 1)) * 100}%` }} />
         </div>
         <div className="flex gap-2 mt-1.5 flex-wrap">
