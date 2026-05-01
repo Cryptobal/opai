@@ -93,7 +93,7 @@ export function CotizacionRejectDialog({
             type="button"
             onClick={handleConfirm}
             disabled={loading}
-            className="flex items-center justify-center gap-2 h-10 rounded-lg bg-red-700 hover:bg-status-danger disabled:opacity-50 text-white text-sm font-semibold transition-colors"
+            className="flex items-center justify-center gap-2 h-10 rounded-lg bg-status-danger hover:brightness-110 disabled:opacity-50 text-white text-sm font-semibold transition-colors"
           >
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}
             Confirmar rechazo

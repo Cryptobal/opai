@@ -947,6 +947,53 @@ const MIGRATED_PATHS = [
   "src/app/portal/cliente/setup/page.tsx",
   "src/app/portal/cliente/forgot-pin/page.tsx",
   "src/app/portal/cliente/seguridad-personal/page.tsx",
+  // Cluster 5C.3 — Portal Cliente subdirs.
+  // Tercer y último sub-step del cluster 5C (Portales). Cierra el cluster
+  // completo. 25 archivos en 6 subdirectorios, 72 hex residuales.
+  //
+  // Patrón muy frecuente unificado: bg-X-400/10 border-X-400/20 →
+  // status-*-soft + status-*-border. Aparece 18+ veces en KPI cards,
+  // status badges, tab badges.
+  //
+  // Cero cambios funcionales: cotización approve/reject, contract
+  // signing con sticky notes editables, equipo navigation, guardia
+  // detail tabs, bitácora timeline, tour navigation — todo intacto.
+  //
+  // Los 25 CCs siguientes NO se agregan a MIGRATED_PATHS: mismo criterio
+  // que 4A/4B/4C/4D/5A.1..5A.8/5B.x/5C.1/5C.2 — completaron su migración
+  // granular de color drift pero siguen teniendo drift tipográfico legacy
+  // (text-[10px]/text-[11px] sin marcas eyebrow font-mono uppercase, o
+  // bg-white/N dark-only en algunos casos). Se agregarán cuando se haga
+  // su pasada de limpieza tipográfica completa en una sub-fase futura:
+  // - bitacora/BitacoraEvento, bitacora/BitacoraFiltros,
+  //   bitacora/BitacoraTimeline,
+  // - cotizaciones/ContratoBorradorView, cotizaciones/CotizacionCard,
+  //   cotizaciones/DashboardCotizacionesPendientes,
+  //   cotizaciones/ProposalCondiciones, cotizaciones/ProposalDesgloseRecursos,
+  //   cotizaciones/ProposalEstructuraCostos, cotizaciones/ProposalHeader,
+  //   cotizaciones/ProposalPuestos, cotizaciones/ProposalTecnologia,
+  //   cotizaciones/ProposalTotalAcciones,
+  // - dashboard/EquipoGlobalCard,
+  // - equipo/EquipoGuardiaRow, equipo/EquipoKpiCards,
+  //   equipo/PortalEquipoDirectorio,
+  // - guardia-detalle/GuardiaHeader, guardia-detalle/TabDesempeno,
+  //   guardia-detalle/TabDocumentos, guardia-detalle/TabExamenes,
+  //   guardia-detalle/TabInfo, guardia-detalle/TabPsicologico,
+  //   guardia-detalle/TabSupervision,
+  // - tour/TourOverlay.
+  "src/components/portal/cliente/cotizaciones/CompliancePortal.tsx",
+  "src/components/portal/cliente/cotizaciones/CotizacionApproveDialog.tsx",
+  "src/components/portal/cliente/cotizaciones/CotizacionRejectDialog.tsx",
+  "src/components/portal/cliente/cotizaciones/ProposalDetalleServicio.tsx",
+  "src/components/portal/cliente/cotizaciones/ProposalManoDeObra.tsx",
+  "src/components/portal/cliente/cotizaciones/ProposalServicioIncluye.tsx",
+  "src/components/portal/cliente/cotizaciones/WhatsAppButton.tsx",
+  "src/components/portal/cliente/dashboard/DocComplianceAlertCard.tsx",
+  "src/components/portal/cliente/equipo/EquipoFiltros.tsx",
+  "src/components/portal/cliente/equipo/EquipoGrupoInstalacion.tsx",
+  "src/components/portal/cliente/guardia-detalle/GuardiaDetalleClient.tsx",
+  "src/components/portal/cliente/shared/ExportButton.tsx",
+  "src/app/portal/cliente/guardia/[id]/page.tsx",
   // Agregar aquí cuando se migren:
   // "src/components/personas/",
   // "src/components/crm/",

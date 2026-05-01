@@ -154,7 +154,7 @@ export function ContratoBorradorView({ quoteId, onBack, onNavigateToEmpresa }: P
       const btn = document.createElement("button");
       btn.setAttribute("data-suggest-btn", clauseId);
       btn.className =
-        "ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-teal-500/20 text-teal-700 hover:bg-teal-500/30 transition-colors align-middle cursor-pointer";
+        "ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-status-info-soft text-status-info-fg hover:brightness-110 transition-colors align-middle cursor-pointer";
       btn.style.cssText = "display:inline-flex !important; visibility:visible !important;";
       btn.appendChild(buildPencilIcon());
       btn.appendChild(document.createTextNode(" Sugerir edición"));
@@ -288,12 +288,12 @@ export function ContratoBorradorView({ quoteId, onBack, onNavigateToEmpresa }: P
 
       {/* Suggestions status */}
       {suggestions.length > 0 && (
-        <div className="rounded-xl border border-status-info-border bg-teal-500/5 p-4 space-y-3">
+        <div className="rounded-xl border border-status-info-border bg-status-info-soft/30 p-4 space-y-3">
           <h4 className="text-sm font-semibold text-status-info-fg flex items-center gap-2">
             <Pencil className="h-4 w-4" />
             Mis sugerencias de edición
             {pendingSuggestions.length > 0 && (
-              <span className="bg-yellow-600 text-white text-[10px] px-1.5 py-0.5 rounded-full">
+              <span className="bg-status-warn text-white text-[10px] px-1.5 py-0.5 rounded-full">
                 {pendingSuggestions.length} pendiente(s)
               </span>
             )}
@@ -304,18 +304,18 @@ export function ContratoBorradorView({ quoteId, onBack, onNavigateToEmpresa }: P
                 key={s.id}
                 className={cn(
                   "rounded-lg border p-3 text-xs",
-                  s.status === "pending" ? "border-yellow-600/30 bg-yellow-500/5" :
-                  s.status === "approved" ? "border-green-600/30 bg-green-500/5" :
-                  "border-red-600/30 bg-status-danger-soft"
+                  s.status === "pending" ? "border-status-warn-border bg-status-warn-soft/30" :
+                  s.status === "approved" ? "border-status-ok-border bg-status-ok-soft/30" :
+                  "border-status-danger-border bg-status-danger-soft"
                 )}
               >
                 <div className="flex items-center justify-between mb-1">
                   <span className="font-medium text-slate-200">Cláusula {s.clauseNumber}</span>
                   <span className={cn(
                     "text-[10px] px-2 py-0.5 rounded",
-                    s.status === "pending" ? "bg-yellow-600/20 text-status-warn-fg" :
-                    s.status === "approved" ? "bg-green-600/20 text-status-ok-fg" :
-                    "bg-red-600/20 text-status-danger-fg"
+                    s.status === "pending" ? "bg-status-warn-soft text-status-warn-fg" :
+                    s.status === "approved" ? "bg-status-ok-soft text-status-ok-fg" :
+                    "bg-status-danger-soft text-status-danger-fg"
                   )}>
                     {s.status === "pending" ? "Pendiente de revisión" : s.status === "approved" ? "Aprobada" : "Rechazada"}
                   </span>
@@ -333,13 +333,13 @@ export function ContratoBorradorView({ quoteId, onBack, onNavigateToEmpresa }: P
       )}
 
       {/* Editable clauses info */}
-      <div className="rounded-xl border border-teal-500/20 bg-teal-500/5 p-3">
+      <div className="rounded-xl border border-status-info-border bg-status-info-soft/30 p-3">
         <div className="flex items-start gap-2">
           <Pencil className="h-3.5 w-3.5 text-status-info-fg mt-0.5 shrink-0" />
-          <p className="text-[11px] text-teal-400/80 leading-relaxed">
+          <p className="text-[11px] text-status-info-fg/80 leading-relaxed">
             Puede sugerir modificaciones en cualquier cláusula del contrato.
             Haga clic en el botón{" "}
-            <span className="inline-flex items-center gap-0.5 bg-teal-500/20 text-teal-700 px-1 py-0.5 rounded text-[10px] font-semibold">
+            <span className="inline-flex items-center gap-0.5 bg-status-info-soft text-status-info-fg px-1 py-0.5 rounded text-[10px] font-semibold">
               <Pencil className="h-2.5 w-2.5" /> Sugerir edición
             </span>{" "}
             junto al título de la cláusula.
@@ -354,12 +354,12 @@ export function ContratoBorradorView({ quoteId, onBack, onNavigateToEmpresa }: P
             <AlertTriangle className="h-4 w-4 text-status-warn-fg mt-0.5 shrink-0" />
             <div className="space-y-2">
               <p className="text-sm text-status-warn-fg font-medium">Hay datos de su empresa pendientes de completar</p>
-              <p className="text-xs text-amber-200/70">
+              <p className="text-xs text-status-warn-fg/70">
                 Los campos resaltados en{" "}
-                <span className="inline-block bg-amber-400 text-amber-900 px-1.5 py-0.5 rounded text-[10px] font-semibold">amarillo</span>{" "}
+                <span className="inline-block bg-status-warn text-status-warn-fg px-1.5 py-0.5 rounded text-[10px] font-semibold">amarillo</span>{" "}
                 se pueden completar desde el menú <strong>&quot;Más&quot;</strong> &rarr; <strong>&quot;Empresa&quot;</strong> en la barra inferior.
               </p>
-              <ul className="text-xs text-amber-200/60 list-disc list-inside space-y-0.5">
+              <ul className="text-xs text-status-warn-fg/60 list-disc list-inside space-y-0.5">
                 {data.missingFields.map((f) => (
                   <li key={f.key}>{f.label}</li>
                 ))}
@@ -367,7 +367,7 @@ export function ContratoBorradorView({ quoteId, onBack, onNavigateToEmpresa }: P
               {onNavigateToEmpresa && (
                 <button
                   onClick={onNavigateToEmpresa}
-                  className="mt-1 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-status-warn-soft text-xs font-medium text-status-warn-fg hover:bg-amber-500/30 hover:text-status-warn-fg transition-colors"
+                  className="mt-1 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-status-warn-soft text-xs font-medium text-status-warn-fg hover:brightness-110 hover:text-status-warn-fg transition-colors"
                 >
                   Ir a Empresa para completar datos
                 </button>

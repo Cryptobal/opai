@@ -156,7 +156,7 @@ export function ProposalTotalAcciones({
             <button
               type="button"
               onClick={onReject}
-              className="flex items-center justify-center gap-2 h-11 rounded-lg border border-red-700/50 text-status-danger-fg hover:bg-status-danger-soft text-sm font-semibold transition-colors"
+              className="flex items-center justify-center gap-2 h-11 rounded-lg border border-status-danger-border text-status-danger-fg hover:bg-status-danger-soft text-sm font-semibold transition-colors"
             >
               <XCircle className="w-4 h-4" />
               Rechazar propuesta
@@ -181,7 +181,7 @@ export function ProposalTotalAcciones({
           type="button"
           onClick={handleDownloadProposalPdf}
           disabled={proposalPdfLoading}
-          className="flex-1 flex items-center justify-center gap-2 h-10 rounded-lg border border-status-info-border text-status-info-fg hover:text-teal-200 hover:border-teal-500/50 text-sm transition-colors disabled:opacity-50"
+          className="flex-1 flex items-center justify-center gap-2 h-10 rounded-lg border border-status-info-border text-status-info-fg hover:text-status-info-fg hover:border-status-info-border text-sm transition-colors disabled:opacity-50"
         >
           {proposalPdfLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
           {proposalPdfLoading ? "Generando..." : "Propuesta técnica"}

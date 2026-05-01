@@ -356,7 +356,7 @@ export function TourOverlay({ onComplete, session }: Props) {
 
           {/* Text */}
           <div className="px-8 pt-4 pb-2 text-center">
-            <p className="text-[11px] font-semibold tracking-widest uppercase text-teal-400/70 mb-2">
+            <p className="text-[11px] font-semibold tracking-widest uppercase text-status-info-fg/70 mb-2">
               {current.subtitle}
             </p>
             <h3

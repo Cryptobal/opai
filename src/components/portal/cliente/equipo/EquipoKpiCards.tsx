@@ -20,25 +20,25 @@ export function EquipoKpiCards({
       label: "Total guardias",
       value: totalGuardias,
       icon: Users,
-      tone: "text-status-info-fg bg-teal-400/10 border-teal-400/20",
+      tone: "text-status-info-fg bg-status-info-soft border-status-info-border",
     },
     {
       label: "OS-10 al día",
       value: os10Vigente,
       icon: ShieldCheck,
-      tone: "text-status-ok-fg bg-emerald-400/10 border-emerald-400/20",
+      tone: "text-status-ok-fg bg-status-ok-soft border-status-ok-border",
     },
     {
       label: "OS-10 atención",
       value: os10PorVencer,
       icon: AlertTriangle,
-      tone: "text-status-warn-fg bg-amber-400/10 border-amber-400/20",
+      tone: "text-status-warn-fg bg-status-warn-soft border-status-warn-border",
     },
     {
       label: "Docs vencidos",
       value: docsVencidos,
       icon: FileX,
-      tone: "text-status-danger-fg bg-red-400/10 border-red-400/20",
+      tone: "text-status-danger-fg bg-status-danger-soft border-status-danger-border",
     },
   ];
 

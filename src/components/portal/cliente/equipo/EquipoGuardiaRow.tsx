@@ -18,7 +18,7 @@ export function EquipoGuardiaRow({ guardia, onOpen }: Props) {
       onClick={() => onOpen(guardia.id)}
       className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg bg-white/[0.02] hover:bg-white/[0.05] transition-colors text-left"
     >
-      <div className="h-9 w-9 rounded-full bg-teal-600/30 border border-status-info-border flex items-center justify-center flex-shrink-0">
+      <div className="h-9 w-9 rounded-full bg-status-info-soft border border-status-info-border flex items-center justify-center flex-shrink-0">
         <span className="text-xs font-semibold text-status-info-fg">
           {guardia.iniciales}
         </span>

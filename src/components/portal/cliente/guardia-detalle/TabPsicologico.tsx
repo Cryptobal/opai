@@ -10,15 +10,15 @@ interface Props {
 const BAND_LABELS: Record<"ALTO" | "MEDIO" | "BAJO", { label: string; tone: string }> = {
   ALTO: {
     label: "Alto ajuste",
-    tone: "text-status-ok-fg bg-emerald-400/10 border-emerald-400/20",
+    tone: "text-status-ok-fg bg-status-ok-soft border-status-ok-border",
   },
   MEDIO: {
     label: "Ajuste medio",
-    tone: "text-status-warn-fg bg-amber-400/10 border-amber-400/20",
+    tone: "text-status-warn-fg bg-status-warn-soft border-status-warn-border",
   },
   BAJO: {
     label: "Ajuste bajo",
-    tone: "text-status-danger-fg bg-red-400/10 border-red-400/20",
+    tone: "text-status-danger-fg bg-status-danger-soft border-status-danger-border",
   },
 };
 

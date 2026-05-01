@@ -147,7 +147,7 @@ export function CotizacionCard({
               {statusLabel}
             </span>
             {canAct && (
-              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-teal-900/40 text-status-info-fg">
+              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-status-info-soft text-status-info-fg">
                 Requiere acción
               </span>
             )}
