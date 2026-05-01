@@ -994,6 +994,20 @@ const MIGRATED_PATHS = [
   "src/components/portal/cliente/guardia-detalle/GuardiaDetalleClient.tsx",
   "src/components/portal/cliente/shared/ExportButton.tsx",
   "src/app/portal/cliente/guardia/[id]/page.tsx",
+  // Cluster 5D+5E — Combo Configuración + Docs + Chat. 13 archivos
+  // migrados al DS v3 a nivel de color drift (67 hex residuales eliminados).
+  //
+  // Solo se agregan a MIGRATED_PATHS los 2 archivos que quedan 100% limpios
+  // tras la migración de color. Los otros 11 NO se agregan: mismo criterio
+  // que 4A/4B/4C/4D/5A.1..5A.8/5B/5C — los archivos completaron su migración
+  // granular de color drift pero siguen teniendo drift tipográfico legacy
+  // fuera del color (text-[10px]/text-[11px] sin marcas eyebrow). Se
+  // agregarán cuando se haga su pasada de limpieza tipográfica completa.
+  //
+  // - MiPlanClient (16 hex): PLAN_BADGES + estimación banner + plan cards.
+  // - ChatNewDmModal (1 hex): avatar circle.
+  "src/components/configuracion/MiPlanClient.tsx",
+  "src/components/chat/ChatNewDmModal.tsx",
   // Agregar aquí cuando se migren:
   // "src/components/personas/",
   // "src/components/crm/",

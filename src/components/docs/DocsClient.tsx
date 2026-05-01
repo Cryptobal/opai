@@ -55,12 +55,12 @@ const STATUS_ICONS: Record<string, React.ComponentType<any>> = {
 /** Dark-mode safe colors per status (the DOC_STATUS_CONFIG ones use light-theme bg/text) */
 const STATUS_COLORS: Record<string, { compact: string; full: string }> = {
   draft:    { compact: "text-gray-400",    full: "bg-gray-500/15 text-gray-400 border-gray-500/20" },
-  review:   { compact: "text-status-warn-fg",  full: "bg-status-warn-soft text-status-warn-fg border-yellow-500/20" },
+  review:   { compact: "text-status-warn-fg",  full: "bg-status-warn-soft text-status-warn-fg border-status-warn-border" },
   approved: { compact: "text-status-info-fg",    full: "bg-status-info-soft text-status-info-fg border-status-info-border" },
   active:   { compact: "text-status-ok-fg", full: "bg-status-ok-soft text-status-ok-fg border-status-ok-border" },
-  expiring: { compact: "text-status-warn-fg",  full: "bg-orange-500/15 text-status-warn-fg border-orange-500/20" },
+  expiring: { compact: "text-status-warn-fg",  full: "bg-status-warn-soft text-status-warn-fg border-status-warn-border" },
   expired:  { compact: "text-status-danger-fg",     full: "bg-status-danger-soft text-status-danger-fg border-status-danger-border" },
-  renewed:  { compact: "text-purple-400",  full: "bg-purple-500/15 text-purple-400 border-purple-500/20" },
+  renewed:  { compact: "text-tint-violet-fg",  full: "bg-tint-violet text-tint-violet-fg border-tint-violet-fg/30" },
 };
 
 function StatusBadge({ status, compact = false }: { status: string; compact?: boolean }) {

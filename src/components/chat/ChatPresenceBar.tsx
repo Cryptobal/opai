@@ -108,7 +108,7 @@ export function ChatPresenceBar({
               <ArrowLeft className="h-4 w-4" />
             </button>
 
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-teal-400/90 text-sm font-black text-zinc-950 shadow-inner shadow-white/20 xl:hidden">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-status-info text-sm font-black text-zinc-950 shadow-inner shadow-white/20 xl:hidden">
               {channelName.charAt(0).toUpperCase()}
             </div>
 

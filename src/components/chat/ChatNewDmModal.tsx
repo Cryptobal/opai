@@ -141,7 +141,7 @@ export function ChatNewDmModal({ onClose, onSelectDm }: ChatNewDmModalProps) {
                 disabled={isCreating}
                 className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-zinc-800 disabled:opacity-50"
               >
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-teal-500/20 text-status-info-fg text-xs font-semibold">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-status-info-soft text-status-info-fg text-xs font-semibold">
                   {user.name.charAt(0).toUpperCase()}
                 </div>
                 <div className="min-w-0 flex-1">

@@ -125,7 +125,7 @@ const CAPA_LABELS: Record<string, string> = {
 
 const SEVERITY_COLORS: Record<string, string> = {
   critical: "bg-status-danger-soft text-status-danger-fg border-status-danger-border",
-  high: "bg-orange-500/20 text-status-warn-fg border-status-warn-border",
+  high: "bg-status-warn-soft text-status-warn-fg border-status-warn-border",
   major: "bg-status-warn-soft text-status-warn-fg border-status-warn-border",
   medium: "bg-status-warn-soft text-status-warn-fg border-status-warn-border",
   minor: "bg-status-info-soft text-status-info-fg border-status-info-border",
@@ -307,7 +307,7 @@ export function DocVerificacionDrawer({
               {CAPA_LABELS[capa] ?? capa}
             </span>
             {obligatorioEnVisita && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-status-warn-soft text-status-warn-fg border border-amber-500/25">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-status-warn-soft text-status-warn-fg border border-status-warn-border">
                 <AlertTriangle className="h-3 w-3" />
                 Obligatorio en visita
               </span>
@@ -325,7 +325,7 @@ export function DocVerificacionDrawer({
                   ? `1 hallazgo abierto`
                   : `${hallazgosAbiertos.length} hallazgos abiertos (${totalOcc} visitas)`;
               return (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-status-danger-soft text-status-danger-fg border border-red-500/25">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-status-danger-soft text-status-danger-fg border border-status-danger-border">
                   <AlertTriangle className="h-3 w-3" />
                   {label}
                 </span>
@@ -580,8 +580,8 @@ export function DocVerificacionDrawer({
                     <span
                       className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full ${
                         v.presente
-                          ? "bg-status-ok-soft text-status-ok-fg border border-green-500/25"
-                          : "bg-status-danger-soft text-status-danger-fg border border-red-500/25"
+                          ? "bg-status-ok-soft text-status-ok-fg border border-status-ok-border"
+                          : "bg-status-danger-soft text-status-danger-fg border border-status-danger-border"
                       }`}
                     >
                       {v.presente ? (

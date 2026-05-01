@@ -76,16 +76,16 @@ function getInitials(name: string): string {
  * Entity type configuration for context/entity reference rendering.
  */
 const ENTITY_CONFIG: Record<string, { icon: string; color: string; basePath: string }> = {
-  lead: { icon: "🎯", color: "bg-orange-500/20 text-status-warn-fg border-status-warn-border", basePath: "/crm/leads" },
+  lead: { icon: "🎯", color: "bg-status-warn-soft text-status-warn-fg border-status-warn-border", basePath: "/crm/leads" },
   account: { icon: "🏢", color: "bg-status-info-soft text-status-info-fg border-status-info-border", basePath: "/crm/accounts" },
   contact: { icon: "👤", color: "bg-status-ok-soft text-status-ok-fg border-status-ok-border", basePath: "/crm/contacts" },
-  deal: { icon: "💼", color: "bg-purple-500/20 text-purple-300 border-purple-500/30", basePath: "/crm/deals" },
-  quote: { icon: "📋", color: "bg-cyan-500/20 text-status-info-fg border-status-info-border", basePath: "/crm/cotizaciones" },
-  installation: { icon: "📍", color: "bg-indigo-500/20 text-status-info-fg border-status-info-border", basePath: "/crm/installations" },
+  deal: { icon: "💼", color: "bg-tint-violet text-tint-violet-fg border-tint-violet-fg/30", basePath: "/crm/deals" },
+  quote: { icon: "📋", color: "bg-status-info-soft text-status-info-fg border-status-info-border", basePath: "/crm/cotizaciones" },
+  installation: { icon: "📍", color: "bg-status-info-soft text-status-info-fg border-status-info-border", basePath: "/crm/installations" },
   guardia: { icon: "🛡️", color: "bg-status-ok-soft text-status-ok-fg border-status-ok-border", basePath: "/personas/guardias" },
   document: { icon: "📄", color: "bg-status-warn-soft text-status-warn-fg border-status-warn-border", basePath: "/opai/documentos" },
   pauta_mensual: { icon: "📊", color: "bg-violet-500/20 text-violet-300 border-violet-500/30", basePath: "/ops/pauta-mensual" },
-  channel: { icon: "💬", color: "bg-teal-500/20 text-status-info-fg border-status-info-border", basePath: "/chat" },
+  channel: { icon: "💬", color: "bg-status-info-soft text-status-info-fg border-status-info-border", basePath: "/chat" },
 };
 
 /**
@@ -121,8 +121,8 @@ function renderContent(
             isTodos
               ? "bg-status-danger-soft text-status-danger-fg"
               : isMe
-                ? "bg-blue-500/30 text-blue-200"
-                : "bg-teal-500/20 text-status-info-fg"
+                ? "bg-status-info text-white"
+                : "bg-status-info-soft text-status-info-fg"
           )}
         >
           @{isTodos ? "todos" : displayName}
@@ -342,7 +342,7 @@ export function ChatMessage({ message, mentionDisplayMap, isOwn, isFirstInGroup,
               <button
                 type="button"
                 onClick={() => onRetry(message.id)}
-                className="inline-flex items-center gap-1 rounded-md border border-red-400/30 bg-red-400/10 px-1.5 py-0.5 text-[10px] font-medium text-status-danger-fg transition-colors hover:bg-red-400/20 active:scale-95"
+                className="inline-flex items-center gap-1 rounded-md border border-status-danger-border bg-status-danger-soft px-1.5 py-0.5 text-[10px] font-medium text-status-danger-fg transition-colors hover:brightness-110 active:scale-95"
               >
                 <RotateCcw className="h-3 w-3" />
                 Reintentar

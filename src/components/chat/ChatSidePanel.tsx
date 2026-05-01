@@ -290,7 +290,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
             placeholder="Buscar conversación..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full h-8 pl-8 pr-3 text-xs rounded-md border border-[rgba(255,255,255,0.06)] bg-muted/40 placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-teal-600/50 focus:border-teal-600/50 opai-chat-mobile-search"
+            className="w-full h-8 pl-8 pr-3 text-xs rounded-md border border-[rgba(255,255,255,0.06)] bg-muted/40 placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-status-info-border focus:border-status-info-border opai-chat-mobile-search"
           />
         </div>
         {/* Filtros + Marcar todos leídos */}
@@ -320,7 +320,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
             >
               No leídos
               {ctx.totalUnread > 0 && filter !== "unread" && (
-                <span className="ml-1 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-teal-600/30 px-1 text-[9px] font-bold text-status-info-fg">
+                <span className="ml-1 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-status-info-soft px-1 text-[9px] font-bold text-status-info-fg">
                   {ctx.totalUnread > 99 ? "99+" : ctx.totalUnread}
                 </span>
               )}
@@ -333,7 +333,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
             className={cn(
               "w-full flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-[11px] font-medium transition-colors",
               ctx.totalUnread > 0
-                ? "bg-teal-600/15 text-status-info-fg hover:bg-teal-600/25 border border-teal-600/30"
+                ? "bg-status-info-soft text-status-info-fg hover:brightness-110 border border-status-info-border"
                 : "bg-muted/30 text-muted-foreground border border-transparent cursor-default",
               "disabled:opacity-60 disabled:cursor-not-allowed"
             )}
@@ -567,7 +567,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
                 </div>
                 <div className="flex items-center justify-between h-12 px-4 pb-2">
                   <div className="flex items-center gap-2">
-                    <MessageCircle className="h-4 w-4 text-teal-600 shrink-0" />
+                    <MessageCircle className="h-4 w-4 text-status-info-fg shrink-0" />
                     <h3 className="text-sm font-semibold text-[rgba(255,255,255,0.88)]">Chat</h3>
                   </div>
                   <button onClick={handleClosePanel} className="p-2 text-zinc-400 hover:text-zinc-200 transition-colors">
@@ -662,7 +662,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
                 isIOS ? "bg-transparent" : "bg-[#0d1220]",
               )}
             >
-              <MessageCircle className="h-4 w-4 text-teal-600 shrink-0" />
+              <MessageCircle className="h-4 w-4 text-status-info-fg shrink-0" />
               <div className="flex-1 min-w-0">
                 <h2 className="text-sm font-semibold truncate">Chat</h2>
               </div>

@@ -823,7 +823,7 @@ export function ChatInput({
                       "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-medium",
                       user.id === "todos"
                         ? "bg-status-danger-soft text-status-danger-fg"
-                        : "bg-teal-500/20 text-status-info-fg"
+                        : "bg-status-info-soft text-status-info-fg"
                     )}
                   >
                     {user.id === "todos" ? "@" : user.name.charAt(0).toUpperCase()}
@@ -881,7 +881,7 @@ export function ChatInput({
           type="button"
           onClick={handleSend}
           disabled={isEmpty || isSending || isUploading}
-          className="h-8 w-8 rounded-lg bg-[#2dd4bf] flex items-center justify-center text-zinc-900 disabled:opacity-40 hover:bg-teal-400 transition-colors shrink-0 mb-0.5"
+          className="h-8 w-8 rounded-lg bg-[#2dd4bf] flex items-center justify-center text-zinc-900 disabled:opacity-40 hover:brightness-110 transition-colors shrink-0 mb-0.5"
           aria-label="Enviar mensaje"
         >
           <SendHorizontal className="h-4 w-4" />
