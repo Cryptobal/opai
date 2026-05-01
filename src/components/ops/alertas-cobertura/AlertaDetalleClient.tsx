@@ -230,7 +230,7 @@ export function AlertaDetalleClient({ alertaId, tenantId }: Props) {
                   <CheckCircle2 className="h-4 w-4 text-status-ok-fg" />
                   <span className="font-medium">{nombreGuardia}</span>
                   {alerta.esInternoAceptacion === false && (
-                    <Badge variant="outline" className="bg-purple-500/20 text-purple-400 border-purple-500/30 text-[10px]">
+                    <Badge variant="outline" className="bg-tint-violet text-tint-violet-fg border-tint-violet-fg/30 text-[10px]">
                       Externo
                     </Badge>
                   )}
@@ -254,7 +254,7 @@ export function AlertaDetalleClient({ alertaId, tenantId }: Props) {
                 )}
               </div>
               <div className="flex gap-2">
-                <Button size="sm" className="bg-status-ok hover:bg-emerald-700" onClick={() => handleConfirmar(true)}>
+                <Button size="sm" className="bg-status-ok hover:brightness-110" onClick={() => handleConfirmar(true)}>
                   <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
                   Sí se presentó
                 </Button>
@@ -339,7 +339,7 @@ export function AlertaDetalleClient({ alertaId, tenantId }: Props) {
                       <div
                         className={`w-3 h-3 rounded-full border-2 ${
                           isActive
-                            ? "border-teal-400 bg-teal-400/30 animate-pulse"
+                            ? "border-status-info-border bg-status-info-soft animate-pulse"
                             : isCompleted
                             ? "border-status-ok-border bg-status-ok"
                             : "border-muted-foreground/30 bg-transparent"
@@ -411,7 +411,7 @@ export function AlertaDetalleClient({ alertaId, tenantId }: Props) {
                   const tipoClass = esContratado
                     ? "bg-status-info-soft text-status-info-fg border-status-info-border"
                     : esPoolTE
-                    ? "bg-purple-500/20 text-purple-400 border-purple-500/30"
+                    ? "bg-tint-violet text-tint-violet-fg border-tint-violet-fg/30"
                     : "bg-muted/30 text-muted-foreground";
                   const CanalIcon = n.canal === "WHATSAPP" ? MessageCircle : n.canal === "EMAIL" ? Mail : Bell;
                   return (

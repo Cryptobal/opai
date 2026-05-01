@@ -913,7 +913,7 @@ export function CrearAlertaDialog({ open, onOpenChange, onCreated }: Props) {
                       key={oleada.numero}
                       className="flex items-start gap-3 text-sm"
                     >
-                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-teal-500/20 text-status-info-fg flex items-center justify-center text-xs font-bold">
+                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-status-info-soft text-status-info-fg flex items-center justify-center text-xs font-bold">
                         {oleada.numero}
                       </div>
                       <div className="flex-1 min-w-0">
