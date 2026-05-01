@@ -51,9 +51,9 @@ interface Metricas {
 
 const ESTADO_COLORS: Record<string, string> = {
   BORRADOR: "bg-gray-100 text-gray-700",
-  ACTIVO: "bg-green-100 text-green-700",
-  PAUSADO: "bg-yellow-100 text-yellow-700",
-  CERRADO: "bg-red-100 text-status-danger-fg",
+  ACTIVO: "bg-status-ok-soft text-status-ok-fg",
+  PAUSADO: "bg-status-warn-soft text-status-warn-fg",
+  CERRADO: "bg-status-danger-soft text-status-danger-fg",
 };
 
 const TURNO_LABELS: Record<string, string> = {
@@ -126,7 +126,7 @@ export function AtsDashboardClient({
 
   const metricCards = [
     { label: "Avisos activos", value: metricas.avisosActivos, icon: Briefcase, color: "text-status-info-fg" },
-    { label: "Postulantes totales", value: metricas.postulantesTotales, icon: Users, color: "text-indigo-600" },
+    { label: "Postulantes totales", value: metricas.postulantesTotales, icon: Users, color: "text-status-info-fg" },
     { label: "En proceso", value: metricas.enProceso, icon: Clock, color: "text-status-warn-fg" },
     { label: "Contratados (mes)", value: metricas.contratadosMes, icon: CheckCircle, color: "text-status-ok-fg" },
   ];

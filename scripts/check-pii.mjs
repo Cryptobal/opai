@@ -35,6 +35,8 @@ const ALLOWED_RUT_PLACEHOLDERS = new Set([
   "12.345.678-9", "12.345.678-K", "76.123.456-7",
   // Example RUT used in email-lead-extractor.ts docstring to illustrate format.
   "77.985.438-8",
+  // Placeholder used in BneIntegrationCard "RUT empleador" input.
+  "77.840.623-3",
 ]);
 
 const SAMPLE_PATHS_ALLOWLIST = [
