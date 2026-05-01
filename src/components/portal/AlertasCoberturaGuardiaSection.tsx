@@ -131,7 +131,7 @@ export function AlertasCoberturaGuardiaSection({ session }: { session: GuardSess
                   alerta.urgencia === "URGENTE"
                     ? "border-status-danger-border bg-status-danger-soft"
                     : "border-border bg-card"
-                } ${isAccepted ? "border-emerald-500/60 bg-status-ok-soft" : ""}`}
+                } ${isAccepted ? "border-status-ok bg-status-ok-soft" : ""}`}
               >
                 {alerta.urgencia === "URGENTE" && (
                   <span className="inline-flex items-center gap-1 text-xs font-semibold text-status-danger-fg animate-pulse">
@@ -210,7 +210,7 @@ export function AlertasCoberturaGuardiaSection({ session }: { session: GuardSess
                   <button
                     onClick={() => handleAceptar(alerta.id)}
                     disabled={isAccepting}
-                    className="w-full py-3.5 rounded-lg bg-status-ok hover:bg-emerald-700 active:bg-emerald-800 text-white font-semibold text-sm flex items-center justify-center gap-2 transition-colors disabled:opacity-60"
+                    className="w-full py-3.5 rounded-lg bg-status-ok hover:brightness-110 active:brightness-95 text-white font-semibold text-sm flex items-center justify-center gap-2 transition-colors disabled:opacity-60"
                   >
                     {isAccepting ? (
                       <Loader2 className="h-4 w-4 animate-spin" />

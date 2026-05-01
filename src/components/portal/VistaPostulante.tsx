@@ -67,8 +67,8 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   NUEVA: { label: "Enviada", color: "bg-status-info-soft text-status-info-fg" },
   EN_REVISION: { label: "En revision", color: "bg-status-warn-soft text-status-warn-fg" },
   PRESELECCIONADO: { label: "Preseleccionado", color: "bg-status-ok-soft text-status-ok-fg" },
-  ENTREVISTA: { label: "Entrevista", color: "bg-purple-500/15 text-purple-400" },
-  SELECCIONADO: { label: "Seleccionado", color: "bg-emerald-600/15 text-status-ok-fg" },
+  ENTREVISTA: { label: "Entrevista", color: "bg-tint-violet text-tint-violet-fg" },
+  SELECCIONADO: { label: "Seleccionado", color: "bg-status-ok-soft text-status-ok-fg" },
   DESCARTADO: { label: "No seleccionado", color: "bg-status-danger-soft text-status-danger-fg" },
   CONTRATADO: { label: "Contratado", color: "bg-status-info-soft text-status-info-fg" },
 };

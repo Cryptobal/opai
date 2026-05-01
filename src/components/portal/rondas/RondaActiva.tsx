@@ -836,43 +836,43 @@ export function RondaActiva({
 
       {/* Auto-close warning banner for free rounds */}
       {showFreeRoundWarning && (
-        <div className="mx-4 mt-2 rounded-lg border border-yellow-600/50 bg-yellow-950/40 px-4 py-2 text-center text-sm font-medium text-status-warn-fg">
+        <div className="mx-4 mt-2 rounded-lg border border-status-warn-border bg-status-warn-soft/40 px-4 py-2 text-center text-sm font-medium text-status-warn-fg">
           Tu ronda libre se cerrará automáticamente en {freeRoundTimeLeftMinutes} min
         </div>
       )}
       {showFreeRoundCritical && (
-        <div className="mx-4 mt-2 animate-pulse rounded-lg border border-red-600/50 bg-red-950/40 px-4 py-2 text-center text-sm font-semibold text-status-danger-fg">
+        <div className="mx-4 mt-2 animate-pulse rounded-lg border border-status-danger-border bg-status-danger-soft/40 px-4 py-2 text-center text-sm font-semibold text-status-danger-fg">
           Tu ronda se cerrará en {Math.max(0, freeRoundTimeLeftMinutes!)} min — finalízala ahora
         </div>
       )}
 
       {/* Auto-close warning banner for scheduled rounds approaching next round */}
       {showScheduledWarning && (
-        <div className="mx-4 mt-2 rounded-lg border border-yellow-600/50 bg-yellow-950/40 px-4 py-2 text-center text-sm font-medium text-status-warn-fg">
+        <div className="mx-4 mt-2 rounded-lg border border-status-warn-border bg-status-warn-soft/40 px-4 py-2 text-center text-sm font-medium text-status-warn-fg">
           ⚠ Comienza la próxima ronda en {scheduledMinutesLeft} min — completa esta ronda pronto
         </div>
       )}
       {showScheduledCritical && (
-        <div className="mx-4 mt-2 animate-pulse rounded-lg border border-red-600/50 bg-red-950/40 px-4 py-2 text-center text-sm font-semibold text-status-danger-fg">
+        <div className="mx-4 mt-2 animate-pulse rounded-lg border border-status-danger-border bg-status-danger-soft/40 px-4 py-2 text-center text-sm font-semibold text-status-danger-fg">
           La próxima ronda ya comenzó — esta ronda será cerrada automáticamente. Finalízala ahora.
         </div>
       )}
 
       {/* ============ Geofence Auto-Prompt Banner ============ */}
       {nearbyCheckpoint && !markingCheckpointId && (
-        <div className="relative z-10 mx-4 mt-3 mb-1 rounded-xl border border-teal-500/60 bg-teal-950/80 p-3 shadow-lg shadow-teal-900/30 backdrop-blur-sm">
+        <div className="relative z-10 mx-4 mt-3 mb-1 rounded-xl border border-status-info-border bg-status-info-soft/80 p-3 shadow-lg shadow-status-info/30 backdrop-blur-sm">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-teal-500/20 ring-2 ring-teal-500/30">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-status-info-soft ring-2 ring-status-info-border">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-status-info-fg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-teal-200">
+              <p className="text-sm font-semibold text-status-info-fg">
                 Estas en {nearbyCheckpoint.name}
               </p>
-              <p className="text-xs text-teal-400/70">
+              <p className="text-xs text-status-info-fg/70">
                 {guardPos
                   ? formatDistance(
                       haversineDistance(guardPos.lat, guardPos.lng, nearbyCheckpoint.lat, nearbyCheckpoint.lng),
@@ -896,7 +896,7 @@ export function RondaActiva({
                   setNearbyCheckpointId(null);
                   setMarkingCheckpointId(nearbyCheckpoint.id);
                 }}
-                className="rounded-lg bg-status-info px-4 py-2 text-xs font-semibold text-white shadow-md shadow-teal-700/40 transition-colors active:bg-teal-700"
+                className="rounded-lg bg-status-info px-4 py-2 text-xs font-semibold text-white shadow-md shadow-status-info/40 transition-colors active:brightness-95"
               >
                 Marcar
               </button>
@@ -940,7 +940,7 @@ export function RondaActiva({
             {/* Compact stats row */}
             <div className="mb-2 flex items-center justify-between px-2">
               <div className="flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="h-2 w-2 rounded-full bg-status-ok animate-pulse" />
                 <span className="text-xs font-medium text-status-ok-fg">GPS activo</span>
               </div>
               <span className="text-xs text-gray-400">{completedCount} puntos &middot; {formatElapsed(elapsedSeconds)}</span>
@@ -949,7 +949,7 @@ export function RondaActiva({
             <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => setMarkingCheckpointId("ad-hoc-gps")}
-                className="flex items-center justify-center gap-2 rounded-xl border border-emerald-700/50 bg-emerald-950/30 py-3 text-sm font-semibold text-status-ok-fg transition-colors active:bg-emerald-900/40"
+                className="flex items-center justify-center gap-2 rounded-xl border border-status-ok-border bg-status-ok-soft/30 py-3 text-sm font-semibold text-status-ok-fg transition-colors active:brightness-95"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
@@ -959,7 +959,7 @@ export function RondaActiva({
               </button>
               <button
                 onClick={() => setMarkingCheckpointId("ad-hoc-scan")}
-                className="flex items-center justify-center gap-2 rounded-xl border border-teal-700/50 bg-teal-950/30 py-3 text-sm font-semibold text-status-info-fg transition-colors active:bg-teal-900/40"
+                className="flex items-center justify-center gap-2 rounded-xl border border-status-info-border bg-status-info-soft/30 py-3 text-sm font-semibold text-status-info-fg transition-colors active:brightness-95"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
@@ -1065,9 +1065,9 @@ export function RondaActiva({
               placeholder="Ej: Acceso bloqueado, zona en mantenimiento..."
               maxLength={500}
               rows={3}
-              className="w-full rounded-xl border border-gray-700 bg-gray-800 px-3 py-2.5 text-sm text-white placeholder:text-gray-600 focus:border-yellow-500 focus:outline-none"
+              className="w-full rounded-xl border border-gray-700 bg-gray-800 px-3 py-2.5 text-sm text-white placeholder:text-gray-600 focus:border-status-warn-border focus:outline-none"
             />
-            <p className={`mb-3 mt-1 text-xs ${incompleteNotes.trim().length > 0 && incompleteNotes.trim().length < 3 ? "text-yellow-500/70" : "text-transparent"}`}>
+            <p className={`mb-3 mt-1 text-xs ${incompleteNotes.trim().length > 0 && incompleteNotes.trim().length < 3 ? "text-status-warn-fg/70" : "text-transparent"}`}>
               Minimo 3 caracteres
             </p>
             <div className="flex gap-3">
@@ -1080,7 +1080,7 @@ export function RondaActiva({
               <button
                 onClick={confirmComplete}
                 disabled={incompleteNotes.trim().length < 3}
-                className="flex-1 rounded-xl bg-yellow-600 py-3 text-base font-semibold text-white transition-colors hover:bg-status-warn disabled:opacity-40"
+                className="flex-1 rounded-xl bg-status-warn py-3 text-base font-semibold text-white transition-colors hover:brightness-110 disabled:opacity-40"
               >
                 Completar
               </button>
@@ -1092,9 +1092,9 @@ export function RondaActiva({
       {/* ============ Auto-Complete Celebration Modal ============ */}
       {showAutoCompleteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-6">
-          <div className="w-full max-w-sm rounded-2xl border border-green-700/50 bg-gray-900 p-6 text-center">
+          <div className="w-full max-w-sm rounded-2xl border border-status-ok-border bg-gray-900 p-6 text-center">
             <div className="mb-3 flex justify-center">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-500/20">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-status-ok-soft">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-status-ok-fg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
@@ -1115,7 +1115,7 @@ export function RondaActiva({
                 handleComplete();
               }}
               disabled={completing}
-              className="w-full rounded-xl bg-green-600 py-3.5 text-base font-semibold text-white transition-colors hover:bg-status-ok active:bg-green-700 disabled:opacity-40"
+              className="w-full rounded-xl bg-status-ok py-3.5 text-base font-semibold text-white transition-colors hover:brightness-110 active:brightness-95 disabled:opacity-40"
             >
               {completing ? "Completando..." : "Finalizar Ronda"}
             </button>

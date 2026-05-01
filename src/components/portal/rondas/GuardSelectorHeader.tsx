@@ -111,7 +111,7 @@ export function GuardSelectorHeader({
           disabled={setting}
           className={`w-full flex items-center justify-between gap-2 h-9 rounded-lg px-3 text-sm transition-colors ${
             noGuard
-              ? "border border-amber-500/60 bg-status-warn-soft text-status-warn-fg"
+              ? "border border-status-warn-border bg-status-warn-soft text-status-warn-fg"
               : "border border-white/10 bg-white/5 text-white"
           }`}
         >
@@ -148,7 +148,7 @@ export function GuardSelectorHeader({
                   onClick={() => handleSelect(g)}
                   className={`w-full text-left px-3 py-2.5 text-sm transition-colors hover:bg-white/5 ${
                     g.id === currentGuardId
-                      ? "text-status-info-fg bg-teal-400/5"
+                      ? "text-status-info-fg bg-status-info-soft/30"
                       : "text-zinc-200"
                   }`}
                 >

@@ -632,13 +632,13 @@ export function CheckpointMarker({
               <div className="relative mx-auto h-24 w-24">
                 {gpsStatus === "success" && (
                   <span
-                    className="absolute inset-0 rounded-full bg-emerald-500/30"
+                    className="absolute inset-0 rounded-full bg-status-ok-soft"
                     style={{ animation: "gps-ring 2s ease-out infinite" }}
                   />
                 )}
                 {gpsStatus === "loading" && (
                   <span
-                    className="absolute inset-0 rounded-full bg-yellow-500/20"
+                    className="absolute inset-0 rounded-full bg-status-warn-soft"
                     style={{ animation: "gps-ring 1.5s ease-out infinite" }}
                   />
                 )}
@@ -647,7 +647,7 @@ export function CheckpointMarker({
                     gpsStatus === "success"
                       ? "border-status-ok-border bg-status-ok-soft"
                       : gpsStatus === "loading"
-                        ? "border-yellow-500/50 bg-status-warn-soft"
+                        ? "border-status-warn-border bg-status-warn-soft"
                         : "border-status-danger-border bg-status-danger-soft"
                   }`}
                 >
@@ -677,7 +677,7 @@ export function CheckpointMarker({
                 {gpsStatus === "success" ? "GPS Listo" : gpsStatus === "loading" ? "Obteniendo GPS..." : "Error GPS"}
               </p>
               {gpsStatus === "success" && distanceM != null && (
-                <p className="mt-1 text-sm text-emerald-300/70">{Math.round(distanceM)}m</p>
+                <p className="mt-1 text-sm text-status-ok-fg/70">{Math.round(distanceM)}m</p>
               )}
               {gpsStatus === "error" && (
                 <button
@@ -716,7 +716,7 @@ export function CheckpointMarker({
               {photoPreview && (
                 <button
                   onClick={removePhoto}
-                  className="rounded-xl border border-red-800/50 bg-red-950/20 px-3 py-2.5 text-sm text-status-danger-fg"
+                  className="rounded-xl border border-status-danger-border bg-status-danger-soft/30 px-3 py-2.5 text-sm text-status-danger-fg"
                 >
                   Quitar
                 </button>
@@ -728,7 +728,7 @@ export function CheckpointMarker({
               onChange={(e) => setNote(e.target.value)}
               placeholder="Nota opcional..."
               maxLength={500}
-              className="mb-3 w-full rounded-xl border border-gray-700 bg-gray-900 px-3 py-2.5 text-sm text-white placeholder:text-gray-600 focus:border-teal-500 focus:outline-none"
+              className="mb-3 w-full rounded-xl border border-gray-700 bg-gray-900 px-3 py-2.5 text-sm text-white placeholder:text-gray-600 focus:border-status-info-border focus:outline-none"
             />
 
             {submitError && (
@@ -740,7 +740,7 @@ export function CheckpointMarker({
             <button
               onClick={handleSubmit}
               disabled={!canSubmit}
-              className="w-full rounded-xl bg-status-info py-3.5 text-base font-semibold text-white transition-colors active:bg-teal-700 disabled:opacity-40"
+              className="w-full rounded-xl bg-status-info py-3.5 text-base font-semibold text-white transition-colors active:brightness-95 disabled:opacity-40"
             >
               {submitting ? "Registrando..." : "Confirmar Marcacion"}
             </button>
@@ -825,7 +825,7 @@ export function CheckpointMarker({
               {needsQr && (
                 <div>
                   {qrCode ? (
-                    <div className="flex items-center gap-2 rounded-lg bg-emerald-950/30 px-3 py-2 text-sm text-status-ok-fg">
+                    <div className="flex items-center gap-2 rounded-lg bg-status-ok-soft/30 px-3 py-2 text-sm text-status-ok-fg">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                       </svg>
@@ -834,7 +834,7 @@ export function CheckpointMarker({
                   ) : (
                     <button
                       onClick={() => setShowQr(true)}
-                      className="flex w-full items-center justify-center gap-2 rounded-xl border border-purple-700/50 bg-purple-950/30 py-2.5 text-sm font-medium text-purple-400 transition-colors active:bg-purple-900/40"
+                      className="flex w-full items-center justify-center gap-2 rounded-xl border border-tint-violet-fg/50 bg-tint-violet/30 py-2.5 text-sm font-medium text-tint-violet-fg transition-colors active:brightness-95"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
@@ -860,7 +860,7 @@ export function CheckpointMarker({
                 {photoPreview && (
                   <button
                     onClick={removePhoto}
-                    className="rounded-xl border border-red-800/50 bg-red-950/20 px-3 py-2 text-sm text-status-danger-fg"
+                    className="rounded-xl border border-status-danger-border bg-status-danger-soft/30 px-3 py-2 text-sm text-status-danger-fg"
                   >
                     Quitar
                   </button>
@@ -876,7 +876,7 @@ export function CheckpointMarker({
               <button
                 onClick={handleSubmit}
                 disabled={!canSubmit}
-                className="w-full rounded-xl bg-status-ok py-3.5 text-base font-semibold text-white transition-colors active:bg-emerald-700 disabled:opacity-40"
+                className="w-full rounded-xl bg-status-ok py-3.5 text-base font-semibold text-white transition-colors active:brightness-95 disabled:opacity-40"
                 style={{ minHeight: 48 }}
               >
                 {submitting ? "Registrando..." : "Confirmar Marcacion"}
@@ -954,7 +954,7 @@ export function CheckpointMarker({
 
             {/* ---- Instructions ---- */}
             {checkpoint.instrucciones && (
-              <div className="rounded-lg bg-blue-950/30 border border-blue-800/30 p-3">
+              <div className="rounded-lg bg-status-info-soft/30 border border-status-info-border p-3">
                 <p className="text-xs font-medium text-status-info-fg mb-1">Instrucciones</p>
                 <p className="text-sm text-gray-300">{checkpoint.instrucciones}</p>
               </div>
@@ -1050,7 +1050,7 @@ export function CheckpointMarker({
                               onClick={() => setTaskResponse(task.id, opt)}
                               className={`w-full text-left rounded-xl px-4 py-3 text-base transition-colors ${
                                 selected
-                                  ? "border-2 border-teal-500 bg-teal-950/40 text-status-info-fg"
+                                  ? "border-2 border-status-info bg-status-info-soft text-status-info-fg"
                                   : "border border-gray-700 bg-gray-800/50 text-gray-300"
                               }`}
                               style={{ minHeight: 48 }}
@@ -1070,7 +1070,7 @@ export function CheckpointMarker({
                         placeholder={task.config?.placeholder ?? "Respuesta..."}
                         rows={3}
                         maxLength={1000}
-                        className="w-full rounded-xl border border-gray-700 bg-gray-900 px-4 py-3 text-base text-white placeholder:text-gray-600 focus:border-teal-500 focus:outline-none"
+                        className="w-full rounded-xl border border-gray-700 bg-gray-900 px-4 py-3 text-base text-white placeholder:text-gray-600 focus:border-status-info-border focus:outline-none"
                       />
                     )}
 
@@ -1091,7 +1091,7 @@ export function CheckpointMarker({
                             ? `${task.config.min} - ${task.config.max}`
                             : "Valor..."
                         }
-                        className="w-full rounded-xl border border-gray-700 bg-gray-900 px-4 py-3 text-base text-white placeholder:text-gray-600 focus:border-teal-500 focus:outline-none"
+                        className="w-full rounded-xl border border-gray-700 bg-gray-900 px-4 py-3 text-base text-white placeholder:text-gray-600 focus:border-status-info-border focus:outline-none"
                         style={{ minHeight: 48 }}
                       />
                     )}
@@ -1238,7 +1238,7 @@ export function CheckpointMarker({
                     {!qrCode && (
                       <button
                         onClick={() => setShowQr(true)}
-                        className="mt-2 rounded-xl bg-teal-600/20 px-4 py-3 text-base font-medium text-status-info-fg transition-colors hover:bg-teal-600/30 active:bg-teal-600/40"
+                        className="mt-2 rounded-xl bg-status-info-soft px-4 py-3 text-base font-medium text-status-info-fg transition-colors hover:brightness-110 active:brightness-95"
                         style={{ minHeight: 48 }}
                       >
                         Escanear QR
@@ -1279,7 +1279,7 @@ export function CheckpointMarker({
                 onChange={(e) => setNote(e.target.value)}
                 placeholder="Nota opcional..."
                 maxLength={500}
-                className="min-w-0 flex-1 rounded-xl border border-gray-700 bg-gray-900 px-3 py-2.5 text-sm text-white placeholder:text-gray-600 focus:border-teal-500 focus:outline-none"
+                className="min-w-0 flex-1 rounded-xl border border-gray-700 bg-gray-900 px-3 py-2.5 text-sm text-white placeholder:text-gray-600 focus:border-status-info-border focus:outline-none"
               />
             </div>
 
@@ -1299,7 +1299,7 @@ export function CheckpointMarker({
             <button
               onClick={handleSubmit}
               disabled={!canSubmit}
-              className="w-full rounded-xl bg-status-info py-3.5 text-base font-semibold text-white transition-colors hover:bg-status-info active:bg-teal-700 disabled:opacity-40"
+              className="w-full rounded-xl bg-status-info py-3.5 text-base font-semibold text-white transition-colors hover:brightness-110 active:brightness-95 disabled:opacity-40"
               style={{ minHeight: 52 }}
             >
               {submitting ? (

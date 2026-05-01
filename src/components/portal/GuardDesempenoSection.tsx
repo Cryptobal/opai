@@ -109,7 +109,7 @@ function ScorecardView({ session }: { session: GuardSession }) {
             const dimensiones: import("@/components/gamification").DimensionScore[] = [
               { dimension: "rondas", label: "Rondas", score: raw.scoreRondas ?? 0, peso: 30, color: "text-status-info-fg" },
               { dimension: "asistencia", label: "Asistencia", score: raw.scoreAsistencia ?? 0, peso: 25, color: "text-status-info-fg" },
-              { dimension: "sistema_digital", label: "Sistema Digital", score: raw.scoreSistemaDigital ?? 0, peso: 15, color: "text-purple-500" },
+              { dimension: "sistema_digital", label: "Sistema Digital", score: raw.scoreSistemaDigital ?? 0, peso: 15, color: "text-tint-violet-fg" },
               { dimension: "supervision", label: "Supervisión", score: raw.scoreSupervision ?? 0, peso: 15, color: "text-status-warn-fg" },
               { dimension: "capacitacion", label: "Capacitación", score: raw.scoreCapacitacion ?? 0, peso: 15, color: "text-status-warn-fg" },
             ];
@@ -306,7 +306,7 @@ function RankingView({ session }: { session: GuardSession }) {
           const trendColor = entry.tendencia === "up" ? "text-status-ok-fg" : entry.tendencia === "down" ? "text-status-danger-fg" : "text-muted-foreground";
 
           return (
-            <Card key={idx} className={isMe ? "bg-teal-500/5 border-teal-500/20" : ""}>
+            <Card key={idx} className={isMe ? "bg-status-info-soft/30 border-status-info-border" : ""}>
               <CardContent className="p-3 flex items-center gap-3">
                 {/* Position */}
                 <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center shrink-0">

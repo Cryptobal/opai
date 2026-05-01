@@ -348,7 +348,7 @@ export function ChatGuardSection({ session }: ChatGuardSectionProps) {
     <div className="flex flex-col flex-1 overflow-hidden">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-zinc-800 bg-zinc-900/50">
-        <div className="h-8 w-8 rounded-full bg-blue-600/20 flex items-center justify-center">
+        <div className="h-8 w-8 rounded-full bg-status-info-soft flex items-center justify-center">
           <span className="text-status-info-fg text-xs font-bold">#</span>
         </div>
         <div>
@@ -488,7 +488,7 @@ export function ChatGuardSection({ session }: ChatGuardSectionProps) {
           <button
             onClick={handleSend}
             disabled={(!inputText.trim() && pendingFiles.length === 0) || isSending}
-            className="h-[38px] w-[38px] rounded-lg bg-[#2dd4bf] flex items-center justify-center text-zinc-900 disabled:opacity-40 hover:bg-teal-400 transition-colors"
+            className="h-[38px] w-[38px] rounded-lg bg-[#2dd4bf] flex items-center justify-center text-zinc-900 disabled:opacity-40 hover:brightness-110 transition-colors"
           >
             {isSending ? (
               <Loader2 className="h-4 w-4 animate-spin" />

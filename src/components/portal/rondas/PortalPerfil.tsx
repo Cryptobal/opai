@@ -78,7 +78,7 @@ export function PortalPerfil({ session, onLogout }: PortalPerfilProps) {
       <div className="flex-1 space-y-4 px-4 pt-5">
         {/* Avatar + Name */}
         <div className="flex flex-col items-center gap-2">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-teal-900/40 ring-2 ring-teal-600/30">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-status-info-soft ring-2 ring-status-info-border">
             <User className="h-7 w-7 text-status-info-fg" />
           </div>
           <h2 className="text-lg font-semibold text-white">{session.nombre}</h2>
@@ -89,7 +89,7 @@ export function PortalPerfil({ session, onLogout }: PortalPerfilProps) {
           <MapPin className="h-4 w-4 shrink-0 text-gray-400" />
           <p className="flex-1 truncate text-sm text-gray-200">{session.installationName}</p>
           <div className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-teal-400" />
+            <span className="h-2 w-2 rounded-full bg-status-info" />
             <span className="text-xs text-status-info-fg">Activa</span>
           </div>
         </div>
@@ -154,7 +154,7 @@ export function PortalPerfil({ session, onLogout }: PortalPerfilProps) {
         {/* Logout */}
         <button
           onClick={onLogout}
-          className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-800/50 bg-red-950/20 py-2.5 text-sm font-medium text-status-danger-fg transition-colors hover:bg-red-950/40 active:bg-red-900/30"
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-status-danger-border bg-status-danger-soft/30 py-2.5 text-sm font-medium text-status-danger-fg transition-colors hover:brightness-110 active:brightness-95"
         >
           <LogOut className="h-4 w-4" />
           Cerrar sesion

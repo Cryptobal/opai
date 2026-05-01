@@ -550,8 +550,8 @@ function InicioSection({
             onClick={() => onNavigate("perfil")}
             className="flex items-center gap-3 rounded-xl border bg-card p-4 shadow-sm active:bg-accent transition-colors text-left"
           >
-            <div className="h-9 w-10 rounded-lg bg-purple-500/10 flex items-center justify-center shrink-0">
-              <User className="h-5 w-5 text-purple-500" />
+            <div className="h-9 w-10 rounded-lg bg-tint-violet/30 flex items-center justify-center shrink-0">
+              <User className="h-5 w-5 text-tint-violet-fg" />
             </div>
             <div className="min-w-0">
               <p className="text-sm font-semibold">Perfil</p>
@@ -565,7 +565,7 @@ function InicioSection({
           >
             {pendingEquipConfirmCount > 0 && (
               <span
-                className="absolute top-2 right-2 min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-status-warn text-[10px] font-bold text-amber-950"
+                className="absolute top-2 right-2 min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-status-warn text-[10px] font-bold text-zinc-950"
                 aria-label={`${pendingEquipConfirmCount} confirmaciones pendientes`}
               >
                 {pendingEquipConfirmCount > 9 ? "9+" : pendingEquipConfirmCount}
@@ -769,7 +769,7 @@ function MarcarAsistenciaQuickAction({ session }: { session: GuardSession }) {
             <p className="text-sm font-bold text-status-ok-fg dark:text-status-ok-fg">
               Marcar Asistencia
             </p>
-            <p className="text-xs text-emerald-600/70 dark:text-emerald-500/70">
+            <p className="text-xs text-status-ok-fg/70">
               Registra tu entrada o salida desde tu celular
             </p>
           </div>
@@ -814,7 +814,7 @@ function MarcarAsistenciaQuickAction({ session }: { session: GuardSession }) {
 
       {/* ── Submitting ── */}
       {step === "submitting" && (
-        <div className={`p-4 flex items-center gap-3 ${nextTipo === "salida" ? "bg-sky-500/5" : "bg-status-ok-soft"}`}>
+        <div className={`p-4 flex items-center gap-3 ${nextTipo === "salida" ? "bg-status-info-soft/30" : "bg-status-ok-soft"}`}>
           <Loader2 className={`h-5 w-5 animate-spin ${nextTipo === "salida" ? "text-status-info-fg" : "text-status-ok-fg"}`} />
           <p className="text-sm font-semibold">Registrando marcación...</p>
         </div>
@@ -822,10 +822,10 @@ function MarcarAsistenciaQuickAction({ session }: { session: GuardSession }) {
 
       {/* ── Success ── */}
       {step === "success" && result && (
-        <div className={`p-4 space-y-2 ${result.tipo === "salida" ? "bg-sky-500/5" : "bg-status-ok-soft"}`}>
+        <div className={`p-4 space-y-2 ${result.tipo === "salida" ? "bg-status-info-soft/30" : "bg-status-ok-soft"}`}>
           <div className="flex items-center gap-2">
             <CircleCheck className={`h-5 w-5 ${result.tipo === "salida" ? "text-status-info-fg" : "text-status-ok-fg"}`} />
-            <p className={`text-sm font-bold ${result.tipo === "salida" ? "text-sky-700 dark:text-status-info-fg" : "text-status-ok-fg dark:text-status-ok-fg"}`}>
+            <p className={`text-sm font-bold ${result.tipo === "salida" ? "text-status-info-fg" : "text-status-ok-fg dark:text-status-ok-fg"}`}>
               {result.tipo === "entrada" ? "Entrada registrada" : "Salida registrada"}
             </p>
           </div>
@@ -988,7 +988,7 @@ function MarcacionesSection({ session }: { session: GuardSession }) {
                         {m.metodoId && (
                           <span className={`text-[10px] px-1.5 py-0 rounded ${
                             m.metodoId === "face_id" ? "bg-status-ok-soft text-status-ok-fg" :
-                            m.metodoId === "foto_evidencia" ? "bg-sky-500/20 text-status-info-fg" :
+                            m.metodoId === "foto_evidencia" ? "bg-status-info-soft text-status-info-fg" :
                             "bg-status-warn-soft text-status-warn-fg"
                           }`}>
                             {m.metodoId === "face_id" ? "Face ID" : m.metodoId === "foto_evidencia" ? "Foto" : "PIN"}
@@ -2857,7 +2857,7 @@ function EquipamientoSection({ session }: { session: GuardSession }) {
             Confirma con <span className="font-medium text-foreground/90">Face ID</span> (cámara) o con tu{" "}
             <span className="font-medium text-foreground/90">PIN de marcación</span>.
             {!faceEnrolled && (
-              <span className="block mt-1 text-amber-600/90 dark:text-amber-400/90">
+              <span className="block mt-1 text-status-warn-fg/90">
                 Si aún no tienes Face ID registrado, elige PIN o regístralo al marcar asistencia con foto.
               </span>
             )}
@@ -2961,7 +2961,7 @@ function EquipamientoSection({ session }: { session: GuardSession }) {
                               type="button"
                               onClick={() => captureAndVerify(movementId)}
                               disabled={confirming === movementId}
-                              className="flex-1 min-h-11 rounded-md bg-status-ok text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-50"
+                              className="flex-1 min-h-11 rounded-md bg-status-ok text-white text-sm font-medium hover:brightness-110 disabled:opacity-50"
                             >
                               {confirming === movementId ? "Verificando..." : "Capturar y confirmar"}
                             </button>
@@ -3002,7 +3002,7 @@ function EquipamientoSection({ session }: { session: GuardSession }) {
                           type="button"
                           onClick={() => handlePinConfirm(movementId)}
                           disabled={confirming === movementId}
-                          className="w-full sm:w-auto shrink-0 min-h-11 px-6 rounded-md bg-status-ok text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-50"
+                          className="w-full sm:w-auto shrink-0 min-h-11 px-6 rounded-md bg-status-ok text-white text-sm font-medium hover:brightness-110 disabled:opacity-50"
                         >
                           {confirming === movementId ? "…" : "Confirmar recepción"}
                         </button>
@@ -3172,7 +3172,7 @@ function DocumentosSection({ session }: { session: GuardSession }) {
 
   const TYPE_LABELS: Record<string, { label: string; color: string }> = {
     contrato: { label: "Contrato", color: "bg-status-info-soft text-status-info-fg" },
-    anexo: { label: "Anexo", color: "bg-purple-500/20 text-purple-400" },
+    anexo: { label: "Anexo", color: "bg-tint-violet text-tint-violet-fg" },
     liquidacion: { label: "Liquidación", color: "bg-status-ok-soft text-status-ok-fg" },
     certificado: { label: "Certificado", color: "bg-status-warn-soft text-status-warn-fg" },
     finiquito: { label: "Finiquito", color: "bg-status-danger-soft text-status-danger-fg" },

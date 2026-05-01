@@ -1,3 +1,7 @@
+// @ds-allow-legacy
+// PanicoModal intencionalmente usa rojos hex (red-900, red-700, red-200, etc.)
+// porque es la alarma operativa de máxima urgencia que activa el guardia.
+// Migrar a status-danger-soft reduciría el efecto visual de alarma.
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";

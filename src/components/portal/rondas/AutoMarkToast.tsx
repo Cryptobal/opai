@@ -17,11 +17,11 @@ export function AutoMarkToast({
       className="fixed inset-x-4 z-[70] animate-in slide-in-from-top duration-300"
       style={{ top: "calc(var(--safe-area-top, 0px) + 1rem)" }}
     >
-      <div className="relative overflow-hidden rounded-2xl border border-green-700/50 bg-green-950/90 shadow-lg shadow-green-900/30 backdrop-blur-sm">
+      <div className="relative overflow-hidden rounded-2xl border border-status-ok-border bg-status-ok-soft/90 shadow-lg shadow-status-ok/30 backdrop-blur-sm">
         <div className="flex flex-col gap-3 px-4 py-3">
           <div className="flex items-center gap-3">
             {/* Animated checkmark */}
-            <div className="flex h-9 w-9 shrink-0 items-center justify-content rounded-full bg-green-500/20">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-content rounded-full bg-status-ok-soft">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 className="h-5 w-5 text-status-ok-fg mx-auto"
@@ -40,7 +40,7 @@ export function AutoMarkToast({
               <p className="text-sm font-semibold text-status-ok-fg">
                 {checkpointName} marcado
               </p>
-              <p className="text-xs text-green-400/60">Marcacion automatica por geocerca</p>
+              <p className="text-xs text-status-ok-fg/60">Marcacion automatica por geocerca</p>
             </div>
           </div>
 
@@ -51,7 +51,7 @@ export function AutoMarkToast({
                 e.stopPropagation();
                 onAddPhoto();
               }}
-              className="flex-1 rounded-lg border border-green-600/40 bg-green-900/40 px-3 py-2 text-sm font-medium text-status-ok-fg transition-colors active:bg-green-800/60"
+              className="flex-1 rounded-lg border border-status-ok-border bg-status-ok-soft px-3 py-2 text-sm font-medium text-status-ok-fg transition-colors active:brightness-95"
             >
               Tomar Foto
             </button>

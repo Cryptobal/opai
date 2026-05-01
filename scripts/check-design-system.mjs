@@ -841,6 +841,71 @@ const MIGRATED_PATHS = [
   // labels de tarjetas). Se agregarán cuando se haga su pasada de
   // limpieza tipográfica completa en una sub-fase futura.
   "src/app/(app)/personas/onboarding/page.tsx",
+  // Cluster 5C.1 — Portal Guardia + Rondas mobile.
+  // Primer sub-step del cluster 5C (Portales). El más grande del proyecto
+  // en cantidad de hex eliminados (~110 hex en 19 archivos).
+  //
+  // Excepciones intencionales preservadas con marker @ds-allow-legacy:
+  // - PanicoModal (8 hex): rojos de alarma operativa de máxima urgencia.
+  // - RondasPortalClient L575 (bg-red-900): banner de pánico activo
+  //   (consistente con PanicoModal y PanicAlertBanner del Monitoreo).
+  // - ChatGuardSection L491 (bg-[#2dd4bf]): accent teal del chat,
+  //   identidad visual intencional (similar al wizard de Rondas).
+  //
+  // Estados categóricos migrados a tint-violet (consistente con proyecto):
+  // - VistaPostulante 'ENTREVISTA', GuardPortalClient 'anexo' category,
+  //   CheckpointMarker tarea badges, ActiveCheckpointCard tarea labels,
+  //   GuardDesempenoSection 'sistema_digital' dimension, RondaCompletada
+  //   anomaly badges.
+  //
+  // Hovers + active states unificados:
+  // - hover:bg-X-700 → hover:brightness-110
+  // - active:bg-X-800 → active:brightness-95
+  //
+  // Cero cambios funcionales: geolocalización, scan QR, foto capture,
+  // panic button, GPS, marcaciones offline, sync — todo intacto.
+  //
+  // Los 8 CCs siguientes NO se agregan a MIGRATED_PATHS: mismo criterio
+  // que 4A/4B/4C/4D/5A.1..5A.8/5B.1.a/5B.1.b/5B.2.a/5B.2.b.1/5B.2.b.2/
+  // 5B.2.c/5B.3/5B.4/5B.5/5B.6+7/5B.8/5B.9/5B.10 — completaron su
+  // migración granular de color drift pero siguen teniendo drift
+  // tipográfico legacy (text-[10px]/text-[11px] en badges, captions,
+  // labels mobile). Se agregarán cuando se haga su pasada de limpieza
+  // tipográfica completa en una sub-fase futura:
+  // - ChatGuardSection, GuardDesempenoSection, GuardPortalClient,
+  //   VistaPostulante, CheckpointMarker, GuardSelectorHeader,
+  //   PortalPerfil, RondaActiva.
+  "src/components/portal/AlertasCoberturaGuardiaSection.tsx",
+  "src/components/portal/ChatGuardPortal.tsx",
+  "src/components/portal/LogoutPinModal.tsx",
+  "src/components/portal/MisDatosSection.tsx",
+  "src/components/portal/SwitchPortalButton.tsx",
+  "src/components/portal/TerrenoModeSwitcher.tsx",
+  "src/components/portal/rondas/ActiveCheckpointCard.tsx",
+  "src/components/portal/rondas/AutoMarkToast.tsx",
+  "src/components/portal/rondas/ChatRondasPortal.tsx",
+  "src/components/portal/rondas/DevicePairingScreen.tsx",
+  "src/components/portal/rondas/GpsStatusIndicator.tsx",
+  "src/components/portal/rondas/HistorialRondaModal.tsx",
+  "src/components/portal/rondas/LoginScreen.tsx",
+  "src/components/portal/rondas/MisRondas.tsx",
+  "src/components/portal/rondas/PanicoModal.tsx",
+  "src/components/portal/rondas/PhotoCapture.tsx",
+  "src/components/portal/rondas/PortalBottomNav.tsx",
+  "src/components/portal/rondas/ProgressRing.tsx",
+  "src/components/portal/rondas/QrScanner.tsx",
+  "src/components/portal/rondas/ReportarIncidente.tsx",
+  "src/components/portal/rondas/RondaCompletada.tsx",
+  "src/components/portal/rondas/RondaMap.tsx",
+  "src/components/portal/rondas/RondaProgress.tsx",
+  "src/components/portal/rondas/RondasPortalClient.tsx",
+  "src/components/portal/rondas/ServiceWorkerRegistrar.tsx",
+  "src/components/portal/rondas/tour/GuardTourOverlay.tsx",
+  "src/components/portal/guardia/GuardiaBottomNav.tsx",
+  "src/app/portal/guardia/page.tsx",
+  "src/app/portal/guardia/layout.tsx",
+  "src/app/portal/rondas/page.tsx",
+  "src/app/portal/rondas/layout.tsx",
   // Agregar aquí cuando se migren:
   // "src/components/personas/",
   // "src/components/crm/",

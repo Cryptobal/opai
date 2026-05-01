@@ -69,9 +69,9 @@ export function GuardTourOverlay({ onComplete }: Props) {
               key={i}
               className={`h-1.5 rounded-full transition-all duration-300 ${
                 i === step
-                  ? "w-6 bg-teal-400"
+                  ? "w-6 bg-status-info"
                   : i < step
-                    ? "w-1.5 bg-teal-700"
+                    ? "w-1.5 bg-status-info-fg/50"
                     : "w-1.5 bg-zinc-700"
               }`}
             />
@@ -114,7 +114,7 @@ export function GuardTourOverlay({ onComplete }: Props) {
           )}
           <button
             onClick={() => (isLast ? onComplete() : setStep(step + 1))}
-            className="flex flex-1 items-center justify-center gap-1 rounded-xl bg-status-info py-3.5 text-base font-semibold text-white transition-colors active:bg-teal-700"
+            className="flex flex-1 items-center justify-center gap-1 rounded-xl bg-status-info py-3.5 text-base font-semibold text-white transition-colors active:brightness-95"
             style={{ minHeight: 48 }}
           >
             {isLast ? "Comenzar" : "Siguiente"}
