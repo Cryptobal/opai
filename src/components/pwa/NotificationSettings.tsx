@@ -89,7 +89,7 @@ export function NotificationSettings({ userType, userId, tenantId, portalType }:
               <button
                 onClick={() => updatePref(config.key, 'push', !pref.push)}
                 className={`flex items-center gap-1.5 text-xs transition-colors ${
-                  pref.push ? 'text-blue-400' : 'text-zinc-500'
+                  pref.push ? 'text-status-info-fg' : 'text-zinc-500'
                 }`}
               >
                 <Smartphone className="w-3.5 h-3.5" />
@@ -98,7 +98,7 @@ export function NotificationSettings({ userType, userId, tenantId, portalType }:
               <button
                 onClick={() => updatePref(config.key, 'email', !pref.email)}
                 className={`flex items-center gap-1.5 text-xs transition-colors ${
-                  pref.email ? 'text-blue-400' : 'text-zinc-500'
+                  pref.email ? 'text-status-info-fg' : 'text-zinc-500'
                 }`}
               >
                 <Mail className="w-3.5 h-3.5" />

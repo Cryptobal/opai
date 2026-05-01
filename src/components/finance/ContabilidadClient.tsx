@@ -99,22 +99,22 @@ const TABS = [
 type TabId = (typeof TABS)[number]["id"];
 
 const ACCOUNT_TYPE_CONFIG: Record<string, { label: string; className: string }> = {
-  ASSET: { label: "Activo", className: "bg-blue-500/15 text-blue-400 border-blue-500/30" },
-  LIABILITY: { label: "Pasivo", className: "bg-red-500/15 text-red-400 border-red-500/30" },
+  ASSET: { label: "Activo", className: "bg-status-info-soft text-status-info-fg border-status-info-border" },
+  LIABILITY: { label: "Pasivo", className: "bg-status-danger-soft text-status-danger-fg border-status-danger-border" },
   EQUITY: { label: "Patrimonio", className: "bg-purple-500/15 text-purple-400 border-purple-500/30" },
-  REVENUE: { label: "Ingreso", className: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
-  COST: { label: "Costo", className: "bg-orange-500/15 text-orange-400 border-orange-500/30" },
-  EXPENSE: { label: "Gasto", className: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
+  REVENUE: { label: "Ingreso", className: "bg-status-ok-soft text-status-ok-fg border-status-ok-border" },
+  COST: { label: "Costo", className: "bg-orange-500/15 text-status-warn-fg border-status-warn-border" },
+  EXPENSE: { label: "Gasto", className: "bg-status-warn-soft text-status-warn-fg border-status-warn-border" },
 };
 
 const JOURNAL_STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   DRAFT: { label: "Borrador", className: "bg-zinc-500/15 text-zinc-400 border-zinc-500/30" },
-  POSTED: { label: "Contabilizado", className: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
-  REVERSED: { label: "Reversado", className: "bg-red-500/15 text-red-400 border-red-500/30" },
+  POSTED: { label: "Contabilizado", className: "bg-status-ok-soft text-status-ok-fg border-status-ok-border" },
+  REVERSED: { label: "Reversado", className: "bg-status-danger-soft text-status-danger-fg border-status-danger-border" },
 };
 
 const PERIOD_STATUS_CONFIG: Record<string, { label: string; className: string }> = {
-  OPEN: { label: "Abierto", className: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
+  OPEN: { label: "Abierto", className: "bg-status-ok-soft text-status-ok-fg border-status-ok-border" },
   CLOSED: { label: "Cerrado", className: "bg-zinc-500/15 text-zinc-400 border-zinc-500/30" },
 };
 
@@ -411,7 +411,7 @@ function AccountsTab({
                   align: "center",
                   cell: (row) =>
                     row.acceptsEntries ? (
-                      <span className="text-emerald-400 text-xs">Sí</span>
+                      <span className="text-status-ok-fg text-xs">Sí</span>
                     ) : (
                       <span className="text-muted-foreground text-xs">No</span>
                     ),
@@ -425,7 +425,7 @@ function AccountsTab({
                       className={cn(
                         "text-xs",
                         row.isActive
-                          ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+                          ? "bg-status-ok-soft text-status-ok-fg border-status-ok-border"
                           : "bg-zinc-500/15 text-zinc-400 border-zinc-500/30"
                       )}
                     >
@@ -471,7 +471,7 @@ function AccountsTab({
                         </p>
                         <div className="flex gap-3 mt-1 text-xs text-muted-foreground">
                           <span>Nivel {a.level}</span>
-                          {a.acceptsEntries && <span className="text-emerald-400">Acepta movimientos</span>}
+                          {a.acceptsEntries && <span className="text-status-ok-fg">Acepta movimientos</span>}
                         </div>
                       </div>
                       {canManage && (
@@ -934,7 +934,7 @@ function LedgerTab({ accounts }: { accounts: AccountRow[] }) {
                   header: "Saldo",
                   align: "right",
                   cell: (row) => (
-                    <span className={cn("font-medium", row.balance < 0 ? "text-red-400" : "")}>
+                    <span className={cn("font-medium", row.balance < 0 ? "text-status-danger-fg" : "")}>
                       {fmtCLP.format(row.balance)}
                     </span>
                   ),
@@ -963,7 +963,7 @@ function LedgerTab({ accounts }: { accounts: AccountRow[] }) {
                       {entry.debit > 0 && <span>Debe: <span className="font-mono">{fmtCLP.format(entry.debit)}</span></span>}
                       {entry.credit > 0 && <span>Haber: <span className="font-mono">{fmtCLP.format(entry.credit)}</span></span>}
                     </div>
-                    <span className={cn("font-mono font-medium", entry.balance < 0 ? "text-red-400" : "")}>
+                    <span className={cn("font-mono font-medium", entry.balance < 0 ? "text-status-danger-fg" : "")}>
                       {fmtCLP.format(entry.balance)}
                     </span>
                   </div>

@@ -283,9 +283,9 @@ export default function MasTab({
           </div>
           <div className="flex items-center gap-1">
             <span className="relative flex h-2 w-2">
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-status-ok" />
             </span>
-            <span className="text-xs text-green-400">Activo</span>
+            <span className="text-xs text-status-ok-fg">Activo</span>
           </div>
         </div>
       </div>
@@ -296,7 +296,7 @@ export default function MasTab({
       <button
         type="button"
         onClick={onLogout}
-        className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-800/40 bg-red-950/20 px-4 py-3.5 text-sm font-medium text-red-400 transition-colors active:bg-red-900/30"
+        className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-800/40 bg-red-950/20 px-4 py-3.5 text-sm font-medium text-status-danger-fg transition-colors active:bg-red-900/30"
       >
         <LogOut className="h-4 w-4" />
         Cerrar sesión

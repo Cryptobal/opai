@@ -256,14 +256,14 @@ export function Step1CheckIn({ onCheckedIn, mode = "regular" }: Props) {
                   selectedInstallation.distanceM == null
                     ? "border-border bg-muted/30"
                     : selectedInstallation.insideGeofence
-                      ? "border-emerald-500/50 bg-emerald-500/10"
-                      : "border-amber-500/50 bg-amber-500/10"
+                      ? "border-status-ok-border bg-status-ok-soft"
+                      : "border-status-warn-border bg-status-warn-soft"
                 }`}
               >
                 <Navigation className={`h-5 w-5 flex-shrink-0 ${
                   selectedInstallation.distanceM != null && selectedInstallation.insideGeofence
-                    ? "text-emerald-400"
-                    : "text-amber-400"
+                    ? "text-status-ok-fg"
+                    : "text-status-warn-fg"
                 }`} />
                 <div className="flex-1">
                   <p className="text-xs text-muted-foreground">
@@ -276,7 +276,7 @@ export function Step1CheckIn({ onCheckedIn, mode = "regular" }: Props) {
                         Distancia: {selectedInstallation.distanceM}m
                       </p>
                       <p className={`text-xs ${
-                        selectedInstallation.insideGeofence ? "text-emerald-400" : "text-amber-400"
+                        selectedInstallation.insideGeofence ? "text-status-ok-fg" : "text-status-warn-fg"
                       }`}>
                         {selectedInstallation.insideGeofence
                           ? `Dentro del rango (${selectedInstallation.geoRadiusM}m)`
@@ -284,16 +284,16 @@ export function Step1CheckIn({ onCheckedIn, mode = "regular" }: Props) {
                       </p>
                     </>
                   ) : (
-                    <p className="text-xs text-amber-400">
+                    <p className="text-xs text-status-warn-fg">
                       Obtene ubicacion para calcular distancia
                     </p>
                   )}
                 </div>
                 {selectedInstallation.distanceM != null && (
                   selectedInstallation.insideGeofence ? (
-                    <CheckCircle2 className="h-6 w-6 flex-shrink-0 text-emerald-400" />
+                    <CheckCircle2 className="h-6 w-6 flex-shrink-0 text-status-ok-fg" />
                   ) : (
-                    <AlertTriangle className="h-6 w-6 flex-shrink-0 text-amber-400" />
+                    <AlertTriangle className="h-6 w-6 flex-shrink-0 text-status-warn-fg" />
                   )
                 )}
               </div>
@@ -304,7 +304,7 @@ export function Step1CheckIn({ onCheckedIn, mode = "regular" }: Props) {
         {/* Geofence reason (when outside) */}
         {isOutsideGeofence && (
           <div className="space-y-2">
-            <Label className="flex items-center gap-2 text-xs text-amber-400">
+            <Label className="flex items-center gap-2 text-xs text-status-warn-fg">
               <AlertTriangle className="h-3 w-3" />
               Motivo de check-in fuera de geocerca (obligatorio)
             </Label>
@@ -403,7 +403,7 @@ export function Step1CheckIn({ onCheckedIn, mode = "regular" }: Props) {
                     <div className="space-y-1">
                       {dotacion.regular.map((g) => (
                         <div key={g.id} className="flex items-center gap-2 text-xs">
-                          <Shield className="h-3 w-3 text-emerald-400" />
+                          <Shield className="h-3 w-3 text-status-ok-fg" />
                           <span>{g.guardName}</span>
                           <span className="text-muted-foreground">
                             — {g.puestoName} {g.shiftStart ?? ""}
@@ -417,13 +417,13 @@ export function Step1CheckIn({ onCheckedIn, mode = "regular" }: Props) {
                 {/* Reinforcement guards */}
                 {dotacion.reinforcement.length > 0 && (
                   <div className="mb-2">
-                    <p className="mb-1 text-xs font-medium text-amber-400">
+                    <p className="mb-1 text-xs font-medium text-status-warn-fg">
                       Refuerzo hoy ({dotacion.reinforcement.length})
                     </p>
                     <div className="space-y-1">
                       {dotacion.reinforcement.map((g) => (
                         <div key={g.id} className="flex items-center gap-2 text-xs">
-                          <Shield className="h-3 w-3 text-amber-400" />
+                          <Shield className="h-3 w-3 text-status-warn-fg" />
                           <span>{g.guardName}</span>
                           <span className="text-muted-foreground">— Refuerzo</span>
                         </div>
@@ -457,7 +457,7 @@ export function Step1CheckIn({ onCheckedIn, mode = "regular" }: Props) {
         </Button>
 
         {error && (
-          <p className="rounded-md bg-destructive/10 p-2 text-sm text-red-400">{error}</p>
+          <p className="rounded-md bg-destructive/10 p-2 text-sm text-status-danger-fg">{error}</p>
         )}
       </CardContent>
     </Card>

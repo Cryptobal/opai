@@ -402,7 +402,7 @@ function EmpresaTab({
               <p className="text-sm font-semibold">Cumplimiento: {vigentes}/{obligatorios.length} documentos vigentes</p>
               <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
                 {documents.filter((d) => d.status === "por_vencer").length > 0 && (
-                  <span className="flex items-center gap-1 text-amber-400">
+                  <span className="flex items-center gap-1 text-status-warn-fg">
                     <AlertTriangle className="h-3 w-3" /> {documents.filter((d) => d.status === "por_vencer").length} por vencer
                   </span>
                 )}
@@ -416,7 +416,7 @@ function EmpresaTab({
             <p className="text-2xl font-bold">{obligatorios.length > 0 ? Math.round((vigentes / obligatorios.length) * 100) : 100}%</p>
           </div>
           <div className="mt-3 h-2 rounded-full bg-zinc-800 overflow-hidden">
-            <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${obligatorios.length > 0 ? (vigentes / obligatorios.length) * 100 : 100}%` }} />
+            <div className="h-full rounded-full bg-status-ok transition-all" style={{ width: `${obligatorios.length > 0 ? (vigentes / obligatorios.length) * 100 : 100}%` }} />
           </div>
         </CardContent>
       </Card>
@@ -474,10 +474,10 @@ function EmpresaTab({
                           <div className="shrink-0">
                             {doc ? (
                               doc.status === "vigente" || doc.status === "no_aplica"
-                                ? <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+                                ? <CheckCircle2 className="h-5 w-5 text-status-ok-fg" />
                                 : doc.status === "por_vencer"
-                                  ? <AlertTriangle className="h-5 w-5 text-amber-400" />
-                                  : <XCircle className="h-5 w-5 text-red-400" />
+                                  ? <AlertTriangle className="h-5 w-5 text-status-warn-fg" />
+                                  : <XCircle className="h-5 w-5 text-status-danger-fg" />
                             ) : (
                               <Circle className="h-5 w-5 text-zinc-600" />
                             )}
@@ -488,7 +488,7 @@ function EmpresaTab({
                               {!tipo.obligatorio && <Badge variant="outline" className="text-[10px] px-1.5 py-0">Opcional</Badge>}
                               {tipo.useAsAiKnowledge && (
                                 <Badge
-                                  className="text-[10px] px-1.5 py-0 bg-emerald-500/15 text-emerald-400 border-transparent"
+                                  className="text-[10px] px-1.5 py-0 bg-status-ok-soft text-status-ok-fg border-transparent"
                                   title="Este tipo se ofrece como insumo cuando la IA genera protocolos o preguntas de exámenes"
                                 >
                                   <Sparkles className="h-2.5 w-2.5 mr-0.5" /> IA
@@ -534,7 +534,7 @@ function EmpresaTab({
                               </Button>
                             )}
                             {doc ? (
-                              <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-red-400" onClick={() => setDeleteDocId(doc.id)} title="Eliminar documento">
+                              <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-status-danger-fg" onClick={() => setDeleteDocId(doc.id)} title="Eliminar documento">
                                 <Trash2 className="h-3.5 w-3.5" />
                               </Button>
                             ) : (
@@ -543,7 +543,7 @@ function EmpresaTab({
                               </Button>
                             )}
                             {!doc && (
-                              <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-red-400" onClick={() => setDeleteTipoId(tipo.id)} title="Eliminar tipo">
+                              <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-status-danger-fg" onClick={() => setDeleteTipoId(tipo.id)} title="Eliminar tipo">
                                 <Trash2 className="h-3 w-3" />
                               </Button>
                             )}
@@ -822,7 +822,7 @@ function InstalacionTab({
                     {tipo.tieneVencimiento && <Badge variant="outline" className="text-[10px] px-1.5 py-0">Con vencimiento</Badge>}
                     {tipo.useAsAiKnowledge && (
                       <Badge
-                        className="text-[10px] px-1.5 py-0 bg-emerald-500/15 text-emerald-400 border-transparent"
+                        className="text-[10px] px-1.5 py-0 bg-status-ok-soft text-status-ok-fg border-transparent"
                         title="Este tipo se ofrece como insumo cuando la IA genera protocolos o preguntas de exámenes"
                       >
                         <Sparkles className="h-2.5 w-2.5 mr-0.5" /> IA
@@ -847,7 +847,7 @@ function InstalacionTab({
                   }} title="Editar tipo">
                     <Pencil className="h-3 w-3" />
                   </Button>
-                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-red-400" onClick={() => setDeleteTipoId(tipo.id)} title="Eliminar tipo">
+                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-status-danger-fg" onClick={() => setDeleteTipoId(tipo.id)} title="Eliminar tipo">
                     <Trash2 className="h-3 w-3" />
                   </Button>
                 </div>
@@ -1018,7 +1018,7 @@ function AiKnowledgeToggle({
       <Sparkles
         className={cn(
           "h-3 w-3",
-          tipo.useAsAiKnowledge ? "text-emerald-400" : "text-muted-foreground/60",
+          tipo.useAsAiKnowledge ? "text-status-ok-fg" : "text-muted-foreground/60",
         )}
       />
       <Switch
@@ -1103,7 +1103,7 @@ function UploadDocModal({
             <input type="file" accept=".pdf" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={(e) => { const f = e.target.files?.[0]; if (f) setUploadFile(f); e.target.value = ""; }} />
             {uploadFile ? (
               <div className="flex items-center gap-2 justify-center">
-                <FileText className="h-5 w-5 text-red-400" />
+                <FileText className="h-5 w-5 text-status-danger-fg" />
                 <span className="text-sm font-medium truncate">{uploadFile.name}</span>
                 <Badge variant="secondary">{formatFileSize(uploadFile.size)}</Badge>
               </div>

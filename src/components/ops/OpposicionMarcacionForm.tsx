@@ -64,7 +64,7 @@ export function OpposicionMarcacionForm({ token }: { token: string }) {
   if (loading) {
     return (
       <div className="bg-white rounded-xl shadow p-8 text-center">
-        <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-4" />
+        <div className="animate-spin w-8 h-8 border-2 border-status-info-border border-t-transparent rounded-full mx-auto mb-4" />
         <p className="text-slate-500 text-sm">Cargando información...</p>
       </div>
     );
@@ -73,7 +73,7 @@ export function OpposicionMarcacionForm({ token }: { token: string }) {
   if (error && !info) {
     return (
       <div className="bg-white rounded-xl shadow p-8 text-center">
-        <XCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
+        <XCircle className="w-12 h-12 text-status-danger-fg mx-auto mb-4" />
         <h2 className="text-lg font-semibold text-slate-800 mb-2">Link inválido</h2>
         <p className="text-slate-500 text-sm">{error}</p>
       </div>
@@ -83,7 +83,7 @@ export function OpposicionMarcacionForm({ token }: { token: string }) {
   if (submitted) {
     return (
       <div className="bg-white rounded-xl shadow p-8 text-center">
-        <CheckCircle2 className="w-12 h-12 text-green-500 mx-auto mb-4" />
+        <CheckCircle2 className="w-12 h-12 text-status-ok-fg mx-auto mb-4" />
         <h2 className="text-lg font-semibold text-slate-800 mb-2">Oposición registrada</h2>
         <p className="text-slate-500 text-sm">
           {restored
@@ -99,7 +99,7 @@ export function OpposicionMarcacionForm({ token }: { token: string }) {
   if (info.vencido || info.consolidada) {
     return (
       <div className="bg-white rounded-xl shadow p-8 text-center">
-        <AlertCircle className="w-12 h-12 text-amber-400 mx-auto mb-4" />
+        <AlertCircle className="w-12 h-12 text-status-warn-fg mx-auto mb-4" />
         <h2 className="text-lg font-semibold text-slate-800 mb-2">Plazo vencido</h2>
         <p className="text-slate-500 text-sm">
           El plazo de 48 horas para oponerse ya venció. La modificación fue consolidada.
@@ -111,7 +111,7 @@ export function OpposicionMarcacionForm({ token }: { token: string }) {
   if (info.yaOpuesta) {
     return (
       <div className="bg-white rounded-xl shadow p-8 text-center">
-        <CheckCircle2 className="w-12 h-12 text-blue-500 mx-auto mb-4" />
+        <CheckCircle2 className="w-12 h-12 text-status-info-fg mx-auto mb-4" />
         <h2 className="text-lg font-semibold text-slate-800 mb-2">Ya opusiste</h2>
         <p className="text-slate-500 text-sm">Ya registraste tu oposición previamente.</p>
       </div>
@@ -129,7 +129,7 @@ export function OpposicionMarcacionForm({ token }: { token: string }) {
     <div className="bg-white rounded-xl shadow">
       <div className="p-6 border-b border-slate-100">
         <div className="flex items-center gap-3 mb-1">
-          <Shield className="w-5 h-5 text-red-500" />
+          <Shield className="w-5 h-5 text-status-danger-fg" />
           <h1 className="text-lg font-semibold text-slate-800">Oposición a Modificación</h1>
         </div>
         <p className="text-sm text-slate-500">Res. Exenta N°38 — DT Chile</p>
@@ -151,11 +151,11 @@ export function OpposicionMarcacionForm({ token }: { token: string }) {
           </div>
           <div className="flex justify-between">
             <span className="text-slate-500">Marca original</span>
-            <span className="text-red-500 line-through">{fmtDate(info.timestampOriginal)}</span>
+            <span className="text-status-danger-fg line-through">{fmtDate(info.timestampOriginal)}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-slate-500">Nueva marca</span>
-            <span className="font-semibold text-amber-600">{fmtDate(info.timestampNuevo)}</span>
+            <span className="font-semibold text-status-warn-fg">{fmtDate(info.timestampNuevo)}</span>
           </div>
           {info.motivo && (
             <div className="flex justify-between">
@@ -168,7 +168,7 @@ export function OpposicionMarcacionForm({ token }: { token: string }) {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">
-              Su RUT <span className="text-red-500">*</span>
+              Su RUT <span className="text-status-danger-fg">*</span>
             </label>
             <input
               type="text"
@@ -183,7 +183,7 @@ export function OpposicionMarcacionForm({ token }: { token: string }) {
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">
-              Motivo de su oposición <span className="text-red-500">*</span>
+              Motivo de su oposición <span className="text-status-danger-fg">*</span>
             </label>
             <textarea
               value={reason}
@@ -195,11 +195,11 @@ export function OpposicionMarcacionForm({ token }: { token: string }) {
               minLength={5}
             />
           </div>
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && <p className="text-sm text-status-danger-fg">{error}</p>}
           <button
             type="submit"
             disabled={submitting || reason.trim().length < 5 || rut.trim().length < 7}
-            className="w-full bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-medium py-3 rounded-lg text-sm transition-colors"
+            className="w-full bg-status-danger hover:bg-red-700 disabled:opacity-50 text-white font-medium py-3 rounded-lg text-sm transition-colors"
           >
             {submitting ? "Enviando..." : "Registrar Oposición"}
           </button>

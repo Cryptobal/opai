@@ -35,9 +35,9 @@ function currentMonthKey(): string {
 }
 
 function trustScoreColor(score: number): string {
-  if (score >= 80) return "text-emerald-400";
-  if (score >= 60) return "text-yellow-400";
-  return "text-red-400";
+  if (score >= 80) return "text-status-ok-fg";
+  if (score >= 60) return "text-status-warn-fg";
+  return "text-status-danger-fg";
 }
 
 // ---------------------------------------------------------------------------
@@ -79,7 +79,7 @@ export function PortalPerfil({ session, onLogout }: PortalPerfilProps) {
         {/* Avatar + Name */}
         <div className="flex flex-col items-center gap-2">
           <div className="flex h-14 w-14 items-center justify-center rounded-full bg-teal-900/40 ring-2 ring-teal-600/30">
-            <User className="h-7 w-7 text-teal-400" />
+            <User className="h-7 w-7 text-status-info-fg" />
           </div>
           <h2 className="text-lg font-semibold text-white">{session.nombre}</h2>
         </div>
@@ -90,7 +90,7 @@ export function PortalPerfil({ session, onLogout }: PortalPerfilProps) {
           <p className="flex-1 truncate text-sm text-gray-200">{session.installationName}</p>
           <div className="flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-full bg-teal-400" />
-            <span className="text-xs text-teal-400">Activa</span>
+            <span className="text-xs text-status-info-fg">Activa</span>
           </div>
         </div>
 
@@ -115,17 +115,17 @@ export function PortalPerfil({ session, onLogout }: PortalPerfilProps) {
               </div>
 
               <div className="rounded-xl bg-gray-900/50 px-3 py-2 text-center">
-                <p className="text-xl font-bold text-emerald-400">{stats.aTiempo}</p>
+                <p className="text-xl font-bold text-status-ok-fg">{stats.aTiempo}</p>
                 <p className="text-[10px] text-gray-400">A tiempo</p>
               </div>
 
               <div className="rounded-xl bg-gray-900/50 px-3 py-2 text-center">
-                <p className="text-xl font-bold text-yellow-400">{stats.conRetraso}</p>
+                <p className="text-xl font-bold text-status-warn-fg">{stats.conRetraso}</p>
                 <p className="text-[10px] text-gray-400">Con retraso</p>
               </div>
 
               <div className="rounded-xl bg-gray-900/50 px-3 py-2 text-center">
-                <p className="text-xl font-bold text-red-400">{stats.noRealizadas}</p>
+                <p className="text-xl font-bold text-status-danger-fg">{stats.noRealizadas}</p>
                 <p className="text-[10px] text-gray-400">No realizadas</p>
               </div>
 
@@ -138,8 +138,8 @@ export function PortalPerfil({ session, onLogout }: PortalPerfilProps) {
 
               <div className="rounded-xl bg-gray-900/50 px-3 py-2 text-center">
                 <div className="flex items-center justify-center gap-1">
-                  <Flame className="h-4 w-4 text-orange-400" />
-                  <p className="text-xl font-bold text-orange-400">{stats.rachaActual}</p>
+                  <Flame className="h-4 w-4 text-status-warn-fg" />
+                  <p className="text-xl font-bold text-status-warn-fg">{stats.rachaActual}</p>
                 </div>
                 <p className="text-[10px] text-gray-400">Racha dias</p>
               </div>
@@ -154,7 +154,7 @@ export function PortalPerfil({ session, onLogout }: PortalPerfilProps) {
         {/* Logout */}
         <button
           onClick={onLogout}
-          className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-800/50 bg-red-950/20 py-2.5 text-sm font-medium text-red-400 transition-colors hover:bg-red-950/40 active:bg-red-900/30"
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-800/50 bg-red-950/20 py-2.5 text-sm font-medium text-status-danger-fg transition-colors hover:bg-red-950/40 active:bg-red-900/30"
         >
           <LogOut className="h-4 w-4" />
           Cerrar sesion

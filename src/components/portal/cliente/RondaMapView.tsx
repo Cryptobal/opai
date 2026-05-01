@@ -344,7 +344,7 @@ export function RondaMapView({ ejecucionId, height = 320 }: Props) {
       >
         {loading && (
           <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-zinc-900/80">
-            <Loader2 className="h-6 w-6 animate-spin text-teal-400" />
+            <Loader2 className="h-6 w-6 animate-spin text-status-info-fg" />
             <span className="text-xs text-zinc-400">Cargando recorrido…</span>
           </div>
         )}
@@ -362,18 +362,18 @@ export function RondaMapView({ ejecucionId, height = 320 }: Props) {
           <span className="text-teal-400/90">{SOURCE_LABEL[payload.routeSource]}</span>
           <span className="text-zinc-600">·</span>
           <span className="flex items-center gap-1">
-            <span className="inline-block h-2 w-3 rounded bg-emerald-500" /> Trazo
+            <span className="inline-block h-2 w-3 rounded bg-status-ok" /> Trazo
           </span>
           <span className="flex items-center gap-1">
-            <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500 border border-white" />
+            <span className="inline-block h-2.5 w-2.5 rounded-full bg-status-ok border border-white" />
             Marcado
           </span>
           <span className="flex items-center gap-1">
-            <span className="inline-block h-2.5 w-2.5 rounded-full bg-amber-500 border border-white" />
+            <span className="inline-block h-2.5 w-2.5 rounded-full bg-status-warn border border-white" />
             Fuera GPS
           </span>
           <span className="flex items-center gap-1">
-            <span className="inline-block h-2.5 w-2.5 rounded-full bg-red-500 border border-white" />
+            <span className="inline-block h-2.5 w-2.5 rounded-full bg-status-danger border border-white" />
             No marcado
           </span>
         </div>

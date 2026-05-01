@@ -92,7 +92,7 @@ export default function PsychHistoryTable({
                 {canDelete ? (
                   <button
                     onClick={() => setDeletingId(r.id)}
-                    className="inline-flex items-center gap-1 text-xs rounded-md border border-red-500/30 bg-red-500/5 px-2 py-1.5 text-red-700 dark:text-red-400 hover:bg-red-500/10 min-h-[36px]"
+                    className="inline-flex items-center gap-1 text-xs rounded-md border border-status-danger-border bg-status-danger-soft px-2 py-1.5 text-status-danger-fg dark:text-status-danger-fg hover:bg-status-danger-soft min-h-[36px]"
                     aria-label="Eliminar"
                   >
                     <Trash2 className="size-3.5" />

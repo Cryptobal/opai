@@ -78,7 +78,7 @@ export function TicketsByInstallationMap({ rows, onSelect }: Props) {
                     <span className="font-semibold">{row.totalActive}</span> activos
                   </span>
                   {row.slaBreached > 0 && (
-                    <span className="text-red-500">
+                    <span className="text-status-danger-fg">
                       <span className="font-semibold">{row.slaBreached}</span> venc
                     </span>
                   )}

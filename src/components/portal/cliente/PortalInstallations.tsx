@@ -32,8 +32,8 @@ export function PortalInstallations({ session, onSelectInstallation, isProspect 
             onClick={() => onSelectInstallation?.(inst.id)}
             className="w-full flex items-center gap-3 p-4 bg-zinc-800/50 hover:bg-zinc-800 border border-zinc-700/50 rounded-xl transition-colors text-left"
           >
-            <div className="bg-blue-500/10 rounded-lg p-2.5 flex-shrink-0">
-              <Building2 className="h-5 w-5 text-blue-400" />
+            <div className="bg-status-info-soft rounded-lg p-2.5 flex-shrink-0">
+              <Building2 className="h-5 w-5 text-status-info-fg" />
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-white font-medium text-sm truncate">{inst.name}</p>

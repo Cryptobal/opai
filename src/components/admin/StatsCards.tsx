@@ -49,9 +49,9 @@ export function StatsCards({
   return (
     <div className="space-y-2">
       {/* Tooltip de ayuda */}
-      <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-blue-500/10 border border-blue-500/20">
-        <Info className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
-        <p className="text-xs sm:text-sm text-blue-300">
+      <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-status-info-soft border border-status-info-border">
+        <Info className="w-3.5 h-3.5 text-status-info-fg flex-shrink-0" />
+        <p className="text-xs sm:text-sm text-status-info-fg">
           <strong>Vistas:</strong> Cliente hizo click en "Ver Propuesta" y abrió la presentación | <strong>Sin Leer:</strong> Enviadas pero no vistas aún
         </p>
       </div>

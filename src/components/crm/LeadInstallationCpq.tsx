@@ -948,7 +948,7 @@ export function LeadInstallationCpq({
                       ufValue={ufValue}
                       size="xs"
                       inline
-                      primaryClassName="text-emerald-400 font-semibold"
+                      primaryClassName="text-status-ok-fg font-semibold"
                     />
                   </span>
                 )}
@@ -1009,7 +1009,7 @@ export function LeadInstallationCpq({
                           "h-6 gap-1 rounded-md px-1.5 text-xs font-semibold",
                           pos.shiftType === "night"
                             ? "border-violet-500/40 bg-violet-500/10 text-violet-300"
-                            : "border-amber-500/40 bg-amber-500/10 text-amber-300"
+                            : "border-status-warn-border bg-status-warn-soft text-status-warn-fg"
                         )}
                       >
                         {pos.shiftType === "night" ? <Moon className="h-2.5 w-2.5" /> : <Sun className="h-2.5 w-2.5" />}
@@ -1120,8 +1120,8 @@ export function LeadInstallationCpq({
                         className={cn(
                           "flex-1 h-8 rounded-md border text-xs font-semibold transition-colors",
                           pos.shiftType !== "night"
-                            ? "border-amber-500/50 bg-amber-500/10 text-amber-300"
-                            : "border-amber-500/20 bg-card text-amber-300/60 hover:bg-amber-500/5"
+                            ? "border-status-warn-border bg-status-warn-soft text-status-warn-fg"
+                            : "border-status-warn-border bg-card text-amber-300/60 hover:bg-status-warn-soft"
                         )}
                         onClick={() => {
                           const patch: Partial<LeadPositionItem> = { shiftType: "day", horaInicio: "08:00", horaFin: "20:00" };
@@ -1294,7 +1294,7 @@ export function LeadInstallationCpq({
                   ufValue={ufValue}
                   size="xs"
                   inline
-                  primaryClassName="text-amber-400 font-semibold"
+                  primaryClassName="text-status-warn-fg font-semibold"
                 />
               </span>
             )}
@@ -1338,15 +1338,15 @@ export function LeadInstallationCpq({
               displayCurrency={currency}
               ufValue={ufValue}
             />
-            <div className={cn(CPQ_BREAKDOWN_ROW, "pt-1 border-t border-amber-500/20 text-xs")}>
-              <span className="text-[11px] font-medium text-amber-300 break-words min-w-0">Total costos adicionales</span>
+            <div className={cn(CPQ_BREAKDOWN_ROW, "pt-1 border-t border-status-warn-border text-xs")}>
+              <span className="text-[11px] font-medium text-status-warn-fg break-words min-w-0">Total costos adicionales</span>
               <div className={cpqBreakdownAmount()}>
                 <CpqDualCurrencyAmount
                   clp={costTotals.total}
                   currency={currency}
                   ufValue={ufValue}
                   size="sm"
-                  primaryClassName="text-amber-300 font-bold"
+                  primaryClassName="text-status-warn-fg font-bold"
                 />
               </div>
             </div>
@@ -1792,7 +1792,7 @@ function CostCategoryBlock({
                             </span>
                           </span>
                           {item.type === "uniform" && (
-                            <span className={`px-1 py-0.5 rounded text-[9px] font-medium ${logic === "prorated" ? "bg-amber-500/15 text-amber-400" : "bg-sky-500/15 text-sky-400"}`}>
+                            <span className={`px-1 py-0.5 rounded text-[9px] font-medium ${logic === "prorated" ? "bg-status-warn-soft text-status-warn-fg" : "bg-status-info-soft text-status-info-fg"}`}>
                               {logic === "prorated" ? "prorrateo" : "rotación"}
                             </span>
                           )}

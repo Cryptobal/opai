@@ -69,22 +69,22 @@ const STATUS_CONFIG: Record<
   sent: {
     label: "Enviado",
     icon: Send,
-    className: "bg-blue-50 text-blue-600 border-blue-200",
+    className: "bg-blue-50 text-status-info-fg border-blue-200",
   },
   received: {
     label: "Recibido",
     icon: ArrowDownLeft,
-    className: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    className: "bg-emerald-50 text-status-ok-fg border-emerald-200",
   },
   delivered: {
     label: "Entregado",
     icon: CheckCircle2,
-    className: "bg-green-50 text-green-600 border-green-200",
+    className: "bg-green-50 text-status-ok-fg border-green-200",
   },
   opened: {
     label: "Abierto",
     icon: Eye,
-    className: "bg-emerald-50 text-emerald-600 border-emerald-200",
+    className: "bg-emerald-50 text-status-ok-fg border-emerald-200",
   },
   clicked: {
     label: "Clic",
@@ -94,12 +94,12 @@ const STATUS_CONFIG: Record<
   bounced: {
     label: "Rebotado",
     icon: AlertTriangle,
-    className: "bg-red-50 text-red-600 border-red-200",
+    className: "bg-red-50 text-status-danger-fg border-red-200",
   },
   complained: {
     label: "Spam",
     icon: AlertTriangle,
-    className: "bg-red-50 text-red-700 border-red-300",
+    className: "bg-red-50 text-status-danger-fg border-red-300",
   },
 };
 
@@ -382,9 +382,9 @@ export function EmailHistoryList({
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
                   {msg.direction === "out" ? (
-                    <Send className="h-4 w-4 text-blue-500 shrink-0" />
+                    <Send className="h-4 w-4 text-status-info-fg shrink-0" />
                   ) : (
-                    <ArrowDownLeft className="h-4 w-4 text-green-500 shrink-0" />
+                    <ArrowDownLeft className="h-4 w-4 text-status-ok-fg shrink-0" />
                   )}
                   <div className="min-w-0">
                     <p className="text-sm font-medium truncate">{msg.subject}</p>
@@ -399,7 +399,7 @@ export function EmailHistoryList({
                   {msg.source === "followup" && (
                     <Badge
                       variant="outline"
-                      className="text-[10px] border-amber-500/30 text-amber-500"
+                      className="text-[10px] border-status-warn-border text-status-warn-fg"
                     >
                       Automático
                     </Badge>

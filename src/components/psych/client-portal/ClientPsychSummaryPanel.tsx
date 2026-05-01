@@ -23,12 +23,12 @@ export default function ClientPsychSummaryPanel({ distribution }: Props) {
   }
 
   const rows: Array<{ label: string; count: number; cls: string }> = [
-    { label: "Apto", count: distribution.fit, cls: "bg-emerald-500" },
-    { label: "Con observaciones", count: distribution.caution, cls: "bg-amber-500" },
+    { label: "Apto", count: distribution.fit, cls: "bg-status-ok" },
+    { label: "Con observaciones", count: distribution.caution, cls: "bg-status-warn" },
     {
       label: "No recomendado",
       count: distribution.notRecommended,
-      cls: "bg-rose-500",
+      cls: "bg-status-danger",
     },
     { label: "Sin evaluación", count: distribution.none, cls: "bg-slate-400" },
   ];

@@ -130,7 +130,7 @@ function SortableBlock({
           <GripVertical className="h-4 w-4" />
         </button>
         <button
-          className="p-1 text-muted-foreground hover:text-red-400"
+          className="p-1 text-muted-foreground hover:text-status-danger-fg"
           onClick={(e) => {
             e.stopPropagation();
             onDelete();
@@ -582,7 +582,7 @@ function PropertyEditor({
                 <button
                   type="button"
                   onClick={() => removeItem(idx)}
-                  className="p-1 text-muted-foreground hover:text-red-400"
+                  className="p-1 text-muted-foreground hover:text-status-danger-fg"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
@@ -908,7 +908,7 @@ export default function TemplateEditorClient({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7 text-muted-foreground hover:text-red-400"
+                    className="h-7 w-7 text-muted-foreground hover:text-status-danger-fg"
                     onClick={() => deleteBlock(selectedBlock.id)}
                   >
                     <Trash2 className="h-3.5 w-3.5" />

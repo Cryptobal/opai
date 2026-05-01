@@ -5,9 +5,9 @@ import { cn } from "@/lib/utils";
 type DocStatus = "vigente" | "por_vencer" | "vencido" | "no_aplica" | "sin_documento";
 
 const STYLES: Record<DocStatus, string> = {
-  vigente: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
-  por_vencer: "bg-amber-500/15 text-amber-400 border-amber-500/30",
-  vencido: "bg-red-500/15 text-red-400 border-red-500/30",
+  vigente: "bg-status-ok-soft text-status-ok-fg border-status-ok-border",
+  por_vencer: "bg-status-warn-soft text-status-warn-fg border-status-warn-border",
+  vencido: "bg-status-danger-soft text-status-danger-fg border-status-danger-border",
   no_aplica: "bg-zinc-500/10 text-zinc-400 border-zinc-500/20",
   sin_documento: "bg-zinc-500/10 text-zinc-500 border-zinc-500/20",
 };

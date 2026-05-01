@@ -91,7 +91,7 @@ export function ConfigHomeClient({ sections, isAdmin }: ConfigHomeClientProps) {
                     <p className="text-sm font-medium leading-tight flex items-center gap-2">
                       {item.title}
                       {item.adminOnly && (
-                        <span className="text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-500">Admin</span>
+                        <span className="text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-status-warn-soft text-status-warn-fg">Admin</span>
                       )}
                     </p>
                     <p className="text-xs text-muted-foreground mt-0.5 truncate">{item.description}</p>
@@ -151,7 +151,7 @@ export function ConfigHomeClient({ sections, isAdmin }: ConfigHomeClientProps) {
           <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70 px-1">Portales Externos</h2>
           <div className="rounded-xl border border-border bg-card overflow-hidden">
             <Link href="/portal/guardia" target="_blank" className="flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-accent/30 active:bg-accent/50 group">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-500">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-status-ok-soft text-status-ok-fg">
                 <Shield className="h-[18px] w-[18px]" />
               </div>
               <div className="flex-1 min-w-0">

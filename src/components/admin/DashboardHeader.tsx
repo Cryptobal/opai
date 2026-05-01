@@ -132,7 +132,7 @@ export function DashboardHeader({ presentations, userRole }: DashboardHeaderProp
               >
                 <Bell className="w-5 h-5" />
                 {notifications.length > 0 && (
-                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-foreground text-xs font-bold flex items-center justify-center">
+                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-status-danger rounded-full text-foreground text-xs font-bold flex items-center justify-center">
                     {notifications.length}
                   </span>
                 )}
@@ -196,7 +196,7 @@ export function DashboardHeader({ presentations, userRole }: DashboardHeaderProp
                 return (
                   <div
                     key={presentation.id}
-                    className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 transition-all"
+                    className="p-3 rounded-lg bg-status-danger-soft border border-status-danger-border hover:bg-status-danger-soft transition-all"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
@@ -206,7 +206,7 @@ export function DashboardHeader({ presentations, userRole }: DashboardHeaderProp
                         <p className="text-xs text-foreground/70 mt-1">
                           Enviado hace <strong>{daysAgo} días</strong>
                         </p>
-                        <p className="text-xs text-red-400 mt-1">
+                        <p className="text-xs text-status-danger-fg mt-1">
                           ⚠️ Sin vistas aún
                         </p>
                       </div>
@@ -214,7 +214,7 @@ export function DashboardHeader({ presentations, userRole }: DashboardHeaderProp
                         href={`/p/${presentation.uniqueId}?preview=true`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="px-2 py-1 rounded-md bg-blue-500/20 text-blue-300 text-xs font-medium hover:bg-blue-500/30 transition-colors flex-shrink-0"
+                        className="px-2 py-1 rounded-md bg-status-info-soft text-status-info-fg text-xs font-medium hover:bg-blue-500/30 transition-colors flex-shrink-0"
                       >
                         Ver
                       </a>
@@ -264,14 +264,14 @@ export function DashboardHeader({ presentations, userRole }: DashboardHeaderProp
                       <FileText className="w-6 h-6 text-foreground" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-lg font-bold text-foreground mb-1 group-hover:text-blue-400 transition-colors">
+                      <h3 className="text-lg font-bold text-foreground mb-1 group-hover:text-status-info-fg transition-colors">
                         {template.name}
                       </h3>
                       <p className="text-sm text-foreground/60">
                         {template.description}
                       </p>
                     </div>
-                    <Sparkles className="w-5 h-5 text-foreground/40 group-hover:text-blue-400 transition-colors flex-shrink-0" />
+                    <Sparkles className="w-5 h-5 text-foreground/40 group-hover:text-status-info-fg transition-colors flex-shrink-0" />
                   </div>
                 </a>
               ))}

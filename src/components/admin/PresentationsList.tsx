@@ -64,14 +64,14 @@ interface PresentationsListProps {
    Avatar — color determinístico por nombre
    ──────────────────────────────────────────────────────────────── */
 const AVATAR_COLORS = [
-  'bg-blue-500/20 text-blue-400',
-  'bg-emerald-500/20 text-emerald-400',
+  'bg-status-info-soft text-status-info-fg',
+  'bg-status-ok-soft text-status-ok-fg',
   'bg-purple-500/20 text-purple-400',
-  'bg-amber-500/20 text-amber-400',
-  'bg-cyan-500/20 text-cyan-400',
-  'bg-rose-500/20 text-rose-400',
-  'bg-indigo-500/20 text-indigo-400',
-  'bg-teal-500/20 text-teal-400',
+  'bg-status-warn-soft text-status-warn-fg',
+  'bg-cyan-500/20 text-status-info-fg',
+  'bg-rose-500/20 text-status-danger-fg',
+  'bg-indigo-500/20 text-status-info-fg',
+  'bg-teal-500/20 text-status-info-fg',
 ];
 
 function getAvatarColor(name: string) {
@@ -255,8 +255,8 @@ export function PresentationsList({ presentations: initialPresentations, initial
   return (
     <div className="space-y-3">
       {/* ── Aviso de deprecación ── */}
-      <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3">
-        <p className="text-xs text-amber-400">
+      <div className="rounded-md border border-status-warn-border bg-status-warn-soft p-3">
+        <p className="text-xs text-status-warn-fg">
           ⚠️ Las presentaciones públicas /p/* están en deprecación. El cliente accede vía Portal del Cliente.
           Esta vista se mantiene solo para analytics históricos.
         </p>
@@ -454,7 +454,7 @@ function PresentationRow({
         </span>
         <span className="flex items-center justify-center gap-1 text-xs">
           <Eye className="h-3 w-3 text-muted-foreground/60" />
-          <span className={`font-semibold font-mono ${presentation.viewCount > 0 ? 'text-emerald-400' : 'text-muted-foreground/50'}`}>
+          <span className={`font-semibold font-mono ${presentation.viewCount > 0 ? 'text-status-ok-fg' : 'text-muted-foreground/50'}`}>
             {presentation.viewCount}
           </span>
         </span>
@@ -522,20 +522,20 @@ function PresentationRow({
         >
           <button
             onClick={() => { onWhatsApp(presentation.uniqueId, clientData); setShowMobileActions(false); }}
-            className="w-14 flex items-center justify-center bg-emerald-600 text-white"
+            className="w-14 flex items-center justify-center bg-status-ok text-white"
           >
             <MessageCircle className="h-4 w-4" />
           </button>
           <button
             onClick={() => { onCopy(presentation.uniqueId); setShowMobileActions(false); }}
-            className="w-14 flex items-center justify-center bg-blue-600 text-white"
+            className="w-14 flex items-center justify-center bg-status-info text-white"
           >
             <Copy className="h-4 w-4" />
           </button>
           {canDelete && (
             <button
               onClick={() => { onDelete(presentation.id, companyName); setShowMobileActions(false); }}
-              className="w-14 flex items-center justify-center bg-red-600 text-white"
+              className="w-14 flex items-center justify-center bg-status-danger text-white"
             >
               <Trash2 className="h-4 w-4" />
             </button>
@@ -639,7 +639,7 @@ function PresentationRow({
                 href={`/p/${presentation.uniqueId}?preview=true`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex h-8 items-center gap-1.5 rounded-md bg-blue-500/15 hover:bg-blue-500/25 text-blue-400 px-3 text-xs font-medium transition-colors"
+                className="inline-flex h-8 items-center gap-1.5 rounded-md bg-status-info-soft hover:bg-blue-500/25 text-status-info-fg px-3 text-xs font-medium transition-colors"
               >
                 <ExternalLink className="w-3.5 h-3.5" />
                 Ver
@@ -653,7 +653,7 @@ function PresentationRow({
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); onWhatsApp(presentation.uniqueId, clientData); }}
-                className="inline-flex h-8 items-center gap-1.5 rounded-md bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 px-3 text-xs font-medium transition-colors"
+                className="inline-flex h-8 items-center gap-1.5 rounded-md bg-status-ok-soft hover:bg-status-ok-soft text-status-ok-fg px-3 text-xs font-medium transition-colors"
               >
                 <MessageCircle className="w-3.5 h-3.5" />
                 WhatsApp
@@ -663,7 +663,7 @@ function PresentationRow({
                   href={dealUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex h-8 items-center gap-1.5 rounded-md bg-orange-500/15 hover:bg-orange-500/25 text-orange-400 px-3 text-xs font-medium transition-colors"
+                  className="inline-flex h-8 items-center gap-1.5 rounded-md bg-orange-500/15 hover:bg-orange-500/25 text-status-warn-fg px-3 text-xs font-medium transition-colors"
                 >
                   <Building2 className="w-3.5 h-3.5" />
                   CRM

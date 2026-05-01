@@ -60,8 +60,8 @@ export function PlatformAwareBottomNav<TId extends string = string>({
               className={cn(
                 "flex-1 flex flex-col items-center justify-center py-2 rounded-full transition-all",
                 isActive && "opai-liquid-glass-nav-item-active",
-                tab.variant === "danger" && "text-red-300",
-                tab.variant === "warning" && "text-amber-300",
+                tab.variant === "danger" && "text-status-danger-fg",
+                tab.variant === "warning" && "text-status-warn-fg",
               )}
               aria-label={tab.label}
               aria-current={isActive ? "page" : undefined}
@@ -72,12 +72,12 @@ export function PlatformAwareBottomNav<TId extends string = string>({
                   strokeWidth={isActive ? 2.5 : 2}
                   className={cn(
                     isActive ? "text-white opai-icon-bounce" : "text-white/60",
-                    tab.variant === "danger" && !isActive && "text-red-400",
-                    tab.variant === "warning" && !isActive && "text-amber-400",
+                    tab.variant === "danger" && !isActive && "text-status-danger-fg",
+                    tab.variant === "warning" && !isActive && "text-status-warn-fg",
                   )}
                 />
                 {showBadge && (
-                  <span className="absolute -top-1.5 -right-2 min-w-[16px] h-4 flex items-center justify-center rounded-full bg-orange-500 text-white text-[9px] font-bold px-1 leading-none">
+                  <span className="absolute -top-1.5 -right-2 min-w-[16px] h-4 flex items-center justify-center rounded-full bg-status-warn text-white text-[9px] font-bold px-1 leading-none">
                     {tab.badge! > 9 ? "9+" : tab.badge}
                   </span>
                 )}
@@ -122,8 +122,8 @@ export function PlatformAwareBottomNav<TId extends string = string>({
               className={cn(
                 "relative px-5 py-1 rounded-full flex items-center justify-center transition-all",
                 isActive && "opai-m3e-pill opai-pill-indicator",
-                tab.variant === "danger" && isActive && "!bg-red-500",
-                tab.variant === "warning" && isActive && "!bg-amber-500",
+                tab.variant === "danger" && isActive && "!bg-status-danger",
+                tab.variant === "warning" && isActive && "!bg-status-warn",
               )}
             >
               <Icon
@@ -131,12 +131,12 @@ export function PlatformAwareBottomNav<TId extends string = string>({
                 strokeWidth={isActive ? 2.5 : 2}
                 className={cn(
                   isActive ? "text-white opai-icon-bounce" : "text-white/60",
-                  tab.variant === "danger" && !isActive && "text-red-400",
-                  tab.variant === "warning" && !isActive && "text-amber-400",
+                  tab.variant === "danger" && !isActive && "text-status-danger-fg",
+                  tab.variant === "warning" && !isActive && "text-status-warn-fg",
                 )}
               />
               {showBadge && (
-                <span className="absolute -top-1 right-1 min-w-[16px] h-4 flex items-center justify-center rounded-full bg-orange-500 text-white text-[9px] font-bold px-1 leading-none">
+                <span className="absolute -top-1 right-1 min-w-[16px] h-4 flex items-center justify-center rounded-full bg-status-warn text-white text-[9px] font-bold px-1 leading-none">
                   {tab.badge! > 9 ? "9+" : tab.badge}
                 </span>
               )}

@@ -155,7 +155,7 @@ export default async function PublicPresentationPage({ params, searchParams }: P
     <div className="relative">
       {/* Banner de Admin Preview */}
       {isAdminPreview && (
-        <div className="fixed top-0 left-0 right-0 z-50 bg-yellow-500 text-black py-2 px-4 text-center font-semibold text-sm shadow-lg">
+        <div className="fixed top-0 left-0 right-0 z-50 bg-status-warn text-black py-2 px-4 text-center font-semibold text-sm shadow-lg">
           <div className="max-w-6xl mx-auto flex items-center justify-center gap-2">
             <span>👁️ VISTA PREVIA DE ADMINISTRADOR</span>
             <span className="text-xs opacity-75">• Esta vista no se contabiliza</span>
@@ -165,7 +165,7 @@ export default async function PublicPresentationPage({ params, searchParams }: P
 
       {/* Banner de deprecación */}
       {showDeprecationBanner && (
-        <div className="fixed top-0 left-0 right-0 z-50 bg-amber-500 text-black py-2 px-4 text-center font-semibold text-sm shadow-lg">
+        <div className="fixed top-0 left-0 right-0 z-50 bg-status-warn text-black py-2 px-4 text-center font-semibold text-sm shadow-lg">
           <div className="max-w-6xl mx-auto flex items-center justify-center gap-2">
             <span>⚠️ Página obsoleta — el cliente debe acceder vía Portal del Cliente</span>
           </div>

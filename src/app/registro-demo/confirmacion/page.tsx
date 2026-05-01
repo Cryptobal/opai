@@ -67,8 +67,8 @@ export default function ConfirmacionPage() {
       <main className="flex-1 flex items-center justify-center px-4 py-12">
         <div className="w-full max-w-lg text-center">
           {/* Success icon */}
-          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-teal-500/10 ring-1 ring-teal-500/20">
-            <svg className="h-8 w-8 text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-status-info-soft ring-1 ring-teal-500/20">
+            <svg className="h-8 w-8 text-status-info-fg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
@@ -87,7 +87,7 @@ export default function ConfirmacionPage() {
           {/* CTA */}
           <Link
             href="/portal/cliente"
-            className="inline-flex items-center gap-2 rounded-lg bg-teal-600 px-8 py-3 text-sm font-semibold text-white transition-all hover:bg-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/50"
+            className="inline-flex items-center gap-2 rounded-lg bg-status-info px-8 py-3 text-sm font-semibold text-white transition-all hover:bg-status-info focus:outline-none focus:ring-2 focus:ring-teal-500/50"
           >
             Ir al portal
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -106,7 +106,7 @@ export default function ConfirmacionPage() {
                   key={f.title}
                   className="flex items-start gap-3 rounded-lg border border-white/5 bg-[#0a1628] p-4 text-left"
                 >
-                  <div className="flex-shrink-0 text-teal-400 mt-0.5">{f.icon}</div>
+                  <div className="flex-shrink-0 text-status-info-fg mt-0.5">{f.icon}</div>
                   <div>
                     <p className="text-sm font-medium text-white">{f.title}</p>
                     <p className="text-xs text-slate-500 leading-relaxed">{f.desc}</p>

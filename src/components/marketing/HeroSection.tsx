@@ -129,7 +129,7 @@ export default function HeroSection() {
               <div className="bg-[#141E30] border border-[#00D4AA]/20 rounded-lg p-3 shadow-xl shadow-black/40 w-52">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-                  <span className="text-xs font-semibold text-amber-400">Alerta cobertura</span>
+                  <span className="text-xs font-semibold text-status-warn-fg">Alerta cobertura</span>
                 </div>
                 <p className="text-xs text-[#94A3B8]">
                   Puesto #4 sin guardia. WhatsApp enviado a 3 reemplazos disponibles.

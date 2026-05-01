@@ -82,7 +82,7 @@ export function ResolveFindingModal({ visitId, finding, onClose, onResolved }: P
       <div className="w-full max-w-md rounded-t-2xl bg-background p-4 sm:rounded-2xl">
         <div className="mb-3 flex items-center justify-between">
           <h3 className="flex items-center gap-2 text-base font-semibold">
-            <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+            <CheckCircle2 className="h-4 w-4 text-status-ok-fg" />
             Cerrar hallazgo
           </h3>
           <button

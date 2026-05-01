@@ -64,7 +64,7 @@ export function ProtocolAddSection({
         <Button
           variant="outline"
           size="sm"
-          className="border-dashed text-emerald-400 hover:text-emerald-300"
+          className="border-dashed text-status-ok-fg hover:text-status-ok-fg"
           onClick={() => onSetMode("ai")}
         >
           <Sparkles className="h-3.5 w-3.5 mr-1.5" />
@@ -125,11 +125,11 @@ export function ProtocolAddSection({
 
   // IA
   return (
-    <Card className="border-dashed border-emerald-500/30 bg-emerald-500/[0.04]">
+    <Card className="border-dashed border-status-ok-border bg-emerald-500/[0.04]">
       <CardContent className="p-3 space-y-2">
         {aiSectionGenerating ? (
           <div className="flex items-center justify-center gap-2 py-4 text-xs text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin text-emerald-400" />
+            <Loader2 className="h-4 w-4 animate-spin text-status-ok-fg" />
             Generando sección...
           </div>
         ) : aiSectionResult ? (

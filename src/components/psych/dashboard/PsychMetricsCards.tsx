@@ -8,9 +8,9 @@ interface Metric {
 
 const TONE_CLASSES: Record<NonNullable<Metric["tone"]>, string> = {
   default: "bg-card text-foreground",
-  ok: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
-  warn: "bg-amber-500/10 text-amber-700 dark:text-amber-400",
-  bad: "bg-red-500/10 text-red-700 dark:text-red-400",
+  ok: "bg-status-ok-soft text-status-ok-fg dark:text-status-ok-fg",
+  warn: "bg-status-warn-soft text-status-warn-fg dark:text-status-warn-fg",
+  bad: "bg-status-danger-soft text-status-danger-fg dark:text-status-danger-fg",
 };
 
 export default function PsychMetricsCards({

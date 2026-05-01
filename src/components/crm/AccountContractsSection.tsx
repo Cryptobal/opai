@@ -428,7 +428,7 @@ export function AccountContractsSection({
       },
       cancelled: {
         label: "Firma cancelada",
-        color: "bg-red-100 text-red-700",
+        color: "bg-red-100 text-status-danger-fg",
       },
     };
     return map[signatureStatus] ?? null;
@@ -447,7 +447,7 @@ export function AccountContractsSection({
     if (days === null) return null;
     if (days < 0) {
       return (
-        <span className="inline-flex items-center gap-1 text-xs font-medium text-red-700">
+        <span className="inline-flex items-center gap-1 text-xs font-medium text-status-danger-fg">
           <XCircle className="h-3 w-3" />
           Vencido el {formatDate(c.expirationDate)}
         </span>
@@ -588,7 +588,7 @@ export function AccountContractsSection({
                     {c.portalVisible && (
                       <Badge
                         variant="outline"
-                        className="text-[10px] px-1.5 py-0 bg-emerald-50 text-emerald-700"
+                        className="text-[10px] px-1.5 py-0 bg-emerald-50 text-status-ok-fg"
                       >
                         <Globe className="h-2.5 w-2.5 mr-0.5" />
                         Portal
@@ -681,7 +681,7 @@ export function AccountContractsSection({
                     variant="ghost"
                     size="sm"
                     className={`h-7 w-7 p-0 ${
-                      c.portalVisible ? "text-emerald-600" : ""
+                      c.portalVisible ? "text-status-ok-fg" : ""
                     }`}
                     title={
                       c.portalVisible ? "Quitar del portal" : "Compartir en portal"

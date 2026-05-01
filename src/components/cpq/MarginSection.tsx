@@ -24,9 +24,9 @@ const MARGIN_MODES: { value: MarginMode; label: string }[] = [
 ];
 
 function marginColor(pct: number) {
-  if (pct >= 15) return { border: "border-emerald-500", text: "text-emerald-500", ring: "focus:ring-emerald-500/30" };
-  if (pct >= 10) return { border: "border-amber-500", text: "text-amber-500", ring: "focus:ring-amber-500/30" };
-  return { border: "border-red-500", text: "text-red-500", ring: "focus:ring-red-500/30" };
+  if (pct >= 15) return { border: "border-status-ok-border", text: "text-status-ok-fg", ring: "focus:ring-emerald-500/30" };
+  if (pct >= 10) return { border: "border-status-warn-border", text: "text-status-warn-fg", ring: "focus:ring-amber-500/30" };
+  return { border: "border-status-danger-border", text: "text-status-danger-fg", ring: "focus:ring-red-500/30" };
 }
 
 export default function MarginSection({
@@ -72,7 +72,7 @@ export default function MarginSection({
               className={cn(
                 "h-6 rounded-md border px-2 text-xs font-semibold transition-colors",
                 marginMode === m.value
-                  ? "border-emerald-500 bg-emerald-500 text-emerald-950"
+                  ? "border-status-ok-border bg-status-ok text-emerald-950"
                   : "border-border bg-muted/40 text-muted-foreground hover:bg-muted",
                 "disabled:pointer-events-none disabled:opacity-50",
               )}
@@ -98,7 +98,7 @@ export default function MarginSection({
             className={cn(
               "h-7 min-w-[40px] rounded-md border px-1.5 text-xs font-bold transition-colors",
               sliderValue === p
-                ? "border-emerald-500 bg-emerald-500/15 text-emerald-400"
+                ? "border-status-ok-border bg-status-ok-soft text-status-ok-fg"
                 : "border-border bg-muted/40 text-muted-foreground hover:bg-muted",
               "disabled:pointer-events-none disabled:opacity-50",
             )}
@@ -158,7 +158,7 @@ export default function MarginSection({
 
       {/* Margin amount */}
       <div className="mt-1.5 text-right">
-        <span className="text-xs text-emerald-500 font-semibold">
+        <span className="text-xs text-status-ok-fg font-semibold">
           = {formatCurrency(marginAmount)} margen mensual
         </span>
       </div>

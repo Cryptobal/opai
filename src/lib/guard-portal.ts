@@ -161,21 +161,21 @@ export const PORTAL_BOTTOM_NAV: PortalSection[] = [
 // ═══════════════════════════════════════════════════════════════
 
 export const SHIFT_CODE_LABELS: Record<string, { label: string; color: string }> = {
-  T: { label: "Trabajo", color: "bg-blue-500" },
+  T: { label: "Trabajo", color: "bg-status-info" },
   "-": { label: "Descanso", color: "bg-gray-300 dark:bg-gray-600" },
-  V: { label: "Vacaciones", color: "bg-emerald-500" },
-  L: { label: "Licencia", color: "bg-amber-500" },
+  V: { label: "Vacaciones", color: "bg-status-ok" },
+  L: { label: "Licencia", color: "bg-status-warn" },
   P: { label: "Permiso", color: "bg-purple-500" },
   F: { label: "Feriado", color: "bg-pink-400" },
 };
 
 export const ATTENDANCE_STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  present: { label: "Presente", color: "text-emerald-600" },
-  absent: { label: "Ausente", color: "text-red-500" },
-  late: { label: "Atraso", color: "text-amber-500" },
+  present: { label: "Presente", color: "text-status-ok-fg" },
+  absent: { label: "Ausente", color: "text-status-danger-fg" },
+  late: { label: "Atraso", color: "text-status-warn-fg" },
   rest: { label: "Descanso", color: "text-gray-400" },
-  vacation: { label: "Vacaciones", color: "text-emerald-500" },
-  license: { label: "Licencia", color: "text-amber-600" },
+  vacation: { label: "Vacaciones", color: "text-status-ok-fg" },
+  license: { label: "Licencia", color: "text-status-warn-fg" },
   permission: { label: "Permiso", color: "text-purple-500" },
 };
 

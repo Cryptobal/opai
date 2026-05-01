@@ -61,7 +61,7 @@ export function PortalProtocolosLista({ selectedInstallation }: Props) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16">
-        <Loader2 className="h-6 w-6 animate-spin text-teal-400" />
+        <Loader2 className="h-6 w-6 animate-spin text-status-info-fg" />
       </div>
     );
   }
@@ -106,7 +106,7 @@ export function PortalProtocolosLista({ selectedInstallation }: Props) {
               ) : (
                 <ChevronRight className="h-4 w-4 text-zinc-400 shrink-0" />
               )}
-              <BookOpen className="h-4 w-4 text-teal-400 shrink-0" />
+              <BookOpen className="h-4 w-4 text-status-info-fg shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium truncate">{protocol.title}</p>
                 <div className="flex items-center gap-2 mt-0.5">
@@ -123,14 +123,14 @@ export function PortalProtocolosLista({ selectedInstallation }: Props) {
                     className={cn(
                       "inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium border",
                       protocol.status === "active"
-                        ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
+                        ? "text-status-ok-fg bg-status-ok-soft border-status-ok-border"
                         : "text-zinc-400 bg-zinc-500/10 border-zinc-500/20",
                     )}
                   >
                     {protocol.status === "active" ? "Vigente" : "Borrador"}
                   </span>
                   {signedDisplay && (
-                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium border text-emerald-400 bg-emerald-500/10 border-emerald-500/20">
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium border text-status-ok-fg bg-status-ok-soft border-status-ok-border">
                       ✓ Firmado
                     </span>
                   )}
@@ -148,7 +148,7 @@ export function PortalProtocolosLista({ selectedInstallation }: Props) {
                     <ul className="space-y-1.5">
                       {section.items.map((item, iIdx) => (
                         <li key={iIdx} className="flex items-start gap-2 text-sm text-zinc-400">
-                          <CheckCircle2 className="h-3.5 w-3.5 text-teal-500 mt-0.5 shrink-0" />
+                          <CheckCircle2 className="h-3.5 w-3.5 text-status-info-fg mt-0.5 shrink-0" />
                           {item}
                         </li>
                       ))}
@@ -157,14 +157,14 @@ export function PortalProtocolosLista({ selectedInstallation }: Props) {
                 ))}
 
                 {signedDisplay && (
-                  <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2">
-                    <p className="text-xs text-emerald-300">
+                  <div className="rounded-lg border border-status-ok-border bg-status-ok-soft px-3 py-2">
+                    <p className="text-xs text-status-ok-fg">
                       ✓ Firmado
                       {acceptance?.firmanteNombre ? ` por ${acceptance.firmanteNombre}` : ""} el{" "}
                       {new Date(signedDisplay).toLocaleDateString("es-CL")}
                     </p>
                     {protocol.requiresSignature && !localSignedAt && (
-                      <p className="text-xs text-amber-400 mt-1">
+                      <p className="text-xs text-status-warn-fg mt-1">
                         Nueva versión disponible — firma requerida.
                       </p>
                     )}
@@ -174,7 +174,7 @@ export function PortalProtocolosLista({ selectedInstallation }: Props) {
                 {needsSign && (
                   <button
                     onClick={() => setSigningId(protocol.id)}
-                    className="w-full mt-3 h-10 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-sm font-semibold flex items-center justify-center gap-2"
+                    className="w-full mt-3 h-10 rounded-lg bg-status-info hover:bg-status-info text-white text-sm font-semibold flex items-center justify-center gap-2"
                   >
                     <FileCheck2 className="w-4 h-4" />
                     {acceptance ? "Firmar nueva versión" : "Aceptar y firmar protocolo"}

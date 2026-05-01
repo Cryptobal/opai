@@ -81,7 +81,7 @@ function linkifyLine(line: string) {
           href={href}
           target="_blank"
           rel="noreferrer noopener"
-          className="underline underline-offset-2 text-cyan-300 hover:text-cyan-200"
+          className="underline underline-offset-2 text-status-info-fg hover:text-cyan-200"
         >
           {text}
         </a>,
@@ -378,7 +378,7 @@ export function AiHelpChatWidget() {
           <div className="hidden md:flex fixed right-6 bottom-24 z-50 h-[68vh] max-h-[680px] w-[420px] flex-col rounded-2xl border border-cyan-500/20 bg-background/95 backdrop-blur shadow-2xl overflow-hidden">
             <div className="flex items-center justify-between border-b border-border/70 px-4 py-3 bg-gradient-to-r from-cyan-500/10 via-emerald-500/5 to-indigo-500/10">
               <div className="flex items-center gap-2 text-base font-semibold">
-                <Bot className="h-4 w-4 text-cyan-400" />
+                <Bot className="h-4 w-4 text-status-info-fg" />
                 Asistente IA
               </div>
               <button
@@ -481,7 +481,7 @@ export function AiHelpChatWidget() {
             <div className="md:hidden fixed inset-0 z-50 bg-background flex flex-col">
               <div className="flex items-center justify-between border-b border-border/70 px-4 py-3 bg-gradient-to-r from-cyan-500/10 via-emerald-500/5 to-indigo-500/10">
               <div className="flex items-center gap-2 text-base font-semibold">
-                  <Bot className="h-4 w-4 text-cyan-400" />
+                  <Bot className="h-4 w-4 text-status-info-fg" />
                 Asistente IA
               </div>
               <button

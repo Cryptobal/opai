@@ -27,12 +27,12 @@ export function ProtocolHeaderBar({
         {/* Estado / KPIs */}
         <div className="flex flex-wrap items-center gap-2 text-xs">
           {isPublished ? (
-            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-medium text-emerald-300">
+            <span className="inline-flex items-center gap-1 rounded-full border border-status-ok-border bg-status-ok-soft px-2 py-0.5 font-medium text-status-ok-fg">
               <CheckCircle2 className="h-3 w-3" />
               Publicado
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-medium text-amber-300">
+            <span className="inline-flex items-center gap-1 rounded-full border border-status-warn-border bg-status-warn-soft px-2 py-0.5 font-medium text-status-warn-fg">
               Borrador
             </span>
           )}

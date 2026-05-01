@@ -84,9 +84,9 @@ function buildActionText(note: ActivityNote, currentUserId: string): string {
 
 const NOTE_TYPE_ICONS: Record<string, { icon: typeof MessageSquare; color: string }> = {
   GENERAL: { icon: MessageSquareText, color: "text-muted-foreground" },
-  ALERT: { icon: AlertTriangle, color: "text-red-500" },
-  DECISION: { icon: CheckCircle2, color: "text-emerald-500" },
-  TASK: { icon: CheckSquare, color: "text-blue-500" },
+  ALERT: { icon: AlertTriangle, color: "text-status-danger-fg" },
+  DECISION: { icon: CheckCircle2, color: "text-status-ok-fg" },
+  TASK: { icon: CheckSquare, color: "text-status-info-fg" },
 };
 
 /* ─── Filter tabs ─── */
@@ -262,7 +262,7 @@ export function ActivityFeedClient({ currentUserId }: ActivityFeedClientProps) {
             className={cn(
               "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
               showUnreadOnly
-                ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                ? "bg-status-warn-soft text-status-warn-fg dark:text-status-warn-fg"
                 : "text-muted-foreground hover:bg-accent hover:text-foreground",
             )}
           >
@@ -385,7 +385,7 @@ export function ActivityFeedClient({ currentUserId }: ActivityFeedClientProps) {
                         </span>
                       )}
                       {note.isMentioned && (
-                        <span className="inline-flex items-center gap-0.5 text-amber-500">
+                        <span className="inline-flex items-center gap-0.5 text-status-warn-fg">
                           <AtSign className="h-3 w-3" />
                           Te mencionaron
                         </span>

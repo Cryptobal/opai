@@ -57,16 +57,16 @@ interface Props {
 }
 
 const TIPO_CONFIG: Record<string, { label: string; cls: string; icon: typeof AlertTriangle }> = {
-  panico: { label: "Pánico", cls: "bg-red-500/15 text-red-400", icon: Shield },
-  ronda_no_iniciada: { label: "No iniciada", cls: "bg-red-500/15 text-red-400", icon: Clock },
-  guardia_estatico: { label: "Guardia estático", cls: "bg-red-500/15 text-red-400", icon: Footprints },
-  velocidad_anomala: { label: "Velocidad anómala", cls: "bg-amber-500/15 text-amber-400", icon: Gauge },
-  bateria_baja: { label: "Batería baja", cls: "bg-amber-500/15 text-amber-400", icon: BatteryWarning },
-  bateria_estatica: { label: "Batería estática", cls: "bg-blue-500/15 text-blue-400", icon: Battery },
+  panico: { label: "Pánico", cls: "bg-status-danger-soft text-status-danger-fg", icon: Shield },
+  ronda_no_iniciada: { label: "No iniciada", cls: "bg-status-danger-soft text-status-danger-fg", icon: Clock },
+  guardia_estatico: { label: "Guardia estático", cls: "bg-status-danger-soft text-status-danger-fg", icon: Footprints },
+  velocidad_anomala: { label: "Velocidad anómala", cls: "bg-status-warn-soft text-status-warn-fg", icon: Gauge },
+  bateria_baja: { label: "Batería baja", cls: "bg-status-warn-soft text-status-warn-fg", icon: BatteryWarning },
+  bateria_estatica: { label: "Batería estática", cls: "bg-status-info-soft text-status-info-fg", icon: Battery },
   // Legacy types that may still exist in data:
-  incidente_guardia: { label: "Incidente", cls: "bg-amber-500/15 text-amber-400", icon: AlertTriangle },
-  ia_anomalia: { label: "IA", cls: "bg-blue-500/15 text-blue-400", icon: Zap },
-  ronda_no_realizada: { label: "No realizada", cls: "bg-orange-500/15 text-orange-400", icon: Clock },
+  incidente_guardia: { label: "Incidente", cls: "bg-status-warn-soft text-status-warn-fg", icon: AlertTriangle },
+  ia_anomalia: { label: "IA", cls: "bg-status-info-soft text-status-info-fg", icon: Zap },
+  ronda_no_realizada: { label: "No realizada", cls: "bg-orange-500/15 text-status-warn-fg", icon: Clock },
   checkpoint_omitido: { label: "CP omitido", cls: "bg-purple-500/15 text-purple-400", icon: Eye },
 };
 
@@ -81,9 +81,9 @@ const ALERT_TYPE_VISIBILITY: Array<{ tipo: string; label: string; defaultVisible
 ];
 
 const SEVERIDAD_CONFIG: Record<string, { label: string; cls: string }> = {
-  critical: { label: "Critica", cls: "bg-red-500/15 text-red-400" },
-  warning: { label: "Alerta", cls: "bg-amber-500/15 text-amber-400" },
-  info: { label: "Info", cls: "bg-blue-500/15 text-blue-400" },
+  critical: { label: "Critica", cls: "bg-status-danger-soft text-status-danger-fg" },
+  warning: { label: "Alerta", cls: "bg-status-warn-soft text-status-warn-fg" },
+  info: { label: "Info", cls: "bg-status-info-soft text-status-info-fg" },
 };
 
 const ACTION_LABELS: Record<string, string> = {
@@ -168,17 +168,17 @@ function AlertaRowItem({
           {sevConf.label}
         </span>
         {alerta.resuelta ? (
-          <span className="inline-flex items-center gap-1 text-emerald-400 text-xs shrink-0">
+          <span className="inline-flex items-center gap-1 text-status-ok-fg text-xs shrink-0">
             <CheckCircle2 className="h-3.5 w-3.5" />
             Resuelta
           </span>
         ) : alerta.isAcknowledged ? (
-          <span className="inline-flex items-center gap-1 text-blue-400 text-xs shrink-0">
+          <span className="inline-flex items-center gap-1 text-status-info-fg text-xs shrink-0">
             <Eye className="h-3.5 w-3.5" />
             Atendida
           </span>
         ) : (
-          <span className="inline-flex items-center gap-1 text-red-400 text-xs font-medium shrink-0">
+          <span className="inline-flex items-center gap-1 text-status-danger-fg text-xs font-medium shrink-0">
             <Clock className="h-3.5 w-3.5" />
             Pendiente
           </span>
@@ -195,9 +195,9 @@ function AlertaRowItem({
           <p className="text-sm text-foreground/90">{alerta.mensaje}</p>
 
           {alerta.resolutionNotes && (
-            <div className="rounded-md bg-emerald-950/20 border border-emerald-500/20 px-3 py-2">
+            <div className="rounded-md bg-emerald-950/20 border border-status-ok-border px-3 py-2">
               <p className="text-[10px] uppercase text-emerald-400/70 font-semibold mb-0.5">Notas de resolucion</p>
-              <p className="text-xs text-emerald-300">{alerta.resolutionNotes}</p>
+              <p className="text-xs text-status-ok-fg">{alerta.resolutionNotes}</p>
             </div>
           )}
 
@@ -248,7 +248,7 @@ function AlertaRowItem({
               <button
                 onClick={handleResolve}
                 disabled={resolving}
-                className="inline-flex items-center gap-1.5 rounded-md bg-emerald-500/15 px-3 py-1.5 text-xs font-medium text-emerald-400 hover:bg-emerald-500/25 transition-colors disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-md bg-status-ok-soft px-3 py-1.5 text-xs font-medium text-status-ok-fg hover:bg-status-ok-soft transition-colors disabled:opacity-50"
               >
                 {resolving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
                 Marcar como resuelta
@@ -389,10 +389,10 @@ export function RondasReportesAlertas({
                           className={cn(
                             "w-2 h-2 rounded-full shrink-0",
                             config.tipo === "panico" || config.tipo === "ronda_no_iniciada" || config.tipo === "guardia_estatico"
-                              ? "bg-red-500"
+                              ? "bg-status-danger"
                               : config.tipo === "bateria_estatica"
                                 ? "bg-zinc-500"
-                                : "bg-amber-500",
+                                : "bg-status-warn",
                           )}
                         />
                       )}

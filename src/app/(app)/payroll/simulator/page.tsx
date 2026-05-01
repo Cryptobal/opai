@@ -193,7 +193,7 @@ export default function PayrollSimulator() {
           {/* Sueldo Base */}
           <Card className="p-4 space-y-3">
             <div className="flex items-center gap-2">
-              <DollarSign className="h-4 w-4 text-emerald-400" />
+              <DollarSign className="h-4 w-4 text-status-ok-fg" />
               <h3 className="text-sm font-semibold">Remuneración</h3>
             </div>
 
@@ -221,7 +221,7 @@ export default function PayrollSimulator() {
                 Gratificación Legal 25%
               </label>
               {includeGrat && gratPreview > 0 && (
-                <span className="font-mono text-sm text-emerald-400">+{fmt(gratPreview)}</span>
+                <span className="font-mono text-sm text-status-ok-fg">+{fmt(gratPreview)}</span>
               )}
             </div>
 
@@ -263,7 +263,7 @@ export default function PayrollSimulator() {
           {/* Configuración previsional */}
           <Card className="p-4 space-y-3">
             <div className="flex items-center gap-2">
-              <Building2 className="h-4 w-4 text-blue-400" />
+              <Building2 className="h-4 w-4 text-status-info-fg" />
               <h3 className="text-sm font-semibold">Previsión</h3>
             </div>
 
@@ -405,7 +405,7 @@ export default function PayrollSimulator() {
           </Button>
 
           {error && (
-            <div className="rounded-md border border-destructive/20 bg-destructive/10 p-3 text-sm text-red-400">
+            <div className="rounded-md border border-destructive/20 bg-destructive/10 p-3 text-sm text-status-danger-fg">
               {error}
             </div>
           )}
@@ -433,26 +433,26 @@ export default function PayrollSimulator() {
               <Card className="divide-y divide-border">
                 {/* ── HABERES ── */}
                 <div className="p-4">
-                  <h4 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-emerald-400">
+                  <h4 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-status-ok-fg">
                     <User className="h-3.5 w-3.5" />
                     Haberes
                   </h4>
                   <div className="space-y-1.5 text-sm">
                     <Row label="Sueldo Base" value={fmt(result.haberes.base_salary)} />
                     {result.haberes.gratification > 0 && (
-                      <Row label="Gratificación 25%" value={`+${fmt(result.haberes.gratification)}`} valueClass="text-emerald-400" />
+                      <Row label="Gratificación 25%" value={`+${fmt(result.haberes.gratification)}`} valueClass="text-status-ok-fg" />
                     )}
                     {result.haberes.overtime_50 > 0 && (
-                      <Row label={`Horas Extra 50%`} value={`+${fmt(result.haberes.overtime_50)}`} valueClass="text-emerald-400" />
+                      <Row label={`Horas Extra 50%`} value={`+${fmt(result.haberes.overtime_50)}`} valueClass="text-status-ok-fg" />
                     )}
                     {result.haberes.overtime_100 > 0 && (
-                      <Row label="Horas Extra 100%" value={`+${fmt(result.haberes.overtime_100)}`} valueClass="text-emerald-400" />
+                      <Row label="Horas Extra 100%" value={`+${fmt(result.haberes.overtime_100)}`} valueClass="text-status-ok-fg" />
                     )}
                     {result.haberes.commissions > 0 && (
-                      <Row label="Comisiones" value={`+${fmt(result.haberes.commissions)}`} valueClass="text-emerald-400" />
+                      <Row label="Comisiones" value={`+${fmt(result.haberes.commissions)}`} valueClass="text-status-ok-fg" />
                     )}
                     {result.haberes.other_taxable > 0 && (
-                      <Row label="Bonos / Otros" value={`+${fmt(result.haberes.other_taxable)}`} valueClass="text-emerald-400" />
+                      <Row label="Bonos / Otros" value={`+${fmt(result.haberes.other_taxable)}`} valueClass="text-status-ok-fg" />
                     )}
                     <RowBold label="Total Imponible" value={fmt(result.haberes.total_taxable)} />
 
@@ -476,7 +476,7 @@ export default function PayrollSimulator() {
 
                 {/* ── DESCUENTOS LEGALES ── */}
                 <div className="p-4">
-                  <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-red-400">
+                  <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-status-danger-fg">
                     Descuentos Legales
                   </h4>
                   <div className="space-y-1.5 text-sm">
@@ -484,24 +484,24 @@ export default function PayrollSimulator() {
                       label={`AFP ${selectedAfp?.label?.split(" ")[1] || ""} (${fmtPct(result.deductions.afp.total_rate)})`}
                       sublabel={`10% + ${fmtPct(result.deductions.afp.commission_rate)} comisión`}
                       value={`-${fmt(result.deductions.afp.amount)}`}
-                      valueClass="text-red-400"
+                      valueClass="text-status-danger-fg"
                     />
                     <Row
                       label={`Salud ${healthSystem === "fonasa" ? "Fonasa" : "Isapre"} (${fmtPct(result.deductions.health.rate, 1)})`}
                       value={`-${fmt(result.deductions.health.amount)}`}
-                      valueClass="text-red-400"
+                      valueClass="text-status-danger-fg"
                     />
                     <Row
                       label={`AFC Trabajador (${fmtPct(result.deductions.afc.total_rate, 1)})`}
                       value={`-${fmt(result.deductions.afc.amount)}`}
-                      valueClass="text-red-400"
+                      valueClass="text-status-danger-fg"
                     />
                     {result.deductions.apv.amount > 0 && (
                       <Row
                         label="APV Régimen B"
                         sublabel="Rebaja base tributable"
                         value={`-${fmt(result.deductions.apv.amount)}`}
-                        valueClass="text-red-400"
+                        valueClass="text-status-danger-fg"
                       />
                     )}
                     <div className="pt-1">
@@ -509,25 +509,25 @@ export default function PayrollSimulator() {
                         label={`Impuesto Único (tramo ${result.deductions.tax.bracket_index + 1}, ${fmtPct(result.deductions.tax.factor, 1)})`}
                         sublabel={`Base tributable: ${fmt(result.deductions.tax.base_clp)}`}
                         value={result.deductions.tax.amount > 0 ? `-${fmt(result.deductions.tax.amount)}` : "$0"}
-                        valueClass={result.deductions.tax.amount > 0 ? "text-red-400" : "text-muted-foreground"}
+                        valueClass={result.deductions.tax.amount > 0 ? "text-status-danger-fg" : "text-muted-foreground"}
                       />
                     </div>
                     <RowBold
                       label="Total Descuentos"
                       value={`-${fmt(result.deductions.total_legal)}`}
-                      valueClass="text-red-400"
+                      valueClass="text-status-danger-fg"
                     />
                   </div>
                 </div>
 
                 {/* ── LÍQUIDO ── */}
                 {/* Intencional: resultado principal del simulador con estilo destacado, no usa KpiCard */}
-                <div className="bg-emerald-500/5 px-4 py-4">
+                <div className="bg-status-ok-soft px-4 py-4">
                   <div className="flex items-baseline justify-between">
-                    <span className="text-sm font-semibold uppercase tracking-wider text-emerald-400">
+                    <span className="text-sm font-semibold uppercase tracking-wider text-status-ok-fg">
                       Sueldo Líquido
                     </span>
-                    <span className="font-mono text-2xl font-bold text-emerald-400">
+                    <span className="font-mono text-2xl font-bold text-status-ok-fg">
                       {fmt(result.net_salary)}
                     </span>
                   </div>
@@ -535,7 +535,7 @@ export default function PayrollSimulator() {
 
                 {/* ── APORTES EMPLEADOR ── */}
                 <div className="p-4">
-                  <h4 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-blue-400">
+                  <h4 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-status-info-fg">
                     <Building2 className="h-3.5 w-3.5" />
                     Aportes Empleador
                   </h4>
@@ -543,29 +543,29 @@ export default function PayrollSimulator() {
                     <Row
                       label={`SIS (${fmtPct(result.employer_cost.sis.rate)})`}
                       value={`+${fmt(result.employer_cost.sis.amount)}`}
-                      valueClass="text-blue-400"
+                      valueClass="text-status-info-fg"
                     />
                     <Row
                       label={`AFC Empleador (${fmtPct(result.employer_cost.afc.total_rate, 1)})`}
                       sublabel={`CIC ${fmtPct(result.employer_cost.afc.cic_rate, 1)} + FCS ${fmtPct(result.employer_cost.afc.fcs_rate, 1)}`}
                       value={`+${fmt(result.employer_cost.afc.total_amount)}`}
-                      valueClass="text-blue-400"
+                      valueClass="text-status-info-fg"
                     />
                     <Row
                       label={`Mutual (${fmtPct(result.employer_cost.work_injury.total_rate)})`}
                       value={`+${fmt(result.employer_cost.work_injury.amount)}`}
-                      valueClass="text-blue-400"
+                      valueClass="text-status-info-fg"
                     />
                     <RowBold
                       label="Total Aportes"
                       value={`+${fmt(result.employer_cost.total)}`}
-                      valueClass="text-blue-400"
+                      valueClass="text-status-info-fg"
                     />
                   </div>
 
-                  <div className="mt-3 flex items-baseline justify-between rounded-md bg-blue-500/10 px-3 py-2">
-                    <span className="text-sm font-medium text-blue-400">Costo Total Empresa</span>
-                    <span className="font-mono text-lg font-bold text-blue-400">
+                  <div className="mt-3 flex items-baseline justify-between rounded-md bg-status-info-soft px-3 py-2">
+                    <span className="text-sm font-medium text-status-info-fg">Costo Total Empresa</span>
+                    <span className="font-mono text-lg font-bold text-status-info-fg">
                       {fmt(result.total_employer_cost)}
                     </span>
                   </div>

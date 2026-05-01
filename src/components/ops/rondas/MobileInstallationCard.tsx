@@ -54,18 +54,18 @@ interface MobileInstallationCardProps {
 
 function statusDot(status: string): string {
   switch (status) {
-    case "presente": case "reemplazo": return "bg-emerald-500";
+    case "presente": case "reemplazo": return "bg-status-ok";
     case "en_camino": return "bg-amber-400 animate-pulse";
-    case "no_viene": return "bg-red-500";
+    case "no_viene": return "bg-status-danger";
     default: return "bg-slate-500";
   }
 }
 
 function coberturaBarColor(status: string): string {
   switch (status) {
-    case "completa": return "bg-emerald-500";
+    case "completa": return "bg-status-ok";
     case "parcial": return "bg-amber-400";
-    case "descubierta": return "bg-red-500";
+    case "descubierta": return "bg-status-danger";
     default: return "bg-slate-600";
   }
 }
@@ -82,27 +82,27 @@ function getSlotVisual(slot: CNRonda, currentHour: number): {
   if (slot.status === "completada" && slot.autoPopulated) {
     const t = slot.trustScore ?? 0;
     return {
-      bg: t >= 80 ? "bg-emerald-500/10" : t >= 60 ? "bg-amber-500/8" : "bg-red-500/8",
-      color: t >= 80 ? "text-emerald-400" : t >= 60 ? "text-amber-400" : "text-red-400",
+      bg: t >= 80 ? "bg-status-ok-soft" : t >= 60 ? "bg-amber-500/8" : "bg-red-500/8",
+      color: t >= 80 ? "text-status-ok-fg" : t >= 60 ? "text-status-warn-fg" : "text-status-danger-fg",
       icon: "\u26A1",
       label: `${slot.horaMarcada}${t ? ` \u00B7 Trust ${t}` : ""}`,
     };
   }
   if (slot.status === "completada" && !slot.autoPopulated) {
-    return { bg: "bg-emerald-500/8", color: "text-emerald-300", icon: "\u270B", label: slot.horaMarcada || "OK" };
+    return { bg: "bg-emerald-500/8", color: "text-status-ok-fg", icon: "\u270B", label: slot.horaMarcada || "OK" };
   }
   if (slot.status === "omitida") {
-    return { bg: "bg-red-500/10", color: "text-red-400", icon: "\u2715", label: slot.notes || "Omitida" };
+    return { bg: "bg-status-danger-soft", color: "text-status-danger-fg", icon: "\u2715", label: slot.notes || "Omitida" };
   }
   if (slot.status === "no_aplica") {
     return { bg: "", color: "text-slate-600", icon: "\u2014", label: "N/A" };
   }
   // Pending
   if (isCurrent) {
-    return { bg: "bg-teal-500/8", color: "text-teal-400", icon: "\u25CF", label: "Esperando..." };
+    return { bg: "bg-teal-500/8", color: "text-status-info-fg", icon: "\u25CF", label: "Esperando..." };
   }
   if (isPast && slot.rondaExpected) {
-    return { bg: "bg-red-500/8", color: "text-red-400", icon: "\u26A0", label: "No realizada" };
+    return { bg: "bg-red-500/8", color: "text-status-danger-fg", icon: "\u26A0", label: "No realizada" };
   }
   if (isPast && !slot.rondaExpected) {
     return { bg: "", color: "text-slate-700", icon: "\u00B7", label: "" };
@@ -122,9 +122,9 @@ function GuardRow({ g }: { g: CNGuardia }) {
   return (
     <div className={cn(
       "flex items-center gap-2 px-3 py-1.5 rounded-lg",
-      isNoViene ? "bg-red-500/10" :
-      g.status === "presente" || g.status === "reemplazo" ? "bg-emerald-500/5" :
-      g.status === "en_camino" ? "bg-amber-500/5" : "bg-slate-800/50"
+      isNoViene ? "bg-status-danger-soft" :
+      g.status === "presente" || g.status === "reemplazo" ? "bg-status-ok-soft" :
+      g.status === "en_camino" ? "bg-status-warn-soft" : "bg-slate-800/50"
     )}>
       <div className={cn("w-2.5 h-2.5 rounded-full flex-shrink-0", statusDot(g.status))} />
       <span className={cn(
@@ -134,11 +134,11 @@ function GuardRow({ g }: { g: CNGuardia }) {
         {g.guardiaNombre}
       </span>
       {g.isExtra && (
-        <span className="text-[8px] text-amber-400 font-bold bg-amber-500/20 px-1 rounded flex-shrink-0">EXT</span>
+        <span className="text-[8px] text-status-warn-fg font-bold bg-status-warn-soft px-1 rounded flex-shrink-0">EXT</span>
       )}
       <span className="text-[10px] text-slate-500 font-mono flex-shrink-0">
         {isNoViene ? (
-          <span className="text-red-400 font-sans">
+          <span className="text-status-danger-fg font-sans">
             No viene{g.notes ? ` \u00B7 ${g.notes}` : ""}
           </span>
         ) : g.horaLlegada ? g.horaLlegada : "\u2014"}
@@ -154,9 +154,9 @@ function GuardRow({ g }: { g: CNGuardia }) {
 function guardSummaryColor(guardias: CNGuardia[]): string {
   if (guardias.length === 0) return "text-slate-600";
   const presentes = guardias.filter(g => g.status === "presente" || g.status === "reemplazo").length;
-  if (presentes >= guardias.length) return "text-emerald-400";
-  if (guardias.some(g => g.status === "no_viene")) return "text-red-400";
-  if (presentes > 0) return "text-amber-400";
+  if (presentes >= guardias.length) return "text-status-ok-fg";
+  if (guardias.some(g => g.status === "no_viene")) return "text-status-danger-fg";
+  if (presentes > 0) return "text-status-warn-fg";
   return "text-slate-500";
 }
 
@@ -191,7 +191,7 @@ export function MobileInstallationCard({
     <div className={cn(
       "rounded-xl border transition-all",
       isDescubierta
-        ? "bg-red-500/[0.06] border-red-500/30"
+        ? "bg-red-500/[0.06] border-status-danger-border"
         : "bg-slate-800/50 border-slate-700/50"
     )}>
       {/* ═══ COLLAPSED HEADER ═══ */}
@@ -238,11 +238,11 @@ export function MobileInstallationCard({
           <div className="flex items-center gap-3 mt-1 text-[10px]">
             <span className="text-slate-400">{completadas}/{expected || rondas.length} check-ins</span>
             {avgTrust != null && (
-              <span className={avgTrust >= 80 ? "text-emerald-400" : avgTrust >= 60 ? "text-amber-400" : "text-red-400"}>
+              <span className={avgTrust >= 80 ? "text-status-ok-fg" : avgTrust >= 60 ? "text-status-warn-fg" : "text-status-danger-fg"}>
                 Trust {avgTrust}
               </span>
             )}
-            {omitidas > 0 && <span className="text-red-400">{omitidas} omitidas</span>}
+            {omitidas > 0 && <span className="text-status-danger-fg">{omitidas} omitidas</span>}
           </div>
 
           {/* Note preview */}
@@ -254,7 +254,7 @@ export function MobileInstallationCard({
         {/* Right: badge + chevron */}
         <div className="flex flex-col items-end gap-1 flex-shrink-0">
           {isDescubierta && (
-            <span className="text-[8px] text-red-400 bg-red-500/20 px-1.5 py-0.5 rounded font-bold">DESC</span>
+            <span className="text-[8px] text-status-danger-fg bg-status-danger-soft px-1.5 py-0.5 rounded font-bold">DESC</span>
           )}
           <span className={cn("text-slate-500 text-xs transition-transform duration-200", expanded && "rotate-180")}>{"\u25BE"}</span>
         </div>
@@ -306,7 +306,7 @@ export function MobileInstallationCard({
                 {!isReadOnly && onGuardClick && (
                   <button
                     onClick={(e) => { e.stopPropagation(); onGuardClick(instalacion, "diurno"); }}
-                    className="text-[9px] text-teal-400 font-medium px-2 py-0.5 rounded-full border border-teal-500/30 bg-teal-500/10"
+                    className="text-[9px] text-status-info-fg font-medium px-2 py-0.5 rounded-full border border-status-info-border bg-status-info-soft"
                   >
                     + Asignar
                   </button>
@@ -330,7 +330,7 @@ export function MobileInstallationCard({
                     <span className="text-[11px] text-slate-500 font-mono w-12 flex-shrink-0">{r.horaEsperada}</span>
                     <span className={cn("text-xs", v.color)}>{v.icon}</span>
                     <span className={cn("text-xs flex-1", v.color)}>{v.label}</span>
-                    {r.notes && <span className="text-blue-400 text-[10px] flex-shrink-0">{"\uD83D\uDCAC"}</span>}
+                    {r.notes && <span className="text-status-info-fg text-[10px] flex-shrink-0">{"\uD83D\uDCAC"}</span>}
                   </div>
                 );
               })}
@@ -339,7 +339,7 @@ export function MobileInstallationCard({
 
           {/* ─── NOTAS ─── */}
           {instalacion.notes && (
-            <div className="bg-amber-500/5 border border-amber-500/20 rounded-lg px-3 py-2">
+            <div className="bg-status-warn-soft border border-status-warn-border rounded-lg px-3 py-2">
               <div className="text-[10px] text-amber-400/80">{instalacion.notes}</div>
             </div>
           )}

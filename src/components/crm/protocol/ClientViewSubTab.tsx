@@ -75,21 +75,21 @@ function formatDate(d: string | Date | null): string {
 }
 
 function complianceColor(pct: number): string {
-  if (pct >= 80) return "text-emerald-400";
-  if (pct >= 60) return "text-amber-400";
-  return "text-red-400";
+  if (pct >= 80) return "text-status-ok-fg";
+  if (pct >= 60) return "text-status-warn-fg";
+  return "text-status-danger-fg";
 }
 
 function complianceBg(pct: number): string {
-  if (pct >= 80) return "bg-emerald-500";
-  if (pct >= 60) return "bg-amber-500";
-  return "bg-red-500";
+  if (pct >= 80) return "bg-status-ok";
+  if (pct >= 60) return "bg-status-warn";
+  return "bg-status-danger";
 }
 
 function complianceTrack(pct: number): string {
-  if (pct >= 80) return "bg-emerald-500/20";
-  if (pct >= 60) return "bg-amber-500/20";
-  return "bg-red-500/20";
+  if (pct >= 80) return "bg-status-ok-soft";
+  if (pct >= 60) return "bg-status-warn-soft";
+  return "bg-status-danger-soft";
 }
 
 function ProgressBar({ value, className }: { value: number; className?: string }) {
@@ -108,8 +108,8 @@ function TrendIcon({ current, previous }: { current: number | null; previous: nu
   if (current == null || previous == null) {
     return <Minus className="h-4 w-4 text-muted-foreground" />;
   }
-  if (current > previous) return <TrendingUp className="h-4 w-4 text-emerald-400" />;
-  if (current < previous) return <TrendingDown className="h-4 w-4 text-red-400" />;
+  if (current > previous) return <TrendingUp className="h-4 w-4 text-status-ok-fg" />;
+  if (current < previous) return <TrendingDown className="h-4 w-4 text-status-danger-fg" />;
   return <Minus className="h-4 w-4 text-muted-foreground" />;
 }
 

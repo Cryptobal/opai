@@ -116,7 +116,7 @@ function ProfileIncompleteBadge({ missing }: { missing?: string[] }) {
     <span
       title={`Ficha incompleta — falta: ${list}`}
       onClick={(e) => e.stopPropagation()}
-      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-[10px] font-medium border border-amber-300/50 dark:border-amber-700/50 cursor-help"
+      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-status-warn-fg dark:text-status-warn-fg text-[10px] font-medium border border-amber-300/50 dark:border-amber-700/50 cursor-help"
     >
       <AlertCircle className="h-3 w-3" />
       Incompleta
@@ -174,9 +174,9 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
   };
 
   const LIFECYCLE_COLORS: Record<string, string> = {
-    postulante: "bg-blue-500/15 text-blue-400",
-    seleccionado: "bg-amber-500/15 text-amber-400",
-    contratado: "bg-cyan-500/15 text-cyan-400",
+    postulante: "bg-status-info-soft text-status-info-fg",
+    seleccionado: "bg-status-warn-soft text-status-warn-fg",
+    contratado: "bg-status-info-soft text-status-info-fg",
     te: "bg-violet-500/15 text-violet-400",
     inactivo: "bg-muted text-muted-foreground",
   };
@@ -669,7 +669,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                       }
                     }}
                   />
-                  {rutError ? <p className="text-xs text-red-400">{rutError}</p> : null}
+                  {rutError ? <p className="text-xs text-status-danger-fg">{rutError}</p> : null}
                 </div>
                 <Input
                   placeholder="Email *"
@@ -919,7 +919,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                 window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank", "noopener,noreferrer");
               }}
             >
-              <MessageCircle className="h-3.5 w-3.5 mr-2 text-emerald-500" />
+              <MessageCircle className="h-3.5 w-3.5 mr-2 text-status-ok-fg" />
               Enviar formulario Turno Extra (WhatsApp)
             </DropdownMenuItem>
             <DropdownMenuItem
@@ -936,7 +936,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                 }
               }}
             >
-              <MessageCircle className="h-3.5 w-3.5 mr-2 text-emerald-500" />
+              <MessageCircle className="h-3.5 w-3.5 mr-2 text-status-ok-fg" />
               Enviar formulario Postulación (WhatsApp)
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -1084,15 +1084,15 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                         )}
                         </div>
                         {pinDisplay(item) && (
-                          <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold tabular-nums bg-emerald-500/20 text-emerald-400">
+                          <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold tabular-nums bg-status-ok-soft text-status-ok-fg">
                             {pinDisplay(item)}
                           </span>
                         )}
                         <span
                           className={`shrink-0 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium ${
                             item.hasHistorialPenal
-                              ? "bg-emerald-500/15 text-emerald-400"
-                              : "bg-red-500/15 text-red-400"
+                              ? "bg-status-ok-soft text-status-ok-fg"
+                              : "bg-status-danger-soft text-status-danger-fg"
                           }`}
                           title={item.hasHistorialPenal ? "Antecedentes penales al día" : "Sin antecedentes penales"}
                         >
@@ -1107,7 +1107,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                         <div className="flex items-center gap-2 mt-1" onClick={(e) => e.stopPropagation()}>
                           <a
                             href={`tel:+56${phone}`}
-                            className="inline-flex items-center gap-1 text-xs text-sky-400 hover:text-sky-300 hover:underline"
+                            className="inline-flex items-center gap-1 text-xs text-status-info-fg hover:text-status-info-fg hover:underline"
                             onClick={(e) => e.stopPropagation()}
                           >
                             <Phone className="h-3 w-3" />
@@ -1254,15 +1254,15 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
                           {pinDisplay(item) && (
-                            <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold tabular-nums bg-emerald-500/20 text-emerald-400">
+                            <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold tabular-nums bg-status-ok-soft text-status-ok-fg">
                               {pinDisplay(item)}
                             </span>
                           )}
                           <span
                             className={`shrink-0 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium ${
                               item.hasHistorialPenal
-                                ? "bg-emerald-500/15 text-emerald-400"
-                                : "bg-red-500/15 text-red-400"
+                                ? "bg-status-ok-soft text-status-ok-fg"
+                                : "bg-status-danger-soft text-status-danger-fg"
                             }`}
                             title={item.hasHistorialPenal ? "Antecedentes penales al día" : "Sin antecedentes penales"}
                           >
@@ -1275,7 +1275,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                         <div className="flex items-center gap-2 mt-0.5" onClick={(e) => e.stopPropagation()}>
                           <a
                             href={`tel:+56${phone}`}
-                            className="inline-flex items-center gap-1 text-xs text-sky-400 hover:text-sky-300 hover:underline"
+                            className="inline-flex items-center gap-1 text-xs text-status-info-fg hover:text-status-info-fg hover:underline"
                             onClick={(e) => e.stopPropagation()}
                           >
                             <Phone className="h-3 w-3" />
@@ -1285,7 +1285,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                             href={`https://wa.me/56${phone}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 rounded-full bg-green-600/15 px-2 py-0.5 text-xs font-medium text-green-500 hover:bg-green-600/25 transition-colors"
+                            className="inline-flex items-center gap-1 rounded-full bg-green-600/15 px-2 py-0.5 text-xs font-medium text-status-ok-fg hover:bg-green-600/25 transition-colors"
                             onClick={(e) => e.stopPropagation()}
                           >
                             <svg className="h-3 w-3" viewBox="0 0 24 24" fill="currentColor">
@@ -1357,7 +1357,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                     <div className="min-w-0 max-md:hidden w-[120px] shrink-0">
                       {phone ? (
                         <span className="text-xs text-muted-foreground" onClick={(e) => e.stopPropagation()}>
-                          <a href={`tel:+56${phone}`} className="hover:text-sky-400 transition-colors">+56 {phone}</a>
+                          <a href={`tel:+56${phone}`} className="hover:text-status-info-fg transition-colors">+56 {phone}</a>
                         </span>
                       ) : (
                         <span className="text-xs text-muted-foreground/50">—</span>
@@ -1518,7 +1518,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                               {s.ppc > 0 && (
                                 <>
                                   <span className="text-border">·</span>
-                                  <span className="text-amber-400">PPC <span className="font-semibold">{s.ppc}</span></span>
+                                  <span className="text-status-warn-fg">PPC <span className="font-semibold">{s.ppc}</span></span>
                                 </>
                               )}
                             </span>
@@ -1555,7 +1555,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                                         title={row[col.key] || ""}
                                       >
                                         {col.key === "os10" ? (
-                                          <span className={row[col.key] === "Sí" ? "text-emerald-400" : "text-muted-foreground"}>
+                                          <span className={row[col.key] === "Sí" ? "text-status-ok-fg" : "text-muted-foreground"}>
                                             {row[col.key] || "—"}
                                           </span>
                                         ) : col.key === "os10Expira" && row[col.key] ? (
@@ -1610,7 +1610,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                                     title={row[col.key] || ""}
                                   >
                                     {col.key === "os10" ? (
-                                      <span className={row[col.key] === "Sí" ? "text-emerald-400" : "text-muted-foreground"}>
+                                      <span className={row[col.key] === "Sí" ? "text-status-ok-fg" : "text-muted-foreground"}>
                                         {row[col.key] || "—"}
                                       </span>
                                     ) : col.key === "os10Expira" && row[col.key] ? (

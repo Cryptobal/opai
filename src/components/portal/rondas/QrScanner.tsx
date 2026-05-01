@@ -100,7 +100,7 @@ export function QrScanner({ onScan, onClose }: QrScannerProps) {
       {/* Error */}
       {error && (
         <div className="px-4 py-2">
-          <p className="text-red-400 text-sm text-center">{error}</p>
+          <p className="text-status-danger-fg text-sm text-center">{error}</p>
         </div>
       )}
 
@@ -130,7 +130,7 @@ export function QrScanner({ onScan, onClose }: QrScannerProps) {
             <button
               onClick={handleManualSubmit}
               disabled={!manualCode.trim()}
-              className="w-full py-3 bg-teal-600 text-white rounded-lg font-semibold disabled:opacity-40"
+              className="w-full py-3 bg-status-info text-white rounded-lg font-semibold disabled:opacity-40"
             >
               Verificar Codigo
             </button>

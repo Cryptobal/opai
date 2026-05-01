@@ -217,10 +217,10 @@ export function TemplateSidebar({
               </div>
               <button
                 onClick={onClose}
-                className="w-10 h-10 rounded-lg bg-red-500/10 hover:bg-red-500 border-2 border-red-500/30 hover:border-red-500 flex items-center justify-center transition-all hover:scale-110 shadow-lg"
+                className="w-10 h-10 rounded-lg bg-status-danger-soft hover:bg-status-danger border-2 border-status-danger-border hover:border-status-danger-border flex items-center justify-center transition-all hover:scale-110 shadow-lg"
                 title="Cerrar (ESC)"
               >
-                <X className="w-6 h-6 text-red-400 hover:text-white font-bold" strokeWidth={3} />
+                <X className="w-6 h-6 text-status-danger-fg hover:text-white font-bold" strokeWidth={3} />
               </button>
             </div>
             
@@ -232,14 +232,14 @@ export function TemplateSidebar({
                 className={cn(
                   'w-full flex items-center justify-between px-4 py-3 rounded-lg transition-all text-sm font-bold',
                   showTokens 
-                    ? 'bg-amber-500/20 border-2 border-amber-400/50 text-amber-300 shadow-lg shadow-amber-500/20' 
-                    : 'bg-teal-500/20 border-2 border-teal-400/50 text-teal-300 shadow-lg shadow-teal-500/20'
+                    ? 'bg-status-warn-soft border-2 border-amber-400/50 text-status-warn-fg shadow-lg shadow-amber-500/20' 
+                    : 'bg-teal-500/20 border-2 border-teal-400/50 text-status-info-fg shadow-lg shadow-teal-500/20'
                 )}
               >
                 <span>{showTokens ? '🔤 Ver Tokens' : '📝 Ver Datos'}</span>
                 <div className={cn(
                   'w-11 h-6 rounded-full transition-all relative shadow-inner',
-                  showTokens ? 'bg-amber-500' : 'bg-teal-500'
+                  showTokens ? 'bg-status-warn' : 'bg-status-info'
                 )}>
                   <div className={cn(
                     'absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-md transition-all',
@@ -289,7 +289,7 @@ export function TemplateSidebar({
                               )}
                             >
                               {isActive ? (
-                                <CheckCircle2 className="w-3 h-3 text-teal-400 flex-shrink-0" />
+                                <CheckCircle2 className="w-3 h-3 text-status-info-fg flex-shrink-0" />
                               ) : (
                                 <Circle className="w-3 h-3 text-white/30 flex-shrink-0" />
                               )}
@@ -327,7 +327,7 @@ export function TemplateSidebar({
                 href="/templates/email/preview"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-amber-500/20 border border-amber-500/30 hover:bg-amber-500/30 transition-all text-xs font-bold text-white"
+                className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-status-warn-soft border border-status-warn-border hover:bg-amber-500/30 transition-all text-xs font-bold text-white"
               >
                 <FileText className="w-3 h-3" />
                 Template Email

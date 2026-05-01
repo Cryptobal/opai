@@ -178,7 +178,7 @@ export function AccessControlListsManager({ installationId }: Props) {
           onClick={() => setActiveTab("whitelist")}
           className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
             activeTab === "whitelist"
-              ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"
+              ? "bg-status-ok-soft text-status-ok-fg border border-status-ok-border"
               : "bg-zinc-800 text-zinc-400 border border-zinc-700 hover:border-zinc-600"
           }`}
         >
@@ -189,7 +189,7 @@ export function AccessControlListsManager({ installationId }: Props) {
           onClick={() => setActiveTab("blacklist")}
           className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
             activeTab === "blacklist"
-              ? "bg-red-500/10 text-red-400 border border-red-500/30"
+              ? "bg-status-danger-soft text-status-danger-fg border border-status-danger-border"
               : "bg-zinc-800 text-zinc-400 border border-zinc-700 hover:border-zinc-600"
           }`}
         >
@@ -241,7 +241,7 @@ export function AccessControlListsManager({ installationId }: Props) {
                 disabled={!!editEntry}
               />
               {formRut && !validateRut(formRut) && (
-                <p className="mt-1 text-xs text-red-400">RUT inválido</p>
+                <p className="mt-1 text-xs text-status-danger-fg">RUT inválido</p>
               )}
             </div>
             <div>
@@ -348,7 +348,7 @@ export function AccessControlListsManager({ installationId }: Props) {
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-zinc-200">{entry.fullName}</span>
                   {entry.scope === "global" && (
-                    <Badge variant="outline" className="text-xs border-amber-500/50 text-amber-400">
+                    <Badge variant="outline" className="text-xs border-status-warn-border text-status-warn-fg">
                       Global
                     </Badge>
                   )}
@@ -362,7 +362,7 @@ export function AccessControlListsManager({ installationId }: Props) {
                   <span>{formatRut(entry.rut)}</span>
                   {entry.company && <span>{entry.company}</span>}
                   {entry.blockReason && (
-                    <span className="flex items-center gap-1 text-red-400">
+                    <span className="flex items-center gap-1 text-status-danger-fg">
                       <AlertTriangle className="h-3 w-3" />
                       {entry.blockReason}
                     </span>
@@ -378,7 +378,7 @@ export function AccessControlListsManager({ installationId }: Props) {
                 </button>
                 <button
                   onClick={() => handleDelete(entry.id)}
-                  className="rounded p-1.5 text-zinc-500 hover:text-red-400 hover:bg-zinc-700"
+                  className="rounded p-1.5 text-zinc-500 hover:text-status-danger-fg hover:bg-zinc-700"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
@@ -527,11 +527,11 @@ function AccessControlListImport({
 
       {result && (
         <div className="space-y-1">
-          <p className="text-sm text-emerald-400">
+          <p className="text-sm text-status-ok-fg">
             {result.imported} entradas importadas exitosamente
           </p>
           {result.errors.length > 0 && (
-            <div className="max-h-20 overflow-auto text-xs text-red-400">
+            <div className="max-h-20 overflow-auto text-xs text-status-danger-fg">
               {result.errors.map((e, i) => (
                 <p key={i}>Fila {e.row}: {e.rut} — {e.error}</p>
               ))}

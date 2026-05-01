@@ -133,7 +133,7 @@ export function AdditionalLinesSection({ lines, onChange, contractDuration = 12,
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7 text-muted-foreground hover:text-emerald-400"
+                    className="h-7 w-7 text-muted-foreground hover:text-status-ok-fg"
                     title="Guardar en catálogo"
                     onClick={() => handleSaveToCatalog(idx, line)}
                     disabled={savingIdx === idx}

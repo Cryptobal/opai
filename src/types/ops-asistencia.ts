@@ -22,11 +22,11 @@ export const STATUS_CONFIG: Record<AttendanceStatus, {
   label: string;
   color: string;
 }> = {
-  asistio:    { bg: "bg-emerald-500/10", border: "border-l-emerald-500", icon: "\u2713", label: "Presente",  color: "text-emerald-400" },
+  asistio:    { bg: "bg-status-ok-soft", border: "border-l-emerald-500", icon: "\u2713", label: "Presente",  color: "text-status-ok-fg" },
   pendiente:  { bg: "bg-slate-500/5",    border: "border-l-slate-600",   icon: "\u00B7", label: "Pendiente", color: "text-slate-400" },
-  no_asistio: { bg: "bg-red-500/10",     border: "border-l-red-500",     icon: "\u2717", label: "Ausente",   color: "text-red-400" },
+  no_asistio: { bg: "bg-status-danger-soft",     border: "border-l-red-500",     icon: "\u2717", label: "Ausente",   color: "text-status-danger-fg" },
   reemplazo:  { bg: "bg-violet-500/10",  border: "border-l-violet-500",  icon: "\u21BA", label: "Reemplazo", color: "text-violet-400" },
-  ppc:        { bg: "bg-amber-500/10",   border: "border-l-amber-500",   icon: "\u23F3", label: "PPC",       color: "text-amber-400" },
+  ppc:        { bg: "bg-status-warn-soft",   border: "border-l-amber-500",   icon: "\u23F3", label: "PPC",       color: "text-status-warn-fg" },
 };
 
 // ── Data types ──────────────────────────────────────────────────────────

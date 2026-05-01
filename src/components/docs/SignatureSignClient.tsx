@@ -197,8 +197,8 @@ export function SignatureSignClient({ token }: SignatureSignClientProps) {
   if (success) {
     return (
       <div className="min-h-screen flex items-center justify-center p-6">
-        <div className="max-w-xl rounded-xl border border-emerald-500/40 bg-card p-6 text-center space-y-3">
-          <CheckCircle2 className="h-8 w-8 mx-auto text-emerald-500" />
+        <div className="max-w-xl rounded-xl border border-status-ok-border bg-card p-6 text-center space-y-3">
+          <CheckCircle2 className="h-8 w-8 mx-auto text-status-ok-fg" />
           <h1 className="text-lg font-semibold">Firma registrada correctamente</h1>
           <p className="text-sm text-muted-foreground">
             Gracias. Tu firma fue registrada y el emisor fue notificado.
@@ -228,7 +228,7 @@ export function SignatureSignClient({ token }: SignatureSignClientProps) {
             Firmante: {data.recipient.name} ({data.recipient.email})
           </p>
           {!data.request.canSign ? (
-            <p className="text-sm text-amber-600">
+            <p className="text-sm text-status-warn-fg">
               Aún no puedes firmar: hay firmantes previos pendientes.
             </p>
           ) : null}

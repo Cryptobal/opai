@@ -94,7 +94,7 @@ export function PortalNotificacionesSheet({ session, open, onClose }: Props) {
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-800">
           <div className="flex items-center gap-2">
-            <Bell className="h-4 w-4 text-amber-400" />
+            <Bell className="h-4 w-4 text-status-warn-fg" />
             <h2 className="text-sm font-semibold text-zinc-100">Preferencias de notificaciones</h2>
           </div>
           <div className="flex items-center gap-2">
@@ -156,7 +156,7 @@ export function PortalNotificacionesSheet({ session, open, onClose }: Props) {
                           disabled={!cfg.isActive}
                           className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
                             cfg.channels.email && cfg.isActive
-                              ? "bg-blue-500/20 text-blue-400"
+                              ? "bg-status-info-soft text-status-info-fg"
                               : "bg-zinc-800/50 text-zinc-600"
                           } disabled:cursor-not-allowed`}
                         >
@@ -167,7 +167,7 @@ export function PortalNotificacionesSheet({ session, open, onClose }: Props) {
                           disabled={!cfg.isActive}
                           className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
                             cfg.channels.push && cfg.isActive
-                              ? "bg-amber-500/20 text-amber-400"
+                              ? "bg-status-warn-soft text-status-warn-fg"
                               : "bg-zinc-800/50 text-zinc-600"
                           } disabled:cursor-not-allowed`}
                         >
@@ -176,7 +176,7 @@ export function PortalNotificacionesSheet({ session, open, onClose }: Props) {
                         <button
                           onClick={() => toggle(cfg.alertType, "isActive")}
                           className={`w-8 h-5 rounded-full relative transition-colors ${
-                            cfg.isActive ? "bg-teal-500" : "bg-zinc-700"
+                            cfg.isActive ? "bg-status-info" : "bg-zinc-700"
                           }`}
                         >
                           <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${

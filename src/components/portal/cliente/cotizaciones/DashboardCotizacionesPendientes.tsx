@@ -127,10 +127,10 @@ export function DashboardCotizacionesPendientes({
               className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-white/[0.03] hover:bg-white/[0.06] transition-colors text-left"
             >
               <div className="flex items-center gap-3 min-w-0">
-                <FileText className="w-4 h-4 text-teal-400 shrink-0" />
+                <FileText className="w-4 h-4 text-status-info-fg shrink-0" />
                 <span className="text-xs text-zinc-300 truncate">{q.code}</span>
               </div>
-              <span className="text-xs font-medium text-teal-400 shrink-0 ml-2">
+              <span className="text-xs font-medium text-status-info-fg shrink-0 ml-2">
                 {formatCurrency(q.monthlyCost, q.currency === "UF" ? "UF" : "CLP")}/mes
               </span>
             </button>
@@ -140,7 +140,7 @@ export function DashboardCotizacionesPendientes({
         {quotes.length > 3 && (
           <button
             onClick={() => onNavigateToDetail(navigateSection)}
-            className="text-xs text-teal-400 hover:text-teal-300 transition-colors"
+            className="text-xs text-status-info-fg hover:text-status-info-fg transition-colors"
           >
             Ver todas en Propuestas →
           </button>

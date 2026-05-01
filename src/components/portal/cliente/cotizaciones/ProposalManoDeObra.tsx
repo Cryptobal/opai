@@ -28,7 +28,7 @@ export function ProposalManoDeObra({
   return (
     <div className={cn("rounded-xl border border-slate-700/50 bg-slate-800/50 p-4 space-y-4", className)}>
       <h3 className="text-xl font-bold text-white">
-        <span className="text-teal-400">{sectionNumber}.</span> Detalle de Mano de Obra
+        <span className="text-status-info-fg">{sectionNumber}.</span> Detalle de Mano de Obra
       </h3>
 
       {positionDetails.map((pos, idx) => {
@@ -73,7 +73,7 @@ export function ProposalManoDeObra({
         </div>
         <div className="flex items-center justify-between text-sm">
           <span className="font-bold text-white">Total mensual mano de obra</span>
-          <span className="font-bold text-emerald-400 font-mono">{fmtCLP(totalMensual)}</span>
+          <span className="font-bold text-status-ok-fg font-mono">{fmtCLP(totalMensual)}</span>
         </div>
       </div>
     </div>

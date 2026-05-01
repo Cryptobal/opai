@@ -19,11 +19,11 @@ interface ApiResponse { success: boolean; installations: InstRow[]; }
 
 const COL_HEADERS = [
   { key: 'total', label: 'Total', cls: 'text-foreground' },
-  { key: 'p1', label: 'P1', cls: 'text-red-400' },
-  { key: 'p2', label: 'P2', cls: 'text-orange-400' },
-  { key: 'p3', label: 'P3', cls: 'text-yellow-400' },
-  { key: 'p4', label: 'P4', cls: 'text-blue-400' },
-  { key: 'breached', label: 'SLA✗', cls: 'text-red-500' },
+  { key: 'p1', label: 'P1', cls: 'text-status-danger-fg' },
+  { key: 'p2', label: 'P2', cls: 'text-status-warn-fg' },
+  { key: 'p3', label: 'P3', cls: 'text-status-warn-fg' },
+  { key: 'p4', label: 'P4', cls: 'text-status-info-fg' },
+  { key: 'breached', label: 'SLA✗', cls: 'text-status-danger-fg' },
 ] as const;
 
 function colorIntensity(value: number, max: number, hue: string): string {

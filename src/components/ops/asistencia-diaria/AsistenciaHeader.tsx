@@ -117,15 +117,15 @@ export function AsistenciaHeader({
 }: AsistenciaHeaderProps) {
   const kpiCards: { id: KpiFilterType | "cobertura"; label: string; value: number | string; color: string }[] = [
     { id: "todos", label: "Total", value: metrics.total, color: "text-foreground" },
-    { id: "cubiertos", label: "Cubiertos", value: metrics.cubiertos, color: "text-emerald-400" },
-    { id: "ppc", label: "PPC", value: metrics.ppc, color: "text-amber-400" },
-    { id: "te", label: "TE", value: metrics.te, color: "text-rose-400" },
-    { id: "fuera_rango", label: "Fuera de Rango", value: metrics.fueraDeRango, color: "text-orange-400" },
+    { id: "cubiertos", label: "Cubiertos", value: metrics.cubiertos, color: "text-status-ok-fg" },
+    { id: "ppc", label: "PPC", value: metrics.ppc, color: "text-status-warn-fg" },
+    { id: "te", label: "TE", value: metrics.te, color: "text-status-danger-fg" },
+    { id: "fuera_rango", label: "Fuera de Rango", value: metrics.fueraDeRango, color: "text-status-warn-fg" },
     {
       id: "cobertura",
       label: "Cobertura",
       value: `${metrics.coberturaPct}%`,
-      color: metrics.coberturaPct >= 80 ? "text-emerald-400" : metrics.coberturaPct >= 50 ? "text-amber-400" : "text-red-400",
+      color: metrics.coberturaPct >= 80 ? "text-status-ok-fg" : metrics.coberturaPct >= 50 ? "text-status-warn-fg" : "text-status-danger-fg",
     },
   ];
 
@@ -186,10 +186,10 @@ export function AsistenciaHeader({
           {hasItems && !isDesktop && (
             <div className="flex flex-wrap gap-1.5">
               <StatPill label="Total" value={metrics.total} color="text-foreground" active={kpiFilter === "todos"} onClick={() => onKpiFilterChange("todos")} />
-              <StatPill label="OK" value={metrics.cubiertos} color="text-emerald-400" active={kpiFilter === "cubiertos"} onClick={() => onKpiFilterChange("cubiertos")} />
-              <StatPill label="PPC" value={metrics.ppc} color="text-amber-400" active={kpiFilter === "ppc"} onClick={() => onKpiFilterChange("ppc")} />
-              <StatPill label="TE" value={metrics.te} color="text-rose-400" active={kpiFilter === "te"} onClick={() => onKpiFilterChange("te")} />
-              <StatPill label="F.Rango" value={metrics.fueraDeRango} color="text-orange-400" active={kpiFilter === "fuera_rango"} onClick={() => onKpiFilterChange("fuera_rango")} />
+              <StatPill label="OK" value={metrics.cubiertos} color="text-status-ok-fg" active={kpiFilter === "cubiertos"} onClick={() => onKpiFilterChange("cubiertos")} />
+              <StatPill label="PPC" value={metrics.ppc} color="text-status-warn-fg" active={kpiFilter === "ppc"} onClick={() => onKpiFilterChange("ppc")} />
+              <StatPill label="TE" value={metrics.te} color="text-status-danger-fg" active={kpiFilter === "te"} onClick={() => onKpiFilterChange("te")} />
+              <StatPill label="F.Rango" value={metrics.fueraDeRango} color="text-status-warn-fg" active={kpiFilter === "fuera_rango"} onClick={() => onKpiFilterChange("fuera_rango")} />
             </div>
           )}
 

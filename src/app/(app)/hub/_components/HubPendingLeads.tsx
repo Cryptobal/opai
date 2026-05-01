@@ -25,9 +25,9 @@ export function HubPendingLeads({ leads }: Props) {
   return (
     <div>
       <div className="flex items-center gap-2 mb-2">
-        <Inbox className="h-3.5 w-3.5 text-blue-400" />
+        <Inbox className="h-3.5 w-3.5 text-status-info-fg" />
         <p className="text-sm font-bold">Leads pendientes</p>
-        <Badge variant="outline" className="text-xs px-1.5 py-0 h-4 border-blue-500/30 text-blue-400">
+        <Badge variant="outline" className="text-xs px-1.5 py-0 h-4 border-status-info-border text-status-info-fg">
           {leads.length}
         </Badge>
       </div>

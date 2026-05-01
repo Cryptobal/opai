@@ -216,8 +216,8 @@ export function SendCpqQuoteModal({
             </div>
 
             {!canSend && (
-              <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
-                <p className="text-xs text-amber-400 flex items-center gap-2">
+              <div className="rounded-lg border border-status-warn-border bg-status-warn-soft p-3">
+                <p className="text-xs text-status-warn-fg flex items-center gap-2">
                   <AlertCircle className="h-4 w-4 shrink-0" />
                   Asigna una cuenta, un contacto y un negocio en el paso
                   &quot;Datos&quot; antes de enviar.
@@ -284,8 +284,8 @@ export function SendCpqQuoteModal({
               </div>
             </div>
 
-            <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-3">
-              <p className="text-xs text-blue-400">
+            <div className="rounded-lg border border-status-info-border bg-status-info-soft p-3">
+              <p className="text-xs text-status-info-fg">
                 Se creará un borrador de la propuesta. Podrás revisarla antes de
                 enviarla al destinatario.
               </p>
@@ -346,7 +346,7 @@ export function SendCpqQuoteModal({
         {/* Step 5: Success */}
         {step === "success" && (
           <div className="text-center py-4 space-y-4">
-            <CheckCircle2 className="h-12 w-12 text-emerald-400 mx-auto" />
+            <CheckCircle2 className="h-12 w-12 text-status-ok-fg mx-auto" />
             <div className="space-y-1">
               <p className="text-sm font-medium">Borrador creado</p>
               <p className="text-xs text-muted-foreground">
@@ -367,8 +367,8 @@ export function SendCpqQuoteModal({
               </a>
             )}
 
-            <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-3">
-              <p className="text-xs text-blue-400">
+            <div className="rounded-lg border border-status-info-border bg-status-info-soft p-3">
+              <p className="text-xs text-status-info-fg">
                 Desde la vista previa podrás verificar los datos y hacer clic en
                 &quot;Enviar por Email&quot; para enviar la propuesta al cliente.
               </p>
@@ -396,9 +396,9 @@ function CheckItem({
   return (
     <div className="flex items-center gap-2 text-sm">
       {ok ? (
-        <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+        <CheckCircle2 className="h-4 w-4 text-status-ok-fg shrink-0" />
       ) : (
-        <AlertCircle className="h-4 w-4 text-amber-400 shrink-0" />
+        <AlertCircle className="h-4 w-4 text-status-warn-fg shrink-0" />
       )}
       <span className={ok ? "text-foreground" : "text-muted-foreground"}>
         {label}

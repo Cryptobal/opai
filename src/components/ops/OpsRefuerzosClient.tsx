@@ -713,7 +713,7 @@ export function OpsRefuerzosClient({
                       </span>
                     )}
                     {item.status === "rechazado" && (
-                      <span className="inline-flex items-center rounded-full border border-red-300 bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">
+                      <span className="inline-flex items-center rounded-full border border-red-300 bg-red-50 px-2 py-0.5 text-xs font-medium text-status-danger-fg">
                         Rechazado
                       </span>
                     )}
@@ -860,7 +860,7 @@ export function OpsRefuerzosClient({
                     <p className="mt-1 text-xs text-muted-foreground">
                       CLP calculado: {computedEditRateClp ? formatMoney(Number(computedEditRateClp)) : "$0"}
                     </p>
-                    <p className={`text-xs ${editUtilityAmount >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                    <p className={`text-xs ${editUtilityAmount >= 0 ? "text-status-ok-fg" : "text-status-danger-fg"}`}>
                       Utilidad sobre venta: {formatMoney(editUtilityAmount)}
                       {editUtilityMargin !== null
                         ? ` (${editUtilityMargin.toLocaleString("es-CL", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%)`
@@ -895,10 +895,10 @@ export function OpsRefuerzosClient({
                       </a>
                       {" · "}
                       {selectedItem.ticket.approvalStatus === "approved" && (
-                        <span className="text-emerald-600 font-medium">Aprobado</span>
+                        <span className="text-status-ok-fg font-medium">Aprobado</span>
                       )}
                       {selectedItem.ticket.approvalStatus === "rejected" && (
-                        <span className="text-red-600 font-medium">Rechazado</span>
+                        <span className="text-status-danger-fg font-medium">Rechazado</span>
                       )}
                       {selectedItem.ticket.approvalStatus === "pending" && (
                         <span className="text-yellow-600 font-medium">Pendiente de aprobación</span>
@@ -1088,7 +1088,7 @@ export function OpsRefuerzosClient({
                     CLP calculado: {displayedRateClp ? `$${displayedRateClp}` : "$0"}
                     {ufValue ? ` · UF hoy: ${ufValue.toLocaleString("es-CL", { maximumFractionDigits: 2 })}` : ""}
                   </p>
-                  <p className={`text-xs ${utilityAmount >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                  <p className={`text-xs ${utilityAmount >= 0 ? "text-status-ok-fg" : "text-status-danger-fg"}`}>
                     Utilidad sobre venta: {formatMoney(utilityAmount)}
                     {utilityMargin !== null
                       ? ` (${utilityMargin.toLocaleString("es-CL", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%)`

@@ -85,15 +85,15 @@ const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   },
   SUBMITTED: {
     label: "Enviada",
-    className: "bg-blue-500/15 text-blue-400 border-blue-500/30",
+    className: "bg-status-info-soft text-status-info-fg border-status-info-border",
   },
   APPROVED: {
     label: "Aprobada",
-    className: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+    className: "bg-status-ok-soft text-status-ok-fg border-status-ok-border",
   },
   REJECTED: {
     label: "Rechazada",
-    className: "bg-red-500/15 text-red-400 border-red-500/30",
+    className: "bg-status-danger-soft text-status-danger-fg border-status-danger-border",
   },
   PAID: {
     label: "Pagada",
@@ -553,7 +553,7 @@ function RendicionesClientInner({
         header: "Destinatario",
         cell: (row) =>
           row.beneficiaryName ? (
-            <span className="text-xs text-emerald-400 flex items-center gap-1">
+            <span className="text-xs text-status-ok-fg flex items-center gap-1">
               <ArrowRight className="h-3 w-3" />
               {row.beneficiaryName}
             </span>
@@ -812,7 +812,7 @@ function RendicionesClientInner({
                           <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
                             <span>{r.submitterName}</span>
                             {r.beneficiaryName && (
-                              <span className="text-emerald-400">
+                              <span className="text-status-ok-fg">
                                 → {r.beneficiaryName}
                               </span>
                             )}
@@ -863,7 +863,7 @@ function RendicionesClientInner({
                   <Button
                     size="sm"
                     variant="outline"
-                    className="text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10"
+                    className="text-status-ok-fg border-status-ok-border hover:bg-status-ok-soft"
                     onClick={() => setApproveDialogOpen(true)}
                   >
                     <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
@@ -872,7 +872,7 @@ function RendicionesClientInner({
                   <Button
                     size="sm"
                     variant="outline"
-                    className="text-red-400 border-red-500/30 hover:bg-red-500/10"
+                    className="text-status-danger-fg border-status-danger-border hover:bg-status-danger-soft"
                     onClick={() => setRejectDialogOpen(true)}
                   >
                     <XCircle className="h-3.5 w-3.5 mr-1.5" />
@@ -901,7 +901,7 @@ function RendicionesClientInner({
             <DialogTitle>Aprobar rendiciones</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+            <div className="p-3 rounded-lg bg-status-ok-soft border border-status-ok-border">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Rendiciones a aprobar</span>
                 <span className="font-medium">{selectedApprovable.length}</span>
@@ -915,7 +915,7 @@ function RendicionesClientInner({
             </div>
 
             {selectedRendiciones.length > selectedApprovable.length && (
-              <p className="text-xs text-amber-400">
+              <p className="text-xs text-status-warn-fg">
                 {selectedRendiciones.length - selectedApprovable.length} rendición(es)
                 seleccionada(s) no están en estado aprobable y serán ignoradas.
               </p>
@@ -955,7 +955,7 @@ function RendicionesClientInner({
               <Button
                 onClick={handleBulkApprove}
                 disabled={processing}
-                className="bg-emerald-600 hover:bg-emerald-700"
+                className="bg-status-ok hover:bg-emerald-700"
               >
                 {processing ? (
                   <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
@@ -976,7 +976,7 @@ function RendicionesClientInner({
             <DialogTitle>Rechazar rendiciones</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20">
+            <div className="p-3 rounded-lg bg-status-danger-soft border border-status-danger-border">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Rendiciones a rechazar</span>
                 <span className="font-medium">{selectedApprovable.length}</span>
@@ -1058,7 +1058,7 @@ function RendicionesClientInner({
             </div>
 
             {selectedRendiciones.length > selectedPayable.length && (
-              <p className="text-xs text-amber-400">
+              <p className="text-xs text-status-warn-fg">
                 {selectedRendiciones.length - selectedPayable.length} rendición(es)
                 seleccionada(s) no están aprobadas y serán ignoradas.
               </p>

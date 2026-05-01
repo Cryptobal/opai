@@ -296,7 +296,7 @@ export function ReportarIncidente({
         {/* Description */}
         <div>
           <label className="mb-2 block text-sm font-medium text-gray-200">
-            Descripci&oacute;n <span className="text-red-400">*</span>
+            Descripci&oacute;n <span className="text-status-danger-fg">*</span>
           </label>
           <textarea
             value={descripcion}
@@ -315,7 +315,7 @@ export function ReportarIncidente({
         {/* GPS status */}
         <div className="text-sm">
           {gpsStatus === "ok" ? (
-            <p className="text-green-400">
+            <p className="text-status-ok-fg">
               {"\u{1F4CD}"} Ubicaci&oacute;n capturada {"\u2705"}
             </p>
           ) : gpsStatus === "loading" ? (
@@ -323,7 +323,7 @@ export function ReportarIncidente({
               {"\u{1F4CD}"} Obteniendo ubicaci&oacute;n...
             </p>
           ) : (
-            <p className="text-yellow-400">
+            <p className="text-status-warn-fg">
               {"\u{1F4CD}"} No se pudo obtener ubicaci&oacute;n
             </p>
           )}
@@ -352,14 +352,14 @@ export function ReportarIncidente({
 
         {/* Error message */}
         {error && (
-          <div className="rounded-lg bg-red-900/30 border border-red-700 px-4 py-3 text-sm text-red-400">
+          <div className="rounded-lg bg-red-900/30 border border-red-700 px-4 py-3 text-sm text-status-danger-fg">
             {error}
           </div>
         )}
 
         {/* Offline message */}
         {offlineMsg && (
-          <div className="rounded-lg bg-yellow-900/30 border border-yellow-700 px-4 py-3 text-sm text-yellow-400">
+          <div className="rounded-lg bg-yellow-900/30 border border-yellow-700 px-4 py-3 text-sm text-status-warn-fg">
             {offlineMsg}
           </div>
         )}
@@ -369,7 +369,7 @@ export function ReportarIncidente({
           type="button"
           onClick={handleSubmit}
           disabled={!canSubmit}
-          className="flex w-full min-h-14 items-center justify-center gap-2 rounded-xl bg-teal-600 py-3 text-lg font-semibold text-white transition-colors hover:bg-teal-500 disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex w-full min-h-14 items-center justify-center gap-2 rounded-xl bg-status-info py-3 text-lg font-semibold text-white transition-colors hover:bg-status-info disabled:cursor-not-allowed disabled:opacity-50"
         >
           {submitting ? (
             <svg

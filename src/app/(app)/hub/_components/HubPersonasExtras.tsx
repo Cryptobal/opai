@@ -60,7 +60,7 @@ export function HubPersonasExtras() {
             </button>
           </div>
           {postulantes.delta !== 0 && (
-            <div className={`flex items-center gap-0.5 text-[11px] font-medium ${postulantes.delta > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+            <div className={`flex items-center gap-0.5 text-[11px] font-medium ${postulantes.delta > 0 ? 'text-status-ok-fg' : 'text-status-danger-fg'}`}>
               {postulantes.delta > 0 ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
               {Math.abs(postulantes.delta)}%
             </div>

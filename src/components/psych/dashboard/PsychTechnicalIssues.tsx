@@ -21,7 +21,7 @@ export default function PsychTechnicalIssues({
       </p>
       <ul className="space-y-2">
         {alerts.map((a, i) => (
-          <li key={`${a.code}-${i}`} className="border-l-2 border-amber-500/40 pl-3">
+          <li key={`${a.code}-${i}`} className="border-l-2 border-status-warn-border pl-3">
             <p className="text-foreground/90">{a.message}</p>
             <PsychAlertEvidence evidence={a.evidence} />
           </li>

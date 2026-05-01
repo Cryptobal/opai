@@ -119,13 +119,13 @@ export function TripRouteMap({
         {distanceKm != null && (
           <div className="flex items-center gap-4 border-t border-border px-3 py-2 text-xs text-muted-foreground">
             <span className="flex items-center gap-1">
-              <span className="inline-block h-3 w-3 rounded-full bg-emerald-500 border border-white" /> Inicio
+              <span className="inline-block h-3 w-3 rounded-full bg-status-ok border border-white" /> Inicio
             </span>
             <span className="flex items-center gap-1">
-              <span className="inline-block h-3 w-3 rounded-full bg-red-500 border border-white" /> Fin
+              <span className="inline-block h-3 w-3 rounded-full bg-status-danger border border-white" /> Fin
             </span>
             <span className="flex items-center gap-1">
-              <span className="inline-block h-2 w-4 rounded bg-emerald-500" /> Ruta ({distanceKm.toFixed(1)} km)
+              <span className="inline-block h-2 w-4 rounded bg-status-ok" /> Ruta ({distanceKm.toFixed(1)} km)
             </span>
           </div>
         )}
@@ -150,13 +150,13 @@ export function TripRouteMap({
         <div ref={mapRef} className="h-[400px] w-full" />
         <div className="flex items-center gap-4 border-t border-border px-4 py-2 text-xs text-muted-foreground">
           <span className="flex items-center gap-1">
-            <span className="inline-block h-3 w-3 rounded-full bg-emerald-500 border border-white" /> Inicio
+            <span className="inline-block h-3 w-3 rounded-full bg-status-ok border border-white" /> Inicio
           </span>
           <span className="flex items-center gap-1">
-            <span className="inline-block h-3 w-3 rounded-full bg-red-500 border border-white" /> Fin
+            <span className="inline-block h-3 w-3 rounded-full bg-status-danger border border-white" /> Fin
           </span>
           <span className="flex items-center gap-1">
-            <span className="inline-block h-2 w-4 rounded bg-emerald-500" /> Ruta
+            <span className="inline-block h-2 w-4 rounded bg-status-ok" /> Ruta
             {distanceKm != null ? ` (${distanceKm.toFixed(1)} km)` : ""}
           </span>
         </div>

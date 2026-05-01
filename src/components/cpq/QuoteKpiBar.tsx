@@ -69,7 +69,7 @@ export function QuoteKpiBar({
   return (
     <div
       className={cn(
-        "rounded-lg border border-emerald-500/20 bg-emerald-500/[0.03] overflow-hidden transition-all duration-200",
+        "rounded-lg border border-status-ok-border bg-emerald-500/[0.03] overflow-hidden transition-all duration-200",
         className
       )}
     >
@@ -83,7 +83,7 @@ export function QuoteKpiBar({
         )}
       >
         {/* Sale price */}
-        <span className="text-sm font-bold font-mono text-emerald-700 dark:text-emerald-400 truncate">
+        <span className="text-sm font-bold font-mono text-status-ok-fg dark:text-status-ok-fg truncate">
           {formatCLP(totalSalePrice)}
         </span>
 
@@ -97,7 +97,7 @@ export function QuoteKpiBar({
         <span className="flex-1" />
 
         {/* Margin badge */}
-        <span className="inline-flex items-center rounded-md bg-emerald-500/15 px-2 py-0.5 text-sm font-semibold text-emerald-700 dark:text-emerald-400 shrink-0">
+        <span className="inline-flex items-center rounded-md bg-status-ok-soft px-2 py-0.5 text-sm font-semibold text-status-ok-fg dark:text-status-ok-fg shrink-0">
           {marginLabel}%
         </span>
 
@@ -143,7 +143,7 @@ export function QuoteKpiBar({
           <p className="text-xs uppercase tracking-wider text-muted-foreground">
             Margen
           </p>
-          <p className="text-xs font-bold font-mono text-emerald-700 dark:text-emerald-400">
+          <p className="text-xs font-bold font-mono text-status-ok-fg dark:text-status-ok-fg">
             {formatCurrency(marginAmount)}
           </p>
         </div>

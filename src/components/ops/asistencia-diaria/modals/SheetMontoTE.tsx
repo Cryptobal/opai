@@ -86,7 +86,7 @@ export function SheetMontoTE({
           Valor base: ${baseAmount.toLocaleString("es-CL")}
         </p>
         {isModified && (
-          <p className="text-xs text-amber-400">Monto modificado</p>
+          <p className="text-xs text-status-warn-fg">Monto modificado</p>
         )}
       </div>
 
@@ -101,7 +101,7 @@ export function SheetMontoTE({
             className="h-10"
           />
           {justification.trim().length > 0 && justification.trim().length < 3 && (
-            <p className="text-xs text-red-400">Mínimo 3 caracteres</p>
+            <p className="text-xs text-status-danger-fg">Mínimo 3 caracteres</p>
           )}
         </div>
       )}

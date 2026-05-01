@@ -118,7 +118,7 @@ export function LoginPageClient({ callbackUrl: callbackUrlProp, error: errorProp
             className="rounded-xl px-4 py-3 mb-4"
             style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)" }}
           >
-            <p className="text-sm text-red-400">
+            <p className="text-sm text-status-danger-fg">
               {error === 'CredentialsSignin'
                 ? 'Email o contrase\u00f1a incorrectos.'
                 : error === 'google_not_registered'

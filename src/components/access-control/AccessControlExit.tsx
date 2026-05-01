@@ -156,7 +156,7 @@ export function AccessControlExit({ installationId, guardId, onClose }: Props) {
                     <Button
                       size="sm"
                       variant="outline"
-                      className="ml-2 border-zinc-600 text-zinc-300 hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/30"
+                      className="ml-2 border-zinc-600 text-zinc-300 hover:bg-status-danger-soft hover:text-status-danger-fg hover:border-status-danger-border"
                       onClick={() => handleExit(record.id)}
                       disabled={exitingId === record.id}
                     >

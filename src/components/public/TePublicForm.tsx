@@ -273,7 +273,7 @@ export function TePublicForm({ tenantSlug = "gard" }: TePublicFormProps) {
             Completa tus datos personales, bancarios y sube los documentos requeridos.
           </p>
           {submitSuccessMessage ? (
-            <div className="mt-3 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
+            <div className="mt-3 rounded-md border border-status-ok-border bg-status-ok-soft px-4 py-3 text-sm text-emerald-200">
               {submitSuccessMessage}
             </div>
           ) : null}
@@ -312,7 +312,7 @@ export function TePublicForm({ tenantSlug = "gard" }: TePublicFormProps) {
                   }
                 }}
               />
-              {rutError ? <p className="text-xs text-red-400">{rutError}</p> : null}
+              {rutError ? <p className="text-xs text-status-danger-fg">{rutError}</p> : null}
             </div>
             <Input
               placeholder="Celular * (9 dígitos)"

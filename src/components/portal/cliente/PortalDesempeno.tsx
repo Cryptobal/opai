@@ -143,7 +143,7 @@ export function PortalDesempeno({ session, selectedInstallation, isProspect }: P
   const hasIndustryAvg = typeof industryAvg === "number";
   const diff = hasIndustryAvg ? data.trustScore - industryAvg : 0;
   const diffSign = diff >= 0 ? "+" : "";
-  const diffColor = diff >= 0 ? "text-emerald-400" : "text-red-400";
+  const diffColor = diff >= 0 ? "text-status-ok-fg" : "text-status-danger-fg";
   const sortedGuards = [...data.guardias].sort((a, b) => b.trustScore - a.trustScore);
 
   const TrendIcon = (t: "up" | "down" | "neutral") => {
@@ -234,9 +234,9 @@ export function PortalDesempeno({ session, selectedInstallation, isProspect }: P
                 const Icon = TrendIcon(guard.tendencia);
                 const trendColor =
                   guard.tendencia === "up"
-                    ? "text-emerald-400"
+                    ? "text-status-ok-fg"
                     : guard.tendencia === "down"
-                    ? "text-red-400"
+                    ? "text-status-danger-fg"
                     : "text-muted-foreground";
                 return (
                   <div

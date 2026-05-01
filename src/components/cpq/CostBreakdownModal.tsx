@@ -106,7 +106,7 @@ export function CostBreakdownModal({ open, onOpenChange, position }: CostBreakdo
           </div>
 
           {loading && <div className="text-muted-foreground">Calculando...</div>}
-          {error && <div className="rounded-md border border-red-500/30 bg-red-500/10 p-3 sm:p-2">{error}</div>}
+          {error && <div className="rounded-md border border-status-danger-border bg-status-danger-soft p-3 sm:p-2">{error}</div>}
 
           {data && (
             <div className="space-y-3">
@@ -167,10 +167,10 @@ export function CostBreakdownModal({ open, onOpenChange, position }: CostBreakdo
                 </div>
               </div>
 
-              <div className="rounded-md border bg-emerald-500/5 p-3 sm:p-2">
+              <div className="rounded-md border bg-status-ok-soft p-3 sm:p-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-emerald-500">Costo empresa</span>
-                  <span className="font-mono text-emerald-500">
+                  <span className="text-status-ok-fg">Costo empresa</span>
+                  <span className="font-mono text-status-ok-fg">
                     {formatCurrency(data.monthly_employer_cost_clp)}
                   </span>
                 </div>
@@ -180,7 +180,7 @@ export function CostBreakdownModal({ open, onOpenChange, position }: CostBreakdo
                     {formatCurrency(Number(data.monthly_employer_cost_clp) / 180)}
                   </span>
                 </div>
-                <div className="mt-1 flex items-center justify-between text-blue-500">
+                <div className="mt-1 flex items-center justify-between text-status-info-fg">
                   <span>Líquido estimado</span>
                   <span className="font-mono">{formatCurrency(data.worker_net_salary_estimate)}</span>
                 </div>

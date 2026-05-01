@@ -68,9 +68,9 @@ function SparkTooltip({
 /* ── severity helpers ── */
 
 function pctColor(pct: number): string {
-  if (pct >= 30) return "text-red-400";
-  if (pct >= 15) return "text-amber-400";
-  return "text-emerald-400";
+  if (pct >= 30) return "text-status-danger-fg";
+  if (pct >= 15) return "text-status-warn-fg";
+  return "text-status-ok-fg";
 }
 
 function pctBgColor(pct: number): string {
@@ -81,8 +81,8 @@ function pctBgColor(pct: number): string {
 
 function trendIcon(diff: number | null) {
   if (diff === null) return <Minus className="h-3.5 w-3.5 text-muted-foreground" />;
-  if (diff <= -0.5) return <TrendingDown className="h-3.5 w-3.5 text-emerald-400" />;
-  if (diff >= 0.5) return <TrendingUp className="h-3.5 w-3.5 text-red-400" />;
+  if (diff <= -0.5) return <TrendingDown className="h-3.5 w-3.5 text-status-ok-fg" />;
+  if (diff >= 0.5) return <TrendingUp className="h-3.5 w-3.5 text-status-danger-fg" />;
   return <Minus className="h-3.5 w-3.5 text-muted-foreground" />;
 }
 
@@ -94,7 +94,7 @@ function trendLabel(diff: number | null): string {
 
 function trendColor(diff: number | null): string {
   if (diff === null || Math.abs(diff) < 0.5) return "text-muted-foreground";
-  return diff > 0 ? "text-red-400" : "text-emerald-400";
+  return diff > 0 ? "text-status-danger-fg" : "text-status-ok-fg";
 }
 
 /* ── row with expandable chart ── */

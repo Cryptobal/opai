@@ -738,7 +738,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
             <>
               <span className="font-semibold text-foreground">{formatCurrency(leadCpqMonthlyTotalClp)}</span>
               {uf ? (
-                <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                <span className="text-status-ok-fg dark:text-status-ok-fg font-medium">
                   {(leadCpqMonthlyTotalClp / uf).toFixed(2)} UF
                 </span>
               ) : (
@@ -764,12 +764,12 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
         className="flex items-center gap-1 rounded-md border border-border/60 bg-muted/30 px-2 py-1 text-[10px] text-muted-foreground tabular-nums"
         title="Autoguardado del borrador (Cuenta, Contacto, Negocio, Instalaciones, CPQ…), ~2,5 s después del último cambio."
       >
-        {autoSaveStatus === "pending" && <span className="text-amber-500">●</span>}
+        {autoSaveStatus === "pending" && <span className="text-status-warn-fg">●</span>}
         {autoSaveStatus === "pending" && <span className="hidden min-[400px]:inline">Cambios…</span>}
         {autoSaveStatus === "saving" && <Loader2 className="h-3 w-3 animate-spin shrink-0" aria-hidden />}
         {autoSaveStatus === "saving" && <span>Guardando</span>}
-        {autoSaveStatus === "saved" && <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0" aria-hidden />}
-        {autoSaveStatus === "saved" && <span className="text-emerald-600 dark:text-emerald-400">Guardado</span>}
+        {autoSaveStatus === "saved" && <CheckCircle2 className="h-3 w-3 text-status-ok-fg shrink-0" aria-hidden />}
+        {autoSaveStatus === "saved" && <span className="text-status-ok-fg dark:text-status-ok-fg">Guardado</span>}
         {autoSaveStatus === "error" && <span className="text-destructive">Error</span>}
       </div>
     ) : (
@@ -1911,9 +1911,9 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
 
         {/* Solicitud del cliente — siempre visible en General */}
         {(lead.serviceType || lead.notes) && (
-          <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-4 space-y-3">
-            <h4 className="text-xs font-semibold uppercase tracking-wide text-blue-400 flex items-center gap-2">
-              <FileText className="h-4 w-4 text-blue-400 shrink-0" />
+          <div className="rounded-lg border border-status-info-border bg-status-info-soft p-4 space-y-3">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-status-info-fg flex items-center gap-2">
+              <FileText className="h-4 w-4 text-status-info-fg shrink-0" />
               Solicitud
             </h4>
             <div className="space-y-2 text-sm">
@@ -1932,8 +1932,8 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
 
         {/* Datos Apollo — visibles solo si hay datos reales */}
         {apolloData && (apolloData.person?.title || apolloData.person?.seniority || apolloData.person?.linkedinUrl || apolloData.organization?.name || apolloData.organization?.industry) && (
-          <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-4 space-y-3">
-            <h4 className="text-xs font-semibold uppercase tracking-wide text-amber-400 flex items-center gap-2">
+          <div className="rounded-lg border border-status-warn-border bg-status-warn-soft p-4 space-y-3">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-status-warn-fg flex items-center gap-2">
               <Sparkles className="h-4 w-4" />
               Datos Apollo
             </h4>
@@ -1981,8 +1981,8 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
 
         {/* Entidades creadas (lead aprobado) */}
         {lead.status === "approved" && convertedEntities && (
-          <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-4 space-y-3">
-            <h4 className="text-xs font-semibold uppercase tracking-wide text-emerald-400 flex items-center gap-2">
+          <div className="rounded-lg border border-status-ok-border bg-status-ok-soft p-4 space-y-3">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-status-ok-fg flex items-center gap-2">
               <CheckCircle2 className="h-4 w-4" />
               Registros creados
             </h4>
@@ -1999,7 +1999,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
               )}
               {convertedEntities.contact && (
                 <Link href={`/crm/contacts/${convertedEntities.contact.id}`} className="flex items-center gap-3 rounded-md border border-border p-3 hover:bg-muted/50 transition-colors">
-                  <Users className="h-4 w-4 text-blue-500 shrink-0" />
+                  <Users className="h-4 w-4 text-status-info-fg shrink-0" />
                   <div className="min-w-0 flex-1">
                     <p className="text-xs text-muted-foreground">Contacto</p>
                     <p className="font-medium truncate">{[convertedEntities.contact.firstName, convertedEntities.contact.lastName].filter(Boolean).join(" ")}</p>
@@ -2009,7 +2009,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
               )}
               {convertedEntities.deal && (
                 <Link href={`/crm/deals/${convertedEntities.deal.id}`} className="flex items-center gap-3 rounded-md border border-border p-3 hover:bg-muted/50 transition-colors">
-                  <Briefcase className="h-4 w-4 text-amber-500 shrink-0" />
+                  <Briefcase className="h-4 w-4 text-status-warn-fg shrink-0" />
                   <div className="min-w-0 flex-1">
                     <p className="text-xs text-muted-foreground">Negocio</p>
                     <p className="font-medium truncate">{convertedEntities.deal.title}</p>
@@ -2019,7 +2019,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
               )}
               {convertedEntities.quotes.map((q) => (
                 <Link key={q.id} href={`/cpq/${q.id}`} className="flex items-center gap-3 rounded-md border border-border p-3 hover:bg-muted/50 transition-colors">
-                  <FileText className="h-4 w-4 text-emerald-500 shrink-0" />
+                  <FileText className="h-4 w-4 text-status-ok-fg shrink-0" />
                   <div className="min-w-0 flex-1">
                     <p className="text-xs text-muted-foreground">Cotización CPQ</p>
                     <p className="font-medium truncate">{q.code}{q.installationName ? ` — ${q.installationName}` : ""}</p>
@@ -2089,8 +2089,8 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
     const conflictAlerts = (
       <div className="space-y-3">
         {duplicates.length > 0 && (
-          <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-amber-400">
+          <div className="rounded-lg border border-status-warn-border bg-status-warn-soft p-3 space-y-2">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-status-warn-fg">
               <AlertTriangle className="h-4 w-4" />
               Cuenta con el mismo nombre ya existe
             </div>
@@ -2117,8 +2117,8 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
           </div>
         )}
         {existingContact && (
-          <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-amber-400">
+          <div className="rounded-lg border border-status-warn-border bg-status-warn-soft p-3 space-y-2">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-status-warn-fg">
               <AlertTriangle className="h-4 w-4" />
               Ya existe un contacto con este email
             </div>
@@ -2142,8 +2142,8 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
           </div>
         )}
         {installationConflicts.length > 0 && (
-          <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-amber-400">
+          <div className="rounded-lg border border-status-warn-border bg-status-warn-soft p-3 space-y-2">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-status-warn-fg">
               <AlertTriangle className="h-4 w-4" />
               Instalación con el mismo nombre ya existe en esta cuenta
             </div>
@@ -2217,7 +2217,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
                     {enrichingCompanyInfo && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
                     Traer datos web
                   </Button>
-                  <Button type="button" size="sm" variant="outline" className="h-7 text-xs border-amber-500/40 text-amber-400 hover:bg-amber-500/10" onClick={enrichFromApollo} disabled={enrichingApollo || (!lead.email && !approveForm.website.trim() && !lead.firstName)}>
+                  <Button type="button" size="sm" variant="outline" className="h-7 text-xs border-status-warn-border text-status-warn-fg hover:bg-status-warn-soft" onClick={enrichFromApollo} disabled={enrichingApollo || (!lead.email && !approveForm.website.trim() && !lead.firstName)}>
                     {enrichingApollo ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Sparkles className="mr-1 h-3 w-3" />}
                     Apollo
                   </Button>
@@ -2380,7 +2380,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
                     <>
                       {dispCur === "UF" ? (
                         <>
-                          <span className="text-sm font-semibold tabular-nums text-emerald-500 dark:text-emerald-400">
+                          <span className="text-sm font-semibold tabular-nums text-status-ok-fg dark:text-status-ok-fg">
                             {saleUf != null
                               ? `${saleUf.toLocaleString("es-CL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} UF`
                               : "— UF"}
@@ -2389,7 +2389,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
                         </>
                       ) : (
                         <>
-                          <span className="text-sm font-semibold tabular-nums text-sky-500 dark:text-sky-400">
+                          <span className="text-sm font-semibold tabular-nums text-status-info-fg dark:text-status-info-fg">
                             {formatCurrency(saleClp)}
                           </span>
                           {saleUf != null ? (
@@ -2451,7 +2451,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
                                     href={inst.lat != null && inst.lng != null ? `https://www.google.com/maps/@${inst.lat},${inst.lng},17z` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(inst.address)}`}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="text-[11px] text-emerald-400 hover:text-emerald-300 inline-flex items-center gap-1"
+                                    className="text-[11px] text-status-ok-fg hover:text-status-ok-fg inline-flex items-center gap-1"
                                     title="Abrir en Google Maps"
                                   >
                                     <ExternalLink className="h-3 w-3" />
@@ -2534,14 +2534,14 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
           className={cn(
             "rounded-md border px-2.5 py-1.5 text-xs",
             hasConflicts
-              ? "border-amber-500/30 bg-amber-500/5"
-              : "border-emerald-500/30 bg-emerald-500/5"
+              ? "border-status-warn-border bg-status-warn-soft"
+              : "border-status-ok-border bg-status-ok-soft"
           )}
         >
           <p
             className={cn(
               "inline-flex items-center gap-1.5 text-[11px] font-medium",
-              hasConflicts ? "text-amber-400" : "text-emerald-400"
+              hasConflicts ? "text-status-warn-fg" : "text-status-ok-fg"
             )}
           >
             {hasConflicts ? (
@@ -2558,14 +2558,14 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
               <Building2 className="h-3 w-3" />
               {useExistingAccountId ? (
                 <>
-                  <span className="text-amber-400">Usar:</span>
+                  <span className="text-status-warn-fg">Usar:</span>
                   <span className="max-w-[120px] truncate">
                     {duplicates.find((d) => d.id === useExistingAccountId)?.name || "existente"}
                   </span>
                 </>
               ) : (
                 <>
-                  <span className="text-emerald-400">Nueva:</span>
+                  <span className="text-status-ok-fg">Nueva:</span>
                   <span className="max-w-[140px] truncate">{approveForm.accountName}</span>
                 </>
               )}
@@ -2575,20 +2575,20 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
               {existingContact ? (
                 contactResolution === "use_existing" ? (
                   <>
-                    <span className="text-amber-400">Mantener:</span>
+                    <span className="text-status-warn-fg">Mantener:</span>
                     <span className="max-w-[120px] truncate">{existingContact.firstName}</span>
                   </>
                 ) : contactResolution === "overwrite" ? (
                   <>
-                    <span className="text-amber-400">Sobrescribir:</span>
+                    <span className="text-status-warn-fg">Sobrescribir:</span>
                     <span className="max-w-[120px] truncate">{existingContact.firstName}</span>
                   </>
                 ) : (
-                  <span className="text-emerald-400">Nuevo contacto</span>
+                  <span className="text-status-ok-fg">Nuevo contacto</span>
                 )
               ) : (
                 <>
-                  <span className="text-emerald-400">Nuevo:</span>
+                  <span className="text-status-ok-fg">Nuevo:</span>
                   <span className="max-w-[140px] truncate">
                     {approveForm.contactFirstName} {approveForm.contactLastName}
                   </span>
@@ -2656,7 +2656,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
               "h-8 flex-1 gap-1.5 px-3 text-xs font-medium shadow-sm sm:flex-initial",
               hasConflicts
                 ? "bg-amber-600 text-white hover:bg-amber-700"
-                : "bg-emerald-600 text-white hover:bg-emerald-700"
+                : "bg-status-ok text-white hover:bg-emerald-700"
             )}
             title={
               !duplicateChecked
@@ -2718,7 +2718,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
                     {markingContact ? (
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
                     ) : lead.firstContactAt ? (
-                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                      <CheckCircle2 className="h-3.5 w-3.5 text-status-ok-fg" />
                     ) : (
                       <UserCheck className="h-3.5 w-3.5" />
                     )}
@@ -2753,7 +2753,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
                     <Phone className="h-4 w-4" />
                   </a>
                   <a href={buildWhatsAppUrl()} target="_blank" rel="noopener noreferrer" title="WhatsApp"
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-green-600/30 bg-green-600/15 text-green-400 hover:bg-green-600/25 transition-colors">
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-green-600/30 bg-green-600/15 text-status-ok-fg hover:bg-green-600/25 transition-colors">
                     <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" /></svg>
                   </a>
                 </div>
@@ -2790,7 +2790,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+              <CheckCircle2 className="h-5 w-5 text-status-ok-fg" />
               Lead aprobado
             </DialogTitle>
             <DialogDescription>
@@ -2801,7 +2801,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
             <div className="space-y-3">
               <div className="space-y-2 text-sm">
                 <Link href={`/crm/contacts/${approvalResult.contact.id}`} className="flex items-center gap-3 rounded-md border border-border p-3 hover:bg-muted/50 transition-colors">
-                  <Users className="h-4 w-4 text-blue-500 shrink-0" />
+                  <Users className="h-4 w-4 text-status-info-fg shrink-0" />
                   <div className="min-w-0 flex-1">
                     <p className="text-xs text-muted-foreground">Contacto</p>
                     <p className="font-medium truncate">{approvalResult.contact.firstName} {approvalResult.contact.lastName}</p>
@@ -2817,7 +2817,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
                   <ExternalLink className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                 </Link>
                 <Link href={`/crm/deals/${approvalResult.deal.id}`} className="flex items-center gap-3 rounded-md border border-border p-3 hover:bg-muted/50 transition-colors">
-                  <Briefcase className="h-4 w-4 text-amber-500 shrink-0" />
+                  <Briefcase className="h-4 w-4 text-status-warn-fg shrink-0" />
                   <div className="min-w-0 flex-1">
                     <p className="text-xs text-muted-foreground">Negocio</p>
                     <p className="font-medium truncate">{approvalResult.deal.title}</p>
@@ -2826,7 +2826,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
                 </Link>
                 {approvalResult.quotes.map((q) => (
                   <Link key={q.id} href={`/cpq/${q.id}`} className="flex items-center gap-3 rounded-md border border-border p-3 hover:bg-muted/50 transition-colors">
-                    <FileText className="h-4 w-4 text-emerald-500 shrink-0" />
+                    <FileText className="h-4 w-4 text-status-ok-fg shrink-0" />
                     <div className="min-w-0 flex-1">
                       <p className="text-xs text-muted-foreground">Cotización CPQ</p>
                       <p className="font-medium truncate">{q.code}{q.installationName ? ` — ${q.installationName}` : ""}</p>
@@ -2853,7 +2853,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
                 {approvalResult.quotes.length > 0 && (
                   <Button
                     variant="default"
-                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+                    className="w-full bg-status-ok hover:bg-emerald-700 text-white"
                     disabled={sendingExpress}
                     onClick={async () => {
                       setSendingExpress(true);
@@ -2921,7 +2921,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <MessageCircle className="h-5 w-5 text-green-400" />
+              <MessageCircle className="h-5 w-5 text-status-ok-fg" />
               ¡Enviado! Ahora por WhatsApp
             </DialogTitle>
           </DialogHeader>
@@ -2930,7 +2930,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
               Email enviado a <strong className="text-foreground">{whatsappSentTo || "el cliente"}</strong>. Haz clic para enviarle el mismo mensaje por WhatsApp.
             </p>
             <div className="rounded-lg border border-green-500/20 bg-green-500/5 p-3 space-y-1">
-              <p className="text-xs font-semibold text-green-400 uppercase tracking-wide">El mensaje incluye</p>
+              <p className="text-xs font-semibold text-status-ok-fg uppercase tracking-wide">El mensaje incluye</p>
               <p className="text-xs text-muted-foreground">🔑 Email y PIN de acceso al portal</p>
               <p className="text-xs text-muted-foreground">🔗 Link al portal y a la propuesta técnica</p>
               <p className="text-xs text-muted-foreground">📋 Beneficios del portal explicados</p>

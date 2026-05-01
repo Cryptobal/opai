@@ -121,19 +121,19 @@ type ApiSearchResult = {
 };
 
 const SEARCH_TYPE_CONFIG: Record<SearchResultType, { icon: typeof Users; color: string; bgColor: string; label: string }> = {
-  lead:                  { icon: Users,        color: 'text-emerald-400', bgColor: 'bg-emerald-400/10', label: 'Lead' },
-  account:               { icon: Building2,    color: 'text-blue-400',    bgColor: 'bg-blue-400/10',    label: 'Cuenta' },
-  contact:               { icon: Contact,      color: 'text-sky-400',     bgColor: 'bg-sky-400/10',     label: 'Contacto' },
+  lead:                  { icon: Users,        color: 'text-status-ok-fg', bgColor: 'bg-emerald-400/10', label: 'Lead' },
+  account:               { icon: Building2,    color: 'text-status-info-fg',    bgColor: 'bg-blue-400/10',    label: 'Cuenta' },
+  contact:               { icon: Contact,      color: 'text-status-info-fg',     bgColor: 'bg-sky-400/10',     label: 'Contacto' },
   deal:                  { icon: TrendingUp,   color: 'text-purple-400',  bgColor: 'bg-purple-400/10',  label: 'Negocio' },
-  quote:                 { icon: FileText,     color: 'text-amber-400',   bgColor: 'bg-amber-400/10',   label: 'Cotización' },
-  installation:          { icon: MapPin,       color: 'text-teal-400',    bgColor: 'bg-teal-400/10',    label: 'Instalación' },
-  guardia:               { icon: ShieldUser,   color: 'text-sky-400',     bgColor: 'bg-sky-400/10',     label: 'Guardia' },
-  document:              { icon: File,         color: 'text-orange-400',  bgColor: 'bg-orange-400/10',  label: 'Documento' },
-  pauta_mensual:         { icon: CalendarDays, color: 'text-teal-400',    bgColor: 'bg-teal-400/10',    label: 'Pauta' },
-  channel:               { icon: MessageCircle,color: 'text-teal-400',    bgColor: 'bg-teal-400/10',    label: 'Chat' },
+  quote:                 { icon: FileText,     color: 'text-status-warn-fg',   bgColor: 'bg-amber-400/10',   label: 'Cotización' },
+  installation:          { icon: MapPin,       color: 'text-status-info-fg',    bgColor: 'bg-teal-400/10',    label: 'Instalación' },
+  guardia:               { icon: ShieldUser,   color: 'text-status-info-fg',     bgColor: 'bg-sky-400/10',     label: 'Guardia' },
+  document:              { icon: File,         color: 'text-status-warn-fg',  bgColor: 'bg-orange-400/10',  label: 'Documento' },
+  pauta_mensual:         { icon: CalendarDays, color: 'text-status-info-fg',    bgColor: 'bg-teal-400/10',    label: 'Pauta' },
+  channel:               { icon: MessageCircle,color: 'text-status-info-fg',    bgColor: 'bg-teal-400/10',    label: 'Chat' },
   inventory_product:     { icon: Package,      color: 'text-violet-400',  bgColor: 'bg-violet-400/10',  label: 'Producto' },
-  inventory_asset:       { icon: Cpu,          color: 'text-indigo-400',  bgColor: 'bg-indigo-400/10',  label: 'Activo' },
-  inventory_phone_line:  { icon: Phone,        color: 'text-cyan-400',    bgColor: 'bg-cyan-400/10',    label: 'Línea' },
+  inventory_asset:       { icon: Cpu,          color: 'text-status-info-fg',  bgColor: 'bg-indigo-400/10',  label: 'Activo' },
+  inventory_phone_line:  { icon: Phone,        color: 'text-status-info-fg',    bgColor: 'bg-cyan-400/10',    label: 'Línea' },
 };
 
 const GROUP_CATEGORY: Record<SearchResultGroup, CommandCategory> = {
@@ -543,8 +543,8 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
                               : cmd.category === 'action'
                                 ? 'bg-primary/10'
                                 : cmd.category === 'config'
-                                  ? 'bg-amber-500/10'
-                                  : 'bg-blue-500/10',
+                                  ? 'bg-status-warn-soft'
+                                  : 'bg-status-info-soft',
                         )}
                       >
                         {showImage ? (
@@ -576,8 +576,8 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
                                   : cmd.category === 'action'
                                     ? 'text-primary'
                                     : cmd.category === 'config'
-                                      ? 'text-amber-500'
-                                      : 'text-blue-500',
+                                      ? 'text-status-warn-fg'
+                                      : 'text-status-info-fg',
                             )}
                           />
                         </div>

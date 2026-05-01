@@ -70,7 +70,7 @@ export default function UsersTable({ users, roleTemplates, currentUserId, curren
     const variant = ROLE_BADGE_VARIANTS[user.role] ?? 'outline';
     const isOrphaned = !user.roleTemplate && user.roleTemplateId;
     return (
-      <Badge variant={variant} className={isOrphaned ? 'border-amber-500/50' : ''}>
+      <Badge variant={variant} className={isOrphaned ? 'border-status-warn-border' : ''}>
         {label}
         {isOrphaned && ' (obsoleto)'}
       </Badge>
@@ -207,7 +207,7 @@ export default function UsersTable({ users, roleTemplates, currentUserId, curren
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-muted-foreground">(Tú)</span>
                     {isOnlyUser && (
-                      <span className="text-xs text-amber-500">Invita usuarios para ver acciones</span>
+                      <span className="text-xs text-status-warn-fg">Invita usuarios para ver acciones</span>
                     )}
                   </div>
                 )}
@@ -323,7 +323,7 @@ export default function UsersTable({ users, roleTemplates, currentUserId, curren
                     <div className="flex items-center justify-end gap-2">
                       <span className="text-xs text-muted-foreground">(Tú)</span>
                       {isOnlyUser && (
-                        <span className="text-xs text-amber-500">← Invita usuarios para ver acciones</span>
+                        <span className="text-xs text-status-warn-fg">← Invita usuarios para ver acciones</span>
                       )}
                     </div>
                   )}

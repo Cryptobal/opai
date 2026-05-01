@@ -12,7 +12,7 @@ interface Props {
 
 function DaysBadge({ days }: { days: number | null }) {
   if (days === null) return null;
-  const color = days > 30 ? 'text-red-400 border-red-500/30' : 'text-amber-400 border-amber-500/30';
+  const color = days > 30 ? 'text-status-danger-fg border-status-danger-border' : 'text-status-warn-fg border-status-warn-border';
   return (
     <span className={`text-xs font-bold tabular-nums border rounded px-1.5 py-0.5 ${color}`}>
       {days}d
@@ -38,7 +38,7 @@ export function HubStaleDeals({ deals, sellerFirstName, tenantName }: Props) {
   return (
     <div>
       <div className="flex items-center gap-2 mb-2">
-        <AlertTriangle className="h-3.5 w-3.5 text-amber-400" />
+        <AlertTriangle className="h-3.5 w-3.5 text-status-warn-fg" />
         <p className="text-sm font-bold">Sin actividad</p>
         <Badge variant="destructive" className="text-xs px-1.5 py-0 h-4">
           {deals.length}
@@ -70,7 +70,7 @@ export function HubStaleDeals({ deals, sellerFirstName, tenantName }: Props) {
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="text-sm font-bold truncate">{deal.companyName}</p>
                     {deal.amount > 0 && (
-                      <span className="text-xs font-bold tabular-nums text-emerald-400 whitespace-nowrap">
+                      <span className="text-xs font-bold tabular-nums text-status-ok-fg whitespace-nowrap">
                         {formatCLP(Math.round(deal.amount))}
                       </span>
                     )}
@@ -91,7 +91,7 @@ export function HubStaleDeals({ deals, sellerFirstName, tenantName }: Props) {
                   href={whatsappUrlWithMessage(deal.contactPhone, waMessage)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center gap-1.5 rounded-md border border-green-500/40 bg-green-500/10 px-2.5 py-1.5 text-xs font-medium text-green-400 hover:bg-green-500 hover:text-white transition-colors shrink-0 w-full md:w-auto"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-md border border-green-500/40 bg-status-ok-soft px-2.5 py-1.5 text-xs font-medium text-status-ok-fg hover:bg-status-ok hover:text-white transition-colors shrink-0 w-full md:w-auto"
                   title={`Enviar WhatsApp a ${deal.contactPhone}`}
                   onClick={(e) => e.stopPropagation()}
                 >

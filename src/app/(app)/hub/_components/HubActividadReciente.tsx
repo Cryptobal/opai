@@ -35,12 +35,12 @@ function formatEntity(type: string): string {
 }
 
 const actionDotColor: Record<string, string> = {
-  create: 'bg-emerald-500',
-  update: 'bg-blue-500',
-  delete: 'bg-red-500',
+  create: 'bg-status-ok',
+  update: 'bg-status-info',
+  delete: 'bg-status-danger',
   approve: 'bg-purple-500',
   reject: 'bg-red-400',
-  submit: 'bg-sky-500',
+  submit: 'bg-status-info',
   login: 'bg-muted-foreground',
   attendance_mark: 'bg-emerald-400',
   profile_update: 'bg-blue-400',

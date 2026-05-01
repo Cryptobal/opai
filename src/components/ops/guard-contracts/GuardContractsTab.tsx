@@ -314,10 +314,10 @@ export function GuardContractsTab({
     <div className="space-y-4">
       {/* Alert banner */}
       {showAlert && !isExpired && (
-        <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 p-3">
-          <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-amber-500" />
+        <div className="flex items-start gap-2 rounded-md border border-status-warn-border bg-status-warn-soft p-3">
+          <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-status-warn-fg" />
           <div>
-            <p className="text-sm font-medium text-amber-600">Contrato próximo a vencer</p>
+            <p className="text-sm font-medium text-status-warn-fg">Contrato próximo a vencer</p>
             <p className="text-xs text-amber-600/80">
               Quedan {daysUntilEnd} día(s) hábil(es) para el vencimiento
               {currentEndDate && ` (${formatDateUTC(currentEndDate)})`}.

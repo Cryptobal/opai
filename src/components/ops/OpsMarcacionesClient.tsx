@@ -468,8 +468,8 @@ export function OpsMarcacionesClient({ initialClients }: OpsMarcacionesClientPro
                         <span
                           className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${
                             m.tipo === "entrada"
-                              ? "bg-emerald-500/15 text-emerald-400"
-                              : "bg-orange-500/15 text-orange-400"
+                              ? "bg-status-ok-soft text-status-ok-fg"
+                              : "bg-orange-500/15 text-status-warn-fg"
                           }`}
                         >
                           {m.tipo === "entrada" ? <LogIn className="h-3 w-3" /> : <LogOut className="h-3 w-3" />}
@@ -507,9 +507,9 @@ export function OpsMarcacionesClient({ initialClients }: OpsMarcacionesClientPro
                       {/* Geo */}
                       <td className="px-3 py-2 text-center">
                         {m.geo.validada ? (
-                          <CheckCircle2 className="h-4 w-4 text-emerald-400 mx-auto" />
+                          <CheckCircle2 className="h-4 w-4 text-status-ok-fg mx-auto" />
                         ) : m.geo.distanciaM != null ? (
-                          <AlertTriangle className="h-4 w-4 text-red-400 mx-auto" />
+                          <AlertTriangle className="h-4 w-4 text-status-danger-fg mx-auto" />
                         ) : (
                           <MapPin className="h-4 w-4 text-muted-foreground mx-auto" />
                         )}

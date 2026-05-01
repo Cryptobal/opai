@@ -125,7 +125,7 @@ export function ClientWhitelistManager({ installationId, createdBy }: Props) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-base font-semibold text-zinc-100 flex items-center gap-2">
-          <Shield className="h-5 w-5 text-emerald-400" />
+          <Shield className="h-5 w-5 text-status-ok-fg" />
           Personas Autorizadas
         </h3>
         <Button size="sm" onClick={() => setShowForm(true)}>
@@ -212,7 +212,7 @@ export function ClientWhitelistManager({ installationId, createdBy }: Props) {
                 variant="outline"
                 size="sm"
                 onClick={() => toggleActive(entry)}
-                className={`text-xs ${entry.isActive ? "border-zinc-600" : "border-emerald-500/30 text-emerald-400"}`}
+                className={`text-xs ${entry.isActive ? "border-zinc-600" : "border-status-ok-border text-status-ok-fg"}`}
               >
                 {entry.isActive ? "Desactivar" : "Activar"}
               </Button>

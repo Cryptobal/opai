@@ -65,8 +65,8 @@ export function InstallationSelector({ guardId, onSelect }: InstallationSelector
     <div className="flex min-h-dvh flex-col bg-[#0A0F1C] px-5 py-8">
       {/* Header */}
       <div className="mb-8">
-        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-500/10">
-          <Building2 className="h-6 w-6 text-cyan-400" />
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-status-info-soft">
+          <Building2 className="h-6 w-6 text-status-info-fg" />
         </div>
         <h1 className="mt-4 text-xl font-bold text-white">
           Selecciona tu instalacion
@@ -80,7 +80,7 @@ export function InstallationSelector({ guardId, onSelect }: InstallationSelector
       {loading && (
         <div className="flex flex-1 items-center justify-center">
           <div className="flex flex-col items-center gap-3">
-            <Loader2 className="h-8 w-8 animate-spin text-cyan-500" />
+            <Loader2 className="h-8 w-8 animate-spin text-status-info-fg" />
             <p className="text-sm text-gray-400">Cargando instalaciones...</p>
           </div>
         </div>
@@ -89,8 +89,8 @@ export function InstallationSelector({ guardId, onSelect }: InstallationSelector
       {/* Error */}
       {!loading && error && (
         <div className="flex flex-1 flex-col items-center justify-center gap-4">
-          <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-5 py-4 text-center">
-            <p className="text-sm text-red-400">{error}</p>
+          <div className="rounded-xl border border-status-danger-border bg-status-danger-soft px-5 py-4 text-center">
+            <p className="text-sm text-status-danger-fg">{error}</p>
           </div>
           <button
             type="button"
@@ -136,8 +136,8 @@ export function InstallationSelector({ guardId, onSelect }: InstallationSelector
               onClick={() => onSelect(inst)}
               className="flex w-full items-start gap-4 rounded-xl border border-gray-800 bg-gray-900/50 p-4 text-left transition-colors active:border-cyan-500/40 active:bg-cyan-500/5"
             >
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-cyan-500/10">
-                <Building2 className="h-5 w-5 text-cyan-400" />
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-status-info-soft">
+                <Building2 className="h-5 w-5 text-status-info-fg" />
               </div>
               <div className="min-w-0 flex-1">
                 <p className="font-medium text-white">{inst.name}</p>

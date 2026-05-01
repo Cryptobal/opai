@@ -182,7 +182,7 @@ export function Step4Evidence({
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-sm font-medium">{cat.name}</p>
-                          <p className="text-[10px] text-amber-400">obligatorio</p>
+                          <p className="text-[10px] text-status-warn-fg">obligatorio</p>
                         </div>
                         {hasPhoto ? (
                           <Badge variant="success" className="text-[10px]">
@@ -301,7 +301,7 @@ export function Step4Evidence({
               <ImageIcon className="h-4 w-4" />
               Total: {capturedPhotos.length} fotos
               {totalMandatory > 0 && (
-                <span className={fulfilledMandatory === totalMandatory ? "text-emerald-400" : "text-amber-400"}>
+                <span className={fulfilledMandatory === totalMandatory ? "text-status-ok-fg" : "text-status-warn-fg"}>
                   ({fulfilledMandatory}/{totalMandatory} obligatorias
                   {fulfilledMandatory === totalMandatory ? " ✓" : ""})
                 </span>
@@ -313,7 +313,7 @@ export function Step4Evidence({
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base">
-                <AlertTriangle className="h-4 w-4 text-amber-400" />
+                <AlertTriangle className="h-4 w-4 text-status-warn-fg" />
                 Hallazgos
                 {findings.length > 0 && (
                   <Badge variant="secondary" className="ml-auto text-xs">
@@ -366,12 +366,12 @@ export function Step4Evidence({
           </div>
 
           {totalMandatory > 0 && !mandatoryFulfilled && (
-            <p className="text-center text-xs text-amber-400">
+            <p className="text-center text-xs text-status-warn-fg">
               Faltan {totalMandatory - fulfilledMandatory} foto(s) obligatoria(s)
             </p>
           )}
           {requireExtraPhotos && !hasExtraPhotos && (
-            <p className="text-center text-xs text-amber-400">
+            <p className="text-center text-xs text-status-warn-fg">
               Libro no presente: debes agregar al menos una foto del hallazgo o evidencia adicional
             </p>
           )}

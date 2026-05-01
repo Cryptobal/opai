@@ -82,10 +82,10 @@ function toDateInput(date: Date): string {
 }
 
 const REASON_META: Record<string, { label: string; color: string; bgColor: string; icon: typeof UserX }> = {
-  sin_guardia: { label: "Sin guardia", color: "text-amber-400", bgColor: "bg-amber-400/10", icon: UserX },
-  vacaciones: { label: "Vacaciones", color: "text-emerald-400", bgColor: "bg-emerald-400/10", icon: Palmtree },
-  licencia: { label: "Licencia", color: "text-yellow-400", bgColor: "bg-yellow-400/10", icon: Stethoscope },
-  permiso: { label: "Permiso", color: "text-orange-400", bgColor: "bg-orange-400/10", icon: Clock3 },
+  sin_guardia: { label: "Sin guardia", color: "text-status-warn-fg", bgColor: "bg-amber-400/10", icon: UserX },
+  vacaciones: { label: "Vacaciones", color: "text-status-ok-fg", bgColor: "bg-emerald-400/10", icon: Palmtree },
+  licencia: { label: "Licencia", color: "text-status-warn-fg", bgColor: "bg-yellow-400/10", icon: Stethoscope },
+  permiso: { label: "Permiso", color: "text-status-warn-fg", bgColor: "bg-orange-400/10", icon: Clock3 },
 };
 
 /* ── Chart tooltip ─────────────────────────────── */
@@ -141,7 +141,7 @@ function KpiCard({
           </div>
         </div>
         {trend && (
-          <div className={`flex items-center gap-1 mt-2 text-[11px] font-medium ${trend.value <= 0 ? "text-emerald-400" : "text-red-400"}`}>
+          <div className={`flex items-center gap-1 mt-2 text-[11px] font-medium ${trend.value <= 0 ? "text-status-ok-fg" : "text-status-danger-fg"}`}>
             {trend.value <= 0 ? <TrendingDown className="h-3.5 w-3.5" /> : <TrendingUp className="h-3.5 w-3.5" />}
             {Math.abs(trend.value)}% {trend.label}
           </div>
@@ -173,9 +173,9 @@ function InstallationCard({
   }, [items]);
 
   const severityColor = items.length >= 5
-    ? "border-red-500/30 bg-red-500/[0.03]"
+    ? "border-status-danger-border bg-red-500/[0.03]"
     : items.length >= 3
-      ? "border-amber-500/30 bg-amber-500/[0.03]"
+      ? "border-status-warn-border bg-amber-500/[0.03]"
       : "border-border";
 
   return (
@@ -384,7 +384,7 @@ export function OpsPpcClient({ initialClients }: OpsPpcClientProps) {
           subtitle="del total de guardias activos"
           trend={trend}
           icon={ShieldAlert}
-          color={data && data.ppcPercentage > 5 ? "text-red-400" : data && data.ppcPercentage > 2 ? "text-amber-400" : "text-emerald-400"}
+          color={data && data.ppcPercentage > 5 ? "text-status-danger-fg" : data && data.ppcPercentage > 2 ? "text-status-warn-fg" : "text-status-ok-fg"}
         />
         <KpiCard
           title="Puestos por cubrir"

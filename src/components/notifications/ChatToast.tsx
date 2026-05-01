@@ -18,8 +18,8 @@ interface ChatToastProps {
 /** Generate a deterministic color from a string (for avatar background). */
 function avatarColor(name: string): string {
   const colors = [
-    "bg-teal-600", "bg-blue-600", "bg-violet-600", "bg-rose-600",
-    "bg-amber-600", "bg-emerald-600", "bg-cyan-600", "bg-pink-600",
+    "bg-status-info", "bg-status-info", "bg-violet-600", "bg-rose-600",
+    "bg-amber-600", "bg-status-ok", "bg-cyan-600", "bg-pink-600",
   ];
   let hash = 0;
   for (let i = 0; i < name.length; i++) {
@@ -80,7 +80,7 @@ export function ChatToast({
             <p className="text-[13px] font-bold text-white truncate">
               {senderName}
             </p>
-            <p className="text-[12px] text-teal-400 truncate">
+            <p className="text-[12px] text-status-info-fg truncate">
               en # {channelName}
             </p>
           </>

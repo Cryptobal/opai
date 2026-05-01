@@ -82,7 +82,7 @@ export function GuardTourOverlay({ onComplete }: Props) {
         <div
           className={`mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br ${current.bgColor}`}
         >
-          <IconComponent className="h-10 w-10 text-teal-400" />
+          <IconComponent className="h-10 w-10 text-status-info-fg" />
         </div>
 
         {/* Title */}
@@ -114,7 +114,7 @@ export function GuardTourOverlay({ onComplete }: Props) {
           )}
           <button
             onClick={() => (isLast ? onComplete() : setStep(step + 1))}
-            className="flex flex-1 items-center justify-center gap-1 rounded-xl bg-teal-600 py-3.5 text-base font-semibold text-white transition-colors active:bg-teal-700"
+            className="flex flex-1 items-center justify-center gap-1 rounded-xl bg-status-info py-3.5 text-base font-semibold text-white transition-colors active:bg-teal-700"
             style={{ minHeight: 48 }}
           >
             {isLast ? "Comenzar" : "Siguiente"}

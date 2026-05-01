@@ -40,13 +40,13 @@ export function ConversionChart({ stats, conversionRate, openRate, clickRate }: 
       label: 'Vistas (Éxito)', 
       value: stats.viewed, 
       percentage: viewedPercentage,
-      color: 'bg-green-500'
+      color: 'bg-status-ok'
     },
     { 
       label: 'Sin Leer', 
       value: stats.pending, 
       percentage: pendingPercentage,
-      color: 'bg-yellow-500'
+      color: 'bg-status-warn'
     },
   ];
 
@@ -112,14 +112,14 @@ export function ConversionChart({ stats, conversionRate, openRate, clickRate }: 
       <div className="mt-3 grid grid-cols-2 gap-2">
         <div className="p-2 rounded-md bg-white/5 border border-white/10">
           <div className="text-xs text-white/60 mb-0.5">Tasa de Éxito</div>
-          <div className="text-sm sm:text-base font-bold text-green-400">
+          <div className="text-sm sm:text-base font-bold text-status-ok-fg">
             {conversionRate.toFixed(1)}%
           </div>
           <div className="text-[8px] text-white/40 mt-0.5">Enviadas → Vistas</div>
         </div>
         <div className="p-2 rounded-md bg-white/5 border border-white/10">
           <div className="text-xs text-white/60 mb-0.5">Pendientes</div>
-          <div className="text-sm sm:text-base font-bold text-yellow-400">
+          <div className="text-sm sm:text-base font-bold text-status-warn-fg">
             {stats.pending}
           </div>
           <div className="text-[8px] text-white/40 mt-0.5">Aún no vistas</div>

@@ -125,10 +125,10 @@ function SurveyRating({
             className={`flex h-11 flex-1 items-center justify-center rounded-lg border-2 text-sm font-bold transition-all ${
               value === n
                 ? n >= 4
-                  ? "border-emerald-500 bg-emerald-500/20 text-emerald-400"
+                  ? "border-status-ok-border bg-status-ok-soft text-status-ok-fg"
                   : n === 3
-                    ? "border-amber-500 bg-amber-500/20 text-amber-400"
-                    : "border-red-500 bg-red-500/20 text-red-400"
+                    ? "border-status-warn-border bg-status-warn-soft text-status-warn-fg"
+                    : "border-status-danger-border bg-status-danger-soft text-status-danger-fg"
                 : "border-border text-muted-foreground hover:border-muted-foreground/50"
             }`}
           >
@@ -156,10 +156,10 @@ function NpsRating({ value, onChange }: { value: number | null; onChange: (v: nu
             className={`flex h-10 flex-1 items-center justify-center rounded border text-xs font-bold transition-all ${
               value === n
                 ? n >= 9
-                  ? "border-emerald-500 bg-emerald-500/20 text-emerald-400"
+                  ? "border-status-ok-border bg-status-ok-soft text-status-ok-fg"
                   : n >= 7
-                    ? "border-amber-500 bg-amber-500/20 text-amber-400"
-                    : "border-red-500 bg-red-500/20 text-red-400"
+                    ? "border-status-warn-border bg-status-warn-soft text-status-warn-fg"
+                    : "border-status-danger-border bg-status-danger-soft text-status-danger-fg"
                 : "border-border text-muted-foreground hover:border-muted-foreground/50"
             }`}
           >
@@ -278,9 +278,9 @@ export function Step5Closure({
 
   // Tags
   const tags: { label: string; color: string }[] = [];
-  if (isExpress) tags.push({ label: "Express (<15 min)", color: "text-amber-400 bg-amber-500/10" });
-  if (newFindings.length > 0) tags.push({ label: `${newFindings.length} hallazgo(s) nuevo(s)`, color: "text-red-400 bg-red-500/10" });
-  if (surveyData.hasUrgentRisk) tags.push({ label: "Riesgo urgente", color: "text-red-400 bg-red-500/10" });
+  if (isExpress) tags.push({ label: "Express (<15 min)", color: "text-status-warn-fg bg-status-warn-soft" });
+  if (newFindings.length > 0) tags.push({ label: `${newFindings.length} hallazgo(s) nuevo(s)`, color: "text-status-danger-fg bg-status-danger-soft" });
+  if (surveyData.hasUrgentRisk) tags.push({ label: "Riesgo urgente", color: "text-status-danger-fg bg-status-danger-soft" });
 
   function updateSurveyField<K extends keyof SurveyData>(key: K, value: SurveyData[K]) {
     onSurveyDataChange({ ...surveyData, [key]: value });
@@ -356,7 +356,7 @@ export function Step5Closure({
                 onClick={() => onClientContactedChange(true)}
                 className={`flex-1 rounded-lg border-2 p-2 text-center text-sm font-medium transition ${
                   clientContacted
-                    ? "border-emerald-500 bg-emerald-500/20 text-emerald-400"
+                    ? "border-status-ok-border bg-status-ok-soft text-status-ok-fg"
                     : "border-border text-muted-foreground"
                 }`}
               >
@@ -381,7 +381,7 @@ export function Step5Closure({
               {/* Contact info */}
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
-                  <Label className={`text-xs ${missingContactName ? "text-amber-400" : ""}`}>
+                  <Label className={`text-xs ${missingContactName ? "text-status-warn-fg" : ""}`}>
                     Nombre del contacto
                     {missingContactName && <span className="ml-1 text-[10px] text-amber-400/70">*</span>}
                   </Label>
@@ -389,7 +389,7 @@ export function Step5Closure({
                     value={clientContactName}
                     onChange={(e) => onClientContactNameChange(e.target.value)}
                     placeholder="Nombre"
-                    className={`h-11 ${missingContactName ? "border-amber-500/40" : ""}`}
+                    className={`h-11 ${missingContactName ? "border-status-warn-border" : ""}`}
                   />
                 </div>
                 <div className="space-y-1">
@@ -408,8 +408,8 @@ export function Step5Closure({
                 {SURVEY_QUESTIONS.map((q, idx) => {
                   const unanswered = clientContacted && surveyData[q.key] === null;
                   return (
-                    <div key={q.key} className={`space-y-1 rounded-lg p-1.5 -mx-1.5 transition-colors ${unanswered ? "bg-amber-500/5" : ""}`}>
-                      <Label className={`text-xs ${unanswered ? "text-amber-400" : ""}`}>
+                    <div key={q.key} className={`space-y-1 rounded-lg p-1.5 -mx-1.5 transition-colors ${unanswered ? "bg-status-warn-soft" : ""}`}>
+                      <Label className={`text-xs ${unanswered ? "text-status-warn-fg" : ""}`}>
                         {idx + 1}. {q.question}
                         {unanswered && <span className="ml-1 text-[10px] text-amber-400/70">*</span>}
                       </Label>
@@ -423,8 +423,8 @@ export function Step5Closure({
                 })}
 
                 {/* Q7: Urgent risk — Sí/No */}
-                <div className={`space-y-2 rounded-lg p-1.5 -mx-1.5 transition-colors ${missingRisk ? "bg-amber-500/5" : ""}`}>
-                  <Label className={`text-xs ${missingRisk ? "text-amber-400" : ""}`}>
+                <div className={`space-y-2 rounded-lg p-1.5 -mx-1.5 transition-colors ${missingRisk ? "bg-status-warn-soft" : ""}`}>
+                  <Label className={`text-xs ${missingRisk ? "text-status-warn-fg" : ""}`}>
                     7. Existe actualmente algun riesgo o preocupacion relevante que debamos abordar de inmediato?
                     {missingRisk && <span className="ml-1 text-[10px] text-amber-400/70">*</span>}
                   </Label>
@@ -434,8 +434,8 @@ export function Step5Closure({
                       onClick={() => updateSurveyField("hasUrgentRisk", true)}
                       className={`flex-1 rounded-lg border-2 p-2.5 text-center text-sm font-medium transition ${
                         surveyData.hasUrgentRisk === true
-                          ? "border-red-500 bg-red-500/20 text-red-400"
-                          : "border-border text-muted-foreground hover:border-red-500/50"
+                          ? "border-status-danger-border bg-status-danger-soft text-status-danger-fg"
+                          : "border-border text-muted-foreground hover:border-status-danger-border"
                       }`}
                     >
                       Si
@@ -447,8 +447,8 @@ export function Step5Closure({
                       }}
                       className={`flex-1 rounded-lg border-2 p-2.5 text-center text-sm font-medium transition ${
                         surveyData.hasUrgentRisk === false
-                          ? "border-emerald-500 bg-emerald-500/20 text-emerald-400"
-                          : "border-border text-muted-foreground hover:border-emerald-500/50"
+                          ? "border-status-ok-border bg-status-ok-soft text-status-ok-fg"
+                          : "border-border text-muted-foreground hover:border-status-ok-border"
                       }`}
                     >
                       No
@@ -463,7 +463,7 @@ export function Step5Closure({
                         rows={2}
                         className="text-sm"
                       />
-                      <p className="text-[10px] text-amber-400">
+                      <p className="text-[10px] text-status-warn-fg">
                         Se creara un hallazgo critico al finalizar la visita
                       </p>
                     </div>
@@ -471,8 +471,8 @@ export function Step5Closure({
                 </div>
 
                 {/* Q8: NPS */}
-                <div className={`space-y-1 rounded-lg p-1.5 -mx-1.5 transition-colors ${missingNps ? "bg-amber-500/5" : ""}`}>
-                  <Label className={`text-xs ${missingNps ? "text-amber-400" : ""}`}>
+                <div className={`space-y-1 rounded-lg p-1.5 -mx-1.5 transition-colors ${missingNps ? "bg-status-warn-soft" : ""}`}>
+                  <Label className={`text-xs ${missingNps ? "text-status-warn-fg" : ""}`}>
                     8. Recomendaria nuestro servicio? (NPS)
                     {missingNps && <span className="ml-1 text-[10px] text-amber-400/70">*</span>}
                   </Label>
@@ -498,8 +498,8 @@ export function Step5Closure({
               </div>
 
               {/* Validation section */}
-              <div className={`space-y-3 rounded-lg p-3 transition-colors ${missingValidation ? "bg-amber-500/5 border border-amber-500/20" : "bg-muted/30"}`}>
-                <p className={`text-xs font-medium ${missingValidation ? "text-amber-400" : ""}`}>
+              <div className={`space-y-3 rounded-lg p-3 transition-colors ${missingValidation ? "bg-status-warn-soft border border-status-warn-border" : "bg-muted/30"}`}>
+                <p className={`text-xs font-medium ${missingValidation ? "text-status-warn-fg" : ""}`}>
                   Validacion del cliente (obligatorio)
                   {missingValidation && <span className="ml-1 text-[10px] text-amber-400/70">*</span>}
                 </p>
@@ -569,13 +569,13 @@ export function Step5Closure({
                         alt="Foto con cliente"
                         className="h-20 w-20 rounded-lg object-cover"
                       />
-                      <div className="text-xs text-emerald-400">Foto capturada</div>
+                      <div className="text-xs text-status-ok-fg">Foto capturada</div>
                     </div>
                   )}
                 </div>
 
                 {!hasValidation && (
-                  <p className="text-xs text-amber-400">
+                  <p className="text-xs text-status-warn-fg">
                     Debes validar con firma o foto para guardar la encuesta
                   </p>
                 )}
@@ -610,10 +610,10 @@ export function Step5Closure({
               <span className={`font-medium ${
                 avgRating !== null
                   ? avgRating >= 4
-                    ? "text-emerald-400"
+                    ? "text-status-ok-fg"
                     : avgRating >= 3
-                      ? "text-amber-400"
-                      : "text-red-400"
+                      ? "text-status-warn-fg"
+                      : "text-status-danger-fg"
                   : "text-muted-foreground"
               }`}>
                 {avgRating !== null ? `${avgRating.toFixed(1)}/5` : "—"}
@@ -626,7 +626,7 @@ export function Step5Closure({
                 Checklist
               </span>
               <span className={`flex items-center gap-1 ${
-                checklistPct >= 80 ? "text-emerald-400" : checklistPct >= 50 ? "text-amber-400" : "text-red-400"
+                checklistPct >= 80 ? "text-status-ok-fg" : checklistPct >= 50 ? "text-status-warn-fg" : "text-status-danger-fg"
               }`}>
                 {checkedCount}/{totalChecklist} ({checklistPct}%)
                 {checklistPct >= 80 ? (
@@ -642,7 +642,7 @@ export function Step5Closure({
                 <BookOpen className="h-3 w-3 text-muted-foreground" />
                 Libro
               </span>
-              <span className={bookUpToDate ? "text-emerald-400" : bookUpToDate === false ? "text-red-400" : "text-muted-foreground"}>
+              <span className={bookUpToDate ? "text-status-ok-fg" : bookUpToDate === false ? "text-status-danger-fg" : "text-muted-foreground"}>
                 {bookUpToDate === true ? "Al dia" : bookUpToDate === false ? "No al dia" : "—"}
                 {bookUpToDate === true && <CheckCircle2 className="ml-1 inline h-3 w-3" />}
                 {bookUpToDate === false && <AlertTriangle className="ml-1 inline h-3 w-3" />}
@@ -654,7 +654,7 @@ export function Step5Closure({
                 <AlertTriangle className="h-3 w-3 text-muted-foreground" />
                 Hallazgos nuevos
               </span>
-              <span className={newFindings.length > 0 ? "text-amber-400" : "text-muted-foreground"}>
+              <span className={newFindings.length > 0 ? "text-status-warn-fg" : "text-muted-foreground"}>
                 {newFindings.length}
               </span>
             </div>
@@ -669,8 +669,8 @@ export function Step5Closure({
                 {mandatoryPhotos.length > 0 && (
                   <span className={`ml-1 ${
                     mandatoryPhotosFulfilled === mandatoryPhotos.length
-                      ? "text-emerald-400"
-                      : "text-amber-400"
+                      ? "text-status-ok-fg"
+                      : "text-status-warn-fg"
                   }`}>
                     ({mandatoryPhotosFulfilled}/{mandatoryPhotos.length} oblig.)
                   </span>
@@ -685,7 +685,7 @@ export function Step5Closure({
                   Encuesta cliente
                 </span>
                 <span className={`flex items-center gap-1 ${
-                  surveyAvg >= 4 ? "text-emerald-400" : surveyAvg >= 3 ? "text-amber-400" : "text-red-400"
+                  surveyAvg >= 4 ? "text-status-ok-fg" : surveyAvg >= 3 ? "text-status-warn-fg" : "text-status-danger-fg"
                 }`}>
                   {surveyAvg.toFixed(1)}/5
                   {hasValidation && <CheckCircle2 className="h-3 w-3" />}
@@ -722,8 +722,8 @@ export function Step5Closure({
 
         {/* Pending findings preview — se generan al finalizar */}
         {pendingFindings.length > 0 && (
-          <div className="space-y-2 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
-            <div className="flex items-center gap-2 text-sm font-medium text-amber-400">
+          <div className="space-y-2 rounded-lg border border-status-warn-border bg-status-warn-soft p-3">
+            <div className="flex items-center gap-2 text-sm font-medium text-status-warn-fg">
               <AlertTriangle className="h-4 w-4" />
               Hallazgos a generar al finalizar ({pendingFindings.length})
             </div>
@@ -760,7 +760,7 @@ export function Step5Closure({
           <Button
             onClick={onFinalize}
             disabled={saving || !canFinalize}
-            className="flex-1 bg-emerald-600 hover:bg-emerald-700"
+            className="flex-1 bg-status-ok hover:bg-emerald-700"
             size="lg"
           >
             {saving ? "Finalizando..." : "Finalizar visita"}
@@ -780,7 +780,7 @@ export function Step5Closure({
           if (surveyData.npsScore === null) missing.push("NPS (Q8)");
           if (!hasValidation) missing.push("validacion (firma o foto)");
           return (
-            <p className="text-center text-xs text-amber-400">
+            <p className="text-center text-xs text-status-warn-fg">
               Falta: {missing.join(", ")}
             </p>
           );

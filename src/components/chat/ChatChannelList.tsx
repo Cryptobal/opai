@@ -358,7 +358,7 @@ export function ChatChannelList({
                     <Clock className="mr-2 h-3.5 w-3.5" />
                   )}
                   <span>{SORT_LABELS[key]}</span>
-                  {sort === key && <span className="ml-auto text-xs text-teal-400">✓</span>}
+                  {sort === key && <span className="ml-auto text-xs text-status-info-fg">✓</span>}
                 </DropdownMenuItem>
               ))}
             </DropdownMenuContent>
@@ -395,7 +395,7 @@ export function ChatChannelList({
             className={cn(
               "flex items-center gap-1 rounded-full px-3 py-0.5 text-xs font-medium transition-colors",
               filter === "unread"
-                ? "bg-teal-600 text-white"
+                ? "bg-status-info text-white"
                 : "text-zinc-500 hover:text-zinc-300"
             )}
           >
@@ -403,7 +403,7 @@ export function ChatChannelList({
             {totalUnread > 0 && (
               <span className={cn(
                 "flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[9px] font-bold",
-                filter === "unread" ? "bg-white/20 text-white" : "bg-teal-600 text-white"
+                filter === "unread" ? "bg-white/20 text-white" : "bg-status-info text-white"
               )}>
                 {totalUnread > 99 ? "99+" : totalUnread}
               </span>
@@ -441,7 +441,7 @@ export function ChatChannelList({
               <div>
                 <SectionHeader
                   label="Mensajes directos"
-                  icon={<MessageCircle className="h-3.5 w-3.5 text-teal-500" />}
+                  icon={<MessageCircle className="h-3.5 w-3.5 text-status-info-fg" />}
                   count={directChannels.length}
                   unreadCount={sectionUnread(directChannels)}
                   collapsed={!shouldExpand("direct")}
@@ -468,7 +468,7 @@ export function ChatChannelList({
               <div>
                 <SectionHeader
                   label="Grupos"
-                  icon={<Users className="h-3.5 w-3.5 text-amber-500" />}
+                  icon={<Users className="h-3.5 w-3.5 text-status-warn-fg" />}
                   count={groupChannels.length}
                   unreadCount={sectionUnread(groupChannels)}
                   collapsed={!shouldExpand("group")}
@@ -485,7 +485,7 @@ export function ChatChannelList({
               <div>
                 <SectionHeader
                   label="Instalaciones - Reportes"
-                  icon={<Building2 className="h-3.5 w-3.5 text-indigo-500" />}
+                  icon={<Building2 className="h-3.5 w-3.5 text-status-info-fg" />}
                   count={installationReportesChannels.length}
                   unreadCount={sectionUnread(installationReportesChannels)}
                   collapsed={!shouldExpand("installation_reportes")}
@@ -501,7 +501,7 @@ export function ChatChannelList({
             <div>
               <SectionHeader
                 label="Prospectos"
-                icon={<Contact className="h-3.5 w-3.5 text-green-500" />}
+                icon={<Contact className="h-3.5 w-3.5 text-status-ok-fg" />}
                 count={prospectChannels.length}
                 unreadCount={sectionUnread(prospectChannels)}
                 collapsed={!shouldExpand("prospects")}
@@ -526,7 +526,7 @@ export function ChatChannelList({
             <div>
               <SectionHeader
                 label="Clientes"
-                icon={<UserCheck className="h-3.5 w-3.5 text-blue-500" />}
+                icon={<UserCheck className="h-3.5 w-3.5 text-status-info-fg" />}
                 count={clientChannels.length}
                 unreadCount={sectionUnread(clientChannels)}
                 collapsed={!shouldExpand("clients")}

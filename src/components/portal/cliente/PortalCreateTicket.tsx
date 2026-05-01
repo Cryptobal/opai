@@ -39,8 +39,8 @@ interface Props {
 }
 
 const PRIORITY_OPTIONS = [
-  { value: 'p1', label: 'P1 — Critico', color: 'text-red-400' },
-  { value: 'p2', label: 'P2 — Alto', color: 'text-orange-400' },
+  { value: 'p1', label: 'P1 — Critico', color: 'text-status-danger-fg' },
+  { value: 'p2', label: 'P2 — Alto', color: 'text-status-warn-fg' },
   { value: 'p3', label: 'P3 — Normal', color: 'text-zinc-300' },
 ]
 
@@ -149,7 +149,7 @@ export function PortalCreateTicket({ session: _session, selectedInstallation, on
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800">
           <div className="flex items-center gap-2">
-            <Ticket className="h-5 w-5 text-blue-400" />
+            <Ticket className="h-5 w-5 text-status-info-fg" />
             <h2 className="text-white font-semibold">Nuevo Ticket</h2>
           </div>
           <button
@@ -190,7 +190,7 @@ export function PortalCreateTicket({ session: _session, selectedInstallation, on
           {/* Title */}
           <div>
             <label className="text-xs text-zinc-400 mb-1.5 block font-medium">
-              Titulo <span className="text-red-400">*</span>
+              Titulo <span className="text-status-danger-fg">*</span>
             </label>
             <input
               type="text"
@@ -233,7 +233,7 @@ export function PortalCreateTicket({ session: _session, selectedInstallation, on
                   className={cn(
                     'flex-1 h-9 rounded-lg border text-xs font-medium transition-all',
                     priority === opt.value
-                      ? 'border-blue-500 bg-blue-500/10 text-blue-300'
+                      ? 'border-status-info-border bg-status-info-soft text-status-info-fg'
                       : 'border-zinc-700 bg-zinc-800 text-zinc-400 hover:border-zinc-600'
                   )}
                 >
@@ -312,7 +312,7 @@ export function PortalCreateTicket({ session: _session, selectedInstallation, on
           </div>
 
           {error && (
-            <p className="text-xs text-red-400 text-center">{error}</p>
+            <p className="text-xs text-status-danger-fg text-center">{error}</p>
           )}
 
           {/* Actions */}
@@ -327,7 +327,7 @@ export function PortalCreateTicket({ session: _session, selectedInstallation, on
             <button
               type="submit"
               disabled={submitting || uploading || !title.trim()}
-              className="flex-1 h-10 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-sm font-medium transition-colors flex items-center justify-center gap-2"
+              className="flex-1 h-10 rounded-lg bg-status-info hover:bg-status-info disabled:opacity-40 text-sm font-medium transition-colors flex items-center justify-center gap-2"
             >
               {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Ticket className="h-4 w-4" />}
               Crear Ticket

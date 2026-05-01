@@ -17,7 +17,7 @@ export function PlatformKpiCard({ label, value, trend, warning }: PlatformKpiCar
       {trend && (
         <div
           className={`mt-2 text-sm font-medium ${
-            trend.positive ? 'text-emerald-600' : 'text-red-600'
+            trend.positive ? 'text-status-ok-fg' : 'text-status-danger-fg'
           }`}
         >
           {trend.value}

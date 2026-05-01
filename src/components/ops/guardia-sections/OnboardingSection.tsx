@@ -47,9 +47,9 @@ interface OnboardingSectionProps {
 
 const ESTADO_COLORS: Record<string, string> = {
   PENDIENTE: "bg-muted text-muted-foreground",
-  ENVIADO: "bg-amber-500/20 text-amber-400",
-  EN_PROGRESO: "bg-blue-500/20 text-blue-400",
-  COMPLETADO: "bg-green-500/20 text-green-400",
+  ENVIADO: "bg-status-warn-soft text-status-warn-fg",
+  EN_PROGRESO: "bg-status-info-soft text-status-info-fg",
+  COMPLETADO: "bg-green-500/20 text-status-ok-fg",
 };
 
 const STEPPER_STEPS = [
@@ -95,13 +95,13 @@ function PortalAccessRow({
       <div className="flex items-center gap-2">
         {accessed ? (
           <>
-            <Check className="h-4 w-4 text-green-400" />
+            <Check className="h-4 w-4 text-status-ok-fg" />
             <span className="text-xs text-muted-foreground">
               {formatDate(date)}
             </span>
           </>
         ) : (
-          <X className="h-4 w-4 text-red-400" />
+          <X className="h-4 w-4 text-status-danger-fg" />
         )}
       </div>
     </div>
@@ -196,7 +196,7 @@ export default function OnboardingSection({
             <div
               className={`flex items-center justify-center w-7 h-7 rounded-full text-xs font-medium shrink-0 ${
                 i < current
-                  ? "bg-green-500/20 text-green-400"
+                  ? "bg-green-500/20 text-status-ok-fg"
                   : i === current
                     ? "bg-primary/20 text-primary ring-1 ring-primary"
                     : "bg-muted text-muted-foreground"
@@ -245,7 +245,7 @@ export default function OnboardingSection({
             <p className="text-[13px]">
               {data.emailEnviado ? (
                 <span className="flex items-center gap-1.5">
-                  <Check className="h-3.5 w-3.5 text-emerald-400" />
+                  <Check className="h-3.5 w-3.5 text-status-ok-fg" />
                   {formatDate(data.fechaEnvio)}
                 </span>
               ) : (
@@ -260,7 +260,7 @@ export default function OnboardingSection({
             <p className="text-[13px]">
               {data.emailAbierto ? (
                 <span className="flex items-center gap-1.5">
-                  <MailOpen className="h-3.5 w-3.5 text-emerald-400" />
+                  <MailOpen className="h-3.5 w-3.5 text-status-ok-fg" />
                   {formatDate(data.fechaAbierto)}
                 </span>
               ) : (
@@ -309,7 +309,7 @@ export default function OnboardingSection({
                 >
                   <div className="mt-0.5">
                     {log.abierto ? (
-                      <MailOpen className="h-4 w-4 text-green-400" />
+                      <MailOpen className="h-4 w-4 text-status-ok-fg" />
                     ) : (
                       <Mail className="h-4 w-4 text-muted-foreground" />
                     )}
@@ -323,11 +323,11 @@ export default function OnboardingSection({
                   <span
                     className={`inline-flex shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
                       log.estado === "ABIERTO"
-                        ? "bg-green-500/20 text-green-400"
+                        ? "bg-green-500/20 text-status-ok-fg"
                         : log.estado === "REBOTADO"
-                          ? "bg-red-500/20 text-red-400"
+                          ? "bg-status-danger-soft text-status-danger-fg"
                           : log.estado === "ENTREGADO"
-                            ? "bg-blue-500/20 text-blue-400"
+                            ? "bg-status-info-soft text-status-info-fg"
                             : "bg-muted text-muted-foreground"
                     }`}
                   >

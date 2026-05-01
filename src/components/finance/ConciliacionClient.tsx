@@ -114,11 +114,11 @@ const MONTH_LABELS = [
 const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   IN_PROGRESS: {
     label: "En progreso",
-    className: "bg-amber-500/15 text-amber-400 border-amber-500/30",
+    className: "bg-status-warn-soft text-status-warn-fg border-status-warn-border",
   },
   COMPLETED: {
     label: "Completada",
-    className: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+    className: "bg-status-ok-soft text-status-ok-fg border-status-ok-border",
   },
 };
 
@@ -290,7 +290,7 @@ function ListView({
         header: "Diferencia",
         align: "right",
         cell: (r) => (
-          <span className={cn("font-medium", r.difference !== 0 && "text-amber-400")}>
+          <span className={cn("font-medium", r.difference !== 0 && "text-status-warn-fg")}>
             {fmtCLP.format(r.difference)}
           </span>
         ),
@@ -443,7 +443,7 @@ function ListView({
                             <p
                               className={cn(
                                 "font-mono",
-                                r.difference !== 0 && "text-amber-400"
+                                r.difference !== 0 && "text-status-warn-fg"
                               )}
                             >
                               {fmtCLP.format(r.difference)}
@@ -834,7 +834,7 @@ function DetailView({
                 <span
                   className={cn(
                     "font-mono font-medium",
-                    detail.difference !== 0 && "text-amber-400"
+                    detail.difference !== 0 && "text-status-warn-fg"
                   )}
                 >
                   {fmtCLP.format(detail.difference)}
@@ -908,7 +908,7 @@ function DetailView({
                       <span
                         className={cn(
                           "font-mono text-sm font-medium shrink-0",
-                          tx.amount >= 0 ? "text-emerald-400" : "text-red-400"
+                          tx.amount >= 0 ? "text-status-ok-fg" : "text-status-danger-fg"
                         )}
                       >
                         {fmtCLP.format(tx.amount)}

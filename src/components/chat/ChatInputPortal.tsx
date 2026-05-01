@@ -248,8 +248,8 @@ export function ChatInputPortal({
       {/* Reply banner */}
       {replyTo && (
         <div className="flex items-center gap-2 mb-2">
-          <div className="flex-1 min-w-0 border-l-2 border-blue-500 pl-2">
-            <p className="text-xs font-medium text-blue-400">
+          <div className="flex-1 min-w-0 border-l-2 border-status-info-border pl-2">
+            <p className="text-xs font-medium text-status-info-fg">
               Respondiendo a {replyTo.senderName}
             </p>
             <p className="text-xs text-zinc-500 truncate">{replyTo.content}</p>
@@ -290,7 +290,7 @@ export function ChatInputPortal({
               <button
                 type="button"
                 onClick={() => removeFile(idx)}
-                className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-zinc-700 text-zinc-300 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-zinc-700 text-zinc-300 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-status-danger"
                 aria-label={`Eliminar ${fp.file.name}`}
               >
                 <X className="h-2.5 w-2.5" />

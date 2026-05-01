@@ -289,7 +289,7 @@ export function RondaClient({ code }: { code: string }) {
 
       {screen === "final" && (
         <div className="mx-auto max-w-md space-y-4 text-center">
-          <CheckCircle2 className="h-10 w-10 text-emerald-400 mx-auto" />
+          <CheckCircle2 className="h-10 w-10 text-status-ok-fg mx-auto" />
           <h2 className="text-lg font-semibold">Ronda finalizada</h2>
           <p className="text-sm text-muted-foreground">
             Estado: {completedInfo?.status} · Trust: {completedInfo?.trustScore}
@@ -301,8 +301,8 @@ export function RondaClient({ code }: { code: string }) {
       )}
 
       {error && (
-        <div className="fixed bottom-3 left-3 right-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs flex items-center gap-2">
-          <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0" />
+        <div className="fixed bottom-3 left-3 right-3 rounded-lg border border-status-warn-border bg-status-warn-soft px-3 py-2 text-xs flex items-center gap-2">
+          <AlertTriangle className="h-4 w-4 text-status-warn-fg shrink-0" />
           <span>{error}</span>
         </div>
       )}

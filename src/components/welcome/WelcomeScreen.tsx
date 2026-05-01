@@ -298,7 +298,7 @@ export function WelcomeScreen() {
             }}
           >
             <div
-              className="w-[6px] h-[6px] rounded-full bg-emerald-500"
+              className="w-[6px] h-[6px] rounded-full bg-status-ok"
               style={{ boxShadow: "0 0 8px rgba(16,185,129,0.6)" }}
               aria-hidden
             />

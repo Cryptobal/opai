@@ -37,16 +37,16 @@ interface Props {
 }
 
 function coberturaColor(status: string) {
-  if (status === "completa") return { dot: "bg-emerald-500", text: "text-emerald-400", bg: "bg-emerald-500/8", border: "border-emerald-500/20" };
-  if (status === "parcial") return { dot: "bg-amber-500", text: "text-amber-400", bg: "bg-amber-500/8", border: "border-amber-500/20" };
-  if (status === "descubierta") return { dot: "bg-red-500", text: "text-red-400", bg: "bg-red-500/8", border: "border-red-500/20" };
+  if (status === "completa") return { dot: "bg-status-ok", text: "text-status-ok-fg", bg: "bg-emerald-500/8", border: "border-status-ok-border" };
+  if (status === "parcial") return { dot: "bg-status-warn", text: "text-status-warn-fg", bg: "bg-amber-500/8", border: "border-status-warn-border" };
+  if (status === "descubierta") return { dot: "bg-status-danger", text: "text-status-danger-fg", bg: "bg-red-500/8", border: "border-status-danger-border" };
   return { dot: "bg-zinc-600", text: "text-zinc-400", bg: "bg-zinc-500/8", border: "border-zinc-500/20" };
 }
 
 function guardStatusIcon(status: string) {
-  if (status === "presente" || status === "reemplazo") return <Check className="h-3 w-3 text-emerald-400" />;
-  if (status === "no_viene") return <X className="h-3 w-3 text-red-400" />;
-  if (status === "en_camino") return <Loader2 className="h-3 w-3 text-amber-400 animate-spin" />;
+  if (status === "presente" || status === "reemplazo") return <Check className="h-3 w-3 text-status-ok-fg" />;
+  if (status === "no_viene") return <X className="h-3 w-3 text-status-danger-fg" />;
+  if (status === "en_camino") return <Loader2 className="h-3 w-3 text-status-warn-fg animate-spin" />;
   return <span className="w-3 h-3 rounded-full bg-zinc-600 inline-block" />;
 }
 
@@ -73,15 +73,15 @@ export function CoberturaSheet({ open, onClose, turnoFilter, instalaciones, onSe
       <SheetContent side="right" className="w-[380px] bg-[#0a0f1c] border-l border-[#1a1f2e] p-0 flex flex-col">
         <SheetHeader className="px-5 pt-5 pb-3 border-b border-[#1a1f2e]">
           <SheetTitle className="flex items-center gap-2 text-[#f1f5f9]">
-            <Icon className={cn("h-4 w-4", isNocturno ? "text-indigo-400" : "text-amber-400")} />
+            <Icon className={cn("h-4 w-4", isNocturno ? "text-status-info-fg" : "text-status-warn-fg")} />
             <span className="text-[14px] font-semibold">Cobertura {label}</span>
           </SheetTitle>
           {/* Summary badges */}
           <div className="flex items-center gap-2 mt-2">
             <span className="text-[10px] uppercase tracking-wider text-[#64748b] font-semibold">{totalInst} instalaciones</span>
-            <span className="text-[10px] text-emerald-400 tabular-nums">{completas} completas</span>
+            <span className="text-[10px] text-status-ok-fg tabular-nums">{completas} completas</span>
             {descubiertas > 0 && (
-              <span className="text-[10px] text-red-400 tabular-nums">{descubiertas} descubiertas</span>
+              <span className="text-[10px] text-status-danger-fg tabular-nums">{descubiertas} descubiertas</span>
             )}
           </div>
         </SheetHeader>

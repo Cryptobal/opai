@@ -345,13 +345,13 @@ export function SueldosRutListClient() {
             return (
               <Card key={s.structureId} className={`transition-colors ${!s.isActive ? "opacity-60" : "hover:bg-accent/20"}`}>
                 <CardContent className="pt-4 flex items-center gap-4">
-                  <div className={`flex h-9 w-10 shrink-0 items-center justify-center rounded-full ${s.isActive ? "bg-amber-500/15 text-amber-400" : "bg-muted text-muted-foreground"}`}>
+                  <div className={`flex h-9 w-10 shrink-0 items-center justify-center rounded-full ${s.isActive ? "bg-status-warn-soft text-status-warn-fg" : "bg-muted text-muted-foreground"}`}>
                     <User className="h-5 w-5" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <Link href={`/personas/guardias/${s.guardiaId}`} className="font-medium text-sm hover:underline">{s.name}</Link>
-                      <Badge className="text-[9px] bg-amber-500/15 text-amber-400 border-amber-500/30">RUT</Badge>
+                      <Badge className="text-[9px] bg-status-warn-soft text-status-warn-fg border-status-warn-border">RUT</Badge>
                       {!s.isActive && <Badge variant="outline" className="text-[9px] text-muted-foreground">Inactivo</Badge>}
                     </div>
                     <p className="text-xs text-muted-foreground font-mono">{s.rut}</p>
@@ -372,7 +372,7 @@ export function SueldosRutListClient() {
                   </div>
                   <div className="text-right shrink-0">
                     <p className="text-xs text-muted-foreground">Total</p>
-                    <p className="text-sm font-semibold text-emerald-400">{formatCLP(totalHaberes)}</p>
+                    <p className="text-sm font-semibold text-status-ok-fg">{formatCLP(totalHaberes)}</p>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     <Button size="icon" variant="ghost" className="h-7 w-7" title="Ver desglose" onClick={() => openBreakdownFor(s)}>
@@ -382,7 +382,7 @@ export function SueldosRutListClient() {
                       <Button size="icon" variant="ghost" className="h-7 w-7" title="Ver ficha"><Eye className="h-3.5 w-3.5" /></Button>
                     </Link>
                     {s.isActive && (
-                      <Button size="icon" variant="ghost" className="h-7 w-7 text-amber-400" title="Desactivar"
+                      <Button size="icon" variant="ghost" className="h-7 w-7 text-status-warn-fg" title="Desactivar"
                         onClick={() => { setDeactivateDate(new Date().toISOString().slice(0, 10)); setDeactivateConfirm(s); }}>
                         <Ban className="h-3.5 w-3.5" />
                       </Button>
@@ -403,7 +403,7 @@ export function SueldosRutListClient() {
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><AlertTriangle className="h-5 w-5 text-amber-400" />Sueldo por RUT</DialogTitle>
+            <DialogTitle className="flex items-center gap-2"><AlertTriangle className="h-5 w-5 text-status-warn-fg" />Sueldo por RUT</DialogTitle>
             <DialogDescription>
               Al ingresar un sueldo por RUT para <strong>{selectedGuard?.name}</strong> ({selectedGuard?.rut}),
               este tendrá <strong>prioridad</strong> sobre el sueldo de la instalación asignada dentro de las fechas de vigencia.
@@ -465,7 +465,7 @@ export function SueldosRutListClient() {
                   <p className="font-semibold">{viewBreakdownFor.name}</p>
                   <p className="text-xs text-muted-foreground font-mono">{viewBreakdownFor.rut}</p>
                 </div>
-                <Badge className="ml-auto bg-amber-500/15 text-amber-400 border-amber-500/30">Sueldo por RUT</Badge>
+                <Badge className="ml-auto bg-status-warn-soft text-status-warn-fg border-status-warn-border">Sueldo por RUT</Badge>
               </div>
             )}
           </DialogHeader>
@@ -484,12 +484,12 @@ export function SueldosRutListClient() {
                 </div>
                 <div>
                   <p className="text-[10px] text-muted-foreground uppercase">Sueldo Líquido</p>
-                  <p className="font-bold text-lg text-emerald-400">{formatCLP(viewBreakdownData.netSalary)}</p>
+                  <p className="font-bold text-lg text-status-ok-fg">{formatCLP(viewBreakdownData.netSalary)}</p>
                 </div>
                 {viewBreakdownData.employerCost != null && (
                   <div>
                     <p className="text-[10px] text-muted-foreground uppercase">Costo Empleador</p>
-                    <p className="font-semibold text-amber-400">{formatCLP(viewBreakdownData.employerCost)}</p>
+                    <p className="font-semibold text-status-warn-fg">{formatCLP(viewBreakdownData.employerCost)}</p>
                   </div>
                 )}
               </div>
@@ -580,7 +580,7 @@ export function SueldosRutListClient() {
                         <p className="text-sm font-medium">{g.name}</p>
                         <p className="text-xs text-muted-foreground font-mono">{g.rut}</p>
                       </div>
-                      {g.hasSalaryOverride && <Badge className="text-[9px] bg-amber-500/15 text-amber-400">Ya tiene sueldo RUT</Badge>}
+                      {g.hasSalaryOverride && <Badge className="text-[9px] bg-status-warn-soft text-status-warn-fg">Ya tiene sueldo RUT</Badge>}
                     </div>
                   ))}
                 </div>
@@ -593,7 +593,7 @@ export function SueldosRutListClient() {
                   <p className="font-semibold">{selectedGuard.name}</p>
                   <p className="text-xs text-muted-foreground font-mono">{selectedGuard.rut}</p>
                 </div>
-                <Badge className="ml-auto bg-amber-500/15 text-amber-400 border-amber-500/30">Sueldo por RUT</Badge>
+                <Badge className="ml-auto bg-status-warn-soft text-status-warn-fg border-status-warn-border">Sueldo por RUT</Badge>
               </div>
 
               {/* Dates */}
@@ -696,7 +696,7 @@ export function SueldosRutListClient() {
                 </Button>
 
                 {netEstimate && (
-                  <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-4 space-y-4">
+                  <div className="rounded-lg border border-status-ok-border bg-status-ok-soft p-4 space-y-4">
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
                       <div>
                         <p className="text-[10px] text-muted-foreground uppercase">Bruto</p>
@@ -708,12 +708,12 @@ export function SueldosRutListClient() {
                       </div>
                       <div>
                         <p className="text-[10px] text-muted-foreground uppercase">Líquido</p>
-                        <p className="text-sm font-bold text-emerald-400">{formatCLP(netEstimate.netSalary)}</p>
+                        <p className="text-sm font-bold text-status-ok-fg">{formatCLP(netEstimate.netSalary)}</p>
                       </div>
                       {netEstimate.employerCost != null && (
                         <div>
                           <p className="text-[10px] text-muted-foreground uppercase">Costo empleador</p>
-                          <p className="text-sm font-bold text-amber-400">{formatCLP(netEstimate.employerCost)}</p>
+                          <p className="text-sm font-bold text-status-warn-fg">{formatCLP(netEstimate.employerCost)}</p>
                         </div>
                       )}
                     </div>

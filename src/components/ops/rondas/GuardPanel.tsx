@@ -62,9 +62,9 @@ function nowHHMM(): string {
 
 const STATUS_BUTTONS = [
   { value: "pendiente", label: "Pendiente", activeBg: "bg-slate-500" },
-  { value: "en_camino", label: "En camino", activeBg: "bg-blue-500" },
-  { value: "presente", label: "Presente", activeBg: "bg-emerald-500" },
-  { value: "no_viene", label: "Sin cobertura", activeBg: "bg-red-500" },
+  { value: "en_camino", label: "En camino", activeBg: "bg-status-info" },
+  { value: "presente", label: "Presente", activeBg: "bg-status-ok" },
+  { value: "no_viene", label: "Sin cobertura", activeBg: "bg-status-danger" },
 ] as const;
 
 // ---------------------------------------------------------------------------
@@ -158,9 +158,9 @@ function GuardCard({
 
   const cardBorder =
     guard.status === "no_viene"
-      ? "bg-red-500/[0.05] border-red-500/20"
+      ? "bg-red-500/[0.05] border-status-danger-border"
       : guard.status === "presente" || guard.status === "reemplazo"
-        ? "bg-emerald-500/[0.05] border-emerald-500/20"
+        ? "bg-emerald-500/[0.05] border-status-ok-border"
         : "bg-slate-800/40 border-slate-700/50";
 
   const isNoViene = guard.status === "no_viene" || noVieneStep === "choosing";
@@ -178,12 +178,12 @@ function GuardCard({
   // PPC unassigned — show guard selector instead of status buttons
   if (isPPCUnassigned) {
     return (
-      <div className="rounded-lg border p-3 space-y-3 bg-amber-500/[0.05] border-amber-500/20">
+      <div className="rounded-lg border p-3 space-y-3 bg-amber-500/[0.05] border-status-warn-border">
         <div className="flex items-center gap-2">
-          <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 font-semibold">
+          <span className="text-[9px] px-1.5 py-0.5 rounded bg-status-warn-soft text-status-warn-fg font-semibold">
             PPC
           </span>
-          <span className="text-sm text-amber-300 font-medium">Por cubrir</span>
+          <span className="text-sm text-status-warn-fg font-medium">Por cubrir</span>
         </div>
         <div className="space-y-2">
           <p className="text-[10px] text-slate-400 uppercase tracking-wide font-semibold">Asignar guardia</p>
@@ -202,7 +202,7 @@ function GuardCard({
             disabled={!ppcSearchName.trim()}
             className={`w-full py-1.5 rounded-md text-xs font-medium transition-colors ${
               ppcSearchName.trim()
-                ? "bg-amber-600 hover:bg-amber-500 text-white"
+                ? "bg-amber-600 hover:bg-status-warn text-white"
                 : "bg-slate-800 text-slate-600 cursor-not-allowed"
             }`}
           >
@@ -212,7 +212,7 @@ function GuardCard({
         {/* Sin cobertura shortcut */}
         <button
           onClick={() => onUpdate({ status: "no_viene", notes: "Sin cobertura — puesto descubierto" })}
-          className="w-full py-1.5 rounded-md text-[11px] font-medium border border-red-500/20 text-red-400 hover:bg-red-500/10 transition-colors"
+          className="w-full py-1.5 rounded-md text-[11px] font-medium border border-status-danger-border text-status-danger-fg hover:bg-status-danger-soft transition-colors"
         >
           Marcar sin cobertura
         </button>
@@ -237,7 +237,7 @@ function GuardCard({
         {guard.isExtra && (
           <button
             onClick={onDelete}
-            className="text-slate-600 hover:text-red-400 transition-colors p-1"
+            className="text-slate-600 hover:text-status-danger-fg transition-colors p-1"
             title="Eliminar guardia"
           >
             <X className="w-3.5 h-3.5" />
@@ -290,7 +290,7 @@ function GuardCard({
                     guard.status === "pendiente" ? "presente" : guard.status,
                 })
               }
-              className="h-8 px-2.5 text-[10px] rounded-md bg-teal-500/20 text-teal-400 hover:bg-teal-500/30 transition-colors flex items-center gap-1 flex-shrink-0"
+              className="h-8 px-2.5 text-[10px] rounded-md bg-teal-500/20 text-status-info-fg hover:bg-teal-500/30 transition-colors flex items-center gap-1 flex-shrink-0"
               title="Usar hora actual"
             >
               <Clock className="w-3 h-3" />
@@ -307,14 +307,14 @@ function GuardCard({
           <div className="flex gap-2">
             <button
               onClick={handleSinCobertura}
-              className="flex-1 py-2 rounded-lg border-2 border-red-500/30 bg-red-500/10 text-red-400 text-xs font-semibold hover:bg-red-500/20 transition-colors"
+              className="flex-1 py-2 rounded-lg border-2 border-status-danger-border bg-status-danger-soft text-status-danger-fg text-xs font-semibold hover:bg-status-danger-soft transition-colors"
             >
               Sin cobertura
               <span className="block text-[9px] font-normal text-red-400/70 mt-0.5">Alerta máxima</span>
             </button>
             <button
               onClick={handleConCobertura}
-              className="flex-1 py-2 rounded-lg border-2 border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-xs font-semibold hover:bg-emerald-500/20 transition-colors"
+              className="flex-1 py-2 rounded-lg border-2 border-status-ok-border bg-status-ok-soft text-status-ok-fg text-xs font-semibold hover:bg-status-ok-soft transition-colors"
             >
               Con cobertura
               <span className="block text-[9px] font-normal text-emerald-400/70 mt-0.5">Buscar reemplazo</span>
@@ -326,9 +326,9 @@ function GuardCard({
       {/* Sin cobertura — confirmed state */}
       {noVieneStep === "sin_cobertura" && guard.status === "no_viene" && (
         <div className="space-y-2 pt-1 border-t border-red-500/10">
-          <div className="flex items-center gap-2 rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2">
+          <div className="flex items-center gap-2 rounded-lg bg-status-danger-soft border border-status-danger-border px-3 py-2">
             <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
-            <span className="text-[11px] font-semibold text-red-400">Puesto descubierto — Alerta máxima</span>
+            <span className="text-[11px] font-semibold text-status-danger-fg">Puesto descubierto — Alerta máxima</span>
           </div>
           <div>
             <label className="text-[9px] text-slate-500 uppercase">Nota</label>
@@ -347,9 +347,9 @@ function GuardCard({
       {noVieneStep === "con_cobertura" && (
         <div className="space-y-2 pt-1 border-t border-emerald-500/10">
           {guard.reemplazaDe ? (
-            <div className="flex items-center gap-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-2">
+            <div className="flex items-center gap-2 rounded-lg bg-status-ok-soft border border-status-ok-border px-3 py-2">
               <span className="w-2 h-2 rounded-full bg-emerald-400" />
-              <span className="text-[11px] text-emerald-400">
+              <span className="text-[11px] text-status-ok-fg">
                 Reemplazado por: <span className="font-semibold">{guard.reemplazaDe}</span>
               </span>
             </div>
@@ -371,7 +371,7 @@ function GuardCard({
                 disabled={!replacementName.trim()}
                 className={`w-full py-1.5 rounded-md text-xs font-medium transition-colors ${
                   replacementName.trim()
-                    ? "bg-emerald-600 hover:bg-emerald-500 text-white"
+                    ? "bg-status-ok hover:bg-status-ok text-white"
                     : "bg-slate-800 text-slate-600 cursor-not-allowed"
                 }`}
               >
@@ -406,18 +406,18 @@ function GuardCardReadOnly({ guard }: { guard: GuardData }) {
 
   const statusColor =
     guard.status === "presente" || guard.status === "reemplazo"
-      ? "text-emerald-400"
+      ? "text-status-ok-fg"
       : guard.status === "no_viene"
-        ? "text-red-400"
+        ? "text-status-danger-fg"
         : guard.status === "en_camino"
-          ? "text-blue-400"
+          ? "text-status-info-fg"
           : "text-slate-500";
 
   const cardBorder =
     guard.status === "no_viene"
-      ? "bg-red-500/[0.05] border-red-500/20"
+      ? "bg-red-500/[0.05] border-status-danger-border"
       : guard.status === "presente" || guard.status === "reemplazo"
-        ? "bg-emerald-500/[0.05] border-emerald-500/20"
+        ? "bg-emerald-500/[0.05] border-status-ok-border"
         : "bg-slate-800/40 border-slate-700/50";
 
   return (
@@ -545,16 +545,16 @@ export function GuardPanel({
               </h3>
               <div className="flex items-center gap-2 mt-0.5">
                 <span
-                  className={`text-xs font-medium ${accentColor === "teal" ? "text-teal-400" : "text-blue-400"}`}
+                  className={`text-xs font-medium ${accentColor === "teal" ? "text-status-info-fg" : "text-status-info-fg"}`}
                 >
                   {turnoLabel}
                 </span>
                 <span
                   className={`text-xs font-mono ${
                     presentes >= requeridos
-                      ? "text-emerald-400"
+                      ? "text-status-ok-fg"
                       : presentes > 0
-                        ? "text-amber-400"
+                        ? "text-status-warn-fg"
                         : "text-slate-500"
                   }`}
                 >
@@ -618,7 +618,7 @@ export function GuardPanel({
                   onClick={() => setNewIsExtra(false)}
                   className={`flex-1 py-1.5 text-[11px] font-medium transition-colors ${
                     !newIsExtra
-                      ? `${accentColor === "teal" ? "bg-teal-600" : "bg-blue-600"} text-white`
+                      ? `${accentColor === "teal" ? "bg-status-info" : "bg-status-info"} text-white`
                       : "bg-slate-800 text-slate-500 hover:text-slate-300"
                   }`}
                 >
@@ -642,7 +642,7 @@ export function GuardPanel({
                   disabled={!newGuardName.trim()}
                   className={`flex-1 py-1.5 rounded-md text-xs font-medium transition-colors ${
                     newGuardName.trim()
-                      ? `${accentColor === "teal" ? "bg-teal-600 hover:bg-teal-500" : "bg-blue-600 hover:bg-blue-500"} text-white`
+                      ? `${accentColor === "teal" ? "bg-status-info hover:bg-status-info" : "bg-status-info hover:bg-status-info"} text-white`
                       : "bg-slate-800 text-slate-600 cursor-not-allowed"
                   }`}
                 >
@@ -666,8 +666,8 @@ export function GuardPanel({
               onClick={() => setShowAddForm(true)}
               className={`w-full flex items-center justify-center gap-1.5 py-2 rounded-md text-xs font-medium transition-colors ${
                 accentColor === "teal"
-                  ? "text-teal-400 hover:bg-teal-500/10 border border-teal-500/20"
-                  : "text-blue-400 hover:bg-blue-500/10 border border-blue-500/20"
+                  ? "text-status-info-fg hover:bg-status-info-soft border border-teal-500/20"
+                  : "text-status-info-fg hover:bg-status-info-soft border border-status-info-border"
               }`}
             >
               <Plus className="w-3.5 h-3.5" />

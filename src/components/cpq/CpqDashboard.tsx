@@ -133,7 +133,7 @@ export function CpqDashboard({ initialQuotes }: CpqDashboardProps) {
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <Badge variant="outline">Borrador</Badge>
             <Badge variant="secondary">Enviada</Badge>
-            <Badge className="border-teal-500/40 text-teal-600 dark:text-teal-400" variant="outline">
+            <Badge className="border-teal-500/40 text-teal-600 dark:text-status-info-fg" variant="outline">
               Portal
             </Badge>
           </div>
@@ -184,7 +184,7 @@ export function CpqDashboard({ initialQuotes }: CpqDashboardProps) {
               size="sm"
               variant="outline"
               onClick={() => setStatusFilter("approved")}
-              className={statusFilter === "approved" ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-400" : "bg-background border-border text-muted-foreground hover:bg-accent"}
+              className={statusFilter === "approved" ? "bg-status-ok-soft border-status-ok-border text-status-ok-fg" : "bg-background border-border text-muted-foreground hover:bg-accent"}
             >
               Aprobadas
             </Button>
@@ -192,7 +192,7 @@ export function CpqDashboard({ initialQuotes }: CpqDashboardProps) {
               size="sm"
               variant="outline"
               onClick={() => setStatusFilter("rejected")}
-              className={statusFilter === "rejected" ? "bg-red-500/15 border-red-500/30 text-red-400" : "bg-background border-border text-muted-foreground hover:bg-accent"}
+              className={statusFilter === "rejected" ? "bg-status-danger-soft border-status-danger-border text-status-danger-fg" : "bg-background border-border text-muted-foreground hover:bg-accent"}
             >
               Rechazadas
             </Button>
@@ -202,7 +202,7 @@ export function CpqDashboard({ initialQuotes }: CpqDashboardProps) {
               onClick={() => setPortalOnly((v) => !v)}
               className={
                 portalOnly
-                  ? "bg-teal-500/15 border-teal-500/30 text-teal-700 dark:text-teal-400"
+                  ? "bg-status-info-soft border-status-info-border text-teal-700 dark:text-status-info-fg"
                   : "bg-background border-border text-muted-foreground hover:bg-accent"
               }
               title="Filtrar cotizaciones visibles en el portal del cliente"

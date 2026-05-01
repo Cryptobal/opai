@@ -146,7 +146,7 @@ export function UserInfo({ user }: UserInfoProps) {
   return (
     <div className="bg-muted rounded-lg border border-border p-6">
       <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-        <User className="h-5 w-5 text-teal-400" />
+        <User className="h-5 w-5 text-status-info-fg" />
         Información de la cuenta
       </h2>
 
@@ -345,8 +345,8 @@ export function UserInfo({ user }: UserInfoProps) {
           <div
             className={
               statusMessage.type === "success"
-                ? "rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-400"
-                : "rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-400"
+                ? "rounded-md border border-status-ok-border bg-status-ok-soft px-3 py-2 text-xs text-status-ok-fg"
+                : "rounded-md border border-status-danger-border bg-status-danger-soft px-3 py-2 text-xs text-status-danger-fg"
             }
           >
             {statusMessage.message}

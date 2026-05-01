@@ -34,13 +34,13 @@ interface SignatureStatusPanelProps {
 function statusBadge(status: string) {
   switch (status) {
     case "signed":
-      return <span className="text-emerald-600 text-xs font-medium">Firmado</span>;
+      return <span className="text-status-ok-fg text-xs font-medium">Firmado</span>;
     case "viewed":
-      return <span className="text-blue-600 text-xs font-medium">Visto</span>;
+      return <span className="text-status-info-fg text-xs font-medium">Visto</span>;
     case "sent":
-      return <span className="text-amber-600 text-xs font-medium">Enviado</span>;
+      return <span className="text-status-warn-fg text-xs font-medium">Enviado</span>;
     case "declined":
-      return <span className="text-red-600 text-xs font-medium">Rechazado</span>;
+      return <span className="text-status-danger-fg text-xs font-medium">Rechazado</span>;
     default:
       return <span className="text-muted-foreground text-xs font-medium">{status}</span>;
   }
@@ -115,11 +115,11 @@ export function SignatureStatusPanel({
       ) : (
         <>
           <div className="flex items-center gap-4 text-xs">
-            <span className="inline-flex items-center gap-1 text-emerald-600">
+            <span className="inline-flex items-center gap-1 text-status-ok-fg">
               <CheckCircle2 className="h-3.5 w-3.5" />
               Firmados: {summary?.signed}/{summary?.total}
             </span>
-            <span className="inline-flex items-center gap-1 text-amber-600">
+            <span className="inline-flex items-center gap-1 text-status-warn-fg">
               <Clock3 className="h-3.5 w-3.5" />
               Pendientes: {summary?.pending}
             </span>

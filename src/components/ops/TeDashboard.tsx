@@ -83,9 +83,9 @@ function fmt$(n: number): string {
 }
 
 const ORIGIN_META = [
-  { key: "ausencia", label: "Ausencia", color: "bg-red-500", textColor: "text-red-400", icon: UserX },
-  { key: "ppc", label: "PPC", color: "bg-amber-500", textColor: "text-amber-400", icon: ShieldAlert },
-  { key: "manual", label: "Manual", color: "bg-blue-500", textColor: "text-blue-400", icon: Wrench },
+  { key: "ausencia", label: "Ausencia", color: "bg-status-danger", textColor: "text-status-danger-fg", icon: UserX },
+  { key: "ppc", label: "PPC", color: "bg-status-warn", textColor: "text-status-warn-fg", icon: ShieldAlert },
+  { key: "manual", label: "Manual", color: "bg-status-info", textColor: "text-status-info-fg", icon: Wrench },
   { key: "refuerzo", label: "Refuerzo", color: "bg-purple-500", textColor: "text-purple-400", icon: Shield },
 ] as const;
 
@@ -320,10 +320,10 @@ export function TeDashboard() {
                             <td className="py-1.5 text-center">
                               <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
                                 row.status === "paid"
-                                  ? "bg-emerald-900/30 text-emerald-300"
+                                  ? "bg-emerald-900/30 text-status-ok-fg"
                                   : row.status === "approved"
-                                    ? "bg-blue-900/30 text-blue-300"
-                                    : "bg-amber-900/30 text-amber-300"
+                                    ? "bg-blue-900/30 text-status-info-fg"
+                                    : "bg-amber-900/30 text-status-warn-fg"
                               }`}>
                                 {row.status === "paid" ? "Pagado" : row.status === "approved" ? "Aprobado" : "Pendiente"}
                               </span>
@@ -364,7 +364,7 @@ export function TeDashboard() {
                   <div className="h-2 rounded-full bg-muted/50 overflow-hidden">
                     <div
                       className={`h-full rounded-full transition-all ${
-                        inst.percentOfTotal >= 25 ? "bg-red-500" : inst.percentOfTotal >= 15 ? "bg-amber-500" : "bg-teal-500"
+                        inst.percentOfTotal >= 25 ? "bg-status-danger" : inst.percentOfTotal >= 15 ? "bg-status-warn" : "bg-status-info"
                       }`}
                       style={{ width: `${Math.max((inst.totalAmount / maxInstAmount) * 100, 4)}%` }}
                     />

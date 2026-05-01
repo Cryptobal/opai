@@ -68,7 +68,7 @@ export default async function FinanzasDashboardPage() {
       icon: Receipt,
       count: pendingRendiciones > 0 ? pendingRendiciones : null,
       countLabel: "pendiente(s)",
-      color: "text-emerald-400 bg-emerald-400/10",
+      color: "text-status-ok-fg bg-emerald-400/10",
       show: true,
     },
     {
@@ -78,7 +78,7 @@ export default async function FinanzasDashboardPage() {
       icon: CheckCircle2,
       count: pendingApprovals > 0 ? pendingApprovals : null,
       countLabel: "por aprobar",
-      color: "text-blue-400 bg-blue-400/10",
+      color: "text-status-info-fg bg-blue-400/10",
       show: canApprove,
     },
     {
@@ -98,7 +98,7 @@ export default async function FinanzasDashboardPage() {
       icon: BarChart3,
       count: null,
       countLabel: null,
-      color: "text-amber-400 bg-amber-400/10",
+      color: "text-status-warn-fg bg-amber-400/10",
       show: true,
     },
   ];

@@ -982,7 +982,7 @@ export function CpqQuoteCosts({
           Base: {formatCurrency(Number(item.basePrice))} / {unitLabel}
         </span>
         {item.type === "uniform" && (
-          <span className={cn("px-1.5 py-0.5 rounded text-xs font-medium", logic === "prorated" ? "bg-amber-500/15 text-amber-400" : "bg-sky-500/15 text-sky-400")}>
+          <span className={cn("px-1.5 py-0.5 rounded text-xs font-medium", logic === "prorated" ? "bg-status-warn-soft text-status-warn-fg" : "bg-status-info-soft text-status-info-fg")}>
             {logic === "prorated" ? "prorrateo" : "rotación"}
           </span>
         )}
@@ -1147,7 +1147,7 @@ export function CpqQuoteCosts({
         <button
           type="button"
           onClick={() => setShowQuickAdd(true)}
-          className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-emerald-500/30 py-2 text-xs font-semibold text-emerald-400 hover:bg-emerald-500/5 transition-colors"
+          className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-status-ok-border py-2 text-xs font-semibold text-status-ok-fg hover:bg-status-ok-soft transition-colors"
         >
           <Plus className="h-3.5 w-3.5" /> Agregar costo
         </button>
@@ -1205,8 +1205,8 @@ export function CpqQuoteCosts({
 
     <div className={cn("w-full rounded-xl border bg-card overflow-hidden", CPQ_BREAKDOWN_SHELL)}>
       {/* ── DIRECTOS ── */}
-      <div className={cn(CPQ_BREAKDOWN_ROW, "px-3 py-1.5 bg-emerald-500/5 text-xs")}>
-        <span className="text-xs font-bold uppercase tracking-[0.08em] text-emerald-500 break-words min-w-0">
+      <div className={cn(CPQ_BREAKDOWN_ROW, "px-3 py-1.5 bg-status-ok-soft text-xs")}>
+        <span className="text-xs font-bold uppercase tracking-[0.08em] text-status-ok-fg break-words min-w-0">
           Directos
         </span>
         <div className={cpqBreakdownAmount()}>
@@ -1215,7 +1215,7 @@ export function CpqQuoteCosts({
             currency={displayCurrency}
             ufValue={ufValue}
             size="xs"
-            primaryClassName="text-emerald-500 font-bold"
+            primaryClassName="text-status-ok-fg font-bold"
           />
         </div>
       </div>
@@ -1354,7 +1354,7 @@ export function CpqQuoteCosts({
         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 min-w-0">
           <span className="text-[13px] shrink-0">{"\u{1F4C5}"}</span>
           <span className="text-sm font-medium break-words">Ajuste feriados</span>
-          <span className="text-xs font-semibold uppercase text-amber-400 bg-amber-500/10 rounded px-1.5 py-0.5 shrink-0">
+          <span className="text-xs font-semibold uppercase text-status-warn-fg bg-status-warn-soft rounded px-1.5 py-0.5 shrink-0">
             Auto
           </span>
         </div>
@@ -1376,7 +1376,7 @@ export function CpqQuoteCosts({
 
       {/* ── INDIRECTOS ── */}
       <div className={cn(CPQ_BREAKDOWN_ROW, "px-3 py-1.5 bg-amber-400/5 text-xs")}>
-        <span className="text-xs font-bold uppercase tracking-[0.08em] text-amber-400 break-words min-w-0">
+        <span className="text-xs font-bold uppercase tracking-[0.08em] text-status-warn-fg break-words min-w-0">
           Indirectos
         </span>
         <div className={cpqBreakdownAmount()}>
@@ -1385,7 +1385,7 @@ export function CpqQuoteCosts({
             currency={displayCurrency}
             ufValue={ufValue}
             size="xs"
-            primaryClassName="text-amber-400 font-bold"
+            primaryClassName="text-status-warn-fg font-bold"
           />
         </div>
       </div>

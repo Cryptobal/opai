@@ -22,7 +22,7 @@ export function RankingPosition({
 
   return (
     <div className={cn("inline-flex items-center gap-1.5", className)}>
-      <Trophy size={16} className="text-amber-500" />
+      <Trophy size={16} className="text-status-warn-fg" />
       <span className="font-medium text-foreground">Top {percentil}%</span>
       <span className="text-muted-foreground">
         &mdash; #{posicion} de {total}

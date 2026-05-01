@@ -138,7 +138,7 @@ export function RondaCompletada({
         {/* ---- Status Banner ---- */}
         {(status === "cerrada_auto" || status === "cerrada_admin") && (
           <div className="mb-4 w-full max-w-sm rounded-xl border border-orange-700/50 bg-orange-950/20 p-4 text-center">
-            <p className="text-sm font-medium text-orange-300">
+            <p className="text-sm font-medium text-status-warn-fg">
               {status === "cerrada_auto"
                 ? "Esta ronda fue cerrada automáticamente por exceder el tiempo máximo"
                 : "Esta ronda fue cerrada por un administrador"}
@@ -279,7 +279,7 @@ export function RondaCompletada({
               </span>
               <span
                 className={`text-base font-medium ${
-                  isLate ? "text-yellow-400" : "text-green-400"
+                  isLate ? "text-status-warn-fg" : "text-status-ok-fg"
                 }`}
               >
                 {punctuality}
@@ -293,7 +293,7 @@ export function RondaCompletada({
               </span>
               <span
                 className={`text-base font-medium ${
-                  missed > 0 ? "text-red-400" : "text-green-400"
+                  missed > 0 ? "text-status-danger-fg" : "text-status-ok-fg"
                 }`}
               >
                 {missed}
@@ -339,7 +339,7 @@ export function RondaCompletada({
                         <div className="flex items-center justify-between gap-2">
                           <span
                             className={`truncate text-sm font-medium ${
-                              isCompleted ? "text-gray-200" : "text-red-400"
+                              isCompleted ? "text-gray-200" : "text-status-danger-fg"
                             }`}
                           >
                             {cp.name}
@@ -355,7 +355,7 @@ export function RondaCompletada({
                         {isCompleted && (
                           <div className="mt-1.5 flex flex-wrap gap-1.5">
                             {cp.geoValidada && (
-                              <span className="rounded-md bg-green-500/15 px-1.5 py-0.5 text-xs text-green-400">
+                              <span className="rounded-md bg-status-ok-soft px-1.5 py-0.5 text-xs text-status-ok-fg">
                                 GPS {"\u2713"}
                               </span>
                             )}
@@ -365,7 +365,7 @@ export function RondaCompletada({
                               </span>
                             )}
                             {cp.hasPhoto && (
-                              <span className="rounded-md bg-blue-500/15 px-1.5 py-0.5 text-xs text-blue-400">
+                              <span className="rounded-md bg-status-info-soft px-1.5 py-0.5 text-xs text-status-info-fg">
                                 Foto {"\u2713"}
                               </span>
                             )}
@@ -392,7 +392,7 @@ export function RondaCompletada({
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
-            className="h-8 w-8 text-green-500"
+            className="h-8 w-8 text-status-ok-fg"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -406,7 +406,7 @@ export function RondaCompletada({
         {/* ---- Back Button ---- */}
         <button
           onClick={onBackToRondas}
-          className="w-full max-w-sm rounded-xl bg-teal-600 py-4 text-lg font-semibold text-white transition-colors hover:bg-teal-500 active:bg-teal-700"
+          className="w-full max-w-sm rounded-xl bg-status-info py-4 text-lg font-semibold text-white transition-colors hover:bg-status-info active:bg-teal-700"
           style={{ minHeight: 56 }}
         >
           Volver a Mis Rondas

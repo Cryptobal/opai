@@ -148,8 +148,8 @@ export function JornadaDiariaClient({ installations }: { installations: Installa
                     <td className="px-3 py-2 text-right">{workedH !== null ? workedH.toFixed(1) : "—"}</td>
                     <td className="px-3 py-2 text-right">{extraH !== null ? extraH.toFixed(1) : "—"}</td>
                     <td className={cn("px-3 py-2 text-right font-medium",
-                      diff !== null && diff > 0 && "text-green-600",
-                      diff !== null && diff < 0 && "text-red-600"
+                      diff !== null && diff > 0 && "text-status-ok-fg",
+                      diff !== null && diff < 0 && "text-status-danger-fg"
                     )}>
                       {diff !== null ? (diff >= 0 ? "+" : "") + diff.toFixed(1) : "—"}
                     </td>

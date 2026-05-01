@@ -38,8 +38,8 @@ export function WizardProgress({ currentStep, onStepClick, maxReachedStep, stepA
                   ? "border-primary bg-primary text-primary-foreground"
                   : isCompleted
                     ? hasAlert
-                      ? "border-amber-500 bg-amber-500/20 text-amber-400"
-                      : "border-emerald-500 bg-emerald-500/20 text-emerald-400"
+                      ? "border-status-warn-border bg-status-warn-soft text-status-warn-fg"
+                      : "border-status-ok-border bg-status-ok-soft text-status-ok-fg"
                     : isReachable
                       ? "border-muted-foreground/30 bg-muted/50 text-muted-foreground"
                       : "border-border bg-background text-muted-foreground/40"
@@ -61,8 +61,8 @@ export function WizardProgress({ currentStep, onStepClick, maxReachedStep, stepA
                   ? "text-primary"
                   : isCompleted
                     ? hasAlert
-                      ? "text-amber-400"
-                      : "text-emerald-400"
+                      ? "text-status-warn-fg"
+                      : "text-status-ok-fg"
                     : "text-muted-foreground"
               }`}
             >

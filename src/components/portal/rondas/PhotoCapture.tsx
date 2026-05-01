@@ -107,7 +107,7 @@ export function PhotoCapture({ onCapture, onClose }: Props) {
             <button onClick={retake} className="flex-1 rounded-xl bg-gray-700 py-4 text-lg text-white">
               Repetir
             </button>
-            <button onClick={confirm} className="flex-1 rounded-xl bg-teal-600 py-4 text-lg font-semibold text-white">
+            <button onClick={confirm} className="flex-1 rounded-xl bg-status-info py-4 text-lg font-semibold text-white">
               Usar Foto
             </button>
           </div>
@@ -116,7 +116,7 @@ export function PhotoCapture({ onCapture, onClose }: Props) {
         <div className="relative flex-1">
           {error ? (
             <div className="flex h-full items-center justify-center px-6">
-              <p className="text-center text-lg text-red-400">{error}</p>
+              <p className="text-center text-lg text-status-danger-fg">{error}</p>
             </div>
           ) : (
             <>

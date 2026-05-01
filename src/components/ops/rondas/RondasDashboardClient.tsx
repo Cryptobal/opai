@@ -217,7 +217,7 @@ export function RondasDashboardClient({ initialData }: { initialData?: Dashboard
               className={cn(
                 "px-3 py-1.5 rounded-md text-[11px] font-semibold transition-colors",
                 period === opt.key
-                  ? "bg-cyan-500/15 text-cyan-400"
+                  ? "bg-status-info-soft text-status-info-fg"
                   : "text-[#64748b] hover:text-[#94a3b8] hover:bg-[#111827]",
               )}
             >
@@ -225,7 +225,7 @@ export function RondasDashboardClient({ initialData }: { initialData?: Dashboard
             </button>
           ))}
         </div>
-        {loading && <Loader2 className="h-3.5 w-3.5 text-cyan-400 animate-spin ml-2" />}
+        {loading && <Loader2 className="h-3.5 w-3.5 text-status-info-fg animate-spin ml-2" />}
       </div>
 
       {/* KPI Row — 6 cards */}
@@ -287,7 +287,7 @@ export function RondasDashboardClient({ initialData }: { initialData?: Dashboard
           <div className="flex gap-1.5 flex-wrap">
             {(data?.dailyBreakdown ?? []).map((day) => {
               const pct = day.total > 0 ? Math.round((day.completed / day.total) * 100) : 0;
-              const bg = pct >= 80 ? "bg-emerald-500" : pct >= 60 ? "bg-amber-500" : pct > 0 ? "bg-red-500" : "bg-zinc-700";
+              const bg = pct >= 80 ? "bg-status-ok" : pct >= 60 ? "bg-status-warn" : pct > 0 ? "bg-status-danger" : "bg-zinc-700";
               const opacity = pct >= 80 ? "opacity-80" : pct >= 60 ? "opacity-70" : pct > 0 ? "opacity-60" : "opacity-30";
               const label = new Date(day.date + "T12:00:00").toLocaleDateString("es-CL", { weekday: "short", day: "numeric" });
               return (
@@ -311,7 +311,7 @@ export function RondasDashboardClient({ initialData }: { initialData?: Dashboard
       {(data?.installationRanking?.length ?? 0) > 0 && (
         <div className="rounded-xl border border-[#1a1f2e] bg-[#0a0f1c] overflow-hidden">
           <div className="flex items-center gap-2 px-4 py-3 border-b border-[#1a1f2e]">
-            <Trophy className="h-3.5 w-3.5 text-amber-400" />
+            <Trophy className="h-3.5 w-3.5 text-status-warn-fg" />
             <span className="text-[12px] font-semibold text-[#f1f5f9]">Ranking por instalacion</span>
           </div>
           <div className="overflow-x-auto">
@@ -328,9 +328,9 @@ export function RondasDashboardClient({ initialData }: { initialData?: Dashboard
               </thead>
               <tbody>
                 {(data?.installationRanking ?? []).map((inst, i) => {
-                  const compColor = inst.compliance >= 80 ? "text-emerald-400" : inst.compliance >= 60 ? "text-amber-400" : "text-red-400";
+                  const compColor = inst.compliance >= 80 ? "text-status-ok-fg" : inst.compliance >= 60 ? "text-status-warn-fg" : "text-status-danger-fg";
                   const trustColor = inst.trustAvg != null
-                    ? inst.trustAvg >= 80 ? "text-emerald-400" : inst.trustAvg >= 60 ? "text-amber-400" : "text-red-400"
+                    ? inst.trustAvg >= 80 ? "text-status-ok-fg" : inst.trustAvg >= 60 ? "text-status-warn-fg" : "text-status-danger-fg"
                     : "text-zinc-600";
                   return (
                     <tr key={inst.id} className="border-b border-[#1a1f2e]/50 hover:bg-[#111827]/50">
@@ -347,7 +347,7 @@ export function RondasDashboardClient({ initialData }: { initialData?: Dashboard
                       </td>
                       <td className="px-4 py-2.5 text-center">
                         {inst.alerts > 0 ? (
-                          <span className="text-red-400 font-bold tabular-nums">{inst.alerts}</span>
+                          <span className="text-status-danger-fg font-bold tabular-nums">{inst.alerts}</span>
                         ) : (
                           <span className="text-zinc-600">\u2014</span>
                         )}
@@ -365,7 +365,7 @@ export function RondasDashboardClient({ initialData }: { initialData?: Dashboard
       <div className="rounded-xl border border-[#1a1f2e] bg-[#0a0f1c] overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-[#1a1f2e]">
           <div className="flex items-center gap-2">
-            <Activity className="w-4 h-4 text-cyan-400" />
+            <Activity className="w-4 h-4 text-status-info-fg" />
             <span className="text-[12px] font-semibold text-[#f1f5f9]">Ejecuciones</span>
             <span className="text-[10px] text-[#64748b] tabular-nums">{rows.length} total</span>
           </div>
@@ -393,7 +393,7 @@ function KpiTile({ label, value, color, highlight }: { label: string; value: num
       )}
       style={{ borderColor: `${color}15`, borderLeftColor: color, borderLeftWidth: 3 }}
     >
-      {highlight && <div className="absolute inset-0 bg-red-500/5 pointer-events-none" />}
+      {highlight && <div className="absolute inset-0 bg-status-danger-soft pointer-events-none" />}
       <p className="text-[10px] uppercase tracking-wider font-semibold mb-1.5" style={{ color: `${color}99` }}>
         {label}
       </p>

@@ -40,10 +40,10 @@ export function HubSupervisionSection({
 
   const coverageBarColor =
     data.coveragePct >= 80
-      ? "bg-emerald-500"
+      ? "bg-status-ok"
       : data.coveragePct >= 50
-        ? "bg-amber-500"
-        : "bg-red-500";
+        ? "bg-status-warn"
+        : "bg-status-danger";
 
   return (
     <HubCollapsibleSection
@@ -164,10 +164,10 @@ export function HubSupervisionSection({
                   variant="outline"
                   className={`ml-2 shrink-0 text-[10px] ${
                     visit.status === "completed"
-                      ? "text-emerald-500 border-emerald-500/30"
+                      ? "text-status-ok-fg border-status-ok-border"
                       : visit.status === "cancelled"
-                        ? "text-red-500 border-red-500/30"
-                        : "text-amber-500 border-amber-500/30"
+                        ? "text-status-danger-fg border-status-danger-border"
+                        : "text-status-warn-fg border-status-warn-border"
                   }`}
                 >
                   {STATUS_LABELS[visit.status] ?? visit.status}

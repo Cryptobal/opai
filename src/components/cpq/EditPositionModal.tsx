@@ -292,9 +292,9 @@ export function EditPositionModal({ quoteId, position, open, onOpenChange, onUpd
               </Button>
 
               {preview && (
-                <div className="rounded-md border border-emerald-500/20 bg-emerald-500/5 p-3 text-xs space-y-1">
-                  <div className="flex justify-between"><span className="text-emerald-400">Costo empresa / guardia</span><span className="font-mono text-emerald-400">{formatCurrency(preview.monthly_employer_cost_clp)}</span></div>
-                  <div className="flex justify-between"><span className="text-blue-400">Liquido / guardia</span><span className="font-mono text-blue-400">{formatCurrency(preview.worker_net_salary_estimate)}</span></div>
+                <div className="rounded-md border border-status-ok-border bg-status-ok-soft p-3 text-xs space-y-1">
+                  <div className="flex justify-between"><span className="text-status-ok-fg">Costo empresa / guardia</span><span className="font-mono text-status-ok-fg">{formatCurrency(preview.monthly_employer_cost_clp)}</span></div>
+                  <div className="flex justify-between"><span className="text-status-info-fg">Liquido / guardia</span><span className="font-mono text-status-info-fg">{formatCurrency(preview.worker_net_salary_estimate)}</span></div>
                   <div className="flex justify-between border-t pt-1"><span>Total puesto</span><span className="font-mono">{formatCurrency(preview.monthly_employer_cost_clp * form.numGuards * form.numPuestos)}</span></div>
                 </div>
               )}

@@ -71,7 +71,7 @@ export function CotizacionRejectDialog({
                 className={cn(
                   "text-xs px-3 py-1.5 rounded-full border transition-colors",
                   selectedReason === reason
-                    ? "border-red-500/50 bg-red-500/10 text-red-300"
+                    ? "border-status-danger-border bg-status-danger-soft text-status-danger-fg"
                     : "border-zinc-700 text-zinc-400 hover:border-zinc-500",
                 )}
               >
@@ -93,7 +93,7 @@ export function CotizacionRejectDialog({
             type="button"
             onClick={handleConfirm}
             disabled={loading}
-            className="flex items-center justify-center gap-2 h-10 rounded-lg bg-red-700 hover:bg-red-600 disabled:opacity-50 text-white text-sm font-semibold transition-colors"
+            className="flex items-center justify-center gap-2 h-10 rounded-lg bg-red-700 hover:bg-status-danger disabled:opacity-50 text-white text-sm font-semibold transition-colors"
           >
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}
             Confirmar rechazo

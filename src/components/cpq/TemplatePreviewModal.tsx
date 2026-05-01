@@ -148,7 +148,7 @@ export function TemplatePreviewModal({
               />
               {/* Mobile: prompt to open in full screen */}
               <div className="sm:hidden flex flex-col items-center justify-center gap-4 p-6 h-full">
-                <FileText className="h-12 w-12 text-teal-400" />
+                <FileText className="h-12 w-12 text-status-info-fg" />
                 <p className="text-sm text-foreground font-medium text-center">
                   PDF generado correctamente
                 </p>

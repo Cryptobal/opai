@@ -35,7 +35,7 @@ export function InstallationSwitcher({ hideWhenEmpty = true, className }: Props)
         className={`inline-flex items-center gap-1.5 text-xs text-zinc-300 max-w-[180px] truncate ${className ?? ""}`}
         title={only.name}
       >
-        <MapPin className="h-3.5 w-3.5 text-teal-400 shrink-0" />
+        <MapPin className="h-3.5 w-3.5 text-status-info-fg shrink-0" />
         <span className="truncate">{only.name}</span>
       </span>
     );
@@ -43,7 +43,7 @@ export function InstallationSwitcher({ hideWhenEmpty = true, className }: Props)
 
   return (
     <div className={`relative ${className ?? ""}`}>
-      <MapPin className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-teal-400 pointer-events-none" />
+      <MapPin className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-status-info-fg pointer-events-none" />
       <select
         value={installationId}
         onChange={(e) => setInstallationId(e.target.value)}

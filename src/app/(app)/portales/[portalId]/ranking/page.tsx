@@ -268,7 +268,7 @@ function ClienteTable({ entries }: { entries: RankingEntry[] }) {
             <Building2 className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
             <span className="text-sm font-medium truncate">{e.accountName ?? '—'}</span>
             {e.isProspect && (
-              <Badge variant="outline" className="text-xs h-4 px-1 border-amber-500/30 text-amber-500 shrink-0">
+              <Badge variant="outline" className="text-xs h-4 px-1 border-status-warn-border text-status-warn-fg shrink-0">
                 Prospecto
               </Badge>
             )}
@@ -291,7 +291,7 @@ function ClienteTable({ entries }: { entries: RankingEntry[] }) {
 
 function RankNumber({ idx }: { idx: number }) {
   return (
-    <span className={`text-xs tabular-nums font-medium ${idx < 3 ? 'text-teal-400' : 'text-muted-foreground'}`}>
+    <span className={`text-xs tabular-nums font-medium ${idx < 3 ? 'text-status-info-fg' : 'text-muted-foreground'}`}>
       {idx + 1}
     </span>
   );

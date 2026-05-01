@@ -103,12 +103,12 @@ export function FileDropZone({
   if (preview) {
     const isImage = preview.type?.startsWith("image/") || preview.name.match(/\.(jpg|jpeg|png|webp)$/i);
     return (
-      <div className={cn("flex items-center gap-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3", className)}>
+      <div className={cn("flex items-center gap-3 rounded-lg border border-status-ok-border bg-status-ok-soft p-3", className)}>
         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-background shrink-0">
-          {isImage ? <ImageIcon className="h-5 w-5 text-emerald-400" /> : <FileText className="h-5 w-5 text-emerald-400" />}
+          {isImage ? <ImageIcon className="h-5 w-5 text-status-ok-fg" /> : <FileText className="h-5 w-5 text-status-ok-fg" />}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-xs text-emerald-400 truncate">{preview.name}</p>
+          <p className="text-xs text-status-ok-fg truncate">{preview.name}</p>
           {preview.size && (
             <p className="text-[10px] text-muted-foreground mt-0.5">
               {(preview.size / 1024).toFixed(0)} KB

@@ -597,7 +597,7 @@ export function RondasPortalClient() {
       )}
 
       {needsGuardWarning && screen !== "login" && (
-        <div className="bg-amber-500/10 border-b border-amber-500/30 px-4 py-2 text-center text-xs text-amber-300">
+        <div className="bg-status-warn-soft border-b border-status-warn-border px-4 py-2 text-center text-xs text-status-warn-fg">
           Selecciona un guardia para continuar
         </div>
       )}
@@ -627,7 +627,7 @@ export function RondasPortalClient() {
             <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/60">
               <div className="flex flex-col items-center gap-3 rounded-2xl bg-gray-900 px-8 py-6">
                 <svg
-                  className="h-8 w-8 animate-spin text-teal-500"
+                  className="h-8 w-8 animate-spin text-status-info-fg"
                   xmlns="http://www.w3.org/2000/svg"
                   fill="none"
                   viewBox="0 0 24 24"
@@ -707,15 +707,15 @@ export function RondasPortalClient() {
       {incidentToast && (
         <div className="fixed inset-x-4 z-[70] flex items-center gap-3 rounded-xl border border-green-700/50 bg-green-950/90 px-4 py-3 shadow-lg backdrop-blur-sm animate-in slide-in-from-top" style={{ top: 'calc(var(--safe-area-top) + 1rem)' }}>
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-green-500/20">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-status-ok-fg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
             </svg>
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-green-300">Incidente reportado</p>
+            <p className="text-sm font-semibold text-status-ok-fg">Incidente reportado</p>
             <p className="text-xs text-green-400/70">Central ha sido notificada</p>
           </div>
-          <button onClick={() => setIncidentToast(false)} className="text-green-400/50 hover:text-green-300">
+          <button onClick={() => setIncidentToast(false)} className="text-green-400/50 hover:text-status-ok-fg">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>

@@ -111,7 +111,7 @@ export function AddonCatalogTable() {
   }
 
   if (error) {
-    return <div className="py-8 text-center text-sm text-red-600 dark:text-red-400">{error}</div>;
+    return <div className="py-8 text-center text-sm text-status-danger-fg dark:text-status-danger-fg">{error}</div>;
   }
 
   return (

@@ -528,7 +528,7 @@ export function PagosTab({ payments, pendingRendiciones }: PagosTabProps) {
                               {r.submitterName}
                             </span>
                             {r.beneficiaryName && (
-                              <span className="text-xs text-emerald-400">
+                              <span className="text-xs text-status-ok-fg">
                                 → {r.beneficiaryName}
                               </span>
                             )}
@@ -603,14 +603,14 @@ export function PagosTab({ payments, pendingRendiciones }: PagosTabProps) {
                                 className={cn(
                                   "text-[10px]",
                                   p.type === "BATCH_SANTANDER"
-                                    ? "bg-blue-500/15 text-blue-400"
+                                    ? "bg-status-info-soft text-status-info-fg"
                                     : "bg-zinc-500/15 text-zinc-400"
                                 )}
                               >
                                 {TYPE_LABELS[p.type] ?? p.type}
                               </Badge>
                               {p.receiptUrl && (
-                                <Badge className="text-[10px] bg-emerald-500/15 text-emerald-400 border-emerald-500/30">
+                                <Badge className="text-[10px] bg-status-ok-soft text-status-ok-fg border-status-ok-border">
                                   <CheckCircle2 className="h-2.5 w-2.5 mr-0.5" />
                                   Comprobante
                                 </Badge>
@@ -811,7 +811,7 @@ export function PagosTab({ payments, pendingRendiciones }: PagosTabProps) {
         <DialogContent className="max-w-xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              <AlertTriangle className="h-5 w-5 text-status-warn-fg" />
               {exportIssues?.title ?? "Faltan datos bancarios"}
             </DialogTitle>
             <DialogDescription>
@@ -845,7 +845,7 @@ export function PagosTab({ payments, pendingRendiciones }: PagosTabProps) {
                       <Badge
                         key={m}
                         variant="outline"
-                        className="text-[10px] uppercase tracking-wide border-amber-500/40 text-amber-500"
+                        className="text-[10px] uppercase tracking-wide border-status-warn-border text-status-warn-fg"
                       >
                         Falta {m}
                       </Badge>

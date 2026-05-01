@@ -520,7 +520,7 @@ export function RondasReportesClient({
               size="sm"
               onClick={handleExportExcel}
               disabled={exporting !== null}
-              className="border-[#1a1f2e] text-[#94a3b8] hover:text-[#f1f5f9] hover:border-emerald-500/40"
+              className="border-[#1a1f2e] text-[#94a3b8] hover:text-[#f1f5f9] hover:border-status-ok-border"
             >
               {exporting === "xlsx" ? (
                 <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />

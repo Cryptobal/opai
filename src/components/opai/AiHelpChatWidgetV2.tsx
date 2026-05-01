@@ -300,8 +300,8 @@ function KpiBlock({ kpi }: { kpi: VisualKpi }) {
             <p
               className={cn(
                 "text-xs flex items-center gap-0.5 mt-0.5",
-                item.deltaDirection === "down" && "text-rose-400",
-                item.deltaDirection === "up" && "text-emerald-400",
+                item.deltaDirection === "down" && "text-status-danger-fg",
+                item.deltaDirection === "up" && "text-status-ok-fg",
                 (!item.deltaDirection || item.deltaDirection === "neutral") && "text-white/50",
               )}
             >
@@ -348,11 +348,11 @@ function CardsBlock({
               <span
                 className={cn(
                   "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium",
-                  item.badgeColor === "green" && "bg-emerald-500/20 text-emerald-300",
-                  item.badgeColor === "red" && "bg-rose-500/20 text-rose-300",
-                  item.badgeColor === "blue" && "bg-sky-500/20 text-sky-300",
+                  item.badgeColor === "green" && "bg-status-ok-soft text-status-ok-fg",
+                  item.badgeColor === "red" && "bg-rose-500/20 text-status-danger-fg",
+                  item.badgeColor === "blue" && "bg-sky-500/20 text-status-info-fg",
                   item.badgeColor === "purple" && "bg-violet-500/20 text-violet-300",
-                  (!item.badgeColor || item.badgeColor === "amber" || item.badgeColor === "yellow") && "bg-amber-500/20 text-amber-200",
+                  (!item.badgeColor || item.badgeColor === "amber" || item.badgeColor === "yellow") && "bg-status-warn-soft text-status-warn-fg",
                 )}
               >
                 {item.badge}
@@ -378,11 +378,11 @@ function CardsBlock({
                 <span
                   className={cn(
                     "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium",
-                    item.badgeColor === "green" && "bg-emerald-500/20 text-emerald-300",
-                    item.badgeColor === "red" && "bg-rose-500/20 text-rose-300",
-                    item.badgeColor === "blue" && "bg-sky-500/20 text-sky-300",
+                    item.badgeColor === "green" && "bg-status-ok-soft text-status-ok-fg",
+                    item.badgeColor === "red" && "bg-rose-500/20 text-status-danger-fg",
+                    item.badgeColor === "blue" && "bg-sky-500/20 text-status-info-fg",
                     item.badgeColor === "purple" && "bg-violet-500/20 text-violet-300",
-                    (!item.badgeColor || item.badgeColor === "amber" || item.badgeColor === "yellow") && "bg-amber-500/20 text-amber-200",
+                    (!item.badgeColor || item.badgeColor === "amber" || item.badgeColor === "yellow") && "bg-status-warn-soft text-status-warn-fg",
                   )}
                 >
                   {item.badge}
@@ -456,7 +456,7 @@ function SuggestionsBlock({
           key={`${s.label}-${i}`}
           type="button"
           onClick={() => onAction(s.action)}
-          className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-cyan-500/25 to-emerald-500/20 border border-cyan-500/30 px-3 py-1.5 text-xs font-medium text-cyan-100 hover:from-cyan-500/35 hover:to-emerald-500/30 transition"
+          className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-cyan-500/25 to-emerald-500/20 border border-status-info-border px-3 py-1.5 text-xs font-medium text-cyan-100 hover:from-cyan-500/35 hover:to-emerald-500/30 transition"
         >
           <SuggestionIconEl icon={s.icon} />
           {s.label}
@@ -548,7 +548,7 @@ function linkifyLine(line: string) {
           href={href}
           target="_blank"
           rel="noreferrer noopener"
-          className="underline underline-offset-2 text-cyan-300 hover:text-cyan-200"
+          className="underline underline-offset-2 text-status-info-fg hover:text-cyan-200"
         >
           {text}
         </a>,
@@ -1369,7 +1369,7 @@ export function AiHelpChatWidgetV2() {
         )}
       >
         <div className="flex items-center gap-2 text-base font-semibold text-white">
-          <Sparkles className="h-5 w-5 text-cyan-300" />
+          <Sparkles className="h-5 w-5 text-status-info-fg" />
           OPAI Intelligence
         </div>
         <button
@@ -1385,7 +1385,7 @@ export function AiHelpChatWidgetV2() {
       {pageContext ? (
         <div className="border-b border-cyan-500/20 px-3 py-2 bg-gradient-to-r from-cyan-500/10 to-emerald-500/5">
           <div className="flex items-center gap-2">
-            <Sparkles className="h-3.5 w-3.5 shrink-0 text-cyan-300" />
+            <Sparkles className="h-3.5 w-3.5 shrink-0 text-status-info-fg" />
             <div className="min-w-0 flex-1">
               <p className="text-[10px] uppercase tracking-wide text-cyan-300/70">Hablando sobre</p>
               <p className="text-xs font-medium text-white truncate">{pageContext.entityName}</p>

@@ -187,7 +187,7 @@ export function SendPdfEmailModal({
 
         {step === "sent" ? (
           <div className="text-center py-6 space-y-4">
-            <CheckCircle2 className="h-12 w-12 text-emerald-400 mx-auto" />
+            <CheckCircle2 className="h-12 w-12 text-status-ok-fg mx-auto" />
             <p className="text-sm font-medium">Mail enviado</p>
             <p className="text-xs text-muted-foreground">
               El PDF fue enviado a {to}

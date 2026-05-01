@@ -49,11 +49,11 @@ export function QuoteBreakdownPanel({
         className={cn(
           "rounded-xl p-4 text-center",
           isDark
-            ? "bg-gradient-to-b from-emerald-500/10 to-emerald-500/5 border border-emerald-500/20"
-            : "bg-gradient-to-b from-emerald-500/10 to-emerald-500/5 border border-emerald-500/20",
+            ? "bg-gradient-to-b from-emerald-500/10 to-emerald-500/5 border border-status-ok-border"
+            : "bg-gradient-to-b from-emerald-500/10 to-emerald-500/5 border border-status-ok-border",
         )}
       >
-        <div className="text-xs uppercase tracking-wider font-semibold text-emerald-500 mb-1">
+        <div className="text-xs uppercase tracking-wider font-semibold text-status-ok-fg mb-1">
           Precio Venta Mensual
         </div>
         <CpqDualCurrencyAmount
@@ -86,7 +86,7 @@ export function QuoteBreakdownPanel({
             "flex-1 py-1.5 rounded-md text-xs font-semibold transition-colors",
             mode === "total"
               ? isDark
-                ? "bg-emerald-600/30 text-emerald-300 border border-emerald-500/30"
+                ? "bg-emerald-600/30 text-status-ok-fg border border-status-ok-border"
                 : "bg-background text-foreground shadow-sm"
               : isDark
               ? "text-zinc-400 hover:text-zinc-300"
@@ -102,7 +102,7 @@ export function QuoteBreakdownPanel({
             "flex-1 py-1.5 rounded-md text-xs font-semibold transition-colors",
             mode === "por-puesto"
               ? isDark
-                ? "bg-emerald-600/30 text-emerald-300 border border-emerald-500/30"
+                ? "bg-emerald-600/30 text-status-ok-fg border border-status-ok-border"
                 : "bg-background text-foreground shadow-sm"
               : isDark
               ? "text-zinc-400 hover:text-zinc-300"
@@ -188,12 +188,12 @@ function TotalView({ data, isDark }: TotalViewProps) {
   }[] = [
     {
       title: "Mano de Obra",
-      color: "bg-blue-500",
+      color: "bg-status-info",
       items: [{ label: "Costo empleador total", amount: data.totalLaborCost }],
     },
     {
       title: "Costos Directos",
-      color: "bg-teal-500",
+      color: "bg-status-info",
       items: [
         { label: "Ajuste feriados", amount: data.holidayAdjustment },
         { label: "Uniformes", amount: data.uniforms },
@@ -203,7 +203,7 @@ function TotalView({ data, isDark }: TotalViewProps) {
     },
     {
       title: "Costos Indirectos",
-      color: "bg-amber-500",
+      color: "bg-status-warn",
       items: [
         { label: "Equipo operativo", amount: data.equipment },
         { label: "Transporte", amount: data.transport },
@@ -373,11 +373,11 @@ function TotalView({ data, isDark }: TotalViewProps) {
       <div
         className={cn(
           "rounded-lg border px-3 py-2 space-y-1",
-          isDark ? "border-emerald-500/20 bg-emerald-500/5" : "border-emerald-500/30 bg-emerald-500/5",
+          isDark ? "border-status-ok-border bg-status-ok-soft" : "border-status-ok-border bg-status-ok-soft",
         )}
       >
         <div className={cn(CPQ_BREAKDOWN_ROW, "text-xs")}>
-          <span className="text-sm font-semibold uppercase tracking-wide text-emerald-500 break-words min-w-0">
+          <span className="text-sm font-semibold uppercase tracking-wide text-status-ok-fg break-words min-w-0">
             Margen comercial
           </span>
           <span className={cpqBreakdownAmount("text-xs text-emerald-500/70 font-normal")}>
@@ -392,7 +392,7 @@ function TotalView({ data, isDark }: TotalViewProps) {
             clp={data.marginAmount}
             data={data}
             isDark={isDark}
-            primaryClassName="text-emerald-500 font-semibold"
+            primaryClassName="text-status-ok-fg font-semibold"
           />
         </div>
       </div>
@@ -442,8 +442,8 @@ function TotalView({ data, isDark }: TotalViewProps) {
         className={cn(
           "rounded-lg border px-3 py-3 mt-1",
           isDark
-            ? "border-emerald-500/30 bg-gradient-to-r from-emerald-500/10 to-teal-500/5"
-            : "border-emerald-500/30 bg-gradient-to-r from-emerald-500/5 to-teal-500/5",
+            ? "border-status-ok-border bg-gradient-to-r from-emerald-500/10 to-teal-500/5"
+            : "border-status-ok-border bg-gradient-to-r from-emerald-500/5 to-teal-500/5",
         )}
       >
         <div className={cn(CPQ_BREAKDOWN_ROW, "text-sm")}>
@@ -455,7 +455,7 @@ function TotalView({ data, isDark }: TotalViewProps) {
             data={data}
             isDark={isDark}
             size="sm"
-            primaryClassName="text-emerald-500 font-bold"
+            primaryClassName="text-status-ok-fg font-bold"
           />
         </div>
         {data.additionalLines > 0 && (
@@ -510,8 +510,8 @@ function PorPuestoView({ data, isDark }: PorPuestoViewProps) {
         className={cn(
           "rounded-lg border px-3 py-3",
           isDark
-            ? "border-emerald-500/30 bg-gradient-to-r from-emerald-500/10 to-teal-500/5"
-            : "border-emerald-500/30 bg-gradient-to-r from-emerald-500/5 to-teal-500/5",
+            ? "border-status-ok-border bg-gradient-to-r from-emerald-500/10 to-teal-500/5"
+            : "border-status-ok-border bg-gradient-to-r from-emerald-500/5 to-teal-500/5",
         )}
       >
         <div className={cn(CPQ_BREAKDOWN_ROW, "text-sm")}>
@@ -523,7 +523,7 @@ function PorPuestoView({ data, isDark }: PorPuestoViewProps) {
             data={data}
             isDark={isDark}
             size="sm"
-            primaryClassName="text-emerald-500 font-bold"
+            primaryClassName="text-status-ok-fg font-bold"
           />
         </div>
         <div className={cn("text-xs mt-1", isDark ? "text-zinc-500" : "text-muted-foreground")}>
@@ -614,7 +614,7 @@ function PositionCard({
               data={data}
               isDark={isDark}
               size="md"
-              primaryClassName="text-emerald-500 font-bold"
+              primaryClassName="text-status-ok-fg font-bold"
             />
             <ChevronDown
               className={cn(
@@ -630,10 +630,10 @@ function PositionCard({
           <div
             className={cn(
               "rounded-lg border px-2.5 py-2 w-full",
-              isDark ? "border-sky-500/25 bg-sky-500/[0.07]" : "border-sky-500/30 bg-sky-500/5",
+              isDark ? "border-sky-500/25 bg-sky-500/[0.07]" : "border-status-info-border bg-sky-500/5",
             )}
           >
-            <p className={cn("text-sm font-semibold uppercase tracking-wide", isDark ? "text-sky-300" : "text-sky-700")}>
+            <p className={cn("text-sm font-semibold uppercase tracking-wide", isDark ? "text-status-info-fg" : "text-sky-700")}>
               Sueldo líquido estimado
             </p>
             <div className="mt-1 flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
@@ -666,7 +666,7 @@ function PositionCard({
             )}
           </div>
         ) : (
-          <p className={cn("text-sm leading-snug", isDark ? "text-amber-400/90" : "text-amber-700")}>
+          <p className={cn("text-sm leading-snug", isDark ? "text-amber-400/90" : "text-status-warn-fg")}>
             Sueldo líquido: no hay estimación en este puesto. Si la cotización está bloqueada, el valor quedó al enviarla; si falta, al desbloquear usa Recalcular en el puesto.
           </p>
         )}
@@ -682,7 +682,7 @@ function PositionCard({
         >
           {/* Labor breakdown */}
           <div className="space-y-0.5 mb-2">
-            <div className={cn("text-xs font-semibold uppercase tracking-wide mb-1.5", isDark ? "text-blue-400" : "text-blue-600")}>
+            <div className={cn("text-xs font-semibold uppercase tracking-wide mb-1.5", isDark ? "text-status-info-fg" : "text-status-info-fg")}>
               Mano de obra ({pos.totalGuardsInPosition} guardia{pos.totalGuardsInPosition !== 1 ? "s" : ""})
             </div>
 
@@ -762,17 +762,17 @@ function PositionCard({
               className={cn(
                 CPQ_BREAKDOWN_ROW,
                 "text-xs border-t mt-1 pt-1.5",
-                isDark ? "border-blue-500/20" : "border-blue-500/30",
+                isDark ? "border-status-info-border" : "border-status-info-border",
               )}
             >
-              <span className={cn("font-semibold min-w-0 break-words", isDark ? "text-blue-400" : "text-blue-600")}>
+              <span className={cn("font-semibold min-w-0 break-words", isDark ? "text-status-info-fg" : "text-status-info-fg")}>
                 Total costo empleador
               </span>
               <AmountCell
                 clp={pos.totalLaborCost}
                 data={data}
                 isDark={isDark}
-                primaryClassName={isDark ? "text-blue-300" : "text-blue-700 font-semibold"}
+                primaryClassName={isDark ? "text-status-info-fg" : "text-blue-700 font-semibold"}
               />
             </div>
           </div>
@@ -781,10 +781,10 @@ function PositionCard({
           <div
             className={cn(
               "rounded-lg border px-2.5 py-2 mt-2 space-y-1",
-              isDark ? "border-emerald-500/20 bg-emerald-500/5" : "border-emerald-500/20 bg-emerald-500/5",
+              isDark ? "border-status-ok-border bg-status-ok-soft" : "border-status-ok-border bg-status-ok-soft",
             )}
           >
-            <div className={cn("text-xs font-semibold uppercase tracking-wide", isDark ? "text-emerald-500" : "text-emerald-600")}>
+            <div className={cn("text-xs font-semibold uppercase tracking-wide", isDark ? "text-status-ok-fg" : "text-status-ok-fg")}>
               Precio de venta
             </div>
             <div className="space-y-0.5">
@@ -808,15 +808,15 @@ function PositionCard({
                 </span>
               </div>
             </div>
-            <div className={cn(CPQ_BREAKDOWN_ROW, "text-xs border-t pt-1.5", isDark ? "border-emerald-500/20" : "border-emerald-500/30")}>
-              <span className={cn("font-bold min-w-0 break-words", isDark ? "text-emerald-400" : "text-emerald-600")}>
+            <div className={cn(CPQ_BREAKDOWN_ROW, "text-xs border-t pt-1.5", isDark ? "border-status-ok-border" : "border-status-ok-border")}>
+              <span className={cn("font-bold min-w-0 break-words", isDark ? "text-status-ok-fg" : "text-status-ok-fg")}>
                 Precio venta puesto
               </span>
               <AmountCell
                 clp={pos.salePrice}
                 data={data}
                 isDark={isDark}
-                primaryClassName="text-emerald-500 font-bold"
+                primaryClassName="text-status-ok-fg font-bold"
               />
             </div>
           </div>
@@ -843,7 +843,7 @@ function PositionCard({
                 size="sm"
                 isDark={isDark}
                 suffix="/hr"
-                primaryClassName={isDark ? "text-emerald-400" : "text-emerald-600 font-bold"}
+                primaryClassName={isDark ? "text-status-ok-fg" : "text-status-ok-fg font-bold"}
               />
             </div>
           </div>

@@ -20,7 +20,7 @@ export function SelectedPersonCard({
   return (
     <div className="rounded-lg border border-border bg-muted/30 p-4 flex items-start justify-between gap-3">
       <div className="flex items-start gap-3 min-w-0">
-        <CheckCircle2 className="size-5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+        <CheckCircle2 className="size-5 text-status-ok-fg dark:text-status-ok-fg shrink-0 mt-0.5" />
         <div className="min-w-0">
           <p className="text-sm font-medium text-foreground truncate">
             {person.displayName}

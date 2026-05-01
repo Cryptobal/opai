@@ -66,29 +66,29 @@ export function PresentationHeader({
             <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-xs">
               {/* Lado izquierdo: Propuesta + empresa + negocio + instalación */}
               <div className="flex flex-wrap items-center justify-center sm:justify-start gap-x-2 gap-y-1 min-w-0">
-                <Sparkles className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+                <Sparkles className="w-3.5 h-3.5 text-status-info-fg shrink-0" />
                 <span className="text-white/60">Propuesta para</span>
                 <span className="font-bold text-white truncate max-w-[200px] sm:max-w-none">{companyName}</span>
                 {!showTokens && dealName && (
                   <>
                     <span className="text-white/30 hidden sm:inline">·</span>
                     <span className="text-white/50 hidden sm:inline">Negocio:</span>
-                    <span className="font-semibold text-teal-400 truncate max-w-[180px] sm:max-w-none hidden sm:inline">{dealName}</span>
+                    <span className="font-semibold text-status-info-fg truncate max-w-[180px] sm:max-w-none hidden sm:inline">{dealName}</span>
                   </>
                 )}
                 {!showTokens && installationName && (
                   <>
                     <span className="text-white/30 hidden sm:inline">·</span>
                     <span className="text-white/50 hidden sm:inline">Instalación:</span>
-                    <span className="font-semibold text-teal-400 truncate max-w-[180px] sm:max-w-none hidden sm:inline">{installationName}</span>
+                    <span className="font-semibold text-status-info-fg truncate max-w-[180px] sm:max-w-none hidden sm:inline">{installationName}</span>
                   </>
                 )}
               </div>
 
               {/* Centro: Nombre de la propuesta (Subject) - solo desktop */}
               {quoteName && quoteName !== 'la cotización' ? (
-                <div className="hidden lg:flex items-center gap-2 px-4 py-1.5 rounded-full bg-teal-500/10 border border-teal-400/30">
-                  <span className="font-bold text-teal-400">{quoteName}</span>
+                <div className="hidden lg:flex items-center gap-2 px-4 py-1.5 rounded-full bg-status-info-soft border border-teal-400/30">
+                  <span className="font-bold text-status-info-fg">{quoteName}</span>
                 </div>
               ) : null}
 
@@ -97,7 +97,7 @@ export function PresentationHeader({
                 {quoteNumber && (
                   <span className="flex items-center gap-1">
                     <span className="text-white/50">N°</span>
-                    <span className="font-semibold text-teal-400">{quoteNumber}</span>
+                    <span className="font-semibold text-status-info-fg">{quoteNumber}</span>
                   </span>
                 )}
                 <span className="hidden sm:inline text-white/30">•</span>
@@ -145,8 +145,8 @@ export function PresentationHeader({
               title="WhatsApp"
               aria-label="Contactar por WhatsApp"
             >
-              <div className="w-10 h-10 rounded-full bg-green-500/10 border border-green-500/30 hover:bg-green-500 hover:border-green-500 flex items-center justify-center transition-all hover:scale-110">
-                <MessageCircle className="w-5 h-5 text-green-500 group-hover:text-white transition-colors" />
+              <div className="w-10 h-10 rounded-full bg-status-ok-soft border border-status-ok-border hover:bg-status-ok hover:border-green-500 flex items-center justify-center transition-all hover:scale-110">
+                <MessageCircle className="w-5 h-5 text-status-ok-fg group-hover:text-white transition-colors" />
               </div>
             </a>
             
@@ -155,7 +155,7 @@ export function PresentationHeader({
               href={cta.meeting_link}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-teal-500/30 hover:bg-teal-500 hover:border-teal-500 text-white/80 hover:text-white transition-all hover:scale-105 text-sm font-semibold"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-status-info-border hover:bg-status-info hover:border-teal-500 text-white/80 hover:text-white transition-all hover:scale-105 text-sm font-semibold"
               title="Agendar visita técnica"
               aria-label="Agendar visita técnica"
             >

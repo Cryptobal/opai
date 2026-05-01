@@ -87,12 +87,12 @@ export function GuardiaSalaryTab({ guardiaId }: { guardiaId: string }) {
     <div className="space-y-3">
       <div className="flex items-center gap-2 flex-wrap">
         {salary.source === "RUT" ? (
-          <Badge className="bg-amber-500/15 text-amber-400 border-amber-500/30 text-[10px]">
+          <Badge className="bg-status-warn-soft text-status-warn-fg border-status-warn-border text-[10px]">
             <User className="mr-1 h-3 w-3" />
             Por RUT
           </Badge>
         ) : (
-          <Badge className="bg-blue-500/15 text-blue-400 border-blue-500/30 text-[10px]">
+          <Badge className="bg-status-info-soft text-status-info-fg border-status-info-border text-[10px]">
             <Building2 className="mr-1 h-3 w-3" />
             Por Instalación
           </Badge>
@@ -144,11 +144,11 @@ export function GuardiaSalaryTab({ guardiaId }: { guardiaId: string }) {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Dcto. legal est. (~20%)</span>
-                <span className="text-xs text-red-400 tabular-nums">-${descuentosEstimados.toLocaleString("es-CL")}</span>
+                <span className="text-xs text-status-danger-fg tabular-nums">-${descuentosEstimados.toLocaleString("es-CL")}</span>
               </div>
               <div className="flex items-center justify-between pt-1.5 border-t border-border/30">
                 <span className="text-[10px] font-semibold uppercase tracking-[0.08em]">Líquido estimado</span>
-                <span className="text-sm font-bold text-emerald-400 tabular-nums">${liquidoEstimado.toLocaleString("es-CL")}</span>
+                <span className="text-sm font-bold text-status-ok-fg tabular-nums">${liquidoEstimado.toLocaleString("es-CL")}</span>
               </div>
             </div>
           </div>

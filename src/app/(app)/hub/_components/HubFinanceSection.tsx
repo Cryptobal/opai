@@ -13,8 +13,8 @@ export function HubFinanceSection({
       <CardHeader>
         <div className="flex items-center justify-between gap-2">
           <CardTitle className="text-base flex items-center gap-2">
-            <div className="p-1.5 rounded-lg bg-amber-500/15">
-              <Wallet className="h-4 w-4 text-amber-400" />
+            <div className="p-1.5 rounded-lg bg-status-warn-soft">
+              <Wallet className="h-4 w-4 text-status-warn-fg" />
             </div>
             Finanzas - Rendiciones
           </CardTitle>

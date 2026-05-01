@@ -143,12 +143,12 @@ export function OpsEmailsTab({ config, setConfig, saving, onSave }: OpsEmailsTab
                       <div className="flex items-center gap-2 flex-wrap">
                         <h4 className="text-sm font-semibold">{email.nombre}</h4>
                         {enabled ? (
-                          <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-500 font-medium">
+                          <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-status-ok-soft text-status-ok-fg font-medium">
                             <CheckCircle2 className="h-3 w-3" />
                             Activo
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-500 font-medium">
+                          <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-status-warn-soft text-status-warn-fg font-medium">
                             <AlertTriangle className="h-3 w-3" />
                             Inactivo
                           </span>
@@ -273,8 +273,8 @@ export function OpsEmailsTab({ config, setConfig, saving, onSave }: OpsEmailsTab
                   key={r.type}
                   className={`text-xs rounded px-3 py-2 ${
                     r.status === "sent"
-                      ? "bg-emerald-500/10 text-emerald-400"
-                      : "bg-red-500/10 text-red-400"
+                      ? "bg-status-ok-soft text-status-ok-fg"
+                      : "bg-status-danger-soft text-status-danger-fg"
                   }`}
                 >
                   <span className="font-medium">

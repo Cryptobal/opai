@@ -271,7 +271,7 @@ export function ProveedoresClient({ suppliers, accounts, canManage }: Props) {
             className={cn(
               "text-xs",
               row.isActive
-                ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+                ? "bg-status-ok-soft text-status-ok-fg border-status-ok-border"
                 : "bg-zinc-500/15 text-zinc-400 border-zinc-500/30"
             )}
           >
@@ -400,7 +400,7 @@ export function ProveedoresClient({ suppliers, accounts, canManage }: Props) {
                           className={cn(
                             "text-[10px] shrink-0",
                             s.isActive
-                              ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+                              ? "bg-status-ok-soft text-status-ok-fg border-status-ok-border"
                               : "bg-zinc-500/15 text-zinc-400 border-zinc-500/30"
                           )}
                         >

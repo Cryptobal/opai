@@ -129,10 +129,10 @@ export function ClientPreregistration({ installationId, createdBy }: Props) {
   };
 
   const statusColors: Record<string, string> = {
-    pending: "border-amber-500/30 text-amber-400",
-    checked_in: "border-emerald-500/30 text-emerald-400",
-    checked_out: "border-blue-500/30 text-blue-400",
-    no_show: "border-red-500/30 text-red-400",
+    pending: "border-status-warn-border text-status-warn-fg",
+    checked_in: "border-status-ok-border text-status-ok-fg",
+    checked_out: "border-status-info-border text-status-info-fg",
+    no_show: "border-status-danger-border text-status-danger-fg",
     cancelled: "border-zinc-500/30 text-zinc-500",
   };
 
@@ -230,7 +230,7 @@ export function ClientPreregistration({ installationId, createdBy }: Props) {
                 {item.status === "pending" && (
                   <button
                     onClick={() => handleCancel(item.id)}
-                    className="text-zinc-500 hover:text-red-400 p-1"
+                    className="text-zinc-500 hover:text-status-danger-fg p-1"
                   >
                     <X className="h-4 w-4" />
                   </button>

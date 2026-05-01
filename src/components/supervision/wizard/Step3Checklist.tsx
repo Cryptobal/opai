@@ -393,13 +393,13 @@ export function Step3Checklist({
   const checkedCount = checkedDocCount + checkedChecklistCount;
   const compliancePct = totalItems > 0 ? Math.round((checkedCount / totalItems) * 100) : 0;
   const complianceColor =
-    compliancePct >= 80 ? "text-emerald-400" : compliancePct >= 50 ? "text-amber-400" : "text-red-400";
+    compliancePct >= 80 ? "text-status-ok-fg" : compliancePct >= 50 ? "text-status-warn-fg" : "text-status-danger-fg";
   const complianceBg =
     compliancePct >= 80
-      ? "bg-emerald-500/10 border-emerald-500/30"
+      ? "bg-status-ok-soft border-status-ok-border"
       : compliancePct >= 50
-        ? "bg-amber-500/10 border-amber-500/30"
-        : "bg-red-500/10 border-red-500/30";
+        ? "bg-status-warn-soft border-status-warn-border"
+        : "bg-status-danger-soft border-status-danger-border";
 
   // If libro_novedades is in documentTypes (or global), book validation is handled by doc results
   const libroInDocTypes = allInstDocs.some((d) => d.code === "libro_novedades");
@@ -465,7 +465,7 @@ export function Step3Checklist({
             <p className="flex items-center gap-2 text-sm font-medium">
               <Camera className="h-4 w-4" />
               Puesto de guardia y presentación personal
-              <span className="text-[10px] text-amber-400">(obligatorio)</span>
+              <span className="text-[10px] text-status-warn-fg">(obligatorio)</span>
             </p>
             <input
               ref={puestoPhotoInputRef}
@@ -536,9 +536,9 @@ export function Step3Checklist({
                       key={doc.code}
                       className={`rounded-lg border p-3 transition ${
                         isChecked
-                          ? "border-emerald-500/30 bg-emerald-500/5"
+                          ? "border-status-ok-border bg-status-ok-soft"
                           : isNo
-                            ? "border-red-500/30 bg-red-500/5"
+                            ? "border-status-danger-border bg-status-danger-soft"
                             : "border-border"
                       }`}
                     >
@@ -546,14 +546,14 @@ export function Step3Checklist({
                         <div className="flex-1">
                           <span className="text-sm font-medium">{doc.label}</span>
                           {doc.required && (
-                            <span className="ml-2 text-[10px] text-amber-400">(obligatorio)</span>
+                            <span className="ml-2 text-[10px] text-status-warn-fg">(obligatorio)</span>
                           )}
                         </div>
                         {!isAnswered && (
                           <button
                             type="button"
                             onClick={() => setShowFindingModal(true)}
-                            className="flex items-center gap-1 rounded px-2 py-1 text-xs text-amber-400 hover:bg-amber-500/10"
+                            className="flex items-center gap-1 rounded px-2 py-1 text-xs text-status-warn-fg hover:bg-status-warn-soft"
                             title="Registrar hallazgo"
                           >
                             <AlertTriangle className="h-3 w-3" />
@@ -568,8 +568,8 @@ export function Step3Checklist({
                           onClick={() => handleDocCheck(doc.code, true)}
                           className={`flex flex-1 items-center justify-center gap-2 rounded-lg border-2 p-2.5 text-sm font-medium transition ${
                             isChecked
-                              ? "border-emerald-500 bg-emerald-500/20 text-emerald-400"
-                              : "border-border text-muted-foreground hover:border-emerald-500/50"
+                              ? "border-status-ok-border bg-status-ok-soft text-status-ok-fg"
+                              : "border-border text-muted-foreground hover:border-status-ok-border"
                           }`}
                         >
                           <CheckCircle2 className="h-4 w-4" />
@@ -580,8 +580,8 @@ export function Step3Checklist({
                           onClick={() => handleDocCheck(doc.code, false)}
                           className={`flex flex-1 items-center justify-center gap-2 rounded-lg border-2 p-2.5 text-sm font-medium transition ${
                             isNo
-                              ? "border-red-500 bg-red-500/20 text-red-400"
-                              : "border-border text-muted-foreground hover:border-red-500/50"
+                              ? "border-status-danger-border bg-status-danger-soft text-status-danger-fg"
+                              : "border-border text-muted-foreground hover:border-status-danger-border"
                           }`}
                         >
                           <XCircle className="h-4 w-4" />
@@ -591,7 +591,7 @@ export function Step3Checklist({
 
                       {/* Sí: date + mandatory photo */}
                       {result?.isChecked === true && (
-                        <div className="space-y-2 pl-2 border-l-2 border-emerald-500/30 mt-2">
+                        <div className="space-y-2 pl-2 border-l-2 border-status-ok-border mt-2">
                           <div>
                             <label className="text-xs text-muted-foreground">Fecha ultima entrada</label>
                             <Input
@@ -639,14 +639,14 @@ export function Step3Checklist({
                       {/* No: pending finding (se persiste al cierre) */}
                       {result?.isChecked === false && (
                         openFindingDocKeys.has(docKeyForType(doc)) ? (
-                          <div className="mt-2 rounded-lg bg-blue-500/10 p-2 text-xs">
-                            <p className="text-blue-300">
+                          <div className="mt-2 rounded-lg bg-status-info-soft p-2 text-xs">
+                            <p className="text-status-info-fg">
                               🔗 Ya existe un hallazgo abierto para este documento — gestiónalo en &quot;Hallazgos pendientes&quot; abajo.
                             </p>
                           </div>
                         ) : (
-                          <div className="mt-2 rounded-lg bg-amber-500/10 p-2 text-xs">
-                            <p className="text-amber-400">
+                          <div className="mt-2 rounded-lg bg-status-warn-soft p-2 text-xs">
+                            <p className="text-status-warn-fg">
                               ⏳ Se creará hallazgo al cerrar la visita: &quot;{doc.label} no presente&quot;
                             </p>
                           </div>
@@ -700,7 +700,7 @@ export function Step3Checklist({
                           <span
                             className={`text-xs font-medium ${
                               checkedGuardDocs === totalGuardDocs
-                                ? "text-emerald-400"
+                                ? "text-status-ok-fg"
                                 : "text-muted-foreground"
                             }`}
                           >
@@ -730,9 +730,9 @@ export function Step3Checklist({
                                 key={docType.code}
                                 className={`rounded-lg border p-3 transition ${
                                   isDocChecked
-                                    ? "border-emerald-500/30 bg-emerald-500/5"
+                                    ? "border-status-ok-border bg-status-ok-soft"
                                     : isDocNo
-                                      ? "border-red-500/30 bg-red-500/5"
+                                      ? "border-status-danger-border bg-status-danger-soft"
                                       : "border-border"
                                 }`}
                               >
@@ -765,8 +765,8 @@ export function Step3Checklist({
                                     }
                                     className={`flex flex-1 items-center justify-center gap-2 rounded-lg border-2 p-2.5 text-sm font-medium transition ${
                                       isDocChecked
-                                        ? "border-emerald-500 bg-emerald-500/20 text-emerald-400"
-                                        : "border-border text-muted-foreground hover:border-emerald-500/50"
+                                        ? "border-status-ok-border bg-status-ok-soft text-status-ok-fg"
+                                        : "border-border text-muted-foreground hover:border-status-ok-border"
                                     }`}
                                   >
                                     <CheckCircle2 className="h-4 w-4" />
@@ -779,8 +779,8 @@ export function Step3Checklist({
                                     }
                                     className={`flex flex-1 items-center justify-center gap-2 rounded-lg border-2 p-2.5 text-sm font-medium transition ${
                                       isDocNo
-                                        ? "border-red-500 bg-red-500/20 text-red-400"
-                                        : "border-border text-muted-foreground hover:border-red-500/50"
+                                        ? "border-status-danger-border bg-status-danger-soft text-status-danger-fg"
+                                        : "border-border text-muted-foreground hover:border-status-danger-border"
                                     }`}
                                   >
                                     <XCircle className="h-4 w-4" />
@@ -813,14 +813,14 @@ export function Step3Checklist({
                                 {/* No: pending finding (se persiste al cierre) */}
                                 {isDocNo && (
                                   openGuardFindingKeys.has(guardDocKey(docType.code, guard.guardiaId)) ? (
-                                    <div className="mt-2 rounded-lg bg-blue-500/10 p-2 text-xs">
-                                      <p className="text-blue-300">
+                                    <div className="mt-2 rounded-lg bg-status-info-soft p-2 text-xs">
+                                      <p className="text-status-info-fg">
                                         🔗 Ya existe un hallazgo abierto para este guardia y documento — gestiónalo abajo.
                                       </p>
                                     </div>
                                   ) : (
-                                    <div className="mt-2 rounded-lg bg-amber-500/10 p-2 text-xs">
-                                      <p className="text-amber-400">
+                                    <div className="mt-2 rounded-lg bg-status-warn-soft p-2 text-xs">
+                                      <p className="text-status-warn-fg">
                                         ⏳ Se creará hallazgo al cerrar la visita: &quot;{docType.label} no presente&quot;
                                       </p>
                                     </div>
@@ -853,7 +853,7 @@ export function Step3Checklist({
                       key={item.id}
                       className={`flex items-center gap-3 rounded-lg border p-3 transition ${
                         isChecked
-                          ? "border-emerald-500/30 bg-emerald-500/5"
+                          ? "border-status-ok-border bg-status-ok-soft"
                           : "border-border"
                       }`}
                     >
@@ -867,17 +867,17 @@ export function Step3Checklist({
                         <div className="flex-1">
                           <span className="text-sm">{item.name}</span>
                           {item.isMandatory && (
-                            <span className="ml-2 text-[10px] text-amber-400">(obligatorio)</span>
+                            <span className="ml-2 text-[10px] text-status-warn-fg">(obligatorio)</span>
                           )}
                         </div>
                       </label>
                       {isChecked ? (
-                        <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-emerald-400" />
+                        <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-status-ok-fg" />
                       ) : (
                         <button
                           type="button"
                           onClick={() => setShowFindingModal(true)}
-                          className="flex items-center gap-1 rounded px-2 py-1 text-xs text-amber-400 hover:bg-amber-500/10"
+                          className="flex items-center gap-1 rounded px-2 py-1 text-xs text-status-warn-fg hover:bg-status-warn-soft"
                           title="Registrar hallazgo"
                         >
                           <AlertTriangle className="h-3 w-3" />
@@ -916,7 +916,7 @@ export function Step3Checklist({
                   onClick={() => handleBookCheck(true)}
                   className={`flex-1 rounded-lg border-2 p-3 text-center text-sm font-medium transition ${
                     bookUpToDate === true
-                      ? "border-emerald-500 bg-emerald-500/20 text-emerald-400"
+                      ? "border-status-ok-border bg-status-ok-soft text-status-ok-fg"
                       : "border-border text-muted-foreground"
                   }`}
                 >
@@ -928,7 +928,7 @@ export function Step3Checklist({
                   onClick={() => handleBookCheck(false)}
                   className={`flex-1 rounded-lg border-2 p-3 text-center text-sm font-medium transition ${
                     bookUpToDate === false
-                      ? "border-red-500 bg-red-500/20 text-red-400"
+                      ? "border-status-danger-border bg-status-danger-soft text-status-danger-fg"
                       : "border-border text-muted-foreground"
                   }`}
                 >
@@ -940,7 +940,7 @@ export function Step3Checklist({
 
             {/* Sí: date + notes + photo */}
             {bookUpToDate === true && (
-              <div className="space-y-2 pl-2 border-l-2 border-emerald-500/30">
+              <div className="space-y-2 pl-2 border-l-2 border-status-ok-border">
                 <div className="space-y-2">
                   <Label className="text-xs">Fecha ultima entrada</Label>
                   <Input
@@ -1020,7 +1020,7 @@ export function Step3Checklist({
                 <div className="space-y-2">
                   <Label className="text-xs">
                     Novedades relevantes
-                    <span className="ml-1 text-amber-400">(obligatorio)</span>
+                    <span className="ml-1 text-status-warn-fg">(obligatorio)</span>
                   </Label>
                   <Textarea
                     value={bookNotes}
@@ -1032,20 +1032,20 @@ export function Step3Checklist({
                     className="text-sm"
                   />
                   {!bookNotes.trim() && (
-                    <p className="text-xs text-amber-400">
+                    <p className="text-xs text-status-warn-fg">
                       Debes indicar por que el libro no esta al dia
                     </p>
                   )}
                 </div>
                 {openFindingDocKeys.has("code:libro_novedades") ? (
-                  <div className="mt-2 rounded-lg bg-blue-500/10 p-2 text-xs">
-                    <p className="text-blue-300">
+                  <div className="mt-2 rounded-lg bg-status-info-soft p-2 text-xs">
+                    <p className="text-status-info-fg">
                       🔗 Ya existe un hallazgo abierto para el libro — gestiónalo en &quot;Hallazgos pendientes&quot; abajo.
                     </p>
                   </div>
                 ) : (
-                  <div className="mt-2 rounded-lg bg-amber-500/10 p-2 text-xs">
-                    <p className="text-amber-400">
+                  <div className="mt-2 rounded-lg bg-status-warn-soft p-2 text-xs">
+                    <p className="text-status-warn-fg">
                       ⏳ Se creará hallazgo al cerrar la visita: &quot;Libro de novedades no presente&quot;
                     </p>
                   </div>
@@ -1058,7 +1058,7 @@ export function Step3Checklist({
           {/* Open findings from previous visits */}
           <div className="space-y-2">
             <Label className="flex items-center gap-2 text-sm font-medium">
-              <AlertTriangle className="h-4 w-4 text-amber-400" />
+              <AlertTriangle className="h-4 w-4 text-status-warn-fg" />
               Hallazgos pendientes ({openFindings.length})
             </Label>
             {openFindings.length === 0 ? (
@@ -1099,7 +1099,7 @@ export function Step3Checklist({
                       <Button
                         variant="outline"
                         size="sm"
-                        className="flex-1 text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-300"
+                        className="flex-1 text-status-ok-fg hover:bg-status-ok-soft hover:text-status-ok-fg"
                         onClick={() => setResolvingFinding(finding)}
                       >
                         <CheckCircle2 className="mr-1 h-3 w-3" />
@@ -1142,7 +1142,7 @@ export function Step3Checklist({
           </div>
 
           {(!bookRequiredFilled || !puestoPhotoFulfilled || !allRequiredDocsAnswered) && (
-            <p className="text-center text-xs text-amber-400">
+            <p className="text-center text-xs text-status-warn-fg">
               {!bookRequiredFilled && "Debes indicar si el libro de novedades esta al dia. "}
               {!puestoPhotoFulfilled && "Debes tomar la foto del puesto de guardia. "}
               {!allRequiredDocsAnswered && "Documentos obligatorios requieren una respuesta (Si o No). "}

@@ -62,12 +62,12 @@ export function HubContratosClienteSection() {
       badge={
         <div className="flex items-center gap-2">
           {summary.vencidos > 0 && (
-            <Badge variant="outline" className="text-[10px] border-red-500/40 text-red-400">
+            <Badge variant="outline" className="text-[10px] border-status-danger-border text-status-danger-fg">
               {summary.vencidos} vencidos
             </Badge>
           )}
           {summary.porVencer > 0 && (
-            <Badge variant="outline" className="text-[10px] border-amber-500/40 text-amber-400">
+            <Badge variant="outline" className="text-[10px] border-status-warn-border text-status-warn-fg">
               {summary.porVencer} por vencer
             </Badge>
           )}
@@ -146,8 +146,8 @@ export function HubContratosClienteSection() {
                     {fmtCLP(c.monthlyCost)}
                   </div>
                 )}
-                {c.status === 'vencido' && <AlertTriangle className="h-4 w-4 text-red-400 shrink-0" />}
-                {c.status === 'por_vencer' && <Clock className="h-4 w-4 text-amber-400 shrink-0" />}
+                {c.status === 'vencido' && <AlertTriangle className="h-4 w-4 text-status-danger-fg shrink-0" />}
+                {c.status === 'por_vencer' && <Clock className="h-4 w-4 text-status-warn-fg shrink-0" />}
               </Link>
             ))}
           </div>

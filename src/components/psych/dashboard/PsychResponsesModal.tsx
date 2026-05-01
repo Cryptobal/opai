@@ -70,7 +70,7 @@ export default function PsychResponsesModal({ assessmentId, onClose }: Props) {
         </div>
         <div className="flex-1 min-h-0 overflow-y-auto space-y-2">
           {err ? (
-            <p className="text-sm text-red-600 dark:text-red-400">{err}</p>
+            <p className="text-sm text-status-danger-fg dark:text-status-danger-fg">{err}</p>
           ) : null}
           {!rows ? (
             <p className="text-sm text-muted-foreground">Cargando…</p>
@@ -94,7 +94,7 @@ function ResponseCard({ row }: { row: ResponseRow }) {
         </span>
         <span className="flex items-center gap-2">
           {row.fastLatency ? (
-            <span className="text-amber-600 dark:text-amber-400">⚡ rápida</span>
+            <span className="text-status-warn-fg dark:text-status-warn-fg">⚡ rápida</span>
           ) : null}
           {row.latencyMs != null ? (
             <span>{Math.round(row.latencyMs / 1000)}s</span>

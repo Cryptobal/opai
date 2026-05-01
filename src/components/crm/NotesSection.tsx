@@ -585,7 +585,7 @@ export function NotesSection({ entityType, entityId, currentUserId }: NotesSecti
             onMouseDown={(e) => { e.preventDefault(); insertMention(option); }}
             onClick={() => insertMention(option)}
           >
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-500/15 text-indigo-500 shrink-0">
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-status-info-soft text-status-info-fg shrink-0">
               <Users className="h-3.5 w-3.5" />
             </span>
             <div className="min-w-0">

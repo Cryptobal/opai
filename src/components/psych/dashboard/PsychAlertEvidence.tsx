@@ -48,7 +48,7 @@ function renderEvidence(e: Evidence) {
           </p>
           <ul className="space-y-1.5">
             {e.worstItems.map((it) => (
-              <li key={it.itemId} className="border-l-2 border-amber-500/30 pl-2">
+              <li key={it.itemId} className="border-l-2 border-status-warn-border pl-2">
                 <p className="text-foreground/70">#{it.order} — {it.prompt}</p>
                 <p>Respuesta: {formatResponse(it.response)} → {Math.round(it.normalizedScore * 100)}/100</p>
               </li>
@@ -65,7 +65,7 @@ function renderEvidence(e: Evidence) {
           </p>
           <ul className="space-y-1.5">
             {e.hits.map((h) => (
-              <li key={h.itemId} className="border-l-2 border-amber-500/30 pl-2">
+              <li key={h.itemId} className="border-l-2 border-status-warn-border pl-2">
                 <p className="text-foreground/70">#{h.order} — {h.prompt}</p>
                 <p>Respuesta: <strong>{LIKERT_LABELS[h.value] ?? h.value}</strong></p>
               </li>
@@ -107,7 +107,7 @@ function renderEvidence(e: Evidence) {
           <p className="font-medium mb-1">
             Pregunta abierta #{e.order}: {e.prompt}
           </p>
-          <div className="border-l-2 border-red-500/40 pl-2 my-1">
+          <div className="border-l-2 border-status-danger-border pl-2 my-1">
             <p className="text-foreground/70 text-[11px]">Respuesta del candidato:</p>
             <p>&quot;{e.response}&quot;</p>
           </div>

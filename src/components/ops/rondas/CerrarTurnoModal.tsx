@@ -147,10 +147,10 @@ export function CerrarTurnoModal({ turnoId, open, onClose, onClosed, onSendCober
         <div className="space-y-4">
           {/* Cobertura enforcement */}
           {!loadingCobertura && !ambasCoberturas && (
-            <div className="rounded-lg border-2 border-amber-500/40 bg-amber-500/10 p-3 space-y-2">
+            <div className="rounded-lg border-2 border-status-warn-border bg-status-warn-soft p-3 space-y-2">
               <div className="flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-amber-400" />
-                <p className="text-sm font-medium text-amber-300">Coberturas pendientes de envío</p>
+                <AlertTriangle className="h-4 w-4 text-status-warn-fg" />
+                <p className="text-sm font-medium text-status-warn-fg">Coberturas pendientes de envío</p>
               </div>
               <p className="text-xs text-amber-200/70">
                 Debes enviar ambas coberturas antes de cerrar el turno.
@@ -160,14 +160,14 @@ export function CerrarTurnoModal({ turnoId, open, onClose, onClosed, onSendCober
                   <Button
                     size="sm"
                     variant="outline"
-                    className="h-8 text-xs gap-1.5 text-indigo-400 border-indigo-500/30 hover:bg-indigo-500/10"
+                    className="h-8 text-xs gap-1.5 text-status-info-fg border-status-info-border hover:bg-status-info-soft"
                     onClick={() => handleSendAndRefresh("nocturno")}
                   >
                     <Moon className="h-3 w-3" /> Enviar nocturna
                   </Button>
                 )}
                 {nocturnaEnviada && (
-                  <span className="inline-flex items-center gap-1 text-xs text-emerald-400">
+                  <span className="inline-flex items-center gap-1 text-xs text-status-ok-fg">
                     <Moon className="h-3 w-3" /> Nocturna enviada
                   </span>
                 )}
@@ -175,14 +175,14 @@ export function CerrarTurnoModal({ turnoId, open, onClose, onClosed, onSendCober
                   <Button
                     size="sm"
                     variant="outline"
-                    className="h-8 text-xs gap-1.5 text-amber-400 border-amber-500/30 hover:bg-amber-500/10"
+                    className="h-8 text-xs gap-1.5 text-status-warn-fg border-status-warn-border hover:bg-status-warn-soft"
                     onClick={() => handleSendAndRefresh("diurno")}
                   >
                     <Sun className="h-3 w-3" /> Enviar diurna
                   </Button>
                 )}
                 {diurnaEnviada && (
-                  <span className="inline-flex items-center gap-1 text-xs text-emerald-400">
+                  <span className="inline-flex items-center gap-1 text-xs text-status-ok-fg">
                     <Sun className="h-3 w-3" /> Diurna enviada
                   </span>
                 )}
@@ -192,10 +192,10 @@ export function CerrarTurnoModal({ turnoId, open, onClose, onClosed, onSendCober
 
           {/* Unresolved panic alerts warning */}
           {!loadingPanics && unresolvedPanicCount > 0 && (
-            <div className="rounded-lg border-2 border-red-500/40 bg-red-500/10 p-3 space-y-2">
+            <div className="rounded-lg border-2 border-status-danger-border bg-status-danger-soft p-3 space-y-2">
               <div className="flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-red-400" />
-                <p className="text-sm font-medium text-red-300">
+                <AlertTriangle className="h-4 w-4 text-status-danger-fg" />
+                <p className="text-sm font-medium text-status-danger-fg">
                   {unresolvedPanicCount === 1
                     ? "1 alerta de pánico sin resolver"
                     : `${unresolvedPanicCount} alertas de pánico sin resolver`}
@@ -209,8 +209,8 @@ export function CerrarTurnoModal({ turnoId, open, onClose, onClosed, onSendCober
 
           {/* Coberturas OK badge */}
           {!loadingCobertura && ambasCoberturas && (
-            <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-2.5 flex items-center gap-2">
-              <span className="text-emerald-400 text-xs font-medium">Coberturas enviadas</span>
+            <div className="rounded-lg border border-status-ok-border bg-status-ok-soft p-2.5 flex items-center gap-2">
+              <span className="text-status-ok-fg text-xs font-medium">Coberturas enviadas</span>
               <span className="text-[10px] text-emerald-300/60 ml-auto">
                 Nocturna {new Date(coberturaStatus.coberturaNocturnaSentAt!).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}
                 {" · "}
@@ -242,7 +242,7 @@ export function CerrarTurnoModal({ turnoId, open, onClose, onClosed, onSendCober
           <div>
             <label className="text-xs text-muted-foreground mb-1 block">Enviar reporte a</label>
             <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 mb-2">
-              <span className="text-xs text-teal-400">&#9993;</span>
+              <span className="text-xs text-status-info-fg">&#9993;</span>
               <span className="text-sm text-slate-200">Operaciones (configurado en empresa)</span>
               <span className="text-[9px] text-slate-500 ml-auto">Siempre se envía</span>
             </div>
@@ -279,7 +279,7 @@ export function CerrarTurnoModal({ turnoId, open, onClose, onClosed, onSendCober
                 variant="outline"
                 onClick={() => setConfirmDelete(true)}
                 disabled={saving || deleting}
-                className="gap-1 text-red-400 border-red-500/30 hover:bg-red-500/10 hover:text-red-300"
+                className="gap-1 text-status-danger-fg border-status-danger-border hover:bg-status-danger-soft hover:text-status-danger-fg"
               >
                 <Trash2 className="h-3.5 w-3.5" />
                 Eliminar

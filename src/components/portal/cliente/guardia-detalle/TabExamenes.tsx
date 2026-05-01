@@ -54,10 +54,10 @@ export function TabExamenes({ examenes }: Props) {
 
 function Icono({ estado }: { estado: ExamenProtocolo["estado"] }) {
   if (estado === "aprobado")
-    return <CheckCircle2 className="h-5 w-5 text-emerald-400 flex-shrink-0" />;
+    return <CheckCircle2 className="h-5 w-5 text-status-ok-fg flex-shrink-0" />;
   if (estado === "reprobado")
-    return <XCircle className="h-5 w-5 text-red-400 flex-shrink-0" />;
+    return <XCircle className="h-5 w-5 text-status-danger-fg flex-shrink-0" />;
   if (estado === "expirado")
     return <XCircle className="h-5 w-5 text-zinc-500 flex-shrink-0" />;
-  return <Clock className="h-5 w-5 text-amber-400 flex-shrink-0" />;
+  return <Clock className="h-5 w-5 text-status-warn-fg flex-shrink-0" />;
 }

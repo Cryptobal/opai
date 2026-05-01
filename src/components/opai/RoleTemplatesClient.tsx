@@ -125,27 +125,27 @@ const LEVEL_VISUALS: Record<
     label: "Visualizar",
     icon: Eye,
     color: "blue",
-    bg: "bg-blue-500/10",
-    text: "text-blue-500 dark:text-blue-300",
-    border: "border-blue-500/30",
+    bg: "bg-status-info-soft",
+    text: "text-status-info-fg dark:text-status-info-fg",
+    border: "border-status-info-border",
     description: "Solo lectura: ver pero no editar",
   },
   edit: {
     label: "Editar",
     icon: Pencil,
     color: "amber",
-    bg: "bg-amber-500/10",
-    text: "text-amber-500 dark:text-amber-300",
-    border: "border-amber-500/30",
+    bg: "bg-status-warn-soft",
+    text: "text-status-warn-fg dark:text-status-warn-fg",
+    border: "border-status-warn-border",
     description: "Crear y editar, pero no eliminar",
   },
   full: {
     label: "Completo",
     icon: Star,
     color: "emerald",
-    bg: "bg-emerald-500/10",
-    text: "text-emerald-500 dark:text-emerald-300",
-    border: "border-emerald-500/30",
+    bg: "bg-status-ok-soft",
+    text: "text-status-ok-fg dark:text-status-ok-fg",
+    border: "border-status-ok-border",
     description: "Crear, editar y eliminar",
   },
 };
@@ -268,7 +268,7 @@ function FilterChips({
             {showCounter && (
               <span className={cn(
                 "inline-flex items-center justify-center min-w-[16px] h-4 rounded-full text-[10px] font-semibold px-1",
-                isActive ? "bg-primary/20 text-primary" : "bg-amber-500/15 text-amber-500",
+                isActive ? "bg-primary/20 text-primary" : "bg-status-warn-soft text-status-warn-fg",
               )}>
                 {modifiedCount}
               </span>
@@ -504,7 +504,7 @@ function PermissionEditor({
                     )}
                     <span className="text-sm font-medium">{mod.label}</span>
                     {isModified && (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-amber-500/10 text-amber-500 rounded-full px-1.5 py-0.5">
+                      <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-status-warn-soft text-status-warn-fg rounded-full px-1.5 py-0.5">
                         <Sparkles className="h-2.5 w-2.5" />
                         modificado
                       </span>
@@ -551,7 +551,7 @@ function PermissionEditor({
                           {sub.label}
                         </span>
                         {isSubModified && (
-                          <span className="text-[9px] font-medium text-amber-500 bg-amber-500/10 rounded px-1 py-0.5 shrink-0">
+                          <span className="text-[9px] font-medium text-status-warn-fg bg-status-warn-soft rounded px-1 py-0.5 shrink-0">
                             modif.
                           </span>
                         )}
@@ -597,7 +597,7 @@ function PermissionEditor({
                               <p className="text-xs font-medium leading-tight flex items-center gap-1.5">
                                 {cap.label}
                                 {isCapModified && (
-                                  <span className="text-[9px] font-medium text-amber-500 bg-amber-500/10 rounded px-1 py-0.5">
+                                  <span className="text-[9px] font-medium text-status-warn-fg bg-status-warn-soft rounded px-1 py-0.5">
                                     modif.
                                   </span>
                                 )}
@@ -632,7 +632,7 @@ function PermissionEditor({
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-amber-500" />
+              <AlertTriangle className="h-4 w-4 text-status-warn-fg" />
               Cambio en cascada
             </DialogTitle>
             <DialogDescription>
@@ -756,7 +756,7 @@ function RoleSummaryTab({
           <button
             type="button"
             onClick={onSimulate}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-amber-500/10 text-amber-500 hover:bg-amber-500/15 border border-amber-500/30 transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-status-warn-soft text-status-warn-fg hover:bg-status-warn-soft border border-status-warn-border transition-colors"
           >
             <Play className="h-3 w-3" />
             Simular este rol
@@ -864,7 +864,7 @@ function MetricCard({
     <div
       className={cn(
         "rounded-lg border p-3",
-        highlight ? "bg-amber-500/5 border-amber-500/30" : "bg-card border-border",
+        highlight ? "bg-status-warn-soft border-status-warn-border" : "bg-card border-border",
       )}
     >
       <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
@@ -873,7 +873,7 @@ function MetricCard({
       <p
         className={cn(
           "text-xl font-semibold tracking-tight mt-0.5",
-          highlight && "text-amber-500",
+          highlight && "text-status-warn-fg",
         )}
       >
         {value}
@@ -930,7 +930,7 @@ function RoleTemplateCard({
       className={cn(
         "rounded-xl border bg-card p-4 transition-all hover:shadow-sm min-w-0 overflow-hidden",
         isCurrentSimulation
-          ? "border-amber-500/40 ring-1 ring-amber-500/20"
+          ? "border-status-warn-border ring-1 ring-amber-500/20"
           : "border-border",
       )}
     >
@@ -960,13 +960,13 @@ function RoleTemplateCard({
                 </span>
               )}
               {diff && diff.total > 0 && (
-                <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-amber-500/10 text-amber-500 rounded-full px-2 py-0.5">
+                <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-status-warn-soft text-status-warn-fg rounded-full px-2 py-0.5">
                   <Sparkles className="h-2.5 w-2.5" />
                   modificado
                 </span>
               )}
               {isCurrentSimulation && (
-                <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-amber-500/15 text-amber-400 rounded-full px-2 py-0.5">
+                <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-status-warn-soft text-status-warn-fg rounded-full px-2 py-0.5">
                   <Eye className="h-2.5 w-2.5" />
                   simulando
                 </span>
@@ -997,11 +997,11 @@ function RoleTemplateCard({
           {canSimulate && (
             <button
               onClick={onSimulate}
-              className="p-1.5 rounded-md hover:bg-amber-500/10 transition-colors"
+              className="p-1.5 rounded-md hover:bg-status-warn-soft transition-colors"
               title={isCurrentSimulation ? "Detener simulación" : "Simular este rol"}
             >
               {isCurrentSimulation ? (
-                <Eye className="h-3.5 w-3.5 text-amber-400" />
+                <Eye className="h-3.5 w-3.5 text-status-warn-fg" />
               ) : (
                 <Play className="h-3.5 w-3.5 text-muted-foreground" />
               )}
@@ -1223,7 +1223,7 @@ function RoleEditPanel({
       </div>
 
       {isLockedOwner && (
-        <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-500/90">
+        <div className="rounded-lg border border-status-warn-border bg-status-warn-soft px-3 py-2 text-xs text-amber-500/90">
           El rol Propietario tiene acceso total y no se puede modificar.
         </div>
       )}

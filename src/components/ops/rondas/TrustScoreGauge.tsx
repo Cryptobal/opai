@@ -10,7 +10,7 @@ interface TrustScoreGaugeProps {
 export function TrustScoreGauge({ score, size = "md", showLabel = true, trend }: TrustScoreGaugeProps) {
   const clamped = Math.min(100, Math.max(0, score));
   const color = clamped >= 70 ? "#22c55e" : clamped >= 40 ? "#f59e0b" : "#ef4444";
-  const textColor = clamped >= 70 ? "text-green-400" : clamped >= 40 ? "text-amber-400" : "text-red-400";
+  const textColor = clamped >= 70 ? "text-status-ok-fg" : clamped >= 40 ? "text-status-warn-fg" : "text-status-danger-fg";
 
   const dims = { sm: 40, md: 64, lg: 96 };
   const strokeWidths = { sm: 4, md: 5, lg: 6 };
@@ -61,7 +61,7 @@ export function TrustScoreGauge({ score, size = "md", showLabel = true, trend }:
         )}
       </div>
       {trend !== undefined && (
-        <span className={cn("text-[10px] font-semibold", trend > 0 ? "text-green-400" : trend < 0 ? "text-red-400" : "text-[#64748b]")}>
+        <span className={cn("text-[10px] font-semibold", trend > 0 ? "text-status-ok-fg" : trend < 0 ? "text-status-danger-fg" : "text-[#64748b]")}>
           {trendIcon}{Math.abs(trend)}%
         </span>
       )}

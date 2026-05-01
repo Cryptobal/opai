@@ -277,7 +277,7 @@ export function FaceRegistrationFlow({
         <div className="w-full max-w-sm rounded-2xl p-6 text-center" style={{ background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.3)" }}>
           <div className="text-5xl mb-3">{"\u2705"}</div>
           <p className="text-xl font-bold text-white">Face ID activado</p>
-          <p className="text-sm text-emerald-400 mt-2">
+          <p className="text-sm text-status-ok-fg mt-2">
             Ahora puedes marcar entrada y salida con tu rostro
           </p>
         </div>
@@ -290,7 +290,7 @@ export function FaceRegistrationFlow({
     <div className="min-h-dvh flex items-center justify-center px-4" style={{ background: "#060a13" }}>
       <div className="w-full max-w-sm rounded-2xl p-6 text-center" style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)" }}>
         <div className="text-5xl mb-3">{"\u274C"}</div>
-        <p className="text-red-400 font-medium">{error || "Error al registrar Face ID"}</p>
+        <p className="text-status-danger-fg font-medium">{error || "Error al registrar Face ID"}</p>
         <div className="flex gap-3 mt-4">
           <button
             onClick={onCancel}

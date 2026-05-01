@@ -9,7 +9,7 @@ export default function PsychOpenAnalysisCard({
 }) {
   if (entry.error) {
     return (
-      <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm">
+      <div className="rounded-xl border border-status-warn-border bg-status-warn-soft p-4 text-sm">
         <p className="font-medium text-foreground/90">
           Análisis cualitativo pendiente
         </p>
@@ -41,7 +41,7 @@ export default function PsychOpenAnalysisCard({
       {entry.flags.length > 0 ? (
         <div className="flex flex-wrap gap-1.5">
           {entry.flags.map((f) => (
-            <span key={f} className="text-xs px-2 py-1 rounded-md bg-red-500/10 text-red-700 dark:text-red-400 border border-red-500/20 font-medium">
+            <span key={f} className="text-xs px-2 py-1 rounded-md bg-status-danger-soft text-status-danger-fg dark:text-status-danger-fg border border-status-danger-border font-medium">
               {f}
             </span>
           ))}

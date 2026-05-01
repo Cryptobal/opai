@@ -32,7 +32,7 @@ const CARDS: CardSpec[] = [
     title: "Manual",
     description: "Crea secciones e ítems desde cero, uno a uno.",
     needsAi: false,
-    accent: "text-sky-300",
+    accent: "text-status-info-fg",
   },
   {
     id: "ai",
@@ -40,7 +40,7 @@ const CARDS: CardSpec[] = [
     title: "Generar con IA",
     description: "Genera un protocolo completo según el tipo de instalación.",
     needsAi: true,
-    accent: "text-emerald-300",
+    accent: "text-status-ok-fg",
     badge: "Recomendado",
   },
   {
@@ -49,7 +49,7 @@ const CARDS: CardSpec[] = [
     title: "Desde PDF",
     description: "Extrae el protocolo desde un documento existente.",
     needsAi: true,
-    accent: "text-amber-300",
+    accent: "text-status-warn-fg",
   },
 ];
 
@@ -87,7 +87,7 @@ export function ProtocolWizardEmpty({ aiAvailable, onChoose }: Props) {
                 onClick={() => onChoose(card.id)}
               >
                 {card.badge && card.id === "ai" && aiAvailable && (
-                  <span className="absolute right-3 top-3 inline-flex items-center rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
+                  <span className="absolute right-3 top-3 inline-flex items-center rounded-full border border-status-ok-border bg-status-ok-soft px-2 py-0.5 text-[10px] font-medium text-status-ok-fg">
                     {card.badge}
                   </span>
                 )}
@@ -103,7 +103,7 @@ export function ProtocolWizardEmpty({ aiAvailable, onChoose }: Props) {
                   {card.description}
                 </div>
                 {card.needsAi && aiAvailable === false && (
-                  <div className="mt-3 inline-flex items-center gap-1 rounded-md border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">
+                  <div className="mt-3 inline-flex items-center gap-1 rounded-md border border-status-warn-border bg-status-warn-soft px-1.5 py-0.5 text-[10px] font-medium text-status-warn-fg">
                     <Sparkles className="h-2.5 w-2.5" />
                     IA no configurada
                   </div>

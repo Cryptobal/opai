@@ -23,9 +23,9 @@ export function HubPortalRanking({ users }: Props) {
     <div className="rounded-[10px] border border-border bg-card overflow-hidden">
       <div className="px-3.5 py-2.5 border-b border-border/50 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
-          <Users className="h-3.5 w-3.5 text-teal-400 shrink-0" />
+          <Users className="h-3.5 w-3.5 text-status-info-fg shrink-0" />
           <span className="text-sm font-bold truncate">Top clientes en portal</span>
-          <span className="text-xs text-teal-400 font-bold tabular-nums bg-teal-500/10 rounded px-1.5 py-0.5">
+          <span className="text-xs text-status-info-fg font-bold tabular-nums bg-status-info-soft rounded px-1.5 py-0.5">
             {users.length}
           </span>
         </div>
@@ -43,14 +43,14 @@ export function HubPortalRanking({ users }: Props) {
       <div className="divide-y divide-border/50">
         {users.map((user, i) => (
           <div key={`${user.accountId}-${i}`} className="px-3.5 py-2.5 flex items-center gap-2.5">
-            <span className={`text-sm tabular-nums font-medium w-4 shrink-0 ${i < 3 ? 'text-teal-400' : 'text-muted-foreground'}`}>
+            <span className={`text-sm tabular-nums font-medium w-4 shrink-0 ${i < 3 ? 'text-status-info-fg' : 'text-muted-foreground'}`}>
               {i + 1}
             </span>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5">
                 <span className="text-sm font-medium truncate">{user.accountName}</span>
                 {user.isProspect && (
-                  <Badge variant="outline" className="text-xs h-4 px-1 border-amber-500/30 text-amber-500 shrink-0">
+                  <Badge variant="outline" className="text-xs h-4 px-1 border-status-warn-border text-status-warn-fg shrink-0">
                     Prospecto
                   </Badge>
                 )}

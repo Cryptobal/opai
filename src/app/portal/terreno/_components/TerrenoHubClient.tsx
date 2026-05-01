@@ -267,7 +267,7 @@ export function TerrenoHubClient() {
                 style={{ boxShadow: "0 0 8px rgba(245,158,11,0.7)" }}
                 aria-hidden
               />
-              <span className="text-[11px] font-medium text-amber-300">
+              <span className="text-[11px] font-medium text-status-warn-fg">
                 {config.installationName}
               </span>
             </div>
@@ -445,7 +445,7 @@ function TerrenoPairingScreen({ onPaired }: { onPaired: () => void }) {
       <form onSubmit={handleSubmit}>
         {error ? (
           <div
-            className="rounded-xl px-4 py-3 mb-4 text-sm text-red-400"
+            className="rounded-xl px-4 py-3 mb-4 text-sm text-status-danger-fg"
             style={{
               background: "rgba(239,68,68,0.08)",
               border: "1px solid rgba(239,68,68,0.2)",

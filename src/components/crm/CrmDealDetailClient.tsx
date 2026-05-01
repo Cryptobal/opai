@@ -322,8 +322,8 @@ function DealPipelineStepper({
                 "flex flex-1 items-center justify-center gap-1 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-all",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 isWon
-                  ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-sm"
-                  : "border border-border text-muted-foreground hover:border-emerald-500/40 hover:text-emerald-400 hover:bg-emerald-500/10"
+                  ? "bg-status-ok-soft text-status-ok-fg border border-status-ok-border shadow-sm"
+                  : "border border-border text-muted-foreground hover:border-status-ok-border hover:text-status-ok-fg hover:bg-status-ok-soft"
               )}
             >
               <Check className="h-3 w-3" />
@@ -339,8 +339,8 @@ function DealPipelineStepper({
                 "flex flex-1 items-center justify-center gap-1 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-all",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 isLost
-                  ? "bg-red-500/20 text-red-400 border border-red-500/40 shadow-sm"
-                  : "border border-border text-muted-foreground hover:border-red-500/40 hover:text-red-400 hover:bg-red-500/10"
+                  ? "bg-status-danger-soft text-status-danger-fg border border-status-danger-border shadow-sm"
+                  : "border border-border text-muted-foreground hover:border-status-danger-border hover:text-status-danger-fg hover:bg-status-danger-soft"
               )}
             >
               <XCircle className="h-3 w-3" />
@@ -410,8 +410,8 @@ function DealPipelineStepper({
                 "flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-all",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 isWon
-                  ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-sm"
-                  : "border border-border text-muted-foreground hover:border-emerald-500/40 hover:text-emerald-400 hover:bg-emerald-500/10"
+                  ? "bg-status-ok-soft text-status-ok-fg border border-status-ok-border shadow-sm"
+                  : "border border-border text-muted-foreground hover:border-status-ok-border hover:text-status-ok-fg hover:bg-status-ok-soft"
               )}
             >
               <Check className="h-3 w-3" />
@@ -427,8 +427,8 @@ function DealPipelineStepper({
                 "flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-all",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 isLost
-                  ? "bg-red-500/20 text-red-400 border border-red-500/40 shadow-sm"
-                  : "border border-border text-muted-foreground hover:border-red-500/40 hover:text-red-400 hover:bg-red-500/10"
+                  ? "bg-status-danger-soft text-status-danger-fg border border-status-danger-border shadow-sm"
+                  : "border border-border text-muted-foreground hover:border-status-danger-border hover:text-status-danger-fg hover:bg-status-danger-soft"
               )}
             >
               <XCircle className="h-3 w-3" />
@@ -1167,13 +1167,13 @@ export function CrmDealDetailClient({
         <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
           <div className="flex flex-wrap items-center gap-2">
             {deal.status === "won" && (
-              <Badge variant="outline" className="border-emerald-500/30 text-emerald-400">
+              <Badge variant="outline" className="border-status-ok-border text-status-ok-fg">
                 <span className="mr-1 inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
                 Ganado
               </Badge>
             )}
             {deal.status === "lost" && (
-              <Badge variant="outline" className="border-rose-500/30 text-rose-400">
+              <Badge variant="outline" className="border-status-danger-border text-status-danger-fg">
                 <span className="mr-1 inline-flex h-1.5 w-1.5 rounded-full bg-rose-400" />
                 Perdido
               </Badge>
@@ -1215,7 +1215,7 @@ export function CrmDealDetailClient({
             )}
           </div>
           {dealServiceStartDate && (
-            <p className="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold text-teal-400">
+            <p className="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold text-status-info-fg">
               <CalendarClock className="h-3.5 w-3.5 shrink-0" />
               Inicio del servicio:{" "}
               {new Date(dealServiceStartDate).toLocaleDateString("es-CL", { day: "2-digit", month: "short", year: "numeric" })}
@@ -1225,21 +1225,21 @@ export function CrmDealDetailClient({
 
         {/* ── Stats strip: montos y volumen. Se conservan colores por ser métricas clave. ── */}
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
-          <div className="min-w-0 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 sm:p-4">
+          <div className="min-w-0 rounded-xl border border-status-ok-border bg-status-ok-soft p-3 sm:p-4">
             <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-emerald-400/80">Monto CLP</div>
-            <div className="truncate text-[13px] font-semibold tabular-nums text-emerald-400">
+            <div className="truncate text-[13px] font-semibold tabular-nums text-status-ok-fg">
               {formatCLP(activeQuoteIndicators.amountClp)}
             </div>
           </div>
-          <div className="min-w-0 rounded-xl border border-blue-500/20 bg-blue-500/5 p-3 sm:p-4">
+          <div className="min-w-0 rounded-xl border border-status-info-border bg-status-info-soft p-3 sm:p-4">
             <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-blue-400/80">Monto UF</div>
-            <div className="truncate text-[13px] font-semibold tabular-nums text-blue-400">
+            <div className="truncate text-[13px] font-semibold tabular-nums text-status-info-fg">
               {formatUFSuffix(activeQuoteIndicators.amountUf)}
             </div>
           </div>
-          <div className="min-w-0 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 sm:p-4">
+          <div className="min-w-0 rounded-xl border border-status-warn-border bg-status-warn-soft p-3 sm:p-4">
             <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-amber-400/80">Guardias</div>
-            <div className="truncate text-[13px] font-semibold tabular-nums text-amber-400">
+            <div className="truncate text-[13px] font-semibold tabular-nums text-status-warn-fg">
               {activeQuoteIndicators.totalGuards.toLocaleString("es-CL")}
             </div>
           </div>
@@ -1478,20 +1478,20 @@ export function CrmDealDetailClient({
         <div className="space-y-4">
           {/* ── Inline summary ── */}
           <div className="flex flex-wrap items-center gap-2 text-xs">
-            <Badge variant="outline" className={followUpConfig?.isActive === false ? "text-[10px] border-amber-500/30 text-amber-500" : "text-[10px] border-emerald-500/30 text-emerald-500"}>
+            <Badge variant="outline" className={followUpConfig?.isActive === false ? "text-[10px] border-status-warn-border text-status-warn-fg" : "text-[10px] border-status-ok-border text-status-ok-fg"}>
               {followUpConfig?.isActive === false ? "Pausada" : "Activa"}
             </Badge>
             {sentFollowUpsCount > 0 && (
               <span className="text-muted-foreground">{sentFollowUpsCount} enviado{sentFollowUpsCount !== 1 ? "s" : ""}</span>
             )}
             {pendingFollowUps.length > 0 && (
-              <span className={overdueFollowUpsCount > 0 ? "text-amber-500" : "text-muted-foreground"}>
+              <span className={overdueFollowUpsCount > 0 ? "text-status-warn-fg" : "text-muted-foreground"}>
                 {pendingFollowUps.length} pendiente{pendingFollowUps.length !== 1 ? "s" : ""}
                 {overdueFollowUpsCount > 0 && ` (${overdueFollowUpsCount} vencido${overdueFollowUpsCount !== 1 ? "s" : ""})`}
               </span>
             )}
             {failedFollowUpsCount > 0 && (
-              <span className="text-red-500">{failedFollowUpsCount} fallido{failedFollowUpsCount !== 1 ? "s" : ""}</span>
+              <span className="text-status-danger-fg">{failedFollowUpsCount} fallido{failedFollowUpsCount !== 1 ? "s" : ""}</span>
             )}
           </div>
 
@@ -1505,11 +1505,11 @@ export function CrmDealDetailClient({
               const isFailed = status === "failed";
 
               const dotColor = isSent
-                ? "bg-emerald-500"
+                ? "bg-status-ok"
                 : isFailed
-                  ? "bg-red-500"
+                  ? "bg-status-danger"
                   : isPending
-                    ? "bg-blue-500 animate-pulse"
+                    ? "bg-status-info animate-pulse"
                     : "bg-muted-foreground/30";
 
               const lineColor = isSent ? "bg-emerald-500/40" : "bg-border";
@@ -1618,7 +1618,7 @@ export function CrmDealDetailClient({
         {whatsappPhone && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button size="sm" variant="ghost" className="text-emerald-600 hover:text-emerald-500 hover:bg-emerald-500/10">
+              <Button size="sm" variant="ghost" className="text-status-ok-fg hover:text-status-ok-fg hover:bg-status-ok-soft">
                 <MessageSquare className="h-3.5 w-3.5 mr-1" /> WhatsApp
               </Button>
             </DropdownMenuTrigger>
@@ -1697,7 +1697,7 @@ export function CrmDealDetailClient({
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="h-8 w-8 text-muted-foreground hover:text-emerald-500 hover:bg-emerald-500/10"
+                        className="h-8 w-8 text-muted-foreground hover:text-status-ok-fg hover:bg-status-ok-soft"
                         title="Vincular al negocio"
                         aria-label="Vincular al negocio"
                         onClick={() => { setLinkContactId(c.id); setLinkContactConfirmOpen(true); }}
@@ -1865,7 +1865,7 @@ export function CrmDealDetailClient({
                 <Phone className="h-4 w-4" />
               </a>
               <a href={`https://wa.me/${whatsappPhone || primaryPhone}`} target="_blank" rel="noopener noreferrer" title="WhatsApp"
-                className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-green-600/30 bg-green-600/15 text-green-400 hover:bg-green-600/25 transition-colors">
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-green-600/30 bg-green-600/15 text-status-ok-fg hover:bg-green-600/25 transition-colors">
                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" /></svg>
               </a>
             </div>
@@ -1893,18 +1893,18 @@ export function CrmDealDetailClient({
 
             {/* WhatsApp Adjudicado — visible solo en etapa aceptada/adjudicado */}
             {pipelineStages.find((s) => s.id === currentStage?.id)?.isAccepted && (
-              <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-4 sm:p-5">
+              <div className="rounded-lg border border-status-ok-border bg-status-ok-soft p-4 sm:p-5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <svg className="h-5 w-5 text-emerald-500" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" /></svg>
+                    <svg className="h-5 w-5 text-status-ok-fg" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" /></svg>
                     <div>
-                      <h3 className="text-xs font-semibold uppercase tracking-wide text-emerald-400">Enviar detalle por WhatsApp</h3>
+                      <h3 className="text-xs font-semibold uppercase tracking-wide text-status-ok-fg">Enviar detalle por WhatsApp</h3>
                       <p className="text-[11px] text-muted-foreground">Comparte los datos del negocio adjudicado, cotización y dotación de personal</p>
                     </div>
                   </div>
                   <Button
                     size="sm"
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5"
+                    className="bg-status-ok hover:bg-emerald-700 text-white gap-1.5"
                     onClick={openWaAdjudicado}
                   >
                     <MessageSquare className="h-3.5 w-3.5" />
@@ -2158,7 +2158,7 @@ export function CrmDealDetailClient({
         <DialogContent className="sm:max-w-2xl max-h-[92vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <svg className="h-5 w-5 text-emerald-500" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" /></svg>
+              <svg className="h-5 w-5 text-status-ok-fg" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" /></svg>
               Enviar detalle del negocio adjudicado
             </DialogTitle>
             <DialogDescription>
@@ -2190,7 +2190,7 @@ export function CrmDealDetailClient({
             <Button
               onClick={sendWaAdjudicado}
               disabled={waAdjudicadoLoading}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5"
+              className="bg-status-ok hover:bg-emerald-700 text-white gap-1.5"
             >
               <MessageSquare className="h-3.5 w-3.5" /> Enviar por WhatsApp
             </Button>
@@ -2255,25 +2255,25 @@ function getFollowUpFlowStatus({
   if (config?.isActive === false) {
     return {
       label: "Automatización pausada",
-      className: "text-[10px] border-amber-500/30 text-amber-500",
+      className: "text-[10px] border-status-warn-border text-status-warn-fg",
     };
   }
   if (overdueLogs > 0) {
     return {
       label: "Con atrasos",
-      className: "text-[10px] border-red-500/30 text-red-500",
+      className: "text-[10px] border-status-danger-border text-status-danger-fg",
     };
   }
   if (pendingLogs > 0) {
     return {
       label: "Activo",
-      className: "text-[10px] border-emerald-500/30 text-emerald-500",
+      className: "text-[10px] border-status-ok-border text-status-ok-fg",
     };
   }
   if (totalLogs > 0) {
     return {
       label: "Completado",
-      className: "text-[10px] border-blue-500/30 text-blue-500",
+      className: "text-[10px] border-status-info-border text-status-info-fg",
     };
   }
   return {
@@ -2287,14 +2287,14 @@ function getFollowUpStatusMeta(status: string) {
     return {
       label: "Enviado",
       badge: "Enviado",
-      className: "text-[10px] border-emerald-500/30 text-emerald-500",
+      className: "text-[10px] border-status-ok-border text-status-ok-fg",
     };
   }
   if (status === "failed") {
     return {
       label: "Fallido",
       badge: "Fallido",
-      className: "text-[10px] border-red-500/30 text-red-500",
+      className: "text-[10px] border-status-danger-border text-status-danger-fg",
     };
   }
   if (status === "cancelled") {
@@ -2308,13 +2308,13 @@ function getFollowUpStatusMeta(status: string) {
     return {
       label: "Pausado",
       badge: "Pausado",
-      className: "text-[10px] border-amber-500/30 text-amber-500",
+      className: "text-[10px] border-status-warn-border text-status-warn-fg",
     };
   }
   return {
     label: "Programado",
     badge: "Pendiente",
-    className: "text-[10px] border-blue-500/30 text-blue-500",
+    className: "text-[10px] border-status-info-border text-status-info-fg",
   };
 }
 
@@ -2323,18 +2323,18 @@ function getPendingTimingMeta(scheduledAt: string) {
   if (diffMs <= 0) {
     return {
       label: "Vencido: requiere gestión inmediata.",
-      className: "text-red-500",
+      className: "text-status-danger-fg",
     };
   }
   if (diffMs <= 24 * 60 * 60 * 1000) {
     return {
       label: "Programado para hoy.",
-      className: "text-amber-500",
+      className: "text-status-warn-fg",
     };
   }
   return {
     label: "Programado en fecha futura.",
-    className: "text-emerald-500",
+    className: "text-status-ok-fg",
   };
 }
 

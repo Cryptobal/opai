@@ -125,9 +125,9 @@ export function VehiclePlateOCR({ tenantId, onPlateDetected }: Props) {
             </p>
           </div>
           {confidence >= 0.8 ? (
-            <Check className="h-5 w-5 text-emerald-400" />
+            <Check className="h-5 w-5 text-status-ok-fg" />
           ) : (
-            <AlertTriangle className="h-5 w-5 text-amber-400" />
+            <AlertTriangle className="h-5 w-5 text-status-warn-fg" />
           )}
           <button
             onClick={() => {
@@ -143,7 +143,7 @@ export function VehiclePlateOCR({ tenantId, onPlateDetected }: Props) {
       )}
 
       {plateError && (
-        <p className="text-xs text-amber-400 flex items-center gap-1">
+        <p className="text-xs text-status-warn-fg flex items-center gap-1">
           <AlertTriangle className="h-3 w-3" /> {plateError}
         </p>
       )}

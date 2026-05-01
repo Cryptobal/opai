@@ -42,9 +42,9 @@ function formatBytes(bytes: number) {
 
 function StatusBadge({ status }: { status: string }) {
   const colors: Record<string, string> = {
-    processing: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
-    ready: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
-    error: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+    processing: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-status-warn-fg',
+    ready: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-status-ok-fg',
+    error: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-status-danger-fg',
   };
 
   return (

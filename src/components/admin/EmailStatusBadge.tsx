@@ -29,8 +29,8 @@ export function EmailStatusBadge({ presentation, compact = false }: EmailStatusB
         label: 'Bounced',
         icon: AlertCircle,
         color: compact
-          ? 'text-red-400'
-          : 'bg-red-500/15 text-red-400 border-red-500/20',
+          ? 'text-status-danger-fg'
+          : 'bg-status-danger-soft text-status-danger-fg border-status-danger-border',
       };
     }
 
@@ -49,8 +49,8 @@ export function EmailStatusBadge({ presentation, compact = false }: EmailStatusB
         label: 'Abierto',
         icon: MailOpen,
         color: compact
-          ? 'text-blue-400'
-          : 'bg-blue-500/15 text-blue-400 border-blue-500/20',
+          ? 'text-status-info-fg'
+          : 'bg-status-info-soft text-status-info-fg border-status-info-border',
       };
     }
 
@@ -59,8 +59,8 @@ export function EmailStatusBadge({ presentation, compact = false }: EmailStatusB
         label: 'Entregado',
         icon: CheckCircle,
         color: compact
-          ? 'text-emerald-400'
-          : 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20',
+          ? 'text-status-ok-fg'
+          : 'bg-status-ok-soft text-status-ok-fg border-status-ok-border',
       };
     }
 
@@ -70,7 +70,7 @@ export function EmailStatusBadge({ presentation, compact = false }: EmailStatusB
         icon: Mail,
         color: compact
           ? 'text-emerald-400/70'
-          : 'bg-emerald-500/10 text-emerald-400/70 border-emerald-500/15',
+          : 'bg-status-ok-soft text-emerald-400/70 border-emerald-500/15',
       };
     }
 

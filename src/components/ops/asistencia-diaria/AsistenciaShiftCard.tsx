@@ -90,7 +90,7 @@ export function AsistenciaShiftCard({
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="h-7 w-7 p-0 text-emerald-400 hover:bg-emerald-500/20"
+                  className="h-7 w-7 p-0 text-status-ok-fg hover:bg-status-ok-soft"
                   disabled={isSaving || isLocked || !canExecuteOps || status === "no_asistio"}
                   onClick={() => onMarkPresent(item)}
                   title="Asistió"
@@ -100,7 +100,7 @@ export function AsistenciaShiftCard({
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="h-7 w-7 p-0 text-red-400 hover:bg-red-500/20"
+                  className="h-7 w-7 p-0 text-status-danger-fg hover:bg-status-danger-soft"
                   disabled={isSaving || isLocked || !canExecuteOps}
                   onClick={() => onMarkAbsent(item)}
                   title="No asistió"
@@ -146,7 +146,7 @@ export function AsistenciaShiftCard({
           </span>
           <span
             className={
-              isDayShift(item.puesto.shiftStart) ? "text-sky-400" : "text-indigo-400"
+              isDayShift(item.puesto.shiftStart) ? "text-status-info-fg" : "text-status-info-fg"
             }
           >
             {isDayShift(item.puesto.shiftStart) ? "Día" : "Noche"}
@@ -169,10 +169,10 @@ export function AsistenciaShiftCard({
               </span>
             )}
             {te && (
-              <span className="text-amber-400">
+              <span className="text-status-warn-fg">
                 {te.status} (${Number(te.amountClp).toLocaleString("es-CL")})
                 {te.amountJustification && (
-                  <span title={te.amountJustification ?? undefined}><Info className="h-3 w-3 text-amber-300 inline ml-0.5" /></span>
+                  <span title={te.amountJustification ?? undefined}><Info className="h-3 w-3 text-status-warn-fg inline ml-0.5" /></span>
                 )}
               </span>
             )}
@@ -188,22 +188,22 @@ export function AsistenciaShiftCard({
               return (
                 <>
                   {entrada && (
-                    <span className="text-emerald-500 inline-flex items-center gap-0.5">
+                    <span className="text-status-ok-fg inline-flex items-center gap-0.5">
                       <Clock className="h-3 w-3" />
                       {new Date(entrada.timestamp).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}
                     </span>
                   )}
                   {salida && (
-                    <span className="text-amber-500 inline-flex items-center gap-0.5">
+                    <span className="text-status-warn-fg inline-flex items-center gap-0.5">
                       <MapPin className="h-3 w-3" />
                       {new Date(salida.timestamp).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}
                     </span>
                   )}
                   {entrada?.metodoId === "face_id" && (
-                    <span className="text-[10px] px-1 rounded bg-emerald-500/20 text-emerald-400 font-medium">Face ID</span>
+                    <span className="text-[10px] px-1 rounded bg-status-ok-soft text-status-ok-fg font-medium">Face ID</span>
                   )}
                   {(entrada?.metodoId === "pin_fallback" || entrada?.metodoId === "rut_pin") && (
-                    <span className="text-[10px] px-1 rounded bg-amber-500/20 text-amber-400 font-medium">PIN</span>
+                    <span className="text-[10px] px-1 rounded bg-status-warn-soft text-status-warn-fg font-medium">PIN</span>
                   )}
                   {entrada?.metodoId === "manual" && (
                     <span className="text-[10px] px-1 rounded bg-zinc-500/20 text-zinc-400 font-medium">Manual</span>
@@ -246,7 +246,7 @@ export function AsistenciaShiftCard({
           <div className="font-medium text-sm leading-tight">{item.puesto.name}</div>
           <div className="text-xs text-muted-foreground leading-tight">
             S{item.slotNumber} · {item.puesto.shiftStart}-{item.puesto.shiftEnd}{" "}
-            <span className={isDayShift(item.puesto.shiftStart) ? "text-sky-400" : "text-indigo-400"}>
+            <span className={isDayShift(item.puesto.shiftStart) ? "text-status-info-fg" : "text-status-info-fg"}>
               {isDayShift(item.puesto.shiftStart) ? "Día" : "Noche"}
             </span>
           </div>
@@ -259,7 +259,7 @@ export function AsistenciaShiftCard({
                 J:{((item.plannedMinutes ?? 0) / 60).toFixed(1)}h
               </span>
               {(item.overtimeMinutes ?? 0) > 0 && (
-                <span className="text-[10px] text-amber-300 font-medium">
+                <span className="text-[10px] text-status-warn-fg font-medium">
                   HE:{((item.overtimeMinutes ?? 0) / 60).toFixed(1)}h
                 </span>
               )}
@@ -283,7 +283,7 @@ export function AsistenciaShiftCard({
             )}
           </span>
         ) : (
-          <span className="text-amber-400 text-sm">Sin asignar (PPC)</span>
+          <span className="text-status-warn-fg text-sm">Sin asignar (PPC)</span>
         )}
       </div>
 
@@ -291,7 +291,7 @@ export function AsistenciaShiftCard({
       <div className="text-sm min-w-0 flex items-center">
         {status === "reemplazo" && item.replacementGuardia ? (
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-rose-300">
+            <span className="text-status-danger-fg">
               {formatPersonName(item.replacementGuardia.persona.firstName, item.replacementGuardia.persona.lastName)}
             </span>
             {item.replacementGuardia.lifecycleStatus === "te" && (
@@ -300,11 +300,11 @@ export function AsistenciaShiftCard({
               </span>
             )}
             {te && (
-              <span className="text-xs text-amber-400 ml-2 inline-flex items-center gap-1">
+              <span className="text-xs text-status-warn-fg ml-2 inline-flex items-center gap-1">
                 {te.tipo === "hora_extra" ? `HHEE ${te.horasExtra ?? "?"}h` : "TE"}{" "}
                 {te.status} (${Number(te.amountClp).toLocaleString("es-CL")})
                 {te.amountJustification && (
-                  <span title={te.amountJustification ?? undefined}><Info className="h-3 w-3 text-amber-300 inline" /></span>
+                  <span title={te.amountJustification ?? undefined}><Info className="h-3 w-3 text-status-warn-fg inline" /></span>
                 )}
               </span>
             )}
@@ -337,28 +337,28 @@ export function AsistenciaShiftCard({
               return (
                 <>
                   {entrada && (
-                    <span className={`inline-flex items-center gap-0.5 text-xs ${entrada.gpsStatus === "fuera_rango" ? "text-yellow-500" : "text-emerald-500"}`}>
+                    <span className={`inline-flex items-center gap-0.5 text-xs ${entrada.gpsStatus === "fuera_rango" ? "text-status-warn-fg" : "text-status-ok-fg"}`}>
                       <Clock className="h-3.5 w-3.5" />
                       {new Date(entrada.timestamp).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}
                       {entrada.gpsStatus === "fuera_rango" && (
-                        <span className="ml-0.5 text-[9px] bg-yellow-500/20 text-yellow-400 px-1 rounded">GPS</span>
+                        <span className="ml-0.5 text-[9px] bg-yellow-500/20 text-status-warn-fg px-1 rounded">GPS</span>
                       )}
                     </span>
                   )}
                   {salida && (
-                    <span className={`inline-flex items-center gap-0.5 text-xs ${salida.gpsStatus === "fuera_rango" ? "text-yellow-500" : "text-amber-500"}`}>
+                    <span className={`inline-flex items-center gap-0.5 text-xs ${salida.gpsStatus === "fuera_rango" ? "text-status-warn-fg" : "text-status-warn-fg"}`}>
                       <MapPin className="h-3.5 w-3.5" />
                       {new Date(salida.timestamp).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}
                       {salida.gpsStatus === "fuera_rango" && (
-                        <span className="ml-0.5 text-[9px] bg-yellow-500/20 text-yellow-400 px-1 rounded">GPS</span>
+                        <span className="ml-0.5 text-[9px] bg-yellow-500/20 text-status-warn-fg px-1 rounded">GPS</span>
                       )}
                     </span>
                   )}
                   {entrada?.metodoId === "face_id" && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-medium">Face ID</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-status-ok-soft text-status-ok-fg font-medium">Face ID</span>
                   )}
                   {(entrada?.metodoId === "pin_fallback" || entrada?.metodoId === "rut_pin") && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 font-medium">PIN</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-status-warn-soft text-status-warn-fg font-medium">PIN</span>
                   )}
                   {entrada?.metodoId === "manual" && (
                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-500/20 text-zinc-400 font-medium">Manual</span>
@@ -376,9 +376,9 @@ export function AsistenciaShiftCard({
           </div>
         ) : (item.checkInAt || item.checkOutAt) && status === "asistio" ? (
           <span className="inline-flex items-center gap-1.5 text-xs">
-            <span className="text-emerald-500">{timeFromISO(item.checkInAt)}</span>
+            <span className="text-status-ok-fg">{timeFromISO(item.checkInAt)}</span>
             <span className="text-muted-foreground">–</span>
-            <span className="text-amber-500">{timeFromISO(item.checkOutAt)}</span>
+            <span className="text-status-warn-fg">{timeFromISO(item.checkOutAt)}</span>
           </span>
         ) : (
           <span className="text-muted-foreground text-xs">—</span>
@@ -393,7 +393,7 @@ export function AsistenciaShiftCard({
               <Button
                 size="sm"
                 variant="outline"
-                className="h-7 w-7 p-0 border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/20"
+                className="h-7 w-7 p-0 border-status-ok-border text-status-ok-fg hover:bg-status-ok-soft"
                 disabled={isSaving || isLocked || !canExecuteOps || status === "no_asistio"}
                 onClick={() => onMarkPresent(item)}
                 title="Asistió"
@@ -405,8 +405,8 @@ export function AsistenciaShiftCard({
                 variant="outline"
                 className={`h-7 w-7 p-0 ${
                   status === "no_asistio"
-                    ? "border-rose-500 bg-rose-500/25 text-rose-300"
-                    : "border-rose-500/50 text-rose-400 hover:bg-rose-500/20"
+                    ? "border-rose-500 bg-rose-500/25 text-status-danger-fg"
+                    : "border-rose-500/50 text-status-danger-fg hover:bg-rose-500/20"
                 }`}
                 disabled={isSaving || isLocked || !canExecuteOps}
                 onClick={() => onMarkAbsent(item)}

@@ -27,9 +27,9 @@ type FullConfig = Record<AlertTypeCode, AlertTypeConfig>;
 // ── Severity helpers ──
 
 const SEVERITY_COLORS: Record<AlertSeverity, { bg: string; text: string; ring: string }> = {
-  critical: { bg: "bg-red-500/15", text: "text-red-400", ring: "ring-red-500/30" },
-  warning: { bg: "bg-amber-500/15", text: "text-amber-400", ring: "ring-amber-500/30" },
-  info: { bg: "bg-blue-500/15", text: "text-blue-400", ring: "ring-blue-500/30" },
+  critical: { bg: "bg-status-danger-soft", text: "text-status-danger-fg", ring: "ring-red-500/30" },
+  warning: { bg: "bg-status-warn-soft", text: "text-status-warn-fg", ring: "ring-amber-500/30" },
+  info: { bg: "bg-status-info-soft", text: "text-status-info-fg", ring: "ring-blue-500/30" },
 };
 
 const SEVERITY_LABELS: Record<AlertSeverity, string> = {
@@ -183,8 +183,8 @@ export function IaUmbralesConfig() {
     <Card>
       <CardContent className="pt-5 space-y-5">
         <div className="flex items-center gap-2">
-          <div className="p-1.5 rounded-lg bg-amber-500/15">
-            <Zap className="h-4 w-4 text-amber-400" />
+          <div className="p-1.5 rounded-lg bg-status-warn-soft">
+            <Zap className="h-4 w-4 text-status-warn-fg" />
           </div>
           <div>
             <h3 className="text-sm font-semibold">Configuración de alertas</h3>

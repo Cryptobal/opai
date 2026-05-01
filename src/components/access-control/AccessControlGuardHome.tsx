@@ -137,7 +137,7 @@ export function AccessControlGuardHome({
         </div>
         <div className="mt-2 flex items-center gap-4">
           <div className="flex items-center gap-1.5 text-sm">
-            <Users className="h-4 w-4 text-blue-400" />
+            <Users className="h-4 w-4 text-status-info-fg" />
             <span className="font-semibold text-zinc-200">{inSiteCount.persons}</span>
             <span className="text-zinc-500">personas</span>
           </div>
@@ -161,7 +161,7 @@ export function AccessControlGuardHome({
             onClick={() => setActiveTab(key)}
             className={`flex-1 flex items-center justify-center gap-1.5 py-3 text-sm font-medium transition-colors ${
               activeTab === key
-                ? "border-b-2 border-blue-500 text-blue-400"
+                ? "border-b-2 border-status-info-border text-status-info-fg"
                 : "text-zinc-500 hover:text-zinc-300"
             }`}
           >
@@ -178,7 +178,7 @@ export function AccessControlGuardHome({
             {/* Entry Button */}
             <Button
               onClick={() => setShowEntry(true)}
-              className="w-full h-14 text-base bg-emerald-600 hover:bg-emerald-500 text-white"
+              className="w-full h-14 text-base bg-status-ok hover:bg-status-ok text-white"
               size="lg"
             >
               <UserPlus className="mr-2 h-5 w-5" />

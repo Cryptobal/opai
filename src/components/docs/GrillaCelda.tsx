@@ -13,21 +13,21 @@ type Props = {
 };
 
 const digitalIcons: Record<string, { bg: string; text: string; icon: string }> = {
-  ok: { bg: "bg-green-500/15", text: "text-green-500", icon: "📄" },
-  alerta: { bg: "bg-amber-500/15", text: "text-amber-500", icon: "📄" },
-  falta: { bg: "bg-red-500/15", text: "text-red-500", icon: "✗" },
+  ok: { bg: "bg-status-ok-soft", text: "text-status-ok-fg", icon: "📄" },
+  alerta: { bg: "bg-status-warn-soft", text: "text-status-warn-fg", icon: "📄" },
+  falta: { bg: "bg-status-danger-soft", text: "text-status-danger-fg", icon: "✗" },
 };
 
 const fisicoIcons: Record<string, { bg: string; text: string; icon: string }> = {
-  ok: { bg: "bg-green-500/15", text: "text-green-500", icon: "👁" },
-  pendiente: { bg: "bg-amber-500/15", text: "text-amber-500", icon: "—" },
-  falta: { bg: "bg-red-500/15", text: "text-red-500", icon: "✗" },
+  ok: { bg: "bg-status-ok-soft", text: "text-status-ok-fg", icon: "👁" },
+  pendiente: { bg: "bg-status-warn-soft", text: "text-status-warn-fg", icon: "—" },
+  falta: { bg: "bg-status-danger-soft", text: "text-status-danger-fg", icon: "✗" },
 };
 
 function severityBadgeColor(severity: string | null): string {
-  if (severity === "critical") return "bg-red-500 text-white";
-  if (severity === "major") return "bg-amber-500 text-white";
-  return "bg-blue-500 text-white";
+  if (severity === "critical") return "bg-status-danger text-white";
+  if (severity === "major") return "bg-status-warn text-white";
+  return "bg-status-info text-white";
 }
 
 export function GrillaCelda({

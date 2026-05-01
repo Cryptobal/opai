@@ -32,19 +32,19 @@ const PAGE_SIZE = 20;
 
 const planBadgeVariant: Record<string, string> = {
   free: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
-  starter: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300',
-  profesional: 'bg-teal-100 text-teal-700 dark:bg-teal-900 dark:text-teal-300',
+  starter: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-status-info-fg',
+  profesional: 'bg-teal-100 text-teal-700 dark:bg-teal-900 dark:text-status-info-fg',
   enterprise: 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300',
   // Legacy
-  trial: 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300',
+  trial: 'bg-amber-100 text-status-warn-fg dark:bg-amber-900 dark:text-status-warn-fg',
   essential: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400',
-  professional: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300',
+  professional: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-status-info-fg',
 };
 
 const statusBadgeVariant: Record<string, string> = {
-  active: 'bg-emerald-100 text-emerald-700',
-  trial: 'bg-amber-100 text-amber-700',
-  suspended: 'bg-red-100 text-red-700',
+  active: 'bg-emerald-100 text-status-ok-fg',
+  trial: 'bg-amber-100 text-status-warn-fg',
+  suspended: 'bg-red-100 text-status-danger-fg',
 };
 
 function timeAgo(dateStr: string | null): string {
@@ -254,7 +254,7 @@ export function TenantTable({ tenants, onImpersonate }: TenantTableProps) {
                     {t.plan}
                   </span>
                   {t.plan === 'enterprise' && (t.monthlyTotal === 0 || t.monthlyTotal === undefined) && (
-                    <span className="ml-1 text-xs text-amber-500" title="Sin precio configurado">
+                    <span className="ml-1 text-xs text-status-warn-fg" title="Sin precio configurado">
                       Sin precio
                     </span>
                   )}
@@ -269,7 +269,7 @@ export function TenantTable({ tenants, onImpersonate }: TenantTableProps) {
                     {t.status}
                   </span>
                   {t.status === 'trial' && t.trialEndsAt && (
-                    <span className="ml-1 text-xs text-amber-600">
+                    <span className="ml-1 text-xs text-status-warn-fg">
                       {trialDaysLeft(t.trialEndsAt)}
                     </span>
                   )}
@@ -282,7 +282,7 @@ export function TenantTable({ tenants, onImpersonate }: TenantTableProps) {
                     <div className="h-2 w-20 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-700">
                       <div
                         className={`h-full rounded-full ${
-                          t.usagePct > 80 ? 'bg-red-500' : 'bg-blue-500'
+                          t.usagePct > 80 ? 'bg-status-danger' : 'bg-status-info'
                         }`}
                         style={{ width: `${Math.min(t.usagePct, 100)}%` }}
                       />

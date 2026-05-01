@@ -130,7 +130,7 @@ const opsTheme: ThemeConfig = {
     backgroundAlt: 'bg-gradient-to-br from-blue-900/50 via-blue-800/30 to-slate-900/50',
     text: 'text-white',
     textMuted: 'text-blue-200',
-    border: 'border-blue-500/20',
+    border: 'border-status-info-border',
   },
   
   typography: {

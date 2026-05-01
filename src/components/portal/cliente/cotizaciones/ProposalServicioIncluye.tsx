@@ -35,13 +35,13 @@ export function ProposalServicioIncluye({
   return (
     <div className={cn("rounded-xl border border-slate-700/50 bg-slate-800/50 p-4 space-y-3", className)}>
       <h3 className="text-xl font-bold text-white">
-        <span className="text-teal-400">{sectionNumber}.</span> El Servicio Incluye
+        <span className="text-status-info-fg">{sectionNumber}.</span> El Servicio Incluye
       </h3>
 
       <ul className="space-y-2">
         {displayItems.map((item, i) => (
           <li key={i} className="flex items-start gap-2.5">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" />
+            <CheckCircle2 className="w-4 h-4 text-status-ok-fg mt-0.5 shrink-0" />
             <span className="text-sm text-slate-300">{item}</span>
           </li>
         ))}

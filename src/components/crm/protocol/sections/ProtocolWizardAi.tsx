@@ -46,7 +46,7 @@ export function ProtocolWizardAi({
   return (
     <section className="mx-auto max-w-2xl px-4 py-6">
       <header className="mb-5 flex items-center gap-2">
-        <div className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-300">
+        <div className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-status-ok-soft text-status-ok-fg">
           <Sparkles className="h-4 w-4" />
         </div>
         <div>

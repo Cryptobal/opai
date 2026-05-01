@@ -69,7 +69,7 @@ export function ClientAccessControlLive({ installationId }: Props) {
       {/* KPIs */}
       <div className="grid grid-cols-3 gap-3">
         <div className="rounded-lg border border-zinc-700 bg-zinc-900 p-3 text-center">
-          <Users className="mx-auto h-5 w-5 text-blue-400 mb-1" />
+          <Users className="mx-auto h-5 w-5 text-status-info-fg mb-1" />
           <p className="text-2xl font-bold text-zinc-100">{counts.persons}</p>
           <p className="text-xs text-zinc-500">Personas</p>
         </div>
@@ -79,7 +79,7 @@ export function ClientAccessControlLive({ installationId }: Props) {
           <p className="text-xs text-zinc-500">Vehículos</p>
         </div>
         <div className="rounded-lg border border-zinc-700 bg-zinc-900 p-3 text-center">
-          <Clock className="mx-auto h-5 w-5 text-emerald-400 mb-1" />
+          <Clock className="mx-auto h-5 w-5 text-status-ok-fg mb-1" />
           <p className="text-2xl font-bold text-zinc-100">{counts.total}</p>
           <p className="text-xs text-zinc-500">Total</p>
         </div>

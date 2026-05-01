@@ -59,7 +59,7 @@ export function EquipoGlobalCard({ onNavigate, isProspect }: Props) {
     >
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <Users className="h-4 w-4 text-teal-400" />
+          <Users className="h-4 w-4 text-status-info-fg" />
           <h3 className="text-sm font-semibold">Mi equipo</h3>
         </div>
         <div className="flex items-center gap-1 text-xs text-zinc-500">
@@ -87,16 +87,16 @@ export function EquipoGlobalCard({ onNavigate, isProspect }: Props) {
           label="OS-10 al día"
           tone={
             os10Pct >= 95
-              ? "text-emerald-400"
+              ? "text-status-ok-fg"
               : os10Pct >= 80
-                ? "text-amber-400"
-                : "text-red-400"
+                ? "text-status-warn-fg"
+                : "text-status-danger-fg"
           }
         />
       </div>
 
       {hasAttention && (
-        <div className="flex items-center gap-2 mt-3 text-[11px] text-amber-400">
+        <div className="flex items-center gap-2 mt-3 text-[11px] text-status-warn-fg">
           <AlertTriangle className="h-3 w-3" />
           <span>
             {resumen.os10Vencido > 0 && (

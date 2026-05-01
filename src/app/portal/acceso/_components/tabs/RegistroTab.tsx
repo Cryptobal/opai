@@ -29,11 +29,11 @@ const TYPE_ICONS: Record<AccessRecordType, React.ReactNode> = {
 };
 
 const TYPE_BADGE_COLORS: Record<AccessRecordType, string> = {
-  visit: "border-blue-500/30 bg-blue-500/10 text-blue-400",
-  provider: "border-orange-500/30 bg-orange-500/10 text-orange-400",
+  visit: "border-status-info-border bg-status-info-soft text-status-info-fg",
+  provider: "border-status-warn-border bg-status-warn-soft text-status-warn-fg",
   vehicle: "border-purple-500/30 bg-purple-500/10 text-purple-400",
-  staff: "border-emerald-500/30 bg-emerald-500/10 text-emerald-400",
-  delivery: "border-amber-500/30 bg-amber-500/10 text-amber-400",
+  staff: "border-status-ok-border bg-status-ok-soft text-status-ok-fg",
+  delivery: "border-status-warn-border bg-status-warn-soft text-status-warn-fg",
 };
 
 // ── Props ───────────────────────────────────────────────────────────────────

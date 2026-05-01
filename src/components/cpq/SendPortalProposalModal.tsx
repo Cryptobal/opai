@@ -415,7 +415,7 @@ export function SendPortalProposalModal({
               <Button variant="outline" className="flex-1" onClick={() => setOpen(false)}>
                 Cancelar
               </Button>
-              <Button className="flex-1 gap-2 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={handleComposeNext} disabled={loadingContacts || !primary?.email}>
+              <Button className="flex-1 gap-2 bg-status-ok hover:bg-emerald-700 text-white" onClick={handleComposeNext} disabled={loadingContacts || !primary?.email}>
                 Continuar
               </Button>
             </div>

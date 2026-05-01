@@ -16,10 +16,10 @@ interface AccountExpensesSectionProps {
 
 const STATUS_COLORS: Record<string, string> = {
   DRAFT: "bg-zinc-500/15 text-zinc-400",
-  SUBMITTED: "bg-blue-500/15 text-blue-400",
-  IN_APPROVAL: "bg-amber-500/15 text-amber-400",
-  APPROVED: "bg-emerald-500/15 text-emerald-400",
-  REJECTED: "bg-red-500/15 text-red-400",
+  SUBMITTED: "bg-status-info-soft text-status-info-fg",
+  IN_APPROVAL: "bg-status-warn-soft text-status-warn-fg",
+  APPROVED: "bg-status-ok-soft text-status-ok-fg",
+  REJECTED: "bg-status-danger-soft text-status-danger-fg",
   PAID: "bg-purple-500/15 text-purple-400",
 };
 

@@ -86,7 +86,7 @@ export default function MarcacionSection({
         </div>
         <div className="flex items-center gap-2">
           {faceIdRegistered ? (
-            <span className="inline-flex items-center rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-emerald-300">
+            <span className="inline-flex items-center rounded-full border border-status-ok-border bg-status-ok-soft px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-status-ok-fg">
               Activo
             </span>
           ) : (
@@ -121,7 +121,7 @@ export default function MarcacionSection({
         </div>
         <div className="flex items-center gap-2">
           {marcacionPin ? (
-            <span className="inline-flex items-center rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-emerald-300">
+            <span className="inline-flex items-center rounded-full border border-status-ok-border bg-status-ok-soft px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-status-ok-fg">
               Activo
             </span>
           ) : (
@@ -225,7 +225,7 @@ function MarcacionPinSection({
   return (
     <div className="space-y-3">
       {generatedPin && (
-        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/[0.08] p-4 sm:p-5">
+        <div className="rounded-xl border border-status-ok-border bg-emerald-500/[0.08] p-4 sm:p-5">
           <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-emerald-300/90 mb-2">
             PIN generado
           </p>
@@ -236,7 +236,7 @@ function MarcacionPinSection({
             <Button
               size="sm"
               variant="secondary"
-              className="bg-emerald-600 hover:bg-emerald-500 text-white border-0"
+              className="bg-status-ok hover:bg-status-ok text-white border-0"
               onClick={handleCopyPin}
             >
               <Copy className="h-3.5 w-3.5 mr-1.5" />

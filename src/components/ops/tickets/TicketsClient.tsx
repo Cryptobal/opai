@@ -516,9 +516,9 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
             q.tone === "primary"
               ? "bg-primary text-primary-foreground"
               : q.tone === "danger"
-                ? "bg-red-500/15 text-red-300 border-red-500/30"
+                ? "bg-status-danger-soft text-status-danger-fg border-status-danger-border"
                 : q.tone === "warning"
-                  ? "bg-amber-500/15 text-amber-300 border-amber-500/30"
+                  ? "bg-status-warn-soft text-status-warn-fg border-status-warn-border"
                   : "bg-background text-foreground border-border";
           return (
             <button
@@ -612,7 +612,7 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
                         }`}
                       >
                         <span className={`h-2 w-2 rounded-full ${
-                          key === "p1" ? "bg-red-500" : key === "p2" ? "bg-orange-500" : key === "p3" ? "bg-yellow-500" : "bg-muted-foreground/50"
+                          key === "p1" ? "bg-status-danger" : key === "p2" ? "bg-status-warn" : key === "p3" ? "bg-status-warn" : "bg-muted-foreground/50"
                         }`} />
                         {cfg.shortLabel}
                       </button>
@@ -960,7 +960,7 @@ function TicketCard({ ticket, onClick }: { ticket: Ticket; onClick: () => void }
       type="button"
       onClick={onClick}
       className={`group relative flex w-full flex-col gap-2 rounded-xl border-l-[3px] border border-border bg-[#161b22] p-3.5 text-left transition-all hover:bg-[#1c2333] hover:border-primary/20 active:bg-[#1c2333] ${borderColor} ${
-        breached && !isTerminal ? "animate-pulse-subtle border-red-500/40" : ""
+        breached && !isTerminal ? "animate-pulse-subtle border-status-danger-border" : ""
       }`}
     >
       {/* Row 1: Code + Status + Priority + Avatar */}
@@ -1001,7 +1001,7 @@ function TicketCard({ ticket, onClick }: { ticket: Ticket; onClick: () => void }
             </div>
           ) : (
             <div
-              className="flex h-6 w-6 items-center justify-center rounded-full bg-yellow-500/10 text-yellow-500"
+              className="flex h-6 w-6 items-center justify-center rounded-full bg-status-warn-soft text-status-warn-fg"
               title="Sin asignar"
             >
               <UserCircle className="h-3.5 w-3.5" />
@@ -1023,7 +1023,7 @@ function TicketCard({ ticket, onClick }: { ticket: Ticket; onClick: () => void }
               ?? findingCategoryLabel(ticket.finding.category)}
           </span>
           {ticket.finding.occurrenceCount > 1 && (
-            <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300">
+            <span className="rounded bg-status-warn-soft px-1.5 py-0.5 text-[10px] font-semibold text-status-warn-fg">
               ×{ticket.finding.occurrenceCount}
             </span>
           )}
@@ -1056,9 +1056,9 @@ function TicketCard({ ticket, onClick }: { ticket: Ticket; onClick: () => void }
       {/* Row 4: Guard badge (if applicable) */}
       {ticket.guardiaName && (
         <div className="flex items-center gap-1.5">
-          <div className="flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-0.5">
-            <Shield className="h-3 w-3 text-blue-400" />
-            <span className="text-[11px] font-medium text-blue-400">
+          <div className="flex items-center gap-1 rounded-full bg-status-info-soft px-2 py-0.5">
+            <Shield className="h-3 w-3 text-status-info-fg" />
+            <span className="text-[11px] font-medium text-status-info-fg">
               {ticket.guardiaName}
             </span>
             {ticket.guardiaRut && (
@@ -1309,7 +1309,7 @@ function TicketCreateForm({
       <h3 className="text-base font-semibold">Nuevo ticket</h3>
 
       {prefillSource === "guard_event" && (
-        <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-2.5 text-xs text-blue-400">
+        <div className="rounded-xl border border-status-info-border bg-status-info-soft p-2.5 text-xs text-status-info-fg">
           Creando ticket asociado a un evento laboral
         </div>
       )}
@@ -1330,9 +1330,9 @@ function TicketCreateForm({
 
       {/* Guard search (appears when category = guard) */}
       {showGuardSearch && (
-        <div className="space-y-1.5 rounded-xl border border-blue-500/20 bg-blue-500/5 p-3">
+        <div className="space-y-1.5 rounded-xl border border-status-info-border bg-status-info-soft p-3">
           <Label className="text-xs flex items-center gap-1.5">
-            <Shield className="h-3.5 w-3.5 text-blue-400" />
+            <Shield className="h-3.5 w-3.5 text-status-info-fg" />
             Guardia asociado *
           </Label>
           <GuardSearchInput
@@ -1368,7 +1368,7 @@ function TicketCreateForm({
                   <div className="flex items-center gap-2">
                     <span>{tt.name}</span>
                     {tt.requiresApproval && (
-                      <ShieldCheck className="h-3 w-3 text-blue-500" />
+                      <ShieldCheck className="h-3 w-3 text-status-info-fg" />
                     )}
                     <span className="text-[10px] text-muted-foreground">
                       {TICKET_TEAM_CONFIG[tt.assignedTeam]?.label}
@@ -1386,8 +1386,8 @@ function TicketCreateForm({
 
       {/* Approval chain preview */}
       {selectedType?.requiresApproval && selectedType.approvalSteps.length > 0 && (
-        <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-2.5 text-xs space-y-1">
-          <div className="flex items-center gap-1.5 font-medium text-blue-400">
+        <div className="rounded-xl border border-status-info-border bg-status-info-soft p-2.5 text-xs space-y-1">
+          <div className="flex items-center gap-1.5 font-medium text-status-info-fg">
             <ShieldCheck className="h-3.5 w-3.5" />
             Requiere aprobación
           </div>
@@ -1445,7 +1445,7 @@ function TicketCreateForm({
                 >
                   <span
                     className={`h-2.5 w-2.5 rounded-full ${
-                      key === "p1" ? "bg-red-500" : key === "p2" ? "bg-orange-500" : key === "p3" ? "bg-yellow-500" : "bg-muted-foreground/50"
+                      key === "p1" ? "bg-status-danger" : key === "p2" ? "bg-status-warn" : key === "p3" ? "bg-status-warn" : "bg-muted-foreground/50"
                     }`}
                   />
                   <div>

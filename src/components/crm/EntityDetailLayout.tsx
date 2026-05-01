@@ -42,7 +42,7 @@ export interface EntityDetailLayoutProps {
     avatar?: {
       /** Initials to show (e.g. "S") */
       initials?: string;
-      /** Background color class or hex (e.g. "bg-blue-500" or "#3b82f6") */
+      /** Background color class or hex (e.g. "bg-status-info" or "#3b82f6") */
       color?: string;
       /** Custom icon instead of initials */
       icon?: LucideIcon;

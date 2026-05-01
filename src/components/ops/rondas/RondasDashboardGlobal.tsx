@@ -77,11 +77,11 @@ interface DashboardData {
 }
 
 const STATUS_BG: Record<string, string> = {
-  completada: "bg-emerald-500/20 border-emerald-500/40 hover:bg-emerald-500/30",
-  incompleta: "bg-amber-500/20 border-amber-500/40 hover:bg-amber-500/30",
-  no_realizada: "bg-red-500/20 border-red-500/40 hover:bg-red-500/30",
+  completada: "bg-status-ok-soft border-status-ok-border hover:bg-emerald-500/30",
+  incompleta: "bg-status-warn-soft border-status-warn-border hover:bg-amber-500/30",
+  no_realizada: "bg-status-danger-soft border-status-danger-border hover:bg-red-500/30",
   pendiente: "bg-zinc-700/30 border-zinc-600/40 hover:bg-zinc-700/40",
-  en_curso: "bg-blue-500/20 border-blue-500/40 hover:bg-blue-500/30",
+  en_curso: "bg-status-info-soft border-status-info-border hover:bg-blue-500/30",
 };
 
 const STATUS_ICON: Record<string, typeof CheckCircle2> = {
@@ -93,11 +93,11 @@ const STATUS_ICON: Record<string, typeof CheckCircle2> = {
 };
 
 const STATUS_ICON_COLOR: Record<string, string> = {
-  completada: "text-emerald-400",
-  incompleta: "text-amber-400",
-  no_realizada: "text-red-400",
+  completada: "text-status-ok-fg",
+  incompleta: "text-status-warn-fg",
+  no_realizada: "text-status-danger-fg",
   pendiente: "text-zinc-500",
-  en_curso: "text-blue-400",
+  en_curso: "text-status-info-fg",
 };
 
 function formatHour(iso: string): string {
@@ -135,7 +135,7 @@ function RondaCellBlock({
         </span>
       )}
       {!ronda.isAdHoc && hasIssues && (
-        <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-red-500 border-2 border-[#111827]" />
+        <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-status-danger border-2 border-[#111827]" />
       )}
       <span className="text-[11px] font-semibold text-[#f1f5f9] tabular-nums">
         {formatHour(ronda.scheduledAt)}
@@ -161,12 +161,12 @@ function RondaDetail({
 }) {
   const trustColor =
     ronda.trustScore >= 85
-      ? "text-emerald-400"
+      ? "text-status-ok-fg"
       : ronda.trustScore >= 70
-        ? "text-blue-400"
+        ? "text-status-info-fg"
         : ronda.trustScore >= 50
-          ? "text-amber-400"
-          : "text-red-400";
+          ? "text-status-warn-fg"
+          : "text-status-danger-fg";
 
   return (
     <div className="rounded-lg border border-[#1a1f2e] bg-[#0a0e1a] p-3 mt-2 text-xs space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
@@ -219,7 +219,7 @@ function RondaDetail({
           {ronda.completion.porcentaje}%)
         </span>
         {ronda.evidencia.photos > 0 && (
-          <span className="inline-flex items-center gap-0.5 text-blue-400">
+          <span className="inline-flex items-center gap-0.5 text-status-info-fg">
             <Camera className="h-3 w-3" />
             {ronda.evidencia.photos}
           </span>
@@ -231,13 +231,13 @@ function RondaDetail({
           </span>
         )}
         {ronda.alertCount > 0 && (
-          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] bg-red-500/20 text-red-400 border border-red-500/30">
+          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] bg-status-danger-soft text-status-danger-fg border border-status-danger-border">
             <AlertTriangle className="h-3 w-3" />
             {ronda.alertCount} alerta{ronda.alertCount !== 1 ? "s" : ""}
           </span>
         )}
         {ronda.incidentCount > 0 && (
-          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] bg-amber-500/20 text-amber-400 border border-amber-500/30">
+          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] bg-status-warn-soft text-status-warn-fg border border-status-warn-border">
             <FileWarning className="h-3 w-3" />
             {ronda.incidentCount} incidente{ronda.incidentCount !== 1 ? "s" : ""}
           </span>
@@ -257,7 +257,7 @@ function RondaDetail({
         <div className="flex items-center gap-2 pt-1">
           <button
             onClick={() => onViewMap(ronda)}
-            className="inline-flex items-center gap-1.5 rounded-md bg-teal-500/15 px-3 py-1.5 text-xs font-medium text-teal-400 hover:bg-teal-500/25 transition-colors"
+            className="inline-flex items-center gap-1.5 rounded-md bg-status-info-soft px-3 py-1.5 text-xs font-medium text-status-info-fg hover:bg-teal-500/25 transition-colors"
           >
             <MapPin className="h-3.5 w-3.5" />
             Ver recorrido en mapa
@@ -305,7 +305,7 @@ function InstalacionGridRow({ inst }: { inst: InstalacionRow }) {
 
   const pct = inst.resumen.porcentajeCumplimiento;
   const barColor =
-    pct >= 80 ? "bg-emerald-500" : pct >= 50 ? "bg-amber-500" : pct > 0 ? "bg-red-500" : "bg-zinc-600";
+    pct >= 80 ? "bg-status-ok" : pct >= 50 ? "bg-status-warn" : pct > 0 ? "bg-status-danger" : "bg-zinc-600";
 
   const selected = inst.rondas.find((r) => r.id === selectedRonda);
 
@@ -345,7 +345,7 @@ function InstalacionGridRow({ inst }: { inst: InstalacionRow }) {
             <p className="text-[10px] text-[#64748b]">
               {inst.resumen.total} rondas
               {(totalAlerts > 0 || totalIncidents > 0) && (
-                <span className="text-red-400 ml-1">
+                <span className="text-status-danger-fg ml-1">
                   {totalAlerts > 0 && `${totalAlerts} alerta${totalAlerts !== 1 ? "s" : ""}`}
                   {totalAlerts > 0 && totalIncidents > 0 && " · "}
                   {totalIncidents > 0 && `${totalIncidents} incidente${totalIncidents !== 1 ? "s" : ""}`}
@@ -434,13 +434,13 @@ function InstalacionGridRow({ inst }: { inst: InstalacionRow }) {
                         {hasIssues && (
                           <span className="flex items-center gap-1">
                             {ronda.alertCount > 0 && (
-                              <span className="inline-flex items-center gap-0.5 px-1 py-px rounded text-[10px] bg-red-500/20 text-red-400">
+                              <span className="inline-flex items-center gap-0.5 px-1 py-px rounded text-[10px] bg-status-danger-soft text-status-danger-fg">
                                 <AlertTriangle className="h-2.5 w-2.5" />
                                 {ronda.alertCount}
                               </span>
                             )}
                             {ronda.incidentCount > 0 && (
-                              <span className="inline-flex items-center gap-0.5 px-1 py-px rounded text-[10px] bg-amber-500/20 text-amber-400">
+                              <span className="inline-flex items-center gap-0.5 px-1 py-px rounded text-[10px] bg-status-warn-soft text-status-warn-fg">
                                 <FileWarning className="h-2.5 w-2.5" />
                                 {ronda.incidentCount}
                               </span>
@@ -569,7 +569,7 @@ function ResumenTablaRangoView({
             className={cn(
               "px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border",
               preset === p.key
-                ? "bg-cyan-500/20 border-cyan-500/40 text-cyan-300"
+                ? "bg-cyan-500/20 border-cyan-500/40 text-status-info-fg"
                 : "bg-[#0a0e1a] border-[#1a1f2e] text-[#94a3b8] hover:bg-[#1a1f2e] hover:text-[#f1f5f9]",
             )}
           >
@@ -633,7 +633,7 @@ function ResumenTablaRangoView({
                         <span className="block text-[10px] text-[#64748b]">
                           {formatDayLabel(fecha)}
                         </span>
-                        <span className={cn("block", isToday && "text-cyan-400")}>
+                        <span className={cn("block", isToday && "text-status-info-fg")}>
                           {formatShortDate(fecha)}
                         </span>
                       </div>
@@ -933,16 +933,16 @@ export function RondasDashboardGlobal({ initialDate }: Props) {
               <span className="text-[#f1f5f9] font-semibold">{resumen.totalRondas}</span> rondas
             </span>
             <span>
-              <span className="text-emerald-400 font-semibold">{resumen.completadas}</span> completadas
+              <span className="text-status-ok-fg font-semibold">{resumen.completadas}</span> completadas
             </span>
             {resumen.incompletas > 0 && (
               <span>
-                <span className="text-amber-400 font-semibold">{resumen.incompletas}</span> incompletas
+                <span className="text-status-warn-fg font-semibold">{resumen.incompletas}</span> incompletas
               </span>
             )}
             {resumen.noRealizadas > 0 && (
               <span>
-                <span className="text-red-400 font-semibold">{resumen.noRealizadas}</span> no realizadas
+                <span className="text-status-danger-fg font-semibold">{resumen.noRealizadas}</span> no realizadas
               </span>
             )}
             <span>
@@ -1033,11 +1033,11 @@ export function RondasDashboardGlobal({ initialDate }: Props) {
       {resumen && (
         <div className="space-y-2">
           {resumen.instalacionesCriticas.length > 0 && (
-            <div className="flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-950/20 px-3 py-2">
-              <XCircle className="h-4 w-4 text-red-400 mt-0.5 shrink-0" />
+            <div className="flex items-start gap-2 rounded-lg border border-status-danger-border bg-red-950/20 px-3 py-2">
+              <XCircle className="h-4 w-4 text-status-danger-fg mt-0.5 shrink-0" />
               <div className="text-xs">
-                <span className="font-semibold text-red-400">0% cumplimiento: </span>
-                <span className="text-red-300">
+                <span className="font-semibold text-status-danger-fg">0% cumplimiento: </span>
+                <span className="text-status-danger-fg">
                   {resumen.instalacionesCriticas.map((i) => i.installationName).join(", ")}
                 </span>
               </div>
@@ -1045,11 +1045,11 @@ export function RondasDashboardGlobal({ initialDate }: Props) {
           )}
 
           {resumen.mejorGuardia && (
-            <div className="flex items-start gap-2 rounded-lg border border-emerald-500/30 bg-emerald-950/20 px-3 py-2">
-              <Trophy className="h-4 w-4 text-emerald-400 mt-0.5 shrink-0" />
+            <div className="flex items-start gap-2 rounded-lg border border-status-ok-border bg-emerald-950/20 px-3 py-2">
+              <Trophy className="h-4 w-4 text-status-ok-fg mt-0.5 shrink-0" />
               <div className="text-xs">
-                <span className="font-semibold text-emerald-400">Mejor guardia: </span>
-                <span className="text-emerald-300">
+                <span className="font-semibold text-status-ok-fg">Mejor guardia: </span>
+                <span className="text-status-ok-fg">
                   {resumen.mejorGuardia.nombre} ({resumen.mejorGuardia.porcentaje}%
                   {resumen.mejorGuardia.duracionPromedio != null &&
                     `, ${resumen.mejorGuardia.duracionPromedio} min prom`}
@@ -1061,11 +1061,11 @@ export function RondasDashboardGlobal({ initialDate }: Props) {
 
           {resumen.peorGuardia &&
             resumen.peorGuardia.nombre !== resumen.mejorGuardia?.nombre && (
-              <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-950/20 px-3 py-2">
-                <AlertTriangle className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
+              <div className="flex items-start gap-2 rounded-lg border border-status-warn-border bg-amber-950/20 px-3 py-2">
+                <AlertTriangle className="h-4 w-4 text-status-warn-fg mt-0.5 shrink-0" />
                 <div className="text-xs">
-                  <span className="font-semibold text-amber-400">Peor guardia: </span>
-                  <span className="text-amber-300">
+                  <span className="font-semibold text-status-warn-fg">Peor guardia: </span>
+                  <span className="text-status-warn-fg">
                     {resumen.peorGuardia.nombre} ({resumen.peorGuardia.porcentaje}%)
                   </span>
                 </div>

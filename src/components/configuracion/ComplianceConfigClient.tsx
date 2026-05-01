@@ -108,8 +108,8 @@ export function ComplianceConfigClient({
         </header>
 
         {formattedDpaDate ? (
-          <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 text-sm">
-            <div className="flex items-center gap-2 text-emerald-400 font-medium">
+          <div className="rounded-lg border border-status-ok-border bg-status-ok-soft p-3 text-sm">
+            <div className="flex items-center gap-2 text-status-ok-fg font-medium">
               <Shield className="h-4 w-4" />
               DPA aceptado
             </div>
@@ -127,7 +127,7 @@ export function ComplianceConfigClient({
             </dl>
           </div>
         ) : (
-          <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-sm text-amber-200">
+          <div className="rounded-lg border border-status-warn-border bg-status-warn-soft p-3 text-sm text-status-warn-fg">
             DPA pendiente de aceptación. Se solicitará al próximo inicio de sesión de un
             owner/admin.
           </div>

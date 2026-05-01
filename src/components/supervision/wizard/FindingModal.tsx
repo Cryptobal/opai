@@ -82,9 +82,9 @@ export function FindingModal({ visitId, guardId, onClose, onCreated, mode = "reg
         <div className="mb-4 flex items-center justify-between">
           <h3 className="flex items-center gap-2 text-base font-medium">
             {isVra ? (
-              <ShieldAlert className="h-4 w-4 text-orange-400" />
+              <ShieldAlert className="h-4 w-4 text-status-warn-fg" />
             ) : (
-              <AlertTriangle className="h-4 w-4 text-amber-400" />
+              <AlertTriangle className="h-4 w-4 text-status-warn-fg" />
             )}
             {isVra ? "Registrar hallazgo de vulnerabilidad" : "Registrar hallazgo"}
           </h3>
@@ -125,10 +125,10 @@ export function FindingModal({ visitId, guardId, onClose, onCreated, mode = "reg
                   className={`flex-1 rounded-lg border-2 p-3 text-center text-sm font-medium transition-all ${
                     severity === s.value
                       ? s.value === "critical"
-                        ? "border-red-500 bg-red-500/20 text-red-400"
+                        ? "border-status-danger-border bg-status-danger-soft text-status-danger-fg"
                         : s.value === "major"
-                          ? "border-amber-500 bg-amber-500/20 text-amber-400"
-                          : "border-blue-500 bg-blue-500/20 text-blue-400"
+                          ? "border-status-warn-border bg-status-warn-soft text-status-warn-fg"
+                          : "border-status-info-border bg-status-info-soft text-status-info-fg"
                       : "border-border text-muted-foreground"
                   }`}
                 >
@@ -157,7 +157,7 @@ export function FindingModal({ visitId, guardId, onClose, onCreated, mode = "reg
             <>
               <div className="space-y-2">
                 <Label className="flex items-center gap-1.5">
-                  <ShieldAlert className="h-3 w-3 text-orange-400" />
+                  <ShieldAlert className="h-3 w-3 text-status-warn-fg" />
                   Localización física
                 </Label>
                 <Input
@@ -211,7 +211,7 @@ export function FindingModal({ visitId, guardId, onClose, onCreated, mode = "reg
           )}
 
           {error && (
-            <p className="rounded-md bg-destructive/10 p-2 text-sm text-red-400">{error}</p>
+            <p className="rounded-md bg-destructive/10 p-2 text-sm text-status-danger-fg">{error}</p>
           )}
 
           <div className="flex gap-3">

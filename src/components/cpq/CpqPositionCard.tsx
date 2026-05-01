@@ -292,7 +292,7 @@ export function CpqPositionCard({
             <div className="min-w-0">
               <div className="text-[13px] font-bold text-foreground break-words">{titleLabel}</div>
               <div className="flex items-center gap-1 flex-wrap mt-1">
-                <Badge variant="outline" className={cn(badgeBase, "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400")}>
+                <Badge variant="outline" className={cn(badgeBase, "border-status-ok-border bg-status-ok-soft text-status-ok-fg dark:text-status-ok-fg")}>
                   {totalGuards} {totalGuards === 1 ? "guardia" : "guardias"}
                 </Badge>
                 <Badge
@@ -301,13 +301,13 @@ export function CpqPositionCard({
                     badgeBase,
                     shiftType === "night"
                       ? "border-purple-500/30 bg-purple-500/10 text-purple-700 dark:text-purple-400"
-                      : "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400"
+                      : "border-status-warn-border bg-status-warn-soft text-status-warn-fg dark:text-status-warn-fg"
                   )}
                 >
                   {shiftType === "night" ? <Moon className="mr-0.5 h-2.5 w-2.5 inline" /> : <Sun className="mr-0.5 h-2.5 w-2.5 inline" />}
                   {shiftType === "night" ? "Nocturno" : "Diurno"}
                 </Badge>
-                <Badge variant="outline" className={cn(badgeBase, "border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-400")}>
+                <Badge variant="outline" className={cn(badgeBase, "border-status-info-border bg-status-info-soft text-blue-700 dark:text-status-info-fg")}>
                   {formatWeekdaysShort(position.weekdays)}
                 </Badge>
               </div>
@@ -328,7 +328,7 @@ export function CpqPositionCard({
           </div>
           {netOk ? (
             <div className="rounded-md border border-sky-500/25 bg-sky-500/[0.07] px-2 py-1.5">
-              <p className="text-sm font-semibold uppercase tracking-wide text-sky-600 dark:text-sky-300">Sueldo líquido estimado</p>
+              <p className="text-sm font-semibold uppercase tracking-wide text-sky-600 dark:text-status-info-fg">Sueldo líquido estimado</p>
               <div className="mt-0.5 flex flex-wrap items-end justify-between gap-x-3 gap-y-1">
                 <span className="text-sm text-muted-foreground">Por guardia / mes</span>
                 <CpqDualCurrencyAmount
@@ -353,7 +353,7 @@ export function CpqPositionCard({
               )}
             </div>
           ) : (
-            <p className="text-sm text-amber-700 dark:text-amber-400/90">
+            <p className="text-sm text-status-warn-fg dark:text-amber-400/90">
               Sueldo líquido: sin estimación en datos del puesto.
             </p>
           )}
@@ -374,7 +374,7 @@ export function CpqPositionCard({
                 "h-6 gap-1 rounded-md px-1.5 text-xs font-semibold",
                 shiftType === "night"
                   ? "border-violet-500/40 bg-violet-500/10 text-violet-300"
-                  : "border-amber-500/40 bg-amber-500/10 text-amber-300"
+                  : "border-status-warn-border bg-status-warn-soft text-status-warn-fg"
               )}
             >
               {shiftType === "night" ? <Moon className="h-2.5 w-2.5" /> : <Sun className="h-2.5 w-2.5" />}
@@ -511,8 +511,8 @@ export function CpqPositionCard({
               className={cn(
                 "h-8 rounded-md border px-3 text-xs font-semibold transition-colors",
                 shiftType !== "night"
-                  ? "border-amber-500/50 bg-amber-500/10 text-amber-300"
-                  : "border-amber-500/20 bg-card text-amber-300/60 hover:bg-amber-500/5"
+                  ? "border-status-warn-border bg-status-warn-soft text-status-warn-fg"
+                  : "border-status-warn-border bg-card text-amber-300/60 hover:bg-status-warn-soft"
               )}
               onClick={() => updateDraft({ startTime: "08:00", endTime: "20:00" })}
             >

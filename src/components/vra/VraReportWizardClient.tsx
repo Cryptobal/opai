@@ -103,10 +103,10 @@ type AvailableVisit = {
 };
 
 const SEVERITY_OPTIONS = [
-  { value: "critical", label: "Crítico", color: "bg-red-600" },
+  { value: "critical", label: "Crítico", color: "bg-status-danger" },
   { value: "high", label: "Alto", color: "bg-orange-600" },
   { value: "medium", label: "Medio", color: "bg-yellow-600" },
-  { value: "low", label: "Bajo", color: "bg-emerald-600" },
+  { value: "low", label: "Bajo", color: "bg-status-ok" },
 ];
 
 const SECTOR_SUGGESTIONS = [
@@ -201,7 +201,7 @@ export function VraReportWizardClient({ report: initialReport }: { report: Repor
             size="sm"
             onClick={handleDeleteReport}
             disabled={deleting}
-            className="gap-1.5 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950 border-red-200 dark:border-red-900"
+            className="gap-1.5 text-status-danger-fg hover:text-status-danger-fg hover:bg-red-50 dark:hover:bg-red-950 border-red-200 dark:border-red-900"
           >
             {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
             Eliminar borrador
@@ -224,7 +224,7 @@ export function VraReportWizardClient({ report: initialReport }: { report: Repor
                   className={cn(
                     "flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors min-w-0",
                     isActive && "bg-primary text-primary-foreground",
-                    !isActive && isDone && "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+                    !isActive && isDone && "bg-emerald-100 text-status-ok-fg dark:bg-emerald-900/30 dark:text-status-ok-fg",
                     !isActive && !isDone && "text-muted-foreground hover:bg-muted",
                   )}
                 >
@@ -620,7 +620,7 @@ function ImportFromVisitDialog({
                           <span className={cn("flex-1", f.alreadyImported && "opacity-40")}>
                             <span className="font-medium">[{f.severity}]</span> {f.description.slice(0, 140)}
                             {f.alreadyImported && (
-                              <span className="text-xs text-emerald-600 ml-1">(ya importado)</span>
+                              <span className="text-xs text-status-ok-fg ml-1">(ya importado)</span>
                             )}
                           </span>
                         </li>
@@ -662,7 +662,7 @@ function ImportFromVisitDialog({
                             className="w-full aspect-square object-cover"
                           />
                           {p.alreadyImported && (
-                            <span className="absolute bottom-1 right-1 text-[9px] bg-emerald-600 text-white px-1 rounded">
+                            <span className="absolute bottom-1 right-1 text-[9px] bg-status-ok text-white px-1 rounded">
                               ✓
                             </span>
                           )}
@@ -834,7 +834,7 @@ function Step2Photos({
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-6 w-6 p-0 text-red-600 ml-auto"
+                      className="h-6 w-6 p-0 text-status-danger-fg ml-auto"
                       onClick={() => handleDelete(p.id)}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -1037,7 +1037,7 @@ function FindingRow({
         <Button variant="ghost" size="sm" onClick={onEdit} className="h-8 px-2">
           Editar
         </Button>
-        <Button variant="ghost" size="sm" onClick={onDelete} className="h-8 w-8 p-0 text-red-600">
+        <Button variant="ghost" size="sm" onClick={onDelete} className="h-8 w-8 p-0 text-status-danger-fg">
           <Trash2 className="h-3.5 w-3.5" />
         </Button>
       </div>
@@ -1262,7 +1262,7 @@ function Step4Generate({
           </div>
           <div className="flex items-center gap-1.5 text-[10px] flex-wrap">
             {distrib.critical > 0 && (
-              <Badge className="bg-red-600 text-white">{distrib.critical} crít</Badge>
+              <Badge className="bg-status-danger text-white">{distrib.critical} crít</Badge>
             )}
             {distrib.high > 0 && (
               <Badge className="bg-orange-600 text-white">{distrib.high} alto</Badge>
@@ -1271,7 +1271,7 @@ function Step4Generate({
               <Badge className="bg-yellow-600 text-white">{distrib.medium} med</Badge>
             )}
             {distrib.low > 0 && (
-              <Badge className="bg-emerald-600 text-white">{distrib.low} bajo</Badge>
+              <Badge className="bg-status-ok text-white">{distrib.low} bajo</Badge>
             )}
             {findings.length === 0 && <span className="text-muted-foreground">—</span>}
           </div>
@@ -1279,7 +1279,7 @@ function Step4Generate({
       </div>
 
       {!canGenerate && (
-        <div className="bg-orange-50 dark:bg-orange-950 border border-orange-200 dark:border-orange-800 rounded-md p-4 text-sm text-orange-700 dark:text-orange-300 flex items-start gap-2">
+        <div className="bg-orange-50 dark:bg-orange-950 border border-orange-200 dark:border-orange-800 rounded-md p-4 text-sm text-orange-700 dark:text-status-warn-fg flex items-start gap-2">
           <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
           <div>
             <strong>Sin datos para generar.</strong> Volvé al paso 2 o 3 y agregá al menos una foto
@@ -1289,7 +1289,7 @@ function Step4Generate({
       )}
 
       {generating && (
-        <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-md p-4 text-sm text-blue-700 dark:text-blue-300">
+        <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-md p-4 text-sm text-blue-700 dark:text-status-info-fg">
           <Loader2 className="h-4 w-4 inline animate-spin mr-2" />
           <strong>Generando informe...</strong> Fase 1/3: análisis visual de fotos. Fase 2/3:
           generación de secciones. Fase 3/3: ensamblaje. No cierres esta ventana.

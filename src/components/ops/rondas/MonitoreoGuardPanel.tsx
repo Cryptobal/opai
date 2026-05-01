@@ -97,7 +97,7 @@ export function MonitoreoGuardPanel({ rondas, onSelectGuard, selectedId, onAddNo
             className={cn(
               "rounded-lg border bg-card p-3 transition-all cursor-pointer",
               selectedId === r.id ? "border-primary/50 ring-1 ring-primary/20" : "border-border",
-              hasAlerts && "border-red-500/30",
+              hasAlerts && "border-status-danger-border",
             )}
             onClick={() => onSelectGuard(r.id)}
           >
@@ -109,12 +109,12 @@ export function MonitoreoGuardPanel({ rondas, onSelectGuard, selectedId, onAddNo
                 </div>
                 <p className="text-[11px] text-muted-foreground">{r.installationName}</p>
                 {r.isAdHoc && (
-                  <span className="inline-block mt-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-amber-400">
+                  <span className="inline-block mt-0.5 rounded-full bg-status-warn-soft border border-status-warn-border px-1.5 py-0.5 text-[9px] font-semibold text-status-warn-fg">
                     Ronda Libre
                   </span>
                 )}
                 <div className="flex items-center gap-2 mt-1 text-[11px]">
-                  <span className={r.status === "en_curso" ? "text-emerald-500" : r.status === "completada" ? "text-blue-400" : "text-muted-foreground"}>
+                  <span className={r.status === "en_curso" ? "text-status-ok-fg" : r.status === "completada" ? "text-status-info-fg" : "text-muted-foreground"}>
                     ● {r.status === "en_curso" ? "En ronda" : r.status === "completada" ? "Completada" : r.status === "incompleta" ? "Incompleta" : r.status}
                   </span>
                   <span className="text-muted-foreground">
@@ -124,7 +124,7 @@ export function MonitoreoGuardPanel({ rondas, onSelectGuard, selectedId, onAddNo
                     {new Date(r.startedAt).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}
                   </span>
                   {hasIncidents && (
-                    <span className="rounded-full bg-red-500/20 border border-red-500/30 px-1.5 py-0.5 text-[10px] text-red-400 font-medium">
+                    <span className="rounded-full bg-status-danger-soft border border-status-danger-border px-1.5 py-0.5 text-[10px] text-status-danger-fg font-medium">
                       {r.incidentes!.length} incidente{r.incidentes!.length > 1 ? "s" : ""}
                     </span>
                   )}
@@ -145,9 +145,9 @@ export function MonitoreoGuardPanel({ rondas, onSelectGuard, selectedId, onAddNo
             {hasAlerts && (
               <div className="mt-2 space-y-1">
                 {r.alerts.map((a) => (
-                  <div key={a.id} className="flex items-center gap-2 rounded bg-red-500/10 border border-red-500/20 px-2 py-1">
-                    <AlertTriangle className="h-3 w-3 text-red-400 shrink-0" />
-                    <span className="text-[10px] text-red-400 truncate">{a.mensaje}</span>
+                  <div key={a.id} className="flex items-center gap-2 rounded bg-status-danger-soft border border-status-danger-border px-2 py-1">
+                    <AlertTriangle className="h-3 w-3 text-status-danger-fg shrink-0" />
+                    <span className="text-[10px] text-status-danger-fg truncate">{a.mensaje}</span>
                   </div>
                 ))}
               </div>
@@ -159,7 +159,7 @@ export function MonitoreoGuardPanel({ rondas, onSelectGuard, selectedId, onAddNo
                   {r.guardiaPhone && (
                     <a
                       href={`tel:${r.guardiaPhone}`}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-blue-500/10 border border-blue-500/20 px-2.5 py-1.5 text-xs text-blue-400"
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-status-info-soft border border-status-info-border px-2.5 py-1.5 text-xs text-status-info-fg"
                       onClick={(e) => e.stopPropagation()}
                     >
                       <Phone className="h-3 w-3" /> Llamar
@@ -167,7 +167,7 @@ export function MonitoreoGuardPanel({ rondas, onSelectGuard, selectedId, onAddNo
                   )}
                   {onMessage && r.installationId && (
                     <button
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-cyan-500/10 border border-cyan-500/20 px-2.5 py-1.5 text-xs text-cyan-400"
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-status-info-soft border border-cyan-500/20 px-2.5 py-1.5 text-xs text-status-info-fg"
                       onClick={(e) => { e.stopPropagation(); onMessage(r.installationId!); }}
                     >
                       <MessageCircle className="h-3 w-3" /> Mensaje
@@ -175,7 +175,7 @@ export function MonitoreoGuardPanel({ rondas, onSelectGuard, selectedId, onAddNo
                   )}
                   {onAddNote && r.guardiaId && r.installationId && (
                     <button
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 px-2.5 py-1.5 text-xs text-amber-400"
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-status-warn-soft border border-status-warn-border px-2.5 py-1.5 text-xs text-status-warn-fg"
                       onClick={(e) => { e.stopPropagation(); setNoteRondaId(isNoting ? null : r.id); }}
                     >
                       <MessageSquarePlus className="h-3 w-3" /> Nota
@@ -214,7 +214,7 @@ export function MonitoreoGuardPanel({ rondas, onSelectGuard, selectedId, onAddNo
                       <span className="text-foreground">{m.checkpointName ?? "Punto GPS"}</span>
                       {m.fotoEvidenciaUrl && (
                         <a href={m.fotoEvidenciaUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="flex-shrink-0">
-                          <img src={m.fotoEvidenciaUrl} alt="Foto" className="h-5 w-5 rounded object-cover border border-blue-500/30" />
+                          <img src={m.fotoEvidenciaUrl} alt="Foto" className="h-5 w-5 rounded object-cover border border-status-info-border" />
                         </a>
                       )}
                     </div>
@@ -226,11 +226,11 @@ export function MonitoreoGuardPanel({ rondas, onSelectGuard, selectedId, onAddNo
 
                 {hasIncidents && (
                   <div className="space-y-1.5">
-                    <p className="text-[10px] text-red-400 font-medium">Incidentes reportados:</p>
+                    <p className="text-[10px] text-status-danger-fg font-medium">Incidentes reportados:</p>
                     {r.incidentes!.map((inc) => (
-                      <div key={inc.id} className="rounded-lg bg-red-500/10 border border-red-500/20 p-2 space-y-1">
+                      <div key={inc.id} className="rounded-lg bg-status-danger-soft border border-status-danger-border p-2 space-y-1">
                         <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-medium text-red-400">
+                          <span className="text-[10px] font-medium text-status-danger-fg">
                             {INCIDENT_TYPE_LABELS[inc.tipo] ?? inc.tipo}
                           </span>
                           <span className="text-[10px] text-muted-foreground">

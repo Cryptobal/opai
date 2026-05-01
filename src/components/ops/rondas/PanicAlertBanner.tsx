@@ -101,10 +101,10 @@ export function PanicAlertBanner({ alerts, onAcknowledge }: PanicAlertBannerProp
       {activeAlerts.map((alert) => (
         <div
           key={alert.alertaId}
-          className="flex flex-wrap items-center justify-between gap-3 border-b-4 border-red-500 bg-red-900 px-4 py-3 shadow-2xl animate-pulse"
+          className="flex flex-wrap items-center justify-between gap-3 border-b-4 border-status-danger-border bg-red-900 px-4 py-3 shadow-2xl animate-pulse"
         >
           <div className="flex items-center gap-3">
-            <AlertTriangle className="h-6 w-6 shrink-0 text-red-300" />
+            <AlertTriangle className="h-6 w-6 shrink-0 text-status-danger-fg" />
             <div>
               <p className="text-sm font-bold text-white">ALERTA DE PANICO</p>
               <p className="text-sm text-red-200">
@@ -133,7 +133,7 @@ export function PanicAlertBanner({ alerts, onAcknowledge }: PanicAlertBannerProp
             </button>
             <button
               onClick={() => handleAcknowledge(alert.alertaId)}
-              className="flex items-center gap-1 rounded-lg bg-red-600 px-4 py-1.5 text-sm font-bold text-white shadow hover:bg-red-500"
+              className="flex items-center gap-1 rounded-lg bg-status-danger px-4 py-1.5 text-sm font-bold text-white shadow hover:bg-status-danger"
             >
               <Check className="h-4 w-4" /> ATENDER
             </button>
@@ -162,7 +162,7 @@ function AcknowledgedBar({ alert }: { alert: PanicAlertData }) {
   if (!visible) return null;
 
   return (
-    <div className="flex items-center justify-center gap-2 bg-red-950/80 px-4 py-1.5 text-xs text-red-300">
+    <div className="flex items-center justify-center gap-2 bg-red-950/80 px-4 py-1.5 text-xs text-status-danger-fg">
       <Check className="h-3.5 w-3.5" />
       Panico atendido &mdash; {alert.installationNombre} &mdash;{" "}
       {new Date(alert.timestamp).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}

@@ -56,16 +56,16 @@ export function CpqQuotesList({ quotes, loading, onRefresh }: CpqQuotesListProps
 
   const statusStyle = (status: string) => {
     if (status === "sent") {
-      return "bg-emerald-500/15 text-emerald-300 border-emerald-500/30";
+      return "bg-status-ok-soft text-status-ok-fg border-status-ok-border";
     }
     if (status === "draft") {
       return "bg-muted text-muted-foreground border-border";
     }
     if (status === "approved") {
-      return "bg-emerald-500/15 text-emerald-300 border-emerald-500/30";
+      return "bg-status-ok-soft text-status-ok-fg border-status-ok-border";
     }
     if (status === "rejected") {
-      return "bg-rose-500/15 text-rose-300 border-rose-500/30";
+      return "bg-status-danger-soft text-status-danger-fg border-status-danger-border";
     }
     return "bg-muted/20 text-muted-foreground border-border/40";
   };
@@ -117,7 +117,7 @@ export function CpqQuotesList({ quotes, loading, onRefresh }: CpqQuotesListProps
                     <span className="ml-2">{statusLabel(quote.status)}</span>
                   </Badge>
                   {listed ? (
-                    <Badge variant="outline" className="text-xs shrink-0 border-teal-500/40 text-teal-600 dark:text-teal-400">
+                    <Badge variant="outline" className="text-xs shrink-0 border-teal-500/40 text-teal-600 dark:text-status-info-fg">
                       Portal
                     </Badge>
                   ) : null}

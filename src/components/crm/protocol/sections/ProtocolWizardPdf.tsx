@@ -38,7 +38,7 @@ export function ProtocolWizardPdf({
   return (
     <section className="mx-auto max-w-2xl px-4 py-6">
       <header className="mb-5 flex items-center gap-2">
-        <div className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500/15 text-amber-300">
+        <div className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-status-warn-soft text-status-warn-fg">
           <FileText className="h-4 w-4" />
         </div>
         <div>
@@ -133,7 +133,7 @@ export function ProtocolWizardPdf({
                   <button
                     type="button"
                     aria-label="Quitar archivo"
-                    className="text-muted-foreground hover:text-red-400 transition-colors"
+                    className="text-muted-foreground hover:text-status-danger-fg transition-colors"
                     onClick={() =>
                       setFiles((prev) => prev.filter((_, idx) => idx !== i))
                     }

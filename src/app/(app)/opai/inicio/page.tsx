@@ -100,7 +100,7 @@ export default async function DashboardPage() {
               Ver templates
             </Link>
             {' · '}
-            <span className="inline-flex items-center rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-400">
+            <span className="inline-flex items-center rounded-md border border-status-warn-border bg-status-warn-soft px-2 py-0.5 text-xs font-medium text-status-warn-fg">
               Sistema en deprecación
             </span>
           </>

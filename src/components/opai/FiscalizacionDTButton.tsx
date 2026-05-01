@@ -25,7 +25,7 @@ export function FiscalizacionDTButton({
       href="/fiscalizacion"
       className={cn(
         "inline-flex items-center gap-2 rounded-lg px-3 py-1.5",
-        "bg-red-600 text-white font-semibold text-sm",
+        "bg-status-danger text-white font-semibold text-sm",
         "hover:bg-red-700 transition-colors shadow-sm",
         "animate-in fade-in duration-300",
         className

@@ -59,20 +59,20 @@ function generateInsight(
   if (diff > 3) {
     return {
       icon: TrendingUp,
-      color: "text-emerald-400",
+      color: "text-status-ok-fg",
       text: `El Trust Score de ${name} ha subido ${diff} puntos en el período reciente respecto al anterior. Mantiene un cumplimiento del ${compliancePct}% con Trust promedio de ${avgTrust}. Buen desempeño sostenido.`,
     };
   }
   if (diff < -3) {
     return {
       icon: TrendingDown,
-      color: "text-red-400",
+      color: "text-status-danger-fg",
       text: `El Trust Score de ${name} ha bajado ${Math.abs(diff)} puntos recientemente. El cumplimiento es del ${compliancePct}% con Trust promedio de ${avgTrust}. Se recomienda revisar las rondas recientes para identificar causas.`,
     };
   }
   return {
     icon: Minus,
-    color: "text-blue-400",
+    color: "text-status-info-fg",
     text: `${name} mantiene un Trust Score estable (promedio ${avgTrust}) con cumplimiento del ${compliancePct}%. Consistencia adecuada en ${rows.length} rondas del período.`,
   };
 }
@@ -179,10 +179,10 @@ export function RondasReportesPorGuardia({ rows, guardias }: Props) {
                     <span>
                       Total: <strong>{stats.total}</strong>
                     </span>
-                    <span className="text-emerald-400">
+                    <span className="text-status-ok-fg">
                       Completadas: <strong>{stats.completadas}</strong>
                     </span>
-                    <span className="text-amber-400">
+                    <span className="text-status-warn-fg">
                       Incompletas: <strong>{stats.incompletas}</strong>
                     </span>
                     <span>
@@ -195,20 +195,20 @@ export function RondasReportesPorGuardia({ rows, guardias }: Props) {
                   className={cn(
                     "flex flex-col items-center justify-center rounded-xl border p-3 min-w-[90px]",
                     stats.trustAvg >= 85
-                      ? "bg-emerald-500/10 border-emerald-500/25"
+                      ? "bg-status-ok-soft border-status-ok-border"
                       : stats.trustAvg >= 70
-                        ? "bg-blue-500/10 border-blue-500/25"
-                        : "bg-amber-500/10 border-amber-500/25",
+                        ? "bg-status-info-soft border-blue-500/25"
+                        : "bg-status-warn-soft border-amber-500/25",
                   )}
                 >
                   <span
                     className={cn(
                       "text-2xl font-bold tabular-nums",
                       stats.trustAvg >= 85
-                        ? "text-emerald-400"
+                        ? "text-status-ok-fg"
                         : stats.trustAvg >= 70
-                          ? "text-blue-400"
-                          : "text-amber-400",
+                          ? "text-status-info-fg"
+                          : "text-status-warn-fg",
                     )}
                   >
                     {stats.trustAvg}

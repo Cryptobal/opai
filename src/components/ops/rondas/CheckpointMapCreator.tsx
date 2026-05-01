@@ -103,7 +103,7 @@ function checkpointVerificationBadge(type: string) {
       className={
         needsQr
           ? "border-violet-500/30 text-violet-500"
-          : "border-emerald-500/30 text-emerald-500"
+          : "border-status-ok-border text-status-ok-fg"
       }
     >
       {needsQr ? "🔲 Con QR" : "📍 Solo geocerca"}
@@ -857,13 +857,13 @@ export function CheckpointMapCreator({
 
         {/* Desktop: creation panel as sidebar */}
         {isCreating && !isMobile && (
-          <div className="w-72 shrink-0 rounded-lg border border-amber-500/30 bg-card p-4 space-y-3">
+          <div className="w-72 shrink-0 rounded-lg border border-status-warn-border bg-card p-4 space-y-3">
             <div className="flex items-center justify-between">
               <h4 className="text-sm font-semibold flex items-center gap-1.5">
                 {editingCheckpointId ? (
-                  <><Pencil className="h-4 w-4 text-amber-500" /> Editar checkpoint</>
+                  <><Pencil className="h-4 w-4 text-status-warn-fg" /> Editar checkpoint</>
                 ) : (
-                  <><Plus className="h-4 w-4 text-amber-500" /> Nuevo checkpoint</>
+                  <><Plus className="h-4 w-4 text-status-warn-fg" /> Nuevo checkpoint</>
                 )}
               </h4>
               <button type="button" onClick={cancelDraft} className="text-muted-foreground hover:text-foreground">
@@ -884,9 +884,9 @@ export function CheckpointMapCreator({
           <SheetHeader className="text-left">
             <SheetTitle className="flex items-center gap-1.5">
               {editingCheckpointId ? (
-                <><Pencil className="h-4 w-4 text-amber-500" /> Editar checkpoint</>
+                <><Pencil className="h-4 w-4 text-status-warn-fg" /> Editar checkpoint</>
               ) : (
-                <><Plus className="h-4 w-4 text-amber-500" /> Nuevo checkpoint</>
+                <><Plus className="h-4 w-4 text-status-warn-fg" /> Nuevo checkpoint</>
               )}
             </SheetTitle>
           </SheetHeader>
@@ -923,7 +923,7 @@ export function CheckpointMapCreator({
                     )}
                   </div>
                   {cp.isCritical && (
-                    <Badge variant="outline" className="border-red-500/30 text-red-500 text-[10px] shrink-0">
+                    <Badge variant="outline" className="border-status-danger-border text-status-danger-fg text-[10px] shrink-0">
                       ⚠ Crítico
                     </Badge>
                   )}
@@ -960,7 +960,7 @@ export function CheckpointMapCreator({
                   <Button
                     size="sm"
                     variant="outline"
-                    className="h-6 text-[10px] px-2 text-red-500"
+                    className="h-6 text-[10px] px-2 text-status-danger-fg"
                     onClick={() => onDelete(cp.id)}
                   >
                     <Trash2 className="h-3 w-3" />

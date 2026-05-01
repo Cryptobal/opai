@@ -18,7 +18,7 @@ export function PreviewBadge({ onNavigateToPropuesta }: PreviewBadgeProps) {
       {onNavigateToPropuesta && (
         <button
           onClick={(e) => { e.stopPropagation(); onNavigateToPropuesta(); }}
-          className="ml-1 underline underline-offset-2 hover:text-amber-300 transition-colors"
+          className="ml-1 underline underline-offset-2 hover:text-status-warn-fg transition-colors"
         >
           Aprobar →
         </button>

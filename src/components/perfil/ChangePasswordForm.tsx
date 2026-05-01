@@ -151,8 +151,8 @@ export function ChangePasswordForm() {
 
         {error && (
           <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-4 py-3 flex items-start gap-3">
-            <AlertCircle className="h-4 w-4 text-red-400 flex-shrink-0 mt-0.5" />
-            <p className="text-sm text-red-400">{error}</p>
+            <AlertCircle className="h-4 w-4 text-status-danger-fg flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-status-danger-fg">{error}</p>
           </div>
         )}
 

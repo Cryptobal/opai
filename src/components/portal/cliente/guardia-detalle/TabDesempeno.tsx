@@ -17,7 +17,7 @@ export function TabDesempeno({ desempeno }: Props) {
               <p className="text-xs uppercase tracking-wider text-teal-300/80">
                 Trust Score
               </p>
-              <p className="text-3xl font-mono font-semibold text-teal-300 mt-1">
+              <p className="text-3xl font-mono font-semibold text-status-info-fg mt-1">
                 {Math.round(desempeno.trustScore)}
               </p>
             </div>
@@ -26,7 +26,7 @@ export function TabDesempeno({ desempeno }: Props) {
                 <p className="text-[10px] uppercase tracking-wider text-zinc-500">
                   Nivel
                 </p>
-                <p className="text-sm text-teal-300 mt-1">{desempeno.nivel}</p>
+                <p className="text-sm text-status-info-fg mt-1">{desempeno.nivel}</p>
               </div>
             )}
           </div>
@@ -39,14 +39,14 @@ export function TabDesempeno({ desempeno }: Props) {
           label="Asistencia"
           value={`${desempeno.asistenciaUltimos30Dias}%`}
           sub="últ 30 días"
-          tone="text-emerald-400 bg-emerald-400/10 border-emerald-400/20"
+          tone="text-status-ok-fg bg-emerald-400/10 border-emerald-400/20"
         />
         <StatCard
           icon={CheckCircle2}
           label="Rondas"
           value={desempeno.rondasCompletadasUltimos30Dias}
           sub="últ 30 días"
-          tone="text-teal-400 bg-teal-400/10 border-teal-400/20"
+          tone="text-status-info-fg bg-teal-400/10 border-teal-400/20"
         />
         <StatCard
           icon={AlertTriangle}
@@ -55,7 +55,7 @@ export function TabDesempeno({ desempeno }: Props) {
           sub="últ 30 días"
           tone={
             desempeno.incidentesUltimos30Dias > 0
-              ? "text-amber-400 bg-amber-400/10 border-amber-400/20"
+              ? "text-status-warn-fg bg-amber-400/10 border-amber-400/20"
               : "text-zinc-400 bg-white/[0.03] border-white/[0.06]"
           }
         />

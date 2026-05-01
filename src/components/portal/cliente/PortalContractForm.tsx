@@ -52,9 +52,9 @@ function StepIndicator({ current }: { current: Step }) {
               className={[
                 "flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium transition-colors flex-1 min-w-0",
                 isActive
-                  ? "bg-teal-600/30 text-teal-300 border border-teal-600/50"
+                  ? "bg-teal-600/30 text-status-info-fg border border-teal-600/50"
                   : isDone
-                  ? "bg-emerald-900/20 text-emerald-400"
+                  ? "bg-emerald-900/20 text-status-ok-fg"
                   : "text-zinc-600",
               ].join(" ")}
             >
@@ -86,7 +86,7 @@ function Field({
     <div className="space-y-1">
       <label className="text-xs font-medium text-zinc-400">
         {label}
-        {required && <span className="text-red-400 ml-0.5">*</span>}
+        {required && <span className="text-status-danger-fg ml-0.5">*</span>}
       </label>
       {children}
     </div>
@@ -249,7 +249,7 @@ export function PortalContractForm({ quoteId, accountRut, accountName, onComplet
   if (step === "done") {
     return (
       <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-5 mt-4 space-y-4">
-        <div className="flex items-center gap-2 text-emerald-400 font-medium text-sm">
+        <div className="flex items-center gap-2 text-status-ok-fg font-medium text-sm">
           <CheckCircle className="w-5 h-5" />
           Datos de contrato recibidos
         </div>
@@ -312,7 +312,7 @@ export function PortalContractForm({ quoteId, accountRut, accountName, onComplet
             <button
               onClick={goNext}
               disabled={!empresa.rut || !empresa.legalName || !empresa.address}
-              className="flex items-center gap-2 px-5 h-9 rounded-lg bg-teal-600 hover:bg-teal-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold transition-colors"
+              className="flex items-center gap-2 px-5 h-9 rounded-lg bg-status-info hover:bg-status-info disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold transition-colors"
             >
               Siguiente
               <ChevronRight className="w-4 h-4" />
@@ -365,7 +365,7 @@ export function PortalContractForm({ quoteId, accountRut, accountName, onComplet
             <button
               onClick={goNext}
               disabled={!facturacion.email || !facturacion.contact}
-              className="flex items-center gap-2 px-5 h-9 rounded-lg bg-teal-600 hover:bg-teal-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold transition-colors"
+              className="flex items-center gap-2 px-5 h-9 rounded-lg bg-status-info hover:bg-status-info disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold transition-colors"
             >
               Siguiente
               <ChevronRight className="w-4 h-4" />
@@ -388,7 +388,7 @@ export function PortalContractForm({ quoteId, accountRut, accountName, onComplet
               {contactos.length > 1 && (
                 <button
                   onClick={() => removeContacto(idx)}
-                  className="absolute top-2 right-2 text-zinc-600 hover:text-red-400 transition-colors"
+                  className="absolute top-2 right-2 text-zinc-600 hover:text-status-danger-fg transition-colors"
                   aria-label="Eliminar contacto"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
@@ -439,14 +439,14 @@ export function PortalContractForm({ quoteId, accountRut, accountName, onComplet
 
           <button
             onClick={addContacto}
-            className="flex items-center gap-1.5 text-xs text-teal-400 hover:text-teal-300 transition-colors"
+            className="flex items-center gap-1.5 text-xs text-status-info-fg hover:text-status-info-fg transition-colors"
           >
             <Plus className="w-3.5 h-3.5" />
             Agregar otro contacto
           </button>
 
           {errorMsg && (
-            <p className="text-xs text-red-400 bg-red-900/20 border border-red-800/40 rounded-lg px-3 py-2">
+            <p className="text-xs text-status-danger-fg bg-red-900/20 border border-red-800/40 rounded-lg px-3 py-2">
               {errorMsg}
             </p>
           )}
@@ -477,7 +477,7 @@ export function PortalContractForm({ quoteId, accountRut, accountName, onComplet
             <button
               onClick={handleSubmit}
               disabled={submitting}
-              className="flex items-center gap-2 px-5 h-9 rounded-lg bg-teal-600 hover:bg-teal-500 disabled:opacity-50 text-white text-sm font-semibold transition-colors"
+              className="flex items-center gap-2 px-5 h-9 rounded-lg bg-status-info hover:bg-status-info disabled:opacity-50 text-white text-sm font-semibold transition-colors"
             >
               {submitting ? (
                 <Loader2 className="w-4 h-4 animate-spin" />

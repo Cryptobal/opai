@@ -58,10 +58,10 @@ const STATUS_LABELS: Record<string, string> = {
 
 const STATUS_COLORS: Record<string, string> = {
   DRAFT: "bg-zinc-500/15 text-zinc-400",
-  SUBMITTED: "bg-blue-500/15 text-blue-400",
-  IN_APPROVAL: "bg-amber-500/15 text-amber-400",
-  APPROVED: "bg-emerald-500/15 text-emerald-400",
-  REJECTED: "bg-red-500/15 text-red-400",
+  SUBMITTED: "bg-status-info-soft text-status-info-fg",
+  IN_APPROVAL: "bg-status-warn-soft text-status-warn-fg",
+  APPROVED: "bg-status-ok-soft text-status-ok-fg",
+  REJECTED: "bg-status-danger-soft text-status-danger-fg",
   PAID: "bg-purple-500/15 text-purple-400",
 };
 
@@ -217,13 +217,13 @@ export function ReportesClient({
                         s.status === "PAID"
                           ? "bg-purple-500"
                           : s.status === "APPROVED"
-                          ? "bg-emerald-500"
+                          ? "bg-status-ok"
                           : s.status === "REJECTED"
-                          ? "bg-red-500"
+                          ? "bg-status-danger"
                           : s.status === "IN_APPROVAL"
-                          ? "bg-amber-500"
+                          ? "bg-status-warn"
                           : s.status === "SUBMITTED"
-                          ? "bg-blue-500"
+                          ? "bg-status-info"
                           : "bg-zinc-500"
                       )}
                       style={{ width: `${Math.max(pct, 1)}%` }}
