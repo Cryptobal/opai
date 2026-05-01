@@ -116,7 +116,7 @@ function ProfileIncompleteBadge({ missing }: { missing?: string[] }) {
     <span
       title={`Ficha incompleta — falta: ${list}`}
       onClick={(e) => e.stopPropagation()}
-      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-status-warn-fg dark:text-status-warn-fg text-[10px] font-medium border border-amber-300/50 dark:border-amber-700/50 cursor-help"
+      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-status-warn-soft text-status-warn-fg text-[10px] font-medium border border-status-warn-border cursor-help"
     >
       <AlertCircle className="h-3 w-3" />
       Incompleta
@@ -1285,7 +1285,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                             href={`https://wa.me/56${phone}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 rounded-full bg-green-600/15 px-2 py-0.5 text-xs font-medium text-status-ok-fg hover:bg-green-600/25 transition-colors"
+                            className="inline-flex items-center gap-1 rounded-full bg-status-ok-soft px-2 py-0.5 text-xs font-medium text-status-ok-fg hover:brightness-110 transition-colors"
                             onClick={(e) => e.stopPropagation()}
                           >
                             <svg className="h-3 w-3" viewBox="0 0 24 24" fill="currentColor">

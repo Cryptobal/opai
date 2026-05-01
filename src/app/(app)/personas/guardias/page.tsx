@@ -2,7 +2,8 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/opai-ds";
+import { PageHero } from "@/components/opai-ds";
+import { Users } from "lucide-react";
 import { GuardiasClient } from "@/components/ops";
 import { computeProfileCompleteness } from "@/lib/postulacion-completeness";
 
@@ -95,8 +96,12 @@ export default async function GuardiasPage() {
 
   return (
     <div className="space-y-6 min-w-0 overflow-x-hidden">
-      <PageHeader
+      <PageHero
+        icon={<Users />}
+        iconTone="sky"
+        eyebrow={["Personas", "Guardias"]}
         title="Personas"
+        subtitle="alta y control de elegibilidad"
         description="Alta de personas y control de elegibilidad operativa."
       />
       <GuardiasClient

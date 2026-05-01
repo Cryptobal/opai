@@ -641,7 +641,7 @@ export function GuardiaDetailClient({
             </CollapsibleSection>
             {guardia.persona.id && (
               <CollapsibleSection
-                icon={<Brain className="h-4 w-4 text-purple-500" />}
+                icon={<Brain className="h-4 w-4 text-tint-violet-fg" />}
                 title="Evaluación psicolaboral"
                 defaultOpen={false}
               >
