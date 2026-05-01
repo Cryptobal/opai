@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
-import { PageHeader } from "@/components/opai-ds";
+import { PageHero } from "@/components/opai-ds";
+import { ShieldCheck } from "lucide-react";
 import { RondasDashboardClient } from "@/components/ops/rondas";
 import { RondasSubnav } from "@/components/ops/RondasSubnav";
 
@@ -14,9 +15,13 @@ export default async function OpsRondasPage() {
 
   return (
     <div className="space-y-5 min-w-0">
-      <PageHeader
+      <PageHero
+        icon={<ShieldCheck />}
+        iconTone="emerald"
+        eyebrow={["Operaciones", "Rondas"]}
         title="Rondas de seguridad"
-        description="Dashboard ejecutivo de rondas e instalaciones."
+        subtitle="dashboard ejecutivo"
+        description="Vista global de rondas e instalaciones con cumplimiento, alertas e incidentes consolidados."
       />
       <RondasSubnav />
       <RondasDashboardClient />
