@@ -60,6 +60,8 @@ export interface EntityDetailLayoutProps {
       /** Custom hex color for the badge (overrides variant styling) */
       color?: string;
     };
+    /** Optional small adornment rendered next to the status chip (e.g. warning icon with tooltip) */
+    statusAdornment?: ReactNode;
     /** Actions shown in the header */
     actions?: EntityHeaderAction[];
     /** Extra content slot to the right (e.g. toggle, custom button) */
@@ -270,6 +272,9 @@ export function EntityDetailLayout({
                       {header.status.label}
                     </Badge>
                   )}
+                  {header.statusAdornment && (
+                    <span className="shrink-0 hidden sm:inline-flex">{header.statusAdornment}</span>
+                  )}
                 </div>
                 {header.subtitle && (
                   <p className="text-sm text-ds-text-3 mt-1 truncate lg:hidden">
@@ -278,7 +283,7 @@ export function EntityDetailLayout({
                 )}
                 {/* Mobile-only: chip de estado compacto, mismo renglón que subtítulo si existiera */}
                 {header.status && (
-                  <div className="mt-1 sm:hidden">
+                  <div className="mt-1 sm:hidden flex items-center gap-1.5">
                     <span
                       className={cn(
                         "inline-flex items-center gap-1 rounded-full px-1.5 py-px text-[10px] font-medium leading-tight",
@@ -295,6 +300,7 @@ export function EntityDetailLayout({
                       />
                       {header.status.label}
                     </span>
+                    {header.statusAdornment}
                   </div>
                 )}
               </div>

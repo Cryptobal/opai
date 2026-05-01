@@ -46,6 +46,7 @@ import {
 } from "@/lib/personas";
 import { canEditGuardiasPlanSeleccion, hasOpsCapability } from "@/lib/ops-rbac";
 import { SeleccionadoDestinoFields } from "@/components/ops/SeleccionadoDestinoFields";
+import { UnassignedHiredBadge, isContratadoSinAsignacion } from "@/components/ops/UnassignedHiredBadge";
 import { SHOW_PIN_IN_PROFILE } from "@/lib/guard-portal";
 
 type GuardiaItem = {
@@ -366,7 +367,11 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
     return guardias.filter((item) => {
-      if (lifecycleFilter !== "all" && item.lifecycleStatus !== lifecycleFilter) return false;
+      if (lifecycleFilter === "contratado_sin_asignacion") {
+        if (!isContratadoSinAsignacion(item.lifecycleStatus, item.currentInstallation?.id ?? null)) return false;
+      } else if (lifecycleFilter !== "all" && item.lifecycleStatus !== lifecycleFilter) {
+        return false;
+      }
       if (!query) return true;
       const text =
         `${formatPersonName(item.persona.firstName, item.persona.lastName)} ${item.persona.rut ?? ""} ${item.persona.email ?? ""} ${item.code ?? ""} ${item.persona.addressFormatted ?? ""} ${item.currentInstallation?.name ?? ""} ${item.intendedInstallation?.name ?? ""} ${item.intendedInstallation?.account?.name ?? ""}`.toLowerCase();
@@ -980,11 +985,14 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                 key: s,
                 label: LIFECYCLE_LABELS[s] || s,
               })),
+              { key: "contratado_sin_asignacion", label: "Sin asignación" },
             ]}
             activeFilter={lifecycleFilter}
             onFilterChange={(f) => {
               setLifecycleFilter(f);
-              if (viewMode === "spreadsheet") {
+              if (f === "contratado_sin_asignacion") {
+                if (viewMode === "spreadsheet") setViewMode("list");
+              } else if (viewMode === "spreadsheet") {
                 void handleLoadGrid(f);
               }
             }}
@@ -1033,6 +1041,10 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                           {item.profileComplete === false && (
                             <ProfileIncompleteBadge missing={item.profileMissing} />
                           )}
+                          <UnassignedHiredBadge
+                            lifecycleStatus={item.lifecycleStatus}
+                            currentInstallationId={item.currentInstallation?.id ?? null}
+                          />
                           {canChangeLifecycle ? (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
@@ -1195,6 +1207,10 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                           {item.profileComplete === false && (
                             <ProfileIncompleteBadge missing={item.profileMissing} />
                           )}
+                          <UnassignedHiredBadge
+                            lifecycleStatus={item.lifecycleStatus}
+                            currentInstallationId={item.currentInstallation?.id ?? null}
+                          />
                           {canChangeLifecycle ? (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
