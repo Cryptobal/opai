@@ -527,6 +527,64 @@ const MIGRATED_PATHS = [
   "src/app/(app)/ops/rondas/reportes/page.tsx",
   "src/app/(app)/ops/rondas/alertas/page.tsx",
   "src/app/(app)/ops/rondas/configuracion/page.tsx",
+
+  // Cluster 5B.3 — Tickets (módulo completo).
+  // Migra los 2 page wrappers al patrón hero (iconTone emerald,
+  // TicketCheck) y limpia 12 hex residuales en 5 componentes:
+  //
+  // - TicketsClient (3 hex): banner "Hallazgo de supervisión"
+  //   text-amber-400/80 + text-amber-200/90 → status-warn-fg/*
+  //   (consistente en contexto warm); guardia RUT inline
+  //   text-blue-400/60 → status-info-fg/60.
+  // - TicketDetailClient (4 hex): card guardia RUT/code y
+  //   ChevronRight (text-blue-400/*) → status-info-fg/*; botón
+  //   "Sin asignar" bg-yellow-500/5 → bg-status-warn-soft/30 y
+  //   "Asignar" label text-yellow-500/60 → status-warn-fg/60.
+  // - TicketsKanban (2 hex): KANBAN_COLUMNS "waiting"
+  //   bg-purple-500 → bg-tint-violet-fg (categórico workflow,
+  //   consistente con "Libre"/"Refuerzo"/"asignado"/etc.); icon
+  //   UserCircle "sin asignar" text-yellow-500/50 → status-warn-fg/50.
+  // - TicketsDashboard (1 hex): item unassigned en lista
+  //   bg-yellow-500/20 → bg-status-warn-soft + border ámbar
+  //   (diferenciación visual del SLA proximo, ambos warm).
+  // - TicketFindingCard (2 hex): eyebrow text-amber-300/70 →
+  //   status-warn-fg/70; guardia code mono text-blue-400/60 →
+  //   status-info-fg/60.
+  //
+  // Decisión arquitectónica:
+  // - Kanban "waiting" → tint-violet-fg (categórico workflow,
+  //   patrón consistente con todos los categóricos especiales del
+  //   proyecto: "asignado", "CP omitido", "EXTRA", "Refuerzo",
+  //   "Libre", "speed", "select").
+  //
+  // 4 componentes ya limpios de drift de color post-5B.0 — solo se
+  // certifican en esta pasada: InstallationTicketCard,
+  // TicketApprovalTimeline, TicketsByInstallationMap,
+  // TicketsByInstallationView.
+  //
+  // NO TOCADO en este sub-step:
+  // - TicketsSubnav (componente compartido).
+  // - Logic, mutations, queries, optimistic updates, polling,
+  //   kanban drag-and-drop, modals, comentarios, SLA tracking,
+  //   approval workflow, status changes — todo igual.
+  //
+  // CIERRE DEL CLUSTER 5B.3 (Tickets) — todo el módulo alineado al
+  // DS v3 a nivel de color. Próximo cluster: 5B.4 (Supervisión) — ~2 h.
+  //
+  // Solo las 2 SC pages se agregan: ambas quedan 100% limpias tras
+  // la migración a <PageHero>. Los 9 CCs (TicketsClient,
+  // TicketDetailClient, TicketsKanban, TicketsDashboard,
+  // TicketFindingCard, InstallationTicketCard, TicketApprovalTimeline,
+  // TicketsByInstallationMap, TicketsByInstallationView) NO se agregan
+  // a MIGRATED_PATHS: mismo criterio que 4A/4B/4C/4D/5A.1..5A.8/
+  // 5B.1.a/5B.1.b/5B.2.a/5B.2.b.1/5B.2.b.2/5B.2.c — los archivos
+  // completaron su migración granular de color drift pero siguen
+  // teniendo drift tipográfico legacy fuera de eso (text-[10px]/
+  // text-[11px] en badges, eyebrows, chips de guardia, kanban cards,
+  // timeline cells, mapas). Se agregarán cuando se haga su pasada de
+  // limpieza tipográfica completa en una sub-fase futura.
+  "src/app/(app)/ops/tickets/page.tsx",
+  "src/app/(app)/ops/tickets/[id]/page.tsx",
   // Agregar aquí cuando se migren:
   // "src/components/personas/",
   // "src/components/crm/",

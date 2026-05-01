@@ -1016,8 +1016,8 @@ function TicketCard({ ticket, onClick }: { ticket: Ticket; onClick: () => void }
       {/* Row 2.5: Supervision finding context (documento específico o fallback) */}
       {ticket.finding && (
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px]">
-          <FileText className="h-3 w-3 text-amber-400/80" />
-          <span className="font-medium text-amber-200/90">
+          <FileText className="h-3 w-3 text-status-warn-fg/80" />
+          <span className="font-medium text-status-warn-fg/90">
             {ticket.finding.tipoDocNombre
               ?? ticket.finding.guardiaDocCode
               ?? findingCategoryLabel(ticket.finding.category)}
@@ -1062,7 +1062,7 @@ function TicketCard({ ticket, onClick }: { ticket: Ticket; onClick: () => void }
               {ticket.guardiaName}
             </span>
             {ticket.guardiaRut && (
-              <span className="text-[10px] text-blue-400/60">
+              <span className="text-[10px] text-status-info-fg/60">
                 ({ticket.guardiaRut})
               </span>
             )}

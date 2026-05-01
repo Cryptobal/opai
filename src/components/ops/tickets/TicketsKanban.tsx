@@ -39,7 +39,7 @@ const KANBAN_COLUMNS: { status: TicketStatus; extraStatuses?: TicketStatus[]; co
   { status: "pending_approval", color: "bg-status-warn" },
   { status: "open", color: "bg-status-warn" },
   { status: "in_progress", color: "bg-status-info" },
-  { status: "waiting", color: "bg-purple-500" },
+  { status: "waiting", color: "bg-tint-violet-fg" },
   { status: "resolved", extraStatuses: ["closed"], color: "bg-status-ok" },
   { status: "cancelled", color: "bg-status-danger" },
 ];
@@ -196,7 +196,7 @@ function KanbanCard({
             {ticket.assignedToName.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase()}
           </div>
         ) : (
-          <UserCircle className="ml-auto h-4 w-4 text-yellow-500/50" />
+          <UserCircle className="ml-auto h-4 w-4 text-status-warn-fg/50" />
         )}
       </div>
 

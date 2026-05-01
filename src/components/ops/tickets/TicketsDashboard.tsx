@@ -290,7 +290,7 @@ export function TicketsDashboard() {
                     item.slaBreached
                       ? "bg-status-danger-soft text-status-danger-fg"
                       : item.unassigned
-                        ? "bg-yellow-500/20 text-status-warn-fg"
+                        ? "bg-status-warn-soft border border-status-warn-border text-status-warn-fg"
                         : "bg-status-warn-soft text-status-warn-fg"
                   }`}
                 >

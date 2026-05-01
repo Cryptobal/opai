@@ -54,7 +54,7 @@ export function TicketFindingCard({ finding }: Props) {
         <div className="flex items-start gap-2.5 min-w-0">
           <FileText className="h-5 w-5 shrink-0 text-status-warn-fg mt-0.5" />
           <div className="min-w-0">
-            <p className="text-[10px] font-medium uppercase tracking-wider text-amber-300/70">
+            <p className="text-[10px] font-medium uppercase tracking-wider text-status-warn-fg/70">
               Hallazgo de supervisión
             </p>
             <p className="text-base font-semibold text-foreground leading-snug">
@@ -111,7 +111,7 @@ export function TicketFindingCard({ finding }: Props) {
           <span className="text-status-info-fg font-medium">Guardia asociado:</span>
           <span>{finding.guardName}</span>
           {finding.guardCode && (
-            <span className="font-mono text-[10px] text-blue-400/60">
+            <span className="font-mono text-[10px] text-status-info-fg/60">
               ({finding.guardCode})
             </span>
           )}
