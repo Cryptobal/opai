@@ -366,7 +366,7 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
               {statusConfig?.label ?? doc.status}
             </span>
             {pendingSuggestionsCount > 0 && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-yellow-500/20 text-yellow-700 border border-yellow-500/40">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-status-warn-soft text-status-warn-fg border border-status-warn-border">
                 {pendingSuggestionsCount} sugerencia(s) del cliente
               </span>
             )}
@@ -568,7 +568,7 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
 
       {/* Contract client portal link — compact mobile */}
       {doc?.contractClientToken && (
-        <div className="flex flex-wrap items-center gap-2 p-2.5 sm:p-3 rounded-lg border border-teal-600/30 bg-teal-950/20">
+        <div className="flex flex-wrap items-center gap-2 p-2.5 sm:p-3 rounded-lg border border-status-info-border bg-status-info-soft/30">
           <FileSignature className="h-4 w-4 text-status-info-fg shrink-0" />
           <span className="text-xs text-status-info-fg font-medium shrink-0">
             Portal cliente
@@ -692,7 +692,7 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
               <FileSignature className="h-4 w-4 text-status-warn-fg" />
               Sugerencias del cliente
               {suggestions.filter((s: any) => s.status === "pending").length > 0 && (
-                <span className="bg-yellow-600 text-white text-xs px-1.5 py-0.5 rounded-full">
+                <span className="bg-status-warn text-white text-xs px-1.5 py-0.5 rounded-full">
                   {suggestions.filter((s: any) => s.status === "pending").length}
                 </span>
               )}
@@ -706,17 +706,17 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
               <div
                 key={s.id}
                 className={`rounded-lg border p-3 space-y-2 ${
-                  s.status === "pending" ? "border-yellow-600/50 bg-yellow-950/20" :
-                  s.status === "approved" ? "border-green-600/30 bg-green-950/10" :
-                  "border-red-600/30 bg-red-950/10"
+                  s.status === "pending" ? "border-status-warn-border bg-status-warn-soft/30" :
+                  s.status === "approved" ? "border-status-ok-border bg-status-ok-soft/30" :
+                  "border-status-danger-border bg-status-danger-soft/30"
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">Cláusula {s.clauseNumber}: {s.clauseTitle}</span>
                   <span className={`text-xs px-2 py-0.5 rounded ${
-                    s.status === "pending" ? "bg-yellow-600/20 text-status-warn-fg" :
-                    s.status === "approved" ? "bg-green-600/20 text-status-ok-fg" :
-                    "bg-red-600/20 text-status-danger-fg"
+                    s.status === "pending" ? "bg-status-warn-soft text-status-warn-fg" :
+                    s.status === "approved" ? "bg-status-ok-soft text-status-ok-fg" :
+                    "bg-status-danger-soft text-status-danger-fg"
                   }`}>
                     {s.status === "pending" ? "Pendiente" : s.status === "approved" ? "Aprobada" : "Rechazada"}
                   </span>
@@ -725,13 +725,13 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div>
                     <span className="text-muted-foreground block mb-1">Original:</span>
-                    <div className="bg-red-950/30 border border-red-900/30 rounded p-2 max-h-32 overflow-y-auto whitespace-pre-wrap">
+                    <div className="bg-status-danger-soft/30 border border-status-danger-border rounded p-2 max-h-32 overflow-y-auto whitespace-pre-wrap">
                       {s.originalContent}
                     </div>
                   </div>
                   <div>
                     <span className="text-muted-foreground block mb-1">Propuesto:</span>
-                    <div className="bg-green-950/30 border border-green-900/30 rounded p-2 max-h-32 overflow-y-auto whitespace-pre-wrap">
+                    <div className="bg-status-ok-soft/30 border border-status-ok-border rounded p-2 max-h-32 overflow-y-auto whitespace-pre-wrap">
                       {s.suggestedContent}
                     </div>
                   </div>
@@ -747,7 +747,7 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
                     <button
                       onClick={() => handleResolveSuggestion(s.id, "approve")}
                       disabled={resolvingSuggestion === s.id}
-                      className="px-3 py-1 text-xs bg-green-600 hover:bg-status-ok text-white rounded disabled:opacity-50"
+                      className="px-3 py-1 text-xs bg-status-ok hover:brightness-110 text-white rounded disabled:opacity-50"
                     >
                       Aprobar
                     </button>

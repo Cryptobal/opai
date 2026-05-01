@@ -47,9 +47,9 @@ const planOrder = ['free', 'starter', 'profesional', 'enterprise'];
 
 const planBadge: Record<string, string> = {
   free: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
-  starter: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-status-info-fg',
-  profesional: 'bg-teal-100 text-teal-700 dark:bg-teal-900 dark:text-status-info-fg',
-  enterprise: 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300',
+  starter: 'bg-status-info-soft text-status-info-fg',
+  profesional: 'bg-status-info-soft text-status-info-fg',
+  enterprise: 'bg-tint-violet text-tint-violet-fg',
 };
 
 const MODULE_LABELS: Record<string, string> = {
@@ -110,7 +110,7 @@ export function MiPlanClient() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-status-info border-t-transparent" />
       </div>
     );
   }
@@ -184,7 +184,7 @@ export function MiPlanClient() {
         <h3 className="mb-3 text-lg font-semibold text-gray-900 dark:text-gray-100">Modulos incluidos</h3>
         <div className="flex flex-wrap gap-2">
           {modules.map((m) => (
-            <span key={m} className="rounded-full bg-emerald-50 dark:bg-emerald-900/20 px-3 py-1 text-xs font-medium text-status-ok-fg dark:text-status-ok-fg">
+            <span key={m} className="rounded-full bg-status-ok-soft px-3 py-1 text-xs font-medium text-status-ok-fg">
               {MODULE_LABELS[m] ?? m}
             </span>
           ))}
@@ -209,20 +209,20 @@ export function MiPlanClient() {
       )}
 
       {/* Monthly estimate */}
-      <div className="rounded-xl border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-900/20 p-6">
-        <h3 className="mb-2 text-lg font-semibold text-blue-900 dark:text-blue-100">Estimacion mensual</h3>
+      <div className="rounded-xl border border-status-info-border bg-status-info-soft/30 p-6">
+        <h3 className="mb-2 text-lg font-semibold text-status-info-fg">Estimacion mensual</h3>
         <div className="space-y-1 text-sm">
-          <div className="flex justify-between text-blue-800 dark:text-blue-200">
+          <div className="flex justify-between text-status-info-fg">
             <span>Plan base</span>
             <span>{effectiveBase > 0 ? `${effectiveBase} ${plan.currency}` : 'Gratis'}</span>
           </div>
           {addonTotal > 0 && (
-            <div className="flex justify-between text-blue-800 dark:text-blue-200">
+            <div className="flex justify-between text-status-info-fg">
               <span>Add-ons</span>
               <span>{addonTotal} UF</span>
             </div>
           )}
-          <div className="flex justify-between border-t border-blue-200 dark:border-blue-700 pt-1 font-semibold text-blue-900 dark:text-blue-100">
+          <div className="flex justify-between border-t border-status-info-border pt-1 font-semibold text-status-info-fg">
             <span>Total estimado</span>
             <span>{effectiveBase + addonTotal} {plan.currency}</span>
           </div>
@@ -245,21 +245,21 @@ export function MiPlanClient() {
                   key={cp.slug}
                   className={`rounded-lg border p-4 ${
                     isCurrent
-                      ? 'border-status-info-border bg-blue-50/50 dark:border-blue-400 dark:bg-blue-900/10'
+                      ? 'border-status-info-border bg-status-info-soft/30'
                       : cp.featured
-                        ? 'border-teal-300 dark:border-teal-700'
+                        ? 'border-status-info-border'
                         : 'border-gray-200 dark:border-gray-700'
                   }`}
                 >
                   <div className="flex items-center justify-between">
                     <h4 className="font-semibold text-gray-900 dark:text-gray-100">{cp.name}</h4>
                     {isCurrent && (
-                      <span className="rounded-full bg-blue-100 dark:bg-blue-900 px-2 py-0.5 text-xs font-medium text-blue-700 dark:text-status-info-fg">
+                      <span className="rounded-full bg-status-info-soft px-2 py-0.5 text-xs font-medium text-status-info-fg">
                         Actual
                       </span>
                     )}
                     {cp.featured && !isCurrent && (
-                      <span className="rounded-full bg-teal-100 dark:bg-teal-900 px-2 py-0.5 text-xs font-medium text-teal-700 dark:text-status-info-fg">
+                      <span className="rounded-full bg-status-info-soft px-2 py-0.5 text-xs font-medium text-status-info-fg">
                         Popular
                       </span>
                     )}
@@ -279,7 +279,7 @@ export function MiPlanClient() {
                     <button
                       type="button"
                       onClick={() => setUpgradeModal({ type: 'plan', value: cp.slug })}
-                      className="mt-3 w-full rounded-lg bg-status-info px-3 py-2 text-xs font-medium text-white hover:bg-blue-700 transition-colors"
+                      className="mt-3 w-full rounded-lg bg-status-info px-3 py-2 text-xs font-medium text-white hover:brightness-110 transition-colors"
                     >
                       Solicitar upgrade
                     </button>
@@ -330,7 +330,7 @@ export function MiPlanClient() {
                     type="button"
                     onClick={sendRequest}
                     disabled={sending}
-                    className="rounded-lg bg-status-info px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                    className="rounded-lg bg-status-info px-4 py-2 text-sm font-medium text-white hover:brightness-110 disabled:opacity-50"
                   >
                     {sending ? 'Enviando...' : 'Enviar solicitud'}
                   </button>

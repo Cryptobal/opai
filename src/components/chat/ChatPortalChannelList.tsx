@@ -327,7 +327,7 @@ export function ChatPortalChannelList({
                 )}
                 <span>{section.label}</span>
                 {sectionUnread > 0 && (
-                  <span className="ml-auto rounded-full bg-teal-500/20 px-1.5 py-0.5 text-[10px] font-bold text-status-info-fg">
+                  <span className="ml-auto rounded-full bg-status-info-soft px-1.5 py-0.5 text-[10px] font-bold text-status-info-fg">
                     {sectionUnread > 99 ? "99+" : sectionUnread}
                   </span>
                 )}
@@ -364,7 +364,7 @@ export function ChatPortalChannelList({
                           : "text-zinc-300 hover:bg-[rgba(255,255,255,0.04)]",
                       )}
                     >
-                      <span className="opai-chat-mobile-avatar flex shrink-0 items-center justify-center bg-teal-500/80 text-sm font-black text-zinc-950">
+                      <span className="opai-chat-mobile-avatar flex shrink-0 items-center justify-center bg-status-info text-sm font-black text-zinc-950">
                         {ch.channelType === "DIRECT" ? name.charAt(0).toUpperCase() : <Icon className="h-4 w-4" />}
                       </span>
                       <div className="flex-1 min-w-0">

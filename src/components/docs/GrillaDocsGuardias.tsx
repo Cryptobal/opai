@@ -112,7 +112,7 @@ function getInitials(name: string): string {
 }
 
 function complianceColor(pct: number): string {
-  if (pct >= 80) return "bg-green-500/20 text-status-ok-fg ring-green-500/30";
+  if (pct >= 80) return "bg-status-ok-soft text-status-ok-fg ring-status-ok-border";
   if (pct >= 50) return "bg-status-warn-soft text-status-warn-fg ring-amber-500/30";
   return "bg-status-danger-soft text-status-danger-fg ring-red-500/30";
 }
