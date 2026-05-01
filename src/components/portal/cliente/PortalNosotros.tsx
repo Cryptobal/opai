@@ -87,8 +87,8 @@ function FadeIn({ children, delay = 0, className = "" }: { children: React.React
 function LivePulse() {
   return (
     <span className="relative flex h-2 w-2">
-      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
+      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-status-ok opacity-75" />
+      <span className="relative inline-flex rounded-full h-2 w-2 bg-status-ok" />
     </span>
   );
 }

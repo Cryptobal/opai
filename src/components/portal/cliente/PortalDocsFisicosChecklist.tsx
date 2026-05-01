@@ -224,7 +224,7 @@ function ItemRow({ item }: { item: Item }) {
         <div className="flex items-center gap-2 flex-wrap">
           <p className="text-sm text-zinc-200 truncate">{item.tipo.nombre}</p>
           {item.tipo.obligatorio && (
-            <span className="text-[9px] uppercase font-semibold text-amber-400/90 tracking-wider">
+            <span className="text-[9px] uppercase font-semibold text-status-warn-fg/90 tracking-wider">
               Obligatorio
             </span>
           )}

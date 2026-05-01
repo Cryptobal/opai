@@ -65,11 +65,11 @@ export function PortalSignContract({ signatureToken, onSigned }: Props) {
   const signUrl = `/sign/${signatureToken}`;
 
   return (
-    <div className="rounded-xl border border-blue-800/50 bg-blue-950/30 p-5 space-y-4">
+    <div className="rounded-xl border border-status-info-border bg-status-info-soft/50 p-5 space-y-4">
       <div className="flex items-center gap-3">
         <FileSignature className="w-6 h-6 text-status-info-fg shrink-0" />
         <div className="min-w-0">
-          <p className="font-semibold text-blue-200 truncate">
+          <p className="font-semibold text-status-info-fg truncate">
             {info?.documentTitle ?? "Contrato de Servicio"}
           </p>
           <p className="text-xs text-status-info-fg">Pendiente de tu firma electronica</p>
@@ -99,7 +99,7 @@ export function PortalSignContract({ signatureToken, onSigned }: Props) {
         <ExternalLink className="w-3.5 h-3.5 opacity-70" />
       </a>
 
-      <p className="text-xs text-blue-500/70 text-center">
+      <p className="text-xs text-status-info-fg/70 text-center">
         Se abrira el proceso de firma en una nueva ventana. Puedes volver aqui al finalizar.
       </p>
     </div>

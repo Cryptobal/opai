@@ -52,9 +52,9 @@ function StepIndicator({ current }: { current: Step }) {
               className={[
                 "flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium transition-colors flex-1 min-w-0",
                 isActive
-                  ? "bg-teal-600/30 text-status-info-fg border border-teal-600/50"
+                  ? "bg-status-info-soft text-status-info-fg border border-status-info-border"
                   : isDone
-                  ? "bg-emerald-900/20 text-status-ok-fg"
+                  ? "bg-status-ok-soft text-status-ok-fg"
                   : "text-zinc-600",
               ].join(" ")}
             >
@@ -446,7 +446,7 @@ export function PortalContractForm({ quoteId, accountRut, accountName, onComplet
           </button>
 
           {errorMsg && (
-            <p className="text-xs text-status-danger-fg bg-red-900/20 border border-red-800/40 rounded-lg px-3 py-2">
+            <p className="text-xs text-status-danger-fg bg-status-danger-soft/50 border border-status-danger-border rounded-lg px-3 py-2">
               {errorMsg}
             </p>
           )}

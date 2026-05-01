@@ -906,6 +906,47 @@ const MIGRATED_PATHS = [
   "src/app/portal/guardia/layout.tsx",
   "src/app/portal/rondas/page.tsx",
   "src/app/portal/rondas/layout.tsx",
+  // Cluster 5C.2 — Portal Cliente raíz.
+  // Segundo sub-step del cluster 5C (Portales). 24 componentes, 80 hex
+  // residuales eliminados con el catálogo consolidado del proyecto.
+  //
+  // Estados categóricos migrados a tint-violet (consistente con proyecto):
+  // - PortalInstallationDetail Trust Score.
+  // - PortalMarcaciones face_id method.
+  //
+  // Los 26 CCs siguientes NO se agregan a MIGRATED_PATHS: mismo criterio
+  // que 4A/4B/4C/4D/5A.1..5A.8/5B.x/5C.1 — completaron su migración
+  // granular de color drift pero siguen teniendo drift tipográfico legacy
+  // (text-[10px]/text-[11px] sin marcas eyebrow, bg-white/N dark-only en
+  // algunos casos). Se agregarán cuando se haga su pasada de limpieza
+  // tipográfica completa en una sub-fase futura:
+  // - CompanyPresentationView, OpaiBadge, PortalAccessControl,
+  //   PortalAlertas, PortalClienteNav, PortalCommandPalette,
+  //   PortalComparativa, PortalCotizaciones, PortalCreateTicket,
+  //   PortalDashboard, PortalDocsFisicosChecklist, PortalDocsOperacionales,
+  //   PortalDocumentos, PortalEmpresa, PortalEncuestas,
+  //   PortalGuardiasInstalacion, PortalInstallationDetail,
+  //   PortalMarcaciones, PortalNosotros, PortalNotificacionesSheet,
+  //   PortalProtocolosLista, PortalReportes, PortalRondas, PortalTickets,
+  //   PortalUserMenu, RondaMapView.
+  "src/components/portal/cliente/InstallationSwitcher.tsx",
+  "src/components/portal/cliente/PortalBitacora.tsx",
+  "src/components/portal/cliente/PortalConocimientoEquipo.tsx",
+  "src/components/portal/cliente/PortalContractForm.tsx",
+  "src/components/portal/cliente/PortalDesempeno.tsx",
+  "src/components/portal/cliente/PortalEquipamiento.tsx",
+  "src/components/portal/cliente/PortalInstallations.tsx",
+  "src/components/portal/cliente/PortalPersonal.tsx",
+  "src/components/portal/cliente/PortalPosta.tsx",
+  "src/components/portal/cliente/PortalProtocolos.tsx",
+  "src/components/portal/cliente/PortalSignContract.tsx",
+  "src/components/portal/cliente/PreviewBadge.tsx",
+  "src/components/portal/cliente/ProtocolSignModal.tsx",
+  "src/app/portal/cliente/page.tsx",
+  "src/app/portal/cliente/layout.tsx",
+  "src/app/portal/cliente/setup/page.tsx",
+  "src/app/portal/cliente/forgot-pin/page.tsx",
+  "src/app/portal/cliente/seguridad-personal/page.tsx",
   // Agregar aquí cuando se migren:
   // "src/components/personas/",
   // "src/components/crm/",

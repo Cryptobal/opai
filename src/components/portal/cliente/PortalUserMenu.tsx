@@ -37,7 +37,7 @@ export function PortalUserMenu({ session, onNotificaciones, onLogout }: Props) {
         onClick={() => setOpen((v) => !v)}
         className="flex items-center gap-1.5 h-8 px-2 rounded-lg hover:bg-white/5 transition-colors"
       >
-        <div className="h-6 w-6 rounded-full bg-teal-500/20 text-status-info-fg text-[10px] font-semibold flex items-center justify-center shrink-0">
+        <div className="h-6 w-6 rounded-full bg-status-info-soft text-status-info-fg text-[10px] font-semibold flex items-center justify-center shrink-0">
           {initials}
         </div>
         <span className="text-xs text-zinc-300 max-w-[90px] truncate hidden sm:block">{shortName}</span>

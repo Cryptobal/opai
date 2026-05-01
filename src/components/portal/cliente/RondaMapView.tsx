@@ -359,7 +359,7 @@ export function RondaMapView({ ejecucionId, height = 320 }: Props) {
 
       {payload && hasAnyCoord && (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-zinc-500">
-          <span className="text-teal-400/90">{SOURCE_LABEL[payload.routeSource]}</span>
+          <span className="text-status-info-fg/90">{SOURCE_LABEL[payload.routeSource]}</span>
           <span className="text-zinc-600">·</span>
           <span className="flex items-center gap-1">
             <span className="inline-block h-2 w-3 rounded bg-status-ok" /> Trazo

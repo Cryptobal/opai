@@ -95,7 +95,7 @@ const ESTADO_CFG: Record<
   },
   sin_foto: {
     label: "Sin foto",
-    color: "bg-status-warn-soft text-status-warn-fg border-orange-500/20",
+    color: "bg-status-warn-soft text-status-warn-fg border-status-warn-border",
     Icon: CameraOff,
   },
 };
@@ -121,7 +121,7 @@ function groupByDate(marcaciones: MarcacionPortal[]): Map<string, MarcacionPorta
 function MetodoBadge({ metodoId }: { metodoId: string | null }) {
   if (!metodoId) return null;
   const map: Record<string, { label: string; cls: string }> = {
-    face_id: { label: "Face ID", cls: "bg-purple-500/20 text-purple-300" },
+    face_id: { label: "Face ID", cls: "bg-tint-violet text-tint-violet-fg" },
     foto: { label: "Foto", cls: "bg-status-info-soft text-status-info-fg" },
     pin_fallback: { label: "PIN", cls: "bg-status-warn-soft text-status-warn-fg" },
     rut_pin: { label: "RUT+PIN", cls: "bg-status-warn-soft text-status-warn-fg" },
@@ -183,7 +183,7 @@ function KpiTile({
       className={cn(
         "rounded-xl border px-3 py-2 text-left transition-colors",
         active
-          ? "border-teal-500/40 bg-status-info-soft"
+          ? "border-status-info-border bg-status-info-soft"
           : "border-white/10 bg-white/[0.02] hover:border-white/20"
       )}
     >

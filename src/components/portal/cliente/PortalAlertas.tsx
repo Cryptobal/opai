@@ -135,10 +135,10 @@ export function PortalAlertas({ session, isProspect }: Props) {
         <div className="bg-zinc-800/60 border border-zinc-700/50 rounded-xl p-5 space-y-3">
           <p className="text-sm text-zinc-300 font-medium">Qué verás aquí</p>
           <ul className="space-y-2 text-xs text-zinc-400">
-            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />Rondas completadas en tus instalaciones</li>
-            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-amber-400" />Rondas incompletas o no realizadas</li>
-            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Respuestas a tus tickets y nuevos documentos</li>
-            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-teal-400" />Notificaciones por email y push configurables</li>
+            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-status-ok" />Rondas completadas en tus instalaciones</li>
+            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-status-warn" />Rondas incompletas o no realizadas</li>
+            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-status-info" />Respuestas a tus tickets y nuevos documentos</li>
+            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-status-info" />Notificaciones por email y push configurables</li>
           </ul>
         </div>
       </div>

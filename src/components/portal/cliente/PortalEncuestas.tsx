@@ -55,7 +55,7 @@ function NpsBadge({ score }: { score: number | null }) {
   }
   if (score >= 7) {
     return (
-      <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-status-warn-soft text-status-warn-fg border border-yellow-500/20">
+      <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-status-warn-soft text-status-warn-fg border border-status-warn-border">
         Neutral
       </span>
     )
