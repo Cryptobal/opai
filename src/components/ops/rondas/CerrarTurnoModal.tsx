@@ -152,7 +152,7 @@ export function CerrarTurnoModal({ turnoId, open, onClose, onClosed, onSendCober
                 <AlertTriangle className="h-4 w-4 text-status-warn-fg" />
                 <p className="text-sm font-medium text-status-warn-fg">Coberturas pendientes de envío</p>
               </div>
-              <p className="text-xs text-amber-200/70">
+              <p className="text-xs text-status-warn-fg/70">
                 Debes enviar ambas coberturas antes de cerrar el turno.
               </p>
               <div className="flex gap-2 mt-2">
@@ -201,7 +201,7 @@ export function CerrarTurnoModal({ turnoId, open, onClose, onClosed, onSendCober
                     : `${unresolvedPanicCount} alertas de pánico sin resolver`}
                 </p>
               </div>
-              <p className="text-xs text-red-200/70">
+              <p className="text-xs text-status-danger-fg/70">
                 Las alertas de pánico deben resolverse escribiendo qué pasó antes de cerrar el turno.
               </p>
             </div>
@@ -211,7 +211,7 @@ export function CerrarTurnoModal({ turnoId, open, onClose, onClosed, onSendCober
           {!loadingCobertura && ambasCoberturas && (
             <div className="rounded-lg border border-status-ok-border bg-status-ok-soft p-2.5 flex items-center gap-2">
               <span className="text-status-ok-fg text-xs font-medium">Coberturas enviadas</span>
-              <span className="text-[10px] text-emerald-300/60 ml-auto">
+              <span className="text-[10px] text-status-ok-fg/60 ml-auto">
                 Nocturna {new Date(coberturaStatus.coberturaNocturnaSentAt!).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}
                 {" · "}
                 Diurna {new Date(coberturaStatus.coberturaDiurnaSentAt!).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}

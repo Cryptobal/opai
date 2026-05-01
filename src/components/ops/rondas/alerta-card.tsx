@@ -36,21 +36,21 @@ interface Props {
 
 const SEVERITY_CONFIG: Record<string, { dot: string; border: string; bg: string; label: string }> = {
   critical: {
-    dot: "bg-red-400 animate-pulse",
-    border: "border-status-danger-border border-l-red-500",
+    dot: "bg-status-danger animate-pulse",
+    border: "border-status-danger-border border-l-status-danger",
     bg: "bg-status-danger-soft",
     label: "Crítica",
   },
   warning: {
-    dot: "bg-amber-400",
-    border: "border-status-warn-border border-l-amber-500",
+    dot: "bg-status-warn",
+    border: "border-status-warn-border border-l-status-warn",
     bg: "bg-status-warn-soft",
     label: "Warning",
   },
   info: {
-    dot: "bg-cyan-400",
-    border: "border-cyan-500/20 border-l-cyan-500",
-    bg: "bg-cyan-500/5",
+    dot: "bg-status-info",
+    border: "border-status-info-border border-l-status-info",
+    bg: "bg-status-info-soft",
     label: "Info",
   },
 };
@@ -93,8 +93,8 @@ export function AlertaCard({ alerta, onResolve, selected, onToggleSelect }: Prop
           className={cn(
             "absolute top-2 right-2 w-5 h-5 rounded border-2 flex items-center justify-center transition-all",
             selected
-              ? "bg-cyan-500 border-cyan-500"
-              : "border-[#1a1f2e] hover:border-cyan-500/50",
+              ? "bg-status-info border-status-info"
+              : "border-[#1a1f2e] hover:border-status-info-border",
           )}
         >
           {selected && (

@@ -1,3 +1,7 @@
+// @ds-allow-legacy
+// PanicAlertBanner intencionalmente usa rojos hex (red-900, red-800, red-200)
+// porque es la alarma operativa de máxima urgencia. Migrar a status-danger-soft
+// reduciría el efecto visual de "alarma roja" y el banner perdería su función.
 "use client";
 
 import { useState, useEffect, useRef } from "react";

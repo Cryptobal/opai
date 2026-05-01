@@ -167,7 +167,7 @@ export function MonitoreoGuardPanel({ rondas, onSelectGuard, selectedId, onAddNo
                   )}
                   {onMessage && r.installationId && (
                     <button
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-status-info-soft border border-cyan-500/20 px-2.5 py-1.5 text-xs text-status-info-fg"
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-status-info-soft border border-status-info-border px-2.5 py-1.5 text-xs text-status-info-fg"
                       onClick={(e) => { e.stopPropagation(); onMessage(r.installationId!); }}
                     >
                       <MessageCircle className="h-3 w-3" /> Mensaje

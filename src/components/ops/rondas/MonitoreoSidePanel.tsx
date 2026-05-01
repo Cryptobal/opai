@@ -172,7 +172,7 @@ export function MonitoreoSidePanel({
               </span>
             )}
             {activeTab === tab.key && (
-              <span className="absolute bottom-0 left-2 right-2 h-0.5 bg-cyan-400 rounded-full" />
+              <span className="absolute bottom-0 left-2 right-2 h-0.5 bg-status-info rounded-full" />
             )}
           </button>
         ))}
@@ -247,7 +247,7 @@ function RondasTab({
     <>
       {/* En curso header */}
       <div className="px-4 py-2 border-b border-[#1a1f2e] flex items-center gap-2">
-        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+        <span className="w-2 h-2 rounded-full bg-status-ok animate-pulse" />
         <p className="text-[11px] uppercase tracking-wider font-semibold text-[#64748b]">En curso</p>
         <span className="ml-auto text-[10px] rounded-full px-1.5 py-0.5 font-semibold bg-status-ok-soft text-status-ok-fg">
           {guardPanelData.length}
@@ -317,7 +317,7 @@ function RondasTab({
                         <span
                           className={cn(
                             "w-2 h-2 rounded-full shrink-0",
-                            isIncomplete ? "bg-red-400" : "bg-emerald-400",
+                            isIncomplete ? "bg-status-danger" : "bg-status-ok",
                           )}
                         />
                         <span className="text-sm font-medium text-white truncate">
@@ -509,7 +509,7 @@ function AlertasTab({
           </div>
         )}
         <div className="px-4 py-8 text-center">
-          <Check className="h-8 w-8 mx-auto mb-2 text-emerald-400/40" />
+          <Check className="h-8 w-8 mx-auto mb-2 text-status-ok-fg/40" />
           <p className="text-sm text-muted-foreground">Sin alertas abiertas</p>
         </div>
       </div>
@@ -832,7 +832,7 @@ function InstalacionesTab({
         const hasGuard = inst.guardiasPresentes > 0;
         const hasActiveRonda = inst.activeRondaStatus === "en_curso";
         const semaforo = hasAlert ? "red" : hasGuard && hasActiveRonda ? "green" : hasGuard ? "yellow" : "red";
-        const semaforoColor = semaforo === "green" ? "bg-emerald-400" : semaforo === "yellow" ? "bg-amber-400" : "bg-red-400";
+        const semaforoColor = semaforo === "green" ? "bg-status-ok" : semaforo === "yellow" ? "bg-status-warn" : "bg-status-danger";
 
         const trustColor =
           inst.activeRondaTrust != null
@@ -845,7 +845,7 @@ function InstalacionesTab({
             onClick={() => onInstallationClick(inst.id)}
             className={cn(
               "w-full text-left px-4 py-3 hover:bg-zinc-800/30 transition-colors",
-              isSelected && "bg-cyan-500/[0.04] border-l-2 border-l-cyan-400"
+              isSelected && "bg-status-info-soft/30 border-l-2 border-l-status-info"
             )}
           >
             <div className="flex items-center gap-2.5">
@@ -858,7 +858,7 @@ function InstalacionesTab({
                     e.stopPropagation();
                     onAlertBadgeClick({ id: inst.id, name: inst.name });
                   }}
-                  className="rounded-full bg-status-danger-soft px-1.5 py-0.5 text-[9px] font-bold text-status-danger-fg hover:bg-red-500/30 transition-colors cursor-pointer"
+                  className="rounded-full bg-status-danger-soft px-1.5 py-0.5 text-[9px] font-bold text-status-danger-fg hover:brightness-110 transition-colors cursor-pointer"
                   title={`Ver ${inst.alertCount} alertas de ${inst.name}`}
                 >
                   {inst.alertCount}

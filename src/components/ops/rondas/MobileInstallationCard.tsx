@@ -55,7 +55,7 @@ interface MobileInstallationCardProps {
 function statusDot(status: string): string {
   switch (status) {
     case "presente": case "reemplazo": return "bg-status-ok";
-    case "en_camino": return "bg-amber-400 animate-pulse";
+    case "en_camino": return "bg-status-warn animate-pulse";
     case "no_viene": return "bg-status-danger";
     default: return "bg-slate-500";
   }
@@ -64,7 +64,7 @@ function statusDot(status: string): string {
 function coberturaBarColor(status: string): string {
   switch (status) {
     case "completa": return "bg-status-ok";
-    case "parcial": return "bg-amber-400";
+    case "parcial": return "bg-status-warn";
     case "descubierta": return "bg-status-danger";
     default: return "bg-slate-600";
   }
@@ -82,14 +82,14 @@ function getSlotVisual(slot: CNRonda, currentHour: number): {
   if (slot.status === "completada" && slot.autoPopulated) {
     const t = slot.trustScore ?? 0;
     return {
-      bg: t >= 80 ? "bg-status-ok-soft" : t >= 60 ? "bg-amber-500/8" : "bg-red-500/8",
+      bg: t >= 80 ? "bg-status-ok-soft" : t >= 60 ? "bg-status-warn-soft" : "bg-status-danger-soft",
       color: t >= 80 ? "text-status-ok-fg" : t >= 60 ? "text-status-warn-fg" : "text-status-danger-fg",
       icon: "\u26A1",
       label: `${slot.horaMarcada}${t ? ` \u00B7 Trust ${t}` : ""}`,
     };
   }
   if (slot.status === "completada" && !slot.autoPopulated) {
-    return { bg: "bg-emerald-500/8", color: "text-status-ok-fg", icon: "\u270B", label: slot.horaMarcada || "OK" };
+    return { bg: "bg-status-ok-soft/50", color: "text-status-ok-fg", icon: "\u270B", label: slot.horaMarcada || "OK" };
   }
   if (slot.status === "omitida") {
     return { bg: "bg-status-danger-soft", color: "text-status-danger-fg", icon: "\u2715", label: slot.notes || "Omitida" };
@@ -99,10 +99,10 @@ function getSlotVisual(slot: CNRonda, currentHour: number): {
   }
   // Pending
   if (isCurrent) {
-    return { bg: "bg-teal-500/8", color: "text-status-info-fg", icon: "\u25CF", label: "Esperando..." };
+    return { bg: "bg-status-info-soft/50", color: "text-status-info-fg", icon: "\u25CF", label: "Esperando..." };
   }
   if (isPast && slot.rondaExpected) {
-    return { bg: "bg-red-500/8", color: "text-status-danger-fg", icon: "\u26A0", label: "No realizada" };
+    return { bg: "bg-status-danger-soft/50", color: "text-status-danger-fg", icon: "\u26A0", label: "No realizada" };
   }
   if (isPast && !slot.rondaExpected) {
     return { bg: "", color: "text-slate-700", icon: "\u00B7", label: "" };
@@ -129,7 +129,7 @@ function GuardRow({ g }: { g: CNGuardia }) {
       <div className={cn("w-2.5 h-2.5 rounded-full flex-shrink-0", statusDot(g.status))} />
       <span className={cn(
         "text-xs flex-1 truncate",
-        isNoViene ? "line-through text-red-400/60" : "text-slate-200"
+        isNoViene ? "line-through text-status-danger-fg/60" : "text-slate-200"
       )}>
         {g.guardiaNombre}
       </span>
@@ -191,7 +191,7 @@ export function MobileInstallationCard({
     <div className={cn(
       "rounded-xl border transition-all",
       isDescubierta
-        ? "bg-red-500/[0.06] border-status-danger-border"
+        ? "bg-status-danger-soft/30 border-status-danger-border"
         : "bg-slate-800/50 border-slate-700/50"
     )}>
       {/* ═══ COLLAPSED HEADER ═══ */}
@@ -247,7 +247,7 @@ export function MobileInstallationCard({
 
           {/* Note preview */}
           {instalacion.notes && (
-            <div className="mt-1 text-[9px] text-amber-400/70 truncate">{"\uD83D\uDCDD"} {instalacion.notes}</div>
+            <div className="mt-1 text-[9px] text-status-warn-fg/70 truncate">{"\uD83D\uDCDD"} {instalacion.notes}</div>
           )}
         </div>
 
@@ -340,7 +340,7 @@ export function MobileInstallationCard({
           {/* ─── NOTAS ─── */}
           {instalacion.notes && (
             <div className="bg-status-warn-soft border border-status-warn-border rounded-lg px-3 py-2">
-              <div className="text-[10px] text-amber-400/80">{instalacion.notes}</div>
+              <div className="text-[10px] text-status-warn-fg/80">{instalacion.notes}</div>
             </div>
           )}
         </div>
