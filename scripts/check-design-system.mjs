@@ -214,6 +214,15 @@ const MIGRATED_PATHS = [
   // en chips de slot, eyebrows de DetailField group y RUTs, restantes
   // del 5A.6). Se agregará cuando se haga su pasada de limpieza
   // tipográfica completa en una sub-fase futura.
+  // Cluster 5A.8 — Apollo Prospección (último sub-paso del cluster 5A).
+  // Migración del page wrapper al patrón hero DS v3 (Sparkles, violet,
+  // eyebrow Comercial/Prospección) + limpieza de 3 hex hardcoded en el
+  // client (2 links externos LinkedIn/website text-blue-400 →
+  // text-status-info-fg, y 1 badge "Engage" emerald hex → <Tag variant=ok>).
+  // Cero cambios funcionales: búsqueda, filtros, paginación, créditos
+  // Apollo y conversión a lead intactos.
+  "src/app/(app)/crm/prospecting/page.tsx",
+  "src/components/crm/ApolloProspectingClient.tsx",
   // Agregar aquí cuando se migren:
   // "src/components/personas/",
   // "src/components/crm/",

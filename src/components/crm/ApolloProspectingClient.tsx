@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Tag } from "@/components/opai-ds";
 import {
   Search,
   Loader2,
@@ -339,11 +340,11 @@ export function ApolloProspectingClient() {
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium truncate">{p.name || [p.firstName, p.lastName].filter(Boolean).join(" ")}</span>
                     {p.linkedinUrl && (
-                      <a href={p.linkedinUrl} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">
+                      <a href={p.linkedinUrl} target="_blank" rel="noopener noreferrer" className="text-status-info-fg hover:brightness-110 transition">
                         <ExternalLink className="h-3 w-3" />
                       </a>
                     )}
-                    {p.isLikelyToEngage && <Badge className="text-[9px] px-1 bg-emerald-500/20 text-emerald-400 border-emerald-500/30">Engage</Badge>}
+                    {p.isLikelyToEngage && <Tag variant="ok" size="sm">Engage</Tag>}
                   </div>
                   <div className="flex items-center gap-3 text-xs text-muted-foreground">
                     {p.title && <span className="flex items-center gap-1"><Briefcase className="h-3 w-3" />{p.title}</span>}
@@ -387,7 +388,7 @@ export function ApolloProspectingClient() {
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium truncate">{o.name}</span>
                     {o.website && (
-                      <a href={o.website.startsWith("http") ? o.website : `https://${o.website}`} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">
+                      <a href={o.website.startsWith("http") ? o.website : `https://${o.website}`} target="_blank" rel="noopener noreferrer" className="text-status-info-fg hover:brightness-110 transition">
                         <ExternalLink className="h-3 w-3" />
                       </a>
                     )}
