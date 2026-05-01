@@ -1827,7 +1827,7 @@ export function CpqQuoteDetail({
       </Card>
 
       {/* -- Section: Condiciones Comerciales -- */}
-      <Card className="overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-44 sm:scroll-mt-32" inert={isLocked ? true : undefined}>
+      <Card className="overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-44 sm:scroll-mt-32">
         <button type="button" onClick={() => setSecCondiciones(v => !v)} className="flex items-center justify-between w-full border-b border-border/50 bg-muted/20 px-4 py-3 hover:bg-muted/30 transition-colors">
           <div className="flex items-center gap-2 min-w-0">
             <h2 className="text-sm font-semibold text-primary shrink-0">Condiciones comerciales</h2>
@@ -1840,7 +1840,7 @@ export function CpqQuoteDetail({
           <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform shrink-0", secCondiciones && "rotate-180")} />
         </button>
         {secCondiciones && (
-          <div className="px-3 pb-3 pt-3 bg-card/60 sm:px-4 sm:pb-4 sm:pt-4">
+          <div className="px-3 pb-3 pt-3 bg-card/60 sm:px-4 sm:pb-4 sm:pt-4" inert={isLocked ? true : undefined}>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <div className="space-y-1">
                 <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Forma de pago</Label>
@@ -2111,7 +2111,7 @@ export function CpqQuoteDetail({
       </Card>
 
       {/* -- Section: Puestos -- */}
-      <Card className="overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm" inert={isLocked ? true : undefined}>
+      <Card className="overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm">
         <div role="button" tabIndex={0} onClick={() => setSecPuestos(v => !v)} className="flex items-center justify-between w-full border-b border-border/50 bg-muted/20 px-4 py-3 hover:bg-muted/30 transition-colors cursor-pointer">
           <div className="flex items-center gap-2 min-w-0">
             <h2 className="text-sm font-semibold text-primary shrink-0">Puestos</h2>
@@ -2139,7 +2139,7 @@ export function CpqQuoteDetail({
           </div>
         </div>
         {secPuestos && (
-          <div className="px-3 pb-3 pt-3 bg-card/60 sm:px-4 sm:pb-4 sm:pt-4">
+          <div className="px-3 pb-3 pt-3 bg-card/60 sm:px-4 sm:pb-4 sm:pt-4" inert={isLocked ? true : undefined}>
             {!isLocked && (
               <div className="mb-3">
                 <ServiceTemplateButtons
@@ -2211,7 +2211,7 @@ export function CpqQuoteDetail({
       </Card>
 
       {/* -- Section: Costos -- */}
-      <Card className="overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm" inert={isLocked ? true : undefined}>
+      <Card className="overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm">
         <button type="button" onClick={() => setSecCostos(v => !v)} className="flex items-center justify-between w-full border-b border-border/50 bg-muted/20 px-4 py-3 hover:bg-muted/30 transition-colors">
           <div className="flex items-center gap-2 min-w-0">
             <h2 className="text-sm font-semibold text-primary shrink-0">Costos adicionales</h2>
@@ -2233,7 +2233,7 @@ export function CpqQuoteDetail({
           <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", secCostos && "rotate-180")} />
         </button>
         {secCostos && (
-          <div className="px-3 pb-3 pt-3 bg-card/60 sm:px-4 sm:pb-4 sm:pt-4">
+          <div className="px-3 pb-3 pt-3 bg-card/60 sm:px-4 sm:pb-4 sm:pt-4" inert={isLocked ? true : undefined}>
             <CpqQuoteCosts
               quoteId={quoteId}
               variant="inline"
@@ -2249,7 +2249,7 @@ export function CpqQuoteDetail({
       </Card>
 
       {/* -- Section: Líneas adicionales -- */}
-      <Card className="overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm" inert={isLocked ? true : undefined}>
+      <Card className="overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm">
         <button type="button" onClick={() => setSecLineas(v => !v)} className="flex items-center justify-between w-full border-b border-border/50 bg-muted/20 px-4 py-3 hover:bg-muted/30 transition-colors">
           <div className="flex items-center gap-2 min-w-0">
             <h2 className="text-sm font-semibold text-primary shrink-0">Líneas adicionales</h2>
@@ -2272,7 +2272,7 @@ export function CpqQuoteDetail({
           <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", secLineas && "rotate-180")} />
         </button>
         {secLineas && (
-          <div className="space-y-2 bg-card/60 px-3 pb-3 pt-3 sm:px-4 sm:pb-4 sm:pt-4">
+          <div className="space-y-2 bg-card/60 px-3 pb-3 pt-3 sm:px-4 sm:pb-4 sm:pt-4" inert={isLocked ? true : undefined}>
             {additionalLines.map((line, idx) => {
               const precioBase = Number(line.precio || 0) * Number(line.cantidad || 1);
               const mPct = Number(line.marginPct || 0);
@@ -2467,7 +2467,7 @@ export function CpqQuoteDetail({
       </Card>
 
       {/* -- Section: Financials -- */}
-      <Card className="overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm" inert={isLocked ? true : undefined}>
+      <Card className="overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm">
         <button type="button" onClick={() => setSecFinancieros(v => !v)} className="flex items-center justify-between w-full border-b border-border/50 bg-muted/20 px-4 py-3 hover:bg-muted/30 transition-colors">
           <div className="flex items-center gap-2 min-w-0">
             <h2 className="text-sm font-semibold text-primary shrink-0">Gastos financieros</h2>
@@ -2481,7 +2481,7 @@ export function CpqQuoteDetail({
           <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform shrink-0", secFinancieros && "rotate-180")} />
         </button>
         {secFinancieros && (
-          <div className="space-y-2 bg-card/60 px-3 pb-3 pt-3 sm:px-4 sm:pb-4 sm:pt-4">
+          <div className="space-y-2 bg-card/60 px-3 pb-3 pt-3 sm:px-4 sm:pb-4 sm:pt-4" inert={isLocked ? true : undefined}>
 
           <div className="grid gap-2 grid-cols-1 sm:grid-cols-2">
             {/* Costo financiero */}
@@ -2638,7 +2638,7 @@ export function CpqQuoteDetail({
       </Card>
 
       {/* -- Section: Margen -- */}
-      <Card className="overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm" inert={isLocked ? true : undefined}>
+      <Card className="overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm">
         <button type="button" onClick={() => setSecMargen(v => !v)} className="flex items-center justify-between w-full border-b border-border/50 bg-muted/20 px-4 py-3 hover:bg-muted/30 transition-colors">
           <div className="flex items-center gap-2 min-w-0">
             <h2 className="text-sm font-semibold text-primary shrink-0">Margen de venta</h2>
@@ -2652,7 +2652,7 @@ export function CpqQuoteDetail({
           <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform shrink-0", secMargen && "rotate-180")} />
         </button>
         {secMargen && (
-          <div className="px-3 pb-3 pt-3 bg-card/60 sm:px-4 sm:pb-4 sm:pt-4">
+          <div className="px-3 pb-3 pt-3 bg-card/60 sm:px-4 sm:pb-4 sm:pt-4" inert={isLocked ? true : undefined}>
             <MarginSection
               marginPct={marginPct}
               onMarginChange={handleMarginChange}
@@ -2666,7 +2666,7 @@ export function CpqQuoteDetail({
       </Card>
 
       {/* -- Section: Contenido AI (Descripcion + Detalle servicio) -- */}
-      <Card className="overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-44 sm:scroll-mt-32" inert={isLocked ? true : undefined}>
+      <Card className="overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-44 sm:scroll-mt-32">
         <button type="button" onClick={() => setSecAiContent(v => !v)} className="flex items-center justify-between w-full border-b border-border/50 bg-muted/20 px-4 py-3 hover:bg-muted/30 transition-colors">
           <div className="flex items-center gap-2 min-w-0">
             <Sparkles className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -2680,7 +2680,7 @@ export function CpqQuoteDetail({
           <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform shrink-0", secAiContent && "rotate-180")} />
         </button>
         {secAiContent && (
-          <div className="grid gap-4 bg-card/60 px-3 pb-3 pt-3 sm:px-4 sm:pb-4 sm:pt-4 lg:grid-cols-2">
+          <div className="grid gap-4 bg-card/60 px-3 pb-3 pt-3 sm:px-4 sm:pb-4 sm:pt-4 lg:grid-cols-2" inert={isLocked ? true : undefined}>
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Descripción AI
