@@ -785,6 +785,36 @@ const MIGRATED_PATHS = [
   "src/app/(app)/opai/configuracion/ats/page.tsx",
   "src/components/ats/ExternalJobSearch.tsx",
   "src/components/ats/FormularioPostulacionAts.tsx",
+  // Cluster 5B.9 — Guardias (Personas).
+  // Primer sub-step del cluster Personas. Establece iconTone='sky' para
+  // todo el cluster (diferenciado de Operaciones emerald). 3 hex
+  // residuales eliminados en 2 components:
+  //
+  // - GuardiasClient (2 hex): warning badge ProfileIncompleteBadge
+  //   (bg-amber-100 + dark:amber-900/30 + amber-300/50 + amber-700/50)
+  //   → unified bg-status-warn-soft + border-status-warn-border
+  //   (light/dark consistent). WhatsApp link badge (bg-green-600/15 +
+  //   hover:bg-green-600/25) → bg-status-ok-soft + hover:brightness-110.
+  // - GuardiaDetailClient (1 hex): Brain icon de la sección psicolaboral
+  //   (text-purple-500) → text-tint-violet-fg (categórico, consistente
+  //   con el resto del proyecto).
+  //
+  // 4 pages SC migradas a <PageHero> (Users / UserPlus / Wallet,
+  // iconTone sky). [id]/page.tsx no tiene PageHeader propio (lo maneja
+  // GuardiaDetailClient) y queda 100% limpia, se agrega para certificar.
+  //
+  // Los 2 CCs (GuardiasClient, GuardiaDetailClient) NO se agregan a
+  // MIGRATED_PATHS: mismo criterio que 4A/4B/4C/4D/5A.1..5A.8/5B.1.a/
+  // 5B.1.b/5B.2.a/5B.2.b.1/5B.2.b.2/5B.2.c/5B.3/5B.4/5B.5/5B.6+7/5B.8 —
+  // completaron su migración granular de color drift pero siguen
+  // teniendo drift tipográfico legacy (text-[10px]/text-[11px] en
+  // badges de lifecycle, ETT chips, listas tabulares). Se agregarán
+  // cuando se haga su pasada de limpieza tipográfica completa en una
+  // sub-fase futura.
+  "src/app/(app)/personas/guardias/page.tsx",
+  "src/app/(app)/personas/guardias/[id]/page.tsx",
+  "src/app/(app)/personas/guardias/ingreso-te/page.tsx",
+  "src/app/(app)/personas/guardias/sueldos-rut/page.tsx",
   // Agregar aquí cuando se migren:
   // "src/components/personas/",
   // "src/components/crm/",
