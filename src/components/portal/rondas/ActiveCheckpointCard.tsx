@@ -85,7 +85,7 @@ export function ActiveCheckpointCard({
   if (allCompleted) {
     return (
       <div className="mx-2 mb-2">
-        <div className="rounded-2xl border border-green-700/40 bg-green-950/30 p-5 text-center">
+        <div className="rounded-2xl border border-status-ok-border bg-status-ok-soft/30 p-5 text-center">
           <div className="mb-1 text-2xl">🎉</div>
           <h3 className="text-base font-bold text-white">¡Ronda Completada!</h3>
           <p className="mt-1 text-xs text-gray-400">
@@ -107,7 +107,7 @@ export function ActiveCheckpointCard({
       {/* Success toast */}
       {showToast && (
         <div className="fixed left-4 right-4 top-20 z-50 flex items-center justify-center">
-          <div className="flex items-center gap-2 rounded-xl bg-green-600 px-4 py-2.5 shadow-lg shadow-green-900/40">
+          <div className="flex items-center gap-2 rounded-xl bg-status-ok px-4 py-2.5 shadow-lg shadow-status-ok/40">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
             </svg>
@@ -159,7 +159,7 @@ export function ActiveCheckpointCard({
                 )}
                 {checkpoint.qrRequired && (
                   <span
-                    className="rounded px-1.5 py-0.5 font-semibold text-purple-400"
+                    className="rounded px-1.5 py-0.5 font-semibold text-tint-violet-fg"
                     style={{ fontSize: 10, backgroundColor: "rgba(168,85,247,0.15)" }}
                   >
                     QR
@@ -187,7 +187,7 @@ export function ActiveCheckpointCard({
             disabled={!canMark || isMarking}
             className={`mt-3 flex w-full items-center justify-center gap-2 rounded-xl py-3.5 font-bold transition-all ${
               isMarking
-                ? "text-teal-200"
+                ? "text-status-info-fg"
                 : canMark
                   ? "text-white active:opacity-80"
                   : "text-slate-500"

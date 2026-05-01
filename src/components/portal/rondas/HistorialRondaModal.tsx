@@ -84,7 +84,7 @@ function formatTimestamp(iso: string): string {
 function StatusBadge({ status }: { status: string }) {
   if (status === "completada") {
     return (
-      <span className="rounded-full bg-green-500/20 px-2 py-0.5 text-xs font-medium text-status-ok-fg">
+      <span className="rounded-full bg-status-ok-soft px-2 py-0.5 text-xs font-medium text-status-ok-fg">
         Completada
       </span>
     );
@@ -466,7 +466,7 @@ export function HistorialRondaModal({ ejecucionId, session, onClose }: Props) {
                             onClick={() =>
                               setExpandedPhoto(marcacion.fotoEvidenciaUrl!)
                             }
-                            className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-white/10 bg-gray-800 transition-colors hover:border-teal-500/50"
+                            className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-white/10 bg-gray-800 transition-colors hover:border-status-info-border"
                           >
                             <img
                               src={marcacion.fotoEvidenciaUrl}
@@ -517,7 +517,7 @@ export function HistorialRondaModal({ ejecucionId, session, onClose }: Props) {
                         {m.fotoEvidenciaUrl && (
                           <button
                             onClick={() => setExpandedPhoto(m.fotoEvidenciaUrl!)}
-                            className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-white/10 bg-gray-800 transition-colors hover:border-teal-500/50"
+                            className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-white/10 bg-gray-800 transition-colors hover:border-status-info-border"
                           >
                             <img
                               src={m.fotoEvidenciaUrl}

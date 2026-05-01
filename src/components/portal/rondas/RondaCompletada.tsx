@@ -137,7 +137,7 @@ export function RondaCompletada({
       <main className="flex flex-1 flex-col items-center space-y-6 px-4 pb-8 pt-6">
         {/* ---- Status Banner ---- */}
         {(status === "cerrada_auto" || status === "cerrada_admin") && (
-          <div className="mb-4 w-full max-w-sm rounded-xl border border-orange-700/50 bg-orange-950/20 p-4 text-center">
+          <div className="mb-4 w-full max-w-sm rounded-xl border border-status-warn-border bg-status-warn-soft/30 p-4 text-center">
             <p className="text-sm font-medium text-status-warn-fg">
               {status === "cerrada_auto"
                 ? "Esta ronda fue cerrada automáticamente por exceder el tiempo máximo"
@@ -325,7 +325,7 @@ export function RondaCompletada({
                     className={`rounded-xl border p-3 ${
                       isCompleted
                         ? "border-gray-800 bg-gray-900/60"
-                        : "border-red-900/40 bg-red-950/20"
+                        : "border-status-danger-border bg-status-danger-soft/30"
                     }`}
                   >
                     <div className="flex items-start gap-2">
@@ -360,7 +360,7 @@ export function RondaCompletada({
                               </span>
                             )}
                             {cp.qrScanned && (
-                              <span className="rounded-md bg-purple-500/15 px-1.5 py-0.5 text-xs text-purple-400">
+                              <span className="rounded-md bg-tint-violet px-1.5 py-0.5 text-xs text-tint-violet-fg">
                                 QR {"\u2713"}
                               </span>
                             )}
@@ -406,7 +406,7 @@ export function RondaCompletada({
         {/* ---- Back Button ---- */}
         <button
           onClick={onBackToRondas}
-          className="w-full max-w-sm rounded-xl bg-status-info py-4 text-lg font-semibold text-white transition-colors hover:bg-status-info active:bg-teal-700"
+          className="w-full max-w-sm rounded-xl bg-status-info py-4 text-lg font-semibold text-white transition-colors hover:brightness-110 active:brightness-95"
           style={{ minHeight: 56 }}
         >
           Volver a Mis Rondas

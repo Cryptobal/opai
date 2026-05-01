@@ -523,7 +523,7 @@ export function MisRondas({
           className={`mb-2 flex w-full items-center justify-center gap-2 rounded-xl border py-4 text-lg font-semibold transition-colors ${
             blockIniciarLibre
               ? "border-gray-700/30 bg-gray-900/20 text-gray-600 cursor-not-allowed opacity-50"
-              : "border-teal-700/50 bg-teal-950/30 text-status-info-fg hover:bg-teal-900/40 active:bg-teal-900/60"
+              : "border-status-info-border bg-status-info-soft text-status-info-fg hover:brightness-110 active:brightness-95"
           }`}
           style={{ minHeight: 56 }}
         >
@@ -650,7 +650,7 @@ export function MisRondas({
                         className={`ml-1 rounded-full px-2 py-0.5 text-xs font-semibold ${
                           section.key === "no_realizadas"
                             ? "bg-status-danger-soft text-status-danger-fg"
-                            : "bg-green-500/20 text-status-ok-fg"
+                            : "bg-status-ok-soft text-status-ok-fg"
                         }`}
                       >
                         {items.length}
@@ -770,14 +770,14 @@ export function MisRondas({
               placeholder="Ej: Emergencia, acceso cerrado, fin de turno..."
               maxLength={500}
               rows={4}
-              className="w-full rounded-xl border border-gray-700 bg-gray-800 px-3 py-2.5 text-sm text-white placeholder:text-gray-600 focus:border-yellow-500 focus:outline-none"
+              className="w-full rounded-xl border border-gray-700 bg-gray-800 px-3 py-2.5 text-sm text-white placeholder:text-gray-600 focus:border-status-warn-border focus:outline-none"
               disabled={closeSubmitting}
               autoComplete="off"
             />
             <p
               className={`mb-3 mt-1 text-xs ${
                 closeReason.trim().length > 0 && closeReason.trim().length < 3
-                  ? "text-yellow-500/80"
+                  ? "text-status-warn-fg/80"
                   : "text-transparent"
               }`}
             >
@@ -896,7 +896,7 @@ function HistorialCard({
 
   const statusBg =
     item.status === "completada"
-      ? "bg-green-500/20 text-status-ok-fg"
+      ? "bg-status-ok-soft text-status-ok-fg"
       : item.status === "incompleta"
         ? "bg-status-warn-soft text-status-warn-fg"
         : "bg-gray-700/50 text-gray-400";
@@ -1024,11 +1024,11 @@ function RondaCard({
 
   // Card border styling
   const borderClass = isEnCurso
-    ? "border-teal-700/60 bg-teal-950/20"
+    ? "border-status-info-border bg-status-info-soft/30"
     : isConRetraso
-      ? "border-orange-700/50 bg-orange-950/20"
+      ? "border-status-warn-border bg-status-warn-soft/30"
       : isNoRealizada
-        ? "border-red-800/30 bg-red-950/10"
+        ? "border-status-danger-border bg-status-danger-soft/30"
         : isCompletada
           ? "border-gray-800/50 bg-gray-900/30"
           : "border-gray-800 bg-gray-900/60";
@@ -1046,7 +1046,7 @@ function RondaCard({
         </h3>
         <div className="flex shrink-0 items-center gap-2">
           {isConRetraso && (
-            <span className="rounded-full bg-orange-500/20 px-2 py-0.5 text-xs font-medium text-status-warn-fg">
+            <span className="rounded-full bg-status-warn-soft px-2 py-0.5 text-xs font-medium text-status-warn-fg">
               Retraso
             </span>
           )}
@@ -1056,7 +1056,7 @@ function RondaCard({
             </span>
           )}
           {ronda.status === "cerrada_auto" && (
-            <span className="rounded-full bg-orange-500/20 px-2 py-0.5 text-xs font-medium text-status-warn-fg">
+            <span className="rounded-full bg-status-warn-soft px-2 py-0.5 text-xs font-medium text-status-warn-fg">
               Cerrada auto
             </span>
           )}
@@ -1166,7 +1166,7 @@ function RondaCard({
           <button
             type="button"
             onClick={() => onIniciar(ronda.ejecucionId)}
-            className="rounded-xl bg-status-info py-3.5 text-sm font-semibold leading-tight text-white transition-colors hover:bg-status-info active:bg-teal-700 sm:text-base"
+            className="rounded-xl bg-status-info py-3.5 text-sm font-semibold leading-tight text-white transition-colors hover:brightness-110 active:brightness-95 sm:text-base"
             style={{ minHeight: 52 }}
           >
             Continuar ronda
@@ -1174,7 +1174,7 @@ function RondaCard({
           <button
             type="button"
             onClick={() => onPedirCerrar(ronda.ejecucionId)}
-            className="rounded-xl border-2 border-red-600/80 bg-red-950/40 py-3.5 text-sm font-semibold leading-tight text-status-danger-fg transition-colors hover:bg-red-950/70 active:bg-red-950 sm:text-base"
+            className="rounded-xl border-2 border-status-danger bg-status-danger-soft py-3.5 text-sm font-semibold leading-tight text-status-danger-fg transition-colors hover:brightness-110 active:brightness-95 sm:text-base"
             style={{ minHeight: 52 }}
           >
             Cerrar ronda
@@ -1185,7 +1185,7 @@ function RondaCard({
       {isLista && (
         <button
           onClick={() => onIniciar(ronda.ejecucionId)}
-          className="mt-1 w-full rounded-xl bg-status-info py-4 text-lg font-semibold text-white transition-colors hover:bg-status-info active:bg-teal-700"
+          className="mt-1 w-full rounded-xl bg-status-info py-4 text-lg font-semibold text-white transition-colors hover:brightness-110 active:brightness-95"
           style={{ minHeight: 56 }}
         >
           Iniciar Ronda
@@ -1195,7 +1195,7 @@ function RondaCard({
       {isConRetraso && (
         <button
           onClick={() => onIniciar(ronda.ejecucionId)}
-          className="mt-1 w-full rounded-xl bg-orange-600 py-4 text-lg font-semibold text-white transition-colors hover:bg-status-warn active:bg-orange-700"
+          className="mt-1 w-full rounded-xl bg-status-warn py-4 text-lg font-semibold text-white transition-colors hover:brightness-110 active:brightness-95"
           style={{ minHeight: 56 }}
         >
           Iniciar Ronda (Con Retraso)

@@ -123,7 +123,7 @@ export function LogoutPinModal({ open, deviceToken, onConfirm, onCancel }: Logou
               onKeyDown={(e) => handleKeyDown(i, e)}
               disabled={loading}
               autoFocus={i === 0}
-              className="w-12 h-14 text-center text-xl font-bold rounded-xl border border-zinc-700 bg-zinc-900/60 text-white outline-none transition-colors focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+              className="w-12 h-14 text-center text-xl font-bold rounded-xl border border-zinc-700 bg-zinc-900/60 text-white outline-none transition-colors focus:border-status-info-border focus:ring-1 focus:ring-status-info-border"
             />
           ))}
         </div>
@@ -141,7 +141,7 @@ export function LogoutPinModal({ open, deviceToken, onConfirm, onCancel }: Logou
             type="button"
             onClick={handleSubmit}
             disabled={!isComplete || loading}
-            className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-cyan-500 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-cyan-400 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-status-info px-4 py-3 text-sm font-semibold text-white transition-colors hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
