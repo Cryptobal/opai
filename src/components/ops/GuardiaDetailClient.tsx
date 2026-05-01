@@ -42,6 +42,7 @@ import {
 } from "@/components/ui/dialog";
 import { CollapsibleSection } from "@/components/crm/CollapsibleSection";
 import { EntityDetailLayout, type EntityHeaderAction, type EntityTab } from "@/components/crm/EntityDetailLayout";
+import { UnassignedHiredBadge } from "@/components/ops/UnassignedHiredBadge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
@@ -937,6 +938,12 @@ export function GuardiaDetailClient({
             label: LIFECYCLE_LABELS[guardia.lifecycleStatus] || guardia.lifecycleStatus,
             variant: LIFECYCLE_STATUS_VARIANT[guardia.lifecycleStatus] || "secondary",
           },
+          statusAdornment: (
+            <UnassignedHiredBadge
+              lifecycleStatus={guardia.lifecycleStatus}
+              currentInstallationId={guardia.currentInstallation?.id ?? null}
+            />
+          ),
           actions: headerActions,
         }}
         tabs={TABS}
