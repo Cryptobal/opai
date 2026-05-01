@@ -26,12 +26,12 @@ export function ProposalHeader({ detail, className }: ProposalHeaderProps) {
           {statusLabel}
         </span>
         {canAct && (
-          <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-teal-900/40 text-status-info-fg">
+          <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-status-info-soft text-status-info-fg">
             Requiere acción
           </span>
         )}
         {detail.aiDescription && (
-          <span className="text-[10px] uppercase tracking-wider bg-status-info-soft text-teal-400/70 rounded-full px-2 py-0.5 font-medium">
+          <span className="text-[10px] uppercase tracking-wider bg-status-info-soft text-status-info-fg/70 rounded-full px-2 py-0.5 font-medium">
             Análisis OPAI AI
           </span>
         )}

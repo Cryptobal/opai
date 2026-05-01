@@ -37,7 +37,7 @@ export function EquipoGrupoInstalacion({
         onClick={() => setOpen((v) => !v)}
         className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/[0.02] transition-colors text-left"
       >
-        <div className="h-8 w-8 rounded-lg bg-teal-600/20 border border-status-info-border flex items-center justify-center flex-shrink-0">
+        <div className="h-8 w-8 rounded-lg bg-status-info-soft border border-status-info-border flex items-center justify-center flex-shrink-0">
           <Building2 className="h-4 w-4 text-status-info-fg" />
         </div>
         <div className="flex-1 min-w-0">

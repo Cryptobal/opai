@@ -107,7 +107,7 @@ export function GuardiaDetalleClient({ guardiaId }: Props) {
               onClick={() => setTab(t.key)}
               className={`whitespace-nowrap px-3 py-2 text-xs font-medium transition-colors border-b-2 ${
                 active
-                  ? "text-status-info-fg border-teal-400"
+                  ? "text-status-info-fg border-status-info"
                   : "text-zinc-500 border-transparent hover:text-zinc-300"
               }`}
             >

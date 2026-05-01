@@ -20,7 +20,7 @@ export function GuardiaHeader({ info }: Props) {
             className="h-16 w-16 rounded-full object-cover border border-status-info-border"
           />
         ) : (
-          <div className="h-16 w-16 rounded-full bg-teal-600/30 border border-status-info-border flex items-center justify-center flex-shrink-0">
+          <div className="h-16 w-16 rounded-full bg-status-info-soft border border-status-info-border flex items-center justify-center flex-shrink-0">
             <span className="text-xl font-semibold text-status-info-fg">
               {info.iniciales}
             </span>
@@ -55,11 +55,11 @@ function Os10Badge({
 }) {
   if (estado === "vigente") {
     return (
-      <span className="inline-flex items-center gap-1 text-[11px] text-status-ok-fg bg-emerald-400/10 border border-emerald-400/20 rounded-full px-2 py-0.5">
+      <span className="inline-flex items-center gap-1 text-[11px] text-status-ok-fg bg-status-ok-soft border border-status-ok-border rounded-full px-2 py-0.5">
         <ShieldCheck className="h-3 w-3" />
         OS-10 vigente
         {expiresAt && (
-          <span className="text-emerald-300/70">
+          <span className="text-status-ok-fg/70">
             hasta {new Date(expiresAt).toLocaleDateString("es-CL")}
           </span>
         )}
@@ -68,7 +68,7 @@ function Os10Badge({
   }
   if (estado === "por_vencer") {
     return (
-      <span className="inline-flex items-center gap-1 text-[11px] text-status-warn-fg bg-amber-400/10 border border-amber-400/20 rounded-full px-2 py-0.5">
+      <span className="inline-flex items-center gap-1 text-[11px] text-status-warn-fg bg-status-warn-soft border border-status-warn-border rounded-full px-2 py-0.5">
         <AlertTriangle className="h-3 w-3" />
         OS-10 por vencer
       </span>
@@ -76,7 +76,7 @@ function Os10Badge({
   }
   if (estado === "vencido") {
     return (
-      <span className="inline-flex items-center gap-1 text-[11px] text-status-danger-fg bg-red-400/10 border border-red-400/20 rounded-full px-2 py-0.5">
+      <span className="inline-flex items-center gap-1 text-[11px] text-status-danger-fg bg-status-danger-soft border border-status-danger-border rounded-full px-2 py-0.5">
         <Shield className="h-3 w-3" />
         OS-10 vencido
       </span>

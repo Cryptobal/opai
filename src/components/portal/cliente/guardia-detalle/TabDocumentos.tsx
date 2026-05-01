@@ -16,9 +16,9 @@ const LABELS: Record<Documento["estado"], string> = {
 };
 
 const TONES: Record<Documento["estado"], string> = {
-  vigente: "text-status-ok-fg bg-emerald-400/10 border-emerald-400/20",
-  por_vencer: "text-status-warn-fg bg-amber-400/10 border-amber-400/20",
-  vencido: "text-status-danger-fg bg-red-400/10 border-red-400/20",
+  vigente: "text-status-ok-fg bg-status-ok-soft border-status-ok-border",
+  por_vencer: "text-status-warn-fg bg-status-warn-soft border-status-warn-border",
+  vencido: "text-status-danger-fg bg-status-danger-soft border-status-danger-border",
   pendiente: "text-zinc-400 bg-white/[0.03] border-white/[0.06]",
   no_aplica: "text-zinc-500 bg-white/[0.03] border-white/[0.06]",
 };

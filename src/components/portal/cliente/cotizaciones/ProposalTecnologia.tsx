@@ -33,7 +33,7 @@ export function ProposalTecnologia({
         <h3 className="text-xl font-bold text-white">
           <span className="text-status-info-fg">{sectionNumber}.</span> Qué Incluye
         </h3>
-        <span className="text-[10px] uppercase tracking-wider bg-status-info-soft text-teal-400/70 rounded-full px-2 py-0.5 font-medium">
+        <span className="text-[10px] uppercase tracking-wider bg-status-info-soft text-status-info-fg/70 rounded-full px-2 py-0.5 font-medium">
           Tecnología OPAI
         </span>
       </div>

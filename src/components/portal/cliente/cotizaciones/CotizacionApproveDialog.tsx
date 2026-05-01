@@ -86,7 +86,7 @@ export function CotizacionApproveDialog({
       <DialogContent className="sm:max-w-md">
         {success ? (
           <div className="flex flex-col items-center gap-3 py-6">
-            <div className="w-14 h-14 rounded-full bg-emerald-900/40 flex items-center justify-center">
+            <div className="w-14 h-14 rounded-full bg-status-ok-soft flex items-center justify-center">
               <Check className="w-7 h-7 text-status-ok-fg" />
             </div>
             <p className="text-sm font-medium text-status-ok-fg">
@@ -137,7 +137,7 @@ export function CotizacionApproveDialog({
                       <p className="text-xs text-status-warn-fg font-medium">
                         Debes completar los siguientes datos antes de continuar:
                       </p>
-                      <ul className="text-xs text-amber-200/70 list-disc list-inside space-y-0.5">
+                      <ul className="text-xs text-status-warn-fg/70 list-disc list-inside space-y-0.5">
                         {missing.map((m) => (
                           <li key={m.field}>{m.label}</li>
                         ))}
@@ -149,7 +149,7 @@ export function CotizacionApproveDialog({
                             onOpenChange(false);
                             onNavigateToEmpresa();
                           }}
-                          className="mt-1 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-status-warn-soft text-xs font-medium text-status-warn-fg hover:bg-amber-500/30 hover:text-status-warn-fg transition-colors"
+                          className="mt-1 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-status-warn-soft text-xs font-medium text-status-warn-fg hover:brightness-110 hover:text-status-warn-fg transition-colors"
                         >
                           Ir a completar datos de empresa
                         </button>

@@ -168,14 +168,14 @@ export function ProposalEstructuraCostos({
 
           {/* Financial */}
           {breakdown.financial > 0 && (
-            <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-orange-500/5 border border-orange-500/20">
+            <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-status-warn-soft/30 border border-status-warn-border">
               <span className="text-xs font-semibold text-status-warn-fg">Costo financiero</span>
               <span className="text-xs font-mono font-semibold text-status-warn-fg">{fmt(breakdown.financial)}</span>
             </div>
           )}
 
           {/* Grand Total */}
-          <div className="flex items-center justify-between px-4 py-3 rounded-lg bg-emerald-600/20 border border-status-ok-border">
+          <div className="flex items-center justify-between px-4 py-3 rounded-lg bg-status-ok-soft border border-status-ok-border">
             <span className="text-sm font-bold text-white">PRECIO VENTA MENSUAL NETO</span>
             <span className="text-lg font-bold text-status-ok-fg font-mono">{fmt(breakdown.grandTotal)}</span>
           </div>

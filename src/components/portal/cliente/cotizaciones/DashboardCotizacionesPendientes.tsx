@@ -41,14 +41,14 @@ export function DashboardCotizacionesPendientes({
     return (
       <div className="mb-6">
         <div
-          className="rounded-2xl border border-teal-500/20 p-5 space-y-4"
+          className="rounded-2xl border border-status-info-border p-5 space-y-4"
           style={{ background: "linear-gradient(145deg, rgba(13,148,136,0.08), rgba(30,41,59,0.95))" }}
         >
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <span className="relative flex h-2.5 w-2.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-teal-400" />
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-status-info opacity-75" />
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-status-info" />
               </span>
               <h3 className="text-sm font-semibold text-white">
                 Tu propuesta de seguridad está lista
@@ -111,8 +111,8 @@ export function DashboardCotizacionesPendientes({
       <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 space-y-3">
         <div className="flex items-center gap-2">
           <span className="relative flex h-2.5 w-2.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-teal-400" />
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-status-info opacity-75" />
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-status-info" />
           </span>
           <span className="text-sm font-medium text-white">
             Tienes {quotes.length} propuesta{quotes.length !== 1 ? "s" : ""} abierta{quotes.length !== 1 ? "s" : ""}

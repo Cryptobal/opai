@@ -39,7 +39,7 @@ export function TabSupervision({ supervision }: Props) {
               )}
             </div>
             {s.isReinforcement && (
-              <span className="text-[10px] text-status-warn-fg bg-amber-400/10 border border-amber-400/20 rounded-full px-2 py-0.5">
+              <span className="text-[10px] text-status-warn-fg bg-status-warn-soft border border-status-warn-border rounded-full px-2 py-0.5">
                 Refuerzo
               </span>
             )}

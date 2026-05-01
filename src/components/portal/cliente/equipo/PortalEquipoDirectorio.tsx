@@ -115,7 +115,7 @@ export function PortalEquipoDirectorio({ isProspect }: Props) {
         {isProspect && <PreviewBadge />}
       </div>
       <div className="flex items-center gap-2 mb-4">
-        <span className="text-[10px] uppercase tracking-wider text-teal-300/80 bg-teal-400/10 border border-teal-400/20 rounded-full px-2 py-0.5">
+        <span className="text-[10px] uppercase tracking-wider text-status-info-fg/80 bg-status-info-soft border border-status-info-border rounded-full px-2 py-0.5">
           Cumplimiento automático
         </span>
       </div>
