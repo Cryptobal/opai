@@ -193,6 +193,27 @@ const MIGRATED_PATHS = [
   // en una sub-fase futura. La ficha /crm/installations/[id]
   // (CrmInstallationDetailClient, 3.002 líneas) queda para 5A.7.b.
   "src/app/(app)/crm/installations/page.tsx",
+  // Cluster 5A.7.b — Ficha de Instalación (CrmInstallationDetailClient,
+  // 3.002 líneas) migrada granularmente al DS v3 en color drift +
+  // EmptyState + Tag patterns. 43 hex hardcoded eliminados
+  // (status-ok/warn/info/danger), 9 EmptyState legacy migrados al
+  // export DS v3, 5 status spans custom (Noche/Día, postulante/
+  // seleccionado/contratado/te/inactivo) → <Tag variant>, mapa
+  // LIFECYCLE_COLORS string→className → LIFECYCLE_VARIANT
+  // string→TagVariant. Toggles nocturno (indigo→info) y chat
+  // (teal→ok) ahora con tokens semánticos. Banners verde URL
+  // rondas / azul info GPS / amber "guardia ya asignado" /
+  // verde quote source / amber "atención" cuenta inactiva
+  // alineados a status-* tokens. Net amounts (líquido) y score
+  // colors (encuestas) con text-status-*-fg.
+  //
+  // CrmInstallationDetailClient.tsx NO se agrega: mismo criterio que
+  // 4A/4B/4C/4D/5A.1/5A.2/5A.3/5A.4/5A.5/5A.6/5A.7.a — el archivo
+  // completó su migración granular de color drift + EmptyState + Tag
+  // pero sigue teniendo drift legacy fuera de eso (text-[10px]/text-[11px]
+  // en chips de slot, eyebrows de DetailField group y RUTs, restantes
+  // del 5A.6). Se agregará cuando se haga su pasada de limpieza
+  // tipográfica completa en una sub-fase futura.
   // Agregar aquí cuando se migren:
   // "src/components/personas/",
   // "src/components/crm/",

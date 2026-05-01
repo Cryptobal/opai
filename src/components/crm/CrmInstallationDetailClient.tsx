@@ -24,7 +24,7 @@ import {
 import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";
 import { MapsUrlPasteInput } from "@/components/ui/MapsUrlPasteInput";
 import { MapCoordinatePicker } from "@/components/ui/MapCoordinatePicker";
-import { EmptyState } from "@/components/opai/EmptyState";
+import { EmptyState, Tag, type TagVariant } from "@/components/opai-ds";
 import { EntityDetailLayout, useEntityTabs, type EntityTab, type EntityHeaderAction } from "./EntityDetailLayout";
 import { DetailField } from "./DetailField";
 import { CrmRelatedRecordCard, CrmRelatedRecordGrid } from "./CrmRelatedRecordCard";
@@ -200,12 +200,12 @@ type ActivityEvent = {
 
 /* ── Lifecycle colors (shared) ── */
 
-const LIFECYCLE_COLORS: Record<string, string> = {
-  postulante: "bg-zinc-500/15 text-zinc-400 border-zinc-500/30",
-  seleccionado: "bg-blue-500/15 text-blue-300 border-blue-500/30",
-  contratado: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
-  te: "bg-violet-500/15 text-violet-300 border-violet-500/30",
-  inactivo: "bg-amber-500/15 text-amber-300 border-amber-500/30",
+const LIFECYCLE_VARIANT: Record<string, TagVariant> = {
+  postulante: "neutral",
+  seleccionado: "info",
+  contratado: "ok",
+  te: "brand",
+  inactivo: "warn",
 };
 
 const LIFECYCLE_LABELS: Record<string, string> = {
@@ -376,9 +376,9 @@ function MarcacionRondasSection({ installation }: { installation: InstallationDe
         </div>
       </div>
 
-      <div className="flex items-center justify-between p-3 rounded-lg border border-emerald-500/30 bg-emerald-500/5">
+      <div className="flex items-center justify-between p-3 rounded-lg border border-status-ok-border bg-status-ok-soft">
         <div className="min-w-0 flex-1">
-          <p className="text-xs text-emerald-300">URL de rondas móvil</p>
+          <p className="text-xs text-status-ok-fg">URL de rondas móvil</p>
           <p className="text-sm font-mono truncate">{rondaUrl}</p>
         </div>
         <div className="flex items-center gap-1">
@@ -406,9 +406,9 @@ function MarcacionRondasSection({ installation }: { installation: InstallationDe
         </p>
       </div>
 
-      <div className="flex items-center gap-2 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
-        <MapPin className="h-4 w-4 text-blue-400 shrink-0" />
-        <p className="text-xs text-blue-300">
+      <div className="flex items-center gap-2 p-3 rounded-lg bg-status-info-soft border border-status-info-border">
+        <MapPin className="h-4 w-4 text-status-info-fg shrink-0" />
+        <p className="text-xs text-status-info-fg">
           Radio de validación GPS: <strong>{installation.geoRadiusM ?? 1000}m</strong>.
           Las marcaciones fuera de este radio se registran con advertencia.
         </p>
@@ -629,7 +629,7 @@ function DotacionSection({ installation, canEdit: canEditProp = false }: { insta
   if (puestos.length === 0 && guardiasExtraDirectos.length === 0) {
     return (
       <EmptyState
-        icon={<LayoutGrid className="h-8 w-8" />}
+        icon={LayoutGrid}
         title="Sin dotación"
         description="No hay puestos operativos activos ni guardias asignados."
         compact
@@ -658,12 +658,9 @@ function DotacionSection({ installation, canEdit: canEditProp = false }: { insta
             <div key={puesto.id} className="rounded-lg border border-border p-3 space-y-2">
               <div className="flex items-center gap-2">
                 <p className="text-sm font-medium">{puesto.name}</p>
-                <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold border ${isNight
-                    ? "bg-indigo-500/15 text-indigo-300 border-indigo-500/30"
-                    : "bg-amber-500/15 text-amber-300 border-amber-500/30"
-                  }`}>
+                <Tag variant={isNight ? "info" : "warn"} size="sm">
                   {isNight ? "Noche" : "Día"}
-                </span>
+                </Tag>
                 <span className="text-[10px] text-muted-foreground">
                   {puesto.shiftStart}-{puesto.shiftEnd} · {puesto.requiredGuards} slot(s)
                 </span>
@@ -677,7 +674,7 @@ function DotacionSection({ installation, canEdit: canEditProp = false }: { insta
                       key={slotNum}
                       className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-xs ${assignment
                           ? "border border-border/60 bg-card"
-                          : "border border-dashed border-amber-500/30 bg-amber-500/5"
+                          : "border border-dashed border-status-warn-border bg-status-warn-soft"
                         }`}
                     >
                       <span className="text-muted-foreground font-mono text-[10px] w-10 shrink-0">
@@ -694,10 +691,13 @@ function DotacionSection({ installation, canEdit: canEditProp = false }: { insta
                           {assignment.guardia.code && (
                             <span className="text-muted-foreground shrink-0">({assignment.guardia.code})</span>
                           )}
-                          <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium border shrink-0 ${LIFECYCLE_COLORS[assignment.guardia.lifecycleStatus] ?? LIFECYCLE_COLORS.postulante
-                            }`}>
+                          <Tag
+                            variant={LIFECYCLE_VARIANT[assignment.guardia.lifecycleStatus] ?? "neutral"}
+                            size="sm"
+                            className="shrink-0"
+                          >
                             {LIFECYCLE_LABELS[assignment.guardia.lifecycleStatus] ?? assignment.guardia.lifecycleStatus}
-                          </span>
+                          </Tag>
                           {assignment.guardia.persona.rut && (
                             <span className="text-[10px] text-muted-foreground shrink-0 hidden sm:inline">{assignment.guardia.persona.rut}</span>
                           )}
@@ -727,7 +727,7 @@ function DotacionSection({ installation, canEdit: canEditProp = false }: { insta
                         </div>
                       ) : (
                         <div className="flex items-center gap-2 flex-1 min-w-0">
-                          <span className="text-amber-400 italic text-[11px]">Vacante</span>
+                          <span className="text-status-warn-fg italic text-[11px]">Vacante</span>
                           {canEditProp && (
                             <button
                               type="button"
@@ -766,10 +766,9 @@ function DotacionSection({ installation, canEdit: canEditProp = false }: { insta
                   {formatPersonName(g.persona.firstName, g.persona.lastName)}
                 </span>
                 {g.code && <span className="text-muted-foreground">({g.code})</span>}
-                <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium border ${LIFECYCLE_COLORS[g.lifecycleStatus] ?? LIFECYCLE_COLORS.postulante
-                  }`}>
+                <Tag variant={LIFECYCLE_VARIANT[g.lifecycleStatus] ?? "neutral"} size="sm">
                   {LIFECYCLE_LABELS[g.lifecycleStatus] ?? g.lifecycleStatus}
-                </span>
+                </Tag>
                 {g.persona.rut && (
                   <span className="text-[10px] text-muted-foreground">{g.persona.rut}</span>
                 )}
@@ -859,24 +858,24 @@ function DotacionSection({ installation, canEdit: canEditProp = false }: { insta
 
             {/* Warning: guard already assigned elsewhere */}
             {assignWarning && (
-              <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
+              <div className="rounded-md border border-status-warn-border bg-status-warn-soft p-3 space-y-2">
                 <div className="flex items-start gap-2">
-                  <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
-                  <div className="text-xs text-amber-200">
+                  <AlertTriangle className="h-4 w-4 text-status-warn-fg shrink-0 mt-0.5" />
+                  <div className="text-xs text-status-warn-fg">
                     <p className="font-medium">Este guardia ya está asignado</p>
-                    <p className="text-amber-300/80 mt-0.5">
+                    <p className="text-status-warn-fg/80 mt-0.5">
                       {assignWarning.puestoName} en {assignWarning.installationName}
                       {assignWarning.accountName ? ` (${assignWarning.accountName})` : ""}
                     </p>
-                    <p className="text-amber-300/80 mt-1">
+                    <p className="text-status-warn-fg/80 mt-1">
                       Al asignar aquí, se cerrará la asignación anterior automáticamente.
                     </p>
                   </div>
                 </div>
 
                 {/* Fecha de término de la asignación anterior */}
-                <div className="space-y-1.5 pt-1 border-t border-amber-500/20">
-                  <label className="flex items-center gap-2 text-xs text-amber-200 cursor-pointer">
+                <div className="space-y-1.5 pt-1 border-t border-status-warn-border/60">
+                  <label className="flex items-center gap-2 text-xs text-status-warn-fg cursor-pointer">
                     <input
                       type="checkbox"
                       checked={assignEndDateSameAsStart}
@@ -884,18 +883,18 @@ function DotacionSection({ installation, canEdit: canEditProp = false }: { insta
                         setAssignEndDateSameAsStart(e.target.checked);
                         if (e.target.checked) setAssignEndDatePrevious(assignDate);
                       }}
-                      className="rounded border-amber-500/50"
+                      className="rounded border-status-warn-border"
                     />
                     Fecha de término anterior = fecha de inicio ({assignDate})
                   </label>
                   {!assignEndDateSameAsStart && (
                     <div className="space-y-1">
-                      <Label className="text-[10px] text-amber-300">Fecha de término en la instalación anterior</Label>
+                      <Label className="text-[10px] text-status-warn-fg">Fecha de término en la instalación anterior</Label>
                       <input
                         type="date"
                         value={assignEndDatePrevious}
                         onChange={(e) => setAssignEndDatePrevious(e.target.value)}
-                        className="h-8 w-full rounded-md border border-amber-500/30 bg-amber-500/5 px-3 text-xs text-amber-200"
+                        className="h-8 w-full rounded-md border border-status-warn-border bg-status-warn-soft px-3 text-xs text-status-warn-fg"
                       />
                     </div>
                   )}
@@ -1188,7 +1187,7 @@ function StaffingSection({
       return (
         <div className="space-y-1">
           <p>No se pudo obtener el diagnóstico completo.</p>
-          <p className="text-xs text-amber-300">{deleteDiagnosticsError}</p>
+          <p className="text-xs text-status-warn-fg">{deleteDiagnosticsError}</p>
         </div>
       );
     }
@@ -1257,7 +1256,7 @@ function StaffingSection({
           </p>
         ) : null}
         {canForceThisDelete ? (
-          <p className="text-xs text-amber-300">
+          <p className="text-xs text-status-warn-fg">
             Como administrador puedes eliminar forzadamente. Esto borrará también historial asociado al puesto.
           </p>
         ) : null}
@@ -1296,13 +1295,13 @@ function StaffingSection({
   return (
     <div className="space-y-3">
       {sourceQuoteId && sourceQuoteCode ? (
-        <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/5 p-3 text-xs text-emerald-200">
+        <div className="rounded-lg border border-status-ok-border bg-status-ok-soft p-3 text-xs text-status-ok-fg">
           Dotación sincronizada desde cotización{" "}
-          <Link href={`/cpq/${sourceQuoteId}`} className="underline underline-offset-2 hover:text-emerald-100">
+          <Link href={`/cpq/${sourceQuoteId}`} className="underline underline-offset-2 hover:brightness-110">
             {sourceQuoteCode}
           </Link>
           {sourceUpdatedAt ? (
-            <span className="text-emerald-300/80"> · {new Date(sourceUpdatedAt).toLocaleString("es-CL")}</span>
+            <span className="text-status-ok-fg/80"> · {new Date(sourceUpdatedAt).toLocaleString("es-CL")}</span>
           ) : null}
         </div>
       ) : null}
@@ -1336,12 +1335,9 @@ function StaffingSection({
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="font-medium text-sm truncate">{cargoName}</p>
-                        <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold shrink-0 ${isNight
-                            ? "bg-indigo-500/15 text-indigo-300 border border-indigo-500/30"
-                            : "bg-amber-500/15 text-amber-300 border border-amber-500/30"
-                          }`}>
+                        <Tag variant={isNight ? "info" : "warn"} size="sm" className="shrink-0">
                           {isNight ? "Noche" : "Día"}
-                        </span>
+                        </Tag>
                       </div>
                       {puestoTrabajoName && (
                         <p className="text-[10px] text-muted-foreground">{puestoTrabajoName}</p>
@@ -1392,7 +1388,7 @@ function StaffingSection({
                     <div className="text-xs">
                       <span className="text-muted-foreground">Líquido: </span>
                       {net > 0
-                        ? <span className="text-emerald-400 font-medium">${net.toLocaleString("es-CL")}</span>
+                        ? <span className="text-status-ok-fg font-medium">${net.toLocaleString("es-CL")}</span>
                         : <span className="text-muted-foreground">—</span>}
                     </div>
                   </div>
@@ -1443,12 +1439,9 @@ function StaffingSection({
                             const startH = parseInt(item.shiftStart.split(":")[0], 10);
                             const isNight = startH >= 18 || startH < 6;
                             return (
-                              <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${isNight
-                                  ? "bg-indigo-500/15 text-indigo-300 border border-indigo-500/30"
-                                  : "bg-amber-500/15 text-amber-300 border border-amber-500/30"
-                                }`}>
+                              <Tag variant={isNight ? "info" : "warn"} size="sm">
                                 {isNight ? "Noche" : "Día"}
-                              </span>
+                              </Tag>
                             );
                           })()}
                         </div>
@@ -1471,7 +1464,7 @@ function StaffingSection({
                         {(() => {
                           const ss = (item as any).salaryStructure;
                           const net = ss ? Number(ss.netSalaryEstimate ?? 0) : 0;
-                          if (net > 0) return <span className="text-emerald-400 font-medium">${net.toLocaleString("es-CL")}</span>;
+                          if (net > 0) return <span className="text-status-ok-fg font-medium">${net.toLocaleString("es-CL")}</span>;
                           return <span className="text-muted-foreground">—</span>;
                         })()}
                       </td>
@@ -1511,7 +1504,7 @@ function StaffingSection({
           </div>
         </>
       ) : (
-        <EmptyState icon={<StaffingIcon className="h-8 w-8" />} title="Sin dotación activa" description="Aún no hay puestos activos. Usa el botón para agregar uno." compact />
+        <EmptyState icon={StaffingIcon} title="Sin dotación activa" description="Aún no hay puestos activos. Usa el botón para agregar uno." compact />
       )}
 
       {/* Historial de puestos inactivos */}
@@ -2231,11 +2224,11 @@ export function CrmInstallationDetailClient({
             title={!isActive ? "Activa la instalación para incluirla en control nocturno" : undefined}
             className={`flex w-full items-center gap-2.5 rounded-lg border px-3 py-2.5 text-sm transition-colors ${!isActive ? "cursor-not-allowed opacity-60 " : ""}${
               nocturnoEnabled
-                ? "border-indigo-500/30 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/15"
+                ? "border-status-info-border bg-status-info-soft text-status-info-fg hover:brightness-110"
                 : "border-border bg-muted/20 text-muted-foreground hover:bg-muted/40"
             }`}
           >
-            <Moon className={`h-4 w-4 shrink-0 ${nocturnoEnabled ? "text-indigo-400" : "text-muted-foreground"}`} />
+            <Moon className={`h-4 w-4 shrink-0 ${nocturnoEnabled ? "text-status-info-fg" : "text-muted-foreground"}`} />
             <div className="min-w-0 flex-1 text-left">
               <div className="font-medium">Control nocturno</div>
               <div className="truncate text-xs opacity-70">
@@ -2244,7 +2237,7 @@ export function CrmInstallationDetailClient({
             </div>
             <div
               className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors ${
-                nocturnoEnabled ? "bg-indigo-500" : "bg-muted-foreground/30"
+                nocturnoEnabled ? "bg-status-info" : "bg-muted-foreground/30"
               }`}
             >
               <span
@@ -2261,11 +2254,11 @@ export function CrmInstallationDetailClient({
             title={!isActive ? "Activa la instalación para habilitar el chat grupal" : undefined}
             className={`flex w-full items-center gap-2.5 rounded-lg border px-3 py-2.5 text-sm transition-colors ${!isActive ? "cursor-not-allowed opacity-60 " : ""}${
               chatEnabled
-                ? "border-teal-500/30 bg-teal-500/10 text-teal-300 hover:bg-teal-500/15"
+                ? "border-status-ok-border bg-status-ok-soft text-status-ok-fg hover:brightness-110"
                 : "border-border bg-muted/20 text-muted-foreground hover:bg-muted/40"
             }`}
           >
-            <MessageCircle className={`h-4 w-4 shrink-0 ${chatEnabled ? "text-teal-400" : "text-muted-foreground"}`} />
+            <MessageCircle className={`h-4 w-4 shrink-0 ${chatEnabled ? "text-status-ok-fg" : "text-muted-foreground"}`} />
             <div className="min-w-0 flex-1 text-left">
               <div className="font-medium">Chat de instalación</div>
               <div className="truncate text-xs opacity-70">
@@ -2274,7 +2267,7 @@ export function CrmInstallationDetailClient({
             </div>
             <div
               className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors ${
-                chatEnabled ? "bg-teal-500" : "bg-muted-foreground/30"
+                chatEnabled ? "bg-status-ok" : "bg-muted-foreground/30"
               }`}
             >
               <span
@@ -2349,14 +2342,14 @@ export function CrmInstallationDetailClient({
       href={`/crm/accounts/${installation.account.id}`}
     />
   ) : (
-    <EmptyState icon={<AccountIcon className="h-8 w-8" />} title="Sin cuenta" description="Esta instalación no está vinculada a una cuenta." compact />
+    <EmptyState icon={AccountIcon} title="Sin cuenta" description="Esta instalación no está vinculada a una cuenta." compact />
   );
 
   const contactsContent = !installation.account ? (
-    <EmptyState icon={<ContactsIcon className="h-8 w-8" />} title="Sin cuenta" description="Asocia una cuenta a esta instalación para ver los contactos vinculados." compact />
+    <EmptyState icon={ContactsIcon} title="Sin cuenta" description="Asocia una cuenta a esta instalación para ver los contactos vinculados." compact />
   ) : !installation.contactsOfAccount?.length ? (
     <EmptyState
-      icon={<ContactsIcon className="h-8 w-8" />}
+      icon={ContactsIcon}
       title="Sin contactos"
       description="No hay contactos asociados a la cuenta de esta instalación."
       compact
@@ -2383,10 +2376,10 @@ export function CrmInstallationDetailClient({
   );
 
   const dealsContent = !installation.account ? (
-    <EmptyState icon={<DealsIcon className="h-8 w-8" />} title="Sin cuenta" description="Asocia una cuenta a esta instalación para ver los negocios vinculados." compact />
+    <EmptyState icon={DealsIcon} title="Sin cuenta" description="Asocia una cuenta a esta instalación para ver los negocios vinculados." compact />
   ) : !installation.dealsOfAccount?.length ? (
     <EmptyState
-      icon={<DealsIcon className="h-8 w-8" />}
+      icon={DealsIcon}
       title="Sin negocios"
       description="No hay negocios asociados a la cuenta de esta instalación."
       compact
@@ -2420,7 +2413,7 @@ export function CrmInstallationDetailClient({
 
   const quotesContent = !installation.quotesInstalacion?.length ? (
     <EmptyState
-      icon={<QuotesIcon className="h-8 w-8" />}
+      icon={QuotesIcon}
       title="Sin cotizaciones"
       description="No hay cotizaciones asociadas a esta instalación."
       compact
@@ -2540,7 +2533,7 @@ export function CrmInstallationDetailClient({
                 <div className="flex items-center gap-2 ml-2">
                   {enc.averageScore !== null && (
                     <span className={`text-sm font-medium ${
-                      enc.averageScore >= 4 ? "text-emerald-400" : enc.averageScore >= 3 ? "text-amber-400" : "text-red-400"
+                      enc.averageScore >= 4 ? "text-status-ok-fg" : enc.averageScore >= 3 ? "text-status-warn-fg" : "text-status-danger-fg"
                     }`}>
                       {enc.averageScore.toFixed(1)}/5
                     </span>
@@ -2555,7 +2548,7 @@ export function CrmInstallationDetailClient({
             ))
           ) : (
             <EmptyState
-              icon={<ClipboardList className="h-8 w-8" />}
+              icon={ClipboardList}
               title="Sin encuestas"
               description="No hay encuestas de cliente registradas."
               compact
@@ -2906,7 +2899,7 @@ export function CrmInstallationDetailClient({
             statusActivateAccount ? (
               <span className="space-y-2 block">
                 <span className="block">La instalación quedará activa.</span>
-                <span className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-amber-700 dark:text-amber-400">
+                <span className="flex items-start gap-2 rounded-md border border-status-warn-border bg-status-warn-soft p-3 text-status-warn-fg">
                   <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                   <span>
                     La cuenta asociada (<strong>{installation.account?.name}</strong>) está inactiva. Al confirmar, también se activará la cuenta.
