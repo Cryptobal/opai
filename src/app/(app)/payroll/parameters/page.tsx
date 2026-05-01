@@ -7,7 +7,8 @@
 
 import { useEffect, useState } from "react";
 import { DataTable, EmptyState, type DataTableColumn } from "@/components/opai-ds";
-import { PageHeader } from "@/components/opai-ds";
+import { PageHero } from "@/components/opai-ds";
+import { FileText } from "lucide-react";
 import { PayrollSubnav } from "@/components/payroll/PayrollSubnav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -58,7 +59,13 @@ export default function PayrollParameters() {
   if (error) {
     return (
       <div className="space-y-4">
-        <PageHeader title="Parámetros Legales" />
+        <PageHero
+          icon={<FileText />}
+          iconTone="amber"
+          eyebrow={["Payroll", "Parámetros"]}
+          title="Parámetros Legales"
+          subtitle="versiones legales vigentes"
+        />
         <Card className="border-status-danger-border bg-status-danger-soft">
           <CardContent>
             <div className="flex items-start gap-2 pt-4">
@@ -82,13 +89,20 @@ export default function PayrollParameters() {
   return (
     <div className="space-y-6 min-w-0">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <PageHeader title="Parámetros Legales Chile" />
-        <Badge variant="default" className="gap-1.5 text-xs">
-          <Calendar className="h-3 w-3" />
-          {parameters.effective_from}
-        </Badge>
-      </div>
+      <PageHero
+        icon={<FileText />}
+        iconTone="amber"
+        eyebrow={["Payroll", "Parámetros"]}
+        title="Parámetros Legales Chile"
+        subtitle="versiones vigentes"
+        description={`Vigencia desde ${parameters.effective_from}`}
+        actions={
+          <Badge variant="default" className="gap-1.5 text-xs">
+            <Calendar className="h-3 w-3" />
+            {parameters.effective_from}
+          </Badge>
+        }
+      />
       <PayrollSubnav />
 
       {/* Row 1: AFP, SIS/Salud, AFC, Mutual/Topes */}

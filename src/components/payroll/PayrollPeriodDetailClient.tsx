@@ -600,9 +600,9 @@ export function PayrollPeriodDetailClient({ periodId }: { periodId: string }) {
                           <td className="px-3 py-2">
                             <div className="flex items-center gap-1.5">
                               <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${
-                                sg.reasonCode === "NO_SALARY" ? "bg-amber-400" :
-                                sg.reasonCode === "NO_ASSIGNMENT" ? "bg-orange-400" :
-                                sg.reasonCode === "ZERO_SALARY" ? "bg-amber-400" :
+                                sg.reasonCode === "NO_SALARY" ? "bg-status-warn" :
+                                sg.reasonCode === "NO_ASSIGNMENT" ? "bg-status-warn" :
+                                sg.reasonCode === "ZERO_SALARY" ? "bg-status-warn" :
                                 sg.reasonCode === "ERROR" ? "bg-destructive" :
                                 "bg-muted-foreground"
                               }`} />

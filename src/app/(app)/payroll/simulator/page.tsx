@@ -6,7 +6,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { PageHeader } from "@/components/opai-ds";
+import { PageHero } from "@/components/opai-ds";
 import { Stat } from "@/components/opai-ds";
 import { PayrollSubnav } from "@/components/payroll/PayrollSubnav";
 import { Card } from "@/components/ui/card";
@@ -161,27 +161,31 @@ export default function PayrollSimulator() {
   return (
     <div className="space-y-6">
       {/* ── Header ── */}
-      <div className="flex items-center justify-between">
-        <PageHeader
-          title="Simulador de Liquidación"
-          description="Cálculo completo según ley chilena"
-        />
-        <div className="flex items-center gap-2">
-          <div className="hidden items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1.5 text-xs sm:flex">
-            <span className="text-muted-foreground">UF</span>
-            <span className="font-mono font-medium">{fmt(ufValue)}</span>
-            <span className="mx-1 text-border">|</span>
-            <span className="text-muted-foreground">UTM</span>
-            <span className="font-mono font-medium">{fmt(utmValue)}</span>
+      <PageHero
+        icon={<Calculator />}
+        iconTone="amber"
+        eyebrow={["Payroll", "Simulador"]}
+        title="Simulador de Liquidación"
+        subtitle="cálculo según ley chilena"
+        description="Simulación completa con descuentos legales y costo empleador."
+        actions={
+          <div className="flex items-center gap-2">
+            <div className="hidden items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1.5 text-xs sm:flex">
+              <span className="text-muted-foreground">UF</span>
+              <span className="font-mono font-medium">{fmt(ufValue)}</span>
+              <span className="mx-1 text-border">|</span>
+              <span className="text-muted-foreground">UTM</span>
+              <span className="font-mono font-medium">{fmt(utmValue)}</span>
+            </div>
+            <Link href="/payroll/parameters">
+              <Button variant="outline" size="sm" className="gap-1.5 text-xs">
+                <Info className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Parámetros</span>
+              </Button>
+            </Link>
           </div>
-          <Link href="/payroll/parameters">
-            <Button variant="outline" size="sm" className="gap-1.5 text-xs">
-              <Info className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Parámetros</span>
-            </Button>
-          </Link>
-        </div>
-      </div>
+        }
+      />
 
       <PayrollSubnav />
 
