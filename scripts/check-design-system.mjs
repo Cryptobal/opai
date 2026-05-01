@@ -815,6 +815,32 @@ const MIGRATED_PATHS = [
   "src/app/(app)/personas/guardias/[id]/page.tsx",
   "src/app/(app)/personas/guardias/ingreso-te/page.tsx",
   "src/app/(app)/personas/guardias/sueldos-rut/page.tsx",
+  // Cluster 5B.10 — Onboarding (cierre cluster 5B).
+  // Último sub-step del cluster 5B. Después de este merge, todo
+  // Operaciones + Personas/Guardias está alineado al DS v3.
+  //
+  // 5 hex residuales eliminados en 2 components:
+  //
+  // - OnboardingDashboardClient (1 hex): X icon "no completado"
+  //   (text-red-500/80) → text-status-danger-fg/80.
+  // - OnboardingSection (4 hex): STATUS_BADGES COMPLETADO + step
+  //   indicator + connector line + email log "ABIERTO" badge
+  //   (bg-green-500/20 ×3, bg-green-500/40 ×1) → bg-status-ok-soft
+  //   y bg-status-ok solid para el connector (más nítido).
+  //
+  // 1 page SC migrada a <PageHero> (Sparkles, iconTone sky,
+  // heredado de 5B.9). <Breadcrumbs> separado removido — el eyebrow
+  // del PageHero lo reemplaza.
+  //
+  // Los 2 CCs (OnboardingDashboardClient, OnboardingSection) NO se
+  // agregan a MIGRATED_PATHS: mismo criterio que 4A/4B/4C/4D/
+  // 5A.1..5A.8/5B.1.a/5B.1.b/5B.2.a/5B.2.b.1/5B.2.b.2/5B.2.c/5B.3/
+  // 5B.4/5B.5/5B.6+7/5B.8/5B.9 — completaron su migración granular
+  // de color drift pero siguen teniendo drift tipográfico legacy
+  // (text-[10px]/text-[11px] en headers de tabla, badges de estado,
+  // labels de tarjetas). Se agregarán cuando se haga su pasada de
+  // limpieza tipográfica completa en una sub-fase futura.
+  "src/app/(app)/personas/onboarding/page.tsx",
   // Agregar aquí cuando se migren:
   // "src/components/personas/",
   // "src/components/crm/",

@@ -49,7 +49,7 @@ const ESTADO_COLORS: Record<string, string> = {
   PENDIENTE: "bg-muted text-muted-foreground",
   ENVIADO: "bg-status-warn-soft text-status-warn-fg",
   EN_PROGRESO: "bg-status-info-soft text-status-info-fg",
-  COMPLETADO: "bg-green-500/20 text-status-ok-fg",
+  COMPLETADO: "bg-status-ok-soft text-status-ok-fg",
 };
 
 const STEPPER_STEPS = [
@@ -196,7 +196,7 @@ export default function OnboardingSection({
             <div
               className={`flex items-center justify-center w-7 h-7 rounded-full text-xs font-medium shrink-0 ${
                 i < current
-                  ? "bg-green-500/20 text-status-ok-fg"
+                  ? "bg-status-ok-soft text-status-ok-fg"
                   : i === current
                     ? "bg-primary/20 text-primary ring-1 ring-primary"
                     : "bg-muted text-muted-foreground"
@@ -211,7 +211,7 @@ export default function OnboardingSection({
             </span>
             {i < STEPPER_STEPS.length - 1 && (
               <div
-                className={`flex-1 h-px mx-1 ${i < current ? "bg-green-500/40" : "bg-border"}`}
+                className={`flex-1 h-px mx-1 ${i < current ? "bg-status-ok" : "bg-border"}`}
               />
             )}
           </div>
@@ -323,7 +323,7 @@ export default function OnboardingSection({
                   <span
                     className={`inline-flex shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
                       log.estado === "ABIERTO"
-                        ? "bg-green-500/20 text-status-ok-fg"
+                        ? "bg-status-ok-soft text-status-ok-fg"
                         : log.estado === "REBOTADO"
                           ? "bg-status-danger-soft text-status-danger-fg"
                           : log.estado === "ENTREGADO"

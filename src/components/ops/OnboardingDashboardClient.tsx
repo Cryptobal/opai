@@ -117,7 +117,7 @@ function PortalAccessCell({
       </div>
     );
   }
-  return <X className="h-4 w-4 text-red-500/80" />;
+  return <X className="h-4 w-4 text-status-danger-fg/80" />;
 }
 
 export function OnboardingDashboardClient({ tenantId }: OnboardingDashboardClientProps) {
