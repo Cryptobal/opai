@@ -109,7 +109,7 @@ export function PortalEquipoDirectorio({ isProspect }: Props) {
     <div className="flex-1 max-w-2xl mx-auto w-full px-4 py-4 pb-24">
       <div className="flex items-center justify-between mb-1">
         <div className="flex items-center gap-2">
-          <UserCheck className="h-5 w-5 text-teal-400" />
+          <UserCheck className="h-5 w-5 text-status-info-fg" />
           <h2 className="text-lg font-semibold">Equipo de guardias</h2>
         </div>
         {isProspect && <PreviewBadge />}

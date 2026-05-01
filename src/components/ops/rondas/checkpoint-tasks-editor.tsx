@@ -35,11 +35,11 @@ const TASK_TYPES = [
 ] as const;
 
 const TYPE_COLORS: Record<string, string> = {
-  boolean: "border-emerald-500/30 text-emerald-500",
-  checklist: "border-blue-500/30 text-blue-500",
+  boolean: "border-status-ok-border text-status-ok-fg",
+  checklist: "border-status-info-border text-status-info-fg",
   select: "border-purple-500/30 text-purple-500",
-  text: "border-amber-500/30 text-amber-500",
-  number: "border-cyan-500/30 text-cyan-500",
+  text: "border-status-warn-border text-status-warn-fg",
+  number: "border-status-info-border text-status-info-fg",
   photo: "border-pink-500/30 text-pink-500",
 };
 
@@ -162,7 +162,7 @@ export function CheckpointTasksEditor({ tasks, onChange }: Props) {
               </Badge>
               <span className="min-w-0 flex-1 truncate text-foreground">{task.label}</span>
               {task.required && (
-                <span className="text-red-400 text-[9px] font-semibold shrink-0">*</span>
+                <span className="text-status-danger-fg text-[9px] font-semibold shrink-0">*</span>
               )}
               <div className="flex items-center gap-0.5 shrink-0">
                 <button
@@ -191,7 +191,7 @@ export function CheckpointTasksEditor({ tasks, onChange }: Props) {
                 <button
                   type="button"
                   onClick={() => removeTask(idx)}
-                  className="p-0.5 text-red-400 hover:text-red-300"
+                  className="p-0.5 text-status-danger-fg hover:text-status-danger-fg"
                 >
                   <Trash2 className="h-3 w-3" />
                 </button>
@@ -203,7 +203,7 @@ export function CheckpointTasksEditor({ tasks, onChange }: Props) {
 
       {/* Add/Edit task form */}
       {isAdding && (
-        <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-2.5 space-y-2">
+        <div className="rounded-lg border border-status-warn-border bg-status-warn-soft p-2.5 space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-foreground">
               {editingIndex !== null ? "Editar tarea" : "Nueva tarea"}
@@ -275,7 +275,7 @@ export function CheckpointTasksEditor({ tasks, onChange }: Props) {
                     <button
                       type="button"
                       onClick={() => setFormOptions(formOptions.filter((_, j) => j !== i))}
-                      className="p-1 text-red-400 hover:text-red-300"
+                      className="p-1 text-status-danger-fg hover:text-status-danger-fg"
                     >
                       <X className="h-3 w-3" />
                     </button>

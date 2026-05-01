@@ -219,7 +219,7 @@ export function SupervisionDashboardEnhanced({
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
-              <AlertTriangle className="h-4 w-4 text-amber-400" />
+              <AlertTriangle className="h-4 w-4 text-status-warn-fg" />
               Alertas
             </CardTitle>
           </CardHeader>
@@ -227,7 +227,7 @@ export function SupervisionDashboardEnhanced({
             {/* No visit installations */}
             {dashData?.alerts.noVisitInstallations && dashData.alerts.noVisitInstallations.length > 0 && (
               <div>
-                <p className="mb-1 text-xs font-medium text-red-400">
+                <p className="mb-1 text-xs font-medium text-status-danger-fg">
                   Instalaciones sin visita (+7 días):
                 </p>
                 {dashData.alerts.noVisitInstallations.slice(0, 5).map((inst) => (
@@ -242,7 +242,7 @@ export function SupervisionDashboardEnhanced({
             {/* Express visits */}
             {dashData?.alerts.expressVisits && dashData.alerts.expressVisits.length > 0 && (
               <div>
-                <p className="mb-1 text-xs font-medium text-amber-400">
+                <p className="mb-1 text-xs font-medium text-status-warn-fg">
                   Visitas express (&lt;15m):
                 </p>
                 {dashData.alerts.expressVisits.slice(0, 3).map((v) => (
@@ -256,10 +256,10 @@ export function SupervisionDashboardEnhanced({
             {/* Open findings */}
             {dashData?.alerts && dashData.alerts.openFindingsCount > 0 && (
               <div>
-                <p className="text-xs font-medium text-amber-400">
+                <p className="text-xs font-medium text-status-warn-fg">
                   Hallazgos abiertos: {dashData.alerts.openFindingsCount}
                   {dashData.alerts.overdueFindingsCount > 0 && (
-                    <span className="text-red-400">
+                    <span className="text-status-danger-fg">
                       {" "}({dashData.alerts.overdueFindingsCount} vencidos)
                     </span>
                   )}
@@ -325,10 +325,10 @@ function RatingBar({ label, value }: { label: string; value: number | null }) {
     value === null
       ? "bg-muted"
       : value >= 4
-        ? "bg-emerald-500"
+        ? "bg-status-ok"
         : value >= 3
-          ? "bg-amber-500"
-          : "bg-red-500";
+          ? "bg-status-warn"
+          : "bg-status-danger";
 
   return (
     <div className="space-y-1">

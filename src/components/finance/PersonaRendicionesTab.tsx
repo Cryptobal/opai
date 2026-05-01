@@ -29,19 +29,19 @@ const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   },
   SUBMITTED: {
     label: "Enviada",
-    className: "bg-blue-500/15 text-blue-400 border-blue-500/30",
+    className: "bg-status-info-soft text-status-info-fg border-status-info-border",
   },
   IN_APPROVAL: {
     label: "En aprobación",
-    className: "bg-amber-500/15 text-amber-400 border-amber-500/30",
+    className: "bg-status-warn-soft text-status-warn-fg border-status-warn-border",
   },
   APPROVED: {
     label: "Aprobada",
-    className: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+    className: "bg-status-ok-soft text-status-ok-fg border-status-ok-border",
   },
   REJECTED: {
     label: "Rechazada",
-    className: "bg-red-500/15 text-red-400 border-red-500/30",
+    className: "bg-status-danger-soft text-status-danger-fg border-status-danger-border",
   },
   PAID: {
     label: "Pagada",
@@ -106,7 +106,7 @@ export function PersonaRendicionesTab({ adminId }: PersonaRendicionesTabProps) {
           </div>
         </div>
         <div className="rounded-xl border border-border/60 bg-card/40 p-3 sm:p-4 flex items-center gap-3 transition-colors hover:bg-card/60 hover:border-border">
-          <DollarSign className="h-5 w-5 text-emerald-400 shrink-0" />
+          <DollarSign className="h-5 w-5 text-status-ok-fg shrink-0" />
           <div className="min-w-0">
             <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Monto aprobado</p>
             <p className="text-lg font-semibold tabular-nums">{formatCLP(approvedAmount)}</p>
@@ -120,7 +120,7 @@ export function PersonaRendicionesTab({ adminId }: PersonaRendicionesTabProps) {
           </div>
         </div>
         <div className="rounded-xl border border-border/60 bg-card/40 p-3 sm:p-4 flex items-center gap-3 transition-colors hover:bg-card/60 hover:border-border">
-          <Clock className="h-5 w-5 text-amber-400 shrink-0" />
+          <Clock className="h-5 w-5 text-status-warn-fg shrink-0" />
           <div className="min-w-0">
             <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Pendientes</p>
             <p className="text-lg font-semibold tabular-nums">{pendingCount}</p>

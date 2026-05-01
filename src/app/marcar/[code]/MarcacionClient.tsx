@@ -335,7 +335,7 @@ export function MarcacionClient({ code }: { code: string }) {
                     setShowGpsModal(false);
                     requestGeo();
                   }}
-                  className="flex-1 py-2.5 text-sm font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+                  className="flex-1 py-2.5 text-sm font-bold text-white bg-status-info rounded-lg hover:bg-blue-700"
                 >
                   Reintentar
                 </button>
@@ -348,7 +348,7 @@ export function MarcacionClient({ code }: { code: string }) {
       <div className="w-full max-w-md">
         {/* Header */}
         <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-blue-600 mb-3">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-status-info mb-3">
             <Shield className="w-7 h-7 text-white" />
           </div>
           <h1 className="text-xl font-bold text-white">Marcación de Asistencia</h1>
@@ -451,8 +451,8 @@ function LoginScreen({
 
       {error && (
         <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg mb-4">
-          <XCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
-          <p className="text-sm text-red-700">{error}</p>
+          <XCircle className="w-5 h-5 text-status-danger-fg shrink-0 mt-0.5" />
+          <p className="text-sm text-status-danger-fg">{error}</p>
         </div>
       )}
 
@@ -466,7 +466,7 @@ function LoginScreen({
             value={rut}
             onChange={(e) => onRutChange(e.target.value)}
             placeholder="12345678-9"
-            className="w-full px-4 py-3 border border-slate-300 rounded-lg text-lg text-slate-900 placeholder:text-slate-400 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+            className="w-full px-4 py-3 border border-slate-300 rounded-lg text-lg text-slate-900 placeholder:text-slate-400 bg-white focus:ring-2 focus:ring-blue-500 focus:border-status-info-border outline-none"
             inputMode="text"
             autoComplete="off"
           />
@@ -481,7 +481,7 @@ function LoginScreen({
             value={pin}
             onChange={(e) => onPinChange(e.target.value.replace(/\D/g, "").slice(0, 6))}
             placeholder="••••"
-            className="w-full px-4 py-3 border border-slate-300 rounded-lg text-lg text-slate-900 placeholder:text-slate-400 bg-white text-center tracking-widest focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+            className="w-full px-4 py-3 border border-slate-300 rounded-lg text-lg text-slate-900 placeholder:text-slate-400 bg-white text-center tracking-widest focus:ring-2 focus:ring-blue-500 focus:border-status-info-border outline-none"
             inputMode="numeric"
             maxLength={6}
             autoComplete="off"
@@ -491,7 +491,7 @@ function LoginScreen({
         <button
           onClick={onSubmit}
           disabled={loading || rut.length < 9 || pin.length < 4}
-          className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 text-base shadow-sm"
+          className="w-full py-3.5 bg-status-info hover:bg-blue-700 disabled:bg-slate-400 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 text-base shadow-sm"
         >
           {loading ? (
             <Loader2 className="w-5 h-5 animate-spin" />
@@ -604,25 +604,25 @@ function MarcarScreen({
       }`}>
         {geoReady ? (
           <>
-            <MapPin className="w-4 h-4 text-emerald-600 shrink-0" />
-            <p className="text-sm text-emerald-700">Ubicación verificada</p>
+            <MapPin className="w-4 h-4 text-status-ok-fg shrink-0" />
+            <p className="text-sm text-status-ok-fg">Ubicación verificada</p>
           </>
         ) : geoStatus === "pending" ? (
           <>
-            <Loader2 className="w-4 h-4 text-amber-600 animate-spin shrink-0" />
-            <p className="text-sm text-amber-700">Obteniendo ubicación...</p>
+            <Loader2 className="w-4 h-4 text-status-warn-fg animate-spin shrink-0" />
+            <p className="text-sm text-status-warn-fg">Obteniendo ubicación...</p>
           </>
         ) : (
           <>
-            <MapPinOff className="w-4 h-4 text-amber-500 shrink-0" />
+            <MapPinOff className="w-4 h-4 text-status-warn-fg shrink-0" />
             <div className="flex-1">
-              <p className="text-sm text-amber-700 font-medium">Sin ubicación GPS</p>
-              <p className="text-xs text-amber-600 mt-0.5">
+              <p className="text-sm text-status-warn-fg font-medium">Sin ubicación GPS</p>
+              <p className="text-xs text-status-warn-fg mt-0.5">
                 Sin ubicación no hay marcación. Activa el GPS y reintenta.
               </p>
               <button
                 onClick={onRequestGeo}
-                className="mt-2 text-xs font-medium text-red-700 underline hover:text-red-900"
+                className="mt-2 text-xs font-medium text-status-danger-fg underline hover:text-red-900"
               >
                 Reintentar
               </button>
@@ -633,8 +633,8 @@ function MarcarScreen({
 
       {error && (
         <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg mb-4">
-          <XCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
-          <p className="text-sm text-red-700">{error}</p>
+          <XCircle className="w-5 h-5 text-status-danger-fg shrink-0 mt-0.5" />
+          <p className="text-sm text-status-danger-fg">{error}</p>
         </div>
       )}
 
@@ -661,7 +661,7 @@ function MarcarScreen({
             </div>
             <button
               onClick={onCapturePhoto}
-              className="w-full flex items-center justify-center gap-2 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+              className="w-full flex items-center justify-center gap-2 py-2 bg-status-info hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
             >
               <Camera className="w-4 h-4" />
               Capturar
@@ -669,8 +669,8 @@ function MarcarScreen({
           </div>
         ) : fotoBase64 ? (
           <div className="flex items-center gap-2 p-2 bg-emerald-50 border border-emerald-200 rounded-lg">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            <p className="text-sm text-emerald-700">Foto capturada</p>
+            <CheckCircle2 className="w-4 h-4 text-status-ok-fg shrink-0" />
+            <p className="text-sm text-status-ok-fg">Foto capturada</p>
           </div>
         ) : null}
         <canvas ref={canvasRef} className="hidden" />
@@ -696,7 +696,7 @@ function MarcarScreen({
           <button
             onClick={() => onMarcar("entrada")}
             disabled={!canMark}
-            className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold text-lg rounded-xl transition-colors flex items-center justify-center gap-3"
+            className="w-full py-4 bg-status-ok hover:bg-emerald-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold text-lg rounded-xl transition-colors flex items-center justify-center gap-3"
           >
             {loading ? (
               <Loader2 className="w-6 h-6 animate-spin" />
@@ -725,7 +725,7 @@ function MarcarScreen({
         )}
 
         {!geoReady && (
-          <p className="text-center text-xs text-red-500">
+          <p className="text-center text-xs text-status-danger-fg">
             Debes activar tu ubicación para poder marcar
           </p>
         )}
@@ -767,7 +767,7 @@ function ConfirmacionScreen({
     <div className="p-6 text-center">
       {/* Ícono de éxito */}
       <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-100 mb-4">
-        <CheckCircle2 className="w-9 h-9 text-emerald-600" />
+        <CheckCircle2 className="w-9 h-9 text-status-ok-fg" />
       </div>
 
       <h2 className="text-xl font-bold text-slate-900 mb-1">
@@ -782,12 +782,12 @@ function ConfirmacionScreen({
       {/* Estado geo */}
       {data.gpsStatus === "fuera_rango" && (
         <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-300 rounded-lg mb-4 text-left">
-          <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+          <AlertTriangle className="w-5 h-5 text-status-warn-fg shrink-0 mt-0.5" />
           <div>
             <p className="text-sm font-semibold text-amber-800">
               Marcación registrada fuera de rango ({data.geoDistanciaM}m)
             </p>
-            <p className="text-xs text-amber-700 mt-1">
+            <p className="text-xs text-status-warn-fg mt-1">
               Tu supervisor será notificado. Esta marcación quedará registrada como fuera de rango.
             </p>
           </div>
@@ -796,7 +796,7 @@ function ConfirmacionScreen({
       <div
         className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium mb-4 ${
           data.gpsStatus === "dentro_rango"
-            ? "bg-emerald-100 text-emerald-700"
+            ? "bg-emerald-100 text-status-ok-fg"
             : data.gpsStatus === "fuera_rango"
             ? "bg-yellow-100 text-yellow-700"
             : "bg-slate-100 text-slate-600"
@@ -832,7 +832,7 @@ function ConfirmacionScreen({
       <div className="space-y-2">
         <button
           onClick={onNueva}
-          className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors"
+          className="w-full py-3 bg-status-info hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors"
         >
           Nueva marcación
         </button>
@@ -912,9 +912,9 @@ function HistorialScreen({
                   >
                     <div className="flex items-center gap-2">
                       {m.tipo === "entrada" ? (
-                        <LogIn className="w-4 h-4 text-emerald-500" />
+                        <LogIn className="w-4 h-4 text-status-ok-fg" />
                       ) : (
-                        <LogOut className="w-4 h-4 text-orange-500" />
+                        <LogOut className="w-4 h-4 text-status-warn-fg" />
                       )}
                       <span className="text-sm font-medium text-slate-700 capitalize">
                         {m.tipo}
@@ -922,9 +922,9 @@ function HistorialScreen({
                     </div>
                     <div className="flex items-center gap-2">
                       {m.geoValidada ? (
-                        <MapPin className="w-3.5 h-3.5 text-emerald-400" />
+                        <MapPin className="w-3.5 h-3.5 text-status-ok-fg" />
                       ) : m.geoDistanciaM != null ? (
-                        <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+                        <AlertTriangle className="w-3.5 h-3.5 text-status-warn-fg" />
                       ) : null}
                       <span className="text-sm text-slate-500 tabular-nums">
                         {new Date(m.timestamp).toLocaleTimeString("es-CL", {

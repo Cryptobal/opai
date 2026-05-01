@@ -70,19 +70,19 @@ export function OfflineSyncIndicator({ installationId }: Props) {
   const configs = {
     online: {
       icon: <Wifi className="h-3.5 w-3.5" />,
-      color: "text-emerald-400",
+      color: "text-status-ok-fg",
       bg: "bg-emerald-400/10",
       label: "Online",
     },
     syncing: {
       icon: <Loader2 className="h-3.5 w-3.5 animate-spin" />,
-      color: "text-amber-400",
+      color: "text-status-warn-fg",
       bg: "bg-amber-400/10",
       label: "Sincronizando",
     },
     offline: {
       icon: <WifiOff className="h-3.5 w-3.5" />,
-      color: "text-red-400",
+      color: "text-status-danger-fg",
       bg: "bg-red-400/10",
       label: "Offline",
     },

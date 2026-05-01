@@ -997,7 +997,7 @@ export function SupervisionVisitWizard({
             type="button"
             onClick={handleCancelVisit}
             disabled={saving}
-            className="rounded-lg border border-red-500/30 px-3 py-2 text-xs text-red-400 hover:bg-red-500/10 transition disabled:opacity-50"
+            className="rounded-lg border border-status-danger-border px-3 py-2 text-xs text-status-danger-fg hover:bg-status-danger-soft transition disabled:opacity-50"
           >
             Cancelar visita
           </button>
@@ -1159,7 +1159,7 @@ export function SupervisionVisitWizard({
                 type="button"
                 onClick={handleCreateVraReport}
                 disabled={creatingVraReport}
-                className="w-full px-4 py-3 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-medium text-sm flex items-center justify-center gap-2 disabled:opacity-50"
+                className="w-full px-4 py-3 rounded-lg bg-orange-600 hover:bg-status-warn text-white font-medium text-sm flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {creatingVraReport ? "Creando informe..." : "Sí, generar informe ahora"}
               </button>

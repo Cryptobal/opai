@@ -96,8 +96,8 @@ export function ProposalDesgloseRecursos({
           {allCats.map((cat, catIdx) => {
             const isDirect = cat.categoryType === "direct";
             const isExpanded = expandedCats[catIdx] !== false;
-            const color = isDirect ? "text-teal-400" : "text-amber-400";
-            const bgColor = isDirect ? "bg-teal-500/10" : "bg-amber-500/10";
+            const color = isDirect ? "text-status-info-fg" : "text-status-warn-fg";
+            const bgColor = isDirect ? "bg-status-info-soft" : "bg-status-warn-soft";
 
             return (
               <div key={catIdx} className="rounded-lg border border-white/[0.06] overflow-hidden">

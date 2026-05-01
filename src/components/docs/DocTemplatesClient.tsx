@@ -194,7 +194,7 @@ function DocTemplatesInner() {
                         {template.name}
                       </span>
                       {template.isDefault && (
-                        <Star className="h-3 w-3 text-amber-500 fill-amber-500 shrink-0" />
+                        <Star className="h-3 w-3 text-status-warn-fg fill-amber-500 shrink-0" />
                       )}
                     </div>
                     <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground">
@@ -261,7 +261,7 @@ function DocTemplatesInner() {
                     <div className="flex items-center gap-1.5">
                       <span className="text-[13px] font-semibold truncate">{template.name}</span>
                       {template.isDefault && (
-                        <Star className="h-3 w-3 text-amber-500 fill-amber-500 shrink-0" />
+                        <Star className="h-3 w-3 text-status-warn-fg fill-amber-500 shrink-0" />
                       )}
                       <span className="ml-auto text-[10px] text-muted-foreground/50 font-mono shrink-0">
                         v{template._count?.versions || 1}

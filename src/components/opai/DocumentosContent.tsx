@@ -54,9 +54,9 @@ export function DocumentosContent({ presentations, stats, conversionRate }: Docu
 
   const kpis = [
     { key: 'all', label: 'Total', value: stats.total, color: '' },
-    { key: 'sent', label: 'Enviadas', value: stats.sent, color: 'text-emerald-400' },
-    { key: 'viewed', label: 'Vistas', value: stats.viewed, sub: `${stats.totalViews} total`, color: 'text-blue-400' },
-    { key: 'pending', label: 'Sin Leer', value: stats.pending, color: 'text-amber-400' },
+    { key: 'sent', label: 'Enviadas', value: stats.sent, color: 'text-status-ok-fg' },
+    { key: 'viewed', label: 'Vistas', value: stats.viewed, sub: `${stats.totalViews} total`, color: 'text-status-info-fg' },
+    { key: 'pending', label: 'Sin Leer', value: stats.pending, color: 'text-status-warn-fg' },
   ];
 
   return (
@@ -66,9 +66,9 @@ export function DocumentosContent({ presentations, stats, conversionRate }: Docu
         <div className="lg:hidden sticky top-0 z-20 px-4 py-2 bg-background/80 backdrop-blur-xl border-b border-border text-xs text-muted-foreground">
           <span className="font-semibold text-foreground">{stats.total}</span> propuestas
           <span className="mx-1.5 text-muted-foreground/30">·</span>
-          <span className="font-semibold text-blue-400">{stats.totalViews}</span> vistas
+          <span className="font-semibold text-status-info-fg">{stats.totalViews}</span> vistas
           <span className="mx-1.5 text-muted-foreground/30">·</span>
-          <span className="font-semibold text-amber-400">{stats.pending}</span> sin leer
+          <span className="font-semibold text-status-warn-fg">{stats.pending}</span> sin leer
         </div>
       )}
 

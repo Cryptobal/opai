@@ -128,9 +128,9 @@ type ConsolidatedData = {
 };
 
 function StatusIcon({ status }: { status: string }) {
-  if (status === "vigente" || status === "no_aplica") return <CheckCircle2 className="h-4 w-4 text-emerald-400" />;
-  if (status === "por_vencer") return <AlertTriangle className="h-4 w-4 text-amber-400" />;
-  if (status === "vencido") return <XCircle className="h-4 w-4 text-red-400" />;
+  if (status === "vigente" || status === "no_aplica") return <CheckCircle2 className="h-4 w-4 text-status-ok-fg" />;
+  if (status === "por_vencer") return <AlertTriangle className="h-4 w-4 text-status-warn-fg" />;
+  if (status === "vencido") return <XCircle className="h-4 w-4 text-status-danger-fg" />;
   return <Circle className="h-4 w-4 text-zinc-600" />;
 }
 
@@ -255,12 +255,12 @@ export function InstalacionDocsOperacionalesTab({ installationId }: Props) {
               </p>
               <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
                 {cumplimiento.porVencer > 0 && (
-                  <span className="flex items-center gap-1 text-amber-400">
+                  <span className="flex items-center gap-1 text-status-warn-fg">
                     <AlertTriangle className="h-3 w-3" /> {cumplimiento.porVencer} por vencer
                   </span>
                 )}
                 {cumplimiento.vencidos > 0 && (
-                  <span className="flex items-center gap-1 text-red-400">
+                  <span className="flex items-center gap-1 text-status-danger-fg">
                     <XCircle className="h-3 w-3" /> {cumplimiento.vencidos} vencido{cumplimiento.vencidos > 1 ? "s" : ""}
                   </span>
                 )}
@@ -275,7 +275,7 @@ export function InstalacionDocsOperacionalesTab({ installationId }: Props) {
           </div>
           <div className="mt-3 h-2 rounded-full bg-zinc-800 overflow-hidden">
             <div
-              className="h-full rounded-full bg-emerald-500 transition-all"
+              className="h-full rounded-full bg-status-ok transition-all"
               style={{ width: `${cumplimiento.porcentaje}%` }}
             />
           </div>
@@ -426,7 +426,7 @@ export function InstalacionDocsOperacionalesTab({ installationId }: Props) {
               />
               {uploadFile ? (
                 <div className="flex items-center gap-2 justify-center">
-                  <FileText className="h-5 w-5 text-red-400" />
+                  <FileText className="h-5 w-5 text-status-danger-fg" />
                   <span className="text-sm font-medium truncate">{uploadFile.name}</span>
                 </div>
               ) : (
@@ -544,10 +544,10 @@ function TipoDocRow({
         <div className="flex items-center gap-2">
           <p className={cn("text-sm font-medium truncate", !doc && "text-zinc-400")}>{tipo.nombre}</p>
           {tipo.obligatorio && (
-            <span className="text-[10px] text-amber-400 shrink-0">obligatorio</span>
+            <span className="text-[10px] text-status-warn-fg shrink-0">obligatorio</span>
           )}
           {tipo.obligatorioEnVisita && (
-            <span className="text-[10px] rounded-full bg-blue-500/10 text-blue-400 px-1.5 py-0.5 shrink-0">
+            <span className="text-[10px] rounded-full bg-status-info-soft text-status-info-fg px-1.5 py-0.5 shrink-0">
               oblig. visita
             </span>
           )}
@@ -576,8 +576,8 @@ function TipoDocRow({
                 className={cn(
                   "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5",
                   verif.presente
-                    ? "bg-emerald-500/10 text-emerald-400"
-                    : "bg-red-500/10 text-red-400",
+                    ? "bg-status-ok-soft text-status-ok-fg"
+                    : "bg-status-danger-soft text-status-danger-fg",
                 )}
                 title={`Última visita: ${new Date(verif.ultimaVerificacion).toLocaleDateString("es-CL")}${verif.supervisorName ? ` — ${verif.supervisorName}` : ""}`}
               >
@@ -589,10 +589,10 @@ function TipoDocRow({
                 className={cn(
                   "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5",
                   hallazgo.severity === "critical"
-                    ? "bg-red-500/15 text-red-400"
+                    ? "bg-status-danger-soft text-status-danger-fg"
                     : hallazgo.severity === "major"
-                      ? "bg-amber-500/15 text-amber-400"
-                      : "bg-blue-500/15 text-blue-400",
+                      ? "bg-status-warn-soft text-status-warn-fg"
+                      : "bg-status-info-soft text-status-info-fg",
                 )}
               >
                 <AlertTriangle className="h-3 w-3" />
@@ -615,7 +615,7 @@ function TipoDocRow({
           </Button>
         )}
         {!readOnly && onDelete && (
-          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-red-400" onClick={onDelete} title="Eliminar">
+          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-status-danger-fg" onClick={onDelete} title="Eliminar">
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
         )}
@@ -648,9 +648,9 @@ function GuardiaDocsCard({ data }: { data: GuardiaBlock }) {
           className={cn(
             "text-xs",
             cumplimiento.vigentes === cumplimiento.total
-              ? "bg-emerald-500/10 text-emerald-400"
+              ? "bg-status-ok-soft text-status-ok-fg"
               : cumplimiento.faltantes > 0
-                ? "bg-amber-500/10 text-amber-400"
+                ? "bg-status-warn-soft text-status-warn-fg"
                 : ""
           )}
         >
@@ -669,7 +669,7 @@ function GuardiaDocsCard({ data }: { data: GuardiaBlock }) {
           <div className="pt-1.5">
             <Link
               href={`/personas/guardias/${guardia.id}`}
-              className="inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300"
+              className="inline-flex items-center gap-1 text-xs text-status-info-fg hover:text-status-info-fg"
             >
               Ver ficha <ArrowRight className="h-3 w-3" />
             </Link>

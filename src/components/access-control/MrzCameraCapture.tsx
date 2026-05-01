@@ -78,7 +78,7 @@ export function MrzCameraCapture({ onResult, onSkip, existingRut }: Props) {
   };
 
   return (
-    <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 space-y-3">
+    <div className="rounded-xl border border-status-warn-border bg-status-warn-soft p-4 space-y-3">
       <input
         ref={fileInputRef}
         type="file"
@@ -89,9 +89,9 @@ export function MrzCameraCapture({ onResult, onSkip, existingRut }: Props) {
       />
 
       <div className="flex items-start gap-3">
-        <ScanLine className="mt-0.5 h-5 w-5 shrink-0 text-amber-400" />
+        <ScanLine className="mt-0.5 h-5 w-5 shrink-0 text-status-warn-fg" />
         <div className="flex-1">
-          <p className="text-sm font-medium text-amber-300">
+          <p className="text-sm font-medium text-status-warn-fg">
             Cédula antigua detectada
           </p>
           <p className="mt-1 text-xs text-zinc-400">
@@ -114,7 +114,7 @@ export function MrzCameraCapture({ onResult, onSkip, existingRut }: Props) {
             className="w-full h-32 object-cover opacity-40"
           />
           <div className="absolute inset-0 flex items-center justify-center">
-            <Loader2 className="h-6 w-6 animate-spin text-amber-400" />
+            <Loader2 className="h-6 w-6 animate-spin text-status-warn-fg" />
           </div>
         </div>
       )}
@@ -123,7 +123,7 @@ export function MrzCameraCapture({ onResult, onSkip, existingRut }: Props) {
         <Button
           onClick={handleCapture}
           disabled={processing}
-          className="w-full h-12 bg-amber-600 hover:bg-amber-500 text-white"
+          className="w-full h-12 bg-amber-600 hover:bg-status-warn text-white"
         >
           {processing ? (
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
@@ -135,7 +135,7 @@ export function MrzCameraCapture({ onResult, onSkip, existingRut }: Props) {
       )}
 
       {processing && capturedImage && (
-        <div className="flex items-center gap-2 text-sm text-amber-400">
+        <div className="flex items-center gap-2 text-sm text-status-warn-fg">
           <Loader2 className="h-4 w-4 animate-spin" />
           Leyendo nombre desde el MRZ...
         </div>
@@ -143,7 +143,7 @@ export function MrzCameraCapture({ onResult, onSkip, existingRut }: Props) {
 
       {error && (
         <div className="space-y-2">
-          <p className="text-xs text-red-400 flex items-center gap-1">
+          <p className="text-xs text-status-danger-fg flex items-center gap-1">
             <AlertTriangle className="h-3 w-3" /> {error}
           </p>
           <div className="flex gap-2">

@@ -88,7 +88,7 @@ export function LogoutPinModal({ open, deviceToken, onConfirm, onCancel }: Logou
       <div className="w-full max-w-xs rounded-2xl border border-zinc-800 bg-[#0A0F1C] p-6 shadow-2xl">
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-2">
-            <Lock className="h-5 w-5 text-cyan-400" />
+            <Lock className="h-5 w-5 text-status-info-fg" />
             <h2 className="text-base font-semibold text-white">PIN de seguridad</h2>
           </div>
           <button
@@ -105,7 +105,7 @@ export function LogoutPinModal({ open, deviceToken, onConfirm, onCancel }: Logou
         </p>
 
         {error && (
-          <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-400">
+          <div className="mb-4 rounded-lg border border-status-danger-border bg-status-danger-soft px-3 py-2 text-xs text-status-danger-fg">
             {error}
           </div>
         )}

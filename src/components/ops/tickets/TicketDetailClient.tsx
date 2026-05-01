@@ -484,7 +484,7 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
       </nav>
 
       {/* ── CARD: Header ── */}
-      <div className={`rounded-xl border bg-[#161b22] p-4 space-y-3 ${breached && !isTerminal ? "border-red-500/40" : "border-border"}`}>
+      <div className={`rounded-xl border bg-[#161b22] p-4 space-y-3 ${breached && !isTerminal ? "border-status-danger-border" : "border-border"}`}>
         {/* Row 1: Code + Status + Priority + Delete */}
         <div className="flex items-center gap-2 flex-wrap">
           <span className="font-mono text-xs text-muted-foreground">{ticket.code}</span>
@@ -532,13 +532,13 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
             </Badge>
           )}
           {ticket.slaPausedAt && (
-            <Badge variant="secondary" className="gap-0.5 text-[10px] bg-amber-500/10 text-amber-400 border-amber-500/30">
+            <Badge variant="secondary" className="gap-0.5 text-[10px] bg-status-warn-soft text-status-warn-fg border-status-warn-border">
               <Pause className="h-2.5 w-2.5" />
               SLA pausado
             </Badge>
           )}
           {ticket.snoozedUntil && new Date(ticket.snoozedUntil) > new Date() && (
-            <Badge variant="secondary" className="gap-0.5 text-[10px] bg-blue-500/10 text-blue-400 border-blue-500/30">
+            <Badge variant="secondary" className="gap-0.5 text-[10px] bg-status-info-soft text-status-info-fg border-status-info-border">
               <BellOff className="h-2.5 w-2.5" />
               Silenciado hasta {new Date(ticket.snoozedUntil).toLocaleString("es-CL", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
             </Badge>
@@ -592,11 +592,11 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
               onClick={() => {
                 if (ticket.guardiaId) router.push(`/personas/guardias/${ticket.guardiaId}`);
               }}
-              className="flex items-center gap-2 rounded-lg bg-blue-500/10 px-3 py-2 transition-colors hover:bg-blue-500/20"
+              className="flex items-center gap-2 rounded-lg bg-status-info-soft px-3 py-2 transition-colors hover:bg-status-info-soft"
             >
-              <Shield className="h-4 w-4 text-blue-400" />
+              <Shield className="h-4 w-4 text-status-info-fg" />
               <div className="text-left">
-                <p className="text-sm font-medium text-blue-400">{ticket.guardiaName}</p>
+                <p className="text-sm font-medium text-status-info-fg">{ticket.guardiaName}</p>
                 <p className="text-[10px] text-blue-400/60">
                   {[ticket.guardiaRut, ticket.guardiaCode].filter(Boolean).join(" · ")}
                 </p>
@@ -663,7 +663,7 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
             <button
               type="button"
               onClick={() => setAssigningUser(true)}
-              className="flex items-center gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/5 px-3 py-2 text-sm text-yellow-500 transition-colors hover:bg-yellow-500/10"
+              className="flex items-center gap-2 rounded-lg border border-status-warn-border bg-yellow-500/5 px-3 py-2 text-sm text-status-warn-fg transition-colors hover:bg-status-warn-soft"
             >
               <UserCircle className="h-4 w-4" />
               <span className="font-medium">Sin asignar</span>
@@ -726,7 +726,7 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
             <Button
               variant="outline"
               size="sm"
-              className={`h-8 text-xs gap-1 ${ticket.slaPausedAt ? "border-amber-500/40 text-amber-400" : ""}`}
+              className={`h-8 text-xs gap-1 ${ticket.slaPausedAt ? "border-status-warn-border text-status-warn-fg" : ""}`}
               disabled={pauseLoading}
               onClick={handleTogglePause}
             >
@@ -772,7 +772,7 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
                   {ticket.snoozedUntil && (
                     <button
                       type="button"
-                      className="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-accent transition-colors rounded-b-xl border-t border-border"
+                      className="w-full px-3 py-2 text-left text-sm text-status-danger-fg hover:bg-accent transition-colors rounded-b-xl border-t border-border"
                       onClick={() => handleSnooze(undefined, undefined)}
                     >
                       Quitar silenciamiento
@@ -896,8 +896,8 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
 
       {/* ── CARD: Resolution notes ── */}
       {ticket.resolutionNotes && (
-        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 space-y-1">
-          <p className="text-[10px] font-medium uppercase tracking-wider text-emerald-400">
+        <div className="rounded-xl border border-status-ok-border bg-status-ok-soft p-4 space-y-1">
+          <p className="text-[10px] font-medium uppercase tracking-wider text-status-ok-fg">
             Notas de resolución
           </p>
           <p className="text-sm whitespace-pre-wrap">{ticket.resolutionNotes}</p>
@@ -995,7 +995,7 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
                             insertMention(g.name);
                           }}
                         >
-                          <Users className="h-3 w-3 text-blue-400" />
+                          <Users className="h-3 w-3 text-status-info-fg" />
                           <span>{g.name}</span>
                           <span className="text-[10px] text-muted-foreground ml-auto">grupo</span>
                         </button>
@@ -1112,14 +1112,14 @@ function EmailTimelineEvent({
 
   const dirConfig = {
     internal: {
-      bg: comment.isInternal ? "bg-amber-500/5 border-amber-500/20" : "bg-transparent border-transparent",
-      iconBg: comment.isInternal ? "bg-amber-500/20 text-amber-500" : "bg-muted text-muted-foreground",
+      bg: comment.isInternal ? "bg-status-warn-soft border-status-warn-border" : "bg-transparent border-transparent",
+      iconBg: comment.isInternal ? "bg-status-warn-soft text-status-warn-fg" : "bg-muted text-muted-foreground",
       icon: <User className="h-3 w-3" />,
       label: comment.isInternal ? "Nota interna" : null,
     },
     email_out: {
-      bg: "bg-blue-500/5 border-blue-500/20",
-      iconBg: "bg-blue-500/20 text-blue-400",
+      bg: "bg-status-info-soft border-status-info-border",
+      iconBg: "bg-status-info-soft text-status-info-fg",
       icon: <Plane className="h-3 w-3" />,
       label: "Email enviado",
     },
@@ -1135,10 +1135,10 @@ function EmailTimelineEvent({
   const atts = (comment.attachments ?? []) as Array<{ fileName: string; url?: string; r2Key?: string; size?: number }>;
 
   const deliveryColors: Record<string, string> = {
-    sent: "text-blue-400",
-    delivered: "text-emerald-400",
-    failed: "text-red-400",
-    bounced: "text-red-400",
+    sent: "text-status-info-fg",
+    delivered: "text-status-ok-fg",
+    failed: "text-status-danger-fg",
+    bounced: "text-status-danger-fg",
   };
 
   return (
@@ -1195,7 +1195,7 @@ function EmailTimelineEvent({
           <button
             type="button"
             onClick={() => setShowHtml(!showHtml)}
-            className="mt-1 text-[10px] text-blue-400 hover:underline"
+            className="mt-1 text-[10px] text-status-info-fg hover:underline"
           >
             {showHtml ? "Ocultar HTML" : "Ver HTML original"}
           </button>
@@ -1209,7 +1209,7 @@ function EmailTimelineEvent({
 
         {/* Delivery error */}
         {comment.deliveryError && (
-          <p className="mt-1 text-[11px] text-red-400">{comment.deliveryError}</p>
+          <p className="mt-1 text-[11px] text-status-danger-fg">{comment.deliveryError}</p>
         )}
 
         {/* Attachments */}
@@ -1340,7 +1340,7 @@ function EmailComposer({
   }
 
   return (
-    <div className="space-y-2 rounded-lg border border-blue-500/20 bg-blue-500/5 p-3">
+    <div className="space-y-2 rounded-lg border border-status-info-border bg-status-info-soft p-3">
       <div className="space-y-1.5">
         <div className="flex items-center gap-2">
           <label className="text-[11px] text-muted-foreground w-10 shrink-0">Para:</label>
@@ -1386,7 +1386,7 @@ function EmailComposer({
               {key.split("/").pop()?.substring(0, 30)}
               <button
                 type="button"
-                className="text-red-400 ml-1 hover:text-red-300"
+                className="text-status-danger-fg ml-1 hover:text-status-danger-fg"
                 onClick={() => setAttachmentKeys((prev) => prev.filter((_, j) => j !== i))}
               >
                 &times;

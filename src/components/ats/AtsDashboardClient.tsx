@@ -53,7 +53,7 @@ const ESTADO_COLORS: Record<string, string> = {
   BORRADOR: "bg-gray-100 text-gray-700",
   ACTIVO: "bg-green-100 text-green-700",
   PAUSADO: "bg-yellow-100 text-yellow-700",
-  CERRADO: "bg-red-100 text-red-700",
+  CERRADO: "bg-red-100 text-status-danger-fg",
 };
 
 const TURNO_LABELS: Record<string, string> = {
@@ -125,10 +125,10 @@ export function AtsDashboardClient({
       : initialJobs.filter((j) => j.estado === filterEstado);
 
   const metricCards = [
-    { label: "Avisos activos", value: metricas.avisosActivos, icon: Briefcase, color: "text-blue-600" },
+    { label: "Avisos activos", value: metricas.avisosActivos, icon: Briefcase, color: "text-status-info-fg" },
     { label: "Postulantes totales", value: metricas.postulantesTotales, icon: Users, color: "text-indigo-600" },
-    { label: "En proceso", value: metricas.enProceso, icon: Clock, color: "text-amber-600" },
-    { label: "Contratados (mes)", value: metricas.contratadosMes, icon: CheckCircle, color: "text-green-600" },
+    { label: "En proceso", value: metricas.enProceso, icon: Clock, color: "text-status-warn-fg" },
+    { label: "Contratados (mes)", value: metricas.contratadosMes, icon: CheckCircle, color: "text-status-ok-fg" },
   ];
 
   return (
@@ -329,7 +329,7 @@ export function AtsDashboardClient({
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8 text-red-600 hover:bg-red-500/10 hover:text-red-600"
+                      className="h-8 w-8 text-status-danger-fg hover:bg-status-danger-soft hover:text-status-danger-fg"
                       title="Eliminar aviso"
                       onClick={() => handleDelete(job.id, job._count.applications)}
                     >

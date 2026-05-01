@@ -35,7 +35,7 @@ function StarRating({ value, max = 5 }: { value: number | null; max?: number }) 
           key={i}
           className={cn(
             'h-3.5 w-3.5',
-            i < filled ? 'fill-yellow-400 text-yellow-400' : 'text-zinc-700'
+            i < filled ? 'fill-yellow-400 text-status-warn-fg' : 'text-zinc-700'
           )}
         />
       ))}
@@ -48,20 +48,20 @@ function NpsBadge({ score }: { score: number | null }) {
   if (score === null) return null
   if (score >= 9) {
     return (
-      <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">
+      <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-status-ok-soft text-status-ok-fg border border-status-ok-border">
         Promotor
       </span>
     )
   }
   if (score >= 7) {
     return (
-      <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-yellow-500/15 text-yellow-400 border border-yellow-500/20">
+      <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-status-warn-soft text-status-warn-fg border border-yellow-500/20">
         Neutral
       </span>
     )
   }
   return (
-    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-red-500/15 text-red-400 border border-red-500/20">
+    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-status-danger-soft text-status-danger-fg border border-status-danger-border">
       Detractor
     </span>
   )
@@ -242,7 +242,7 @@ export function PortalEncuestas({ session, isProspect }: Props) {
     <div className="flex-1 max-w-6xl mx-auto w-full px-4 py-4 pb-24 space-y-4">
       {/* Header */}
       <div className="flex items-center gap-2">
-        <ClipboardList className="h-5 w-5 text-blue-400" />
+        <ClipboardList className="h-5 w-5 text-status-info-fg" />
         <h2 className="text-base font-semibold">Encuestas de satisfacción</h2>
       </div>
       <p className="text-xs text-zinc-500 -mt-2">
@@ -256,7 +256,7 @@ export function PortalEncuestas({ session, isProspect }: Props) {
         </div>
       ) : error ? (
         <div className="flex items-center justify-center h-48">
-          <p className="text-xs text-red-400">{error}</p>
+          <p className="text-xs text-status-danger-fg">{error}</p>
         </div>
       ) : encuestas.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-48 gap-3 text-zinc-500">

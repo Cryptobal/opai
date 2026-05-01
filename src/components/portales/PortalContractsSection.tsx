@@ -36,10 +36,10 @@ interface Props {
 /* ── Helpers ── */
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof CheckCircle2 }> = {
-  active: { label: "Vigente", color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20", icon: CheckCircle2 },
+  active: { label: "Vigente", color: "text-status-ok-fg bg-status-ok-soft border-status-ok-border", icon: CheckCircle2 },
   draft: { label: "Borrador", color: "text-zinc-400 bg-zinc-500/10 border-zinc-500/20", icon: Clock },
-  expiring: { label: "Por vencer", color: "text-amber-400 bg-amber-500/10 border-amber-500/20", icon: AlertTriangle },
-  expired: { label: "Vencido", color: "text-red-400 bg-red-500/10 border-red-500/20", icon: AlertTriangle },
+  expiring: { label: "Por vencer", color: "text-status-warn-fg bg-status-warn-soft border-status-warn-border", icon: AlertTriangle },
+  expired: { label: "Vencido", color: "text-status-danger-fg bg-status-danger-soft border-status-danger-border", icon: AlertTriangle },
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -82,7 +82,7 @@ export function PortalContractsSection({ tenantId, accountId }: Props) {
   if (loading && contracts.length === 0) {
     return (
       <div className="flex items-center justify-center py-24">
-        <Loader2 className="h-6 w-6 animate-spin text-teal-400" />
+        <Loader2 className="h-6 w-6 animate-spin text-status-info-fg" />
       </div>
     );
   }
@@ -112,7 +112,7 @@ export function PortalContractsSection({ tenantId, accountId }: Props) {
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
-                  <FileText className="h-4 w-4 text-teal-400 shrink-0" />
+                  <FileText className="h-4 w-4 text-status-info-fg shrink-0" />
                   <h3 className="text-sm font-medium truncate">{c.title}</h3>
                 </div>
                 <p className="text-[10px] text-zinc-500 mb-2">{categoryLabel}</p>
@@ -126,13 +126,13 @@ export function PortalContractsSection({ tenantId, accountId }: Props) {
 
                   {/* Signature badge */}
                   {isSigned && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border text-emerald-400 bg-emerald-500/10 border-emerald-500/20">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border text-status-ok-fg bg-status-ok-soft border-status-ok-border">
                       <CheckCircle2 className="h-3 w-3" />
                       Firmado
                     </span>
                   )}
                   {c.signatureStatus === "pending" && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border text-amber-400 bg-amber-500/10 border-amber-500/20">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border text-status-warn-fg bg-status-warn-soft border-status-warn-border">
                       <Clock className="h-3 w-3" />
                       Pendiente firma
                     </span>

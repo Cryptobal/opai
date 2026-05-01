@@ -61,7 +61,7 @@ function ActivateForm() {
       <div className="min-h-screen flex items-center justify-center bg-background px-4">
         <Card className="w-full max-w-md bg-card border-border">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-red-400">
+            <CardTitle className="flex items-center gap-2 text-status-danger-fg">
               <AlertCircle className="w-5 h-5" />
               Token Inválido
             </CardTitle>
@@ -79,7 +79,7 @@ function ActivateForm() {
       <div className="min-h-screen flex items-center justify-center bg-background px-4">
         <Card className="w-full max-w-md bg-card border-border">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-emerald-400">
+            <CardTitle className="flex items-center gap-2 text-status-ok-fg">
               <CheckCircle2 className="w-5 h-5" />
               Cuenta Activada
             </CardTitle>
@@ -143,7 +143,7 @@ function ActivateForm() {
             </div>
 
             {error && (
-              <div className="text-sm text-red-400 bg-destructive/10 border border-destructive/20 p-3 rounded flex items-start gap-2">
+              <div className="text-sm text-status-danger-fg bg-destructive/10 border border-destructive/20 p-3 rounded flex items-start gap-2">
                 <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
                 <span>{error}</span>
               </div>

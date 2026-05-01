@@ -72,9 +72,9 @@ const COMPARABLE_FIELDS: { key: string; label: string }[] = [
 ];
 
 function lifecycleLabel(a: AccountResult) {
-  if (a.status === "prospect" || a.type === "prospect") return { label: "Prospecto", cls: "border-amber-500/30 text-amber-400" };
-  if (a.isActive) return { label: "Cliente activo", cls: "border-emerald-500/30 text-emerald-400" };
-  return { label: "Ex cliente", cls: "border-rose-500/30 text-rose-400" };
+  if (a.status === "prospect" || a.type === "prospect") return { label: "Prospecto", cls: "border-status-warn-border text-status-warn-fg" };
+  if (a.isActive) return { label: "Cliente activo", cls: "border-status-ok-border text-status-ok-fg" };
+  return { label: "Ex cliente", cls: "border-status-danger-border text-status-danger-fg" };
 }
 
 function val(obj: Record<string, any>, key: string): string {
@@ -113,9 +113,9 @@ function SearchStep({
             const isDuplicate = duplicateAccount?.id === acc.id;
             const lc = lifecycleLabel(acc);
             return (
-              <div key={acc.id} className={`rounded-lg border p-3 transition-all ${isMaster ? "border-emerald-500/50 bg-emerald-500/5" : isDuplicate ? "border-rose-500/50 bg-rose-500/5" : "border-border"}`}>
+              <div key={acc.id} className={`rounded-lg border p-3 transition-all ${isMaster ? "border-status-ok-border bg-status-ok-soft" : isDuplicate ? "border-rose-500/50 bg-rose-500/5" : "border-border"}`}>
                 {(isMaster || isDuplicate) && (
-                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded mb-1.5 inline-flex items-center gap-1 ${isMaster ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"}`}>
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded mb-1.5 inline-flex items-center gap-1 ${isMaster ? "bg-status-ok-soft text-status-ok-fg" : "bg-rose-500/20 text-status-danger-fg"}`}>
                     {isMaster ? <><Crown className="h-2.5 w-2.5" /> MASTER (se conserva)</> : <><Trash2 className="h-2.5 w-2.5" /> DUPLICADO (se elimina)</>}
                   </span>
                 )}
@@ -134,10 +134,10 @@ function SearchStep({
                 </div>
                 {!isMaster && !isDuplicate ? (
                   <div className="flex gap-2 mt-2">
-                    <Button size="sm" variant="outline" className="flex-1 h-7 text-xs border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10" onClick={() => onSelect(acc, "master")}>
+                    <Button size="sm" variant="outline" className="flex-1 h-7 text-xs border-status-ok-border text-status-ok-fg hover:bg-status-ok-soft" onClick={() => onSelect(acc, "master")}>
                       <Crown className="h-3 w-3 mr-1" /> Conservar
                     </Button>
-                    <Button size="sm" variant="outline" className="flex-1 h-7 text-xs border-rose-500/40 text-rose-400 hover:bg-rose-500/10" onClick={() => onSelect(acc, "duplicate")}>
+                    <Button size="sm" variant="outline" className="flex-1 h-7 text-xs border-rose-500/40 text-status-danger-fg hover:bg-status-danger-soft" onClick={() => onSelect(acc, "duplicate")}>
                       <Trash2 className="h-3 w-3 mr-1" /> Eliminar
                     </Button>
                   </div>
@@ -196,7 +196,7 @@ function FieldsStep({ preview, fieldOverrides, setFieldOverrides }: {
   if (fieldsWithDiff.length === 0) {
     return (
       <div className="text-center py-8 text-sm text-muted-foreground">
-        <Check className="h-8 w-8 text-emerald-400 mx-auto mb-2" />
+        <Check className="h-8 w-8 text-status-ok-fg mx-auto mb-2" />
         Ambas cuentas tienen los mismos valores en todos los campos. No hay nada que comparar.
       </div>
     );
@@ -213,10 +213,10 @@ function FieldsStep({ preview, fieldOverrides, setFieldOverrides }: {
         <div className="grid grid-cols-[140px_1fr_1fr] bg-muted/50 text-xs font-medium text-muted-foreground">
           <div className="px-3 py-2">Campo</div>
           <div className="px-3 py-2 border-l border-border flex items-center gap-1.5">
-            <Crown className="h-3 w-3 text-emerald-400" /> {master.name}
+            <Crown className="h-3 w-3 text-status-ok-fg" /> {master.name}
           </div>
           <div className="px-3 py-2 border-l border-border flex items-center gap-1.5">
-            <Trash2 className="h-3 w-3 text-rose-400" /> {duplicate.name}
+            <Trash2 className="h-3 w-3 text-status-danger-fg" /> {duplicate.name}
           </div>
         </div>
         {/* Rows */}
@@ -230,17 +230,17 @@ function FieldsStep({ preview, fieldOverrides, setFieldOverrides }: {
               {/* Master value */}
               <button
                 onClick={() => toggle(f.key, "master")}
-                className={`px-3 py-2.5 border-l border-border text-left hover:bg-emerald-500/5 transition-colors text-xs ${selected === "master" ? "bg-emerald-500/10 text-emerald-300 font-medium" : "text-muted-foreground"}`}
+                className={`px-3 py-2.5 border-l border-border text-left hover:bg-status-ok-soft transition-colors text-xs ${selected === "master" ? "bg-status-ok-soft text-status-ok-fg font-medium" : "text-muted-foreground"}`}
               >
-                {selected === "master" && <Check className="inline h-3 w-3 mr-1 text-emerald-400" />}
+                {selected === "master" && <Check className="inline h-3 w-3 mr-1 text-status-ok-fg" />}
                 {mv || <span className="italic opacity-40">vacío</span>}
               </button>
               {/* Duplicate value */}
               <button
                 onClick={() => toggle(f.key, "duplicate")}
-                className={`px-3 py-2.5 border-l border-border text-left hover:bg-rose-500/5 transition-colors text-xs ${selected === "duplicate" ? "bg-rose-500/10 text-rose-300 font-medium" : "text-muted-foreground"}`}
+                className={`px-3 py-2.5 border-l border-border text-left hover:bg-rose-500/5 transition-colors text-xs ${selected === "duplicate" ? "bg-status-danger-soft text-status-danger-fg font-medium" : "text-muted-foreground"}`}
               >
-                {selected === "duplicate" && <Check className="inline h-3 w-3 mr-1 text-rose-400" />}
+                {selected === "duplicate" && <Check className="inline h-3 w-3 mr-1 text-status-danger-fg" />}
                 {dv || <span className="italic opacity-40">vacío</span>}
               </button>
             </div>
@@ -274,7 +274,7 @@ function RecordsStep({ preview, excludeContactIds, setExcludeContactIds, exclude
   if (!hasRecords) {
     return (
       <div className="text-center py-8 text-sm text-muted-foreground">
-        <Check className="h-8 w-8 text-emerald-400 mx-auto mb-2" />
+        <Check className="h-8 w-8 text-status-ok-fg mx-auto mb-2" />
         La cuenta duplicada no tiene registros asociados. Solo se eliminará la cuenta.
       </div>
     );
@@ -301,7 +301,7 @@ function RecordsStep({ preview, excludeContactIds, setExcludeContactIds, exclude
               <button
                 key={item.id}
                 onClick={() => toggle(item.id, excludeIds, setExcludeIds)}
-                className={`w-full text-left rounded-lg border p-2.5 transition-all text-xs ${excluded ? "border-border bg-muted/20 opacity-50" : alert ? "border-amber-500/30 bg-amber-500/5" : "border-border bg-card hover:border-primary/30"}`}
+                className={`w-full text-left rounded-lg border p-2.5 transition-all text-xs ${excluded ? "border-border bg-muted/20 opacity-50" : alert ? "border-status-warn-border bg-status-warn-soft" : "border-border bg-card hover:border-primary/30"}`}
               >
                 <div className="flex items-start gap-2.5">
                   <div className={`mt-0.5 h-4 w-4 shrink-0 rounded border flex items-center justify-center ${excluded ? "border-border bg-muted" : "border-primary bg-primary/10"}`}>
@@ -310,7 +310,7 @@ function RecordsStep({ preview, excludeContactIds, setExcludeContactIds, exclude
                   <div className="flex-1 min-w-0">
                     {renderItem(item)}
                     {alert && !excluded && (
-                      <p className="text-amber-400 mt-1 flex items-center gap-1">
+                      <p className="text-status-warn-fg mt-1 flex items-center gap-1">
                         <AlertTriangle className="h-3 w-3 shrink-0" /> {alert}
                       </p>
                     )}
@@ -328,7 +328,7 @@ function RecordsStep({ preview, excludeContactIds, setExcludeContactIds, exclude
     <div className="space-y-5">
       <p className="text-xs text-muted-foreground">
         Revisa los registros del duplicado. Los marcados (✓) se moverán al master. Desmarca los que quieras eliminar.
-        <span className="text-amber-400"> ⚠️ = posible duplicado detectado en el master.</span>
+        <span className="text-status-warn-fg"> ⚠️ = posible duplicado detectado en el master.</span>
       </p>
 
       <Section title="Contactos" icon={Users} items={duplicate.contacts}
@@ -358,7 +358,7 @@ function RecordsStep({ preview, excludeContactIds, setExcludeContactIds, exclude
         alertMap={dupInstallationAlerts}
         renderItem={(i: InstallationRow) => (
           <>
-            <p className="font-medium">{i.name} {i.status === "active" ? <span className="text-emerald-400">(Activa)</span> : i.status === "inactive" ? <span className="text-muted-foreground">(Inactiva)</span> : <span className="text-amber-400">(Prospecto)</span>}</p>
+            <p className="font-medium">{i.name} {i.status === "active" ? <span className="text-status-ok-fg">(Activa)</span> : i.status === "inactive" ? <span className="text-muted-foreground">(Inactiva)</span> : <span className="text-status-warn-fg">(Prospecto)</span>}</p>
             {i.address && <p className="text-muted-foreground">{i.address}{i.commune ? `, ${i.commune}` : ""}</p>}
           </>
         )}
@@ -587,11 +587,11 @@ export function DuplicateAccountModal({ open, onOpenChange, initialQuery = "", o
                   {totalMovingInstallations > 0 && <p>• {totalMovingInstallations} instalación{totalMovingInstallations !== 1 ? "es" : ""} se moverán</p>}
                   {preview.duplicate.quotes.length > 0 && <p>• {preview.duplicate.quotes.length} cotización{preview.duplicate.quotes.length !== 1 ? "es" : ""} se reasignarán</p>}
                   {excludeContactIds.length + excludeDealIds.length + excludeInstallationIds.length > 0 && (
-                    <p className="text-rose-400">• {excludeContactIds.length + excludeDealIds.length + excludeInstallationIds.length} registros excluidos se eliminarán</p>
+                    <p className="text-status-danger-fg">• {excludeContactIds.length + excludeDealIds.length + excludeInstallationIds.length} registros excluidos se eliminarán</p>
                   )}
                 </div>
               </div>
-              <div className="rounded-lg border border-rose-500/30 bg-rose-500/5 p-3 text-xs text-rose-400 flex gap-2">
+              <div className="rounded-lg border border-status-danger-border bg-rose-500/5 p-3 text-xs text-status-danger-fg flex gap-2">
                 <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
                 Esta acción es irreversible. La cuenta &quot;{preview.duplicate.name}&quot; será eliminada permanentemente.
               </div>

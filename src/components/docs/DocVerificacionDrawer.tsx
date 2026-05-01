@@ -110,9 +110,9 @@ type Verificacion = {
 // ---------------------------------------------------------------------------
 
 const DIGITAL_STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  vigente: { label: "Vigente", color: "text-green-400" },
-  por_vencer: { label: "Por vencer", color: "text-amber-400" },
-  vencido: { label: "Vencido", color: "text-red-400" },
+  vigente: { label: "Vigente", color: "text-status-ok-fg" },
+  por_vencer: { label: "Por vencer", color: "text-status-warn-fg" },
+  vencido: { label: "Vencido", color: "text-status-danger-fg" },
   sin_documento: { label: "Sin documento", color: "text-zinc-400" },
   no_aplica: { label: "No aplica", color: "text-zinc-500" },
 };
@@ -124,12 +124,12 @@ const CAPA_LABELS: Record<string, string> = {
 };
 
 const SEVERITY_COLORS: Record<string, string> = {
-  critical: "bg-red-500/20 text-red-400 border-red-500/30",
-  high: "bg-orange-500/20 text-orange-400 border-orange-500/30",
-  major: "bg-amber-500/20 text-amber-400 border-amber-500/30",
-  medium: "bg-amber-500/20 text-amber-400 border-amber-500/30",
-  minor: "bg-blue-500/20 text-blue-400 border-blue-500/30",
-  low: "bg-blue-500/20 text-blue-400 border-blue-500/30",
+  critical: "bg-status-danger-soft text-status-danger-fg border-status-danger-border",
+  high: "bg-orange-500/20 text-status-warn-fg border-status-warn-border",
+  major: "bg-status-warn-soft text-status-warn-fg border-status-warn-border",
+  medium: "bg-status-warn-soft text-status-warn-fg border-status-warn-border",
+  minor: "bg-status-info-soft text-status-info-fg border-status-info-border",
+  low: "bg-status-info-soft text-status-info-fg border-status-info-border",
 };
 
 const SEVERITY_LABELS: Record<string, string> = {
@@ -263,8 +263,8 @@ export function DocVerificacionDrawer({
     fisicaPresente === null
       ? "text-zinc-400"
       : fisicaPresente
-        ? "text-green-400"
-        : "text-red-400";
+        ? "text-status-ok-fg"
+        : "text-status-danger-fg";
 
   const ultimaVerifIso = lastVerif?.createdAt ?? cellMeta?.ultimaVerificacion ?? null;
   const supervisorName = lastVerif?.supervisor?.name ?? cellMeta?.supervisorName ?? null;
@@ -307,7 +307,7 @@ export function DocVerificacionDrawer({
               {CAPA_LABELS[capa] ?? capa}
             </span>
             {obligatorioEnVisita && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-500/15 text-amber-400 border border-amber-500/25">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-status-warn-soft text-status-warn-fg border border-amber-500/25">
                 <AlertTriangle className="h-3 w-3" />
                 Obligatorio en visita
               </span>
@@ -325,7 +325,7 @@ export function DocVerificacionDrawer({
                   ? `1 hallazgo abierto`
                   : `${hallazgosAbiertos.length} hallazgos abiertos (${totalOcc} visitas)`;
               return (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-red-500/15 text-red-400 border border-red-500/25">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-status-danger-soft text-status-danger-fg border border-red-500/25">
                   <AlertTriangle className="h-3 w-3" />
                   {label}
                 </span>
@@ -392,10 +392,10 @@ export function DocVerificacionDrawer({
 
         {/* Aviso de inconsistencia */}
         {hasInconsistency && (
-          <div className="px-5 py-3 border-b border-zinc-800 bg-amber-500/5">
-            <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2">
-              <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
-              <div className="text-[11px] text-amber-200 leading-snug">
+          <div className="px-5 py-3 border-b border-zinc-800 bg-status-warn-soft">
+            <div className="flex items-start gap-2 rounded-lg border border-status-warn-border bg-status-warn-soft px-3 py-2">
+              <AlertTriangle className="h-4 w-4 text-status-warn-fg shrink-0 mt-0.5" />
+              <div className="text-[11px] text-status-warn-fg leading-snug">
                 <p className="font-semibold">Posible inconsistencia detectada</p>
                 <p className="opacity-90 mt-0.5">
                   La última verificación física marca <span className="font-semibold">Presente</span>,
@@ -411,7 +411,7 @@ export function DocVerificacionDrawer({
         {hallazgosAbiertos.length > 0 && (
           <div className="px-5 py-4 border-b border-zinc-800">
             <p className="text-[11px] uppercase tracking-wider text-zinc-500 mb-2 flex items-center gap-1">
-              <AlertTriangle className="h-3 w-3 text-red-400" />
+              <AlertTriangle className="h-3 w-3 text-status-danger-fg" />
               Hallazgos abiertos
             </p>
             <div className="space-y-2">
@@ -492,7 +492,7 @@ export function DocVerificacionDrawer({
                       {h.ticketId && (
                         <a
                           href={`/ops/tickets/${h.ticketId}`}
-                          className="inline-flex items-center gap-1 text-[11px] font-medium text-sky-400 hover:text-sky-300 underline underline-offset-2"
+                          className="inline-flex items-center gap-1 text-[11px] font-medium text-status-info-fg hover:text-status-info-fg underline underline-offset-2"
                         >
                           Ver ticket
                           <ExternalLink className="h-3 w-3" />
@@ -502,7 +502,7 @@ export function DocVerificacionDrawer({
                         type="button"
                         onClick={() => handleResolve(h)}
                         disabled={resolvingId === h.id}
-                        className="inline-flex items-center gap-1 text-[11px] font-medium rounded-md px-2 py-1 bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                        className="inline-flex items-center gap-1 text-[11px] font-medium rounded-md px-2 py-1 bg-status-ok-soft text-status-ok-fg border border-status-ok-border hover:bg-status-ok-soft disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
                       >
                         {resolvingId === h.id ? (
                           <>
@@ -537,9 +537,9 @@ export function DocVerificacionDrawer({
           )}
 
           {!loading && error && (
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/20">
-              <XCircle className="h-4 w-4 text-red-400 shrink-0" />
-              <p className="text-sm text-red-400">{error}</p>
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-status-danger-soft border border-status-danger-border">
+              <XCircle className="h-4 w-4 text-status-danger-fg shrink-0" />
+              <p className="text-sm text-status-danger-fg">{error}</p>
             </div>
           )}
 
@@ -561,9 +561,9 @@ export function DocVerificacionDrawer({
                 <li key={v.id} className="ml-4 pb-6 last:pb-0">
                   <span className="absolute -left-[9px] flex items-center justify-center w-4 h-4 rounded-full ring-2 ring-zinc-900">
                     {v.presente ? (
-                      <CheckCircle2 className="h-4 w-4 text-green-400 bg-zinc-900 rounded-full" />
+                      <CheckCircle2 className="h-4 w-4 text-status-ok-fg bg-zinc-900 rounded-full" />
                     ) : (
-                      <XCircle className="h-4 w-4 text-red-400 bg-zinc-900 rounded-full" />
+                      <XCircle className="h-4 w-4 text-status-danger-fg bg-zinc-900 rounded-full" />
                     )}
                   </span>
 
@@ -580,8 +580,8 @@ export function DocVerificacionDrawer({
                     <span
                       className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full ${
                         v.presente
-                          ? "bg-green-500/15 text-green-400 border border-green-500/25"
-                          : "bg-red-500/15 text-red-400 border border-red-500/25"
+                          ? "bg-status-ok-soft text-status-ok-fg border border-green-500/25"
+                          : "bg-status-danger-soft text-status-danger-fg border border-red-500/25"
                       }`}
                     >
                       {v.presente ? (
@@ -613,7 +613,7 @@ export function DocVerificacionDrawer({
                           href={`/ops/supervision/${v.supervision.id}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-[11px] text-sky-400 hover:text-sky-300 underline underline-offset-2 transition-colors"
+                          className="text-[11px] text-status-info-fg hover:text-status-info-fg underline underline-offset-2 transition-colors"
                         >
                           Ver visita
                           {v.supervision.checkInAt && (

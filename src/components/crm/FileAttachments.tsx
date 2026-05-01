@@ -393,7 +393,7 @@ export function FileAttachments({
           <Button
             variant="ghost"
             size="icon"
-            className={cn("h-8 w-8", file.portalVisible && "text-emerald-600")}
+            className={cn("h-8 w-8", file.portalVisible && "text-status-ok-fg")}
             title={file.portalVisible ? "Visible en portal" : "Oculto del portal"}
             onClick={() => handleTogglePortalVisible(file)}
           >
@@ -653,7 +653,7 @@ export function FileAttachments({
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    className={cn("h-7 w-7", folder.portalVisible && "text-emerald-600")}
+                                    className={cn("h-7 w-7", folder.portalVisible && "text-status-ok-fg")}
                                     title={folder.portalVisible ? "Visible en portal (aplica a todos)" : "Oculta del portal"}
                                     onClick={(e) => {
                                       e.stopPropagation();

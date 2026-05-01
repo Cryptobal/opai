@@ -236,7 +236,7 @@ export function ContratoBorradorView({ quoteId, onBack, onNavigateToEmpresa }: P
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-3">
-        <Loader2 className="h-8 w-8 animate-spin text-teal-400" />
+        <Loader2 className="h-8 w-8 animate-spin text-status-info-fg" />
         <p className="text-sm text-slate-400">Cargando borrador de contrato...</p>
       </div>
     );
@@ -245,9 +245,9 @@ export function ContratoBorradorView({ quoteId, onBack, onNavigateToEmpresa }: P
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-3">
-        <AlertTriangle className="h-8 w-8 text-amber-400" />
+        <AlertTriangle className="h-8 w-8 text-status-warn-fg" />
         <p className="text-sm text-slate-300">{error}</p>
-        <button onClick={onBack} className="mt-2 text-sm text-teal-400 hover:text-teal-300 underline underline-offset-2">
+        <button onClick={onBack} className="mt-2 text-sm text-status-info-fg hover:text-status-info-fg underline underline-offset-2">
           Volver a la propuesta
         </button>
       </div>
@@ -271,7 +271,7 @@ export function ContratoBorradorView({ quoteId, onBack, onNavigateToEmpresa }: P
           </button>
           <div className="h-4 w-px bg-slate-700" />
           <div className="flex items-center gap-2">
-            <FileText className="h-4 w-4 text-teal-400" />
+            <FileText className="h-4 w-4 text-status-info-fg" />
             <h3 className="text-sm font-semibold text-white">Borrador de Contrato</h3>
           </div>
         </div>
@@ -288,8 +288,8 @@ export function ContratoBorradorView({ quoteId, onBack, onNavigateToEmpresa }: P
 
       {/* Suggestions status */}
       {suggestions.length > 0 && (
-        <div className="rounded-xl border border-teal-500/30 bg-teal-500/5 p-4 space-y-3">
-          <h4 className="text-sm font-semibold text-teal-300 flex items-center gap-2">
+        <div className="rounded-xl border border-status-info-border bg-teal-500/5 p-4 space-y-3">
+          <h4 className="text-sm font-semibold text-status-info-fg flex items-center gap-2">
             <Pencil className="h-4 w-4" />
             Mis sugerencias de edición
             {pendingSuggestions.length > 0 && (
@@ -306,16 +306,16 @@ export function ContratoBorradorView({ quoteId, onBack, onNavigateToEmpresa }: P
                   "rounded-lg border p-3 text-xs",
                   s.status === "pending" ? "border-yellow-600/30 bg-yellow-500/5" :
                   s.status === "approved" ? "border-green-600/30 bg-green-500/5" :
-                  "border-red-600/30 bg-red-500/5"
+                  "border-red-600/30 bg-status-danger-soft"
                 )}
               >
                 <div className="flex items-center justify-between mb-1">
                   <span className="font-medium text-slate-200">Cláusula {s.clauseNumber}</span>
                   <span className={cn(
                     "text-[10px] px-2 py-0.5 rounded",
-                    s.status === "pending" ? "bg-yellow-600/20 text-yellow-400" :
-                    s.status === "approved" ? "bg-green-600/20 text-green-400" :
-                    "bg-red-600/20 text-red-400"
+                    s.status === "pending" ? "bg-yellow-600/20 text-status-warn-fg" :
+                    s.status === "approved" ? "bg-green-600/20 text-status-ok-fg" :
+                    "bg-red-600/20 text-status-danger-fg"
                   )}>
                     {s.status === "pending" ? "Pendiente de revisión" : s.status === "approved" ? "Aprobada" : "Rechazada"}
                   </span>
@@ -335,7 +335,7 @@ export function ContratoBorradorView({ quoteId, onBack, onNavigateToEmpresa }: P
       {/* Editable clauses info */}
       <div className="rounded-xl border border-teal-500/20 bg-teal-500/5 p-3">
         <div className="flex items-start gap-2">
-          <Pencil className="h-3.5 w-3.5 text-teal-500 mt-0.5 shrink-0" />
+          <Pencil className="h-3.5 w-3.5 text-status-info-fg mt-0.5 shrink-0" />
           <p className="text-[11px] text-teal-400/80 leading-relaxed">
             Puede sugerir modificaciones en cualquier cláusula del contrato.
             Haga clic en el botón{" "}
@@ -349,11 +349,11 @@ export function ContratoBorradorView({ quoteId, onBack, onNavigateToEmpresa }: P
 
       {/* Portal missing fields */}
       {hasPortalMissing && (
-        <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
+        <div className="rounded-xl border border-status-warn-border bg-status-warn-soft p-4">
           <div className="flex items-start gap-2.5">
-            <AlertTriangle className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
+            <AlertTriangle className="h-4 w-4 text-status-warn-fg mt-0.5 shrink-0" />
             <div className="space-y-2">
-              <p className="text-sm text-amber-200 font-medium">Hay datos de su empresa pendientes de completar</p>
+              <p className="text-sm text-status-warn-fg font-medium">Hay datos de su empresa pendientes de completar</p>
               <p className="text-xs text-amber-200/70">
                 Los campos resaltados en{" "}
                 <span className="inline-block bg-amber-400 text-amber-900 px-1.5 py-0.5 rounded text-[10px] font-semibold">amarillo</span>{" "}
@@ -367,7 +367,7 @@ export function ContratoBorradorView({ quoteId, onBack, onNavigateToEmpresa }: P
               {onNavigateToEmpresa && (
                 <button
                   onClick={onNavigateToEmpresa}
-                  className="mt-1 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/20 text-xs font-medium text-amber-300 hover:bg-amber-500/30 hover:text-amber-200 transition-colors"
+                  className="mt-1 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-status-warn-soft text-xs font-medium text-status-warn-fg hover:bg-amber-500/30 hover:text-status-warn-fg transition-colors"
                 >
                   Ir a Empresa para completar datos
                 </button>
@@ -467,7 +467,7 @@ export function ContratoBorradorView({ quoteId, onBack, onNavigateToEmpresa }: P
               <button
                 onClick={handleSubmitSuggestion}
                 disabled={submitting || !editForm.suggestedContent.trim()}
-                className="flex items-center gap-2 px-4 py-2 text-sm bg-teal-600 hover:bg-teal-500 rounded-lg text-white font-medium disabled:opacity-50"
+                className="flex items-center gap-2 px-4 py-2 text-sm bg-status-info hover:bg-status-info rounded-lg text-white font-medium disabled:opacity-50"
               >
                 {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 {submitting ? "Enviando..." : "Enviar sugerencia"}

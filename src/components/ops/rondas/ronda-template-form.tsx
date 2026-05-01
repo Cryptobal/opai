@@ -60,12 +60,12 @@ function SortableItem({ cp, onToggleRequired, onRemove }: {
       <span className="flex-1 text-xs font-medium">{cp.name}</span>
       <button
         type="button"
-        className={`text-[10px] rounded px-1.5 py-0.5 border ${cp.isRequired ? "border-emerald-500/30 text-emerald-500 bg-emerald-500/10" : "border-border text-muted-foreground"}`}
+        className={`text-[10px] rounded px-1.5 py-0.5 border ${cp.isRequired ? "border-status-ok-border text-status-ok-fg bg-status-ok-soft" : "border-border text-muted-foreground"}`}
         onClick={onToggleRequired}
       >
         {cp.isRequired ? "Obligatorio" : "Opcional"}
       </button>
-      <button type="button" className="text-xs text-red-500 hover:text-red-400" onClick={onRemove}>✕</button>
+      <button type="button" className="text-xs text-status-danger-fg hover:text-status-danger-fg" onClick={onRemove}>✕</button>
     </div>
   );
 }

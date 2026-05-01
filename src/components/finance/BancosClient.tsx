@@ -91,11 +91,11 @@ type TabId = (typeof TABS)[number]["id"];
 const ACCOUNT_TYPE_LABELS: Record<string, { label: string; className: string }> = {
   CHECKING: {
     label: "Corriente",
-    className: "bg-blue-500/15 text-blue-400 border-blue-500/30",
+    className: "bg-status-info-soft text-status-info-fg border-status-info-border",
   },
   SAVINGS: {
     label: "Ahorro",
-    className: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+    className: "bg-status-ok-soft text-status-ok-fg border-status-ok-border",
   },
   VISTA: {
     label: "Vista",
@@ -106,15 +106,15 @@ const ACCOUNT_TYPE_LABELS: Record<string, { label: string; className: string }> 
 const RECONC_STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   UNMATCHED: {
     label: "Sin conciliar",
-    className: "bg-amber-500/15 text-amber-400 border-amber-500/30",
+    className: "bg-status-warn-soft text-status-warn-fg border-status-warn-border",
   },
   MATCHED: {
     label: "Conciliado",
-    className: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+    className: "bg-status-ok-soft text-status-ok-fg border-status-ok-border",
   },
   RECONCILED: {
     label: "Reconciliado",
-    className: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+    className: "bg-status-ok-soft text-status-ok-fg border-status-ok-border",
   },
   EXCLUDED: {
     label: "Excluido",
@@ -333,7 +333,7 @@ function AccountsTab({
           <div className="flex items-center gap-1.5">
             {row.bankName}
             {row.isDefault && (
-              <Star className="h-3.5 w-3.5 text-amber-400 fill-amber-400" />
+              <Star className="h-3.5 w-3.5 text-status-warn-fg fill-amber-400" />
             )}
           </div>
         ),
@@ -391,7 +391,7 @@ function AccountsTab({
             className={cn(
               "text-xs",
               row.isActive
-                ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+                ? "bg-status-ok-soft text-status-ok-fg border-status-ok-border"
                 : "bg-zinc-500/15 text-zinc-400 border-zinc-500/30"
             )}
           >
@@ -506,7 +506,7 @@ function AccountsTab({
                         <div className="flex items-center gap-2 mb-1 flex-wrap">
                           <p className="font-medium truncate">{a.bankName}</p>
                           {a.isDefault && (
-                            <Star className="h-3.5 w-3.5 text-amber-400 fill-amber-400 shrink-0" />
+                            <Star className="h-3.5 w-3.5 text-status-warn-fg fill-amber-400 shrink-0" />
                           )}
                           <Badge
                             variant="outline"
@@ -519,7 +519,7 @@ function AccountsTab({
                             className={cn(
                               "text-[10px] shrink-0",
                               a.isActive
-                                ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+                                ? "bg-status-ok-soft text-status-ok-fg border-status-ok-border"
                                 : "bg-zinc-500/15 text-zinc-400 border-zinc-500/30"
                             )}
                           >
@@ -778,7 +778,7 @@ function TransactionsTab({ accounts }: { accounts: BankAccountRow[] }) {
         cell: (row) => (
           <span
             className={
-              row.amount >= 0 ? "text-emerald-400" : "text-red-400"
+              row.amount >= 0 ? "text-status-ok-fg" : "text-status-danger-fg"
             }
           >
             {fmtCLP.format(row.amount)}
@@ -919,7 +919,7 @@ function TransactionsTab({ accounts }: { accounts: BankAccountRow[] }) {
                           <span
                             className={cn(
                               "font-mono text-sm font-medium",
-                              tx.amount >= 0 ? "text-emerald-400" : "text-red-400"
+                              tx.amount >= 0 ? "text-status-ok-fg" : "text-status-danger-fg"
                             )}
                           >
                             {fmtCLP.format(tx.amount)}

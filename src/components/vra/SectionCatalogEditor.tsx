@@ -179,7 +179,7 @@ function SectionRow({
           {!isClonedFromSystem && !template.isSystem && (
             <Badge
               variant="outline"
-              className="text-[10px] py-0 border-emerald-300 text-emerald-700 dark:text-emerald-400"
+              className="text-[10px] py-0 border-emerald-300 text-status-ok-fg dark:text-status-ok-fg"
             >
               Custom
             </Badge>
@@ -227,7 +227,7 @@ function SectionRow({
           <Button
             variant="ghost"
             size="sm"
-            className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
+            className="h-8 w-8 p-0 text-status-danger-fg hover:text-status-danger-fg"
             title="Eliminar"
             onClick={() => onDelete(template.id)}
           >

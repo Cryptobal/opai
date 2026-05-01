@@ -85,7 +85,7 @@ export function PlatformSidebar({ adminName, adminEmail }: PlatformSidebarProps)
                 height={24}
                 className="h-6 w-auto"
               />
-              <span className="rounded bg-teal-500/20 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-teal-400">
+              <span className="rounded bg-teal-500/20 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-status-info-fg">
                 Admin
               </span>
             </div>
@@ -119,7 +119,7 @@ export function PlatformSidebar({ adminName, adminEmail }: PlatformSidebarProps)
                 title={collapsed && !isMobile ? item.label : undefined}
                 className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors ${
                   isActive
-                    ? 'bg-teal-500/20 text-teal-400'
+                    ? 'bg-teal-500/20 text-status-info-fg'
                     : 'text-gray-400 hover:bg-white/5 hover:text-white'
                 } ${!expanded ? 'justify-center' : ''}`}
               >
@@ -199,7 +199,7 @@ export function PlatformSidebar({ adminName, adminEmail }: PlatformSidebarProps)
           height={22}
           className="hidden h-5 w-auto dark:block"
         />
-        <span className="rounded bg-teal-500/20 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-teal-600 dark:text-teal-400">
+        <span className="rounded bg-teal-500/20 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-teal-600 dark:text-status-info-fg">
           Admin
         </span>
       </div>

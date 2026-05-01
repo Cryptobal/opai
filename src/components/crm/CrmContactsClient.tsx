@@ -447,7 +447,7 @@ export function CrmContactsClient({
                           <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">Principal</Badge>
                         )}
                         {contact.portalPinVisible && (
-                          <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold tabular-nums bg-emerald-500/20 text-emerald-400">
+                          <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold tabular-nums bg-status-ok-soft text-status-ok-fg">
                             PIN: {contact.portalPinVisible}
                           </span>
                         )}
@@ -498,7 +498,7 @@ export function CrmContactsClient({
                               </span>
                             )}
                             {contact.portalPinVisible && (
-                              <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold tabular-nums bg-emerald-500/20 text-emerald-400">
+                              <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold tabular-nums bg-status-ok-soft text-status-ok-fg">
                                 PIN: {contact.portalPinVisible}
                               </span>
                             )}

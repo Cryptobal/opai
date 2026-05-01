@@ -22,7 +22,7 @@ const STATUS_BAR_COLOR: Record<string, string> = {
   en_camino: "bg-blue-400",
   no_viene: "bg-red-400",
   pendiente: "bg-slate-500",
-  ppc: "bg-amber-500",
+  ppc: "bg-status-warn",
 };
 
 function chipName(name: string): string {
@@ -45,11 +45,11 @@ export function CoverageChip({
 
   const ratioColor =
     coberturaStatus === "completa"
-      ? "text-emerald-400"
+      ? "text-status-ok-fg"
       : coberturaStatus === "parcial"
-        ? "text-amber-400"
+        ? "text-status-warn-fg"
         : coberturaStatus === "descubierta"
-          ? "text-red-400"
+          ? "text-status-danger-fg"
           : "text-slate-500";
 
   const isDescubierta = coberturaStatus === "descubierta";
@@ -65,7 +65,7 @@ export function CoverageChip({
         className="flex items-center gap-1.5 px-1.5 py-1 rounded cursor-pointer w-full hover:bg-slate-800/60 transition-colors group"
       >
         <span className="text-slate-600 italic text-[10px]">Sin asignar</span>
-        <span className="text-slate-700 group-hover:text-teal-400 ml-auto text-[10px] transition-colors">
+        <span className="text-slate-700 group-hover:text-status-info-fg ml-auto text-[10px] transition-colors">
           ›
         </span>
       </button>
@@ -80,13 +80,13 @@ export function CoverageChip({
       >
         <div className="flex gap-[2px] flex-shrink-0">
           {ppcGuards.map((_, i) => (
-            <div key={i} className="w-1.5 h-4 rounded-sm bg-amber-500" />
+            <div key={i} className="w-1.5 h-4 rounded-sm bg-status-warn" />
           ))}
         </div>
-        <span className="text-[10px] font-medium text-amber-400">
+        <span className="text-[10px] font-medium text-status-warn-fg">
           PPC ({ppcGuards.length})
         </span>
-        <span className="text-slate-700 group-hover:text-teal-400 ml-auto text-[10px] transition-colors flex-shrink-0">
+        <span className="text-slate-700 group-hover:text-status-info-fg ml-auto text-[10px] transition-colors flex-shrink-0">
           ›
         </span>
       </button>
@@ -101,7 +101,7 @@ export function CoverageChip({
       const g = guardias[i];
       // PPC guards get amber bar when still unassigned
       if (g.guardiaNombre === "PPC") {
-        bars.push(g.status === "no_viene" ? "bg-red-400" : "bg-amber-500");
+        bars.push(g.status === "no_viene" ? "bg-red-400" : "bg-status-warn");
       } else {
         bars.push(STATUS_BAR_COLOR[g.status] ?? "bg-slate-600");
       }
@@ -141,7 +141,7 @@ export function CoverageChip({
       </span>
 
       {enCamino > 0 && (
-        <span className="text-[9px] text-blue-400 flex-shrink-0">
+        <span className="text-[9px] text-status-info-fg flex-shrink-0">
           (+{enCamino}ec)
         </span>
       )}
@@ -158,7 +158,7 @@ export function CoverageChip({
       </span>
 
       {/* Arrow */}
-      <span className="text-slate-700 group-hover:text-teal-400 ml-auto text-[10px] transition-colors flex-shrink-0">
+      <span className="text-slate-700 group-hover:text-status-info-fg ml-auto text-[10px] transition-colors flex-shrink-0">
         ›
       </span>
     </button>

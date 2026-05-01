@@ -164,7 +164,7 @@ export function EmailTemplatesClient({ initialTemplates }: { initialTemplates: E
             onClick={() => insertPlaceholder(suggestField || "body", item.token)}
           >
             <span>{item.label}</span>
-            <span className="text-blue-300">{item.token}</span>
+            <span className="text-status-info-fg">{item.token}</span>
           </button>
         ))}
       </div>

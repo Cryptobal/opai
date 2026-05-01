@@ -106,15 +106,15 @@ type Schedule = "now" | "on_assign" | "recurring";
 // ---------------------------------------------------------------------------
 
 function scoreColor(score: number) {
-  if (score >= 80) return "text-emerald-400";
-  if (score >= 60) return "text-amber-400";
-  return "text-red-400";
+  if (score >= 80) return "text-status-ok-fg";
+  if (score >= 60) return "text-status-warn-fg";
+  return "text-status-danger-fg";
 }
 
 function scoreBg(score: number) {
-  if (score >= 80) return "bg-emerald-500";
-  if (score >= 60) return "bg-amber-500";
-  return "bg-red-500";
+  if (score >= 80) return "bg-status-ok";
+  if (score >= 60) return "bg-status-warn";
+  return "bg-status-danger";
 }
 
 function ScoreBar({ score }: { score: number }) {
@@ -145,7 +145,7 @@ function trendIcon(t: "up" | "down" | "stable") {
 
 function typeBadge(type: "protocol" | "security_general") {
   if (type === "protocol")
-    return <Badge className="bg-blue-500/15 text-blue-400 border-transparent">📋 Protocolo</Badge>;
+    return <Badge className="bg-status-info-soft text-status-info-fg border-transparent">📋 Protocolo</Badge>;
   return <Badge className="bg-purple-500/15 text-purple-400 border-transparent">🛡️ Seguridad</Badge>;
 }
 
@@ -624,7 +624,7 @@ export function ExamsSubTab({ installationId }: Props) {
           label="Bajo rendimiento"
           value={stats?.lowPerformanceCount ?? 0}
           valueClass={
-            (stats?.lowPerformanceCount ?? 0) > 0 ? "text-red-400" : undefined
+            (stats?.lowPerformanceCount ?? 0) > 0 ? "text-status-danger-fg" : undefined
           }
         />
       </div>
@@ -758,8 +758,8 @@ export function ExamsSubTab({ installationId }: Props) {
                       Cargando documentos...
                     </div>
                   ) : aiSources.length === 0 ? (
-                    <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
-                      <p className="text-xs text-amber-400">
+                    <div className="rounded-lg border border-status-warn-border bg-status-warn-soft p-3">
+                      <p className="text-xs text-status-warn-fg">
                         No hay documentos disponibles para la IA. Sube
                         documentos y activa el switch &quot;Usar como base de
                         IA&quot; en{" "}
@@ -806,7 +806,7 @@ export function ExamsSubTab({ installationId }: Props) {
                                   }
                                   className="accent-primary"
                                 />
-                                <FileText className="h-4 w-4 text-blue-500 shrink-0" />
+                                <FileText className="h-4 w-4 text-status-info-fg shrink-0" />
                                 <div className="min-w-0 flex-1">
                                   <p className="text-sm font-medium truncate">
                                     {doc.fileName}
@@ -932,7 +932,7 @@ export function ExamsSubTab({ installationId }: Props) {
                                 }
                                 className={`h-6 w-6 rounded-full border text-xs font-medium flex items-center justify-center shrink-0 transition-colors ${
                                   q.correctIndex === oi
-                                    ? "border-emerald-500 bg-emerald-500/20 text-emerald-400"
+                                    ? "border-status-ok-border bg-status-ok-soft text-status-ok-fg"
                                     : "border-border text-muted-foreground hover:border-muted-foreground"
                                 }`}
                               >
@@ -1242,12 +1242,12 @@ export function ExamsSubTab({ installationId }: Props) {
                                 key={oi}
                                 className={`flex items-center gap-2 rounded-md px-2 py-1 text-xs ${
                                   isCorrect
-                                    ? "bg-emerald-500/10 text-emerald-400 font-medium"
+                                    ? "bg-status-ok-soft text-status-ok-fg font-medium"
                                     : "text-muted-foreground"
                                 }`}
                               >
                                 <span className={`h-4 w-4 rounded-full border flex items-center justify-center text-[10px] shrink-0 ${
-                                  isCorrect ? "border-emerald-500 bg-emerald-500/20" : "border-border"
+                                  isCorrect ? "border-status-ok-border bg-status-ok-soft" : "border-border"
                                 }`}>
                                   {isCorrect ? <Check className="h-2.5 w-2.5" /> : String.fromCharCode(65 + oi)}
                                 </span>
@@ -1438,7 +1438,7 @@ function ExamsList({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 text-red-400 hover:text-red-300"
+                  className="h-8 w-8 text-status-danger-fg hover:text-status-danger-fg"
                   onClick={() => onDelete(exam.id)}
                 >
                   <Trash2 className="h-3.5 w-3.5" />

@@ -58,7 +58,7 @@ export default function PsychReviewClient({ token }: { token: string }) {
   if (err) {
     return (
       <div className="max-w-md mx-auto py-16 px-4 text-center">
-        <p className="text-sm text-red-600 dark:text-red-400">{err}</p>
+        <p className="text-sm text-status-danger-fg dark:text-status-danger-fg">{err}</p>
       </div>
     );
   }
@@ -87,7 +87,7 @@ export default function PsychReviewClient({ token }: { token: string }) {
       </header>
       <PsychReviewReport result={data.result} />
       {data.alreadySigned ? (
-        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-700 dark:text-emerald-400">
+        <div className="rounded-xl border border-status-ok-border bg-status-ok-soft p-4 text-sm text-status-ok-fg dark:text-status-ok-fg">
           Este informe ya fue firmado. Gracias por tu revisión.
         </div>
       ) : (

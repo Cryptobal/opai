@@ -164,7 +164,7 @@ export function MonitoreoSidePanel({
                 className={cn(
                   "ml-1 rounded-full px-1.5 py-0.5 text-[9px] font-bold tabular-nums",
                   tab.key === "alertas"
-                    ? "bg-red-500/15 text-red-400"
+                    ? "bg-status-danger-soft text-status-danger-fg"
                     : "bg-[#1a1f2e] text-[#64748b]"
                 )}
               >
@@ -249,7 +249,7 @@ function RondasTab({
       <div className="px-4 py-2 border-b border-[#1a1f2e] flex items-center gap-2">
         <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
         <p className="text-[11px] uppercase tracking-wider font-semibold text-[#64748b]">En curso</p>
-        <span className="ml-auto text-[10px] rounded-full px-1.5 py-0.5 font-semibold bg-emerald-500/20 text-emerald-400">
+        <span className="ml-auto text-[10px] rounded-full px-1.5 py-0.5 font-semibold bg-status-ok-soft text-status-ok-fg">
           {guardPanelData.length}
         </span>
       </div>
@@ -274,15 +274,15 @@ function RondasTab({
             onClick={() => setShowCompleted(!showCompleted)}
             className="w-full px-4 py-2 border-t border-[#1a1f2e] flex items-center gap-2 hover:bg-[#0f1420] transition-colors"
           >
-            <Check className="h-3 w-3 text-emerald-400" />
+            <Check className="h-3 w-3 text-status-ok-fg" />
             <p className="text-[11px] uppercase tracking-wider font-semibold text-[#64748b]">
               Completadas
             </p>
-            <span className="text-[10px] rounded-full px-1.5 py-0.5 font-semibold bg-emerald-500/20 text-emerald-400">
+            <span className="text-[10px] rounded-full px-1.5 py-0.5 font-semibold bg-status-ok-soft text-status-ok-fg">
               {completadas.length}
             </span>
             {incompletas.length > 0 && (
-              <span className="text-[10px] rounded-full px-1.5 py-0.5 font-semibold bg-red-500/20 text-red-400">
+              <span className="text-[10px] rounded-full px-1.5 py-0.5 font-semibold bg-status-danger-soft text-status-danger-fg">
                 {incompletas.length} incompleta{incompletas.length !== 1 ? "s" : ""}
               </span>
             )}
@@ -338,17 +338,17 @@ function RondasTab({
                           className={cn(
                             "shrink-0 font-medium",
                             r.trustScore >= 80
-                              ? "text-emerald-400"
+                              ? "text-status-ok-fg"
                               : r.trustScore >= 50
-                                ? "text-yellow-400"
-                                : "text-red-400",
+                                ? "text-status-warn-fg"
+                                : "text-status-danger-fg",
                           )}
                         >
                           Trust {r.trustScore}
                         </span>
                       )}
                       {isIncomplete && (
-                        <span className="shrink-0 text-red-400 font-medium">Incompleta</span>
+                        <span className="shrink-0 text-status-danger-fg font-medium">Incompleta</span>
                       )}
                     </div>
                   </div>
@@ -372,12 +372,12 @@ function PanicBanner({ alerts, onGoToAlert }: { alerts: AlertRow[]; onGoToAlert:
   if (panicAlerts.length === 0) return null;
 
   return (
-    <div className="bg-gradient-to-r from-red-500/25 to-red-500/10 border-b border-red-500/30">
+    <div className="bg-gradient-to-r from-red-500/25 to-red-500/10 border-b border-status-danger-border">
       {panicAlerts.map((alert) => (
         <div key={alert.id} className="px-4 py-2.5 flex items-center gap-3">
           <span className="text-lg flex-shrink-0 animate-pulse">🆘</span>
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-bold text-red-400 uppercase tracking-wider">
+            <p className="text-xs font-bold text-status-danger-fg uppercase tracking-wider">
               ALERTA DE PÁNICO
             </p>
             <p className="text-[11px] text-slate-400 truncate">
@@ -390,7 +390,7 @@ function PanicBanner({ alerts, onGoToAlert }: { alerts: AlertRow[]; onGoToAlert:
           </div>
           <button
             onClick={() => onGoToAlert(alert)}
-            className="flex-shrink-0 rounded bg-red-500 px-3 py-1.5 text-[11px] font-bold text-white hover:bg-red-600 transition-colors"
+            className="flex-shrink-0 rounded bg-status-danger px-3 py-1.5 text-[11px] font-bold text-white hover:bg-status-danger transition-colors"
           >
             Ver
           </button>
@@ -500,9 +500,9 @@ function AlertasTab({
         {/* Installation filter chip */}
         {installationFilter && (
           <div className="px-4 py-2 border-b border-[#1a1f2e] flex items-center gap-2">
-            <span className="text-[11px] rounded-full bg-blue-500/20 text-blue-400 px-2 py-0.5 flex items-center gap-1">
+            <span className="text-[11px] rounded-full bg-status-info-soft text-status-info-fg px-2 py-0.5 flex items-center gap-1">
               {installationFilter.name}
-              <button onClick={onClearInstallationFilter} className="hover:text-blue-300">
+              <button onClick={onClearInstallationFilter} className="hover:text-status-info-fg">
                 <X className="h-3 w-3" />
               </button>
             </span>
@@ -521,9 +521,9 @@ function AlertasTab({
       {/* Installation filter chip */}
       {installationFilter && (
         <div className="px-4 py-2 border-b border-[#1a1f2e] flex items-center gap-2">
-          <span className="text-[11px] rounded-full bg-blue-500/20 text-blue-400 px-2 py-0.5 flex items-center gap-1">
+          <span className="text-[11px] rounded-full bg-status-info-soft text-status-info-fg px-2 py-0.5 flex items-center gap-1">
             {installationFilter.name}
-            <button onClick={onClearInstallationFilter} className="hover:text-blue-300">
+            <button onClick={onClearInstallationFilter} className="hover:text-status-info-fg">
               <X className="h-3 w-3" />
             </button>
           </span>
@@ -534,9 +534,9 @@ function AlertasTab({
       {emergencyAlerts.length > 0 && (
         <>
           <div className="px-4 py-2 border-b border-[#1a1f2e] flex items-center gap-2">
-            <AlertTriangle className="h-3 w-3 text-red-400" />
-            <p className="text-[11px] uppercase tracking-wider font-semibold text-red-400">Emergencias</p>
-            <span className="ml-auto rounded-full bg-red-500/20 px-1.5 py-0.5 text-[9px] font-bold text-red-400">
+            <AlertTriangle className="h-3 w-3 text-status-danger-fg" />
+            <p className="text-[11px] uppercase tracking-wider font-semibold text-status-danger-fg">Emergencias</p>
+            <span className="ml-auto rounded-full bg-status-danger-soft px-1.5 py-0.5 text-[9px] font-bold text-status-danger-fg">
               {emergencyAlerts.length}
             </span>
           </div>
@@ -561,9 +561,9 @@ function AlertasTab({
       {actionableAlerts.length > 0 && (
         <>
           <div className="px-4 py-2 border-t border-b border-[#1a1f2e] flex items-center gap-2">
-            <AlertTriangle className="h-3 w-3 text-amber-400" />
-            <p className="text-[11px] uppercase tracking-wider font-semibold text-amber-400">Accionables</p>
-            <span className="ml-auto rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[9px] font-bold text-amber-400">
+            <AlertTriangle className="h-3 w-3 text-status-warn-fg" />
+            <p className="text-[11px] uppercase tracking-wider font-semibold text-status-warn-fg">Accionables</p>
+            <span className="ml-auto rounded-full bg-status-warn-soft px-1.5 py-0.5 text-[9px] font-bold text-status-warn-fg">
               {actionableAlerts.length}
             </span>
           </div>
@@ -586,7 +586,7 @@ function AlertasTab({
               <button
                 onClick={() => handleBulkResolve(ACTIONABLE_ALERT_TYPES, installationFilter?.id)}
                 disabled={bulkResolvingId === "all"}
-                className="w-full flex items-center justify-center gap-1.5 rounded bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 text-[11px] font-medium text-amber-400 hover:bg-amber-500/20 transition-colors disabled:opacity-50"
+                className="w-full flex items-center justify-center gap-1.5 rounded bg-status-warn-soft border border-status-warn-border px-3 py-1.5 text-[11px] font-medium text-status-warn-fg hover:bg-status-warn-soft transition-colors disabled:opacity-50"
               >
                 {bulkResolvingId === "all" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
                 Resolver todo ({actionableAlerts.length})
@@ -686,8 +686,8 @@ function AlertCard({
   onResolveAlert: (id: string, notes?: string) => void;
   onGoToAlert: (alert: AlertRow) => void;
 }) {
-  const severityColor = alert.severidad === "critical" ? "text-red-400 bg-red-500/15" : alert.severidad === "warning" ? "text-amber-400 bg-amber-500/15" : "text-cyan-400 bg-cyan-500/15";
-  const alertIcon = alert.severidad === "critical" ? "text-red-400" : alert.severidad === "warning" ? "text-amber-400" : "text-cyan-400";
+  const severityColor = alert.severidad === "critical" ? "text-status-danger-fg bg-status-danger-soft" : alert.severidad === "warning" ? "text-status-warn-fg bg-status-warn-soft" : "text-status-info-fg bg-status-info-soft";
+  const alertIcon = alert.severidad === "critical" ? "text-status-danger-fg" : alert.severidad === "warning" ? "text-status-warn-fg" : "text-status-info-fg";
   const leftBorder = alert.severidad === "critical" ? "border-l-red-500" : alert.severidad === "warning" ? "border-l-amber-500" : "border-l-cyan-500";
 
   return (
@@ -720,7 +720,7 @@ function AlertCard({
             {alert.installation && (
               <button
                 onClick={() => onGoToAlert(alert)}
-                className="flex items-center gap-1 rounded bg-blue-500/10 border border-blue-500/20 px-2 py-1 text-[10px] text-blue-400 hover:bg-blue-500/20 transition-colors"
+                className="flex items-center gap-1 rounded bg-status-info-soft border border-status-info-border px-2 py-1 text-[10px] text-status-info-fg hover:bg-status-info-soft transition-colors"
               >
                 <MapPin className="h-3 w-3" /> Mapa
               </button>
@@ -735,7 +735,7 @@ function AlertCard({
                   onSetResolveNotes("");
                 }
               }}
-              className="flex items-center gap-1 rounded bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 text-[10px] text-emerald-400 hover:bg-emerald-500/20 transition-colors"
+              className="flex items-center gap-1 rounded bg-status-ok-soft border border-status-ok-border px-2 py-1 text-[10px] text-status-ok-fg hover:bg-status-ok-soft transition-colors"
             >
               <Check className="h-3 w-3" /> Resolver
             </button>
@@ -756,7 +756,7 @@ function AlertCard({
               />
               <button
                 onClick={() => onResolveAlert(alert.id, resolveNotes)}
-                className="rounded bg-emerald-600 px-2.5 py-1.5 text-[11px] text-white font-medium hover:bg-emerald-500 transition-colors"
+                className="rounded bg-status-ok px-2.5 py-1.5 text-[11px] text-white font-medium hover:bg-status-ok transition-colors"
               >
                 OK
               </button>
@@ -836,7 +836,7 @@ function InstalacionesTab({
 
         const trustColor =
           inst.activeRondaTrust != null
-            ? inst.activeRondaTrust >= 80 ? "text-emerald-400" : inst.activeRondaTrust >= 60 ? "text-amber-400" : "text-red-400"
+            ? inst.activeRondaTrust >= 80 ? "text-status-ok-fg" : inst.activeRondaTrust >= 60 ? "text-status-warn-fg" : "text-status-danger-fg"
             : "text-zinc-500";
 
         return (
@@ -858,7 +858,7 @@ function InstalacionesTab({
                     e.stopPropagation();
                     onAlertBadgeClick({ id: inst.id, name: inst.name });
                   }}
-                  className="rounded-full bg-red-500/20 px-1.5 py-0.5 text-[9px] font-bold text-red-400 hover:bg-red-500/30 transition-colors cursor-pointer"
+                  className="rounded-full bg-status-danger-soft px-1.5 py-0.5 text-[9px] font-bold text-status-danger-fg hover:bg-red-500/30 transition-colors cursor-pointer"
                   title={`Ver ${inst.alertCount} alertas de ${inst.name}`}
                 >
                   {inst.alertCount}
@@ -986,8 +986,8 @@ function HistorialTab() {
                   <span>{t.totalAlertsHandled} alertas</span>
                   {/* Cobertura dots */}
                   <span className="ml-auto flex items-center gap-1">
-                    <Moon className={cn("h-2.5 w-2.5", nocturnaOk ? "text-emerald-400" : "text-zinc-600")} />
-                    <Sun className={cn("h-2.5 w-2.5", diurnaOk ? "text-emerald-400" : "text-zinc-600")} />
+                    <Moon className={cn("h-2.5 w-2.5", nocturnaOk ? "text-status-ok-fg" : "text-zinc-600")} />
+                    <Sun className={cn("h-2.5 w-2.5", diurnaOk ? "text-status-ok-fg" : "text-zinc-600")} />
                   </span>
                 </div>
               </button>
@@ -1008,7 +1008,7 @@ function HistorialTab() {
                   {t.controlNocturno && (
                     <button
                       onClick={() => setDialogTurno(t)}
-                      className="flex items-center gap-1.5 text-[10px] text-sky-400 hover:text-sky-300 transition-colors"
+                      className="flex items-center gap-1.5 text-[10px] text-status-info-fg hover:text-status-info-fg transition-colors"
                     >
                       <FileText className="h-3 w-3" />
                       Ver planilla de cobertura
@@ -1027,7 +1027,7 @@ function HistorialTab() {
           <button
             onClick={() => fetchHistory(turnos.length)}
             disabled={loading}
-            className="text-[10px] text-sky-400 hover:text-sky-300 disabled:opacity-50"
+            className="text-[10px] text-status-info-fg hover:text-status-info-fg disabled:opacity-50"
           >
             {loading ? "Cargando..." : `Cargar más (${turnos.length}/${total})`}
           </button>

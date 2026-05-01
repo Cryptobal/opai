@@ -33,7 +33,7 @@ export function ListValidationResult({ result, rut, fullName, onContinue, onBack
               </p>
             )}
             {result.personData?.scope === "global" && (
-              <p className="text-red-300 text-xs">Bloqueo global — aplica en todas las instalaciones</p>
+              <p className="text-status-danger-fg text-xs">Bloqueo global — aplica en todas las instalaciones</p>
             )}
           </div>
           <Button
@@ -41,7 +41,7 @@ export function ListValidationResult({ result, rut, fullName, onContinue, onBack
               navigator.vibrate?.([100, 50, 100]);
               onBack();
             }}
-            className="mt-6 bg-white text-red-700 hover:bg-red-100 text-lg px-8 py-3 h-auto"
+            className="mt-6 bg-white text-status-danger-fg hover:bg-red-100 text-lg px-8 py-3 h-auto"
           >
             Entendido
           </Button>
@@ -58,11 +58,11 @@ export function ListValidationResult({ result, rut, fullName, onContinue, onBack
 
     return (
       <div className="space-y-4">
-        <div className="rounded-xl border-2 border-emerald-500/50 bg-emerald-500/10 p-4">
+        <div className="rounded-xl border-2 border-status-ok-border bg-status-ok-soft p-4">
           <div className="flex items-center gap-3">
-            <ShieldCheck className="h-8 w-8 text-emerald-400 flex-shrink-0" />
+            <ShieldCheck className="h-8 w-8 text-status-ok-fg flex-shrink-0" />
             <div>
-              <p className="font-semibold text-emerald-300">Persona Autorizada</p>
+              <p className="font-semibold text-status-ok-fg">Persona Autorizada</p>
               <p className="text-sm text-emerald-200/80">
                 {result.personData?.fullName || "Datos auto-completados"}
               </p>
@@ -74,12 +74,12 @@ export function ListValidationResult({ result, rut, fullName, onContinue, onBack
         </div>
 
         {hasWarning && (
-          <div className="rounded-xl border border-amber-500/50 bg-amber-500/10 p-4">
+          <div className="rounded-xl border border-status-warn-border bg-status-warn-soft p-4">
             <div className="flex items-start gap-3">
-              <AlertTriangle className="h-5 w-5 text-amber-400 flex-shrink-0 mt-0.5" />
+              <AlertTriangle className="h-5 w-5 text-status-warn-fg flex-shrink-0 mt-0.5" />
               <div>
                 {outOfSchedule && (
-                  <p className="text-sm text-amber-300">
+                  <p className="text-sm text-status-warn-fg">
                     Fuera del horario autorizado
                     {result.personData?.allowedTimeFrom && result.personData?.allowedTimeTo && (
                       <span className="text-amber-200/60 ml-1">
@@ -89,14 +89,14 @@ export function ListValidationResult({ result, rut, fullName, onContinue, onBack
                   </p>
                 )}
                 {outOfValidity && (
-                  <p className="text-sm text-amber-300">Vigencia vencida o no iniciada</p>
+                  <p className="text-sm text-status-warn-fg">Vigencia vencida o no iniciada</p>
                 )}
               </div>
             </div>
           </div>
         )}
 
-        <Button onClick={onContinue} className="w-full h-12 bg-emerald-600 hover:bg-emerald-500">
+        <Button onClick={onContinue} className="w-full h-12 bg-status-ok hover:bg-status-ok">
           Continuar <ChevronRight className="ml-1 h-4 w-4" />
         </Button>
       </div>
@@ -126,11 +126,11 @@ export function ListValidationResult({ result, rut, fullName, onContinue, onBack
       </div>
 
       {result.isFrequent && result.frequentData && (
-        <div className="rounded-xl border border-blue-500/30 bg-blue-500/5 p-4">
+        <div className="rounded-xl border border-status-info-border bg-status-info-soft p-4">
           <div className="flex items-center gap-3">
-            <Clock className="h-5 w-5 text-blue-400" />
+            <Clock className="h-5 w-5 text-status-info-fg" />
             <div>
-              <p className="text-sm text-blue-300">
+              <p className="text-sm text-status-info-fg">
                 Visitante frecuente — {result.frequentData.visitCount} visita(s)
               </p>
               {result.frequentData.lastVisitAt && (

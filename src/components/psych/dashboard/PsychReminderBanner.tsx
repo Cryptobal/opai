@@ -59,10 +59,10 @@ export default function ReminderBanner({
   }
 
   return (
-    <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 flex flex-col sm:flex-row sm:items-center gap-3 text-sm">
-      <Clock className="size-5 text-amber-600 dark:text-amber-400 shrink-0" />
+    <div className="rounded-xl border border-status-warn-border bg-status-warn-soft p-4 flex flex-col sm:flex-row sm:items-center gap-3 text-sm">
+      <Clock className="size-5 text-status-warn-fg dark:text-status-warn-fg shrink-0" />
       <div className="flex-1 min-w-0">
-        <p className="font-medium text-amber-900 dark:text-amber-200">
+        <p className="font-medium text-amber-900 dark:text-status-warn-fg">
           Sin abrir hace más de 24 horas
         </p>
         <p className="text-xs text-amber-800/80 dark:text-amber-200/80">
@@ -72,13 +72,13 @@ export default function ReminderBanner({
       <button
         onClick={handleResend}
         disabled={busy}
-        className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 px-3 py-2 text-sm font-medium min-h-[44px]"
+        className="inline-flex items-center gap-2 rounded-lg bg-status-ok text-white hover:bg-emerald-700 disabled:opacity-50 px-3 py-2 text-sm font-medium min-h-[44px]"
       >
         <MessageCircle className="size-4" />
         {busy ? "Preparando…" : "Reenviar por WhatsApp"}
       </button>
       {msg ? (
-        <p className="text-xs text-amber-900 dark:text-amber-200 ml-auto">
+        <p className="text-xs text-amber-900 dark:text-status-warn-fg ml-auto">
           {msg}
         </p>
       ) : null}

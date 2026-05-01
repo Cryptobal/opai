@@ -102,7 +102,7 @@ function Cell({ has }: { has: boolean }) {
   return (
     <td className="text-center py-2 px-2 whitespace-nowrap">
       {has ? (
-        <Check className="w-4 h-4 text-emerald-400 mx-auto" aria-hidden />
+        <Check className="w-4 h-4 text-status-ok-fg mx-auto" aria-hidden />
       ) : (
         <XIcon className="w-4 h-4 text-muted-foreground/50 mx-auto" aria-hidden />
       )}
@@ -117,7 +117,7 @@ export default function RolesHelpCard() {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" className="gap-2">
-          <HelpCircle className="w-5 h-5 text-amber-400" />
+          <HelpCircle className="w-5 h-5 text-status-warn-fg" />
           <span>Ver permisos</span>
         </Button>
       </DialogTrigger>

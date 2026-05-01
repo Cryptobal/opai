@@ -118,9 +118,9 @@ export function CedulaQRScanner({ onResult, onCancel }: Props) {
       </div>
 
       {error ? (
-        <div className="flex flex-col items-center gap-3 rounded-lg border border-red-500/30 bg-red-500/5 p-6">
-          <AlertCircle className="h-8 w-8 text-red-400" />
-          <p className="text-sm text-red-400 text-center">{error}</p>
+        <div className="flex flex-col items-center gap-3 rounded-lg border border-status-danger-border bg-status-danger-soft p-6">
+          <AlertCircle className="h-8 w-8 text-status-danger-fg" />
+          <p className="text-sm text-status-danger-fg text-center">{error}</p>
           <Button variant="outline" size="sm" onClick={onCancel}>
             Volver
           </Button>

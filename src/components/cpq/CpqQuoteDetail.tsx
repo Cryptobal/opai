@@ -1293,10 +1293,10 @@ export function CpqQuoteDetail({
             ? "Rechazada"
             : quote?.status ?? "Sin estado";
   const quoteStatusClassName = cn(
-    quote?.status === "sent" && "border-blue-500/30 text-blue-600 dark:text-blue-400",
-    quote?.status === "draft" && "border-amber-500/30 text-amber-600 dark:text-amber-400",
-    quote?.status === "approved" && "border-emerald-500/30 text-emerald-600 dark:text-emerald-400",
-    quote?.status === "rejected" && "border-red-500/30 text-red-600 dark:text-red-400"
+    quote?.status === "sent" && "border-status-info-border text-status-info-fg dark:text-status-info-fg",
+    quote?.status === "draft" && "border-status-warn-border text-status-warn-fg dark:text-status-warn-fg",
+    quote?.status === "approved" && "border-status-ok-border text-status-ok-fg dark:text-status-ok-fg",
+    quote?.status === "rejected" && "border-status-danger-border text-status-danger-fg dark:text-status-danger-fg"
   );
   const portalReadinessItems = [
     { label: "Cliente", ready: Boolean(crmContext.accountId) },
@@ -1429,7 +1429,7 @@ export function CpqQuoteDetail({
               return (
                 <Button
                   size="sm"
-                  className="h-7 w-7 p-0 bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-sm"
+                  className="h-7 w-7 p-0 bg-status-ok hover:bg-emerald-700 text-white border-0 shadow-sm"
                   disabled={baseDisabled}
                   title={
                     missingEmail
@@ -1458,7 +1458,7 @@ export function CpqQuoteDetail({
                 {changingStatus ? "..." : "Marcar borrador"}
               </Button>
             ) : (
-              <Button size="sm" variant="outline" className="h-7 px-2 text-sm border-emerald-500/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10" onClick={() => setStatusChangePending("sent")} disabled={changingStatus}>
+              <Button size="sm" variant="outline" className="h-7 px-2 text-sm border-status-ok-border text-status-ok-fg dark:text-status-ok-fg hover:bg-status-ok-soft" onClick={() => setStatusChangePending("sent")} disabled={changingStatus}>
                 {changingStatus ? "..." : "Marcar enviada"}
               </Button>
             )}
@@ -1524,7 +1524,7 @@ export function CpqQuoteDetail({
                     <Briefcase className="h-3.5 w-3.5" /> Visita técnica
                   </button>
                   <button
-                    className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent font-medium text-teal-400"
+                    className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent font-medium text-status-info-fg"
                     onClick={() => { setOverflowMenuOpen(false); handleGenerateContract(); }}
                     disabled={generatingContract}
                   >
@@ -1605,7 +1605,7 @@ export function CpqQuoteDetail({
       <div className="mt-1.5 flex items-center justify-between gap-2 min-w-0">
         <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0 text-sm tabular-nums min-w-0">
             {ufValue != null && ufValue > 0 && (
-              <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+              <span className="font-semibold text-status-ok-fg dark:text-status-ok-fg">
                 {(billingMonthlyTotal / ufValue).toFixed(2)} UF
               </span>
             )}
@@ -1619,7 +1619,7 @@ export function CpqQuoteDetail({
                   "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium whitespace-nowrap shrink-0 transition-all",
                   "focus:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                   roleSummary.length > 0
-                    ? "border-blue-500/25 bg-blue-500/[0.06] text-blue-700 dark:text-blue-300 cursor-pointer hover:bg-blue-500/[0.12] hover:border-blue-500/40"
+                    ? "border-blue-500/25 bg-blue-500/[0.06] text-blue-700 dark:text-status-info-fg cursor-pointer hover:bg-blue-500/[0.12] hover:border-status-info-border"
                     : "border-border/60 bg-muted/30 text-muted-foreground cursor-default",
                 )}
                 aria-expanded={guardsBreakdownOpen}
@@ -1768,7 +1768,7 @@ export function CpqQuoteDetail({
                     <Briefcase className="h-3.5 w-3.5" /> Visita técnica
                   </button>
                   <button
-                    className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs font-medium text-teal-400 hover:bg-accent"
+                    className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs font-medium text-status-info-fg hover:bg-accent"
                     onClick={() => { setOverflowMenuOpen(false); handleGenerateContract(); }}
                     disabled={generatingContract}
                   >
@@ -2347,7 +2347,7 @@ export function CpqQuoteDetail({
                             className={cn(
                               "h-5 rounded px-1.5 text-xs font-semibold transition-colors",
                               (line.recurrencia || "mensual") === r.value
-                                ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
+                                ? "bg-status-info-soft text-status-info-fg border border-status-info-border"
                                 : "bg-muted/30 text-muted-foreground border border-transparent hover:bg-muted/50",
                             )}
                           >
@@ -2374,7 +2374,7 @@ export function CpqQuoteDetail({
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7 text-red-400/60 hover:text-red-400 hover:bg-red-500/10"
+                          className="h-7 w-7 text-red-400/60 hover:text-status-danger-fg hover:bg-status-danger-soft"
                           onClick={() => setAdditionalLines((prev) => prev.filter((_, i) => i !== idx))}
                           disabled={isLocked}
                         >
@@ -2412,7 +2412,7 @@ export function CpqQuoteDetail({
                           </div>
                         )}
                         {mPct > 0 && (
-                          <div className="text-xs text-emerald-400">
+                          <div className="text-xs text-status-ok-fg">
                             Venta: {formatCurrency(precioVenta)}
                           </div>
                         )}
@@ -2441,7 +2441,7 @@ export function CpqQuoteDetail({
                   <Button
                     variant="outline"
                     size="sm"
-                    className="gap-1.5 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
+                    className="gap-1.5 border-status-ok-border text-status-ok-fg hover:bg-status-ok-soft"
                     disabled={savingFinancials}
                     onClick={() => {
                       clearTimeout(financialsAutoSaveTimer.current);
@@ -2493,13 +2493,13 @@ export function CpqQuoteDetail({
                   className={cn(
                     "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-xs font-medium transition-colors",
                     costParams?.financialEnabled
-                      ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+                      ? "bg-status-ok-soft text-status-ok-fg dark:text-status-ok-fg"
                       : "bg-muted/30 text-muted-foreground"
                   )}
                   onClick={() => updateParams({ financialEnabled: !costParams?.financialEnabled })}
                   aria-pressed={costParams?.financialEnabled}
                 >
-                  <span className={cn("h-1.5 w-1.5 rounded-full", costParams?.financialEnabled ? "bg-emerald-500" : "bg-muted-foreground")} />
+                  <span className={cn("h-1.5 w-1.5 rounded-full", costParams?.financialEnabled ? "bg-status-ok" : "bg-muted-foreground")} />
                   {costParams?.financialEnabled ? "On" : "Off"}
                 </button>
               </div>
@@ -2542,7 +2542,7 @@ export function CpqQuoteDetail({
                 </div>
               </div>
               {salePriceBase > 0 && (
-                <div className="text-xs text-emerald-700 dark:text-emerald-400">
+                <div className="text-xs text-status-ok-fg dark:text-status-ok-fg">
                   = {formatCurrency(salePriceBase * ((costParams?.financialRatePct ?? 2.5) / 100))}/mes
                 </div>
               )}
@@ -2557,13 +2557,13 @@ export function CpqQuoteDetail({
                   className={cn(
                     "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-xs font-medium transition-colors",
                     policyEnabled
-                      ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+                      ? "bg-status-ok-soft text-status-ok-fg dark:text-status-ok-fg"
                       : "bg-muted/30 text-muted-foreground"
                   )}
                   onClick={() => updateParams({ policyEnabled: !policyEnabled, financialEnabled: true })}
                   aria-pressed={policyEnabled}
                 >
-                  <span className={cn("h-1.5 w-1.5 rounded-full", policyEnabled ? "bg-emerald-500" : "bg-muted-foreground")} />
+                  <span className={cn("h-1.5 w-1.5 rounded-full", policyEnabled ? "bg-status-ok" : "bg-muted-foreground")} />
                   {policyEnabled ? "On" : "Off"}
                 </button>
               </div>
@@ -2621,7 +2621,7 @@ export function CpqQuoteDetail({
                 </div>
               </div>
               {policyEnabled && salePriceBase > 0 && (
-                <div className="text-xs text-emerald-700 dark:text-emerald-400">
+                <div className="text-xs text-status-ok-fg dark:text-status-ok-fg">
                   = {formatCurrency(
                     (salePriceBase * policyContractMonths * (policyContractPct / 100) * ((costParams?.policyRatePct ?? 2.5) / 100)) / 12
                   )}/mes
@@ -2631,7 +2631,7 @@ export function CpqQuoteDetail({
           </div>
 
           {financialError && (
-            <div className="text-sm text-red-400">{financialError}</div>
+            <div className="text-sm text-status-danger-fg">{financialError}</div>
           )}
           </div>
         )}
@@ -2894,10 +2894,10 @@ export function CpqQuoteDetail({
             </div>
 
             <div className="space-y-4 p-4">
-              <div className="rounded-xl border border-emerald-500/25 bg-gradient-to-br from-emerald-500/[0.14] via-emerald-500/[0.07] to-background p-4">
+              <div className="rounded-xl border border-status-ok-border bg-gradient-to-br from-emerald-500/[0.14] via-emerald-500/[0.07] to-background p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-xs font-medium uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
+                    <p className="text-xs font-medium uppercase tracking-wide text-status-ok-fg dark:text-status-ok-fg">
                       Total mensual cliente
                     </p>
                     <div className="mt-1">
@@ -2911,7 +2911,7 @@ export function CpqQuoteDetail({
                       />
                     </div>
                   </div>
-                  <Badge variant="outline" className="border-emerald-500/30 bg-background/50 text-[11px] text-emerald-600 dark:text-emerald-300">
+                  <Badge variant="outline" className="border-status-ok-border bg-background/50 text-[11px] text-status-ok-fg dark:text-status-ok-fg">
                     Mensual
                   </Badge>
                 </div>
@@ -2920,7 +2920,7 @@ export function CpqQuoteDetail({
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <div className="rounded-lg border border-border/60 bg-background/45 p-3">
                   <p className="text-xs font-medium text-muted-foreground">Margen</p>
-                  <p className={cn("mt-1 text-lg font-bold", marginPct >= 15 ? "text-emerald-500" : marginPct >= 10 ? "text-amber-500" : "text-red-500")}>
+                  <p className={cn("mt-1 text-lg font-bold", marginPct >= 15 ? "text-status-ok-fg" : marginPct >= 10 ? "text-status-warn-fg" : "text-status-danger-fg")}>
                     {Number(marginPct || 0).toFixed(1)}%
                   </p>
                 </div>
@@ -2932,7 +2932,7 @@ export function CpqQuoteDetail({
                 >
                   <p className="text-xs font-medium text-muted-foreground">Dotación</p>
                   <p className="mt-1 flex items-center gap-1.5 text-lg font-bold">
-                    <Users className="h-4 w-4 text-blue-500" />
+                    <Users className="h-4 w-4 text-status-info-fg" />
                     {stats.totalGuards}
                   </p>
                 </button>
@@ -2960,7 +2960,7 @@ export function CpqQuoteDetail({
                     <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                       Preparación portal
                     </p>
-                    <span className={cn("text-xs font-semibold", canSendPortalProposal ? "text-emerald-500" : "text-amber-500")}>
+                    <span className={cn("text-xs font-semibold", canSendPortalProposal ? "text-status-ok-fg" : "text-status-warn-fg")}>
                       {portalReadinessItems.filter((item) => item.ready).length}/{portalReadinessItems.length}
                     </span>
                   </div>
@@ -2971,8 +2971,8 @@ export function CpqQuoteDetail({
                           className={cn(
                             "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border",
                             item.ready
-                              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-500"
-                              : "border-amber-500/30 bg-amber-500/10 text-amber-500"
+                              ? "border-status-ok-border bg-status-ok-soft text-status-ok-fg"
+                              : "border-status-warn-border bg-status-warn-soft text-status-warn-fg"
                           )}
                           aria-hidden
                         >
@@ -2986,7 +2986,7 @@ export function CpqQuoteDetail({
                   </div>
                 </div>
                 <Button
-                  className="h-9 w-full gap-2 bg-emerald-600 text-white hover:bg-emerald-700"
+                  className="h-9 w-full gap-2 bg-status-ok text-white hover:bg-emerald-700"
                   disabled={!canSendPortalProposal}
                   onClick={() => setPortalProposalOpen(true)}
                 >
@@ -3050,7 +3050,7 @@ export function CpqQuoteDetail({
               <Briefcase className="h-4 w-4" /> Visita técnica
             </button>
             <button
-              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-teal-400 hover:bg-accent"
+              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-status-info-fg hover:bg-accent"
               onClick={() => handleGenerateContract()}
               disabled={generatingContract}
             >
@@ -3082,7 +3082,7 @@ export function CpqQuoteDetail({
           // mensaje accionable explicando qué falta para enviar.
           return (
             <Button
-              className="w-full h-11 gap-2 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white"
+              className="w-full h-11 gap-2 text-sm font-semibold bg-status-ok hover:bg-emerald-700 text-white"
               disabled={baseDisabled}
               title={missingEmail ? "El contacto no tiene email cargado" : undefined}
               onClick={() => {
@@ -3138,7 +3138,7 @@ export function CpqQuoteDetail({
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <MessageCircle className="h-5 w-5 text-green-400" />
+              <MessageCircle className="h-5 w-5 text-status-ok-fg" />
               ¡Enviado! Ahora por WhatsApp
             </DialogTitle>
           </DialogHeader>
@@ -3147,7 +3147,7 @@ export function CpqQuoteDetail({
               Email enviado a <strong className="text-foreground">{whatsappSentTo}</strong>. Haz clic para enviarle el mismo mensaje por WhatsApp.
             </p>
             <div className="rounded-lg border border-green-500/20 bg-green-500/5 p-3 space-y-1">
-              <p className="text-xs font-semibold text-green-400 uppercase tracking-wide">El mensaje incluye</p>
+              <p className="text-xs font-semibold text-status-ok-fg uppercase tracking-wide">El mensaje incluye</p>
               <p className="text-xs text-muted-foreground">🔑 Email y PIN de acceso al portal</p>
               <p className="text-xs text-muted-foreground">🔗 Link al portal y a la propuesta técnica</p>
               <p className="text-xs text-muted-foreground">📋 Beneficios del portal explicados</p>
@@ -3209,7 +3209,7 @@ export function CpqQuoteDetail({
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <MessageCircle className="h-5 w-5 text-green-400" />
+              <MessageCircle className="h-5 w-5 text-status-ok-fg" />
               ¡Visita programada!
             </DialogTitle>
           </DialogHeader>
@@ -3232,7 +3232,7 @@ export function CpqQuoteDetail({
                     window.open(visitaTecnicaWaData.googleCalendarUrl!, "_blank");
                   }}
                 >
-                  <CalendarDays className="h-4 w-4 text-blue-400" />
+                  <CalendarDays className="h-4 w-4 text-status-info-fg" />
                   Agregar a Google Calendar
                 </Button>
               )}
@@ -3271,7 +3271,7 @@ export function CpqQuoteDetail({
                 const encoded = encodeURIComponent(msg);
                 return (
                   <div className="rounded-lg border border-green-500/20 bg-green-500/5 p-3 space-y-2">
-                    <p className="text-xs font-semibold text-green-400 uppercase tracking-wide">Mensaje prellenado</p>
+                    <p className="text-xs font-semibold text-status-ok-fg uppercase tracking-wide">Mensaje prellenado</p>
                     <div className="max-h-[280px] overflow-y-auto">
                       <p className="text-sm text-muted-foreground whitespace-pre-line">{msg}</p>
                     </div>

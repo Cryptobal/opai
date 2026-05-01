@@ -15,9 +15,9 @@ interface Recommendation {
 }
 
 const PRIORITY_CONFIG = {
-  high: { label: "ALTA", cls: "bg-red-500/15 text-red-400", dot: "bg-red-500" },
-  medium: { label: "MEDIA", cls: "bg-amber-500/15 text-amber-400", dot: "bg-amber-500" },
-  low: { label: "BAJA", cls: "bg-blue-500/15 text-blue-400", dot: "bg-blue-500" },
+  high: { label: "ALTA", cls: "bg-status-danger-soft text-status-danger-fg", dot: "bg-status-danger" },
+  medium: { label: "MEDIA", cls: "bg-status-warn-soft text-status-warn-fg", dot: "bg-status-warn" },
+  low: { label: "BAJA", cls: "bg-status-info-soft text-status-info-fg", dot: "bg-status-info" },
 };
 
 const TYPE_ICONS = {

@@ -4,22 +4,22 @@ export const QUOTE_STATUS: Record<QuoteStatusKey, { label: string; color: string
   draft: {
     label: "Borrador",
     color: "#f59e0b",
-    className: "border-amber-500/30 text-amber-600 dark:text-amber-400",
+    className: "border-status-warn-border text-status-warn-fg dark:text-status-warn-fg",
   },
   sent: {
     label: "Enviada",
     color: "#3b82f6",
-    className: "border-blue-500/30 text-blue-600 dark:text-blue-400",
+    className: "border-status-info-border text-status-info-fg dark:text-status-info-fg",
   },
   approved: {
     label: "Aprobada",
     color: "#10b981",
-    className: "border-emerald-500/30 text-emerald-600 dark:text-emerald-400",
+    className: "border-status-ok-border text-status-ok-fg dark:text-status-ok-fg",
   },
   rejected: {
     label: "Rechazada",
     color: "#ef4444",
-    className: "border-red-500/30 text-red-600 dark:text-red-400",
+    className: "border-status-danger-border text-status-danger-fg dark:text-status-danger-fg",
   },
 };
 

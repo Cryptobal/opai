@@ -99,10 +99,10 @@ interface Activity {
 }
 
 const ICON_COLORS: Record<string, string> = {
-  green: "text-emerald-400",
-  amber: "text-amber-400",
-  red: "text-red-400",
-  blue: "text-blue-400",
+  green: "text-status-ok-fg",
+  amber: "text-status-warn-fg",
+  red: "text-status-danger-fg",
+  blue: "text-status-info-fg",
 };
 const ICON_COMPONENTS: Record<string, typeof CheckCircle2> = {
   green: CheckCircle2,
@@ -112,36 +112,36 @@ const ICON_COMPONENTS: Record<string, typeof CheckCircle2> = {
 };
 
 const PROSPECT_CAPABILITY_CARDS = [
-  { icon: MapPin, title: "Rondas GPS en vivo", desc: "Ve dónde está tu guardia con verificación por geofencing", section: "rondas", color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/15" },
-  { icon: Star, title: "Trust Score", desc: "Guardias evaluados con datos reales: asistencia, rondas, capacitación", section: "desempeno", color: "text-amber-400", bg: "bg-amber-500/10", border: "border-amber-500/15" },
-  { icon: FileText, title: "Documentación digital", desc: "Contratos, OS-10, antecedentes — todo en un click", section: "documentacion", color: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/15" },
+  { icon: MapPin, title: "Rondas GPS en vivo", desc: "Ve dónde está tu guardia con verificación por geofencing", section: "rondas", color: "text-status-ok-fg", bg: "bg-status-ok-soft", border: "border-emerald-500/15" },
+  { icon: Star, title: "Trust Score", desc: "Guardias evaluados con datos reales: asistencia, rondas, capacitación", section: "desempeno", color: "text-status-warn-fg", bg: "bg-status-warn-soft", border: "border-amber-500/15" },
+  { icon: FileText, title: "Documentación digital", desc: "Contratos, OS-10, antecedentes — todo en un click", section: "documentacion", color: "text-status-info-fg", bg: "bg-status-info-soft", border: "border-blue-500/15" },
   { icon: Bot, title: "IA predictiva", desc: "Protocolos y análisis automáticos con inteligencia artificial", section: "desempeno", color: "text-violet-400", bg: "bg-violet-500/10", border: "border-violet-500/15" },
-  { icon: ShieldCheck, title: "Control de acceso", desc: "QR, lectura de cédula, registro digital en tiempo real", section: "control-acceso", color: "text-sky-400", bg: "bg-sky-500/10", border: "border-sky-500/15" },
-  { icon: MessageSquare, title: "Chat directo", desc: "Habla con tu equipo 24/7 sin salir del portal", section: "chat", color: "text-teal-400", bg: "bg-teal-500/10", border: "border-teal-500/15" },
+  { icon: ShieldCheck, title: "Control de acceso", desc: "QR, lectura de cédula, registro digital en tiempo real", section: "control-acceso", color: "text-status-info-fg", bg: "bg-status-info-soft", border: "border-sky-500/15" },
+  { icon: MessageSquare, title: "Chat directo", desc: "Habla con tu equipo 24/7 sin salir del portal", section: "chat", color: "text-status-info-fg", bg: "bg-status-info-soft", border: "border-teal-500/15" },
 ];
 
 // Accesos directos para CLIENTES activos (reorganizados hacia las vistas clave
 // que nacieron en PR3-PR7).
 const CLIENT_QUICK_ACTIONS = [
-  { icon: MapPin, label: "Rondas", section: "rondas", color: "text-emerald-400", bg: "bg-emerald-500/10" },
-  { icon: UserCheck, label: "Marcaciones", section: "marcaciones", color: "text-blue-400", bg: "bg-blue-500/10" },
-  { icon: Ticket, label: "Tickets", section: "tickets", color: "text-amber-400", bg: "bg-amber-500/10" },
+  { icon: MapPin, label: "Rondas", section: "rondas", color: "text-status-ok-fg", bg: "bg-status-ok-soft" },
+  { icon: UserCheck, label: "Marcaciones", section: "marcaciones", color: "text-status-info-fg", bg: "bg-status-info-soft" },
+  { icon: Ticket, label: "Tickets", section: "tickets", color: "text-status-warn-fg", bg: "bg-status-warn-soft" },
   { icon: FileText, label: "Documentos", section: "documentacion", color: "text-violet-400", bg: "bg-violet-500/10" },
-  { icon: ClipboardList, label: "Instalación", section: "instalacion-detalle", color: "text-teal-400", bg: "bg-teal-500/10" },
-  { icon: DoorOpen, label: "Accesos", section: "control-acceso", color: "text-sky-400", bg: "bg-sky-500/10" },
+  { icon: ClipboardList, label: "Instalación", section: "instalacion-detalle", color: "text-status-info-fg", bg: "bg-status-info-soft" },
+  { icon: DoorOpen, label: "Accesos", section: "control-acceso", color: "text-status-info-fg", bg: "bg-status-info-soft" },
 ] as const;
 
 function TrendBadge({ value, suffix = "" }: { value: number; suffix?: string }) {
   if (value > 0)
     return (
-      <span className="text-emerald-400 text-[10px] flex items-center gap-0.5">
+      <span className="text-status-ok-fg text-[10px] flex items-center gap-0.5">
         <TrendingUp className="h-3 w-3" /> +{value}
         {suffix}
       </span>
     );
   if (value < 0)
     return (
-      <span className="text-red-400 text-[10px] flex items-center gap-0.5">
+      <span className="text-status-danger-fg text-[10px] flex items-center gap-0.5">
         <TrendingDown className="h-3 w-3" /> {value}
         {suffix}
       </span>
@@ -166,13 +166,13 @@ function KpiCard({
 }) {
   const borderCls =
     color === "emerald"
-      ? "border-emerald-500/20"
+      ? "border-status-ok-border"
       : color === "blue"
-      ? "border-blue-500/20"
+      ? "border-status-info-border"
       : color === "red"
-      ? "border-red-500/20"
+      ? "border-status-danger-border"
       : color === "amber"
-      ? "border-amber-500/20"
+      ? "border-status-warn-border"
       : "border-white/10";
   return (
     <div className={cn("rounded-xl border bg-white/[0.02] p-3", borderCls)}>
@@ -327,7 +327,7 @@ export function PortalDashboard({ selectedInstallation, onNavigate }: Props) {
               border: "1px solid rgba(45,212,191,0.3)",
             }}
           >
-            <div className="text-[11px] font-semibold text-teal-400 uppercase tracking-wider mb-1">
+            <div className="text-[11px] font-semibold text-status-info-fg uppercase tracking-wider mb-1">
               📋 Presentación personalizada
             </div>
             <div className="text-base font-bold text-white mb-0.5">Conoce {branding.companyName}</div>
@@ -469,7 +469,7 @@ export function PortalDashboard({ selectedInstallation, onNavigate }: Props) {
                   className={cn(
                     "px-2 py-0.5 rounded text-[10px] font-medium transition-colors",
                     daysRange === d
-                      ? "bg-teal-600 text-white"
+                      ? "bg-status-info text-white"
                       : "bg-white/5 text-zinc-400 hover:bg-white/10"
                   )}
                 >
@@ -647,8 +647,8 @@ export function PortalDashboard({ selectedInstallation, onNavigate }: Props) {
       <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
         <h3 className="text-sm font-semibold mb-3">Tu ejecutivo</h3>
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-teal-600/30 border border-teal-500/30 flex items-center justify-center">
-            <span className="text-sm font-semibold text-teal-300">
+          <div className="w-10 h-10 rounded-full bg-teal-600/30 border border-status-info-border flex items-center justify-center">
+            <span className="text-sm font-semibold text-status-info-fg">
               {session.ejecutivoName ? session.ejecutivoName.charAt(0).toUpperCase() : "G"}
             </span>
           </div>
@@ -661,7 +661,7 @@ export function PortalDashboard({ selectedInstallation, onNavigate }: Props) {
           <div className="flex items-center gap-2">
             <button
               onClick={() => onNavigate("chat")}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-teal-600/20 text-teal-400 hover:bg-teal-600/30"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-teal-600/20 text-status-info-fg hover:bg-teal-600/30"
             >
               <MessageSquare className="w-3.5 h-3.5" /> Chat
             </button>
@@ -672,7 +672,7 @@ export function PortalDashboard({ selectedInstallation, onNavigate }: Props) {
 
       {isLoading && !summary.data && (
         <div className="flex items-center justify-center py-8">
-          <Loader2 className="h-6 w-6 animate-spin text-teal-400" />
+          <Loader2 className="h-6 w-6 animate-spin text-status-info-fg" />
         </div>
       )}
 
@@ -709,17 +709,17 @@ function RondaEnCursoHero({
       onClick={() => onNavigate("rondas")}
       className={cn(
         "w-full rounded-2xl border p-4 text-left transition-colors active:scale-[0.99]",
-        "border-amber-500/30 bg-amber-500/5",
+        "border-status-warn-border bg-status-warn-soft",
       )}
       aria-label="Ronda en curso"
     >
       <div className="flex items-center gap-3">
-        <div className="h-10 w-10 rounded-xl flex items-center justify-center bg-amber-500/10 relative">
+        <div className="h-10 w-10 rounded-xl flex items-center justify-center bg-status-warn-soft relative">
           <span className="absolute inset-0 rounded-xl bg-amber-400/30 animate-ping" aria-hidden />
-          <MapPin className="h-5 w-5 text-amber-300 relative" />
+          <MapPin className="h-5 w-5 text-status-warn-fg relative" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-amber-300">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-status-warn-fg">
             EN CURSO AHORA
           </p>
           <p className="text-sm font-medium text-white leading-tight">
@@ -764,17 +764,17 @@ function ServiceStatusHero({
 
   const tone = isCompleted
     ? {
-        border: "border-emerald-500/25",
-        bg: "bg-emerald-500/5",
+        border: "border-status-ok-border",
+        bg: "bg-status-ok-soft",
         icon: CheckCircle2,
-        color: "text-emerald-400",
+        color: "text-status-ok-fg",
       }
     : isIncomplete
       ? {
           border: "border-amber-500/25",
-          bg: "bg-amber-500/5",
+          bg: "bg-status-warn-soft",
           icon: AlertTriangle,
-          color: "text-amber-400",
+          color: "text-status-warn-fg",
         }
       : {
           border: "border-white/10",
@@ -830,10 +830,10 @@ function TeamCard({
   const warn = team.os10PorVencer > 0;
   const bad = team.os10Vencido > 0;
   const tone = bad
-    ? "border-red-500/20 bg-red-500/[0.02]"
+    ? "border-status-danger-border bg-red-500/[0.02]"
     : warn
-    ? "border-amber-500/20 bg-amber-500/[0.02]"
-    : "border-emerald-500/20 bg-emerald-500/[0.02]";
+    ? "border-status-warn-border bg-amber-500/[0.02]"
+    : "border-status-ok-border bg-emerald-500/[0.02]";
   return (
     <button
       onClick={() => onNavigate("instalacion-detalle")}
@@ -843,7 +843,7 @@ function TeamCard({
       )}
     >
       <div className="flex items-center gap-2 mb-3">
-        <UserCheck className="h-4 w-4 text-teal-400" />
+        <UserCheck className="h-4 w-4 text-status-info-fg" />
         <p className="text-sm font-semibold text-white">Equipo asignado</p>
         <ArrowRight className="h-3.5 w-3.5 text-zinc-500 ml-auto" />
       </div>
@@ -853,14 +853,14 @@ function TeamCard({
           <p className="text-[10px] text-zinc-500 uppercase tracking-wider">Guardias</p>
         </div>
         <div>
-          <p className="text-lg font-bold text-emerald-400 tabular-nums">{team.os10Vigente}</p>
+          <p className="text-lg font-bold text-status-ok-fg tabular-nums">{team.os10Vigente}</p>
           <p className="text-[10px] text-zinc-500 uppercase tracking-wider">OS-10 OK</p>
         </div>
         <div>
           <p
             className={cn(
               "text-lg font-bold tabular-nums",
-              bad ? "text-red-400" : warn ? "text-amber-400" : "text-zinc-500"
+              bad ? "text-status-danger-fg" : warn ? "text-status-warn-fg" : "text-zinc-500"
             )}
           >
             {team.os10PorVencer + team.os10Vencido}
@@ -882,10 +882,10 @@ function TicketsCard({
   return (
     <button
       onClick={() => onNavigate("tickets")}
-      className="rounded-xl border border-blue-500/20 bg-blue-500/[0.02] p-4 text-left transition-colors active:scale-[0.99]"
+      className="rounded-xl border border-status-info-border bg-blue-500/[0.02] p-4 text-left transition-colors active:scale-[0.99]"
     >
       <div className="flex items-center gap-2 mb-3">
-        <Ticket className="h-4 w-4 text-blue-400" />
+        <Ticket className="h-4 w-4 text-status-info-fg" />
         <p className="text-sm font-semibold text-white">Tickets abiertos</p>
         <ArrowRight className="h-3.5 w-3.5 text-zinc-500 ml-auto" />
       </div>

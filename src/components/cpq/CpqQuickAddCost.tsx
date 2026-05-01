@@ -116,9 +116,9 @@ export function CpqQuickAddCost({
   };
 
   return (
-    <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/[0.04] p-3 space-y-2.5">
+    <div className="rounded-lg border border-status-ok-border bg-emerald-500/[0.04] p-3 space-y-2.5">
       <div className="flex items-center justify-between">
-        <span className="text-sm font-bold text-emerald-400">+ Nuevo costo</span>
+        <span className="text-sm font-bold text-status-ok-fg">+ Nuevo costo</span>
         <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground">
           <X className="h-4 w-4" />
         </button>
@@ -153,7 +153,7 @@ export function CpqQuickAddCost({
             <button
               type="button"
               onClick={handleCreateCustom}
-              className="w-full flex items-center px-3 py-1.5 text-sm text-emerald-400 hover:bg-accent transition-colors border-t border-border"
+              className="w-full flex items-center px-3 py-1.5 text-sm text-status-ok-fg hover:bg-accent transition-colors border-t border-border"
             >
               Crear: &ldquo;{search.trim()}&rdquo;
             </button>
@@ -175,7 +175,7 @@ export function CpqQuickAddCost({
             className={cn(
               "flex-1 h-7 rounded-md border text-sm font-semibold transition-colors",
               costType === t.value
-                ? "bg-emerald-500 text-emerald-950 border-emerald-500"
+                ? "bg-status-ok text-emerald-950 border-status-ok-border"
                 : "bg-card text-muted-foreground border-border hover:bg-muted/50",
             )}
           >
@@ -227,7 +227,7 @@ export function CpqQuickAddCost({
 
       {/* Investment monthly preview */}
       {costType === "investment" && amount > 0 && (
-        <div className="rounded-md bg-emerald-500/10 px-2.5 py-1.5 text-sm font-semibold text-emerald-400">
+        <div className="rounded-md bg-status-ok-soft px-2.5 py-1.5 text-sm font-semibold text-status-ok-fg">
           → Costo mensual: {formatCurrency(monthlyCost)}
         </div>
       )}
@@ -265,7 +265,7 @@ export function CpqQuickAddCost({
         </div>
         <Button
           size="sm"
-          className="h-7 px-3 text-sm gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+          className="h-7 px-3 text-sm gap-1 bg-status-ok hover:bg-emerald-700 text-white"
           onClick={handleSubmit}
           disabled={saving || (!search.trim() && !selectedItem)}
         >

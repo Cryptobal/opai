@@ -152,9 +152,9 @@ export const FINDING_CATEGORIES = [
 ] as const;
 
 export const FINDING_SEVERITIES = [
-  { value: "critical", label: "Crítico", color: "text-red-400" },
-  { value: "major", label: "Mayor", color: "text-amber-400" },
-  { value: "minor", label: "Menor", color: "text-blue-400" },
+  { value: "critical", label: "Crítico", color: "text-status-danger-fg" },
+  { value: "major", label: "Mayor", color: "text-status-warn-fg" },
+  { value: "minor", label: "Menor", color: "text-status-info-fg" },
 ] as const;
 
 export const INSTALLATION_STATES = [

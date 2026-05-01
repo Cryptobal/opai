@@ -306,7 +306,7 @@ export function CrmInstallationsClient({
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-            <Button onClick={save} disabled={loading} className="bg-emerald-600 hover:bg-emerald-700">
+            <Button onClick={save} disabled={loading} className="bg-status-ok hover:bg-emerald-700">
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Crear
             </Button>

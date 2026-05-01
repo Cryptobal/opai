@@ -449,9 +449,9 @@ export function DocGenerateClient() {
       />
 
       {resolved && (
-        <div className="flex items-center gap-3 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-          <Eye className="h-4 w-4 text-emerald-400" />
-          <p className="text-sm text-emerald-400 flex-1">
+        <div className="flex items-center gap-3 p-3 rounded-lg bg-status-ok-soft border border-status-ok-border">
+          <Eye className="h-4 w-4 text-status-ok-fg" />
+          <p className="text-sm text-status-ok-fg flex-1">
             Los tokens han sido resueltos con datos reales. El documento está
             listo para guardar.
           </p>

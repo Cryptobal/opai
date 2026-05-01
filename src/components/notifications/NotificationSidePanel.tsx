@@ -484,7 +484,7 @@ export function NotificationSidePanel() {
                   className={cn(
                     "group/notif flex items-start gap-2.5 p-3 hover:bg-accent/50 transition-colors",
                     !n.read && "bg-primary/5",
-                    isSystem && "border-l-2 border-amber-500/30 bg-amber-500/[0.04]"
+                    isSystem && "border-l-2 border-status-warn-border bg-amber-500/[0.04]"
                   )}
                 >
                   {/* Read/Unread toggle */}
@@ -565,7 +565,7 @@ export function NotificationSidePanel() {
                           target="_blank"
                           rel="noopener noreferrer"
                           onClick={(e) => e.stopPropagation()}
-                          className="inline-flex items-center gap-1.5 mt-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 text-[10px] font-medium text-emerald-600 hover:bg-emerald-500/20 transition-colors"
+                          className="inline-flex items-center gap-1.5 mt-1.5 rounded-full bg-status-ok-soft border border-status-ok-border px-2.5 py-0.5 text-[10px] font-medium text-status-ok-fg hover:bg-status-ok-soft transition-colors"
                         >
                           <MessageSquare className="h-3 w-3" />
                           Enviar WhatsApp

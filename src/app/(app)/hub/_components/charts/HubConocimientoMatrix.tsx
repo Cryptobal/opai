@@ -101,9 +101,9 @@ export function HubConocimientoMatrix() {
               <th className="text-left font-medium pb-2 pr-2">Instalación</th>
               <th className="text-center font-medium pb-2 px-1 md:px-2">Promedio</th>
               <th className="text-center font-medium pb-2 px-1 md:px-2">Activos</th>
-              <th className="text-center font-medium pb-2 px-1 md:px-2 text-red-400">&lt;60</th>
-              <th className="text-center font-medium pb-2 px-1 md:px-2 text-yellow-400">60-80</th>
-              <th className="text-center font-medium pb-2 px-1 md:px-2 text-emerald-400">&gt;80</th>
+              <th className="text-center font-medium pb-2 px-1 md:px-2 text-status-danger-fg">&lt;60</th>
+              <th className="text-center font-medium pb-2 px-1 md:px-2 text-status-warn-fg">60-80</th>
+              <th className="text-center font-medium pb-2 px-1 md:px-2 text-status-ok-fg">&gt;80</th>
               <th className="text-center font-medium pb-2 px-1 md:px-2 text-muted-foreground">Sin examen</th>
             </tr>
           </thead>
@@ -124,9 +124,9 @@ export function HubConocimientoMatrix() {
                   </span>
                 </td>
                 <td className="text-center font-bold tabular-nums">{r.total}</td>
-                <td className={`text-center tabular-nums ${r.below60 > 0 ? 'text-red-400 font-bold' : 'text-muted-foreground'}`}>{r.below60}</td>
+                <td className={`text-center tabular-nums ${r.below60 > 0 ? 'text-status-danger-fg font-bold' : 'text-muted-foreground'}`}>{r.below60}</td>
                 <td className="text-center tabular-nums text-muted-foreground">{r.between60_80}</td>
-                <td className={`text-center tabular-nums ${r.above80 > 0 ? 'text-emerald-400' : 'text-muted-foreground'}`}>{r.above80}</td>
+                <td className={`text-center tabular-nums ${r.above80 > 0 ? 'text-status-ok-fg' : 'text-muted-foreground'}`}>{r.above80}</td>
                 <td className="text-center tabular-nums text-muted-foreground">{r.withoutExam}</td>
               </tr>
             ))}

@@ -143,7 +143,7 @@ export function ActiveCheckpointCard({
               <div className="mt-1 flex flex-wrap items-center gap-1.5">
                 {checkpoint.isRequired && (
                   <span
-                    className="rounded px-1.5 py-0.5 font-semibold text-amber-400"
+                    className="rounded px-1.5 py-0.5 font-semibold text-status-warn-fg"
                     style={{ fontSize: 10, backgroundColor: "rgba(251,191,36,0.15)" }}
                   >
                     Obligatorio

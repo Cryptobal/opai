@@ -41,10 +41,10 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  OPEN: "bg-blue-500/15 text-blue-400 border-blue-500/30",
-  PROCESSING: "bg-amber-500/15 text-amber-400 border-amber-500/30",
+  OPEN: "bg-status-info-soft text-status-info-fg border-status-info-border",
+  PROCESSING: "bg-status-warn-soft text-status-warn-fg border-status-warn-border",
   CLOSED: "bg-slate-500/15 text-slate-400 border-slate-500/30",
-  PAID: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+  PAID: "bg-status-ok-soft text-status-ok-fg border-status-ok-border",
 };
 
 interface Liquidacion {
@@ -364,8 +364,8 @@ export function PayrollPeriodDetailClient({ periodId }: { periodId: string }) {
           {period._count.attendanceRecords > 0 ? (
             <div className="rounded-lg border border-border bg-card p-3">
               <div className="flex items-center gap-2 mb-2">
-                <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                <span className="text-sm font-medium text-emerald-400">
+                <CheckCircle2 className="h-4 w-4 text-status-ok-fg" />
+                <span className="text-sm font-medium text-status-ok-fg">
                   {period._count.attendanceRecords} registros de asistencia cargados
                 </span>
               </div>
@@ -395,7 +395,7 @@ export function PayrollPeriodDetailClient({ periodId }: { periodId: string }) {
                           </td>
                           <td className="px-3 py-2 text-center">
                             <span className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-medium ${
-                              r.source === "IMPORT" ? "bg-amber-500/15 text-amber-400" : "bg-blue-500/15 text-blue-400"
+                              r.source === "IMPORT" ? "bg-status-warn-soft text-status-warn-fg" : "bg-status-info-soft text-status-info-fg"
                             }`}>
                               {r.source}
                             </span>
@@ -430,7 +430,7 @@ export function PayrollPeriodDetailClient({ periodId }: { periodId: string }) {
           <p className="text-xs text-muted-foreground">
             Genera las liquidaciones para los guardias activos que tienen asignación y estructura de sueldo.
             {period._count.attendanceRecords > 0 && period.liquidaciones.length === 0 && (
-              <span className="text-amber-400 ml-1">
+              <span className="text-status-warn-fg ml-1">
                 Nota: solo se liquidarán guardias con asignación activa y sueldo configurado en sus puestos operativos.
               </span>
             )}
@@ -442,16 +442,16 @@ export function PayrollPeriodDetailClient({ periodId }: { periodId: string }) {
             </Button>
           )}
           {period._count.attendanceRecords === 0 && (
-            <p className="text-[10px] text-amber-400">Debes cargar asistencias primero (Paso 1).</p>
+            <p className="text-[10px] text-status-warn-fg">Debes cargar asistencias primero (Paso 1).</p>
           )}
         </CardContent>
       </Card>
 
       {/* Run result */}
       {runResult && (
-        <Card className="border-emerald-500/30 bg-emerald-500/5">
+        <Card className="border-status-ok-border bg-status-ok-soft">
           <CardContent className="pt-4 text-sm">
-            <p className="font-medium text-emerald-400">Liquidación ejecutada</p>
+            <p className="font-medium text-status-ok-fg">Liquidación ejecutada</p>
             <p className="text-xs text-muted-foreground mt-1">
               {runResult.total} guardias procesados · {runResult.created} liquidaciones creadas · {runResult.skipped} omitidos
               {runResult.errors?.length > 0 && ` · ${runResult.errors.length} errores`}
@@ -505,7 +505,7 @@ export function PayrollPeriodDetailClient({ periodId }: { periodId: string }) {
             </Button>
           </div>
           {period.liquidaciones.length === 0 && (
-            <p className="text-[10px] text-amber-400">Debes ejecutar la liquidación primero (Paso 2).</p>
+            <p className="text-[10px] text-status-warn-fg">Debes ejecutar la liquidación primero (Paso 2).</p>
           )}
         </CardContent>
       </Card>
@@ -557,9 +557,9 @@ export function PayrollPeriodDetailClient({ periodId }: { periodId: string }) {
                         <td className="px-3 py-2 text-right font-mono">{l.daysWorked}</td>
                         <td className="px-3 py-2 text-right font-mono">{formatCLP(l.grossSalary)}</td>
                         <td className="px-3 py-2 text-right font-mono text-destructive">-{formatCLP(l.totalDeductions)}</td>
-                        <td className="px-3 py-2 text-right font-mono font-medium text-emerald-400">{formatCLP(l.netSalary)}</td>
+                        <td className="px-3 py-2 text-right font-mono font-medium text-status-ok-fg">{formatCLP(l.netSalary)}</td>
                         <td className="px-3 py-2 text-center">
-                          <Badge variant="outline" className={`text-[9px] ${l.status === "PAID" ? "bg-emerald-500/15 text-emerald-400" : ""}`}>
+                          <Badge variant="outline" className={`text-[9px] ${l.status === "PAID" ? "bg-status-ok-soft text-status-ok-fg" : ""}`}>
                             {l.status}
                           </Badge>
                         </td>
@@ -660,11 +660,11 @@ export function PayrollPeriodDetailClient({ periodId }: { periodId: string }) {
                 </div>
                 <div>
                   <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Sueldo Líquido</p>
-                  <p className="font-bold font-mono text-lg text-emerald-400">{formatCLP(selectedLiq.netSalary)}</p>
+                  <p className="font-bold font-mono text-lg text-status-ok-fg">{formatCLP(selectedLiq.netSalary)}</p>
                 </div>
                 <div>
                   <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Costo Empleador</p>
-                  <p className="font-semibold font-mono text-amber-400">{formatCLP(selectedLiq.employerCost)}</p>
+                  <p className="font-semibold font-mono text-status-warn-fg">{formatCLP(selectedLiq.employerCost)}</p>
                 </div>
               </div>
 

@@ -66,10 +66,10 @@ function computeNumbering(sections: Section[]): Map<string, string> {
 }
 
 const RISK_COLORS: Record<string, string> = {
-  critical: "bg-red-600",
+  critical: "bg-status-danger",
   high: "bg-orange-600",
   medium: "bg-yellow-600",
-  low: "bg-emerald-600",
+  low: "bg-status-ok",
 };
 
 const RISK_LABELS: Record<string, string> = {
@@ -244,7 +244,7 @@ export function VraReportViewerClient({ report: initialReport }: { report: Repor
                 </Badge>
                 <Badge variant="secondary">Versión {report.version}.0</Badge>
                 {report.status === "approved" && (
-                  <Badge className="bg-emerald-600">
+                  <Badge className="bg-status-ok">
                     <CheckCircle2 className="h-3 w-3 mr-1" />
                     Aprobado
                   </Badge>
@@ -293,7 +293,7 @@ export function VraReportViewerClient({ report: initialReport }: { report: Repor
                   size="sm"
                   onClick={handleDelete}
                   disabled={deleting}
-                  className="gap-1.5 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950 border-red-200 dark:border-red-900"
+                  className="gap-1.5 text-status-danger-fg hover:text-status-danger-fg hover:bg-red-50 dark:hover:bg-red-950 border-red-200 dark:border-red-900"
                 >
                   {deleting ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -337,7 +337,7 @@ export function VraReportViewerClient({ report: initialReport }: { report: Repor
                   </Button>
                 </div>
                 {s.status === "error" ? (
-                  <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-md p-4 text-sm text-red-700 dark:text-red-300">
+                  <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-md p-4 text-sm text-status-danger-fg dark:text-status-danger-fg">
                     ⚠️ Error generando sección: {s.errorMessage}
                   </div>
                 ) : s.status === "pending" || s.status === "generating" ? (

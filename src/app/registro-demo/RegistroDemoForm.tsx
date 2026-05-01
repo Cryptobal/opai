@@ -97,7 +97,7 @@ export function RegistroDemoForm({ utmSource, utmCampaign, tenantSlug = "gard" }
         {/* Company Name */}
         <div>
           <label htmlFor="companyName" className="block text-sm font-medium text-slate-300 mb-1.5">
-            Nombre de la empresa <span className="text-red-400">*</span>
+            Nombre de la empresa <span className="text-status-danger-fg">*</span>
           </label>
           <input
             id="companyName"
@@ -113,7 +113,7 @@ export function RegistroDemoForm({ utmSource, utmCampaign, tenantSlug = "gard" }
         {/* Contact Name */}
         <div>
           <label htmlFor="contactName" className="block text-sm font-medium text-slate-300 mb-1.5">
-            Nombre del contacto <span className="text-red-400">*</span>
+            Nombre del contacto <span className="text-status-danger-fg">*</span>
           </label>
           <input
             id="contactName"
@@ -129,7 +129,7 @@ export function RegistroDemoForm({ utmSource, utmCampaign, tenantSlug = "gard" }
         {/* Email */}
         <div>
           <label htmlFor="email" className="block text-sm font-medium text-slate-300 mb-1.5">
-            Email corporativo <span className="text-red-400">*</span>
+            Email corporativo <span className="text-status-danger-fg">*</span>
           </label>
           <input
             id="email"
@@ -163,7 +163,7 @@ export function RegistroDemoForm({ utmSource, utmCampaign, tenantSlug = "gard" }
           {/* Industry */}
           <div>
             <label htmlFor="industry" className="block text-sm font-medium text-slate-300 mb-1.5">
-              Rubro <span className="text-red-400">*</span>
+              Rubro <span className="text-status-danger-fg">*</span>
             </label>
             <select
               id="industry"
@@ -215,7 +215,7 @@ export function RegistroDemoForm({ utmSource, utmCampaign, tenantSlug = "gard" }
 
       {/* Error message */}
       {error && (
-        <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+        <div className="rounded-lg border border-status-danger-border bg-status-danger-soft px-4 py-3 text-sm text-status-danger-fg">
           {error}
         </div>
       )}
@@ -224,7 +224,7 @@ export function RegistroDemoForm({ utmSource, utmCampaign, tenantSlug = "gard" }
       <button
         type="submit"
         disabled={loading}
-        className="w-full rounded-lg bg-teal-600 px-6 py-3 text-sm font-semibold text-white transition-all hover:bg-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full rounded-lg bg-status-info px-6 py-3 text-sm font-semibold text-white transition-all hover:bg-status-info focus:outline-none focus:ring-2 focus:ring-teal-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {loading ? (
           <span className="inline-flex items-center gap-2">

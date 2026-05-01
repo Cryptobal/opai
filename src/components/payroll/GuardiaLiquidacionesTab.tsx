@@ -85,16 +85,16 @@ export function GuardiaLiquidacionesTab({ guardiaId }: { guardiaId: string }) {
               <span className="text-sm font-semibold text-foreground">
                 {liq.period ? `${MONTHS[liq.period.month - 1]} ${liq.period.year}` : "—"}
               </span>
-              <Badge variant="outline" className="text-[9px] bg-emerald-500/15 text-emerald-400 border-emerald-500/30">
+              <Badge variant="outline" className="text-[9px] bg-status-ok-soft text-status-ok-fg border-status-ok-border">
                 PAGADO
               </Badge>
               {liq.salarySource === "RUT" ? (
-                <Badge className="text-[9px] bg-amber-500/15 text-amber-400 border-amber-500/30">
+                <Badge className="text-[9px] bg-status-warn-soft text-status-warn-fg border-status-warn-border">
                   <User className="mr-0.5 h-2.5 w-2.5" />
                   RUT
                 </Badge>
               ) : (
-                <Badge className="text-[9px] bg-blue-500/15 text-blue-400 border-blue-500/30">
+                <Badge className="text-[9px] bg-status-info-soft text-status-info-fg border-status-info-border">
                   <Building2 className="mr-0.5 h-2.5 w-2.5" />
                   Instalación
                 </Badge>
@@ -106,7 +106,7 @@ export function GuardiaLiquidacionesTab({ guardiaId }: { guardiaId: string }) {
           </div>
           <div className="flex items-center gap-3 shrink-0">
             <div className="text-right">
-              <p className="text-sm font-semibold text-emerald-400 tabular-nums">{formatCLP(liq.netSalary)}</p>
+              <p className="text-sm font-semibold text-status-ok-fg tabular-nums">{formatCLP(liq.netSalary)}</p>
               <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Líquido</p>
             </div>
             <Eye className="h-4 w-4 text-muted-foreground" />
@@ -135,11 +135,11 @@ export function GuardiaLiquidacionesTab({ guardiaId }: { guardiaId: string }) {
                 </div>
                 <div>
                   <p className="text-[10px] text-muted-foreground">Sueldo Líquido</p>
-                  <p className="font-semibold text-lg text-emerald-400">{formatCLP(selectedLiq.netSalary)}</p>
+                  <p className="font-semibold text-lg text-status-ok-fg">{formatCLP(selectedLiq.netSalary)}</p>
                 </div>
                 <div>
                   <p className="text-[10px] text-muted-foreground">Costo Empleador</p>
-                  <p className="font-medium text-amber-400">{formatCLP(selectedLiq.employerCost)}</p>
+                  <p className="font-medium text-status-warn-fg">{formatCLP(selectedLiq.employerCost)}</p>
                 </div>
               </div>
 

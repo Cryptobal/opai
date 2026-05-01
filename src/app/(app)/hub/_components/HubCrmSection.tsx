@@ -76,7 +76,7 @@ export function HubCrmSection({ closingData, sellerFirstName, upcomingProjects =
       title="Hub de Cierre"
       badge={
         <div className="flex items-center gap-2">
-          <span className="text-sm font-bold tabular-nums text-teal-400">
+          <span className="text-sm font-bold tabular-nums text-status-info-fg">
             {negotiationFormatted} negociando
           </span>
         </div>
@@ -110,9 +110,9 @@ export function HubCrmSection({ closingData, sellerFirstName, upcomingProjects =
             ) : (
               <>
                 <div className="flex items-center gap-2 mb-1">
-                  <Flame className="h-3.5 w-3.5 text-orange-400" />
+                  <Flame className="h-3.5 w-3.5 text-status-warn-fg" />
                   <p className="text-sm font-bold">Propuestas calientes</p>
-                  <span className="text-xs text-teal-400 font-bold tabular-nums bg-teal-500/10 rounded px-1.5 py-0.5">
+                  <span className="text-xs text-status-info-fg font-bold tabular-nums bg-status-info-soft rounded px-1.5 py-0.5">
                     {hotDeals.length}
                   </span>
                 </div>
@@ -137,8 +137,8 @@ export function HubCrmSection({ closingData, sellerFirstName, upcomingProjects =
         )}
 
         {activeTab === 'closed' && (
-          <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 overflow-hidden">
-            <div className="bg-emerald-500/10 px-3 py-2 text-xs font-bold text-emerald-400 uppercase tracking-wider">
+          <div className="rounded-lg border border-status-ok-border bg-status-ok-soft overflow-hidden">
+            <div className="bg-status-ok-soft px-3 py-2 text-xs font-bold text-status-ok-fg uppercase tracking-wider">
               Adjudicados últimos 30 días
             </div>
             {closedDeals.length === 0 ? (
@@ -160,7 +160,7 @@ export function HubCrmSection({ closingData, sellerFirstName, upcomingProjects =
                         {deal.closedAt && ` · cerrado ${new Date(deal.closedAt).toLocaleDateString('es-CL')}`}
                       </div>
                     </div>
-                    <div className="text-sm font-bold text-emerald-400 tabular-nums whitespace-nowrap">
+                    <div className="text-sm font-bold text-status-ok-fg tabular-nums whitespace-nowrap">
                       {formatCLP(Math.round(deal.amount))}
                     </div>
                   </a>

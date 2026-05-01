@@ -273,7 +273,7 @@ export function SendForReviewModal({
                             {c.isPrimary && (
                               <span
                                 title="Contacto principal"
-                                className="inline-flex items-center gap-0.5 text-[10px] font-medium uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-500"
+                                className="inline-flex items-center gap-0.5 text-[10px] font-medium uppercase tracking-wide px-1.5 py-0.5 rounded bg-status-warn-soft text-status-warn-fg"
                               >
                                 <Star className="h-2.5 w-2.5 fill-current" />
                                 Principal

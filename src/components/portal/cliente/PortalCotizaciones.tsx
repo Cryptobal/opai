@@ -199,7 +199,7 @@ export function PortalCotizaciones({ session, isProspect, onNavigate }: Props) {
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center h-40 gap-2 text-red-400">
+      <div className="flex flex-col items-center justify-center h-40 gap-2 text-status-danger-fg">
         <XCircle className="w-6 h-6" />
         <p className="text-sm">{error}</p>
       </div>
@@ -210,7 +210,7 @@ export function PortalCotizaciones({ session, isProspect, onNavigate }: Props) {
     <div className="pb-24 space-y-4">
       {/* Header */}
       <div className="flex items-center gap-2 mb-2">
-        <FileText className="w-5 h-5 text-teal-400" />
+        <FileText className="w-5 h-5 text-status-info-fg" />
         <h2 className="text-base font-semibold">
           {isProspect ? "Propuestas" : "Cotizaciones"}
         </h2>
@@ -231,7 +231,7 @@ export function PortalCotizaciones({ session, isProspect, onNavigate }: Props) {
                 className={cn(
                   "px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors",
                   activeTab === tab.key
-                    ? "bg-teal-600 text-white"
+                    ? "bg-status-info text-white"
                     : "bg-white/5 text-zinc-400 hover:bg-white/10",
                 )}
               >

@@ -37,7 +37,7 @@ export function AiErrorDialog({
         </button>
 
         <div className="flex items-start gap-3">
-          <div className="rounded-lg bg-amber-500/15 p-2 text-amber-500">
+          <div className="rounded-lg bg-status-warn-soft p-2 text-status-warn-fg">
             <AlertTriangle className="h-5 w-5" />
           </div>
           <div className="flex-1">
@@ -60,7 +60,7 @@ export function AiErrorDialog({
             <Link
               href={meta.actionHref}
               onClick={onClose}
-              className="rounded-lg bg-teal-600 px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-teal-700"
+              className="rounded-lg bg-status-info px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-teal-700"
             >
               {meta.actionLabel}
             </Link>

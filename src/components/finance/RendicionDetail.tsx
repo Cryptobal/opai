@@ -140,10 +140,10 @@ type RendicionAction = "submit" | "approve" | "reject" | "resubmit" | "pay";
 
 const STATUS_CONFIG: Record<string, { label: string; className: string; icon: typeof Receipt }> = {
   DRAFT: { label: "Borrador", className: "bg-zinc-500/15 text-zinc-400 border-zinc-500/30", icon: Edit },
-  SUBMITTED: { label: "Enviada", className: "bg-blue-500/15 text-blue-400 border-blue-500/30", icon: Send },
-  IN_APPROVAL: { label: "En aprobación", className: "bg-amber-500/15 text-amber-400 border-amber-500/30", icon: Clock },
-  APPROVED: { label: "Aprobada", className: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30", icon: CheckCircle2 },
-  REJECTED: { label: "Rechazada", className: "bg-red-500/15 text-red-400 border-red-500/30", icon: XCircle },
+  SUBMITTED: { label: "Enviada", className: "bg-status-info-soft text-status-info-fg border-status-info-border", icon: Send },
+  IN_APPROVAL: { label: "En aprobación", className: "bg-status-warn-soft text-status-warn-fg border-status-warn-border", icon: Clock },
+  APPROVED: { label: "Aprobada", className: "bg-status-ok-soft text-status-ok-fg border-status-ok-border", icon: CheckCircle2 },
+  REJECTED: { label: "Rechazada", className: "bg-status-danger-soft text-status-danger-fg border-status-danger-border", icon: XCircle },
   PAID: { label: "Pagada", className: "bg-purple-500/15 text-purple-400 border-purple-500/30", icon: Wallet },
 };
 
@@ -321,12 +321,12 @@ export function RendicionDetail({ rendicion, permissions }: RendicionDetailProps
 
       {/* Rejection reason */}
       {r.status === "REJECTED" && r.rejectionReason && (
-        <Card className="bg-red-500/5 border-red-500/20">
+        <Card className="bg-status-danger-soft border-status-danger-border">
           <CardContent className="pt-5">
             <div className="flex items-start gap-2">
-              <XCircle className="h-4 w-4 text-red-400 mt-0.5 shrink-0" />
+              <XCircle className="h-4 w-4 text-status-danger-fg mt-0.5 shrink-0" />
               <div>
-                <p className="text-sm font-medium text-red-400">Motivo de rechazo</p>
+                <p className="text-sm font-medium text-status-danger-fg">Motivo de rechazo</p>
                 <p className="text-sm text-muted-foreground mt-1">{r.rejectionReason}</p>
                 {r.rejectedByName && (
                   <p className="text-xs text-muted-foreground mt-1">
@@ -416,7 +416,7 @@ export function RendicionDetail({ rendicion, permissions }: RendicionDetailProps
         <Card>
           <CardContent className="pt-5">
             <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-              <Car className="h-4 w-4 text-blue-400" />
+              <Car className="h-4 w-4 text-status-info-fg" />
               Detalles del trayecto
             </h3>
             <div className="space-y-3">
@@ -484,7 +484,7 @@ export function RendicionDetail({ rendicion, permissions }: RendicionDetailProps
                 {r.trip.totalAmount != null && (
                   <div className="flex justify-between border-t border-border pt-1.5 font-medium">
                     <span>Total trayecto</span>
-                    <span className="text-emerald-400">
+                    <span className="text-status-ok-fg">
                       {fmtCLP.format(r.trip.totalAmount)}
                     </span>
                   </div>
@@ -569,9 +569,9 @@ export function RendicionDetail({ rendicion, permissions }: RendicionDetailProps
                     className={cn(
                       "flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-medium",
                       approval.decision === "APPROVED"
-                        ? "bg-emerald-500/15 text-emerald-400"
+                        ? "bg-status-ok-soft text-status-ok-fg"
                         : approval.decision === "REJECTED"
-                        ? "bg-red-500/15 text-red-400"
+                        ? "bg-status-danger-soft text-status-danger-fg"
                         : "bg-muted text-muted-foreground"
                     )}
                   >
@@ -586,7 +586,7 @@ export function RendicionDetail({ rendicion, permissions }: RendicionDetailProps
                           ` el ${format(new Date(approval.decidedAt), "dd MMM yyyy HH:mm", { locale: es })}`}
                       </p>
                     ) : (
-                      <p className="text-xs text-amber-400">Pendiente</p>
+                      <p className="text-xs text-status-warn-fg">Pendiente</p>
                     )}
                     {approval.comment && (
                       <p className="text-xs text-muted-foreground mt-0.5 italic">
@@ -595,10 +595,10 @@ export function RendicionDetail({ rendicion, permissions }: RendicionDetailProps
                     )}
                   </div>
                   {approval.decision === "APPROVED" && (
-                    <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                    <CheckCircle2 className="h-4 w-4 text-status-ok-fg shrink-0" />
                   )}
                   {approval.decision === "REJECTED" && (
-                    <XCircle className="h-4 w-4 text-red-400 shrink-0" />
+                    <XCircle className="h-4 w-4 text-status-danger-fg shrink-0" />
                   )}
                 </div>
               ))}
@@ -663,7 +663,7 @@ export function RendicionDetail({ rendicion, permissions }: RendicionDetailProps
               size="sm"
               onClick={handleDelete}
               disabled={loading === "delete"}
-              className="text-red-400 hover:text-red-300"
+              className="text-status-danger-fg hover:text-status-danger-fg"
             >
               {loading === "delete" ? (
                 <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
@@ -697,7 +697,7 @@ export function RendicionDetail({ rendicion, permissions }: RendicionDetailProps
                 size="sm"
                 onClick={() => performAction("approve")}
                 disabled={loading === "approve"}
-                className="bg-emerald-600 hover:bg-emerald-700"
+                className="bg-status-ok hover:bg-emerald-700"
               >
                 {loading === "approve" ? (
                   <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
@@ -711,7 +711,7 @@ export function RendicionDetail({ rendicion, permissions }: RendicionDetailProps
                 variant="outline"
                 size="sm"
                 onClick={() => setRejectDialogOpen(true)}
-                className="text-red-400 hover:text-red-300"
+                className="text-status-danger-fg hover:text-status-danger-fg"
               >
                 <XCircle className="h-4 w-4 mr-1.5" />
                 Rechazar
@@ -795,7 +795,7 @@ export function RendicionDetail({ rendicion, permissions }: RendicionDetailProps
                 size="sm"
                 onClick={handleReject}
                 disabled={loading === "reject"}
-                className="bg-red-600 hover:bg-red-700"
+                className="bg-status-danger hover:bg-red-700"
               >
                 {loading === "reject" ? (
                   <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />

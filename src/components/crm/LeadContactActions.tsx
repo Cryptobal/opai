@@ -63,7 +63,7 @@ export function LeadContactActions({
         </Button>
       )}
       {phone && (
-        <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-emerald-500" asChild>
+        <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-status-ok-fg" asChild>
           <a
             href={whatsappHref(phone)}
             target="_blank"

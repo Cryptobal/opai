@@ -102,7 +102,7 @@ function EditableField({
           <span className="text-sm text-gray-900 dark:text-gray-100">{value || '—'}</span>
           <button
             onClick={() => setEditing(true)}
-            className="text-xs text-blue-600 hover:text-blue-800"
+            className="text-xs text-status-info-fg hover:text-blue-800"
           >
             Editar
           </button>
@@ -133,7 +133,7 @@ function EditableField({
         <div className="flex gap-2">
           <button
             onClick={handleSave}
-            className="rounded bg-blue-600 px-2 py-1 text-xs text-white hover:bg-blue-700"
+            className="rounded bg-status-info px-2 py-1 text-xs text-white hover:bg-blue-700"
           >
             Guardar
           </button>
@@ -183,7 +183,7 @@ function EditableNumberField({
       <div>
         <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">{label}</dt>
         <dd
-          className="mt-1 cursor-pointer text-sm text-gray-900 dark:text-gray-100 hover:text-blue-600"
+          className="mt-1 cursor-pointer text-sm text-gray-900 dark:text-gray-100 hover:text-status-info-fg"
           onClick={() => setEditing(true)}
         >
           {value}
@@ -223,9 +223,9 @@ function ProgressBar({
   max: number;
 }) {
   const pct = max > 0 ? Math.min((value / max) * 100, 100) : 0;
-  let color = 'bg-emerald-500';
-  if (pct >= 90) color = 'bg-red-500';
-  else if (pct >= 70) color = 'bg-amber-500';
+  let color = 'bg-status-ok';
+  if (pct >= 90) color = 'bg-status-danger';
+  else if (pct >= 70) color = 'bg-status-warn';
 
   return (
     <div>
@@ -341,7 +341,7 @@ export function TenantDetailTabs({ tenantId }: { tenantId: string }) {
 
   if (error || !data) {
     return (
-      <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-center text-red-700">
+      <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-center text-status-danger-fg">
         {error || 'No se pudo cargar el tenant'}
       </div>
     );
@@ -360,7 +360,7 @@ export function TenantDetailTabs({ tenantId }: { tenantId: string }) {
               onClick={() => setActiveTab(tab.key)}
               className={`border-b-2 px-1 py-3 text-sm font-medium transition-colors ${
                 activeTab === tab.key
-                  ? 'border-blue-600 text-blue-600 dark:text-teal-400'
+                  ? 'border-blue-600 text-status-info-fg dark:text-status-info-fg'
                   : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
               }`}
             >
@@ -429,8 +429,8 @@ function InfoTab({
               <span
                 className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
                   tenant.active
-                    ? 'bg-emerald-100 text-emerald-700'
-                    : 'bg-red-100 text-red-700'
+                    ? 'bg-emerald-100 text-status-ok-fg'
+                    : 'bg-red-100 text-status-danger-fg'
                 }`}
               >
                 {tenant.active ? 'Activo' : 'Inactivo'}
@@ -446,7 +446,7 @@ function InfoTab({
           {tenant.suspendedReason && (
             <div>
               <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Razon de suspension</dt>
-              <dd className="mt-1 text-sm text-red-600">{tenant.suspendedReason}</dd>
+              <dd className="mt-1 text-sm text-status-danger-fg">{tenant.suspendedReason}</dd>
             </div>
           )}
           <div>
@@ -488,14 +488,14 @@ function InfoTab({
           {tenant.active ? (
             <button
               onClick={onSuspend}
-              className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+              className="rounded-lg bg-status-danger px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
             >
               Suspender tenant
             </button>
           ) : (
             <button
               onClick={onReactivate}
-              className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+              className="rounded-lg bg-status-ok px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
             >
               Reactivar tenant
             </button>
@@ -557,7 +557,7 @@ function AdminsTab({ admins }: { admins: TenantAdmin[] }) {
                 <span
                   className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
                     admin.status === 'active'
-                      ? 'bg-emerald-100 text-emerald-700'
+                      ? 'bg-emerald-100 text-status-ok-fg'
                       : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
                   }`}
                 >

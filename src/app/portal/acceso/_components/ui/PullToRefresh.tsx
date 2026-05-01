@@ -83,7 +83,7 @@ export default function PullToRefresh({
       >
         {isRefreshing ? (
           <svg
-            className="w-6 h-6 text-cyan-400 animate-spin"
+            className="w-6 h-6 text-status-info-fg animate-spin"
             viewBox="0 0 24 24"
             fill="none"
           >

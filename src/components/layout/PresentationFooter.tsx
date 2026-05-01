@@ -97,7 +97,7 @@ export function PresentationFooter({
               {contact.email && (
                 <a
                   href={`mailto:${contact.email}`}
-                  className="flex items-center gap-3 text-base text-white/80 hover:text-teal-400 transition-colors group"
+                  className="flex items-center gap-3 text-base text-white/80 hover:text-status-info-fg transition-colors group"
                 >
                   <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center group-hover:bg-teal-500/20 transition-colors">
                     <Mail className="w-5 h-5" />
@@ -109,7 +109,7 @@ export function PresentationFooter({
               {contact.phone && (
                 <a
                   href={`tel:${contact.phone}`}
-                  className="flex items-center gap-3 text-base text-white/80 hover:text-teal-400 transition-colors group"
+                  className="flex items-center gap-3 text-base text-white/80 hover:text-status-info-fg transition-colors group"
                 >
                   <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center group-hover:bg-teal-500/20 transition-colors">
                     <Phone className="w-5 h-5" />
@@ -123,7 +123,7 @@ export function PresentationFooter({
                   href={`https://${website}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-3 text-base text-white/80 hover:text-teal-400 transition-colors group"
+                  className="flex items-center gap-3 text-base text-white/80 hover:text-status-info-fg transition-colors group"
                 >
                   <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center group-hover:bg-teal-500/20 transition-colors">
                     <Globe className="w-5 h-5" />
@@ -137,7 +137,7 @@ export function PresentationFooter({
                   href={googleMapsLink}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-start gap-3 text-base text-white/80 hover:text-teal-400 transition-colors group"
+                  className="flex items-start gap-3 text-base text-white/80 hover:text-status-info-fg transition-colors group"
                 >
                   <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center group-hover:bg-teal-500/20 transition-colors flex-shrink-0">
                     <MapPin className="w-5 h-5" />

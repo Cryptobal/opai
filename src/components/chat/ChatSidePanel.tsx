@@ -302,7 +302,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
               className={cn(
                 "rounded-full px-3 py-1.5 text-[11px] font-medium transition-colors opai-chat-mobile-pill",
                 filter === "all"
-                  ? "bg-teal-600 text-white"
+                  ? "bg-status-info text-white"
                   : "bg-muted/50 text-muted-foreground hover:bg-muted"
               )}
             >
@@ -314,13 +314,13 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
               className={cn(
                 "rounded-full px-3 py-1.5 text-[11px] font-medium transition-colors opai-chat-mobile-pill",
                 filter === "unread"
-                  ? "bg-teal-600 text-white"
+                  ? "bg-status-info text-white"
                   : "bg-muted/50 text-muted-foreground hover:bg-muted"
               )}
             >
               No leídos
               {ctx.totalUnread > 0 && filter !== "unread" && (
-                <span className="ml-1 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-teal-600/30 px-1 text-[9px] font-bold text-teal-400">
+                <span className="ml-1 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-teal-600/30 px-1 text-[9px] font-bold text-status-info-fg">
                   {ctx.totalUnread > 99 ? "99+" : ctx.totalUnread}
                 </span>
               )}
@@ -333,7 +333,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
             className={cn(
               "w-full flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-[11px] font-medium transition-colors",
               ctx.totalUnread > 0
-                ? "bg-teal-600/15 text-teal-400 hover:bg-teal-600/25 border border-teal-600/30"
+                ? "bg-teal-600/15 text-status-info-fg hover:bg-teal-600/25 border border-teal-600/30"
                 : "bg-muted/30 text-muted-foreground border border-transparent cursor-default",
               "disabled:opacity-60 disabled:cursor-not-allowed"
             )}
@@ -386,7 +386,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
             {directChannels.length > 0 && (
               <ChannelSection
                 label="Mensajes directos"
-                icon={<MessageCircle className="h-3.5 w-3.5 text-teal-500" />}
+                icon={<MessageCircle className="h-3.5 w-3.5 text-status-info-fg" />}
                 channels={directChannels}
                 collapsed={isSearching ? false : !!collapsedSections["direct"]}
                 onToggle={() => toggleSection("direct")}
@@ -417,7 +417,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
             {installationReportesChannels.length > 0 && (
               <ChannelSection
                 label="Instalaciones - Reportes"
-                icon={<Building2 className="h-3.5 w-3.5 text-indigo-500" />}
+                icon={<Building2 className="h-3.5 w-3.5 text-status-info-fg" />}
                 channels={installationReportesChannels}
                 collapsed={isSearching ? false : !!collapsedSections["installation_reportes"]}
                 onToggle={() => toggleSection("installation_reportes")}
@@ -436,7 +436,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
             {(filter === "unread" ? prospectChannels.some(c => c.unreadCount > 0) : (prospectChannels.length > 0 || !isSearching)) && (
               <ChannelSection
                 label="Prospectos"
-                icon={<Sprout className="h-3.5 w-3.5 text-green-500" />}
+                icon={<Sprout className="h-3.5 w-3.5 text-status-ok-fg" />}
                 channels={filter === "unread" ? prospectChannels.filter(c => c.unreadCount > 0) : prospectChannels}
                 collapsed={isSearching ? false : !!collapsedSections["prospects"]}
                 onToggle={() => toggleSection("prospects")}
@@ -456,7 +456,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
             {(filter === "unread" ? clientChannels.some(c => c.unreadCount > 0) : (clientChannels.length > 0 || !isSearching)) && (
               <ChannelSection
                 label="Clientes"
-                icon={<Handshake className="h-3.5 w-3.5 text-blue-500" />}
+                icon={<Handshake className="h-3.5 w-3.5 text-status-info-fg" />}
                 channels={filter === "unread" ? clientChannels.filter(c => c.unreadCount > 0) : clientChannels}
                 collapsed={isSearching ? false : !!collapsedSections["clients"]}
                 onToggle={() => toggleSection("clients")}
@@ -793,7 +793,7 @@ function GroupChannelsSection({
           ) : (
             <ChevronDown className="h-3 w-3 shrink-0" />
           )}
-          <Users className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+          <Users className="h-3.5 w-3.5 text-status-warn-fg shrink-0" />
           <span className="truncate text-[13px] font-semibold text-zinc-300">Grupos</span>
         </button>
         <div className="flex shrink-0 items-center gap-1 pr-2">
@@ -810,7 +810,7 @@ function GroupChannelsSection({
             {groupChannels.length}
           </span>
           {sectionUnread > 0 ? (
-            <span className="flex h-4 min-w-[18px] items-center justify-center rounded-full bg-teal-600 px-1.5 text-[9px] font-bold text-white">
+            <span className="flex h-4 min-w-[18px] items-center justify-center rounded-full bg-status-info px-1.5 text-[9px] font-bold text-white">
               {sectionUnread > 99 ? "99+" : sectionUnread}
             </span>
           ) : (
@@ -836,17 +836,17 @@ function GroupChannelsSection({
                 <DropdownMenuItem onClick={() => onApplySectionNotifPref!(groupChannels.map((c) => c.id), "ALL")}>
                   <Bell className="h-3.5 w-3.5 mr-2" />
                   Notificar todo
-                  {sectionPref === "ALL" && <span className="ml-auto text-teal-400 text-xs">✓</span>}
+                  {sectionPref === "ALL" && <span className="ml-auto text-status-info-fg text-xs">✓</span>}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onApplySectionNotifPref!(groupChannels.map((c) => c.id), "MENTIONS_ONLY")}>
                   <AtSign className="h-3.5 w-3.5 mr-2" />
                   Solo menciones
-                  {sectionPref === "MENTIONS_ONLY" && <span className="ml-auto text-teal-400 text-xs">✓</span>}
+                  {sectionPref === "MENTIONS_ONLY" && <span className="ml-auto text-status-info-fg text-xs">✓</span>}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onApplySectionNotifPref!(groupChannels.map((c) => c.id), "MUTED")}>
                   <BellOff className="h-3.5 w-3.5 mr-2" />
                   Silenciar
-                  {sectionPref === "MUTED" && <span className="ml-auto text-teal-400 text-xs">✓</span>}
+                  {sectionPref === "MUTED" && <span className="ml-auto text-status-info-fg text-xs">✓</span>}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -936,17 +936,17 @@ function GroupChannelsSection({
                                 <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onUpdateNotifPref(ch.id, "ALL"); }}>
                                   <Bell className="h-3.5 w-3.5 mr-2" />
                                   Notificar todo
-                                  {ch.notificationPreference === "ALL" && <span className="ml-auto text-teal-400 text-xs">✓</span>}
+                                  {ch.notificationPreference === "ALL" && <span className="ml-auto text-status-info-fg text-xs">✓</span>}
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onUpdateNotifPref(ch.id, "MENTIONS_ONLY"); }}>
                                   <AtSign className="h-3.5 w-3.5 mr-2" />
                                   Solo menciones
-                                  {ch.notificationPreference === "MENTIONS_ONLY" && <span className="ml-auto text-teal-400 text-xs">✓</span>}
+                                  {ch.notificationPreference === "MENTIONS_ONLY" && <span className="ml-auto text-status-info-fg text-xs">✓</span>}
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onUpdateNotifPref(ch.id, "MUTED"); }}>
                                   <BellOff className="h-3.5 w-3.5 mr-2" />
                                   Silenciar
-                                  {ch.notificationPreference === "MUTED" && <span className="ml-auto text-teal-400 text-xs">✓</span>}
+                                  {ch.notificationPreference === "MUTED" && <span className="ml-auto text-status-info-fg text-xs">✓</span>}
                                 </DropdownMenuItem>
                               </>
                             )}
@@ -1054,7 +1054,7 @@ function ChannelSection({
             {channels.length}
           </span>
           {sectionUnread > 0 ? (
-            <span className="flex h-4 min-w-[18px] items-center justify-center rounded-full bg-teal-600 px-1.5 text-[9px] font-bold text-white">
+            <span className="flex h-4 min-w-[18px] items-center justify-center rounded-full bg-status-info px-1.5 text-[9px] font-bold text-white">
               {sectionUnread > 99 ? "99+" : sectionUnread}
             </span>
           ) : (
@@ -1080,17 +1080,17 @@ function ChannelSection({
                 <DropdownMenuItem onClick={() => onApplySectionNotifPref!(channels.map((c) => c.id), "ALL")}>
                   <Bell className="h-3.5 w-3.5 mr-2" />
                   Notificar todo
-                  {sectionPref === "ALL" && <span className="ml-auto text-teal-400 text-xs">✓</span>}
+                  {sectionPref === "ALL" && <span className="ml-auto text-status-info-fg text-xs">✓</span>}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onApplySectionNotifPref!(channels.map((c) => c.id), "MENTIONS_ONLY")}>
                   <AtSign className="h-3.5 w-3.5 mr-2" />
                   Solo menciones
-                  {sectionPref === "MENTIONS_ONLY" && <span className="ml-auto text-teal-400 text-xs">✓</span>}
+                  {sectionPref === "MENTIONS_ONLY" && <span className="ml-auto text-status-info-fg text-xs">✓</span>}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onApplySectionNotifPref!(channels.map((c) => c.id), "MUTED")}>
                   <BellOff className="h-3.5 w-3.5 mr-2" />
                   Silenciar
-                  {sectionPref === "MUTED" && <span className="ml-auto text-teal-400 text-xs">✓</span>}
+                  {sectionPref === "MUTED" && <span className="ml-auto text-status-info-fg text-xs">✓</span>}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -1149,17 +1149,17 @@ function ChannelSection({
                             <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onUpdateNotifPref(ch.id, "ALL"); }}>
                               <Bell className="h-3.5 w-3.5 mr-2" />
                               Notificar todo
-                              {ch.notificationPreference === "ALL" && <span className="ml-auto text-teal-400 text-xs">✓</span>}
+                              {ch.notificationPreference === "ALL" && <span className="ml-auto text-status-info-fg text-xs">✓</span>}
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onUpdateNotifPref(ch.id, "MENTIONS_ONLY"); }}>
                               <AtSign className="h-3.5 w-3.5 mr-2" />
                               Solo menciones
-                              {ch.notificationPreference === "MENTIONS_ONLY" && <span className="ml-auto text-teal-400 text-xs">✓</span>}
+                              {ch.notificationPreference === "MENTIONS_ONLY" && <span className="ml-auto text-status-info-fg text-xs">✓</span>}
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onUpdateNotifPref(ch.id, "MUTED"); }}>
                               <BellOff className="h-3.5 w-3.5 mr-2" />
                               Silenciar
-                              {ch.notificationPreference === "MUTED" && <span className="ml-auto text-teal-400 text-xs">✓</span>}
+                              {ch.notificationPreference === "MUTED" && <span className="ml-auto text-status-info-fg text-xs">✓</span>}
                             </DropdownMenuItem>
                           </>
                         )}
@@ -1336,7 +1336,7 @@ function ChannelListItem({
               "flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[10px] font-bold shrink-0",
               channel.notificationPreference === "MENTIONS_ONLY"
                 ? "bg-zinc-600 text-zinc-300"
-                : "bg-teal-600 text-white"
+                : "bg-status-info text-white"
             )}>
               {channel.unreadCount > 99 ? "99+" : channel.unreadCount}
             </span>

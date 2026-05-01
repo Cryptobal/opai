@@ -129,8 +129,8 @@ export function ProposalTotalAcciones({
   return (
     <div className={cn("space-y-4", className)}>
       {/* Total */}
-      <div className="rounded-xl border border-emerald-500/30 bg-gradient-to-r from-emerald-500/10 to-teal-500/5 px-4 py-4">
-        <p className="text-xs uppercase tracking-wider text-emerald-500 font-semibold mb-1">
+      <div className="rounded-xl border border-status-ok-border bg-gradient-to-r from-emerald-500/10 to-teal-500/5 px-4 py-4">
+        <p className="text-xs uppercase tracking-wider text-status-ok-fg font-semibold mb-1">
           Total Mensual
         </p>
         <p className="text-2xl font-bold text-white font-mono">
@@ -156,7 +156,7 @@ export function ProposalTotalAcciones({
             <button
               type="button"
               onClick={onReject}
-              className="flex items-center justify-center gap-2 h-11 rounded-lg border border-red-700/50 text-red-400 hover:bg-red-500/10 text-sm font-semibold transition-colors"
+              className="flex items-center justify-center gap-2 h-11 rounded-lg border border-red-700/50 text-status-danger-fg hover:bg-status-danger-soft text-sm font-semibold transition-colors"
             >
               <XCircle className="w-4 h-4" />
               Rechazar propuesta
@@ -181,7 +181,7 @@ export function ProposalTotalAcciones({
           type="button"
           onClick={handleDownloadProposalPdf}
           disabled={proposalPdfLoading}
-          className="flex-1 flex items-center justify-center gap-2 h-10 rounded-lg border border-teal-500/30 text-teal-300 hover:text-teal-200 hover:border-teal-500/50 text-sm transition-colors disabled:opacity-50"
+          className="flex-1 flex items-center justify-center gap-2 h-10 rounded-lg border border-status-info-border text-status-info-fg hover:text-teal-200 hover:border-teal-500/50 text-sm transition-colors disabled:opacity-50"
         >
           {proposalPdfLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
           {proposalPdfLoading ? "Generando..." : "Propuesta técnica"}

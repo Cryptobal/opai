@@ -143,23 +143,23 @@ function getDealFollowUpIndicator(deal: CrmDeal): {
     return {
       label: `S${nextFollowUp.sequence} vencido`,
       dateLabel,
-      className: "border-red-500/30 text-red-500",
-      dotColor: "bg-red-500",
+      className: "border-status-danger-border text-status-danger-fg",
+      dotColor: "bg-status-danger",
     };
   }
   if (dueTime - now <= 24 * 60 * 60 * 1000) {
     return {
       label: `S${nextFollowUp.sequence} hoy`,
       dateLabel,
-      className: "border-amber-500/30 text-amber-500",
-      dotColor: "bg-amber-500",
+      className: "border-status-warn-border text-status-warn-fg",
+      dotColor: "bg-status-warn",
     };
   }
   return {
     label: `S${nextFollowUp.sequence}`,
     dateLabel,
-    className: "border-emerald-500/30 text-emerald-500",
-    dotColor: "bg-emerald-500",
+    className: "border-status-ok-border text-status-ok-fg",
+    dotColor: "bg-status-ok",
   };
 }
 

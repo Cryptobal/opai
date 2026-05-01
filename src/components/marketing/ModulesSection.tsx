@@ -49,7 +49,7 @@ const PLAN_COLORS: Record<string, string> = {
 
 const PLAN_BADGE_BG: Record<string, string> = {
   starter: "bg-[#00D4AA]/10 text-[#00D4AA]",
-  pro: "bg-blue-500/10 text-blue-400",
+  pro: "bg-status-info-soft text-status-info-fg",
   suite: "bg-purple-500/10 text-purple-400",
 };
 

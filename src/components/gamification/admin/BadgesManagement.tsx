@@ -34,7 +34,7 @@ export function BadgesManagement() {
       key: "puntosBonus",
       label: "Puntos",
       render: (v: number) => (
-        <span className="text-emerald-400 font-medium">+{v ?? 0}</span>
+        <span className="text-status-ok-fg font-medium">+{v ?? 0}</span>
       ),
     },
     {
@@ -42,7 +42,7 @@ export function BadgesManagement() {
       label: "Secreto",
       render: (v: boolean) =>
         v ? (
-          <span className="text-amber-400 text-xs">Sí</span>
+          <span className="text-status-warn-fg text-xs">Sí</span>
         ) : (
           <span className="text-muted-foreground text-xs">No</span>
         ),
@@ -56,7 +56,7 @@ export function BadgesManagement() {
           <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
             <Pencil className="h-3.5 w-3.5" />
           </Button>
-          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-red-400 hover:text-red-300">
+          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-status-danger-fg hover:text-status-danger-fg">
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
         </div>

@@ -22,10 +22,10 @@ function severityStyle(row: InstallationRow): {
   bg: string;
 } {
   if (row.slaBreached > 0 || row.byPriority.p1 > 0) {
-    return { border: "border-red-500/40", bg: "bg-red-500/5" };
+    return { border: "border-status-danger-border", bg: "bg-status-danger-soft" };
   }
   if (row.byPriority.p2 > 0) {
-    return { border: "border-amber-500/40", bg: "bg-amber-500/5" };
+    return { border: "border-status-warn-border", bg: "bg-status-warn-soft" };
   }
   return { border: "border-white/10", bg: "" };
 }
@@ -73,7 +73,7 @@ export function InstallationTicketCard({ row, onClick }: Props) {
           )}
         </div>
         {row.slaBreached > 0 && (
-          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] font-medium text-red-400">
+          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-status-danger-soft px-2 py-0.5 text-[10px] font-medium text-status-danger-fg">
             <AlertTriangle className="h-3 w-3" />
             {row.slaBreached} venc
           </span>
@@ -92,20 +92,20 @@ export function InstallationTicketCard({ row, onClick }: Props) {
       {row.totalActive > 0 && (
         <>
           <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-muted">
-            <div className="bg-red-500" style={{ width: widths.p1 }} />
-            <div className="bg-orange-500" style={{ width: widths.p2 }} />
-            <div className="bg-yellow-500" style={{ width: widths.p3 }} />
+            <div className="bg-status-danger" style={{ width: widths.p1 }} />
+            <div className="bg-status-warn" style={{ width: widths.p2 }} />
+            <div className="bg-status-warn" style={{ width: widths.p3 }} />
             <div className="bg-muted-foreground/40" style={{ width: widths.p4 }} />
           </div>
           <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
             <span>
-              P1: <span className="font-semibold text-red-400">{row.byPriority.p1}</span>
+              P1: <span className="font-semibold text-status-danger-fg">{row.byPriority.p1}</span>
             </span>
             <span>
-              P2: <span className="font-semibold text-orange-400">{row.byPriority.p2}</span>
+              P2: <span className="font-semibold text-status-warn-fg">{row.byPriority.p2}</span>
             </span>
             <span>
-              P3: <span className="font-semibold text-yellow-400">{row.byPriority.p3}</span>
+              P3: <span className="font-semibold text-status-warn-fg">{row.byPriority.p3}</span>
             </span>
             <span>
               P4: <span className="font-semibold">{row.byPriority.p4}</span>

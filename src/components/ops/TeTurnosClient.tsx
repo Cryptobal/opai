@@ -701,14 +701,14 @@ export function TeTurnosClient({
                         <span
                           className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
                             (item.tipo ?? "turno_extra") === "hora_extra"
-                              ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
-                              : "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+                              ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-status-info-fg"
+                              : "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-status-ok-fg"
                           }`}
                         >
                           {(item.tipo ?? "turno_extra") === "hora_extra" ? "HE" : "TE"}
                         </span>
                         {item.isManual && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 font-medium">
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-status-warn-fg font-medium">
                             Manual
                           </span>
                         )}
@@ -725,7 +725,7 @@ export function TeTurnosClient({
                             <span
                               className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-medium ${
                                 isAlert
-                                  ? "bg-red-500/20 text-red-400 dark:bg-red-500/30 dark:text-red-300"
+                                  ? "bg-status-danger-soft text-status-danger-fg dark:bg-red-500/30 dark:text-status-danger-fg"
                                   : "bg-muted text-muted-foreground"
                               }`}
                               title={consec >= 5 ? `${consec} días consecutivos con TE — evite rachas largas` : `${consec} día(s) consecutivo(s) con TE`}
@@ -743,7 +743,7 @@ export function TeTurnosClient({
                       <p className="text-xs text-muted-foreground">
                         Monto: ${toNumber(item.amountClp).toLocaleString("es-CL")}
                         {item.amountJustification && (
-                          <span className="ml-1 text-amber-400" title={item.amountJustification}>
+                          <span className="ml-1 text-status-warn-fg" title={item.amountJustification}>
                             (monto modificado)
                           </span>
                         )}
@@ -754,7 +754,7 @@ export function TeTurnosClient({
                   <div className="flex items-center gap-2 flex-wrap">
                     <StatusTag status={item.status} />
                     {item.status === "rejected" && item.rejectionReason && (
-                      <span className="text-[10px] text-red-400 max-w-48 truncate" title={item.rejectionReason}>
+                      <span className="text-[10px] text-status-danger-fg max-w-48 truncate" title={item.rejectionReason}>
                         {item.rejectionReason}
                       </span>
                     )}

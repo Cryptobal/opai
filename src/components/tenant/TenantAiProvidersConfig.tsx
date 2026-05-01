@@ -24,9 +24,9 @@ type AiProvider = {
 };
 
 const COST_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
-  low: { label: 'Económico', color: 'text-emerald-400', bg: 'bg-emerald-500/15' },
-  medium: { label: 'Medio', color: 'text-amber-400', bg: 'bg-amber-500/15' },
-  high: { label: 'Alto', color: 'text-red-400', bg: 'bg-red-500/15' },
+  low: { label: 'Económico', color: 'text-status-ok-fg', bg: 'bg-status-ok-soft' },
+  medium: { label: 'Medio', color: 'text-status-warn-fg', bg: 'bg-status-warn-soft' },
+  high: { label: 'Alto', color: 'text-status-danger-fg', bg: 'bg-status-danger-soft' },
 };
 
 const PROVIDER_ICON: Record<string, string> = {
@@ -175,7 +175,7 @@ export function TenantAiProvidersConfig() {
               key={provider.id}
               className={`rounded-xl border p-5 transition-colors ${
                 isActive
-                  ? 'border-teal-500/50 bg-teal-500/5 dark:border-teal-500/30'
+                  ? 'border-teal-500/50 bg-teal-500/5 dark:border-status-info-border'
                   : 'border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900'
               }`}
             >
@@ -188,12 +188,12 @@ export function TenantAiProvidersConfig() {
                 </div>
                 <div className="flex items-center gap-1.5">
                   {isActive && (
-                    <span className="rounded-full bg-teal-500/15 px-2 py-0.5 text-[10px] font-medium text-teal-500">
+                    <span className="rounded-full bg-status-info-soft px-2 py-0.5 text-[10px] font-medium text-status-info-fg">
                       Activo
                     </span>
                   )}
                   {isConfigured && !isActive && (
-                    <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-400">
+                    <span className="rounded-full bg-status-ok-soft px-2 py-0.5 text-[10px] font-medium text-status-ok-fg">
                       API Key
                     </span>
                   )}
@@ -230,7 +230,7 @@ export function TenantAiProvidersConfig() {
                   <button
                     onClick={() => handleActivate(provider.id)}
                     disabled={activating === provider.id}
-                    className="flex w-full items-center justify-center rounded-lg bg-teal-600 px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-teal-700 disabled:opacity-50"
+                    className="flex w-full items-center justify-center rounded-lg bg-status-info px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-teal-700 disabled:opacity-50"
                   >
                     {activating === provider.id ? 'Activando...' : 'Usar este proveedor'}
                   </button>
@@ -389,7 +389,7 @@ function ProviderConfigDialog({
                     setShowKey(false);
                     setRevealedKey(null);
                   }}
-                  className="text-xs text-teal-500 hover:underline"
+                  className="text-xs text-status-info-fg hover:underline"
                 >
                   Cambiar API key
                 </button>
@@ -459,7 +459,7 @@ function ProviderConfigDialog({
                       <p className="font-medium text-gray-900 dark:text-gray-100">
                         {model.displayName}
                         {model.isDefault && (
-                          <span className="ml-1 text-[10px] text-teal-500"> ★ Actual</span>
+                          <span className="ml-1 text-[10px] text-status-info-fg"> ★ Actual</span>
                         )}
                       </p>
                       {model.description && (
@@ -477,8 +477,8 @@ function ProviderConfigDialog({
             <div
               className={`rounded-lg border px-3 py-2 text-sm ${
                 testResult.ok
-                  ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
-                  : 'border-red-500/30 bg-red-500/10 text-red-400'
+                  ? 'border-status-ok-border bg-status-ok-soft text-status-ok-fg'
+                  : 'border-status-danger-border bg-status-danger-soft text-status-danger-fg'
               }`}
             >
               {testResult.ok ? '✓' : '✗'} {testResult.msg}
@@ -504,7 +504,7 @@ function ProviderConfigDialog({
             <button
               onClick={handleSave}
               disabled={saving || (!apiKey && !provider.hasApiKey)}
-              className="rounded-lg bg-teal-600 px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-teal-700 disabled:opacity-50"
+              className="rounded-lg bg-status-info px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-teal-700 disabled:opacity-50"
             >
               {saving ? 'Guardando...' : 'Guardar y activar'}
             </button>

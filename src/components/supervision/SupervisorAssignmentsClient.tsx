@@ -460,7 +460,7 @@ export function SupervisorAssignmentsClient({ supervisors, installations }: Prop
                             <span
                               className={[
                                 "inline-flex h-5 w-5 transform items-center justify-center rounded-full bg-white transition-transform",
-                                assigned ? "translate-x-8 text-emerald-600" : "translate-x-1 text-muted-foreground",
+                                assigned ? "translate-x-8 text-status-ok-fg" : "translate-x-1 text-muted-foreground",
                               ].join(" ")}
                             >
                               {isUpdating ? (

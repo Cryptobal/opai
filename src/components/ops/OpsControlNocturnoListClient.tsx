@@ -56,8 +56,8 @@ interface Props {
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof Clock }> = {
   borrador: { label: "Borrador", color: "bg-zinc-500/15 text-zinc-400", icon: Clock },
-  enviado: { label: "Enviado", color: "bg-emerald-500/15 text-emerald-400", icon: CheckCircle2 },
-  aprobado: { label: "Enviado", color: "bg-emerald-500/15 text-emerald-400", icon: CheckCircle2 },
+  enviado: { label: "Enviado", color: "bg-status-ok-soft text-status-ok-fg", icon: CheckCircle2 },
+  aprobado: { label: "Enviado", color: "bg-status-ok-soft text-status-ok-fg", icon: CheckCircle2 },
 };
 
 function toDateInput(date: Date): string {
@@ -230,8 +230,8 @@ export function OpsControlNocturnoListClient(_props: Props) {
                 onClick={() => router.push(`/ops/control-nocturno/${r.id}`)}
               >
                 <div className="flex items-center gap-2 mb-2">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-500/10">
-                    <Moon className="h-4 w-4 text-indigo-400" />
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-status-info-soft">
+                    <Moon className="h-4 w-4 text-status-info-fg" />
                   </div>
                   <p className="text-sm font-semibold truncate">
                     {formatDateShort(r.date)}
@@ -247,7 +247,7 @@ export function OpsControlNocturnoListClient(_props: Props) {
                     {totalInst}
                   </span>
                   {conNovedad > 0 && (
-                    <span className="text-[11px] text-amber-400 font-medium">
+                    <span className="text-[11px] text-status-warn-fg font-medium">
                       {conNovedad} nov.
                     </span>
                   )}
@@ -278,8 +278,8 @@ export function OpsControlNocturnoListClient(_props: Props) {
               >
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-indigo-500/10">
-                      <Moon className="h-5 w-5 text-indigo-400" />
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-status-info-soft">
+                      <Moon className="h-5 w-5 text-status-info-fg" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
@@ -301,7 +301,7 @@ export function OpsControlNocturnoListClient(_props: Props) {
                           {totalInst}
                         </span>
                         {conNovedad > 0 && (
-                          <span className="text-[11px] text-amber-400 font-medium">
+                          <span className="text-[11px] text-status-warn-fg font-medium">
                             {conNovedad} novedad{conNovedad > 1 ? "es" : ""}
                           </span>
                         )}

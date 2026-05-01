@@ -145,7 +145,7 @@ export function ChipTabs({
                     tab.badgeVariant === "alert"
                       ? isActive
                         ? "hidden"
-                        : "bg-red-500 text-white"
+                        : "bg-status-danger text-white"
                       : isActive
                         ? "bg-[rgba(15,20,25,0.25)] text-[#0F1419]"
                         : "bg-[rgba(45,212,160,0.2)] text-[#2DD4A0]"

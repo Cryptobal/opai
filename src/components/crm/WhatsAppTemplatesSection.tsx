@@ -16,8 +16,8 @@ export function WhatsAppTemplatesSection() {
         href="/opai/documentos/templates?module=whatsapp"
         className="flex items-start gap-3 p-4 hover:bg-accent/30 transition-colors"
       >
-        <div className="h-10 w-10 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
-          <MessageSquare className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+        <div className="h-10 w-10 rounded-lg bg-status-ok-soft flex items-center justify-center shrink-0">
+          <MessageSquare className="h-5 w-5 text-status-ok-fg dark:text-status-ok-fg" />
         </div>
         <div className="flex-1 min-w-0">
           <CardTitle className="text-base flex items-center gap-1.5">

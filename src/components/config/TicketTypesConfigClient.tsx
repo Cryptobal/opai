@@ -77,10 +77,10 @@ interface TicketTypeFormData {
 // ═══════════════════════════════════════════════════════════════
 
 const ORIGIN_BADGE_VARIANT: Record<TicketOrigin, string> = {
-  guard: "bg-blue-500/15 text-blue-400 border-blue-500/30",
+  guard: "bg-status-info-soft text-status-info-fg border-status-info-border",
   internal: "bg-purple-500/15 text-purple-400 border-purple-500/30",
   both: "bg-muted text-muted-foreground border-border",
-  client: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+  client: "bg-status-ok-soft text-status-ok-fg border-status-ok-border",
 };
 
 function slugify(name: string): string {
@@ -965,7 +965,7 @@ function TicketTypeSection({
                       </td>
                       <td className="px-4 py-3">
                         {t.requiresApproval ? (
-                          <Check className="h-4 w-4 text-emerald-500" />
+                          <Check className="h-4 w-4 text-status-ok-fg" />
                         ) : (
                           <Minus className="h-4 w-4 text-muted-foreground/40" />
                         )}
@@ -979,7 +979,7 @@ function TicketTypeSection({
                           onClick={() => onToggleActive(t.id, !t.isActive)}
                           className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors cursor-pointer ${
                             t.isActive
-                              ? "bg-emerald-500/15 text-emerald-400"
+                              ? "bg-status-ok-soft text-status-ok-fg"
                               : "bg-muted text-muted-foreground"
                           }`}
                         >
@@ -1035,7 +1035,7 @@ function TicketTypeSection({
                         }}
                         className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${
                           t.isActive
-                            ? "bg-emerald-500/15 text-emerald-400"
+                            ? "bg-status-ok-soft text-status-ok-fg"
                             : "bg-muted text-muted-foreground"
                         }`}
                       >

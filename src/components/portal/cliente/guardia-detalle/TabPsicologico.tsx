@@ -10,15 +10,15 @@ interface Props {
 const BAND_LABELS: Record<"ALTO" | "MEDIO" | "BAJO", { label: string; tone: string }> = {
   ALTO: {
     label: "Alto ajuste",
-    tone: "text-emerald-400 bg-emerald-400/10 border-emerald-400/20",
+    tone: "text-status-ok-fg bg-emerald-400/10 border-emerald-400/20",
   },
   MEDIO: {
     label: "Ajuste medio",
-    tone: "text-amber-400 bg-amber-400/10 border-amber-400/20",
+    tone: "text-status-warn-fg bg-amber-400/10 border-amber-400/20",
   },
   BAJO: {
     label: "Ajuste bajo",
-    tone: "text-red-400 bg-red-400/10 border-red-400/20",
+    tone: "text-status-danger-fg bg-red-400/10 border-red-400/20",
   },
 };
 
@@ -40,7 +40,7 @@ export function TabPsicologico({ psicologico }: Props) {
     <div className="space-y-4">
       <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-5">
         <div className="flex items-center gap-3">
-          <Brain className="h-6 w-6 text-teal-400" />
+          <Brain className="h-6 w-6 text-status-info-fg" />
           <div className="flex-1">
             <p className="text-xs uppercase tracking-wider text-zinc-500">
               Resultado de evaluación
@@ -59,7 +59,7 @@ export function TabPsicologico({ psicologico }: Props) {
           </p>
         )}
         {psicologico.revisadoPorPsicologo && (
-          <div className="flex items-center gap-1.5 mt-2 text-[11px] text-emerald-400">
+          <div className="flex items-center gap-1.5 mt-2 text-[11px] text-status-ok-fg">
             <ShieldCheck className="h-3 w-3" />
             Revisado por psicólogo certificado
           </div>

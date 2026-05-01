@@ -96,7 +96,7 @@ export function ProtocolItemRow({
         <Button
           size="sm"
           variant="ghost"
-          className="h-7 w-7 p-0 text-muted-foreground hover:text-red-400"
+          className="h-7 w-7 p-0 text-muted-foreground hover:text-status-danger-fg"
           onClick={onDelete}
           aria-label="Eliminar ítem"
         >

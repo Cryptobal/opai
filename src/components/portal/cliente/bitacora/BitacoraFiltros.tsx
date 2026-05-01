@@ -38,7 +38,7 @@ export function BitacoraFiltros({ filtro, onFiltro, days, onDays }: Props) {
               onClick={() => onFiltro(c.value)}
               className={`whitespace-nowrap text-xs px-3 py-1 rounded-full border transition-colors ${
                 active
-                  ? "bg-teal-500/15 border-teal-400/40 text-teal-300"
+                  ? "bg-status-info-soft border-teal-400/40 text-status-info-fg"
                   : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700"
               }`}
             >
@@ -57,7 +57,7 @@ export function BitacoraFiltros({ filtro, onFiltro, days, onDays }: Props) {
             onClick={() => onDays(d)}
             className={`text-[11px] px-2.5 py-1 rounded-full border ${
               days === d
-                ? "bg-teal-500/15 border-teal-400/40 text-teal-300"
+                ? "bg-status-info-soft border-teal-400/40 text-status-info-fg"
                 : "bg-zinc-900 border-zinc-800 text-zinc-400"
             }`}
           >

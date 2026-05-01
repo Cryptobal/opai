@@ -426,8 +426,8 @@ export function CpqCatalogConfig({ showHeader = true }: { showHeader?: boolean }
             />
           </div>
         </div>
-        <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs space-y-2">
-          <div className="font-semibold text-emerald-300">Factor automático ajuste feriados</div>
+        <div className="rounded-md border border-status-ok-border bg-status-ok-soft p-3 text-xs space-y-2">
+          <div className="font-semibold text-status-ok-fg">Factor automático ajuste feriados</div>
           <div className="text-muted-foreground">
             <strong className="text-foreground">Factor mensual feriados</strong>:{" "}
             <span className="font-medium text-foreground">{formatNumber(holidayMonthlyFactor, { minDecimals: 3, maxDecimals: 3 })}</span> = {formatNumber(globalParams.holidayAnnualCount)} ÷ 12 (promedio de feriados por mes).
@@ -443,7 +443,7 @@ export function CpqCatalogConfig({ showHeader = true }: { showHeader?: boolean }
             </span>{" "}
             = 0,5 × factor mensual × factor comercial.
           </div>
-          <div className="border-t border-emerald-500/20 pt-2 mt-2 text-muted-foreground">
+          <div className="border-t border-status-ok-border pt-2 mt-2 text-muted-foreground">
             <strong className="text-foreground">Cómo se calcula:</strong>{" "}
             <strong className="text-emerald-200">
               Ajuste mensual feriados = (costo empresa mensual total guardias ÷ 30) × (feriados/año ÷ 12) × 0,5 × (1 + holgura%)
@@ -533,7 +533,7 @@ export function CpqCatalogConfig({ showHeader = true }: { showHeader?: boolean }
                         className={cn(
                           "rounded-md border p-2 space-y-3",
                           item.isDefault
-                            ? "border-emerald-500/50 bg-emerald-500/5"
+                            ? "border-status-ok-border bg-status-ok-soft"
                             : "border-border/60"
                         )}
                       >
@@ -550,7 +550,7 @@ export function CpqCatalogConfig({ showHeader = true }: { showHeader?: boolean }
                         >
                           <div className="min-w-0 flex items-center gap-2">
                             {item.isDefault && (
-                              <span className="shrink-0 rounded bg-emerald-500/20 px-1.5 py-0.5 text-xs font-medium text-emerald-500">
+                              <span className="shrink-0 rounded bg-status-ok-soft px-1.5 py-0.5 text-xs font-medium text-status-ok-fg">
                                 Default
                               </span>
                             )}

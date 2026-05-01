@@ -174,7 +174,7 @@ export function FollowUpConfigSection({ className }: FollowUpConfigSectionProps)
           </div>
           <div className="flex items-center gap-2">
             {config?.isActive && (
-              <Badge variant="outline" className="text-[10px] border-emerald-500/30 text-emerald-500">
+              <Badge variant="outline" className="text-[10px] border-status-ok-border text-status-ok-fg">
                 Activo
               </Badge>
             )}

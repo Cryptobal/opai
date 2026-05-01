@@ -94,7 +94,7 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
       {/* Login form */}
       <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-5">
         {error && (
-          <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+          <div className="rounded-xl border border-status-danger-border bg-status-danger-soft px-4 py-3 text-sm text-status-danger-fg">
             {error}
           </div>
         )}
@@ -153,7 +153,7 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
             type="checkbox"
             checked={remember}
             onChange={(e) => setRemember(e.target.checked)}
-            className="h-4 w-4 rounded border-gray-600 bg-gray-800 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-0"
+            className="h-4 w-4 rounded border-gray-600 bg-gray-800 text-status-info-fg focus:ring-cyan-500 focus:ring-offset-0"
           />
           Recordar sesion
         </label>

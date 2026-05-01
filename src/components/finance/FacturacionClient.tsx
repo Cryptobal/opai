@@ -115,9 +115,9 @@ const DTE_TYPE_LABELS: Record<number, string> = {
 };
 
 const SII_STATUS_CONFIG: Record<string, { label: string; className: string }> = {
-  PENDING: { label: "Pendiente", className: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
-  ACCEPTED: { label: "Aceptado", className: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
-  REJECTED: { label: "Rechazado", className: "bg-red-500/15 text-red-400 border-red-500/30" },
+  PENDING: { label: "Pendiente", className: "bg-status-warn-soft text-status-warn-fg border-status-warn-border" },
+  ACCEPTED: { label: "Aceptado", className: "bg-status-ok-soft text-status-ok-fg border-status-ok-border" },
+  REJECTED: { label: "Rechazado", className: "bg-status-danger-soft text-status-danger-fg border-status-danger-border" },
   ANNULLED: { label: "Anulado", className: "bg-zinc-500/15 text-zinc-400 border-zinc-500/30" },
 };
 
@@ -128,16 +128,16 @@ const fmtCLP = new Intl.NumberFormat("es-CL", {
 });
 
 const RECEPTION_STATUS_CONFIG: Record<string, { label: string; className: string }> = {
-  PENDING_REVIEW: { label: "Pendiente", className: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
-  ACCEPTED: { label: "Aceptado", className: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
-  CLAIMED: { label: "Reclamado", className: "bg-red-500/15 text-red-400 border-red-500/30" },
-  PARTIAL_CLAIM: { label: "Reclamo parcial", className: "bg-orange-500/15 text-orange-400 border-orange-500/30" },
+  PENDING_REVIEW: { label: "Pendiente", className: "bg-status-warn-soft text-status-warn-fg border-status-warn-border" },
+  ACCEPTED: { label: "Aceptado", className: "bg-status-ok-soft text-status-ok-fg border-status-ok-border" },
+  CLAIMED: { label: "Reclamado", className: "bg-status-danger-soft text-status-danger-fg border-status-danger-border" },
+  PARTIAL_CLAIM: { label: "Reclamo parcial", className: "bg-orange-500/15 text-status-warn-fg border-status-warn-border" },
 };
 
 const PAYMENT_STATUS_CONFIG: Record<string, { label: string; className: string }> = {
-  UNPAID: { label: "No pagado", className: "bg-red-500/15 text-red-400 border-red-500/30" },
-  PARTIAL: { label: "Parcial", className: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
-  PAID: { label: "Pagado", className: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
+  UNPAID: { label: "No pagado", className: "bg-status-danger-soft text-status-danger-fg border-status-danger-border" },
+  PARTIAL: { label: "Parcial", className: "bg-status-warn-soft text-status-warn-fg border-status-warn-border" },
+  PAID: { label: "Pagado", className: "bg-status-ok-soft text-status-ok-fg border-status-ok-border" },
 };
 
 const EMPTY_RECEIVED_FORM = {

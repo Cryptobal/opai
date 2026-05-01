@@ -450,10 +450,10 @@ export function MisRondas({
           <span className="flex items-center gap-1.5 text-sm">
             <span
               className={`inline-block h-2.5 w-2.5 rounded-full ${
-                isOnline ? "bg-green-500" : "bg-red-500"
+                isOnline ? "bg-status-ok" : "bg-status-danger"
               }`}
             />
-            <span className={isOnline ? "text-green-400" : "text-red-400"}>
+            <span className={isOnline ? "text-status-ok-fg" : "text-status-danger-fg"}>
               {isOnline ? "En l\u00EDnea" : "Sin conexi\u00F3n"}
             </span>
           </span>
@@ -478,7 +478,7 @@ export function MisRondas({
             {/* Info button: explains round logic */}
             <button
               onClick={() => setShowInfoModal(true)}
-              className="flex h-9 w-9 items-center justify-center rounded-lg bg-gray-800 text-teal-400 transition-colors active:bg-gray-700"
+              className="flex h-9 w-9 items-center justify-center rounded-lg bg-gray-800 text-status-info-fg transition-colors active:bg-gray-700"
               aria-label="Cómo funcionan las rondas"
               title="Cómo funcionan las rondas"
             >
@@ -523,7 +523,7 @@ export function MisRondas({
           className={`mb-2 flex w-full items-center justify-center gap-2 rounded-xl border py-4 text-lg font-semibold transition-colors ${
             blockIniciarLibre
               ? "border-gray-700/30 bg-gray-900/20 text-gray-600 cursor-not-allowed opacity-50"
-              : "border-teal-700/50 bg-teal-950/30 text-teal-400 hover:bg-teal-900/40 active:bg-teal-900/60"
+              : "border-teal-700/50 bg-teal-950/30 text-status-info-fg hover:bg-teal-900/40 active:bg-teal-900/60"
           }`}
           style={{ minHeight: 56 }}
         >
@@ -533,7 +533,7 @@ export function MisRondas({
           Iniciar Ronda Libre
         </button>
         {hasEnCurso && (
-          <div className="mb-2 flex items-center gap-2 rounded-lg border border-teal-500/30 bg-teal-500/10 px-3 py-2 text-sm text-teal-300">
+          <div className="mb-2 flex items-center gap-2 rounded-lg border border-status-info-border bg-status-info-soft px-3 py-2 text-sm text-status-info-fg">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
@@ -543,7 +543,7 @@ export function MisRondas({
           </div>
         )}
         {hasActionableScheduled && !hasEnCurso && (
-          <div className="mb-4 flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-400">
+          <div className="mb-4 flex items-center gap-2 rounded-lg border border-status-warn-border bg-status-warn-soft px-3 py-2 text-sm text-status-warn-fg">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
             </svg>
@@ -556,7 +556,7 @@ export function MisRondas({
 
         {/* Error */}
         {error && (
-          <div className="mb-4 rounded-lg bg-red-500/20 px-4 py-3 text-center text-base text-red-300">
+          <div className="mb-4 rounded-lg bg-status-danger-soft px-4 py-3 text-center text-base text-status-danger-fg">
             {error}
           </div>
         )}
@@ -565,7 +565,7 @@ export function MisRondas({
         {loading && rondas.length === 0 && (
           <div className="flex flex-col items-center justify-center py-20">
             <svg
-              className="h-10 w-10 animate-spin text-teal-500"
+              className="h-10 w-10 animate-spin text-status-info-fg"
               xmlns="http://www.w3.org/2000/svg"
               fill="none"
               viewBox="0 0 24 24"
@@ -621,15 +621,15 @@ export function MisRondas({
 
               const labelColor =
                 section.key === "en_curso"
-                  ? "text-teal-400"
+                  ? "text-status-info-fg"
                   : section.key === "listas"
-                    ? "text-green-400"
+                    ? "text-status-ok-fg"
                     : section.key === "con_retraso"
-                      ? "text-orange-400"
+                      ? "text-status-warn-fg"
                       : section.key === "no_realizadas"
-                        ? "text-red-400"
+                        ? "text-status-danger-fg"
                         : section.key === "completadas"
-                          ? "text-green-400"
+                          ? "text-status-ok-fg"
                           : "text-gray-400";
 
               return (
@@ -649,8 +649,8 @@ export function MisRondas({
                       <span
                         className={`ml-1 rounded-full px-2 py-0.5 text-xs font-semibold ${
                           section.key === "no_realizadas"
-                            ? "bg-red-500/20 text-red-400"
-                            : "bg-green-500/20 text-green-400"
+                            ? "bg-status-danger-soft text-status-danger-fg"
+                            : "bg-green-500/20 text-status-ok-fg"
                         }`}
                       >
                         {items.length}
@@ -711,7 +711,7 @@ export function MisRondas({
           {historialLoading && (
             <div className="flex items-center justify-center py-8">
               <svg
-                className="h-6 w-6 animate-spin text-teal-500"
+                className="h-6 w-6 animate-spin text-status-info-fg"
                 xmlns="http://www.w3.org/2000/svg"
                 fill="none"
                 viewBox="0 0 24 24"
@@ -784,7 +784,7 @@ export function MisRondas({
               Mínimo 3 caracteres
             </p>
             {closeError && (
-              <p className="mb-3 text-sm text-red-400">{closeError}</p>
+              <p className="mb-3 text-sm text-status-danger-fg">{closeError}</p>
             )}
             <div className="flex gap-3">
               <button
@@ -803,7 +803,7 @@ export function MisRondas({
                 type="button"
                 onClick={() => void confirmCerrarRonda()}
                 disabled={closeSubmitting || closeReason.trim().length < 3}
-                className="flex-1 rounded-xl bg-red-600 py-3 text-base font-semibold text-white transition-colors hover:bg-red-500 disabled:opacity-40"
+                className="flex-1 rounded-xl bg-status-danger py-3 text-base font-semibold text-white transition-colors hover:bg-status-danger disabled:opacity-40"
               >
                 {closeSubmitting ? "Cerrando..." : "Confirmar cierre"}
               </button>
@@ -844,7 +844,7 @@ export function MisRondas({
             </div>
             <div className="space-y-4 text-sm text-gray-300">
               <section>
-                <p className="mb-1 font-semibold text-teal-400">Rondas Programadas</p>
+                <p className="mb-1 font-semibold text-status-info-fg">Rondas Programadas</p>
                 <ul className="space-y-1.5 text-gray-400">
                   <li>• Puedes iniciar una ronda desde su hora programada hasta la <strong className="text-gray-200">mitad del tiempo</strong> entre rondas (ej: si las rondas son cada 1 hora, tienes hasta 30 min para comenzar).</li>
                   <li>• Si no la inicias en ese tiempo, la ronda queda como <strong className="text-gray-200">No Realizada</strong>.</li>
@@ -853,7 +853,7 @@ export function MisRondas({
                 </ul>
               </section>
               <section>
-                <p className="mb-1 font-semibold text-teal-400">Ronda Libre</p>
+                <p className="mb-1 font-semibold text-status-info-fg">Ronda Libre</p>
                 <ul className="space-y-1.5 text-gray-400">
                   <li>• Puedes iniciarla <strong className="text-gray-200">en cualquier momento</strong>, siempre que no haya una ronda programada en curso o pendiente.</li>
                   <li>• Funciona igual que una ronda programada: debes marcar los checkpoints dentro del radio de geocerca.</li>
@@ -861,7 +861,7 @@ export function MisRondas({
                 </ul>
               </section>
               <section>
-                <p className="mb-1 font-semibold text-teal-400">Marcación de Checkpoints</p>
+                <p className="mb-1 font-semibold text-status-info-fg">Marcación de Checkpoints</p>
                 <ul className="space-y-1.5 text-gray-400">
                   <li>• Solo se registra como válida si estás <strong className="text-gray-200">dentro del radio del checkpoint</strong> (geocerca).</li>
                   <li>• Si el checkpoint tiene QR, debes escanearlo <em>y</em> estar dentro del radio.</li>
@@ -896,9 +896,9 @@ function HistorialCard({
 
   const statusBg =
     item.status === "completada"
-      ? "bg-green-500/20 text-green-400"
+      ? "bg-green-500/20 text-status-ok-fg"
       : item.status === "incompleta"
-        ? "bg-amber-500/20 text-amber-400"
+        ? "bg-status-warn-soft text-status-warn-fg"
         : "bg-gray-700/50 text-gray-400";
   const statusLabel =
     item.status === "completada"
@@ -911,10 +911,10 @@ function HistorialCard({
 
   const scoreColor =
     item.trustScore >= 80
-      ? "text-green-400"
+      ? "text-status-ok-fg"
       : item.trustScore >= 50
-        ? "text-yellow-400"
-        : "text-red-400";
+        ? "text-status-warn-fg"
+        : "text-status-danger-fg";
 
   return (
     <button
@@ -1046,22 +1046,22 @@ function RondaCard({
         </h3>
         <div className="flex shrink-0 items-center gap-2">
           {isConRetraso && (
-            <span className="rounded-full bg-orange-500/20 px-2 py-0.5 text-xs font-medium text-orange-400">
+            <span className="rounded-full bg-orange-500/20 px-2 py-0.5 text-xs font-medium text-status-warn-fg">
               Retraso
             </span>
           )}
           {isNoRealizada && (
-            <span className="rounded-full bg-red-500/20 px-2 py-0.5 text-xs font-medium text-red-400">
+            <span className="rounded-full bg-status-danger-soft px-2 py-0.5 text-xs font-medium text-status-danger-fg">
               No realizada
             </span>
           )}
           {ronda.status === "cerrada_auto" && (
-            <span className="rounded-full bg-orange-500/20 px-2 py-0.5 text-xs font-medium text-orange-400">
+            <span className="rounded-full bg-orange-500/20 px-2 py-0.5 text-xs font-medium text-status-warn-fg">
               Cerrada auto
             </span>
           )}
           {ronda.status === "cerrada_admin" && (
-            <span className="rounded-full bg-red-500/20 px-2 py-0.5 text-xs font-medium text-red-400">
+            <span className="rounded-full bg-status-danger-soft px-2 py-0.5 text-xs font-medium text-status-danger-fg">
               Cerrada admin
             </span>
           )}
@@ -1076,11 +1076,11 @@ function RondaCard({
         <p
           className={`mb-2 text-sm font-medium ${
             isEnCurso
-              ? "text-teal-400"
+              ? "text-status-info-fg"
               : isConRetraso
-                ? "text-orange-400"
+                ? "text-status-warn-fg"
                 : isNoRealizada
-                  ? "text-red-400"
+                  ? "text-status-danger-fg"
                   : isProxima
                     ? "text-gray-400"
                     : "text-gray-500"
@@ -1101,7 +1101,7 @@ function RondaCard({
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-gray-800">
             <div
-              className="h-full rounded-full bg-teal-500 transition-all"
+              className="h-full rounded-full bg-status-info transition-all"
               style={{ width: `${progress}%` }}
             />
           </div>
@@ -1131,17 +1131,17 @@ function RondaCard({
             <span
               className={`font-medium ${
                 ronda.trustScore >= 80
-                  ? "text-green-400"
+                  ? "text-status-ok-fg"
                   : ronda.trustScore >= 50
-                    ? "text-yellow-400"
-                    : "text-red-400"
+                    ? "text-status-warn-fg"
+                    : "text-status-danger-fg"
               }`}
             >
               Score: {ronda.trustScore}
             </span>
           )}
           {ronda.status === "incompleta" && (
-            <span className="rounded-full bg-red-500/20 px-2 py-0.5 text-xs font-medium text-red-400">
+            <span className="rounded-full bg-status-danger-soft px-2 py-0.5 text-xs font-medium text-status-danger-fg">
               Incompleta
             </span>
           )}
@@ -1166,7 +1166,7 @@ function RondaCard({
           <button
             type="button"
             onClick={() => onIniciar(ronda.ejecucionId)}
-            className="rounded-xl bg-teal-600 py-3.5 text-sm font-semibold leading-tight text-white transition-colors hover:bg-teal-500 active:bg-teal-700 sm:text-base"
+            className="rounded-xl bg-status-info py-3.5 text-sm font-semibold leading-tight text-white transition-colors hover:bg-status-info active:bg-teal-700 sm:text-base"
             style={{ minHeight: 52 }}
           >
             Continuar ronda
@@ -1174,7 +1174,7 @@ function RondaCard({
           <button
             type="button"
             onClick={() => onPedirCerrar(ronda.ejecucionId)}
-            className="rounded-xl border-2 border-red-600/80 bg-red-950/40 py-3.5 text-sm font-semibold leading-tight text-red-400 transition-colors hover:bg-red-950/70 active:bg-red-950 sm:text-base"
+            className="rounded-xl border-2 border-red-600/80 bg-red-950/40 py-3.5 text-sm font-semibold leading-tight text-status-danger-fg transition-colors hover:bg-red-950/70 active:bg-red-950 sm:text-base"
             style={{ minHeight: 52 }}
           >
             Cerrar ronda
@@ -1185,7 +1185,7 @@ function RondaCard({
       {isLista && (
         <button
           onClick={() => onIniciar(ronda.ejecucionId)}
-          className="mt-1 w-full rounded-xl bg-teal-600 py-4 text-lg font-semibold text-white transition-colors hover:bg-teal-500 active:bg-teal-700"
+          className="mt-1 w-full rounded-xl bg-status-info py-4 text-lg font-semibold text-white transition-colors hover:bg-status-info active:bg-teal-700"
           style={{ minHeight: 56 }}
         >
           Iniciar Ronda
@@ -1195,7 +1195,7 @@ function RondaCard({
       {isConRetraso && (
         <button
           onClick={() => onIniciar(ronda.ejecucionId)}
-          className="mt-1 w-full rounded-xl bg-orange-600 py-4 text-lg font-semibold text-white transition-colors hover:bg-orange-500 active:bg-orange-700"
+          className="mt-1 w-full rounded-xl bg-orange-600 py-4 text-lg font-semibold text-white transition-colors hover:bg-status-warn active:bg-orange-700"
           style={{ minHeight: 56 }}
         >
           Iniciar Ronda (Con Retraso)

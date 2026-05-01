@@ -302,9 +302,9 @@ export function ProtocolDocumentsSubTab({ installationId }: Props) {
 
             {/* Documentos legacy — ProtocolDocument scope=global */}
             {legacyDocs.length > 0 && (
-              <div className="rounded-xl border border-amber-500/30 bg-amber-500/[0.04] p-3 space-y-2">
+              <div className="rounded-xl border border-status-warn-border bg-amber-500/[0.04] p-3 space-y-2">
                 <div className="flex items-start gap-2">
-                  <Info className="h-3.5 w-3.5 text-amber-300 mt-0.5 shrink-0" />
+                  <Info className="h-3.5 w-3.5 text-status-warn-fg mt-0.5 shrink-0" />
                   <p className="text-[11px] leading-relaxed text-amber-200/80">
                     Hay {legacyDocs.length}{" "}
                     {legacyDocs.length === 1
@@ -319,9 +319,9 @@ export function ProtocolDocumentsSubTab({ installationId }: Props) {
                   {legacyDocs.map((d) => (
                     <div
                       key={d.id}
-                      className="flex items-center gap-2 rounded-lg border border-amber-500/20 bg-background/40 px-3 py-2 text-xs"
+                      className="flex items-center gap-2 rounded-lg border border-status-warn-border bg-background/40 px-3 py-2 text-xs"
                     >
-                      <FileText className="h-3.5 w-3.5 text-amber-300 shrink-0" />
+                      <FileText className="h-3.5 w-3.5 text-status-warn-fg shrink-0" />
                       <span className="truncate text-foreground">
                         {d.fileName}
                       </span>
@@ -352,7 +352,7 @@ export function ProtocolDocumentsSubTab({ installationId }: Props) {
       <section className="space-y-3">
         <header className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <div className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-300">
+            <div className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-status-ok-soft text-status-ok-fg">
               <Sparkles className="h-4 w-4" />
             </div>
             <div>
@@ -425,7 +425,7 @@ export function ProtocolDocumentsSubTab({ installationId }: Props) {
             {pdfRefDocs.map((doc) => (
               <Card key={doc.id} className="bg-card/60 border-border/60">
                 <CardContent className="flex items-center gap-3 py-3 px-4">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-300">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-status-ok-soft text-status-ok-fg">
                     <FileText className="h-4 w-4" />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -466,7 +466,7 @@ export function ProtocolDocumentsSubTab({ installationId }: Props) {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-8 w-8 p-0 text-muted-foreground hover:text-red-400"
+                      className="h-8 w-8 p-0 text-muted-foreground hover:text-status-danger-fg"
                       onClick={() => setDeleteId(doc.id)}
                       title="Eliminar"
                     >
@@ -480,7 +480,7 @@ export function ProtocolDocumentsSubTab({ installationId }: Props) {
         )}
 
         <div className="flex items-start gap-2 rounded-xl border border-border/60 bg-muted/20 p-3">
-          <AlertTriangle className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
+          <AlertTriangle className="h-4 w-4 text-status-warn-fg mt-0.5 shrink-0" />
           <p className="text-xs leading-relaxed text-muted-foreground">
             Estos PDFs no son visibles para los clientes ni cuentan como
             documentos oficiales. Se usan únicamente como contexto para que la

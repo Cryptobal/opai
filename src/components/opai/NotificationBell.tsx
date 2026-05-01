@@ -299,7 +299,7 @@ export function NotificationBell({ compact = false }: { compact?: boolean }) {
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={(e) => e.stopPropagation()}
-                        className="inline-flex items-center gap-1.5 mt-2 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 text-xs font-medium text-emerald-600 hover:bg-emerald-500/20 transition-colors"
+                        className="inline-flex items-center gap-1.5 mt-2 rounded-full bg-status-ok-soft border border-status-ok-border px-3 py-1 text-xs font-medium text-status-ok-fg hover:bg-status-ok-soft transition-colors"
                       >
                         <MessageSquare className="h-3 w-3" />
                         Enviar WhatsApp

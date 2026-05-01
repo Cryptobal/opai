@@ -236,19 +236,19 @@ export interface AlertaDetalle extends AlertaCobertura {
 }
 
 export const ESTADO_BADGE: Record<string, { label: string; className: string }> = {
-  ACTIVA: { label: "Activa", className: "bg-blue-500/20 text-blue-400 border-blue-500/30" },
-  ACEPTADA: { label: "Aceptada", className: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" },
-  PENDIENTE_CONFIRMACION: { label: "Pendiente Confirmación", className: "bg-amber-500/20 text-amber-400 border-amber-500/30" },
-  CONFIRMADA: { label: "Confirmada", className: "bg-green-500/20 text-green-400 border-green-500/30" },
-  ASIGNADA_PAUTA: { label: "Asignada Pauta", className: "bg-teal-500/20 text-teal-400 border-teal-500/30" },
-  CANCELADA: { label: "Cancelada", className: "bg-red-500/20 text-red-400 border-red-500/30" },
+  ACTIVA: { label: "Activa", className: "bg-status-info-soft text-status-info-fg border-status-info-border" },
+  ACEPTADA: { label: "Aceptada", className: "bg-status-ok-soft text-status-ok-fg border-status-ok-border" },
+  PENDIENTE_CONFIRMACION: { label: "Pendiente Confirmación", className: "bg-status-warn-soft text-status-warn-fg border-status-warn-border" },
+  CONFIRMADA: { label: "Confirmada", className: "bg-green-500/20 text-status-ok-fg border-status-ok-border" },
+  ASIGNADA_PAUTA: { label: "Asignada Pauta", className: "bg-teal-500/20 text-status-info-fg border-status-info-border" },
+  CANCELADA: { label: "Cancelada", className: "bg-status-danger-soft text-status-danger-fg border-status-danger-border" },
   EXPIRADA: { label: "Expirada", className: "bg-gray-500/20 text-gray-400 border-gray-500/30" },
-  NO_CUBIERTA: { label: "No Cubierta", className: "bg-orange-500/20 text-orange-400 border-orange-500/30" },
+  NO_CUBIERTA: { label: "No Cubierta", className: "bg-orange-500/20 text-status-warn-fg border-status-warn-border" },
 };
 
 export const URGENCIA_BADGE: Record<string, { label: string; className: string }> = {
-  URGENTE: { label: "Urgente", className: "bg-red-500/20 text-red-400 border-red-500/30 animate-pulse" },
-  HOY: { label: "Hoy", className: "bg-amber-500/20 text-amber-400 border-amber-500/30" },
+  URGENTE: { label: "Urgente", className: "bg-status-danger-soft text-status-danger-fg border-status-danger-border animate-pulse" },
+  HOY: { label: "Hoy", className: "bg-status-warn-soft text-status-warn-fg border-status-warn-border" },
   PROGRAMADA: { label: "Programada", className: "bg-gray-500/20 text-gray-400 border-gray-500/30" },
 };
 

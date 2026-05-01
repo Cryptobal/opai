@@ -237,7 +237,7 @@ export function RolePreviewConfig({ permissions, isAdminRole }: RolePreviewConfi
                         {item.title}
                       </span>
                       {item.adminOnly && (
-                        <span className="text-[9px] font-semibold uppercase px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 shrink-0">
+                        <span className="text-[9px] font-semibold uppercase px-1.5 py-0.5 rounded bg-status-warn-soft text-status-warn-fg shrink-0">
                           Admin
                         </span>
                       )}
@@ -261,7 +261,7 @@ export function RolePreviewConfig({ permissions, isAdminRole }: RolePreviewConfi
         })}
         {!isAdminRole && (
           <p className="text-[10px] text-muted-foreground/60 px-1">
-            Las páginas marcadas con <strong className="text-amber-500">Admin</strong> requieren rol owner/admin además del permiso de submódulo.
+            Las páginas marcadas con <strong className="text-status-warn-fg">Admin</strong> requieren rol owner/admin además del permiso de submódulo.
           </p>
         )}
       </div>

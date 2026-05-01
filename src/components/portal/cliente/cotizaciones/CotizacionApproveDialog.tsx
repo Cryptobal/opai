@@ -87,9 +87,9 @@ export function CotizacionApproveDialog({
         {success ? (
           <div className="flex flex-col items-center gap-3 py-6">
             <div className="w-14 h-14 rounded-full bg-emerald-900/40 flex items-center justify-center">
-              <Check className="w-7 h-7 text-emerald-400" />
+              <Check className="w-7 h-7 text-status-ok-fg" />
             </div>
-            <p className="text-sm font-medium text-emerald-300">
+            <p className="text-sm font-medium text-status-ok-fg">
               {isProspect ? "¡Propuesta aceptada!" : "¡Cotización aprobada!"}
             </p>
             <p className="text-xs text-zinc-400 text-center">
@@ -100,7 +100,7 @@ export function CotizacionApproveDialog({
           <>
             <DialogHeader>
               <DialogTitle className="text-base flex items-center gap-2">
-                <Check className="w-5 h-5 text-emerald-400" />
+                <Check className="w-5 h-5 text-status-ok-fg" />
                 {isProspect ? "Aceptar propuesta" : "Confirmar aprobación"}
               </DialogTitle>
               <DialogDescription className="sr-only">
@@ -115,7 +115,7 @@ export function CotizacionApproveDialog({
               <p className="text-sm text-zinc-200 font-medium">&ldquo;{quoteName}&rdquo;</p>
               <p className="text-sm text-zinc-400">
                 Valor mensual:{" "}
-                <span className="text-teal-400 font-semibold">
+                <span className="text-status-info-fg font-semibold">
                   {formatCurrency(monthlyCost, currency === "UF" ? "UF" : "CLP")}
                 </span>
               </p>
@@ -130,11 +130,11 @@ export function CotizacionApproveDialog({
 
               {/* Missing fields warning */}
               {readinessChecked && missing.length > 0 && (
-                <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
+                <div className="rounded-lg border border-status-warn-border bg-status-warn-soft p-3 space-y-2">
                   <div className="flex items-start gap-2">
-                    <AlertTriangle className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
+                    <AlertTriangle className="w-4 h-4 text-status-warn-fg mt-0.5 shrink-0" />
                     <div className="space-y-1.5">
-                      <p className="text-xs text-amber-200 font-medium">
+                      <p className="text-xs text-status-warn-fg font-medium">
                         Debes completar los siguientes datos antes de continuar:
                       </p>
                       <ul className="text-xs text-amber-200/70 list-disc list-inside space-y-0.5">
@@ -149,7 +149,7 @@ export function CotizacionApproveDialog({
                             onOpenChange(false);
                             onNavigateToEmpresa();
                           }}
-                          className="mt-1 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/20 text-xs font-medium text-amber-300 hover:bg-amber-500/30 hover:text-amber-200 transition-colors"
+                          className="mt-1 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-status-warn-soft text-xs font-medium text-status-warn-fg hover:bg-amber-500/30 hover:text-status-warn-fg transition-colors"
                         >
                           Ir a completar datos de empresa
                         </button>

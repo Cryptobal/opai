@@ -95,9 +95,9 @@ export function InSiteList({ installationId, guardId, maxStayHours, onExitRegist
   };
 
   const colorClasses = {
-    green: "bg-emerald-500/10 border-emerald-500/30 text-emerald-400",
-    yellow: "bg-amber-500/10 border-amber-500/30 text-amber-400",
-    red: "bg-red-500/10 border-red-500/30 text-red-400",
+    green: "bg-status-ok-soft border-status-ok-border text-status-ok-fg",
+    yellow: "bg-status-warn-soft border-status-warn-border text-status-warn-fg",
+    red: "bg-status-danger-soft border-status-danger-border text-status-danger-fg",
   };
 
   return (
@@ -106,7 +106,7 @@ export function InSiteList({ installationId, guardId, maxStayHours, onExitRegist
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4 text-sm">
           <span className="flex items-center gap-1 text-zinc-300">
-            <Users className="h-4 w-4 text-blue-400" />
+            <Users className="h-4 w-4 text-status-info-fg" />
             {counts.persons} personas
           </span>
           <span className="flex items-center gap-1 text-zinc-300">

@@ -143,7 +143,7 @@ export function ResetPasswordForm({ token, email }: ResetPasswordFormProps) {
 
       {error && (
         <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-4 py-3">
-          <p className="text-sm text-red-400">{error}</p>
+          <p className="text-sm text-status-danger-fg">{error}</p>
         </div>
       )}
 

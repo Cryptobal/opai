@@ -26,7 +26,7 @@ export function OpaiBadge({
     <span
       className={cn(
         "inline-flex items-center gap-1 text-[10px] uppercase tracking-wider font-medium rounded-full px-2 py-0.5",
-        "bg-teal-500/10 text-teal-400/80 border border-teal-500/15",
+        "bg-status-info-soft text-teal-400/80 border border-teal-500/15",
         className,
       )}
     >

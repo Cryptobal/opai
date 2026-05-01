@@ -5,9 +5,9 @@ import type { HubNotificationsProps, NotificationType } from '../_lib/hub-types'
 
 const typeColors: Record<NotificationType, string> = {
   comercial: 'bg-purple-500',
-  operaciones: 'bg-emerald-500',
-  finanzas: 'bg-amber-500',
-  leads: 'bg-blue-500',
+  operaciones: 'bg-status-ok',
+  finanzas: 'bg-status-warn',
+  leads: 'bg-status-info',
 };
 
 export function HubNotifications({ notifications }: HubNotificationsProps) {

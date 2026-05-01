@@ -645,20 +645,20 @@ export function CheckpointMarker({
                 <div
                   className={`relative flex h-24 w-24 items-center justify-center rounded-full border-3 ${
                     gpsStatus === "success"
-                      ? "border-emerald-500/50 bg-emerald-500/15"
+                      ? "border-status-ok-border bg-status-ok-soft"
                       : gpsStatus === "loading"
-                        ? "border-yellow-500/50 bg-yellow-500/10"
-                        : "border-red-500/50 bg-red-500/10"
+                        ? "border-yellow-500/50 bg-status-warn-soft"
+                        : "border-status-danger-border bg-status-danger-soft"
                   }`}
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     className={`h-10 w-10 ${
                       gpsStatus === "success"
-                        ? "text-emerald-400"
+                        ? "text-status-ok-fg"
                         : gpsStatus === "loading"
-                          ? "text-yellow-400 animate-pulse"
-                          : "text-red-400"
+                          ? "text-status-warn-fg animate-pulse"
+                          : "text-status-danger-fg"
                     }`}
                     fill="none"
                     viewBox="0 0 24 24"
@@ -672,7 +672,7 @@ export function CheckpointMarker({
               </div>
 
               <p className={`mt-3 text-lg font-semibold ${
-                gpsStatus === "success" ? "text-emerald-400" : gpsStatus === "loading" ? "text-yellow-400" : "text-red-400"
+                gpsStatus === "success" ? "text-status-ok-fg" : gpsStatus === "loading" ? "text-status-warn-fg" : "text-status-danger-fg"
               }`}>
                 {gpsStatus === "success" ? "GPS Listo" : gpsStatus === "loading" ? "Obteniendo GPS..." : "Error GPS"}
               </p>
@@ -716,7 +716,7 @@ export function CheckpointMarker({
               {photoPreview && (
                 <button
                   onClick={removePhoto}
-                  className="rounded-xl border border-red-800/50 bg-red-950/20 px-3 py-2.5 text-sm text-red-400"
+                  className="rounded-xl border border-red-800/50 bg-red-950/20 px-3 py-2.5 text-sm text-status-danger-fg"
                 >
                   Quitar
                 </button>
@@ -732,7 +732,7 @@ export function CheckpointMarker({
             />
 
             {submitError && (
-              <div className="mb-3 rounded-lg bg-red-500/20 px-3 py-2 text-center text-sm text-red-300">
+              <div className="mb-3 rounded-lg bg-status-danger-soft px-3 py-2 text-center text-sm text-status-danger-fg">
                 {submitError}
               </div>
             )}
@@ -740,7 +740,7 @@ export function CheckpointMarker({
             <button
               onClick={handleSubmit}
               disabled={!canSubmit}
-              className="w-full rounded-xl bg-teal-600 py-3.5 text-base font-semibold text-white transition-colors active:bg-teal-700 disabled:opacity-40"
+              className="w-full rounded-xl bg-status-info py-3.5 text-base font-semibold text-white transition-colors active:bg-teal-700 disabled:opacity-40"
             >
               {submitting ? "Registrando..." : "Confirmar Marcacion"}
             </button>
@@ -798,7 +798,7 @@ export function CheckpointMarker({
           </button>
           <div className="relative w-full max-h-[50vh] bg-zinc-900 rounded-t-2xl overflow-y-auto animate-slide-up">
             {showSuccessFlash && (
-              <div className="pointer-events-none absolute inset-0 z-50 rounded-t-2xl bg-emerald-500/20 transition-opacity" />
+              <div className="pointer-events-none absolute inset-0 z-50 rounded-t-2xl bg-status-ok-soft transition-opacity" />
             )}
             <div className="flex justify-center py-2.5 px-4 sticky top-0 bg-zinc-900 z-10">
               <div className="w-10 h-1 bg-zinc-600 rounded-full" />
@@ -807,15 +807,15 @@ export function CheckpointMarker({
             <div className="space-y-3 px-4" style={{ paddingBottom: "calc(5rem + env(safe-area-inset-bottom, 0px))" }}>
               {/* Checkpoint name + validated badge */}
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-500/20">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-status-ok-soft">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-status-ok-fg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
                 </div>
                 <div className="min-w-0 flex-1">
                   <h2 className="text-base font-semibold text-white">{checkpoint.name}</h2>
-                  <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/20 px-2 py-0.5 text-xs font-medium text-emerald-400">
+                  <span className="inline-flex items-center gap-1 rounded-md bg-status-ok-soft px-2 py-0.5 text-xs font-medium text-status-ok-fg">
                     {"\u2713"} Geocerca validada
                   </span>
                 </div>
@@ -825,7 +825,7 @@ export function CheckpointMarker({
               {needsQr && (
                 <div>
                   {qrCode ? (
-                    <div className="flex items-center gap-2 rounded-lg bg-emerald-950/30 px-3 py-2 text-sm text-emerald-400">
+                    <div className="flex items-center gap-2 rounded-lg bg-emerald-950/30 px-3 py-2 text-sm text-status-ok-fg">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                       </svg>
@@ -860,7 +860,7 @@ export function CheckpointMarker({
                 {photoPreview && (
                   <button
                     onClick={removePhoto}
-                    className="rounded-xl border border-red-800/50 bg-red-950/20 px-3 py-2 text-sm text-red-400"
+                    className="rounded-xl border border-red-800/50 bg-red-950/20 px-3 py-2 text-sm text-status-danger-fg"
                   >
                     Quitar
                   </button>
@@ -868,7 +868,7 @@ export function CheckpointMarker({
               </div>
 
               {submitError && (
-                <div className="rounded-lg bg-red-500/20 px-3 py-2 text-center text-sm text-red-300">
+                <div className="rounded-lg bg-status-danger-soft px-3 py-2 text-center text-sm text-status-danger-fg">
                   {submitError}
                 </div>
               )}
@@ -876,7 +876,7 @@ export function CheckpointMarker({
               <button
                 onClick={handleSubmit}
                 disabled={!canSubmit}
-                className="w-full rounded-xl bg-emerald-600 py-3.5 text-base font-semibold text-white transition-colors active:bg-emerald-700 disabled:opacity-40"
+                className="w-full rounded-xl bg-status-ok py-3.5 text-base font-semibold text-white transition-colors active:bg-emerald-700 disabled:opacity-40"
                 style={{ minHeight: 48 }}
               >
                 {submitting ? "Registrando..." : "Confirmar Marcacion"}
@@ -923,7 +923,7 @@ export function CheckpointMarker({
         {/* Sheet */}
         <div className="relative w-full max-h-[85vh] bg-zinc-900 rounded-t-2xl flex flex-col animate-slide-up">
           {showSuccessFlash && (
-            <div className="pointer-events-none absolute inset-0 z-50 rounded-t-2xl bg-emerald-500/20 transition-opacity" />
+            <div className="pointer-events-none absolute inset-0 z-50 rounded-t-2xl bg-status-ok-soft transition-opacity" />
           )}
           {/* Header: drag handle (drag-down or backdrop tap closes) */}
           <div className="flex justify-center py-2.5 px-4 shrink-0 rounded-t-2xl bg-zinc-900">
@@ -935,8 +935,8 @@ export function CheckpointMarker({
             {/* ---- Checkpoint name + geo status ---- */}
             <div className="flex items-center gap-3">
               {isInGeofence && (
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-500/20">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-status-ok-soft">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-status-ok-fg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
@@ -945,7 +945,7 @@ export function CheckpointMarker({
               <div className="min-w-0 flex-1">
                 <h2 className="text-lg font-semibold text-white">{checkpoint.name}</h2>
                 {isInGeofence && (
-                  <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/20 px-2 py-0.5 text-xs font-medium text-emerald-400">
+                  <span className="inline-flex items-center gap-1 rounded-md bg-status-ok-soft px-2 py-0.5 text-xs font-medium text-status-ok-fg">
                     {"\u2713"} Geocerca validada
                   </span>
                 )}
@@ -955,7 +955,7 @@ export function CheckpointMarker({
             {/* ---- Instructions ---- */}
             {checkpoint.instrucciones && (
               <div className="rounded-lg bg-blue-950/30 border border-blue-800/30 p-3">
-                <p className="text-xs font-medium text-blue-400 mb-1">Instrucciones</p>
+                <p className="text-xs font-medium text-status-info-fg mb-1">Instrucciones</p>
                 <p className="text-sm text-gray-300">{checkpoint.instrucciones}</p>
               </div>
             )}
@@ -966,7 +966,7 @@ export function CheckpointMarker({
                 <p className="text-sm font-medium text-gray-200">
                   Tareas del punto
                   {tasks.some((t) => t.required) && (
-                    <span className="text-[11px] text-red-400 ml-1">* obligatorias</span>
+                    <span className="text-[11px] text-status-danger-fg ml-1">* obligatorias</span>
                   )}
                 </p>
                 {tasks.map((task) => (
@@ -976,7 +976,7 @@ export function CheckpointMarker({
                   >
                     <p className="text-sm text-gray-200">
                       {task.label}
-                      {task.required && <span className="text-red-400 ml-1">*</span>}
+                      {task.required && <span className="text-status-danger-fg ml-1">*</span>}
                     </p>
 
                     {/* Boolean: Yes/No buttons */}
@@ -995,8 +995,8 @@ export function CheckpointMarker({
                               className={`flex-1 rounded-xl py-3.5 text-base font-semibold transition-colors ${
                                 isSelected
                                   ? opt.color === "teal"
-                                    ? "bg-teal-600 text-white"
-                                    : "bg-red-600 text-white"
+                                    ? "bg-status-info text-white"
+                                    : "bg-status-danger text-white"
                                   : "border border-gray-700 bg-gray-800 text-gray-300"
                               }`}
                               style={{ minHeight: 48 }}
@@ -1050,7 +1050,7 @@ export function CheckpointMarker({
                               onClick={() => setTaskResponse(task.id, opt)}
                               className={`w-full text-left rounded-xl px-4 py-3 text-base transition-colors ${
                                 selected
-                                  ? "border-2 border-teal-500 bg-teal-950/40 text-teal-300"
+                                  ? "border-2 border-teal-500 bg-teal-950/40 text-status-info-fg"
                                   : "border border-gray-700 bg-gray-800/50 text-gray-300"
                               }`}
                               style={{ minHeight: 48 }}
@@ -1109,10 +1109,10 @@ export function CheckpointMarker({
                     xmlns="http://www.w3.org/2000/svg"
                     className={`h-5 w-5 ${
                       gpsStatus === "loading"
-                        ? "animate-pulse text-yellow-400"
+                        ? "animate-pulse text-status-warn-fg"
                         : gpsStatus === "success"
-                          ? "text-teal-400"
-                          : "text-red-400"
+                          ? "text-status-info-fg"
+                          : "text-status-danger-fg"
                     }`}
                     fill="none"
                     viewBox="0 0 24 24"
@@ -1133,25 +1133,25 @@ export function CheckpointMarker({
                 </div>
                 <div className="min-w-0 flex-1">
                   {gpsStatus === "loading" && (
-                    <span className="text-sm text-yellow-400">Obteniendo...</span>
+                    <span className="text-sm text-status-warn-fg">Obteniendo...</span>
                   )}
                   {gpsStatus === "success" && (
-                    <span className="text-sm text-teal-400">Listo</span>
+                    <span className="text-sm text-status-info-fg">Listo</span>
                   )}
                   {gpsStatus === "error" && (
-                    <span className="text-sm text-red-400">Error</span>
+                    <span className="text-sm text-status-danger-fg">Error</span>
                   )}
                 </div>
               </div>
 
               {gpsStatus === "error" && gpsError && (
-                <p className="mt-1 text-sm text-red-400">{gpsError}</p>
+                <p className="mt-1 text-sm text-status-danger-fg">{gpsError}</p>
               )}
 
               {gpsStatus === "success" && distanceM != null && (
                 <p className="mt-1 text-sm">
                   {withinRadius ? (
-                    <span className="font-medium text-teal-400">
+                    <span className="font-medium text-status-info-fg">
                       {distanceM < 1000
                         ? `${Math.round(distanceM)}m`
                         : `${(distanceM / 1000).toFixed(1)}km`}
@@ -1168,7 +1168,7 @@ export function CheckpointMarker({
                       </svg>
                     </span>
                   ) : (
-                    <span className="font-medium text-yellow-400">
+                    <span className="font-medium text-status-warn-fg">
                       Estas a {distanceM < 1000
                         ? `${Math.round(distanceM)}m`
                         : `${(distanceM / 1000).toFixed(1)}km`}
@@ -1196,7 +1196,7 @@ export function CheckpointMarker({
                   <div className="shrink-0">
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
-                      className={`h-5 w-5 ${qrCode ? "text-teal-400" : "text-gray-500"}`}
+                      className={`h-5 w-5 ${qrCode ? "text-status-info-fg" : "text-gray-500"}`}
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -1213,7 +1213,7 @@ export function CheckpointMarker({
                     <p className="text-sm font-medium text-gray-200">
                       QR:{" "}
                       {qrCode ? (
-                        <span className="text-teal-400">
+                        <span className="text-status-info-fg">
                           Escaneado
                           <svg
                             xmlns="http://www.w3.org/2000/svg"
@@ -1238,7 +1238,7 @@ export function CheckpointMarker({
                     {!qrCode && (
                       <button
                         onClick={() => setShowQr(true)}
-                        className="mt-2 rounded-xl bg-teal-600/20 px-4 py-3 text-base font-medium text-teal-400 transition-colors hover:bg-teal-600/30 active:bg-teal-600/40"
+                        className="mt-2 rounded-xl bg-teal-600/20 px-4 py-3 text-base font-medium text-status-info-fg transition-colors hover:bg-teal-600/30 active:bg-teal-600/40"
                         style={{ minHeight: 48 }}
                       >
                         Escanear QR
@@ -1291,7 +1291,7 @@ export function CheckpointMarker({
             style={{ paddingBottom: "calc(4.5rem + env(safe-area-inset-bottom, 0px))" }}
           >
             {submitError && (
-              <div className="mb-2 rounded-lg bg-red-500/20 px-4 py-2 text-center text-sm text-red-300">
+              <div className="mb-2 rounded-lg bg-status-danger-soft px-4 py-2 text-center text-sm text-status-danger-fg">
                 {submitError}
               </div>
             )}
@@ -1299,7 +1299,7 @@ export function CheckpointMarker({
             <button
               onClick={handleSubmit}
               disabled={!canSubmit}
-              className="w-full rounded-xl bg-teal-600 py-3.5 text-base font-semibold text-white transition-colors hover:bg-teal-500 active:bg-teal-700 disabled:opacity-40"
+              className="w-full rounded-xl bg-status-info py-3.5 text-base font-semibold text-white transition-colors hover:bg-status-info active:bg-teal-700 disabled:opacity-40"
               style={{ minHeight: 52 }}
             >
               {submitting ? (

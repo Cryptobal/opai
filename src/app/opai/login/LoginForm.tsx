@@ -80,7 +80,7 @@ export function LoginForm({ callbackUrl, error, success }: LoginFormProps) {
 
       {error && (
         <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-4 py-3">
-          <p className="text-sm text-red-400">
+          <p className="text-sm text-status-danger-fg">
             {error === 'CredentialsSignin' ? 'Email o contraseña incorrectos.' : 'Error al iniciar sesión.'}
           </p>
         </div>

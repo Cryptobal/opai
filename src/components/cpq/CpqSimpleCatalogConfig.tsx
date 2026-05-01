@@ -339,7 +339,7 @@ export function CpqSimpleCatalogConfig({
                     <Button
                       size="sm"
                       variant="ghost"
-                      className="h-8 w-8 p-0 text-emerald-500"
+                      className="h-8 w-8 p-0 text-status-ok-fg"
                       onClick={saveEdit}
                       disabled={saving}
                     >

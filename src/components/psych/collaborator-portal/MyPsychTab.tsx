@@ -51,7 +51,7 @@ export default function MyPsychTab({ guardiaId }: Props) {
   }, [guardiaId]);
 
   if (err) {
-    return <p className="text-sm text-rose-300">No se pudo cargar: {err}</p>;
+    return <p className="text-sm text-status-danger-fg">No se pudo cargar: {err}</p>;
   }
   if (!data) return <p className="text-sm text-slate-400">Cargando…</p>;
 
@@ -99,7 +99,7 @@ export default function MyPsychTab({ guardiaId }: Props) {
             {data.topStrengths.map((s) => (
               <span
                 key={s.dimension}
-                className="text-xs px-3 py-1.5 rounded-full bg-emerald-500/20 text-emerald-300"
+                className="text-xs px-3 py-1.5 rounded-full bg-status-ok-soft text-status-ok-fg"
               >
                 ✓ {s.label}
               </span>

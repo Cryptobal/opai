@@ -132,7 +132,7 @@ export default async function TenantEmpleosPage({
               return (
                 <div
                   key={job.id}
-                  className="flex flex-col rounded-xl border border-slate-800 bg-slate-900/50 p-6 transition-colors hover:border-emerald-500/40"
+                  className="flex flex-col rounded-xl border border-slate-800 bg-slate-900/50 p-6 transition-colors hover:border-status-ok-border"
                 >
                   <h3 className="mb-2 text-lg font-bold text-white">
                     {job.titulo}
@@ -149,7 +149,7 @@ export default async function TenantEmpleosPage({
                       {TURNO_LABELS[job.turno] ?? job.turno}
                     </span>
                     {job.rentaMin && (
-                      <span className="rounded-md bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-400">
+                      <span className="rounded-md bg-status-ok-soft px-2.5 py-1 text-xs font-medium text-status-ok-fg">
                         ${job.rentaMin.toLocaleString("es-CL")}
                         {job.rentaMax
                           ? ` - $${job.rentaMax.toLocaleString("es-CL")}`
@@ -168,7 +168,7 @@ export default async function TenantEmpleosPage({
                     </span>
                     <Link
                       href={`/empleos/${tenantSlug}/${job.jsonLdSlug}`}
-                      className="inline-flex items-center rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-emerald-600"
+                      className="inline-flex items-center rounded-lg bg-status-ok px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-status-ok"
                     >
                       Postular
                     </Link>

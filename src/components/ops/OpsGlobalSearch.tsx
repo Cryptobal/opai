@@ -22,14 +22,14 @@ const TYPE_CONFIG: Record<
     label: "Guardia",
     groupLabel: "Guardias",
     icon: ShieldUser,
-    color: "text-sky-400",
+    color: "text-status-info-fg",
     bgColor: "bg-sky-400/10",
   },
   pauta_mensual: {
     label: "Pauta mensual",
     groupLabel: "Pautas mensuales",
     icon: CalendarDays,
-    color: "text-teal-400",
+    color: "text-status-info-fg",
     bgColor: "bg-teal-400/10",
   },
 };
@@ -187,7 +187,7 @@ export function OpsGlobalSearch({ className }: { className?: string }) {
                         <div className="flex items-start justify-between gap-2">
                           <p className="text-sm font-medium truncate">{result.title}</p>
                           {result.type === "guardia" && result.pinDisplay && (
-                            <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold tabular-nums bg-emerald-500/20 text-emerald-400">
+                            <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold tabular-nums bg-status-ok-soft text-status-ok-fg">
                               {result.pinDisplay}
                             </span>
                           )}

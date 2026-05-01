@@ -59,12 +59,12 @@ const ESTADO_CFG: Record<
 > = {
   presente: {
     label: "Presente",
-    color: "text-emerald-400",
+    color: "text-status-ok-fg",
     Icon: CheckCircle2,
   },
   ausente: {
     label: "Ausente",
-    color: "text-red-400",
+    color: "text-status-danger-fg",
     Icon: XCircle,
   },
   sin_verificar: {
@@ -158,7 +158,7 @@ export function PortalDocsFisicosChecklist({ installationId }: Props) {
         ) : (
           <ChevronRight className="h-4 w-4 text-zinc-500 shrink-0" />
         )}
-        <ClipboardList className="h-4 w-4 text-teal-400 shrink-0" />
+        <ClipboardList className="h-4 w-4 text-status-info-fg shrink-0" />
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-zinc-100">
             Checklist de documentos físicos
@@ -173,10 +173,10 @@ export function PortalDocsFisicosChecklist({ installationId }: Props) {
           className={cn(
             "text-xs font-bold tabular-nums shrink-0",
             allOk
-              ? "text-emerald-400"
+              ? "text-status-ok-fg"
               : resumen.ausentes > 0
-              ? "text-red-400"
-              : "text-amber-400"
+              ? "text-status-danger-fg"
+              : "text-status-warn-fg"
           )}
         >
           {porcentajeVerif}%
@@ -260,9 +260,9 @@ function ItemRow({ item }: { item: Item }) {
           className={cn(
             "text-[10px] font-medium px-2 py-0.5 rounded-full border",
             item.estado === "presente"
-              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+              ? "bg-status-ok-soft text-status-ok-fg border-status-ok-border"
               : item.estado === "ausente"
-              ? "bg-red-500/10 text-red-400 border-red-500/20"
+              ? "bg-status-danger-soft text-status-danger-fg border-status-danger-border"
               : "bg-zinc-500/10 text-zinc-400 border-zinc-500/20"
           )}
         >

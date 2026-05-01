@@ -43,13 +43,13 @@ export function FilterPills({ options, active, onChange, className }: FilterPill
         const isActive = active === opt.key;
         const activeBg =
           opt.activeVariant === "amber"
-            ? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+            ? "bg-status-warn-soft text-status-warn-fg dark:text-status-warn-fg"
             : opt.activeVariant === "blue"
-              ? "bg-blue-500/15 text-blue-700 dark:text-blue-300"
+              ? "bg-status-info-soft text-blue-700 dark:text-status-info-fg"
               : opt.activeVariant === "emerald"
-                ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                ? "bg-status-ok-soft text-status-ok-fg dark:text-status-ok-fg"
                 : opt.activeVariant === "red"
-                  ? "bg-red-500/15 text-red-700 dark:text-red-300"
+                  ? "bg-status-danger-soft text-status-danger-fg dark:text-status-danger-fg"
                   : "bg-background text-foreground";
         return (
           <button

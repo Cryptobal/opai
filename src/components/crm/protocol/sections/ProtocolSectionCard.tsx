@@ -246,7 +246,7 @@ export function ProtocolSectionCard({
                 <DropdownMenuItem onClick={onTogglePortalVisible}>
                   {isHidden ? (
                     <>
-                      <Eye className="h-3.5 w-3.5 mr-2 text-emerald-500" />
+                      <Eye className="h-3.5 w-3.5 mr-2 text-status-ok-fg" />
                       Mostrar en portal
                     </>
                   ) : (
@@ -258,7 +258,7 @@ export function ProtocolSectionCard({
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
-                  className="text-red-400 focus:text-red-300"
+                  className="text-status-danger-fg focus:text-status-danger-fg"
                   onClick={onDeleteSection}
                 >
                   <Trash2 className="h-3.5 w-3.5 mr-2" />
@@ -343,7 +343,7 @@ export function ProtocolSectionCard({
               <Button
                 size="sm"
                 variant="ghost"
-                className="h-7 px-2 text-xs text-emerald-400 hover:text-emerald-300"
+                className="h-7 px-2 text-xs text-status-ok-fg hover:text-status-ok-fg"
                 onClick={() => onStartAddItem("ai")}
               >
                 <Sparkles className="h-3 w-3 mr-1" />

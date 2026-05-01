@@ -566,7 +566,7 @@ export function AtsPipelineClient({
               </div>
             </div>
           ) : (
-            <p className="text-xs text-amber-700 dark:text-amber-400">
+            <p className="text-xs text-status-warn-fg dark:text-status-warn-fg">
               Activa el aviso para generar la URL pública indexable.
             </p>
           )}
@@ -649,7 +649,7 @@ export function AtsPipelineClient({
                         </span>
                       )}
                       {ch.estado === "error" && ch.errorDetalle && (
-                        <span className="text-[11px] text-red-600 dark:text-red-400 max-w-full">
+                        <span className="text-[11px] text-status-danger-fg dark:text-status-danger-fg max-w-full">
                           {ch.errorDetalle}
                         </span>
                       )}
@@ -858,9 +858,9 @@ export function AtsPipelineClient({
                           </div>
                           <div className="flex items-center gap-1 mt-1">
                             {app.guardia.os10 ? (
-                              <ShieldCheck className="h-3 w-3 text-green-600" />
+                              <ShieldCheck className="h-3 w-3 text-status-ok-fg" />
                             ) : (
-                              <ShieldX className="h-3 w-3 text-red-400" />
+                              <ShieldX className="h-3 w-3 text-status-danger-fg" />
                             )}
                             {app.guardia.persona.commune && (
                               <span className="text-xs text-muted-foreground flex items-center gap-0.5">
@@ -925,9 +925,9 @@ export function AtsPipelineClient({
                         </div>
                         <div className="flex items-center gap-1 mt-1">
                           {app.guardia.os10 ? (
-                            <ShieldCheck className="h-3 w-3 text-green-600" />
+                            <ShieldCheck className="h-3 w-3 text-status-ok-fg" />
                           ) : (
-                            <ShieldX className="h-3 w-3 text-red-400" />
+                            <ShieldX className="h-3 w-3 text-status-danger-fg" />
                           )}
                           {app.guardia.persona.commune && (
                             <span className="text-xs text-muted-foreground flex items-center gap-0.5">

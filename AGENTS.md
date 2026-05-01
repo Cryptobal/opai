@@ -370,3 +370,39 @@ Si necesitas un componente que no existe en `/opai-ds-playground`, **proponerlo 
 
 - Si lo vas a usar en ≥ 2 lugares → primitive en `opai-ds/`.
 - Si es algo único de un módulo → componente local OK, pero compuesto SOLO con primitives de `opai-ds`.
+
+## Cluster 5B.0 — Barrida global de tokens semánticos ✅
+
+**Sub-fase de barrida automatizada** que migró ~5.900 hex hardcoded a tokens semánticos del DS v3 en una sola pasada.
+
+### Tokens canónicos (post 5B.0)
+
+Texto:
+- Verde/OK (`emerald-*`, `green-*`) → `text-status-ok-fg`
+- Ámbar/WARN (`amber-*`, `yellow-*`, `orange-*`) → `text-status-warn-fg`
+- Rojo/DANGER (`red-*`, `rose-*`) → `text-status-danger-fg`
+- Azul/INFO (`blue-*`, `sky-*`, `indigo-*`, `cyan-*`, `teal-*`) → `text-status-info-fg`
+
+Backgrounds soft (con opacidad 5/10/15/20/25):
+- → `bg-status-{ok|warn|danger|info}-soft`
+
+Borders soft (con opacidad 20/30/40/50):
+- → `border-status-{ok|warn|danger|info}-border`
+
+Bg solid (sin opacidad — para dots/chips):
+- → `bg-status-{ok|warn|danger|info}`
+
+### Exclusiones
+
+- `src/components/presentation/**` (PDFs comerciales)
+- `src/components/emails/**`, `src/lib/emails/**`
+- `src/app/login/**`, `src/app/(auth)/**`
+- Archivos con marker `@ds-allow-legacy`
+
+### Drift residual
+
+Casos edge que NO se automatizaron (hover, focus, gradientes, props de charts, combinaciones con `dark:`, opacidades 400/X) se manejan caso por caso en sub-fases granulares posteriores.
+
+### Script
+
+`scripts/sweep-color-tokens.mjs` — disponible para futuros sweeps si se introduce drift accidentalmente.

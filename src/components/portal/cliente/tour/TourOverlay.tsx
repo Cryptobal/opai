@@ -176,7 +176,7 @@ export function TourOverlay({ onComplete, session }: Props) {
                   className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
                   style={{ background: "rgba(45,212,191,0.18)" }}
                 >
-                  <Building2 className="w-5 h-5 text-teal-400" />
+                  <Building2 className="w-5 h-5 text-status-info-fg" />
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-white">Ver presentación de empresa</p>
@@ -224,7 +224,7 @@ export function TourOverlay({ onComplete, session }: Props) {
                 className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
                 style={{ background: "rgba(45,212,191,0.15)" }}
               >
-                <FileText className="w-5 h-5 text-teal-400" />
+                <FileText className="w-5 h-5 text-status-info-fg" />
               </div>
               <div>
                 <p className="text-sm font-semibold text-white">Ver mi propuesta</p>
@@ -264,7 +264,7 @@ export function TourOverlay({ onComplete, session }: Props) {
                 className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
                 style={{ background: "rgba(56,189,248,0.12)" }}
               >
-                <MessageCircle className="w-5 h-5 text-sky-400" />
+                <MessageCircle className="w-5 h-5 text-status-info-fg" />
               </div>
               <div>
                 <p className="text-sm font-semibold text-white">Hablar con {session?.ejecutivoName || "mi ejecutivo"}</p>
@@ -349,7 +349,7 @@ export function TourOverlay({ onComplete, session }: Props) {
                 className={`w-20 h-20 mx-auto rounded-2xl bg-gradient-to-br ${current.accent} flex items-center justify-center`}
                 style={{ border: "1px solid rgba(45,212,191,0.15)" }}
               >
-                <Icon className="w-10 h-10 text-teal-400" />
+                <Icon className="w-10 h-10 text-status-info-fg" />
               </div>
             )}
           </div>

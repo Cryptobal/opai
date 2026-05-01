@@ -101,7 +101,7 @@ export default function PsychCreateForm() {
             onCancel={() => setManualMode(false)}
           />
         )}
-        {err ? <p className="text-sm text-red-600 dark:text-red-400">{err}</p> : null}
+        {err ? <p className="text-sm text-status-danger-fg dark:text-status-danger-fg">{err}</p> : null}
         <div className="flex flex-col sm:flex-row gap-2 pt-2">
           <button
             type="button"

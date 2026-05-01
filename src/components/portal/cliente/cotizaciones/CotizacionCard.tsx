@@ -66,7 +66,7 @@ export function CotizacionCard({
     return (
       <div
         className={cn(
-          "rounded-xl border border-white/[0.06] overflow-hidden transition-all hover:border-teal-500/30",
+          "rounded-xl border border-white/[0.06] overflow-hidden transition-all hover:border-status-info-border",
           className,
         )}
         style={{ background: "linear-gradient(145deg, #1E293B, #1A2332)" }}
@@ -95,11 +95,11 @@ export function CotizacionCard({
               </div>
             )}
             <div className="flex items-center gap-4 mt-1.5 flex-wrap">
-              <span className="text-sm font-semibold text-teal-400">
+              <span className="text-sm font-semibold text-status-info-fg">
                 {formatCurrency(cotizacion.monthlyCost, cotizacion.currency === "UF" ? "UF" : "CLP")}
                 <span className="text-xs font-normal text-zinc-500"> /mes</span>
                 {seemsCurrencyWrong(cotizacion.monthlyCost, cotizacion.currency) && (
-                  <span className="inline-flex items-center gap-0.5 ml-1.5 text-[10px] text-amber-400">
+                  <span className="inline-flex items-center gap-0.5 ml-1.5 text-[10px] text-status-warn-fg">
                     <AlertTriangle className="h-3 w-3" />
                   </span>
                 )}
@@ -114,7 +114,7 @@ export function CotizacionCard({
               )}
             </div>
           </div>
-          <span className="text-xs text-teal-400 shrink-0 mt-1">Ver detalle →</span>
+          <span className="text-xs text-status-info-fg shrink-0 mt-1">Ver detalle →</span>
         </button>
       </div>
     );
@@ -126,9 +126,9 @@ export function CotizacionCard({
       className={cn(
         "rounded-xl overflow-hidden transition-all",
         canAct
-          ? "border border-teal-500/30 shadow-lg shadow-teal-500/5"
+          ? "border border-status-info-border shadow-lg shadow-teal-500/5"
           : "border border-white/[0.06]",
-        "hover:border-teal-500/30",
+        "hover:border-status-info-border",
         className,
       )}
       style={{ background: "linear-gradient(145deg, #1E293B, #1A2332)" }}
@@ -147,7 +147,7 @@ export function CotizacionCard({
               {statusLabel}
             </span>
             {canAct && (
-              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-teal-900/40 text-teal-300">
+              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-teal-900/40 text-status-info-fg">
                 Requiere acción
               </span>
             )}
@@ -164,11 +164,11 @@ export function CotizacionCard({
           )}
           <p className="text-xs text-zinc-500 mt-0.5">{cotizacion.code}</p>
           <div className="flex items-center gap-4 mt-2 flex-wrap">
-            <span className="text-sm font-semibold text-teal-400">
+            <span className="text-sm font-semibold text-status-info-fg">
               {formatCurrency(cotizacion.monthlyCost, cotizacion.currency === "UF" ? "UF" : "CLP")}
               <span className="text-xs font-normal text-zinc-500"> /mes</span>
               {seemsCurrencyWrong(cotizacion.monthlyCost, cotizacion.currency) && (
-                <span className="inline-flex items-center gap-0.5 ml-1.5 text-[10px] text-amber-400" title="El monto parece no corresponder a la moneda indicada">
+                <span className="inline-flex items-center gap-0.5 ml-1.5 text-[10px] text-status-warn-fg" title="El monto parece no corresponder a la moneda indicada">
                   <AlertTriangle className="h-3 w-3" />
                   Verificar moneda
                 </span>
@@ -305,7 +305,7 @@ export function CotizacionCard({
                                   href={att.publicUrl}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1 text-teal-400 hover:text-teal-300 transition-colors"
+                                  className="inline-flex items-center gap-1 text-status-info-fg hover:text-status-info-fg transition-colors"
                                 >
                                   <ExternalLink className="h-3.5 w-3.5" />
                                   Ver
@@ -313,7 +313,7 @@ export function CotizacionCard({
                                 <a
                                   href={att.publicUrl}
                                   download={att.fileName}
-                                  className="inline-flex items-center gap-1 text-teal-400 hover:text-teal-300 transition-colors"
+                                  className="inline-flex items-center gap-1 text-status-info-fg hover:text-status-info-fg transition-colors"
                                 >
                                   <Download className="h-3.5 w-3.5" />
                                   Descargar

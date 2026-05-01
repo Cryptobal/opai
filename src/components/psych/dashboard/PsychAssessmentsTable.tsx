@@ -80,7 +80,7 @@ export default function PsychAssessmentsTable({
                     e.preventDefault();
                     setDeletingId(r.id);
                   }}
-                  className="text-red-600 dark:text-red-400 hover:bg-red-500/10 rounded p-1"
+                  className="text-status-danger-fg dark:text-status-danger-fg hover:bg-status-danger-soft rounded p-1"
                   aria-label="Eliminar"
                 >
                   <Trash2 className="size-4" />
@@ -139,7 +139,7 @@ export default function PsychAssessmentsTable({
                     {canDelete ? (
                       <button
                         onClick={() => setDeletingId(r.id)}
-                        className="text-red-600 dark:text-red-400 hover:bg-red-500/10 rounded p-1"
+                        className="text-status-danger-fg dark:text-status-danger-fg hover:bg-status-danger-soft rounded p-1"
                         aria-label="Eliminar"
                       >
                         <Trash2 className="size-4" />

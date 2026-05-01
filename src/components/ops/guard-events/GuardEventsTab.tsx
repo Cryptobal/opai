@@ -576,7 +576,7 @@ function EventCreateForm({
 
           {/* Warning for 159-4 when contract is not plazo fijo */}
           {causalDtCode === "159-4" && guardContract?.contractType !== "plazo_fijo" && (
-            <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 p-2.5 text-xs text-amber-600">
+            <div className="flex items-start gap-2 rounded-md border border-status-warn-border bg-status-warn-soft p-2.5 text-xs text-status-warn-fg">
               <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
               <p>Esta causal solo aplica a contratos a plazo fijo. El contrato actual es indefinido.</p>
             </div>
@@ -605,7 +605,7 @@ function EventCreateForm({
                 </div>
               )}
               {causal159N4Validation && causal159N4Validation.valid && (
-                <div className="flex items-start gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/5 p-2.5 text-xs text-emerald-600">
+                <div className="flex items-start gap-2 rounded-md border border-status-ok-border bg-status-ok-soft p-2.5 text-xs text-status-ok-fg">
                   <Check className="h-4 w-4 shrink-0 mt-0.5" />
                   <p>Causal 159 N°4 válida — dentro de la ventana de tiempo permitida.</p>
                 </div>
@@ -974,7 +974,7 @@ function EventDetailView({
       {event.internalNotes && (
         <div className="space-y-1">
           <p className="text-xs font-medium text-muted-foreground">Notas internas</p>
-          <p className="rounded-md border border-dashed border-amber-500/30 bg-amber-500/5 p-2.5 text-sm">
+          <p className="rounded-md border border-dashed border-status-warn-border bg-status-warn-soft p-2.5 text-sm">
             {event.internalNotes}
           </p>
         </div>

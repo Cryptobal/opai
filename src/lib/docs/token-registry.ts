@@ -356,6 +356,6 @@ export const DOC_STATUS_CONFIG: Record<string, { label: string; color: string; i
   approved: { label: "Aprobado", color: "bg-blue-100 text-blue-700", icon: "CheckCircle" },
   active: { label: "Activo", color: "bg-green-100 text-green-700", icon: "CheckCircle2" },
   expiring: { label: "Por Vencer", color: "bg-orange-100 text-orange-700", icon: "AlertTriangle" },
-  expired: { label: "Vencido", color: "bg-red-100 text-red-700", icon: "XCircle" },
+  expired: { label: "Vencido", color: "bg-red-100 text-status-danger-fg", icon: "XCircle" },
   renewed: { label: "Renovado", color: "bg-purple-100 text-purple-700", icon: "RefreshCw" },
 };

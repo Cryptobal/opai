@@ -277,7 +277,7 @@ export function ChatPortalChannelList({
           className={cn(
             "px-3 py-1 rounded-full text-xs font-medium transition-colors opai-chat-mobile-pill",
             filter === "all"
-              ? "bg-[rgba(45,212,191,0.15)] text-teal-400"
+              ? "bg-[rgba(45,212,191,0.15)] text-status-info-fg"
               : "text-zinc-400 hover:text-zinc-200",
           )}
         >
@@ -289,7 +289,7 @@ export function ChatPortalChannelList({
           className={cn(
             "px-3 py-1 rounded-full text-xs font-medium transition-colors opai-chat-mobile-pill",
             filter === "unread"
-              ? "bg-[rgba(45,212,191,0.15)] text-teal-400"
+              ? "bg-[rgba(45,212,191,0.15)] text-status-info-fg"
               : "text-zinc-400 hover:text-zinc-200",
           )}
         >
@@ -327,7 +327,7 @@ export function ChatPortalChannelList({
                 )}
                 <span>{section.label}</span>
                 {sectionUnread > 0 && (
-                  <span className="ml-auto rounded-full bg-teal-500/20 px-1.5 py-0.5 text-[10px] font-bold text-teal-400">
+                  <span className="ml-auto rounded-full bg-teal-500/20 px-1.5 py-0.5 text-[10px] font-bold text-status-info-fg">
                     {sectionUnread > 99 ? "99+" : sectionUnread}
                   </span>
                 )}
@@ -387,7 +387,7 @@ export function ChatPortalChannelList({
                           "shrink-0 min-w-[20px] rounded-full px-1.5 py-0.5 text-center text-[10px] font-bold",
                           (ch.notificationPreference ?? "ALL") === "MENTIONS_ONLY"
                             ? "bg-zinc-600 text-zinc-300"
-                            : "bg-teal-500 text-white"
+                            : "bg-status-info text-white"
                         )}>
                           {unread > 99 ? "99+" : unread}
                         </span>

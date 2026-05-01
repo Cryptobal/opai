@@ -135,7 +135,7 @@ function ResultRow({
         </p>
       </div>
       {item.lastAssessmentAt ? (
-        <span className="text-[10px] text-amber-600 dark:text-amber-400 shrink-0">
+        <span className="text-[10px] text-status-warn-fg dark:text-status-warn-fg shrink-0">
           Evaluado
         </span>
       ) : null}

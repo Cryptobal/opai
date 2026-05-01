@@ -11,9 +11,9 @@ const LAYER_LABEL: Record<string, string> = {
 };
 
 const SEVERITY_STYLE: Record<string, string> = {
-  critical: "bg-red-500/10 text-red-400 border-red-500/30",
-  major: "bg-orange-500/10 text-orange-400 border-orange-500/30",
-  minor: "bg-yellow-500/10 text-yellow-400 border-yellow-500/30",
+  critical: "bg-status-danger-soft text-status-danger-fg border-status-danger-border",
+  major: "bg-status-warn-soft text-status-warn-fg border-status-warn-border",
+  minor: "bg-status-warn-soft text-status-warn-fg border-status-warn-border",
 };
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -49,10 +49,10 @@ export function TicketFindingCard({ finding }: Props) {
   const categoryLabel = CATEGORY_LABEL[String(finding.category)] ?? String(finding.category);
 
   return (
-    <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 space-y-3">
+    <div className="rounded-xl border border-status-warn-border bg-status-warn-soft p-4 space-y-3">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-2.5 min-w-0">
-          <FileText className="h-5 w-5 shrink-0 text-amber-400 mt-0.5" />
+          <FileText className="h-5 w-5 shrink-0 text-status-warn-fg mt-0.5" />
           <div className="min-w-0">
             <p className="text-[10px] font-medium uppercase tracking-wider text-amber-300/70">
               Hallazgo de supervisión
@@ -89,7 +89,7 @@ export function TicketFindingCard({ finding }: Props) {
           <p className="font-medium">
             {finding.occurrenceCount}
             {finding.occurrenceCount > 1 && (
-              <span className="ml-1 text-amber-400">
+              <span className="ml-1 text-status-warn-fg">
                 ({finding.occurrenceCount} visitas)
               </span>
             )}
@@ -106,9 +106,9 @@ export function TicketFindingCard({ finding }: Props) {
       </div>
 
       {finding.guardName && (
-        <div className="flex items-center gap-2 rounded-lg border border-blue-500/20 bg-blue-500/5 px-3 py-2 text-xs">
-          <Shield className="h-3.5 w-3.5 text-blue-400" />
-          <span className="text-blue-300 font-medium">Guardia asociado:</span>
+        <div className="flex items-center gap-2 rounded-lg border border-status-info-border bg-status-info-soft px-3 py-2 text-xs">
+          <Shield className="h-3.5 w-3.5 text-status-info-fg" />
+          <span className="text-status-info-fg font-medium">Guardia asociado:</span>
           <span>{finding.guardName}</span>
           {finding.guardCode && (
             <span className="font-mono text-[10px] text-blue-400/60">

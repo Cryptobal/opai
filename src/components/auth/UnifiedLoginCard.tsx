@@ -524,7 +524,7 @@ function ErrorBox({ children }: { children: React.ReactNode }) {
         border: "1px solid rgba(239,68,68,0.2)",
       }}
     >
-      <p className="text-xs text-red-400 text-center">{children}</p>
+      <p className="text-xs text-status-danger-fg text-center">{children}</p>
     </div>
   );
 }

@@ -186,7 +186,7 @@ export function AccessControlConfigTab({ installationId }: Props) {
                 onClick={() => toggleRecordType(type)}
                 className={`flex flex-col items-center gap-2 rounded-lg border p-3 transition-colors ${
                   enabled
-                    ? "border-blue-500 bg-blue-500/10 text-blue-400"
+                    ? "border-status-info-border bg-status-info-soft text-status-info-fg"
                     : "border-zinc-700 bg-zinc-800 text-zinc-500 hover:border-zinc-600"
                 }`}
               >
@@ -351,7 +351,7 @@ export function AccessControlConfigTab({ installationId }: Props) {
                           </label>
                           <button
                             onClick={() => removeField(type, idx)}
-                            className="text-zinc-500 hover:text-red-400"
+                            className="text-zinc-500 hover:text-status-danger-fg"
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>

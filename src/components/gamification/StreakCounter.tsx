@@ -32,7 +32,7 @@ export function StreakCounter({
 
   return (
     <div className={cn("inline-flex items-center gap-1", className)}>
-      <Flame size={icon} className="text-orange-500" />
+      <Flame size={icon} className="text-status-warn-fg" />
       <span className={cn("font-medium text-foreground", text)}>
         {days} {days === 1 ? "dia" : "dias"}
       </span>

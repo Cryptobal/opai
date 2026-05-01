@@ -131,7 +131,7 @@ export function ArcoAdminClient() {
                         </Badge>
                         {isOverdue && <Badge variant="destructive">Vencida</Badge>}
                         {isUrgent && !isOverdue && (
-                          <Badge className="bg-amber-500">Urgente ({dl}d)</Badge>
+                          <Badge className="bg-status-warn">Urgente ({dl}d)</Badge>
                         )}
                       </div>
                       <p className="text-xs text-muted-foreground">

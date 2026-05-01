@@ -167,7 +167,7 @@ export function RondasConfiguracionClient({
         <Button
           size="sm"
           variant="outline"
-          className={`h-7 text-xs ${row.isActive ? "text-emerald-500" : "text-muted-foreground"}`}
+          className={`h-7 text-xs ${row.isActive ? "text-status-ok-fg" : "text-muted-foreground"}`}
           onClick={async () => {
             const newState = !row.isActive;
             const res = await fetch(`/api/ops/rondas/programacion/${row.id}`, {
@@ -214,7 +214,7 @@ export function RondasConfiguracionClient({
           <Button
             size="sm"
             variant="outline"
-            className="h-7 text-xs text-red-500"
+            className="h-7 text-xs text-status-danger-fg"
             onClick={async () => {
               const res = await fetch(`/api/ops/rondas/programacion/${row.id}`, { method: "DELETE" });
               if (res.ok) {
@@ -296,7 +296,7 @@ export function RondasConfiguracionClient({
                 >
                   <span className={[
                     "w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0",
-                    stepDone ? "bg-green-500/20 text-green-400" : isActive ? "bg-[#2dd4bf]/20 text-[#2dd4bf]" : "bg-white/10 text-[#64748b]",
+                    stepDone ? "bg-green-500/20 text-status-ok-fg" : isActive ? "bg-[#2dd4bf]/20 text-[#2dd4bf]" : "bg-white/10 text-[#64748b]",
                   ].join(" ")}>
                     {stepDone ? "✓" : i + 1}
                   </span>
@@ -422,7 +422,7 @@ export function RondasConfiguracionClient({
                   <span className={[
                     "text-[10px] font-semibold rounded-full border px-2 py-0.5 shrink-0",
                     tpl.isActive !== false
-                      ? "bg-green-500/10 text-green-400 border-green-500/20"
+                      ? "bg-status-ok-soft text-status-ok-fg border-green-500/20"
                       : "bg-white/5 text-[#94a3b8] border-white/10",
                   ].join(" ")}>
                     {tpl.isActive !== false ? "Activa" : "Inactiva"}
@@ -466,7 +466,7 @@ export function RondasConfiguracionClient({
                     Editar
                   </button>
                   <button
-                    className="text-[11px] px-2.5 py-1 rounded-lg border border-red-500/20 text-red-400 hover:bg-red-500/10 transition-colors"
+                    className="text-[11px] px-2.5 py-1 rounded-lg border border-status-danger-border text-status-danger-fg hover:bg-status-danger-soft transition-colors"
                     onClick={async () => {
                       const res = await fetch(`/api/ops/rondas/templates/${tpl.id}`, { method: "DELETE" });
                       if (res.ok) {

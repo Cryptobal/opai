@@ -145,11 +145,11 @@ export function MobileMonitorView({
     const unackAlerts = alerts.filter((a) => !a.isAcknowledged).length;
 
     return [
-      { label: "Cumpl.", value: `${cumplimiento}%`, color: cumplimiento >= 80 ? "text-emerald-400" : cumplimiento >= 60 ? "text-amber-400" : "text-red-400", bg: cumplimiento >= 80 ? "bg-emerald-500/10" : cumplimiento >= 60 ? "bg-amber-500/10" : "bg-red-500/10" },
-      { label: "Check-ins", value: `${completadas}`, color: "text-emerald-400", bg: "bg-emerald-500/10" },
-      { label: "Trust", value: `${trustAvg}`, color: trustAvg >= 80 ? "text-emerald-400" : trustAvg >= 60 ? "text-amber-400" : "text-red-400", bg: trustAvg >= 80 ? "bg-emerald-500/10" : trustAvg >= 60 ? "bg-amber-500/10" : "bg-red-500/10" },
-      { label: "Omitidas", value: `${omitidas}`, color: omitidas > 0 ? "text-red-400" : "text-slate-500", bg: omitidas > 0 ? "bg-red-500/10" : "bg-slate-800/60" },
-      { label: "Alertas", value: `${unackAlerts}`, color: unackAlerts > 0 ? "text-orange-400" : "text-slate-500", bg: unackAlerts > 0 ? "bg-orange-500/10" : "bg-slate-800/60" },
+      { label: "Cumpl.", value: `${cumplimiento}%`, color: cumplimiento >= 80 ? "text-status-ok-fg" : cumplimiento >= 60 ? "text-status-warn-fg" : "text-status-danger-fg", bg: cumplimiento >= 80 ? "bg-status-ok-soft" : cumplimiento >= 60 ? "bg-status-warn-soft" : "bg-status-danger-soft" },
+      { label: "Check-ins", value: `${completadas}`, color: "text-status-ok-fg", bg: "bg-status-ok-soft" },
+      { label: "Trust", value: `${trustAvg}`, color: trustAvg >= 80 ? "text-status-ok-fg" : trustAvg >= 60 ? "text-status-warn-fg" : "text-status-danger-fg", bg: trustAvg >= 80 ? "bg-status-ok-soft" : trustAvg >= 60 ? "bg-status-warn-soft" : "bg-status-danger-soft" },
+      { label: "Omitidas", value: `${omitidas}`, color: omitidas > 0 ? "text-status-danger-fg" : "text-slate-500", bg: omitidas > 0 ? "bg-status-danger-soft" : "bg-slate-800/60" },
+      { label: "Alertas", value: `${unackAlerts}`, color: unackAlerts > 0 ? "text-status-warn-fg" : "text-slate-500", bg: unackAlerts > 0 ? "bg-status-warn-soft" : "bg-slate-800/60" },
     ];
   }, [instalaciones, alerts]);
 
@@ -172,9 +172,9 @@ export function MobileMonitorView({
         {/* Observer banner — single instance for mobile */}
         {isReadOnly && activeTurno && (
           <div className="flex items-center gap-2 px-4 py-2 bg-slate-800/80 border-b border-slate-700/50">
-            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <div className="w-2 h-2 rounded-full bg-status-ok animate-pulse" />
             <span className="text-[11px] text-slate-400">
-              <span className="text-emerald-400 font-medium">{activeTurno.operatorName}</span> est&aacute; operando
+              <span className="text-status-ok-fg font-medium">{activeTurno.operatorName}</span> est&aacute; operando
             </span>
             <span className="text-[10px] text-slate-600 ml-auto">
               {controlNocturno?.shiftStart}&mdash;{controlNocturno?.shiftEnd}
@@ -185,8 +185,8 @@ export function MobileMonitorView({
         {/* EN VIVO + KPIs */}
         <div className="px-3 pt-2 pb-1">
           <div className="flex items-center gap-2 mb-2">
-            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-[11px] font-bold text-emerald-400">EN VIVO</span>
+            <div className="w-2 h-2 rounded-full bg-status-ok animate-pulse" />
+            <span className="text-[11px] font-bold text-status-ok-fg">EN VIVO</span>
             <span className="text-xs text-slate-500">{currentTime}</span>
             {!isReadOnly && (
               <span className="text-[10px] text-slate-500 ml-auto">Op: {activeTurno?.operatorName ?? "\u2014"}</span>
@@ -210,12 +210,12 @@ export function MobileMonitorView({
               onClick={() => setTab(t)}
               className={cn(
                 "flex-1 py-2 text-xs font-medium transition-colors relative flex items-center justify-center gap-1",
-                tab === t ? "text-teal-400 border-b-2 border-teal-400" : "text-slate-500"
+                tab === t ? "text-status-info-fg border-b-2 border-teal-400" : "text-slate-500"
               )}
             >
               {t}
               {t === "Alertas" && alertCount > 0 && (
-                <span className="w-4 h-4 rounded-full bg-red-500 text-[8px] text-white font-bold flex items-center justify-center">
+                <span className="w-4 h-4 rounded-full bg-status-danger text-[8px] text-white font-bold flex items-center justify-center">
                   {alertCount}
                 </span>
               )}
@@ -242,7 +242,7 @@ export function MobileMonitorView({
                   className={cn(
                     "px-2.5 py-1 rounded-full text-[10px] font-medium transition-colors whitespace-nowrap",
                     filter === f
-                      ? "bg-teal-500/20 text-teal-400 ring-1 ring-teal-500/30"
+                      ? "bg-teal-500/20 text-status-info-fg ring-1 ring-teal-500/30"
                       : "bg-slate-800 text-slate-500"
                   )}
                 >
@@ -291,16 +291,16 @@ export function MobileMonitorView({
                     alert.resuelta
                       ? "border-slate-800 bg-slate-900/40 opacity-60"
                       : alert.severidad === "critical"
-                        ? "border-red-500/40 bg-red-500/[0.08]"
-                        : "border-amber-500/30 bg-amber-500/[0.06]"
+                        ? "border-status-danger-border bg-red-500/[0.08]"
+                        : "border-status-warn-border bg-amber-500/[0.06]"
                   )}
                 >
                   <div className="flex items-center gap-2 mb-1">
                     <span className={cn(
                       "text-[9px] font-bold uppercase px-1.5 py-0.5 rounded",
                       alert.severidad === "critical"
-                        ? "bg-red-500/20 text-red-400"
-                        : "bg-amber-500/20 text-amber-400"
+                        ? "bg-status-danger-soft text-status-danger-fg"
+                        : "bg-status-warn-soft text-status-warn-fg"
                     )}>
                       {alert.severidad}
                     </span>
@@ -308,7 +308,7 @@ export function MobileMonitorView({
                       {new Date(alert.createdAt).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}
                     </span>
                     {alert.resuelta && (
-                      <span className="text-[9px] text-emerald-500 ml-auto">Resuelta</span>
+                      <span className="text-[9px] text-status-ok-fg ml-auto">Resuelta</span>
                     )}
                   </div>
                   <div className="text-xs text-slate-200">{alert.mensaje}</div>

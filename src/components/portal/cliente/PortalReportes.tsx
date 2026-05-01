@@ -141,7 +141,7 @@ export function PortalReportes({ session, isProspect }: Props) {
   /* ── Error ── */
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center h-40 gap-2 text-red-400">
+      <div className="flex flex-col items-center justify-center h-40 gap-2 text-status-danger-fg">
         <p className="text-sm">{error}</p>
         <button
           onClick={fetchReportes}
@@ -193,7 +193,7 @@ export function PortalReportes({ session, isProspect }: Props) {
           >
             {/* Icon */}
             <div className="flex-shrink-0 h-10 w-10 rounded-lg bg-blue-900/30 flex items-center justify-center">
-              <FileText className="h-5 w-5 text-blue-400" />
+              <FileText className="h-5 w-5 text-status-info-fg" />
             </div>
 
             {/* Info */}
@@ -212,10 +212,10 @@ export function PortalReportes({ session, isProspect }: Props) {
                     className={cn(
                       "text-xs font-medium px-1.5 py-0.5 rounded",
                       compliance >= 80
-                        ? "bg-emerald-900/50 text-emerald-400"
+                        ? "bg-emerald-900/50 text-status-ok-fg"
                         : compliance >= 60
-                        ? "bg-yellow-900/50 text-yellow-400"
-                        : "bg-red-900/50 text-red-400"
+                        ? "bg-yellow-900/50 text-status-warn-fg"
+                        : "bg-red-900/50 text-status-danger-fg"
                     )}
                   >
                     {compliance}% cumplimiento
@@ -237,7 +237,7 @@ export function PortalReportes({ session, isProspect }: Props) {
               className={cn(
                 "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex-shrink-0",
                 hasPdf
-                  ? "bg-blue-600 hover:bg-blue-500 text-white"
+                  ? "bg-status-info hover:bg-status-info text-white"
                   : "bg-zinc-800 text-zinc-600 cursor-not-allowed"
               )}
               title={hasPdf ? "Descargar PDF" : "PDF no disponible aun"}

@@ -325,14 +325,14 @@ export function SupervisionHallazgos() {
                       {occurrences > 1 && (
                         <Badge
                           variant="outline"
-                          className="text-[10px] gap-1 border-amber-500/40 text-amber-400 bg-amber-500/10"
+                          className="text-[10px] gap-1 border-status-warn-border text-status-warn-fg bg-status-warn-soft"
                         >
                           <Repeat2 className="h-3 w-3" />
                           {occurrences} visitas
                         </Badge>
                       )}
                       {f.tipoDoc && (
-                        <Badge variant="outline" className="text-[10px] text-sky-400 border-sky-500/30 bg-sky-500/10">
+                        <Badge variant="outline" className="text-[10px] text-status-info-fg border-status-info-border bg-status-info-soft">
                           {f.tipoDoc.nombre}
                         </Badge>
                       )}

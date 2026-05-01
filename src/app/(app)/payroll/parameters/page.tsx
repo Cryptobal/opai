@@ -59,11 +59,11 @@ export default function PayrollParameters() {
     return (
       <div className="space-y-4">
         <PageHeader title="Parámetros Legales" />
-        <Card className="border-red-500/20 bg-red-500/10">
+        <Card className="border-status-danger-border bg-status-danger-soft">
           <CardContent>
             <div className="flex items-start gap-2 pt-4">
-              <AlertCircle className="h-4 w-4 text-red-400" />
-              <p className="text-sm text-red-400">{error}</p>
+              <AlertCircle className="h-4 w-4 text-status-danger-fg" />
+              <p className="text-sm text-status-danger-fg">{error}</p>
             </div>
           </CardContent>
         </Card>
@@ -134,10 +134,10 @@ export default function PayrollParameters() {
           </CardHeader>
           <CardContent>
           <div className="space-y-3">
-            <div className="rounded-md border border-emerald-500/20 bg-emerald-500/10 px-3 py-2">
+            <div className="rounded-md border border-status-ok-border bg-status-ok-soft px-3 py-2">
               <div className="flex justify-between text-sm">
-                <span className="text-emerald-400">SIS Empleador:</span>
-                <span className="font-mono font-semibold text-emerald-400">
+                <span className="text-status-ok-fg">SIS Empleador:</span>
+                <span className="font-mono font-semibold text-status-ok-fg">
                   {fmtPct(data.sis.employer_rate)}%
                 </span>
               </div>
@@ -221,10 +221,10 @@ export default function PayrollParameters() {
             {/* Mutual */}
             <div>
               <p className="mb-1.5 text-xs font-medium uppercase text-muted-foreground">Mutual (Ley 16.744)</p>
-              <div className="rounded-md border border-blue-500/20 bg-blue-500/10 px-3 py-2">
+              <div className="rounded-md border border-status-info-border bg-status-info-soft px-3 py-2">
                 <div className="flex justify-between text-sm">
-                  <span className="text-blue-400">Base legal:</span>
-                  <span className="font-mono font-semibold text-blue-400">
+                  <span className="text-status-info-fg">Base legal:</span>
+                  <span className="font-mono font-semibold text-status-info-fg">
                     {fmtPct(data.work_injury.base_rate)}%
                   </span>
                 </div>
@@ -315,7 +315,7 @@ export default function PayrollParameters() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Imponible:</span>
-                    <span className="font-mono text-emerald-400">Sí (previsional + tributario)</span>
+                    <span className="font-mono text-status-ok-fg">Sí (previsional + tributario)</span>
                   </div>
                 </div>
               </div>
@@ -356,10 +356,10 @@ export default function PayrollParameters() {
           <div className="space-y-3">
             {data.imm ? (
               <>
-                <div className="rounded-md border border-amber-500/20 bg-amber-500/10 px-3 py-2">
+                <div className="rounded-md border border-status-warn-border bg-status-warn-soft px-3 py-2">
                   <div className="flex justify-between text-sm">
-                    <span className="text-amber-400">IMM vigente:</span>
-                    <span className="font-mono font-semibold text-amber-400">
+                    <span className="text-status-warn-fg">IMM vigente:</span>
+                    <span className="font-mono font-semibold text-status-warn-fg">
                       {formatCLP(data.imm.value_clp)}
                     </span>
                   </div>
@@ -371,14 +371,14 @@ export default function PayrollParameters() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Imponible:</span>
-                    <span className="font-mono text-emerald-400">Sí</span>
+                    <span className="font-mono text-status-ok-fg">Sí</span>
                   </div>
                 </div>
               </>
             ) : (
-              <div className="flex items-start gap-2 rounded-md bg-amber-500/10 p-3">
-                <Info className="mt-0.5 h-3.5 w-3.5 text-amber-400" />
-                <p className="text-sm text-amber-400">
+              <div className="flex items-start gap-2 rounded-md bg-status-warn-soft p-3">
+                <Info className="mt-0.5 h-3.5 w-3.5 text-status-warn-fg" />
+                <p className="text-sm text-status-warn-fg">
                   IMM no configurado en esta versión de parámetros. Se usará $500.000 como fallback.
                 </p>
               </div>

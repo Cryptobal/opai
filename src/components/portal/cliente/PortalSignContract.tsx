@@ -55,7 +55,7 @@ export function PortalSignContract({ signatureToken, onSigned }: Props) {
   // Already signed
   if (info?.recipientStatus === "signed") {
     return (
-      <div className="flex items-center gap-2 text-emerald-400 text-sm font-medium py-2">
+      <div className="flex items-center gap-2 text-status-ok-fg text-sm font-medium py-2">
         <CheckCircle className="w-5 h-5" />
         Contrato firmado exitosamente
       </div>
@@ -67,12 +67,12 @@ export function PortalSignContract({ signatureToken, onSigned }: Props) {
   return (
     <div className="rounded-xl border border-blue-800/50 bg-blue-950/30 p-5 space-y-4">
       <div className="flex items-center gap-3">
-        <FileSignature className="w-6 h-6 text-blue-400 shrink-0" />
+        <FileSignature className="w-6 h-6 text-status-info-fg shrink-0" />
         <div className="min-w-0">
           <p className="font-semibold text-blue-200 truncate">
             {info?.documentTitle ?? "Contrato de Servicio"}
           </p>
-          <p className="text-xs text-blue-400">Pendiente de tu firma electronica</p>
+          <p className="text-xs text-status-info-fg">Pendiente de tu firma electronica</p>
         </div>
       </div>
 
@@ -81,7 +81,7 @@ export function PortalSignContract({ signatureToken, onSigned }: Props) {
           href={info.pdfUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 hover:underline transition-colors"
+          className="inline-flex items-center gap-1.5 text-xs text-status-info-fg hover:text-status-info-fg hover:underline transition-colors"
         >
           <ExternalLink className="w-3.5 h-3.5" />
           Ver documento PDF
@@ -92,7 +92,7 @@ export function PortalSignContract({ signatureToken, onSigned }: Props) {
         href={signUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className="flex items-center justify-center gap-2 w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 px-6 rounded-lg transition-colors text-sm"
+        className="flex items-center justify-center gap-2 w-full bg-status-info hover:bg-status-info text-white font-semibold py-3 px-6 rounded-lg transition-colors text-sm"
       >
         <FileSignature className="w-4 h-4" />
         Firmar contrato

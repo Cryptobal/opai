@@ -190,7 +190,7 @@ export function MisDatosSection({ session }: Props) {
   return (
     <div className="space-y-4 pb-24">
       <div className="flex items-center gap-2">
-        <Shield className="h-5 w-5 text-blue-500" />
+        <Shield className="h-5 w-5 text-status-info-fg" />
         <h2 className="text-lg font-semibold">Mis Datos Personales</h2>
       </div>
 
@@ -290,7 +290,7 @@ export function MisDatosSection({ session }: Props) {
             <Button
               onClick={() => setOpenSolicitud("supresion")}
               variant="outline"
-              className="text-red-500 border-red-500/30 hover:bg-red-500/10"
+              className="text-status-danger-fg border-status-danger-border hover:bg-status-danger-soft"
             >
               <Trash2 className="h-4 w-4 mr-2" />
               Solicitar eliminación
@@ -337,7 +337,7 @@ export function MisDatosSection({ session }: Props) {
               />
             </div>
             {openSolicitud === "supresion" && (
-              <p className="text-xs text-amber-500">
+              <p className="text-xs text-status-warn-fg">
                 ⚠ La eliminación puede no ser inmediata si existen obligaciones legales
                 (ej: contrato laboral vigente). Recibirás respuesta en máximo 30 días.
               </p>
@@ -368,7 +368,7 @@ export function MisDatosSection({ session }: Props) {
         <Card>
           <CardContent className="p-4 space-y-2">
             <div className="flex items-center gap-2">
-              <Info className="h-4 w-4 text-blue-500" />
+              <Info className="h-4 w-4 text-status-info-fg" />
               <h3 className="text-sm font-semibold">Información sobre el tratamiento</h3>
             </div>
             <dl className="space-y-2 text-xs">
@@ -397,7 +397,7 @@ export function MisDatosSection({ session }: Props) {
                 <dd>
                   <a
                     href={`mailto:${info.contactoDerechos}`}
-                    className="text-blue-500 underline"
+                    className="text-status-info-fg underline"
                   >
                     {info.contactoDerechos}
                   </a>

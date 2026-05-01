@@ -106,8 +106,8 @@ export function InstalacionDesempenoSection({ instalacionId }: Props) {
 
   /* ── Trend icon helper ── */
   const TrendIcon = ({ value }: { value: number }) => {
-    if (value > 0) return <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />;
-    if (value < 0) return <TrendingDown className="h-3.5 w-3.5 text-red-500" />;
+    if (value > 0) return <TrendingUp className="h-3.5 w-3.5 text-status-ok-fg" />;
+    if (value < 0) return <TrendingDown className="h-3.5 w-3.5 text-status-danger-fg" />;
     return <Minus className="h-3.5 w-3.5 text-muted-foreground" />;
   };
 

@@ -569,18 +569,18 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
       {/* Contract client portal link — compact mobile */}
       {doc?.contractClientToken && (
         <div className="flex flex-wrap items-center gap-2 p-2.5 sm:p-3 rounded-lg border border-teal-600/30 bg-teal-950/20">
-          <FileSignature className="h-4 w-4 text-teal-400 shrink-0" />
-          <span className="text-xs text-teal-300 font-medium shrink-0">
+          <FileSignature className="h-4 w-4 text-status-info-fg shrink-0" />
+          <span className="text-xs text-status-info-fg font-medium shrink-0">
             Portal cliente
           </span>
-          <code className="hidden md:inline text-xs text-teal-400 bg-teal-950/50 px-2 py-0.5 rounded select-all truncate max-w-[280px]">
+          <code className="hidden md:inline text-xs text-status-info-fg bg-teal-950/50 px-2 py-0.5 rounded select-all truncate max-w-[280px]">
             {typeof window !== "undefined"
               ? `${window.location.origin}/contrato/${doc.contractClientToken}`
               : `/contrato/${doc.contractClientToken}`}
           </code>
           <div className="ml-auto flex items-center gap-2">
             <button
-              className="text-xs text-teal-400 hover:text-teal-300 underline px-2 py-1"
+              className="text-xs text-status-info-fg hover:text-status-info-fg underline px-2 py-1"
               onClick={() => {
                 const url = `${window.location.origin}/contrato/${doc.contractClientToken}`;
                 navigator.clipboard.writeText(url);
@@ -593,7 +593,7 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
               href={`/contrato/${doc.contractClientToken}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs text-teal-400 hover:text-teal-300 underline px-2 py-1"
+              className="text-xs text-status-info-fg hover:text-status-info-fg underline px-2 py-1"
             >
               Abrir
             </a>
@@ -689,7 +689,7 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
         <div className="p-4 rounded-lg border border-border bg-card space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold flex items-center gap-2">
-              <FileSignature className="h-4 w-4 text-yellow-500" />
+              <FileSignature className="h-4 w-4 text-status-warn-fg" />
               Sugerencias del cliente
               {suggestions.filter((s: any) => s.status === "pending").length > 0 && (
                 <span className="bg-yellow-600 text-white text-xs px-1.5 py-0.5 rounded-full">
@@ -714,9 +714,9 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">Cláusula {s.clauseNumber}: {s.clauseTitle}</span>
                   <span className={`text-xs px-2 py-0.5 rounded ${
-                    s.status === "pending" ? "bg-yellow-600/20 text-yellow-400" :
-                    s.status === "approved" ? "bg-green-600/20 text-green-400" :
-                    "bg-red-600/20 text-red-400"
+                    s.status === "pending" ? "bg-yellow-600/20 text-status-warn-fg" :
+                    s.status === "approved" ? "bg-green-600/20 text-status-ok-fg" :
+                    "bg-red-600/20 text-status-danger-fg"
                   }`}>
                     {s.status === "pending" ? "Pendiente" : s.status === "approved" ? "Aprobada" : "Rechazada"}
                   </span>
@@ -747,7 +747,7 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
                     <button
                       onClick={() => handleResolveSuggestion(s.id, "approve")}
                       disabled={resolvingSuggestion === s.id}
-                      className="px-3 py-1 text-xs bg-green-600 hover:bg-green-500 text-white rounded disabled:opacity-50"
+                      className="px-3 py-1 text-xs bg-green-600 hover:bg-status-ok text-white rounded disabled:opacity-50"
                     >
                       Aprobar
                     </button>
@@ -757,7 +757,7 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
                         setRejectComment("");
                       }}
                       disabled={resolvingSuggestion === s.id}
-                      className="px-3 py-1 text-xs bg-red-600 hover:bg-red-500 text-white rounded disabled:opacity-50"
+                      className="px-3 py-1 text-xs bg-status-danger hover:bg-status-danger text-white rounded disabled:opacity-50"
                     >
                       Rechazar
                     </button>

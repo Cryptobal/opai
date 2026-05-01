@@ -6,9 +6,9 @@ import PsychAlertEvidence from "./PsychAlertEvidence";
 const SEVERITY_CLS: Record<string, string> = {
   info: "bg-muted/50 text-foreground/90 border-border",
   warning:
-    "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20",
+    "bg-status-warn-soft text-status-warn-fg dark:text-status-warn-fg border-status-warn-border",
   critical:
-    "bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20",
+    "bg-status-danger-soft text-status-danger-fg dark:text-status-danger-fg border-status-danger-border",
 };
 
 const SEVERITY_ICON: Record<string, string> = {

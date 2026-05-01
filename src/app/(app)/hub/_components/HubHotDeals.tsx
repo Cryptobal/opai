@@ -27,7 +27,7 @@ export function HubHotDeals({ deals }: Props) {
   return (
     <div>
       <div className="flex items-center gap-2 mb-2">
-        <Flame className="h-4 w-4 text-orange-400" />
+        <Flame className="h-4 w-4 text-status-warn-fg" />
         <p className="text-xs font-semibold">Propuestas calientes</p>
         <span className="text-[10px] text-muted-foreground">({deals.length})</span>
       </div>

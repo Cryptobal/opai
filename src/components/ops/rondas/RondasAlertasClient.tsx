@@ -147,8 +147,8 @@ export function RondasAlertasClient({
   if (requiresActiveTurno) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
-        <div className="w-14 h-14 rounded-full bg-amber-500/10 flex items-center justify-center mb-4">
-          <ShieldCheck className="w-7 h-7 text-amber-400" />
+        <div className="w-14 h-14 rounded-full bg-status-warn-soft flex items-center justify-center mb-4">
+          <ShieldCheck className="w-7 h-7 text-status-warn-fg" />
         </div>
         <p className="text-[15px] font-semibold text-[#f1f5f9] mb-1">Sin monitoreo activo</p>
         <p className="text-[13px] text-[#94a3b8] max-w-sm">
@@ -215,7 +215,7 @@ export function RondasAlertasClient({
         <p className="text-[13px] text-[#94a3b8]">
           <span className="font-semibold text-[#f1f5f9]">{filtered.length}</span> alerta{filtered.length !== 1 ? "s" : ""}
           {selectedIds.size > 0 && (
-            <span className="text-cyan-400 ml-2">
+            <span className="text-status-info-fg ml-2">
               · {selectedIds.size} seleccionada{selectedIds.size !== 1 ? "s" : ""}
             </span>
           )}
@@ -240,14 +240,14 @@ export function RondasAlertasClient({
       </div>
 
       {selectedIds.size > 0 && (
-        <div className="sticky top-2 z-20 flex items-center justify-between gap-3 rounded-xl border border-cyan-500/30 bg-[#0a0f1c]/95 backdrop-blur px-4 py-2.5 shadow-lg shadow-cyan-500/5">
-          <span className="text-[12px] font-semibold text-cyan-400">
+        <div className="sticky top-2 z-20 flex items-center justify-between gap-3 rounded-xl border border-status-info-border bg-[#0a0f1c]/95 backdrop-blur px-4 py-2.5 shadow-lg shadow-cyan-500/5">
+          <span className="text-[12px] font-semibold text-status-info-fg">
             {selectedIds.size} alerta{selectedIds.size !== 1 ? "s" : ""}
           </span>
           <button
             onClick={handleBulkResolve}
             disabled={!!bulkAction}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-[11px] font-semibold text-emerald-400 hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-status-ok-border bg-status-ok-soft px-3 py-1.5 text-[11px] font-semibold text-status-ok-fg hover:bg-status-ok-soft transition-colors disabled:opacity-50"
           >
             {bulkAction === "resolve" ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
             Marcar resueltas
@@ -271,8 +271,8 @@ export function RondasAlertasClient({
       {/* Empty state */}
       {filtered.length === 0 && (
         <div className="flex flex-col items-center justify-center py-16 text-center">
-          <div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center mb-4">
-            <ShieldCheck className="w-6 h-6 text-emerald-400" />
+          <div className="w-12 h-12 rounded-full bg-status-ok-soft flex items-center justify-center mb-4">
+            <ShieldCheck className="w-6 h-6 text-status-ok-fg" />
           </div>
           <p className="text-[15px] font-semibold text-[#f1f5f9] mb-1">Sin alertas activas</p>
           <p className="text-[13px] text-[#94a3b8]">
@@ -284,7 +284,7 @@ export function RondasAlertasClient({
       {/* Detection engine info */}
       <div className="rounded-xl border border-[#1a1f2e] bg-[#111827] p-4 space-y-2">
         <div className="flex items-center gap-2">
-          <Bot className="h-4 w-4 text-cyan-400" />
+          <Bot className="h-4 w-4 text-status-info-fg" />
           <h4 className="text-[13px] font-semibold text-[#f1f5f9]">Motor de detección automática</h4>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">

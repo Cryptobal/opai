@@ -55,11 +55,11 @@ const STATUS_ICONS: Record<string, React.ComponentType<any>> = {
 /** Dark-mode safe colors per status (the DOC_STATUS_CONFIG ones use light-theme bg/text) */
 const STATUS_COLORS: Record<string, { compact: string; full: string }> = {
   draft:    { compact: "text-gray-400",    full: "bg-gray-500/15 text-gray-400 border-gray-500/20" },
-  review:   { compact: "text-yellow-400",  full: "bg-yellow-500/15 text-yellow-400 border-yellow-500/20" },
-  approved: { compact: "text-blue-400",    full: "bg-blue-500/15 text-blue-400 border-blue-500/20" },
-  active:   { compact: "text-emerald-400", full: "bg-emerald-500/15 text-emerald-400 border-emerald-500/20" },
-  expiring: { compact: "text-orange-400",  full: "bg-orange-500/15 text-orange-400 border-orange-500/20" },
-  expired:  { compact: "text-red-400",     full: "bg-red-500/15 text-red-400 border-red-500/20" },
+  review:   { compact: "text-status-warn-fg",  full: "bg-status-warn-soft text-status-warn-fg border-yellow-500/20" },
+  approved: { compact: "text-status-info-fg",    full: "bg-status-info-soft text-status-info-fg border-status-info-border" },
+  active:   { compact: "text-status-ok-fg", full: "bg-status-ok-soft text-status-ok-fg border-status-ok-border" },
+  expiring: { compact: "text-status-warn-fg",  full: "bg-orange-500/15 text-status-warn-fg border-orange-500/20" },
+  expired:  { compact: "text-status-danger-fg",     full: "bg-status-danger-soft text-status-danger-fg border-status-danger-border" },
   renewed:  { compact: "text-purple-400",  full: "bg-purple-500/15 text-purple-400 border-purple-500/20" },
 };
 
@@ -150,8 +150,8 @@ export function DocsClient() {
 
   const kpis = [
     { label: "Total", value: totalCount, key: null as string | null, color: "" },
-    { label: "Activos", value: activeCount, key: "active" as string | null, color: "text-emerald-400" },
-    { label: "Por Vencer", value: expiringCount, key: "expiring" as string | null, color: "text-amber-400" },
+    { label: "Activos", value: activeCount, key: "active" as string | null, color: "text-status-ok-fg" },
+    { label: "Por Vencer", value: expiringCount, key: "expiring" as string | null, color: "text-status-warn-fg" },
     { label: "Borradores", value: draftCount, key: "draft" as string | null, color: "text-muted-foreground" },
   ];
 

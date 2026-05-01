@@ -98,7 +98,7 @@ export function SendPresentationDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Building2 className="h-5 w-5 text-teal-500" />
+            <Building2 className="h-5 w-5 text-status-info-fg" />
             Enviar Presentación de Empresa
           </DialogTitle>
           <DialogDescription>

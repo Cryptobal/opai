@@ -272,7 +272,7 @@ export function CrmInstallationsListClient({
                 <Button variant="outline" onClick={() => setOpen(false)} disabled={loading}>
                   Cancelar
                 </Button>
-                <Button onClick={createInstallation} disabled={loading} className="bg-emerald-600 hover:bg-emerald-700">
+                <Button onClick={createInstallation} disabled={loading} className="bg-status-ok hover:bg-emerald-700">
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Crear
                 </Button>

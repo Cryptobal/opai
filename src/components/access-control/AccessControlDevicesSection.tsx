@@ -132,9 +132,9 @@ export function AccessControlDevicesSection({ installationId }: Props) {
   } {
     const diff = Date.now() - new Date(lastActivityAt).getTime();
     const hours = diff / (1000 * 60 * 60);
-    if (hours < 1) return { label: "Activo ahora", color: "text-green-400" };
-    if (hours < 24) return { label: "Hoy", color: "text-green-400" };
-    if (hours < 48) return { label: "Ayer", color: "text-yellow-400" };
+    if (hours < 1) return { label: "Activo ahora", color: "text-status-ok-fg" };
+    if (hours < 24) return { label: "Hoy", color: "text-status-ok-fg" };
+    if (hours < 48) return { label: "Ayer", color: "text-status-warn-fg" };
     return {
       label: `Hace ${Math.floor(hours / 24)} días`,
       color: "text-zinc-500",
@@ -247,13 +247,13 @@ export function AccessControlDevicesSection({ installationId }: Props) {
                 </div>
                 <div className="flex items-center gap-1">
                   <span className="relative flex h-2 w-2">
-                    <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-status-ok" />
                   </span>
                 </div>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="text-zinc-500 hover:text-red-400"
+                  className="text-zinc-500 hover:text-status-danger-fg"
                   onClick={() => setConfirmUnlink(device)}
                   disabled={unlinkingId === device.id}
                 >

@@ -363,12 +363,12 @@ function ItemsTab({ initialItems }: { initialItems: ItemData[] }) {
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
                         <Button variant="ghost" size="sm" onClick={() => handleToggleActive(item)} className="h-8 w-8 p-0" title={item.active ? "Desactivar" : "Activar"}>
-                          {item.active ? <ToggleRight className="h-4 w-4 text-emerald-400" /> : <ToggleLeft className="h-4 w-4 text-muted-foreground" />}
+                          {item.active ? <ToggleRight className="h-4 w-4 text-status-ok-fg" /> : <ToggleLeft className="h-4 w-4 text-muted-foreground" />}
                         </Button>
                         <Button variant="ghost" size="sm" onClick={() => openEdit(item)} className="h-8 w-8 p-0">
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
-                        <Button variant="ghost" size="sm" onClick={() => handleDelete(item.id)} className="h-8 w-8 p-0 text-red-400 hover:text-red-300">
+                        <Button variant="ghost" size="sm" onClick={() => handleDelete(item.id)} className="h-8 w-8 p-0 text-status-danger-fg hover:text-status-danger-fg">
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </div>
@@ -838,7 +838,7 @@ function CostCentersTab({ initialCostCenters }: { initialCostCenters: CostCenter
                     <p className="text-sm font-medium">{cc.name}</p>
                     {cc.code && <span className="text-xs text-muted-foreground font-mono">{cc.code}</span>}
                     {isFromInstallation && (
-                      <Badge className="bg-blue-500/10 text-blue-400 text-[10px] gap-1">
+                      <Badge className="bg-status-info-soft text-status-info-fg text-[10px] gap-1">
                         <MapPin className="h-2.5 w-2.5" />
                         Instalación
                       </Badge>
@@ -848,12 +848,12 @@ function CostCentersTab({ initialCostCenters }: { initialCostCenters: CostCenter
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   <Button variant="ghost" size="sm" onClick={() => handleToggleActive(cc)} className="h-8 w-8 p-0" disabled={isFromInstallation} title={isFromInstallation ? "Se gestiona automáticamente con la instalación" : undefined}>
-                    {cc.active ? <ToggleRight className="h-4 w-4 text-emerald-400" /> : <ToggleLeft className="h-4 w-4 text-muted-foreground" />}
+                    {cc.active ? <ToggleRight className="h-4 w-4 text-status-ok-fg" /> : <ToggleLeft className="h-4 w-4 text-muted-foreground" />}
                   </Button>
                   <Button variant="ghost" size="sm" onClick={() => openEdit(cc)} className="h-8 w-8 p-0" disabled={isFromInstallation} title={isFromInstallation ? "El nombre se sincroniza desde la instalación" : undefined}>
                     <Pencil className="h-3.5 w-3.5" />
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={() => handleDelete(cc.id)} className="h-8 w-8 p-0 text-red-400 hover:text-red-300" disabled={isFromInstallation} title={isFromInstallation ? "No se puede eliminar un CC vinculado a una instalación" : undefined}>
+                  <Button variant="ghost" size="sm" onClick={() => handleDelete(cc.id)} className="h-8 w-8 p-0 text-status-danger-fg hover:text-status-danger-fg" disabled={isFromInstallation} title={isFromInstallation ? "No se puede eliminar un CC vinculado a una instalación" : undefined}>
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 </div>

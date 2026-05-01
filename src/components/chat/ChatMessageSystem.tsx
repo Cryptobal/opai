@@ -76,11 +76,11 @@ export function ChatMessageSystem({ message }: ChatMessageSystemProps) {
   const isLinkable = isMonitoreoEvent || isAlertaCoberturaEvent;
 
   const bgClass = isAlert
-    ? "bg-red-500/10 border-red-500/20"
+    ? "bg-status-danger-soft border-status-danger-border"
     : isAlertaCobertura
-      ? "bg-amber-500/10 border-amber-500/20"
+      ? "bg-status-warn-soft border-status-warn-border"
       : isAlertaAceptada
-        ? "bg-green-500/10 border-green-500/20"
+        ? "bg-status-ok-soft border-green-500/20"
         : isAlertaCoberturaEvent
           ? "bg-blue-500/8 border-blue-500/15"
           : isMonitoreoEvent
@@ -88,15 +88,15 @@ export function ChatMessageSystem({ message }: ChatMessageSystemProps) {
             : "bg-white/[0.06] border-white/[0.10]";
 
   const iconColor = isAlert
-    ? "text-red-400"
+    ? "text-status-danger-fg"
     : isAlertaCobertura
-      ? "text-amber-400"
+      ? "text-status-warn-fg"
       : isAlertaAceptada
-        ? "text-green-400"
+        ? "text-status-ok-fg"
         : isAlertaCoberturaEvent
-          ? "text-blue-400"
+          ? "text-status-info-fg"
           : isMonitoreoEvent
-            ? "text-sky-400"
+            ? "text-status-info-fg"
             : "text-slate-400";
 
   const textColor = isAlert

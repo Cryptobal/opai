@@ -21,9 +21,9 @@ interface InstHealth {
 interface ApiResponse { success: boolean; installations: InstHealth[]; }
 
 function scoreColor(score: number): string {
-  if (score < 40) return 'bg-red-500/20 text-red-400 border-red-500/40';
-  if (score < 70) return 'bg-amber-500/20 text-amber-400 border-amber-500/40';
-  return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40';
+  if (score < 40) return 'bg-status-danger-soft text-status-danger-fg border-status-danger-border';
+  if (score < 70) return 'bg-status-warn-soft text-status-warn-fg border-status-warn-border';
+  return 'bg-status-ok-soft text-status-ok-fg border-status-ok-border';
 }
 
 export function HubInstallationHealthSection() {
@@ -81,7 +81,7 @@ export function HubInstallationHealthSection() {
       title="Salud por instalación"
       badge={
         worstScore < 70 ? (
-          <Badge variant="outline" className="text-[10px] border-amber-500/40 text-amber-400">
+          <Badge variant="outline" className="text-[10px] border-status-warn-border text-status-warn-fg">
             <AlertTriangle className="h-2.5 w-2.5 mr-1" />
             Atención
           </Badge>
@@ -137,7 +137,7 @@ export function HubInstallationHealthSection() {
               {inst.openFindingsCount > 0 && (
                 <div className="flex justify-between">
                   <span>Hallazgos abiertos</span>
-                  <span className={`tabular-nums font-medium ${inst.overdueFindingsCount > 0 ? 'text-red-400' : 'text-foreground'}`}>
+                  <span className={`tabular-nums font-medium ${inst.overdueFindingsCount > 0 ? 'text-status-danger-fg' : 'text-foreground'}`}>
                     {inst.openFindingsCount}{inst.overdueFindingsCount > 0 ? ` (${inst.overdueFindingsCount} vencidos)` : ''}
                   </span>
                 </div>

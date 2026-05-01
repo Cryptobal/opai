@@ -76,7 +76,7 @@ export function PWAInstallBanner({
           {canInstall ? (
             <button
               onClick={handleInstall}
-              className="w-full max-w-xs bg-teal-600 hover:bg-teal-500 text-white font-semibold py-4 px-6 rounded-2xl flex items-center justify-center gap-3 transition-colors text-lg"
+              className="w-full max-w-xs bg-status-info hover:bg-status-info text-white font-semibold py-4 px-6 rounded-2xl flex items-center justify-center gap-3 transition-colors text-lg"
             >
               <Download className="w-5 h-5" />
               Instalar App
@@ -84,7 +84,7 @@ export function PWAInstallBanner({
           ) : isIOS ? (
             <button
               onClick={handleIOSInstall}
-              className="w-full max-w-xs bg-teal-600 hover:bg-teal-500 text-white font-semibold py-4 px-6 rounded-2xl flex items-center justify-center gap-3 transition-colors text-lg"
+              className="w-full max-w-xs bg-status-info hover:bg-status-info text-white font-semibold py-4 px-6 rounded-2xl flex items-center justify-center gap-3 transition-colors text-lg"
             >
               <Share className="w-5 h-5" />
               Agregar a pantalla de inicio
@@ -93,7 +93,7 @@ export function PWAInstallBanner({
             <button
               type="button"
               onClick={() => setShowHowToModal(true)}
-              className="w-full max-w-xs bg-teal-600 hover:bg-teal-500 text-white font-semibold py-4 px-6 rounded-2xl flex items-center justify-center gap-3 transition-colors text-lg"
+              className="w-full max-w-xs bg-status-info hover:bg-status-info text-white font-semibold py-4 px-6 rounded-2xl flex items-center justify-center gap-3 transition-colors text-lg"
             >
               <Download className="w-5 h-5" />
               Ver cómo instalar
@@ -103,7 +103,7 @@ export function PWAInstallBanner({
           <button
             type="button"
             onClick={() => setShowHowToModal(true)}
-            className="mt-4 text-teal-400 hover:text-teal-300 text-sm font-medium flex items-center justify-center gap-2 transition-colors"
+            className="mt-4 text-status-info-fg hover:text-status-info-fg text-sm font-medium flex items-center justify-center gap-2 transition-colors"
           >
             ¿No funciona? Ver instrucciones paso a paso
           </button>
@@ -134,14 +134,14 @@ export function PWAInstallBanner({
           {canInstall ? (
             <button
               onClick={handleInstall}
-              className="bg-teal-600 hover:bg-teal-500 text-white text-sm font-medium px-4 py-2 rounded-lg shrink-0 transition-colors"
+              className="bg-status-info hover:bg-status-info text-white text-sm font-medium px-4 py-2 rounded-lg shrink-0 transition-colors"
             >
               Instalar
             </button>
           ) : isIOS ? (
             <button
               onClick={handleIOSInstall}
-              className="bg-teal-600 hover:bg-teal-500 text-white text-sm font-medium px-4 py-2 rounded-lg shrink-0 transition-colors"
+              className="bg-status-info hover:bg-status-info text-white text-sm font-medium px-4 py-2 rounded-lg shrink-0 transition-colors"
             >
               Agregar
             </button>
@@ -149,7 +149,7 @@ export function PWAInstallBanner({
             <button
               type="button"
               onClick={() => setShowHowToModal(true)}
-              className="shrink-0 flex flex-col items-center gap-0.5 text-teal-400 hover:text-teal-300 text-xs font-medium transition-colors"
+              className="shrink-0 flex flex-col items-center gap-0.5 text-status-info-fg hover:text-status-info-fg text-xs font-medium transition-colors"
             >
               <Share className="w-4 h-4" />
               <span>Ver cómo</span>
@@ -179,14 +179,14 @@ export function PWAInstallBanner({
           {canInstall ? (
             <button
               onClick={handleInstall}
-              className="bg-teal-600 hover:bg-teal-500 text-white text-sm font-medium px-4 py-2 rounded-lg shrink-0 transition-colors"
+              className="bg-status-info hover:bg-status-info text-white text-sm font-medium px-4 py-2 rounded-lg shrink-0 transition-colors"
             >
               Instalar
             </button>
           ) : isIOS ? (
             <button
               onClick={handleIOSInstall}
-              className="bg-teal-600 hover:bg-teal-500 text-white text-sm font-medium px-4 py-2 rounded-lg shrink-0 transition-colors"
+              className="bg-status-info hover:bg-status-info text-white text-sm font-medium px-4 py-2 rounded-lg shrink-0 transition-colors"
             >
               Agregar
             </button>
@@ -194,7 +194,7 @@ export function PWAInstallBanner({
             <button
               type="button"
               onClick={() => setShowHowToModal(true)}
-              className="shrink-0 flex flex-col items-center gap-0.5 text-teal-400 hover:text-teal-300 text-xs font-medium transition-colors"
+              className="shrink-0 flex flex-col items-center gap-0.5 text-status-info-fg hover:text-status-info-fg text-xs font-medium transition-colors"
             >
               <Share className="w-4 h-4" />
               <span>Ver cómo</span>

@@ -47,8 +47,8 @@ const planOrder = ['free', 'starter', 'profesional', 'enterprise'];
 
 const planBadge: Record<string, string> = {
   free: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
-  starter: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300',
-  profesional: 'bg-teal-100 text-teal-700 dark:bg-teal-900 dark:text-teal-300',
+  starter: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-status-info-fg',
+  profesional: 'bg-teal-100 text-teal-700 dark:bg-teal-900 dark:text-status-info-fg',
   enterprise: 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300',
 };
 
@@ -146,7 +146,7 @@ export function MiPlanClient() {
               </span>
             </div>
             {plan.trialEndsAt && (
-              <p className="mt-1 text-sm text-amber-600">
+              <p className="mt-1 text-sm text-status-warn-fg">
                 Trial hasta {new Date(plan.trialEndsAt).toLocaleDateString('es-CL')}
               </p>
             )}
@@ -184,7 +184,7 @@ export function MiPlanClient() {
         <h3 className="mb-3 text-lg font-semibold text-gray-900 dark:text-gray-100">Modulos incluidos</h3>
         <div className="flex flex-wrap gap-2">
           {modules.map((m) => (
-            <span key={m} className="rounded-full bg-emerald-50 dark:bg-emerald-900/20 px-3 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-300">
+            <span key={m} className="rounded-full bg-emerald-50 dark:bg-emerald-900/20 px-3 py-1 text-xs font-medium text-status-ok-fg dark:text-status-ok-fg">
               {MODULE_LABELS[m] ?? m}
             </span>
           ))}
@@ -226,7 +226,7 @@ export function MiPlanClient() {
             <span>Total estimado</span>
             <span>{effectiveBase + addonTotal} {plan.currency}</span>
           </div>
-          <p className="text-xs text-blue-600 dark:text-blue-400">
+          <p className="text-xs text-status-info-fg dark:text-status-info-fg">
             * El costo por guardia ({effectivePrice} {plan.currency}/guardia) se suma segun guardias activos.
           </p>
         </div>
@@ -245,7 +245,7 @@ export function MiPlanClient() {
                   key={cp.slug}
                   className={`rounded-lg border p-4 ${
                     isCurrent
-                      ? 'border-blue-500 bg-blue-50/50 dark:border-blue-400 dark:bg-blue-900/10'
+                      ? 'border-status-info-border bg-blue-50/50 dark:border-blue-400 dark:bg-blue-900/10'
                       : cp.featured
                         ? 'border-teal-300 dark:border-teal-700'
                         : 'border-gray-200 dark:border-gray-700'
@@ -254,12 +254,12 @@ export function MiPlanClient() {
                   <div className="flex items-center justify-between">
                     <h4 className="font-semibold text-gray-900 dark:text-gray-100">{cp.name}</h4>
                     {isCurrent && (
-                      <span className="rounded-full bg-blue-100 dark:bg-blue-900 px-2 py-0.5 text-xs font-medium text-blue-700 dark:text-blue-300">
+                      <span className="rounded-full bg-blue-100 dark:bg-blue-900 px-2 py-0.5 text-xs font-medium text-blue-700 dark:text-status-info-fg">
                         Actual
                       </span>
                     )}
                     {cp.featured && !isCurrent && (
-                      <span className="rounded-full bg-teal-100 dark:bg-teal-900 px-2 py-0.5 text-xs font-medium text-teal-700 dark:text-teal-300">
+                      <span className="rounded-full bg-teal-100 dark:bg-teal-900 px-2 py-0.5 text-xs font-medium text-teal-700 dark:text-status-info-fg">
                         Popular
                       </span>
                     )}
@@ -279,7 +279,7 @@ export function MiPlanClient() {
                     <button
                       type="button"
                       onClick={() => setUpgradeModal({ type: 'plan', value: cp.slug })}
-                      className="mt-3 w-full rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white hover:bg-blue-700 transition-colors"
+                      className="mt-3 w-full rounded-lg bg-status-info px-3 py-2 text-xs font-medium text-white hover:bg-blue-700 transition-colors"
                     >
                       Solicitar upgrade
                     </button>
@@ -297,7 +297,7 @@ export function MiPlanClient() {
           <div className="mx-4 w-full max-w-md rounded-xl bg-white dark:bg-gray-900 p-6 shadow-xl">
             {sent ? (
               <div className="text-center">
-                <p className="text-lg font-semibold text-emerald-600">Solicitud enviada</p>
+                <p className="text-lg font-semibold text-status-ok-fg">Solicitud enviada</p>
                 <p className="mt-1 text-sm text-gray-500">Nuestro equipo se pondra en contacto contigo.</p>
               </div>
             ) : (
@@ -330,7 +330,7 @@ export function MiPlanClient() {
                     type="button"
                     onClick={sendRequest}
                     disabled={sending}
-                    className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                    className="rounded-lg bg-status-info px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
                   >
                     {sending ? 'Enviando...' : 'Enviar solicitud'}
                   </button>

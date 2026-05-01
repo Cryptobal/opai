@@ -151,7 +151,7 @@ export default function InicioTab({
       <div className="space-y-5">
         {/* ── Greeting Banner ──────────────────────────────────────── */}
         <div className="rounded-xl bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/20 p-5">
-          <p className="text-lg font-semibold text-cyan-300">
+          <p className="text-lg font-semibold text-status-info-fg">
             {greeting}, {guardName.split(" ")[0]}
           </p>
           <p className="mt-1 text-sm text-[#9CA3AF]">{installationName}</p>

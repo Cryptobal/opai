@@ -52,11 +52,11 @@ export const ROLES_UPDATED_EVENT = 'opai-roles-updated';
 // ── Color helpers para badges ──
 
 export const ROLE_COLORS: Record<string, { bg: string; text: string; border: string }> = {
-    owner: { bg: 'bg-amber-500/15', text: 'text-amber-400', border: 'border-amber-500/30' },
-    admin: { bg: 'bg-blue-500/15', text: 'text-blue-400', border: 'border-blue-500/30' },
-    editor: { bg: 'bg-emerald-500/15', text: 'text-emerald-400', border: 'border-emerald-500/30' },
+    owner: { bg: 'bg-status-warn-soft', text: 'text-status-warn-fg', border: 'border-status-warn-border' },
+    admin: { bg: 'bg-status-info-soft', text: 'text-status-info-fg', border: 'border-status-info-border' },
+    editor: { bg: 'bg-status-ok-soft', text: 'text-status-ok-fg', border: 'border-status-ok-border' },
     jefe_operaciones: { bg: 'bg-violet-500/15', text: 'text-violet-400', border: 'border-violet-500/30' },
-    central_monitoreo: { bg: 'bg-cyan-500/15', text: 'text-cyan-400', border: 'border-cyan-500/30' },
+    central_monitoreo: { bg: 'bg-status-info-soft', text: 'text-status-info-fg', border: 'border-status-info-border' },
     supervisor: { bg: 'bg-purple-500/15', text: 'text-purple-400', border: 'border-purple-500/30' },
     viewer: { bg: 'bg-gray-500/15', text: 'text-gray-400', border: 'border-gray-500/30' },
 };
@@ -65,13 +65,13 @@ const FALLBACK_COLOR = { bg: 'bg-slate-500/15', text: 'text-slate-300', border: 
 
 /** Pool determinista para roles custom (color se asigna por hash del slug) */
 const CUSTOM_COLOR_POOL: Array<{ bg: string; text: string; border: string }> = [
-    { bg: 'bg-rose-500/15', text: 'text-rose-300', border: 'border-rose-500/30' },
+    { bg: 'bg-status-danger-soft', text: 'text-status-danger-fg', border: 'border-status-danger-border' },
     { bg: 'bg-pink-500/15', text: 'text-pink-300', border: 'border-pink-500/30' },
     { bg: 'bg-fuchsia-500/15', text: 'text-fuchsia-300', border: 'border-fuchsia-500/30' },
-    { bg: 'bg-indigo-500/15', text: 'text-indigo-300', border: 'border-indigo-500/30' },
-    { bg: 'bg-teal-500/15', text: 'text-teal-300', border: 'border-teal-500/30' },
+    { bg: 'bg-status-info-soft', text: 'text-status-info-fg', border: 'border-status-info-border' },
+    { bg: 'bg-status-info-soft', text: 'text-status-info-fg', border: 'border-status-info-border' },
     { bg: 'bg-lime-500/15', text: 'text-lime-300', border: 'border-lime-500/30' },
-    { bg: 'bg-orange-500/15', text: 'text-orange-300', border: 'border-orange-500/30' },
+    { bg: 'bg-orange-500/15', text: 'text-status-warn-fg', border: 'border-status-warn-border' },
 ];
 
 function hashSlug(slug: string): number {

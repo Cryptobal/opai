@@ -118,7 +118,7 @@ export function PanicoModal({ session, activeEjecucionId, onClose, onPanicSent }
       {/* Close button */}
       <button
         onClick={onClose}
-        className="absolute right-4 top-4 rounded-full p-2 text-red-300 hover:bg-red-900/50"
+        className="absolute right-4 top-4 rounded-full p-2 text-status-danger-fg hover:bg-red-900/50"
         aria-label="Cancelar"
       >
         <X className="h-6 w-6" />
@@ -128,7 +128,7 @@ export function PanicoModal({ session, activeEjecucionId, onClose, onPanicSent }
         {/* Icon */}
         <div className="flex justify-center">
           <div className="flex h-24 w-24 items-center justify-center rounded-full bg-red-900/60 ring-4 ring-red-500/30">
-            <AlertTriangle className="h-12 w-12 text-red-400" />
+            <AlertTriangle className="h-12 w-12 text-status-danger-fg" />
           </div>
         </div>
 
@@ -144,7 +144,7 @@ export function PanicoModal({ session, activeEjecucionId, onClose, onPanicSent }
         <button
           onClick={onClose}
           disabled={sending}
-          className="w-full rounded-xl border border-red-700/50 bg-red-900/30 py-3.5 text-base font-medium text-red-300 transition-colors hover:bg-red-900/50 disabled:opacity-40"
+          className="w-full rounded-xl border border-red-700/50 bg-red-900/30 py-3.5 text-base font-medium text-status-danger-fg transition-colors hover:bg-red-900/50 disabled:opacity-40"
         >
           Cancelar
         </button>
@@ -152,7 +152,7 @@ export function PanicoModal({ session, activeEjecucionId, onClose, onPanicSent }
         {/* Progress bar */}
         <div className="h-2 w-full overflow-hidden rounded-full bg-red-900/50">
           <div
-            className="h-full rounded-full bg-red-500 transition-all duration-1000 ease-linear"
+            className="h-full rounded-full bg-status-danger transition-all duration-1000 ease-linear"
             style={{ width: `${progressPercent}%` }}
           />
         </div>
@@ -174,7 +174,7 @@ export function PanicoModal({ session, activeEjecucionId, onClose, onPanicSent }
 
         {/* Error */}
         {error && (
-          <p className="text-sm text-red-300">{error}</p>
+          <p className="text-sm text-status-danger-fg">{error}</p>
         )}
       </div>
     </div>

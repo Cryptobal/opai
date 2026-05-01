@@ -43,7 +43,7 @@ export default function PsychReviewSignForm({ defaultLicense, onSubmit }: Props)
   return (
     <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
       <div className="flex items-center gap-2">
-        <ShieldCheck className="size-5 text-emerald-600 dark:text-emerald-400" />
+        <ShieldCheck className="size-5 text-status-ok-fg dark:text-status-ok-fg" />
         <h3 className="text-lg font-semibold text-foreground">
           Firma profesional
         </h3>
@@ -98,7 +98,7 @@ export default function PsychReviewSignForm({ defaultLicense, onSubmit }: Props)
         </span>
       </label>
       {err ? (
-        <p className="text-sm text-red-600 dark:text-red-400">{err}</p>
+        <p className="text-sm text-status-danger-fg dark:text-status-danger-fg">{err}</p>
       ) : null}
       <button
         onClick={handle}

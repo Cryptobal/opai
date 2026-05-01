@@ -85,7 +85,7 @@ export function GamificacionConfigClient() {
   return (
     <div className="space-y-6">
       {/* Kill Switch */}
-      <Card className="border-red-500/20">
+      <Card className="border-status-danger-border">
         <CardHeader>
           <CardTitle className="text-base">Módulo Activo</CardTitle>
           <CardDescription>
@@ -139,7 +139,7 @@ export function GamificacionConfigClient() {
           </div>
           <p
             className={`text-xs ${
-              pesoSum === 100 ? "text-muted-foreground" : "text-red-400 font-medium"
+              pesoSum === 100 ? "text-muted-foreground" : "text-status-danger-fg font-medium"
             }`}
           >
             Total: {pesoSum}% {pesoSum !== 100 && "(debe sumar 100%)"}

@@ -99,7 +99,7 @@ export function SignatureCanvas({ value, onChange }: SignatureCanvasProps) {
           Limpiar
         </Button>
       </div>
-      {value ? <div className="text-xs text-emerald-600">Firma capturada</div> : null}
+      {value ? <div className="text-xs text-status-ok-fg">Firma capturada</div> : null}
     </div>
   );
 }

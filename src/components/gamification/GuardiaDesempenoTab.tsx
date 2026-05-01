@@ -115,13 +115,13 @@ export function GuardiaDesempenoTab({ guardiaId }: GuardiaDesempenoTabProps) {
               </div>
               <div className="flex items-center justify-center sm:justify-start gap-1.5 text-sm">
                 {trendUp ? (
-                  <TrendingUp className="h-4 w-4 text-emerald-500" />
+                  <TrendingUp className="h-4 w-4 text-status-ok-fg" />
                 ) : (
-                  <TrendingDown className="h-4 w-4 text-red-500" />
+                  <TrendingDown className="h-4 w-4 text-status-danger-fg" />
                 )}
                 <span
                   className={
-                    trendUp ? "text-emerald-500" : "text-red-500"
+                    trendUp ? "text-status-ok-fg" : "text-status-danger-fg"
                   }
                 >
                   {trendUp ? "+" : ""}

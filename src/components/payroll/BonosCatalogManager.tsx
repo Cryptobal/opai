@@ -76,9 +76,9 @@ const CONDITION_TYPES = [
 ];
 
 const BONO_TYPE_CONFIG: Record<BonoType, { label: string; icon: typeof DollarSign; color: string }> = {
-  FIJO: { label: "Fijo", icon: DollarSign, color: "text-emerald-400" },
-  PORCENTUAL: { label: "Porcentual", icon: Percent, color: "text-blue-400" },
-  CONDICIONAL: { label: "Condicional", icon: Target, color: "text-amber-400" },
+  FIJO: { label: "Fijo", icon: DollarSign, color: "text-status-ok-fg" },
+  PORCENTUAL: { label: "Porcentual", icon: Percent, color: "text-status-info-fg" },
+  CONDICIONAL: { label: "Condicional", icon: Target, color: "text-status-warn-fg" },
 };
 
 /* ── Component ──────────────────────── */

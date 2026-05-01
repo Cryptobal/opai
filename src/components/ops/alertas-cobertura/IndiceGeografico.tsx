@@ -63,15 +63,15 @@ export function IndiceGeografico() {
   const selected = selectedId ? data.find((d) => d.installationId === selectedId) : null;
 
   const getScoreColor = (score: number) => {
-    if (score >= 70) return "text-emerald-400";
-    if (score >= 40) return "text-amber-400";
-    return "text-red-400";
+    if (score >= 70) return "text-status-ok-fg";
+    if (score >= 40) return "text-status-warn-fg";
+    return "text-status-danger-fg";
   };
 
   const getScoreBg = (score: number) => {
-    if (score >= 70) return "bg-emerald-500/20 border-emerald-500/30";
-    if (score >= 40) return "bg-amber-500/20 border-amber-500/30";
-    return "bg-red-500/20 border-red-500/30";
+    if (score >= 70) return "bg-status-ok-soft border-status-ok-border";
+    if (score >= 40) return "bg-status-warn-soft border-status-warn-border";
+    return "bg-status-danger-soft border-status-danger-border";
   };
 
   const handleBatchGeocode = async () => {
@@ -150,7 +150,7 @@ export function IndiceGeografico() {
           </Card>
           <Card>
             <CardContent className="p-4 text-center">
-              <p className="text-2xl font-bold text-red-400">{resumen.instalacionesCriticas}</p>
+              <p className="text-2xl font-bold text-status-danger-fg">{resumen.instalacionesCriticas}</p>
               <p className="text-xs text-muted-foreground">Criticas (&lt;40)</p>
             </CardContent>
           </Card>
@@ -207,7 +207,7 @@ export function IndiceGeografico() {
             <>
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-teal-400" />
+                  <MapPin className="h-4 w-4 text-status-info-fg" />
                   {selected.name}
                 </DialogTitle>
                 <DialogDescription>
@@ -221,20 +221,20 @@ export function IndiceGeografico() {
               <div className="space-y-4">
                 {/* Distance rings */}
                 <div className="grid grid-cols-4 gap-2">
-                  <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 p-2.5 text-center">
-                    <p className="text-lg font-bold text-emerald-400">{selected.anillos.cercanos_0_5km}</p>
+                  <div className="rounded-lg bg-status-ok-soft border border-status-ok-border p-2.5 text-center">
+                    <p className="text-lg font-bold text-status-ok-fg">{selected.anillos.cercanos_0_5km}</p>
                     <p className="text-[10px] text-muted-foreground">&lt;5km</p>
                   </div>
-                  <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-2.5 text-center">
-                    <p className="text-lg font-bold text-amber-400">{selected.anillos.medianos_5_15km}</p>
+                  <div className="rounded-lg bg-status-warn-soft border border-status-warn-border p-2.5 text-center">
+                    <p className="text-lg font-bold text-status-warn-fg">{selected.anillos.medianos_5_15km}</p>
                     <p className="text-[10px] text-muted-foreground">5-15km</p>
                   </div>
-                  <div className="rounded-lg bg-orange-500/10 border border-orange-500/20 p-2.5 text-center">
-                    <p className="text-lg font-bold text-orange-400">{selected.anillos.lejanos_15_30km}</p>
+                  <div className="rounded-lg bg-status-warn-soft border border-orange-500/20 p-2.5 text-center">
+                    <p className="text-lg font-bold text-status-warn-fg">{selected.anillos.lejanos_15_30km}</p>
                     <p className="text-[10px] text-muted-foreground">15-30km</p>
                   </div>
-                  <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-2.5 text-center">
-                    <p className="text-lg font-bold text-red-400">{selected.anillos.muyLejanos_30plus}</p>
+                  <div className="rounded-lg bg-status-danger-soft border border-status-danger-border p-2.5 text-center">
+                    <p className="text-lg font-bold text-status-danger-fg">{selected.anillos.muyLejanos_30plus}</p>
                     <p className="text-[10px] text-muted-foreground">&gt;30km</p>
                   </div>
                 </div>
@@ -243,7 +243,7 @@ export function IndiceGeografico() {
                   <span>Promedio: {selected.distanciaPromedioKm}km</span>
                   <span>Maximo: {selected.distanciaMaxKm}km</span>
                   {selected.sinCoordenadas > 0 && (
-                    <span className="flex items-center gap-1 text-amber-400">
+                    <span className="flex items-center gap-1 text-status-warn-fg">
                       <AlertTriangle className="h-3 w-3" />
                       {selected.sinCoordenadas} sin coordenadas
                     </span>
@@ -262,9 +262,9 @@ export function IndiceGeografico() {
                           <span className="text-sm">{g.nombre}</span>
                           {g.distanciaKm != null ? (
                             <span className={`text-xs font-mono ${
-                              g.distanciaKm <= 5 ? "text-emerald-400" :
-                              g.distanciaKm <= 15 ? "text-amber-400" :
-                              g.distanciaKm <= 30 ? "text-orange-400" : "text-red-400"
+                              g.distanciaKm <= 5 ? "text-status-ok-fg" :
+                              g.distanciaKm <= 15 ? "text-status-warn-fg" :
+                              g.distanciaKm <= 30 ? "text-status-warn-fg" : "text-status-danger-fg"
                             }`}>
                               {g.distanciaKm} km
                             </span>
@@ -278,8 +278,8 @@ export function IndiceGeografico() {
                 )}
 
                 {selected.alertas && (
-                  <div className="rounded-md bg-amber-500/10 border border-amber-500/20 p-2">
-                    <p className="text-[10px] text-amber-400">{selected.alertas}</p>
+                  <div className="rounded-md bg-status-warn-soft border border-status-warn-border p-2">
+                    <p className="text-[10px] text-status-warn-fg">{selected.alertas}</p>
                   </div>
                 )}
               </div>

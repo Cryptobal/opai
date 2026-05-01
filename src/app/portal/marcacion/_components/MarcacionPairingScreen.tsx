@@ -118,7 +118,7 @@ export function MarcacionPairingScreen({ onPaired }: MarcacionPairingScreenProps
       <form onSubmit={handleSubmit}>
         {error && (
           <div
-            className="rounded-xl px-4 py-3 mb-4 text-sm text-red-400"
+            className="rounded-xl px-4 py-3 mb-4 text-sm text-status-danger-fg"
             style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)" }}
           >
             {error}

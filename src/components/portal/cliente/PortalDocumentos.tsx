@@ -34,7 +34,7 @@ export function PortalDocumentos({ session, selectedInstallation, isProspect }: 
       {/* Header */}
       <div className="mb-4">
         <h2 className="text-base font-semibold flex items-center gap-2">
-          <FileText className="h-5 w-5 text-blue-400" />
+          <FileText className="h-5 w-5 text-status-info-fg" />
           Documentación digital
           <OpaiBadge text="Cumplimiento automático" variant="default" />
           {isProspect && <PreviewBadge />}
@@ -131,7 +131,7 @@ function PortalCuentaDocumentos({ isProspect }: { isProspect?: boolean }) {
   if (loading) {
     return (
       <div className="flex justify-center py-24">
-        <Loader2 className="h-8 w-8 animate-spin text-teal-400" />
+        <Loader2 className="h-8 w-8 animate-spin text-status-info-fg" />
       </div>
     );
   }
@@ -200,7 +200,7 @@ function PortalInstalacionDocumentos({ installationId, isProspect }: { installat
   if (loading) {
     return (
       <div className="flex justify-center py-24">
-        <Loader2 className="h-8 w-8 animate-spin text-teal-400" />
+        <Loader2 className="h-8 w-8 animate-spin text-status-info-fg" />
       </div>
     );
   }

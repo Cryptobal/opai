@@ -106,7 +106,7 @@ export function FaceCameraCapture({ onCapture, onCancel, captureLabel = "Captura
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center py-8">
-        <p className="text-red-400 text-sm text-center mb-4">{error}</p>
+        <p className="text-status-danger-fg text-sm text-center mb-4">{error}</p>
         <button
           onClick={handleCancel}
           className="rounded-xl px-6 py-2 text-sm text-white/70"

@@ -37,14 +37,14 @@ interface Props {
 const SEVERITY_CONFIG: Record<string, { dot: string; border: string; bg: string; label: string }> = {
   critical: {
     dot: "bg-red-400 animate-pulse",
-    border: "border-red-500/20 border-l-red-500",
-    bg: "bg-red-500/5",
+    border: "border-status-danger-border border-l-red-500",
+    bg: "bg-status-danger-soft",
     label: "Crítica",
   },
   warning: {
     dot: "bg-amber-400",
-    border: "border-amber-500/20 border-l-amber-500",
-    bg: "bg-amber-500/5",
+    border: "border-status-warn-border border-l-amber-500",
+    bg: "bg-status-warn-soft",
     label: "Warning",
   },
   info: {
@@ -160,7 +160,7 @@ export function AlertaCard({ alerta, onResolve, selected, onToggleSelect }: Prop
             <button
               onClick={() => setResolveOpen(true)}
               type="button"
-              className="text-[11px] px-2.5 py-1 rounded-lg border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/10 transition-colors flex items-center gap-1"
+              className="text-[11px] px-2.5 py-1 rounded-lg border border-status-ok-border text-status-ok-fg hover:bg-status-ok-soft transition-colors flex items-center gap-1"
             >
               <CheckCircle2 className="h-3 w-3" /> Resolver
             </button>
@@ -173,7 +173,7 @@ export function AlertaCard({ alerta, onResolve, selected, onToggleSelect }: Prop
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60" onClick={() => setResolveOpen(false)}>
           <div className="rounded-xl border border-[#1a1f2e] bg-[#111827] p-4 w-full max-w-sm shadow-xl" onClick={(e) => e.stopPropagation()}>
             {alerta.tipo === "panico" ? (
-              <p className="text-xs font-semibold text-red-400 mb-2">Comentario obligatorio para alertas de pánico</p>
+              <p className="text-xs font-semibold text-status-danger-fg mb-2">Comentario obligatorio para alertas de pánico</p>
             ) : (
               <p className="text-xs font-semibold text-[#94a3b8] mb-2">Comentario (opcional)</p>
             )}
@@ -189,7 +189,7 @@ export function AlertaCard({ alerta, onResolve, selected, onToggleSelect }: Prop
             {alerta.tipo === "panico" && (
               <p className={cn(
                 "text-[10px] mb-2",
-                resolveNotes.trim().length >= 10 ? "text-emerald-400" : "text-[#64748b]"
+                resolveNotes.trim().length >= 10 ? "text-status-ok-fg" : "text-[#64748b]"
               )}>
                 {resolveNotes.trim().length}/10 caracteres mínimo
               </p>
@@ -211,7 +211,7 @@ export function AlertaCard({ alerta, onResolve, selected, onToggleSelect }: Prop
                   setResolveOpen(false);
                   setResolveNotes("");
                 }}
-                className="text-[11px] px-3 py-1.5 rounded-lg border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                className="text-[11px] px-3 py-1.5 rounded-lg border border-status-ok-border text-status-ok-fg hover:bg-status-ok-soft transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 Marcar resuelta
               </button>

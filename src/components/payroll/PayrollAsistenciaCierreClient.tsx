@@ -173,11 +173,11 @@ export function PayrollAsistenciaCierreClient() {
                   Estado del período
                 </CardTitle>
                 {isClosed ? (
-                  <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-emerald-400 gap-1.5">
+                  <Badge variant="outline" className="border-status-ok-border bg-status-ok-soft text-status-ok-fg gap-1.5">
                     <Lock className="h-3 w-3" /> Cerrado
                   </Badge>
                 ) : (
-                  <Badge variant="outline" className="border-amber-500/30 bg-amber-500/10 text-amber-400 gap-1.5">
+                  <Badge variant="outline" className="border-status-warn-border bg-status-warn-soft text-status-warn-fg gap-1.5">
                     <Unlock className="h-3 w-3" /> Abierto
                   </Badge>
                 )}
@@ -218,28 +218,28 @@ export function PayrollAsistenciaCierreClient() {
               <CardContent>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <SummaryTile
-                    icon={<UserCheck className="h-4 w-4 text-emerald-400" />}
+                    icon={<UserCheck className="h-4 w-4 text-status-ok-fg" />}
                     label="Completos"
                     value={summary.completos}
                     description="Marcación entrada + salida todos los días"
                     color="emerald"
                   />
                   <SummaryTile
-                    icon={<AlertTriangle className="h-4 w-4 text-amber-400" />}
+                    icon={<AlertTriangle className="h-4 w-4 text-status-warn-fg" />}
                     label="Parciales"
                     value={summary.parciales}
                     description="Faltan marcaciones algunos días"
                     color="amber"
                   />
                   <SummaryTile
-                    icon={<UserX className="h-4 w-4 text-red-400" />}
+                    icon={<UserX className="h-4 w-4 text-status-danger-fg" />}
                     label="Sin marcación"
                     value={summary.sinMarcacion}
                     description="Solo pauta manual, sin marca electrónica"
                     color="red"
                   />
                   <SummaryTile
-                    icon={<ShieldAlert className="h-4 w-4 text-orange-400" />}
+                    icon={<ShieldAlert className="h-4 w-4 text-status-warn-fg" />}
                     label="Discrepancias"
                     value={summary.discrepancias}
                     description="Pauta vs marcación no coinciden"
@@ -282,8 +282,8 @@ export function PayrollAsistenciaCierreClient() {
                                 variant="outline"
                                 className={
                                   d.tipo === "pauta_sin_marca"
-                                    ? "border-amber-500/30 bg-amber-500/10 text-amber-400"
-                                    : "border-blue-500/30 bg-blue-500/10 text-blue-400"
+                                    ? "border-status-warn-border bg-status-warn-soft text-status-warn-fg"
+                                    : "border-status-info-border bg-status-info-soft text-status-info-fg"
                                 }
                               >
                                 {d.tipo === "pauta_sin_marca"

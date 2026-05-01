@@ -471,9 +471,9 @@ export default function DocumentosSection({
       return { icon: <Circle className="h-4 w-4 text-zinc-600" />, label: "Sin documento", color: "text-zinc-500" };
     }
     const st = calcDocStatus(doc.expiresAt ? new Date(doc.expiresAt) : null, tieneVencimiento, diasAlerta);
-    if (st === "vencido") return { icon: <X className="h-4 w-4 text-red-400" />, label: DOC_STATUS_LABELS[st], color: "text-red-400" };
-    if (st === "por_vencer") return { icon: <Clock className="h-4 w-4 text-amber-400" />, label: DOC_STATUS_LABELS[st], color: "text-amber-400" };
-    return { icon: <Check className="h-4 w-4 text-emerald-400" />, label: DOC_STATUS_LABELS[st] ?? "Vigente", color: "text-emerald-400" };
+    if (st === "vencido") return { icon: <X className="h-4 w-4 text-status-danger-fg" />, label: DOC_STATUS_LABELS[st], color: "text-status-danger-fg" };
+    if (st === "por_vencer") return { icon: <Clock className="h-4 w-4 text-status-warn-fg" />, label: DOC_STATUS_LABELS[st], color: "text-status-warn-fg" };
+    return { icon: <Check className="h-4 w-4 text-status-ok-fg" />, label: DOC_STATUS_LABELS[st] ?? "Vigente", color: "text-status-ok-fg" };
   }
 
   // ── Render ──
@@ -481,7 +481,7 @@ export default function DocumentosSection({
   return (
     <div className="space-y-4">
       {expiringDocs.length > 0 && (
-        <div className="rounded-xl border border-amber-500/30 bg-amber-500/[0.08] px-4 py-2.5 text-xs text-amber-200">
+        <div className="rounded-xl border border-status-warn-border bg-amber-500/[0.08] px-4 py-2.5 text-xs text-status-warn-fg">
           {expiringDocs.length} documento(s) vencido(s) o por vencer
         </div>
       )}
@@ -613,7 +613,7 @@ export default function DocumentosSection({
                     <Button
                       variant="ghost"
                       size="icon"
-                      className={cn("h-7 w-7", doc.portalVisible && "text-emerald-400")}
+                      className={cn("h-7 w-7", doc.portalVisible && "text-status-ok-fg")}
                       title={doc.portalVisible ? "Visible en portal" : "Oculto del portal"}
                       onClick={() => handleTogglePortalVisible(doc)}
                     >
@@ -731,7 +731,7 @@ export default function DocumentosSection({
               <Upload className="h-3.5 w-3.5 mr-1" />{creatingDoc ? "..." : "Cargar"}
             </Button>
           </div>
-          {extraFileUrl && <span className="text-[11px] text-green-400">Archivo listo</span>}
+          {extraFileUrl && <span className="text-[11px] text-status-ok-fg">Archivo listo</span>}
         </div>
       </details>
 
@@ -790,7 +790,7 @@ export default function DocumentosSection({
           const docLabel = label(doc.type);
           return (
             <div key={doc.id} className="flex flex-wrap items-center gap-2 px-3 py-2 min-w-0 hover:bg-muted/20 transition-colors">
-              {doc.fileUrl ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <X className="h-3.5 w-3.5 text-red-400" />}
+              {doc.fileUrl ? <Check className="h-3.5 w-3.5 text-status-ok-fg" /> : <X className="h-3.5 w-3.5 text-status-danger-fg" />}
               <span className="text-sm text-foreground truncate flex-1 min-w-0">{docLabel}</span>
               {hasExpiration && canManageDocs && (
                 <div className="flex items-center gap-1 shrink-0">
@@ -814,7 +814,7 @@ export default function DocumentosSection({
                 {canManageDocs && (
                   <Button
                     variant="ghost" size="icon"
-                    className={cn("h-7 w-7", doc.portalVisible && "text-emerald-400")}
+                    className={cn("h-7 w-7", doc.portalVisible && "text-status-ok-fg")}
                     title={doc.portalVisible ? "Visible en portal" : "Oculto del portal"}
                     onClick={() => handleTogglePortalVisible(doc)}
                   >
@@ -913,7 +913,7 @@ export default function DocumentosSection({
                         <span className="text-sm flex-1 truncate text-foreground">{folder.name}</span>
                         {canManageDocs && (
                           <>
-                            <Button variant="ghost" size="icon" className={cn("h-6 w-6", folder.portalVisible && "text-emerald-400")}
+                            <Button variant="ghost" size="icon" className={cn("h-6 w-6", folder.portalVisible && "text-status-ok-fg")}
                               title={folder.portalVisible ? "Visible en portal" : "Oculta del portal"}
                               onClick={(e) => { e.stopPropagation(); handleToggleFolderPortalVisible(folder); }}>
                               {folder.portalVisible ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3 text-muted-foreground" />}

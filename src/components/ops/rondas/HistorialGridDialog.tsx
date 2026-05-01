@@ -56,17 +56,17 @@ interface Props {
 }
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  presente: { label: "Presente", color: "text-emerald-400" },
-  en_camino: { label: "En camino", color: "text-sky-400" },
+  presente: { label: "Presente", color: "text-status-ok-fg" },
+  en_camino: { label: "En camino", color: "text-status-info-fg" },
   pendiente: { label: "Pendiente", color: "text-zinc-400" },
-  no_viene: { label: "No viene", color: "text-red-400" },
-  reemplazo: { label: "Reemplazo", color: "text-amber-400" },
+  no_viene: { label: "No viene", color: "text-status-danger-fg" },
+  reemplazo: { label: "Reemplazo", color: "text-status-warn-fg" },
 };
 
 const COBERTURA_COLORS: Record<string, string> = {
-  completa: "border-emerald-500/30 bg-emerald-500/10",
-  parcial: "border-amber-500/30 bg-amber-500/10",
-  descubierta: "border-red-500/30 bg-red-500/10",
+  completa: "border-status-ok-border bg-status-ok-soft",
+  parcial: "border-status-warn-border bg-status-warn-soft",
+  descubierta: "border-status-danger-border bg-status-danger-soft",
   pendiente: "border-zinc-500/30 bg-zinc-500/10",
 };
 
@@ -112,7 +112,7 @@ export function HistorialGridDialog({ open, onClose, turno }: Props) {
           {/* Cobertura badges */}
           <div className="flex gap-2 text-[10px]">
             {nocturnaAt ? (
-              <span className="inline-flex items-center gap-1 text-emerald-400">
+              <span className="inline-flex items-center gap-1 text-status-ok-fg">
                 <Moon className="h-3 w-3" /> Nocturna enviada{" "}
                 {new Date(nocturnaAt).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}
               </span>
@@ -122,7 +122,7 @@ export function HistorialGridDialog({ open, onClose, turno }: Props) {
               </span>
             )}
             {diurnaAt ? (
-              <span className="inline-flex items-center gap-1 text-emerald-400">
+              <span className="inline-flex items-center gap-1 text-status-ok-fg">
                 <Sun className="h-3 w-3" /> Diurna enviada{" "}
                 {new Date(diurnaAt).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}
               </span>
@@ -155,7 +155,7 @@ export function HistorialGridDialog({ open, onClose, turno }: Props) {
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium">{inst.installationName}</span>
                     {isDescubierta && (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-red-400">
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-status-danger-fg">
                         <AlertTriangle className="h-3 w-3" /> DESCUBIERTA
                       </span>
                     )}
@@ -231,15 +231,15 @@ function GuardGroup({
               key={g.id}
               className={cn(
                 "flex items-center gap-2 text-[11px] py-0.5 px-1.5 rounded",
-                isNoViene && "bg-red-500/10",
+                isNoViene && "bg-status-danger-soft",
               )}
             >
-              <span className={cn("font-medium", isNoViene ? "text-red-300" : "text-foreground")}>
+              <span className={cn("font-medium", isNoViene ? "text-status-danger-fg" : "text-foreground")}>
                 {g.guardiaNombre}
               </span>
               <span className={cn("text-[10px]", st.color)}>{st.label}</span>
               {g.isExtra && (
-                <span className="text-[9px] px-1 py-0.5 rounded bg-sky-500/20 text-sky-400 font-semibold">
+                <span className="text-[9px] px-1 py-0.5 rounded bg-sky-500/20 text-status-info-fg font-semibold">
                   EXTRA
                 </span>
               )}

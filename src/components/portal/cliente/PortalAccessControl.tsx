@@ -45,7 +45,7 @@ export function PortalAccessControl({ session, selectedInstallation, isProspect 
     return (
       <div className="flex-1 max-w-6xl mx-auto w-full px-4 py-4 pb-24">
         <h2 className="text-lg font-bold text-zinc-100 flex items-center gap-2 mb-1">
-          <ShieldCheck className="h-5 w-5 text-blue-400" />
+          <ShieldCheck className="h-5 w-5 text-status-info-fg" />
           Control de Acceso
           <OpaiBadge variant="default" />
         </h2>
@@ -64,8 +64,8 @@ export function PortalAccessControl({ session, selectedInstallation, isProspect 
                 </div>
                 <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
                   entry.status === "Autorizado"
-                    ? "bg-emerald-900/40 text-emerald-300"
-                    : "bg-red-900/40 text-red-400"
+                    ? "bg-emerald-900/40 text-status-ok-fg"
+                    : "bg-red-900/40 text-status-danger-fg"
                 }`}>
                   {entry.status}
                 </span>
@@ -76,7 +76,7 @@ export function PortalAccessControl({ session, selectedInstallation, isProspect 
         <div className="mt-4 space-y-2">
           {["Pre-registro de visitas online", "Lista blanca de autorizados permanentes", "Historial completo de accesos", "Alertas de accesos no autorizados"].map((feat) => (
             <div key={feat} className="flex items-center gap-2 text-xs text-zinc-400">
-              <ShieldCheck className="h-3.5 w-3.5 text-blue-400 shrink-0" />
+              <ShieldCheck className="h-3.5 w-3.5 text-status-info-fg shrink-0" />
               {feat}
             </div>
           ))}
@@ -95,7 +95,7 @@ export function PortalAccessControl({ session, selectedInstallation, isProspect 
   return (
     <div className="flex-1 max-w-6xl mx-auto w-full px-4 py-4 pb-24">
       <h2 className="text-lg font-bold text-zinc-100 flex items-center gap-2 mb-1">
-        <ShieldCheck className="h-5 w-5 text-blue-400" />
+        <ShieldCheck className="h-5 w-5 text-status-info-fg" />
         Control de Acceso
         <OpaiBadge variant="default" />
       </h2>
@@ -109,7 +109,7 @@ export function PortalAccessControl({ session, selectedInstallation, isProspect 
             onClick={() => setActiveTab(key)}
             className={`flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
               activeTab === key
-                ? "bg-blue-500/10 text-blue-400 border border-blue-500/30"
+                ? "bg-status-info-soft text-status-info-fg border border-status-info-border"
                 : "text-zinc-400 border border-zinc-700 hover:border-zinc-600"
             }`}
           >
