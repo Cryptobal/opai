@@ -453,7 +453,7 @@ export function SupervisorAssignmentsClient({ supervisors, installations }: Prop
                             onClick={() => void handleToggle(inst.id, !assigned)}
                             className={[
                               "relative inline-flex h-7 w-14 items-center rounded-full transition-colors",
-                              assigned ? "bg-emerald-500/80" : "bg-muted",
+                              assigned ? "bg-status-ok" : "bg-muted",
                               isUpdating ? "opacity-70 cursor-not-allowed" : "cursor-pointer",
                             ].join(" ")}
                           >

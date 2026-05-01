@@ -383,7 +383,7 @@ export function Step5Closure({
                 <div className="space-y-1">
                   <Label className={`text-xs ${missingContactName ? "text-status-warn-fg" : ""}`}>
                     Nombre del contacto
-                    {missingContactName && <span className="ml-1 text-[10px] text-amber-400/70">*</span>}
+                    {missingContactName && <span className="ml-1 text-[10px] text-status-warn-fg/70">*</span>}
                   </Label>
                   <Input
                     value={clientContactName}
@@ -411,7 +411,7 @@ export function Step5Closure({
                     <div key={q.key} className={`space-y-1 rounded-lg p-1.5 -mx-1.5 transition-colors ${unanswered ? "bg-status-warn-soft" : ""}`}>
                       <Label className={`text-xs ${unanswered ? "text-status-warn-fg" : ""}`}>
                         {idx + 1}. {q.question}
-                        {unanswered && <span className="ml-1 text-[10px] text-amber-400/70">*</span>}
+                        {unanswered && <span className="ml-1 text-[10px] text-status-warn-fg/70">*</span>}
                       </Label>
                       <SurveyRating
                         value={surveyData[q.key]}
@@ -426,7 +426,7 @@ export function Step5Closure({
                 <div className={`space-y-2 rounded-lg p-1.5 -mx-1.5 transition-colors ${missingRisk ? "bg-status-warn-soft" : ""}`}>
                   <Label className={`text-xs ${missingRisk ? "text-status-warn-fg" : ""}`}>
                     7. Existe actualmente algun riesgo o preocupacion relevante que debamos abordar de inmediato?
-                    {missingRisk && <span className="ml-1 text-[10px] text-amber-400/70">*</span>}
+                    {missingRisk && <span className="ml-1 text-[10px] text-status-warn-fg/70">*</span>}
                   </Label>
                   <div className="flex gap-2">
                     <button
@@ -474,7 +474,7 @@ export function Step5Closure({
                 <div className={`space-y-1 rounded-lg p-1.5 -mx-1.5 transition-colors ${missingNps ? "bg-status-warn-soft" : ""}`}>
                   <Label className={`text-xs ${missingNps ? "text-status-warn-fg" : ""}`}>
                     8. Recomendaria nuestro servicio? (NPS)
-                    {missingNps && <span className="ml-1 text-[10px] text-amber-400/70">*</span>}
+                    {missingNps && <span className="ml-1 text-[10px] text-status-warn-fg/70">*</span>}
                   </Label>
                   <NpsRating
                     value={surveyData.npsScore}
@@ -501,7 +501,7 @@ export function Step5Closure({
               <div className={`space-y-3 rounded-lg p-3 transition-colors ${missingValidation ? "bg-status-warn-soft border border-status-warn-border" : "bg-muted/30"}`}>
                 <p className={`text-xs font-medium ${missingValidation ? "text-status-warn-fg" : ""}`}>
                   Validacion del cliente (obligatorio)
-                  {missingValidation && <span className="ml-1 text-[10px] text-amber-400/70">*</span>}
+                  {missingValidation && <span className="ml-1 text-[10px] text-status-warn-fg/70">*</span>}
                 </p>
                 <p className="text-[10px] text-muted-foreground">
                   El cliente confirma que respondio esta encuesta
@@ -760,7 +760,7 @@ export function Step5Closure({
           <Button
             onClick={onFinalize}
             disabled={saving || !canFinalize}
-            className="flex-1 bg-status-ok hover:bg-emerald-700"
+            className="flex-1 bg-status-ok hover:brightness-110"
             size="lg"
           >
             {saving ? "Finalizando..." : "Finalizar visita"}

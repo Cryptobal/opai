@@ -585,6 +585,60 @@ const MIGRATED_PATHS = [
   // limpieza tipográfica completa en una sub-fase futura.
   "src/app/(app)/ops/tickets/page.tsx",
   "src/app/(app)/ops/tickets/[id]/page.tsx",
+
+  // Cluster 5B.4 — Supervisión (módulo completo).
+  // Migra los 7 page wrappers al patrón hero (iconTone emerald, varios
+  // íconos por sub-sección) y limpia 9 hex residuales en 3 componentes:
+  //
+  // - SupervisorAssignmentsClient (1 hex): cell switch "asignado"
+  //   bg-emerald-500/80 → bg-status-ok (solid semantic).
+  // - Step5Closure (6 hex): 5 asteriscos required text-amber-400/70 →
+  //   text-status-warn-fg/70; submit button hover hover:bg-emerald-700
+  //   → hover:brightness-110.
+  // - SupervisionVisitWizard (2 hex): VRA resume modal icon container
+  //   bg-orange-500/20 → bg-status-warn-soft; CTA bg-orange-600 +
+  //   hover:bg-status-warn → bg-status-warn + hover:brightness-110.
+  //
+  // 18 componentes ya limpios de drift de color post-5B.0 — sólo se
+  // certifican en esta pasada: PhotoGallery, SupervisionDashboardClient,
+  // SupervisionDashboardEnhanced, SupervisionGrilla, SupervisionHallazgos,
+  // SupervisionNewVisitFlow, SupervisionReportes, SupervisionReportesClient,
+  // SupervisionSubnav, VisitaDetailActions, FindingModal, ResolveFindingModal,
+  // SignatureCanvas, Step1CheckIn, Step2Evaluation, Step3Checklist,
+  // Step4Evidence, WizardProgress.
+  //
+  // NO TOCADO en este cluster:
+  // - 2 redirect pages (mis-visitas → /historial, reportes → /dashboard).
+  // - Logic, mutations, queries, wizard validation, signature canvas,
+  //   photo upload, geo-validación, hallazgos workflow, asignaciones
+  //   matrix toggle, filtros historial, drag grilla — todo igual.
+  //
+  // CIERRE DEL CLUSTER 5B.4 (Supervisión) — todo el módulo alineado al
+  // DS v3 a nivel de color. Próximo cluster: 5B.5 (Alertas Cobertura) — ~2 h.
+  //
+  // Sólo las 7 SC pages se agregan: todas quedan 100% limpias tras
+  // la migración a <PageHero>. Los 21 CCs (PhotoGallery,
+  // SupervisionDashboardClient, SupervisionDashboardEnhanced,
+  // SupervisionGrilla, SupervisionHallazgos, SupervisionNewVisitFlow,
+  // SupervisionReportes, SupervisionReportesClient, SupervisionSubnav,
+  // SupervisorAssignmentsClient, VisitaDetailActions, FindingModal,
+  // ResolveFindingModal, SignatureCanvas, Step1CheckIn, Step2Evaluation,
+  // Step3Checklist, Step4Evidence, Step5Closure, SupervisionVisitWizard,
+  // WizardProgress) NO se agregan a MIGRATED_PATHS: mismo criterio que
+  // 4A/4B/4C/4D/5A.1..5A.8/5B.1.a/5B.1.b/5B.2.a/5B.2.b.1/5B.2.b.2/5B.2.c/
+  // 5B.3 — los archivos completaron su migración granular de color drift
+  // pero siguen teniendo drift tipográfico legacy fuera de eso (text-[10px]/
+  // text-[11px] en chips de hallazgo, calendario grilla cells, wizard
+  // step indicators, badges de evaluación, pills de estado, asteriscos
+  // required, photo gallery captions). Se agregarán cuando se haga su
+  // pasada de limpieza tipográfica completa en una sub-fase futura.
+  "src/app/(app)/ops/supervision/page.tsx",
+  "src/app/(app)/ops/supervision/[id]/page.tsx",
+  "src/app/(app)/ops/supervision/asignaciones/page.tsx",
+  "src/app/(app)/ops/supervision/dashboard/page.tsx",
+  "src/app/(app)/ops/supervision/hallazgos/page.tsx",
+  "src/app/(app)/ops/supervision/historial/page.tsx",
+  "src/app/(app)/ops/supervision/nueva-visita/page.tsx",
   // Agregar aquí cuando se migren:
   // "src/components/personas/",
   // "src/components/crm/",
