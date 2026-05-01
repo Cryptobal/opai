@@ -158,11 +158,11 @@ const ETAPA_LABELS: Record<string, string> = {
   DESCARTADO: "Descartado",
 };
 const ETAPA_COLORS: Record<string, string> = {
-  POSTULADO: "bg-gray-100",
-  EN_REVISION: "bg-blue-50",
-  ENTREVISTA: "bg-amber-50",
-  OFERTA: "bg-purple-50",
-  CONTRATADO: "bg-green-50",
+  POSTULADO: "bg-muted/50",
+  EN_REVISION: "bg-status-info-soft/40",
+  ENTREVISTA: "bg-status-warn-soft/40",
+  OFERTA: "bg-tint-violet/40",
+  CONTRATADO: "bg-status-ok-soft/40",
 };
 const MANUAL_PORTALS: Record<string, string> = {
   indeed: "https://indeed.com/hiring",
@@ -174,12 +174,12 @@ const MANUAL_PORTALS: Record<string, string> = {
 };
 
 const FUENTE_COLORS: Record<string, string> = {
-  google_jobs: "bg-blue-100 text-blue-700",
-  indeed: "bg-indigo-100 text-indigo-700",
-  computrabajo: "bg-orange-100 text-orange-700",
-  base_opai: "bg-green-100 text-green-700",
-  portal_guardia: "bg-teal-100 text-teal-700",
-  directo: "bg-gray-100 text-gray-700",
+  google_jobs: "bg-status-info-soft text-status-info-fg",
+  indeed: "bg-tint-violet text-tint-violet-fg",
+  computrabajo: "bg-status-warn-soft text-status-warn-fg",
+  base_opai: "bg-status-ok-soft text-status-ok-fg",
+  portal_guardia: "bg-tint-sky text-tint-sky-fg",
+  directo: "bg-muted text-muted-foreground",
 };
 
 const NEXT_ETAPA: Record<string, string> = {
@@ -280,7 +280,7 @@ function DroppableColumn({
   return (
     <div
       ref={setNodeRef}
-      className={`${className ?? ""} ${isOver ? "ring-2 ring-emerald-500/60 bg-emerald-50/60" : ""}`}
+      className={`${className ?? ""} ${isOver ? "ring-2 ring-status-ok bg-status-ok-soft/60" : ""}`}
     >
       {children}
     </div>
@@ -620,9 +620,9 @@ export function AtsPipelineClient({
                         variant="secondary"
                         className={
                           ch.estado === "error"
-                            ? "text-[10px] bg-red-100 text-red-800"
+                            ? "text-[10px] bg-status-danger-soft text-status-danger-fg"
                             : ch.estado === "pendiente"
-                              ? "text-[10px] bg-amber-100 text-amber-800"
+                              ? "text-[10px] bg-status-warn-soft text-status-warn-fg"
                               : "text-[10px]"
                         }
                       >

@@ -732,6 +732,59 @@ const MIGRATED_PATHS = [
   "src/app/(app)/ops/control-nocturno/kpis/page.tsx",
   "src/components/ops/asistencia-diaria/AsistenciaDiariaClient.tsx",
   "src/components/ops/asistencia-diaria/modals/ModalMarcarAsistencia.tsx",
+  // Cluster 5B.8 — ATS Reclutamiento.
+  // 4 pages SC migradas a <PageHero> (Briefcase / BriefcaseBusiness,
+  // iconTone emerald). 17 hex residuales eliminados en 3 components:
+  //
+  // - AtsDashboardClient (4 hex): ESTADO_BADGES map (ACTIVO/PAUSADO/
+  //   CERRADO) bg-green-100/yellow-100/red-100 + text-green-700/
+  //   yellow-700 → bg-status-ok-soft/warn-soft/danger-soft +
+  //   text-status-ok-fg/warn-fg/danger-fg. KPI "Postulantes totales"
+  //   icon color text-indigo-600 → text-status-info-fg.
+  // - AtsPipelineClient (12 hex): ETAPA_COLORS kanban backgrounds
+  //   (POSTULADO bg-gray-100, EN_REVISION bg-blue-50, ENTREVISTA
+  //   bg-amber-50, OFERTA bg-purple-50, CONTRATADO bg-green-50) →
+  //   bg-muted/50 + bg-status-info-soft/40 + bg-status-warn-soft/40
+  //   + bg-tint-violet/40 (categórico workflow, igual que "waiting" en
+  //   Tickets) + bg-status-ok-soft/40. FUENTE_COLORS source badges
+  //   (6 combinaciones: google_jobs/indeed/computrabajo/base_opai/
+  //   portal_guardia/directo) → bg-status-info-soft + bg-tint-violet
+  //   (indeed) + bg-status-warn-soft + bg-status-ok-soft + bg-tint-sky
+  //   (portal_guardia) + bg-muted, preservando identidad visual por
+  //   canal. Drag-over highlight (ring-emerald-500/60 +
+  //   bg-emerald-50/60) → ring-status-ok + bg-status-ok-soft/60.
+  //   Channel status badges (error bg-red-100 text-red-800 / pendiente
+  //   bg-amber-100 text-amber-800) → status-danger-soft/warn-soft +
+  //   status-danger-fg/warn-fg.
+  // - BneIntegrationCard (1 hex): connected badge bg-green-600 →
+  //   bg-status-ok.
+  //
+  // Pages SC (4) + page de configuración (opai/configuracion/ats —
+  // wrapper de AtsConfigClient sin PageHeader propio) se agregan
+  // porque quedan 100% limpias post-migración. ExternalJobSearch y
+  // FormularioPostulacionAts ya estaban 100% limpios y se certifican.
+  //
+  // Los 6 CCs restantes (AtsConfigClient, AtsCreateJobClient,
+  // AtsDashboardClient, AtsPipelineClient, BneIntegrationCard,
+  // ExternalJobCard) NO se agregan a MIGRATED_PATHS: mismo criterio
+  // que 4A/4B/4C/4D/5A.1..5A.8/5B.1.a/5B.1.b/5B.2.a/5B.2.b.1/5B.2.b.2/
+  // 5B.2.c/5B.3/5B.4/5B.5/5B.6+7 — completaron su migración granular
+  // de color drift pero siguen teniendo drift tipográfico legacy
+  // (text-[10px]/text-[11px] en badges de canales, chips de estado,
+  // captions de KPIs, leyendas de pipeline). Se agregarán cuando se
+  // haga su pasada de limpieza tipográfica completa en una sub-fase
+  // futura.
+  //
+  // CIERRE DEL CLUSTER 5B.8 (ATS Reclutamiento) — todo el módulo
+  // alineado al DS v3 a nivel de color. Próximo cluster: 5B.9
+  // (Guardias) — ~3-4 h.
+  "src/app/(app)/ops/ats/page.tsx",
+  "src/app/(app)/ops/ats/nuevo/page.tsx",
+  "src/app/(app)/ops/ats/[jobId]/page.tsx",
+  "src/app/(app)/ops/ats/[jobId]/editar/page.tsx",
+  "src/app/(app)/opai/configuracion/ats/page.tsx",
+  "src/components/ats/ExternalJobSearch.tsx",
+  "src/components/ats/FormularioPostulacionAts.tsx",
   // Agregar aquí cuando se migren:
   // "src/components/personas/",
   // "src/components/crm/",
