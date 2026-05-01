@@ -32,6 +32,7 @@ function mapTicketType(tt: any): TicketType {
     origin: tt.origin,
     requiresApproval: tt.requiresApproval,
     assignedTeam: tt.assignedTeam,
+    defaultAssignedToUserId: tt.defaultAssignedToUserId ?? null,
     defaultPriority: tt.defaultPriority,
     slaHours: tt.slaHours,
     icon: tt.icon,
@@ -126,6 +127,8 @@ export async function PATCH(
     if (body.origin !== undefined) updateData.origin = body.origin;
     if (body.requiresApproval !== undefined) updateData.requiresApproval = body.requiresApproval;
     if (body.assignedTeam !== undefined) updateData.assignedTeam = body.assignedTeam;
+    if (body.defaultAssignedToUserId !== undefined)
+      updateData.defaultAssignedToUserId = body.defaultAssignedToUserId;
     if (body.defaultPriority !== undefined) updateData.defaultPriority = body.defaultPriority;
     if (body.slaHours !== undefined) updateData.slaHours = body.slaHours;
     if (body.icon !== undefined) updateData.icon = body.icon;

@@ -71,13 +71,23 @@ export function HubExecutiveKpis({
           className="h-full cursor-pointer hover:ring-2 hover:ring-primary/25"
         />
       </Link>
-      <Link href="/ops/tickets" className="block h-full">
+      <Link href="/ops/tickets?assignedTo=me" className="block h-full">
         <Stat
-          label="Tickets activos"
-          value={ticketsActivos}
-          hint={ticketMetrics.p1PendingCount > 0 ? `${ticketMetrics.p1PendingCount} P1 pendientes` : undefined}
+          label="Mis tickets"
+          value={ticketMetrics.myAssignedActiveCount}
+          hint={
+            ticketMetrics.p1PendingCount > 0
+              ? `${ticketsActivos} activos · ${ticketMetrics.p1PendingCount} P1`
+              : `${ticketsActivos} activos en total`
+          }
           icon={Ticket}
-          variant={ticketMetrics.p1PendingCount > 0 || ticketMetrics.breachedCount > 0 ? 'danger' : 'default'}
+          variant={
+            ticketMetrics.p1PendingCount > 0 || ticketMetrics.breachedCount > 0
+              ? 'danger'
+              : ticketMetrics.myAssignedActiveCount > 0
+              ? 'brand'
+              : 'default'
+          }
           className="h-full cursor-pointer hover:ring-2 hover:ring-primary/25"
         />
       </Link>

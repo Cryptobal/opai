@@ -207,6 +207,41 @@ export async function POST(
       console.error("[OPS] Error processing mentions:", mentionErr);
     }
 
+    // Notificación a interesados (assignedTo + reportedBy) en comentarios públicos.
+    // Comentarios internos (isInternal=true) no notifican a interesados.
+    if (!comment.isInternal) {
+      try {
+        const ticketInfo = await prisma.opsTicket.findFirst({
+          where: { id: ticketId, tenantId: ctx.tenantId },
+          select: { code: true, title: true, assignedTo: true, reportedBy: true },
+        });
+        if (ticketInfo) {
+          const interested = new Set<string>();
+          if (ticketInfo.assignedTo) interested.add(ticketInfo.assignedTo);
+          if (ticketInfo.reportedBy) interested.add(ticketInfo.reportedBy);
+          interested.delete(ctx.userId); // no notificar al autor del comentario
+          if (interested.size > 0) {
+            const { notify } = await import("@/lib/notifications/notify");
+            await notify({
+              tenantId: ctx.tenantId,
+              type: "ticket_mention", // reusa el tipo existente para evitar churn de catálogo
+              targetIds: Array.from(interested),
+              targetType: "ADMIN",
+              title: `Nuevo comentario en ticket ${ticketInfo.code}`,
+              body:
+                body.body.length > 140
+                  ? body.body.slice(0, 140) + "..."
+                  : body.body,
+              link: `/opai/ops/tickets/${ticketId}`,
+              data: { ticketId, commentId: comment.id, source: "comment" },
+            });
+          }
+        }
+      } catch (notifyErr) {
+        console.error("[OPS] Error notificando comentario:", notifyErr);
+      }
+    }
+
     return NextResponse.json(
       { success: true, data: mapComment(comment) },
       { status: 201 },

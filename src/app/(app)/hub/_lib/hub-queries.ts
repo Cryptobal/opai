@@ -1614,6 +1614,7 @@ function resolveNotificationType(type: string): NotificationType {
 
 export async function getTicketMetrics(
   tenantId: string,
+  userId: string,
 ): Promise<TicketMetrics> {
   const todayStr = getTodayChile();
   const todayDate = new Date(todayStr);
@@ -1629,6 +1630,7 @@ export async function getTicketMetrics(
       p1PendingCount,
       unassignedCount,
       urgentTickets,
+      myAssignedActiveCount,
     ] = await Promise.all([
       prisma.opsTicket.count({
         where: { tenantId, status: 'open' },
@@ -1686,6 +1688,13 @@ export async function getTicketMetrics(
           slaDueAt: true,
         },
       }),
+      prisma.opsTicket.count({
+        where: {
+          tenantId,
+          assignedTo: userId,
+          status: { in: ['open', 'in_progress', 'waiting', 'pending_approval'] },
+        },
+      }),
     ]);
 
     return {
@@ -1695,6 +1704,7 @@ export async function getTicketMetrics(
       breachedCount,
       p1PendingCount,
       unassignedCount,
+      myAssignedActiveCount,
       urgentTickets: urgentTickets.map((t) => ({
         id: t.id,
         code: t.code,
@@ -1713,6 +1723,7 @@ export async function getTicketMetrics(
       breachedCount: 0,
       p1PendingCount: 0,
       unassignedCount: 0,
+      myAssignedActiveCount: 0,
       urgentTickets: [],
       moduleActive: false,
     };

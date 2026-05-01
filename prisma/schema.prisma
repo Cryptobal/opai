@@ -4967,6 +4967,7 @@ model OpsTicketType {
   origin           String   @default("internal")
   requiresApproval Boolean  @default(false) @map("requires_approval")
   assignedTeam     String   @map("assigned_team")
+  defaultAssignedToUserId String?  @map("default_assigned_to_user_id")
   defaultPriority  String   @default("p3") @map("default_priority")
   slaHours         Int      @default(72) @map("sla_hours")
   icon             String?
@@ -4982,6 +4983,7 @@ model OpsTicketType {
   @@unique([tenantId, slug], map: "uq_ops_ticket_types_tenant_slug")
   @@index([tenantId], map: "idx_ops_ticket_types_tenant")
   @@index([tenantId, isActive], map: "idx_ops_ticket_types_tenant_active")
+  @@index([defaultAssignedToUserId], map: "idx_ops_ticket_types_default_assignee")
   @@map("ops_ticket_types")
   @@schema("ops")
 }

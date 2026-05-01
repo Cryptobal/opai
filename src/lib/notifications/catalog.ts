@@ -377,6 +377,12 @@ export const UNIFIED_NOTIFICATION_TYPES: UnifiedNotificationType[] = [
     audiences: ['admin'], defaults: { admin: adminBell(true) },
   },
   {
+    key: 'ticket_assigned', label: 'Ticket asignado a ti',
+    description: 'Cuando alguien te asigna como responsable de un ticket',
+    module: 'ops', submodule: 'tickets', category: 'Operaciones - Tickets',
+    audiences: ['admin'], defaults: { admin: adminBell(true) },
+  },
+  {
     key: 'ticket_assigned_guard', label: 'Ticket asignado',
     description: 'Cuando se te asigna un ticket para gestionar',
     module: 'ops', submodule: 'tickets', category: 'Operaciones - Tickets',

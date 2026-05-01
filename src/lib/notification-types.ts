@@ -333,6 +333,16 @@ export const NOTIFICATION_TYPES: NotificationTypeDef[] = [
     defaultEmail: true,
   },
   {
+    key: "ticket_assigned",
+    label: "Ticket asignado a ti",
+    description: "Cuando alguien te asigna como responsable de un ticket",
+    module: "ops",
+    submodule: "tickets",
+    category: "Operaciones - Tickets",
+    defaultBell: true,
+    defaultEmail: true,
+  },
+  {
     key: "ticket_approved",
     label: "Ticket aprobado",
     description: "Cuando un ticket es aprobado en un paso de aprobación",
