@@ -192,16 +192,28 @@ description />`) módulo por módulo, sub-módulo por sub-módulo.
 > Estos tonos se asignan UNA vez aquí y se respetan en todo el cluster 5.
 > Si una sub-fase necesita reasignar, abrir issue antes.
 
-#### 5A — Comercial (en progreso)
+#### 5A — Comercial ✅ COMPLETO
 
 - ✅ 5A.1 — Dashboard CRM + Leads list
-- ⏳ 5A.2 — Cuentas (lista + ficha)
-- ⏳ 5A.3 — Contactos (lista + ficha)
-- ⏳ 5A.4 — Negocios (lista + ficha)
-- ⏳ 5A.5 — Cotizaciones (lista + CPQ ficha)
-- ⏳ 5A.6 — Lead detail (ficha grande)
-- ⏳ 5A.7 — Instalaciones (lista + ficha)
-- ⏳ 5A.8 — Prospección (Apollo)
+- ✅ 5A.2 — EntityDetailLayout + Cuentas
+- ✅ 5A.3 — Contactos
+- ✅ 5A.4 — Negocios
+- ✅ 5A.5 — Cotizaciones (lista + EmptyState cleanup en CpqQuoteDetail)
+- ✅ 5A.6 — Patrón tipográfico unificado en 5 fichas detalle
+- ✅ 5A.7.a — Instalaciones lista granular
+- ✅ 5A.7.b — Instalación detail granular
+- ✅ 5A.8 — Apollo Prospección
+
+**Cluster 5A cerrado.** El módulo Comercial completo está alineado al DS v3:
+- Headers con `<PageHero>` (iconTone violet).
+- Tipografía unificada (`text-xs uppercase tracking-wide` para labels, `font-display` en títulos).
+- Status badges con `<Tag variant>` (tokens semánticos light/dark).
+- Icon containers con `<IconBubble>` (tokens semánticos).
+- Banners con `status-ok-*`, `status-warn-*`, `status-info-*`, `status-danger-*`.
+- 0 hex hardcoded en archivos migrados.
+- 0 EmptyState legacy en archivos migrados.
+
+Próximo cluster: **5B — Operaciones** (Pautas, Instalaciones, Supervisión, Tickets, Rondas, ATS, Inventario ya migrado).
 
 ### Escape hatch (uso restringido)
 
