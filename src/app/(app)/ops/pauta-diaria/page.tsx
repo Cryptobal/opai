@@ -2,7 +2,8 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/opai-ds";
+import { PageHero } from "@/components/opai-ds";
+import { ClipboardCheck } from "lucide-react";
 import { OpsPautaDiariaClient, PautasSubnav } from "@/components/ops";
 import { OpsGlobalSearch } from "@/components/ops/OpsGlobalSearch";
 export default async function OpsAsistenciaDiariaPage() {
@@ -58,9 +59,13 @@ export default async function OpsAsistenciaDiariaPage() {
 
   return (
     <div className="space-y-6 min-w-0">
-      <PageHeader
+      <PageHero
+        icon={<ClipboardCheck />}
+        iconTone="emerald"
+        eyebrow={["Operaciones", "Asistencia diaria"]}
         title="Asistencia diaria"
-        description="Control diario de asistencia, reemplazos y generación de turnos extra."
+        subtitle="control diario y reemplazos"
+        description="Control diario de asistencia, reemplazos y generación de turnos extra. Registra incidencias y aprobaciones del día."
       />
       <PautasSubnav />
       <OpsGlobalSearch className="w-full sm:max-w-xs" />

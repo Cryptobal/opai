@@ -2,7 +2,8 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/opai-ds";
+import { PageHero } from "@/components/opai-ds";
+import { PlusCircle } from "lucide-react";
 import { TeTurnosClient, PautasSubnav } from "@/components/ops";
 import { OpsGlobalSearch } from "@/components/ops/OpsGlobalSearch";
 export default async function OpsTurnosExtraPage() {
@@ -39,9 +40,13 @@ export default async function OpsTurnosExtraPage() {
 
   return (
     <div className="space-y-6 min-w-0">
-      <PageHeader
+      <PageHero
+        icon={<PlusCircle />}
+        iconTone="emerald"
+        eyebrow={["Operaciones", "Turnos extra"]}
         title="Turnos extra"
-        description="Gestión de turnos extra generados desde asistencia diaria."
+        subtitle="horas adicionales"
+        description="Gestión de turnos extra y horas extra generadas desde asistencia diaria. Lotes de pago y consolidación mensual."
       />
       <PautasSubnav />
       <OpsGlobalSearch className="w-full sm:max-w-xs" />

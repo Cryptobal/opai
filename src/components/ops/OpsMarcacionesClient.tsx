@@ -469,7 +469,7 @@ export function OpsMarcacionesClient({ initialClients }: OpsMarcacionesClientPro
                           className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${
                             m.tipo === "entrada"
                               ? "bg-status-ok-soft text-status-ok-fg"
-                              : "bg-orange-500/15 text-status-warn-fg"
+                              : "bg-status-warn-soft text-status-warn-fg"
                           }`}
                         >
                           {m.tipo === "entrada" ? <LogIn className="h-3 w-3" /> : <LogOut className="h-3 w-3" />}

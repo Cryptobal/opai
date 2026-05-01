@@ -223,6 +223,38 @@ const MIGRATED_PATHS = [
   // Apollo y conversión a lead intactos.
   "src/app/(app)/crm/prospecting/page.tsx",
   "src/components/crm/ApolloProspectingClient.tsx",
+  // Cluster 5B.1.a — Pautas pages + clients chicos.
+  // Aplica el patrón hero (iconTone emerald, cluster Operaciones) a 6 page
+  // wrappers de Pautas (pauta-mensual / pauta-diaria / ppc / refuerzos /
+  // turnos-extra / marcaciones) y limpia drift residual post-5B.0 en 5 clients:
+  // - OpsPpcClient: REASON_META map bgColor (amber-400/10, emerald-400/10,
+  //   yellow-400/10, orange-400/10) → status-{warn,ok}-soft. severityColor
+  //   con opacidad arbitraria (red-500/[0.03], amber-500/[0.03]) →
+  //   status-soft/30.
+  // - OpsRefuerzosClient: 2 status spans custom (yellow-50/red-50) → <Tag
+  //   variant>. 1 text-yellow-600 → text-status-warn-fg.
+  // - TeTurnosClient: 4 badges custom con combinaciones light/dark hex
+  //   (HE/TE, Manual, Refuerzo, días seguidos alert) → <Tag variant>.
+  // - OpsMarcacionesClient: 1 bg-orange-500/15 → bg-status-warn-soft.
+  // - TeLotesClient: drift = 0, solo se certifica.
+  // OpsPautaMensualClient y OpsPautaDiariaClient NO se incluyen — quedan
+  // para 5B.1.b por su mapa de tipos de turno (T/V/L/P/PCG/PSG/TE) que
+  // requiere decisión arquitectónica de tokens shift-type.
+  //
+  // OpsPpcClient, TeTurnosClient y OpsMarcacionesClient.tsx (CCs) NO se
+  // agregan: mismo criterio que 4A/4B/4C/4D/5A.1..5A.8 — los archivos
+  // completaron su migración granular de color drift + Tag pero siguen
+  // teniendo drift legacy fuera de eso (text-[10px]/text-[11px] en chips
+  // de filtros, badges de items y labels). Se agregarán cuando se haga
+  // su pasada de limpieza tipográfica completa en una sub-fase futura.
+  "src/app/(app)/ops/pauta-mensual/page.tsx",
+  "src/app/(app)/ops/pauta-diaria/page.tsx",
+  "src/app/(app)/ops/ppc/page.tsx",
+  "src/app/(app)/ops/refuerzos/page.tsx",
+  "src/app/(app)/ops/turnos-extra/page.tsx",
+  "src/app/(app)/ops/marcaciones/page.tsx",
+  "src/components/ops/OpsRefuerzosClient.tsx",
+  "src/components/ops/TeLotesClient.tsx",
   // Agregar aquí cuando se migren:
   // "src/components/personas/",
   // "src/components/crm/",

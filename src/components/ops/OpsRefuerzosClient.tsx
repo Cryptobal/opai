@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { StatusTag } from "@/components/ops/StatusTag";
-import { EmptyState, Spinner, Stat, StatGrid } from "@/components/opai-ds";
+import { EmptyState, Spinner, Stat, StatGrid, Tag } from "@/components/opai-ds";
 import { Clock3, FileDown, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { formatPersonName } from "@/lib/personas";
 
@@ -708,14 +708,10 @@ export function OpsRefuerzosClient({
                   <div className="flex items-center gap-2">
                     <StatusTag status={item.status} />
                     {item.status === "pendiente_aprobacion" && item.ticket && (
-                      <span className="inline-flex items-center rounded-full border border-yellow-300 bg-yellow-50 px-2 py-0.5 text-xs font-medium text-yellow-700">
-                        Pendiente aprobación
-                      </span>
+                      <Tag variant="warn" size="sm">Pendiente aprobación</Tag>
                     )}
                     {item.status === "rechazado" && (
-                      <span className="inline-flex items-center rounded-full border border-red-300 bg-red-50 px-2 py-0.5 text-xs font-medium text-status-danger-fg">
-                        Rechazado
-                      </span>
+                      <Tag variant="danger" size="sm">Rechazado</Tag>
                     )}
                     {canManageRefuerzos && item.status === "solicitado" && (
                       <Button
@@ -901,7 +897,7 @@ export function OpsRefuerzosClient({
                         <span className="text-status-danger-fg font-medium">Rechazado</span>
                       )}
                       {selectedItem.ticket.approvalStatus === "pending" && (
-                        <span className="text-yellow-600 font-medium">Pendiente de aprobación</span>
+                        <span className="text-status-warn-fg font-medium">Pendiente de aprobación</span>
                       )}
                       {!selectedItem.ticket.approvalStatus && (
                         <span className="text-muted-foreground">Estado: {selectedItem.ticket.status}</span>
