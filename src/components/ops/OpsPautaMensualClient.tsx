@@ -56,14 +56,14 @@ const FALLBACK_PATTERNS = [
 ];
 
 const SHIFT_COLORS: Record<string, string> = {
-  T: "bg-emerald-600/20 text-status-ok-fg border-emerald-600/30",
-  "-": "bg-zinc-700/30 text-zinc-500 border-zinc-600/20",
-  V: "bg-green-800/30 text-status-ok-fg border-green-600/30",
-  L: "bg-yellow-800/30 text-status-warn-fg border-yellow-600/30",
-  P: "bg-orange-800/30 text-status-warn-fg border-orange-600/30",
-  PCG: "bg-amber-800/30 text-status-warn-fg border-amber-600/30",
-  PSG: "bg-orange-800/30 text-status-warn-fg border-orange-600/30",
-  TE: "bg-rose-800/30 text-status-danger-fg border-rose-600/30",
+  T:   "bg-tint-emerald text-tint-emerald-fg border-tint-emerald-fg/20",
+  "-": "bg-muted text-muted-foreground border-border",
+  V:   "bg-tint-teal text-tint-teal-fg border-tint-teal-fg/20",
+  L:   "bg-tint-amber text-tint-amber-fg border-tint-amber-fg/20",
+  P:   "bg-tint-rose text-tint-rose-fg border-tint-rose-fg/20",
+  PCG: "bg-tint-violet text-tint-violet-fg border-tint-violet-fg/20",
+  PSG: "bg-tint-rose text-tint-rose-fg border-tint-rose-fg/20",
+  TE:  "bg-tint-sky text-tint-sky-fg border-tint-sky-fg/20",
 };
 
 /* ── types ─────────────────────────────────────── */
@@ -1694,27 +1694,27 @@ export function OpsPautaMensualClient({
 
           {/* Alertas de Ausencia (Banner) */}
           {activeAbsenceWarnings.length > 0 && (
-            <div className="mt-4 rounded-md border border-status-info-border bg-cyan-500/5 p-3 space-y-2">
+            <div className="mt-4 rounded-md border border-status-info-border bg-status-info-soft/30 p-3 space-y-2">
               <div className="flex items-center gap-2 text-status-info-fg font-semibold text-xs sm:text-[11px]">
                 <AlertTriangle className="h-4 w-4" />
                 Ausencias detectadas sin reemplazo asignado
               </div>
               <div className="space-y-1.5 max-h-40 overflow-auto pr-1">
                 {activeAbsenceWarnings.map((warning, idx) => (
-                  <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-2.5 rounded bg-background/60 border border-cyan-500/20 text-[11px]">
+                  <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-2.5 rounded bg-background/60 border border-status-info-border text-[11px]">
                     <div className="leading-tight">
                       <p>
                         <span className="font-semibold text-foreground text-xs">{warning.guardiaName}</span>
                         <span className="text-muted-foreground ml-1">({warning.puestoName}, Slot {warning.slotNumber})</span>
                       </p>
-                      <p className="text-cyan-300/80 mt-1 uppercase text-[10px] font-medium tracking-wide">
+                      <p className="text-status-info-fg/80 mt-1 uppercase text-[10px] font-medium tracking-wide">
                         {warning.absence.subtype.replace("_", " ")} — {warning.affectedDates.length} día(s) afectado(s)
                       </p>
                     </div>
                     <Button
                       size="sm"
                       onClick={() => openAssignModal(warning)}
-                      className="bg-cyan-600/20 text-status-info-fg hover:bg-cyan-600 hover:text-white border border-cyan-500/50 h-7 text-[10px] shrink-0"
+                      className="bg-status-info-soft text-status-info-fg hover:brightness-110 border border-status-info-border h-7 text-[10px] shrink-0"
                     >
                       Asignar Reemplazo
                     </Button>
@@ -1883,7 +1883,7 @@ export function OpsPautaMensualClient({
                               <div className={`font-semibold text-sm sm:text-xs ${isToday
                                 ? "bg-primary text-primary-foreground rounded-full w-6 h-6 inline-flex items-center justify-center mx-auto"
                                 : isHoliday
-                                  ? "bg-rose-500/20 text-status-danger-fg rounded-full w-6 h-6 inline-flex items-center justify-center mx-auto"
+                                  ? "bg-status-danger-soft text-status-danger-fg rounded-full w-6 h-6 inline-flex items-center justify-center mx-auto"
                                   : ""
                                 }`}>
                                 {dayNum}
@@ -2022,7 +2022,7 @@ export function OpsPautaMensualClient({
                                           )}
                                         </>
                                       ) : (
-                                        <span className="text-amber-400/60 italic text-[10px]">sin asignar</span>
+                                        <span className="text-status-warn-fg/60 italic text-[10px]">sin asignar</span>
                                       )}
                                       {row.patternCode && (
                                         <span className="text-primary/50 text-[10px] hidden sm:inline">
@@ -2042,16 +2042,16 @@ export function OpsPautaMensualClient({
                                         return (
                                           <div className="mt-1 text-[10px] flex flex-col gap-0.5 leading-tight bg-status-info-soft border border-status-info-border rounded p-1 mx-0.5">
                                             <div className="flex items-center gap-1">
-                                              <span className="text-status-info-fg font-semibold px-1 bg-cyan-500/20 rounded">PR</span>
+                                              <span className="text-status-info-fg font-semibold px-1 bg-status-info-soft rounded">PR</span>
                                               <Link
                                                 href={`/personas/guardias/${rg.id}`}
-                                                className="text-status-info-fg hover:text-cyan-100 hover:underline truncate"
+                                                className="text-status-info-fg hover:brightness-125 hover:underline truncate"
                                               >
                                                 {formatPersonName(rg.persona.firstName, rg.persona.lastName)}
                                               </Link>
                                             </div>
                                             {replacementCell.item.replacementReason && (
-                                              <span className="text-cyan-400/70 text-[9px] ml-6">
+                                              <span className="text-status-info-fg/70 text-[9px] ml-6">
                                                 Motivo: {replacementCell.item.replacementReason.replace('_', ' ')}
                                               </span>
                                             )}
@@ -2077,10 +2077,10 @@ export function OpsPautaMensualClient({
                                     const isTrabajo = isRotativoRow ? (code === "Td" || code === "Tn") : code === "T";
                                     const trabajoClass = isRotativoRow
                                       ? (code === "Tn"
-                                        ? "bg-indigo-500/20 text-status-info-fg border-status-info-border"
+                                        ? "bg-status-info-soft text-status-info-fg border-status-info-border"
                                         : "bg-status-warn-soft text-status-warn-fg border-status-warn-border")
                                       : (group.shiftType === "night"
-                                        ? "bg-indigo-500/20 text-status-info-fg border-status-info-border"
+                                        ? "bg-status-info-soft text-status-info-fg border-status-info-border"
                                         : "bg-status-warn-soft text-status-warn-fg border-status-warn-border");
                                     const colorClass = isTrabajo ? trabajoClass : (SHIFT_COLORS[code] ?? SHIFT_COLORS["-"] ?? "");
                                     const executionBadge =
@@ -2095,9 +2095,9 @@ export function OpsPautaMensualClient({
                                               : null;
                                     const executionBadgeClass =
                                       execution?.state === "te"
-                                        ? "bg-rose-600 text-rose-50"
+                                        ? "bg-status-danger text-white"
                                         : execution?.state === "asistio"
-                                          ? "bg-status-ok text-emerald-50"
+                                          ? "bg-status-ok text-white"
                                           : execution?.state === "sin_cobertura"
                                             ? "bg-status-warn text-amber-950"
                                             : execution?.state === "ppc"
@@ -2141,7 +2141,7 @@ export function OpsPautaMensualClient({
                                               : isEmpty
                                                 ? "border-dashed border-border/40 text-muted-foreground/30 hover:border-primary/50 hover:text-primary/50"
                                                 : cell?.replacementGuardiaId
-                                                  ? "bg-cyan-500/20 text-status-info-fg border-status-info-border"
+                                                  ? "bg-status-info-soft text-status-info-fg border-status-info-border"
                                                   : colorClass
                                               }`}
                                             title={
@@ -2216,8 +2216,8 @@ export function OpsPautaMensualClient({
                                             {!showAsPpc && displayBadge ? (
                                               <span
                                                 className={`absolute -top-1.5 -right-1.5 rounded px-0.5 py-[1px] text-[9px] leading-none font-semibold ${displayBadge === "N"
-                                                  ? "bg-indigo-700 text-indigo-100"
-                                                  : "bg-amber-600 text-amber-50"
+                                                  ? "bg-status-info text-white"
+                                                  : "bg-status-warn text-white"
                                                   }`}
                                               >
                                                 {displayBadge}
@@ -2241,7 +2241,7 @@ export function OpsPautaMensualClient({
                                             ) : null}
                                             {isGuardiaFiniquitado && !executionBadge && !showAsPpc ? (
                                               <span className="absolute -bottom-1 -right-1 group/fc">
-                                                <span className="rounded px-1 py-px text-[10px] leading-none font-bold shadow-sm bg-red-700 text-red-100 cursor-help">
+                                                <span className="rounded px-1 py-px text-[10px] leading-none font-bold shadow-sm bg-status-danger text-white cursor-help">
                                                   F
                                                 </span>
                                                 <span className="absolute hidden group-hover/fc:block bottom-full right-0 mb-1 whitespace-nowrap rounded-md border border-status-danger-border bg-zinc-900 px-2 py-1 text-[10px] text-status-danger-fg shadow-lg z-50 pointer-events-none">
@@ -2353,12 +2353,12 @@ export function OpsPautaMensualClient({
                   <div className="mt-3 flex flex-wrap gap-2 sm:gap-3 text-[11px] sm:text-[10px] text-muted-foreground border-t border-border pt-3">
                     {[
                       { code: "TD", label: "Trabajo diurno", cls: "bg-status-warn-soft border-status-warn-border" },
-                      { code: "TN", label: "Trabajo nocturno", cls: "bg-indigo-500/20 border-status-info-border" },
-                      { code: "-", label: "Descanso", cls: "bg-zinc-700/30 border-zinc-600/20" },
-                      { code: "V", label: "Vacaciones", cls: "bg-green-800/30 border-green-600/30" },
-                      { code: "L", label: "Licencia", cls: "bg-yellow-800/30 border-yellow-600/30" },
-                      { code: "PCG", label: "Permiso con goce", cls: "bg-amber-800/30 border-amber-600/30" },
-                      { code: "PSG", label: "Permiso sin goce", cls: "bg-orange-800/30 border-orange-600/30" },
+                      { code: "TN", label: "Trabajo nocturno", cls: "bg-status-info-soft border-status-info-border" },
+                      { code: "-", label: "Descanso", cls: "bg-muted border-border" },
+                      { code: "V", label: "Vacaciones", cls: "bg-tint-teal border-tint-teal-fg/20" },
+                      { code: "L", label: "Licencia", cls: "bg-tint-amber border-tint-amber-fg/20" },
+                      { code: "PCG", label: "Permiso con goce", cls: "bg-tint-violet border-tint-violet-fg/20" },
+                      { code: "PSG", label: "Permiso sin goce", cls: "bg-tint-rose border-tint-rose-fg/20" },
                     ].map((l) => (
                       <span key={l.code} className="flex items-center gap-1">
                         <span className={`inline-block w-4 h-3 rounded border ${l.cls}`} />
@@ -2369,9 +2369,9 @@ export function OpsPautaMensualClient({
                   </div>
                   <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] sm:text-[10px] text-muted-foreground">
                     <span>Segunda capa (asistencia):</span>
-                    <span className="flex items-center gap-1"><span className="rounded px-1 py-px bg-status-ok text-emerald-50 text-[10px] font-semibold">ASI</span> Asistió</span>
-                    <span className="flex items-center gap-1"><span className="rounded px-1 py-px bg-rose-600 text-rose-50 text-[10px] font-semibold">TE</span> Turno extra</span>
-                    <span className="flex items-center gap-1"><span className="rounded px-1 py-px bg-status-warn text-amber-950 text-[10px] font-semibold">SC</span> Sin cobertura</span>
+                    <span className="flex items-center gap-1"><span className="rounded px-1 py-px bg-status-ok text-white text-[10px] font-semibold">ASI</span> Asistió</span>
+                    <span className="flex items-center gap-1"><span className="rounded px-1 py-px bg-status-danger text-white text-[10px] font-semibold">TE</span> Turno extra</span>
+                    <span className="flex items-center gap-1"><span className="rounded px-1 py-px bg-status-warn text-white text-[10px] font-semibold">SC</span> Sin cobertura</span>
                     <span className="flex items-center gap-1"><span className="rounded px-1 py-px bg-zinc-600 text-zinc-100 text-[10px] font-semibold">PPC</span> Slot PPC</span>
                   </div>
                   <div className="mt-1.5 text-[11px] sm:text-[10px] text-muted-foreground/50">
@@ -2439,7 +2439,7 @@ export function OpsPautaMensualClient({
                             ? "border-primary ring-2 ring-primary/30 scale-105"
                             : "border-transparent hover:border-muted-foreground/30"
                             } ${isWork
-                              ? "bg-emerald-600/20 text-status-ok-fg"
+                              ? "bg-status-ok-soft text-status-ok-fg"
                               : "bg-zinc-700/30 text-zinc-500"
                             }`}
                         >
@@ -2533,7 +2533,7 @@ export function OpsPautaMensualClient({
                               <p className="text-xs font-medium text-status-warn-fg">
                                 No hay puesto con turno {currentIsNight ? "diurno" : "nocturno"}
                               </p>
-                              <p className="text-[10px] text-amber-400/80 mt-0.5">
+                              <p className="text-[10px] text-status-warn-fg/80 mt-0.5">
                                 Para usar turno rotativo necesitas crear un puesto con horario {currentIsNight ? "diurno" : "nocturno"} en esta instalación.
                               </p>
                             </div>

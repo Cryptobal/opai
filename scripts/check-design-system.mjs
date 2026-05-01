@@ -255,6 +255,24 @@ const MIGRATED_PATHS = [
   "src/app/(app)/ops/marcaciones/page.tsx",
   "src/components/ops/OpsRefuerzosClient.tsx",
   "src/components/ops/TeLotesClient.tsx",
+  // Cluster 5B.1.b — Pauta Mensual + Pauta Diaria (cierre del cluster 5B.1).
+  // El mapa SHIFT_COLORS de Pauta Mensual que mapea los 7 tipos de turno
+  // (T/V/L/P/PCG/PSG/TE/-) se migra a los 6 tints del DS v3
+  // (tint-emerald/teal/amber/rose/violet/sky), explícitamente diseñados
+  // para categorías con HSL light/dark consistent. API SHIFT_COLORS
+  // preservada — solo cambian los valores. Adicionalmente se elimina drift
+  // residual post-5B.0 en ambos archivos (33 hex en Mensual + 6 en Diaria):
+  // banners cyan, indicadores rose/amber/cyan, execution badges, legend,
+  // toggle de asistencia, card border GPS fuera_rango → tokens semánticos
+  // status-* / tint-* / bg-muted. Cero cambios funcionales.
+  //
+  // OpsPautaMensualClient.tsx y OpsPautaDiariaClient.tsx NO se agregan a
+  // MIGRATED_PATHS: mismo criterio que 4A/4B/4C/4D/5A.1..5A.8/5B.1.a — los
+  // archivos completaron su migración granular de color drift + SHIFT_COLORS
+  // pero siguen teniendo drift tipográfico legacy fuera de eso (text-[10px]/
+  // text-[11px] en celdas de la grilla, badges, legend chips y serie modal).
+  // Se agregarán cuando se haga su pasada de limpieza tipográfica completa
+  // en una sub-fase futura.
   // Agregar aquí cuando se migren:
   // "src/components/personas/",
   // "src/components/crm/",
