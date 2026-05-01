@@ -90,7 +90,7 @@ const STATUS_CONFIG: Record<string, { label: string; cls: string }> = {
   no_realizada: { label: "No realizada", cls: "bg-status-danger-soft text-status-danger-fg" },
   pendiente: { label: "Pendiente", cls: "bg-zinc-500/15 text-zinc-400" },
   en_curso: { label: "En curso", cls: "bg-status-info-soft text-status-info-fg" },
-  cerrada_auto: { label: "Cerrada (auto)", cls: "bg-orange-500/15 text-status-warn-fg" },
+  cerrada_auto: { label: "Cerrada (auto)", cls: "bg-status-warn-soft text-status-warn-fg" },
   cerrada_admin: { label: "Cerrada (admin)", cls: "bg-violet-500/15 text-violet-400" },
 };
 
@@ -103,9 +103,9 @@ function trustColor(score: number): string {
 
 function trustBg(score: number): string {
   if (score >= 85) return "bg-status-ok-soft border-status-ok-border";
-  if (score >= 70) return "bg-status-info-soft border-blue-500/25";
-  if (score >= 50) return "bg-status-warn-soft border-amber-500/25";
-  return "bg-status-danger-soft border-red-500/25";
+  if (score >= 70) return "bg-status-info-soft border-status-info-border";
+  if (score >= 50) return "bg-status-warn-soft border-status-warn-border";
+  return "bg-status-danger-soft border-status-danger-border";
 }
 
 const SORT_COLS = [
@@ -130,7 +130,7 @@ const BREAKDOWN_LABELS: Record<string, string> = {
 const BREAKDOWN_COLORS: Record<string, string> = {
   completion: "bg-status-ok",
   time: "bg-status-info",
-  speed: "bg-purple-500",
+  speed: "bg-tint-violet-fg",
   sequence: "bg-status-warn",
   punctuality: "bg-status-info",
 };
@@ -340,7 +340,7 @@ function ExpandedRow({
       <td colSpan={11} className="px-4 py-3 bg-muted/20 border-b border-border/50">
         {/* Overlap warning banner */}
         {overlappingPairs.length > 0 && (
-          <div className="mb-3 rounded-lg border border-orange-500/40 bg-orange-950/20 px-3 py-2 flex items-start gap-2">
+          <div className="mb-3 rounded-lg border border-status-warn-border bg-status-warn-soft/50 px-3 py-2 flex items-start gap-2">
             <AlertTriangle className="h-4 w-4 text-status-warn-fg mt-0.5 shrink-0" />
             <div className="min-w-0">
               <p className="text-xs font-semibold text-status-warn-fg mb-1">
@@ -355,12 +355,12 @@ function ExpandedRow({
                   ? `${Math.round(haversineM(a.lat!, a.lng!, b.lat!, b.lng!))} m de distancia`
                   : "posición no disponible";
                 return (
-                  <p key={idx} className="text-[11px] text-orange-300/80 leading-snug">
+                  <p key={idx} className="text-[11px] text-status-warn-fg/80 leading-snug">
                     &ldquo;{a.checkpointName}&rdquo; → &ldquo;{b.checkpointName}&rdquo; — {dtS} s entre marcaciones · {distLabel}
                   </p>
                 );
               })}
-              <p className="text-[10px] text-orange-400/60 mt-1">
+              <p className="text-[10px] text-status-warn-fg/60 mt-1">
                 Revisa el radio de geocerca de estos checkpoints en Configuración → Checkpoints.
               </p>
             </div>
@@ -412,7 +412,7 @@ function ExpandedRow({
                         ) : m.hasPhoto ? (
                           <Camera className="h-3 w-3 text-status-info-fg" />
                         ) : null}
-                        {m.hasAudio && <Mic className="h-3 w-3 text-purple-400" />}
+                        {m.hasAudio && <Mic className="h-3 w-3 text-status-info-fg" />}
                         {m.distanceM != null && (
                           <span className="text-[10px] text-muted-foreground">
                             {Math.round(m.distanceM)}m
@@ -456,8 +456,8 @@ function ExpandedRow({
               </p>
             )}
             {row.notes && (
-              <div className="mt-3 rounded-lg border border-yellow-800/40 bg-yellow-950/20 px-3 py-2">
-                <p className="text-xs font-medium text-yellow-500/80 mb-0.5">Comentario del guardia:</p>
+              <div className="mt-3 rounded-lg border border-status-warn-border bg-status-warn-soft/50 px-3 py-2">
+                <p className="text-xs font-medium text-status-warn-fg/80 mb-0.5">Comentario del guardia:</p>
                 <p className="text-sm text-zinc-300 italic">&ldquo;{row.notes}&rdquo;</p>
               </div>
             )}
@@ -484,7 +484,7 @@ function ExpandedRow({
                         inc.status === "abierto" && "bg-status-danger-soft text-status-danger-fg",
                         inc.status === "resuelto" && "bg-status-ok-soft text-status-ok-fg",
                         inc.status === "en_proceso" && "bg-status-info-soft text-status-info-fg",
-                        inc.status === "asignado" && "bg-purple-500/15 text-purple-400",
+                        inc.status === "asignado" && "bg-tint-violet text-tint-violet-fg",
                         inc.status === "descartado" && "bg-zinc-500/15 text-zinc-400",
                       )}>
                         {inc.status}
@@ -508,7 +508,7 @@ function ExpandedRow({
                     e.stopPropagation();
                     onViewMap(row);
                   }}
-                  className="inline-flex items-center gap-1.5 rounded-md bg-status-info-soft px-3 py-1.5 text-xs font-medium text-status-info-fg hover:bg-teal-500/25 transition-colors"
+                  className="inline-flex items-center gap-1.5 rounded-md bg-status-info-soft px-3 py-1.5 text-xs font-medium text-status-info-fg hover:brightness-110 transition-colors"
                 >
                   <MapPin className="h-3.5 w-3.5" />
                   Ver recorrido en mapa
@@ -522,7 +522,7 @@ function ExpandedRow({
                       onSendToCheckpoints(row);
                     }
                   }}
-                  className="inline-flex items-center gap-1.5 rounded-md bg-status-info-soft px-3 py-1.5 text-xs font-medium text-status-info-fg hover:bg-blue-500/25 transition-colors"
+                  className="inline-flex items-center gap-1.5 rounded-md bg-status-info-soft px-3 py-1.5 text-xs font-medium text-status-info-fg hover:brightness-110 transition-colors"
                 >
                   <MapPinned className="h-3.5 w-3.5" />
                   Enviar a checkpoints
@@ -681,7 +681,7 @@ export function RondasReportesTable({
                             </span>
                           )}
                           {audioCount > 0 && (
-                            <span className="flex items-center gap-0.5 text-purple-400">
+                            <span className="flex items-center gap-0.5 text-status-info-fg">
                               <Mic className="h-3 w-3" />
                               <span className="text-[10px]">{audioCount}</span>
                             </span>

@@ -406,3 +406,22 @@ Casos edge que NO se automatizaron (hover, focus, gradientes, props de charts, c
 ### Script
 
 `scripts/sweep-color-tokens.mjs` — disponible para futuros sweeps si se introduce drift accidentalmente.
+
+### 5B.2 — Rondas ✅ COMPLETO
+
+- ✅ 5B.2.a — Dashboard + Centro IA (pages + RondasDashboardGlobal)
+- ✅ 5B.2.b.1 — Monitoreo Grid + componentes compartidos
+- ✅ 5B.2.b.2 — Monitoreo paneles + modales + mobile
+- ✅ 5B.2.c — Reportes + Alertas + Configuración
+
+**Cluster 5B.2 cerrado.** Todo el módulo Rondas alineado al DS v3:
+- Headers con `<PageHero>` (iconTone emerald).
+- Tipos de ronda (Libre/Programada) → tints DS v3.
+- Heat map de compliance simplificado (5 niveles status-*).
+- StatusBadge compartido con tokens semánticos.
+- Trust score gradients consistentes en todos los componentes.
+- Categorías especiales (EXTRA, audio, asignado, speed, select, CP omitido)
+  → tints DS v3.
+- PanicAlertBanner preservado con marker @ds-allow-legacy (alarma operativa).
+
+Próximo cluster: 5B.3 (Tickets) — ~3-4 h.

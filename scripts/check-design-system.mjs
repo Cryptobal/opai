@@ -444,8 +444,89 @@ const MIGRATED_PATHS = [
   // tipográfica completa en una sub-fase futura. PanicAlertBanner queda
   // exempt vía marker @ds-allow-legacy en línea 1.
   //
-  // Cierra el cluster 5B.2.b. Próximo: 5B.2.c (Reportes + Alertas +
-  // Configuración) — último sub-step de Rondas.
+  // Cluster 5B.2.c — Rondas Reportes + Alertas + Configuración
+  // (último sub-step del cluster 5B.2). Migra los 3 page wrappers
+  // restantes al patrón hero (iconTone emerald, BarChart3 / BellRing /
+  // Settings) y limpia 33 hex residuales en 8 componentes:
+  // - RondasReportesTable: STATUS_CONFIG 'cerrada_auto' (orange-500/15)
+  //   → status-warn-soft. trustBg() function 3 borders (blue/amber/red-
+  //   500/25) → status-{info,warn,danger}-border. BREAKDOWN_COLORS
+  //   'speed' (purple-500) → tint-violet-fg (categórico). Banner overlap
+  //   warning (border-orange-500/40 + bg-orange-950/20 + textos
+  //   orange-300/orange-400) → status-warn-{border,soft/50,fg/{80,60}}.
+  //   Audio Mic icons (purple-400) → status-info-fg (consistente con
+  //   5B.2.a, unificado con photo Camera). Status incidente 'asignado'
+  //   (purple-500/15) → tint-violet (categórico). Banner "Comentario
+  //   del guardia" (yellow-800/40 + yellow-950/20 + yellow-500/80) →
+  //   status-warn-{border,soft/50,fg/80}. Hover buttons (teal-500/25,
+  //   blue-500/25) → brightness-110.
+  // - RondasReporteInstalacion: heat-map cell con completadas
+  //   (orange-500/15 + orange-500/20) → status-warn-soft + border.
+  //   Legend swatch idem. Hover button teal-500/25 → brightness-110.
+  // - RondasReportesAlertas: ALERT_TYPE_CONFIG 'ronda_no_realizada'
+  //   (orange-500/15) → status-warn-soft. 'checkpoint_omitido'
+  //   (purple-500/15 + purple-400) → tint-violet (categórico). Notas
+  //   resolución (emerald-400/70) → status-ok-fg/70.
+  // - RondasReportesPorGuardia: trust gradient cards 2 borders
+  //   (blue/amber-500/25) → status-{info,warn}-border.
+  // - RondasAlertasClient: dot bullet legend (cyan-400) → status-info.
+  // - RondasConfiguracionClient: step done badge (green-500/20) →
+  //   status-ok-soft. Active step border (green-500/20) →
+  //   status-ok-border. [#2dd4bf] wizard accent PRESERVADO
+  //   intencionalmente (color brand específico del wizard, 10
+  //   instancias).
+  // - trust-score-badge: 3 borders por nivel (emerald/amber/red-400/30)
+  //   → status-{ok,warn,danger}-border.
+  // - checkpoint-tasks-editor: tipo 'select' (purple-500/30 +
+  //   purple-500) → tint-violet-fg/30 + tint-violet-fg (categórico,
+  //   junto con text/number/photo).
+  //
+  // 8 archivos ya limpios post-5B.0 — solo se certifican aquí:
+  // RondasReportesClient, RondasReportesHeatmap, RondasComplianceChart,
+  // RondasTrustTrendChart, AlertDistributionChart, TrustScoreGauge,
+  // checkpoint-form, checkpoint-qr-generator.
+  //
+  // Decisiones arquitectónicas (consistentes con sub-steps anteriores):
+  // - Audio Mic icon → status-info-fg (5B.2.a establece patrón).
+  // - Categóricos especiales (asignado, CP omitido, speed, select) →
+  //   tint-violet (familia tints, consistente con "Libre" en
+  //   RondasDashboardGlobal y "Refuerzo" en SHIFT_COLORS).
+  // - [#2dd4bf] del wizard de Configuración preserved como accent
+  //   color brand específico del wizard.
+  // - Trust score gradients en 3 archivos: 3-level (≥85 ok, ≥70 info,
+  //   ≥50 warn, <50 danger) con status-* tokens, light/dark consistent.
+  //
+  // NO TOCADO en este sub-step:
+  // - Hex hardcoded de "dashboard mode" (#0a0f1c, #1a1f2e, #94a3b8,
+  //   #f1f5f9, #64748b, #475569, #1e293b, #111827).
+  // - [#2dd4bf] en RondasConfiguracionClient (wizard brand accent).
+  // - 8 already-clean components (solo certificación).
+  // - 3 redirect pages (checkpoints, programacion, templates).
+  // - RondasSubnav (componente compartido).
+  //
+  // Cero cambios funcionales: filtros, modales, fetch, mutations, drag
+  // de checkpoints, charts, tab navigation, wizard wizard de 3 pasos,
+  // CRUD de checkpoints/plantillas/programación, QR generator — todo igual.
+  //
+  // CIERRE DEL CLUSTER 5B.2 (Rondas) — todo el módulo alineado al DS v3.
+  // Próximo cluster: 5B.3 (Tickets) — ~3-4 h.
+  //
+  // Solo las 3 SC pages se agregan: las tres quedan 100% limpias tras la
+  // migración a <PageHero>. Los 16 CCs (RondasReportesClient,
+  // RondasReportesTable, RondasReporteInstalacion, RondasReportesHeatmap,
+  // RondasReportesAlertas, RondasReportesPorGuardia, RondasAlertasClient,
+  // RondasConfiguracionClient, RondasComplianceChart, RondasTrustTrendChart,
+  // AlertDistributionChart, TrustScoreGauge, trust-score-badge,
+  // checkpoint-form, checkpoint-qr-generator, checkpoint-tasks-editor) NO se
+  // agregan a MIGRATED_PATHS: mismo criterio que 4A/4B/4C/4D/5A.1..5A.8/
+  // 5B.1.a/5B.1.b/5B.2.a/5B.2.b.1/5B.2.b.2 — los archivos completaron su
+  // migración granular de color drift pero siguen teniendo drift tipográfico
+  // legacy fuera de eso (text-[10px]/text-[11px] en cells de la tabla,
+  // badges, eyebrows, legend chips, wizard steps). Se agregarán cuando se
+  // haga su pasada de limpieza tipográfica completa en una sub-fase futura.
+  "src/app/(app)/ops/rondas/reportes/page.tsx",
+  "src/app/(app)/ops/rondas/alertas/page.tsx",
+  "src/app/(app)/ops/rondas/configuracion/page.tsx",
   // Agregar aquí cuando se migren:
   // "src/components/personas/",
   // "src/components/crm/",

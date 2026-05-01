@@ -197,8 +197,8 @@ export function RondasReportesPorGuardia({ rows, guardias }: Props) {
                     stats.trustAvg >= 85
                       ? "bg-status-ok-soft border-status-ok-border"
                       : stats.trustAvg >= 70
-                        ? "bg-status-info-soft border-blue-500/25"
-                        : "bg-status-warn-soft border-amber-500/25",
+                        ? "bg-status-info-soft border-status-info-border"
+                        : "bg-status-warn-soft border-status-warn-border",
                   )}
                 >
                   <span
