@@ -121,19 +121,19 @@ type ApiSearchResult = {
 };
 
 const SEARCH_TYPE_CONFIG: Record<SearchResultType, { icon: typeof Users; color: string; bgColor: string; label: string }> = {
-  lead:                  { icon: Users,        color: 'text-status-ok-fg', bgColor: 'bg-emerald-400/10', label: 'Lead' },
-  account:               { icon: Building2,    color: 'text-status-info-fg',    bgColor: 'bg-blue-400/10',    label: 'Cuenta' },
-  contact:               { icon: Contact,      color: 'text-status-info-fg',     bgColor: 'bg-sky-400/10',     label: 'Contacto' },
-  deal:                  { icon: TrendingUp,   color: 'text-purple-400',  bgColor: 'bg-purple-400/10',  label: 'Negocio' },
-  quote:                 { icon: FileText,     color: 'text-status-warn-fg',   bgColor: 'bg-amber-400/10',   label: 'Cotización' },
-  installation:          { icon: MapPin,       color: 'text-status-info-fg',    bgColor: 'bg-teal-400/10',    label: 'Instalación' },
-  guardia:               { icon: ShieldUser,   color: 'text-status-info-fg',     bgColor: 'bg-sky-400/10',     label: 'Guardia' },
-  document:              { icon: File,         color: 'text-status-warn-fg',  bgColor: 'bg-orange-400/10',  label: 'Documento' },
-  pauta_mensual:         { icon: CalendarDays, color: 'text-status-info-fg',    bgColor: 'bg-teal-400/10',    label: 'Pauta' },
-  channel:               { icon: MessageCircle,color: 'text-status-info-fg',    bgColor: 'bg-teal-400/10',    label: 'Chat' },
+  lead:                  { icon: Users,        color: 'text-status-ok-fg',     bgColor: 'bg-status-ok-soft',   label: 'Lead' },
+  account:               { icon: Building2,    color: 'text-status-info-fg',   bgColor: 'bg-status-info-soft', label: 'Cuenta' },
+  contact:               { icon: Contact,      color: 'text-status-info-fg',   bgColor: 'bg-status-info-soft', label: 'Contacto' },
+  deal:                  { icon: TrendingUp,   color: 'text-tint-violet-fg',   bgColor: 'bg-tint-violet',      label: 'Negocio' },
+  quote:                 { icon: FileText,     color: 'text-status-warn-fg',   bgColor: 'bg-status-warn-soft', label: 'Cotización' },
+  installation:          { icon: MapPin,       color: 'text-status-info-fg',   bgColor: 'bg-status-info-soft', label: 'Instalación' },
+  guardia:               { icon: ShieldUser,   color: 'text-status-info-fg',   bgColor: 'bg-status-info-soft', label: 'Guardia' },
+  document:              { icon: File,         color: 'text-status-warn-fg',   bgColor: 'bg-status-warn-soft', label: 'Documento' },
+  pauta_mensual:         { icon: CalendarDays, color: 'text-status-info-fg',   bgColor: 'bg-status-info-soft', label: 'Pauta' },
+  channel:               { icon: MessageCircle,color: 'text-status-info-fg',   bgColor: 'bg-status-info-soft', label: 'Chat' },
   inventory_product:     { icon: Package,      color: 'text-violet-400',  bgColor: 'bg-violet-400/10',  label: 'Producto' },
-  inventory_asset:       { icon: Cpu,          color: 'text-status-info-fg',  bgColor: 'bg-indigo-400/10',  label: 'Activo' },
-  inventory_phone_line:  { icon: Phone,        color: 'text-status-info-fg',    bgColor: 'bg-cyan-400/10',    label: 'Línea' },
+  inventory_asset:       { icon: Cpu,          color: 'text-status-info-fg',   bgColor: 'bg-status-info-soft', label: 'Activo' },
+  inventory_phone_line:  { icon: Phone,        color: 'text-status-info-fg',   bgColor: 'bg-status-info-soft', label: 'Línea' },
 };
 
 const GROUP_CATEGORY: Record<SearchResultGroup, CommandCategory> = {
