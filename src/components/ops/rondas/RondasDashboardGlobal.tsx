@@ -77,11 +77,11 @@ interface DashboardData {
 }
 
 const STATUS_BG: Record<string, string> = {
-  completada: "bg-status-ok-soft border-status-ok-border hover:bg-emerald-500/30",
-  incompleta: "bg-status-warn-soft border-status-warn-border hover:bg-amber-500/30",
-  no_realizada: "bg-status-danger-soft border-status-danger-border hover:bg-red-500/30",
-  pendiente: "bg-zinc-700/30 border-zinc-600/40 hover:bg-zinc-700/40",
-  en_curso: "bg-status-info-soft border-status-info-border hover:bg-blue-500/30",
+  completada:   "bg-status-ok-soft border-status-ok-border hover:brightness-110",
+  incompleta:   "bg-status-warn-soft border-status-warn-border hover:brightness-110",
+  no_realizada: "bg-status-danger-soft border-status-danger-border hover:brightness-110",
+  pendiente:    "bg-muted border-border hover:brightness-110",
+  en_curso:     "bg-status-info-soft border-status-info-border hover:brightness-110",
 };
 
 const STATUS_ICON: Record<string, typeof CheckCircle2> = {
@@ -126,11 +126,11 @@ function RondaCellBlock({
       className={cn(
         "relative flex flex-col items-center rounded-lg border px-3 py-2 min-w-[72px] transition-all cursor-pointer",
         bg,
-        isSelected && "ring-2 ring-cyan-400/60",
+        isSelected && "ring-2 ring-status-info-border",
       )}
     >
       {ronda.isAdHoc && (
-        <span className="absolute -top-1.5 -right-1.5 text-[8px] font-bold uppercase bg-purple-500/90 text-white px-1 py-px rounded leading-tight">
+        <span className="absolute -top-1.5 -right-1.5 text-[8px] font-bold uppercase bg-tint-violet text-tint-violet-fg px-1 py-px rounded leading-tight">
           Libre
         </span>
       )}
@@ -175,9 +175,9 @@ function RondaDetail({
         <div>
           <p className="text-[10px] uppercase text-[#64748b] font-semibold">Tipo</p>
           {ronda.isAdHoc ? (
-            <span className="text-[10px] font-bold uppercase bg-purple-500/80 text-white px-1.5 py-0.5 rounded">Libre</span>
+            <span className="text-[10px] font-bold uppercase bg-tint-violet text-tint-violet-fg px-1.5 py-0.5 rounded">Libre</span>
           ) : (
-            <span className="text-[10px] font-bold uppercase bg-cyan-500/80 text-white px-1.5 py-0.5 rounded">Programada</span>
+            <span className="text-[10px] font-bold uppercase bg-tint-sky text-tint-sky-fg px-1.5 py-0.5 rounded">Programada</span>
           )}
         </div>
         <div>
@@ -225,7 +225,7 @@ function RondaDetail({
           </span>
         )}
         {ronda.evidencia.audio > 0 && (
-          <span className="inline-flex items-center gap-0.5 text-purple-400">
+          <span className="inline-flex items-center gap-0.5 text-status-info-fg">
             <Mic className="h-3 w-3" />
             {ronda.evidencia.audio}
           </span>
@@ -246,8 +246,8 @@ function RondaDetail({
 
       {/* Row 3: notes */}
       {ronda.notes && (
-        <div className="rounded-lg border border-yellow-800/40 bg-yellow-950/20 px-3 py-2">
-          <p className="text-[11px] font-medium text-yellow-500/80 mb-0.5">Comentario del guardia:</p>
+        <div className="rounded-lg border border-status-warn-border bg-status-warn-soft/50 px-3 py-2">
+          <p className="text-[11px] font-medium text-status-warn-fg/80 mb-0.5">Comentario del guardia:</p>
           <p className="text-[11px] text-zinc-300 italic">&ldquo;{ronda.notes}&rdquo;</p>
         </div>
       )}
@@ -257,7 +257,7 @@ function RondaDetail({
         <div className="flex items-center gap-2 pt-1">
           <button
             onClick={() => onViewMap(ronda)}
-            className="inline-flex items-center gap-1.5 rounded-md bg-status-info-soft px-3 py-1.5 text-xs font-medium text-status-info-fg hover:bg-teal-500/25 transition-colors"
+            className="inline-flex items-center gap-1.5 rounded-md bg-status-info-soft px-3 py-1.5 text-xs font-medium text-status-info-fg hover:brightness-110 transition-colors"
           >
             <MapPin className="h-3.5 w-3.5" />
             Ver recorrido en mapa
@@ -422,9 +422,9 @@ function InstalacionGridRow({ inst }: { inst: InstalacionRow }) {
                           {formatHour(ronda.scheduledAt)}
                         </span>
                         {ronda.isAdHoc ? (
-                          <span className="text-[9px] font-bold uppercase bg-purple-500/80 text-white px-1 py-px rounded shrink-0">Libre</span>
+                          <span className="text-[9px] font-bold uppercase bg-tint-violet text-tint-violet-fg px-1 py-px rounded shrink-0">Libre</span>
                         ) : (
-                          <span className="text-[9px] font-bold uppercase bg-cyan-500/80 text-white px-1 py-px rounded shrink-0">Prog.</span>
+                          <span className="text-[9px] font-bold uppercase bg-tint-sky text-tint-sky-fg px-1 py-px rounded shrink-0">Prog.</span>
                         )}
                         <span className="text-[#94a3b8] truncate flex-1">{ronda.template}</span>
                         <span className="text-[#94a3b8] truncate max-w-[140px]">{ronda.guardia || "—"}</span>
@@ -471,13 +471,11 @@ function InstalacionGridRow({ inst }: { inst: InstalacionRow }) {
 
 /** Returns a Tailwind bg class based on compliance percentage (heat map) */
 function complianceBg(pct: number): string {
-  if (pct === 0) return "bg-red-500/70 text-white";
-  if (pct < 40) return "bg-red-500/50 text-red-100";
-  if (pct < 60) return "bg-amber-500/50 text-amber-100";
-  if (pct < 75) return "bg-yellow-500/40 text-yellow-100";
-  if (pct < 90) return "bg-lime-500/40 text-lime-100";
-  if (pct < 100) return "bg-emerald-500/40 text-emerald-100";
-  return "bg-emerald-500/70 text-white";
+  if (pct === 0) return "bg-status-danger text-white";
+  if (pct < 50) return "bg-status-danger-soft text-status-danger-fg";
+  if (pct < 75) return "bg-status-warn-soft text-status-warn-fg";
+  if (pct < 100) return "bg-status-ok-soft text-status-ok-fg";
+  return "bg-status-ok text-white";
 }
 
 /* ────────────────────────────────────────────────────────────────
@@ -569,7 +567,7 @@ function ResumenTablaRangoView({
             className={cn(
               "px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border",
               preset === p.key
-                ? "bg-cyan-500/20 border-cyan-500/40 text-status-info-fg"
+                ? "bg-status-info-soft border-status-info-border text-status-info-fg"
                 : "bg-[#0a0e1a] border-[#1a1f2e] text-[#94a3b8] hover:bg-[#1a1f2e] hover:text-[#f1f5f9]",
             )}
           >
@@ -626,7 +624,7 @@ function ResumenTablaRangoView({
                       key={fecha}
                       className={cn(
                         "text-center px-1.5 py-3 font-semibold whitespace-nowrap",
-                        isToday && "bg-cyan-500/5",
+                        isToday && "bg-status-info-soft/30",
                       )}
                     >
                       <div className="leading-tight">
@@ -663,7 +661,7 @@ function ResumenTablaRangoView({
                           key={fecha}
                           className={cn(
                             "px-1.5 py-2 text-center align-middle",
-                            isToday && "bg-cyan-500/5",
+                            isToday && "bg-status-info-soft/30",
                           )}
                         >
                           <span className="text-[11px] text-[#334155]">—</span>
@@ -675,7 +673,7 @@ function ResumenTablaRangoView({
                         key={fecha}
                         className={cn(
                           "px-2 py-2 text-center align-middle",
-                          isToday && "bg-cyan-500/5",
+                          isToday && "bg-status-info-soft/30",
                         )}
                       >
                         <span
@@ -724,7 +722,7 @@ function ResumenTablaRangoView({
                         key={fecha}
                         className={cn(
                           "px-1.5 py-3 text-center align-middle",
-                          isToday && "bg-cyan-500/5",
+                          isToday && "bg-status-info-soft/30",
                         )}
                       >
                         <span className="text-[11px] text-[#334155]">—</span>
@@ -736,7 +734,7 @@ function ResumenTablaRangoView({
                       key={fecha}
                       className={cn(
                         "px-2 py-3 text-center align-middle",
-                        isToday && "bg-cyan-500/5",
+                        isToday && "bg-status-info-soft/30",
                       )}
                     >
                       <span

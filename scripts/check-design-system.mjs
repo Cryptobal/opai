@@ -273,6 +273,44 @@ const MIGRATED_PATHS = [
   // text-[11px] en celdas de la grilla, badges, legend chips y serie modal).
   // Se agregarán cuando se haga su pasada de limpieza tipográfica completa
   // en una sub-fase futura.
+  // Cluster 5B.2.a — Rondas Dashboard + Centro IA (primer sub-step del
+  // cluster 5B.2). Migra 2 page wrappers al patrón hero (iconTone emerald,
+  // ShieldCheck para /ops/rondas y Sparkles para /ops/rondas/centro-ia) y
+  // limpia 25 hex hardcoded residuales en RondasDashboardGlobal.tsx:
+  // - STATUS_BG hovers hex-específicos (emerald/amber/red/blue-500/30) →
+  //   hover:brightness-110 (patrón unificado DS v3). 'pendiente' →
+  //   bg-muted/border (más neutral).
+  // - Badges categóricos "Libre" (adHoc, 3 instancias) y "Programada/Prog."
+  //   (2 instancias) → tint-violet / tint-sky (patrón consistente con
+  //   SHIFT_COLORS de Pauta Mensual).
+  // - Audio icon (Mic) purple-400 → text-status-info-fg (consistente con
+  //   foto Camera al lado).
+  // - Banner "Comentario del guardia" yellow-800/950 → status-warn-*.
+  // - Heat map de compliance: 7 niveles con cyan/red/amber/yellow/lime/
+  //   emerald → 5 niveles con status-{danger,warn,ok}-*. Lime intermedio
+  //   eliminado para claridad.
+  // - Preset selector activo cyan-500/20 → status-info-soft.
+  // - 5 highlights "is today" en calendar bg-cyan-500/5 → bg-status-info-soft/30.
+  // - Ring de selección ring-cyan-400/60 → ring-status-info-border.
+  // Cero cambios funcionales: click handlers, hovers, drill-downs, preset
+  // selection, custom date range — todo igual.
+  //
+  // NO TOCADO en este sub-step:
+  // - Hex hardcoded de "dashboard mode dark" (#0a0e1a, #1a1f2e, #94a3b8,
+  //   #f1f5f9, #64748b, #111827) — Bloomberg-style intencional.
+  // - Lógica y cálculos: compliance, completion, alertCount, incidentCount.
+  // - RondasSubnav (componente compartido — sub-step futuro si tiene drift propio).
+  //
+  // Solo las 2 SC pages se agregan: ambas quedan 100% limpias tras la
+  // migración a <PageHero>. Los 5 CCs (RondasDashboardClient, RondasDashboardGlobal,
+  // IaRecommendations, IaUmbralesConfig, RondasCentroIaClient) NO se agregan:
+  // mismo criterio que 4A/4B/4C/4D/5A.1..5A.8/5B.1.a/5B.1.b — los archivos
+  // completaron su migración granular de color drift pero siguen teniendo
+  // drift tipográfico legacy fuera de eso (text-[10px]/text-[11px] en cells
+  // de grilla, badges de tipo, summary chips, eyebrows). Se agregarán cuando
+  // se haga su pasada de limpieza tipográfica completa en una sub-fase futura.
+  "src/app/(app)/ops/rondas/page.tsx",
+  "src/app/(app)/ops/rondas/centro-ia/page.tsx",
   // Agregar aquí cuando se migren:
   // "src/components/personas/",
   // "src/components/crm/",
