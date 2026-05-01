@@ -175,6 +175,10 @@ const MIGRATED_PATHS = [
   // text-[10px] en chips, etc.). Se agregarán cuando se haga su
   // pasada de limpieza completa en una sub-fase futura.
   "src/components/ui/label.tsx",
+  // Cluster 5A.7.a — Instalaciones lista granular
+  "src/app/(app)/crm/installations/page.tsx",
+  "src/components/crm/CrmInstallationsListClient.tsx",
+  "src/components/crm/CrmInstallationsClient.tsx",
   // Agregar aquí cuando se migren:
   // "src/components/personas/",
   // "src/components/crm/",
