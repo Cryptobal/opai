@@ -707,7 +707,7 @@ export function OpsPautaDiariaClient({
                         {isAbsencePPC && item.plannedGuardia ? (
                           <span className="truncate flex items-center gap-2">
                             <span className="text-muted-foreground">{formatPersonName(item.plannedGuardia.persona.firstName, item.plannedGuardia.persona.lastName)}</span>
-                            <span className="inline-flex items-center rounded-full bg-green-500/20 px-1.5 py-0.5 text-[10px] font-medium text-status-ok-fg shrink-0">
+                            <span className="inline-flex items-center rounded-full bg-status-ok-soft px-1.5 py-0.5 text-[10px] font-medium text-status-ok-fg shrink-0">
                               {item.absenceCode}
                             </span>
                           </span>
@@ -893,7 +893,7 @@ export function OpsPautaDiariaClient({
                                     {hayFueraRango && (
                                       <button
                                         type="button"
-                                        className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-status-danger-soft text-status-danger-fg font-semibold hover:bg-red-500/30 transition-colors cursor-pointer animate-pulse"
+                                        className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-status-danger-soft text-status-danger-fg font-semibold hover:brightness-110 transition-colors cursor-pointer animate-pulse"
                                         title="Una o más marcaciones fueron registradas fuera del rango GPS permitido. Click para ver detalle."
                                         onClick={() => setMarcacionDetalleOpen(item.marcaciones ?? [])}
                                       >
@@ -916,7 +916,7 @@ export function OpsPautaDiariaClient({
                                 }
                                 if (metodo === "foto_evidencia") {
                                   return (
-                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-sky-500/20 text-status-info-fg font-medium" title="Marcación con foto de evidencia desde portal guardia">
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-status-info-soft text-status-info-fg font-medium" title="Marcación con foto de evidencia desde portal guardia">
                                       Foto
                                     </span>
                                   );
@@ -1068,8 +1068,8 @@ export function OpsPautaDiariaClient({
                                 size="sm"
                                 variant="outline"
                                 className={`h-7 w-7 p-0 ${item.attendanceStatus === "no_asistio"
-                                    ? "border-rose-500 bg-rose-500/25 text-status-danger-fg"
-                                    : "border-rose-500/50 text-status-danger-fg hover:bg-rose-500/20 hover:text-status-danger-fg"
+                                    ? "border-status-danger-border bg-status-danger-soft text-status-danger-fg"
+                                    : "border-status-danger-border/50 text-status-danger-fg hover:bg-status-danger-soft hover:text-status-danger-fg"
                                   }`}
                                 disabled={savingId === item.id || isLocked}
                                 onClick={() =>
@@ -1135,7 +1135,7 @@ export function OpsPautaDiariaClient({
           {marcacionDetalleOpen && marcacionDetalleOpen.length > 0 && (
             <div className="space-y-4">
               {marcacionDetalleOpen.map((m) => (
-                <div key={m.id} className={`rounded border p-3 text-sm space-y-2 ${m.gpsStatus === "fuera_rango" ? "border-red-500/60 bg-status-danger-soft" : "border-border/60"}`}>
+                <div key={m.id} className={`rounded border p-3 text-sm space-y-2 ${m.gpsStatus === "fuera_rango" ? "border-status-danger-border bg-status-danger-soft" : "border-border/60"}`}>
                   <div className="flex items-center justify-between">
                     <span className="font-medium">
                       {m.tipo === "entrada" ? "Entrada" : "Salida"}:{" "}
