@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { resolvePagePerms, canView, hasCapability } from "@/lib/permissions-server";
-import { PageHeader } from "@/components/opai-ds";
+import { PageHero } from "@/components/opai-ds";
 import { Stat, StatGrid } from "@/components/opai-ds";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import {
   Clock,
   MapPin,
   Star,
+  History,
 } from "lucide-react";
 export default async function HistorialPage() {
   const session = await auth();
@@ -237,8 +238,12 @@ export default async function HistorialPage() {
 
   return (
     <div className="space-y-6 min-w-0">
-      <PageHeader
+      <PageHero
+        icon={<History />}
+        iconTone="emerald"
+        eyebrow={["Operaciones", "Supervisión", "Historial"]}
         title="Historial de visitas"
+        subtitle="visitas registradas y KPIs"
         description={canViewAll ? "Todas las visitas registradas, KPIs y sugerencias de ruta." : "Tu historial, KPIs personales y sugerencias de ruta."}
       />
 

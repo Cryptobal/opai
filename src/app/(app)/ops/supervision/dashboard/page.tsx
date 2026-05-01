@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView, hasCapability } from "@/lib/permissions-server";
-import { PageHeader } from "@/components/opai-ds";
+import { PageHero } from "@/components/opai-ds";
+import { BarChart3 } from "lucide-react";
 import { SupervisionDashboardEnhanced } from "@/components/supervision/SupervisionDashboardEnhanced";
 import { SupervisionReportes } from "@/components/supervision/SupervisionReportes";
 import { getPeriodBounds, PERIOD_OPTIONS } from "@/lib/supervision-periods";
@@ -28,7 +29,14 @@ export default async function SupervisionDashboardPage({
 
   return (
     <div className="space-y-4 min-w-0">
-      <PageHeader title="Dashboard" description="KPIs, tendencias y reportes consolidados." />
+      <PageHero
+        icon={<BarChart3 />}
+        iconTone="emerald"
+        eyebrow={["Operaciones", "Supervisión", "Dashboard"]}
+        title="Dashboard"
+        subtitle="KPIs y tendencias"
+        description="Indicadores consolidados, tendencias temporales y reportes de visitas de supervisión."
+      />
 
       <SupervisionDashboardEnhanced
         periodLabel={periodLabel}

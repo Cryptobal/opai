@@ -1138,7 +1138,7 @@ export function SupervisionVisitWizard({
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 p-4">
           <div className="w-full max-w-md rounded-t-xl sm:rounded-xl bg-zinc-900 border border-zinc-800 p-6 space-y-4 shadow-xl">
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-orange-500/20 flex items-center justify-center flex-shrink-0">
+              <div className="h-10 w-10 rounded-full bg-status-warn-soft flex items-center justify-center flex-shrink-0">
                 <span className="text-2xl">🛡️</span>
               </div>
               <div>
@@ -1159,7 +1159,7 @@ export function SupervisionVisitWizard({
                 type="button"
                 onClick={handleCreateVraReport}
                 disabled={creatingVraReport}
-                className="w-full px-4 py-3 rounded-lg bg-orange-600 hover:bg-status-warn text-white font-medium text-sm flex items-center justify-center gap-2 disabled:opacity-50"
+                className="w-full px-4 py-3 rounded-lg bg-status-warn hover:brightness-110 text-white font-medium text-sm flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {creatingVraReport ? "Creando informe..." : "Sí, generar informe ahora"}
               </button>
