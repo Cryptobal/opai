@@ -20,6 +20,7 @@ import { MapPin, Loader2 } from "lucide-react";
 import { CrmSectionCreateButton } from "./CrmSectionCreateButton";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Tag } from "@/components/opai-ds";
 
 type InstallationRow = {
   id: string;
@@ -201,17 +202,18 @@ export function CrmInstallationsClient({
                 <p className="font-medium text-sm truncate group-hover:text-primary transition-colors">
                   {inst.name}
                 </p>
-                <span
-                  className={`shrink-0 rounded-md px-2 py-0.5 text-[10px] font-medium ${
-                    inst.status === "active"
-                      ? "bg-emerald-500/15 text-emerald-400"
-                      : inst.status === "inactive"
-                        ? "bg-amber-500/15 text-amber-400"
-                        : "bg-muted text-muted-foreground"
-                  }`}
+                <Tag
+                  variant={
+                    inst.status === "active" ? "ok" :
+                    inst.status === "inactive" ? "warn" :
+                    "neutral"
+                  }
+                  size="sm"
+                  dot
+                  className="shrink-0"
                 >
                   {inst.status === "active" ? "Activa" : inst.status === "inactive" ? "Inactiva" : "Prospecto"}
-                </span>
+                </Tag>
               </div>
               {inst.address && (
                 <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">

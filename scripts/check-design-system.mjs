@@ -175,6 +175,24 @@ const MIGRATED_PATHS = [
   // text-[10px] en chips, etc.). Se agregarán cuando se haga su
   // pasada de limpieza completa en una sub-fase futura.
   "src/components/ui/label.tsx",
+  // Cluster 5A.7.a — Lista global de Instalaciones + lista anidada en
+  // ficha de Cuenta migradas al patrón hero / Tag / IconBubble del DS v3.
+  // Drift dark-only eliminado en status badges, PPC badges, icon containers
+  // y Moon icon nocturno (bg-emerald/amber/red/blue/zinc-500/X →
+  // <Tag variant>/<IconBubble tone>; text-indigo-400 → text-status-info-fg).
+  //
+  // Solo /crm/installations page (SC) se agrega: queda 100% limpia tras
+  // el cambio a <PageHero>. CrmInstallationsListClient.tsx y
+  // CrmInstallationsClient.tsx (CC) NO se agregan: mismo criterio que
+  // 4A/4B/4C/4D/5A.1/5A.2/5A.3/5A.4/5A.5/5A.6 — los archivos completaron
+  // su migración del badging/icons al DS v3 pero conservan text-[11px]
+  // en counters (decisión deliberada del prompt 5A.7.a para alinear con
+  // el resto de los chips chicos del CRM) y bg-emerald-600 en el botón
+  // Crear del modal (preservado por la regla "no tocar el modal" del
+  // prompt). Se agregarán cuando se haga su pasada de limpieza completa
+  // en una sub-fase futura. La ficha /crm/installations/[id]
+  // (CrmInstallationDetailClient, 3.002 líneas) queda para 5A.7.b.
+  "src/app/(app)/crm/installations/page.tsx",
   // Agregar aquí cuando se migren:
   // "src/components/personas/",
   // "src/components/crm/",
