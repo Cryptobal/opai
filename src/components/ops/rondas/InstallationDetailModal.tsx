@@ -53,7 +53,7 @@ interface Props {
 function guardStatusBadge(status: string) {
   const map: Record<string, { label: string; color: string }> = {
     presente: { label: "Presente", color: "text-status-ok-fg bg-status-ok-soft border-status-ok-border" },
-    reemplazo: { label: "Reemplazo", color: "text-status-info-fg bg-status-info-soft border-cyan-500/20" },
+    reemplazo: { label: "Reemplazo", color: "text-status-info-fg bg-status-info-soft border-status-info-border" },
     en_camino: { label: "En camino", color: "text-status-warn-fg bg-status-warn-soft border-status-warn-border" },
     no_viene: { label: "No viene", color: "text-status-danger-fg bg-status-danger-soft border-status-danger-border" },
     pendiente: { label: "Pendiente", color: "text-zinc-400 bg-zinc-500/10 border-zinc-500/20" },
@@ -69,7 +69,7 @@ function guardStatusBadge(status: string) {
 function severityColor(sev: string) {
   if (sev === "critical") return "border-l-red-500 bg-status-danger-soft";
   if (sev === "warning") return "border-l-amber-500 bg-status-warn-soft";
-  return "border-l-cyan-500 bg-cyan-500/5";
+  return "border-l-status-info bg-status-info-soft/30";
 }
 
 function coberturaLabel(status: string) {

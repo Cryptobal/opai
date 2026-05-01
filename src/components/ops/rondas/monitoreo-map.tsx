@@ -529,7 +529,7 @@ export function MonitoreoMap({
       <div ref={containerRef} className="w-full h-full min-h-[400px]" />
 
       <div className="absolute top-3 left-3 flex items-center gap-2">
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/90 px-2.5 py-1 text-[10px] font-bold text-white shadow-lg">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-status-ok px-2.5 py-1 text-[10px] font-bold text-white shadow-lg">
           <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
           En vivo · 30s
         </span>
@@ -565,13 +565,13 @@ export function MonitoreoMap({
           Alerta
         </span>
         <span className="flex items-center gap-1.5" title="Checkpoint marcado">
-          <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 ring-1 ring-white/30 flex-shrink-0" /> Marcado
+          <span className="h-2.5 w-2.5 rounded-full bg-status-ok ring-1 ring-white/30 flex-shrink-0" /> Marcado
         </span>
         <span className="flex items-center gap-1.5" title="Checkpoint pendiente">
           <span className="h-2.5 w-2.5 rounded-full bg-zinc-500 ring-1 ring-white/20 flex-shrink-0" /> Pendiente
         </span>
         <span className="flex items-center gap-1.5" title="Recorrido del guardia">
-          <span className="inline-block h-0.5 w-5 bg-emerald-400/80 flex-shrink-0" /> Recorrido
+          <span className="inline-block h-0.5 w-5 bg-status-ok/80 flex-shrink-0" /> Recorrido
         </span>
       </div>
     </div>

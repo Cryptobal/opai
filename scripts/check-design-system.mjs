@@ -351,6 +351,101 @@ const MIGRATED_PATHS = [
   // de eso (text-[10px]/text-[11px] en cells de la grilla, KPI chips,
   // CoverageChip bars, mobile labels). Se agregarán cuando se haga su pasada
   // de limpieza tipográfica completa en una sub-fase futura.
+  // Cluster 5B.2.b.2 — Monitoreo paneles + modales + mobile (cierra el
+  // cluster 5B.2.b). Migra los 13 archivos restantes del Monitoreo de
+  // Rondas, eliminando 80 hex residuales:
+  // - GuardPanel: card border condicional (red/emerald-500/[0.05]) →
+  //   status-{danger,ok}-soft/30. PPC unassigned card (amber-500/[0.05]) →
+  //   status-warn-soft/30. Botón "Asignar guardia" (amber-600) →
+  //   status-warn. Badge "EXTRA" (purple-500/20) → tint-violet
+  //   (categórico, consistente con "Refuerzo" en SHIFT_COLORS y "Libre"
+  //   en RondasDashboardGlobal). Inputs/textarea focus borders
+  //   (focus:border-teal-500) → status-info-border. Botón "Ahora"
+  //   (bg-teal-500/20) → bg-status-info-soft. Bordes top de secciones
+  //   (border-red/emerald-500/10) → status-{danger,ok}-border/40. Texts
+  //   "Alerta máxima" / "Buscar reemplazo" → status-{danger,ok}-fg/70.
+  //   Dot rojo "puesto descubierto" + dot verde "reemplazado por" →
+  //   status-{danger,ok}. Botón "Extra" toggle (purple-600) →
+  //   tint-violet-fg. Botón "Agregar guardia" border ramas duplicadas
+  //   (teal-500/20 vs status-info-border) → unificadas a status-info-border.
+  // - MonitoreoSidePanel: tab indicator (cyan-400) → status-info. Live
+  //   ping (emerald-400) + slot dots (red/emerald-400) + Check icon
+  //   (emerald-400/40) + semaforo (3 cases) → status-{ok,warn,danger}.
+  //   Selected row (cyan-500/[0.04] + border-l-cyan-400) →
+  //   status-info-soft/30 + border-l-status-info. Hover red-500/30 →
+  //   brightness-110.
+  // - MonitoreoGuardPanel: border-cyan-500/20 → status-info-border.
+  // - MonitoreoGridCellModal: guardiaName (cyan-400/70) → status-info-fg/70.
+  //   Banner border (teal-500/20) → status-info-border. Selected ring
+  //   colors (3 cases: emerald/red/amber-500/30 + ring-{color}-500/50)
+  //   → status-{ok,danger,warn}-soft + ring-status-{ok,danger,warn}-border.
+  //   Inputs focus (focus:border-teal-500) → status-info-border.
+  // - RondasMonitoreoClient: admin warning (amber-400/70) →
+  //   status-warn-fg/70. Banner "Operando turno" (cyan-500/3 +
+  //   border-b-cyan-500/10 + text-cyan-400/50) → status-info-{soft/30,
+  //   border/40, fg/50}. 2 hover buttons (cyan-500/8 + cyan-500/20 +
+  //   cyan-400/70 + hover variants) unificados a status-info-{soft,
+  //   border, fg/70} + brightness-110.
+  // - MobileMonitorView: active tab border (teal-400) → status-info.
+  //   Selected pill (teal-500/20 + ring-teal-500/30) → status-info-soft +
+  //   ring-status-info-border. Descubierta/parcial bg
+  //   (red/amber-500/[0.0X]) → status-{danger,warn}-soft/30.
+  // - MobileInstallationCard: en_camino dot (amber-400) → status-warn.
+  //   Parcial bar dot (amber-400) → status-warn. Trust score gradient
+  //   (3 levels: emerald/amber/red-500/8) → status-{ok,warn,danger}-soft
+  //   con /50 para los 'completada' / 'isCurrent' / 'isPast'. Strikethrough
+  //   text-red-400/60 → status-danger-fg/60. Descubierta bg
+  //   (red-500/[0.06]) → status-danger-soft/30. Notes texts
+  //   (amber-400/70 y /80) → status-warn-fg/70 y /80.
+  // - InstallationDetailModal: badge "Reemplazo" border (cyan-500/20) →
+  //   status-info-border. Selected card (border-l-cyan-500 + bg-cyan-500/5)
+  //   → border-l-status-info + bg-status-info-soft/30.
+  // - alerta-card: SEVERITY_CONFIG (3 levels: critical/warning/info) con
+  //   dot/border-l/bg → all status-{danger,warn,info}-* tokens
+  //   (eliminando cyan-400/cyan-500 distintivo del nivel info, ahora
+  //   azul standard). Checkbox de selección (bg-cyan-500 +
+  //   border-cyan-500 + hover:border-cyan-500/50) → status-info-{base,
+  //   border}.
+  // - CoberturaSheet: coberturaColor() (4 cases: completa/parcial/
+  //   descubierta/default) bg fields (emerald/amber/red-500/8) →
+  //   status-{ok,warn,danger}-soft/50. Texto rojo (red-400/70) →
+  //   status-danger-fg/70. Botón "Enviar" nocturno (indigo-600) →
+  //   status-info, diurno (amber-600) → status-warn (consistente con
+  //   semantics nocturno=azul, diurno=amber del toggle nocturno/diurno
+  //   en installations).
+  // - CerrarTurnoModal: 3 textos legacy (amber-200/70, red-200/70,
+  //   emerald-300/60) → status-{warn,danger,ok}-fg/{70,70,60}.
+  // - monitoreo-map: badge "EN VIVO · 30s" (bg-emerald-500/90) →
+  //   bg-status-ok. Legend dot "Marcado" (bg-emerald-400) → bg-status-ok.
+  //   Legend line "Recorrido" (bg-emerald-400/80) → bg-status-ok/80.
+  //
+  // EXCEPCIÓN INTENCIONAL — PanicAlertBanner:
+  // Conserva sus rojos hex (red-900, red-800, red-200, red-800/60)
+  // porque es una alarma operativa de máxima urgencia (botón de pánico
+  // de un guardia activo). Migrar a status-danger-soft reduciría el
+  // efecto visual de "alarma roja" y el banner perdería su función
+  // semántica. Marker @ds-allow-legacy agregado al inicio del archivo
+  // para que el sweep futuro no lo toque.
+  //
+  // NO TOCADO: hex de "dashboard mode" (#0a0f1c, #1a1f2e, #64748b,
+  // #94a3b8, #f1f5f9, #475569). bg-slate-*, bg-zinc-* — neutros.
+  // Lógica de polling, trust score, coverage status, KPI updates,
+  // modales, click handlers, drag, navegación entre tabs/views.
+  //
+  // Los 12 CCs migrados (GuardPanel, MonitoreoSidePanel, MonitoreoGuardPanel,
+  // MonitoreoGridCellModal, RondasMonitoreoClient, MobileMonitorView,
+  // MobileInstallationCard, InstallationDetailModal, alerta-card,
+  // CoberturaSheet, CerrarTurnoModal, monitoreo-map) NO se agregan a
+  // MIGRATED_PATHS: mismo criterio que 4A/4B/4C/4D/5A.1..5A.8/5B.1.a/
+  // 5B.1.b/5B.2.a/5B.2.b.1 — los archivos completaron su migración granular
+  // de color drift pero siguen teniendo drift tipográfico legacy fuera de
+  // eso (text-[10px]/text-[11px] en cells, badges, eyebrows, legend chips,
+  // panel rows). Se agregarán cuando se haga su pasada de limpieza
+  // tipográfica completa en una sub-fase futura. PanicAlertBanner queda
+  // exempt vía marker @ds-allow-legacy en línea 1.
+  //
+  // Cierra el cluster 5B.2.b. Próximo: 5B.2.c (Reportes + Alertas +
+  // Configuración) — último sub-step de Rondas.
   // Agregar aquí cuando se migren:
   // "src/components/personas/",
   // "src/components/crm/",

@@ -37,9 +37,9 @@ interface Props {
 }
 
 function coberturaColor(status: string) {
-  if (status === "completa") return { dot: "bg-status-ok", text: "text-status-ok-fg", bg: "bg-emerald-500/8", border: "border-status-ok-border" };
-  if (status === "parcial") return { dot: "bg-status-warn", text: "text-status-warn-fg", bg: "bg-amber-500/8", border: "border-status-warn-border" };
-  if (status === "descubierta") return { dot: "bg-status-danger", text: "text-status-danger-fg", bg: "bg-red-500/8", border: "border-status-danger-border" };
+  if (status === "completa") return { dot: "bg-status-ok", text: "text-status-ok-fg", bg: "bg-status-ok-soft/50", border: "border-status-ok-border" };
+  if (status === "parcial") return { dot: "bg-status-warn", text: "text-status-warn-fg", bg: "bg-status-warn-soft/50", border: "border-status-warn-border" };
+  if (status === "descubierta") return { dot: "bg-status-danger", text: "text-status-danger-fg", bg: "bg-status-danger-soft/50", border: "border-status-danger-border" };
   return { dot: "bg-zinc-600", text: "text-zinc-400", bg: "bg-zinc-500/8", border: "border-zinc-500/20" };
 }
 
@@ -127,7 +127,7 @@ export function CoberturaSheet({ open, onClose, turnoFilter, instalaciones, onSe
                   </div>
                 )}
                 {inst.guards.length === 0 && (
-                  <div className="mt-1 pl-3.5 flex items-center gap-1 text-[10px] text-red-400/70">
+                  <div className="mt-1 pl-3.5 flex items-center gap-1 text-[10px] text-status-danger-fg/70">
                     <AlertTriangle className="h-3 w-3" />
                     Sin guardias asignados
                   </div>
@@ -143,8 +143,8 @@ export function CoberturaSheet({ open, onClose, turnoFilter, instalaciones, onSe
             className={cn(
               "w-full gap-2",
               isNocturno
-                ? "bg-indigo-600 hover:bg-indigo-700 text-white"
-                : "bg-amber-600 hover:bg-amber-700 text-white",
+                ? "bg-status-info hover:brightness-110 text-white"
+                : "bg-status-warn hover:brightness-110 text-white",
             )}
             onClick={() => onSendCobertura(turnoFilter)}
             disabled={!!sendingEmail}

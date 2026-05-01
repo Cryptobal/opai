@@ -210,7 +210,7 @@ export function MobileMonitorView({
               onClick={() => setTab(t)}
               className={cn(
                 "flex-1 py-2 text-xs font-medium transition-colors relative flex items-center justify-center gap-1",
-                tab === t ? "text-status-info-fg border-b-2 border-teal-400" : "text-slate-500"
+                tab === t ? "text-status-info-fg border-b-2 border-status-info" : "text-slate-500"
               )}
             >
               {t}
@@ -242,7 +242,7 @@ export function MobileMonitorView({
                   className={cn(
                     "px-2.5 py-1 rounded-full text-[10px] font-medium transition-colors whitespace-nowrap",
                     filter === f
-                      ? "bg-teal-500/20 text-status-info-fg ring-1 ring-teal-500/30"
+                      ? "bg-status-info-soft text-status-info-fg ring-1 ring-status-info-border"
                       : "bg-slate-800 text-slate-500"
                   )}
                 >
@@ -291,8 +291,8 @@ export function MobileMonitorView({
                     alert.resuelta
                       ? "border-slate-800 bg-slate-900/40 opacity-60"
                       : alert.severidad === "critical"
-                        ? "border-status-danger-border bg-red-500/[0.08]"
-                        : "border-status-warn-border bg-amber-500/[0.06]"
+                        ? "border-status-danger-border bg-status-danger-soft/30"
+                        : "border-status-warn-border bg-status-warn-soft/30"
                   )}
                 >
                   <div className="flex items-center gap-2 mb-1">
