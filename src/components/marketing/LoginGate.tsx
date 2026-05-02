@@ -68,7 +68,7 @@ export default function LoginGate() {
           {/* Platform admin */}
           <div className="rounded-2xl border border-white/[0.07] bg-[#141E30]/30 p-6 sm:p-8">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center text-xl">
+              <div className="w-10 h-10 rounded-xl bg-tint-violet flex items-center justify-center text-xl">
                 ⚙️
               </div>
               <div>

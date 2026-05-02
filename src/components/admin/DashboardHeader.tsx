@@ -55,21 +55,21 @@ export function DashboardHeader({ presentations, userRole }: DashboardHeaderProp
       name: 'Propuesta Comercial',
       description: 'Template completo con 24 secciones',
       url: '/templates/commercial/preview?admin=true',
-      color: 'from-blue-500 to-purple-600'
+      color: 'from-status-info to-tint-violet-fg'
     },
     {
       id: 'email',
       name: 'Template de Email',
       description: 'Vista previa del email',
       url: '/templates/email/preview',
-      color: 'from-amber-500 to-orange-600'
+      color: 'from-status-warn to-status-warn-fg'
     },
     {
       id: 'pricing',
       name: 'Formato de Propuesta',
       description: 'Vista de pricing',
       url: '/templates/pricing-format?admin=true',
-      color: 'from-purple-500 to-pink-600'
+      color: 'from-tint-violet-fg to-tint-rose-fg'
     }
   ];
 
@@ -214,7 +214,7 @@ export function DashboardHeader({ presentations, userRole }: DashboardHeaderProp
                         href={`/p/${presentation.uniqueId}?preview=true`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="px-2 py-1 rounded-md bg-status-info-soft text-status-info-fg text-xs font-medium hover:bg-blue-500/30 transition-colors flex-shrink-0"
+                        className="px-2 py-1 rounded-md bg-status-info-soft text-status-info-fg text-xs font-medium hover:brightness-110 transition-colors flex-shrink-0"
                       >
                         Ver
                       </a>

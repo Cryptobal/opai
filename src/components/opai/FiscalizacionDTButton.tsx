@@ -26,7 +26,7 @@ export function FiscalizacionDTButton({
       className={cn(
         "inline-flex items-center gap-2 rounded-lg px-3 py-1.5",
         "bg-status-danger text-white font-semibold text-sm",
-        "hover:bg-red-700 transition-colors shadow-sm",
+        "hover:brightness-110 transition-colors shadow-sm",
         "animate-in fade-in duration-300",
         className
       )}

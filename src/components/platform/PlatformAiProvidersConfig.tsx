@@ -175,7 +175,7 @@ export function PlatformAiProvidersConfig() {
               key={provider.id}
               className={`rounded-xl border p-5 transition-colors ${
                 isActive
-                  ? 'border-teal-500/50 bg-teal-500/5 dark:border-status-info-border'
+                  ? 'border-status-info-border bg-status-info-soft/30'
                   : 'border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900'
               }`}
             >
@@ -230,7 +230,7 @@ export function PlatformAiProvidersConfig() {
                   <button
                     onClick={() => handleActivate(provider.id)}
                     disabled={activating === provider.id}
-                    className="flex w-full items-center justify-center rounded-lg bg-status-info px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-teal-700 disabled:opacity-50"
+                    className="flex w-full items-center justify-center rounded-lg bg-status-info px-3 py-2 text-xs font-medium text-white transition-colors hover:brightness-110 disabled:opacity-50"
                   >
                     {activating === provider.id ? 'Activando...' : 'Usar este proveedor'}
                   </button>
@@ -444,7 +444,7 @@ function ProviderConfigDialog({
                     key={model.id}
                     className={`flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2.5 text-sm transition-colors ${
                       selectedModelId === model.id
-                        ? 'border-teal-500 bg-teal-500/5'
+                        ? 'border-status-info bg-status-info-soft/30'
                         : 'border-gray-200 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800'
                     }`}
                   >
@@ -453,7 +453,7 @@ function ProviderConfigDialog({
                       name="model"
                       checked={selectedModelId === model.id}
                       onChange={() => setSelectedModelId(model.id)}
-                      className="accent-teal-500"
+                      className="accent-primary"
                     />
                     <div className="min-w-0 flex-1">
                       <p className="font-medium text-gray-900 dark:text-gray-100">
@@ -504,7 +504,7 @@ function ProviderConfigDialog({
             <button
               onClick={handleSave}
               disabled={saving || (!apiKey && !provider.hasApiKey)}
-              className="rounded-lg bg-status-info px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-teal-700 disabled:opacity-50"
+              className="rounded-lg bg-status-info px-4 py-2 text-xs font-medium text-white transition-colors hover:brightness-110 disabled:opacity-50"
             >
               {saving ? 'Guardando...' : 'Guardar y activar'}
             </button>

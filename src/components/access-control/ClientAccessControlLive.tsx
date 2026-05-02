@@ -74,7 +74,7 @@ export function ClientAccessControlLive({ installationId }: Props) {
           <p className="text-xs text-zinc-500">Personas</p>
         </div>
         <div className="rounded-lg border border-zinc-700 bg-zinc-900 p-3 text-center">
-          <Car className="mx-auto h-5 w-5 text-purple-400 mb-1" />
+          <Car className="mx-auto h-5 w-5 text-tint-violet-fg mb-1" />
           <p className="text-2xl font-bold text-zinc-100">{counts.vehicles}</p>
           <p className="text-xs text-zinc-500">Vehículos</p>
         </div>

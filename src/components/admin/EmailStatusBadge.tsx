@@ -39,8 +39,8 @@ export function EmailStatusBadge({ presentation, compact = false }: EmailStatusB
         label: 'Clicked',
         icon: MousePointer,
         color: compact
-          ? 'text-purple-400'
-          : 'bg-purple-500/15 text-purple-400 border-purple-500/20',
+          ? 'text-tint-violet-fg'
+          : 'bg-tint-violet text-tint-violet-fg border-tint-violet-fg/20',
       };
     }
 
@@ -69,8 +69,8 @@ export function EmailStatusBadge({ presentation, compact = false }: EmailStatusB
         label: 'Enviado',
         icon: Mail,
         color: compact
-          ? 'text-emerald-400/70'
-          : 'bg-status-ok-soft text-emerald-400/70 border-emerald-500/15',
+          ? 'text-status-ok-fg/70'
+          : 'bg-status-ok-soft text-status-ok-fg/70 border-status-ok-border/50',
       };
     }
 

@@ -123,7 +123,7 @@ export function MrzCameraCapture({ onResult, onSkip, existingRut }: Props) {
         <Button
           onClick={handleCapture}
           disabled={processing}
-          className="w-full h-12 bg-amber-600 hover:bg-status-warn text-white"
+          className="w-full h-12 bg-status-warn hover:brightness-110 text-white"
         >
           {processing ? (
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />

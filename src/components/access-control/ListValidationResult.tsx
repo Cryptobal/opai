@@ -1,3 +1,7 @@
+// @ds-allow-legacy
+// ListValidationResult muestra resultados full-screen de validación de
+// acceso. Los rojos/verdes intensos son intencionales — es alarma visual
+// operativa de máxima legibilidad para el guardia en terreno.
 "use client";
 
 import React from "react";

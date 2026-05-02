@@ -930,7 +930,7 @@ function RoleTemplateCard({
       className={cn(
         "rounded-xl border bg-card p-4 transition-all hover:shadow-sm min-w-0 overflow-hidden",
         isCurrentSimulation
-          ? "border-status-warn-border ring-1 ring-amber-500/20"
+          ? "border-status-warn-border ring-1 ring-status-warn/20"
           : "border-border",
       )}
     >
@@ -1223,7 +1223,7 @@ function RoleEditPanel({
       </div>
 
       {isLockedOwner && (
-        <div className="rounded-lg border border-status-warn-border bg-status-warn-soft px-3 py-2 text-xs text-amber-500/90">
+        <div className="rounded-lg border border-status-warn-border bg-status-warn-soft px-3 py-2 text-xs text-status-warn-fg">
           El rol Propietario tiene acceso total y no se puede modificar.
         </div>
       )}

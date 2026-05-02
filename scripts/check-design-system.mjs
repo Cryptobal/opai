@@ -1160,6 +1160,58 @@ const MIGRATED_PATHS = [
   // Agregar aquí cuando se migren:
   // "src/components/personas/",
   // "src/components/documentos/",
+  // Cluster 5-final.b — Admin + Platform + Access Control + Opai + Marketing.
+  // Penúltimo PR del proyecto. 33 archivos en 6 zonas con 147 hex residuales
+  // consolidados al catálogo estándar status-{ok,warn,danger,info}-* y
+  // tint-violet (este último para 'enterprise'/'premium' plan badges,
+  // consistente con MiPlanClient en 5D+5E). Botones con `hover:bg-X-700` →
+  // `hover:brightness-110`. Backgrounds dark-only (`dark:bg-X-900/...`)
+  // consolidados a `bg-status-*-soft` (light/dark consistente).
+  //
+  // Hot spots:
+  //   - platform/TenantAddonsSection (33): PLAN_BADGES + ADDON_CATEGORY_BADGES
+  //     + 5 botones azul + sticky note diff + tier comparison cards.
+  //   - opai/AiHelpChatWidgetV2 (17+): badges condicionales + gradient AI pill +
+  //     cyan/emerald accents. Gradient identidad consolidado a status-info →
+  //     status-ok (decisión a revisar visualmente).
+  //   - platform/TenantDetailTabs (15): tabs + status badges + buttons.
+  //   - access-control/ListValidationResult (15): EXCEPCIÓN @ds-allow-legacy
+  //     (alarma operativa de denegar/permitir acceso, rojos intensos
+  //     intencionales — mismo patrón que PanicoModal y PanicAlertBanner).
+  //   - platform/TenantTable (9), admin/PresentationsList (8): mapping estándar.
+  //
+  // 33 archivos modificados con 0 hex drift residual:
+  //   platform (8): TenantAddonsSection, TenantDetailTabs, TenantTable,
+  //     PlatformAiProvidersConfig, PlatformSidebar, CreateTenantForm,
+  //     ImpersonateBanner, PlatformKpiCard.
+  //   opai (6): AiHelpChatWidgetV2, BottomNav, AiHelpChatWidget,
+  //     DocumentosContent, RoleTemplatesClient, FiscalizacionDTButton.
+  //   access-control (8): ListValidationResult (con marker), OfflineSyncIndicator,
+  //     AccessControlEntry, AccessControlGuardHome, ClientAccessControlLive,
+  //     InSiteList, MrzCameraCapture, VehiclePlateOCR.
+  //   admin (6): PresentationsList, TemplateSidebar, EmailStatusBadge,
+  //     PreviewModeToggle, ConversionChart, DashboardHeader.
+  //   marketing (3): HeroSection, ModulesSection, LoginGate.
+  //   comunicaciones (2): EmailHistoryClient, TemplateEditorClient.
+  //
+  // Decisiones consistentes con el catálogo:
+  // - 'enterprise' / 'premium' plan badges → tint-violet (igual que MiPlanClient).
+  // - ListValidationResult preservada con marker (alarma operativa, mismo
+  //   patrón que PanicoModal y PanicAlertBanner).
+  // - AiHelpChatWidgetV2 gradient cyan→emerald consolidado a status-info →
+  //   status-ok. Si pierde identidad visual del AI, se puede agregar marker
+  //   @ds-allow-legacy en revisión visual posterior.
+  // - HeroSection (marketing landing) traffic-light dots de mock browser
+  //   migrados a status-{danger,warn,ok}/40 (semánticamente equivalentes).
+  //
+  // Los archivos NO se agregan a MIGRATED_PATHS: mismo criterio que
+  // 4A/4B/4C/4D/5A.1..5A.8/5B.1..5B.10/5C/5D+5E/5F.1/5F.2/5-final.a — los
+  // archivos completaron su migración granular de color drift al catálogo
+  // DS v3 pero siguen teniendo drift tipográfico legacy fuera de eso
+  // (text-[10px]/text-[11px] en chips/badges/eyebrows, no-text-white-opacity,
+  // no-bg-white-opacity en backdrops). Se agregarán cuando se haga su pasada
+  // de limpieza tipográfica completa en el cluster 5-final.c (cleanup
+  // legacy + strict mode global + docs finales del DS v3).
 ];
 
 // ───────────────────────────────────────────────────────────────────
