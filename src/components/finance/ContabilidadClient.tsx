@@ -25,7 +25,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { EmptyState, DataTable, type DataTableColumn } from "@/components/opai";
+import { EmptyState } from "@/components/opai";
+import { DataTable, type DataTableColumn } from "@/components/opai-ds/DataTableLegacy";
 import {
   BookText,
   FileSpreadsheet,

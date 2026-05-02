@@ -6,8 +6,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { KpiCard, DataTable } from "@/components/opai";
-import type { DataTableColumn } from "@/components/opai";
+import { KpiCard } from "@/components/opai";
+import { DataTable, type DataTableColumn } from "@/components/opai-ds/DataTableLegacy";
 
 interface InstallationExpensesSectionProps {
   installationId: string;

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
-import { DataTable, type DataTableColumn } from "@/components/opai/DataTable";
+import { DataTable, type DataTableColumn } from "@/components/opai-ds/DataTableLegacy";
 
 /** Format a date-only value using UTC to avoid timezone shift */
 function formatDateUTC(value: string | Date): string {

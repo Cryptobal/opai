@@ -16,7 +16,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { EmptyState, DataTable, type DataTableColumn } from "@/components/opai";
+import { EmptyState } from "@/components/opai";
+import { DataTable, type DataTableColumn } from "@/components/opai-ds/DataTableLegacy";
 import {
   Dialog,
   DialogContent,

@@ -5,8 +5,8 @@ import { toast } from "sonner";
 import { CheckpointForm } from "@/components/ops/rondas/checkpoint-form";
 import { CheckpointQrGenerator } from "@/components/ops/rondas/checkpoint-qr-generator";
 import { Button } from "@/components/ui/button";
-import { DataTable, FilterBar } from "@/components/opai";
-import type { DataTableColumn } from "@/components/opai";
+import { FilterBar } from "@/components/opai";
+import { DataTable, type DataTableColumn } from "@/components/opai-ds/DataTableLegacy";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 interface Installation {

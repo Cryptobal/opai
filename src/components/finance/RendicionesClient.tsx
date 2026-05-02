@@ -26,7 +26,8 @@ import {
 import { DateRangePicker, type DateRange } from "@/components/ui/date-range-picker";
 import { PagosTab } from "@/components/finance/PagosTab";
 import type { Payment, PendingRendicion } from "@/components/finance/PagosTab";
-import { EmptyState, DataTable, type DataTableColumn } from "@/components/opai";
+import { EmptyState } from "@/components/opai";
+import { DataTable, type DataTableColumn } from "@/components/opai-ds/DataTableLegacy";
 import {
   Plus,
   Receipt,

@@ -5,8 +5,8 @@ import { TrustScoreGauge } from "./TrustScoreGauge";
 import { StatusBadge, normalizeStatus } from "./StatusBadge";
 import { FilterPills } from "./FilterPills";
 import { AlertDistributionChart } from "./AlertDistributionChart";
-import { DataTable } from "@/components/opai";
-import type { DataTableColumn } from "@/components/opai";
+import { DataTable } from "@/components/opai-ds/DataTableLegacy";
+import type { DataTableColumn } from "@/components/opai-ds/DataTableLegacy";
 import { Activity, AlertTriangle, Calendar, ChevronDown, Loader2, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
 

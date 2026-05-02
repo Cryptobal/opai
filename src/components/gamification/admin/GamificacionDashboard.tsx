@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { KpiCard } from "@/components/opai/KpiCard";
 import { KpiGrid } from "@/components/opai/KpiGrid";
-import { DataTable, type DataTableColumn } from "@/components/opai/DataTable";
+import { DataTable, type DataTableColumn } from "@/components/opai-ds/DataTableLegacy";
 import { LoadingState } from "@/components/opai/LoadingState";
 import { Users, TrendingUp, Trophy, Award } from "lucide-react";
 import { toast } from "sonner";

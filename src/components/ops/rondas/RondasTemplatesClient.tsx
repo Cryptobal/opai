@@ -4,8 +4,8 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { RondaTemplateForm } from "@/components/ops/rondas/ronda-template-form";
 import { Button } from "@/components/ui/button";
-import { DataTable, FilterBar } from "@/components/opai";
-import type { DataTableColumn } from "@/components/opai";
+import { FilterBar } from "@/components/opai";
+import { DataTable, type DataTableColumn } from "@/components/opai-ds/DataTableLegacy";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 interface InstallationOption {

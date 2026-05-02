@@ -24,9 +24,6 @@ export type { KpiCardProps, TrendType } from './KpiCard';
 export { KpiGrid } from './KpiGrid';
 export type { KpiGridProps } from './KpiGrid';
 
-export { DataTable } from './DataTable';
-export type { DataTableColumn, DataTableProps } from './DataTable';
-
 export { FilterBar } from './FilterBar';
 export type { FilterBarProps } from './FilterBar';
 

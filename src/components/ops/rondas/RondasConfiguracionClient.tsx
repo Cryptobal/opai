@@ -8,8 +8,8 @@ import { CheckpointMapCreator } from "@/components/ops/rondas/CheckpointMapCreat
 import { RondaTemplateForm, type EditingTemplate } from "@/components/ops/rondas/ronda-template-form";
 import { ProgramacionForm, type EditingProgramacion } from "@/components/ops/rondas/programacion-form";
 import { previewSlotTimes } from "@/lib/rondas/schedule-engine";
-import { DataTable } from "@/components/opai";
-import type { DataTableColumn } from "@/components/opai";
+import { DataTable } from "@/components/opai-ds/DataTableLegacy";
+import type { DataTableColumn } from "@/components/opai-ds/DataTableLegacy";
 import { Button } from "@/components/ui/button";
 
 interface Client {

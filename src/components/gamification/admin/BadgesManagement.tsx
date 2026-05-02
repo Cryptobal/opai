@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { DataTable, type DataTableColumn } from "@/components/opai/DataTable";
+import { DataTable, type DataTableColumn } from "@/components/opai-ds/DataTableLegacy";
 import { Button } from "@/components/ui/button";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";

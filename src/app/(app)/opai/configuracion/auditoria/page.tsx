@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ConfigPageLayout } from "@/components/configuracion/ConfigPageLayout";
-import { DataTable, type DataTableColumn } from "@/components/opai";
+import { DataTable, type DataTableColumn } from "@/components/opai-ds/DataTableLegacy";
 import { ClipboardCheck } from "lucide-react";
 
 type AuditPageProps = {

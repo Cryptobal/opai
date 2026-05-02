@@ -6,7 +6,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { PageHeader, DataTable, type DataTableColumn } from "@/components/opai";
+import { PageHeader } from "@/components/opai";
+import { DataTable, type DataTableColumn } from "@/components/opai-ds/DataTableLegacy";
 import { PayrollSubnav } from "@/components/payroll/PayrollSubnav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";

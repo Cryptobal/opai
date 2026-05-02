@@ -5,8 +5,8 @@ import { toast } from "sonner";
 import { ProgramacionForm } from "@/components/ops/rondas/programacion-form";
 import { previewSlotTimes } from "@/lib/rondas/schedule-engine";
 import { Button } from "@/components/ui/button";
-import { DataTable } from "@/components/opai";
-import type { DataTableColumn } from "@/components/opai";
+import { DataTable } from "@/components/opai-ds/DataTableLegacy";
+import type { DataTableColumn } from "@/components/opai-ds/DataTableLegacy";
 
 interface ProgramacionItem {
   id: string;
