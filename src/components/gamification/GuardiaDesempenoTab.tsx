@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LoadingState } from "@/components/opai/LoadingState";
-import { EmptyState } from "@/components/opai/EmptyState";
+import { EmptyState } from "@/components/opai-ds";
 import {
   TrustScoreGauge,
   NivelBadge,
@@ -81,6 +81,7 @@ export function GuardiaDesempenoTab({ guardiaId }: GuardiaDesempenoTabProps) {
   if (!scorecard) {
     return (
       <EmptyState
+        icon={<TrendingUp className="h-8 w-8" />}
         title="Sin datos de desempeno"
         description="Este guardia aun no tiene datos de gamificacion registrados."
         compact

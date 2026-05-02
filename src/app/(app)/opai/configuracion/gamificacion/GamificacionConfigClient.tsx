@@ -3,14 +3,14 @@
 import { useState, useEffect } from "react";
 
 import { LoadingState } from "@/components/opai/LoadingState";
-import { EmptyState } from "@/components/opai/EmptyState";
+import { EmptyState } from "@/components/opai-ds";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { DIMENSION_CONFIG } from "@/components/gamification/types";
-import { Save } from "lucide-react";
+import { Save, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 
 // ── Dimension keys (only the 5 main dimensions) ──
@@ -75,7 +75,10 @@ export function GamificacionConfigClient() {
   };
 
   if (loading) return <LoadingState type="skeleton" rows={6} />;
-  if (!config) return <EmptyState title="No se pudo cargar la configuración" />;
+  if (!config) return <EmptyState
+    icon={<AlertCircle className="h-8 w-8" />}
+    title="No se pudo cargar la configuración"
+  />;
 
   const pesoSum = MAIN_DIMENSIONS.reduce(
     (sum, [key]) => sum + (Number(config[PESO_FIELDS[key]]) || 0),

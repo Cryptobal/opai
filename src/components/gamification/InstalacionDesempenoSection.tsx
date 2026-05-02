@@ -10,11 +10,12 @@ import {
   TrendingUp,
   TrendingDown,
   Minus,
+  Trophy,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Stat, StatGrid } from "@/components/opai-ds";
 import { LoadingState } from "@/components/opai/LoadingState";
-import { EmptyState } from "@/components/opai/EmptyState";
+import { EmptyState } from "@/components/opai-ds";
 import {
   TrustScoreGauge,
   NivelBadge,
@@ -84,7 +85,11 @@ export function InstalacionDesempenoSection({ instalacionId }: Props) {
 
   /* ── No data ── */
   if (!data || !data.periodo) {
-    return <EmptyState title="Sin datos de gamificación" compact />;
+    return <EmptyState
+      icon={<Trophy className="h-8 w-8" />}
+      title="Sin datos de gamificación"
+      compact
+    />;
   }
 
   /* ── Derived metrics ── */
@@ -165,7 +170,11 @@ export function InstalacionDesempenoSection({ instalacionId }: Props) {
         </CardHeader>
         <CardContent className="p-4 pt-2 sm:p-5 sm:pt-2">
           {guardias.length === 0 ? (
-            <EmptyState title="Sin guardias registrados" inline />
+            <EmptyState
+              icon={<Users className="h-8 w-8" />}
+              title="Sin guardias registrados"
+              compact
+            />
           ) : (
             <div className="space-y-1">
               {guardias.map((g) => (

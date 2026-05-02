@@ -18,9 +18,6 @@ export { AppLayoutClient } from './AppLayoutClient';
 export { DataTable } from './DataTable';
 export type { DataTableColumn, DataTableProps } from './DataTable';
 
-export { EmptyState } from './EmptyState';
-export type { EmptyStateProps } from './EmptyState';
-
 export { LoadingState } from './LoadingState';
 export type { LoadingStateProps, LoadingStateType } from './LoadingState';
 
