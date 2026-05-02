@@ -93,16 +93,6 @@ const navigationCommands: CommandItem[] = [
     keywords: ['alertas', 'avisos', 'notifications'],
   },
   {
-    id: 'nav-documentos',
-    label: 'Documentos',
-    description: 'Gestión de documentos y envíos',
-    category: 'navigation',
-    icon: FileText,
-    href: '/opai/inicio',
-    keywords: ['docs', 'propuestas', 'presentaciones', 'envios'],
-    canShow: (role) => hasDocsSubmoduleAccess(role, 'overview'),
-  },
-  {
     id: 'nav-documentos-gestion',
     label: 'Gestión de Documentos',
     description: 'Administrar documentos',
@@ -759,16 +749,6 @@ const actionCommands: CommandItem[] = [
     href: '/crm/cotizaciones',
     keywords: ['presupuesto', 'quote', 'cpq'],
     canShow: (role) => hasCrmSubmoduleAccess(role, 'quotes'),
-  },
-  {
-    id: 'action-nueva-propuesta',
-    label: 'Nueva propuesta',
-    description: 'Crear documento de propuesta',
-    category: 'action',
-    icon: FileText,
-    href: '/opai/templates',
-    keywords: ['crear propuesta', 'documento', 'presentacion'],
-    canShow: (role) => hasDocsSubmoduleAccess(role, 'document_editor'),
   },
   {
     id: 'action-exportar-reporte',
