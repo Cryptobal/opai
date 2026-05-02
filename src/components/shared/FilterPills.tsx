@@ -45,7 +45,7 @@ export function FilterPills({ options, active, onChange, className }: FilterPill
           opt.activeVariant === "amber"
             ? "bg-status-warn-soft text-status-warn-fg dark:text-status-warn-fg"
             : opt.activeVariant === "blue"
-              ? "bg-status-info-soft text-blue-700 dark:text-status-info-fg"
+              ? "bg-status-info-soft text-status-info-fg"
               : opt.activeVariant === "emerald"
                 ? "bg-status-ok-soft text-status-ok-fg dark:text-status-ok-fg"
                 : opt.activeVariant === "red"

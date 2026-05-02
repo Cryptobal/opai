@@ -485,7 +485,7 @@ export function AccessPortalApp() {
             setActiveTab("registro");
             setQuickEntryRequested(true);
           }}
-          className="fixed right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-cyan-500 text-white shadow-lg shadow-cyan-500/30 transition-transform active:scale-95"
+          className="fixed right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-status-info text-white shadow-lg transition-transform active:scale-95"
           style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 6rem)' }}
           aria-label="Registro rápido"
         >

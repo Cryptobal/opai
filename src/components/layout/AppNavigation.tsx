@@ -175,7 +175,7 @@ export function AppNavigation({ userRole, presentations = [] }: AppNavigationPro
                       href={`/p/${presentation.uniqueId}?preview=true`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="px-2 py-1 rounded-md bg-status-info-soft text-status-info-fg text-xs font-medium hover:bg-blue-500/30 transition-colors flex-shrink-0"
+                      className="px-2 py-1 rounded-md bg-status-info-soft text-status-info-fg text-xs font-medium hover:brightness-110 transition-colors flex-shrink-0"
                     >
                       Ver
                     </a>

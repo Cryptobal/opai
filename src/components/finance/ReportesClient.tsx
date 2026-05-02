@@ -62,7 +62,7 @@ const STATUS_COLORS: Record<string, string> = {
   IN_APPROVAL: "bg-status-warn-soft text-status-warn-fg",
   APPROVED: "bg-status-ok-soft text-status-ok-fg",
   REJECTED: "bg-status-danger-soft text-status-danger-fg",
-  PAID: "bg-purple-500/15 text-purple-400",
+  PAID: "bg-tint-violet text-tint-violet-fg",
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -215,7 +215,7 @@ export function ReportesClient({
                       className={cn(
                         "h-full rounded-full transition-all",
                         s.status === "PAID"
-                          ? "bg-purple-500"
+                          ? "bg-tint-violet"
                           : s.status === "APPROVED"
                           ? "bg-status-ok"
                           : s.status === "REJECTED"

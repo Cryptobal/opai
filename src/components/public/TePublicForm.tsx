@@ -273,7 +273,7 @@ export function TePublicForm({ tenantSlug = "gard" }: TePublicFormProps) {
             Completa tus datos personales, bancarios y sube los documentos requeridos.
           </p>
           {submitSuccessMessage ? (
-            <div className="mt-3 rounded-md border border-status-ok-border bg-status-ok-soft px-4 py-3 text-sm text-emerald-200">
+            <div className="mt-3 rounded-md border border-status-ok-border bg-status-ok-soft px-4 py-3 text-sm text-status-ok-fg">
               {submitSuccessMessage}
             </div>
           ) : null}

@@ -19,7 +19,7 @@ const STATUS_COLORS: Record<string, string> = {
   IN_APPROVAL: "bg-status-warn-soft text-status-warn-fg",
   APPROVED: "bg-status-ok-soft text-status-ok-fg",
   REJECTED: "bg-status-danger-soft text-status-danger-fg",
-  PAID: "bg-purple-500/15 text-purple-400",
+  PAID: "bg-tint-violet text-tint-violet-fg",
 };
 
 const STATUS_LABELS: Record<string, string> = {

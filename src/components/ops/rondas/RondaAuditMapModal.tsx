@@ -334,7 +334,7 @@ export function RondaAuditMapModal({ row, onClose }: RondaAuditMapModalProps) {
               )}
             </p>
             {payload && (
-              <p className="text-[11px] text-teal-400/90 mt-0.5">
+              <p className="text-[11px] text-status-info-fg/90 mt-0.5">
                 Trazo: {SOURCE_LABEL[payload.routeSource]}
               </p>
             )}

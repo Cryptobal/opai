@@ -170,7 +170,7 @@ export function AlertaExternaClient({
         <button
           onClick={handleAceptar}
           disabled={loading}
-          className="w-full py-4 rounded-xl bg-status-ok text-white font-semibold text-lg hover:bg-status-ok active:bg-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full py-4 rounded-xl bg-status-ok text-white font-semibold text-lg hover:brightness-110 active:brightness-95 transition disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? (
             <span className="flex items-center justify-center gap-2">

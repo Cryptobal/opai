@@ -179,8 +179,8 @@ export function GuardiaMarcacionesTab({ guardiaId }: { guardiaId: string }) {
                   <div className="flex flex-wrap gap-0.5 mt-0.5">
                     {hasEntrada && <span className="w-2 h-2 rounded-full bg-status-ok" title="Entrada" />}
                     {hasSalida && <span className="w-2 h-2 rounded-full bg-status-warn" title="Salida" />}
-                    {hasModificada && <span className="w-2 h-2 rounded-full bg-amber-400" title="Modificada" />}
-                    {hasFueraRango && <span className="w-2 h-2 rounded-full bg-red-400" title="GPS fuera de rango" />}
+                    {hasModificada && <span className="w-2 h-2 rounded-full bg-status-warn" title="Modificada" />}
+                    {hasFueraRango && <span className="w-2 h-2 rounded-full bg-status-danger" title="GPS fuera de rango" />}
                   </div>
                 </button>
               );
@@ -218,13 +218,13 @@ export function GuardiaMarcacionesTab({ guardiaId }: { guardiaId: string }) {
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className={cn(
                           "text-xs font-semibold",
-                          m.tipo === "entrada" ? "text-status-ok-fg" : "text-orange-600"
+                          m.tipo === "entrada" ? "text-status-ok-fg" : "text-status-warn-fg"
                         )}>
                           {m.tipo === "entrada" ? "Entrada" : "Salida"}
                         </span>
                         <span className="text-sm font-mono font-bold">{hora}</span>
                         {m.atrasoMinutos && m.atrasoMinutos > 0 && (
-                          <span className="text-[10px] bg-red-100 text-status-danger-fg px-1.5 py-0.5 rounded">
+                          <span className="text-[10px] bg-status-danger-soft text-status-danger-fg px-1.5 py-0.5 rounded">
                             +{m.atrasoMinutos}min atraso
                           </span>
                         )}
@@ -264,8 +264,8 @@ export function GuardiaMarcacionesTab({ guardiaId }: { guardiaId: string }) {
       <div className="flex flex-wrap gap-3 text-[10px] text-muted-foreground">
         <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-status-ok" /> Entrada</span>
         <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-status-warn" /> Salida</span>
-        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400" /> Modificada</span>
-        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-400" /> GPS fuera de rango</span>
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-status-warn" /> Modificada</span>
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-status-danger" /> GPS fuera de rango</span>
       </div>
     </div>
   );

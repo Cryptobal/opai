@@ -199,7 +199,7 @@ export function OpposicionMarcacionForm({ token }: { token: string }) {
           <button
             type="submit"
             disabled={submitting || reason.trim().length < 5 || rut.trim().length < 7}
-            className="w-full bg-status-danger hover:bg-red-700 disabled:opacity-50 text-white font-medium py-3 rounded-lg text-sm transition-colors"
+            className="w-full bg-status-danger hover:brightness-110 disabled:opacity-50 text-white font-medium py-3 rounded-lg text-sm transition-colors"
           >
             {submitting ? "Enviando..." : "Registrar Oposición"}
           </button>

@@ -38,7 +38,7 @@ export default function ClientPsychOverviewCard({
         </span>
       </div>
       {degradedFromFull ? (
-        <p className="text-xs text-amber-800 bg-amber-50 rounded-md px-2 py-1">
+        <p className="text-xs text-status-warn-fg bg-status-warn-soft rounded-md px-2 py-1">
           Nivel solicitado (Completo) no disponible: falta firma de DPA.
         </p>
       ) : null}

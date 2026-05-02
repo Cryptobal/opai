@@ -36,18 +36,18 @@ export default function AsignacionSection({ asignaciones }: AsignacionSectionPro
   return (
     <div className="space-y-5">
       {current ? (
-        <div className="rounded-xl border border-status-ok-border bg-emerald-500/[0.06] p-4 sm:p-5">
+        <div className="rounded-xl border border-status-ok-border bg-status-ok-soft p-4 sm:p-5">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="text-sm font-semibold text-status-ok-fg">
                 {current.puesto.name}
-                <span className="ml-2 text-xs font-normal text-emerald-300/60">Slot {current.slotNumber}</span>
+                <span className="ml-2 text-xs font-normal text-status-ok-fg/60">Slot {current.slotNumber}</span>
               </p>
-              <p className="text-xs text-emerald-200/80 mt-1">
+              <p className="text-xs text-status-ok-fg/80 mt-1">
                 {current.installation.name}
                 {current.installation.account && ` · ${current.installation.account.name}`}
               </p>
-              <p className="text-xs text-emerald-200/60 mt-1">
+              <p className="text-xs text-status-ok-fg/60 mt-1">
                 {current.puesto.shiftStart} – {current.puesto.shiftEnd} · Desde {formatDateUTC(current.startDate)}
               </p>
             </div>
@@ -57,7 +57,7 @@ export default function AsignacionSection({ asignaciones }: AsignacionSectionPro
           </div>
         </div>
       ) : (
-        <div className="rounded-xl border border-amber-500/25 bg-amber-500/[0.06] p-4 text-sm text-status-warn-fg">
+        <div className="rounded-xl border border-status-warn-border bg-status-warn-soft p-4 text-sm text-status-warn-fg">
           Sin asignación activa — guardia no asignado a ningún puesto.
         </div>
       )}

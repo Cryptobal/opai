@@ -134,7 +134,7 @@ export function InstallationSelector({ guardId, onSelect }: InstallationSelector
               key={inst.id}
               type="button"
               onClick={() => onSelect(inst)}
-              className="flex w-full items-start gap-4 rounded-xl border border-gray-800 bg-gray-900/50 p-4 text-left transition-colors active:border-cyan-500/40 active:bg-cyan-500/5"
+              className="flex w-full items-start gap-4 rounded-xl border border-gray-800 bg-gray-900/50 p-4 text-left transition-colors active:border-status-info-border active:bg-status-info-soft"
             >
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-status-info-soft">
                 <Building2 className="h-5 w-5 text-status-info-fg" />

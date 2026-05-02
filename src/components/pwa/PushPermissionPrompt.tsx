@@ -66,9 +66,9 @@ export function PushPermissionPrompt({ portalType, userType, userId, tenantId, s
   // iOS in Safari (not standalone): show "add to homescreen" guide
   if (!dismissed && isIOS() && !isStandalone()) {
     return (
-      <div className="bg-amber-600/10 border border-status-warn-border rounded-xl p-4">
+      <div className="bg-status-warn-soft border border-status-warn-border rounded-xl p-4">
         <div className="flex items-center gap-3 mb-2">
-          <div className="bg-amber-600/20 rounded-lg p-2 shrink-0">
+          <div className="bg-status-warn-soft rounded-lg p-2 shrink-0">
             <Bell className="w-5 h-5 text-status-warn-fg" />
           </div>
           <p className="text-white text-sm font-medium flex-1">Instala la app para recibir notificaciones</p>
@@ -108,8 +108,8 @@ export function PushPermissionPrompt({ portalType, userType, userId, tenantId, s
   };
 
   return (
-    <div className="bg-blue-600/10 border border-status-info-border rounded-xl p-4 flex items-center gap-4">
-      <div className="bg-blue-600/20 rounded-lg p-2 shrink-0">
+    <div className="bg-status-info-soft border border-status-info-border rounded-xl p-4 flex items-center gap-4">
+      <div className="bg-status-info-soft rounded-lg p-2 shrink-0">
         <Bell className="w-5 h-5 text-status-info-fg" />
       </div>
       <div className="flex-1 min-w-0">

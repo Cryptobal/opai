@@ -73,7 +73,7 @@ export default function AtsPsychPanel({ personaId, candidateName }: Props) {
   }
 
   if (err) {
-    return <p className="text-sm text-rose-700">No se pudo cargar: {err}</p>;
+    return <p className="text-sm text-status-danger-fg">No se pudo cargar: {err}</p>;
   }
   if (!rows) return <p className="text-sm text-muted-foreground">Cargando…</p>;
 
@@ -131,7 +131,7 @@ export default function AtsPsychPanel({ personaId, candidateName }: Props) {
         </ul>
       ) : null}
       {notRec ? (
-        <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900">
+        <div className="rounded-lg bg-status-warn-soft border border-status-warn-border p-3 text-xs text-status-warn-fg">
           Esta evaluación sugiere <b>no avanzar</b> con este postulante. Si
           decides avanzar a &ldquo;Contratado&rdquo;, se te pedirá documentar
           la justificación.

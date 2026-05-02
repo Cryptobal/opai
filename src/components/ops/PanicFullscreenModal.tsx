@@ -1,3 +1,7 @@
+// @ds-allow-legacy: Modal de alerta de pánico full-screen — los rojos
+// intensos (bg-red-900, border-red-800, ring-red-500) y verde de WhatsApp
+// (bg-green-700) son intencionales para máxima legibilidad operativa.
+// Mismo patrón que portal/rondas/PanicoModal.
 "use client";
 
 import { useState } from "react";

@@ -158,7 +158,7 @@ export function FiscalizacionDashboard({ userRole, userName }: Props) {
   return (
     <div className="min-h-[100dvh]">
       {/* Header */}
-      <div className="border-b bg-red-600/5 px-6 py-4">
+      <div className="border-b bg-status-danger-soft px-6 py-4">
         <div className="flex items-center gap-3">
           <Shield className="h-6 w-6 text-status-danger-fg" />
           <div>
@@ -181,7 +181,7 @@ export function FiscalizacionDashboard({ userRole, userName }: Props) {
                 onClick={() => setActiveTab(tab.key)}
                 className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                   activeTab === tab.key
-                    ? "border-red-600 text-status-danger-fg"
+                    ? "border-status-danger text-status-danger-fg"
                     : "border-transparent text-muted-foreground hover:text-foreground"
                 }`}
               >
@@ -228,7 +228,7 @@ export function FiscalizacionDashboard({ userRole, userName }: Props) {
               </div>
               <button
                 onClick={searchGuardias}
-                className="inline-flex items-center gap-2 rounded-md bg-status-danger px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+                className="inline-flex items-center gap-2 rounded-md bg-status-danger px-4 py-2 text-sm font-medium text-white hover:brightness-110"
               >
                 <Search className="h-4 w-4" /> Buscar
               </button>
@@ -254,7 +254,7 @@ export function FiscalizacionDashboard({ userRole, userName }: Props) {
                         <td className="px-4 py-2">{g.firstName} {g.lastName}</td>
                         <td className="px-4 py-2">
                           <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
-                            g.status === "active" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-status-ok-fg" : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+                            g.status === "active" ? "bg-status-ok-soft text-status-ok-fg" : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
                           }`}>
                             {g.status}
                           </span>
@@ -356,21 +356,21 @@ export function FiscalizacionDashboard({ userRole, userName }: Props) {
               </div>
               <button
                 onClick={verifyHash}
-                className="inline-flex items-center gap-2 rounded-md bg-status-danger px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+                className="inline-flex items-center gap-2 rounded-md bg-status-danger px-4 py-2 text-sm font-medium text-white hover:brightness-110"
               >
                 <Hash className="h-4 w-4" /> Verificar
               </button>
             </div>
 
             {verifyResult && (
-              <div className={`rounded-lg border p-4 ${verifyResult.isValid ? "border-green-500 bg-green-50 dark:bg-green-950/20" : "border-status-danger-border bg-red-50 dark:bg-red-950/20"}`}>
+              <div className={`rounded-lg border p-4 ${verifyResult.isValid ? "border-status-ok-border bg-status-ok-soft" : "border-status-danger-border bg-status-danger-soft"}`}>
                 <div className="flex items-center gap-2 mb-3">
                   {verifyResult.isValid ? (
                     <FileCheck className="h-5 w-5 text-status-ok-fg" />
                   ) : (
                     <AlertTriangle className="h-5 w-5 text-status-danger-fg" />
                   )}
-                  <span className={`font-bold ${verifyResult.isValid ? "text-green-700 dark:text-status-ok-fg" : "text-status-danger-fg dark:text-status-danger-fg"}`}>
+                  <span className={`font-bold ${verifyResult.isValid ? "text-status-ok-fg" : "text-status-danger-fg"}`}>
                     {verifyResult.isValid ? "INTEGRIDAD VERIFICADA" : "INTEGRIDAD COMPROMETIDA"}
                   </span>
                 </div>
@@ -479,7 +479,7 @@ export function FiscalizacionDashboard({ userRole, userName }: Props) {
                     <td className="px-4 py-2 text-xs">{inc.duration ? `${inc.duration} min` : "—"}</td>
                     <td className="px-4 py-2">
                       <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
-                        inc.resolvedAt ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-status-ok-fg" : "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-status-warn-fg"
+                        inc.resolvedAt ? "bg-status-ok-soft text-status-ok-fg" : "bg-status-warn-soft text-status-warn-fg"
                       }`}>
                         {inc.resolvedAt ? "Resuelto" : "Abierto"}
                       </span>

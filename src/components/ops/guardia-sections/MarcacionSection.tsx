@@ -225,12 +225,12 @@ function MarcacionPinSection({
   return (
     <div className="space-y-3">
       {generatedPin && (
-        <div className="rounded-xl border border-status-ok-border bg-emerald-500/[0.08] p-4 sm:p-5">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-emerald-300/90 mb-2">
+        <div className="rounded-xl border border-status-ok-border bg-status-ok-soft p-4 sm:p-5">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-status-ok-fg/90 mb-2">
             PIN generado
           </p>
           <div className="flex items-center gap-3 flex-wrap">
-            <span className="text-3xl font-mono font-bold tracking-[0.3em] text-emerald-100">
+            <span className="text-3xl font-mono font-bold tracking-[0.3em] text-status-ok-fg">
               {generatedPin}
             </span>
             <Button
@@ -243,7 +243,7 @@ function MarcacionPinSection({
               Copiar
             </Button>
           </div>
-          <p className="text-xs text-emerald-300/90 mt-2">
+          <p className="text-xs text-status-ok-fg/90 mt-2">
             PIN actualizado. También queda visible en la ficha para consulta operativa.
           </p>
         </div>

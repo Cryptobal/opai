@@ -137,7 +137,7 @@ export function RoleSwitcher() {
                         Simular vista de rol
                     </p>
                     {isSimulating && (
-                        <p className="text-[10px] text-amber-400/80 mt-0.5">
+                        <p className="text-[10px] text-status-warn-fg/80 mt-0.5">
                             Rol real: {getRoleLabel(realRole)}
                         </p>
                     )}
@@ -276,7 +276,7 @@ function RoleGroup({ title, roles, realRole, effectiveRole, modifiedMap, onSelec
                         </span>
                         {isModified && (
                             <Sparkles
-                                className="h-3 w-3 text-amber-400/80 shrink-0"
+                                className="h-3 w-3 text-status-warn-fg/80 shrink-0"
                                 aria-label="modificado"
                             />
                         )}

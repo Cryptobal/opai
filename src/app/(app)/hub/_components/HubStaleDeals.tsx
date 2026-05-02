@@ -79,7 +79,7 @@ export function HubStaleDeals({ deals, sellerFirstName, tenantName }: Props) {
                     {deal.contactName}
                     <span style={{ color: deal.stageColor ?? undefined }}> · {deal.stageName}</span>
                   </p>
-                  <p className="text-[11px] text-amber-400/90 mt-0.5">
+                  <p className="text-[11px] text-status-warn-fg/90 mt-0.5">
                     {deal.issue}
                   </p>
                 </div>
@@ -91,7 +91,7 @@ export function HubStaleDeals({ deals, sellerFirstName, tenantName }: Props) {
                   href={whatsappUrlWithMessage(deal.contactPhone, waMessage)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center gap-1.5 rounded-md border border-green-500/40 bg-status-ok-soft px-2.5 py-1.5 text-xs font-medium text-status-ok-fg hover:bg-status-ok hover:text-white transition-colors shrink-0 w-full md:w-auto"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-md border border-status-ok-border bg-status-ok-soft px-2.5 py-1.5 text-xs font-medium text-status-ok-fg hover:bg-status-ok hover:text-white transition-colors shrink-0 w-full md:w-auto"
                   title={`Enviar WhatsApp a ${deal.contactPhone}`}
                   onClick={(e) => e.stopPropagation()}
                 >

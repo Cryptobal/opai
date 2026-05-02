@@ -245,7 +245,7 @@ export function AprobacionesClient({
                           size="sm"
                           onClick={() => handleApprove(a.rendicionId)}
                           disabled={isApproving || isRejecting}
-                          className="bg-status-ok hover:bg-emerald-700 h-8 px-3"
+                          className="bg-status-ok hover:brightness-110 h-8 px-3"
                         >
                           {isApproving ? (
                             <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -309,7 +309,7 @@ export function AprobacionesClient({
                 size="sm"
                 onClick={handleReject}
                 disabled={!!loadingAction}
-                className="bg-status-danger hover:bg-red-700"
+                className="bg-status-danger hover:brightness-110"
               >
                 {loadingAction?.startsWith("reject") ? (
                   <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />

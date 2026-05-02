@@ -80,7 +80,7 @@ interface TicketTypeFormData {
 
 const ORIGIN_BADGE_VARIANT: Record<TicketOrigin, string> = {
   guard: "bg-status-info-soft text-status-info-fg border-status-info-border",
-  internal: "bg-purple-500/15 text-purple-400 border-purple-500/30",
+  internal: "bg-tint-violet text-tint-violet-fg border-tint-violet-fg/30",
   both: "bg-muted text-muted-foreground border-border",
   client: "bg-status-ok-soft text-status-ok-fg border-status-ok-border",
 };

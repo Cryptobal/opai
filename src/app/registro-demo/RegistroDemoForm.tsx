@@ -105,7 +105,7 @@ export function RegistroDemoForm({ utmSource, utmCampaign, tenantSlug = "gard" }
             value={form.companyName}
             onChange={(e) => updateField("companyName", e.target.value)}
             placeholder="Ej: Torres del Pacífico"
-            className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder:text-slate-600 focus:border-teal-500/50 focus:outline-none focus:ring-1 focus:ring-teal-500/30 transition-colors"
+            className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder:text-slate-600 focus:border-status-info-border focus:outline-none focus:ring-1 focus:ring-status-info/30 transition-colors"
             autoComplete="organization"
           />
         </div>
@@ -121,7 +121,7 @@ export function RegistroDemoForm({ utmSource, utmCampaign, tenantSlug = "gard" }
             value={form.contactName}
             onChange={(e) => updateField("contactName", e.target.value)}
             placeholder="Ej: Juan Pérez"
-            className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder:text-slate-600 focus:border-teal-500/50 focus:outline-none focus:ring-1 focus:ring-teal-500/30 transition-colors"
+            className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder:text-slate-600 focus:border-status-info-border focus:outline-none focus:ring-1 focus:ring-status-info/30 transition-colors"
             autoComplete="name"
           />
         </div>
@@ -137,7 +137,7 @@ export function RegistroDemoForm({ utmSource, utmCampaign, tenantSlug = "gard" }
             value={form.email}
             onChange={(e) => updateField("email", e.target.value)}
             placeholder="juan@empresa.cl"
-            className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder:text-slate-600 focus:border-teal-500/50 focus:outline-none focus:ring-1 focus:ring-teal-500/30 transition-colors"
+            className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder:text-slate-600 focus:border-status-info-border focus:outline-none focus:ring-1 focus:ring-status-info/30 transition-colors"
             autoComplete="email"
           />
         </div>
@@ -153,7 +153,7 @@ export function RegistroDemoForm({ utmSource, utmCampaign, tenantSlug = "gard" }
             value={form.phone}
             onChange={(e) => updateField("phone", e.target.value)}
             placeholder="+56 9 1234 5678"
-            className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder:text-slate-600 focus:border-teal-500/50 focus:outline-none focus:ring-1 focus:ring-teal-500/30 transition-colors"
+            className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder:text-slate-600 focus:border-status-info-border focus:outline-none focus:ring-1 focus:ring-status-info/30 transition-colors"
             autoComplete="tel"
           />
         </div>
@@ -169,7 +169,7 @@ export function RegistroDemoForm({ utmSource, utmCampaign, tenantSlug = "gard" }
               id="industry"
               value={form.industry}
               onChange={(e) => updateField("industry", e.target.value)}
-              className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white focus:border-teal-500/50 focus:outline-none focus:ring-1 focus:ring-teal-500/30 transition-colors appearance-none"
+              className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white focus:border-status-info-border focus:outline-none focus:ring-1 focus:ring-status-info/30 transition-colors appearance-none"
             >
               <option value="" className="bg-[#0a1628]">Seleccione...</option>
               {INDUSTRY_OPTIONS.map((opt) => (
@@ -189,7 +189,7 @@ export function RegistroDemoForm({ utmSource, utmCampaign, tenantSlug = "gard" }
               id="estimatedGuards"
               value={form.estimatedGuards}
               onChange={(e) => updateField("estimatedGuards", e.target.value)}
-              className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white focus:border-teal-500/50 focus:outline-none focus:ring-1 focus:ring-teal-500/30 transition-colors appearance-none"
+              className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white focus:border-status-info-border focus:outline-none focus:ring-1 focus:ring-status-info/30 transition-colors appearance-none"
             >
               <option value="" className="bg-[#0a1628]">Seleccione...</option>
               {GUARD_OPTIONS.map((opt) => (

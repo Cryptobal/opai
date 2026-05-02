@@ -239,7 +239,7 @@ function GuardGroup({
               </span>
               <span className={cn("text-[10px]", st.color)}>{st.label}</span>
               {g.isExtra && (
-                <span className="text-[9px] px-1 py-0.5 rounded bg-sky-500/20 text-status-info-fg font-semibold">
+                <span className="text-[9px] px-1 py-0.5 rounded bg-status-info-soft text-status-info-fg font-semibold">
                   EXTRA
                 </span>
               )}

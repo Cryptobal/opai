@@ -131,7 +131,7 @@ const RECEPTION_STATUS_CONFIG: Record<string, { label: string; className: string
   PENDING_REVIEW: { label: "Pendiente", className: "bg-status-warn-soft text-status-warn-fg border-status-warn-border" },
   ACCEPTED: { label: "Aceptado", className: "bg-status-ok-soft text-status-ok-fg border-status-ok-border" },
   CLAIMED: { label: "Reclamado", className: "bg-status-danger-soft text-status-danger-fg border-status-danger-border" },
-  PARTIAL_CLAIM: { label: "Reclamo parcial", className: "bg-orange-500/15 text-status-warn-fg border-status-warn-border" },
+  PARTIAL_CLAIM: { label: "Reclamo parcial", className: "bg-status-warn-soft text-status-warn-fg border-status-warn-border" },
 };
 
 const PAYMENT_STATUS_CONFIG: Record<string, { label: string; className: string }> = {

@@ -39,8 +39,8 @@ type UnifiedReport = {
 
 const RISK_COLORS: Record<string, string> = {
   critical: "bg-status-danger text-white",
-  high: "bg-orange-600 text-white",
-  medium: "bg-yellow-600 text-white",
+  high: "bg-status-warn text-white",
+  medium: "bg-status-info text-white",
   low: "bg-status-ok text-white",
 };
 
@@ -224,7 +224,7 @@ export function InstalacionVraReportsTab({ installationId }: { installationId: s
                     {item.portalVisible && (
                       <Badge
                         variant="outline"
-                        className="text-[10px] border-emerald-300 text-status-ok-fg dark:text-status-ok-fg gap-1"
+                        className="text-[10px] border-status-ok-border text-status-ok-fg gap-1"
                       >
                         <Eye className="h-2.5 w-2.5" />
                         Visible portal
@@ -288,7 +288,7 @@ export function InstalacionVraReportsTab({ installationId }: { installationId: s
                       size="sm"
                       onClick={() => handleDeleteReport(item)}
                       title="Eliminar informe"
-                      className="text-status-danger-fg hover:text-status-danger-fg hover:bg-red-50 dark:hover:bg-red-950"
+                      className="text-status-danger-fg hover:text-status-danger-fg hover:bg-status-danger-soft"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>

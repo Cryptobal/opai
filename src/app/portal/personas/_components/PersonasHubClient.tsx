@@ -218,7 +218,7 @@ function HubLoadingState({
         )}
         <div className="flex items-center justify-center gap-2">
           <div
-            className="w-4 h-4 rounded-full border-2 border-teal-400/30 border-t-teal-400 animate-spin"
+            className="w-4 h-4 rounded-full border-2 border-status-info-border/30 border-t-status-info animate-spin"
             aria-hidden
           />
           <span className="text-sm text-gray-400">{label}</span>

@@ -285,7 +285,7 @@ export default function ContratoReviewPage() {
       <main className="max-w-4xl mx-auto px-4 py-4 sm:py-6 space-y-4 pb-40">
         {/* Acceptance banner */}
         {accepted && (
-          <div className="p-4 bg-teal-900/30 border border-teal-700 rounded-lg text-teal-200 text-sm flex items-start gap-2">
+          <div className="p-4 bg-status-info-soft border border-status-info-border rounded-lg text-status-info-fg text-sm flex items-start gap-2">
             <CheckCircle2 className="h-5 w-5 shrink-0 mt-0.5" />
             <div>
               Contrato aceptado. Recibirá un correo con los pasos siguientes para la firma.
@@ -295,13 +295,13 @@ export default function ContratoReviewPage() {
 
         {/* Onboarding help (only while draft, no suggestions yet) */}
         {!isFinalized && suggestions.length === 0 && !accepted && (
-          <div className="p-4 rounded-lg border border-teal-600/40 bg-teal-950/30 text-sm text-teal-100 flex items-start gap-3">
+          <div className="p-4 rounded-lg border border-status-info-border bg-status-info-soft text-sm text-status-info-fg flex items-start gap-3">
             <Pencil className="h-4 w-4 shrink-0 mt-0.5 text-status-info-fg" />
             <div className="space-y-1">
               <p className="font-medium">¿Necesita cambios?</p>
-              <p className="text-teal-200/80 text-xs leading-relaxed">
+              <p className="text-status-info-fg/80 text-xs leading-relaxed">
                 Toque el botón{" "}
-                <span className="inline-flex items-center gap-1 bg-teal-500/20 text-teal-200 px-1.5 py-0.5 rounded text-[10px] font-semibold align-middle">
+                <span className="inline-flex items-center gap-1 bg-status-info-soft text-status-info-fg px-1.5 py-0.5 rounded text-[10px] font-semibold align-middle">
                   <Pencil className="h-2.5 w-2.5" /> Sugerir edición
                 </span>{" "}
                 junto a cualquier cláusula. Cuando termine, presione{" "}
@@ -361,7 +361,7 @@ export default function ContratoReviewPage() {
         </div>
 
         {pendingSuggestions.length > 0 && (
-          <p className="text-center text-xs text-amber-300/80 px-2">
+          <p className="text-center text-xs text-status-warn-fg/80 px-2">
             Tiene {pendingSuggestions.length} sugerencia(s) en revisión. Podrá aceptar el
             contrato una vez que el ejecutivo las resuelva.
           </p>
@@ -480,16 +480,16 @@ function StatusBadge({ status }: { status: string }) {
     },
     approved: {
       label: "Aprobado",
-      bg: "bg-teal-500/20",
-      text: "text-teal-200",
-      border: "border-teal-500/40",
+      bg: "bg-status-info-soft",
+      text: "text-status-info-fg",
+      border: "border-status-info-border",
       icon: <CheckCircle2 className="h-3 w-3" />,
     },
     active: {
       label: "Activo",
-      bg: "bg-teal-500/20",
-      text: "text-teal-200",
-      border: "border-teal-500/40",
+      bg: "bg-status-info-soft",
+      text: "text-status-info-fg",
+      border: "border-status-info-border",
       icon: <CheckCircle2 className="h-3 w-3" />,
     },
   };
@@ -528,7 +528,7 @@ function SuggestionsPanel({
         </h3>
         <div className="flex items-center gap-1.5 flex-wrap">
           {unsentCount > 0 && (
-            <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-teal-500/20 text-teal-200 border border-status-info-border">
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-status-info-soft text-status-info-fg border border-status-info-border">
               {unsentCount} por enviar
             </span>
           )}
@@ -538,7 +538,7 @@ function SuggestionsPanel({
             </span>
           )}
           {reviewJustSent && unsentCount === 0 && (
-            <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-teal-500/20 text-teal-200 border border-status-info-border">
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-status-info-soft text-status-info-fg border border-status-info-border">
               Enviado ✓
             </span>
           )}
@@ -573,10 +573,10 @@ function SuggestionCard({
     <li
       className={`rounded-md border text-xs overflow-hidden ${
         s.status === "pending"
-          ? "border-amber-700/40 bg-amber-950/20"
+          ? "border-status-warn-border bg-status-warn-soft"
           : s.status === "approved"
-            ? "border-teal-700/40 bg-teal-950/20"
-            : "border-red-800/40 bg-red-950/20"
+            ? "border-status-info-border bg-status-info-soft"
+            : "border-status-danger-border bg-status-danger-soft"
       }`}
     >
       <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-white/5">
@@ -640,7 +640,7 @@ function SuggestionCard({
           <button
             type="button"
             onClick={onEdit}
-            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[11px] font-medium bg-status-info-soft hover:bg-teal-500/25 text-teal-200 border border-status-info-border"
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[11px] font-medium bg-status-info-soft hover:brightness-110 text-status-info-fg border border-status-info-border"
           >
             <Pencil className="h-3 w-3" />
             Editar
@@ -924,7 +924,7 @@ function ContractContent({
               {canEdit && bodyText.length > 0 && (
                 <button
                   onClick={() => onSuggestEdit(section.clauseNumber, bodyText)}
-                  className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-status-info-soft text-teal-200 hover:bg-teal-500/25 active:bg-teal-500/30 border border-status-info-border text-[11px] font-semibold min-h-[32px]"
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-status-info-soft text-status-info-fg hover:brightness-110 active:brightness-95 border border-status-info-border text-[11px] font-semibold min-h-[32px]"
                 >
                   <Pencil className="h-3 w-3" />
                   Sugerir edición

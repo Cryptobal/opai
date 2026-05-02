@@ -487,7 +487,7 @@ function ClienteChatConversation({
             <ArrowLeft className="h-5 w-5" />
           </button>
         )}
-        <div className="h-8 w-8 rounded-full bg-teal-600/20 flex items-center justify-center">
+        <div className="h-8 w-8 rounded-full bg-status-info-soft flex items-center justify-center">
           <span className="text-status-info-fg text-xs font-bold">#</span>
         </div>
         <div>
@@ -624,7 +624,7 @@ function ClienteChatConversation({
               <button
                 onClick={handleSend}
                 disabled={(!inputText.trim() && pendingFiles.length === 0) || isSending}
-                className="h-[32px] w-[32px] my-[3px] rounded-lg bg-[#2dd4bf] flex items-center justify-center text-zinc-900 disabled:opacity-40 hover:bg-teal-300 transition-colors shrink-0"
+                className="h-[32px] w-[32px] my-[3px] rounded-lg bg-status-info flex items-center justify-center text-zinc-900 disabled:opacity-40 hover:brightness-110 transition-colors shrink-0"
               >
                 {isSending ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

@@ -318,7 +318,7 @@ export function GuardContractsTab({
           <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-status-warn-fg" />
           <div>
             <p className="text-sm font-medium text-status-warn-fg">Contrato próximo a vencer</p>
-            <p className="text-xs text-amber-600/80">
+            <p className="text-xs text-status-warn-fg/80">
               Quedan {daysUntilEnd} día(s) hábil(es) para el vencimiento
               {currentEndDate && ` (${formatDateUTC(currentEndDate)})`}.
               {canRenew ? " Puedes renovar o finiquitar." : " Máximo de renovaciones alcanzado."}

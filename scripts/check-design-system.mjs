@@ -1244,6 +1244,72 @@ const MIGRATED_PATHS = [
   "src/app/(app)/opai/documentos-operativos/page.tsx",
   "src/app/(app)/opai/documentos/templates/[id]/page.tsx",
   "src/app/(app)/opai/documentos/templates/nuevo/page.tsx",
+  // Cluster 5-final.c.2 — Modules + pages cleanup (vra+psych+finance+ops
+  // regression + src/app pages + pwa + layout + misc). ~50 archivos en 8
+  // zonas con ~230 hex residuales consolidados al catálogo estándar
+  // status-{ok,warn,danger,info}-* y tint-violet (este último para
+  // 'deal'/Negocio en GlobalSearch + Brain/psych + face_id biométrico
+  // + categóricos varios). Botones con `hover:bg-X-700` →
+  // `hover:brightness-110`. Backgrounds dark-only o tonalizados
+  // (`bg-X-50`, `bg-X-500/20`, `bg-X-900/30`) consolidados a
+  // `bg-status-*-soft` (light/dark consistente).
+  //
+  // Hot spots:
+  //   - app/marcar/[code]/MarcacionClient (18): pantalla pública QR de
+  //     marcación. Mapping estándar — pantalla operativa pero ya estaba
+  //     mayormente migrada, solo residuales (bg-red-50/200, bg-emerald-50,
+  //     bg-amber-50, bg-orange-600 para Marcar Salida → bg-status-warn).
+  //   - app/contrato/[token]/page (18): pantalla pública firma de contrato.
+  //     Cluster teal de identidad legal consolidado a status-info-*.
+  //   - ops/PanicFullscreenModal (6): EXCEPCIÓN @ds-allow-legacy (alarma
+  //     full-screen rojos intensos + verde WhatsApp intencionales — mismo
+  //     patrón que portal/rondas/PanicoModal).
+  //   - ops/guardia-sections/HistorialSection (8): timeline de eventos del
+  //     guardia con dot-color categórico — consolidados a status-* y
+  //     tint-violet (communication_sent).
+  //   - ops/GuardiaMarcacionesTab (6): calendario marcaciones + leyenda.
+  //   - finance/ContabilidadClient + ReportesClient + RendicionDetail +
+  //     RendicionesClient + InstallationExpensesSection +
+  //     AccountExpensesSection: 'PAID' rendiciones → tint-violet.
+  //     'EQUITY' patrimonio → tint-violet (categórico).
+  //   - vra/VraReportWizardClient + VraReportViewerClient +
+  //     InstalacionVraReportsTab: severity colors (critical=danger,
+  //     high=warn, medium=info, low=ok). VRA integrado al cluster
+  //     Operaciones (emerald) — sin iconTone propio.
+  //   - psych/* (8 archivos): integrado a Personas (sky) + ATS (sky).
+  //     'Brain' / test psicolaboral mantenido como tint-violet
+  //     (categórico especial, consistente con catálogo).
+  //   - search/GlobalSearch (11): TYPE_CONFIG con 10 tipos (lead, account,
+  //     contact, deal, quote, installation, guardia, document,
+  //     pauta_mensual, channel) consolidados a tokens — 'deal' → tint-violet
+  //     (consistente con CrmGlobalSearch ENTITY_CONFIG en 5-final.a y
+  //     OpsGlobalSearch en este mismo cluster).
+  //
+  // Decisiones consistentes con el catálogo:
+  // - 'deal' / Negocio → tint-violet (GlobalSearch, OpsGlobalSearch).
+  // - 'PAID' rendiciones / 'EQUITY' patrimonio → tint-violet (categóricos
+  //   finance que no tienen status-* semántico).
+  // - 'face_id' biométrico → tint-violet (categórico ModalDetalleMarcacion).
+  // - 'communication_sent' → tint-violet (HistorialSection timeline).
+  // - 'vehicle' tipo de acceso → tint-violet (RegistroTab, ResumenTurno).
+  // - 'internal' ticket type → tint-violet (TicketTypesConfig).
+  // - 'refuerzo' TE origin → tint-violet (TeDashboard ORIGIN_META).
+  // - PanicFullscreenModal preservada con marker (alarma operativa, mismo
+  //   patrón que PanicoModal y PanicAlertBanner).
+  //
+  // Los archivos NO se agregan a MIGRATED_PATHS: mismo criterio que
+  // 4A/4B/4C/4D/5A.1..5A.8/5B.1..5B.10/5C/5D+5E/5F.1/5F.2/5-final.a/
+  // 5-final.b/5-final.c.1 — los archivos completaron su migración granular
+  // de color drift al catálogo DS v3 pero siguen teniendo drift tipográfico
+  // legacy fuera de eso (text-[10px]/text-[11px] en chips/badges/eyebrows).
+  // Se agregarán cuando se haga su pasada de limpieza tipográfica completa
+  // en el cluster 5-final.c.3 (cleanup legacy + strict mode global + docs
+  // finales del DS v3).
+  //
+  // NO tocado en este sub-cluster:
+  // - presentation/ (~201 hex marketing landing) → 5-final.c.3 con marker
+  //   dir-level.
+  // - portal/rondas/PanicoModal, RondasPortalClient → ya marcados.
 ];
 
 // ───────────────────────────────────────────────────────────────────

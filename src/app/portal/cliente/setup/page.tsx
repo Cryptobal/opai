@@ -147,7 +147,7 @@ function SetupContent() {
               <Button
                 type="submit"
                 disabled={submitting || pin.length < 4}
-                className="w-full bg-status-info hover:bg-blue-700 text-white"
+                className="w-full bg-status-info hover:brightness-110 text-white"
               >
                 {submitting ? (
                   <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Configurando...</>

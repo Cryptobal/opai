@@ -296,7 +296,7 @@ export default function MasTab({
       <button
         type="button"
         onClick={onLogout}
-        className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-800/40 bg-red-950/20 px-4 py-3.5 text-sm font-medium text-status-danger-fg transition-colors active:bg-red-900/30"
+        className="flex w-full items-center justify-center gap-2 rounded-xl border border-status-danger-border bg-status-danger-soft px-4 py-3.5 text-sm font-medium text-status-danger-fg transition-colors active:brightness-95"
       >
         <LogOut className="h-4 w-4" />
         Cerrar sesión

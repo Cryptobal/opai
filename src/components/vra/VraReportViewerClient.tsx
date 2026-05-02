@@ -67,8 +67,8 @@ function computeNumbering(sections: Section[]): Map<string, string> {
 
 const RISK_COLORS: Record<string, string> = {
   critical: "bg-status-danger",
-  high: "bg-orange-600",
-  medium: "bg-yellow-600",
+  high: "bg-status-warn",
+  medium: "bg-status-info",
   low: "bg-status-ok",
 };
 
@@ -293,7 +293,7 @@ export function VraReportViewerClient({ report: initialReport }: { report: Repor
                   size="sm"
                   onClick={handleDelete}
                   disabled={deleting}
-                  className="gap-1.5 text-status-danger-fg hover:text-status-danger-fg hover:bg-red-50 dark:hover:bg-red-950 border-red-200 dark:border-red-900"
+                  className="gap-1.5 text-status-danger-fg hover:text-status-danger-fg hover:bg-status-danger-soft border-status-danger-border"
                 >
                   {deleting ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -337,7 +337,7 @@ export function VraReportViewerClient({ report: initialReport }: { report: Repor
                   </Button>
                 </div>
                 {s.status === "error" ? (
-                  <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-md p-4 text-sm text-status-danger-fg dark:text-status-danger-fg">
+                  <div className="bg-status-danger-soft border border-status-danger-border rounded-md p-4 text-sm text-status-danger-fg">
                     ⚠️ Error generando sección: {s.errorMessage}
                   </div>
                 ) : s.status === "pending" || s.status === "generating" ? (

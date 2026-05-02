@@ -86,7 +86,7 @@ const ORIGIN_META = [
   { key: "ausencia", label: "Ausencia", color: "bg-status-danger", textColor: "text-status-danger-fg", icon: UserX },
   { key: "ppc", label: "PPC", color: "bg-status-warn", textColor: "text-status-warn-fg", icon: ShieldAlert },
   { key: "manual", label: "Manual", color: "bg-status-info", textColor: "text-status-info-fg", icon: Wrench },
-  { key: "refuerzo", label: "Refuerzo", color: "bg-purple-500", textColor: "text-purple-400", icon: Shield },
+  { key: "refuerzo", label: "Refuerzo", color: "bg-tint-violet", textColor: "text-tint-violet-fg", icon: Shield },
 ] as const;
 
 /* ── chart tooltips ── */
@@ -320,10 +320,10 @@ export function TeDashboard() {
                             <td className="py-1.5 text-center">
                               <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
                                 row.status === "paid"
-                                  ? "bg-emerald-900/30 text-status-ok-fg"
+                                  ? "bg-status-ok-soft text-status-ok-fg"
                                   : row.status === "approved"
-                                    ? "bg-blue-900/30 text-status-info-fg"
-                                    : "bg-amber-900/30 text-status-warn-fg"
+                                    ? "bg-status-info-soft text-status-info-fg"
+                                    : "bg-status-warn-soft text-status-warn-fg"
                               }`}>
                                 {row.status === "paid" ? "Pagado" : row.status === "approved" ? "Aprobado" : "Pendiente"}
                               </span>

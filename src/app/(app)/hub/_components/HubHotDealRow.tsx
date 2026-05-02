@@ -109,7 +109,7 @@ export function HubHotDealRow({ deal, rank }: Props) {
                 href={whatsappUrl(deal.contactPhone)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-sm font-medium transition-colors hover:bg-status-ok hover:text-white hover:border-green-500"
+                className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-sm font-medium transition-colors hover:bg-status-ok hover:text-white hover:border-status-ok-border"
               >
                 <MessageCircle className="h-3 w-3" /> WhatsApp
               </a>

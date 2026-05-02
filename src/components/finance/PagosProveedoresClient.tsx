@@ -99,7 +99,7 @@ const TYPE_CONFIG: Record<string, { label: string; className: string }> = {
   },
   DISBURSEMENT: {
     label: "Pago",
-    className: "bg-orange-500/15 text-status-warn-fg border-status-warn-border",
+    className: "bg-status-warn-soft text-status-warn-fg border-status-warn-border",
   },
 };
 

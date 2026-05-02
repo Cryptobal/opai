@@ -119,7 +119,7 @@ export default function MarketingChatPage() {
               <div
                 key={d.date}
                 title={`${d.date}: ${d.count} sesiones`}
-                className="flex-1 rounded-t bg-teal-500/80 transition-all hover:bg-teal-400"
+                className="flex-1 rounded-t bg-status-info transition-all hover:brightness-110"
                 style={{
                   height: `${Math.max((d.count / maxDaily) * 100, 4)}%`,
                   minWidth: '4px',
@@ -173,7 +173,7 @@ export default function MarketingChatPage() {
                         <div className="font-medium text-gray-900 dark:text-white">
                           {s.visitorName}
                         </div>
-                        <div className="text-xs text-teal-600 dark:text-status-info-fg">
+                        <div className="text-xs text-status-info-fg">
                           {s.visitorEmail}
                         </div>
                       </div>
@@ -194,7 +194,7 @@ export default function MarketingChatPage() {
                   </td>
                   <td className="px-6 py-3">
                     {s.contactCollectedAt ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-status-info-soft px-2 py-0.5 text-xs font-medium text-teal-600 dark:text-status-info-fg">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-status-info-soft px-2 py-0.5 text-xs font-medium text-status-info-fg">
                         <Mail className="h-3 w-3" />
                         Contacto
                       </span>

@@ -483,7 +483,7 @@ export function OpsPuestosClient({
                               )}
                             </Link>
                           ) : (
-                            <span className="text-amber-400/80 italic text-[11px]">Vacante</span>
+                            <span className="text-status-warn-fg/80 italic text-[11px]">Vacante</span>
                           )}
                         </div>
                         <div className="shrink-0">

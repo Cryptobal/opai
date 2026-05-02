@@ -590,7 +590,7 @@ export function MarcacionScreen({
                 <p className="text-status-warn-fg text-sm font-semibold">
                   ⚠ Marcación fuera de rango{lastMarca.geoDistanciaM != null ? ` (${lastMarca.geoDistanciaM}m)` : ""}
                 </p>
-                <p className="text-amber-400/70 text-xs mt-1">
+                <p className="text-status-warn-fg/70 text-xs mt-1">
                   Tu supervisor será notificado. Esta marcación quedará registrada como fuera de rango.
                 </p>
               </div>

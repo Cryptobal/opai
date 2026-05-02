@@ -52,7 +52,7 @@ export default async function RegistroDemoPage({
           {/* Title area */}
           <div className="text-center mb-8">
             <div className="inline-flex items-center gap-2 rounded-full bg-status-info-soft px-4 py-1.5 mb-4">
-              <span className="h-1.5 w-1.5 rounded-full bg-teal-400 animate-pulse" />
+              <span className="h-1.5 w-1.5 rounded-full bg-status-info animate-pulse" />
               <span className="text-xs font-semibold text-status-info-fg tracking-wide uppercase">
                 Acceso demo gratuito
               </span>
