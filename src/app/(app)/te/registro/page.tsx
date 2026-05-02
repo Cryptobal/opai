@@ -2,7 +2,8 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/opai-ds";
+import { PageHero } from "@/components/opai-ds";
+import { ClipboardClock } from "lucide-react";
 import { TeSubnav, TeTurnosClient } from "@/components/ops";
 
 export default async function TeRegistroPage() {
@@ -34,8 +35,12 @@ export default async function TeRegistroPage() {
 
   return (
     <div className="space-y-6 min-w-0">
-      <PageHeader
-        title="TE · Registro"
+      <PageHero
+        icon={<ClipboardClock />}
+        iconTone="amber"
+        eyebrow={["Turnos Extras", "Registro"]}
+        title="Registro de TE"
+        subtitle="captura desde planilla"
         description="Listado de turnos extra con estado y monto."
       />
       <TeSubnav />

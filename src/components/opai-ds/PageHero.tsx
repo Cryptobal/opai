@@ -12,7 +12,8 @@
  */
 
 import { ReactNode, type ReactElement } from "react";
-import { type LucideIcon } from "lucide-react";
+import Link from "next/link";
+import { ChevronLeft, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { IconTile, type IconBubbleVariant, type IconBubbleTone } from "./IconBubble";
 
@@ -37,6 +38,10 @@ export interface PageHeroProps {
   iconVariant?: IconBubbleVariant;
   /** Tono categórico del IconTile (ej: "emerald" para Inventario). */
   iconTone?: IconBubbleTone;
+  /** Link back, ej. "/opai/perfil". Si está, se renderiza arriba del eyebrow. */
+  backHref?: string;
+  /** Texto del back link. Default: "Volver". */
+  backLabel?: string;
   className?: string;
 }
 
@@ -49,12 +54,24 @@ export function PageHero({
   icon,
   iconVariant = "brand",
   iconTone,
+  backHref,
+  backLabel = "Volver",
   className,
 }: PageHeroProps) {
   const eyebrowParts = Array.isArray(eyebrow) ? eyebrow : eyebrow ? [eyebrow] : [];
 
   return (
     <header className={cn("relative w-full", className)}>
+      {backHref && (
+        <Link
+          href={backHref}
+          className="mb-3 inline-flex items-center gap-1 text-sm text-primary/90 hover:text-primary transition-colors -ml-0.5"
+        >
+          <ChevronLeft className="h-4 w-4" />
+          <span>{backLabel}</span>
+        </Link>
+      )}
+
       {eyebrowParts.length > 0 && (
         <nav
           aria-label="breadcrumb"

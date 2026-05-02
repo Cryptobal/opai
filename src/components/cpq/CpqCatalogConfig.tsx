@@ -5,7 +5,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { PageHeader } from "@/components/opai-ds";
+import { PageHero } from "@/components/opai-ds";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,7 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ArrowLeft, Save, Plus, Trash2, ChevronDown, Info } from "lucide-react";
+import { ArrowLeft, Save, Plus, Trash2, ChevronDown, Info, Settings as SettingsIcon } from "lucide-react";
 import { toast } from "sonner";
 import { formatNumber, parseLocalizedNumber, cn } from "@/lib/utils";
 
@@ -280,8 +280,12 @@ export function CpqCatalogConfig({ showHeader = true }: { showHeader?: boolean }
     <div className="space-y-4">
       {showHeader && (
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <PageHeader
+          <PageHero
+            icon={<SettingsIcon />}
+            iconTone="violet"
+            eyebrow={["Comercial", "CPQ", "Catálogo"]}
             title="Configuración CPQ"
+            subtitle="items, tiers y reglas"
             description="Catálogo maestro global para todas las cotizaciones"
           />
           <div className="flex items-center gap-2">

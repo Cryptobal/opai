@@ -6,7 +6,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { PageHeader } from "@/components/opai-ds";
+import { PageHero } from "@/components/opai-ds";
 import { Stat } from "@/components/opai-ds";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,7 @@ import { CreateQuoteModal } from "@/components/cpq/CreateQuoteModal";
 import { CpqQuotesList } from "@/components/cpq/CpqQuotesList";
 import { formatCurrency } from "@/components/cpq/utils";
 import type { CpqQuote } from "@/types/cpq";
-import { FileText, Info, Plus, Settings, Globe } from "lucide-react";
+import { FileText, Info, Plus, Settings, Globe, LayoutDashboard } from "lucide-react";
 import { isCpqQuoteListedInClientPortal } from "@/lib/cpq-portal-visibility";
 
 interface CpqDashboardProps {
@@ -82,7 +82,14 @@ export function CpqDashboard({ initialQuotes }: CpqDashboardProps) {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <PageHeader title="CPQ" description="Cotizador de servicios de seguridad" />
+        <PageHero
+          icon={<LayoutDashboard />}
+          iconTone="violet"
+          eyebrow={["Comercial", "CPQ"]}
+          title="CPQ"
+          subtitle="Configure, Price, Quote"
+          description="Cotizador de servicios de seguridad"
+        />
         <div className="flex items-center gap-2">
           <CreateQuoteModal onCreated={refresh} variant="quick" />
           <Link href="/cpq/config">

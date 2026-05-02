@@ -34,7 +34,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { PageHeader } from "@/components/opai-ds";
+import { PageHero } from "@/components/opai-ds";
 import { ContractEditor } from "./ContractEditor";
 import { SignatureRequestModal } from "./SignatureRequestModal";
 import { SendForReviewModal } from "./SendForReviewModal";
@@ -351,7 +351,10 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
   return (
     <div className="space-y-4">
       {/* Header — mobile-first: status pill prominent, actions compact */}
-      <PageHeader
+      <PageHero
+        icon={<FileText />}
+        iconTone="rose"
+        eyebrow={["Documentos"]}
         backHref="/opai/documentos"
         backLabel="Documentos"
         title={doc.title}

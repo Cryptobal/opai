@@ -15,7 +15,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { PageHeader } from "@/components/opai-ds";
+import { PageHero } from "@/components/opai-ds";
+import { FileText as FileTextIcon } from "lucide-react";
 import { ContractEditor } from "./ContractEditor";
 import { DOC_CATEGORIES } from "@/lib/docs/token-registry";
 import { toast } from "sonner";
@@ -203,7 +204,10 @@ export function DocGenerateClient() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <PageHeader
+      <PageHero
+        icon={<FileTextIcon />}
+        iconTone="rose"
+        eyebrow={["Documentos", "Generar"]}
         backHref="/opai/documentos"
         backLabel="Documentos"
         title="Nuevo Documento"

@@ -2,8 +2,9 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { isTenantModuleEnabled } from "@/lib/tenant-modules";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/opai-ds";
+import { PageHero } from "@/components/opai-ds";
 import { Breadcrumbs } from "@/components/opai-ds";
+import { Brain } from "lucide-react";
 import PsychAssessmentDetail from "@/components/psych/dashboard/PsychAssessmentDetail";
 
 export const dynamic = "force-dynamic";
@@ -36,8 +37,12 @@ export default async function PsychDetailPage({ params }: PageProps) {
         ]}
         className="mb-2"
       />
-      <PageHeader
+      <PageHero
+        icon={<Brain />}
+        iconTone="sky"
+        eyebrow={["Personas", "Psicolaboral"]}
         title={assessment.targetName}
+        subtitle="detalle de evaluación"
         description={`Test: ${assessment.version.name} · Estado: ${assessment.status}`}
       />
       <PsychAssessmentDetail assessmentId={assessmentId} />
