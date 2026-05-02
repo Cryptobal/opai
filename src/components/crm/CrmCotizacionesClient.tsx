@@ -241,7 +241,7 @@ function QuoteListRow({ quote, ufValue, hasUnreadNotes }: { quote: QuoteRow; ufV
               href={`/crm/leads/${quote.createdFromLeadId}`}
               onClick={(e) => e.stopPropagation()}
             >
-              <Badge variant="outline" className="text-[10px] gap-1 px-1.5 py-0 border-status-info-border text-cyan-600 dark:text-status-info-fg hover:bg-status-info-soft transition-colors cursor-pointer">
+              <Badge variant="outline" className="text-[10px] gap-1 px-1.5 py-0 border-status-info-border text-status-info-fg hover:bg-status-info-soft transition-colors cursor-pointer">
                 <Zap className="h-3 w-3" />
                 Desde Lead
               </Badge>
@@ -383,7 +383,7 @@ function QuoteCardItem({ quote, ufValue, hasUnreadNotes }: { quote: QuoteRow; uf
               href={`/crm/leads/${quote.createdFromLeadId}`}
               onClick={(e) => e.stopPropagation()}
             >
-              <Badge variant="outline" className="text-[10px] gap-1 px-1.5 py-0 border-status-info-border text-cyan-600 dark:text-status-info-fg hover:bg-status-info-soft transition-colors cursor-pointer">
+              <Badge variant="outline" className="text-[10px] gap-1 px-1.5 py-0 border-status-info-border text-status-info-fg hover:bg-status-info-soft transition-colors cursor-pointer">
                 <Zap className="h-3 w-3" />
                 Desde Lead
               </Badge>

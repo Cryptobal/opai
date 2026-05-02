@@ -128,7 +128,7 @@ export function InstalacionVisitasTecnicasTab({ installationId, canDeleteVisitas
           <Calendar className="h-3.5 w-3.5" />
           Por realizar
           {pendientes.length > 0 && (
-            <span className="ml-1 rounded-full bg-orange-500/15 text-orange-600 text-[10px] font-bold px-1.5 py-0.5">
+            <span className="ml-1 rounded-full bg-status-warn-soft text-status-warn-fg text-[10px] font-bold px-1.5 py-0.5">
               {pendientes.length}
             </span>
           )}
@@ -620,7 +620,7 @@ function RealizadaCard({ visita }: { visita: VisitaTecnica }) {
           )}
           <p className="text-xs text-muted-foreground">Supervisor: {visita.supervisor.name}</p>
         </div>
-        <Badge variant="default" className="flex items-center gap-1 flex-shrink-0 text-[10px] bg-emerald-600/20 text-status-ok-fg border-emerald-600/30">
+        <Badge variant="default" className="flex items-center gap-1 flex-shrink-0 text-[10px] bg-status-ok-soft text-status-ok-fg border-status-ok-border">
           <CheckCircle2 className="h-3 w-3" /> Completada
         </Badge>
       </div>

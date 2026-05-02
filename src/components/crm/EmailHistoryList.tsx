@@ -69,37 +69,37 @@ const STATUS_CONFIG: Record<
   sent: {
     label: "Enviado",
     icon: Send,
-    className: "bg-blue-50 text-status-info-fg border-blue-200",
+    className: "bg-status-info-soft text-status-info-fg border-status-info-border",
   },
   received: {
     label: "Recibido",
     icon: ArrowDownLeft,
-    className: "bg-emerald-50 text-status-ok-fg border-emerald-200",
+    className: "bg-status-ok-soft text-status-ok-fg border-status-ok-border",
   },
   delivered: {
     label: "Entregado",
     icon: CheckCircle2,
-    className: "bg-green-50 text-status-ok-fg border-green-200",
+    className: "bg-status-ok-soft text-status-ok-fg border-status-ok-border",
   },
   opened: {
     label: "Abierto",
     icon: Eye,
-    className: "bg-emerald-50 text-status-ok-fg border-emerald-200",
+    className: "bg-status-ok-soft text-status-ok-fg border-status-ok-border",
   },
   clicked: {
     label: "Clic",
     icon: MousePointerClick,
-    className: "bg-purple-50 text-purple-600 border-purple-200",
+    className: "bg-tint-violet text-tint-violet-fg border-tint-violet-fg/30",
   },
   bounced: {
     label: "Rebotado",
     icon: AlertTriangle,
-    className: "bg-red-50 text-status-danger-fg border-red-200",
+    className: "bg-status-danger-soft text-status-danger-fg border-status-danger-border",
   },
   complained: {
     label: "Spam",
     icon: AlertTriangle,
-    className: "bg-red-50 text-status-danger-fg border-red-300",
+    className: "bg-status-danger-soft text-status-danger-fg border-status-danger-border",
   },
 };
 

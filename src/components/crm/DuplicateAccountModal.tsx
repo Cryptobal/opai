@@ -113,9 +113,9 @@ function SearchStep({
             const isDuplicate = duplicateAccount?.id === acc.id;
             const lc = lifecycleLabel(acc);
             return (
-              <div key={acc.id} className={`rounded-lg border p-3 transition-all ${isMaster ? "border-status-ok-border bg-status-ok-soft" : isDuplicate ? "border-rose-500/50 bg-rose-500/5" : "border-border"}`}>
+              <div key={acc.id} className={`rounded-lg border p-3 transition-all ${isMaster ? "border-status-ok-border bg-status-ok-soft" : isDuplicate ? "border-status-danger-border bg-status-danger-soft/30" : "border-border"}`}>
                 {(isMaster || isDuplicate) && (
-                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded mb-1.5 inline-flex items-center gap-1 ${isMaster ? "bg-status-ok-soft text-status-ok-fg" : "bg-rose-500/20 text-status-danger-fg"}`}>
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded mb-1.5 inline-flex items-center gap-1 ${isMaster ? "bg-status-ok-soft text-status-ok-fg" : "bg-status-danger-soft text-status-danger-fg"}`}>
                     {isMaster ? <><Crown className="h-2.5 w-2.5" /> MASTER (se conserva)</> : <><Trash2 className="h-2.5 w-2.5" /> DUPLICADO (se elimina)</>}
                   </span>
                 )}
@@ -137,7 +137,7 @@ function SearchStep({
                     <Button size="sm" variant="outline" className="flex-1 h-7 text-xs border-status-ok-border text-status-ok-fg hover:bg-status-ok-soft" onClick={() => onSelect(acc, "master")}>
                       <Crown className="h-3 w-3 mr-1" /> Conservar
                     </Button>
-                    <Button size="sm" variant="outline" className="flex-1 h-7 text-xs border-rose-500/40 text-status-danger-fg hover:bg-status-danger-soft" onClick={() => onSelect(acc, "duplicate")}>
+                    <Button size="sm" variant="outline" className="flex-1 h-7 text-xs border-status-danger-border text-status-danger-fg hover:bg-status-danger-soft" onClick={() => onSelect(acc, "duplicate")}>
                       <Trash2 className="h-3 w-3 mr-1" /> Eliminar
                     </Button>
                   </div>
@@ -238,7 +238,7 @@ function FieldsStep({ preview, fieldOverrides, setFieldOverrides }: {
               {/* Duplicate value */}
               <button
                 onClick={() => toggle(f.key, "duplicate")}
-                className={`px-3 py-2.5 border-l border-border text-left hover:bg-rose-500/5 transition-colors text-xs ${selected === "duplicate" ? "bg-status-danger-soft text-status-danger-fg font-medium" : "text-muted-foreground"}`}
+                className={`px-3 py-2.5 border-l border-border text-left hover:bg-status-danger-soft/30 transition-colors text-xs ${selected === "duplicate" ? "bg-status-danger-soft text-status-danger-fg font-medium" : "text-muted-foreground"}`}
               >
                 {selected === "duplicate" && <Check className="inline h-3 w-3 mr-1 text-status-danger-fg" />}
                 {dv || <span className="italic opacity-40">vacío</span>}
@@ -591,7 +591,7 @@ export function DuplicateAccountModal({ open, onOpenChange, initialQuery = "", o
                   )}
                 </div>
               </div>
-              <div className="rounded-lg border border-status-danger-border bg-rose-500/5 p-3 text-xs text-status-danger-fg flex gap-2">
+              <div className="rounded-lg border border-status-danger-border bg-status-danger-soft/30 p-3 text-xs text-status-danger-fg flex gap-2">
                 <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
                 Esta acción es irreversible. La cuenta &quot;{preview.duplicate.name}&quot; será eliminada permanentemente.
               </div>

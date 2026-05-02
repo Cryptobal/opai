@@ -416,19 +416,19 @@ export function AccountContractsSection({
       draft: { label: "Firma pendiente", color: "bg-gray-100 text-gray-600" },
       pending: {
         label: "Enviada a firma",
-        color: "bg-yellow-100 text-yellow-700",
+        color: "bg-status-warn-soft text-status-warn-fg",
       },
       in_progress: {
         label: "En proceso de firma",
-        color: "bg-blue-100 text-blue-700",
+        color: "bg-status-info-soft text-status-info-fg",
       },
       completed: {
         label: signedAt ? `Firmado · ${formatDate(signedAt)}` : "Firmado",
-        color: "bg-green-100 text-green-700",
+        color: "bg-status-ok-soft text-status-ok-fg",
       },
       cancelled: {
         label: "Firma cancelada",
-        color: "bg-red-100 text-status-danger-fg",
+        color: "bg-status-danger-soft text-status-danger-fg",
       },
     };
     return map[signatureStatus] ?? null;
@@ -455,7 +455,7 @@ export function AccountContractsSection({
     }
     if (days <= c.alertDaysBefore) {
       return (
-        <span className="inline-flex items-center gap-1 text-xs font-medium text-orange-700">
+        <span className="inline-flex items-center gap-1 text-xs font-medium text-status-warn-fg">
           <AlertTriangle className="h-3 w-3" />
           Vence en {days} {days === 1 ? "día" : "días"} ({formatDate(c.expirationDate)})
         </span>
@@ -469,8 +469,8 @@ export function AccountContractsSection({
   };
 
   const rowAccent = (c: Contract): string => {
-    if (c.status === "expired") return "border-red-300 bg-red-50/60";
-    if (c.status === "expiring") return "border-orange-300 bg-orange-50/60";
+    if (c.status === "expired") return "border-status-danger-border bg-status-danger-soft/60";
+    if (c.status === "expiring") return "border-status-warn-border bg-status-warn-soft/60";
     return "border-border bg-card";
   };
 
@@ -588,7 +588,7 @@ export function AccountContractsSection({
                     {c.portalVisible && (
                       <Badge
                         variant="outline"
-                        className="text-[10px] px-1.5 py-0 bg-emerald-50 text-status-ok-fg"
+                        className="text-[10px] px-1.5 py-0 bg-status-ok-soft text-status-ok-fg"
                       >
                         <Globe className="h-2.5 w-2.5 mr-0.5" />
                         Portal

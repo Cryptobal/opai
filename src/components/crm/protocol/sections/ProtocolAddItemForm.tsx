@@ -91,7 +91,7 @@ export function ProtocolAddItemAi({
   onCancel,
 }: AiProps) {
   return (
-    <div className="rounded-lg border border-status-ok-border bg-emerald-500/[0.04] p-2.5 space-y-2">
+    <div className="rounded-lg border border-status-ok-border bg-status-ok-soft/30 p-2.5 space-y-2">
       {generating ? (
         <div className="flex items-center justify-center gap-2 py-4 text-xs text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin text-status-ok-fg" />

@@ -302,10 +302,10 @@ export function ProtocolDocumentsSubTab({ installationId }: Props) {
 
             {/* Documentos legacy — ProtocolDocument scope=global */}
             {legacyDocs.length > 0 && (
-              <div className="rounded-xl border border-status-warn-border bg-amber-500/[0.04] p-3 space-y-2">
+              <div className="rounded-xl border border-status-warn-border bg-status-warn-soft/30 p-3 space-y-2">
                 <div className="flex items-start gap-2">
                   <Info className="h-3.5 w-3.5 text-status-warn-fg mt-0.5 shrink-0" />
-                  <p className="text-[11px] leading-relaxed text-amber-200/80">
+                  <p className="text-[11px] leading-relaxed text-status-warn-fg/80">
                     Hay {legacyDocs.length}{" "}
                     {legacyDocs.length === 1
                       ? "documento subido"

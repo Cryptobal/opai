@@ -438,14 +438,14 @@ export function CpqCatalogConfig({ showHeader = true }: { showHeader?: boolean }
           </div>
           <div className="text-muted-foreground">
             <strong className="text-foreground">Factor total</strong>:{" "}
-            <span className="font-semibold text-emerald-200">
+            <span className="font-semibold text-status-ok-fg">
               {formatNumber(holidayTotalFactor, { minDecimals: 4, maxDecimals: 4 })}
             </span>{" "}
             = 0,5 × factor mensual × factor comercial.
           </div>
           <div className="border-t border-status-ok-border pt-2 mt-2 text-muted-foreground">
             <strong className="text-foreground">Cómo se calcula:</strong>{" "}
-            <strong className="text-emerald-200">
+            <strong className="text-status-ok-fg">
               Ajuste mensual feriados = (costo empresa mensual total guardias ÷ 30) × (feriados/año ÷ 12) × 0,5 × (1 + holgura%)
             </strong>
             . El ajuste resultante se suma al costo mensual de la cotización.

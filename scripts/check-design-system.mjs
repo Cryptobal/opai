@@ -1124,9 +1124,41 @@ const MIGRATED_PATHS = [
   "src/app/(app)/reportes/dt/jornada-diaria/page.tsx",
   "src/app/(app)/reportes/dt/modificaciones-turnos/page.tsx",
   "src/app/(app)/opai/configuracion/cumplimiento/page.tsx",
+  // Cluster 5-final.a — CRM regression + CPQ cleanup.
+  // Auditoría post-5F.2c detectó 162 hex residuales (83 CRM + 79 CPQ)
+  // introducidos después del cierre del cluster 5A. Consolidados al
+  // catálogo estándar status-{ok,warn,danger,info}-* y tint-violet
+  // (este último para 'deal'/Negocio en CRM_TYPES y ENTITY_CONFIG).
+  // Botones con `hover:bg-X-700` → `hover:brightness-110`. Backgrounds
+  // `bg-X-50` (light theme cards en EmailHistoryList y
+  // AccountContractsSection) → `bg-status-*-soft` (light/dark consistente).
+  //
+  // 31 archivos modificados con 0 hex drift restante:
+  //   CRM (21): AccountContractsSection, AccountPortalSection,
+  //   CrmAccountDetailClient, CrmActivityTimeline, CrmContactDetailClient,
+  //   CrmCotizacionesClient, CrmDealDetailClient, CrmGlobalSearch,
+  //   CrmInstallationsClient, CrmInstallationsListClient,
+  //   CrmLeadDetailClient, CrmSectionCreateButton, DuplicateAccountModal,
+  //   EmailHistoryList, InstalacionRondasTab, InstalacionVisitasTecnicasTab,
+  //   LeadInstallationCpq, protocol/ExamsSubTab, protocol/ProtocolDocumentsSubTab,
+  //   protocol/sections/{AiHelpers, ProtocolAddItemForm, ProtocolAddSection,
+  //   ProtocolSectionCard}.
+  //   CPQ (10+): AdditionalLinesSection, CpqCatalogConfig, CpqDashboard,
+  //   CpqPositionCard, CpqPricingCalc, CpqQuickAddCost, CpqQuoteCosts,
+  //   CpqQuoteDetail, CpqQuotesList, CreateQuoteModal, FinancialPanel,
+  //   FollowUpDecisionModal, MobileBottomBar, QuoteBreakdownPanel,
+  //   QuoteIncludesEditor, QuoteKpiBar, SendPortalProposalModal,
+  //   VisitaTecnicaSolicitudModal.
+  //
+  // Los archivos NO se agregan a MIGRATED_PATHS: mismo criterio que
+  // 4A/4B/4C/4D/5A.1..5A.8/5B.1..5B.10/5C/5D+5E/5F.1/5F.2 — los archivos
+  // completaron su migración granular de color drift al catálogo DS v3
+  // pero siguen teniendo drift tipográfico legacy fuera de eso
+  // (text-[10px]/text-[11px] en chips, badges, eyebrows, contadores).
+  // Se agregarán cuando se haga su pasada de limpieza tipográfica
+  // completa en el cluster 5-final.c (cleanup legacy + strict mode global).
   // Agregar aquí cuando se migren:
   // "src/components/personas/",
-  // "src/components/crm/",
   // "src/components/documentos/",
 ];
 

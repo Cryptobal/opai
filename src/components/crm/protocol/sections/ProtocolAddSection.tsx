@@ -125,7 +125,7 @@ export function ProtocolAddSection({
 
   // IA
   return (
-    <Card className="border-dashed border-status-ok-border bg-emerald-500/[0.04]">
+    <Card className="border-dashed border-status-ok-border bg-status-ok-soft/30">
       <CardContent className="p-3 space-y-2">
         {aiSectionGenerating ? (
           <div className="flex items-center justify-center gap-2 py-4 text-xs text-muted-foreground">

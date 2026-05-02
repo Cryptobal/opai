@@ -13,14 +13,14 @@ const IA_CONFIG_HREF = "/opai/configuracion/inteligencia-artificial";
 
 export function AiNotice() {
   return (
-    <div className="rounded-xl border border-status-warn-border bg-amber-500/[0.06] p-3 text-xs leading-relaxed text-amber-200/90">
+    <div className="rounded-xl border border-status-warn-border bg-status-warn-soft/30 p-3 text-xs leading-relaxed text-status-warn-fg/90">
       <div className="flex items-start gap-2">
         <Sparkles className="h-4 w-4 mt-0.5 shrink-0 text-status-warn-fg" />
         <div>
           Para usar IA, configura un proveedor en{" "}
           <Link
             href={IA_CONFIG_HREF}
-            className="underline font-medium text-amber-100 hover:text-white"
+            className="underline font-medium text-status-warn-fg hover:text-foreground"
           >
             Configuración → Inteligencia Artificial
           </Link>
@@ -56,16 +56,16 @@ type AiErrorProps = {
 export function AiErrorBlock({ error, onRetry, onBack }: AiErrorProps) {
   if (error === "NO_AI_CONFIGURED") {
     return (
-      <div className="rounded-xl border border-status-danger-border bg-red-500/[0.06] p-4 space-y-2">
+      <div className="rounded-xl border border-status-danger-border bg-status-danger-soft/30 p-4 space-y-2">
         <div className="flex items-center gap-2 text-status-danger-fg text-sm font-medium">
           <AlertTriangle className="h-4 w-4" />
           IA no configurada
         </div>
-        <p className="text-sm text-red-300/80">
+        <p className="text-sm text-status-danger-fg/80">
           Configura un proveedor de IA en{" "}
           <Link
             href={IA_CONFIG_HREF}
-            className="underline hover:text-red-200"
+            className="underline hover:text-status-danger-fg/80"
           >
             Configuración → Inteligencia Artificial
           </Link>
@@ -75,7 +75,7 @@ export function AiErrorBlock({ error, onRetry, onBack }: AiErrorProps) {
     );
   }
   return (
-    <div className="rounded-xl border border-status-danger-border bg-red-500/[0.06] p-4 space-y-3">
+    <div className="rounded-xl border border-status-danger-border bg-status-danger-soft/30 p-4 space-y-3">
       <div className="flex items-center gap-2 text-status-danger-fg text-sm font-medium">
         <AlertTriangle className="h-4 w-4" />
         {error}

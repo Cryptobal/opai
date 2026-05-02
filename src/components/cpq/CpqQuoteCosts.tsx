@@ -1375,7 +1375,7 @@ export function CpqQuoteCosts({
       <div className="h-[3px] bg-border" />
 
       {/* ── INDIRECTOS ── */}
-      <div className={cn(CPQ_BREAKDOWN_ROW, "px-3 py-1.5 bg-amber-400/5 text-xs")}>
+      <div className={cn(CPQ_BREAKDOWN_ROW, "px-3 py-1.5 bg-status-warn-soft/30 text-xs")}>
         <span className="text-xs font-bold uppercase tracking-[0.08em] text-status-warn-fg break-words min-w-0">
           Indirectos
         </span>

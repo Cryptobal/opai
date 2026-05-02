@@ -961,7 +961,7 @@ export function LeadInstallationCpq({
                   <QuoteBreakdownPanel data={breakdownData} variant="default" />
                 </div>
                 {!estimate.laborPayrollReady && (
-                  <div className="px-3 pb-2 text-[10px] text-amber-500/90 font-medium text-center">
+                  <div className="px-3 pb-2 text-[10px] text-status-warn-fg/90 font-medium text-center">
                     Calculando mano de obra (motor nómina)…
                   </div>
                 )}
@@ -1121,7 +1121,7 @@ export function LeadInstallationCpq({
                           "flex-1 h-8 rounded-md border text-xs font-semibold transition-colors",
                           pos.shiftType !== "night"
                             ? "border-status-warn-border bg-status-warn-soft text-status-warn-fg"
-                            : "border-status-warn-border bg-card text-amber-300/60 hover:bg-status-warn-soft"
+                            : "border-status-warn-border bg-card text-status-warn-fg/60 hover:bg-status-warn-soft"
                         )}
                         onClick={() => {
                           const patch: Partial<LeadPositionItem> = { shiftType: "day", horaInicio: "08:00", horaFin: "20:00" };

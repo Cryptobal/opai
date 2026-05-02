@@ -300,14 +300,14 @@ export function CpqPositionCard({
                   className={cn(
                     badgeBase,
                     shiftType === "night"
-                      ? "border-purple-500/30 bg-purple-500/10 text-purple-700 dark:text-purple-400"
+                      ? "border-tint-violet-fg/30 bg-tint-violet text-tint-violet-fg"
                       : "border-status-warn-border bg-status-warn-soft text-status-warn-fg dark:text-status-warn-fg"
                   )}
                 >
                   {shiftType === "night" ? <Moon className="mr-0.5 h-2.5 w-2.5 inline" /> : <Sun className="mr-0.5 h-2.5 w-2.5 inline" />}
                   {shiftType === "night" ? "Nocturno" : "Diurno"}
                 </Badge>
-                <Badge variant="outline" className={cn(badgeBase, "border-status-info-border bg-status-info-soft text-blue-700 dark:text-status-info-fg")}>
+                <Badge variant="outline" className={cn(badgeBase, "border-status-info-border bg-status-info-soft text-status-info-fg")}>
                   {formatWeekdaysShort(position.weekdays)}
                 </Badge>
               </div>
@@ -327,8 +327,8 @@ export function CpqPositionCard({
             </div>
           </div>
           {netOk ? (
-            <div className="rounded-md border border-sky-500/25 bg-sky-500/[0.07] px-2 py-1.5">
-              <p className="text-sm font-semibold uppercase tracking-wide text-sky-600 dark:text-status-info-fg">Sueldo líquido estimado</p>
+            <div className="rounded-md border border-status-info-border bg-status-info-soft/30 px-2 py-1.5">
+              <p className="text-sm font-semibold uppercase tracking-wide text-status-info-fg">Sueldo líquido estimado</p>
               <div className="mt-0.5 flex flex-wrap items-end justify-between gap-x-3 gap-y-1">
                 <span className="text-sm text-muted-foreground">Por guardia / mes</span>
                 <CpqDualCurrencyAmount
@@ -336,24 +336,24 @@ export function CpqPositionCard({
                   currency={displayCurrency}
                   ufValue={ufValue}
                   size="md"
-                  primaryClassName="text-sky-900 dark:text-sky-100 font-semibold"
+                  primaryClassName="text-status-info-fg font-semibold"
                 />
               </div>
               {totalGuards > 1 && (
-                <div className="mt-1 flex flex-wrap items-end justify-between gap-x-3 gap-y-1 border-t border-sky-500/20 pt-1">
+                <div className="mt-1 flex flex-wrap items-end justify-between gap-x-3 gap-y-1 border-t border-status-info-border pt-1">
                   <span className="text-sm text-muted-foreground">Total puesto ({totalGuards} guardias)</span>
                   <CpqDualCurrencyAmount
                     clp={Math.round(net * totalGuards)}
                     currency={displayCurrency}
                     ufValue={ufValue}
                     size="sm"
-                    primaryClassName="text-sky-800 dark:text-sky-200 font-medium"
+                    primaryClassName="text-status-info-fg font-medium"
                   />
                 </div>
               )}
             </div>
           ) : (
-            <p className="text-sm text-status-warn-fg dark:text-amber-400/90">
+            <p className="text-sm text-status-warn-fg">
               Sueldo líquido: sin estimación en datos del puesto.
             </p>
           )}
@@ -512,7 +512,7 @@ export function CpqPositionCard({
                 "h-8 rounded-md border px-3 text-xs font-semibold transition-colors",
                 shiftType !== "night"
                   ? "border-status-warn-border bg-status-warn-soft text-status-warn-fg"
-                  : "border-status-warn-border bg-card text-amber-300/60 hover:bg-status-warn-soft"
+                  : "border-status-warn-border bg-card text-status-warn-fg/60 hover:bg-status-warn-soft"
               )}
               onClick={() => updateDraft({ startTime: "08:00", endTime: "20:00" })}
             >
