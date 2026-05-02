@@ -44,7 +44,6 @@ import {
   MapPin,
   DollarSign,
   History,
-  XCircle,
   KeyRound,
   MessageCircle,
   ChevronDown,
@@ -57,7 +56,6 @@ import { CreateDealModal } from "./CreateDealModal";
 import { CreateQuoteModal } from "@/components/cpq/CreateQuoteModal";
 import { resolveDocument, tiptapToPlainText } from "@/lib/docs/token-resolver";
 import { CrmActivityTimeline } from "./CrmActivityTimeline";
-import { SendPresentationDialog } from "./SendPresentationDialog";
 
 /** Convierte Tiptap JSON a HTML para email */
 function tiptapToEmailHtml(doc: any): string {
@@ -174,7 +172,6 @@ export function CrmContactDetailClient({
   initialEmailCount = 0,
   activityEvents = [],
   currentUserId = "",
-  companyPresentations: initialPresentations = [],
 }: {
   contact: ContactDetail;
   deals: DealRow[];
@@ -187,13 +184,11 @@ export function CrmContactDetailClient({
   initialEmailCount?: number;
   activityEvents?: ActivityEvent[];
   currentUserId?: string;
-  companyPresentations?: Array<{ id: string; status: string }>;
 }) {
   const router = useRouter();
   const chatCtx = useChatSidePanelContext();
   const [contact, setContact] = useState(initialContact);
   const [contactDeals, setContactDeals] = useState(deals);
-  const [presentations, setPresentations] = useState(initialPresentations);
   const [startingChat, setStartingChat] = useState(false);
   const fullName = [contact.firstName, contact.lastName].filter(Boolean).join(" ");
 
@@ -234,7 +229,6 @@ export function CrmContactDetailClient({
   const [accountOptions, setAccountOptions] = useState<Array<{ id: string; name: string }>>([]);
 
   const [deleteConfirm, setDeleteConfirm] = useState(false);
-  const [presentationOpen, setPresentationOpen] = useState(false);
 
   // ── Email compose state ──
   const [emailOpen, setEmailOpen] = useState(false);
@@ -294,20 +288,6 @@ export function CrmContactDetailClient({
       toast.success("Contacto eliminado");
       router.push("/crm/contacts");
     } catch { toast.error("No se pudo eliminar"); }
-  };
-
-  const hasActivePresentation = presentations.some(p => ['sent', 'viewed'].includes(p.status));
-
-  const handleDeactivatePresentation = async () => {
-    if (!confirm('¿Desactivar la presentación de empresa para este contacto?')) return;
-    try {
-      const res = await fetch(`/api/crm/contacts/${contact.id}/deactivate-presentation`, { method: 'POST' });
-      if (!res.ok) throw new Error();
-      setPresentations([]);
-      toast.success('Presentación desactivada');
-    } catch {
-      toast.error('No se pudo desactivar la presentación');
-    }
   };
 
   const saveEdit = async () => {
@@ -503,8 +483,6 @@ export function CrmContactDetailClient({
       onClick: startExternalChat,
       hidden: !contact.accountId || !contact.portalEnabled,
     },
-    { label: "Enviar Presentación", icon: Building2, onClick: () => setPresentationOpen(true), hidden: !contact.email },
-    { label: "Desactivar presentación", icon: XCircle, onClick: handleDeactivatePresentation, hidden: !hasActivePresentation },
     { label: "Eliminar contacto", icon: Trash2, onClick: () => setDeleteConfirm(true), variant: "destructive" },
   ];
 
@@ -958,14 +936,6 @@ export function CrmContactDetailClient({
       </Dialog>
 
       <ConfirmDialog open={deleteConfirm} onOpenChange={setDeleteConfirm} title="Eliminar contacto" description="El contacto será eliminado permanentemente." onConfirm={deleteContact} />
-
-      <SendPresentationDialog
-        open={presentationOpen}
-        onOpenChange={setPresentationOpen}
-        contact={contact}
-        installations={installations}
-        onSent={() => router.refresh()}
-      />
     </>
   );
 }
