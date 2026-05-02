@@ -11,13 +11,14 @@ import {
 } from 'lucide-react';
 import { HubKpiLinkCard } from './HubKpiLinkCard';
 import { HubCollapsibleSection } from './HubCollapsibleSection';
+import { HubTicketsMatrix } from './charts/HubTicketsMatrix';
 import type { HubTicketsSectionProps } from '../_lib/hub-types';
 
 const PRIORITY_COLORS: Record<string, string> = {
-  p1: 'text-red-500',
-  p2: 'text-orange-500',
-  p3: 'text-yellow-500',
-  p4: 'text-blue-400',
+  p1: 'text-status-danger-fg',
+  p2: 'text-status-warn-fg',
+  p3: 'text-status-warn-fg',
+  p4: 'text-status-info-fg',
 };
 
 export function HubTicketsSection({ ticketMetrics }: HubTicketsSectionProps) {
@@ -48,7 +49,7 @@ export function HubTicketsSection({ ticketMetrics }: HubTicketsSectionProps) {
           <span
             className={`inline-flex items-center justify-center rounded-full px-2 py-0.5 text-[10px] font-bold ${
               hasCritical
-                ? 'bg-red-500/20 text-red-400'
+                ? 'bg-status-danger-soft text-status-danger-fg'
                 : 'bg-primary/15 text-primary'
             }`}
           >
@@ -133,7 +134,7 @@ export function HubTicketsSection({ ticketMetrics }: HubTicketsSectionProps) {
                 </span>
                 <span className="text-[11px] truncate flex-1">{ticket.title}</span>
                 {ticket.slaDueAt && new Date(ticket.slaDueAt) < new Date() && (
-                  <AlertTriangle className="h-3 w-3 text-red-500 shrink-0" />
+                  <AlertTriangle className="h-3 w-3 text-status-danger-fg shrink-0" />
                 )}
               </Link>
             ))}
@@ -147,6 +148,11 @@ export function HubTicketsSection({ ticketMetrics }: HubTicketsSectionProps) {
           </Link>
         </div>
       )}
+
+      {/* Matriz de tickets por instalación */}
+      <div className="mt-4">
+        <HubTicketsMatrix />
+      </div>
     </HubCollapsibleSection>
   );
 }

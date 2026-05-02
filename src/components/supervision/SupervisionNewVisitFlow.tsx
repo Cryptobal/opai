@@ -339,7 +339,7 @@ export function SupervisionNewVisitFlow() {
               onChange={setSelectedInstallationId}
             />
             {!loadingInstallations && installations.length === 0 && (
-              <p className="text-xs text-amber-600">
+              <p className="text-xs text-status-warn-fg">
                 No tienes instalaciones asignadas. Contacta al administrador para que te asigne instalaciones en Supervisión.
               </p>
             )}
@@ -436,7 +436,7 @@ export function SupervisionNewVisitFlow() {
                     />
                     <span className="text-sm">{doc.label}</span>
                     {doc.required && (
-                      <span className="text-[10px] text-amber-600">(obligatorio)</span>
+                      <span className="text-[10px] text-status-warn-fg">(obligatorio)</span>
                     )}
                   </label>
                 ))}
@@ -541,8 +541,8 @@ export function SupervisionNewVisitFlow() {
         </CardContent>
       </Card>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
-      {successMessage && <p className="text-sm text-emerald-700">{successMessage}</p>}
+      {error && <p className="text-sm text-status-danger-fg">{error}</p>}
+      {successMessage && <p className="text-sm text-status-ok-fg">{successMessage}</p>}
     </div>
   );
 }

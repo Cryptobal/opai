@@ -130,7 +130,7 @@ export function AnticipoProcessClient() {
               <CardContent className="pt-4 flex items-center justify-between">
                 <div>
                   <div className="flex items-center gap-2">
-                    <DollarSign className="h-4 w-4 text-emerald-400" />
+                    <DollarSign className="h-4 w-4 text-status-ok-fg" />
                     <span className="text-sm font-medium">
                       {MONTHS[p.period.month - 1]} {p.period.year}
                     </span>

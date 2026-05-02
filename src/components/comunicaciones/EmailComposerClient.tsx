@@ -256,7 +256,7 @@ export default function EmailComposerClient({ tenantId }: EmailComposerClientPro
               <div key={i} className="flex items-center gap-2">
                 {i > 0 && (
                   <div
-                    className={`h-px w-6 ${isDone ? "bg-emerald-500" : "bg-muted"}`}
+                    className={`h-px w-6 ${isDone ? "bg-status-ok" : "bg-muted"}`}
                   />
                 )}
                 <div
@@ -264,7 +264,7 @@ export default function EmailComposerClient({ tenantId }: EmailComposerClientPro
                     isActive
                       ? "bg-primary text-primary-foreground"
                       : isDone
-                        ? "bg-emerald-500/20 text-emerald-400"
+                        ? "bg-status-ok-soft text-status-ok-fg"
                         : "bg-muted text-muted-foreground"
                   }`}
                 >
@@ -424,7 +424,7 @@ export default function EmailComposerClient({ tenantId }: EmailComposerClientPro
                 </Select>
               )}
               {templates.length === 0 && !loadingTemplates && (
-                <p className="text-xs text-amber-400 flex items-center gap-1 mt-1">
+                <p className="text-xs text-status-warn-fg flex items-center gap-1 mt-1">
                   <AlertTriangle className="h-3.5 w-3.5" />
                   No hay plantillas disponibles. Crea una en la pestaña Plantillas.
                 </p>
@@ -475,7 +475,7 @@ export default function EmailComposerClient({ tenantId }: EmailComposerClientPro
             </div>
 
             {selectedIds.size > 20 && (
-              <div className="flex items-start gap-2 text-amber-400 text-xs rounded-md bg-amber-500/10 p-3">
+              <div className="flex items-start gap-2 text-status-warn-fg text-xs rounded-md bg-status-warn-soft p-3">
                 <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
                 <span>
                   Estás a punto de enviar a {selectedIds.size} guardias. Verifica los

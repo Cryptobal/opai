@@ -1,3 +1,5 @@
+import { LayoutDashboard } from 'lucide-react';
+import { PageHero } from '@/components/opai-ds';
 import { getGreeting } from '../_lib/hub-utils';
 import type { HubGreetingProps } from '../_lib/hub-types';
 
@@ -16,17 +18,19 @@ export function HubGreeting({ firstName, pendingFollowUpsCount }: HubGreetingPro
   });
   const capitalDay = dayOfWeek.charAt(0).toUpperCase() + dayOfWeek.slice(1);
 
+  const subtitleParts = [`${capitalDay} ${dateStr}`];
+  if (pendingFollowUpsCount > 0) {
+    subtitleParts.push(
+      `${pendingFollowUpsCount} seguimiento${pendingFollowUpsCount !== 1 ? 's' : ''} pendiente${pendingFollowUpsCount !== 1 ? 's' : ''}`,
+    );
+  }
+
   return (
-    <div className="space-y-1">
-      <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-        {greeting}, {firstName}
-      </h1>
-      <p className="text-sm text-muted-foreground">
-        {capitalDay} {dateStr}
-        {pendingFollowUpsCount > 0 && (
-          <> &middot; {pendingFollowUpsCount} seguimiento{pendingFollowUpsCount !== 1 ? 's' : ''} pendiente{pendingFollowUpsCount !== 1 ? 's' : ''}</>
-        )}
-      </p>
-    </div>
+    <PageHero
+      icon={<LayoutDashboard />}
+      iconTone="primary"
+      title={`${greeting}, ${firstName}`}
+      subtitle={subtitleParts.join(' · ')}
+    />
   );
 }

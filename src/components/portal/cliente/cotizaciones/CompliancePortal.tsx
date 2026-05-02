@@ -30,19 +30,19 @@ export function CompliancePortal({
   return (
     <div className={cn("rounded-xl border border-slate-700/50 bg-slate-800/50 p-4 space-y-3", className)}>
       <div className="flex items-center gap-2.5">
-        <ShieldCheck className="h-5 w-5 text-emerald-400" />
+        <ShieldCheck className="h-5 w-5 text-status-ok-fg" />
         <h3 className={cn(
           "font-bold text-white",
           numbered ? "text-xl" : "text-sm",
         )}>
-          {numbered && sectionNumber ? <span className="text-teal-400">{sectionNumber}. </span> : null}
+          {numbered && sectionNumber ? <span className="text-status-info-fg">{sectionNumber}. </span> : null}
           Cumplimiento Normativo
         </h3>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         {displayItems.map((item) => (
           <div key={item} className="flex items-start gap-2.5">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" />
+            <CheckCircle2 className="w-4 h-4 text-status-ok-fg mt-0.5 shrink-0" />
             <span className="text-sm text-slate-300">{item}</span>
           </div>
         ))}

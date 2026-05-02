@@ -365,23 +365,19 @@ export async function POST(request: NextRequest) {
       });
     });
 
-    // Send notification to approval group members + reporter
+    // Notify reporter + first approval group (bell + email + push, targeted)
     const approvalTargetIds: string[] = [];
     try {
-      const { sendNotificationToUsers } = await import("@/lib/notification-service");
       const targetUserIds: string[] = [];
 
-      // Resolve reporter name for notification
       const reporter = await prisma.admin.findFirst({
         where: { id: ctx.userId, tenantId: ctx.tenantId },
         select: { name: true, email: true },
       });
       const reporterName = reporter?.name || reporter?.email || "Usuario";
 
-      // Always notify the requester (if it's a user, not a guardia)
       if (ctx.userId) targetUserIds.push(ctx.userId);
 
-      // If requires approval, notify the first approval group
       if (requiresApproval && ticketType.approvalSteps.length > 0) {
         const firstStep = ticketType.approvalSteps[0];
         if (firstStep.approverGroupId) {
@@ -413,37 +409,55 @@ export async function POST(request: NextRequest) {
         emailLines.push(`\nDescripción:\n${desc}`);
       }
 
-      if (targetUserIds.length > 0) {
-        await sendNotificationToUsers({
+      const uniqueTargets = [...new Set(targetUserIds)];
+      if (uniqueTargets.length > 0) {
+        const { notify } = await import("@/lib/notifications/notify");
+        await notify({
           tenantId: ctx.tenantId,
           type: "ticket_created",
+          targetIds: uniqueTargets,
+          targetType: "ADMIN",
           title: `Nuevo ticket: ${ticket.code} - ${ticket.title}`,
-          message: bellMessage,
-          emailMessage: emailLines.join("\n"),
+          body: bellMessage,
+          emailBody: emailLines.join("\n"),
+          link: `/opai/ops/tickets/${ticket.id}`,
           data: { ticketId: ticket.id, code: ticket.code, priority: ticket.priority },
-          link: `/ops/tickets/${ticket.id}`,
-          targetUserIds: [...new Set(targetUserIds)],
+        });
+      }
+
+      if (requiresApproval && approvalTargetIds.length > 0) {
+        const { notify } = await import("@/lib/notifications/notify");
+        await notify({
+          tenantId: ctx.tenantId,
+          type: "ticket_needs_approval",
+          targetIds: approvalTargetIds,
+          targetType: "ADMIN",
+          title: `Ticket ${ticket.code} pendiente de aprobación`,
+          body: `"${ticket.title}" requiere tu aprobación`,
+          link: `/opai/ops/tickets/${ticket.id}`,
+          data: { ticketId: ticket.id, code: ticket.code },
+        });
+      }
+
+      // Notificar al nuevo responsable si fue asignado al crear el ticket.
+      if (ticket.assignedTo && ticket.assignedTo !== ctx.userId) {
+        const { notifyTicketAssigned } = await import(
+          "@/lib/notifications/notify-ticket-assigned"
+        );
+        await notifyTicketAssigned({
+          tenantId: ctx.tenantId,
+          ticketId: ticket.id,
+          ticketCode: ticket.code,
+          ticketTitle: ticket.title,
+          ticketPriority: ticket.priority,
+          ticketAssignedTeam: ticket.assignedTeam,
+          assigneeId: ticket.assignedTo,
+          assignedById: ctx.userId,
+          source: "creation",
         });
       }
     } catch (err) {
-      console.error("[OPS] Error sending ticket creation notification:", err);
-    }
-
-    // Push: ticket_needs_approval
-    if (requiresApproval && approvalTargetIds.length > 0) {
-      try {
-        const { sendPushToSpecificAdmins } = await import('@/lib/pwa/push-service');
-        await sendPushToSpecificAdmins(
-          ctx.tenantId,
-          approvalTargetIds,
-          'ticket_needs_approval',
-          `Ticket ${ticket.code} pendiente de aprobación`,
-          `"${ticket.title}" requiere tu aprobación`,
-          `/opai/ops/tickets/${ticket.id}`,
-        );
-      } catch (err) {
-        console.error('[OPS] Error sending ticket_needs_approval push:', err);
-      }
+      console.error("[OPS] Error notifying ticket creation:", err);
     }
 
     return NextResponse.json(

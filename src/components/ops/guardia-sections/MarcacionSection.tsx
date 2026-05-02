@@ -56,19 +56,20 @@ export default function MarcacionSection({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Face ID */}
-      <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 bg-card/40 p-4 sm:p-5 transition-colors hover:bg-card/60 hover:border-border">
+        <div className="flex items-center gap-3 min-w-0">
           {faceIdRegistered && faceIdPhotoUrl ? (
-            <img src={faceIdPhotoUrl} className="w-16 h-16 rounded-full object-cover" alt="Face ID" />
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={faceIdPhotoUrl} className="w-14 h-14 sm:w-16 sm:h-16 rounded-full object-cover ring-1 ring-border/60" alt="Face ID" />
           ) : (
-            <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center">
+            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-muted/40 flex items-center justify-center ring-1 ring-border/40">
               <ScanFace className="h-7 w-7 text-muted-foreground" />
             </div>
           )}
-          <div>
-            <p className="text-sm font-medium">Face ID</p>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-foreground">Face ID</p>
             {faceIdRegistered && faceIdRegisteredAt ? (
               <p className="text-xs text-muted-foreground mt-0.5">
                 Registrado el{" "}
@@ -85,12 +86,12 @@ export default function MarcacionSection({
         </div>
         <div className="flex items-center gap-2">
           {faceIdRegistered ? (
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
-              Face ID Activo
+            <span className="inline-flex items-center rounded-full border border-status-ok-border bg-status-ok-soft px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-status-ok-fg">
+              Activo
             </span>
           ) : (
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
-              Face ID No Registrado
+            <span className="inline-flex items-center rounded-full border border-border/60 bg-muted/40 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+              No registrado
             </span>
           )}
           {canManageGuardias && faceIdRegistered && (
@@ -102,14 +103,16 @@ export default function MarcacionSection({
               disabled={faceIdResetting}
             >
               {faceIdResetting && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
-              Resetear Face ID
+              Resetear
             </Button>
           )}
         </div>
       </div>
-      <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
-        <div>
-          <p className="text-sm font-medium">PIN de marcación</p>
+
+      {/* PIN de marcación — estado */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 bg-card/40 p-4 sm:p-5 transition-colors hover:bg-card/60 hover:border-border">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-foreground">PIN de marcación</p>
           <p className="text-xs text-muted-foreground mt-0.5">
             {marcacionPin
               ? "PIN configurado — el guardia puede marcar asistencia"
@@ -117,24 +120,24 @@ export default function MarcacionSection({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {marcacionPin && (
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
+          {marcacionPin ? (
+            <span className="inline-flex items-center rounded-full border border-status-ok-border bg-status-ok-soft px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-status-ok-fg">
               Activo
             </span>
-          )}
-          {!marcacionPin && (
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
+          ) : (
+            <span className="inline-flex items-center rounded-full border border-border/60 bg-muted/40 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
               Sin PIN
             </span>
           )}
         </div>
       </div>
 
-      <div className="rounded-lg border border-border bg-background px-4 py-3">
-        <p className="text-xs text-muted-foreground">PIN activo</p>
+      {/* PIN activo (visible cuando aplica) */}
+      <div className="rounded-xl border border-border/60 bg-card/40 px-4 py-3 sm:px-5 sm:py-4">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">PIN activo</p>
         {SHOW_PIN_IN_PROFILE && marcacionPinVisible ? (
-          <div className="mt-2 flex items-center justify-between gap-3">
-            <p className="text-2xl font-mono font-semibold tracking-[0.2em]">{marcacionPinVisible}</p>
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-2xl font-mono font-semibold tracking-[0.2em] text-foreground">{marcacionPinVisible}</p>
             <Button
               size="sm"
               variant="outline"
@@ -222,25 +225,25 @@ function MarcacionPinSection({
   return (
     <div className="space-y-3">
       {generatedPin && (
-        <div className="p-4 bg-emerald-950/50 border border-emerald-700/50 rounded-lg dark:bg-emerald-900/20 dark:border-emerald-600/50">
-          <p className="text-sm font-medium text-emerald-200 mb-2">
-            PIN generado (queda registrado en el sistema para marcación):
+        <div className="rounded-xl border border-status-ok-border bg-status-ok-soft p-4 sm:p-5">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-status-ok-fg/90 mb-2">
+            PIN generado
           </p>
           <div className="flex items-center gap-3 flex-wrap">
-            <span className="text-3xl font-mono font-bold tracking-[0.3em] text-emerald-100">
+            <span className="text-3xl font-mono font-bold tracking-[0.3em] text-status-ok-fg">
               {generatedPin}
             </span>
             <Button
               size="sm"
               variant="secondary"
-              className="bg-emerald-700 hover:bg-emerald-600 text-white border-0"
+              className="bg-status-ok hover:bg-status-ok text-white border-0"
               onClick={handleCopyPin}
             >
               <Copy className="h-3.5 w-3.5 mr-1.5" />
               Copiar
             </Button>
           </div>
-          <p className="text-xs text-emerald-300/90 mt-2">
+          <p className="text-xs text-status-ok-fg/90 mt-2">
             PIN actualizado. También queda visible en la ficha para consulta operativa.
           </p>
         </div>

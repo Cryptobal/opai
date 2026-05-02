@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { FileText, Download, ExternalLink, Loader2, UserCircle, Check, Clock, X } from "lucide-react";
-import { EmptyState } from "@/components/opai/EmptyState";
+import { EmptyState } from "@/components/opai-ds";
 import { FilePreviewModal } from "@/components/ui/FilePreviewModal";
 
 import { getDocLabel } from "@/lib/personas";
@@ -35,7 +35,7 @@ function getStatusBadge(status: string, expiresAt: string | null) {
   today.setHours(0, 0, 0, 0);
   if (!expiresAt) {
     return status === "vigente" ? (
-      <span className="inline-flex items-center gap-1 text-emerald-500 text-xs">
+      <span className="inline-flex items-center gap-1 text-status-ok-fg text-xs">
         <Check className="h-3 w-3" /> Vigente
       </span>
     ) : (
@@ -45,7 +45,7 @@ function getStatusBadge(status: string, expiresAt: string | null) {
   const exp = new Date(expiresAt);
   if (exp <= today) {
     return (
-      <span className="inline-flex items-center gap-1 text-red-500 text-xs">
+      <span className="inline-flex items-center gap-1 text-status-danger-fg text-xs">
         <X className="h-3 w-3" /> Vencido
       </span>
     );
@@ -53,13 +53,13 @@ function getStatusBadge(status: string, expiresAt: string | null) {
   const daysLeft = Math.ceil((exp.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
   if (daysLeft <= 30) {
     return (
-      <span className="inline-flex items-center gap-1 text-amber-500 text-xs">
+      <span className="inline-flex items-center gap-1 text-status-warn-fg text-xs">
         <Clock className="h-3 w-3" /> Vence en {daysLeft}d
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1 text-emerald-500 text-xs">
+    <span className="inline-flex items-center gap-1 text-status-ok-fg text-xs">
       <Check className="h-3 w-3" /> Vigente
     </span>
   );

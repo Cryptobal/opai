@@ -150,7 +150,7 @@ export function ChatThreadPanel({
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <MessageSquare className="h-4 w-4 text-teal-500 shrink-0" />
+        <MessageSquare className="h-4 w-4 text-status-info-fg shrink-0" />
         <h3 className="text-sm font-semibold flex-1 text-[rgba(255,255,255,0.88)]">Hilo</h3>
         <span className="text-xs text-[rgba(255,255,255,0.28)]">
           {replies.length} {replies.length === 1 ? "respuesta" : "respuestas"}

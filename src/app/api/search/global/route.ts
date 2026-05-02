@@ -18,7 +18,7 @@ export type GlobalSearchResult = {
   title: string;
   subtitle: string;
   href: string;
-  /** Badge override for guardias: label + Tailwind classes (e.g. "Contratado" + "bg-emerald-500/20 text-emerald-400") */
+  /** Badge override for guardias: label + Tailwind classes (e.g. "Contratado" + "bg-status-ok-soft text-status-ok-fg") */
   badgeLabel?: string;
   badgeClass?: string;
   /** Photo/logo URL for guardias (faceIdPhotoUrl) and accounts (logoUrl) - shown in search result icon */
@@ -28,11 +28,11 @@ export type GlobalSearchResult = {
 };
 
 const LIFECYCLE_BADGE: Record<string, { label: string; class: string }> = {
-  postulante: { label: "Postulante", class: "bg-blue-500/20 text-blue-400" },
-  seleccionado: { label: "Seleccionado", class: "bg-amber-500/20 text-amber-400" },
-  contratado: { label: "Contratado", class: "bg-emerald-500/20 text-emerald-400" },
+  postulante: { label: "Postulante", class: "bg-status-info-soft text-status-info-fg" },
+  seleccionado: { label: "Seleccionado", class: "bg-status-warn-soft text-status-warn-fg" },
+  contratado: { label: "Contratado", class: "bg-status-ok-soft text-status-ok-fg" },
   te: { label: "TE", class: "bg-violet-500/20 text-violet-400" },
-  inactivo: { label: "Inactivo", class: "bg-red-500/20 text-red-400" },
+  inactivo: { label: "Inactivo", class: "bg-status-danger-soft text-status-danger-fg" },
 };
 
 const CRM_TYPE_LIMIT = 6;
@@ -178,6 +178,7 @@ export async function GET(request: NextRequest) {
             tenantId,
             OR: [
               { code: contains },
+              { name: contains },
               { clientName: contains },
               { notes: contains },
               ...(dealIdsForQuotes.length > 0 ? [{ dealId: { in: dealIdsForQuotes } }] : []),
@@ -189,6 +190,7 @@ export async function GET(request: NextRequest) {
           select: {
             id: true,
             code: true,
+            name: true,
             clientName: true,
             status: true,
             dealId: true,
@@ -262,11 +264,12 @@ export async function GET(request: NextRequest) {
         const dealTitle = dealIdForQuote
           ? quoteDealTitleById.get(dealIdForQuote) ?? "Sin negocio"
           : "Sin negocio";
+        const quoteName = quote.name?.trim();
         results.push({
           id: quote.id,
           type: "quote",
           group: "crm",
-          title: quote.code,
+          title: quoteName ? `${quote.code} · ${quoteName}` : quote.code,
           subtitle: [
             `Negocio: ${dealTitle}`,
             quote.clientName,
@@ -424,11 +427,11 @@ export async function GET(request: NextRequest) {
           // (el PIN se muestra en pinDisplay arriba a la derecha).
           let tipoBadge: { label: string; class: string };
           if (g.lifecycleStatus === "contratado") {
-            tipoBadge = { label: "Contratado", class: "bg-blue-500/20 text-blue-400" };
+            tipoBadge = { label: "Contratado", class: "bg-status-info-soft text-status-info-fg" };
           } else if (g.lifecycleStatus === "te") {
             tipoBadge = { label: "Turno Extra", class: "bg-purple-500/20 text-purple-400" };
           } else {
-            tipoBadge = LIFECYCLE_BADGE[g.lifecycleStatus] ?? { label: "Guardia", class: "bg-sky-400/20 text-sky-400" };
+            tipoBadge = LIFECYCLE_BADGE[g.lifecycleStatus] ?? { label: "Guardia", class: "bg-sky-400/20 text-status-info-fg" };
           }
           results.push({
             id: g.id,

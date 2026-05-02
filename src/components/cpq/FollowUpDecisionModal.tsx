@@ -207,8 +207,8 @@ export function FollowUpDecisionContent({
           </Select>
 
           {pendingCount > 0 && (
-            <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
-              <p className="text-xs text-amber-400 flex items-center gap-2">
+            <div className="rounded-lg border border-status-warn-border bg-status-warn-soft p-3">
+              <p className="text-xs text-status-warn-fg flex items-center gap-2">
                 <AlertTriangle className="h-4 w-4 shrink-0" />
                 Se cancelarán {pendingCount} seguimiento
                 {pendingCount > 1 ? "s" : ""} pendiente
@@ -241,7 +241,7 @@ export function FollowUpDecisionContent({
             <Button
               onClick={() => onConfirm(buildDecision(true))}
               disabled={isDisabled}
-              className="w-full gap-2 bg-green-600 hover:bg-green-700 text-white h-11"
+              className="w-full gap-2 bg-status-ok hover:brightness-110 text-white h-11"
             >
               {loading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

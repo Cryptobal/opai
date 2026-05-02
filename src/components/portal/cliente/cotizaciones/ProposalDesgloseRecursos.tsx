@@ -83,11 +83,11 @@ export function ProposalDesgloseRecursos({
         <div className="px-4 py-4 bg-slate-800/30 space-y-3">
           <div className="flex items-center gap-4 px-3 py-2 rounded-lg bg-white/[0.02] border border-white/[0.04] text-[10px] text-slate-500">
             <div className="flex items-center gap-1.5">
-              <div className="w-2 h-2 rounded-sm bg-teal-500/40" />
+              <div className="w-2 h-2 rounded-sm bg-status-info" />
               <span>Costos Directos</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <div className="w-2 h-2 rounded-sm bg-amber-500/40" />
+              <div className="w-2 h-2 rounded-sm bg-status-warn" />
               <span>Costos Indirectos</span>
             </div>
             <span className="ml-auto">{allCats.length} categorías</span>
@@ -96,8 +96,8 @@ export function ProposalDesgloseRecursos({
           {allCats.map((cat, catIdx) => {
             const isDirect = cat.categoryType === "direct";
             const isExpanded = expandedCats[catIdx] !== false;
-            const color = isDirect ? "text-teal-400" : "text-amber-400";
-            const bgColor = isDirect ? "bg-teal-500/10" : "bg-amber-500/10";
+            const color = isDirect ? "text-status-info-fg" : "text-status-warn-fg";
+            const bgColor = isDirect ? "bg-status-info-soft" : "bg-status-warn-soft";
 
             return (
               <div key={catIdx} className="rounded-lg border border-white/[0.06] overflow-hidden">

@@ -121,19 +121,19 @@ type ApiSearchResult = {
 };
 
 const SEARCH_TYPE_CONFIG: Record<SearchResultType, { icon: typeof Users; color: string; bgColor: string; label: string }> = {
-  lead:                  { icon: Users,        color: 'text-emerald-400', bgColor: 'bg-emerald-400/10', label: 'Lead' },
-  account:               { icon: Building2,    color: 'text-blue-400',    bgColor: 'bg-blue-400/10',    label: 'Cuenta' },
-  contact:               { icon: Contact,      color: 'text-sky-400',     bgColor: 'bg-sky-400/10',     label: 'Contacto' },
-  deal:                  { icon: TrendingUp,   color: 'text-purple-400',  bgColor: 'bg-purple-400/10',  label: 'Negocio' },
-  quote:                 { icon: FileText,     color: 'text-amber-400',   bgColor: 'bg-amber-400/10',   label: 'Cotización' },
-  installation:          { icon: MapPin,       color: 'text-teal-400',    bgColor: 'bg-teal-400/10',    label: 'Instalación' },
-  guardia:               { icon: ShieldUser,   color: 'text-sky-400',     bgColor: 'bg-sky-400/10',     label: 'Guardia' },
-  document:              { icon: File,         color: 'text-orange-400',  bgColor: 'bg-orange-400/10',  label: 'Documento' },
-  pauta_mensual:         { icon: CalendarDays, color: 'text-teal-400',    bgColor: 'bg-teal-400/10',    label: 'Pauta' },
-  channel:               { icon: MessageCircle,color: 'text-teal-400',    bgColor: 'bg-teal-400/10',    label: 'Chat' },
+  lead:                  { icon: Users,        color: 'text-status-ok-fg',     bgColor: 'bg-status-ok-soft',   label: 'Lead' },
+  account:               { icon: Building2,    color: 'text-status-info-fg',   bgColor: 'bg-status-info-soft', label: 'Cuenta' },
+  contact:               { icon: Contact,      color: 'text-status-info-fg',   bgColor: 'bg-status-info-soft', label: 'Contacto' },
+  deal:                  { icon: TrendingUp,   color: 'text-tint-violet-fg',   bgColor: 'bg-tint-violet',      label: 'Negocio' },
+  quote:                 { icon: FileText,     color: 'text-status-warn-fg',   bgColor: 'bg-status-warn-soft', label: 'Cotización' },
+  installation:          { icon: MapPin,       color: 'text-status-info-fg',   bgColor: 'bg-status-info-soft', label: 'Instalación' },
+  guardia:               { icon: ShieldUser,   color: 'text-status-info-fg',   bgColor: 'bg-status-info-soft', label: 'Guardia' },
+  document:              { icon: File,         color: 'text-status-warn-fg',   bgColor: 'bg-status-warn-soft', label: 'Documento' },
+  pauta_mensual:         { icon: CalendarDays, color: 'text-status-info-fg',   bgColor: 'bg-status-info-soft', label: 'Pauta' },
+  channel:               { icon: MessageCircle,color: 'text-status-info-fg',   bgColor: 'bg-status-info-soft', label: 'Chat' },
   inventory_product:     { icon: Package,      color: 'text-violet-400',  bgColor: 'bg-violet-400/10',  label: 'Producto' },
-  inventory_asset:       { icon: Cpu,          color: 'text-indigo-400',  bgColor: 'bg-indigo-400/10',  label: 'Activo' },
-  inventory_phone_line:  { icon: Phone,        color: 'text-cyan-400',    bgColor: 'bg-cyan-400/10',    label: 'Línea' },
+  inventory_asset:       { icon: Cpu,          color: 'text-status-info-fg',   bgColor: 'bg-status-info-soft', label: 'Activo' },
+  inventory_phone_line:  { icon: Phone,        color: 'text-status-info-fg',   bgColor: 'bg-status-info-soft', label: 'Línea' },
 };
 
 const GROUP_CATEGORY: Record<SearchResultGroup, CommandCategory> = {
@@ -377,23 +377,22 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
         paddingTop: 'env(safe-area-inset-top, 0px)',
       }}
     >
-      {/* Overlay — desktop only (mobile is full-screen sheet) */}
+      {/* Overlay — visible mobile + desktop */}
       <button
         type="button"
         aria-label="Cerrar buscador"
         onClick={handleClose}
-        className="absolute inset-0 hidden sm:block bg-black/70 backdrop-blur-md animate-in fade-in duration-200"
+        className="absolute inset-0 bg-black/60 backdrop-blur-md animate-in fade-in duration-200"
       />
 
-      {/* Sheet / Modal */}
+      {/* Sheet / Modal — liquid glass mobile + desktop */}
       <div
         className={cn(
-          'relative flex flex-col min-h-0',
-          // Mobile: fill screen (slide up from bottom)
-          'flex-1 w-full bg-background animate-in slide-in-from-bottom-4 fade-in duration-200',
+          'relative flex flex-col min-h-0 opai-liquid-glass',
+          // Mobile: fill screen (slide up from bottom) with bottom-sheet feel
+          'flex-1 w-full rounded-t-3xl animate-in slide-in-from-bottom-4 fade-in duration-200',
           // Desktop: centered card
-          'sm:flex-none sm:w-full sm:max-w-[640px] sm:mx-auto sm:rounded-2xl sm:border sm:border-border/60 sm:bg-card sm:shadow-2xl sm:shadow-black/40 sm:slide-in-from-top-4 sm:zoom-in-[0.98] sm:overflow-hidden',
-          'sm:ring-1 sm:ring-white/[0.03]',
+          'sm:flex-none sm:w-full sm:max-w-[640px] sm:mx-auto sm:rounded-2xl sm:slide-in-from-top-4 sm:zoom-in-[0.98] sm:overflow-hidden',
           isIOS && 'opai-ios-command-palette',
         )}
         style={{
@@ -543,8 +542,8 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
                               : cmd.category === 'action'
                                 ? 'bg-primary/10'
                                 : cmd.category === 'config'
-                                  ? 'bg-amber-500/10'
-                                  : 'bg-blue-500/10',
+                                  ? 'bg-status-warn-soft'
+                                  : 'bg-status-info-soft',
                         )}
                       >
                         {showImage ? (
@@ -576,8 +575,8 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
                                   : cmd.category === 'action'
                                     ? 'text-primary'
                                     : cmd.category === 'config'
-                                      ? 'text-amber-500'
-                                      : 'text-blue-500',
+                                      ? 'text-status-warn-fg'
+                                      : 'text-status-info-fg',
                             )}
                           />
                         </div>
@@ -636,16 +635,16 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
           <div className="hidden sm:flex items-center justify-between border-t border-border/60 bg-muted/20 px-4 py-2 shrink-0">
             <div className="flex items-center gap-4 text-[11px] text-muted-foreground">
               <span className="inline-flex items-center gap-1.5">
-                <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded border border-border/60 bg-background/80 px-1">
+                <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded border border-white/15 bg-white/10 px-1">
                   <ArrowUp className="h-3 w-3" />
                 </span>
-                <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded border border-border/60 bg-background/80 px-1">
+                <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded border border-white/15 bg-white/10 px-1">
                   <ArrowDown className="h-3 w-3" />
                 </span>
                 <span>navegar</span>
               </span>
               <span className="inline-flex items-center gap-1.5">
-                <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded border border-border/60 bg-background/80 px-1">
+                <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded border border-white/15 bg-white/10 px-1">
                   <CornerDownLeft className="h-3 w-3" />
                 </span>
                 <span>abrir</span>
@@ -659,7 +658,7 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
           {/* ── Footer (mobile — compact count + safe area spacer) ── */}
           <div
             className={cn(
-              'sm:hidden flex items-center justify-center border-t border-border/60 bg-muted/20 px-4 py-2 shrink-0 text-[11px] text-muted-foreground/70 tabular-nums',
+              'sm:hidden flex items-center justify-center border-t border-white/10 bg-white/5 px-4 py-2 shrink-0 text-[11px] text-muted-foreground/70 tabular-nums',
               isIOS && 'opai-ios-command-palette-chrome',
             )}
             style={{

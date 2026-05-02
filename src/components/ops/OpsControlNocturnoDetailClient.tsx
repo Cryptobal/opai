@@ -111,8 +111,8 @@ const STATUS_LABELS: Record<string, string> = {
 
 const STATUS_COLORS: Record<string, string> = {
   borrador: "bg-zinc-500/15 text-zinc-400",
-  enviado: "bg-emerald-500/15 text-emerald-400",
-  aprobado: "bg-emerald-500/15 text-emerald-400",
+  enviado: "bg-status-ok-soft text-status-ok-fg",
+  aprobado: "bg-status-ok-soft text-status-ok-fg",
 };
 
 const INST_STATUS_LABELS: Record<string, string> = {
@@ -123,9 +123,9 @@ const INST_STATUS_LABELS: Record<string, string> = {
 };
 
 const INST_STATUS_COLORS: Record<string, string> = {
-  normal: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
-  novedad: "bg-amber-500/15 text-amber-400 border-amber-500/30",
-  critico: "bg-red-500/15 text-red-400 border-red-500/30",
+  normal: "bg-status-ok-soft text-status-ok-fg border-status-ok-border",
+  novedad: "bg-status-warn-soft text-status-warn-fg border-status-warn-border",
+  critico: "bg-status-danger-soft text-status-danger-fg border-status-danger-border",
   no_aplica: "bg-zinc-500/15 text-zinc-400 border-zinc-500/30",
 };
 
@@ -138,8 +138,8 @@ const RONDA_STATUS_OPTIONS = [
 
 const RONDA_STATUS_COLORS: Record<string, string> = {
   pendiente: "bg-zinc-800 text-zinc-400 border-zinc-700",
-  completada: "bg-emerald-500/20 text-emerald-400 border-emerald-500/40",
-  omitida: "bg-red-500/20 text-red-400 border-red-500/40",
+  completada: "bg-status-ok-soft text-status-ok-fg border-status-ok-border",
+  omitida: "bg-status-danger-soft text-status-danger-fg border-status-danger-border",
   no_aplica: "bg-zinc-500/15 text-zinc-500 border-zinc-600",
 };
 
@@ -736,7 +736,7 @@ export function OpsControlNocturnoDetailClient({ reporteId }: Props) {
             <div>
               <div className="flex items-center justify-between mb-2 pt-2">
                 <p className="text-xs font-semibold flex items-center gap-1.5">
-                  <Moon className="h-3.5 w-3.5 text-indigo-400" />
+                  <Moon className="h-3.5 w-3.5 text-status-info-fg" />
                   Guardias nocturnos
                 </p>
                 {isEditable && (
@@ -786,7 +786,7 @@ export function OpsControlNocturnoDetailClient({ reporteId }: Props) {
                             onClick={() => updateGuardia(inst.id, gIdx, { isExtra: !g.isExtra })}
                             className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium border transition-colors ${
                               g.isExtra
-                                ? "bg-amber-500/20 text-amber-400 border-amber-500/40"
+                                ? "bg-status-warn-soft text-status-warn-fg border-status-warn-border"
                                 : "border-border text-muted-foreground"
                             }`}
                           >
@@ -795,7 +795,7 @@ export function OpsControlNocturnoDetailClient({ reporteId }: Props) {
                           <button
                             type="button"
                             onClick={() => removeGuardia(inst.id, gIdx)}
-                            className="shrink-0 p-1 text-muted-foreground hover:text-red-400 transition-colors"
+                            className="shrink-0 p-1 text-muted-foreground hover:text-status-danger-fg transition-colors"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
@@ -804,7 +804,7 @@ export function OpsControlNocturnoDetailClient({ reporteId }: Props) {
                         <div className="flex items-center gap-2 flex-1">
                           <span className="text-sm">{g.guardiaNombre}</span>
                           {g.isExtra && (
-                            <span className="rounded-full bg-amber-500/20 text-amber-400 px-1.5 py-0.5 text-[10px] font-medium">
+                            <span className="rounded-full bg-status-warn-soft text-status-warn-fg px-1.5 py-0.5 text-[10px] font-medium">
                               EXTRA
                             </span>
                           )}
@@ -824,7 +824,7 @@ export function OpsControlNocturnoDetailClient({ reporteId }: Props) {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <p className="text-xs font-semibold flex items-center gap-1.5">
-                  <Clock className="h-3.5 w-3.5 text-blue-400" />
+                  <Clock className="h-3.5 w-3.5 text-status-info-fg" />
                   Rondas
                 </p>
                 {isEditable && (
@@ -860,17 +860,17 @@ export function OpsControlNocturnoDetailClient({ reporteId }: Props) {
                         <span className="text-[10px]">—</span>
                       )}
                       {hasNote && (
-                        <MessageSquare className="absolute top-0.5 right-0.5 h-2.5 w-2.5 text-blue-400" />
+                        <MessageSquare className="absolute top-0.5 right-0.5 h-2.5 w-2.5 text-status-info-fg" />
                       )}
                     </button>
                   );
                 })}
               </div>
               <div className="flex items-center gap-3 mt-2 flex-wrap">
-                <span className="flex items-center gap-1 text-[10px] text-emerald-400">
+                <span className="flex items-center gap-1 text-[10px] text-status-ok-fg">
                   <CheckCircle2 className="h-2.5 w-2.5" /> OK
                 </span>
-                <span className="flex items-center gap-1 text-[10px] text-red-400">
+                <span className="flex items-center gap-1 text-[10px] text-status-danger-fg">
                   <XCircle className="h-2.5 w-2.5" /> Omitida
                 </span>
                 <span className="text-[10px] text-zinc-500">— Pendiente</span>
@@ -881,7 +881,7 @@ export function OpsControlNocturnoDetailClient({ reporteId }: Props) {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <p className="text-xs font-semibold flex items-center gap-1.5">
-                  <Building2 className="h-3.5 w-3.5 text-orange-400" />
+                  <Building2 className="h-3.5 w-3.5 text-status-warn-fg" />
                   Relevo mañana
                 </p>
                 {isEditable && (
@@ -935,7 +935,7 @@ export function OpsControlNocturnoDetailClient({ reporteId }: Props) {
                           onClick={() => updateRelevoDia(inst.id, rIdx, { isExtra: !r.isExtra })}
                           className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium border transition-colors ${
                             r.isExtra
-                              ? "bg-amber-500/20 text-amber-400 border-amber-500/40"
+                              ? "bg-status-warn-soft text-status-warn-fg border-status-warn-border"
                               : "border-border text-muted-foreground"
                           }`}
                         >
@@ -944,7 +944,7 @@ export function OpsControlNocturnoDetailClient({ reporteId }: Props) {
                         <button
                           type="button"
                           onClick={() => removeRelevoDia(inst.id, rIdx)}
-                          className="shrink-0 p-1 text-muted-foreground hover:text-red-400 transition-colors"
+                          className="shrink-0 p-1 text-muted-foreground hover:text-status-danger-fg transition-colors"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
@@ -967,7 +967,7 @@ export function OpsControlNocturnoDetailClient({ reporteId }: Props) {
                       <div key={rIdx} className="flex items-center gap-2 text-sm">
                         <span>{r.nombre || "—"}</span>
                         {r.isExtra && (
-                          <span className="rounded-full bg-amber-500/20 text-amber-400 px-1.5 py-0.5 text-[10px] font-medium">
+                          <span className="rounded-full bg-status-warn-soft text-status-warn-fg px-1.5 py-0.5 text-[10px] font-medium">
                             EXTRA
                           </span>
                         )}
@@ -1066,15 +1066,15 @@ export function OpsControlNocturnoDetailClient({ reporteId }: Props) {
               <p className="text-[10px] text-muted-foreground">Total</p>
             </div>
             <div className="text-center">
-              <p className="text-lg font-bold text-emerald-400">{stats.ok}</p>
+              <p className="text-lg font-bold text-status-ok-fg">{stats.ok}</p>
               <p className="text-[10px] text-muted-foreground">Normal</p>
             </div>
             <div className="text-center">
-              <p className="text-lg font-bold text-amber-400">{stats.novedad}</p>
+              <p className="text-lg font-bold text-status-warn-fg">{stats.novedad}</p>
               <p className="text-[10px] text-muted-foreground">Novedad</p>
             </div>
             <div className="text-center">
-              <p className="text-lg font-bold text-red-400">{stats.critico}</p>
+              <p className="text-lg font-bold text-status-danger-fg">{stats.critico}</p>
               <p className="text-[10px] text-muted-foreground">Crítico</p>
             </div>
           </div>
@@ -1131,8 +1131,8 @@ export function OpsControlNocturnoDetailClient({ reporteId }: Props) {
                 </div>
                 <div className="flex items-center gap-2 text-[11px] text-muted-foreground flex-wrap">
                   <span>Normal: {group.normales}</span>
-                  <span className="text-amber-400">Novedad: {group.novedades}</span>
-                  <span className="text-red-400">Crítico: {group.criticos}</span>
+                  <span className="text-status-warn-fg">Novedad: {group.novedades}</span>
+                  <span className="text-status-danger-fg">Crítico: {group.criticos}</span>
                 </div>
               </div>
 
@@ -1192,7 +1192,7 @@ export function OpsControlNocturnoDetailClient({ reporteId }: Props) {
         )}
         {(reporte.status === "aprobado" || reporte.status === "enviado") && (
           <>
-            <p className="text-xs text-emerald-400 flex items-center gap-1.5">
+            <p className="text-xs text-status-ok-fg flex items-center gap-1.5">
               <CheckCircle2 className="h-4 w-4" />
               Reporte enviado
             </p>
@@ -1314,7 +1314,7 @@ export function OpsControlNocturnoDetailClient({ reporteId }: Props) {
                       }
                       className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium border transition-colors ${
                         item.isExtra
-                          ? "bg-amber-500/20 text-amber-400 border-amber-500/40"
+                          ? "bg-status-warn-soft text-status-warn-fg border-status-warn-border"
                           : "border-border text-muted-foreground"
                       }`}
                     >
@@ -1327,7 +1327,7 @@ export function OpsControlNocturnoDetailClient({ reporteId }: Props) {
                           prev.length > 1 ? prev.filter((_, rowIdx) => rowIdx !== idx) : prev,
                         )
                       }
-                      className="shrink-0 p-1 text-muted-foreground hover:text-red-400 transition-colors"
+                      className="shrink-0 p-1 text-muted-foreground hover:text-status-danger-fg transition-colors"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>

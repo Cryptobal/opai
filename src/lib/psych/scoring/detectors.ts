@@ -26,16 +26,22 @@ export function detectStraightLining(samples: LikertSample[]): boolean {
 export interface LieInput {
   value: unknown;
   extremeValues: number[]; // ej: [4, 5]
+  weights?: Record<number, number>;
 }
 
 export function computeLieScore(inputs: LieInput[]): number {
   if (inputs.length === 0) return 0;
-  let hits = 0;
+  let acc = 0;
   for (const inp of inputs) {
     const v = extractLikertValue(inp.value);
-    if (v !== null && inp.extremeValues.includes(v)) hits += 1;
+    if (v == null) continue;
+    if (inp.weights) {
+      acc += inp.weights[v] ?? 0;
+    } else if (inp.extremeValues.includes(v)) {
+      acc += 1;
+    }
   }
-  return hits / inputs.length;
+  return acc / inputs.length;
 }
 
 /**

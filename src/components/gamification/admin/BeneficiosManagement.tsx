@@ -38,7 +38,7 @@ export function BeneficiosManagement() {
       className: "w-16 text-center",
       render: (v: boolean) =>
         v ? (
-          <Check className="h-4 w-4 text-emerald-400 mx-auto" />
+          <Check className="h-4 w-4 text-status-ok-fg mx-auto" />
         ) : (
           <X className="h-4 w-4 text-muted-foreground mx-auto" />
         ),
@@ -52,7 +52,7 @@ export function BeneficiosManagement() {
           <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
             <Pencil className="h-3.5 w-3.5" />
           </Button>
-          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-red-400 hover:text-red-300">
+          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-status-danger-fg hover:text-status-danger-fg">
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
         </div>

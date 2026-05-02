@@ -11,15 +11,15 @@ interface HubAlertsBannerProps {
 }
 
 const severityStyles = {
-  critical: 'border-red-500/40 bg-red-500/10 text-red-400',
-  warning: 'border-amber-500/40 bg-amber-500/10 text-amber-400',
-  info: 'border-blue-500/40 bg-blue-500/10 text-blue-400',
+  critical: 'border-status-danger-border bg-status-danger-soft text-status-danger-fg',
+  warning: 'border-status-warn-border bg-status-warn-soft text-status-warn-fg',
+  info: 'border-status-info-border bg-status-info-soft text-status-info-fg',
 } as const;
 
 const severityIconBg = {
-  critical: 'bg-red-500/20',
-  warning: 'bg-amber-500/20',
-  info: 'bg-blue-500/20',
+  critical: 'bg-status-danger-soft',
+  warning: 'bg-status-warn-soft',
+  info: 'bg-status-info-soft',
 } as const;
 
 const severityIcons = {

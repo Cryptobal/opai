@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { AlertTriangle, ChevronRight, MessageCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { whatsappUrlWithMessage, HUB_WHATSAPP_MESSAGES } from '../_lib/hub-utils';
+import { whatsappUrlWithMessage, HUB_WHATSAPP_MESSAGES, formatCLP } from '../_lib/hub-utils';
 import type { ClosingStaleDeal } from '../_lib/hub-types';
 
 interface Props {
@@ -12,7 +12,7 @@ interface Props {
 
 function DaysBadge({ days }: { days: number | null }) {
   if (days === null) return null;
-  const color = days > 30 ? 'text-red-400 border-red-500/30' : 'text-amber-400 border-amber-500/30';
+  const color = days > 30 ? 'text-status-danger-fg border-status-danger-border' : 'text-status-warn-fg border-status-warn-border';
   return (
     <span className={`text-xs font-bold tabular-nums border rounded px-1.5 py-0.5 ${color}`}>
       {days}d
@@ -38,7 +38,7 @@ export function HubStaleDeals({ deals, sellerFirstName, tenantName }: Props) {
   return (
     <div>
       <div className="flex items-center gap-2 mb-2">
-        <AlertTriangle className="h-3.5 w-3.5 text-amber-400" />
+        <AlertTriangle className="h-3.5 w-3.5 text-status-warn-fg" />
         <p className="text-sm font-bold">Sin actividad</p>
         <Badge variant="destructive" className="text-xs px-1.5 py-0 h-4">
           {deals.length}
@@ -59,30 +59,44 @@ export function HubStaleDeals({ deals, sellerFirstName, tenantName }: Props) {
           return (
             <div
               key={deal.id}
-              className="flex items-center gap-2 px-3 py-2.5 transition-colors hover:bg-accent/20"
+              className="flex flex-col md:flex-row md:items-center gap-2 px-3 py-2.5 transition-colors hover:bg-accent/20"
               style={{ borderLeft: `3px solid ${deal.stageColor ?? 'hsl(var(--border))'}` }}
             >
-              <Link href={`/crm/deals/${deal.id}`} className="min-w-0 flex-1 flex items-center gap-2 no-underline">
+              <Link
+                href={`/crm/deals/${deal.id}`}
+                className="min-w-0 flex-1 flex items-start md:items-center gap-2 no-underline"
+              >
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-bold truncate">{deal.companyName}</p>
-                  <p className="text-sm text-muted-foreground truncate">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-bold truncate">{deal.companyName}</p>
+                    {deal.amount > 0 && (
+                      <span className="text-xs font-bold tabular-nums text-status-ok-fg whitespace-nowrap">
+                        {formatCLP(Math.round(deal.amount))}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground truncate">
                     {deal.contactName}
                     <span style={{ color: deal.stageColor ?? undefined }}> · {deal.stageName}</span>
                   </p>
+                  <p className="text-[11px] text-status-warn-fg/90 mt-0.5">
+                    {deal.issue}
+                  </p>
                 </div>
                 <DaysBadge days={days} />
-                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40 shrink-0" />
+                <ChevronRight className="hidden md:block h-3.5 w-3.5 text-muted-foreground/40 shrink-0" />
               </Link>
               {deal.contactPhone && (
                 <a
                   href={whatsappUrlWithMessage(deal.contactPhone, waMessage)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center rounded-md border border-border p-1.5 text-muted-foreground hover:bg-green-500 hover:text-white hover:border-green-500 transition-colors shrink-0"
-                  title="Enviar WhatsApp"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-md border border-status-ok-border bg-status-ok-soft px-2.5 py-1.5 text-xs font-medium text-status-ok-fg hover:bg-status-ok hover:text-white transition-colors shrink-0 w-full md:w-auto"
+                  title={`Enviar WhatsApp a ${deal.contactPhone}`}
                   onClick={(e) => e.stopPropagation()}
                 >
                   <MessageCircle className="h-3.5 w-3.5" />
+                  WhatsApp
                 </a>
               )}
             </div>

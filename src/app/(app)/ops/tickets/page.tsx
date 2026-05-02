@@ -2,7 +2,8 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
-import { PageHeader } from "@/components/opai";
+import { PageHero } from "@/components/opai-ds";
+import { TicketCheck } from "lucide-react";
 import { TicketsClient } from "@/components/ops/tickets";
 import { TicketsSubnav } from "@/components/ops/TicketsSubnav";
 
@@ -18,9 +19,13 @@ export default async function OpsTicketsPage() {
 
   return (
     <div className="space-y-6 min-w-0">
-      <PageHeader
+      <PageHero
+        icon={<TicketCheck />}
+        iconTone="emerald"
+        eyebrow={["Operaciones", "Tickets"]}
         title="Tickets"
-        description="Seguimiento de solicitudes, incidentes y requerimientos internos con SLA y prioridades."
+        subtitle="incidencias y requerimientos"
+        description="Seguimiento de solicitudes, incidentes y requerimientos internos con SLA, prioridades y workflow de aprobación."
       />
       <TicketsSubnav />
       <Suspense>

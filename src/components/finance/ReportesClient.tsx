@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { KpiCard, KpiGrid } from "@/components/opai";
+import { Stat, StatGrid } from "@/components/opai-ds";
 import {
   Download,
   Loader2,
@@ -58,11 +58,11 @@ const STATUS_LABELS: Record<string, string> = {
 
 const STATUS_COLORS: Record<string, string> = {
   DRAFT: "bg-zinc-500/15 text-zinc-400",
-  SUBMITTED: "bg-blue-500/15 text-blue-400",
-  IN_APPROVAL: "bg-amber-500/15 text-amber-400",
-  APPROVED: "bg-emerald-500/15 text-emerald-400",
-  REJECTED: "bg-red-500/15 text-red-400",
-  PAID: "bg-purple-500/15 text-purple-400",
+  SUBMITTED: "bg-status-info-soft text-status-info-fg",
+  IN_APPROVAL: "bg-status-warn-soft text-status-warn-fg",
+  APPROVED: "bg-status-ok-soft text-status-ok-fg",
+  REJECTED: "bg-status-danger-soft text-status-danger-fg",
+  PAID: "bg-tint-violet text-tint-violet-fg",
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -166,19 +166,19 @@ export function ReportesClient({
   return (
     <div className="space-y-6">
       {/* Grand total cards */}
-      <KpiGrid columns={4}>
-        <KpiCard title="Total rendiciones" value={totalCount} />
-        <KpiCard title="Monto total" value={fmtCLP.format(totalAmount)} />
+      <StatGrid lgCols={4}>
+        <Stat label="Total rendiciones" value={totalCount} />
+        <Stat label="Monto total" value={fmtCLP.format(totalAmount)} />
         {typeSummary.map((ts) => (
-          <KpiCard
+          <Stat
             key={ts.type}
-            title={TYPE_LABELS[ts.type] ?? ts.type}
+            label={TYPE_LABELS[ts.type] ?? ts.type}
             value={fmtCLP.format(ts.amount)}
-            icon={ts.type === "MILEAGE" ? <Car className="h-4 w-4" /> : <Receipt className="h-4 w-4" />}
-            description={`${ts.count} rendición(es)`}
+            icon={ts.type === "MILEAGE" ? Car : Receipt}
+            hint={`${ts.count} rendición(es)`}
           />
         ))}
-      </KpiGrid>
+      </StatGrid>
 
       {/* Status breakdown */}
       <Card>
@@ -215,15 +215,15 @@ export function ReportesClient({
                       className={cn(
                         "h-full rounded-full transition-all",
                         s.status === "PAID"
-                          ? "bg-purple-500"
+                          ? "bg-tint-violet"
                           : s.status === "APPROVED"
-                          ? "bg-emerald-500"
+                          ? "bg-status-ok"
                           : s.status === "REJECTED"
-                          ? "bg-red-500"
+                          ? "bg-status-danger"
                           : s.status === "IN_APPROVAL"
-                          ? "bg-amber-500"
+                          ? "bg-status-warn"
                           : s.status === "SUBMITTED"
-                          ? "bg-blue-500"
+                          ? "bg-status-info"
                           : "bg-zinc-500"
                       )}
                       style={{ width: `${Math.max(pct, 1)}%` }}

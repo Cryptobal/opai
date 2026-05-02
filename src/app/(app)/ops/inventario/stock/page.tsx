@@ -1,8 +1,9 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
+import { Layers } from "lucide-react";
 import { auth } from "@/lib/auth";
-import { resolvePagePerms, canView } from "@/lib/permissions-server";
-import { PageHeader } from "@/components/opai";
+import { resolvePagePerms, canView, canEdit } from "@/lib/permissions-server";
+import { PageHero, Spinner } from "@/components/opai-ds";
 import { InventarioStockClient } from "@/components/inventario/InventarioStockClient";
 import { InventarioSubnav } from "@/components/ops/InventarioSubnav";
 
@@ -16,16 +17,24 @@ export default async function InventarioStockPage() {
     redirect("/hub");
   }
 
+  const allowEdit = canEdit(perms, "ops", "inventario");
+
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHeader
-        title="Stock"
-        description="Stock actual por bodega y variante."
-      />
+    <div className="min-w-0">
       <InventarioSubnav />
-      <Suspense fallback={<p className="text-sm sm:text-base text-muted-foreground">Cargando stock…</p>}>
-        <InventarioStockClient />
-      </Suspense>
+      <section className="relative w-full pb-32 space-y-6">
+        <PageHero
+          icon={<Layers />}
+          iconTone="emerald"
+          eyebrow={["Operaciones", "Inventario", "Stock"]}
+          title="Stock por bodega"
+          subtitle="niveles y alertas"
+          description="Vista consolidada del inventario con costo promedio. Alertas automáticas cuando un ítem cae bajo el mínimo."
+        />
+        <Suspense fallback={<Spinner block label="Cargando stock…" />}>
+          <InventarioStockClient canEdit={allowEdit} />
+        </Suspense>
+      </section>
     </div>
   );
 }

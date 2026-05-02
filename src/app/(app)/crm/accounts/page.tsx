@@ -6,7 +6,8 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/opai";
+import { PageHero } from "@/components/opai-ds";
+import { Building2 } from "lucide-react";
 import { CrmAccountsClient } from "@/components/crm";
 
 export default async function CrmAccountsPage() {
@@ -32,9 +33,13 @@ export default async function CrmAccountsPage() {
 
   return (
     <>
-      <PageHeader
+      <PageHero
+        icon={<Building2 />}
+        iconTone="violet"
+        eyebrow={["Comercial", "Cuentas"]}
         title="Cuentas"
-        description="Prospectos y clientes"
+        subtitle="prospectos y clientes"
+        description="Listado de empresas en el portafolio. Cada cuenta agrupa sus contactos, instalaciones, negocios, cotizaciones y contratos."
       />
       <CrmAccountsClient initialAccounts={initialAccounts} />
     </>

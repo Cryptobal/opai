@@ -260,10 +260,10 @@ export function TicketsDashboard() {
                   <div
                     className={`h-full rounded-full transition-all ${
                       item.percentage >= 90
-                        ? "bg-emerald-500"
+                        ? "bg-status-ok"
                         : item.percentage >= 70
-                          ? "bg-yellow-500"
-                          : "bg-red-500"
+                          ? "bg-status-warn"
+                          : "bg-status-danger"
                     }`}
                     style={{ width: `${item.percentage}%` }}
                   />
@@ -288,10 +288,10 @@ export function TicketsDashboard() {
                 <div
                   className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
                     item.slaBreached
-                      ? "bg-red-500/20 text-red-500"
+                      ? "bg-status-danger-soft text-status-danger-fg"
                       : item.unassigned
-                        ? "bg-yellow-500/20 text-yellow-500"
-                        : "bg-amber-500/20 text-amber-500"
+                        ? "bg-status-warn-soft border border-status-warn-border text-status-warn-fg"
+                        : "bg-status-warn-soft text-status-warn-fg"
                   }`}
                 >
                   {item.slaBreached ? (
@@ -314,7 +314,7 @@ export function TicketsDashboard() {
                   <p className="truncate text-xs font-medium">{item.title}</p>
                 </div>
                 <span className={`shrink-0 text-[10px] font-medium ${
-                  item.slaBreached ? "text-red-500" : item.unassigned ? "text-yellow-500" : "text-amber-500"
+                  item.slaBreached ? "text-status-danger-fg" : item.unassigned ? "text-status-warn-fg" : "text-status-warn-fg"
                 }`}>
                   {item.reason}
                 </span>
@@ -343,7 +343,7 @@ function DashboardCard({
   return (
     <div
       className={`rounded-xl border p-4 space-y-3 ${
-        alert ? "border-red-500/30 bg-red-500/5" : "border-border bg-[#161b22]"
+        alert ? "border-status-danger-border bg-status-danger-soft" : "border-border bg-[#161b22]"
       }`}
     >
       <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -371,16 +371,16 @@ function KpiCard({
 }) {
   const variantStyles = {
     default: "border-border bg-[#161b22]",
-    amber: "border-amber-500/30 bg-amber-500/5",
-    red: "border-red-500/30 bg-red-500/5",
-    emerald: "border-emerald-500/30 bg-emerald-500/5",
+    amber: "border-status-warn-border bg-status-warn-soft",
+    red: "border-status-danger-border bg-status-danger-soft",
+    emerald: "border-status-ok-border bg-status-ok-soft",
   };
 
   const iconColors = {
     default: "text-muted-foreground",
-    amber: "text-amber-500",
-    red: "text-red-500",
-    emerald: "text-emerald-500",
+    amber: "text-status-warn-fg",
+    red: "text-status-danger-fg",
+    emerald: "text-status-ok-fg",
   };
 
   return (

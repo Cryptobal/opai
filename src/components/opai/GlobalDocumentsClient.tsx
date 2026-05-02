@@ -18,12 +18,14 @@ import {
   User,
   Building2,
   Globe,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { DocStatusBadge } from "@/components/ops/DocStatusBadge";
 import {
@@ -34,6 +36,13 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import {
+  CATEGORIA_LABEL,
+  CATEGORIA_ORDER,
+  CATEGORIA_DESCRIPTION,
+  categoriaForTipo,
+  type DocCategoria,
+} from "@/lib/docs-operacionales-categorias";
 
 /* ── Types ── */
 
@@ -50,6 +59,7 @@ type TipoDoc = {
   order: number;
   capa: string;
   obligatorioEnVisita: boolean;
+  useAsAiKnowledge: boolean;
   documentoActual: { id: string; status: string; fileName: string; expiresAt: string | null } | null;
 };
 
@@ -107,6 +117,32 @@ export function GlobalDocumentsClient() {
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Auto-seed silencioso: si el catálogo global no tiene ningún tipo de la
+  // categoría "Protocolos y Seguridad", siembra los defaults una sola vez.
+  useEffect(() => {
+    if (loading) return;
+    const tieneProtocolos = tiposGlobal.some(
+      (t) => categoriaForTipo({ codigo: t.codigo, nombre: t.nombre }) === "protocolos_seguridad",
+    );
+    if (tieneProtocolos) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/operacional/tipos/seed-protocolos", { method: "POST" });
+        const json = await res.json();
+        if (cancelled) return;
+        if (json.success && json.data?.created > 0) {
+          await fetchData();
+        }
+      } catch {
+        /* silent */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [loading, tiposGlobal, fetchData]);
 
   if (loading) {
     return (
@@ -366,7 +402,7 @@ function EmpresaTab({
               <p className="text-sm font-semibold">Cumplimiento: {vigentes}/{obligatorios.length} documentos vigentes</p>
               <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
                 {documents.filter((d) => d.status === "por_vencer").length > 0 && (
-                  <span className="flex items-center gap-1 text-amber-400">
+                  <span className="flex items-center gap-1 text-status-warn-fg">
                     <AlertTriangle className="h-3 w-3" /> {documents.filter((d) => d.status === "por_vencer").length} por vencer
                   </span>
                 )}
@@ -380,14 +416,16 @@ function EmpresaTab({
             <p className="text-2xl font-bold">{obligatorios.length > 0 ? Math.round((vigentes / obligatorios.length) * 100) : 100}%</p>
           </div>
           <div className="mt-3 h-2 rounded-full bg-zinc-800 overflow-hidden">
-            <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${obligatorios.length > 0 ? (vigentes / obligatorios.length) * 100 : 100}%` }} />
+            <div className="h-full rounded-full bg-status-ok transition-all" style={{ width: `${obligatorios.length > 0 ? (vigentes / obligatorios.length) * 100 : 100}%` }} />
           </div>
         </CardContent>
       </Card>
 
       {/* Actions */}
-      <div className="flex items-center justify-between">
-        <p className="text-xs text-muted-foreground">Tipos de documentos de empresa. Haz clic en el lápiz para editar.</p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs text-muted-foreground">
+          Documentos agrupados por categoría. Haz clic en el lápiz para editar.
+        </p>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => { setAddTipoOpen(true); setAddTipoForm({ nombre: "", normativa: "", obligatorio: false, tieneVencimiento: true, obligatorioEnVisita: true }); }}>
             <Plus className="h-3.5 w-3.5 mr-1.5" /> Nuevo tipo
@@ -402,85 +440,123 @@ function EmpresaTab({
         </div>
       </div>
 
-      {/* Checklist */}
-      <div className="space-y-2">
-        {tipos.map((tipo) => {
-          const doc = documents.find((d) => d.tipoId === tipo.id);
-          return (
-            <Card key={tipo.id}>
-              <CardContent className="flex items-center gap-3 py-3 px-4">
-                <div className="shrink-0">
-                  {doc ? (
-                    doc.status === "vigente" || doc.status === "no_aplica"
-                      ? <CheckCircle2 className="h-5 w-5 text-emerald-400" />
-                      : doc.status === "por_vencer"
-                        ? <AlertTriangle className="h-5 w-5 text-amber-400" />
-                        : <XCircle className="h-5 w-5 text-red-400" />
-                  ) : (
-                    <Circle className="h-5 w-5 text-zinc-600" />
-                  )}
+      {/* Checklist agrupado por categoría */}
+      <div className="space-y-5">
+        {(() => {
+          const grouped = new Map<DocCategoria, typeof tipos>();
+          for (const tipo of tipos) {
+            const cat = categoriaForTipo({ codigo: tipo.codigo, nombre: tipo.nombre });
+            if (!grouped.has(cat)) grouped.set(cat, []);
+            grouped.get(cat)!.push(tipo);
+          }
+          return CATEGORIA_ORDER.filter((c) => grouped.has(c)).map((cat) => {
+            const grupo = grouped.get(cat)!;
+            return (
+              <section key={cat} className="space-y-2">
+                <div className="flex items-center gap-2 px-1">
+                  <span aria-hidden className="h-1 w-1 rounded-full bg-primary" />
+                  <h4 className="text-[11px] font-mono font-semibold uppercase tracking-wider text-foreground/80">
+                    {CATEGORIA_LABEL[cat]}
+                  </h4>
+                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
+                    {grupo.length}
+                  </Badge>
+                  <p className="hidden sm:block text-[11px] text-muted-foreground/70 truncate">
+                    {CATEGORIA_DESCRIPTION[cat]}
+                  </p>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium truncate">{tipo.nombre}</p>
-                    {!tipo.obligatorio && <Badge variant="outline" className="text-[10px] px-1.5 py-0">Opcional</Badge>}
-                  </div>
-                  {tipo.normativa && <p className="text-xs text-muted-foreground truncate">{tipo.normativa}</p>}
-                  {doc && (
-                    <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
-                      <FileText className="h-3 w-3" />
-                      <span className="truncate">{doc.fileName}</span>
-                      <span>·</span>
-                      <span>{formatFileSize(doc.fileSize)}</span>
-                      {doc.expiresAt && (
-                        <><span>·</span><span>Vence: {new Intl.DateTimeFormat("es-CL", { timeZone: "UTC" }).format(new Date(doc.expiresAt))}</span></>
-                      )}
-                    </div>
-                  )}
+                <div className="space-y-1.5">
+                  {grupo.map((tipo) => {
+                    const doc = documents.find((d) => d.tipoId === tipo.id);
+                    return (
+                      <Card key={tipo.id} className="border-border/60">
+                        <CardContent className="flex flex-wrap items-center gap-x-3 gap-y-2 py-3 px-4">
+                          <div className="shrink-0">
+                            {doc ? (
+                              doc.status === "vigente" || doc.status === "no_aplica"
+                                ? <CheckCircle2 className="h-5 w-5 text-status-ok-fg" />
+                                : doc.status === "por_vencer"
+                                  ? <AlertTriangle className="h-5 w-5 text-status-warn-fg" />
+                                  : <XCircle className="h-5 w-5 text-status-danger-fg" />
+                            ) : (
+                              <Circle className="h-5 w-5 text-zinc-600" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="text-sm font-medium truncate">{tipo.nombre}</p>
+                              {!tipo.obligatorio && <Badge variant="outline" className="text-[10px] px-1.5 py-0">Opcional</Badge>}
+                              {tipo.useAsAiKnowledge && (
+                                <Badge
+                                  className="text-[10px] px-1.5 py-0 bg-status-ok-soft text-status-ok-fg border-transparent"
+                                  title="Este tipo se ofrece como insumo cuando la IA genera protocolos o preguntas de exámenes"
+                                >
+                                  <Sparkles className="h-2.5 w-2.5 mr-0.5" /> IA
+                                </Badge>
+                              )}
+                            </div>
+                            {tipo.normativa && <p className="text-xs text-muted-foreground truncate">{tipo.normativa}</p>}
+                            {doc && (
+                              <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground flex-wrap">
+                                <FileText className="h-3 w-3" />
+                                <span className="truncate">{doc.fileName}</span>
+                                <span>·</span>
+                                <span>{formatFileSize(doc.fileSize)}</span>
+                                {doc.expiresAt && (
+                                  <><span>·</span><span>Vence: {new Intl.DateTimeFormat("es-CL", { timeZone: "UTC" }).format(new Date(doc.expiresAt))}</span></>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                          <div className="shrink-0">{doc ? <DocStatusBadge status={doc.status} expiresAt={doc.expiresAt} /> : <DocStatusBadge status="sin_documento" />}</div>
+                          <VisitaCheckbox tipo={tipo} onRefresh={onRefresh} />
+                          <AiKnowledgeToggle tipo={tipo} onRefresh={onRefresh} />
+                          <div className="flex items-center gap-0.5 shrink-0">
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => {
+                              setEditTipo(tipo);
+                              setEditDoc(doc ?? null);
+                              setEditForm({
+                                nombre: tipo.nombre,
+                                normativa: tipo.normativa || "",
+                                obligatorio: tipo.obligatorio,
+                                obligatorioEnVisita: tipo.obligatorioEnVisita,
+                                tieneVencimiento: tipo.tieneVencimiento,
+                                diasAlerta: tipo.diasAlerta ?? 30,
+                                issuedAt: doc?.issuedAt ?? "",
+                                expiresAt: doc?.expiresAt ?? "",
+                              });
+                            }} title="Editar tipo">
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                            {doc?.fileUrl && (
+                              <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => window.open(doc.fileUrl, "_blank")} title="Ver PDF">
+                                <ExternalLink className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                            {doc ? (
+                              <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-status-danger-fg" onClick={() => setDeleteDocId(doc.id)} title="Eliminar documento">
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            ) : (
+                              <Button variant="outline" size="sm" onClick={() => { setUploadModal({ tipoId: tipo.id, tipoNombre: tipo.nombre }); setUploadFile(null); setUploadForm({ issuedAt: "", expiresAt: "", notes: "", customNombre: "", tieneVencimiento: true }); }}>
+                                <Upload className="h-3.5 w-3.5 mr-1.5" /> Cargar
+                              </Button>
+                            )}
+                            {!doc && (
+                              <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-status-danger-fg" onClick={() => setDeleteTipoId(tipo.id)} title="Eliminar tipo">
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
                 </div>
-                <div className="shrink-0">{doc ? <DocStatusBadge status={doc.status} expiresAt={doc.expiresAt} /> : <DocStatusBadge status="sin_documento" />}</div>
-                <VisitaCheckbox tipo={tipo} onRefresh={onRefresh} />
-                <div className="flex items-center gap-0.5 shrink-0">
-                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => {
-                    setEditTipo(tipo);
-                    setEditDoc(doc ?? null);
-                    setEditForm({
-                      nombre: tipo.nombre,
-                      normativa: tipo.normativa || "",
-                      obligatorio: tipo.obligatorio,
-                      obligatorioEnVisita: tipo.obligatorioEnVisita,
-                      tieneVencimiento: tipo.tieneVencimiento,
-                      diasAlerta: tipo.diasAlerta ?? 30,
-                      issuedAt: doc?.issuedAt ?? "",
-                      expiresAt: doc?.expiresAt ?? "",
-                    });
-                  }} title="Editar tipo">
-                    <Pencil className="h-3 w-3" />
-                  </Button>
-                  {doc?.fileUrl && (
-                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => window.open(doc.fileUrl, "_blank")} title="Ver PDF">
-                      <ExternalLink className="h-3.5 w-3.5" />
-                    </Button>
-                  )}
-                  {doc ? (
-                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-red-400" onClick={() => setDeleteDocId(doc.id)} title="Eliminar documento">
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  ) : (
-                    <Button variant="outline" size="sm" onClick={() => { setUploadModal({ tipoId: tipo.id, tipoNombre: tipo.nombre }); setUploadFile(null); setUploadForm({ issuedAt: "", expiresAt: "", notes: "", customNombre: "", tieneVencimiento: true }); }}>
-                      <Upload className="h-3.5 w-3.5 mr-1.5" /> Cargar
-                    </Button>
-                  )}
-                  {!doc && (
-                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-red-400" onClick={() => setDeleteTipoId(tipo.id)} title="Eliminar tipo">
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
+              </section>
+            );
+          });
+        })()}
       </div>
 
       {/* Upload Modal */}
@@ -740,14 +816,23 @@ function InstalacionTab({
                   <Building2 className="h-5 w-5 text-zinc-500" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <p className="text-sm font-medium truncate">{tipo.nombre}</p>
                     {!tipo.obligatorio && <Badge variant="outline" className="text-[10px] px-1.5 py-0">Opcional</Badge>}
                     {tipo.tieneVencimiento && <Badge variant="outline" className="text-[10px] px-1.5 py-0">Con vencimiento</Badge>}
+                    {tipo.useAsAiKnowledge && (
+                      <Badge
+                        className="text-[10px] px-1.5 py-0 bg-status-ok-soft text-status-ok-fg border-transparent"
+                        title="Este tipo se ofrece como insumo cuando la IA genera protocolos o preguntas de exámenes"
+                      >
+                        <Sparkles className="h-2.5 w-2.5 mr-0.5" /> IA
+                      </Badge>
+                    )}
                   </div>
                   {tipo.normativa && <p className="text-xs text-muted-foreground truncate">{tipo.normativa}</p>}
                 </div>
                 <VisitaCheckbox tipo={tipo} onRefresh={onRefresh} />
+                <AiKnowledgeToggle tipo={tipo} onRefresh={onRefresh} />
                 <div className="flex items-center gap-0.5 shrink-0">
                   <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => {
                     setEditTipo(tipo);
@@ -762,7 +847,7 @@ function InstalacionTab({
                   }} title="Editar tipo">
                     <Pencil className="h-3 w-3" />
                   </Button>
-                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-red-400" onClick={() => setDeleteTipoId(tipo.id)} title="Eliminar tipo">
+                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-status-danger-fg" onClick={() => setDeleteTipoId(tipo.id)} title="Eliminar tipo">
                     <Trash2 className="h-3 w-3" />
                   </Button>
                 </div>
@@ -914,6 +999,59 @@ function VisitaCheckbox({
 }
 
 /* ══════════════════════════════════════════════════
+   Shared: Toggle "Usar como base de IA"
+   ══════════════════════════════════════════════════ */
+
+function AiKnowledgeToggle({
+  tipo,
+  onRefresh,
+}: {
+  tipo: TipoDoc;
+  onRefresh: () => Promise<void>;
+}) {
+  const [updating, setUpdating] = useState(false);
+  return (
+    <div
+      className="flex items-center gap-1.5 text-xs whitespace-nowrap shrink-0"
+      title="Si está activo, este documento se ofrece como insumo cuando la IA genera protocolos o preguntas de exámenes."
+    >
+      <Sparkles
+        className={cn(
+          "h-3 w-3",
+          tipo.useAsAiKnowledge ? "text-status-ok-fg" : "text-muted-foreground/60",
+        )}
+      />
+      <Switch
+        checked={!!tipo.useAsAiKnowledge}
+        disabled={updating}
+        onCheckedChange={async (v) => {
+          setUpdating(true);
+          try {
+            const res = await fetch(`/api/operacional/tipos/${tipo.id}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ useAsAiKnowledge: v }),
+            });
+            const json = await res.json();
+            if (json.success) {
+              await onRefresh();
+            } else {
+              toast.error(json.error || "Error al actualizar");
+            }
+          } catch {
+            toast.error("Error al actualizar");
+          } finally {
+            setUpdating(false);
+          }
+        }}
+        aria-label="Usar como base de IA"
+      />
+      <span className="hidden sm:inline text-muted-foreground">Base IA</span>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════
    Upload Modal (global only)
    ══════════════════════════════════════════════════ */
 
@@ -965,7 +1103,7 @@ function UploadDocModal({
             <input type="file" accept=".pdf" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={(e) => { const f = e.target.files?.[0]; if (f) setUploadFile(f); e.target.value = ""; }} />
             {uploadFile ? (
               <div className="flex items-center gap-2 justify-center">
-                <FileText className="h-5 w-5 text-red-400" />
+                <FileText className="h-5 w-5 text-status-danger-fg" />
                 <span className="text-sm font-medium truncate">{uploadFile.name}</span>
                 <Badge variant="secondary">{formatFileSize(uploadFile.size)}</Badge>
               </div>

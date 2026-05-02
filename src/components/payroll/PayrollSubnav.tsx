@@ -1,6 +1,6 @@
 "use client";
 
-import { SubNav } from "@/components/opai";
+import { SubNav } from "@/components/opai-ds";
 import { Calculator, FileText, CalendarDays, Wallet, ClipboardCheck } from "lucide-react";
 
 export function PayrollSubnav() {

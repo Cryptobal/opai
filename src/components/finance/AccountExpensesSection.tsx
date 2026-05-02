@@ -6,8 +6,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { KpiCard } from "@/components/opai";
-import { DataTable, type DataTableColumn } from "@/components/opai-ds/DataTableLegacy";
+import { DataTable, EmptyState, Stat, type DataTableColumn } from "@/components/opai-ds";
+import { Receipt } from "lucide-react";
 
 interface AccountExpensesSectionProps {
   accountId: string;
@@ -16,11 +16,11 @@ interface AccountExpensesSectionProps {
 
 const STATUS_COLORS: Record<string, string> = {
   DRAFT: "bg-zinc-500/15 text-zinc-400",
-  SUBMITTED: "bg-blue-500/15 text-blue-400",
-  IN_APPROVAL: "bg-amber-500/15 text-amber-400",
-  APPROVED: "bg-emerald-500/15 text-emerald-400",
-  REJECTED: "bg-red-500/15 text-red-400",
-  PAID: "bg-purple-500/15 text-purple-400",
+  SUBMITTED: "bg-status-info-soft text-status-info-fg",
+  IN_APPROVAL: "bg-status-warn-soft text-status-warn-fg",
+  APPROVED: "bg-status-ok-soft text-status-ok-fg",
+  REJECTED: "bg-status-danger-soft text-status-danger-fg",
+  PAID: "bg-tint-violet text-tint-violet-fg",
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -61,42 +61,40 @@ interface ByInstallation {
   [key: string]: { total: number; count: number };
 }
 
-const columns: DataTableColumn[] = [
+const columns: DataTableColumn<RendicionRow>[] = [
   {
-    key: "code",
-    label: "Código",
-    render: (value, row) => (
+    id: "code",
+    header: "Código",
+    cell: (row) => (
       <Link
         href={`/finanzas/rendiciones/${row.id}`}
         className="text-primary hover:underline text-xs"
       >
-        {value}
+        {row.code}
       </Link>
     ),
   },
   {
-    key: "date",
-    label: "Fecha",
-    render: (value) =>
-      value ? format(new Date(value), "dd/MM/yy", { locale: es }) : "-",
+    id: "date",
+    header: "Fecha",
+    cell: (row) =>
+      row.date ? format(new Date(row.date), "dd/MM/yy", { locale: es }) : "-",
   },
   {
-    key: "amount",
-    label: "Monto",
-    className: "text-right",
-    render: (value) => (
-      <span className="font-mono">{fmtCLP(value || 0)}</span>
-    ),
+    id: "amount",
+    header: "Monto",
+    align: "right",
+    cell: (row) => fmtCLP(row.amount || 0),
   },
   {
-    key: "status",
-    label: "Estado",
-    render: (value) => (
+    id: "status",
+    header: "Estado",
+    cell: (row) => (
       <Badge
         variant="secondary"
-        className={`text-[10px] ${STATUS_COLORS[value] || ""}`}
+        className={`text-[10px] ${STATUS_COLORS[row.status] || ""}`}
       >
-        {STATUS_LABELS[value] || value}
+        {STATUS_LABELS[row.status] || row.status}
       </Badge>
     ),
   },
@@ -159,27 +157,18 @@ export function AccountExpensesSection({
     <div className="space-y-4">
       {/* Summary KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <KpiCard title="Total rendiciones" value={data.totals.count} size="sm" />
-        <KpiCard title="Gasto total" value={fmtCLP(data.totals.total)} size="sm" />
-        <KpiCard
-          title="Pagado"
-          value={fmtCLP(data.totals.paid)}
-          size="sm"
-          variant="purple"
-        />
-        <KpiCard
-          title="Pendiente"
-          value={fmtCLP(data.totals.pending)}
-          size="sm"
-          variant="amber"
-        />
+        <Stat label="Total rendiciones" value={data.totals.count} />
+        <Stat label="Gasto total" value={fmtCLP(data.totals.total)} />
+        <Stat label="Pagado" value={fmtCLP(data.totals.paid)} variant="brand" />
+        <Stat label="Pendiente" value={fmtCLP(data.totals.pending)} variant="warn" />
       </div>
 
       {/* Rendiciones table */}
       <DataTable
         columns={columns}
-        data={data.rendiciones.slice(0, 20)}
-        compact
+        rows={data.rendiciones.slice(0, 20)}
+        rowKey={(row) => row.id}
+        empty={<EmptyState icon={Receipt} title="Sin rendiciones" compact />}
       />
       {data.rendiciones.length > 20 && (
         <p className="text-xs text-muted-foreground mt-2 text-center">

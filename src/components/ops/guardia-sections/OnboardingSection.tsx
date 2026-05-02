@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   Check,
@@ -48,9 +47,9 @@ interface OnboardingSectionProps {
 
 const ESTADO_COLORS: Record<string, string> = {
   PENDIENTE: "bg-muted text-muted-foreground",
-  ENVIADO: "bg-amber-500/20 text-amber-400",
-  EN_PROGRESO: "bg-blue-500/20 text-blue-400",
-  COMPLETADO: "bg-green-500/20 text-green-400",
+  ENVIADO: "bg-status-warn-soft text-status-warn-fg",
+  EN_PROGRESO: "bg-status-info-soft text-status-info-fg",
+  COMPLETADO: "bg-status-ok-soft text-status-ok-fg",
 };
 
 const STEPPER_STEPS = [
@@ -96,13 +95,13 @@ function PortalAccessRow({
       <div className="flex items-center gap-2">
         {accessed ? (
           <>
-            <Check className="h-4 w-4 text-green-400" />
+            <Check className="h-4 w-4 text-status-ok-fg" />
             <span className="text-xs text-muted-foreground">
               {formatDate(date)}
             </span>
           </>
         ) : (
-          <X className="h-4 w-4 text-red-400" />
+          <X className="h-4 w-4 text-status-danger-fg" />
         )}
       </div>
     </div>
@@ -197,7 +196,7 @@ export default function OnboardingSection({
             <div
               className={`flex items-center justify-center w-7 h-7 rounded-full text-xs font-medium shrink-0 ${
                 i < current
-                  ? "bg-green-500/20 text-green-400"
+                  ? "bg-status-ok-soft text-status-ok-fg"
                   : i === current
                     ? "bg-primary/20 text-primary ring-1 ring-primary"
                     : "bg-muted text-muted-foreground"
@@ -212,7 +211,7 @@ export default function OnboardingSection({
             </span>
             {i < STEPPER_STEPS.length - 1 && (
               <div
-                className={`flex-1 h-px mx-1 ${i < current ? "bg-green-500/40" : "bg-border"}`}
+                className={`flex-1 h-px mx-1 ${i < current ? "bg-status-ok" : "bg-border"}`}
               />
             )}
           </div>
@@ -234,79 +233,74 @@ export default function OnboardingSection({
       </div>
 
       {/* Email info */}
-      <Card>
-        <CardContent className="pt-4 space-y-3">
-          <h4 className="text-sm font-medium flex items-center gap-2">
-            <Mail className="h-4 w-4" /> Email de onboarding
-          </h4>
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <div>
-              <p className="text-[10px] text-muted-foreground uppercase">
-                Enviado
-              </p>
-              <p>
-                {data.emailEnviado ? (
-                  <span className="flex items-center gap-1.5">
-                    <Check className="h-3.5 w-3.5 text-green-400" />
-                    {formatDate(data.fechaEnvio)}
-                  </span>
-                ) : (
-                  <span className="text-muted-foreground">No enviado</span>
-                )}
-              </p>
-            </div>
-            <div>
-              <p className="text-[10px] text-muted-foreground uppercase">
-                Abierto
-              </p>
-              <p>
-                {data.emailAbierto ? (
-                  <span className="flex items-center gap-1.5">
-                    <MailOpen className="h-3.5 w-3.5 text-green-400" />
-                    {formatDate(data.fechaAbierto)}
-                  </span>
-                ) : (
-                  <span className="text-muted-foreground">No abierto</span>
-                )}
-              </p>
-            </div>
+      <div className="rounded-xl border border-border/60 bg-card/40 p-4 sm:p-5 space-y-3">
+        <h4 className="text-sm font-semibold flex items-center gap-2 text-foreground">
+          <Mail className="h-4 w-4 text-muted-foreground" /> Email de onboarding
+        </h4>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80 mb-1">
+              Enviado
+            </p>
+            <p className="text-[13px]">
+              {data.emailEnviado ? (
+                <span className="flex items-center gap-1.5">
+                  <Check className="h-3.5 w-3.5 text-status-ok-fg" />
+                  {formatDate(data.fechaEnvio)}
+                </span>
+              ) : (
+                <span className="text-muted-foreground/70">No enviado</span>
+              )}
+            </p>
           </div>
-          {data.recordatorioEnviado && (
-            <div className="text-xs text-muted-foreground flex items-center gap-1.5">
-              <Clock className="h-3.5 w-3.5" />
-              Recordatorio enviado: {formatDate(data.fechaRecordatorio)}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80 mb-1">
+              Abierto
+            </p>
+            <p className="text-[13px]">
+              {data.emailAbierto ? (
+                <span className="flex items-center gap-1.5">
+                  <MailOpen className="h-3.5 w-3.5 text-status-ok-fg" />
+                  {formatDate(data.fechaAbierto)}
+                </span>
+              ) : (
+                <span className="text-muted-foreground/70">No abierto</span>
+              )}
+            </p>
+          </div>
+        </div>
+        {data.recordatorioEnviado && (
+          <div className="text-xs text-muted-foreground flex items-center gap-1.5 pt-1 border-t border-border/40">
+            <Clock className="h-3.5 w-3.5" />
+            Recordatorio enviado: {formatDate(data.fechaRecordatorio)}
+          </div>
+        )}
+      </div>
 
       {/* Portal access */}
-      <Card>
-        <CardContent className="pt-4">
-          <h4 className="text-sm font-medium mb-2">Acceso a portales</h4>
-          <PortalAccessRow
-            label="Portal del Guardia"
-            accessed={data.accesoPortalGuardia}
-            date={data.fechaAccesoGuardia}
-          />
-          <PortalAccessRow
-            label="Portal de Rondas"
-            accessed={data.accesoPortalRondas}
-            date={data.fechaAccesoRondas}
-          />
-          <PortalAccessRow
-            label="Portal de Acceso"
-            accessed={data.accesoPortalAcceso}
-            date={data.fechaAccesoAcceso}
-          />
-        </CardContent>
-      </Card>
+      <div className="rounded-xl border border-border/60 bg-card/40 p-4 sm:p-5">
+        <h4 className="text-sm font-semibold text-foreground mb-2">Acceso a portales</h4>
+        <PortalAccessRow
+          label="Portal del Guardia"
+          accessed={data.accesoPortalGuardia}
+          date={data.fechaAccesoGuardia}
+        />
+        <PortalAccessRow
+          label="Portal de Rondas"
+          accessed={data.accesoPortalRondas}
+          date={data.fechaAccesoRondas}
+        />
+        <PortalAccessRow
+          label="Portal de Acceso"
+          accessed={data.accesoPortalAcceso}
+          date={data.fechaAccesoAcceso}
+        />
+      </div>
 
       {/* Timeline de emails */}
       {logs.length > 0 && (
-        <Card>
-          <CardContent className="pt-4">
-            <h4 className="text-sm font-medium mb-3">Historial de emails</h4>
+        <div className="rounded-xl border border-border/60 bg-card/40 p-4 sm:p-5">
+          <h4 className="text-sm font-semibold text-foreground mb-3">Historial de emails</h4>
             <div className="space-y-2">
               {logs.map((log) => (
                 <div
@@ -315,7 +309,7 @@ export default function OnboardingSection({
                 >
                   <div className="mt-0.5">
                     {log.abierto ? (
-                      <MailOpen className="h-4 w-4 text-green-400" />
+                      <MailOpen className="h-4 w-4 text-status-ok-fg" />
                     ) : (
                       <Mail className="h-4 w-4 text-muted-foreground" />
                     )}
@@ -329,11 +323,11 @@ export default function OnboardingSection({
                   <span
                     className={`inline-flex shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
                       log.estado === "ABIERTO"
-                        ? "bg-green-500/20 text-green-400"
+                        ? "bg-status-ok-soft text-status-ok-fg"
                         : log.estado === "REBOTADO"
-                          ? "bg-red-500/20 text-red-400"
+                          ? "bg-status-danger-soft text-status-danger-fg"
                           : log.estado === "ENTREGADO"
-                            ? "bg-blue-500/20 text-blue-400"
+                            ? "bg-status-info-soft text-status-info-fg"
                             : "bg-muted text-muted-foreground"
                     }`}
                   >
@@ -341,9 +335,8 @@ export default function OnboardingSection({
                   </span>
                 </div>
               ))}
-            </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
 
       {/* Actions */}

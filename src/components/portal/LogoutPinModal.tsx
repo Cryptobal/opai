@@ -88,7 +88,7 @@ export function LogoutPinModal({ open, deviceToken, onConfirm, onCancel }: Logou
       <div className="w-full max-w-xs rounded-2xl border border-zinc-800 bg-[#0A0F1C] p-6 shadow-2xl">
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-2">
-            <Lock className="h-5 w-5 text-cyan-400" />
+            <Lock className="h-5 w-5 text-status-info-fg" />
             <h2 className="text-base font-semibold text-white">PIN de seguridad</h2>
           </div>
           <button
@@ -105,7 +105,7 @@ export function LogoutPinModal({ open, deviceToken, onConfirm, onCancel }: Logou
         </p>
 
         {error && (
-          <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-400">
+          <div className="mb-4 rounded-lg border border-status-danger-border bg-status-danger-soft px-3 py-2 text-xs text-status-danger-fg">
             {error}
           </div>
         )}
@@ -123,7 +123,7 @@ export function LogoutPinModal({ open, deviceToken, onConfirm, onCancel }: Logou
               onKeyDown={(e) => handleKeyDown(i, e)}
               disabled={loading}
               autoFocus={i === 0}
-              className="w-12 h-14 text-center text-xl font-bold rounded-xl border border-zinc-700 bg-zinc-900/60 text-white outline-none transition-colors focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+              className="w-12 h-14 text-center text-xl font-bold rounded-xl border border-zinc-700 bg-zinc-900/60 text-white outline-none transition-colors focus:border-status-info-border focus:ring-1 focus:ring-status-info-border"
             />
           ))}
         </div>
@@ -141,7 +141,7 @@ export function LogoutPinModal({ open, deviceToken, onConfirm, onCancel }: Logou
             type="button"
             onClick={handleSubmit}
             disabled={!isComplete || loading}
-            className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-cyan-500 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-cyan-400 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-status-info px-4 py-3 text-sm font-semibold text-white transition-colors hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? (
               <Loader2 className="h-4 w-4 animate-spin" />

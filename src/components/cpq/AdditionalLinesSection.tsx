@@ -133,7 +133,7 @@ export function AdditionalLinesSection({ lines, onChange, contractDuration = 12,
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7 text-muted-foreground hover:text-emerald-400"
+                    className="h-7 w-7 text-muted-foreground hover:text-status-ok-fg"
                     title="Guardar en catálogo"
                     onClick={() => handleSaveToCatalog(idx, line)}
                     disabled={savingIdx === idx}
@@ -189,7 +189,7 @@ export function AdditionalLinesSection({ lines, onChange, contractDuration = 12,
                   className={cn(
                     "h-5 rounded px-1.5 text-xs font-medium border transition-colors",
                     (line.recurrencia || "mensual") === r.value
-                      ? "border-purple-500/40 bg-purple-500/10 text-purple-400"
+                      ? "border-tint-violet-fg/40 bg-tint-violet text-tint-violet-fg"
                       : "border-transparent bg-muted/40 text-muted-foreground hover:bg-muted"
                   )}
                   onClick={() => updateLine(idx, { recurrencia: r.value })}
@@ -242,7 +242,7 @@ export function AdditionalLinesSection({ lines, onChange, contractDuration = 12,
             {/* Calculated total */}
             <div className="flex justify-end mt-1 text-xs">
               <span className="text-muted-foreground">
-                Venta: <span className="font-mono font-semibold text-purple-400">{formatCurrency(precioMensual)}</span>/mes
+                Venta: <span className="font-mono font-semibold text-tint-violet-fg">{formatCurrency(precioMensual)}</span>/mes
                 {isUnico && ` (${formatCurrency(precioVenta)} / ${contractDuration}m)`}
               </span>
             </div>
@@ -257,9 +257,9 @@ export function AdditionalLinesSection({ lines, onChange, contractDuration = 12,
       )}
 
       {lines.length > 0 && (
-        <div className={cn(CPQ_BREAKDOWN_SHELL, CPQ_BREAKDOWN_ROW, "pt-1 border-t border-purple-500/20 text-xs")}>
-          <span className="text-sm font-medium text-purple-300 break-words min-w-0">Total líneas adicionales</span>
-          <span className={cpqBreakdownAmount("text-sm font-bold text-purple-300")}>{formatCurrency(total)}</span>
+        <div className={cn(CPQ_BREAKDOWN_SHELL, CPQ_BREAKDOWN_ROW, "pt-1 border-t border-tint-violet-fg/20 text-xs")}>
+          <span className="text-sm font-medium text-tint-violet-fg break-words min-w-0">Total líneas adicionales</span>
+          <span className={cpqBreakdownAmount("text-sm font-bold text-tint-violet-fg")}>{formatCurrency(total)}</span>
         </div>
       )}
     </div>

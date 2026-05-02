@@ -38,7 +38,7 @@ export default function ForgotPinPage() {
       <Card className="w-full max-w-md bg-zinc-900 border-zinc-800">
         <CardHeader className="text-center pb-4">
           <div className="flex justify-center mb-3">
-            <Shield className="h-10 w-10 text-blue-400" />
+            <Shield className="h-10 w-10 text-status-info-fg" />
           </div>
           <CardTitle className="text-white text-xl">Recuperar acceso</CardTitle>
           <CardDescription className="text-zinc-400 text-sm">
@@ -60,11 +60,11 @@ export default function ForgotPinPage() {
                   autoComplete="email"
                 />
               </div>
-              {error && <p className="text-xs text-red-400">{error}</p>}
+              {error && <p className="text-xs text-status-danger-fg">{error}</p>}
               <Button
                 type="submit"
                 disabled={loading || !email.trim()}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                className="w-full bg-status-info hover:brightness-110 text-white"
               >
                 {loading ? (
                   <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Enviando...</>
@@ -83,7 +83,7 @@ export default function ForgotPinPage() {
             </form>
           ) : (
             <div className="text-center space-y-4 py-4">
-              <CheckCircle className="h-10 w-10 text-green-400 mx-auto" />
+              <CheckCircle className="h-10 w-10 text-status-ok-fg mx-auto" />
               <p className="text-zinc-300 text-sm">
                 Si ese correo tiene acceso al portal, recibirás un email con el enlace para restablecer tu PIN. Revisa también la carpeta de spam.
               </p>

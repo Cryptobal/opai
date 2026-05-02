@@ -108,7 +108,7 @@ export function ChatPresenceBar({
               <ArrowLeft className="h-4 w-4" />
             </button>
 
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-teal-400/90 text-sm font-black text-zinc-950 shadow-inner shadow-white/20 xl:hidden">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-status-info text-sm font-black text-zinc-950 shadow-inner shadow-white/20 xl:hidden">
               {channelName.charAt(0).toUpperCase()}
             </div>
 
@@ -161,17 +161,17 @@ export function ChatPresenceBar({
                   <DropdownMenuItem onClick={() => updatePref("ALL")} className={cn(notifPref === "ALL" && "bg-accent")}>
                     <Bell className="mr-2 h-3.5 w-3.5" />
                     Notificar todo
-                    {notifPref === "ALL" && <span className="ml-auto text-xs text-teal-400">✓</span>}
+                    {notifPref === "ALL" && <span className="ml-auto text-xs text-status-info-fg">✓</span>}
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => updatePref("MENTIONS_ONLY")} className={cn(notifPref === "MENTIONS_ONLY" && "bg-accent")}>
                     <AtSign className="mr-2 h-3.5 w-3.5" />
                     Solo menciones
-                    {notifPref === "MENTIONS_ONLY" && <span className="ml-auto text-xs text-teal-400">✓</span>}
+                    {notifPref === "MENTIONS_ONLY" && <span className="ml-auto text-xs text-status-info-fg">✓</span>}
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => updatePref("MUTED")} className={cn(notifPref === "MUTED" && "bg-accent")}>
                     <BellOff className="mr-2 h-3.5 w-3.5" />
                     Silenciar
-                    {notifPref === "MUTED" && <span className="ml-auto text-xs text-teal-400">✓</span>}
+                    {notifPref === "MUTED" && <span className="ml-auto text-xs text-status-info-fg">✓</span>}
                   </DropdownMenuItem>
                 </>
               )}
@@ -181,7 +181,7 @@ export function ChatPresenceBar({
                   {onClearMessages && (
                     <DropdownMenuItem
                       onClick={onClearMessages}
-                      className="text-red-400 focus:text-red-400"
+                      className="text-status-danger-fg focus:text-status-danger-fg"
                     >
                       <Trash2 className="mr-2 h-3.5 w-3.5" />
                       Limpiar conversación
@@ -239,7 +239,7 @@ export function ChatPresenceBar({
                     notifPref === "MUTED"
                       ? "text-zinc-500 hover:bg-zinc-800 hover:text-zinc-400"
                       : notifPref === "MENTIONS_ONLY"
-                        ? "text-amber-400 hover:bg-zinc-800"
+                        ? "text-status-warn-fg hover:bg-zinc-800"
                         : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
                   )}
                   title="Configurar notificaciones"
@@ -254,7 +254,7 @@ export function ChatPresenceBar({
                 >
                   <Bell className="mr-2 h-3.5 w-3.5" />
                   <span>Notificar todo</span>
-                  {notifPref === "ALL" && <span className="ml-auto text-xs text-teal-400">✓</span>}
+                  {notifPref === "ALL" && <span className="ml-auto text-xs text-status-info-fg">✓</span>}
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => updatePref("MENTIONS_ONLY")}
@@ -262,7 +262,7 @@ export function ChatPresenceBar({
                 >
                   <AtSign className="mr-2 h-3.5 w-3.5" />
                   <span>Solo menciones</span>
-                  {notifPref === "MENTIONS_ONLY" && <span className="ml-auto text-xs text-teal-400">✓</span>}
+                  {notifPref === "MENTIONS_ONLY" && <span className="ml-auto text-xs text-status-info-fg">✓</span>}
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => updatePref("MUTED")}
@@ -270,7 +270,7 @@ export function ChatPresenceBar({
                 >
                   <BellOff className="mr-2 h-3.5 w-3.5" />
                   <span>Silenciar</span>
-                  {notifPref === "MUTED" && <span className="ml-auto text-xs text-teal-400">✓</span>}
+                  {notifPref === "MUTED" && <span className="ml-auto text-xs text-status-info-fg">✓</span>}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -312,9 +312,9 @@ export function ChatPresenceBar({
                       <span
                         className={cn(
                           "text-[10px] font-medium px-1.5 py-0.5 rounded shrink-0",
-                          m.type === "ADMIN" && "bg-blue-500/15 text-blue-400",
-                          m.type === "GUARD" && "bg-emerald-500/15 text-emerald-400",
-                          m.type === "CLIENT" && "bg-amber-500/15 text-amber-400",
+                          m.type === "ADMIN" && "bg-status-info-soft text-status-info-fg",
+                          m.type === "GUARD" && "bg-status-ok-soft text-status-ok-fg",
+                          m.type === "CLIENT" && "bg-status-warn-soft text-status-warn-fg",
                         )}
                       >
                         {m.type === "ADMIN" ? "Admin" : m.type === "GUARD" ? "Guardia" : "Cliente"}

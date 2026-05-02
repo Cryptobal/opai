@@ -94,7 +94,7 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
       {/* Login form */}
       <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-5">
         {error && (
-          <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+          <div className="rounded-xl border border-status-danger-border bg-status-danger-soft px-4 py-3 text-sm text-status-danger-fg">
             {error}
           </div>
         )}
@@ -112,7 +112,7 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="guardia@gardsecurity.com"
-            className="w-full rounded-xl border border-gray-700 bg-gray-900/60 px-4 py-3 text-sm text-white placeholder-gray-500 outline-none transition-colors focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+            className="w-full rounded-xl border border-gray-700 bg-gray-900/60 px-4 py-3 text-sm text-white placeholder-gray-500 outline-none transition-colors focus:border-status-info-border focus:ring-1 focus:ring-status-info"
           />
         </div>
 
@@ -130,7 +130,7 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="********"
-              className="w-full rounded-xl border border-gray-700 bg-gray-900/60 px-4 py-3 pr-12 text-sm text-white placeholder-gray-500 outline-none transition-colors focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+              className="w-full rounded-xl border border-gray-700 bg-gray-900/60 px-4 py-3 pr-12 text-sm text-white placeholder-gray-500 outline-none transition-colors focus:border-status-info-border focus:ring-1 focus:ring-status-info"
             />
             <button
               type="button"
@@ -153,7 +153,7 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
             type="checkbox"
             checked={remember}
             onChange={(e) => setRemember(e.target.checked)}
-            className="h-4 w-4 rounded border-gray-600 bg-gray-800 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-0"
+            className="h-4 w-4 rounded border-gray-600 bg-gray-800 text-status-info-fg focus:ring-cyan-500 focus:ring-offset-0"
           />
           Recordar sesion
         </label>
@@ -162,7 +162,7 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
         <button
           type="submit"
           disabled={loading}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-500 px-4 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-cyan-400 disabled:opacity-60 disabled:cursor-not-allowed active:bg-cyan-600"
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-status-info px-4 py-3.5 text-sm font-semibold text-white transition-colors hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed active:brightness-95"
         >
           {loading ? (
             <>

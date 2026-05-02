@@ -26,8 +26,7 @@ import {
 import { DateRangePicker, type DateRange } from "@/components/ui/date-range-picker";
 import { PagosTab } from "@/components/finance/PagosTab";
 import type { Payment, PendingRendicion } from "@/components/finance/PagosTab";
-import { EmptyState } from "@/components/opai";
-import { DataTable, type DataTableColumn } from "@/components/opai-ds/DataTableLegacy";
+import { DataTable, EmptyState, type DataTableColumn } from "@/components/opai-ds";
 import {
   Plus,
   Receipt,
@@ -86,19 +85,19 @@ const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   },
   SUBMITTED: {
     label: "Enviada",
-    className: "bg-blue-500/15 text-blue-400 border-blue-500/30",
+    className: "bg-status-info-soft text-status-info-fg border-status-info-border",
   },
   APPROVED: {
     label: "Aprobada",
-    className: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+    className: "bg-status-ok-soft text-status-ok-fg border-status-ok-border",
   },
   REJECTED: {
     label: "Rechazada",
-    className: "bg-red-500/15 text-red-400 border-red-500/30",
+    className: "bg-status-danger-soft text-status-danger-fg border-status-danger-border",
   },
   PAID: {
     label: "Pagada",
-    className: "bg-purple-500/15 text-purple-400 border-purple-500/30",
+    className: "bg-tint-violet text-tint-violet-fg border-tint-violet-fg/30",
   },
 };
 
@@ -412,15 +411,15 @@ function RendicionesClientInner({
 
   const showSelection = canApprove || canPay;
 
-  const tableColumns: DataTableColumn[] = useMemo(
+  const tableColumns: DataTableColumn<RendicionRow>[] = useMemo(
     () => [
       ...(showSelection
         ? [
             {
-              key: "_select",
-              label: "",
-              className: "w-10",
-              render: (_: unknown, row: RendicionRow) => {
+              id: "_select",
+              header: "",
+              width: "w-10",
+              cell: (row: RendicionRow) => {
                 if (!isSelectable(row.status)) return <div className="w-4" />;
                 return (
                   <div
@@ -459,13 +458,13 @@ function RendicionesClientInner({
                   </div>
                 );
               },
-            } satisfies DataTableColumn,
+            } satisfies DataTableColumn<RendicionRow>,
           ]
         : []),
       {
-        key: "code",
-        label: "Código",
-        render: (value: string, row: RendicionRow) => (
+        id: "code",
+        header: "Código",
+        cell: (row) => (
           <button
             type="button"
             onClick={(e) => {
@@ -474,71 +473,67 @@ function RendicionesClientInner({
             }}
             className="font-mono text-xs text-primary underline hover:text-primary/80"
           >
-            {value}
+            {row.code}
           </button>
         ),
       },
       {
-        key: "date",
-        label: "Fecha",
-        render: (value: string) => (
+        id: "date",
+        header: "Fecha",
+        cell: (row) => (
           <span className="text-muted-foreground">
-            {format(new Date(value), "dd MMM yyyy", { locale: es })}
+            {format(new Date(row.date), "dd MMM yyyy", { locale: es })}
           </span>
         ),
       },
       {
-        key: "type",
-        label: "Tipo",
-        render: (value: string) => (
+        id: "type",
+        header: "Tipo",
+        cell: (row) => (
           <span className="inline-flex items-center gap-1 text-xs">
-            {value === "MILEAGE" ? (
+            {row.type === "MILEAGE" ? (
               <Car className="h-3 w-3" />
             ) : (
               <Receipt className="h-3 w-3" />
             )}
-            {TYPE_LABELS[value] ?? value}
+            {TYPE_LABELS[row.type] ?? row.type}
           </span>
         ),
       },
       {
-        key: "itemName",
-        label: "Ítem",
-        render: (value: string | null) => (
-          <span className="text-muted-foreground">{value ?? "—"}</span>
+        id: "itemName",
+        header: "Ítem",
+        cell: (row) => (
+          <span className="text-muted-foreground">{row.itemName ?? "—"}</span>
         ),
       },
       {
-        key: "description",
-        label: "Motivo",
-        render: (value: string | null) =>
-          value ? (
+        id: "description",
+        header: "Motivo",
+        cell: (row) =>
+          row.description ? (
             <span
               className="text-muted-foreground text-xs max-w-[150px] truncate block"
-              title={value}
+              title={row.description}
             >
-              {value}
+              {row.description}
             </span>
           ) : (
             <span className="text-muted-foreground">—</span>
           ),
       },
       {
-        key: "amount",
-        label: "Monto",
-        className: "text-right",
-        render: (value: number) => (
-          <span className="font-medium tabular-nums">
-            {fmtCLP.format(value)}
-          </span>
-        ),
+        id: "amount",
+        header: "Monto",
+        align: "right",
+        cell: (row) => <span className="font-medium">{fmtCLP.format(row.amount)}</span>,
       },
       {
-        key: "status",
-        label: "Estado",
-        render: (value: string) => {
-          const statusCfg = STATUS_CONFIG[value] ?? {
-            label: value,
+        id: "status",
+        header: "Estado",
+        cell: (row) => {
+          const statusCfg = STATUS_CONFIG[row.status] ?? {
+            label: row.status,
             className: "bg-muted text-muted-foreground",
           };
           return (
@@ -547,20 +542,20 @@ function RendicionesClientInner({
         },
       },
       {
-        key: "submitterName",
-        label: "Solicitante",
-        render: (value: string) => (
-          <span className="text-muted-foreground text-xs">{value}</span>
+        id: "submitterName",
+        header: "Solicitante",
+        cell: (row) => (
+          <span className="text-muted-foreground text-xs">{row.submitterName}</span>
         ),
       },
       {
-        key: "beneficiaryName",
-        label: "Destinatario",
-        render: (value: string | null) =>
-          value ? (
-            <span className="text-xs text-emerald-400 flex items-center gap-1">
+        id: "beneficiaryName",
+        header: "Destinatario",
+        cell: (row) =>
+          row.beneficiaryName ? (
+            <span className="text-xs text-status-ok-fg flex items-center gap-1">
               <ArrowRight className="h-3 w-3" />
-              {value}
+              {row.beneficiaryName}
             </span>
           ) : (
             <span className="text-muted-foreground text-xs">—</span>
@@ -706,7 +701,7 @@ function RendicionesClientInner({
           {/* Table / empty */}
           {filtered.length === 0 ? (
             <EmptyState
-              icon={<Receipt className="h-10 w-10" />}
+              icon={Receipt}
               title="Sin rendiciones"
               description={
                 hasActiveFilters
@@ -734,11 +729,12 @@ function RendicionesClientInner({
               <div className="hidden md:block">
                 <DataTable
                   columns={tableColumns}
-                  data={filtered}
+                  rows={filtered}
+                  rowKey={(row) => row.id}
                   onRowClick={(row) =>
                     isSelectable(row.status) ? toggleSelect(row.id) : undefined
                   }
-                  compact
+                  empty={<EmptyState icon={Receipt} title="Sin rendiciones" compact />}
                 />
               </div>
 
@@ -816,7 +812,7 @@ function RendicionesClientInner({
                           <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
                             <span>{r.submitterName}</span>
                             {r.beneficiaryName && (
-                              <span className="text-emerald-400">
+                              <span className="text-status-ok-fg">
                                 → {r.beneficiaryName}
                               </span>
                             )}
@@ -867,7 +863,7 @@ function RendicionesClientInner({
                   <Button
                     size="sm"
                     variant="outline"
-                    className="text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10"
+                    className="text-status-ok-fg border-status-ok-border hover:bg-status-ok-soft"
                     onClick={() => setApproveDialogOpen(true)}
                   >
                     <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
@@ -876,7 +872,7 @@ function RendicionesClientInner({
                   <Button
                     size="sm"
                     variant="outline"
-                    className="text-red-400 border-red-500/30 hover:bg-red-500/10"
+                    className="text-status-danger-fg border-status-danger-border hover:bg-status-danger-soft"
                     onClick={() => setRejectDialogOpen(true)}
                   >
                     <XCircle className="h-3.5 w-3.5 mr-1.5" />
@@ -905,7 +901,7 @@ function RendicionesClientInner({
             <DialogTitle>Aprobar rendiciones</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+            <div className="p-3 rounded-lg bg-status-ok-soft border border-status-ok-border">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Rendiciones a aprobar</span>
                 <span className="font-medium">{selectedApprovable.length}</span>
@@ -919,7 +915,7 @@ function RendicionesClientInner({
             </div>
 
             {selectedRendiciones.length > selectedApprovable.length && (
-              <p className="text-xs text-amber-400">
+              <p className="text-xs text-status-warn-fg">
                 {selectedRendiciones.length - selectedApprovable.length} rendición(es)
                 seleccionada(s) no están en estado aprobable y serán ignoradas.
               </p>
@@ -959,7 +955,7 @@ function RendicionesClientInner({
               <Button
                 onClick={handleBulkApprove}
                 disabled={processing}
-                className="bg-emerald-600 hover:bg-emerald-700"
+                className="bg-status-ok hover:brightness-110"
               >
                 {processing ? (
                   <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
@@ -980,7 +976,7 @@ function RendicionesClientInner({
             <DialogTitle>Rechazar rendiciones</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20">
+            <div className="p-3 rounded-lg bg-status-danger-soft border border-status-danger-border">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Rendiciones a rechazar</span>
                 <span className="font-medium">{selectedApprovable.length}</span>
@@ -1062,7 +1058,7 @@ function RendicionesClientInner({
             </div>
 
             {selectedRendiciones.length > selectedPayable.length && (
-              <p className="text-xs text-amber-400">
+              <p className="text-xs text-status-warn-fg">
                 {selectedRendiciones.length - selectedPayable.length} rendición(es)
                 seleccionada(s) no están aprobadas y serán ignoradas.
               </p>

@@ -404,9 +404,9 @@ function InicioSection({
         <button
           type="button"
           onClick={() => onNavigate("equipamiento")}
-          className="w-full rounded-xl border border-amber-500/50 bg-amber-500/10 px-4 py-3 text-left active:bg-amber-500/15 transition-colors"
+          className="w-full rounded-xl border border-status-warn-border bg-status-warn-soft px-4 py-3 text-left active:bg-status-warn-soft transition-colors"
         >
-          <p className="text-sm font-semibold text-amber-600 dark:text-amber-400">
+          <p className="text-sm font-semibold text-status-warn-fg dark:text-status-warn-fg">
             {pendingEquipConfirmCount === 1
               ? "1 entrega de equipamiento por confirmar"
               : `${pendingEquipConfirmCount} entregas de equipamiento por confirmar`}
@@ -472,7 +472,7 @@ function InicioSection({
           onClick={() => onNavigate("marcaciones")}
           className="rounded-xl border bg-card p-3 shadow-sm text-center active:bg-accent transition-colors"
         >
-          <p className="text-2xl font-bold text-emerald-500">{attendancePct != null ? `${attendancePct}%` : "—"}</p>
+          <p className="text-2xl font-bold text-status-ok-fg">{attendancePct != null ? `${attendancePct}%` : "—"}</p>
           <p className="text-[11px] text-muted-foreground leading-tight mt-1">
             Asistencia mes
           </p>
@@ -481,7 +481,7 @@ function InicioSection({
           onClick={() => onNavigate("turnos-extra")}
           className="rounded-xl border bg-card p-3 shadow-sm text-center active:bg-accent transition-colors"
         >
-          <p className="text-2xl font-bold text-blue-500">{extraShiftCount ?? "—"}</p>
+          <p className="text-2xl font-bold text-status-info-fg">{extraShiftCount ?? "—"}</p>
           <p className="text-[11px] text-muted-foreground leading-tight mt-1">
             Turnos extra
           </p>
@@ -490,7 +490,7 @@ function InicioSection({
           onClick={() => onNavigate("solicitudes")}
           className="rounded-xl border bg-card p-3 shadow-sm text-center active:bg-accent transition-colors"
         >
-          <p className="text-2xl font-bold text-amber-500">{ticketCount ?? "—"}</p>
+          <p className="text-2xl font-bold text-status-warn-fg">{ticketCount ?? "—"}</p>
           <p className="text-[11px] text-muted-foreground leading-tight mt-1">
             Solicitudes
           </p>
@@ -511,8 +511,8 @@ function InicioSection({
             onClick={() => onNavigate("solicitudes")}
             className="flex items-center gap-3 rounded-xl border bg-card p-4 shadow-sm active:bg-accent transition-colors text-left"
           >
-            <div className="h-9 w-10 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
-              <Ticket className="h-5 w-5 text-amber-500" />
+            <div className="h-9 w-10 rounded-lg bg-status-warn-soft flex items-center justify-center shrink-0">
+              <Ticket className="h-5 w-5 text-status-warn-fg" />
             </div>
             <div className="min-w-0">
               <p className="text-sm font-semibold">Solicitudes</p>
@@ -524,8 +524,8 @@ function InicioSection({
             onClick={() => onNavigate("pauta")}
             className="flex items-center gap-3 rounded-xl border bg-card p-4 shadow-sm active:bg-accent transition-colors text-left"
           >
-            <div className="h-9 w-10 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
-              <CalendarDays className="h-5 w-5 text-blue-500" />
+            <div className="h-9 w-10 rounded-lg bg-status-info-soft flex items-center justify-center shrink-0">
+              <CalendarDays className="h-5 w-5 text-status-info-fg" />
             </div>
             <div className="min-w-0">
               <p className="text-sm font-semibold">Mi Pauta</p>
@@ -537,8 +537,8 @@ function InicioSection({
             onClick={() => onNavigate("marcaciones")}
             className="flex items-center gap-3 rounded-xl border bg-card p-4 shadow-sm active:bg-accent transition-colors text-left"
           >
-            <div className="h-9 w-10 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
-              <Fingerprint className="h-5 w-5 text-emerald-500" />
+            <div className="h-9 w-10 rounded-lg bg-status-ok-soft flex items-center justify-center shrink-0">
+              <Fingerprint className="h-5 w-5 text-status-ok-fg" />
             </div>
             <div className="min-w-0">
               <p className="text-sm font-semibold">Marcaciones</p>
@@ -550,8 +550,8 @@ function InicioSection({
             onClick={() => onNavigate("perfil")}
             className="flex items-center gap-3 rounded-xl border bg-card p-4 shadow-sm active:bg-accent transition-colors text-left"
           >
-            <div className="h-9 w-10 rounded-lg bg-purple-500/10 flex items-center justify-center shrink-0">
-              <User className="h-5 w-5 text-purple-500" />
+            <div className="h-9 w-10 rounded-lg bg-tint-violet/30 flex items-center justify-center shrink-0">
+              <User className="h-5 w-5 text-tint-violet-fg" />
             </div>
             <div className="min-w-0">
               <p className="text-sm font-semibold">Perfil</p>
@@ -565,14 +565,14 @@ function InicioSection({
           >
             {pendingEquipConfirmCount > 0 && (
               <span
-                className="absolute top-2 right-2 min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-amber-950"
+                className="absolute top-2 right-2 min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-status-warn text-[10px] font-bold text-zinc-950"
                 aria-label={`${pendingEquipConfirmCount} confirmaciones pendientes`}
               >
                 {pendingEquipConfirmCount > 9 ? "9+" : pendingEquipConfirmCount}
               </span>
             )}
-            <div className="h-9 w-10 rounded-lg bg-teal-500/10 flex items-center justify-center shrink-0">
-              <Package className="h-5 w-5 text-teal-500" />
+            <div className="h-9 w-10 rounded-lg bg-status-info-soft flex items-center justify-center shrink-0">
+              <Package className="h-5 w-5 text-status-info-fg" />
             </div>
             <div className="min-w-0">
               <p className="text-sm font-semibold">Equipamiento</p>
@@ -588,8 +588,8 @@ function InicioSection({
             onClick={() => onNavigate("documentos")}
             className="flex items-center gap-3 rounded-xl border bg-card p-4 shadow-sm active:bg-accent transition-colors text-left"
           >
-            <div className="h-9 w-10 rounded-lg bg-sky-500/10 flex items-center justify-center shrink-0">
-              <FileText className="h-5 w-5 text-sky-500" />
+            <div className="h-9 w-10 rounded-lg bg-status-info-soft flex items-center justify-center shrink-0">
+              <FileText className="h-5 w-5 text-status-info-fg" />
             </div>
             <div className="min-w-0">
               <p className="text-sm font-semibold">Documentos</p>
@@ -601,8 +601,8 @@ function InicioSection({
             onClick={() => onNavigate("turnos-extra")}
             className="flex items-center gap-3 rounded-xl border bg-card p-4 shadow-sm active:bg-accent transition-colors text-left"
           >
-            <div className="h-9 w-10 rounded-lg bg-indigo-500/10 flex items-center justify-center shrink-0">
-              <Clock className="h-5 w-5 text-indigo-500" />
+            <div className="h-9 w-10 rounded-lg bg-status-info-soft flex items-center justify-center shrink-0">
+              <Clock className="h-5 w-5 text-status-info-fg" />
             </div>
             <div className="min-w-0">
               <p className="text-sm font-semibold">Turnos Extra</p>
@@ -612,10 +612,10 @@ function InicioSection({
 
           <button
             onClick={() => onNavigate("alertas-cobertura")}
-            className="flex items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 shadow-sm active:bg-accent transition-colors text-left"
+            className="flex items-center gap-3 rounded-xl border border-status-ok-border bg-status-ok-soft p-4 shadow-sm active:bg-accent transition-colors text-left"
           >
-            <div className="h-9 w-10 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
-              <Siren className="h-5 w-5 text-emerald-500" />
+            <div className="h-9 w-10 rounded-lg bg-status-ok-soft flex items-center justify-center shrink-0">
+              <Siren className="h-5 w-5 text-status-ok-fg" />
             </div>
             <div className="min-w-0">
               <p className="text-sm font-semibold">Turnos Disponibles</p>
@@ -760,27 +760,27 @@ function MarcarAsistenciaQuickAction({ session }: { session: GuardSession }) {
       {step === "idle" && (
         <button
           onClick={handleStartMarcacion}
-          className="w-full flex items-center gap-4 bg-emerald-500/10 hover:bg-emerald-500/15 active:bg-emerald-500/20 p-4 transition-colors text-left"
+          className="w-full flex items-center gap-4 bg-status-ok-soft hover:bg-status-ok-soft active:bg-status-ok-soft p-4 transition-colors text-left"
         >
-          <div className="h-12 w-12 rounded-xl bg-emerald-500 flex items-center justify-center shrink-0">
+          <div className="h-12 w-12 rounded-xl bg-status-ok flex items-center justify-center shrink-0">
             <Fingerprint className="h-6 w-6 text-white" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400">
+            <p className="text-sm font-bold text-status-ok-fg dark:text-status-ok-fg">
               Marcar Asistencia
             </p>
-            <p className="text-xs text-emerald-600/70 dark:text-emerald-500/70">
+            <p className="text-xs text-status-ok-fg/70">
               Registra tu entrada o salida desde tu celular
             </p>
           </div>
-          <Navigation className="h-5 w-5 text-emerald-500 shrink-0" />
+          <Navigation className="h-5 w-5 text-status-ok-fg shrink-0" />
         </button>
       )}
 
       {/* ── Requesting GPS ── */}
       {step === "requesting_gps" && (
-        <div className="p-4 flex items-center gap-3 bg-blue-500/5">
-          <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
+        <div className="p-4 flex items-center gap-3 bg-status-info-soft">
+          <Loader2 className="h-5 w-5 animate-spin text-status-info-fg" />
           <div>
             <p className="text-sm font-semibold">Obteniendo ubicación...</p>
             <p className="text-xs text-muted-foreground">Activa el GPS de tu celular</p>
@@ -792,13 +792,13 @@ function MarcarAsistenciaQuickAction({ session }: { session: GuardSession }) {
       {step === "camera" && (
         <div className="p-4 space-y-3">
           <div className="flex items-center gap-2 mb-2">
-            <Camera className={`h-5 w-5 ${nextTipo === "salida" ? "text-sky-500" : "text-emerald-500"}`} />
+            <Camera className={`h-5 w-5 ${nextTipo === "salida" ? "text-status-info-fg" : "text-status-ok-fg"}`} />
             <p className="text-sm font-semibold">
               Toma una foto para registrar tu {nextTipo === "salida" ? "salida" : "entrada"}
             </p>
           </div>
           {gpsError && (
-            <p className="text-xs text-amber-600 dark:text-amber-400">{gpsError}</p>
+            <p className="text-xs text-status-warn-fg dark:text-status-warn-fg">{gpsError}</p>
           )}
           <FaceCameraCapture
             onCapture={(imageBase64) => {
@@ -814,18 +814,18 @@ function MarcarAsistenciaQuickAction({ session }: { session: GuardSession }) {
 
       {/* ── Submitting ── */}
       {step === "submitting" && (
-        <div className={`p-4 flex items-center gap-3 ${nextTipo === "salida" ? "bg-sky-500/5" : "bg-emerald-500/5"}`}>
-          <Loader2 className={`h-5 w-5 animate-spin ${nextTipo === "salida" ? "text-sky-500" : "text-emerald-500"}`} />
+        <div className={`p-4 flex items-center gap-3 ${nextTipo === "salida" ? "bg-status-info-soft/30" : "bg-status-ok-soft"}`}>
+          <Loader2 className={`h-5 w-5 animate-spin ${nextTipo === "salida" ? "text-status-info-fg" : "text-status-ok-fg"}`} />
           <p className="text-sm font-semibold">Registrando marcación...</p>
         </div>
       )}
 
       {/* ── Success ── */}
       {step === "success" && result && (
-        <div className={`p-4 space-y-2 ${result.tipo === "salida" ? "bg-sky-500/5" : "bg-emerald-500/5"}`}>
+        <div className={`p-4 space-y-2 ${result.tipo === "salida" ? "bg-status-info-soft/30" : "bg-status-ok-soft"}`}>
           <div className="flex items-center gap-2">
-            <CircleCheck className={`h-5 w-5 ${result.tipo === "salida" ? "text-sky-500" : "text-emerald-500"}`} />
-            <p className={`text-sm font-bold ${result.tipo === "salida" ? "text-sky-700 dark:text-sky-400" : "text-emerald-700 dark:text-emerald-400"}`}>
+            <CircleCheck className={`h-5 w-5 ${result.tipo === "salida" ? "text-status-info-fg" : "text-status-ok-fg"}`} />
+            <p className={`text-sm font-bold ${result.tipo === "salida" ? "text-status-info-fg" : "text-status-ok-fg dark:text-status-ok-fg"}`}>
               {result.tipo === "entrada" ? "Entrada registrada" : "Salida registrada"}
             </p>
           </div>
@@ -837,7 +837,7 @@ function MarcarAsistenciaQuickAction({ session }: { session: GuardSession }) {
               })}
             </p>
             {result.gpsStatus === "fuera_rango" ? (
-              <p className="flex items-center gap-1.5 text-sm font-bold text-red-600 dark:text-red-400">
+              <p className="flex items-center gap-1.5 text-sm font-bold text-status-danger-fg dark:text-status-danger-fg">
                 <MapPin className="h-4 w-4" />
                 Marcación fuera de rango
               </p>
@@ -856,10 +856,10 @@ function MarcarAsistenciaQuickAction({ session }: { session: GuardSession }) {
 
       {/* ── Error ── */}
       {step === "error" && (
-        <div className="p-4 space-y-2 bg-red-500/5">
+        <div className="p-4 space-y-2 bg-status-danger-soft">
           <div className="flex items-center gap-2">
-            <CircleX className="h-5 w-5 text-red-500" />
-            <p className="text-sm font-semibold text-red-700 dark:text-red-400">
+            <CircleX className="h-5 w-5 text-status-danger-fg" />
+            <p className="text-sm font-semibold text-status-danger-fg dark:text-status-danger-fg">
               {error}
             </p>
           </div>
@@ -969,27 +969,27 @@ function MarcacionesSection({ session }: { session: GuardSession }) {
                       <div
                         className={`h-9 w-9 rounded-lg flex items-center justify-center shrink-0 ${
                           m.type === "entrada"
-                            ? "bg-emerald-500/10"
-                            : "bg-sky-500/10"
+                            ? "bg-status-ok-soft"
+                            : "bg-status-info-soft"
                         }`}
                       >
                         {m.type === "entrada" ? (
-                          <UserCheck className="h-4 w-4 text-emerald-500" />
+                          <UserCheck className="h-4 w-4 text-status-ok-fg" />
                         ) : (
-                          <LogOut className="h-4 w-4 text-sky-500" />
+                          <LogOut className="h-4 w-4 text-status-info-fg" />
                         )}
                       </div>
                     )}
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <p className={`text-sm font-semibold ${m.type === "salida" ? "text-sky-400" : "text-emerald-400"}`}>
+                        <p className={`text-sm font-semibold ${m.type === "salida" ? "text-status-info-fg" : "text-status-ok-fg"}`}>
                           {m.type === "entrada" ? "Entrada" : "Salida"}
                         </p>
                         {m.metodoId && (
                           <span className={`text-[10px] px-1.5 py-0 rounded ${
-                            m.metodoId === "face_id" ? "bg-emerald-500/20 text-emerald-400" :
-                            m.metodoId === "foto_evidencia" ? "bg-sky-500/20 text-sky-400" :
-                            "bg-amber-500/20 text-amber-400"
+                            m.metodoId === "face_id" ? "bg-status-ok-soft text-status-ok-fg" :
+                            m.metodoId === "foto_evidencia" ? "bg-status-info-soft text-status-info-fg" :
+                            "bg-status-warn-soft text-status-warn-fg"
                           }`}>
                             {m.metodoId === "face_id" ? "Face ID" : m.metodoId === "foto_evidencia" ? "Foto" : "PIN"}
                           </span>
@@ -1302,7 +1302,7 @@ function SolicitudesSection({ session }: { session: GuardSession }) {
 
           {selectedTicket.status === "rejected" && (
             <div className="rounded-xl border bg-card p-4 shadow-sm space-y-3">
-              <p className="text-sm font-semibold text-red-400">Este ticket fue rechazado</p>
+              <p className="text-sm font-semibold text-status-danger-fg">Este ticket fue rechazado</p>
               <p className="text-xs text-muted-foreground">Puedes apelar el rechazo o aceptarlo y cerrar el ticket.</p>
 
               <div className="space-y-2">
@@ -1339,8 +1339,8 @@ function SolicitudesSection({ session }: { session: GuardSession }) {
           )}
 
           {selectedTicket.status === "pending_approval" && (
-            <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 shadow-sm">
-              <p className="text-sm text-amber-400">Tu solicitud esta pendiente de aprobacion</p>
+            <div className="rounded-xl border border-status-warn-border bg-status-warn-soft p-4 shadow-sm">
+              <p className="text-sm text-status-warn-fg">Tu solicitud esta pendiente de aprobacion</p>
             </div>
           )}
         </div>
@@ -1817,8 +1817,8 @@ function PortalProtocolCards({ session, onNavigate }: { session: GuardSession; o
           onClick={() => onNavigate("protocolo")}
           className="flex flex-col items-center gap-2 rounded-xl border bg-card p-4 shadow-sm active:bg-accent transition-colors"
         >
-          <div className="h-10 w-10 rounded-full bg-blue-500/10 flex items-center justify-center">
-            <BookOpen className="h-5 w-5 text-blue-500" />
+          <div className="h-10 w-10 rounded-full bg-status-info-soft flex items-center justify-center">
+            <BookOpen className="h-5 w-5 text-status-info-fg" />
           </div>
           <div className="text-center">
             <p className="text-xs font-semibold">Mi Protocolo</p>
@@ -1834,12 +1834,12 @@ function PortalProtocolCards({ session, onNavigate }: { session: GuardSession; o
         className="relative flex flex-col items-center gap-2 rounded-xl border bg-card p-4 shadow-sm active:bg-accent transition-colors"
       >
         {pendingExams > 0 && (
-          <span className="absolute top-2 right-2 h-5 min-w-5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center px-1">
+          <span className="absolute top-2 right-2 h-5 min-w-5 rounded-full bg-status-danger text-white text-[10px] font-bold flex items-center justify-center px-1">
             {pendingExams}
           </span>
         )}
-        <div className="h-10 w-10 rounded-full bg-amber-500/10 flex items-center justify-center">
-          <ClipboardCheck className="h-5 w-5 text-amber-500" />
+        <div className="h-10 w-10 rounded-full bg-status-warn-soft flex items-center justify-center">
+          <ClipboardCheck className="h-5 w-5 text-status-warn-fg" />
         </div>
         <div className="text-center">
           <p className="text-xs font-semibold">Exámenes</p>
@@ -1853,8 +1853,8 @@ function PortalProtocolCards({ session, onNavigate }: { session: GuardSession; o
         onClick={() => onNavigate("resultados")}
         className="flex flex-col items-center gap-2 rounded-xl border bg-card p-4 shadow-sm active:bg-accent transition-colors"
       >
-        <div className="h-10 w-10 rounded-full bg-emerald-500/10 flex items-center justify-center">
-          <BarChart3 className="h-5 w-5 text-emerald-500" />
+        <div className="h-10 w-10 rounded-full bg-status-ok-soft flex items-center justify-center">
+          <BarChart3 className="h-5 w-5 text-status-ok-fg" />
         </div>
         <div className="text-center">
           <p className="text-xs font-semibold">Resultados</p>
@@ -1986,7 +1986,7 @@ function ProtocoloSection({ session, onBack }: { session: GuardSession; onBack: 
       {data?.globalDocuments && data.globalDocuments.length > 0 && (
         <div className="rounded-xl border bg-card p-4 shadow-sm space-y-3">
           <h3 className="text-sm font-semibold flex items-center gap-2">
-            <FileText className="h-4 w-4 text-blue-500" />
+            <FileText className="h-4 w-4 text-status-info-fg" />
             Documentos de referencia
           </h3>
           <div className="space-y-2">
@@ -1998,8 +1998,8 @@ function ProtocoloSection({ session, onBack }: { session: GuardSession; onBack: 
                 rel="noopener noreferrer"
                 className="flex items-center gap-3 rounded-lg border p-3 active:bg-accent transition-colors"
               >
-                <div className="h-9 w-9 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
-                  <FileText className="h-4 w-4 text-blue-500" />
+                <div className="h-9 w-9 rounded-lg bg-status-info-soft flex items-center justify-center shrink-0">
+                  <FileText className="h-4 w-4 text-status-info-fg" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{doc.fileName}</p>
@@ -2017,7 +2017,7 @@ function ProtocoloSection({ session, onBack }: { session: GuardSession; onBack: 
       {/* Emergency contacts */}
       <div className="rounded-xl border bg-card p-4 shadow-sm space-y-3">
         <h3 className="text-sm font-semibold flex items-center gap-2">
-          <Phone className="h-4 w-4 text-red-500" />
+          <Phone className="h-4 w-4 text-status-danger-fg" />
           Contactos de emergencia
         </h3>
         <div className="grid grid-cols-2 gap-3">
@@ -2057,6 +2057,7 @@ type ExamListItem = {
   score: number | null;
   completedAt: string | null;
   sentAt: string;
+  dueAt: string | null;
 };
 
 type ExamApiItem = {
@@ -2070,6 +2071,7 @@ type ExamApiItem = {
   score?: number | null;
   completedAt?: string | null;
   sentAt?: string;
+  dueAt?: string | null;
 };
 
 type ExamDetail = {
@@ -2088,6 +2090,26 @@ type SubmitResult = {
   correctCount: number;
   results: Array<{ questionId: string; correct: boolean; selectedAnswer: number; correctAnswer: number }>;
 };
+
+function formatExamDue(dueAt: string | null): { label: string; className: string } | null {
+  if (!dueAt) return null;
+  const dueMs = new Date(dueAt).getTime();
+  if (!Number.isFinite(dueMs)) return null;
+  const days = Math.ceil((dueMs - Date.now()) / (1000 * 60 * 60 * 24));
+  if (days < 0) {
+    return {
+      label: `Vencido hace ${Math.abs(days)}d`,
+      className: "text-status-danger-fg font-medium",
+    };
+  }
+  if (days === 0) {
+    return { label: "¡Vence hoy!", className: "text-status-danger-fg font-medium" };
+  }
+  if (days <= 3) {
+    return { label: `Vence en ${days}d`, className: "text-status-warn-fg font-medium" };
+  }
+  return { label: `Vence en ${days}d`, className: "text-muted-foreground" };
+}
 
 function ExamenesSection({ session, onBack }: { session: GuardSession; onBack: () => void }) {
   const [exams, setExams] = useState<{ pending: ExamListItem[]; completed: ExamListItem[] }>({ pending: [], completed: [] });
@@ -2116,6 +2138,7 @@ function ExamenesSection({ session, onBack }: { session: GuardSession; onBack: (
             score: a.score ?? null,
             completedAt: a.completedAt ?? null,
             sentAt: a.sentAt ?? "",
+            dueAt: a.dueAt ?? null,
           });
           setExams({
             pending: (json.data.pending ?? []).map(mapItem),
@@ -2235,18 +2258,18 @@ function ExamenesSection({ session, onBack }: { session: GuardSession; onBack: (
             const r = result.results.find((rr) => rr.questionId === q.id);
             const isCorrect = r?.correct ?? false;
             return (
-              <div key={q.id} className={`rounded-xl border p-3 ${isCorrect ? "border-emerald-500/30 bg-emerald-500/5" : "border-red-500/30 bg-red-500/5"}`}>
+              <div key={q.id} className={`rounded-xl border p-3 ${isCorrect ? "border-status-ok-border bg-status-ok-soft" : "border-status-danger-border bg-status-danger-soft"}`}>
                 <div className="flex items-start gap-2">
-                  {isCorrect ? <Check className="h-4 w-4 text-emerald-500 mt-0.5 shrink-0" /> : <X className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />}
+                  {isCorrect ? <Check className="h-4 w-4 text-status-ok-fg mt-0.5 shrink-0" /> : <X className="h-4 w-4 text-status-danger-fg mt-0.5 shrink-0" />}
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium">{q.questionText}</p>
                     {r && (
                       <div className="mt-1.5 space-y-1">
-                        <p className={`text-xs ${isCorrect ? "text-emerald-400" : "text-red-400"}`}>
+                        <p className={`text-xs ${isCorrect ? "text-status-ok-fg" : "text-status-danger-fg"}`}>
                           Tu respuesta: {q.options[r.selectedAnswer]}
                         </p>
                         {!isCorrect && (
-                          <p className="text-xs text-emerald-400">
+                          <p className="text-xs text-status-ok-fg">
                             Correcta: {q.options[r.correctAnswer]}
                           </p>
                         )}
@@ -2363,7 +2386,7 @@ function ExamenesSection({ session, onBack }: { session: GuardSession; onBack: (
           <div className="flex-1 min-w-0">
             <h2 className="text-base font-semibold truncate">{activeExam.examTitle}</h2>
             <p className="text-xs text-muted-foreground">
-              Nota: <span className={activeExam.score != null && activeExam.score >= 80 ? "text-emerald-400 font-bold" : activeExam.score != null && activeExam.score >= 60 ? "text-amber-400 font-bold" : "text-red-400 font-bold"}>
+              Nota: <span className={activeExam.score != null && activeExam.score >= 80 ? "text-status-ok-fg font-bold" : activeExam.score != null && activeExam.score >= 60 ? "text-status-warn-fg font-bold" : "text-status-danger-fg font-bold"}>
                 {activeExam.score != null ? `${Math.round(activeExam.score)}%` : "—"}
               </span>
             </p>
@@ -2375,16 +2398,16 @@ function ExamenesSection({ session, onBack }: { session: GuardSession; onBack: (
             const myAnswer = answers[q.id];
             const isCorrect = myAnswer === q.correctAnswer;
             return (
-              <div key={q.id} className={`rounded-xl border p-3 ${isCorrect ? "border-emerald-500/30 bg-emerald-500/5" : "border-red-500/30 bg-red-500/5"}`}>
+              <div key={q.id} className={`rounded-xl border p-3 ${isCorrect ? "border-status-ok-border bg-status-ok-soft" : "border-status-danger-border bg-status-danger-soft"}`}>
                 <div className="flex items-start gap-2">
-                  {isCorrect ? <Check className="h-4 w-4 text-emerald-500 mt-0.5 shrink-0" /> : <X className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />}
+                  {isCorrect ? <Check className="h-4 w-4 text-status-ok-fg mt-0.5 shrink-0" /> : <X className="h-4 w-4 text-status-danger-fg mt-0.5 shrink-0" />}
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium">{q.questionText}</p>
-                    <p className={`text-xs mt-1 ${isCorrect ? "text-emerald-400" : "text-red-400"}`}>
+                    <p className={`text-xs mt-1 ${isCorrect ? "text-status-ok-fg" : "text-status-danger-fg"}`}>
                       Tu respuesta: {q.options[myAnswer] ?? "—"}
                     </p>
                     {!isCorrect && q.correctAnswer != null && (
-                      <p className="text-xs text-emerald-400 mt-0.5">Correcta: {q.options[q.correctAnswer]}</p>
+                      <p className="text-xs text-status-ok-fg mt-0.5">Correcta: {q.options[q.correctAnswer]}</p>
                     )}
                   </div>
                 </div>
@@ -2422,21 +2445,32 @@ function ExamenesSection({ session, onBack }: { session: GuardSession; onBack: (
           {exams.pending.length > 0 && (
             <div className="space-y-2">
               <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Pendientes</h3>
-              {exams.pending.map((e) => (
-                <button
-                  key={e.assignmentId}
-                  onClick={() => openExam(e.assignmentId)}
-                  className="w-full rounded-xl border border-amber-500/30 bg-card p-4 shadow-sm text-left active:bg-accent transition-colors"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold truncate">{e.examTitle}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{e.questionCount} preguntas</p>
+              {exams.pending.map((e) => {
+                const due = formatExamDue(e.dueAt);
+                return (
+                  <button
+                    key={e.assignmentId}
+                    onClick={() => openExam(e.assignmentId)}
+                    className="w-full rounded-xl border border-status-warn-border bg-card p-4 shadow-sm text-left active:bg-accent transition-colors"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold truncate">{e.examTitle}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {e.questionCount} preguntas
+                          {due && (
+                            <>
+                              {" · "}
+                              <span className={due.className}>{due.label}</span>
+                            </>
+                          )}
+                        </p>
+                      </div>
+                      <Badge variant="warning" className="shrink-0 text-[10px]">Pendiente</Badge>
                     </div>
-                    <Badge variant="warning" className="shrink-0 text-[10px]">Pendiente</Badge>
-                  </div>
-                </button>
-              ))}
+                  </button>
+                );
+              })}
             </div>
           )}
 
@@ -2456,7 +2490,7 @@ function ExamenesSection({ session, onBack }: { session: GuardSession; onBack: (
                           {e.completedAt ? new Date(e.completedAt).toLocaleDateString("es-CL") : ""}
                         </p>
                       </div>
-                      <span className={`text-lg font-bold tabular-nums ${(e.score ?? 0) >= 80 ? "text-emerald-500" : (e.score ?? 0) >= 60 ? "text-amber-500" : "text-red-500"}`}>
+                      <span className={`text-lg font-bold tabular-nums ${(e.score ?? 0) >= 80 ? "text-status-ok-fg" : (e.score ?? 0) >= 60 ? "text-status-warn-fg" : "text-status-danger-fg"}`}>
                         {e.score != null ? `${Math.round(e.score)}%` : "—"}
                       </span>
                     </div>
@@ -2532,13 +2566,13 @@ function ResultadosSection({ session, onBack }: { session: GuardSession; onBack:
       {/* Stats */}
       <div className="grid grid-cols-3 gap-3">
         <div className="rounded-xl border bg-card p-3 shadow-sm text-center">
-          <p className={`text-2xl font-bold tabular-nums ${(stats?.avgScore ?? 0) >= 80 ? "text-emerald-500" : (stats?.avgScore ?? 0) >= 60 ? "text-amber-500" : "text-red-500"}`}>
+          <p className={`text-2xl font-bold tabular-nums ${(stats?.avgScore ?? 0) >= 80 ? "text-status-ok-fg" : (stats?.avgScore ?? 0) >= 60 ? "text-status-warn-fg" : "text-status-danger-fg"}`}>
             {stats?.avgScore != null ? `${Math.round(stats.avgScore)}%` : "—"}
           </p>
           <p className="text-[11px] text-muted-foreground leading-tight mt-1">Promedio</p>
         </div>
         <div className="rounded-xl border bg-card p-3 shadow-sm text-center">
-          <p className="text-2xl font-bold text-blue-500 tabular-nums">
+          <p className="text-2xl font-bold text-status-info-fg tabular-nums">
             {stats?.totalCompleted ?? 0}/{stats?.totalAssigned ?? 0}
           </p>
           <p className="text-[11px] text-muted-foreground leading-tight mt-1">Completados</p>
@@ -2572,7 +2606,7 @@ function ResultadosSection({ session, onBack }: { session: GuardSession; onBack:
                   </span>
                 </div>
               </div>
-              <span className={`text-lg font-bold tabular-nums shrink-0 ${entry.score >= 80 ? "text-emerald-500" : entry.score >= 60 ? "text-amber-500" : "text-red-500"}`}>
+              <span className={`text-lg font-bold tabular-nums shrink-0 ${entry.score >= 80 ? "text-status-ok-fg" : entry.score >= 60 ? "text-status-warn-fg" : "text-status-danger-fg"}`}>
                 {Math.round(entry.score)}%
               </span>
             </div>
@@ -2815,15 +2849,15 @@ function EquipamientoSection({ session }: { session: GuardSession }) {
 
       {/* Pending confirmations banner */}
       {pendingConfirmations.length > 0 && (
-        <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-3">
-          <p className="text-sm font-medium text-amber-600 dark:text-amber-400">
+        <div className="rounded-lg border border-status-warn-border bg-status-warn-soft p-3">
+          <p className="text-sm font-medium text-status-warn-fg dark:text-status-warn-fg">
             {pendingConfirmations.length} {pendingConfirmations.length === 1 ? "entrega pendiente" : "entregas pendientes"} de confirmación
           </p>
           <p className="text-xs text-muted-foreground mt-0.5">
             Confirma con <span className="font-medium text-foreground/90">Face ID</span> (cámara) o con tu{" "}
             <span className="font-medium text-foreground/90">PIN de marcación</span>.
             {!faceEnrolled && (
-              <span className="block mt-1 text-amber-600/90 dark:text-amber-400/90">
+              <span className="block mt-1 text-status-warn-fg/90">
                 Si aún no tienes Face ID registrado, elige PIN o regístralo al marcar asistencia con foto.
               </span>
             )}
@@ -2927,7 +2961,7 @@ function EquipamientoSection({ session }: { session: GuardSession }) {
                               type="button"
                               onClick={() => captureAndVerify(movementId)}
                               disabled={confirming === movementId}
-                              className="flex-1 min-h-11 rounded-md bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-50"
+                              className="flex-1 min-h-11 rounded-md bg-status-ok text-white text-sm font-medium hover:brightness-110 disabled:opacity-50"
                             >
                               {confirming === movementId ? "Verificando..." : "Capturar y confirmar"}
                             </button>
@@ -2968,7 +3002,7 @@ function EquipamientoSection({ session }: { session: GuardSession }) {
                           type="button"
                           onClick={() => handlePinConfirm(movementId)}
                           disabled={confirming === movementId}
-                          className="w-full sm:w-auto shrink-0 min-h-11 px-6 rounded-md bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-50"
+                          className="w-full sm:w-auto shrink-0 min-h-11 px-6 rounded-md bg-status-ok text-white text-sm font-medium hover:brightness-110 disabled:opacity-50"
                         >
                           {confirming === movementId ? "…" : "Confirmar recepción"}
                         </button>
@@ -2977,15 +3011,15 @@ function EquipamientoSection({ session }: { session: GuardSession }) {
                   )}
 
                   {result && !result.ok && (
-                    <p className="text-xs text-red-500">{result.msg}</p>
+                    <p className="text-xs text-status-danger-fg">{result.msg}</p>
                   )}
                 </div>
               )}
 
               {/* Confirmed footer */}
               {(isConfirmed || result?.ok) && first.confirmedAt && (
-                <div className="p-2 border-t bg-emerald-500/5 text-center">
-                  <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                <div className="p-2 border-t bg-status-ok-soft text-center">
+                  <p className="text-xs text-status-ok-fg dark:text-status-ok-fg">
                     Recepcionada el {new Date(first.confirmedAt).toLocaleDateString("es-CL", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
                   </p>
                 </div>
@@ -3023,10 +3057,10 @@ function TurnosExtraSection({ session }: { session: GuardSession }) {
   }, [session.guardiaId]);
 
   const statusColor: Record<string, string> = {
-    pending: "bg-amber-500/20 text-amber-400",
-    approved: "bg-emerald-500/20 text-emerald-400",
-    rejected: "bg-red-500/20 text-red-400",
-    paid: "bg-blue-500/20 text-blue-400",
+    pending: "bg-status-warn-soft text-status-warn-fg",
+    approved: "bg-status-ok-soft text-status-ok-fg",
+    rejected: "bg-status-danger-soft text-status-danger-fg",
+    paid: "bg-status-info-soft text-status-info-fg",
   };
 
   // Group by status for summary
@@ -3061,15 +3095,15 @@ function TurnosExtraSection({ session }: { session: GuardSession }) {
           {/* Summary cards */}
           <div className="grid grid-cols-2 gap-3">
             <div className="rounded-xl border bg-card p-3 shadow-sm text-center">
-              <p className="text-xl font-bold text-amber-500">{summary.pending}</p>
+              <p className="text-xl font-bold text-status-warn-fg">{summary.pending}</p>
               <p className="text-[11px] text-muted-foreground">Pendientes</p>
             </div>
             <div className="rounded-xl border bg-card p-3 shadow-sm text-center">
-              <p className="text-xl font-bold text-emerald-500">{summary.approved}</p>
+              <p className="text-xl font-bold text-status-ok-fg">{summary.approved}</p>
               <p className="text-[11px] text-muted-foreground">Aprobados</p>
             </div>
             <div className="rounded-xl border bg-card p-3 shadow-sm text-center">
-              <p className="text-xl font-bold text-blue-500">{summary.paid}</p>
+              <p className="text-xl font-bold text-status-info-fg">{summary.paid}</p>
               <p className="text-[11px] text-muted-foreground">Pagados</p>
             </div>
             <div className="rounded-xl border bg-card p-3 shadow-sm text-center">
@@ -3081,7 +3115,7 @@ function TurnosExtraSection({ session }: { session: GuardSession }) {
           {summary.totalAmount > 0 && (
             <div className="rounded-xl border bg-card p-4 shadow-sm text-center">
               <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Total pagado</p>
-              <p className="text-2xl font-bold text-emerald-500">{formatClp(summary.totalAmount)}</p>
+              <p className="text-2xl font-bold text-status-ok-fg">{formatClp(summary.totalAmount)}</p>
             </div>
           )}
 
@@ -3137,11 +3171,11 @@ function DocumentosSection({ session }: { session: GuardSession }) {
   }, [session.guardiaId]);
 
   const TYPE_LABELS: Record<string, { label: string; color: string }> = {
-    contrato: { label: "Contrato", color: "bg-blue-500/20 text-blue-400" },
-    anexo: { label: "Anexo", color: "bg-purple-500/20 text-purple-400" },
-    liquidacion: { label: "Liquidación", color: "bg-emerald-500/20 text-emerald-400" },
-    certificado: { label: "Certificado", color: "bg-amber-500/20 text-amber-400" },
-    finiquito: { label: "Finiquito", color: "bg-red-500/20 text-red-400" },
+    contrato: { label: "Contrato", color: "bg-status-info-soft text-status-info-fg" },
+    anexo: { label: "Anexo", color: "bg-tint-violet text-tint-violet-fg" },
+    liquidacion: { label: "Liquidación", color: "bg-status-ok-soft text-status-ok-fg" },
+    certificado: { label: "Certificado", color: "bg-status-warn-soft text-status-warn-fg" },
+    finiquito: { label: "Finiquito", color: "bg-status-danger-soft text-status-danger-fg" },
   };
 
   return (

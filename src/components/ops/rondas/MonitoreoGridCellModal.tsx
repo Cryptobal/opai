@@ -73,7 +73,7 @@ export function MonitoreoGridCellModal({
                 {data.guardiaName && (
                   <>
                     {data.templateName && <span>·</span>}
-                    <span className="text-cyan-400/70">{data.guardiaName}</span>
+                    <span className="text-status-info-fg/70">{data.guardiaName}</span>
                   </>
                 )}
                 {data.scheduledAt && (
@@ -97,18 +97,18 @@ export function MonitoreoGridCellModal({
 
         {/* Context indicator */}
         {ronda.rondaExpected && ronda.autoPopulated && (
-          <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg bg-teal-500/10 border border-teal-500/20">
+          <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg bg-status-info-soft border border-status-info-border">
             <span className="text-xs">{"⚡"}</span>
-            <span className="text-xs text-teal-400">
+            <span className="text-xs text-status-info-fg">
               Auto-poblada desde ronda &middot; Trust: {ronda.trustScore ?? "\u2014"}
             </span>
           </div>
         )}
 
         {ronda.rondaExpected && !ronda.autoPopulated && ronda.status === "pendiente" && (
-          <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+          <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg bg-status-warn-soft border border-status-warn-border">
             <span className="text-xs">{"⚠️"}</span>
-            <span className="text-xs text-amber-400">
+            <span className="text-xs text-status-warn-fg">
               Ronda esperada &mdash; a&uacute;n no ejecutada
             </span>
           </div>
@@ -138,13 +138,13 @@ export function MonitoreoGridCellModal({
                   const isActive = status === opt.value;
                   const colorMap: Record<string, string> = {
                     emerald: isActive
-                      ? "bg-emerald-500/30 text-emerald-300 ring-1 ring-emerald-500/50"
+                      ? "bg-status-ok-soft text-status-ok-fg ring-1 ring-status-ok-border"
                       : "bg-slate-800 text-slate-500 hover:bg-slate-700",
                     red: isActive
-                      ? "bg-red-500/30 text-red-300 ring-1 ring-red-500/50"
+                      ? "bg-status-danger-soft text-status-danger-fg ring-1 ring-status-danger-border"
                       : "bg-slate-800 text-slate-500 hover:bg-slate-700",
                     amber: isActive
-                      ? "bg-amber-500/30 text-amber-300 ring-1 ring-amber-500/50"
+                      ? "bg-status-warn-soft text-status-warn-fg ring-1 ring-status-warn-border"
                       : "bg-slate-800 text-slate-500 hover:bg-slate-700",
                     slate: isActive
                       ? "bg-slate-600/50 text-slate-200 ring-1 ring-slate-500/50"
@@ -174,7 +174,7 @@ export function MonitoreoGridCellModal({
                 type="time"
                 value={hora}
                 onChange={(e) => setHora(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white focus:border-teal-500 focus:outline-none"
+                className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white focus:border-status-info-border focus:outline-none"
               />
             )}
           </div>
@@ -189,7 +189,7 @@ export function MonitoreoGridCellModal({
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 rows={2}
-                className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white focus:border-teal-500 focus:outline-none resize-none"
+                className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white focus:border-status-info-border focus:outline-none resize-none"
                 placeholder={
                   ronda.rondaExpected
                     ? "Observaciones, motivo de omisi\u00F3n..."
@@ -212,7 +212,7 @@ export function MonitoreoGridCellModal({
             <button
               onClick={handleSave}
               disabled={saving}
-              className="flex-1 px-4 py-2 rounded-lg bg-teal-600 text-white text-sm font-medium hover:bg-teal-500 disabled:opacity-50"
+              className="flex-1 px-4 py-2 rounded-lg bg-status-info text-white text-sm font-medium hover:bg-status-info disabled:opacity-50"
             >
               {saving
                 ? "Guardando..."

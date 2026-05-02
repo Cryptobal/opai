@@ -307,7 +307,7 @@ export function FinancialPanel(props: FinancialPanelProps) {
           className={cn(
             "flex-1 px-3 py-2 text-xs font-semibold uppercase tracking-wider transition-colors",
             activeTab === "desglose"
-              ? "text-emerald-600 dark:text-emerald-400 border-b-2 border-emerald-500"
+              ? "text-status-ok-fg dark:text-status-ok-fg border-b-2 border-status-ok-border"
               : "text-muted-foreground hover:text-foreground",
           )}
           onClick={() => setActiveTab("desglose")}
@@ -319,7 +319,7 @@ export function FinancialPanel(props: FinancialPanelProps) {
           className={cn(
             "flex-1 px-3 py-2 text-xs font-semibold uppercase tracking-wider transition-colors",
             activeTab === "preview"
-              ? "text-emerald-600 dark:text-emerald-400 border-b-2 border-emerald-500"
+              ? "text-status-ok-fg dark:text-status-ok-fg border-b-2 border-status-ok-border"
               : "text-muted-foreground hover:text-foreground",
           )}
           onClick={() => setActiveTab("preview")}
@@ -333,8 +333,8 @@ export function FinancialPanel(props: FinancialPanelProps) {
         {activeTab === "desglose" && (
           <div className="p-2.5 space-y-2">
             {/* Hero Card */}
-            <div className="rounded-lg bg-gradient-to-br from-emerald-950 to-card border border-emerald-500/20 p-3">
-              <div className="text-xs font-semibold uppercase tracking-[0.08em] text-emerald-400 mb-1.5">
+            <div className="rounded-lg bg-gradient-to-br from-emerald-950 to-card border border-status-ok-border p-3">
+              <div className="text-xs font-semibold uppercase tracking-[0.08em] text-status-ok-fg mb-1.5">
                 Precio de venta mensual
               </div>
               <CpqDualCurrencyAmount
@@ -344,9 +344,9 @@ export function FinancialPanel(props: FinancialPanelProps) {
                 size="lg"
                 isDark
                 primaryClassName="!text-white font-extrabold"
-                secondaryClassName="!text-emerald-400/80"
+                secondaryClassName="!text-status-ok-fg/80"
               />
-              <div className="flex gap-4 mt-2 pt-2 border-t border-emerald-500/20">
+              <div className="flex gap-4 mt-2 pt-2 border-t border-status-ok-border">
                 <div>
                   <div className="text-xs text-muted-foreground">Puestos</div>
                   <div className="text-[15px] font-bold text-foreground">{positionsCount}</div>
@@ -357,7 +357,7 @@ export function FinancialPanel(props: FinancialPanelProps) {
                 </div>
                 <div>
                   <div className="text-xs text-muted-foreground">Margen</div>
-                  <div className="text-[15px] font-bold text-emerald-400">{marginPct}%</div>
+                  <div className="text-[15px] font-bold text-status-ok-fg">{marginPct}%</div>
                 </div>
               </div>
             </div>
@@ -366,10 +366,10 @@ export function FinancialPanel(props: FinancialPanelProps) {
             <div className={cn("rounded-lg border border-border bg-card p-2.5", CPQ_BREAKDOWN_SHELL)}>
               <div className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground mb-2.5">Desglose</div>
               {[
-                { label: "Mano de obra", amount: laborCost, color: "bg-emerald-500" },
-                { label: "Directos", amount: directCosts, color: "bg-blue-500" },
-                { label: "Indirectos", amount: indirectCosts, color: "bg-purple-500" },
-                { label: "Financiero", amount: financialCosts, color: "bg-amber-500" },
+                { label: "Mano de obra", amount: laborCost, color: "bg-status-ok" },
+                { label: "Directos", amount: directCosts, color: "bg-status-info" },
+                { label: "Indirectos", amount: indirectCosts, color: "bg-tint-violet-fg" },
+                { label: "Financiero", amount: financialCosts, color: "bg-status-warn" },
                 { label: "Margen", amount: marginAmount, color: "bg-foreground/60" },
               ].map((item) => (
                 <div key={item.label} className="mb-2 last:mb-0">
@@ -406,7 +406,7 @@ export function FinancialPanel(props: FinancialPanelProps) {
                   ufValue={ufValue}
                   size="md"
                   isDark
-                  primaryClassName="text-amber-400 font-bold"
+                  primaryClassName="text-status-warn-fg font-bold"
                 />
                 <div className="text-sm text-muted-foreground">
                   {additionalLines.length} {additionalLines.length === 1 ? "servicio/producto" : "servicios/productos"}
@@ -420,7 +420,7 @@ export function FinancialPanel(props: FinancialPanelProps) {
                     size="lg"
                     isDark
                     primaryClassName="!text-white font-extrabold"
-                    secondaryClassName="!text-emerald-400/80"
+                    secondaryClassName="!text-status-ok-fg/80"
                   />
                 </div>
               </div>
@@ -591,7 +591,7 @@ function PreviewTab({
             <div className="flex items-center justify-between px-3 py-2 bg-muted/30 border-b border-border/40 shrink-0">
               <span className="text-xs font-semibold text-muted-foreground">Vista previa · {proposalTemplateSlug}</span>
               <div className="flex items-center gap-2">
-                <button type="button" onClick={() => { setPreviewKey((k) => k + 1); }} className="text-sm text-teal-400 hover:text-teal-300">Refrescar</button>
+                <button type="button" onClick={() => { setPreviewKey((k) => k + 1); }} className="text-sm text-status-info-fg hover:text-status-info-fg">Refrescar</button>
                 <button type="button" onClick={() => setFullscreen(false)} className="p-1 rounded hover:bg-muted/50">
                   <X className="h-4 w-4 text-muted-foreground" />
                 </button>
@@ -616,7 +616,7 @@ function PreviewTab({
           href={pdfPreviewUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-sm font-medium transition-colors w-full justify-center"
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-status-info hover:bg-status-info text-white text-sm font-medium transition-colors w-full justify-center"
         >
           <FileText className="h-4 w-4" />
           Ver en PDF
@@ -630,10 +630,10 @@ function PreviewTab({
             Vista previa · {proposalTemplateSlug}
           </span>
           <div className="flex items-center gap-2">
-            <button type="button" onClick={() => setFullscreen(true)} className="inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300">
+            <button type="button" onClick={() => setFullscreen(true)} className="inline-flex items-center gap-1 text-xs text-status-info-fg hover:text-status-info-fg">
               <Maximize2 className="h-3 w-3" /> Pantalla completa
             </button>
-            <button type="button" onClick={refreshPreview} className="text-xs text-teal-400 hover:text-teal-300">Refrescar</button>
+            <button type="button" onClick={refreshPreview} className="text-xs text-status-info-fg hover:text-status-info-fg">Refrescar</button>
           </div>
         </div>
         <div className="flex-1 min-h-[200px] overflow-hidden bg-muted/10 relative">

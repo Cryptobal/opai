@@ -54,7 +54,6 @@ Los logos subidos por tenants se guardan en:
 - manifest-cliente.json
 - manifest-guardia.json
 - manifest-marcacion.json
-- manifest-supervisor.json
 - portal-rondas-manifest.json
 
 ## Service Workers (no mover, la app los requiere en raíz)

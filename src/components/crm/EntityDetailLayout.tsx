@@ -42,7 +42,7 @@ export interface EntityDetailLayoutProps {
     avatar?: {
       /** Initials to show (e.g. "S") */
       initials?: string;
-      /** Background color class or hex (e.g. "bg-blue-500" or "#3b82f6") */
+      /** Background color class or hex (e.g. "bg-status-info" or "#3b82f6") */
       color?: string;
       /** Custom icon instead of initials */
       icon?: LucideIcon;
@@ -60,6 +60,8 @@ export interface EntityDetailLayoutProps {
       /** Custom hex color for the badge (overrides variant styling) */
       color?: string;
     };
+    /** Optional small adornment rendered next to the status chip (e.g. warning icon with tooltip) */
+    statusAdornment?: ReactNode;
     /** Actions shown in the header */
     actions?: EntityHeaderAction[];
     /** Extra content slot to the right (e.g. toggle, custom button) */
@@ -141,44 +143,61 @@ export function EntityDetailLayout({
         )}
       >
         {/* ── Header ── */}
-        <div className="pt-4 lg:pt-3 pb-2">
-          {/* Breadcrumb — siempre visible para facilitar navegación */}
-          <nav
-            aria-label="Breadcrumb"
-            className="flex items-center gap-1 text-xs text-muted-foreground mb-3 min-h-[28px] sm:min-h-0 flex-wrap"
-          >
-            {breadcrumb.map((segment, i) => {
-              const isLast = i === breadcrumb.length - 1;
-              const href = breadcrumbHrefs?.[i];
-
-              return (
-                <span key={i} className="flex items-center gap-1 min-w-0">
-                  {i > 0 && (
-                    <ChevronRight className="h-3 w-3 text-muted-foreground/50 shrink-0" />
-                  )}
-                  {isLast || !href ? (
-                    <span
-                      className={cn(
-                        "truncate max-w-[200px]",
-                        isLast
-                          ? "text-foreground font-medium"
-                          : "text-muted-foreground"
-                      )}
-                    >
-                      {segment}
-                    </span>
-                  ) : (
-                    <Link
-                      href={href}
-                      className="hover:text-foreground transition-colors truncate max-w-[200px]"
-                    >
-                      {segment}
-                    </Link>
-                  )}
+        <div className="pt-2 sm:pt-4 lg:pt-3 pb-1.5 sm:pb-2">
+          {/* Breadcrumb compacto en mobile (sólo back link al padre); completo en ≥sm */}
+          {(() => {
+            const parentIdx = breadcrumb.length - 2;
+            const parentHref = parentIdx >= 0 ? breadcrumbHrefs?.[parentIdx] : undefined;
+            const parentLabel = parentIdx >= 0 ? breadcrumb[parentIdx] : undefined;
+            return (
+              <nav
+                aria-label="Breadcrumb"
+                className="flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4 mb-2 sm:mb-3"
+              >
+                {/* Mobile: sólo back link al padre — ahorra una fila completa */}
+                {parentHref && parentLabel ? (
+                  <Link
+                    href={parentHref}
+                    className="sm:hidden inline-flex items-center gap-1 text-ds-text-4 hover:text-ds-text-2 transition-colors truncate max-w-[60%]"
+                  >
+                    <ChevronRight className="h-3 w-3 rotate-180 shrink-0" />
+                    <span className="truncate">{parentLabel}</span>
+                  </Link>
+                ) : null}
+                {/* Desktop: breadcrumb completo, separador "/" */}
+                <span className="hidden sm:flex items-center gap-1.5 flex-wrap">
+                  {breadcrumb.map((segment, i) => {
+                    const isLast = i === breadcrumb.length - 1;
+                    const href = breadcrumbHrefs?.[i];
+                    return (
+                      <span key={i} className="flex items-center gap-1.5 min-w-0">
+                        {i > 0 && (
+                          <span aria-hidden className="text-ds-text-4/60">/</span>
+                        )}
+                        {isLast || !href ? (
+                          <span
+                            className={cn(
+                              "truncate max-w-[200px]",
+                              isLast ? "text-ds-text-2" : ""
+                            )}
+                          >
+                            {segment}
+                          </span>
+                        ) : (
+                          <Link
+                            href={href}
+                            className="hover:text-ds-text-2 transition-colors truncate max-w-[200px]"
+                          >
+                            {segment}
+                          </Link>
+                        )}
+                      </span>
+                    );
+                  })}
                 </span>
-              );
-            })}
-          </nav>
+              </nav>
+            );
+          })()}
 
           {/* Title row + actions
            *
@@ -189,8 +208,8 @@ export function EntityDetailLayout({
            * Desktop (≥sm): todo en una fila, badge al lado del título como antes.
            */}
           <div className="flex items-start justify-between gap-2 sm:gap-4">
-            <div className="flex items-start gap-3 min-w-0 flex-1">
-              {/* Avatar */}
+            <div className="flex items-start gap-2 sm:gap-3 min-w-0 flex-1">
+              {/* Avatar — más chico en mobile para liberar ancho al título */}
               {header.avatar && (
                 <button
                   type="button"
@@ -203,12 +222,12 @@ export function EntityDetailLayout({
                     <img
                       src={header.avatar.photoUrl}
                       alt=""
-                      className="h-10 w-10 rounded-full border border-border bg-background object-contain"
+                      className="h-10 w-10 sm:h-12 sm:w-12 rounded-full border border-border bg-background object-contain"
                     />
                   ) : (
                     <div
                       className={cn(
-                        "flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold",
+                        "flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full text-sm sm:text-base font-semibold",
                         header.avatar.color?.startsWith("#") || header.avatar.color?.startsWith("rgb")
                           ? "text-white"
                           : header.avatar.color || "bg-primary/10 text-primary"
@@ -220,7 +239,7 @@ export function EntityDetailLayout({
                       }
                     >
                       {AvatarIcon ? (
-                        <AvatarIcon className="h-5 w-5" />
+                        <AvatarIcon className="h-5 w-5 sm:h-6 sm:w-6" />
                       ) : (
                         header.avatar.initials || "?"
                       )}
@@ -229,13 +248,13 @@ export function EntityDetailLayout({
                 </button>
               )}
 
-              {/* Info */}
+              {/* Info — el nombre puede usar 2 líneas en mobile para no truncar agresivamente */}
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2.5 flex-wrap">
-                  <h1 className="text-lg font-semibold tracking-tight truncate">
+                  <h1 className="text-xl sm:text-2xl font-display font-semibold tracking-tight leading-tight line-clamp-2 sm:truncate min-w-0">
                     {header.title}
                   </h1>
-                  {/* Badge: al lado del título solo en ≥sm. En mobile se renderiza en fila propia debajo. */}
+                  {/* Badge: al lado del título solo en ≥sm. En mobile va inline debajo, compacto. */}
                   {header.status && (
                     <Badge
                       variant={header.status.color ? "outline" : (header.status.variant || "secondary")}
@@ -253,37 +272,42 @@ export function EntityDetailLayout({
                       {header.status.label}
                     </Badge>
                   )}
+                  {header.statusAdornment && (
+                    <span className="shrink-0 hidden sm:inline-flex">{header.statusAdornment}</span>
+                  )}
                 </div>
                 {header.subtitle && (
-                  <p className="text-sm text-muted-foreground mt-0.5 truncate lg:hidden">
+                  <p className="text-sm text-ds-text-3 mt-1 truncate lg:hidden">
                     {header.subtitle}
                   </p>
                 )}
-                {/* Mobile-only: badge de estado en su propia fila para no comprimir el cluster derecho */}
+                {/* Mobile-only: chip de estado compacto, mismo renglón que subtítulo si existiera */}
                 {header.status && (
-                  <div className="mt-1.5 sm:hidden">
-                    <Badge
-                      variant={header.status.color ? "outline" : (header.status.variant || "secondary")}
-                      className="shrink-0"
+                  <div className="mt-1 sm:hidden flex items-center gap-1.5">
+                    <span
+                      className={cn(
+                        "inline-flex items-center gap-1 rounded-full px-1.5 py-px text-[10px] font-medium leading-tight",
+                        !header.status.color && "bg-muted text-muted-foreground"
+                      )}
                       style={header.status.color ? {
-                        borderColor: `${header.status.color}40`,
                         color: header.status.color,
                         backgroundColor: `${header.status.color}15`,
                       } : undefined}
                     >
                       <span
-                        className={cn("inline-flex h-1.5 w-1.5 rounded-full mr-1", !header.status.color && "bg-current")}
+                        className={cn("h-1.5 w-1.5 rounded-full", !header.status.color && "bg-current")}
                         style={header.status.color ? { backgroundColor: header.status.color } : undefined}
                       />
                       {header.status.label}
-                    </Badge>
+                    </span>
+                    {header.statusAdornment}
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Actions: wrap limpio en mobile para que nunca desborden ni empujen el título */}
-            <div className="flex flex-wrap items-center justify-end gap-1.5 sm:gap-2 shrink-0 max-w-[60%] sm:max-w-none">
+            {/* Actions: wrap limpio en mobile, con tope de ancho menos agresivo (40%) para dejar respirar al nombre */}
+            <div className="flex flex-wrap items-center justify-end gap-1 sm:gap-2 shrink-0 max-w-[44%] sm:max-w-none">
               {header.extra}
               {/* Primary actions as visible buttons (hidden on mobile if >1) */}
               {primaryActions.map((action, i) => {

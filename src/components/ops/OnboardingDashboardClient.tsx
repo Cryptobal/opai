@@ -61,9 +61,9 @@ interface OnboardingDashboardClientProps {
 
 const ESTADO_BADGE: Record<string, { label: string; cls: string }> = {
   PENDIENTE: { label: "Pendiente", cls: "bg-muted text-muted-foreground" },
-  ENVIADO: { label: "Enviado", cls: "bg-amber-500/20 text-amber-400" },
-  EN_PROGRESO: { label: "En Progreso", cls: "bg-blue-500/20 text-blue-400" },
-  COMPLETADO: { label: "Completado", cls: "bg-emerald-500/20 text-emerald-400" },
+  ENVIADO: { label: "Enviado", cls: "bg-status-warn-soft text-status-warn-fg" },
+  EN_PROGRESO: { label: "En Progreso", cls: "bg-status-info-soft text-status-info-fg" },
+  COMPLETADO: { label: "Completado", cls: "bg-status-ok-soft text-status-ok-fg" },
 };
 
 function formatDate(s: string | null): string {
@@ -112,12 +112,12 @@ function PortalAccessCell({
   if (accessed) {
     return (
       <div className="flex flex-col items-center gap-0.5">
-        <Check className="h-4 w-4 text-emerald-500" />
+        <Check className="h-4 w-4 text-status-ok-fg" />
         <span className="text-xs text-muted-foreground">{formatDate(date)}</span>
       </div>
     );
   }
-  return <X className="h-4 w-4 text-red-500/80" />;
+  return <X className="h-4 w-4 text-status-danger-fg/80" />;
 }
 
 export function OnboardingDashboardClient({ tenantId }: OnboardingDashboardClientProps) {
@@ -206,25 +206,25 @@ export function OnboardingDashboardClient({ tenantId }: OnboardingDashboardClien
           title="Total activos"
           value={metrics?.totalActivos ?? 0}
           icon={Users}
-          color="bg-emerald-500/10 text-emerald-500"
+          color="bg-status-ok-soft text-status-ok-fg"
         />
         <MetricCard
           title="Onboarding completado"
           value={`${metrics?.onboardingCompletado ?? 0} (${metrics?.onboardingCompletadoPct ?? 0}%)`}
           icon={Check}
-          color="bg-emerald-500/10 text-emerald-500"
+          color="bg-status-ok-soft text-status-ok-fg"
         />
         <MetricCard
           title="Pendientes de acceso"
           value={metrics?.pendientesAcceso ?? 0}
           icon={Clock}
-          color="bg-amber-500/10 text-amber-500"
+          color="bg-status-warn-soft text-status-warn-fg"
         />
         <MetricCard
           title="Emails rebotados"
           value={metrics?.emailsRebotados ?? 0}
           icon={AlertTriangle}
-          color="bg-red-500/10 text-red-500"
+          color="bg-status-danger-soft text-status-danger-fg"
         />
       </div>
 
@@ -324,7 +324,7 @@ export function OnboardingDashboardClient({ tenantId }: OnboardingDashboardClien
                                   {formatDate(row.fechaEnvio)}
                                 </span>
                                 {row.emailAbierto && (
-                                  <MailOpen className="h-3.5 w-3.5 text-emerald-500" />
+                                  <MailOpen className="h-3.5 w-3.5 text-status-ok-fg" />
                                 )}
                               </>
                             ) : (

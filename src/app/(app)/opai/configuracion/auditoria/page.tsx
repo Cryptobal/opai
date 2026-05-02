@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ConfigPageLayout } from "@/components/configuracion/ConfigPageLayout";
-import { DataTable, type DataTableColumn } from "@/components/opai-ds/DataTableLegacy";
+import { AuditLogsTable, type AuditLogRow } from "@/components/audit/AuditLogsTable";
 import { ClipboardCheck } from "lucide-react";
 
 type AuditPageProps = {
@@ -12,32 +12,6 @@ type AuditPageProps = {
     entity?: string;
   }>;
 };
-
-const AUDIT_COLUMNS: DataTableColumn[] = [
-  {
-    key: "createdAt",
-    label: "Fecha",
-    className: "whitespace-nowrap",
-    render: (v) => new Date(v).toLocaleString("es-CL"),
-  },
-  {
-    key: "userEmail",
-    label: "Usuario",
-    render: (v) => v || "—",
-  },
-  { key: "action", label: "Acción" },
-  { key: "entity", label: "Entidad" },
-  {
-    key: "entityId",
-    label: "ID ficha",
-    render: (v) => v || "—",
-  },
-  {
-    key: "ipAddress",
-    label: "IP",
-    render: (v) => v || "—",
-  },
-];
 
 export default async function AuditoriaPage({ searchParams }: AuditPageProps) {
   const session = await auth();
@@ -57,7 +31,7 @@ export default async function AuditoriaPage({ searchParams }: AuditPageProps) {
   const action = (params.action || "").trim();
   const entity = (params.entity || "").trim();
 
-  const logs = await prisma.auditLog.findMany({
+  const logsRaw = await prisma.auditLog.findMany({
     where: {
       tenantId,
       ...(action ? { action } : {}),
@@ -76,6 +50,17 @@ export default async function AuditoriaPage({ searchParams }: AuditPageProps) {
     orderBy: { createdAt: "desc" },
     take: 200,
   });
+
+  // Serializar Date → ISO string para cruzar la frontera Server → Client.
+  const logs: AuditLogRow[] = logsRaw.map((log) => ({
+    id: log.id,
+    createdAt: log.createdAt.toISOString(),
+    userEmail: log.userEmail,
+    action: log.action,
+    entity: log.entity,
+    entityId: log.entityId,
+    ipAddress: log.ipAddress,
+  }));
 
   const actions = await prisma.auditLog.findMany({
     where: { tenantId },
@@ -140,12 +125,7 @@ export default async function AuditoriaPage({ searchParams }: AuditPageProps) {
         </div>
       </form>
 
-      <DataTable
-        columns={AUDIT_COLUMNS}
-        data={logs}
-        compact
-        emptyMessage="No hay registros de auditoría para los filtros seleccionados."
-      />
+      <AuditLogsTable logs={logs} />
     </ConfigPageLayout>
   );
 }

@@ -84,14 +84,14 @@ function formatTimestamp(iso: string): string {
 function StatusBadge({ status }: { status: string }) {
   if (status === "completada") {
     return (
-      <span className="rounded-full bg-green-500/20 px-2 py-0.5 text-xs font-medium text-green-400">
+      <span className="rounded-full bg-status-ok-soft px-2 py-0.5 text-xs font-medium text-status-ok-fg">
         Completada
       </span>
     );
   }
   if (status === "incompleta") {
     return (
-      <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-xs font-medium text-amber-400">
+      <span className="rounded-full bg-status-warn-soft px-2 py-0.5 text-xs font-medium text-status-warn-fg">
         Incompleta
       </span>
     );
@@ -317,7 +317,7 @@ export function HistorialRondaModal({ ejecucionId, session, onClose }: Props) {
         {loading && (
           <div className="flex flex-col items-center justify-center py-20">
             <svg
-              className="h-8 w-8 animate-spin text-teal-500"
+              className="h-8 w-8 animate-spin text-status-info-fg"
               xmlns="http://www.w3.org/2000/svg"
               fill="none"
               viewBox="0 0 24 24"
@@ -343,7 +343,7 @@ export function HistorialRondaModal({ ejecucionId, session, onClose }: Props) {
         {/* Error */}
         {!loading && error && (
           <div className="px-4 py-8 text-center">
-            <p className="text-sm text-red-400">{error}</p>
+            <p className="text-sm text-status-danger-fg">{error}</p>
           </div>
         )}
 
@@ -353,7 +353,7 @@ export function HistorialRondaModal({ ejecucionId, session, onClose }: Props) {
             {/* Stats row */}
             <div className="grid grid-cols-3 gap-px bg-white/5">
               <div className="flex flex-col items-center py-3 bg-gray-900/80">
-                <span className="text-xl font-bold text-teal-400">
+                <span className="text-xl font-bold text-status-info-fg">
                   {Math.round(detail.porcentajeCompletado)}%
                 </span>
                 <span className="mt-0.5 text-xs text-gray-500">Completado</span>
@@ -362,10 +362,10 @@ export function HistorialRondaModal({ ejecucionId, session, onClose }: Props) {
                 <span
                   className={`text-xl font-bold ${
                     detail.trustScore >= 80
-                      ? "text-green-400"
+                      ? "text-status-ok-fg"
                       : detail.trustScore >= 50
-                        ? "text-yellow-400"
-                        : "text-red-400"
+                        ? "text-status-warn-fg"
+                        : "text-status-danger-fg"
                   }`}
                 >
                   {detail.trustScore}
@@ -404,23 +404,23 @@ export function HistorialRondaModal({ ejecucionId, session, onClose }: Props) {
               {/* Map legend */}
               <div className="flex flex-wrap items-center gap-3 bg-gray-900/90 px-4 py-2 text-xs text-gray-500">
                 <span className="flex items-center gap-1">
-                  <span className="inline-block h-2 w-4 rounded bg-emerald-500" />
+                  <span className="inline-block h-2 w-4 rounded bg-status-ok" />
                   Ruta caminada
                 </span>
                 <span className="flex items-center gap-1">
-                  <CheckCircle2 className="h-3 w-3 text-emerald-400" />
+                  <CheckCircle2 className="h-3 w-3 text-status-ok-fg" />
                   Marcado
                 </span>
                 <span className="flex items-center gap-1">
-                  <XCircle className="h-3 w-3 text-red-400" />
+                  <XCircle className="h-3 w-3 text-status-danger-fg" />
                   No marcado
                 </span>
                 <span className="flex items-center gap-1">
-                  <span className="inline-block h-3 w-3 rounded-full border border-white bg-emerald-500" />
+                  <span className="inline-block h-3 w-3 rounded-full border border-white bg-status-ok" />
                   Inicio
                 </span>
                 <span className="flex items-center gap-1">
-                  <span className="inline-block h-3 w-3 rounded-full border border-white bg-red-500" />
+                  <span className="inline-block h-3 w-3 rounded-full border border-white bg-status-danger" />
                   Fin
                 </span>
               </div>
@@ -446,9 +446,9 @@ export function HistorialRondaModal({ ejecucionId, session, onClose }: Props) {
                         className="flex items-center gap-3 px-4 py-2.5"
                       >
                         {isCompleted ? (
-                          <CheckCircle2 className="h-4 w-4 shrink-0 text-green-400" />
+                          <CheckCircle2 className="h-4 w-4 shrink-0 text-status-ok-fg" />
                         ) : (
-                          <XCircle className="h-4 w-4 shrink-0 text-red-400" />
+                          <XCircle className="h-4 w-4 shrink-0 text-status-danger-fg" />
                         )}
                         <span className="flex-1 text-sm text-gray-300">
                           <span className="mr-2 text-xs text-gray-600">
@@ -466,7 +466,7 @@ export function HistorialRondaModal({ ejecucionId, session, onClose }: Props) {
                             onClick={() =>
                               setExpandedPhoto(marcacion.fotoEvidenciaUrl!)
                             }
-                            className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-white/10 bg-gray-800 transition-colors hover:border-teal-500/50"
+                            className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-white/10 bg-gray-800 transition-colors hover:border-status-info-border"
                           >
                             <img
                               src={marcacion.fotoEvidenciaUrl}
@@ -507,7 +507,7 @@ export function HistorialRondaModal({ ejecucionId, session, onClose }: Props) {
                         key={i}
                         className="flex items-center gap-3 px-4 py-2.5"
                       >
-                        <CheckCircle2 className="h-4 w-4 shrink-0 text-green-400" />
+                        <CheckCircle2 className="h-4 w-4 shrink-0 text-status-ok-fg" />
                         <span className="flex-1 text-sm text-gray-300">
                           {m.checkpointName ?? "Checkpoint"}
                         </span>
@@ -517,7 +517,7 @@ export function HistorialRondaModal({ ejecucionId, session, onClose }: Props) {
                         {m.fotoEvidenciaUrl && (
                           <button
                             onClick={() => setExpandedPhoto(m.fotoEvidenciaUrl!)}
-                            className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-white/10 bg-gray-800 transition-colors hover:border-teal-500/50"
+                            className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-white/10 bg-gray-800 transition-colors hover:border-status-info-border"
                           >
                             <img
                               src={m.fotoEvidenciaUrl}

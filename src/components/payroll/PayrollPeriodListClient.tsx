@@ -22,10 +22,10 @@ const MONTHS = [
 ];
 
 const STATUS_COLORS: Record<string, string> = {
-  OPEN: "bg-blue-500/15 text-blue-400 border-blue-500/30",
-  PROCESSING: "bg-amber-500/15 text-amber-400 border-amber-500/30",
+  OPEN: "bg-status-info-soft text-status-info-fg border-status-info-border",
+  PROCESSING: "bg-status-warn-soft text-status-warn-fg border-status-warn-border",
   CLOSED: "bg-slate-500/15 text-slate-400 border-slate-500/30",
-  PAID: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+  PAID: "bg-status-ok-soft text-status-ok-fg border-status-ok-border",
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -162,8 +162,8 @@ export function PayrollPeriodListClient() {
               className="rounded-lg border border-border p-4 transition-colors hover:border-primary/30 hover:bg-accent/30"
             >
               <div className="flex items-center gap-2 mb-2">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-500/10">
-                  <Calendar className="h-4 w-4 text-blue-400" />
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-status-info-soft">
+                  <Calendar className="h-4 w-4 text-status-info-fg" />
                 </div>
                 <span className="text-sm font-medium">
                   {MONTHS[p.month - 1]} {p.year}

@@ -140,21 +140,21 @@ const MODULE_LABELS: Record<string, string> = {
 };
 
 const MODULE_BADGE_STYLES: Record<string, string> = {
-  lead: "border-sky-400/40 bg-sky-500/10 text-sky-700 dark:text-sky-300",
-  negocio: "border-emerald-400/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+  lead: "border-status-info-border bg-status-info-soft text-status-info-fg",
+  negocio: "border-status-ok-border bg-status-ok-soft text-status-ok-fg",
   cotizacion: "border-fuchsia-400/40 bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-300",
-  contrato: "border-amber-400/40 bg-amber-500/10 text-amber-700 dark:text-amber-300",
-  operaciones: "border-indigo-400/40 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300",
-  guardia: "border-orange-400/40 bg-orange-500/10 text-orange-700 dark:text-orange-300",
-  cuenta: "border-cyan-400/40 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300",
+  contrato: "border-status-warn-border bg-status-warn-soft text-status-warn-fg",
+  operaciones: "border-status-info-border bg-status-info-soft text-status-info-fg",
+  guardia: "border-status-warn-border bg-status-warn-soft text-status-warn-fg",
+  cuenta: "border-status-info-border bg-status-info-soft text-status-info-fg",
   contacto: "border-violet-400/40 bg-violet-500/10 text-violet-700 dark:text-violet-300",
-  instalacion: "border-teal-400/40 bg-teal-500/10 text-teal-700 dark:text-teal-300",
-  documentos: "border-yellow-400/40 bg-yellow-500/10 text-yellow-700 dark:text-yellow-300",
-  crm: "border-blue-400/40 bg-blue-500/10 text-blue-700 dark:text-blue-300",
-  finanzas: "border-lime-400/40 bg-lime-500/10 text-lime-700 dark:text-lime-300",
-  payroll: "border-rose-400/40 bg-rose-500/10 text-rose-700 dark:text-rose-300",
+  instalacion: "border-status-info-border bg-status-info-soft text-status-info-fg",
+  documentos: "border-status-warn-border bg-status-warn-soft text-status-warn-fg",
+  crm: "border-status-info-border bg-status-info-soft text-status-info-fg",
+  finanzas: "border-tint-teal-fg/40 bg-tint-teal text-tint-teal-fg",
+  payroll: "border-tint-amber-fg/40 bg-tint-amber text-tint-amber-fg",
   configuracion: "border-slate-400/40 bg-slate-500/10 text-slate-700 dark:text-slate-300",
-  hub: "border-purple-400/40 bg-purple-500/10 text-purple-700 dark:text-purple-300",
+  hub: "border-tint-violet-fg/40 bg-tint-violet text-tint-violet-fg",
   sistema: "border-zinc-400/40 bg-zinc-500/10 text-zinc-700 dark:text-zinc-300",
 };
 
@@ -607,7 +607,7 @@ export function NotificationListClient() {
                     className={cn(
                       "group flex items-start gap-3 py-3 hover:bg-accent/50 transition-colors -mx-2 px-2 rounded",
                       !n.read && "bg-primary/5",
-                      isSystem && "border-l-2 border-amber-500/30 bg-amber-500/[0.04]"
+                      isSystem && "border-l-2 border-status-warn-border bg-status-warn-soft/30"
                     )}
                   >
                     <button
@@ -667,7 +667,7 @@ export function NotificationListClient() {
                             </span>
                           )}
                           {isSystem && (
-                            <span className="inline-flex rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-300">
+                            <span className="inline-flex rounded-full border border-status-warn-border bg-status-warn-soft px-2 py-0.5 text-[10px] font-medium text-status-warn-fg dark:text-status-warn-fg">
                               Sistema
                             </span>
                           )}
@@ -687,7 +687,7 @@ export function NotificationListClient() {
                             target="_blank"
                             rel="noopener noreferrer"
                             onClick={(e) => e.stopPropagation()}
-                            className="inline-flex items-center gap-1.5 mt-2 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 text-xs font-medium text-emerald-600 hover:bg-emerald-500/20"
+                            className="inline-flex items-center gap-1.5 mt-2 rounded-full bg-status-ok-soft border border-status-ok-border px-3 py-1 text-xs font-medium text-status-ok-fg hover:bg-status-ok-soft"
                           >
                             <MessageSquare className="h-3 w-3" />
                             Enviar WhatsApp

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { PageHeader } from "@/components/opai";
+import { PageHero } from "@/components/opai-ds";
+import { Wallet } from "lucide-react";
 import { PayrollSubnav } from "@/components/payroll/PayrollSubnav";
 import { AnticipoProcessClient } from "@/components/payroll/AnticipoProcessClient";
 
@@ -10,9 +11,13 @@ export default async function PayrollAnticiposPage() {
 
   return (
     <div className="space-y-6 min-w-0">
-      <PageHeader
+      <PageHero
+        icon={<Wallet />}
+        iconTone="amber"
+        eyebrow={["Payroll", "Anticipos"]}
         title="Anticipos"
-        description="Procesos de pago de anticipos mensuales"
+        subtitle="pagos mensuales"
+        description="Procesos de pago de anticipos mensuales."
       />
       <PayrollSubnav />
       <AnticipoProcessClient />

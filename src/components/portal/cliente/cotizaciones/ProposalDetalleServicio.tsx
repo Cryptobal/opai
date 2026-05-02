@@ -21,7 +21,7 @@ export function ProposalDetalleServicio({
   return (
     <div className={cn("rounded-xl border border-slate-700/50 bg-slate-800/50 p-4 space-y-3", className)}>
       <h3 className="text-xl font-bold text-white">
-        <span className="text-teal-400">{sectionNumber}.</span> Detalle del Servicio de Seguridad
+        <span className="text-status-info-fg">{sectionNumber}.</span> Detalle del Servicio de Seguridad
       </h3>
 
       <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-line">

@@ -15,7 +15,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { PageHeader } from "@/components/opai";
+import { PageHero } from "@/components/opai-ds";
+import { FileText as FileTextIcon } from "lucide-react";
 import { ContractEditor } from "./ContractEditor";
 import { DOC_CATEGORIES } from "@/lib/docs/token-registry";
 import { toast } from "sonner";
@@ -203,7 +204,10 @@ export function DocGenerateClient() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <PageHeader
+      <PageHero
+        icon={<FileTextIcon />}
+        iconTone="rose"
+        eyebrow={["Documentos", "Generar"]}
         backHref="/opai/documentos"
         backLabel="Documentos"
         title="Nuevo Documento"
@@ -449,9 +453,9 @@ export function DocGenerateClient() {
       />
 
       {resolved && (
-        <div className="flex items-center gap-3 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-          <Eye className="h-4 w-4 text-emerald-400" />
-          <p className="text-sm text-emerald-400 flex-1">
+        <div className="flex items-center gap-3 p-3 rounded-lg bg-status-ok-soft border border-status-ok-border">
+          <Eye className="h-4 w-4 text-status-ok-fg" />
+          <p className="text-sm text-status-ok-fg flex-1">
             Los tokens han sido resueltos con datos reales. El documento está
             listo para guardar.
           </p>

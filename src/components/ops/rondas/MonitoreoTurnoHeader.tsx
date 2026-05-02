@@ -40,15 +40,15 @@ function formatDuration(startedAt: string): string {
 }
 
 function trustColor(score: number): string {
-  if (score >= 80) return "text-emerald-400";
-  if (score >= 60) return "text-amber-400";
-  return "text-red-400";
+  if (score >= 80) return "text-status-ok-fg";
+  if (score >= 60) return "text-status-warn-fg";
+  return "text-status-danger-fg";
 }
 
 function trustBorder(score: number): string {
-  if (score >= 80) return "border-emerald-500/25 bg-emerald-500/8";
-  if (score >= 60) return "border-amber-500/25 bg-amber-500/8";
-  return "border-red-500/25 bg-red-500/8";
+  if (score >= 80) return "border-status-ok-border bg-status-ok-soft";
+  if (score >= 60) return "border-status-warn-border bg-status-warn-soft";
+  return "border-status-danger-border bg-status-danger-soft";
 }
 
 export function MonitoreoTurnoHeader({
@@ -131,7 +131,7 @@ export function MonitoreoTurnoHeader({
         <span className="text-[12px] text-[#64748b]">Sin turno activo</span>
         <Button
           size="sm"
-          className="h-8 text-xs gap-1.5 bg-cyan-600 hover:bg-cyan-700 text-white"
+          className="h-8 text-xs gap-1.5 bg-status-info hover:brightness-110 text-white"
           onClick={startTurno}
           disabled={loading}
         >
@@ -151,10 +151,10 @@ export function MonitoreoTurnoHeader({
       <div className="flex items-center gap-2.5 shrink-0">
         <div className="flex items-center gap-1.5">
           <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-status-ok opacity-75" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-status-ok" />
           </span>
-          <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-widest">En vivo</span>
+          <span className="text-[11px] font-bold text-status-ok-fg uppercase tracking-widest">En vivo</span>
         </div>
         <span className="text-[#1a1f2e]">|</span>
         {startTime && (
@@ -173,18 +173,18 @@ export function MonitoreoTurnoHeader({
         <KpiChip
           label="EN CURSO"
           value={activeRondasCount}
-          className="border-cyan-500/25 bg-cyan-500/8 text-cyan-400"
+          className="border-status-info-border bg-status-info-soft text-status-info-fg"
         />
         <KpiChip
           label="COMPLETADAS"
           value={completedCount}
-          className="border-emerald-500/25 bg-emerald-500/8 text-emerald-400"
+          className="border-status-ok-border bg-status-ok-soft text-status-ok-fg"
         />
         <KpiChip
           label="OMITIDAS"
           value={missedCount}
           className={cn(
-            "border-red-500/25 bg-red-500/8 text-red-400",
+            "border-status-danger-border bg-status-danger-soft text-status-danger-fg",
             missedCount > 0 && "animate-pulse",
           )}
           hide={missedCount === 0}
@@ -202,7 +202,7 @@ export function MonitoreoTurnoHeader({
           <Button
             size="sm"
             variant="ghost"
-            className="h-8 text-[11px] gap-1 text-orange-400 hover:bg-orange-500/10"
+            className="h-8 text-[11px] gap-1 text-status-warn-fg hover:bg-status-warn-soft"
             onClick={onCloseOrphans}
             disabled={closingOrphans}
           >
@@ -215,7 +215,7 @@ export function MonitoreoTurnoHeader({
             <Button
               size="sm"
               variant="ghost"
-              className="h-8 w-8 p-0 text-indigo-400 hover:bg-indigo-500/10"
+              className="h-8 w-8 p-0 text-status-info-fg hover:bg-status-info-soft"
               onClick={() => handleCoberturaClick("nocturno")}
               disabled={isSending}
               title="Cobertura nocturna"
@@ -225,7 +225,7 @@ export function MonitoreoTurnoHeader({
             <Button
               size="sm"
               variant="ghost"
-              className="h-8 w-8 p-0 text-amber-400 hover:bg-amber-500/10"
+              className="h-8 w-8 p-0 text-status-warn-fg hover:bg-status-warn-soft"
               onClick={() => handleCoberturaClick("diurno")}
               disabled={isSending}
               title="Cobertura diurna"
@@ -239,18 +239,18 @@ export function MonitoreoTurnoHeader({
             onClick={onToggleAlerts}
             className="relative transition-transform hover:scale-105 active:scale-95"
           >
-            <span className="inline-flex items-center gap-1 rounded-full bg-red-500/10 border border-red-500/30 px-2.5 py-1 text-[10px] font-bold text-red-400 tabular-nums">
+            <span className="inline-flex items-center gap-1 rounded-full bg-status-danger-soft border border-status-danger-border px-2.5 py-1 text-[10px] font-bold text-status-danger-fg tabular-nums">
               <AlertTriangle className="h-3 w-3" />
               {alertCount}
             </span>
-            <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-red-500 animate-ping" />
+            <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-status-danger animate-ping" />
           </button>
         )}
         {(canCloseTurno || !isReadOnly) && effectiveTurnoId && (
           <Button
             size="sm"
             variant="ghost"
-            className="h-8 text-[11px] gap-1 text-red-400/70 hover:text-red-400 hover:bg-red-500/10 ml-1"
+            className="h-8 text-[11px] gap-1 text-status-danger-fg/70 hover:text-status-danger-fg hover:bg-status-danger-soft ml-1"
             onClick={() => onOpenCloseTurno?.(effectiveTurnoId)}
           >
             <Square className="h-3 w-3" /> Cerrar

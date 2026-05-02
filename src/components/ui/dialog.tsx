@@ -100,6 +100,11 @@ const DialogContent = React.forwardRef<
         )}
         {...props}
       >
+        {/* Mobile-only swipe handle (visual hint of bottom-sheet behavior). */}
+        <div
+          aria-hidden
+          className="sm:hidden absolute left-1/2 top-2 -translate-x-1/2 h-1 w-9 rounded-full bg-muted-foreground/30"
+        />
         {children}
         <DialogPrimitive.Close className="absolute right-4 top-4 rounded-md p-1 text-muted-foreground opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-1 focus:ring-ring disabled:pointer-events-none">
           <X className="h-4 w-4" />

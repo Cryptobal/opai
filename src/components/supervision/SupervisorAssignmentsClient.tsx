@@ -453,14 +453,14 @@ export function SupervisorAssignmentsClient({ supervisors, installations }: Prop
                             onClick={() => void handleToggle(inst.id, !assigned)}
                             className={[
                               "relative inline-flex h-7 w-14 items-center rounded-full transition-colors",
-                              assigned ? "bg-emerald-500/80" : "bg-muted",
+                              assigned ? "bg-status-ok" : "bg-muted",
                               isUpdating ? "opacity-70 cursor-not-allowed" : "cursor-pointer",
                             ].join(" ")}
                           >
                             <span
                               className={[
                                 "inline-flex h-5 w-5 transform items-center justify-center rounded-full bg-white transition-transform",
-                                assigned ? "translate-x-8 text-emerald-600" : "translate-x-1 text-muted-foreground",
+                                assigned ? "translate-x-8 text-status-ok-fg" : "translate-x-1 text-muted-foreground",
                               ].join(" ")}
                             >
                               {isUpdating ? (

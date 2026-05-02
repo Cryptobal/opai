@@ -1,6 +1,6 @@
 "use client";
 
-import { SubNav, type SubNavItem } from "@/components/opai/SubNav";
+import { SubNav, type SubNavItem } from "@/components/opai-ds/SubNav";
 import {
   Package,
   Shirt,
@@ -10,6 +10,7 @@ import {
   Layers,
   Smartphone,
   Phone,
+  Settings2,
 } from "lucide-react";
 
 const INVENTARIO_ITEMS: SubNavItem[] = [
@@ -21,8 +22,11 @@ const INVENTARIO_ITEMS: SubNavItem[] = [
   { href: "/ops/inventario/stock", label: "Stock", icon: Layers },
   { href: "/ops/inventario/activos", label: "Activos", icon: Smartphone },
   { href: "/ops/inventario/lineas", label: "Líneas", icon: Phone },
+  { href: "/ops/inventario/configuracion", label: "Configuración", icon: Settings2 },
 ];
 
 export function InventarioSubnav() {
-  return <SubNav items={INVENTARIO_ITEMS} />;
+  // En mobile el bottom nav global ya muestra los mismos items (módulo Inventario);
+  // ocultamos el subnav arriba para evitar duplicación visual.
+  return <SubNav items={INVENTARIO_ITEMS} className="hidden lg:block" />;
 }

@@ -6,7 +6,7 @@ import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { EmptyState, LoadingSpinner } from "@/components/opai";
+import { EmptyState, Spinner } from "@/components/opai-ds";
 import { CalendarCheck2, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Info, Loader2, RotateCcw, MapPin, Clock, X } from "lucide-react";
 import { CollapsibleSection } from "@/components/crm/CollapsibleSection";
 import {
@@ -495,9 +495,9 @@ export function OpsPautaDiariaClient({
                 Exportar HE día
               </Button>
               {loading ? (
-                <LoadingSpinner size="sm" />
+                <Spinner size="sm" />
               ) : items.length > 0 ? (
-                <span className="text-emerald-400" title="Pauta cargada">
+                <span className="text-status-ok-fg" title="Pauta cargada">
                   <CalendarCheck2 className="h-4 w-4" aria-hidden />
                 </span>
               ) : null}
@@ -563,10 +563,10 @@ export function OpsPautaDiariaClient({
         <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
           {[
             { id: "todos", label: "Total", value: summary.total, color: "text-foreground" },
-            { id: "cubiertos", label: "Cubiertos", value: summary.cubiertos, color: "text-emerald-400" },
-            { id: "ppc", label: "PPC", value: summary.ppc, color: "text-amber-400" },
-            { id: "te", label: "TE", value: summary.te, color: "text-rose-400" },
-            { id: "cobertura", label: "Cobertura", value: `${summary.cobertura}%`, color: summary.cobertura >= 80 ? "text-emerald-400" : "text-amber-400" },
+            { id: "cubiertos", label: "Cubiertos", value: summary.cubiertos, color: "text-status-ok-fg" },
+            { id: "ppc", label: "PPC", value: summary.ppc, color: "text-status-warn-fg" },
+            { id: "te", label: "TE", value: summary.te, color: "text-status-danger-fg" },
+            { id: "cobertura", label: "Cobertura", value: `${summary.cobertura}%`, color: summary.cobertura >= 80 ? "text-status-ok-fg" : "text-status-warn-fg" },
           ].map((s) => (
             <Card
               key={s.label}
@@ -594,13 +594,13 @@ export function OpsPautaDiariaClient({
       {/* Content grouped by installation */}
       {loading && items.length === 0 ? (
         <div className="flex items-center justify-center py-16">
-          <LoadingSpinner size="md" />
+          <Spinner size="md" />
         </div>
       ) : items.length === 0 ? (
         <Card>
           <CardContent className="pt-5">
             <EmptyState
-              icon={<CalendarCheck2 className="h-8 w-8 text-white" />}
+              icon={CalendarCheck2}
               title="Sin asistencia"
               description="No hay puestos para la fecha seleccionada. Genera primero la pauta mensual."
               compact
@@ -673,7 +673,7 @@ export function OpsPautaDiariaClient({
                           <div className="text-xs text-muted-foreground leading-tight">
                             S{item.slotNumber} · {item.puesto.shiftStart}-{item.puesto.shiftEnd}
                             {" "}
-                            <span className={isDayShift(item.puesto.shiftStart) ? "text-sky-400" : "text-indigo-400"}>
+                            <span className={isDayShift(item.puesto.shiftStart) ? "text-status-info-fg" : "text-status-info-fg"}>
                               {isDayShift(item.puesto.shiftStart) ? "Día" : "Noche"}
                             </span>
                           </div>
@@ -689,7 +689,7 @@ export function OpsPautaDiariaClient({
                                 J:{((item.plannedMinutes ?? 0) / 60).toFixed(1)}h
                               </span>
                               {(item.overtimeMinutes ?? 0) > 0 && (
-                                <span className="text-[10px] text-amber-300 font-medium">
+                                <span className="text-[10px] text-status-warn-fg font-medium">
                                   HE:{((item.overtimeMinutes ?? 0) / 60).toFixed(1)}h
                                 </span>
                               )}
@@ -707,7 +707,7 @@ export function OpsPautaDiariaClient({
                         {isAbsencePPC && item.plannedGuardia ? (
                           <span className="truncate flex items-center gap-2">
                             <span className="text-muted-foreground">{formatPersonName(item.plannedGuardia.persona.firstName, item.plannedGuardia.persona.lastName)}</span>
-                            <span className="inline-flex items-center rounded-full bg-green-500/20 px-1.5 py-0.5 text-[10px] font-medium text-green-400 shrink-0">
+                            <span className="inline-flex items-center rounded-full bg-status-ok-soft px-1.5 py-0.5 text-[10px] font-medium text-status-ok-fg shrink-0">
                               {item.absenceCode}
                             </span>
                           </span>
@@ -724,7 +724,7 @@ export function OpsPautaDiariaClient({
                             )}
                           </span>
                         ) : (
-                          <span className="text-amber-400 text-sm">Sin asignar (PPC)</span>
+                          <span className="text-status-warn-fg text-sm">Sin asignar (PPC)</span>
                         )}
                       </div>
 
@@ -734,7 +734,7 @@ export function OpsPautaDiariaClient({
                         <div className="mt-1 md:mt-0 md:min-w-0 md:w-full">
                           {item.attendanceStatus === "reemplazo" && item.replacementGuardia ? (
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-rose-300">
+                              <span className="text-status-danger-fg">
                                 {formatPersonName(item.replacementGuardia.persona.firstName, item.replacementGuardia.persona.lastName)}
                               </span>
                               {item.replacementGuardia.lifecycleStatus === "te" && (
@@ -743,12 +743,12 @@ export function OpsPautaDiariaClient({
                                 </span>
                               )}
                               {te && (
-                                <span className="text-xs text-amber-400 ml-2 inline-flex items-center gap-1">
+                                <span className="text-xs text-status-warn-fg ml-2 inline-flex items-center gap-1">
                                   {te.tipo === "hora_extra" ? `HHEE ${te.horasExtra ?? "?"}h` : "TE"}{" "}
                                   {te.status} (${Number(te.amountClp).toLocaleString("es-CL")})
                                   {te.amountJustification && (
                                     <span title={te.amountJustification}>
-                                      <Info className="h-3 w-3 text-amber-300 inline" />
+                                      <Info className="h-3 w-3 text-status-warn-fg inline" />
                                     </span>
                                   )}
                                 </span>
@@ -860,7 +860,7 @@ export function OpsPautaDiariaClient({
                                   <>
                                     {primeraEntrada && (
                                       <span
-                                        className={`inline-flex items-center gap-0.5 text-xs font-medium ${primeraEntrada.gpsStatus === "fuera_rango" ? "text-red-400" : "text-emerald-500"}`}
+                                        className={`inline-flex items-center gap-0.5 text-xs font-medium ${primeraEntrada.gpsStatus === "fuera_rango" ? "text-status-danger-fg" : "text-status-ok-fg"}`}
                                         title={`Entrada ${primeraEntrada.timestamp} · GPS: ${primeraEntrada.gpsStatus === "dentro_rango" ? `✓ ${primeraEntrada.geoDistanciaM}m` : primeraEntrada.gpsStatus === "fuera_rango" ? `⚠ Fuera de rango (${primeraEntrada.geoDistanciaM}m)` : "sin GPS"}`}
                                       >
                                         <Clock className="h-3.5 w-3.5" />
@@ -870,13 +870,13 @@ export function OpsPautaDiariaClient({
                                           minute: "2-digit",
                                         })}
                                         {primeraEntrada.gpsStatus && primeraEntrada.gpsStatus !== "sin_gps" && (
-                                          <span className={`text-[9px] px-1 py-px rounded ${primeraEntrada.gpsStatus === "dentro_rango" ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"}`}>GPS</span>
+                                          <span className={`text-[9px] px-1 py-px rounded ${primeraEntrada.gpsStatus === "dentro_rango" ? "bg-status-ok-soft text-status-ok-fg" : "bg-status-danger-soft text-status-danger-fg"}`}>GPS</span>
                                         )}
                                       </span>
                                     )}
                                     {ultimaSalida && (
                                       <span
-                                        className={`inline-flex items-center gap-0.5 text-xs font-medium ${ultimaSalida.gpsStatus === "fuera_rango" ? "text-red-400" : "text-sky-400"}`}
+                                        className={`inline-flex items-center gap-0.5 text-xs font-medium ${ultimaSalida.gpsStatus === "fuera_rango" ? "text-status-danger-fg" : "text-status-info-fg"}`}
                                         title={`Salida ${ultimaSalida.timestamp} · GPS: ${ultimaSalida.gpsStatus === "dentro_rango" ? `✓ ${ultimaSalida.geoDistanciaM}m` : ultimaSalida.gpsStatus === "fuera_rango" ? `⚠ Fuera de rango (${ultimaSalida.geoDistanciaM}m)` : "sin GPS"}`}
                                       >
                                         <MapPin className="h-3.5 w-3.5" />
@@ -886,14 +886,14 @@ export function OpsPautaDiariaClient({
                                           minute: "2-digit",
                                         })}
                                         {ultimaSalida.gpsStatus && ultimaSalida.gpsStatus !== "sin_gps" && (
-                                          <span className={`text-[9px] px-1 py-px rounded ${ultimaSalida.gpsStatus === "dentro_rango" ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"}`}>GPS</span>
+                                          <span className={`text-[9px] px-1 py-px rounded ${ultimaSalida.gpsStatus === "dentro_rango" ? "bg-status-ok-soft text-status-ok-fg" : "bg-status-danger-soft text-status-danger-fg"}`}>GPS</span>
                                         )}
                                       </span>
                                     )}
                                     {hayFueraRango && (
                                       <button
                                         type="button"
-                                        className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 font-semibold hover:bg-red-500/30 transition-colors cursor-pointer animate-pulse"
+                                        className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-status-danger-soft text-status-danger-fg font-semibold hover:brightness-110 transition-colors cursor-pointer animate-pulse"
                                         title="Una o más marcaciones fueron registradas fuera del rango GPS permitido. Click para ver detalle."
                                         onClick={() => setMarcacionDetalleOpen(item.marcaciones ?? [])}
                                       >
@@ -909,28 +909,28 @@ export function OpsPautaDiariaClient({
                                 const metodo = entradaMarca?.metodoId;
                                 if (metodo === "face_id") {
                                   return (
-                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-medium" title="Marcación verificada con Face ID">
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-status-ok-soft text-status-ok-fg font-medium" title="Marcación verificada con Face ID">
                                       Face ID
                                     </span>
                                   );
                                 }
                                 if (metodo === "foto_evidencia") {
                                   return (
-                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-400 font-medium" title="Marcación con foto de evidencia desde portal guardia">
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-status-info-soft text-status-info-fg font-medium" title="Marcación con foto de evidencia desde portal guardia">
                                       Foto
                                     </span>
                                   );
                                 }
                                 if (metodo === "pin_fallback") {
                                   return (
-                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 font-medium" title="Marcación con PIN fallback — requiere validación del supervisor">
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-status-warn-soft text-status-warn-fg font-medium" title="Marcación con PIN fallback — requiere validación del supervisor">
                                       PIN fallback
                                     </span>
                                   );
                                 }
                                 if (metodo === "rut_pin") {
                                   return (
-                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 font-medium" title="Marcación con RUT + PIN">
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-status-warn-soft text-status-warn-fg font-medium" title="Marcación con RUT + PIN">
                                       PIN
                                     </span>
                                   );
@@ -976,11 +976,11 @@ export function OpsPautaDiariaClient({
                             </div>
                           ) : (item.checkInAt || item.checkOutAt) && item.attendanceStatus === "asistio" ? (
                             <span className="inline-flex items-center gap-1.5 text-xs">
-                              <span className="text-emerald-500">
+                              <span className="text-status-ok-fg">
                                 {timeFromISO(item.checkInAt)}
                               </span>
                               <span className="text-muted-foreground">–</span>
-                              <span className="text-amber-500">
+                              <span className="text-status-warn-fg">
                                 {timeFromISO(item.checkOutAt)}
                               </span>
                             </span>
@@ -994,13 +994,13 @@ export function OpsPautaDiariaClient({
                       <div className="md:flex md:flex-col md:items-end md:justify-center md:gap-2 space-y-2.5 md:space-y-0">
                         {/* Asistencia previa warning */}
                         {showAsistenciaPreviaWarning && (
-                          <div className="rounded border border-amber-500/40 bg-amber-500/10 px-2.5 py-2 text-xs text-amber-200">
+                          <div className="rounded border border-status-warn-border bg-status-warn-soft px-2.5 py-2 text-xs text-status-warn-fg">
                             <p className="font-medium">Asistencia registrada ({asistenciaPreviaGuardiaName}).</p>
                             <div className="flex gap-2 mt-1.5">
                               <Button
                                 size="sm"
                                 variant="outline"
-                                className="h-8 text-xs px-3 border-amber-500/50 text-amber-200 hover:bg-amber-500/20"
+                                className="h-8 text-xs px-3 border-status-warn-border text-status-warn-fg hover:bg-status-warn-soft"
                                 disabled={savingId === item.id || isLocked || !canExecuteOps}
                                 onClick={() =>
                                   void patchAsistencia(
@@ -1015,7 +1015,7 @@ export function OpsPautaDiariaClient({
                               <Button
                                 size="sm"
                                 variant="outline"
-                                className="h-8 text-xs px-3 border-amber-500/50 text-amber-200 hover:bg-amber-500/20"
+                                className="h-8 text-xs px-3 border-status-warn-border text-status-warn-fg hover:bg-status-warn-soft"
                                 disabled={savingId === item.id || isLocked || !canExecuteOps}
                                 onClick={() => {
                                   const te2 = item.turnosExtra?.filter((t: { status: string }) => t.status !== "rejected").sort((a: { status: string }, b: { status: string }) => (TE_PRIORITY[a.status] ?? 9) - (TE_PRIORITY[b.status] ?? 9))[0];
@@ -1049,8 +1049,8 @@ export function OpsPautaDiariaClient({
                                 size="sm"
                                 variant="outline"
                                 className={`h-7 w-7 p-0 ${item.attendanceStatus === "asistio"
-                                    ? "border-emerald-500 bg-emerald-500/25 text-emerald-300"
-                                    : "border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/20 hover:text-emerald-300"
+                                    ? "border-status-ok-border bg-status-ok-soft text-status-ok-fg"
+                                    : "border-status-ok-border text-status-ok-fg hover:bg-status-ok-soft hover:text-status-ok-fg"
                                   }`}
                                 disabled={savingId === item.id || isLocked || item.attendanceStatus === "no_asistio"}
                                 onClick={() => {
@@ -1068,8 +1068,8 @@ export function OpsPautaDiariaClient({
                                 size="sm"
                                 variant="outline"
                                 className={`h-7 w-7 p-0 ${item.attendanceStatus === "no_asistio"
-                                    ? "border-rose-500 bg-rose-500/25 text-rose-300"
-                                    : "border-rose-500/50 text-rose-400 hover:bg-rose-500/20 hover:text-rose-300"
+                                    ? "border-status-danger-border bg-status-danger-soft text-status-danger-fg"
+                                    : "border-status-danger-border/50 text-status-danger-fg hover:bg-status-danger-soft hover:text-status-danger-fg"
                                   }`}
                                 disabled={savingId === item.id || isLocked}
                                 onClick={() =>
@@ -1135,14 +1135,14 @@ export function OpsPautaDiariaClient({
           {marcacionDetalleOpen && marcacionDetalleOpen.length > 0 && (
             <div className="space-y-4">
               {marcacionDetalleOpen.map((m) => (
-                <div key={m.id} className={`rounded border p-3 text-sm space-y-2 ${m.gpsStatus === "fuera_rango" ? "border-red-500/60 bg-red-500/5" : "border-border/60"}`}>
+                <div key={m.id} className={`rounded border p-3 text-sm space-y-2 ${m.gpsStatus === "fuera_rango" ? "border-status-danger-border bg-status-danger-soft" : "border-border/60"}`}>
                   <div className="flex items-center justify-between">
                     <span className="font-medium">
                       {m.tipo === "entrada" ? "Entrada" : "Salida"}:{" "}
                       {new Date(m.timestamp).toLocaleString("es-CL")}
                     </span>
                     {m.gpsStatus === "fuera_rango" && (
-                      <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 font-medium">
+                      <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-status-danger-soft text-status-danger-fg font-medium">
                         <MapPin className="h-3 w-3" />
                         Fuera de rango
                       </span>
@@ -1155,9 +1155,9 @@ export function OpsPautaDiariaClient({
                     <p>
                       <span className="font-medium">Geo:</span>{" "}
                       {m.gpsStatus === "dentro_rango" ? (
-                        <span className="text-emerald-400">Dentro de rango ({m.geoDistanciaM}m)</span>
+                        <span className="text-status-ok-fg">Dentro de rango ({m.geoDistanciaM}m)</span>
                       ) : m.gpsStatus === "fuera_rango" ? (
-                        <span className="text-red-400 font-medium">Fuera de rango ({m.geoDistanciaM}m)</span>
+                        <span className="text-status-danger-fg font-medium">Fuera de rango ({m.geoDistanciaM}m)</span>
                       ) : (
                         "Sin GPS"
                       )}

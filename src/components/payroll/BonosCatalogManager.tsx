@@ -76,9 +76,9 @@ const CONDITION_TYPES = [
 ];
 
 const BONO_TYPE_CONFIG: Record<BonoType, { label: string; icon: typeof DollarSign; color: string }> = {
-  FIJO: { label: "Fijo", icon: DollarSign, color: "text-emerald-400" },
-  PORCENTUAL: { label: "Porcentual", icon: Percent, color: "text-blue-400" },
-  CONDICIONAL: { label: "Condicional", icon: Target, color: "text-amber-400" },
+  FIJO: { label: "Fijo", icon: DollarSign, color: "text-status-ok-fg" },
+  PORCENTUAL: { label: "Porcentual", icon: Percent, color: "text-status-info-fg" },
+  CONDICIONAL: { label: "Condicional", icon: Target, color: "text-status-warn-fg" },
 };
 
 /* ── Component ──────────────────────── */
@@ -273,7 +273,7 @@ export function BonosCatalogManager() {
                       onClick={() => handleToggleActive(bono)}
                       title={bono.isActive ? "Desactivar" : "Activar"}
                     >
-                      <span className={`h-2 w-2 rounded-full ${bono.isActive ? "bg-emerald-400" : "bg-muted-foreground"}`} />
+                      <span className={`h-2 w-2 rounded-full ${bono.isActive ? "bg-status-ok" : "bg-muted-foreground"}`} />
                     </Button>
                     <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(bono)}>
                       <Pencil className="h-3.5 w-3.5" />

@@ -20,6 +20,7 @@ const PatchSchema = z.object({
   weightReasoning: z.number().min(0.1).max(3).optional(),
   weightIntegrity: z.number().min(0.1).max(3).optional(),
   weightResponsibility: z.number().min(0.1).max(3).optional(),
+  weightVocational: z.number().min(0).max(3).optional(),
   thresholdFit: z.number().int().min(40).max(100).optional(),
   thresholdCaution: z.number().int().min(20).max(99).optional(),
   requirePsychReview: z.boolean().optional(),

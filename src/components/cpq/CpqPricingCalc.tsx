@@ -151,7 +151,7 @@ export function CpqPricingCalc({
       <h2 className="text-sm font-semibold">Cálculo detallado de cotización</h2>
       
       <div className="grid gap-1.5 text-sm">
-        <div className="text-xs font-semibold uppercase text-blue-300/80 border-b border-blue-500/30 pb-1">
+        <div className="text-xs font-semibold uppercase text-status-info-fg/80 border-b border-status-info-border pb-1">
           Costos directos
         </div>
         <div className="flex justify-between items-center pl-2">
@@ -159,10 +159,10 @@ export function CpqPricingCalc({
           <span className="font-mono text-xs">{formatCurrency(directCosts)}</span>
         </div>
         <div className="flex justify-between items-center pl-2">
-          <span className="text-emerald-300 text-xs">
+          <span className="text-status-ok-fg text-xs">
             Ajuste feriados total ({summary.totalGuards} guardias)
           </span>
-          <span className="font-mono text-xs text-emerald-300">{formatCurrency(holidayCosts)}</span>
+          <span className="font-mono text-xs text-status-ok-fg">{formatCurrency(holidayCosts)}</span>
         </div>
         <div className="flex justify-between items-center pl-2">
           <span className="text-muted-foreground text-xs">Uniformes</span>
@@ -177,7 +177,7 @@ export function CpqPricingCalc({
           <span className="font-mono text-xs">{formatCurrency(mealCosts)}</span>
         </div>
         
-        <div className="text-xs font-semibold uppercase text-teal-300/80 border-b border-teal-500/30 pb-1 mt-2">
+        <div className="text-xs font-semibold uppercase text-status-info-fg/80 border-b border-status-info-border pb-1 mt-2">
           Costos indirectos
         </div>
         <div className="flex justify-between items-center pl-2">
@@ -206,16 +206,16 @@ export function CpqPricingCalc({
           <span className="font-mono font-semibold">{formatCurrency(costsBase)}</span>
         </div>
         
-        <div className="text-xs font-semibold uppercase text-amber-300/80 border-b border-amber-500/30 pb-1 mt-2">
+        <div className="text-xs font-semibold uppercase text-status-warn-fg/80 border-b border-status-warn-border pb-1 mt-2">
           Costos porcentuales
         </div>
-        <div className="flex justify-between items-center pl-2 text-amber-300">
+        <div className="flex justify-between items-center pl-2 text-status-warn-fg">
           <span className="text-xs">
             Costo financiero ({formatNumber(effectiveFinancialRatePct, { minDecimals: 2, maxDecimals: 2 })}%)
           </span>
           <span className="font-mono text-xs">{formatCurrency(financialAmount)}</span>
         </div>
-        <div className="flex justify-between items-center pl-2 text-purple-300">
+        <div className="flex justify-between items-center pl-2 text-tint-violet-fg">
           <span className="text-xs">
             Póliza ({formatNumber(effectivePolicyRatePct, { minDecimals: 2, maxDecimals: 2 })}%)
           </span>
@@ -227,7 +227,7 @@ export function CpqPricingCalc({
           <span className="font-mono font-semibold">{formatCurrency(costsBase + financialAmount + policyAmount)}</span>
         </div>
         
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-emerald-300 mt-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-status-ok-fg mt-2">
           <div className="flex items-center gap-2">
             <span className="font-semibold">Margen</span>
             <Input
@@ -244,7 +244,7 @@ export function CpqPricingCalc({
                 setMarginDraft(formatNumber(localMargin, { minDecimals: 2, maxDecimals: 2 }));
               }}
               onFocus={(e) => e.currentTarget.select()}
-              className="h-7 w-20 text-xs bg-card/80 text-foreground border-emerald-600/40 placeholder:text-muted-foreground"
+              className="h-7 w-20 text-xs bg-card/80 text-foreground border-status-ok-border placeholder:text-muted-foreground"
             />
             <span className="text-xs">%</span>
             <Button
@@ -261,14 +261,14 @@ export function CpqPricingCalc({
           <span className="font-mono font-semibold">{formatCurrency(marginAmount)}</span>
         </div>
         
-        <div className="flex justify-between items-center border-t-2 border-emerald-500/50 pt-2 mt-2 text-base font-bold text-emerald-400">
+        <div className="flex justify-between items-center border-t-2 border-status-ok-border pt-2 mt-2 text-base font-bold text-status-ok-fg">
           <span>Precio venta mensual</span>
           <span className="font-mono">{formatCurrency(salePriceMonthly)}</span>
         </div>
 
         {saleAllocationByPosition.length > 0 && (
-          <div className="mt-3 space-y-1.5 border-t border-emerald-500/20 pt-2">
-            <div className="text-xs font-semibold uppercase text-emerald-300/80">
+          <div className="mt-3 space-y-1.5 border-t border-status-ok-border pt-2">
+            <div className="text-xs font-semibold uppercase text-status-ok-fg/80">
               Valor hora cliente por puesto (prorrateado por peso)
             </div>
             {saleAllocationByPosition.map(({ position, allocated, weight }) => {
@@ -280,7 +280,7 @@ export function CpqPricingCalc({
                   <span className="text-muted-foreground">
                     {positionName} ({formatNumber(weight * 100, { minDecimals: 2, maxDecimals: 2 })}%)
                   </span>
-                  <span className="font-mono text-emerald-300">{formatCurrency(hourlyRate)}</span>
+                  <span className="font-mono text-status-ok-fg">{formatCurrency(hourlyRate)}</span>
                 </div>
               );
             })}

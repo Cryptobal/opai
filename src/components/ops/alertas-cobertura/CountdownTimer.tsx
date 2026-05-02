@@ -68,10 +68,10 @@ export function CountdownTimer({
     : `${minutes}:${String(seconds).padStart(2, "0")}`;
 
   const urgencyColor = secondsLeft > 300
-    ? "text-emerald-400"
+    ? "text-status-ok-fg"
     : secondsLeft > 60
-    ? "text-amber-400"
-    : "text-red-400 animate-pulse";
+    ? "text-status-warn-fg"
+    : "text-status-danger-fg animate-pulse";
 
   return (
     <div className={cn("flex items-center gap-1.5", className)}>

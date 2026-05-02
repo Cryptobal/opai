@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
-import { PageHeader } from "@/components/opai";
+import { PageHero } from "@/components/opai-ds";
+import { TicketCheck } from "lucide-react";
 import { TicketDetailClient } from "@/components/ops/tickets";
 import { TicketsSubnav } from "@/components/ops/TicketsSubnav";
 import { prisma } from "@/lib/prisma";
@@ -29,9 +30,13 @@ export default async function TicketDetailPage({
 
   return (
     <div className="space-y-6 min-w-0">
-      <PageHeader
+      <PageHero
+        icon={<TicketCheck />}
+        iconTone="emerald"
+        eyebrow={["Operaciones", "Tickets"]}
         title="Detalle de ticket"
-        description="Seguimiento, comentarios y gestión del ticket."
+        subtitle="seguimiento y comentarios"
+        description="Detalle completo del ticket con timeline de aprobación, comentarios, cambios de estado y trazabilidad."
       />
       <TicketsSubnav />
       <TicketDetailClient

@@ -81,7 +81,7 @@ export function GuardiaDetalleClient({ guardiaId }: Props) {
           <ArrowLeft className="h-4 w-4" />
           Volver al equipo
         </button>
-        <p className="text-sm text-red-400">{error ?? "Guardia no encontrado"}</p>
+        <p className="text-sm text-status-danger-fg">{error ?? "Guardia no encontrado"}</p>
       </div>
     );
   }
@@ -107,7 +107,7 @@ export function GuardiaDetalleClient({ guardiaId }: Props) {
               onClick={() => setTab(t.key)}
               className={`whitespace-nowrap px-3 py-2 text-xs font-medium transition-colors border-b-2 ${
                 active
-                  ? "text-teal-400 border-teal-400"
+                  ? "text-status-info-fg border-status-info"
                   : "text-zinc-500 border-transparent hover:text-zinc-300"
               }`}
             >

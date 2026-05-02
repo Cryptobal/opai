@@ -334,7 +334,7 @@ export function RondaAuditMapModal({ row, onClose }: RondaAuditMapModalProps) {
               )}
             </p>
             {payload && (
-              <p className="text-[11px] text-teal-400/90 mt-0.5">
+              <p className="text-[11px] text-status-info-fg/90 mt-0.5">
                 Trazo: {SOURCE_LABEL[payload.routeSource]}
               </p>
             )}
@@ -351,12 +351,12 @@ export function RondaAuditMapModal({ row, onClose }: RondaAuditMapModalProps) {
         <div className="relative h-[400px] w-full">
           {loading && (
             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-background/80">
-              <Loader2 className="h-8 w-8 animate-spin text-teal-500" />
+              <Loader2 className="h-8 w-8 animate-spin text-status-info-fg" />
               <span className="text-xs text-muted-foreground">Cargando recorrido y puntos…</span>
             </div>
           )}
           {error && !loading && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center bg-background px-4 text-center text-sm text-red-400">
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-background px-4 text-center text-sm text-status-danger-fg">
               {error}
             </div>
           )}
@@ -365,22 +365,22 @@ export function RondaAuditMapModal({ row, onClose }: RondaAuditMapModalProps) {
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border px-4 py-2 text-xs text-muted-foreground">
           <span className="flex items-center gap-1">
-            <span className="inline-block h-2 w-4 rounded bg-emerald-500" /> Trazo del guardia
+            <span className="inline-block h-2 w-4 rounded bg-status-ok" /> Trazo del guardia
           </span>
           <span className="flex items-center gap-1">
-            <CheckCircle2 className="h-3 w-3 text-emerald-400" /> Marcado (geocerca válida)
+            <CheckCircle2 className="h-3 w-3 text-status-ok-fg" /> Marcado (geocerca válida)
           </span>
           <span className="flex items-center gap-1">
-            <AlertCircle className="h-3 w-3 text-amber-400" /> Marcado (fuera del radio)
+            <AlertCircle className="h-3 w-3 text-status-warn-fg" /> Marcado (fuera del radio)
           </span>
           <span className="flex items-center gap-1">
-            <XCircle className="h-3 w-3 text-red-400" /> No marcado
+            <XCircle className="h-3 w-3 text-status-danger-fg" /> No marcado
           </span>
           <span className="flex items-center gap-1">
-            <span className="inline-block h-3 w-3 rounded-full bg-emerald-500 border border-white" /> Inicio
+            <span className="inline-block h-3 w-3 rounded-full bg-status-ok border border-white" /> Inicio
           </span>
           <span className="flex items-center gap-1">
-            <span className="inline-block h-3 w-3 rounded-full bg-red-500 border border-white" /> Fin
+            <span className="inline-block h-3 w-3 rounded-full bg-status-danger border border-white" /> Fin
           </span>
         </div>
       </div>

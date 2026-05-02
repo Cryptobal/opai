@@ -118,7 +118,7 @@ export function SignatureCanvas({ onConfirm, onClear, existingDataUrl }: Props) 
       <div
         className={`rounded-lg border-2 ${
           confirmed
-            ? "border-emerald-500/50 bg-emerald-500/5"
+            ? "border-status-ok-border bg-status-ok-soft"
             : "border-dashed border-muted-foreground/30 bg-muted/20"
         }`}
       >
@@ -161,7 +161,7 @@ export function SignatureCanvas({ onConfirm, onClear, existingDataUrl }: Props) 
           </Button>
         )}
         {confirmed && (
-          <div className="flex flex-1 items-center justify-center text-xs text-emerald-400">
+          <div className="flex flex-1 items-center justify-center text-xs text-status-ok-fg">
             Firma confirmada
           </div>
         )}

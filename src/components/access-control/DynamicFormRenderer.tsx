@@ -57,16 +57,16 @@ export function DynamicFormRenderer({ fields, initialData, onSubmit }: Props) {
           <div key={field.field} className="space-y-1">
             <Label className="text-zinc-400">
               {field.label}
-              {field.required && <span className="text-red-400 ml-0.5">*</span>}
+              {field.required && <span className="text-status-danger-fg ml-0.5">*</span>}
             </Label>
             <Input
               type={field.type === "number" ? "number" : "text"}
               value={String(value || "")}
               onChange={(e) => handleChange(field.field, e.target.value)}
               placeholder={field.placeholder}
-              className={`bg-zinc-800 border-zinc-600 ${error ? "border-red-500" : ""}`}
+              className={`bg-zinc-800 border-zinc-600 ${error ? "border-status-danger-border" : ""}`}
             />
-            {error && <p className="text-xs text-red-400">{error}</p>}
+            {error && <p className="text-xs text-status-danger-fg">{error}</p>}
           </div>
         );
 
@@ -75,7 +75,7 @@ export function DynamicFormRenderer({ fields, initialData, onSubmit }: Props) {
           <div key={field.field} className="space-y-1">
             <Label className="text-zinc-400">
               {field.label}
-              {field.required && <span className="text-red-400 ml-0.5">*</span>}
+              {field.required && <span className="text-status-danger-fg ml-0.5">*</span>}
             </Label>
             <textarea
               value={String(value || "")}
@@ -83,10 +83,10 @@ export function DynamicFormRenderer({ fields, initialData, onSubmit }: Props) {
               placeholder={field.placeholder}
               rows={3}
               className={`w-full rounded-md border bg-zinc-800 px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 ${
-                error ? "border-red-500" : "border-zinc-600"
+                error ? "border-status-danger-border" : "border-zinc-600"
               }`}
             />
-            {error && <p className="text-xs text-red-400">{error}</p>}
+            {error && <p className="text-xs text-status-danger-fg">{error}</p>}
           </div>
         );
 
@@ -95,13 +95,13 @@ export function DynamicFormRenderer({ fields, initialData, onSubmit }: Props) {
           <div key={field.field} className="space-y-1">
             <Label className="text-zinc-400">
               {field.label}
-              {field.required && <span className="text-red-400 ml-0.5">*</span>}
+              {field.required && <span className="text-status-danger-fg ml-0.5">*</span>}
             </Label>
             <select
               value={String(value || "")}
               onChange={(e) => handleChange(field.field, e.target.value)}
               className={`w-full rounded-md border bg-zinc-800 px-3 py-2 text-sm text-zinc-200 ${
-                error ? "border-red-500" : "border-zinc-600"
+                error ? "border-status-danger-border" : "border-zinc-600"
               }`}
             >
               <option value="">Seleccionar...</option>
@@ -111,7 +111,7 @@ export function DynamicFormRenderer({ fields, initialData, onSubmit }: Props) {
                 </option>
               ))}
             </select>
-            {error && <p className="text-xs text-red-400">{error}</p>}
+            {error && <p className="text-xs text-status-danger-fg">{error}</p>}
           </div>
         );
 
@@ -131,15 +131,15 @@ export function DynamicFormRenderer({ fields, initialData, onSubmit }: Props) {
           <div key={field.field} className="space-y-1">
             <Label className="text-zinc-400">
               {field.label}
-              {field.required && <span className="text-red-400 ml-0.5">*</span>}
+              {field.required && <span className="text-status-danger-fg ml-0.5">*</span>}
             </Label>
             <Input
               type="date"
               value={String(value || "")}
               onChange={(e) => handleChange(field.field, e.target.value)}
-              className={`bg-zinc-800 border-zinc-600 ${error ? "border-red-500" : ""}`}
+              className={`bg-zinc-800 border-zinc-600 ${error ? "border-status-danger-border" : ""}`}
             />
-            {error && <p className="text-xs text-red-400">{error}</p>}
+            {error && <p className="text-xs text-status-danger-fg">{error}</p>}
           </div>
         );
 
@@ -149,14 +149,14 @@ export function DynamicFormRenderer({ fields, initialData, onSubmit }: Props) {
           <div key={field.field} className="space-y-1">
             <Label className="text-zinc-400">
               {field.label}
-              {field.required && <span className="text-red-400 ml-0.5">*</span>}
+              {field.required && <span className="text-status-danger-fg ml-0.5">*</span>}
             </Label>
             <div className="rounded-md border border-dashed border-zinc-600 bg-zinc-800 p-4 text-center">
               <p className="text-xs text-zinc-500">
                 {field.type === "photo" ? "Toca para tomar foto" : "Toca para firmar"}
               </p>
             </div>
-            {error && <p className="text-xs text-red-400">{error}</p>}
+            {error && <p className="text-xs text-status-danger-fg">{error}</p>}
           </div>
         );
 

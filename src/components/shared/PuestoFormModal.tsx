@@ -729,7 +729,7 @@ export function PuestoFormModal({
                 </Button>
                 <span className="text-xs text-muted-foreground shrink-0">Líquido estimado:</span>
                 {netEstimate ? (
-                  <strong className="text-emerald-400 text-sm">${netEstimate.netSalary.toLocaleString("es-CL")}</strong>
+                  <strong className="text-status-ok-fg text-sm">${netEstimate.netSalary.toLocaleString("es-CL")}</strong>
                 ) : (
                   <span className="text-muted-foreground/80 text-xs">{estimating ? "Calculando…" : "—"}</span>
                 )}

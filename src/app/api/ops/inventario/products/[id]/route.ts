@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
-import { ensureInventarioAccess } from "@/lib/inventory";
+import {
+  ensureInventarioAccess,
+  ensureInventarioEdit,
+  ensureInventarioDelete,
+} from "@/lib/inventory";
+import { createOpsAuditLog } from "@/lib/ops";
 import { requireTenantModule } from '@/lib/require-module';
 import { z } from "zod";
 
@@ -63,7 +68,7 @@ export async function PATCH(
 
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbidden = await ensureInventarioAccess(ctx);
+    const forbidden = await ensureInventarioEdit(ctx);
     if (forbidden) return forbidden;
 
     const { id } = await params;
@@ -99,6 +104,14 @@ export async function PATCH(
       include: { sizes: true, variants: { include: { size: true } } },
     });
 
+    await createOpsAuditLog(
+      ctx,
+      "inventario.product.updated",
+      "inventario.product",
+      id,
+      { changes: parsed.data },
+    );
+
     return NextResponse.json(updated);
   } catch (e) {
     console.error("[inventario/products/[id] PATCH]", e);
@@ -119,7 +132,7 @@ export async function DELETE(
 
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbidden = await ensureInventarioAccess(ctx);
+    const forbidden = await ensureInventarioDelete(ctx);
     if (forbidden) return forbidden;
 
     const { id } = await params;
@@ -173,6 +186,14 @@ export async function DELETE(
     await prisma.inventoryProduct.delete({
       where: { id },
     });
+
+    await createOpsAuditLog(
+      ctx,
+      "inventario.product.deleted",
+      "inventario.product",
+      id,
+      { name: product.name, category: product.category },
+    );
 
     return NextResponse.json({ success: true });
   } catch (e) {

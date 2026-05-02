@@ -12,6 +12,7 @@ const createVisitSchema = z.object({
   lat: z.number(),
   lng: z.number(),
   startedVia: z.enum(["hub", "ops_supervision", "mobile"]).optional(),
+  visitType: z.enum(["regular", "vulnerability_assessment"]).optional(),
 });
 
 export async function GET(request: NextRequest) {
@@ -219,6 +220,7 @@ export async function POST(request: NextRequest) {
           checkInDistanciaM,
           status: "in_progress",
           startedVia: body.startedVia ?? "ops_supervision",
+          visitType: body.visitType ?? "regular",
         },
         include: {
           installation: { select: { id: true, name: true, address: true } },

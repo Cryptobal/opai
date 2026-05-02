@@ -26,7 +26,7 @@ export function ProposalCondiciones({
   return (
     <div className={cn("rounded-xl border border-slate-700/50 bg-slate-800/50 p-4 space-y-3", className)}>
       <h3 className="text-xl font-bold text-white">
-        <span className="text-teal-400">{sectionNumber}.</span> Condiciones Comerciales
+        <span className="text-status-info-fg">{sectionNumber}.</span> Condiciones Comerciales
       </h3>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

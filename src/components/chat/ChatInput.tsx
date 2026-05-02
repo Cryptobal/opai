@@ -668,8 +668,8 @@ export function ChatInput({
       {/* Reply banner */}
       {replyTo && (
         <div className="flex items-center gap-2 px-4 py-2 border-b border-[rgba(255,255,255,0.06)] bg-[#0d1220] opai-ios-surface-sheet-top">
-          <div className="flex-1 min-w-0 border-l-2 border-blue-500 pl-2">
-            <p className="text-xs font-medium text-blue-400">
+          <div className="flex-1 min-w-0 border-l-2 border-status-info-border pl-2">
+            <p className="text-xs font-medium text-status-info-fg">
               Respondiendo a {replyTo.senderName}
             </p>
             <p className="text-xs text-zinc-500 truncate">{replyTo.content}</p>
@@ -713,7 +713,7 @@ export function ChatInput({
               <button
                 type="button"
                 onClick={() => removeFile(idx)}
-                className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-zinc-700 text-zinc-300 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-zinc-700 text-zinc-300 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-status-danger"
                 aria-label={`Eliminar ${filePreview.file.name}`}
               >
                 <X className="h-2.5 w-2.5" />
@@ -822,8 +822,8 @@ export function ChatInput({
                     className={cn(
                       "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-medium",
                       user.id === "todos"
-                        ? "bg-red-500/20 text-red-400"
-                        : "bg-teal-500/20 text-teal-400"
+                        ? "bg-status-danger-soft text-status-danger-fg"
+                        : "bg-status-info-soft text-status-info-fg"
                     )}
                   >
                     {user.id === "todos" ? "@" : user.name.charAt(0).toUpperCase()}
@@ -881,7 +881,7 @@ export function ChatInput({
           type="button"
           onClick={handleSend}
           disabled={isEmpty || isSending || isUploading}
-          className="h-8 w-8 rounded-lg bg-[#2dd4bf] flex items-center justify-center text-zinc-900 disabled:opacity-40 hover:bg-teal-400 transition-colors shrink-0 mb-0.5"
+          className="h-8 w-8 rounded-lg bg-[#2dd4bf] flex items-center justify-center text-zinc-900 disabled:opacity-40 hover:brightness-110 transition-colors shrink-0 mb-0.5"
           aria-label="Enviar mensaje"
         >
           <SendHorizontal className="h-4 w-4" />

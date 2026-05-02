@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureOpsAccess } from "@/lib/ops";
-import { sendNotificationToUsers } from "@/lib/notification-service";
+import { notify } from "@/lib/notifications/notify";
 import type { TicketComment } from "@/lib/tickets";
 
 type Params = { id: string };
@@ -188,22 +188,58 @@ export async function POST(
             where: { id: ticketId },
             select: { code: true, title: true },
           });
-          await sendNotificationToUsers({
+          await notify({
             tenantId: ctx.tenantId,
             type: mentionedGroupIds.length > 0 ? "mention_group" : "ticket_mention",
+            targetIds: uniqueIds,
+            targetType: "ADMIN",
             title: `Te mencionaron en ticket ${ticketInfo?.code ?? ""}`,
-            message:
+            body:
               body.body.length > 100
                 ? body.body.slice(0, 100) + "..."
                 : body.body,
             link: `/ops/tickets/${ticketId}`,
             data: { ticketId, commentId: comment.id, groupIds: mentionedGroupIds },
-            targetUserIds: uniqueIds,
           });
         }
       }
     } catch (mentionErr) {
       console.error("[OPS] Error processing mentions:", mentionErr);
+    }
+
+    // Notificación a interesados (assignedTo + reportedBy) en comentarios públicos.
+    // Comentarios internos (isInternal=true) no notifican a interesados.
+    if (!comment.isInternal) {
+      try {
+        const ticketInfo = await prisma.opsTicket.findFirst({
+          where: { id: ticketId, tenantId: ctx.tenantId },
+          select: { code: true, title: true, assignedTo: true, reportedBy: true },
+        });
+        if (ticketInfo) {
+          const interested = new Set<string>();
+          if (ticketInfo.assignedTo) interested.add(ticketInfo.assignedTo);
+          if (ticketInfo.reportedBy) interested.add(ticketInfo.reportedBy);
+          interested.delete(ctx.userId); // no notificar al autor del comentario
+          if (interested.size > 0) {
+            const { notify } = await import("@/lib/notifications/notify");
+            await notify({
+              tenantId: ctx.tenantId,
+              type: "ticket_mention", // reusa el tipo existente para evitar churn de catálogo
+              targetIds: Array.from(interested),
+              targetType: "ADMIN",
+              title: `Nuevo comentario en ticket ${ticketInfo.code}`,
+              body:
+                body.body.length > 140
+                  ? body.body.slice(0, 140) + "..."
+                  : body.body,
+              link: `/opai/ops/tickets/${ticketId}`,
+              data: { ticketId, commentId: comment.id, source: "comment" },
+            });
+          }
+        }
+      } catch (notifyErr) {
+        console.error("[OPS] Error notificando comentario:", notifyErr);
+      }
     }
 
     return NextResponse.json(

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { EmptyState } from "@/components/opai";
+import { EmptyState } from "@/components/opai-ds";
 import { ShieldAlert } from "lucide-react";
 import { formatPersonName } from "@/lib/personas";
 
@@ -58,7 +58,7 @@ export function ListaNegraClient({ initialItems }: ListaNegraClientProps) {
       <CardContent className="pt-5">
         {items.length === 0 ? (
           <EmptyState
-            icon={<ShieldAlert className="h-8 w-8" />}
+            icon={ShieldAlert}
             title="Lista negra vacía"
             description="No hay guardias bloqueados actualmente."
             compact
@@ -68,7 +68,7 @@ export function ListaNegraClient({ initialItems }: ListaNegraClientProps) {
             {items.map((item) => (
               <div
                 key={item.id}
-                className="rounded-lg border border-red-500/30 bg-red-500/5 p-3 sm:p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between"
+                className="rounded-lg border border-status-danger-border bg-status-danger-soft p-3 sm:p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between"
               >
                 <div>
                   <p className="text-sm font-medium">
@@ -79,7 +79,7 @@ export function ListaNegraClient({ initialItems }: ListaNegraClientProps) {
                     {item.persona.phone ? ` · ${item.persona.phone}` : ""}
                   </p>
                   {item.blacklistReason && (
-                    <p className="mt-1 text-xs text-red-400">Motivo: {item.blacklistReason}</p>
+                    <p className="mt-1 text-xs text-status-danger-fg">Motivo: {item.blacklistReason}</p>
                   )}
                 </div>
                 <Button

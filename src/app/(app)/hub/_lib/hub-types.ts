@@ -4,7 +4,9 @@
  */
 
 import type { ReactNode } from 'react';
-import type { KpiVariant, TrendType } from '@/components/opai/KpiCard';
+
+export type TrendType = 'up' | 'down' | 'neutral';
+export type KpiVariant = 'default' | 'blue' | 'emerald' | 'purple' | 'amber' | 'red' | 'indigo' | 'sky' | 'teal';
 
 /* ------------------------------------------------------------------ */
 /* Resolved permissions (passed from page to sections)                */
@@ -208,6 +210,7 @@ export interface TicketMetrics {
   breachedCount: number;
   p1PendingCount: number;
   unassignedCount: number;
+  myAssignedActiveCount: number;
   urgentTickets: TicketUrgentItem[];
   moduleActive: boolean;
 }
@@ -383,6 +386,20 @@ export interface ClosingStaleDeal {
   daysSinceLastView: number | null;
 }
 
+export interface ClosingClosedDeal {
+  id: string;
+  companyName: string;
+  dealTitle: string;
+  contactName: string;
+  contactPhone: string | null;
+  contactEmail: string | null;
+  stageName: string;
+  stageColor: string | null;
+  amount: number;
+  totalPuestos: number;
+  closedAt: Date | null;
+}
+
 export interface ClosingPendingLead {
   id: string;
   companyName: string | null;
@@ -404,6 +421,7 @@ export interface ClosingHubData {
   kpis: ClosingHubKpis;
   hotDeals: ClosingHotDeal[];
   staleDeals: ClosingStaleDeal[];
+  closedDeals: ClosingClosedDeal[];
   pendingLeads: ClosingPendingLead[];
   funnel: ClosingFunnel;
   portalTopUsers: ClosingPortalTopUser[];

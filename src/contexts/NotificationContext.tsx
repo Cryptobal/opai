@@ -177,10 +177,18 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   }, [fetchNotifications]);
 
   const markAllSeen = useCallback(async () => {
-    const unseenIds = notifications.filter((n) => !n.seen && !n.read).map((n) => n.id);
+    // Compute unseenIds inside the functional updater so this callback's
+    // identity does not depend on the `notifications` state. Otherwise the
+    // notification side panel's open-effect (which has markAllSeen in its
+    // dep array) would re-run on every notifications change and trigger
+    // a refetch loop that visibly flickers the list.
+    let unseenIds: string[] = [];
+    setNotifications((prev) => {
+      unseenIds = prev.filter((n) => !n.seen && !n.read).map((n) => n.id);
+      if (unseenIds.length === 0) return prev;
+      return prev.map((n) => ({ ...n, seen: true }));
+    });
     if (unseenIds.length === 0) return;
-
-    setNotifications((prev) => prev.map((n) => ({ ...n, seen: true })));
 
     try {
       await fetch('/api/notifications', {
@@ -191,7 +199,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     } catch {
       await fetchNotifications();
     }
-  }, [notifications, fetchNotifications]);
+  }, [fetchNotifications]);
 
   const deleteNotification = useCallback(async (id: string) => {
     const wasUnread = notifications.find((n) => n.id === id && !n.read);

@@ -71,7 +71,7 @@ export function PortalBitacora({ selectedInstallation }: Props) {
     <div className="max-w-2xl mx-auto w-full px-4 py-4 pb-24">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <BookOpen className="h-5 w-5 text-teal-400" />
+          <BookOpen className="h-5 w-5 text-status-info-fg" />
           <h2 className="text-lg font-semibold">Bitácora ejecutiva</h2>
         </div>
         <ExportButton

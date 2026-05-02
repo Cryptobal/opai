@@ -2,28 +2,25 @@ import { NextResponse } from "next/server";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { requireCrmView, requireCrmEdit } from "@/lib/api-auth-crm";
 import { prisma } from "@/lib/prisma";
-import { resolveDocument, buildEmpresaEntityData, buildQuoteEnrichedData, buildContractEntityData } from "@/lib/docs/token-resolver";
 import { uploadFile } from "@/lib/storage";
-import { requireTenantModule } from '@/lib/require-module';
+import { requireTenantModule } from "@/lib/require-module";
+import {
+  CONTRACT_CATEGORIES,
+  uploadContractSchema,
+  computeExpirationFromDuration,
+} from "@/lib/validations/docs";
 
-/** Contract-type categories in CRM module */
-const CONTRACT_CATEGORIES = [
-  "contrato_cliente",
-  "contrato_servicio",
-  "contrato_confidencialidad",
-  "acuerdo_nivel_servicio",
-  "adendum",
-];
+const MAX_PDF_SIZE_BYTES = 25 * 1024 * 1024; // 25 MB
 
 /**
  * GET /api/crm/accounts/[id]/contracts
- * List all contracts for an account.
+ * List all contracts for an account (no change from previous behavior).
  */
 export async function GET(
   _request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  const modCheck = await requireTenantModule('crm');
+  const modCheck = await requireTenantModule("crm");
   if (!modCheck.authorized) return modCheck.response;
 
   const ctx = await requireAuth();
@@ -34,25 +31,19 @@ export async function GET(
   const { id: accountId } = await params;
 
   try {
-    // Find documents associated with this account that are contract-type
     const documents = await prisma.document.findMany({
       where: {
         tenantId: ctx.tenantId,
         module: "crm",
-        category: { in: CONTRACT_CATEGORIES },
+        category: { in: [...CONTRACT_CATEGORIES] },
         associations: {
-          some: {
-            entityType: "crm_account",
-            entityId: accountId,
-          },
+          some: { entityType: "crm_account", entityId: accountId },
         },
       },
       include: {
         template: { select: { id: true, name: true } },
         associations: {
-          where: {
-            entityType: { in: ["crm_account", "crm_deal"] },
-          },
+          where: { entityType: { in: ["crm_account", "crm_deal"] } },
         },
         signatureRequests: {
           select: {
@@ -67,14 +58,18 @@ export async function GET(
           take: 1,
         },
       },
-      orderBy: { createdAt: "desc" },
+      // Order by urgency: nearest expiration first, then by createdAt.
+      orderBy: [
+        { expirationDate: { sort: "asc", nulls: "last" } },
+        { createdAt: "desc" },
+      ],
     });
 
     // Enrich with deal info
     const dealIds = documents.flatMap((d) =>
       d.associations
         .filter((a) => a.entityType === "crm_deal")
-        .map((a) => a.entityId)
+        .map((a) => a.entityId),
     );
     const deals =
       dealIds.length > 0
@@ -87,10 +82,15 @@ export async function GET(
 
     const data = documents.map((doc) => {
       const dealAssoc = doc.associations.find(
-        (a) => a.entityType === "crm_deal"
+        (a) => a.entityType === "crm_deal",
       );
       const deal = dealAssoc ? dealMap.get(dealAssoc.entityId) : null;
       const sigReq = doc.signatureRequests[0] ?? null;
+
+      // Derive: signature kind = internal request | external (manual upload) | none
+      const signatureStatus =
+        sigReq?.status ??
+        (doc.signatureStatus === "external" ? "external" : null);
 
       return {
         id: doc.id,
@@ -105,7 +105,9 @@ export async function GET(
         portalVisible: doc.portalVisible,
         templateName: doc.template?.name ?? null,
         deal: deal ? { id: deal.id, title: deal.title } : null,
-        signatureStatus: sigReq?.status ?? null,
+        signedAt: doc.signedAt,
+        signedBy: doc.signedBy,
+        signatureStatus,
         signatureRecipients: sigReq?.recipients ?? [],
         createdAt: doc.createdAt,
       };
@@ -116,20 +118,23 @@ export async function GET(
     console.error("Error fetching account contracts:", error);
     return NextResponse.json(
       { success: false, error: "Error al obtener contratos" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
 /**
  * POST /api/crm/accounts/[id]/contracts
- * Create a contract — either from template or by uploading a PDF.
+ *
+ * Single mode: upload an externally signed/produced contract PDF.
+ * To generate a new contract from a template, use the CPQ flow:
+ *   POST /api/cpq/quotes/[id]/generate-contract
  */
 export async function POST(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  const modCheck = await requireTenantModule('crm');
+  const modCheck = await requireTenantModule("crm");
   if (!modCheck.authorized) return modCheck.response;
 
   const ctx = await requireAuth();
@@ -138,268 +143,177 @@ export async function POST(
   if (forbidden) return forbidden;
 
   const { id: accountId } = await params;
+  const contentType = request.headers.get("content-type") ?? "";
+
+  if (!contentType.includes("multipart/form-data")) {
+    return NextResponse.json(
+      {
+        success: false,
+        error:
+          "Solo se acepta upload de PDF (multipart/form-data). Para generar un contrato desde plantilla, usa el flujo CPQ desde una cotización.",
+      },
+      { status: 400 },
+    );
+  }
 
   try {
-    const contentType = request.headers.get("content-type") ?? "";
-
-    // ─── Mode: Upload PDF ─────────────────────────────────────────
-    if (contentType.includes("multipart/form-data")) {
-      const formData = await request.formData();
-      const file = formData.get("file") as File | null;
-      const title = (formData.get("title") as string) ?? "";
-      const category = (formData.get("category") as string) ?? "contrato_cliente";
-      const effectiveDate = formData.get("effectiveDate") as string | null;
-      const expirationDate = formData.get("expirationDate") as string | null;
-      const alertDaysBefore = Number(formData.get("alertDaysBefore")) || 30;
-
-      if (!file) {
-        return NextResponse.json(
-          { success: false, error: "Archivo PDF requerido" },
-          { status: 400 }
-        );
-      }
-      if (!title.trim()) {
-        return NextResponse.json(
-          { success: false, error: "Título requerido" },
-          { status: 400 }
-        );
-      }
-
-      const buffer = Buffer.from(await file.arrayBuffer());
-      const uploaded = await uploadFile(
-        buffer,
-        file.name,
-        file.type || "application/pdf",
-        "contracts",
-        ctx.tenantId
-      );
-
-      const document = await prisma.$transaction(async (tx) => {
-        const doc = await tx.document.create({
-          data: {
-            tenantId: ctx.tenantId,
-            title: title.trim(),
-            content: { type: "doc", content: [] },
-            module: "crm",
-            category,
-            status: "active",
-            effectiveDate: effectiveDate ? new Date(effectiveDate) : null,
-            expirationDate: expirationDate ? new Date(expirationDate) : null,
-            alertDaysBefore,
-            pdfUrl: uploaded.publicUrl,
-            portalVisible: true,
-            createdBy: ctx.userId,
-          },
-        });
-
-        await tx.docAssociation.create({
-          data: {
-            documentId: doc.id,
-            entityType: "crm_account",
-            entityId: accountId,
-            role: "primary",
-          },
-        });
-
-        await tx.docHistory.create({
-          data: {
-            documentId: doc.id,
-            action: "created",
-            details: { mode: "upload", fileName: file.name },
-            createdBy: ctx.userId,
-          },
-        });
-
-        return doc;
-      });
-
-      return NextResponse.json(
-        { success: true, data: { id: document.id, uniqueId: document.uniqueId } },
-        { status: 201 }
-      );
-    }
-
-    // ─── Mode: Generate from Template ─────────────────────────────
-    const body = await request.json();
-    const {
-      templateId,
-      dealId,
-      title,
-      effectiveDate,
-      expirationDate,
-      alertDaysBefore = 30,
-    } = body;
-
-    if (!templateId) {
-      return NextResponse.json(
-        { success: false, error: "Template requerido" },
-        { status: 400 }
-      );
-    }
-    if (!dealId) {
-      return NextResponse.json(
-        { success: false, error: "Negocio requerido" },
-        { status: 400 }
-      );
-    }
-
-    // Fetch template
-    const template = await prisma.docTemplate.findFirst({
-      where: { id: templateId, tenantId: ctx.tenantId },
+    // Verify account exists and belongs to tenant
+    const account = await prisma.crmAccount.findFirst({
+      where: { id: accountId, tenantId: ctx.tenantId },
+      select: { id: true },
     });
-    if (!template) {
-      return NextResponse.json(
-        { success: false, error: "Template no encontrado" },
-        { status: 404 }
-      );
-    }
-
-    // Fetch deal (must be won and belong to this account)
-    const deal = await prisma.crmDeal.findFirst({
-      where: {
-        id: dealId,
-        accountId,
-        tenantId: ctx.tenantId,
-        stage: { isClosedWon: true },
-      },
-      include: {
-        stage: true,
-        quotes: { select: { quoteId: true } },
-      },
-    });
-    if (!deal) {
-      return NextResponse.json(
-        { success: false, error: "Negocio ganado no encontrado para esta cuenta" },
-        { status: 404 }
-      );
-    }
-
-    // Resolve the active quote
-    const activeQuoteId =
-      deal.activeQuotationId ?? deal.quotes[0]?.quoteId ?? null;
-
-    // Fetch all entity data in parallel (buildQuoteEnrichedData loads UF internally)
-    const [account, primaryContact, empresaSettings, quoteData] =
-      await Promise.all([
-        prisma.crmAccount.findFirst({
-          where: { id: accountId, tenantId: ctx.tenantId },
-          include: {
-            installations: {
-              where: { status: "active" },
-              select: { id: true, name: true, address: true, commune: true, city: true },
-              take: 1,
-            },
-          },
-        }),
-        prisma.crmContact.findFirst({
-          where: { accountId, tenantId: ctx.tenantId, isPrimary: true },
-        }),
-        prisma.setting.findMany({
-          where: {
-            tenantId: ctx.tenantId,
-            key: { startsWith: "empresa." },
-          },
-        }),
-        activeQuoteId ? buildQuoteEnrichedData(activeQuoteId) : null,
-      ]);
-
     if (!account) {
       return NextResponse.json(
         { success: false, error: "Cuenta no encontrada" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
-    const installation = account.installations[0] ?? null;
+    const formData = await request.formData();
+    const file = formData.get("file") as File | null;
 
-    // Build entities for token resolution
-    const entities = {
-      empresa: buildEmpresaEntityData(empresaSettings),
-      account: account as any,
-      contact: primaryContact
-        ? {
-            ...primaryContact,
-            fullName: `${primaryContact.firstName ?? ""} ${primaryContact.lastName ?? ""}`.trim(),
-          }
-        : null,
-      installation: installation as any,
-      deal: deal as any,
-      quote: quoteData ?? null,
-      contract: buildContractEntityData({
-        title: title || `Contrato - ${account.name}`,
-        effectiveDate,
-        expirationDate,
-        durationMonths:
-          effectiveDate && expirationDate
-            ? Math.round(
-                (new Date(expirationDate).getTime() -
-                  new Date(effectiveDate).getTime()) /
-                  (1000 * 60 * 60 * 24 * 30)
-              )
-            : null,
-      }),
-    };
+    // Build a plain object of the rest of the fields for zod
+    const rawFields: Record<string, unknown> = {};
+    for (const [key, value] of formData.entries()) {
+      if (key === "file") continue;
+      // FormData returns strings or File objects; normalize empty strings to undefined
+      if (typeof value === "string") {
+        rawFields[key] = value === "" ? undefined : value;
+      }
+    }
 
-    // Resolve tokens in template content
-    const { resolvedContent, tokenValues } = resolveDocument(
-      template.content,
-      entities
+    const parsed = uploadContractSchema.safeParse(rawFields);
+    if (!parsed.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Datos inválidos",
+          details: parsed.error.flatten().fieldErrors,
+        },
+        { status: 400 },
+      );
+    }
+
+    const {
+      title,
+      category,
+      effectiveDate,
+      expirationDate: explicitExpiration,
+      durationMonths,
+      alertDaysBefore,
+      signedExternally,
+      signedAt,
+      signedBy,
+      notes,
+    } = parsed.data;
+
+    // Derive expirationDate: explicit value wins; else compute from effective + duration.
+    const computedExpiration =
+      explicitExpiration ??
+      computeExpirationFromDuration(effectiveDate, durationMonths);
+
+    if (!file) {
+      return NextResponse.json(
+        { success: false, error: "Archivo PDF requerido" },
+        { status: 400 },
+      );
+    }
+
+    // Size validation
+    if (file.size === 0) {
+      return NextResponse.json(
+        { success: false, error: "El archivo está vacío" },
+        { status: 400 },
+      );
+    }
+    if (file.size > MAX_PDF_SIZE_BYTES) {
+      return NextResponse.json(
+        { success: false, error: "El archivo supera el límite de 25 MB" },
+        { status: 400 },
+      );
+    }
+
+    const buffer = Buffer.from(await file.arrayBuffer());
+
+    // Magic bytes validation: real PDFs start with "%PDF-"
+    const header = buffer.subarray(0, 5).toString("ascii");
+    if (header !== "%PDF-") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "El archivo no es un PDF válido",
+        },
+        { status: 400 },
+      );
+    }
+
+    const uploaded = await uploadFile(
+      buffer,
+      file.name,
+      file.type || "application/pdf",
+      "contracts",
+      ctx.tenantId,
     );
 
-    // Create document in transaction
     const document = await prisma.$transaction(async (tx) => {
       const doc = await tx.document.create({
         data: {
           tenantId: ctx.tenantId,
-          templateId: template.id,
-          title: (title || `Contrato - ${account.name}`).trim(),
-          content: resolvedContent,
-          tokenValues,
+          title,
+          content: { type: "doc", content: [] },
           module: "crm",
-          category: template.category || "contrato_cliente",
-          status: "draft",
+          category,
+          status: "active", // uploaded PDFs are considered live
           effectiveDate: effectiveDate ? new Date(effectiveDate) : null,
-          expirationDate: expirationDate ? new Date(expirationDate) : null,
+          expirationDate: computedExpiration ? new Date(computedExpiration) : null,
           alertDaysBefore,
+          pdfUrl: uploaded.publicUrl,
           portalVisible: true,
+          // External-signature metadata
+          signatureStatus: signedExternally ? "external" : null,
+          signedAt: signedExternally && signedAt ? new Date(signedAt) : null,
+          signedBy: signedExternally ? signedBy ?? null : null,
           createdBy: ctx.userId,
         },
       });
 
-      // Create associations
-      await tx.docAssociation.createMany({
-        data: [
-          {
-            documentId: doc.id,
-            entityType: "crm_account",
-            entityId: accountId,
-            role: "primary",
-          },
-          {
-            documentId: doc.id,
-            entityType: "crm_deal",
-            entityId: dealId,
-            role: "related",
-          },
-        ],
+      await tx.docAssociation.create({
+        data: {
+          documentId: doc.id,
+          entityType: "crm_account",
+          entityId: accountId,
+          role: "primary",
+        },
       });
 
-      // Audit trail
       await tx.docHistory.create({
         data: {
           documentId: doc.id,
           action: "created",
           details: {
-            mode: "template",
-            templateId: template.id,
-            templateName: template.name,
-            dealId,
-            dealTitle: deal.title,
-            quoteId: activeQuoteId,
+            mode: "upload",
+            fileName: file.name,
+            fileSize: file.size,
+            category,
+            durationMonths: durationMonths ?? null,
+            computedExpiration: !explicitExpiration && computedExpiration ? true : false,
+            signedExternally,
+            notes: notes ?? null,
           },
           createdBy: ctx.userId,
         },
       });
+
+      if (signedExternally) {
+        await tx.docHistory.create({
+          data: {
+            documentId: doc.id,
+            action: "external_signature_recorded",
+            details: { signedAt, signedBy },
+            createdBy: ctx.userId,
+          },
+        });
+      }
 
       return doc;
     });
@@ -412,15 +326,16 @@ export async function POST(
           uniqueId: document.uniqueId,
           title: document.title,
           status: document.status,
+          expirationDate: document.expirationDate,
         },
       },
-      { status: 201 }
+      { status: 201 },
     );
   } catch (error) {
     console.error("Error creating contract:", error);
     return NextResponse.json(
       { success: false, error: "Error al crear contrato" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

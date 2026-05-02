@@ -2,7 +2,8 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/opai";
+import { PageHero } from "@/components/opai-ds";
+import { Package } from "lucide-react";
 import { TeLotesClient, TeSubnav } from "@/components/ops";
 
 export default async function TeLotesPage() {
@@ -34,8 +35,12 @@ export default async function TeLotesPage() {
 
   return (
     <div className="space-y-6 min-w-0">
-      <PageHeader
-        title="TE · Lotes"
+      <PageHero
+        icon={<Package />}
+        iconTone="amber"
+        eyebrow={["Turnos Extras", "Lotes"]}
+        title="Lotes de TE"
+        subtitle="agrupación para pago"
         description="Agrupa turnos aprobados para pago semanal."
       />
       <TeSubnav />

@@ -35,16 +35,16 @@ function formatEntity(type: string): string {
 }
 
 const actionDotColor: Record<string, string> = {
-  create: 'bg-emerald-500',
-  update: 'bg-blue-500',
-  delete: 'bg-red-500',
-  approve: 'bg-purple-500',
-  reject: 'bg-red-400',
-  submit: 'bg-sky-500',
+  create: 'bg-status-ok',
+  update: 'bg-status-info',
+  delete: 'bg-status-danger',
+  approve: 'bg-tint-violet',
+  reject: 'bg-status-danger',
+  submit: 'bg-status-info',
   login: 'bg-muted-foreground',
-  attendance_mark: 'bg-emerald-400',
-  profile_update: 'bg-blue-400',
-  name_change: 'bg-blue-400',
+  attendance_mark: 'bg-status-ok',
+  profile_update: 'bg-status-info',
+  name_change: 'bg-status-info',
 };
 
 export function HubActividadReciente({

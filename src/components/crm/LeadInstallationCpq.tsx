@@ -31,6 +31,7 @@ import {
 import type { ServiceTemplate } from "@/lib/cpq/service-templates";
 import { resolveRolIdFromShiftPattern } from "@/lib/cpq/resolve-cpq-role-from-shift-pattern";
 import type { MarginMode } from "@/types/cpq";
+import { AiErrorDialog, type AiErrorPayload } from "@/components/ai/AiErrorDialog";
 
 /* ─── Types ─── */
 
@@ -167,6 +168,14 @@ function hexToRgba(hex: string, alpha: number) {
   const g = Number.parseInt(normalized.slice(2, 4), 16);
   const b = Number.parseInt(normalized.slice(4, 6), 16);
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function normalizeCatalogLabel(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
 }
 
 /* ─── Group name → emoji (for cost categories) ─── */
@@ -331,9 +340,13 @@ export function LeadInstallationCpq({
   const [secMargen, setSecMargen] = useState(true);
   const [secCondiciones, setSecCondiciones] = useState(true);
   const [secDescripciones, setSecDescripciones] = useState(true);
+  const [secDesglose, setSecDesglose] = useState(true);
+  const [secPdf, setSecPdf] = useState(true);
   const [generatingCompany, setGeneratingCompany] = useState(false);
   const [generatingService, setGeneratingService] = useState(false);
   const [aiInstruction, setAiInstruction] = useState("");
+  const [aiError, setAiError] = useState<AiErrorPayload | null>(null);
+  const aiAutoFailedRef = useRef(false);
 
   const update = (patch: Partial<LeadCpqConfig>) => onChange({ ...config, ...patch });
 
@@ -492,14 +505,27 @@ export function LeadInstallationCpq({
   };
 
   const addPosition = () => {
+    const defaultPuesto =
+      cpqPuestos.find((p) => {
+        const label = normalizeCatalogLabel(p.name || "");
+        return label.includes("control") && label.includes("acceso");
+      }) ??
+      cpqPuestos.find((p) => normalizeCatalogLabel(p.name || "").includes("acceso")) ??
+      cpqPuestos[0];
+    const defaultCargo =
+      cpqCargos.find((c) => normalizeCatalogLabel(c.name || "") === "guardia") ??
+      cpqCargos.find((c) => normalizeCatalogLabel(c.name || "").includes("guardia")) ??
+      cpqCargos[0];
+    const defaultRol = cpqRoles[0];
+
     update({
       positions: [
         ...config.positions,
         {
-          puestoTrabajoId: catalogDefaults?.puestoId,
-          puesto: catalogDefaults?.puestoName || "Control de Acceso",
-          cargoId: catalogDefaults?.cargoId,
-          rolId: catalogDefaults?.rolId,
+          puestoTrabajoId: catalogDefaults?.puestoId || defaultPuesto?.id,
+          puesto: catalogDefaults?.puestoName || defaultPuesto?.name || "Control de Acceso",
+          cargoId: catalogDefaults?.cargoId || defaultCargo?.id,
+          rolId: catalogDefaults?.rolId || defaultRol?.id,
           baseSalary: 550000,
           shiftType: "day",
           cantidad: 2,
@@ -570,11 +596,19 @@ export function LeadInstallationCpq({
           customInstruction: aiInstruction || undefined,
         }),
       });
+      const data = await res.json().catch(() => null);
       if (!res.ok) {
-        const errorData = await res.json().catch(() => null);
-        throw new Error(errorData?.error || `Error ${res.status} al generar descripción`);
+        if (data?.code) {
+          aiAutoFailedRef.current = true;
+          setAiError({
+            code: data.code,
+            message: data.error,
+            providerType: data.providerType,
+          });
+          return;
+        }
+        throw new Error(data?.error || `Error ${res.status} al generar descripción`);
       }
-      const data = await res.json();
       if (data?.success && data.data?.description) {
         if (type === "company") update({ companyDescription: data.data.description });
         else update({ serviceDescription: data.data.description });
@@ -583,6 +617,11 @@ export function LeadInstallationCpq({
       }
     } catch (err) {
       console.error("[Lead IA] Error generating description:", err);
+      aiAutoFailedRef.current = true;
+      setAiError({
+        code: "AI_PROVIDER_ERROR",
+        message: err instanceof Error ? err.message : "Error inesperado",
+      });
     } finally {
       setter(false);
     }
@@ -592,16 +631,20 @@ export function LeadInstallationCpq({
   const autoGenTriggered = useRef(false);
   useEffect(() => {
     if (autoGenTriggered.current) return;
+    if (aiAutoFailedRef.current) return;
     if (config.positions.length === 0) return;
     if (config.companyDescription || config.serviceDescription) return;
     if (generatingCompany || generatingService) return;
     autoGenTriggered.current = true;
-    const timer = setTimeout(() => {
-      generateDescription("company");
-      generateDescription("service");
+    const timer = setTimeout(async () => {
+      await generateDescription("company");
+      if (!aiAutoFailedRef.current) {
+        await generateDescription("service");
+      }
     }, 800);
     return () => clearTimeout(timer);
-  }, [config.positions.length, config.companyDescription, config.serviceDescription]); // eslint-disable-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config.positions.length, config.companyDescription, config.serviceDescription]);
 
   const payrollPreviewSig = useMemo(
     () =>
@@ -890,16 +933,39 @@ export function LeadInstallationCpq({
 
         return (
           <Card className="shadow-sm overflow-hidden">
-            <div className="px-3 py-2.5">
-              <h2 className="text-sm font-bold">Desglose</h2>
-            </div>
-            <div className="px-3 pb-3">
-              <QuoteBreakdownPanel data={breakdownData} variant="default" />
-            </div>
-            {!estimate.laborPayrollReady && (
-              <div className="px-3 pb-2 text-[10px] text-amber-500/90 font-medium text-center">
-                Calculando mano de obra (motor nómina)…
+            <button
+              type="button"
+              onClick={() => setSecDesglose((v) => !v)}
+              className="flex items-center justify-between w-full px-3 py-2.5 hover:bg-muted/10 transition-colors"
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <h2 className="text-sm font-bold shrink-0">Desglose</h2>
+                {!secDesglose && (
+                  <span className="text-[11px] text-muted-foreground inline-flex items-baseline gap-1.5">
+                    <CpqDualCurrencyAmount
+                      clp={estimate.precioVenta}
+                      currency={currency}
+                      ufValue={ufValue}
+                      size="xs"
+                      inline
+                      primaryClassName="text-status-ok-fg font-semibold"
+                    />
+                  </span>
+                )}
               </div>
+              <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", secDesglose && "rotate-180")} />
+            </button>
+            {secDesglose && (
+              <>
+                <div className="px-3 pb-3">
+                  <QuoteBreakdownPanel data={breakdownData} variant="default" />
+                </div>
+                {!estimate.laborPayrollReady && (
+                  <div className="px-3 pb-2 text-[10px] text-status-warn-fg/90 font-medium text-center">
+                    Calculando mano de obra (motor nómina)…
+                  </div>
+                )}
+              </>
             )}
           </Card>
         );
@@ -943,7 +1009,7 @@ export function LeadInstallationCpq({
                           "h-6 gap-1 rounded-md px-1.5 text-xs font-semibold",
                           pos.shiftType === "night"
                             ? "border-violet-500/40 bg-violet-500/10 text-violet-300"
-                            : "border-amber-500/40 bg-amber-500/10 text-amber-300"
+                            : "border-status-warn-border bg-status-warn-soft text-status-warn-fg"
                         )}
                       >
                         {pos.shiftType === "night" ? <Moon className="h-2.5 w-2.5" /> : <Sun className="h-2.5 w-2.5" />}
@@ -1054,8 +1120,8 @@ export function LeadInstallationCpq({
                         className={cn(
                           "flex-1 h-8 rounded-md border text-xs font-semibold transition-colors",
                           pos.shiftType !== "night"
-                            ? "border-amber-500/50 bg-amber-500/10 text-amber-300"
-                            : "border-amber-500/20 bg-card text-amber-300/60 hover:bg-amber-500/5"
+                            ? "border-status-warn-border bg-status-warn-soft text-status-warn-fg"
+                            : "border-status-warn-border bg-card text-status-warn-fg/60 hover:bg-status-warn-soft"
                         )}
                         onClick={() => {
                           const patch: Partial<LeadPositionItem> = { shiftType: "day", horaInicio: "08:00", horaFin: "20:00" };
@@ -1228,7 +1294,7 @@ export function LeadInstallationCpq({
                   ufValue={ufValue}
                   size="xs"
                   inline
-                  primaryClassName="text-amber-400 font-semibold"
+                  primaryClassName="text-status-warn-fg font-semibold"
                 />
               </span>
             )}
@@ -1272,15 +1338,15 @@ export function LeadInstallationCpq({
               displayCurrency={currency}
               ufValue={ufValue}
             />
-            <div className={cn(CPQ_BREAKDOWN_ROW, "pt-1 border-t border-amber-500/20 text-xs")}>
-              <span className="text-[11px] font-medium text-amber-300 break-words min-w-0">Total costos adicionales</span>
+            <div className={cn(CPQ_BREAKDOWN_ROW, "pt-1 border-t border-status-warn-border text-xs")}>
+              <span className="text-[11px] font-medium text-status-warn-fg break-words min-w-0">Total costos adicionales</span>
               <div className={cpqBreakdownAmount()}>
                 <CpqDualCurrencyAmount
                   clp={costTotals.total}
                   currency={currency}
                   ufValue={ufValue}
                   size="sm"
-                  primaryClassName="text-amber-300 font-bold"
+                  primaryClassName="text-status-warn-fg font-bold"
                 />
               </div>
             </div>
@@ -1437,18 +1503,38 @@ export function LeadInstallationCpq({
         )}
       </Card>
 
-      {/* ── Vista previa de la propuesta (PDF real) ── */}
+      {/* ── PDF y documentos (vista previa real) ── */}
       {config.positions.length > 0 && (
-        <PdfPreviewSection
-          leadId={leadId}
-          config={config}
-          accountName={accountName}
-          installationName={installationName}
-          proposalTemplates={proposalTemplates}
-          ufValue={ufValue}
-        />
+        <Card className="shadow-sm overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setSecPdf((v) => !v)}
+            className="flex items-center justify-between w-full px-3 py-2.5 hover:bg-muted/10 transition-colors"
+          >
+            <div className="flex items-center gap-2 min-w-0">
+              <h2 className="text-sm font-bold shrink-0">PDF y documentos</h2>
+              {!secPdf && (
+                <span className="text-[11px] text-muted-foreground">Vista previa disponible</span>
+              )}
+            </div>
+            <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", secPdf && "rotate-180")} />
+          </button>
+          {secPdf && (
+            <div className="px-3 pb-3">
+              <PdfPreviewSection
+                leadId={leadId}
+                config={config}
+                accountName={accountName}
+                installationName={installationName}
+                proposalTemplates={proposalTemplates}
+                ufValue={ufValue}
+              />
+            </div>
+          )}
+        </Card>
       )}
 
+      <AiErrorDialog error={aiError} onClose={() => setAiError(null)} />
     </div>
   );
 }
@@ -1706,7 +1792,7 @@ function CostCategoryBlock({
                             </span>
                           </span>
                           {item.type === "uniform" && (
-                            <span className={`px-1 py-0.5 rounded text-[9px] font-medium ${logic === "prorated" ? "bg-amber-500/15 text-amber-400" : "bg-sky-500/15 text-sky-400"}`}>
+                            <span className={`px-1 py-0.5 rounded text-[9px] font-medium ${logic === "prorated" ? "bg-status-warn-soft text-status-warn-fg" : "bg-status-info-soft text-status-info-fg"}`}>
                               {logic === "prorated" ? "prorrateo" : "rotación"}
                             </span>
                           )}

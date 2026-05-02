@@ -43,10 +43,10 @@ interface GuardOption {
 }
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  completada: { label: "Completada", color: "bg-emerald-500/20 text-emerald-400" },
-  incompleta: { label: "Incompleta", color: "bg-yellow-500/20 text-yellow-400" },
-  en_curso: { label: "En curso", color: "bg-blue-500/20 text-blue-400" },
-  no_realizada: { label: "No realizada", color: "bg-red-500/20 text-red-400" },
+  completada: { label: "Completada", color: "bg-status-ok-soft text-status-ok-fg" },
+  incompleta: { label: "Incompleta", color: "bg-status-warn-soft text-status-warn-fg" },
+  en_curso: { label: "En curso", color: "bg-status-info-soft text-status-info-fg" },
+  no_realizada: { label: "No realizada", color: "bg-status-danger-soft text-status-danger-fg" },
   pendiente: { label: "Pendiente", color: "bg-gray-500/20 text-gray-400" },
   cerrada_auto: { label: "Cerrada auto", color: "bg-gray-500/20 text-gray-400" },
   cerrada_admin: { label: "Cerrada admin", color: "bg-gray-500/20 text-gray-400" },
@@ -54,15 +54,15 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 
 function trustBadge(score: number | null) {
   if (score == null || score === 0) return { color: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400", label: "-" };
-  if (score >= 80) return { color: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400", label: `${score}%` };
-  if (score >= 60) return { color: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400", label: `${score}%` };
-  return { color: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400", label: `${score}%` };
+  if (score >= 80) return { color: "bg-status-ok-soft text-status-ok-fg", label: `${score}%` };
+  if (score >= 60) return { color: "bg-status-warn-soft text-status-warn-fg", label: `${score}%` };
+  return { color: "bg-status-danger-soft text-status-danger-fg", label: `${score}%` };
 }
 
 function verificationBadge(method: string | null) {
   if (!method) return null;
-  if (method === "QR" || method === "BOTH") return { icon: QrCode, label: "QR", color: "text-purple-400" };
-  return { icon: MapPin, label: "GPS", color: "text-emerald-400" };
+  if (method === "QR" || method === "BOTH") return { icon: QrCode, label: "QR", color: "text-tint-violet-fg" };
+  return { icon: MapPin, label: "GPS", color: "text-status-ok-fg" };
 }
 
 export function InstalacionRondasTab({ installationId }: { installationId: string }) {
@@ -322,16 +322,16 @@ export function InstalacionRondasTab({ installationId }: { installationId: strin
                                       </span>
                                     )}
                                     {m.distanceM != null && (
-                                      <span className={m.geoValidada ? "text-emerald-500" : "text-red-400"}>
+                                      <span className={m.geoValidada ? "text-status-ok-fg" : "text-status-danger-fg"}>
                                         {Math.round(m.distanceM)}m
                                       </span>
                                     )}
                                     {m.fotoEvidenciaUrl ? (
                                       <a href={m.fotoEvidenciaUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="flex-shrink-0">
-                                        <img src={m.fotoEvidenciaUrl} alt="Foto" className="h-6 w-6 rounded object-cover border border-blue-500/30" />
+                                        <img src={m.fotoEvidenciaUrl} alt="Foto" className="h-6 w-6 rounded object-cover border border-status-info-border" />
                                       </a>
                                     ) : m.hasPhoto ? (
-                                      <Camera className="h-3 w-3 text-blue-400" />
+                                      <Camera className="h-3 w-3 text-status-info-fg" />
                                     ) : null}
                                   </div>
                                   <div className="mt-1 flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground/70">
@@ -344,7 +344,7 @@ export function InstalacionRondasTab({ installationId }: { installationId: strin
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             onClick={(e) => e.stopPropagation()}
-                                            className="ml-1 inline-flex items-center gap-0.5 text-blue-400 hover:text-blue-300"
+                                            className="ml-1 inline-flex items-center gap-0.5 text-status-info-fg hover:text-status-info-fg"
                                           >
                                             <ExternalLink className="h-2.5 w-2.5" />
                                             Maps
@@ -353,7 +353,7 @@ export function InstalacionRondasTab({ installationId }: { installationId: strin
                                       </span>
                                     )}
                                     {m.geoValidada != null && (
-                                      <span className={m.geoValidada ? "text-emerald-500" : "text-red-400"}>
+                                      <span className={m.geoValidada ? "text-status-ok-fg" : "text-status-danger-fg"}>
                                         <Shield className="inline h-2.5 w-2.5 mr-0.5" />
                                         {m.geoValidada ? "Geo OK" : "Fuera de rango"}
                                       </span>

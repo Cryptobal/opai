@@ -2,7 +2,8 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/opai";
+import { PageHero } from "@/components/opai-ds";
+import { Banknote } from "lucide-react";
 import { TeLotesClient, TeSubnav } from "@/components/ops";
 
 export default async function TePagosPage() {
@@ -37,8 +38,12 @@ export default async function TePagosPage() {
 
   return (
     <div className="space-y-6 min-w-0">
-      <PageHeader
-        title="TE · Pagos"
+      <PageHero
+        icon={<Banknote />}
+        iconTone="amber"
+        eyebrow={["Turnos Extras", "Pagos"]}
+        title="Pagos TE"
+        subtitle="liquidación al equipo"
         description="Historial de lotes pagados y exportables."
       />
       <TeSubnav />

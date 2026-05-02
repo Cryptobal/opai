@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
-import { Breadcrumb } from "@/components/opai";
+import { Breadcrumbs } from "@/components/opai-ds";
 import ComunicacionesPageClient from "@/components/comunicaciones/ComunicacionesPageClient";
 
 export default async function ComunicacionesPage() {
@@ -18,7 +18,7 @@ export default async function ComunicacionesPage() {
 
   return (
     <div className="space-y-6 min-w-0 overflow-x-hidden">
-      <Breadcrumb
+      <Breadcrumbs
         items={[
           { label: "Inicio", href: "/hub" },
           { label: "Personas", href: "/personas/guardias" },

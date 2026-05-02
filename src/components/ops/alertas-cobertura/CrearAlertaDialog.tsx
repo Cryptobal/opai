@@ -619,7 +619,7 @@ export function CrearAlertaDialog({ open, onOpenChange, onCreated }: Props) {
                 </p>
               )}
               {puestoId && fechaTurno && !fechaInicio && (
-                <p className="text-xs text-amber-400">
+                <p className="text-xs text-status-warn-fg">
                   El puesto seleccionado no tiene horario configurado
                 </p>
               )}
@@ -891,7 +891,7 @@ export function CrearAlertaDialog({ open, onOpenChange, onCreated }: Props) {
           <div className="space-y-4">
             <div className="rounded-lg border bg-muted/20 p-4 space-y-4">
               <h3 className="text-sm font-semibold flex items-center gap-2">
-                <Users className="h-4 w-4 text-teal-400" />
+                <Users className="h-4 w-4 text-status-info-fg" />
                 Preview de Oleadas
               </h3>
 
@@ -913,7 +913,7 @@ export function CrearAlertaDialog({ open, onOpenChange, onCreated }: Props) {
                       key={oleada.numero}
                       className="flex items-start gap-3 text-sm"
                     >
-                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-teal-500/20 text-teal-400 flex items-center justify-center text-xs font-bold">
+                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-status-info-soft text-status-info-fg flex items-center justify-center text-xs font-bold">
                         {oleada.numero}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -948,9 +948,9 @@ export function CrearAlertaDialog({ open, onOpenChange, onCreated }: Props) {
                   </div>
 
                   {preview.cobertura.sinCoordenadas > 0 && (
-                    <div className="flex items-start gap-2 rounded-md bg-amber-500/10 border border-amber-500/20 p-2">
-                      <AlertTriangle className="h-3.5 w-3.5 text-amber-400 mt-0.5 flex-shrink-0" />
-                      <p className="text-[10px] text-amber-400">
+                    <div className="flex items-start gap-2 rounded-md bg-status-warn-soft border border-status-warn-border p-2">
+                      <AlertTriangle className="h-3.5 w-3.5 text-status-warn-fg mt-0.5 flex-shrink-0" />
+                      <p className="text-[10px] text-status-warn-fg">
                         {preview.cobertura.sinCoordenadas} guardia(s) sin coordenadas — no evaluable(s) por distancia
                       </p>
                     </div>

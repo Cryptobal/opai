@@ -7,7 +7,8 @@ import {
   hasCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/opai";
+import { PageHero } from "@/components/opai-ds";
+import { FileText } from "lucide-react";
 import { FacturacionClient } from "@/components/finance/FacturacionClient";
 
 export default async function FacturacionPage() {
@@ -54,8 +55,12 @@ export default async function FacturacionPage() {
 
   return (
     <div className="space-y-6 min-w-0">
-      <PageHeader
+      <PageHero
+        icon={<FileText />}
+        iconTone="teal"
+        eyebrow={["Finanzas", "Facturación"]}
         title="Facturación electrónica"
+        subtitle="DTE Chile"
         description="Emisión y gestión de documentos tributarios electrónicos (DTE)."
       />
       <FacturacionClient

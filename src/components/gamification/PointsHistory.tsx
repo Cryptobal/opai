@@ -127,7 +127,7 @@ export function PointsHistory({
               <span
                 className={cn(
                   "shrink-0 text-right font-medium tabular-nums",
-                  isPositive ? "text-emerald-500" : "text-red-500"
+                  isPositive ? "text-status-ok-fg" : "text-status-danger-fg"
                 )}
               >
                 {isPositive ? "+" : ""}

@@ -85,27 +85,27 @@ interface Props {
 }
 
 const STATUS_CONFIG: Record<string, { label: string; cls: string }> = {
-  completada: { label: "Completada", cls: "bg-emerald-500/15 text-emerald-400" },
-  incompleta: { label: "Incompleta", cls: "bg-amber-500/15 text-amber-400" },
-  no_realizada: { label: "No realizada", cls: "bg-red-500/15 text-red-400" },
+  completada: { label: "Completada", cls: "bg-status-ok-soft text-status-ok-fg" },
+  incompleta: { label: "Incompleta", cls: "bg-status-warn-soft text-status-warn-fg" },
+  no_realizada: { label: "No realizada", cls: "bg-status-danger-soft text-status-danger-fg" },
   pendiente: { label: "Pendiente", cls: "bg-zinc-500/15 text-zinc-400" },
-  en_curso: { label: "En curso", cls: "bg-blue-500/15 text-blue-400" },
-  cerrada_auto: { label: "Cerrada (auto)", cls: "bg-orange-500/15 text-orange-400" },
+  en_curso: { label: "En curso", cls: "bg-status-info-soft text-status-info-fg" },
+  cerrada_auto: { label: "Cerrada (auto)", cls: "bg-status-warn-soft text-status-warn-fg" },
   cerrada_admin: { label: "Cerrada (admin)", cls: "bg-violet-500/15 text-violet-400" },
 };
 
 function trustColor(score: number): string {
-  if (score >= 85) return "text-emerald-400";
-  if (score >= 70) return "text-blue-400";
-  if (score >= 50) return "text-amber-400";
-  return "text-red-400";
+  if (score >= 85) return "text-status-ok-fg";
+  if (score >= 70) return "text-status-info-fg";
+  if (score >= 50) return "text-status-warn-fg";
+  return "text-status-danger-fg";
 }
 
 function trustBg(score: number): string {
-  if (score >= 85) return "bg-emerald-500/15 border-emerald-500/25";
-  if (score >= 70) return "bg-blue-500/15 border-blue-500/25";
-  if (score >= 50) return "bg-amber-500/15 border-amber-500/25";
-  return "bg-red-500/15 border-red-500/25";
+  if (score >= 85) return "bg-status-ok-soft border-status-ok-border";
+  if (score >= 70) return "bg-status-info-soft border-status-info-border";
+  if (score >= 50) return "bg-status-warn-soft border-status-warn-border";
+  return "bg-status-danger-soft border-status-danger-border";
 }
 
 const SORT_COLS = [
@@ -128,11 +128,11 @@ const BREAKDOWN_LABELS: Record<string, string> = {
 };
 
 const BREAKDOWN_COLORS: Record<string, string> = {
-  completion: "bg-emerald-500",
-  time: "bg-blue-500",
-  speed: "bg-purple-500",
-  sequence: "bg-amber-500",
-  punctuality: "bg-teal-500",
+  completion: "bg-status-ok",
+  time: "bg-status-info",
+  speed: "bg-tint-violet-fg",
+  sequence: "bg-status-warn",
+  punctuality: "bg-status-info",
 };
 
 function TrustBreakdownBars({ breakdown }: { breakdown: TrustBreakdown }) {
@@ -340,10 +340,10 @@ function ExpandedRow({
       <td colSpan={11} className="px-4 py-3 bg-muted/20 border-b border-border/50">
         {/* Overlap warning banner */}
         {overlappingPairs.length > 0 && (
-          <div className="mb-3 rounded-lg border border-orange-500/40 bg-orange-950/20 px-3 py-2 flex items-start gap-2">
-            <AlertTriangle className="h-4 w-4 text-orange-400 mt-0.5 shrink-0" />
+          <div className="mb-3 rounded-lg border border-status-warn-border bg-status-warn-soft/50 px-3 py-2 flex items-start gap-2">
+            <AlertTriangle className="h-4 w-4 text-status-warn-fg mt-0.5 shrink-0" />
             <div className="min-w-0">
-              <p className="text-xs font-semibold text-orange-400 mb-1">
+              <p className="text-xs font-semibold text-status-warn-fg mb-1">
                 Posible geocerca solapada — {overlappingPairs.length} par{overlappingPairs.length > 1 ? "es" : ""} marcado{overlappingPairs.length > 1 ? "s" : ""} casi simultáneamente
               </p>
               {overlappingPairs.map(([a, b], idx) => {
@@ -355,12 +355,12 @@ function ExpandedRow({
                   ? `${Math.round(haversineM(a.lat!, a.lng!, b.lat!, b.lng!))} m de distancia`
                   : "posición no disponible";
                 return (
-                  <p key={idx} className="text-[11px] text-orange-300/80 leading-snug">
+                  <p key={idx} className="text-[11px] text-status-warn-fg/80 leading-snug">
                     &ldquo;{a.checkpointName}&rdquo; → &ldquo;{b.checkpointName}&rdquo; — {dtS} s entre marcaciones · {distLabel}
                   </p>
                 );
               })}
-              <p className="text-[10px] text-orange-400/60 mt-1">
+              <p className="text-[10px] text-status-warn-fg/60 mt-1">
                 Revisa el radio de geocerca de estos checkpoints en Configuración → Checkpoints.
               </p>
             </div>
@@ -384,11 +384,11 @@ function ExpandedRow({
                       <div className={cn("flex items-center gap-2 text-xs", isOverlap && "bg-orange-950/30 rounded px-1 -mx-1")}>
                         <span className="text-muted-foreground w-5 text-right tabular-nums">{i + 1}</span>
                         {isCompleted ? (
-                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                          <CheckCircle2 className="h-3.5 w-3.5 text-status-ok-fg shrink-0" />
                         ) : isMissed ? (
-                          <XCircle className="h-3.5 w-3.5 text-red-400 shrink-0" />
+                          <XCircle className="h-3.5 w-3.5 text-status-danger-fg shrink-0" />
                         ) : (
-                          <AlertTriangle className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                          <AlertTriangle className="h-3.5 w-3.5 text-status-warn-fg shrink-0" />
                         )}
                         <span className="text-foreground">{m.checkpointName}</span>
                         <span className="text-muted-foreground">
@@ -402,17 +402,17 @@ function ExpandedRow({
                             className="shrink-0"
                             title="Marcado simultáneamente con otro checkpoint — posible geocerca solapada"
                           >
-                            <AlertTriangle className="h-3 w-3 text-orange-400" />
+                            <AlertTriangle className="h-3 w-3 text-status-warn-fg" />
                           </span>
                         )}
                         {m.fotoEvidenciaUrl ? (
                           <a href={m.fotoEvidenciaUrl} target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
-                            <img src={m.fotoEvidenciaUrl} alt="Foto" className="h-6 w-6 rounded object-cover border border-blue-500/30" />
+                            <img src={m.fotoEvidenciaUrl} alt="Foto" className="h-6 w-6 rounded object-cover border border-status-info-border" />
                           </a>
                         ) : m.hasPhoto ? (
-                          <Camera className="h-3 w-3 text-blue-400" />
+                          <Camera className="h-3 w-3 text-status-info-fg" />
                         ) : null}
-                        {m.hasAudio && <Mic className="h-3 w-3 text-purple-400" />}
+                        {m.hasAudio && <Mic className="h-3 w-3 text-status-info-fg" />}
                         {m.distanceM != null && (
                           <span className="text-[10px] text-muted-foreground">
                             {Math.round(m.distanceM)}m
@@ -423,7 +423,7 @@ function ExpandedRow({
                             href={m.googleMapsUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-0.5 text-[10px] text-blue-400 hover:text-blue-300"
+                            className="inline-flex items-center gap-0.5 text-[10px] text-status-info-fg hover:text-status-info-fg"
                           >
                             <MapPin className="h-2.5 w-2.5" />
                             Mapa
@@ -456,8 +456,8 @@ function ExpandedRow({
               </p>
             )}
             {row.notes && (
-              <div className="mt-3 rounded-lg border border-yellow-800/40 bg-yellow-950/20 px-3 py-2">
-                <p className="text-xs font-medium text-yellow-500/80 mb-0.5">Comentario del guardia:</p>
+              <div className="mt-3 rounded-lg border border-status-warn-border bg-status-warn-soft/50 px-3 py-2">
+                <p className="text-xs font-medium text-status-warn-fg/80 mb-0.5">Comentario del guardia:</p>
                 <p className="text-sm text-zinc-300 italic">&ldquo;{row.notes}&rdquo;</p>
               </div>
             )}
@@ -481,10 +481,10 @@ function ExpandedRow({
                     <div key={inc.id} className="flex items-center gap-3 py-1.5 px-2 rounded-md bg-muted/20">
                       <span className={cn(
                         "px-2 py-0.5 rounded text-[10px] font-medium",
-                        inc.status === "abierto" && "bg-red-500/15 text-red-400",
-                        inc.status === "resuelto" && "bg-emerald-500/15 text-emerald-400",
-                        inc.status === "en_proceso" && "bg-blue-500/15 text-blue-400",
-                        inc.status === "asignado" && "bg-purple-500/15 text-purple-400",
+                        inc.status === "abierto" && "bg-status-danger-soft text-status-danger-fg",
+                        inc.status === "resuelto" && "bg-status-ok-soft text-status-ok-fg",
+                        inc.status === "en_proceso" && "bg-status-info-soft text-status-info-fg",
+                        inc.status === "asignado" && "bg-tint-violet text-tint-violet-fg",
                         inc.status === "descartado" && "bg-zinc-500/15 text-zinc-400",
                       )}>
                         {inc.status}
@@ -508,7 +508,7 @@ function ExpandedRow({
                     e.stopPropagation();
                     onViewMap(row);
                   }}
-                  className="inline-flex items-center gap-1.5 rounded-md bg-teal-500/15 px-3 py-1.5 text-xs font-medium text-teal-400 hover:bg-teal-500/25 transition-colors"
+                  className="inline-flex items-center gap-1.5 rounded-md bg-status-info-soft px-3 py-1.5 text-xs font-medium text-status-info-fg hover:brightness-110 transition-colors"
                 >
                   <MapPin className="h-3.5 w-3.5" />
                   Ver recorrido en mapa
@@ -522,7 +522,7 @@ function ExpandedRow({
                       onSendToCheckpoints(row);
                     }
                   }}
-                  className="inline-flex items-center gap-1.5 rounded-md bg-blue-500/15 px-3 py-1.5 text-xs font-medium text-blue-400 hover:bg-blue-500/25 transition-colors"
+                  className="inline-flex items-center gap-1.5 rounded-md bg-status-info-soft px-3 py-1.5 text-xs font-medium text-status-info-fg hover:brightness-110 transition-colors"
                 >
                   <MapPinned className="h-3.5 w-3.5" />
                   Enviar a checkpoints
@@ -675,13 +675,13 @@ export function RondasReportesTable({
                             {row.checkpointsCompletados}/{row.checkpointsTotal}
                           </span>
                           {photoCount > 0 && (
-                            <span className="flex items-center gap-0.5 text-blue-400">
+                            <span className="flex items-center gap-0.5 text-status-info-fg">
                               <Camera className="h-3 w-3" />
                               <span className="text-[10px]">{photoCount}</span>
                             </span>
                           )}
                           {audioCount > 0 && (
-                            <span className="flex items-center gap-0.5 text-purple-400">
+                            <span className="flex items-center gap-0.5 text-status-info-fg">
                               <Mic className="h-3 w-3" />
                               <span className="text-[10px]">{audioCount}</span>
                             </span>
@@ -689,7 +689,7 @@ export function RondasReportesTable({
                           {hasOverlap && (
                             <span
                               title={`${overlappingPairs.length} par(es) de checkpoints marcados casi simultáneamente sin movimiento. Puede indicar geocercas solapadas — revisar configuración.`}
-                              className="flex items-center gap-0.5 text-orange-400 cursor-help"
+                              className="flex items-center gap-0.5 text-status-warn-fg cursor-help"
                             >
                               <AlertTriangle className="h-3.5 w-3.5" />
                             </span>
@@ -698,7 +698,7 @@ export function RondasReportesTable({
                       </td>
                       <td className={cn(cellCls, "text-center")}>
                         {(row._count?.incidentes ?? 0) > 0 ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-500/15 text-amber-400">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-status-warn-soft text-status-warn-fg">
                             <AlertTriangle className="h-3 w-3" />
                             {row._count!.incidentes}
                           </span>

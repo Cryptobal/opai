@@ -131,31 +131,31 @@ function SortableItem({
               if (e.key === "Enter") onEditConfirm();
               if (e.key === "Escape") onEditCancel();
             }}
-            className="flex-1 text-xs bg-muted/30 border border-teal-400/30 outline-none text-foreground py-1 px-2 rounded"
+            className="flex-1 text-xs bg-muted/30 border border-status-info-border outline-none text-foreground py-1 px-2 rounded"
             placeholder="Escribe un ítem..."
           />
           <button
             type="button"
-            className="shrink-0 p-0.5 rounded hover:bg-teal-500/20 transition-colors"
+            className="shrink-0 p-0.5 rounded hover:bg-status-info-soft transition-colors"
             onClick={onEditConfirm}
             title="Guardar"
           >
-            <Check className="h-3.5 w-3.5 text-teal-400" />
+            <Check className="h-3.5 w-3.5 text-status-info-fg" />
           </button>
           <button
             type="button"
-            className="shrink-0 p-0.5 rounded hover:bg-red-500/10 transition-colors"
+            className="shrink-0 p-0.5 rounded hover:bg-status-danger-soft transition-colors"
             onClick={onEditCancel}
             title="Cancelar"
           >
-            <X className="h-3.5 w-3.5 text-muted-foreground hover:text-red-400" />
+            <X className="h-3.5 w-3.5 text-muted-foreground hover:text-status-danger-fg" />
           </button>
         </>
       ) : (
         <>
           <span
             className={cn(
-              "text-teal-400 text-xs shrink-0",
+              "text-status-info-fg text-xs shrink-0",
               !item.showInPdf && "text-muted-foreground/40",
             )}
           >
@@ -166,7 +166,7 @@ function SortableItem({
               "flex-1 text-xs py-1 transition-colors",
               isLocked
                 ? "text-foreground"
-                : "text-foreground cursor-pointer hover:text-teal-400",
+                : "text-foreground cursor-pointer hover:text-status-info-fg",
               !item.showInPdf && "text-muted-foreground/60 line-through",
             )}
             onClick={() => {
@@ -202,12 +202,12 @@ function SortableItem({
               </button>
               <button
                 type="button"
-                className="shrink-0 p-0.5 rounded hover:bg-red-500/10 transition-colors"
+                className="shrink-0 p-0.5 rounded hover:bg-status-danger-soft transition-colors"
                 onClick={onDelete}
                 title="Eliminar"
                 aria-label={`Eliminar: ${item.text}`}
               >
-                <Trash2 className="h-3 w-3 text-muted-foreground/60 hover:text-red-400" />
+                <Trash2 className="h-3 w-3 text-muted-foreground/60 hover:text-status-danger-fg" />
               </button>
             </div>
           )}
@@ -616,11 +616,11 @@ export function QuoteIncludesEditor({ quoteId, isLocked = false }: QuoteIncludes
     return (
       <Card className="p-3 space-y-2">
         <div className="flex items-center gap-1.5">
-          <ListChecks className="h-3.5 w-3.5 text-teal-400" />
+          <ListChecks className="h-3.5 w-3.5 text-status-info-fg" />
           <span className="text-xs font-semibold">Incluye</span>
         </div>
         <div className="flex items-center gap-2 py-2">
-          <div className="h-3 w-3 border-2 border-teal-400/40 border-t-teal-400 rounded-full animate-spin" />
+          <div className="h-3 w-3 border-2 border-status-info-border border-t-status-info rounded-full animate-spin" />
           <span className="text-xs text-muted-foreground">Cargando...</span>
         </div>
       </Card>
@@ -632,7 +632,7 @@ export function QuoteIncludesEditor({ quoteId, isLocked = false }: QuoteIncludes
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
-          <ListChecks className="h-3.5 w-3.5 text-teal-400" />
+          <ListChecks className="h-3.5 w-3.5 text-status-info-fg" />
           <span className="text-xs font-semibold">Incluye</span>
           <span className="text-xs text-muted-foreground">(aparece en PDF)</span>
         </div>
@@ -677,7 +677,7 @@ export function QuoteIncludesEditor({ quoteId, isLocked = false }: QuoteIncludes
       {/* Custom item input */}
       {!isLocked && (
         <div className="flex items-center gap-1.5">
-          <Plus className="h-3 w-3 text-teal-400/60 shrink-0" />
+          <Plus className="h-3 w-3 text-status-info-fg/60 shrink-0" />
           <input
             value={customText}
             onChange={(e) => setCustomText(e.target.value)}
@@ -690,11 +690,11 @@ export function QuoteIncludesEditor({ quoteId, isLocked = false }: QuoteIncludes
           {customText.trim() && (
             <button
               type="button"
-              className="shrink-0 p-1 rounded hover:bg-teal-500/20 transition-colors"
+              className="shrink-0 p-1 rounded hover:bg-status-info-soft transition-colors"
               onClick={handleAddCustom}
               title="Guardar ítem"
             >
-              <Check className="h-3.5 w-3.5 text-teal-400" />
+              <Check className="h-3.5 w-3.5 text-status-info-fg" />
             </button>
           )}
         </div>
@@ -710,7 +710,7 @@ export function QuoteIncludesEditor({ quoteId, isLocked = false }: QuoteIncludes
             {hasDefaultsToAdd && (
               <button
                 type="button"
-                className="text-xs text-teal-400 hover:text-teal-300 transition-colors"
+                className="text-xs text-status-info-fg hover:text-status-info-fg transition-colors"
                 onClick={handleAddAllDefaults}
               >
                 + Agregar predeterminados
@@ -729,13 +729,13 @@ export function QuoteIncludesEditor({ quoteId, isLocked = false }: QuoteIncludes
                       if (e.key === "Enter") handleEditSuggestionConfirm();
                       if (e.key === "Escape") { setEditingSuggestionId(null); setEditingSuggestionValue(""); }
                     }}
-                    className="flex-1 text-xs bg-muted/30 border border-teal-400/30 outline-none text-foreground py-0.5 px-2 rounded"
+                    className="flex-1 text-xs bg-muted/30 border border-status-info-border outline-none text-foreground py-0.5 px-2 rounded"
                   />
-                  <button type="button" className="shrink-0 p-0.5 rounded hover:bg-teal-500/20" onClick={handleEditSuggestionConfirm} title="Guardar">
-                    <Check className="h-3 w-3 text-teal-400" />
+                  <button type="button" className="shrink-0 p-0.5 rounded hover:bg-status-info-soft" onClick={handleEditSuggestionConfirm} title="Guardar">
+                    <Check className="h-3 w-3 text-status-info-fg" />
                   </button>
-                  <button type="button" className="shrink-0 p-0.5 rounded hover:bg-red-500/10" onClick={() => { setEditingSuggestionId(null); setEditingSuggestionValue(""); }} title="Cancelar">
-                    <X className="h-3 w-3 text-muted-foreground hover:text-red-400" />
+                  <button type="button" className="shrink-0 p-0.5 rounded hover:bg-status-danger-soft" onClick={() => { setEditingSuggestionId(null); setEditingSuggestionValue(""); }} title="Cancelar">
+                    <X className="h-3 w-3 text-muted-foreground hover:text-status-danger-fg" />
                   </button>
                 </>
               ) : (
@@ -745,11 +745,11 @@ export function QuoteIncludesEditor({ quoteId, isLocked = false }: QuoteIncludes
                     className="flex items-center gap-1.5 flex-1 text-left text-xs text-muted-foreground hover:text-foreground transition-colors"
                     onClick={() => handleAddSuggestion(suggestion)}
                   >
-                    <Plus className="h-3 w-3 text-teal-400 shrink-0" />
+                    <Plus className="h-3 w-3 text-status-info-fg shrink-0" />
                     <span>{suggestion.text}</span>
                   </button>
                   {suggestion.isDefault && (
-                    <span className="text-[9px] text-teal-400/50 shrink-0">default</span>
+                    <span className="text-[9px] text-status-info-fg/50 shrink-0">default</span>
                   )}
                   <div className="flex items-center gap-0.5 opacity-0 group-hover/sug:opacity-100 transition-all shrink-0">
                     <button
@@ -762,11 +762,11 @@ export function QuoteIncludesEditor({ quoteId, isLocked = false }: QuoteIncludes
                     </button>
                     <button
                       type="button"
-                      className="p-0.5 rounded hover:bg-red-500/10 transition-colors"
+                      className="p-0.5 rounded hover:bg-status-danger-soft transition-colors"
                       onClick={() => handleDeleteSuggestion(suggestion)}
                       title="Eliminar sugerencia"
                     >
-                      <Trash2 className="h-3 w-3 text-muted-foreground/60 hover:text-red-400" />
+                      <Trash2 className="h-3 w-3 text-muted-foreground/60 hover:text-status-danger-fg" />
                     </button>
                   </div>
                 </>

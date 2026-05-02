@@ -87,17 +87,17 @@ function FadeIn({ children, delay = 0, className = "" }: { children: React.React
 function LivePulse() {
   return (
     <span className="relative flex h-2 w-2">
-      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
+      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-status-ok opacity-75" />
+      <span className="relative inline-flex rounded-full h-2 w-2 bg-status-ok" />
     </span>
   );
 }
 
 const STATS = [
-  { value: "15+", label: "Años de experiencia", color: "text-teal-400", bg: "from-teal-500/15 to-teal-600/5" },
-  { value: "200+", label: "Clientes activos", color: "text-blue-400", bg: "from-blue-500/15 to-blue-600/5" },
+  { value: "15+", label: "Años de experiencia", color: "text-status-info-fg", bg: "from-teal-500/15 to-teal-600/5" },
+  { value: "200+", label: "Clientes activos", color: "text-status-info-fg", bg: "from-blue-500/15 to-blue-600/5" },
   { value: "1,500+", label: "Guardias certificados", color: "text-violet-400", bg: "from-violet-500/15 to-violet-600/5" },
-  { value: "96%", label: "Tasa de retención", color: "text-amber-400", bg: "from-amber-500/15 to-amber-600/5" },
+  { value: "96%", label: "Tasa de retención", color: "text-status-warn-fg", bg: "from-amber-500/15 to-amber-600/5" },
 ];
 
 /* ── 19 Diferenciadores agrupados por tier ── */
@@ -145,9 +145,9 @@ const DIFFERENTIATOR_TIERS = [
 ];
 
 const RONDAS_FEATURES = [
-  { icon: MapPin, label: "Checkpoints GPS verificados", color: "text-emerald-400" },
-  { icon: Eye, label: "Mapa en tiempo real", color: "text-sky-400" },
-  { icon: Radio, label: "Alertas instantáneas", color: "text-amber-400" },
+  { icon: MapPin, label: "Checkpoints GPS verificados", color: "text-status-ok-fg" },
+  { icon: Eye, label: "Mapa en tiempo real", color: "text-status-info-fg" },
+  { icon: Radio, label: "Alertas instantáneas", color: "text-status-warn-fg" },
   { icon: BarChart3, label: "Métricas de cumplimiento", color: "text-violet-400" },
 ];
 
@@ -159,10 +159,10 @@ const CERTS = [
 ];
 
 const TIER_COLORS = [
-  { iconColor: "text-teal-400", iconBg: "rgba(45,212,191,0.12)", borderColor: "rgba(45,212,191,0.15)" },
-  { iconColor: "text-blue-400", iconBg: "rgba(96,165,250,0.12)", borderColor: "rgba(96,165,250,0.15)" },
+  { iconColor: "text-status-info-fg", iconBg: "rgba(45,212,191,0.12)", borderColor: "rgba(45,212,191,0.15)" },
+  { iconColor: "text-status-info-fg", iconBg: "rgba(96,165,250,0.12)", borderColor: "rgba(96,165,250,0.15)" },
   { iconColor: "text-violet-400", iconBg: "rgba(139,92,246,0.12)", borderColor: "rgba(139,92,246,0.15)" },
-  { iconColor: "text-amber-400", iconBg: "rgba(251,191,36,0.12)", borderColor: "rgba(251,191,36,0.15)" },
+  { iconColor: "text-status-warn-fg", iconBg: "rgba(251,191,36,0.12)", borderColor: "rgba(251,191,36,0.15)" },
 ];
 
 interface Props {
@@ -273,7 +273,7 @@ export function PortalNosotros({ onNavigate }: Props) {
         >
           <div className="flex items-center gap-2 mb-4">
             <LivePulse />
-            <h2 className="text-sm font-semibold text-emerald-300">Monitoreo de rondas en vivo</h2>
+            <h2 className="text-sm font-semibold text-status-ok-fg">Monitoreo de rondas en vivo</h2>
           </div>
           <p className="text-xs text-zinc-400 leading-relaxed mb-4">
             Cada ronda queda registrada con evidencia verificable. Siga en tiempo real los recorridos de cada guardia,
@@ -302,7 +302,7 @@ export function PortalNosotros({ onNavigate }: Props) {
                 className="rounded-xl p-3 border border-white/[0.06] flex items-start gap-2.5"
                 style={{ background: "linear-gradient(145deg, rgba(30,41,59,0.6), rgba(26,35,50,0.6))" }}
               >
-                <CheckCircle2 className="w-4 h-4 text-teal-400 mt-0.5 flex-shrink-0" />
+                <CheckCircle2 className="w-4 h-4 text-status-info-fg mt-0.5 flex-shrink-0" />
                 <div>
                   <span className="text-sm text-white font-semibold block">{name}</span>
                   <span className="text-[10px] text-zinc-500">{desc}</span>

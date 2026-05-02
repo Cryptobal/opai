@@ -44,7 +44,7 @@ export function CrmInboundEmailTab({ tenantSlug }: CrmInboundEmailTabProps) {
             title="Copiar al portapapeles"
           >
             {copied ? (
-              <Check className="h-4 w-4 text-green-500" />
+              <Check className="h-4 w-4 text-status-ok-fg" />
             ) : (
               <Copy className="h-4 w-4 text-muted-foreground" />
             )}
@@ -52,8 +52,8 @@ export function CrmInboundEmailTab({ tenantSlug }: CrmInboundEmailTabProps) {
         </div>
       </div>
 
-      <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-4 flex gap-3">
-        <Info className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
+      <div className="rounded-lg border border-status-info-border bg-status-info-soft p-4 flex gap-3">
+        <Info className="h-4 w-4 text-status-info-fg shrink-0 mt-0.5" />
         <div className="space-y-2 text-sm text-muted-foreground">
           <p className="font-medium text-foreground">¿Cómo funciona?</p>
           <ol className="list-decimal list-inside space-y-1">

@@ -18,10 +18,10 @@ interface ModalDetalleMarcacionProps {
 function MetodoBadge({ metodoId }: { metodoId?: string | null }) {
   if (!metodoId) return null;
   const map: Record<string, { label: string; color: string }> = {
-    face_id: { label: "Face ID", color: "bg-purple-500/20 text-purple-300" },
-    foto: { label: "Foto", color: "bg-blue-500/20 text-blue-300" },
-    pin_fallback: { label: "PIN", color: "bg-amber-500/20 text-amber-300" },
-    rut_pin: { label: "RUT+PIN", color: "bg-amber-500/20 text-amber-300" },
+    face_id: { label: "Face ID", color: "bg-tint-violet text-tint-violet-fg" },
+    foto: { label: "Foto", color: "bg-status-info-soft text-status-info-fg" },
+    pin_fallback: { label: "PIN", color: "bg-status-warn-soft text-status-warn-fg" },
+    rut_pin: { label: "RUT+PIN", color: "bg-status-warn-soft text-status-warn-fg" },
     manual: { label: "Manual", color: "bg-slate-500/20 text-slate-300" },
   };
   const m = map[metodoId] ?? { label: metodoId, color: "bg-slate-500/20 text-slate-300" };
@@ -69,8 +69,8 @@ export function ModalDetalleMarcacion({
                     key={m.id}
                     className={`rounded-lg border p-3 text-sm space-y-2.5 ${
                       isEntrada
-                        ? "border-emerald-500/30 bg-emerald-500/5"
-                        : "border-red-500/30 bg-red-500/5"
+                        ? "border-status-ok-border bg-status-ok-soft"
+                        : "border-status-danger-border bg-status-danger-soft"
                     }`}
                   >
                     {/* Header: tipo + timestamp + method */}
@@ -79,8 +79,8 @@ export function ModalDetalleMarcacion({
                         <span
                           className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
                             isEntrada
-                              ? "bg-emerald-500/20 text-emerald-400"
-                              : "bg-red-500/20 text-red-400"
+                              ? "bg-status-ok-soft text-status-ok-fg"
+                              : "bg-status-danger-soft text-status-danger-fg"
                           }`}
                         >
                           {isEntrada ? "Entrada" : "Salida"}
@@ -118,11 +118,11 @@ export function ModalDetalleMarcacion({
                       <div className="flex items-center gap-1.5">
                         <MapPin className="h-3 w-3 shrink-0" />
                         {m.gpsStatus === "dentro_rango" ? (
-                          <span className="text-emerald-400">
+                          <span className="text-status-ok-fg">
                             GPS OK ({m.geoDistanciaM}m)
                           </span>
                         ) : m.gpsStatus === "fuera_rango" ? (
-                          <span className="text-amber-400">
+                          <span className="text-status-warn-fg">
                             Fuera de rango ({m.geoDistanciaM}m)
                           </span>
                         ) : (
@@ -133,7 +133,7 @@ export function ModalDetalleMarcacion({
                             href={`https://www.google.com/maps?q=${m.lat},${m.lng}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-blue-400 hover:underline ml-1"
+                            className="text-status-info-fg hover:underline ml-1"
                           >
                             Ver mapa
                           </a>

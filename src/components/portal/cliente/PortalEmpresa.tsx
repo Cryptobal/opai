@@ -74,7 +74,7 @@ function Card({ children, className }: { children: React.ReactNode; className?: 
 function SectionHeader({ icon: Icon, title }: { icon: React.ElementType; title: string }) {
   return (
     <div className="flex items-center gap-2 mb-4">
-      <Icon className="h-4 w-4 text-teal-400" />
+      <Icon className="h-4 w-4 text-status-info-fg" />
       <h3 className="text-sm font-semibold text-white">{title}</h3>
     </div>
   )
@@ -98,7 +98,7 @@ function SaveButton({
       className={cn(
         'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
         saved
-          ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+          ? 'bg-status-ok-soft text-status-ok-fg border border-status-ok-border'
           : 'bg-gradient-to-r from-teal-600 to-teal-500 hover:from-teal-500 hover:to-teal-400 text-white',
         (saving || disabled) && 'opacity-50 cursor-not-allowed'
       )}
@@ -136,7 +136,7 @@ function InputField({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full h-9 rounded-lg border border-zinc-700 bg-zinc-800 px-3 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:border-teal-400 transition-colors"
+        className="w-full h-9 rounded-lg border border-zinc-700 bg-zinc-800 px-3 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:border-status-info-border transition-colors"
       />
     </div>
   )
@@ -389,7 +389,7 @@ export function PortalEmpresa({ session }: { session: ClienteSession }) {
       {/* ── Header ── */}
       <div>
         <h2 className="text-lg font-semibold flex items-center gap-2">
-          <Building2 className="h-5 w-5 text-teal-400" />
+          <Building2 className="h-5 w-5 text-status-info-fg" />
           Datos de tu empresa
         </h2>
         <p className="text-xs text-zinc-500 mt-1">Información comercial y de contacto</p>
@@ -415,11 +415,11 @@ export function PortalEmpresa({ session }: { session: ClienteSession }) {
               placeholder="12.345.678-9"
               className={cn(
                 'w-full h-9 rounded-lg border bg-zinc-800 px-3 text-sm text-white focus:outline-none',
-                rutError ? 'border-red-500 focus:border-red-400' : 'border-zinc-700 focus:border-teal-400',
+                rutError ? 'border-status-danger-border focus:border-status-danger' : 'border-zinc-700 focus:border-status-info-border',
               )}
             />
             {rutError && (
-              <p className="text-xs text-red-400 mt-1 flex items-center gap-1">
+              <p className="text-xs text-status-danger-fg mt-1 flex items-center gap-1">
                 <AlertTriangle className="h-3 w-3" /> {rutError}
               </p>
             )}
@@ -440,7 +440,7 @@ export function PortalEmpresa({ session }: { session: ClienteSession }) {
           <p className="text-xs text-zinc-500 mb-3">Sin representantes legales registrados.</p>
         )}
 
-        <p className="text-[11px] text-amber-400/70 mb-3">
+        <p className="text-[11px] text-status-warn-fg/70 mb-3">
           El email de cada representante legal es obligatorio para el flujo de firma de contrato.
         </p>
 
@@ -458,7 +458,7 @@ export function PortalEmpresa({ session }: { session: ClienteSession }) {
                 <button
                   onClick={() => deleteRepresentante(rep.id)}
                   disabled={deletingRepId === rep.id}
-                  className="text-zinc-500 hover:text-red-400 transition-colors p-1 shrink-0"
+                  className="text-zinc-500 hover:text-status-danger-fg transition-colors p-1 shrink-0"
                 >
                   {deletingRepId === rep.id ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -478,8 +478,8 @@ export function PortalEmpresa({ session }: { session: ClienteSession }) {
                   }
                   placeholder="Email de firma (requerido)"
                   className={cn(
-                    'flex-1 h-8 rounded-lg border bg-zinc-900 px-3 text-xs text-white placeholder:text-zinc-500 focus:outline-none focus:border-teal-400 transition-colors',
-                    !rep.email ? 'border-amber-500/50' : 'border-zinc-700'
+                    'flex-1 h-8 rounded-lg border bg-zinc-900 px-3 text-xs text-white placeholder:text-zinc-500 focus:outline-none focus:border-status-info-border transition-colors',
+                    !rep.email ? 'border-status-warn-border' : 'border-zinc-700'
                   )}
                 />
                 <SaveButton
@@ -500,14 +500,14 @@ export function PortalEmpresa({ session }: { session: ClienteSession }) {
               value={newRepNombre}
               onChange={(e) => setNewRepNombre(e.target.value)}
               placeholder="Nombre"
-              className="flex-1 h-9 rounded-lg border border-zinc-700 bg-zinc-800 px-3 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:border-teal-400 transition-colors"
+              className="flex-1 h-9 rounded-lg border border-zinc-700 bg-zinc-800 px-3 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:border-status-info-border transition-colors"
             />
             <input
               type="text"
               value={newRepRut}
               onChange={(e) => setNewRepRut(e.target.value)}
               placeholder="RUT"
-              className="flex-1 h-9 rounded-lg border border-zinc-700 bg-zinc-800 px-3 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:border-teal-400 transition-colors"
+              className="flex-1 h-9 rounded-lg border border-zinc-700 bg-zinc-800 px-3 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:border-status-info-border transition-colors"
             />
           </div>
           <div className="flex flex-col sm:flex-row gap-2">
@@ -516,7 +516,7 @@ export function PortalEmpresa({ session }: { session: ClienteSession }) {
               value={newRepEmail}
               onChange={(e) => setNewRepEmail(e.target.value)}
               placeholder="Email de firma"
-              className="flex-1 h-9 rounded-lg border border-zinc-700 bg-zinc-800 px-3 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:border-teal-400 transition-colors"
+              className="flex-1 h-9 rounded-lg border border-zinc-700 bg-zinc-800 px-3 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:border-status-info-border transition-colors"
             />
             <button
               onClick={addRepresentante}
@@ -549,7 +549,7 @@ export function PortalEmpresa({ session }: { session: ClienteSession }) {
             <select
               value={tipoEscritura}
               onChange={(e) => setTipoEscritura(e.target.value)}
-              className="w-full h-9 rounded-lg border border-zinc-700 bg-zinc-800 px-3 text-sm text-white focus:outline-none focus:border-teal-400 transition-colors appearance-none"
+              className="w-full h-9 rounded-lg border border-zinc-700 bg-zinc-800 px-3 text-sm text-white focus:outline-none focus:border-status-info-border transition-colors appearance-none"
             >
               <option value="">Seleccionar...</option>
               <option value="Escritura pública">Escritura pública</option>

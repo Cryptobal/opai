@@ -44,7 +44,7 @@ export default function PsychDeleteDialog({
       <div className="bg-card border border-border rounded-2xl p-5 md:p-6 max-w-md w-full shadow-xl space-y-4">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-2">
-            <AlertTriangle className="size-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+            <AlertTriangle className="size-5 text-status-danger-fg dark:text-status-danger-fg shrink-0 mt-0.5" />
             <h3 className="text-lg font-semibold text-foreground">
               ¿Eliminar esta evaluación?
             </h3>
@@ -80,7 +80,7 @@ export default function PsychDeleteDialog({
             {reason.trim().length}/500 caracteres
           </span>
         </label>
-        {err ? <p className="text-sm text-red-600 dark:text-red-400">{err}</p> : null}
+        {err ? <p className="text-sm text-status-danger-fg dark:text-status-danger-fg">{err}</p> : null}
         <div className="flex flex-col sm:flex-row gap-2 pt-2">
           <button
             onClick={() => onClose(false)}
@@ -92,7 +92,7 @@ export default function PsychDeleteDialog({
           <button
             onClick={handleDelete}
             disabled={!canDelete || busy}
-            className="rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 px-4 py-2 min-h-[44px] flex-1"
+            className="rounded-lg bg-status-danger text-white hover:brightness-110 disabled:opacity-50 px-4 py-2 min-h-[44px] flex-1"
           >
             {busy ? "Eliminando…" : "Eliminar definitivamente"}
           </button>

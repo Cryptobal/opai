@@ -47,18 +47,18 @@ export function InventarioGuardiaAssignmentsSection({ guardiaId }: { guardiaId: 
 
   if (loading) {
     return (
-      <div className="text-sm text-muted-foreground py-4">Cargando uniformes...</div>
+      <div className="text-sm text-ds-text-3 py-4">Cargando uniformes...</div>
     );
   }
 
   if (assignments.length === 0) {
     return (
       <div className="space-y-2">
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-ds-text-3">
           Sin uniformes asignados. Las entregas se registran desde Inventario → Entregas.
         </p>
         <Link href="/ops/inventario/entregas">
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" className="h-10 sm:h-9">
             <Package className="h-4 w-4 mr-2" />
             Ir a Entregas
           </Button>
@@ -73,22 +73,22 @@ export function InventarioGuardiaAssignmentsSection({ guardiaId }: { guardiaId: 
   return (
     <div className="space-y-3">
       {totalCost > 0 && (
-        <div className="rounded-lg border bg-muted/30 p-3">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+        <div className="rounded-ds-md border border-ds-border-default bg-ds-surface-2 p-3">
+          <p className="text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4">
             Costo total asignado
           </p>
-          <p className="text-lg font-semibold">{formatCurrency(totalCost)}</p>
+          <p className="font-display text-lg font-semibold ds-num text-ds-text-1">{formatCurrency(totalCost)}</p>
         </div>
       )}
-      <div className="rounded-lg border divide-y">
+      <div className="rounded-ds-md border border-ds-border-default bg-ds-surface-1 divide-y divide-ds-border-subtle">
         {assignments.map((a) => (
           <div key={a.id} className="flex flex-wrap items-start justify-between gap-2 p-3">
             <div className="min-w-0 flex-1">
-              <p className="font-medium">
+              <p className="text-sm font-medium text-ds-text-1">
                 {a.variant.product.name}
                 {a.variant.size && ` ${a.variant.size.sizeCode}`}
               </p>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-ds-text-3">
                 Cantidad: {a.quantity} · Entregado:{" "}
                 {new Date(a.deliveredAt).toLocaleDateString("es-CL")}
                 {a.movement.installation && ` · ${a.movement.installation.name}`}
@@ -102,7 +102,7 @@ export function InventarioGuardiaAssignmentsSection({ guardiaId }: { guardiaId: 
         ))}
       </div>
       <Link href="/ops/inventario/entregas">
-        <Button variant="outline" size="sm">
+        <Button variant="outline" size="sm" className="h-10 sm:h-9">
           Ver todas las entregas
         </Button>
       </Link>

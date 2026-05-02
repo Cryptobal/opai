@@ -31,31 +31,31 @@ const EVENT_TYPE_LABEL: Record<string, string> = {
 };
 
 const EVENT_NODE_COLOR: Record<string, string> = {
-  lifecycle_changed: "bg-emerald-500",
-  status_changed: "bg-emerald-500",
+  lifecycle_changed: "bg-status-ok",
+  status_changed: "bg-status-ok",
   public_postulation_submitted: "bg-violet-500",
   postulation_submitted: "bg-violet-500",
-  document_uploaded: "bg-blue-500",
-  document_updated: "bg-blue-500",
-  document_deleted: "bg-red-500",
-  document_linked: "bg-blue-400",
-  document_unlinked: "bg-orange-400",
-  assigned: "bg-cyan-500",
-  unassigned: "bg-amber-500",
-  contract_generated: "bg-indigo-500",
-  contract_signed: "bg-emerald-500",
-  rehired: "bg-emerald-500",
-  labor_event_created: "bg-orange-500",
-  labor_event_deleted: "bg-red-500",
-  bank_account_created: "bg-teal-500",
-  bank_account_updated: "bg-teal-400",
-  bank_account_deleted: "bg-red-400",
-  salary_updated: "bg-yellow-500",
-  pin_generated: "bg-sky-500",
-  pin_updated: "bg-sky-400",
-  communication_sent: "bg-purple-500",
+  document_uploaded: "bg-status-info",
+  document_updated: "bg-status-info",
+  document_deleted: "bg-status-danger",
+  document_linked: "bg-status-info",
+  document_unlinked: "bg-status-warn",
+  assigned: "bg-status-info",
+  unassigned: "bg-status-warn",
+  contract_generated: "bg-status-info",
+  contract_signed: "bg-status-ok",
+  rehired: "bg-status-ok",
+  labor_event_created: "bg-status-warn",
+  labor_event_deleted: "bg-status-danger",
+  bank_account_created: "bg-status-info",
+  bank_account_updated: "bg-status-info",
+  bank_account_deleted: "bg-status-danger",
+  salary_updated: "bg-status-warn",
+  pin_generated: "bg-status-info",
+  pin_updated: "bg-status-info",
+  communication_sent: "bg-tint-violet",
   note_added: "bg-gray-400",
-  personal_data_updated: "bg-amber-400",
+  personal_data_updated: "bg-status-warn",
 };
 
 const LIFECYCLE_STATUS_LABEL: Record<string, string> = {
@@ -351,34 +351,38 @@ function getEventDescriptionLines(event: HistoryEvent): string[] {
 
 export default function HistorialSection({ historyEvents }: HistorialSectionProps) {
   if (historyEvents.length === 0) {
-    return <p className="text-sm text-[#7a8a9e] py-1">Sin eventos registrados.</p>;
+    return (
+      <div className="rounded-xl border border-border/60 bg-card/40 p-4 text-sm text-muted-foreground">
+        Sin eventos registrados.
+      </div>
+    );
   }
 
   return (
     <div className="relative pl-6">
       {/* Vertical line */}
-      <div className="absolute left-[7px] top-1 bottom-1 w-px bg-[#1a2332]" />
+      <div className="absolute left-[7px] top-1 bottom-1 w-px bg-border/60" />
 
       {historyEvents.map((event, idx) => {
         const label = EVENT_TYPE_LABEL[event.eventType] || event.eventType.replace(/[_-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-        const nodeColor = EVENT_NODE_COLOR[event.eventType] || "bg-[#4a5568]";
+        const nodeColor = EVENT_NODE_COLOR[event.eventType] || "bg-muted-foreground/40";
         const descriptionLines = getEventDescriptionLines(event);
 
         return (
           <div key={event.id} className={cn("relative pb-4", idx === historyEvents.length - 1 && "pb-0")}>
             {/* Node circle */}
-            <div className={cn("absolute -left-6 top-1 h-3.5 w-3.5 rounded-full border-2 border-[#0a0e14]", nodeColor)} />
+            <div className={cn("absolute -left-6 top-1 h-3.5 w-3.5 rounded-full border-2 border-background", nodeColor)} />
 
             <div className="min-w-0">
-              <p className="text-sm font-medium text-[#e8edf4]">{label}</p>
+              <p className="text-sm font-medium text-foreground">{label}</p>
               {descriptionLines.length > 0 && (
                 <div className="mt-0.5 space-y-0.5">
                   {descriptionLines.map((line, i) => (
-                    <p key={i} className="text-xs text-[#7a8a9e]">{line}</p>
+                    <p key={i} className="text-xs text-muted-foreground">{line}</p>
                   ))}
                 </div>
               )}
-              <p className="text-[11px] text-[#4a5568] mt-0.5">
+              <p className="text-[11px] text-muted-foreground/70 mt-0.5">
                 {formatDate(event.createdAt)}
                 {event.createdByName ? ` · por ${event.createdByName}` : event.createdBy === "system" ? " · por Sistema" : ""}
               </p>

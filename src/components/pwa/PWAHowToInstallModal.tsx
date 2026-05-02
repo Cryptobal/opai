@@ -31,7 +31,7 @@ const BROWSER_OPTIONS: { id: PwaBrowserChoice; label: string; sublabel: string }
 
 function StepBubble({ n }: { n: number }) {
   return (
-    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-teal-500/20 text-teal-400 font-bold text-base">
+    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-status-info-soft text-status-info-fg font-bold text-base">
       {n}
     </span>
   );
@@ -60,8 +60,8 @@ function InstructionsContent({
   if (browser === 'safari_ios') {
     return (
       <div className="space-y-5">
-        <div className="rounded-xl bg-teal-500/10 border border-teal-500/20 p-4 text-center">
-          <p className="text-teal-300 text-sm font-medium">
+        <div className="rounded-xl bg-status-info-soft border border-status-info-border p-4 text-center">
+          <p className="text-status-info-fg text-sm font-medium">
             En iPhone se agrega desde el menú <strong className="text-white">Compartir</strong>
           </p>
         </div>
@@ -100,7 +100,7 @@ function InstructionsContent({
           <button
             type="button"
             onClick={openShareSheet}
-            className="w-full flex items-center justify-center gap-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-semibold py-3.5 px-4 transition-colors text-base"
+            className="w-full flex items-center justify-center gap-2 rounded-xl bg-status-info hover:bg-status-info text-white font-semibold py-3.5 px-4 transition-colors text-base"
           >
             <Share className="w-5 h-5" />
             Abrir menú Compartir ahora
@@ -113,8 +113,8 @@ function InstructionsContent({
   if (browser === 'chrome_android') {
     return (
       <div className="space-y-5">
-        <div className="rounded-xl bg-teal-500/10 border border-teal-500/20 p-4 text-center">
-          <p className="text-teal-300 text-sm font-medium">
+        <div className="rounded-xl bg-status-info-soft border border-status-info-border p-4 text-center">
+          <p className="text-status-info-fg text-sm font-medium">
             En Chrome se instala desde el menú <strong className="text-white">⋮</strong> (tres puntos)
           </p>
         </div>
@@ -156,8 +156,8 @@ function InstructionsContent({
   if (browser === 'samsung') {
     return (
       <div className="space-y-5">
-        <div className="rounded-xl bg-teal-500/10 border border-teal-500/20 p-4 text-center">
-          <p className="text-teal-300 text-sm font-medium">
+        <div className="rounded-xl bg-status-info-soft border border-status-info-border p-4 text-center">
+          <p className="text-status-info-fg text-sm font-medium">
             En Samsung Internet usa el menú
             <Menu className="inline w-3.5 h-3.5 ml-1 -mt-0.5" />
           </p>
@@ -199,7 +199,7 @@ function InstructionsContent({
   return (
     <div className="space-y-5">
       <div className="flex gap-3 rounded-xl bg-zinc-800/80 p-4">
-        <Smartphone className="w-8 h-8 shrink-0 text-teal-400" />
+        <Smartphone className="w-8 h-8 shrink-0 text-status-info-fg" />
         <div className="text-sm text-zinc-300">
           <p className="font-medium text-white mb-1">Abre esta página en tu celular</p>
           <p className="text-xs text-zinc-400">
@@ -300,7 +300,7 @@ export function PWAHowToInstallModal({ appName, onClose }: PWAHowToInstallModalP
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-sm font-medium py-2.5 transition-colors"
+              className="flex-1 rounded-xl bg-status-info hover:bg-status-info text-white text-sm font-medium py-2.5 transition-colors"
             >
               Entendido
             </button>

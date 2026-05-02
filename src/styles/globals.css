@@ -66,6 +66,90 @@
     --chart-4: 38 92% 45%;
     --chart-5: 340 82% 45%;
 
+    /* ============================================
+       OPAI DS v3 — Surfaces (5 niveles de elevación)
+       ============================================ */
+    --ds-surface-0: 0 0% 99%;              /* page bg = same as --background */
+    --ds-surface-1: 220 14% 97%;           /* card primary, subtle off-white */
+    --ds-surface-2: 0 0% 100%;             /* card elevated / popover */
+    --ds-surface-3: 220 14% 99%;           /* sticky header / dialog top */
+    --ds-surface-4: 0 0% 100%;             /* menu / tooltip top */
+
+    /* Text scale — 4 niveles */
+    --ds-text-1: 220 20% 10%;              /* primary text */
+    --ds-text-2: 215 16% 30%;              /* body / labels */
+    --ds-text-3: 215 16% 50%;              /* secondary / metadata */
+    --ds-text-4: 215 12% 65%;              /* tertiary / placeholders */
+
+    /* Border weights */
+    --ds-border-subtle: 220 13% 92%;       /* dividers, table rows */
+    --ds-border-default: 220 13% 87%;      /* cards, inputs */
+    --ds-border-strong: 220 13% 78%;       /* focus, hover */
+
+    /* Semantic — OK (success / confirmed) */
+    --ds-ok: 160 84% 32%;                  /* #0d9b6c — solid */
+    --ds-ok-fg: 160 84% 22%;               /* text on light bg */
+    --ds-ok-soft: 160 84% 95%;             /* tinted background */
+    --ds-ok-border: 160 70% 75%;           /* border on tinted */
+
+    /* Semantic — WARN */
+    --ds-warn: 35 95% 45%;                 /* #d18712 */
+    --ds-warn-fg: 30 90% 30%;
+    --ds-warn-soft: 40 95% 95%;
+    --ds-warn-border: 35 85% 75%;
+
+    /* Semantic — DANGER */
+    --ds-danger: 0 72% 48%;                /* #d92626 */
+    --ds-danger-fg: 0 72% 38%;
+    --ds-danger-soft: 0 90% 96%;
+    --ds-danger-border: 0 80% 82%;
+
+    /* Semantic — INFO (neutral azul, no es brand) */
+    --ds-info: 217 90% 50%;
+    --ds-info-fg: 217 80% 38%;
+    --ds-info-soft: 217 90% 96%;
+    --ds-info-border: 217 80% 80%;
+
+    /* Spacing scale (referencia, no usar directo en HTML) */
+    --ds-radius-sm: 6px;
+    --ds-radius-md: 10px;
+    --ds-radius-lg: 14px;
+    --ds-radius-xl: 20px;
+    --ds-radius-pill: 999px;
+
+    /* Shadow tokens — capas reales, no flat */
+    --ds-shadow-xs: 0 1px 2px 0 hsl(220 30% 10% / 0.04);
+    --ds-shadow-sm: 0 1px 3px 0 hsl(220 30% 10% / 0.06), 0 1px 2px -1px hsl(220 30% 10% / 0.04);
+    --ds-shadow-md: 0 4px 12px -2px hsl(220 30% 10% / 0.08), 0 2px 4px -2px hsl(220 30% 10% / 0.04);
+    --ds-shadow-lg: 0 12px 24px -8px hsl(220 30% 10% / 0.12), 0 4px 8px -4px hsl(220 30% 10% / 0.06);
+    --ds-shadow-glow-brand: 0 0 0 1px hsl(var(--primary) / 0.18), 0 6px 24px -8px hsl(var(--primary) / 0.32);
+
+    /* ============================================
+       OPAI Refined Industrial — Categorical tints
+       Para IconTile y agrupaciones visuales NO semánticas.
+       NO usar para estados (ok/warn/danger/info → status-*).
+       ============================================ */
+    --tint-violet:     251 91% 95%;
+    --tint-violet-fg:  263 69% 42%;
+    --tint-rose:       356 100% 94%;
+    --tint-rose-fg:    347 89% 41%;
+    --tint-amber:       47 96% 89%;
+    --tint-amber-fg:    28 95% 37%;
+    --tint-emerald:    152 81% 90%;
+    --tint-emerald-fg: 162 94% 24%;
+    --tint-sky:        204 94% 94%;
+    --tint-sky-fg:     200 95% 33%;
+    --tint-teal:       167 85% 89%;
+    --tint-teal-fg:    173 80% 28%;
+
+    /* Motion tokens — duraciones y curvas estándar.
+       Consumir desde lib/motion.ts (TS) o en CSS directamente. */
+    --motion-duration-fast: 150ms;
+    --motion-duration-base: 200ms;
+    --motion-duration-slow: 300ms;
+    --motion-easing-standard: cubic-bezier(0.2, 0, 0, 1);
+    --motion-easing-emphasized: cubic-bezier(0.3, 0, 0, 1);
+
   }
 
   .dark {
@@ -118,6 +202,64 @@
     --chart-3: 142 71% 45%;
     --chart-4: 38 92% 50%;
     --chart-5: 340 82% 52%;
+
+    /* OPAI DS v3 — Dark surfaces */
+    --ds-surface-0: 220 20% 6%;            /* page bg = same as --background */
+    --ds-surface-1: 220 18% 9%;            /* card primary */
+    --ds-surface-2: 220 18% 11%;           /* elevated */
+    --ds-surface-3: 220 18% 13%;           /* dialog top */
+    --ds-surface-4: 220 18% 15%;           /* tooltip / menu */
+
+    --ds-text-1: 210 40% 98%;
+    --ds-text-2: 215 20% 80%;
+    --ds-text-3: 215 16% 60%;
+    --ds-text-4: 215 14% 42%;
+
+    --ds-border-subtle: 220 13% 16%;
+    --ds-border-default: 220 13% 20%;
+    --ds-border-strong: 220 13% 28%;
+
+    --ds-ok: 160 76% 42%;
+    --ds-ok-fg: 160 76% 60%;
+    --ds-ok-soft: 160 76% 14%;
+    --ds-ok-border: 160 60% 28%;
+
+    --ds-warn: 35 92% 55%;
+    --ds-warn-fg: 38 92% 65%;
+    --ds-warn-soft: 35 60% 14%;
+    --ds-warn-border: 35 60% 28%;
+
+    --ds-danger: 0 76% 58%;
+    --ds-danger-fg: 0 80% 70%;
+    --ds-danger-soft: 0 60% 14%;
+    --ds-danger-border: 0 60% 28%;
+
+    --ds-info: 217 90% 60%;
+    --ds-info-fg: 217 90% 72%;
+    --ds-info-soft: 217 60% 14%;
+    --ds-info-border: 217 60% 28%;
+
+    --ds-shadow-xs: 0 1px 2px 0 hsl(220 60% 2% / 0.4);
+    --ds-shadow-sm: 0 1px 3px 0 hsl(220 60% 2% / 0.5), 0 1px 2px -1px hsl(220 60% 2% / 0.4);
+    --ds-shadow-md: 0 4px 12px -2px hsl(220 60% 2% / 0.55), 0 2px 4px -2px hsl(220 60% 2% / 0.45);
+    --ds-shadow-lg: 0 12px 24px -8px hsl(220 60% 2% / 0.6), 0 4px 8px -4px hsl(220 60% 2% / 0.45);
+    --ds-shadow-glow-brand: 0 0 0 1px hsl(var(--primary) / 0.28), 0 6px 24px -8px hsl(var(--primary) / 0.45);
+
+    /* Categorical tints — dark variants.
+       Container: tono profundo (saturado oscuro). Foreground: tono claro
+       (200-300 range) para legibilidad sobre el container. */
+    --tint-violet:     268 60% 22%;
+    --tint-violet-fg:  251 92% 84%;
+    --tint-rose:       343 65% 22%;
+    --tint-rose-fg:      0 96% 84%;
+    --tint-amber:       28 70% 20%;
+    --tint-amber-fg:    49 95% 70%;
+    --tint-emerald:    164 60% 18%;
+    --tint-emerald-fg: 152 76% 67%;
+    --tint-sky:        200 65% 22%;
+    --tint-sky-fg:     199 94% 78%;
+    --tint-teal:       172 75% 18%;
+    --tint-teal-fg:    169 76% 70%;
 
   }
 
@@ -1034,5 +1176,121 @@ html {
       backdrop-filter: none !important;
       -webkit-backdrop-filter: none !important;
     }
+  }
+}
+
+/* ── Shared utilities (post-Conocimiento cleanup) ─────────────── */
+/* The dark-only Conocimiento mockup classes (card-mock, pill-mock, */
+/* bar-mock, tap-mock, hm-cell, blob-mock, badge-dot, num-tabular) */
+/* were removed in the 3B cleanup. Replacements live in opai-ds.   */
+/* These remaining classes have unrelated consumers and stay.      */
+@layer utilities {
+  /* grain-overlay: still consumed by legacy OpaiPageHero
+     (src/components/opai/PageHero.tsx). Removed when the legacy
+     OpaiPageHero is deleted in the final cleanup session. */
+  .grain-overlay::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.025;
+    background-image: theme('backgroundImage.grain-svg');
+  }
+
+  /* scrollbar-none: generic scrollbar utility used by Bitácora,
+     GuardiaDetalle, MonitoreoSidePanel — not Conocimiento-specific. */
+  .scrollbar-none::-webkit-scrollbar { display: none; }
+  .scrollbar-none { scrollbar-width: none; }
+}
+
+/* ── OPAI DS v3 — utilities ───────────────────────────────────── */
+@layer utilities {
+  /* Shimmer skeleton */
+  .ds-shimmer {
+    position: relative;
+    overflow: hidden;
+    background: hsl(var(--ds-surface-1));
+  }
+  .ds-shimmer::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      hsl(var(--ds-text-4) / 0.08) 50%,
+      transparent 100%
+    );
+    animation: ds-shimmer 1.6s ease-in-out infinite;
+  }
+  @keyframes ds-shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+
+  /* Page enter staggered */
+  .ds-page-enter > * {
+    opacity: 0;
+    animation: ds-page-enter 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+  .ds-page-enter > *:nth-child(1) { animation-delay: 0ms; }
+  .ds-page-enter > *:nth-child(2) { animation-delay: 60ms; }
+  .ds-page-enter > *:nth-child(3) { animation-delay: 120ms; }
+  .ds-page-enter > *:nth-child(4) { animation-delay: 180ms; }
+  .ds-page-enter > *:nth-child(5) { animation-delay: 240ms; }
+  .ds-page-enter > *:nth-child(n+6) { animation-delay: 300ms; }
+
+  @keyframes ds-page-enter {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* List item cascade */
+  .ds-list-cascade > * {
+    opacity: 0;
+    animation: ds-page-enter 0.35s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+  .ds-list-cascade > *:nth-child(1) { animation-delay: 0ms; }
+  .ds-list-cascade > *:nth-child(2) { animation-delay: 40ms; }
+  .ds-list-cascade > *:nth-child(3) { animation-delay: 80ms; }
+  .ds-list-cascade > *:nth-child(4) { animation-delay: 120ms; }
+  .ds-list-cascade > *:nth-child(5) { animation-delay: 160ms; }
+  .ds-list-cascade > *:nth-child(6) { animation-delay: 200ms; }
+  .ds-list-cascade > *:nth-child(7) { animation-delay: 240ms; }
+  .ds-list-cascade > *:nth-child(n+8) { animation-delay: 280ms; }
+
+  /* Press feedback (replaces tap-mock) */
+  .ds-tap {
+    transition: transform 120ms cubic-bezier(0.22, 1, 0.36, 1),
+                background-color 150ms ease,
+                border-color 150ms ease;
+  }
+  .ds-tap:active {
+    transform: scale(0.985);
+  }
+
+  /* Tabular numerics for KPIs / tables */
+  .ds-num {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1, "cv02" 1, "cv03" 1, "cv04" 1, "cv11" 1;
+  }
+
+  /* Scrollbar refinada para tablas con scroll horizontal */
+  .ds-scroll-x {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+  }
+  .ds-scroll-x::-webkit-scrollbar { height: 4px; }
+  .ds-scroll-x::-webkit-scrollbar-thumb {
+    background: hsl(var(--ds-border-strong));
+    border-radius: 999px;
+  }
+
+  /* Inset ring sutil (para IconBubble) */
+  .ds-ring-inset {
+    box-shadow: inset 0 0 0 1px hsl(var(--ds-text-1) / 0.06);
+  }
+  .dark .ds-ring-inset {
+    box-shadow: inset 0 0 0 1px hsl(0 0% 100% / 0.06);
   }
 }

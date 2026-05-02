@@ -27,11 +27,11 @@ const NOTIF_ICONS: Record<string, typeof Bell> = {
 };
 
 const NOTIF_ICON_COLOR: Record<string, string> = {
-  ronda_completada: "text-emerald-400 bg-emerald-500/10",
-  ronda_incompleta: "text-amber-400 bg-amber-500/10",
-  ronda_no_realizada: "text-red-400 bg-red-500/10",
-  ticket_respondido: "text-blue-400 bg-blue-500/10",
-  cotizacion_nueva: "text-teal-400 bg-teal-500/10",
+  ronda_completada: "text-status-ok-fg bg-status-ok-soft",
+  ronda_incompleta: "text-status-warn-fg bg-status-warn-soft",
+  ronda_no_realizada: "text-status-danger-fg bg-status-danger-soft",
+  ticket_respondido: "text-status-info-fg bg-status-info-soft",
+  cotizacion_nueva: "text-status-info-fg bg-status-info-soft",
   documento_nuevo: "text-violet-400 bg-violet-500/10",
 };
 
@@ -92,8 +92,8 @@ export function PortalAlertas({ session, isProspect }: Props) {
     return (
       <div className="flex-1 max-w-2xl mx-auto w-full px-4 py-4 pb-24">
         <div className="flex items-center gap-3 mb-5">
-          <div className="h-10 w-10 rounded-xl bg-teal-500/10 flex items-center justify-center">
-            <Bell className="h-5 w-5 text-teal-400" />
+          <div className="h-10 w-10 rounded-xl bg-status-info-soft flex items-center justify-center">
+            <Bell className="h-5 w-5 text-status-info-fg" />
           </div>
           <div>
             <div className="flex items-center gap-2">
@@ -135,10 +135,10 @@ export function PortalAlertas({ session, isProspect }: Props) {
         <div className="bg-zinc-800/60 border border-zinc-700/50 rounded-xl p-5 space-y-3">
           <p className="text-sm text-zinc-300 font-medium">Qué verás aquí</p>
           <ul className="space-y-2 text-xs text-zinc-400">
-            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />Rondas completadas en tus instalaciones</li>
-            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-amber-400" />Rondas incompletas o no realizadas</li>
-            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Respuestas a tus tickets y nuevos documentos</li>
-            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-teal-400" />Notificaciones por email y push configurables</li>
+            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-status-ok" />Rondas completadas en tus instalaciones</li>
+            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-status-warn" />Rondas incompletas o no realizadas</li>
+            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-status-info" />Respuestas a tus tickets y nuevos documentos</li>
+            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-status-info" />Notificaciones por email y push configurables</li>
           </ul>
         </div>
       </div>
@@ -149,8 +149,8 @@ export function PortalAlertas({ session, isProspect }: Props) {
     <div className="flex-1 max-w-2xl mx-auto w-full px-4 py-4 pb-24">
       {/* Header */}
       <div className="flex items-center gap-3 mb-4">
-        <div className="h-10 w-10 rounded-xl bg-teal-500/10 flex items-center justify-center">
-          <Bell className="h-5 w-5 text-teal-400" />
+        <div className="h-10 w-10 rounded-xl bg-status-info-soft flex items-center justify-center">
+          <Bell className="h-5 w-5 text-status-info-fg" />
         </div>
         <div>
           <h2 className="text-base font-semibold text-zinc-100">Centro de actividad</h2>
@@ -384,7 +384,7 @@ function AlertasConfig({ session }: { session: ClienteSession }) {
                   className={cn(
                     "w-8 h-8 rounded-lg flex items-center justify-center transition-colors disabled:cursor-not-allowed",
                     cfg.channels.email && cfg.isActive
-                      ? "bg-blue-500/20 text-blue-400"
+                      ? "bg-status-info-soft text-status-info-fg"
                       : "bg-zinc-800/50 text-zinc-600"
                   )}
                   title="Toggle email"
@@ -398,7 +398,7 @@ function AlertasConfig({ session }: { session: ClienteSession }) {
                   className={cn(
                     "w-8 h-8 rounded-lg flex items-center justify-center transition-colors disabled:cursor-not-allowed",
                     cfg.channels.push && cfg.isActive
-                      ? "bg-amber-500/20 text-amber-400"
+                      ? "bg-status-warn-soft text-status-warn-fg"
                       : "bg-zinc-800/50 text-zinc-600"
                   )}
                   title="Toggle push"
@@ -410,7 +410,7 @@ function AlertasConfig({ session }: { session: ClienteSession }) {
                   onClick={() => toggle(cfg.alertType, "isActive")}
                   className={cn(
                     "w-8 h-5 rounded-full relative transition-colors",
-                    cfg.isActive ? "bg-teal-500" : "bg-zinc-700"
+                    cfg.isActive ? "bg-status-info" : "bg-zinc-700"
                   )}
                   title="Toggle activo"
                 >

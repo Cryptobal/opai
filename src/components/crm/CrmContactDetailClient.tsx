@@ -22,7 +22,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { EmptyState } from "@/components/opai/EmptyState";
+import { EmptyState } from "@/components/opai-ds";
 import { EmailHistoryList, type EmailMessage } from "./EmailHistoryList";
 import { ContractEditor } from "@/components/docs/ContractEditor";
 import { AssociatedRecordsPanel, type AssociatedSection } from "@/components/ui/AssociatedRecordsPanel";
@@ -44,7 +44,6 @@ import {
   MapPin,
   DollarSign,
   History,
-  XCircle,
   KeyRound,
   MessageCircle,
   ChevronDown,
@@ -57,7 +56,6 @@ import { CreateDealModal } from "./CreateDealModal";
 import { CreateQuoteModal } from "@/components/cpq/CreateQuoteModal";
 import { resolveDocument, tiptapToPlainText } from "@/lib/docs/token-resolver";
 import { CrmActivityTimeline } from "./CrmActivityTimeline";
-import { SendPresentationDialog } from "./SendPresentationDialog";
 
 /** Convierte Tiptap JSON a HTML para email */
 function tiptapToEmailHtml(doc: any): string {
@@ -174,7 +172,6 @@ export function CrmContactDetailClient({
   initialEmailCount = 0,
   activityEvents = [],
   currentUserId = "",
-  companyPresentations: initialPresentations = [],
 }: {
   contact: ContactDetail;
   deals: DealRow[];
@@ -187,13 +184,11 @@ export function CrmContactDetailClient({
   initialEmailCount?: number;
   activityEvents?: ActivityEvent[];
   currentUserId?: string;
-  companyPresentations?: Array<{ id: string; status: string }>;
 }) {
   const router = useRouter();
   const chatCtx = useChatSidePanelContext();
   const [contact, setContact] = useState(initialContact);
   const [contactDeals, setContactDeals] = useState(deals);
-  const [presentations, setPresentations] = useState(initialPresentations);
   const [startingChat, setStartingChat] = useState(false);
   const fullName = [contact.firstName, contact.lastName].filter(Boolean).join(" ");
 
@@ -234,7 +229,6 @@ export function CrmContactDetailClient({
   const [accountOptions, setAccountOptions] = useState<Array<{ id: string; name: string }>>([]);
 
   const [deleteConfirm, setDeleteConfirm] = useState(false);
-  const [presentationOpen, setPresentationOpen] = useState(false);
 
   // ── Email compose state ──
   const [emailOpen, setEmailOpen] = useState(false);
@@ -294,20 +288,6 @@ export function CrmContactDetailClient({
       toast.success("Contacto eliminado");
       router.push("/crm/contacts");
     } catch { toast.error("No se pudo eliminar"); }
-  };
-
-  const hasActivePresentation = presentations.some(p => ['sent', 'viewed'].includes(p.status));
-
-  const handleDeactivatePresentation = async () => {
-    if (!confirm('¿Desactivar la presentación de empresa para este contacto?')) return;
-    try {
-      const res = await fetch(`/api/crm/contacts/${contact.id}/deactivate-presentation`, { method: 'POST' });
-      if (!res.ok) throw new Error();
-      setPresentations([]);
-      toast.success('Presentación desactivada');
-    } catch {
-      toast.error('No se pudo desactivar la presentación');
-    }
   };
 
   const saveEdit = async () => {
@@ -503,8 +483,6 @@ export function CrmContactDetailClient({
       onClick: startExternalChat,
       hidden: !contact.accountId || !contact.portalEnabled,
     },
-    { label: "Enviar Presentación", icon: Building2, onClick: () => setPresentationOpen(true), hidden: !contact.email },
-    { label: "Desactivar presentación", icon: XCircle, onClick: handleDeactivatePresentation, hidden: !hasActivePresentation },
     { label: "Eliminar contacto", icon: Trash2, onClick: () => setDeleteConfirm(true), variant: "destructive" },
   ];
 
@@ -663,8 +641,8 @@ export function CrmContactDetailClient({
             {contact.isPrimary ? "Contacto principal" : "Contacto secundario"}
           </Badge>
           {contact.portalEnabled && (
-            <Badge variant="outline" className="border-emerald-500/30 text-emerald-400">
-              <span className="mr-1 inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
+            <Badge variant="outline" className="border-status-ok-border text-status-ok-fg">
+              <span className="mr-1 inline-flex h-1.5 w-1.5 rounded-full bg-status-ok" />
               Portal activo
             </Badge>
           )}
@@ -744,7 +722,7 @@ export function CrmContactDetailClient({
             label="Estado"
             value={
               contact.portalEnabled
-                ? <Badge variant="outline" className="border-emerald-500/30 text-emerald-400">Habilitado</Badge>
+                ? <Badge variant="outline" className="border-status-ok-border text-status-ok-fg">Habilitado</Badge>
                 : <Badge variant="outline" className="border-border/60 text-muted-foreground">No habilitado</Badge>
             }
           />
@@ -810,7 +788,7 @@ export function CrmContactDetailClient({
                 <Phone className="h-4 w-4" />
               </a>
               <a href={`https://wa.me/${phoneBase}?text=${encodeURIComponent(`Hola ${contact.firstName}, `)}`} target="_blank" rel="noopener noreferrer" title="WhatsApp"
-                className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-green-600/30 bg-green-600/15 text-green-400 hover:bg-green-600/25 transition-colors">
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-status-ok-border bg-status-ok-soft text-status-ok-fg hover:brightness-110 transition-colors">
                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" /></svg>
               </a>
             </div>
@@ -851,7 +829,7 @@ export function CrmContactDetailClient({
           </DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1.5">
-              <Label className="text-xs">Plantilla (solo mail)</Label>
+              <Label>Plantilla (solo mail)</Label>
               <select className={selectCn} value={selectedTemplateId} onChange={(e) => selectTemplate(e.target.value)} disabled={sending}>
                 <option value="">Sin plantilla</option>
                 {docTemplatesMail.length > 0 && (
@@ -863,7 +841,7 @@ export function CrmContactDetailClient({
             </div>
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <Label className="text-xs">Para</Label>
+                <Label>Para</Label>
                 {!showCcBcc && <button type="button" onClick={() => setShowCcBcc(true)} className="text-[11px] text-primary hover:underline">CC / BCC</button>}
               </div>
               <input value={contact.email || ""} disabled className={`h-9 w-full rounded-md border px-3 text-sm ${inputCn} opacity-70`} />
@@ -871,21 +849,21 @@ export function CrmContactDetailClient({
             {showCcBcc && (
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <Label className="text-xs">CC</Label>
+                  <Label>CC</Label>
                   <input value={emailCc} onChange={(e) => setEmailCc(e.target.value)} className={`h-9 w-full rounded-md border px-3 text-sm ${inputCn}`} placeholder="copia@empresa.com" disabled={sending} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">BCC</Label>
+                  <Label>BCC</Label>
                   <input value={emailBcc} onChange={(e) => setEmailBcc(e.target.value)} className={`h-9 w-full rounded-md border px-3 text-sm ${inputCn}`} placeholder="oculto@empresa.com" disabled={sending} />
                 </div>
               </div>
             )}
             <div className="space-y-1.5">
-              <Label className="text-xs">Asunto</Label>
+              <Label>Asunto</Label>
               <input value={emailSubject} onChange={(e) => setEmailSubject(e.target.value)} className={`h-9 w-full rounded-md border px-3 text-sm ${inputCn}`} placeholder="Asunto" disabled={sending} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Mensaje</Label>
+              <Label>Mensaje</Label>
               <ContractEditor content={emailTiptapContent} onChange={handleTiptapChange} editable={!sending} placeholder="Escribe tu mensaje aquí..." filterModules={["system"]} />
             </div>
             {signatureHtml && (
@@ -908,7 +886,7 @@ export function CrmContactDetailClient({
           <DialogHeader><DialogTitle>Editar contacto</DialogTitle></DialogHeader>
           <div className="grid gap-3 md:grid-cols-2">
             <div className="space-y-1.5 md:col-span-2">
-              <Label className="text-xs">Cuenta</Label>
+              <Label>Cuenta</Label>
               <select
                 className={selectCn}
                 value={editForm.accountId}
@@ -924,23 +902,23 @@ export function CrmContactDetailClient({
               </select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Nombre *</Label>
+              <Label>Nombre *</Label>
               <Input value={editForm.firstName} onChange={(e) => setEditForm((p) => ({ ...p, firstName: e.target.value }))} className={inputCn} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Apellido *</Label>
+              <Label>Apellido *</Label>
               <Input value={editForm.lastName} onChange={(e) => setEditForm((p) => ({ ...p, lastName: e.target.value }))} className={inputCn} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Email *</Label>
+              <Label>Email *</Label>
               <Input value={editForm.email} onChange={(e) => setEditForm((p) => ({ ...p, email: e.target.value }))} className={inputCn} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Teléfono</Label>
+              <Label>Teléfono</Label>
               <Input value={editForm.phone} onChange={(e) => setEditForm((p) => ({ ...p, phone: e.target.value }))} className={inputCn} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Cargo</Label>
+              <Label>Cargo</Label>
               <Input value={editForm.roleTitle} onChange={(e) => setEditForm((p) => ({ ...p, roleTitle: e.target.value }))} className={inputCn} />
             </div>
             <div className="flex items-end">
@@ -958,14 +936,6 @@ export function CrmContactDetailClient({
       </Dialog>
 
       <ConfirmDialog open={deleteConfirm} onOpenChange={setDeleteConfirm} title="Eliminar contacto" description="El contacto será eliminado permanentemente." onConfirm={deleteContact} />
-
-      <SendPresentationDialog
-        open={presentationOpen}
-        onOpenChange={setPresentationOpen}
-        contact={contact}
-        installations={installations}
-        onSent={() => router.refresh()}
-      />
     </>
   );
 }

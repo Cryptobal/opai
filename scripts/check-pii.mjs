@@ -29,9 +29,16 @@ const RESET = "\x1b[0m";
 const ALLOWED_RUT_PLACEHOLDERS = new Set([
   "11111111-1", "22222222-2", "33333333-3", "44444444-4", "55555555-5",
   "66666666-6", "77777777-7", "88888888-8", "99999999-9", "12345678-5",
+  "12345678-9",
   "11.111.111-1", "22.222.222-2", "12.345.678-5",
   // Common placeholder values used in input fields across the UI.
-  "12.345.678-9", "76.123.456-7",
+  "12.345.678-9", "12.345.678-K", "76.123.456-7",
+  // Example RUT used in email-lead-extractor.ts docstring to illustrate format.
+  "77.985.438-8",
+  // Placeholder used in BneIntegrationCard "RUT empleador" input.
+  "77.840.623-3",
+  // Fictional RUT (>50M, no real RUT in this range) used in email-lead-extractor tests.
+  "59.090.630-1",
 ]);
 
 const SAMPLE_PATHS_ALLOWLIST = [

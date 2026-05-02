@@ -95,15 +95,15 @@ function formatDate(iso: string | null): string {
 }
 
 function complianceColor(pct: number): string {
-  if (pct >= 80) return "text-green-500";
-  if (pct >= 50) return "text-amber-500";
-  return "text-red-500";
+  if (pct >= 80) return "text-status-ok-fg";
+  if (pct >= 50) return "text-status-warn-fg";
+  return "text-status-danger-fg";
 }
 
 function complianceBg(pct: number): string {
-  if (pct >= 80) return "bg-green-500/10";
-  if (pct >= 50) return "bg-amber-500/10";
-  return "bg-red-500/10";
+  if (pct >= 80) return "bg-status-ok-soft";
+  if (pct >= 50) return "bg-status-warn-soft";
+  return "bg-status-danger-soft";
 }
 
 // ---------------------------------------------------------------------------
@@ -238,15 +238,15 @@ export function GrillaDocsInstalacion() {
       <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
         <span className="font-medium">Estado:</span>
         <span className="flex items-center gap-1">
-          <span className="inline-block w-3 h-3 rounded-sm bg-green-500/40" />
+          <span className="inline-block w-3 h-3 rounded-sm bg-status-ok" />
           OK
         </span>
         <span className="flex items-center gap-1">
-          <span className="inline-block w-3 h-3 rounded-sm bg-amber-500/40" />
+          <span className="inline-block w-3 h-3 rounded-sm bg-status-warn" />
           Alerta / por vencer
         </span>
         <span className="flex items-center gap-1">
-          <span className="inline-block w-3 h-3 rounded-sm bg-red-500/40" />
+          <span className="inline-block w-3 h-3 rounded-sm bg-status-danger" />
           Falta / vencido
         </span>
         <span className="ml-auto flex items-center gap-2">
@@ -267,7 +267,7 @@ export function GrillaDocsInstalacion() {
       )}
 
       {!loading && error && (
-        <div className="flex items-center justify-center h-48 text-sm text-red-500">
+        <div className="flex items-center justify-center h-48 text-sm text-status-danger-fg">
           {error}
         </div>
       )}

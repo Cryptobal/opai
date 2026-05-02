@@ -29,7 +29,7 @@ export function ProposalPuestos({
   return (
     <div className={cn("rounded-xl border border-slate-700/50 bg-slate-800/50 p-4 space-y-3", className)}>
       <h3 className="text-xl font-bold text-white">
-        <span className="text-teal-400">{sectionNumber}.</span> Puestos de Trabajo ·{" "}
+        <span className="text-status-info-fg">{sectionNumber}.</span> Puestos de Trabajo ·{" "}
         <span className="text-slate-300">{totalGuards} guardia{totalGuards !== 1 ? "s" : ""}</span>
       </h3>
 
@@ -42,7 +42,7 @@ export function ProposalPuestos({
               <span className="text-slate-500">
                 {pos.numGuards ?? "—"} guardia{(pos.numGuards ?? 0) !== 1 ? "s" : ""} · {pos.numPuestos ?? 1} puesto{(pos.numPuestos ?? 1) !== 1 ? "s" : ""}
               </span>
-              <span className="text-emerald-400 font-mono font-semibold">
+              <span className="text-status-ok-fg font-mono font-semibold">
                 {fmt(pos.displayPrice ?? pos.monthlyPositionCost)}
               </span>
             </div>
@@ -76,7 +76,7 @@ export function ProposalPuestos({
                 <td className="py-2 pr-3 text-center text-slate-300">{pos.numPuestos ?? 1}</td>
                 <td className="py-2 pr-3 text-slate-400">{formatWeekdays(pos.weekdays)}</td>
                 <td className="py-2 pr-3 text-slate-400">{formatHorario(pos.startTime, pos.endTime)}</td>
-                <td className="py-2 text-right text-emerald-400 font-mono font-semibold">
+                <td className="py-2 text-right text-status-ok-fg font-mono font-semibold">
                   {fmt(pos.displayPrice ?? pos.monthlyPositionCost)}
                 </td>
               </tr>
@@ -87,7 +87,7 @@ export function ProposalPuestos({
               <td colSpan={5} className="py-2.5 text-sm font-bold text-white">
                 PRECIO VENTA MENSUAL NETO
               </td>
-              <td className="py-2.5 text-right text-sm font-bold text-emerald-400 font-mono">
+              <td className="py-2.5 text-right text-sm font-bold text-status-ok-fg font-mono">
                 {fmt(monthlyCost)}
               </td>
             </tr>
@@ -96,9 +96,9 @@ export function ProposalPuestos({
       </div>
 
       {/* Mobile total */}
-      <div className="md:hidden flex items-center justify-between rounded-lg bg-emerald-500/5 border border-emerald-500/20 px-3 py-2">
+      <div className="md:hidden flex items-center justify-between rounded-lg bg-status-ok-soft border border-status-ok-border px-3 py-2">
         <span className="text-xs font-bold text-white">PRECIO VENTA MENSUAL NETO</span>
-        <span className="text-sm font-bold text-emerald-400 font-mono">{fmt(monthlyCost)}</span>
+        <span className="text-sm font-bold text-status-ok-fg font-mono">{fmt(monthlyCost)}</span>
       </div>
 
       <p className="text-[10px] text-slate-500 text-right">

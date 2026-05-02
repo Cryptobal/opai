@@ -47,6 +47,7 @@ import {
   Siren,
   Briefcase,
   Brain,
+  GraduationCap,
 } from 'lucide-react';
 import type { NavItem } from '@/components/opai/AppSidebar';
 import {
@@ -164,6 +165,7 @@ export function buildNavItems({
       badge: moduleBadges.personas,
       children: [
         { href: '/personas/guardias', label: 'Listado', icon: User, badge: notes.guard },
+        { href: '/personas/conocimiento', label: 'Conocimiento', icon: GraduationCap, badge: notes.knowledge_alert },
         isModuleEnabled('ops_onboarding') && { href: '/personas/onboarding', label: 'Onboarding', icon: UserRoundCheck },
         { href: '/personas/comunicaciones', label: 'Comunicaciones', icon: Bell },
         { href: '/personas/guardias/sueldos-rut', label: 'Sueldos por RUT', icon: DollarSign },
@@ -201,13 +203,12 @@ export function buildNavItems({
       ].filter(Boolean) as NavItem['children'],
     },
     {
-      href: '/opai/inicio',
+      href: '/opai/documentos',
       label: 'Documentos',
       icon: FolderOpen,
       show: canAccessModule(hasModuleAccess(permissions, 'docs'), 'documentos'),
       badge: moduleBadges.docs,
       children: [
-        { href: '/opai/inicio', label: 'Envíos', icon: FileText },
         { href: '/opai/documentos', label: 'Gestión', icon: FolderOpen, badge: notes.document },
         { href: '/opai/documentos-operativos', label: 'Operativos', icon: ClipboardCheck },
       ],
@@ -233,7 +234,6 @@ export function buildNavItems({
         isModuleEnabled('portal_guardia') && { href: '/portal/guardia', label: 'Portal Guardia', icon: Shield },
         isModuleEnabled('ops_rondas') && { href: '/portal/rondas', label: 'Portal Rondas', icon: Route },
         isModuleEnabled('portal_cliente') && { href: '/portal/cliente', label: 'Portal Cliente', icon: Users },
-        isModuleEnabled('portal_supervisor') && { href: '/portal/supervisor', label: 'Portal Supervisor', icon: ClipboardCheck },
         isModuleEnabled('portal_marcacion') && { href: '/portal/marcacion', label: 'Portal Marcación', icon: Fingerprint },
         isModuleEnabled('control_acceso') && { href: '/portal/acceso', label: 'Control de Acceso', icon: ScanLine },
       ].filter(Boolean) as NavItem['children'],

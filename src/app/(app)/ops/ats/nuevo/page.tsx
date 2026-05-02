@@ -2,7 +2,8 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/opai";
+import { PageHero } from "@/components/opai-ds";
+import { BriefcaseBusiness } from "lucide-react";
 import { AtsCreateJobClient } from "@/components/ats/AtsCreateJobClient";
 import { getAtsSnippets } from "@/lib/ats/snippets";
 import { getAtsConfig } from "@/lib/ats/config";
@@ -37,11 +38,13 @@ export default async function AtsNuevoPage() {
 
   return (
     <div className="space-y-6 min-w-0">
-      <PageHeader
-        title="Nuevo aviso de empleo"
+      <PageHero
+        icon={<BriefcaseBusiness />}
+        iconTone="emerald"
+        eyebrow={["Operaciones", "ATS", "Nuevo"]}
+        title="Nueva oferta"
+        subtitle="crear job posting"
         description="Crea un aviso y publícalo en portales de empleo."
-        backHref="/ops/ats"
-        backLabel="ATS"
       />
       <AtsCreateJobClient
         installations={JSON.parse(JSON.stringify(installations))}

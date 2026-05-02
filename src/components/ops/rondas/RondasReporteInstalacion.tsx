@@ -144,18 +144,18 @@ function formatHour(iso: string): string {
 
 function getCellColor(cell: GridCell): string {
   if (cell.esperadas === 0) return "bg-muted/5";
-  if (cell.completadas === cell.esperadas) return "bg-emerald-500/15 border border-emerald-500/20";
-  if (cell.completadas >= cell.esperadas * 0.7) return "bg-amber-500/15 border border-amber-500/20";
-  if (cell.completadas > 0) return "bg-orange-500/15 border border-orange-500/20";
-  return "bg-red-500/15 border border-red-500/20";
+  if (cell.completadas === cell.esperadas) return "bg-status-ok-soft border border-status-ok-border";
+  if (cell.completadas >= cell.esperadas * 0.7) return "bg-status-warn-soft border border-status-warn-border";
+  if (cell.completadas > 0) return "bg-status-warn-soft border border-status-warn-border";
+  return "bg-status-danger-soft border border-status-danger-border";
 }
 
 const STATUS_ICON_COLOR: Record<string, string> = {
-  completada: "text-emerald-400",
-  incompleta: "text-amber-400",
-  no_realizada: "text-red-400",
+  completada: "text-status-ok-fg",
+  incompleta: "text-status-warn-fg",
+  no_realizada: "text-status-danger-fg",
   pendiente: "text-zinc-500",
-  en_curso: "text-blue-400",
+  en_curso: "text-status-info-fg",
 };
 
 const STATUS_ICON: Record<string, typeof CheckCircle2> = {
@@ -357,7 +357,7 @@ export function RondasReporteInstalacion({
 
       {/* Range validation */}
       {diffDays > 30 && (
-        <p className="text-xs text-amber-400">
+        <p className="text-xs text-status-warn-fg">
           El rango máximo es 30 días. Ajusta las fechas.
         </p>
       )}
@@ -402,25 +402,25 @@ export function RondasReporteInstalacion({
           {/* Leyenda */}
           <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
             <span className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded bg-emerald-500/15 border border-emerald-500/20" />{" "}
+              <span className="w-3 h-3 rounded bg-status-ok-soft border border-status-ok-border" />{" "}
               100%
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded bg-amber-500/15 border border-amber-500/20" />{" "}
+              <span className="w-3 h-3 rounded bg-status-warn-soft border border-status-warn-border" />{" "}
               70-99%
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded bg-orange-500/15 border border-orange-500/20" />{" "}
+              <span className="w-3 h-3 rounded bg-status-warn-soft border border-status-warn-border" />{" "}
               1-69%
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded bg-red-500/15 border border-red-500/20" /> 0%
+              <span className="w-3 h-3 rounded bg-status-danger-soft border border-status-danger-border" /> 0%
             </span>
             <span className="flex items-center gap-1.5 ml-2 border-l border-border pl-2">
-              <span className="w-2 h-2 rounded-full bg-red-500" /> Alerta pánico
+              <span className="w-2 h-2 rounded-full bg-status-danger" /> Alerta pánico
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-amber-500" /> Incidente
+              <span className="w-2 h-2 rounded-full bg-status-warn" /> Incidente
             </span>
           </div>
         </>
@@ -645,7 +645,7 @@ function DayGridRow({
           <div className="flex items-center gap-2">
             <span className="text-[#f1f5f9]">{day.dayLabel}</span>
             {day.totalAlerts > 0 && (
-              <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+              <span className="w-1.5 h-1.5 rounded-full bg-status-danger" />
             )}
           </div>
         </td>
@@ -671,7 +671,7 @@ function DayGridRow({
                 <span
                   className={cn(
                     "absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full border border-[#0a0e1a]",
-                    cell.hasPanico ? "bg-red-500" : "bg-amber-500",
+                    cell.hasPanico ? "bg-status-danger" : "bg-status-warn",
                   )}
                 />
               )}
@@ -685,10 +685,10 @@ function DayGridRow({
             className={cn(
               "font-semibold tabular-nums",
               dayPct >= 0.9
-                ? "text-emerald-400"
+                ? "text-status-ok-fg"
                 : dayPct >= 0.7
-                  ? "text-amber-400"
-                  : "text-red-400",
+                  ? "text-status-warn-fg"
+                  : "text-status-danger-fg",
             )}
           >
             {day.totalCompletadas}/{day.totalEsperadas}
@@ -757,12 +757,12 @@ function EjecucionCard({
   const iconColor = STATUS_ICON_COLOR[ej.status] ?? "text-zinc-400";
   const trustColor =
     ej.trustScore >= 85
-      ? "text-emerald-400"
+      ? "text-status-ok-fg"
       : ej.trustScore >= 70
-        ? "text-blue-400"
+        ? "text-status-info-fg"
         : ej.trustScore >= 50
-          ? "text-amber-400"
-          : "text-red-400";
+          ? "text-status-warn-fg"
+          : "text-status-danger-fg";
 
   return (
     <div className="rounded-lg border border-[#1a1f2e] bg-[#111827] p-3 text-xs space-y-2">
@@ -789,13 +789,13 @@ function EjecucionCard({
         <span className={trustColor}>Trust: {ej.trustScore}</span>
         {ej.durationMinutes != null && <span>{ej.durationMinutes} min</span>}
         {ej.alertCount > 0 && (
-          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 border border-red-500/30">
+          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-status-danger-soft text-status-danger-fg border border-status-danger-border">
             <AlertTriangle className="h-3 w-3" />
             {ej.alertCount}
           </span>
         )}
         {ej.incidentCount > 0 && (
-          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30">
+          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-status-warn-soft text-status-warn-fg border border-status-warn-border">
             <FileWarning className="h-3 w-3" />
             {ej.incidentCount}
           </span>
@@ -806,7 +806,7 @@ function EjecucionCard({
       {ej.status !== "no_realizada" && ej.status !== "pendiente" && (
         <button
           onClick={() => onViewMap(ej)}
-          className="inline-flex items-center gap-1.5 rounded-md bg-teal-500/15 px-3 py-1.5 text-xs font-medium text-teal-400 hover:bg-teal-500/25 transition-colors"
+          className="inline-flex items-center gap-1.5 rounded-md bg-status-info-soft px-3 py-1.5 text-xs font-medium text-status-info-fg hover:brightness-110 transition-colors"
         >
           <MapPin className="h-3.5 w-3.5" />
           Ver recorrido

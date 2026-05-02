@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
+import { Warehouse } from "lucide-react";
 import { auth } from "@/lib/auth";
-import { resolvePagePerms, canView } from "@/lib/permissions-server";
-import { PageHeader } from "@/components/opai";
-import { InventarioBodegasClient } from "@/components/inventario/InventarioBodegasClient";
+import { resolvePagePerms, canView, canDelete } from "@/lib/permissions-server";
+import { PageHero, Surface } from "@/components/opai-ds";
+import { InventarioBodegasManager } from "@/components/inventario/InventarioBodegasManager";
 import { InventarioSubnav } from "@/components/ops/InventarioSubnav";
 
 export default async function InventarioBodegasPage() {
@@ -15,14 +16,24 @@ export default async function InventarioBodegasPage() {
     redirect("/hub");
   }
 
+  const allowDelete = canDelete(perms, "ops", "inventario");
+
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHeader
-        title="Bodegas"
-        description="Bodegas virtuales: central, supervisores, instalaciones."
-      />
+    <div className="min-w-0">
       <InventarioSubnav />
-      <InventarioBodegasClient />
+      <section className="relative w-full pb-32 space-y-6">
+        <PageHero
+          icon={<Warehouse />}
+          iconTone="emerald"
+          eyebrow={["Operaciones", "Inventario", "Bodegas"]}
+          title="Bodegas virtuales"
+          subtitle="central, supervisores e instalaciones"
+          description="Cada bodega almacena stock independiente. Mueve unidades entre ellas con auditoría completa."
+        />
+        <Surface elevation={1} padding="md">
+          <InventarioBodegasManager canDelete={allowDelete} />
+        </Surface>
+      </section>
     </div>
   );
 }

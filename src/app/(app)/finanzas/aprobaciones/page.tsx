@@ -7,7 +7,8 @@ import {
   hasCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/opai";
+import { PageHero } from "@/components/opai-ds";
+import { CheckCircle2 } from "lucide-react";
 import { AprobacionesClient } from "@/components/finance/AprobacionesClient";
 
 export default async function AprobacionesPage() {
@@ -78,8 +79,12 @@ export default async function AprobacionesPage() {
 
   return (
     <div className="space-y-6 min-w-0">
-      <PageHeader
+      <PageHero
+        icon={<CheckCircle2 />}
+        iconTone="teal"
+        eyebrow={["Finanzas", "Aprobaciones"]}
         title="Aprobaciones"
+        subtitle="rendiciones por aprobar"
         description="Rendiciones pendientes de tu aprobación."
       />
       <AprobacionesClient pendingApprovals={data} />

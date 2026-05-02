@@ -456,7 +456,7 @@ export function RondasReportesHeatmap({
           <span className="text-xs text-muted-foreground">
             {trackingData.count.toLocaleString()} puntos GPS
             {trackingData.mode === "sampled" && (
-              <span className="text-amber-500 ml-1">
+              <span className="text-status-warn-fg ml-1">
                 (muestreo 1:{trackingData.sampleRate} de{" "}
                 {trackingData.totalCount?.toLocaleString()})
               </span>
@@ -486,7 +486,7 @@ export function RondasReportesHeatmap({
         </div>
       )}
 
-      {mapError && <div className="py-8 text-center text-sm text-red-400">{mapError}</div>}
+      {mapError && <div className="py-8 text-center text-sm text-status-danger-fg">{mapError}</div>}
 
       {/* Map + optional side panel */}
       {showMap && (
@@ -601,16 +601,16 @@ export function RondasReportesHeatmap({
             <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
               <span className="font-medium">Leyenda:</span>
               <span className="flex items-center gap-1">
-                <span className="w-3 h-3 rounded-full bg-emerald-500" /> ≥90%
+                <span className="w-3 h-3 rounded-full bg-status-ok" /> ≥90%
               </span>
               <span className="flex items-center gap-1">
-                <span className="w-3 h-3 rounded-full bg-amber-500" /> 70-89%
+                <span className="w-3 h-3 rounded-full bg-status-warn" /> 70-89%
               </span>
               <span className="flex items-center gap-1">
-                <span className="w-3 h-3 rounded-full bg-orange-500" /> 50-69%
+                <span className="w-3 h-3 rounded-full bg-status-warn" /> 50-69%
               </span>
               <span className="flex items-center gap-1">
-                <span className="w-3 h-3 rounded-full bg-red-500" /> &lt;50%
+                <span className="w-3 h-3 rounded-full bg-status-danger" /> &lt;50%
               </span>
               <span className="flex items-center gap-1">
                 <span className="w-3 h-3 rounded-full bg-gray-500" /> Sin datos

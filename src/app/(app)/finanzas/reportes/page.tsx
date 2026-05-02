@@ -7,7 +7,8 @@ import {
   hasCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/opai";
+import { PageHero } from "@/components/opai-ds";
+import { BarChart3 } from "lucide-react";
 import { ReportesClient } from "@/components/finance/ReportesClient";
 
 export default async function ReportesPage() {
@@ -74,8 +75,12 @@ export default async function ReportesPage() {
 
   return (
     <div className="space-y-6 min-w-0">
-      <PageHeader
+      <PageHero
+        icon={<BarChart3 />}
+        iconTone="teal"
+        eyebrow={["Finanzas", "Reportes"]}
         title="Reportes"
+        subtitle="resumen y análisis"
         description="Resumen y análisis de rendiciones."
       />
       <ReportesClient

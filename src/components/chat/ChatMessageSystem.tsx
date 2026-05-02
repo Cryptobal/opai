@@ -76,39 +76,39 @@ export function ChatMessageSystem({ message }: ChatMessageSystemProps) {
   const isLinkable = isMonitoreoEvent || isAlertaCoberturaEvent;
 
   const bgClass = isAlert
-    ? "bg-red-500/10 border-red-500/20"
+    ? "bg-status-danger-soft border-status-danger-border"
     : isAlertaCobertura
-      ? "bg-amber-500/10 border-amber-500/20"
+      ? "bg-status-warn-soft border-status-warn-border"
       : isAlertaAceptada
-        ? "bg-green-500/10 border-green-500/20"
+        ? "bg-status-ok-soft border-status-ok-border"
         : isAlertaCoberturaEvent
-          ? "bg-blue-500/8 border-blue-500/15"
+          ? "bg-status-info-soft border-status-info-border"
           : isMonitoreoEvent
-            ? "bg-sky-500/8 border-sky-500/15"
+            ? "bg-status-info-soft border-status-info-border"
             : "bg-white/[0.06] border-white/[0.10]";
 
   const iconColor = isAlert
-    ? "text-red-400"
+    ? "text-status-danger-fg"
     : isAlertaCobertura
-      ? "text-amber-400"
+      ? "text-status-warn-fg"
       : isAlertaAceptada
-        ? "text-green-400"
+        ? "text-status-ok-fg"
         : isAlertaCoberturaEvent
-          ? "text-blue-400"
+          ? "text-status-info-fg"
           : isMonitoreoEvent
-            ? "text-sky-400"
+            ? "text-status-info-fg"
             : "text-slate-400";
 
   const textColor = isAlert
-    ? "text-red-300/90"
+    ? "text-status-danger-fg/90"
     : isAlertaCobertura
-      ? "text-amber-300/90"
+      ? "text-status-warn-fg/90"
       : isAlertaAceptada
-        ? "text-green-300/90"
+        ? "text-status-ok-fg/90"
         : isAlertaCoberturaEvent
-          ? "text-blue-300/90"
+          ? "text-status-info-fg/90"
           : isMonitoreoEvent
-            ? "text-sky-300/90"
+            ? "text-status-info-fg/90"
             : "text-slate-300/70";
 
   const inner = (

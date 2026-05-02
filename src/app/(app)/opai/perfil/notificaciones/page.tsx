@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { PageHeader } from "@/components/opai";
-import { UserNotificationPrefsClient } from "@/components/opai/UserNotificationPrefsClient";
+import { PageHero } from "@/components/opai-ds";
+import { Bell } from "lucide-react";
+import { UnifiedNotificationPrefsClient } from "@/components/opai/UnifiedNotificationPrefsClient";
+import { QuietHoursCard } from "@/components/opai/QuietHoursCard";
 
 export const metadata = {
   title: "Mis Notificaciones - OPAI",
@@ -20,13 +22,18 @@ export default async function MisNotificacionesPage({ searchParams }: Props) {
 
   return (
     <div className="space-y-6 min-w-0">
-      <PageHeader
+      <PageHero
+        icon={<Bell />}
+        iconTone="primary"
+        eyebrow={["Mi Perfil", "Notificaciones"]}
         title="Mis Notificaciones"
-        description="Configura qué notificaciones recibes por campana y por correo electrónico"
+        subtitle="preferencias de campana, email y push"
+        description="Configura qué notificaciones recibes por campana, email y push"
         backHref="/opai/perfil"
         backLabel="Mi Perfil"
       />
-      <UserNotificationPrefsClient highlightType={params.type} />
+      <QuietHoursCard />
+      <UnifiedNotificationPrefsClient highlightType={params.type} />
     </div>
   );
 }

@@ -2,7 +2,8 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/opai";
+import { PageHero } from "@/components/opai-ds";
+import { ShieldAlert } from "lucide-react";
 import { OpsPpcClient, PautasSubnav } from "@/components/ops";
 import { OpsGlobalSearch } from "@/components/ops/OpsGlobalSearch";
 export default async function OpsPpcPage() {
@@ -37,9 +38,13 @@ export default async function OpsPpcPage() {
 
   return (
     <div className="space-y-6 min-w-0">
-      <PageHeader
-        title="Puestos por cubrir (PPC)"
-        description="Brechas de cobertura: puestos sin guardia asignado o con vacaciones/licencia/permiso."
+      <PageHero
+        icon={<ShieldAlert />}
+        iconTone="emerald"
+        eyebrow={["Operaciones", "PPC"]}
+        title="Puestos por cubrir"
+        subtitle="brechas de cobertura"
+        description="Visualización de puestos sin guardia asignado o con vacaciones, licencia o permiso. Prioriza coberturas por instalación."
       />
       <PautasSubnav />
       <OpsGlobalSearch className="w-full sm:max-w-xs" />

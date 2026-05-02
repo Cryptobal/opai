@@ -13,12 +13,12 @@ export function PreviewBadge({ onNavigateToPropuesta }: PreviewBadgeProps) {
         backgroundColor: "rgba(251, 191, 36, 0.08)",
       }}
     >
-      <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+      <span className="w-1.5 h-1.5 rounded-full bg-status-warn animate-pulse" />
       Vista previa · Demo
       {onNavigateToPropuesta && (
         <button
           onClick={(e) => { e.stopPropagation(); onNavigateToPropuesta(); }}
-          className="ml-1 underline underline-offset-2 hover:text-amber-300 transition-colors"
+          className="ml-1 underline underline-offset-2 hover:text-status-warn-fg transition-colors"
         >
           Aprobar →
         </button>

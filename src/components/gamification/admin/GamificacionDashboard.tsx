@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { KpiCard } from "@/components/opai/KpiCard";
-import { KpiGrid } from "@/components/opai/KpiGrid";
-import { DataTable, type DataTableColumn } from "@/components/opai-ds/DataTableLegacy";
+import { Stat, StatGrid } from "@/components/opai-ds";
+import { DataTable, type DataTableColumn } from "@/components/opai/DataTable";
 import { LoadingState } from "@/components/opai/LoadingState";
 import { Users, TrendingUp, Trophy, Award } from "lucide-react";
 import { toast } from "sonner";
@@ -83,34 +82,34 @@ export function GamificacionDashboard() {
 
   return (
     <div className="space-y-6">
-      <KpiGrid columns={4}>
-        <KpiCard
-          title="Guardias activos"
+      <StatGrid lgCols={4}>
+        <Stat
+          label="Guardias activos"
           value={totalGuardias}
-          icon={<Users className="h-4 w-4" />}
-          variant="blue"
+          icon={Users}
+          variant="brand"
         />
-        <KpiCard
-          title="Trust Score promedio"
+        <Stat
+          label="Trust Score promedio"
           value={avgTrustScore || "—"}
-          icon={<TrendingUp className="h-4 w-4" />}
-          variant="teal"
+          icon={TrendingUp}
+          variant="brand"
         />
-        <KpiCard
-          title="Badges"
+        <Stat
+          label="Badges"
           value="—"
-          icon={<Trophy className="h-4 w-4" />}
-          variant="amber"
-          description="Próximamente"
+          icon={Trophy}
+          variant="warn"
+          hint="Próximamente"
         />
-        <KpiCard
-          title="Puntos otorgados"
+        <Stat
+          label="Puntos otorgados"
           value="—"
-          icon={<Award className="h-4 w-4" />}
-          variant="purple"
-          description="Próximamente"
+          icon={Award}
+          variant="brand"
+          hint="Próximamente"
         />
-      </KpiGrid>
+      </StatGrid>
 
       <div className="space-y-3">
         <h2 className="text-sm font-semibold">Top 10 Guardias</h2>

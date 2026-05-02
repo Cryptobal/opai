@@ -82,7 +82,7 @@ export const SUBMODULE_KEYS = {
     "deals",
     "quotes",
   ] as const,
-  docs: ["presentaciones", "gestion"] as const,
+  docs: ["gestion"] as const,
   payroll: ["simulador", "parametros"] as const,
   cpq: [] as readonly string[],
   config: [
@@ -114,6 +114,7 @@ export const SUBMODULE_KEYS = {
     "alertas_cobertura",
     "ats",
     "psicolaboral",
+    "conocimiento",
   ] as const,
   finance: [
     "rendiciones",
@@ -263,7 +264,6 @@ export const SUBMODULE_META: SubmoduleMeta[] = [
   { key: "crm.quotes", module: "crm", submodule: "quotes", label: "Cotizaciones", href: "/crm/cotizaciones" },
   { key: "crm.prospecting", module: "crm", submodule: "prospecting", label: "Prospección", href: "/crm/prospecting" },
   // ── Docs ──
-  { key: "docs.presentaciones", module: "docs", submodule: "presentaciones", label: "Presentaciones", href: "/opai/inicio" },
   { key: "docs.gestion", module: "docs", submodule: "gestion", label: "Gestión documental", href: "/opai/documentos" },
   // ── Payroll ──
   { key: "payroll.simulador", module: "payroll", submodule: "simulador", label: "Simulador", href: "/payroll/simulator" },
@@ -286,6 +286,7 @@ export const SUBMODULE_META: SubmoduleMeta[] = [
   { key: "config.mi_plan", module: "config", submodule: "mi_plan", label: "Mi Plan", href: "/opai/configuracion/mi-plan" },
   { key: "config.cumplimiento", module: "config", submodule: "cumplimiento", label: "Cumplimiento", href: "/opai/configuracion/cumplimiento" },
   { key: "config.asistente_ia", module: "config", submodule: "asistente_ia", label: "Asistente IA", href: "/opai/configuracion/asistente-ia" },
+  { key: "config.informes_vulnerabilidad", module: "config", submodule: "informes_vulnerabilidad", label: "Informes de Vulnerabilidad", href: "/opai/configuracion/informes-vulnerabilidad" },
   { key: "config.gamificacion", module: "config", submodule: "gamificacion", label: "Gamificación", href: "/opai/configuracion/gamificacion" },
   { key: "config.grupos", module: "config", submodule: "grupos", label: "Grupos", href: "/opai/configuracion/grupos" },
   { key: "config.integraciones", module: "config", submodule: "integraciones", label: "Integraciones", href: "/opai/configuracion/integraciones" },
@@ -301,6 +302,7 @@ export const SUBMODULE_META: SubmoduleMeta[] = [
   { key: "config.inteligencia_artificial", module: "config", submodule: "inteligencia_artificial", label: "Inteligencia Artificial", href: "/opai/configuracion/inteligencia-artificial" },
   { key: "config.alertas_cobertura", module: "config", submodule: "alertas_cobertura", label: "Alertas Cobertura", href: "/opai/configuracion/alertas-cobertura" },
   { key: "config.psicolaboral", module: "config", submodule: "psicolaboral", label: "Psicolaboral", href: "/opai/configuracion/psicolaboral" },
+  { key: "config.conocimiento", module: "config", submodule: "conocimiento", label: "Conocimiento", href: "/opai/configuracion/conocimiento" },
   // ── Fiscalización DT ──
   { key: "fiscalizacion.marcaciones", module: "fiscalizacion", submodule: "marcaciones", label: "Marcaciones", href: "/fiscalizacion" },
   { key: "fiscalizacion.asistencia", module: "fiscalizacion", submodule: "asistencia", label: "Asistencia", href: "/fiscalizacion" },
@@ -457,6 +459,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
       "config.mi_plan": "none",
       "config.gamificacion": "none",
       "config.asistente_ia": "none",
+      "config.informes_vulnerabilidad": "none",
       "config.inteligencia_artificial": "none",
       // Edita
       "config.firmas": "edit",
@@ -469,6 +472,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
       "config.tipos_ticket": "edit",
       "config.alertas_cobertura": "edit",
       "config.ats": "edit",
+      // Inventario: editor puede gestionar todo (incluye eliminar bodegas/productos)
+      "ops.inventario": "full",
       // Solo lectura
       "config.usuarios": "view",
       "config.grupos": "view",
@@ -558,6 +563,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
       "ops.supervision": "full",
       "ops.rondas": "edit",
       "ops.alertas_cobertura": "edit",
+      "ops.inventario": "edit",
       "finance.rendiciones": "edit",
     },
     capabilities: {
@@ -963,9 +969,7 @@ export function pathToPermission(
   if (pathname === "/crm" || pathname.startsWith("/crm/")) return { module: "crm" };
 
   // Docs submodules
-  if (pathname.startsWith("/opai/inicio")) return { module: "docs", submodule: "presentaciones" };
-  if (pathname.startsWith("/opai/documentos") || pathname.startsWith("/opai/templates"))
-    return { module: "docs", submodule: "gestion" };
+  if (pathname.startsWith("/opai/documentos")) return { module: "docs", submodule: "gestion" };
 
   // Payroll submodules
   if (pathname.startsWith("/payroll/simulator")) return { module: "payroll", submodule: "simulador" };
@@ -999,6 +1003,7 @@ export function pathToPermission(
   if (pathname.startsWith("/opai/configuracion/gamificacion")) return { module: "config", submodule: "gamificacion" };
   if (pathname.startsWith("/opai/configuracion/alertas-cobertura")) return { module: "config", submodule: "alertas_cobertura" };
   if (pathname.startsWith("/opai/configuracion/ats")) return { module: "config", submodule: "ats" };
+  if (pathname.startsWith("/opai/configuracion/conocimiento")) return { module: "config", submodule: "conocimiento" };
   if (pathname.startsWith("/opai/configuracion")) return { module: "config" };
 
   // Finance submodules
@@ -1027,7 +1032,6 @@ export function apiPathToModule(pathname: string): ModuleKey | null {
   if (pathname.startsWith("/api/crm/")) return "crm";
   if (
     pathname.startsWith("/api/docs/") ||
-    pathname === "/api/presentations" ||
     pathname === "/api/templates"
   )
     return "docs";
@@ -1067,8 +1071,6 @@ export function apiPathToSubmodule(
   if (pathname.startsWith("/api/crm/contacts")) return { module: "crm", submodule: "contacts" };
   if (pathname.startsWith("/api/crm/deals")) return { module: "crm", submodule: "deals" };
   // Docs
-  if (pathname === "/api/presentations" || pathname.startsWith("/api/presentations/"))
-    return { module: "docs", submodule: "presentaciones" };
   if (pathname === "/api/templates" || pathname.startsWith("/api/templates/"))
     return { module: "docs", submodule: "gestion" };
   if (pathname.startsWith("/api/docs/")) return { module: "docs", submodule: "gestion" };

@@ -18,7 +18,7 @@ import {
   Trash2,
   Lock,
 } from "lucide-react";
-import { EmptyState } from "@/components/opai/EmptyState";
+import { EmptyState } from "@/components/opai-ds";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -128,7 +128,7 @@ export function InstalacionVisitasTecnicasTab({ installationId, canDeleteVisitas
           <Calendar className="h-3.5 w-3.5" />
           Por realizar
           {pendientes.length > 0 && (
-            <span className="ml-1 rounded-full bg-orange-500/15 text-orange-600 text-[10px] font-bold px-1.5 py-0.5">
+            <span className="ml-1 rounded-full bg-status-warn-soft text-status-warn-fg text-[10px] font-bold px-1.5 py-0.5">
               {pendientes.length}
             </span>
           )}
@@ -144,7 +144,7 @@ export function InstalacionVisitasTecnicasTab({ installationId, canDeleteVisitas
           <CheckCircle2 className="h-3.5 w-3.5" />
           Realizadas
           {realizadas.length > 0 && (
-            <span className="ml-1 rounded-full bg-emerald-500/15 text-emerald-600 text-[10px] font-bold px-1.5 py-0.5">
+            <span className="ml-1 rounded-full bg-status-ok-soft text-status-ok-fg text-[10px] font-bold px-1.5 py-0.5">
               {realizadas.length}
             </span>
           )}
@@ -440,7 +440,7 @@ function PendienteCard({
                 </span>
               )}
               {services.map((s) => (
-                <span key={s} className="text-xs bg-blue-500/10 text-blue-500 rounded-full px-2.5 py-0.5">
+                <span key={s} className="text-xs bg-status-info-soft text-status-info-fg rounded-full px-2.5 py-0.5">
                   {s}
                 </span>
               ))}
@@ -460,7 +460,7 @@ function PendienteCard({
           {/* Riesgos */}
           {visita.securityRisks && expanded && (
             <div className="space-y-1">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-500 flex items-center gap-1">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-status-warn-fg flex items-center gap-1">
                 <AlertTriangle className="h-3 w-3" /> Riesgos identificados
               </p>
               <p className="text-xs text-muted-foreground leading-relaxed">{visita.securityRisks}</p>
@@ -539,7 +539,7 @@ function PendienteCard({
         <Button
           variant="outline"
           size="sm"
-          className="w-full text-xs h-8 border-amber-500/30 text-amber-500 hover:bg-amber-500/10 hover:text-amber-400"
+          className="w-full text-xs h-8 border-status-warn-border text-status-warn-fg hover:bg-status-warn-soft hover:text-status-warn-fg"
           onClick={() => setCloseOpen(true)}
         >
           <Lock className="h-3.5 w-3.5 mr-1.5" />
@@ -620,7 +620,7 @@ function RealizadaCard({ visita }: { visita: VisitaTecnica }) {
           )}
           <p className="text-xs text-muted-foreground">Supervisor: {visita.supervisor.name}</p>
         </div>
-        <Badge variant="default" className="flex items-center gap-1 flex-shrink-0 text-[10px] bg-emerald-600/20 text-emerald-500 border-emerald-600/30">
+        <Badge variant="default" className="flex items-center gap-1 flex-shrink-0 text-[10px] bg-status-ok-soft text-status-ok-fg border-status-ok-border">
           <CheckCircle2 className="h-3 w-3" /> Completada
         </Badge>
       </div>
@@ -650,7 +650,7 @@ function RealizadaCard({ visita }: { visita: VisitaTecnica }) {
           </span>
         )}
         {services.map((s) => (
-          <span key={s} className="text-xs bg-blue-500/10 text-blue-500 rounded-full px-2.5 py-0.5">
+          <span key={s} className="text-xs bg-status-info-soft text-status-info-fg rounded-full px-2.5 py-0.5">
             {s}
           </span>
         ))}
@@ -669,7 +669,7 @@ function RealizadaCard({ visita }: { visita: VisitaTecnica }) {
       {/* Riesgos */}
       {visita.securityRisks && expanded && (
         <div className="space-y-1">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-500 flex items-center gap-1">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-status-warn-fg flex items-center gap-1">
             <AlertTriangle className="h-3 w-3" /> Riesgos identificados
           </p>
           <p className="text-xs text-muted-foreground leading-relaxed">{visita.securityRisks}</p>

@@ -565,7 +565,7 @@ export function RendicionForm({
               className={cn(
                 "flex items-center gap-3 rounded-lg border p-4 transition-colors text-left",
                 type === "PURCHASE"
-                  ? "border-emerald-500/50 bg-emerald-500/10"
+                  ? "border-status-ok-border bg-status-ok-soft"
                   : "border-border hover:bg-accent/30"
               )}
             >
@@ -573,7 +573,7 @@ export function RendicionForm({
                 className={cn(
                   "h-5 w-5",
                   type === "PURCHASE"
-                    ? "text-emerald-400"
+                    ? "text-status-ok-fg"
                     : "text-muted-foreground"
                 )}
               />
@@ -590,7 +590,7 @@ export function RendicionForm({
               className={cn(
                 "flex items-center gap-3 rounded-lg border p-4 transition-colors text-left",
                 type === "MILEAGE"
-                  ? "border-blue-500/50 bg-blue-500/10"
+                  ? "border-status-info-border bg-status-info-soft"
                   : "border-border hover:bg-accent/30"
               )}
             >
@@ -598,7 +598,7 @@ export function RendicionForm({
                 className={cn(
                   "h-5 w-5",
                   type === "MILEAGE"
-                    ? "text-blue-400"
+                    ? "text-status-info-fg"
                     : "text-muted-foreground"
                 )}
               />
@@ -624,10 +624,10 @@ export function RendicionForm({
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className={cn("mt-1", errors.date && "border-red-500")}
+              className={cn("mt-1", errors.date && "border-status-danger-border")}
             />
             {errors.date && (
-              <p className="text-xs text-red-400 mt-1">{errors.date}</p>
+              <p className="text-xs text-status-danger-fg mt-1">{errors.date}</p>
             )}
           </div>
 
@@ -642,10 +642,10 @@ export function RendicionForm({
                   value={amount ? Number(amount).toLocaleString("es-CL") : ""}
                   onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ""))}
                   placeholder="0"
-                  className={cn("mt-1", errors.amount && "border-red-500")}
+                  className={cn("mt-1", errors.amount && "border-status-danger-border")}
                 />
                 {errors.amount && (
-                  <p className="text-xs text-red-400 mt-1">{errors.amount}</p>
+                  <p className="text-xs text-status-danger-fg mt-1">{errors.amount}</p>
                 )}
                 {amount && parseInt(amount) > 0 && (
                   <p className="text-xs text-muted-foreground mt-1">
@@ -660,7 +660,7 @@ export function RendicionForm({
                   <SelectTrigger
                     className={cn(
                       "mt-1",
-                      errors.documentType && "border-red-500"
+                      errors.documentType && "border-status-danger-border"
                     )}
                   >
                     <SelectValue placeholder="Seleccionar tipo" />
@@ -672,7 +672,7 @@ export function RendicionForm({
                   </SelectContent>
                 </Select>
                 {errors.documentType && (
-                  <p className="text-xs text-red-400 mt-1">
+                  <p className="text-xs text-status-danger-fg mt-1">
                     {errors.documentType}
                   </p>
                 )}
@@ -691,7 +691,7 @@ export function RendicionForm({
                     <button
                       type="button"
                       onClick={() => setStartMode("gps")}
-                      className={cn("px-2.5 py-1 flex items-center gap-1 transition-colors", startMode === "gps" ? "bg-emerald-500/20 text-emerald-400" : "text-muted-foreground hover:text-foreground")}
+                      className={cn("px-2.5 py-1 flex items-center gap-1 transition-colors", startMode === "gps" ? "bg-status-ok-soft text-status-ok-fg" : "text-muted-foreground hover:text-foreground")}
                     >
                       <Navigation className="h-3 w-3" />
                       GPS
@@ -699,7 +699,7 @@ export function RendicionForm({
                     <button
                       type="button"
                       onClick={() => setStartMode("manual")}
-                      className={cn("px-2.5 py-1 flex items-center gap-1 transition-colors border-l border-border", startMode === "manual" ? "bg-blue-500/20 text-blue-400" : "text-muted-foreground hover:text-foreground")}
+                      className={cn("px-2.5 py-1 flex items-center gap-1 transition-colors border-l border-border", startMode === "manual" ? "bg-status-info-soft text-status-info-fg" : "text-muted-foreground hover:text-foreground")}
                     >
                       <MapPin className="h-3 w-3" />
                       Manual
@@ -713,7 +713,7 @@ export function RendicionForm({
                     size="sm"
                     onClick={() => captureLocation("start")}
                     disabled={locatingStart}
-                    className={cn("w-full", errors.startLocation && "border-red-500")}
+                    className={cn("w-full", errors.startLocation && "border-status-danger-border")}
                   >
                     {locatingStart ? (
                       <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
@@ -731,14 +731,14 @@ export function RendicionForm({
                     value={startLocation?.address ?? ""}
                     placeholder="Buscar dirección de inicio..."
                     showMap={false}
-                    className={cn(errors.startLocation && "border-red-500")}
+                    className={cn(errors.startLocation && "border-status-danger-border")}
                     onChange={(result) => {
                       setStartLocation({ lat: result.lat, lng: result.lng, address: result.address, timestamp: Date.now() });
                     }}
                   />
                 )}
                 {errors.startLocation && (
-                  <p className="text-xs text-red-400 mt-1">{errors.startLocation}</p>
+                  <p className="text-xs text-status-danger-fg mt-1">{errors.startLocation}</p>
                 )}
                 {startLocation && (
                   <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
@@ -759,7 +759,7 @@ export function RendicionForm({
                     <button
                       type="button"
                       onClick={() => setEndMode("gps")}
-                      className={cn("px-2.5 py-1 flex items-center gap-1 transition-colors", endMode === "gps" ? "bg-emerald-500/20 text-emerald-400" : "text-muted-foreground hover:text-foreground")}
+                      className={cn("px-2.5 py-1 flex items-center gap-1 transition-colors", endMode === "gps" ? "bg-status-ok-soft text-status-ok-fg" : "text-muted-foreground hover:text-foreground")}
                     >
                       <Navigation className="h-3 w-3" />
                       GPS
@@ -767,7 +767,7 @@ export function RendicionForm({
                     <button
                       type="button"
                       onClick={() => setEndMode("manual")}
-                      className={cn("px-2.5 py-1 flex items-center gap-1 transition-colors border-l border-border", endMode === "manual" ? "bg-blue-500/20 text-blue-400" : "text-muted-foreground hover:text-foreground")}
+                      className={cn("px-2.5 py-1 flex items-center gap-1 transition-colors border-l border-border", endMode === "manual" ? "bg-status-info-soft text-status-info-fg" : "text-muted-foreground hover:text-foreground")}
                     >
                       <MapPin className="h-3 w-3" />
                       Manual
@@ -781,7 +781,7 @@ export function RendicionForm({
                     size="sm"
                     onClick={() => captureLocation("end")}
                     disabled={locatingEnd}
-                    className={cn("w-full", errors.endLocation && "border-red-500")}
+                    className={cn("w-full", errors.endLocation && "border-status-danger-border")}
                   >
                     {locatingEnd ? (
                       <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
@@ -799,14 +799,14 @@ export function RendicionForm({
                     value={endLocation?.address ?? ""}
                     placeholder="Buscar dirección de fin..."
                     showMap={false}
-                    className={cn(errors.endLocation && "border-red-500")}
+                    className={cn(errors.endLocation && "border-status-danger-border")}
                     onChange={(result) => {
                       setEndLocation({ lat: result.lat, lng: result.lng, address: result.address, timestamp: Date.now() });
                     }}
                   />
                 )}
                 {errors.endLocation && (
-                  <p className="text-xs text-red-400 mt-1">{errors.endLocation}</p>
+                  <p className="text-xs text-status-danger-fg mt-1">{errors.endLocation}</p>
                 )}
                 {endLocation && (
                   <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
@@ -872,7 +872,7 @@ export function RendicionForm({
                       )}
                       <div className="flex justify-between border-t border-border pt-1 font-medium">
                         <span>Total</span>
-                        <span className="text-emerald-400">
+                        <span className="text-status-ok-fg">
                           {fmtCLP.format(mileageCost.total)}
                         </span>
                       </div>
@@ -942,7 +942,7 @@ export function RendicionForm({
                     setBeneficiaryResults([]);
                   }
                 }}
-                className="h-4 w-4 rounded border-border text-emerald-500 focus:ring-emerald-500"
+                className="h-4 w-4 rounded border-border text-status-ok-fg focus:ring-emerald-500"
               />
               <Label htmlFor="forThirdParty" className="cursor-pointer flex items-center gap-1.5 text-sm">
                 <Users className="h-4 w-4 text-muted-foreground" />
@@ -962,7 +962,7 @@ export function RendicionForm({
                     beneficiaryDebounceRef.current = setTimeout(() => searchBeneficiary(v), 250);
                   }}
                   placeholder="Buscar guardia o usuario por nombre, RUT o código..."
-                  className={cn(beneficiaryGuardiaId && "border-emerald-500/50 bg-emerald-500/5")}
+                  className={cn(beneficiaryGuardiaId && "border-status-ok-border bg-status-ok-soft")}
                 />
                 {beneficiarySearching && (
                   <div className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -1016,7 +1016,7 @@ export function RendicionForm({
                       >
                         <div className="flex items-center gap-2">
                           <span className="font-medium">{g.nombreCompleto}</span>
-                          <span className={cn("text-[10px] px-1.5 py-0.5 rounded font-medium", g.type === "guardia" ? "bg-emerald-500/15 text-emerald-400" : "bg-blue-500/15 text-blue-400")}>
+                          <span className={cn("text-[10px] px-1.5 py-0.5 rounded font-medium", g.type === "guardia" ? "bg-status-ok-soft text-status-ok-fg" : "bg-status-info-soft text-status-info-fg")}>
                             {g.type === "guardia" ? "Guardia" : "Usuario"}
                           </span>
                         </div>
@@ -1030,7 +1030,7 @@ export function RendicionForm({
                   </ul>
                 )}
                 {(beneficiaryGuardiaId || beneficiaryAdminId) && (
-                  <p className="text-xs text-emerald-400 mt-1">
+                  <p className="text-xs text-status-ok-fg mt-1">
                     {beneficiaryGuardiaId
                       ? "El pago se realizará a la cuenta bancaria de este guardia."
                       : "El pago se realizará a este usuario del sistema."}
@@ -1045,11 +1045,11 @@ export function RendicionForm({
             <Label htmlFor="description">
               Descripción / Observaciones
               {(config?.requireObservations || documentType === "SIN_RESPALDO") && (
-                <span className="text-red-400 ml-1">*</span>
+                <span className="text-status-danger-fg ml-1">*</span>
               )}
             </Label>
             {documentType === "SIN_RESPALDO" && (
-              <p className="text-xs text-amber-400 mt-0.5">Obligatorio indicar motivo al no tener respaldo documental.</p>
+              <p className="text-xs text-status-warn-fg mt-0.5">Obligatorio indicar motivo al no tener respaldo documental.</p>
             )}
             <textarea
               id="description"
@@ -1059,11 +1059,11 @@ export function RendicionForm({
               rows={3}
               className={cn(
                 "mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none",
-                errors.description && "border-red-500"
+                errors.description && "border-status-danger-border"
               )}
             />
             {errors.description && (
-              <p className="text-xs text-red-400 mt-1">{errors.description}</p>
+              <p className="text-xs text-status-danger-fg mt-1">{errors.description}</p>
             )}
           </div>
         </CardContent>
@@ -1075,7 +1075,7 @@ export function RendicionForm({
           <Label className="mb-3 block">
             Imágenes / Documentos
             {config?.requireImage && type !== "MILEAGE" && (
-              <span className="text-red-400 ml-1">*</span>
+              <span className="text-status-danger-fg ml-1">*</span>
             )}
           </Label>
 
@@ -1086,7 +1086,7 @@ export function RendicionForm({
             onClick={() => fileInputRef.current?.click()}
             className={cn(
               "border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors hover:border-primary/50 hover:bg-accent/20",
-              errors.attachments ? "border-red-500/50" : "border-border"
+              errors.attachments ? "border-status-danger-border" : "border-border"
             )}
           >
             <Upload className="h-8 w-8 mx-auto text-muted-foreground/50 mb-2" />
@@ -1107,7 +1107,7 @@ export function RendicionForm({
             className="hidden"
           />
           {errors.attachments && (
-            <p className="text-xs text-red-400 mt-1">{errors.attachments}</p>
+            <p className="text-xs text-status-danger-fg mt-1">{errors.attachments}</p>
           )}
 
           {/* Previews */}

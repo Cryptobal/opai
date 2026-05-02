@@ -49,6 +49,7 @@ import type { AdminGroup } from "@/lib/groups";
 interface TicketTypesConfigClientProps {
   userRole: string;
   originFilter?: TicketOrigin;
+  admins?: Array<{ id: string; name: string | null; email: string }>;
 }
 
 interface ApprovalStepDraft {
@@ -65,6 +66,7 @@ interface TicketTypeFormData {
   description: string;
   origin: TicketOrigin;
   assignedTeam: TicketTeam;
+  defaultAssignedToUserId: string | null;
   defaultPriority: TicketPriority;
   slaHours: number;
   requiresApproval: boolean;
@@ -77,10 +79,10 @@ interface TicketTypeFormData {
 // ═══════════════════════════════════════════════════════════════
 
 const ORIGIN_BADGE_VARIANT: Record<TicketOrigin, string> = {
-  guard: "bg-blue-500/15 text-blue-400 border-blue-500/30",
-  internal: "bg-purple-500/15 text-purple-400 border-purple-500/30",
+  guard: "bg-status-info-soft text-status-info-fg border-status-info-border",
+  internal: "bg-tint-violet text-tint-violet-fg border-tint-violet-fg/30",
   both: "bg-muted text-muted-foreground border-border",
-  client: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+  client: "bg-status-ok-soft text-status-ok-fg border-status-ok-border",
 };
 
 function slugify(name: string): string {
@@ -99,6 +101,7 @@ function makeEmptyForm(): TicketTypeFormData {
     description: "",
     origin: "guard",
     assignedTeam: "ops",
+    defaultAssignedToUserId: null as string | null,
     defaultPriority: "p3",
     slaHours: 48,
     requiresApproval: false,
@@ -114,6 +117,7 @@ function typeToFormData(t: TicketType): TicketTypeFormData {
     description: t.description ?? "",
     origin: t.origin,
     assignedTeam: t.assignedTeam,
+    defaultAssignedToUserId: t.defaultAssignedToUserId ?? null,
     defaultPriority: t.defaultPriority,
     slaHours: t.slaHours,
     requiresApproval: t.requiresApproval,
@@ -376,12 +380,14 @@ function ApprovalChainBuilder({
 function TicketTypeForm({
   initialData,
   groups,
+  admins,
   saving,
   onSave,
   onCancel,
 }: {
   initialData: TicketTypeFormData;
   groups: AdminGroup[];
+  admins?: Array<{ id: string; name: string | null; email: string }>;
   saving: boolean;
   onSave: (data: TicketTypeFormData) => void;
   onCancel: () => void;
@@ -519,6 +525,34 @@ function TicketTypeForm({
               </Select>
             </div>
 
+            {/* Default assignee (optional) */}
+            {admins && admins.length > 0 && (
+              <div className="space-y-2">
+                <Label htmlFor="defaultAssignee">Responsable por defecto (opcional)</Label>
+                <Select
+                  value={form.defaultAssignedToUserId ?? ""}
+                  onValueChange={(v) =>
+                    patch({ defaultAssignedToUserId: v === "__none__" ? null : v })
+                  }
+                >
+                  <SelectTrigger id="defaultAssignee">
+                    <SelectValue placeholder="Sin responsable por defecto" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Sin responsable por defecto</SelectItem>
+                    {admins.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>
+                        {a.name || a.email}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[12px] text-ds-text-3">
+                  Cuando se cree un ticket de este tipo (incluyendo desde hallazgos de supervisión), se asignará automáticamente a esta persona y se le enviará notificación.
+                </p>
+              </div>
+            )}
+
             {/* Default priority */}
             <div className="space-y-1.5">
               <Label className="text-xs">Prioridad por defecto</Label>
@@ -635,6 +669,7 @@ function TicketTypeForm({
 export function TicketTypesConfigClient({
   userRole,
   originFilter,
+  admins,
 }: TicketTypesConfigClientProps) {
   const [ticketTypes, setTicketTypes] = useState<TicketType[]>([]);
   const [groups, setGroups] = useState<AdminGroup[]>([]);
@@ -781,6 +816,7 @@ export function TicketTypesConfigClient({
       <TicketTypeForm
         initialData={makeEmptyForm()}
         groups={groups}
+        admins={admins}
         saving={saving}
         onSave={handleSaveNew}
         onCancel={() => setIsCreating(false)}
@@ -800,6 +836,7 @@ export function TicketTypesConfigClient({
       <TicketTypeForm
         initialData={typeToFormData(selectedType)}
         groups={groups}
+        admins={admins}
         saving={saving}
         onSave={handleSaveEdit}
         onCancel={() => setSelectedTypeId(null)}
@@ -965,7 +1002,7 @@ function TicketTypeSection({
                       </td>
                       <td className="px-4 py-3">
                         {t.requiresApproval ? (
-                          <Check className="h-4 w-4 text-emerald-500" />
+                          <Check className="h-4 w-4 text-status-ok-fg" />
                         ) : (
                           <Minus className="h-4 w-4 text-muted-foreground/40" />
                         )}
@@ -979,7 +1016,7 @@ function TicketTypeSection({
                           onClick={() => onToggleActive(t.id, !t.isActive)}
                           className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors cursor-pointer ${
                             t.isActive
-                              ? "bg-emerald-500/15 text-emerald-400"
+                              ? "bg-status-ok-soft text-status-ok-fg"
                               : "bg-muted text-muted-foreground"
                           }`}
                         >
@@ -1035,7 +1072,7 @@ function TicketTypeSection({
                         }}
                         className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${
                           t.isActive
-                            ? "bg-emerald-500/15 text-emerald-400"
+                            ? "bg-status-ok-soft text-status-ok-fg"
                             : "bg-muted text-muted-foreground"
                         }`}
                       >
@@ -1089,3 +1126,9 @@ function TicketTypeSection({
     </section>
   );
 }
+
+// TODO: el server component padre (la página de configuración que monta este
+// cliente) debe pasar la prop `admins` con la lista de admins activos del
+// tenant para habilitar el selector "Responsable por defecto" en el formulario
+// de tipo de ticket. Si la prop no llega, el selector queda oculto sin romper
+// nada.

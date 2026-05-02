@@ -6,7 +6,7 @@ import { createCrmHistoryLog } from "@/lib/crm-history";
 import { cpqQuoteListedInClientPortalWhere } from "@/lib/cpq-portal-visibility";
 import { resend } from "@/lib/resend";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
-import { sendNotification } from "@/lib/notification-service";
+import { notify } from "@/lib/notifications/notify";
 
 export async function POST(
   _request: Request,
@@ -110,12 +110,12 @@ export async function POST(
 
   // ── 6. Internal bell notification ──
   try {
-    await sendNotification({
+    await notify({
       tenantId: session.tenantId,
       type: "quote_approved_portal",
+      audience: "admin",
       title: `Cotización aprobada: ${account?.name}`,
-      message: `${account?.name} aprobó la cotización ${quote.code} (${quote.monthlyCost} ${quote.currency}/mes).`,
-      emailMessage: null,
+      body: `${account?.name} aprobó la cotización ${quote.code} (${quote.monthlyCost} ${quote.currency}/mes).`,
       link: quote.dealId ? `/crm/deals/${quote.dealId}` : `/crm/cotizaciones/${id}`,
       data: { quoteId: id, quoteCode: quote.code, dealId: quote.dealId },
     });

@@ -9,7 +9,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
-import { sendPushToAdmins } from "@/lib/pwa/push-service";
+import { notify } from "@/lib/notifications/notify";
 import {
   getOpsChannelId,
   sendSystemChatMessage,
@@ -129,13 +129,14 @@ async function sendAlertPush(
     const emoji = params.tipo === "panico" ? "🆘" : "🚨";
     const typeLabel = formatAlertType(params.tipo);
 
-    await sendPushToAdmins(
-      params.tenantId,
-      "ronda_alert_admin",
-      `${emoji} Alerta: ${typeLabel}`,
-      params.mensaje,
-      "/ops/rondas/monitoreo",
-    );
+    await notify({
+      tenantId: params.tenantId,
+      type: "ronda_alert_admin",
+      title: `${emoji} Alerta: ${typeLabel}`,
+      body: params.mensaje,
+      link: "/opai/ops/rondas/monitoreo",
+      forceChannels: { bell: false, email: false }, // bell+email handled by callers via separate paths
+    });
 
     if (!bypassCooldown) {
       await updateCooldown(params.tenantId, pushCooldownKey(params.tenantId));
@@ -162,13 +163,14 @@ async function sendGroupedAlertPush(
 
     const types = [...new Set(alerts.map((a) => formatAlertType(a.tipo)))];
 
-    await sendPushToAdmins(
+    await notify({
       tenantId,
-      "ronda_alert_admin",
-      `🚨 ${alerts.length} alertas críticas de rondas`,
-      `Tipos: ${types.join(", ")}`,
-      "/ops/rondas/monitoreo",
-    );
+      type: "ronda_alert_admin",
+      title: `🚨 ${alerts.length} alertas críticas de rondas`,
+      body: `Tipos: ${types.join(", ")}`,
+      link: "/opai/ops/rondas/monitoreo",
+      forceChannels: { bell: false, email: false },
+    });
 
     if (!bypassCooldown) {
       await updateCooldown(tenantId, pushCooldownKey(tenantId));

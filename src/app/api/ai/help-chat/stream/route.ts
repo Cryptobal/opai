@@ -354,7 +354,8 @@ REGLAS DE CONTEXTO DE MÓDULO:
     { role: "user", content: userMessage },
   ];
 
-  const tools = getToolDefinitionsV2(cfg.allowDataQuestions);
+  const allowWrites = cfg.allowDataQuestions;
+  const tools = getToolDefinitionsV2(cfg.allowDataQuestions, allowWrites);
 
   /* SSE response */
   const encoder = new TextEncoder();
@@ -440,6 +441,7 @@ REGLAS DE CONTEXTO DE MÓDULO:
               send("tool_call", { name: call.name, status: "running" });
               const result = await executeToolCallV2(
                 call.name, args, ctx.tenantId, ctx.userId,
+                perms,
                 hasCapability(perms, "rendicion_view_all"),
               );
               send("tool_call", { name: call.name, status: "done" });

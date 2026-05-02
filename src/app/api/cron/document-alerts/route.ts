@@ -89,34 +89,59 @@ export async function GET(request: NextRequest) {
           expiringCount++;
 
           try {
-            const { sendNotification } = await import("@/lib/notification-service");
-            await sendNotification({
+            const { notify } = await import("@/lib/notifications/notify");
+            await notify({
               tenantId: doc.tenantId,
               type: "contract_expiring",
               title: `Contrato por vencer: ${doc.title}`,
-              message: `Vence el ${format(expDate, "dd/MM/yyyy")}. Quedan ${daysRemaining} días.`,
+              body: `"${doc.title}" vence en ${daysRemaining} días`,
+              emailBody: `Vence el ${format(expDate, "dd/MM/yyyy")}. Quedan ${daysRemaining} días.`,
+              link: `/opai/docs/documentos/${doc.id}`,
               data: { documentId: doc.id },
-              link: `/opai/documentos/${doc.id}`,
             });
           } catch (e) {
-            console.warn("DocAlert: failed to send expiring notification", e);
-          }
-
-          // Push: document expiring — notify admins
-          try {
-            const { sendPushToAdmins } = await import('@/lib/pwa/push-service');
-            await sendPushToAdmins(
-              doc.tenantId,
-              'document_expiring',
-              'Documento por vencer',
-              `"${doc.title}" vence en ${daysRemaining} días`,
-              `/opai/docs/documentos/${doc.id}`,
-            );
-          } catch (pushErr) {
-            console.error('[CRON] Error sending document_expiring push:', pushErr);
+            console.warn("DocAlert: failed to notify contract_expiring", e);
           }
         }
       }
+    }
+
+    // 1.5. Activate documents whose effectiveDate has arrived (approved → active)
+    let activatedCount = 0;
+    const approvedDocs = await prisma.document.findMany({
+      where: {
+        status: "approved",
+        effectiveDate: { not: null, lte: today },
+      },
+      select: {
+        id: true,
+        tenantId: true,
+        title: true,
+        effectiveDate: true,
+      },
+    });
+
+    for (const doc of approvedDocs) {
+      await prisma.$transaction([
+        prisma.document.update({
+          where: { id: doc.id },
+          data: { status: "active" },
+        }),
+        prisma.docHistory.create({
+          data: {
+            documentId: doc.id,
+            action: "status_changed",
+            details: {
+              from: "approved",
+              to: "active",
+              automated: true,
+              reason: "effective_date_reached",
+            },
+            createdBy: "system",
+          },
+        }),
+      ]);
+      activatedCount++;
     }
 
     // 2. Find documents that have expired
@@ -152,17 +177,17 @@ export async function GET(request: NextRequest) {
       expiredCount++;
 
       try {
-        const { sendNotification } = await import("@/lib/notification-service");
-        await sendNotification({
+        const { notify } = await import("@/lib/notifications/notify");
+        await notify({
           tenantId: doc.tenantId,
           type: "contract_expired",
           title: `Contrato vencido: ${doc.title}`,
-          message: `Este contrato ha expirado y requiere renovación.`,
+          body: "Este contrato ha expirado y requiere renovación.",
+          link: `/opai/docs/documentos/${doc.id}`,
           data: { documentId: doc.id },
-          link: `/opai/documentos/${doc.id}`,
         });
       } catch (e) {
-        console.warn("DocAlert: failed to send expired notification", e);
+        console.warn("DocAlert: failed to notify contract_expired", e);
       }
     }
 
@@ -219,20 +244,20 @@ export async function GET(request: NextRequest) {
 
           if (!existing) {
             try {
-              const { sendNotification } = await import("@/lib/notification-service");
+              const { notify } = await import("@/lib/notifications/notify");
               const adjType = metadata.adjustmentType === "IPC" ? "IPC" :
                 metadata.adjustmentType === "IMO" ? "IMO" : "polinomio IPC+IMO";
-              await sendNotification({
+              await notify({
                 tenantId: doc.tenantId,
                 type: "contract_adjustment_reminder",
                 title: `Reajuste de contrato: ${doc.title}`,
-                message: `Toca reajuste ${metadata.adjustmentFreq.toLowerCase()} por ${adjType} en ${daysUntilAdjustment} días (${format(nextAdjustment, "dd/MM/yyyy")}).`,
+                body: `Toca reajuste ${metadata.adjustmentFreq.toLowerCase()} por ${adjType} en ${daysUntilAdjustment} días (${format(nextAdjustment, "dd/MM/yyyy")}).`,
+                link: `/opai/docs/documentos/${doc.id}`,
                 data: { documentId: doc.id },
-                link: `/opai/documentos/${doc.id}`,
               });
               adjustmentReminders++;
             } catch (e) {
-              console.warn("DocAlert: failed to send adjustment reminder", e);
+              console.warn("DocAlert: failed to notify contract_adjustment_reminder", e);
             }
           }
         }
@@ -244,6 +269,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       data: {
+        activatedCount,
         checked: activeDocuments.length + expiredDocs.length,
         expiringNotified: expiringCount,
         expiredNotified: expiredCount,

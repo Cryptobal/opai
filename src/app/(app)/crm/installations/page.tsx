@@ -6,7 +6,8 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView, canViewInstallations } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/opai";
+import { PageHero } from "@/components/opai-ds";
+import { MapPin } from "lucide-react";
 import { CrmInstallationsListClient } from "@/components/crm";
 
 export default async function CrmInstallationsPage() {
@@ -74,9 +75,13 @@ export default async function CrmInstallationsPage() {
 
   return (
     <>
-      <PageHeader
+      <PageHero
+        icon={<MapPin />}
+        iconTone="violet"
+        eyebrow={["Comercial", "Instalaciones"]}
         title="Instalaciones"
-        description="Sedes y ubicaciones de clientes"
+        subtitle="sedes y ubicaciones de clientes"
+        description="Listado global de instalaciones con su cuenta asociada, dotación de guardias y puestos por cubrir."
       />
       <CrmInstallationsListClient
         initialInstallations={initialInstallations}

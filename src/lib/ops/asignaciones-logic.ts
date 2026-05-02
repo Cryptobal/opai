@@ -351,6 +351,20 @@ export async function executeAsignar(
     startDate: toISODate(startDate),
   });
 
+  // ── Auto-create on_assignment exam assignments (best-effort, never throws) ──
+  try {
+    const { assignOnAssignmentExams } = await import(
+      "@/lib/protocols/auto-assign-exams"
+    );
+    void assignOnAssignmentExams({
+      guardId: body.guardiaId,
+      installationId: puesto.installationId,
+      tenantId: ctx.tenantId,
+    });
+  } catch (err) {
+    console.error("[asignaciones] auto-assign exams import failed", err);
+  }
+
   return {
     success: true,
     data: asignacion as unknown as Record<string, unknown>,

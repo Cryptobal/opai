@@ -231,12 +231,13 @@ export async function POST(
 
     // Notificación al equipo comercial
     try {
-      const { sendNotification } = await import("@/lib/notification-service");
-      await sendNotification({
+      const { notify } = await import("@/lib/notifications/notify");
+      await notify({
         tenantId,
         type: "new_lead",
+        audience: "admin",
         title: `Nuevo prospecto demo: ${data.companyName}`,
-        message: `${data.contactName} de ${data.companyName} se registró para demo del portal (${INDUSTRY_LABELS[data.industry] || data.industry})`,
+        body: `${data.contactName} de ${data.companyName} se registró para demo del portal (${INDUSTRY_LABELS[data.industry] || data.industry})`,
         data: { accountId: account.id, email: emailNorm, company: data.companyName },
         link: "/crm",
       });

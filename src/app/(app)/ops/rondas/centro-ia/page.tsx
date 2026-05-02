@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
-import { PageHeader } from "@/components/opai";
+import { PageHero } from "@/components/opai-ds";
+import { Sparkles } from "lucide-react";
 import { RondasCentroIaClient } from "@/components/ops/rondas/RondasCentroIaClient";
 import { RondasSubnav } from "@/components/ops/RondasSubnav";
 
@@ -14,9 +15,13 @@ export default async function RondasCentroIaPage() {
 
   return (
     <div className="space-y-6 min-w-0">
-      <PageHeader
+      <PageHero
+        icon={<Sparkles />}
+        iconTone="emerald"
+        eyebrow={["Operaciones", "Centro IA"]}
         title="Centro de Inteligencia Artificial"
-        description="Detección de anomalías, recomendaciones y análisis predictivo."
+        subtitle="anomalías y predicciones"
+        description="Detección automática de patrones anómalos, recomendaciones operativas y configuración de umbrales para el sistema de IA."
       />
       <RondasSubnav />
       <RondasCentroIaClient />

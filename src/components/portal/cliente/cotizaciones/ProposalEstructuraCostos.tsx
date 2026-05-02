@@ -62,11 +62,11 @@ export function ProposalEstructuraCostos({
         className="w-full flex items-center justify-between px-4 py-3 bg-slate-800/50 hover:bg-slate-800/70 transition-colors"
       >
         <div className="flex items-center gap-2.5">
-          <BarChart3 className="h-5 w-5 text-teal-400" />
+          <BarChart3 className="h-5 w-5 text-status-info-fg" />
           <h3 className="text-xl font-bold text-white">
-            <span className="text-teal-400">{sectionNumber}.</span> Estructura de Costos
+            <span className="text-status-info-fg">{sectionNumber}.</span> Estructura de Costos
           </h3>
-          <span className="text-[10px] px-2 py-0.5 rounded-full bg-teal-500/15 text-teal-400 font-medium">
+          <span className="text-[10px] px-2 py-0.5 rounded-full bg-status-info-soft text-status-info-fg font-medium">
             Transparente
           </span>
         </div>
@@ -84,8 +84,8 @@ export function ProposalEstructuraCostos({
           <CostSection
             title="Mano de Obra"
             total={fmt(breakdown.totalLaborCost)}
-            color="text-blue-400"
-            bgColor="bg-blue-500/10"
+            color="text-status-info-fg"
+            bgColor="bg-status-info-soft"
           >
             {breakdown.positions.map((pos) => (
               <div key={pos.id} className="space-y-0.5">
@@ -107,8 +107,8 @@ export function ProposalEstructuraCostos({
             <CostSection
               title="Costos Directos"
               total={fmt(directCostsTotal)}
-              color="text-teal-400"
-              bgColor="bg-teal-500/10"
+              color="text-status-info-fg"
+              bgColor="bg-status-info-soft"
             >
               {breakdown.holidayAdjustment > 0 && (
                 <CostRow label="Ajuste feriados legales" value={fmt(breakdown.holidayAdjustment)} />
@@ -130,8 +130,8 @@ export function ProposalEstructuraCostos({
             <CostSection
               title="Costos Indirectos"
               total={fmt(indirectCostsTotal)}
-              color="text-amber-400"
-              bgColor="bg-amber-500/10"
+              color="text-status-warn-fg"
+              bgColor="bg-status-warn-soft"
             >
               {breakdown.equipment > 0 && (
                 <CostRow label="Equipo operativo" value={fmt(breakdown.equipment)} />
@@ -161,23 +161,23 @@ export function ProposalEstructuraCostos({
           </div>
 
           {/* Margin */}
-          <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-emerald-500/5 border border-emerald-500/20">
-            <span className="text-xs font-semibold text-emerald-400">Margen comercial</span>
-            <span className="text-xs font-mono font-semibold text-emerald-400">{fmt(breakdown.marginAmount)}</span>
+          <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-status-ok-soft border border-status-ok-border">
+            <span className="text-xs font-semibold text-status-ok-fg">Margen comercial</span>
+            <span className="text-xs font-mono font-semibold text-status-ok-fg">{fmt(breakdown.marginAmount)}</span>
           </div>
 
           {/* Financial */}
           {breakdown.financial > 0 && (
-            <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-orange-500/5 border border-orange-500/20">
-              <span className="text-xs font-semibold text-orange-400">Costo financiero</span>
-              <span className="text-xs font-mono font-semibold text-orange-400">{fmt(breakdown.financial)}</span>
+            <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-status-warn-soft/30 border border-status-warn-border">
+              <span className="text-xs font-semibold text-status-warn-fg">Costo financiero</span>
+              <span className="text-xs font-mono font-semibold text-status-warn-fg">{fmt(breakdown.financial)}</span>
             </div>
           )}
 
           {/* Grand Total */}
-          <div className="flex items-center justify-between px-4 py-3 rounded-lg bg-emerald-600/20 border border-emerald-500/30">
+          <div className="flex items-center justify-between px-4 py-3 rounded-lg bg-status-ok-soft border border-status-ok-border">
             <span className="text-sm font-bold text-white">PRECIO VENTA MENSUAL NETO</span>
-            <span className="text-lg font-bold text-emerald-400 font-mono">{fmt(breakdown.grandTotal)}</span>
+            <span className="text-lg font-bold text-status-ok-fg font-mono">{fmt(breakdown.grandTotal)}</span>
           </div>
 
           {/* Valor Hora por Puesto */}
@@ -198,7 +198,7 @@ export function ProposalEstructuraCostos({
                       ({pos.totalGuardsInPosition} guardia{pos.totalGuardsInPosition !== 1 ? "s" : ""})
                     </span>
                   </span>
-                  <span className="text-sm font-mono font-bold text-emerald-400">
+                  <span className="text-sm font-mono font-bold text-status-ok-fg">
                     {fmtCLP(Math.round(pos.hourlyRateSale))}/hr
                   </span>
                 </div>

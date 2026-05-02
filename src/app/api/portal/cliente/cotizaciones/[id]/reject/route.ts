@@ -6,7 +6,7 @@ import { createCrmHistoryLog } from "@/lib/crm-history";
 import { cpqQuoteListedInClientPortalWhere } from "@/lib/cpq-portal-visibility";
 import { resend } from "@/lib/resend";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
-import { sendNotification } from "@/lib/notification-service";
+import { notify } from "@/lib/notifications/notify";
 
 export async function POST(
   request: Request,
@@ -123,12 +123,12 @@ export async function POST(
 
   // ── 5. Internal bell notification (respects user preferences) ──
   try {
-    await sendNotification({
+    await notify({
       tenantId: session.tenantId,
       type: "quote_rejected_portal",
+      audience: "admin",
       title: `Propuesta rechazada: ${account?.name}`,
-      message: `${account?.name} rechazó la propuesta ${quote.code}.${reason ? ` Motivo: ${reason}` : ""}`,
-      emailMessage: null,
+      body: `${account?.name} rechazó la propuesta ${quote.code}.${reason ? ` Motivo: ${reason}` : ""}`,
       link: quote.dealId ? `/crm/deals/${quote.dealId}` : `/crm/cotizaciones/${id}`,
       data: { quoteId: id, quoteCode: quote.code, dealId: quote.dealId, reason },
     });

@@ -48,17 +48,17 @@ interface Props {
 }
 
 function StatusIcon({ status }: { status: string }) {
-  if (status === "vigente" || status === "no_aplica") return <CheckCircle2 className="h-4 w-4 text-emerald-400" />;
-  if (status === "por_vencer") return <AlertTriangle className="h-4 w-4 text-amber-400" />;
-  if (status === "vencido") return <XCircle className="h-4 w-4 text-red-400" />;
+  if (status === "vigente" || status === "no_aplica") return <CheckCircle2 className="h-4 w-4 text-status-ok-fg" />;
+  if (status === "por_vencer") return <AlertTriangle className="h-4 w-4 text-status-warn-fg" />;
+  if (status === "vencido") return <XCircle className="h-4 w-4 text-status-danger-fg" />;
   return <Circle className="h-4 w-4 text-zinc-600" />;
 }
 
 function StatusBadge({ status, expiresAt }: { status: string; expiresAt?: string | null }) {
   const styles: Record<string, string> = {
-    vigente: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
-    por_vencer: "bg-amber-500/15 text-amber-400 border-amber-500/30",
-    vencido: "bg-red-500/15 text-red-400 border-red-500/30",
+    vigente: "bg-status-ok-soft text-status-ok-fg border-status-ok-border",
+    por_vencer: "bg-status-warn-soft text-status-warn-fg border-status-warn-border",
+    vencido: "bg-status-danger-soft text-status-danger-fg border-status-danger-border",
     no_aplica: "bg-zinc-500/10 text-zinc-400 border-zinc-500/20",
     sin_documento: "bg-zinc-500/10 text-zinc-500 border-zinc-500/20",
   };
@@ -121,7 +121,7 @@ export function PortalDocsOperacionales({ selectedInstallation, isProspect }: Pr
 
   if (isProspect) {
     return (
-      <div className="rounded-lg border border-teal-500/20 bg-teal-500/5 px-4 py-3 text-xs text-teal-300/80">
+      <div className="rounded-lg border border-status-info-border bg-status-info-soft/30 px-4 py-3 text-xs text-status-info-fg/80">
         Al activar tu servicio, aquí encontrarás el cumplimiento normativo completo de tu instalación (OS10, DT, seguros).
       </div>
     );
@@ -130,7 +130,7 @@ export function PortalDocsOperacionales({ selectedInstallation, isProspect }: Pr
   if (loading) {
     return (
       <div className="flex justify-center py-24">
-        <Loader2 className="h-8 w-8 animate-spin text-teal-400" />
+        <Loader2 className="h-8 w-8 animate-spin text-status-info-fg" />
       </div>
     );
   }
@@ -176,30 +176,30 @@ export function PortalDocsOperacionales({ selectedInstallation, isProspect }: Pr
 
       {/* Compliance banner */}
       {allVigente ? (
-        <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-4 py-3">
+        <div className="rounded-lg border border-status-ok-border bg-status-ok-soft px-4 py-3">
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="h-5 w-5 text-emerald-400" />
-            <p className="text-sm font-medium text-emerald-300">
+            <CheckCircle2 className="h-5 w-5 text-status-ok-fg" />
+            <p className="text-sm font-medium text-status-ok-fg">
               Esta instalación cumple con toda la documentación OS10 y DT requerida
             </p>
           </div>
         </div>
       ) : (
-        <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-3">
+        <div className="rounded-lg border border-status-warn-border bg-status-warn-soft px-4 py-3">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-amber-300">
+              <p className="text-sm font-medium text-status-warn-fg">
                 Cumplimiento normativo: {active.cumplimiento.porcentaje}%
               </p>
               <p className="text-xs text-zinc-400 mt-0.5">
                 {active.cumplimiento.vigentes} de {active.cumplimiento.total} documentos vigentes
               </p>
             </div>
-            <p className="text-2xl font-bold text-amber-300">{active.cumplimiento.porcentaje}%</p>
+            <p className="text-2xl font-bold text-status-warn-fg">{active.cumplimiento.porcentaje}%</p>
           </div>
           <div className="mt-2 h-1.5 rounded-full bg-zinc-800 overflow-hidden">
             <div
-              className="h-full rounded-full bg-amber-500 transition-all"
+              className="h-full rounded-full bg-status-warn transition-all"
               style={{ width: `${active.cumplimiento.porcentaje}%` }}
             />
           </div>
@@ -326,7 +326,7 @@ function GuardiaCard({ guardia }: { guardia: GuardiaPortal }) {
         {guardia.rut && <span className="text-xs text-zinc-600">{guardia.rut}</span>}
         <span className={cn(
           "text-xs font-medium ml-2",
-          vigentes === guardia.documentos.length ? "text-emerald-400" : "text-amber-400"
+          vigentes === guardia.documentos.length ? "text-status-ok-fg" : "text-status-warn-fg"
         )}>
           {vigentes}/{guardia.documentos.length}
         </span>

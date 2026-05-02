@@ -751,16 +751,16 @@ export function RondasMonitoreoClient({
       {/* Observer / Operator banner */}
       {isReadOnly && (
         <div className="hidden md:flex items-center justify-center gap-2 px-4 py-1 bg-[#0a0f1c]/80 border-b border-[#1a1f2e]">
-          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+          <div className="w-1.5 h-1.5 rounded-full bg-status-ok animate-pulse" />
           <span className="text-[10px] text-[#64748b]">
-            Modo observador — <span className="text-emerald-400 font-medium">{activeTurno?.operatorName ?? "Operador"}</span> opera el turno
-            {canCloseTurno && <span className="text-amber-400/70 ml-1">· Puedes cerrar como admin</span>}
+            Modo observador — <span className="text-status-ok-fg font-medium">{activeTurno?.operatorName ?? "Operador"}</span> opera el turno
+            {canCloseTurno && <span className="text-status-warn-fg/70 ml-1">· Puedes cerrar como admin</span>}
           </span>
         </div>
       )}
       {isOperator && activeTurno && (
-        <div className="hidden md:flex items-center justify-center gap-2 px-4 py-0.5 bg-cyan-500/3 border-b border-cyan-500/10">
-          <span className="text-[10px] text-cyan-400/50">Operando este turno</span>
+        <div className="hidden md:flex items-center justify-center gap-2 px-4 py-0.5 bg-status-info-soft/30 border-b border-status-info-border/40">
+          <span className="text-[10px] text-status-info-fg/50">Operando este turno</span>
         </div>
       )}
 
@@ -842,7 +842,7 @@ export function RondasMonitoreoClient({
                 {/* Map collapse bar */}
                 <button
                   onClick={() => setMapCollapsed((v) => !v)}
-                  className="flex items-center justify-center gap-1 h-5 rounded bg-cyan-500/8 border border-cyan-500/20 text-cyan-400/70 hover:text-cyan-400 hover:border-cyan-500/40 hover:bg-cyan-500/12 transition-colors shrink-0"
+                  className="flex items-center justify-center gap-1 h-5 rounded bg-status-info-soft border border-status-info-border text-status-info-fg/70 hover:text-status-info-fg hover:brightness-110 transition-colors shrink-0"
                 >
                   {mapCollapsed ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />}
                   <span className="text-[9px] uppercase tracking-wider font-semibold">{mapCollapsed ? "Mostrar mapa" : "Ocultar mapa"}</span>
@@ -883,7 +883,7 @@ export function RondasMonitoreoClient({
               {/* Side panel collapse toggle */}
               <button
                 onClick={() => setSidePanelCollapsed((v) => !v)}
-                className="flex-shrink-0 flex items-center justify-center w-5 rounded bg-cyan-500/8 border border-cyan-500/20 text-cyan-400/70 hover:text-cyan-400 hover:border-cyan-500/40 hover:bg-cyan-500/12 transition-colors"
+                className="flex-shrink-0 flex items-center justify-center w-5 rounded bg-status-info-soft border border-status-info-border text-status-info-fg/70 hover:text-status-info-fg hover:brightness-110 transition-colors"
                 title={sidePanelCollapsed ? "Mostrar panel lateral" : "Ocultar panel lateral"}
               >
                 {sidePanelCollapsed ? <ChevronLeft className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
@@ -989,7 +989,7 @@ export function RondasMonitoreoClient({
       <Dialog open={showNocturnaReminder} onOpenChange={() => {}}>
         <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()}>
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-amber-400">
+            <DialogTitle className="flex items-center gap-2 text-status-warn-fg">
               <AlertTriangle className="h-5 w-5" />
               Cobertura nocturna pendiente
             </DialogTitle>

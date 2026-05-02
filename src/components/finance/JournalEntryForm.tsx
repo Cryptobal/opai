@@ -293,9 +293,9 @@ export function JournalEntryForm({ accounts, periods }: Props) {
                     </td>
                     <td className="px-3 py-2">
                       {totals.isBalanced ? (
-                        <span className="text-emerald-400 text-xs">✓</span>
+                        <span className="text-status-ok-fg text-xs">✓</span>
                       ) : (
-                        <span className="text-red-400 text-xs">≠</span>
+                        <span className="text-status-danger-fg text-xs">≠</span>
                       )}
                     </td>
                   </tr>
@@ -374,9 +374,9 @@ export function JournalEntryForm({ accounts, periods }: Props) {
               <div className="flex items-center justify-between text-sm">
                 <span className="font-medium">Total</span>
                 {totals.isBalanced ? (
-                  <span className="text-emerald-400 text-xs font-medium">Cuadrado ✓</span>
+                  <span className="text-status-ok-fg text-xs font-medium">Cuadrado ✓</span>
                 ) : (
-                  <span className="text-red-400 text-xs font-medium">
+                  <span className="text-status-danger-fg text-xs font-medium">
                     Diferencia: {fmtCLP.format(Math.abs(totals.totalDebit - totals.totalCredit))}
                   </span>
                 )}

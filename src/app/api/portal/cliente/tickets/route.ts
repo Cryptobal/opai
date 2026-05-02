@@ -8,7 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requirePortalClienteAuth } from "@/lib/portal-cliente";
-import { sendNotification } from "@/lib/notification-service";
+import { notify } from "@/lib/notifications/notify";
 import { resend, getTenantEmailConfig } from "@/lib/resend";
 import { normalizeTicketAttachments } from "@/lib/portal-cliente-ticket-attachments";
 
@@ -270,11 +270,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Notify internal team
-    sendNotification({
+    notify({
       tenantId: session.tenantId,
       type: "ticket_from_client_portal",
+      audience: "admin",
       title: `Nuevo ticket desde portal: ${ticket.code}`,
-      message: `${contactName} creó el ticket "${ticket.title}"`,
+      body: `${contactName} creó el ticket "${ticket.title}"`,
       data: { ticketId: ticket.id, code: ticket.code, contactName },
       link: `/ops/tickets/${ticket.id}`,
     }).catch(() => {});

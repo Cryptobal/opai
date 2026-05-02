@@ -52,10 +52,10 @@ interface Props {
 
 function guardStatusBadge(status: string) {
   const map: Record<string, { label: string; color: string }> = {
-    presente: { label: "Presente", color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" },
-    reemplazo: { label: "Reemplazo", color: "text-cyan-400 bg-cyan-500/10 border-cyan-500/20" },
-    en_camino: { label: "En camino", color: "text-amber-400 bg-amber-500/10 border-amber-500/20" },
-    no_viene: { label: "No viene", color: "text-red-400 bg-red-500/10 border-red-500/20" },
+    presente: { label: "Presente", color: "text-status-ok-fg bg-status-ok-soft border-status-ok-border" },
+    reemplazo: { label: "Reemplazo", color: "text-status-info-fg bg-status-info-soft border-status-info-border" },
+    en_camino: { label: "En camino", color: "text-status-warn-fg bg-status-warn-soft border-status-warn-border" },
+    no_viene: { label: "No viene", color: "text-status-danger-fg bg-status-danger-soft border-status-danger-border" },
     pendiente: { label: "Pendiente", color: "text-zinc-400 bg-zinc-500/10 border-zinc-500/20" },
   };
   const s = map[status] ?? map.pendiente;
@@ -67,16 +67,16 @@ function guardStatusBadge(status: string) {
 }
 
 function severityColor(sev: string) {
-  if (sev === "critical") return "border-l-red-500 bg-red-500/5";
-  if (sev === "warning") return "border-l-amber-500 bg-amber-500/5";
-  return "border-l-cyan-500 bg-cyan-500/5";
+  if (sev === "critical") return "border-l-red-500 bg-status-danger-soft";
+  if (sev === "warning") return "border-l-amber-500 bg-status-warn-soft";
+  return "border-l-status-info bg-status-info-soft/30";
 }
 
 function coberturaLabel(status: string) {
   const map: Record<string, { label: string; color: string }> = {
-    completa: { label: "Completa", color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" },
-    parcial: { label: "Parcial", color: "text-amber-400 bg-amber-500/10 border-amber-500/20" },
-    descubierta: { label: "Descubierta", color: "text-red-400 bg-red-500/10 border-red-500/20" },
+    completa: { label: "Completa", color: "text-status-ok-fg bg-status-ok-soft border-status-ok-border" },
+    parcial: { label: "Parcial", color: "text-status-warn-fg bg-status-warn-soft border-status-warn-border" },
+    descubierta: { label: "Descubierta", color: "text-status-danger-fg bg-status-danger-soft border-status-danger-border" },
     pendiente: { label: "Pendiente", color: "text-zinc-400 bg-zinc-500/10 border-zinc-500/20" },
   };
   const s = map[status] ?? map.pendiente;
@@ -106,7 +106,7 @@ export function InstallationDetailModal({ open, onClose, instalacion, alertRows 
         <DialogHeader className="px-5 pt-5 pb-3 border-b border-[#1a1f2e]">
           <div className="flex items-center justify-between">
             <DialogTitle className="text-[15px] font-semibold text-[#f1f5f9] flex items-center gap-2">
-              <MapPin className="h-4 w-4 text-cyan-400" />
+              <MapPin className="h-4 w-4 text-status-info-fg" />
               {instalacion.installationName}
             </DialogTitle>
             {coberturaLabel(instalacion.coberturaStatus)}
@@ -166,15 +166,15 @@ export function InstallationDetailModal({ open, onClose, instalacion, alertRows 
                     key={r.id}
                     className={cn(
                       "rounded px-1.5 py-1 text-center border",
-                      isCompleted && "bg-emerald-500/10 border-emerald-500/20",
-                      isOmitted && "bg-red-500/10 border-red-500/20",
+                      isCompleted && "bg-status-ok-soft border-status-ok-border",
+                      isOmitted && "bg-status-danger-soft border-status-danger-border",
                       !isCompleted && !isOmitted && "bg-[#111827] border-[#1a1f2e]",
                     )}
                     title={`${r.horaEsperada} — ${r.status}${r.trustScore ? ` (Trust: ${r.trustScore})` : ""}`}
                   >
                     <div className="text-[9px] text-[#64748b] tabular-nums">{r.horaEsperada}</div>
                     {r.horaMarcada && (
-                      <div className={cn("text-[10px] font-medium tabular-nums", isCompleted ? "text-emerald-400" : "text-red-400")}>
+                      <div className={cn("text-[10px] font-medium tabular-nums", isCompleted ? "text-status-ok-fg" : "text-status-danger-fg")}>
                         {r.horaMarcada}
                       </div>
                     )}

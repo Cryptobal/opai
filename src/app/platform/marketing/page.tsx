@@ -119,7 +119,7 @@ export default function MarketingChatPage() {
               <div
                 key={d.date}
                 title={`${d.date}: ${d.count} sesiones`}
-                className="flex-1 rounded-t bg-teal-500/80 transition-all hover:bg-teal-400"
+                className="flex-1 rounded-t bg-status-info transition-all hover:brightness-110"
                 style={{
                   height: `${Math.max((d.count / maxDaily) * 100, 4)}%`,
                   minWidth: '4px',
@@ -173,7 +173,7 @@ export default function MarketingChatPage() {
                         <div className="font-medium text-gray-900 dark:text-white">
                           {s.visitorName}
                         </div>
-                        <div className="text-xs text-teal-600 dark:text-teal-400">
+                        <div className="text-xs text-status-info-fg">
                           {s.visitorEmail}
                         </div>
                       </div>
@@ -194,12 +194,12 @@ export default function MarketingChatPage() {
                   </td>
                   <td className="px-6 py-3">
                     {s.contactCollectedAt ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-teal-500/10 px-2 py-0.5 text-xs font-medium text-teal-600 dark:text-teal-400">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-status-info-soft px-2 py-0.5 text-xs font-medium text-status-info-fg">
                         <Mail className="h-3 w-3" />
                         Contacto
                       </span>
                     ) : s.messageCount >= 4 ? (
-                      <span className="inline-flex items-center rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-600 dark:text-amber-400">
+                      <span className="inline-flex items-center rounded-full bg-status-warn-soft px-2 py-0.5 text-xs font-medium text-status-warn-fg dark:text-status-warn-fg">
                         Engaged
                       </span>
                     ) : (
@@ -237,10 +237,10 @@ function KpiCard({
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-[#0f1a2e]">
       <div className="mb-2 flex items-center gap-2">
-        <span className={highlight ? 'text-teal-500' : 'text-gray-400'}>{icon}</span>
+        <span className={highlight ? 'text-status-info-fg' : 'text-gray-400'}>{icon}</span>
         <span className="text-xs text-gray-500 dark:text-gray-400">{label}</span>
       </div>
-      <div className={`text-2xl font-bold ${highlight ? 'text-teal-500' : 'text-gray-900 dark:text-white'}`}>
+      <div className={`text-2xl font-bold ${highlight ? 'text-status-info-fg' : 'text-gray-900 dark:text-white'}`}>
         {value}
       </div>
     </div>

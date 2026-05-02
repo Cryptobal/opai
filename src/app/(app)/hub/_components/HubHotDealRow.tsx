@@ -15,15 +15,15 @@ interface Props {
 }
 
 function HeatIndicator({ score }: { score: number }) {
-  if (score > 70) return <span className="text-red-400 font-semibold text-sm whitespace-nowrap">🔥🔥🔥 {score}</span>;
-  if (score >= 40) return <span className="text-orange-400 font-semibold text-sm whitespace-nowrap">🔥🔥 {score}</span>;
+  if (score > 70) return <span className="text-status-danger-fg font-semibold text-sm whitespace-nowrap">🔥🔥🔥 {score}</span>;
+  if (score >= 40) return <span className="text-status-warn-fg font-semibold text-sm whitespace-nowrap">🔥🔥 {score}</span>;
   if (score > 0) return <span className="text-muted-foreground font-semibold text-sm whitespace-nowrap">🔥 {score}</span>;
   return <span className="text-muted-foreground text-sm">—</span>;
 }
 
 function TrendIcon({ trend }: { trend: 'up' | 'down' | 'flat' }) {
-  if (trend === 'up') return <span className="text-emerald-400 text-xs">▲</span>;
-  if (trend === 'down') return <span className="text-red-400 text-xs">▼</span>;
+  if (trend === 'up') return <span className="text-status-ok-fg text-xs">▲</span>;
+  if (trend === 'down') return <span className="text-status-danger-fg text-xs">▼</span>;
   return <span className="text-muted-foreground text-xs">—</span>;
 }
 
@@ -64,7 +64,7 @@ export function HubHotDealRow({ deal, rank }: Props) {
                 {' '}<TrendIcon trend={deal.viewTrend} />
               </span>
             )}
-            <span className="text-sm font-medium text-teal-400 ml-auto">
+            <span className="text-sm font-medium text-status-info-fg ml-auto">
               {deal.amount > 0 ? `${formatCLP(Math.round(deal.amount))}/mes` : '—'}
             </span>
           </div>
@@ -99,7 +99,7 @@ export function HubHotDealRow({ deal, rank }: Props) {
             {deal.contactPhone && (
               <a
                 href={`tel:+${normalizeChileanPhone(deal.contactPhone)}`}
-                className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-sm font-medium transition-colors hover:bg-emerald-500 hover:text-white hover:border-emerald-500"
+                className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-sm font-medium transition-colors hover:bg-status-ok hover:text-white hover:border-status-ok-border"
               >
                 <Phone className="h-3 w-3" /> Llamar
               </a>
@@ -109,7 +109,7 @@ export function HubHotDealRow({ deal, rank }: Props) {
                 href={whatsappUrl(deal.contactPhone)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-sm font-medium transition-colors hover:bg-green-500 hover:text-white hover:border-green-500"
+                className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-sm font-medium transition-colors hover:bg-status-ok hover:text-white hover:border-status-ok-border"
               >
                 <MessageCircle className="h-3 w-3" /> WhatsApp
               </a>
@@ -117,7 +117,7 @@ export function HubHotDealRow({ deal, rank }: Props) {
             {deal.contactEmail && (
               <a
                 href={`mailto:${deal.contactEmail}`}
-                className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-sm font-medium transition-colors hover:bg-blue-500 hover:text-white hover:border-blue-500"
+                className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-sm font-medium transition-colors hover:bg-status-info hover:text-white hover:border-status-info-border"
               >
                 <Mail className="h-3 w-3" /> Email
               </a>
@@ -157,7 +157,7 @@ export function HubHotDealTableRow({ deal, rank }: Props) {
           {deal.contactPhone && (
             <a
               href={`tel:+${normalizeChileanPhone(deal.contactPhone)}`}
-              className="text-muted-foreground/60 hover:text-emerald-400 transition-colors shrink-0"
+              className="text-muted-foreground/60 hover:text-status-ok-fg transition-colors shrink-0"
               title="Llamar"
             >
               <Phone className="h-3.5 w-3.5" />
@@ -168,7 +168,7 @@ export function HubHotDealTableRow({ deal, rank }: Props) {
               href={whatsappUrl(deal.contactPhone)}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-muted-foreground/60 hover:text-green-400 transition-colors shrink-0"
+              className="text-muted-foreground/60 hover:text-status-ok-fg transition-colors shrink-0"
               title="WhatsApp"
             >
               <MessageCircle className="h-3.5 w-3.5" />
@@ -177,7 +177,7 @@ export function HubHotDealTableRow({ deal, rank }: Props) {
           {deal.contactEmail && (
             <a
               href={`mailto:${deal.contactEmail}`}
-              className="text-muted-foreground/60 hover:text-blue-400 transition-colors shrink-0"
+              className="text-muted-foreground/60 hover:text-status-info-fg transition-colors shrink-0"
               title="Email"
             >
               <Mail className="h-3.5 w-3.5" />
@@ -216,7 +216,7 @@ export function HubHotDealTableRow({ deal, rank }: Props) {
         <HeatIndicator score={deal.heatScore} />
       </td>
       <td className="px-2 py-2 text-right whitespace-nowrap">
-        <span className="text-sm font-medium text-teal-400">
+        <span className="text-sm font-medium text-status-info-fg">
           {deal.amount > 0 ? `${formatCLP(Math.round(deal.amount))}/mes` : '—'}
         </span>
       </td>

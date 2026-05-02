@@ -289,7 +289,7 @@ function PortalClienteShell() {
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
                 <h1 className="text-base font-semibold truncate">Portal OPAI</h1>
-                <span className="text-xs font-medium bg-teal-500/15 text-teal-400 px-1.5 py-0.5 rounded shrink-0">
+                <span className="text-xs font-medium bg-status-info-soft text-status-info-fg px-1.5 py-0.5 rounded shrink-0">
                   OPAI
                 </span>
               </div>
@@ -332,7 +332,7 @@ function PortalClienteShell() {
             {session.isProspect && (
               <button
                 onClick={() => setShowTour(true)}
-                className="text-xs text-teal-400 border border-teal-400/30 rounded px-2 py-1 hover:bg-teal-400/10 transition-colors"
+                className="text-xs text-status-info-fg border border-status-info-border rounded px-2 py-1 hover:bg-status-info-soft transition-colors"
               >
                 Tour
               </button>

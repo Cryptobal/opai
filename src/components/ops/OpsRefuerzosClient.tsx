@@ -8,7 +8,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { EmptyState, StatusBadge, KpiCard, KpiGrid, FilterBar, LoadingSpinner } from "@/components/opai";
+import { StatusTag } from "@/components/ops/StatusTag";
+import { EmptyState, Spinner, Stat, StatGrid, Tag } from "@/components/opai-ds";
 import { Clock3, FileDown, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { formatPersonName } from "@/lib/personas";
 
@@ -631,13 +632,13 @@ export function OpsRefuerzosClient({
         </Button>
       </div>
 
-      <KpiGrid columns={3}>
-        <KpiCard title="Turnos" value={totals.count} />
-        <KpiCard title="Monto total" value={formatMoney(totals.amount)} />
-        <KpiCard title="Pendiente facturar" value={formatMoney(totals.pendingAmount)} variant="amber" />
-      </KpiGrid>
+      <StatGrid lgCols={3}>
+        <Stat label="Turnos" value={totals.count} />
+        <Stat label="Monto total" value={formatMoney(totals.amount)} />
+        <Stat label="Pendiente facturar" value={formatMoney(totals.pendingAmount)} variant="warn" />
+      </StatGrid>
 
-      <FilterBar>
+      <div className="flex flex-wrap items-center gap-3 p-3 rounded-ds-md bg-ds-surface-1 border border-ds-border-default">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -668,13 +669,13 @@ export function OpsRefuerzosClient({
           />
           Pendientes de facturar
         </label>
-      </FilterBar>
+      </div>
 
       <Card>
         <CardContent className="pt-5">
           {filtered.length === 0 ? (
             <EmptyState
-              icon={<Clock3 className="h-8 w-8" />}
+              icon={Clock3}
               title="Sin turnos de refuerzo"
               description="No hay resultados para los filtros seleccionados."
               compact
@@ -705,16 +706,12 @@ export function OpsRefuerzosClient({
                     )}
                   </div>
                   <div className="flex items-center gap-2">
-                    <StatusBadge status={item.status} />
+                    <StatusTag status={item.status} />
                     {item.status === "pendiente_aprobacion" && item.ticket && (
-                      <span className="inline-flex items-center rounded-full border border-yellow-300 bg-yellow-50 px-2 py-0.5 text-xs font-medium text-yellow-700">
-                        Pendiente aprobación
-                      </span>
+                      <Tag variant="warn" size="sm">Pendiente aprobación</Tag>
                     )}
                     {item.status === "rechazado" && (
-                      <span className="inline-flex items-center rounded-full border border-red-300 bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">
-                        Rechazado
-                      </span>
+                      <Tag variant="danger" size="sm">Rechazado</Tag>
                     )}
                     {canManageRefuerzos && item.status === "solicitado" && (
                       <Button
@@ -859,7 +856,7 @@ export function OpsRefuerzosClient({
                     <p className="mt-1 text-xs text-muted-foreground">
                       CLP calculado: {computedEditRateClp ? formatMoney(Number(computedEditRateClp)) : "$0"}
                     </p>
-                    <p className={`text-xs ${editUtilityAmount >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                    <p className={`text-xs ${editUtilityAmount >= 0 ? "text-status-ok-fg" : "text-status-danger-fg"}`}>
                       Utilidad sobre venta: {formatMoney(editUtilityAmount)}
                       {editUtilityMargin !== null
                         ? ` (${editUtilityMargin.toLocaleString("es-CL", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%)`
@@ -894,13 +891,13 @@ export function OpsRefuerzosClient({
                       </a>
                       {" · "}
                       {selectedItem.ticket.approvalStatus === "approved" && (
-                        <span className="text-emerald-600 font-medium">Aprobado</span>
+                        <span className="text-status-ok-fg font-medium">Aprobado</span>
                       )}
                       {selectedItem.ticket.approvalStatus === "rejected" && (
-                        <span className="text-red-600 font-medium">Rechazado</span>
+                        <span className="text-status-danger-fg font-medium">Rechazado</span>
                       )}
                       {selectedItem.ticket.approvalStatus === "pending" && (
-                        <span className="text-yellow-600 font-medium">Pendiente de aprobación</span>
+                        <span className="text-status-warn-fg font-medium">Pendiente de aprobación</span>
                       )}
                       {!selectedItem.ticket.approvalStatus && (
                         <span className="text-muted-foreground">Estado: {selectedItem.ticket.status}</span>
@@ -980,7 +977,7 @@ export function OpsRefuerzosClient({
                   disabled={!createForm.installationId || puestosLoading}
                   onChange={(id) => setCreateForm((f) => ({ ...f, puestoId: id }))}
                 />
-                {puestosLoading ? <LoadingSpinner size="sm" /> : null}
+                {puestosLoading ? <Spinner size="sm" /> : null}
               </div>
             </div>
             <div>
@@ -1087,7 +1084,7 @@ export function OpsRefuerzosClient({
                     CLP calculado: {displayedRateClp ? `$${displayedRateClp}` : "$0"}
                     {ufValue ? ` · UF hoy: ${ufValue.toLocaleString("es-CL", { maximumFractionDigits: 2 })}` : ""}
                   </p>
-                  <p className={`text-xs ${utilityAmount >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                  <p className={`text-xs ${utilityAmount >= 0 ? "text-status-ok-fg" : "text-status-danger-fg"}`}>
                     Utilidad sobre venta: {formatMoney(utilityAmount)}
                     {utilityMargin !== null
                       ? ` (${utilityMargin.toLocaleString("es-CL", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%)`

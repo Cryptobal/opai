@@ -30,10 +30,10 @@ function slaCountdown(
   const diff = new Date(dueAt).getTime() - Date.now()
   const hours = Math.floor(diff / (3600 * 1000))
   const minutes = Math.floor((diff % (3600 * 1000)) / (60 * 1000))
-  if (diff < 0) return { text: `Vencido hace ${Math.abs(hours)}h`, color: 'text-red-400' }
-  if (hours < 2) return { text: `Vence en ${hours}h ${minutes}m`, color: 'text-red-400' }
-  if (hours < 24) return { text: `Vence en ${hours}h`, color: 'text-amber-400' }
-  return { text: `Vence en ${Math.floor(hours / 24)}d`, color: 'text-emerald-400' }
+  if (diff < 0) return { text: `Vencido hace ${Math.abs(hours)}h`, color: 'text-status-danger-fg' }
+  if (hours < 2) return { text: `Vence en ${hours}h ${minutes}m`, color: 'text-status-danger-fg' }
+  if (hours < 24) return { text: `Vence en ${hours}h`, color: 'text-status-warn-fg' }
+  return { text: `Vence en ${Math.floor(hours / 24)}d`, color: 'text-status-ok-fg' }
 }
 
 interface TicketComment {
@@ -78,15 +78,15 @@ const STATUS_FILTERS = [
 ]
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
-  open: { label: 'Abierto', color: 'text-blue-400 bg-blue-500/10' },
-  in_progress: { label: 'En proceso', color: 'text-amber-400 bg-amber-500/10' },
-  resolved: { label: 'Resuelto', color: 'text-emerald-400 bg-emerald-500/10' },
+  open: { label: 'Abierto', color: 'text-status-info-fg bg-status-info-soft' },
+  in_progress: { label: 'En proceso', color: 'text-status-warn-fg bg-status-warn-soft' },
+  resolved: { label: 'Resuelto', color: 'text-status-ok-fg bg-status-ok-soft' },
   closed: { label: 'Cerrado', color: 'text-zinc-500 bg-zinc-800' },
 }
 
 const PRIORITY_CONFIG: Record<string, { label: string; color: string }> = {
-  p1: { label: 'P1', color: 'text-red-400 bg-red-500/10 border-red-500/20' },
-  p2: { label: 'P2', color: 'text-orange-400 bg-orange-500/10 border-orange-500/20' },
+  p1: { label: 'P1', color: 'text-status-danger-fg bg-status-danger-soft border-status-danger-border' },
+  p2: { label: 'P2', color: 'text-status-warn-fg bg-status-warn-soft border-status-warn-border' },
   p3: { label: 'P3', color: 'text-zinc-400 bg-zinc-700/50 border-zinc-600/20' },
   p4: { label: 'P4', color: 'text-zinc-500 bg-zinc-800 border-zinc-700/20' },
 }
@@ -362,7 +362,7 @@ export function PortalTickets({ session, selectedInstallation, isProspect }: Pro
                   uploadingComment ||
                   (!newComment.trim() && commentAttachments.length === 0)
                 }
-                className="h-10 w-10 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-40 flex items-center justify-center transition-colors"
+                className="h-10 w-10 rounded-lg bg-status-info hover:bg-status-info disabled:opacity-40 flex items-center justify-center transition-colors"
               >
                 {submittingComment ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -383,7 +383,7 @@ export function PortalTickets({ session, selectedInstallation, isProspect }: Pro
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-white font-semibold text-lg flex items-center gap-2">
-          <Ticket className="h-5 w-5 text-blue-400" />
+          <Ticket className="h-5 w-5 text-status-info-fg" />
           Tickets de Soporte
         </h2>
         <ExportButton
@@ -446,7 +446,7 @@ export function PortalTickets({ session, selectedInstallation, isProspect }: Pro
             className={cn(
               'flex-1 min-w-fit px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap',
               activeStatus === f.value
-                ? 'bg-blue-600 text-white shadow-sm'
+                ? 'bg-status-info text-white shadow-sm'
                 : 'text-zinc-400 hover:text-zinc-200'
             )}
           >
@@ -515,7 +515,7 @@ export function PortalTickets({ session, selectedInstallation, isProspect }: Pro
       {/* FAB */}
       <button
         onClick={() => setShowCreate(true)}
-        className="fixed bottom-20 right-4 z-40 h-14 w-14 rounded-full bg-blue-600 hover:bg-blue-500 shadow-lg shadow-blue-900/40 flex items-center justify-center transition-all active:scale-95"
+        className="fixed bottom-20 right-4 z-40 h-14 w-14 rounded-full bg-status-info hover:bg-status-info shadow-lg shadow-blue-900/40 flex items-center justify-center transition-all active:scale-95"
         aria-label="Nuevo ticket"
       >
         <Plus className="h-6 w-6 text-white" />

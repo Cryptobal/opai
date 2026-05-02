@@ -6,7 +6,8 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/opai";
+import { PageHero } from "@/components/opai-ds";
+import { FileText } from "lucide-react";
 import { CrmCotizacionesClient } from "@/components/crm/CrmCotizacionesClient";
 import { CpqIndicators } from "@/components/cpq/CpqIndicators";
 import { computeCpqQuoteCosts } from "@/modules/cpq/costing/compute-quote-costs";
@@ -169,9 +170,13 @@ export default async function CrmCotizacionesPage() {
 
   return (
     <>
-      <PageHeader
+      <PageHero
+        icon={<FileText />}
+        iconTone="violet"
+        eyebrow={["Comercial", "Cotizaciones"]}
         title="Cotizaciones"
-        description="Cotizaciones CPQ vinculadas al CRM"
+        subtitle="CPQ vinculadas al CRM"
+        description="Cotizaciones generadas por el motor CPQ. Cada cotización está vinculada a una cuenta, deal y contacto del pipeline comercial."
         actions={<CpqIndicators />}
       />
       <CrmCotizacionesClient quotes={initialQuotes} accounts={initialAccounts} ufValue={ufValue} />

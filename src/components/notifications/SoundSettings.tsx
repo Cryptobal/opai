@@ -61,7 +61,7 @@ function SoundSelect({
           <Button
             variant="ghost"
             size="sm"
-            className="h-8 w-8 p-0 text-zinc-400 hover:text-teal-400"
+            className="h-8 w-8 p-0 text-zinc-400 hover:text-status-info-fg"
             onClick={() => preview(selected.file)}
             title="Previsualizar sonido"
           >

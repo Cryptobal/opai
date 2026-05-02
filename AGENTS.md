@@ -42,3 +42,386 @@ OPAI Suite is a multi-tenant SaaS platform for security companies (Next.js 15 Ap
 - **Login credentials (seeded)**: `[REDACTED]` / `GardSecurity2026!` (owner role).
 - **Sentry (errores)**: Opcional. Definir `NEXT_PUBLIC_SENTRY_DSN` en `.env.local` (y en Vercel) para enviar errores a Sentry. Ver `.env.example` para `SENTRY_ORG`/`SENTRY_PROJECT`/`SENTRY_AUTH_TOKEN` (source maps).
 - **Connection pool (producción)**: En Vercel, `DATABASE_URL` debe incluir `connection_limit=5&pool_timeout=20` en la query string para evitar "Timed out fetching a new connection" (500). Ver `.env.example`.
+
+---
+
+## DESIGN SYSTEM RULES — DO NOT BREAK
+
+> **Esta sección es ley para Cursor / Claude Code / cualquier agente.**
+> El módulo Inventario es la referencia visual. Migrar a este patrón es obligatorio para cada módulo.
+
+### 1. Solo se permiten primitives de `@/components/opai-ds`
+
+```ts
+import {
+  Surface, SectionHeader, PageHero,
+  Stat, StatGrid, Tag, StatusDot, IconBubble,
+  EmptyState, Spinner, Skeleton, MetricBar,
+  Toolbar, DataTable,
+} from "@/components/opai-ds";
+```
+
+**No usar nunca para código nuevo:**
+
+- `OpaiSurface`, `OpaiPageHero`, `OpaiSectionHeader` (legacy, en proceso de retiro).
+- `KpiCard`, `Pill`, `Bar` de `@/components/opai/conocimiento/_primitives` (dark-only, exclusivos del módulo Conocimiento).
+- Clases CSS `card-mock`, `pill-mock`, `bar-mock` (dark-only).
+
+### 2. Solo tokens semánticos para color
+
+| ❌ NO usar                       | ✅ Sí usar                              |
+|--------------------------------|--------------------------------------|
+| `text-emerald-400`              | `text-status-ok-fg`                   |
+| `text-amber-400`                | `text-status-warn-fg`                 |
+| `text-red-500`                  | `text-status-danger-fg`               |
+| `text-blue-400`                 | `text-status-info-fg` o `text-primary` |
+| `bg-emerald-500/10`             | `bg-status-ok-soft`                   |
+| `bg-amber-500/10`               | `bg-status-warn-soft`                 |
+| `bg-red-500/10`                 | `bg-status-danger-soft`               |
+| `border-emerald-500/30`         | `border-status-ok-border`             |
+| `border-amber-500/30`           | `border-status-warn-border`           |
+| `border-red-500/30`             | `border-status-danger-border`         |
+| `text-white/40`, `text-white/50` | `text-ds-text-3` o `text-ds-text-4`   |
+| `bg-white/05`, `bg-white/10`    | `bg-ds-surface-1/2/3` según elevación |
+| `text-foreground/70`            | `text-ds-text-2`                      |
+| `text-muted-foreground/70`      | `text-ds-text-3`                      |
+| `text-muted-foreground`         | `text-ds-text-3`                      |
+| `bg-foreground/[0.03]`          | `bg-ds-surface-2`                     |
+| `border-foreground/[0.06]`      | `border-ds-border-subtle`             |
+| `border-border`                 | `border-ds-border-default`            |
+
+### 3. Tipografía mínima legible
+
+- **Prohibido:** `text-[10px]`, `text-[11px]`. (No legible en mobile.)
+- **Mínimo permitido:** `text-[12px]` (font-mono / metadata) y `text-[13px]` (body).
+- Para títulos usar `font-display` (Outfit Variable). NO usar `font-display` con Exo 2 directamente, esa variante es solo de marketing.
+
+### 4. Touch targets en mobile ≥ 44px
+
+```tsx
+// ❌ NO
+<Input className="h-9" />
+<SelectTrigger className="h-8" />
+
+// ✅ Sí — 44px mobile, 36px desktop
+<Input className="h-10 sm:h-9" />
+<SelectTrigger className="h-10 sm:h-9" />
+```
+
+### 5. Light + Dark obligatorio
+
+Cada componente nuevo debe verse impecable en ambos. Probar con `<html class="dark">` antes de hacer PR. La playground en `/opai-ds-playground` tiene un toggle Light/Dark integrado.
+
+### 6. Mobile-first real
+
+Diseñar primero para 375px. Tablas mobile = lista de `<Surface>` apiladas (`sm:hidden`). Tabla desktop = `<DataTable>` (`hidden sm:block`).
+
+### 7. Animaciones de entrada
+
+Cualquier página o sección con datos cargados usa el wrapper:
+
+```tsx
+<div className="ds-page-enter">  // staggered fade-up para hijos directos
+  ...
+</div>
+
+// y para listas dentro:
+<ul className="ds-list-cascade">
+  ...
+</ul>
+```
+
+### 8. KPIs con count-up
+
+```tsx
+<Stat label="Productos" value={1247} animate icon={Package} />
+```
+
+### 9. Iconos NUNCA planos
+
+Para iconos en list-rows, dialog headers o empty states, usar `IconBubble`:
+
+```tsx
+<IconBubble icon={UserRoundCheck} variant="ok" size="md" />
+```
+
+Variantes válidas: `brand | neutral | ok | warn | danger | info`. **Nunca arcoíris.** Solo dar color cuando aporta semántica real.
+
+### 10. Validación automática
+
+```bash
+npm run check-ds          # corre el guard sobre todo el repo
+npm run check-ds:warn     # mismo, pero nunca falla (útil para inspección)
+```
+
+El pre-commit hook (`.husky/pre-commit`) corre `check-design-system.mjs` automáticamente y bloquea commits con drift en módulos ya migrados.
+
+### DS Migration Status
+
+Estado actual de la migración. Cuando termina cada módulo, agregarlo a `MIGRATED_PATHS` en `scripts/check-design-system.mjs` y marcarlo aquí:
+
+| Módulo              | Estado      | Path principal                                                |
+|---------------------|-------------|---------------------------------------------------------------|
+| Inventario          | ✅ Migrado  | `src/components/inventario/`, `src/app/(app)/ops/inventario/` |
+| Conocimiento        | ✅ Migrado  | `src/components/opai/conocimiento/`, `src/app/(app)/personas/conocimiento/` |
+| Portal Cliente (parcial) | 🟡 Parcial — Conocimiento del equipo migrado; otras vistas pendientes | `src/components/portal/cliente/PortalConocimientoEquipo.tsx`, `PortalProtocolos.tsx` |
+| `@/components/opai` consolidación 4A | 🟡 KpiCard/KpiGrid eliminados — call sites migrados a `Stat`/`StatGrid` en 23 archivos (ops, finance, supervision, payroll, crm, cpq, admin, hub, gamification, portal). Resto del file aún tiene drift, no se agrega a MIGRATED_PATHS hasta migración completa. | (transversal, ver mapping abajo) |
+| Personas            | ⏳ Pendiente | `src/components/personas/`                                    |
+| ATS                 | ⏳ Pendiente | `src/components/ats/`                                         |
+| CRM                 | ⏳ Pendiente | `src/components/crm/`                                         |
+| Documentos          | ⏳ Pendiente | `src/components/docs/`, `src/components/opai/Documentos*`     |
+| Hub / Configuración | ⏳ Pendiente | `src/app/(app)/hub/`, `src/app/(app)/configuracion/`          |
+
+### Cluster 5 — Migración visual al DS v3 (hero pattern)
+
+Después del cluster 4 (consolidación de primitives), el cluster 5
+aplica el hero pattern (`<PageHero icon iconTone eyebrow title subtitle
+description />`) módulo por módulo, sub-módulo por sub-módulo.
+
+#### Asignación de tonos por módulo (consistencia visual)
+
+| Módulo | iconTone | Descripción |
+|---|---|---|
+| Operaciones / Inventario | `emerald` | Verde, ya en uso |
+| Comercial / CRM | `violet` | Violeta — pipeline comercial |
+| Personas | `sky` | Celeste — talento |
+| Payroll | `amber` | Ámbar — finanzas operativas |
+| Finanzas | `teal` | Teal — finanzas estratégicas |
+| Documentos | `rose` | Rosa — gestión documental |
+
+> Estos tonos se asignan UNA vez aquí y se respetan en todo el cluster 5.
+> Si una sub-fase necesita reasignar, abrir issue antes.
+
+#### 5A — Comercial ✅ COMPLETO
+
+- ✅ 5A.1 — Dashboard CRM + Leads list
+- ✅ 5A.2 — EntityDetailLayout + Cuentas
+- ✅ 5A.3 — Contactos
+- ✅ 5A.4 — Negocios
+- ✅ 5A.5 — Cotizaciones (lista + EmptyState cleanup en CpqQuoteDetail)
+- ✅ 5A.6 — Patrón tipográfico unificado en 5 fichas detalle
+- ✅ 5A.7.a — Instalaciones lista granular
+- ✅ 5A.7.b — Instalación detail granular
+- ✅ 5A.8 — Apollo Prospección
+
+**Cluster 5A cerrado.** El módulo Comercial completo está alineado al DS v3:
+- Headers con `<PageHero>` (iconTone violet).
+- Tipografía unificada (`text-xs uppercase tracking-wide` para labels, `font-display` en títulos).
+- Status badges con `<Tag variant>` (tokens semánticos light/dark).
+- Icon containers con `<IconBubble>` (tokens semánticos).
+- Banners con `status-ok-*`, `status-warn-*`, `status-info-*`, `status-danger-*`.
+- 0 hex hardcoded en archivos migrados.
+- 0 EmptyState legacy en archivos migrados.
+
+Próximo cluster: **5B — Operaciones** (Pautas, Instalaciones, Supervisión, Tickets, Rondas, ATS, Inventario ya migrado).
+
+### Escape hatch (uso restringido)
+
+Si un archivo *necesita* legítimamente romper una regla (ej: integración con librería externa que requiere clase específica), agregar como **primera línea**:
+
+```tsx
+// @ds-allow-legacy razón corta aquí
+```
+
+El guard saltará ese archivo. **Cada uso queda visible** con `git grep "@ds-allow-legacy"` y debe justificarse en code review.
+
+### Zona "DS source of truth"
+
+Los archivos en `src/components/opai-ds/` listados en `DS_SOURCE_PATHS`
+(en `scripts/check-design-system.mjs`) son la **fuente de verdad** del
+sistema. Ahí se *definen* los patrones visuales que el resto del código
+consume. Por eso esos archivos tienen permitido:
+
+- Usar `text-[11px]` sin las 3 marcas eyebrow (ej. `MetricBar` muestra
+  un valor numérico con `font-mono` solo, `Tag` size sm tiene
+  `text-[11px]` por diseño).
+
+Sigue prohibido en esa zona, sin excepción:
+- `text-[10px]`
+- Colores hardcoded (emerald/amber/red/blue Tailwind).
+- Patrones dark-only (`text-white/N`, `bg-white/N`).
+- Clases legacy (`card-mock`, `pill-mock`, `bar-mock`).
+
+Si se agrega un componente nuevo a `opai-ds/`, hay que agregarlo también
+a `DS_SOURCE_PATHS` para que se beneficie de esta zona.
+
+### Comentarios y JSDoc
+
+El guard ignora matches dentro de comentarios `//`, `/* */` y JSDoc
+`/** */`. Por eso es seguro mencionar clases legacy o tokens
+hardcoded en documentación inline (ej: "este componente reemplaza
+al viejo `card-mock`"). Los comentarios sirven precisamente para
+documentar la migración.
+
+### Legacy classes — eliminadas
+
+Las siguientes clases CSS fueron eliminadas de `globals.css` cuando todos
+los módulos que las usaban se migraron a `opai-ds`:
+
+- `.card-mock`, `.card-mock-tight` → reemplazadas por `<Surface elevation={1} padding="md|sm">`
+- `.bar-mock` → reemplazada por `<MetricBar value={...} threshold="..."/>`
+- `.pill-mock` → reemplazada por `<Tag variant="..." size="sm">`
+- `.tap-mock` → reemplazada por la utility `ds-tap` o por `<Surface tappable>`
+- `.blob-mock` → eliminada sin reemplazo
+- `.badge-dot` → reemplazada por `<StatusDot kind="..."/>`
+- `.hm-cell` → reemplazada por `<HeatGrid>`
+- `.num-tabular` → reemplazada por `ds-num`
+
+Las clases `.grain-overlay` y `.scrollbar-none` siguen definidas:
+`.grain-overlay` aún la usa `OpaiPageHero` legacy (se elimina en la
+sesión de cleanup final); `.scrollbar-none` es una utility genérica
+con consumidores fuera del flow de Conocimiento.
+
+Si alguien las invoca por error, el guard las detecta como
+`no-card-mock`, `no-pill-mock`, `no-bar-mock`. Las reglas siguen
+activas como red de seguridad incluso después de la eliminación.
+
+### Legacy primitives — eliminados
+
+`src/components/opai/conocimiento/_primitives.tsx` fue eliminado. Sus
+exports están reemplazados:
+
+| Antes (`_primitives`) | Ahora (`opai-ds`) |
+|---|---|
+| `<KpiCard>` | `<Stat>` |
+| `<CompactKpi>` | `<Stat>` (con valor más pequeño) |
+| `<Pill>` | `<Tag size="sm">` |
+| `<Bar>` | `<MetricBar>` |
+| `<StatusDot threshold>` | `<StatusDot kind>` |
+| `<HeatmapCell>` | `<HeatGrid>` (cell rendering interno) |
+| `<GuardAvatar>` | `<Avatar variant>` |
+| `<Blob>` | (eliminado, era decorativo) |
+| `thresholdFromScore`, `Threshold` | exportadas por `@/components/opai-ds` |
+| `thresholdText`, `thresholdFill`, `thresholdBorderLeft` | (eliminados, lógica interna del DS) |
+
+### Componentes legacy de `@/components/opai` — en migración
+
+`@/components/opai` es la versión "intermedia" del DS (post-shadcn,
+pre-DS v3). Se está consolidando hacia `@/components/opai-ds`. Después
+de los pasos 4A-4E, `@/components/opai` queda con un set mínimo
+(AppShell, AppSidebar, ThemeProvider, etc. — utilitarios de layout).
+
+Status:
+
+| Legacy en `@/components/opai` | Reemplazo en `@/components/opai-ds` | Status |
+|---|---|---|
+| `KpiCard` | `Stat` | ✅ Eliminado en 4A |
+| `KpiGrid` | `StatGrid` | ✅ Eliminado en 4A |
+| `EmptyState` | `EmptyState` (DS v3) | 🟡 Call sites CC migrados (22) en PR 4B + 3 pages en 4C2; archivo legacy aún consumido por ~27 archivos vía direct-path imports |
+| `DataTable` | `DataTable` (DS v3) | 🟡 13 CC migrados en PR 4C + 3 pages (auditoria/audit-pautas/payroll) en 4C2; ~7 archivos restantes vía direct-path |
+| `Avatar` | `Avatar` (DS v3, ahora con `photoUrl` + `name`) | ✅ Eliminado en 4D |
+| `Breadcrumb` | `Breadcrumbs` (DS v3) | ✅ Eliminado en 4D |
+| `LoadingSpinner` | `Spinner` (DS v3) | ✅ Eliminado en 4D |
+| `StatusBadge` | `StatusTag` (wrapper local sobre `Tag` DS v3) | ✅ Eliminado en 4D |
+| `FilterBar` | inline `<div>` con tokens DS (Toolbar es estructurado, no children-based) | ✅ Eliminado en 4D |
+| `ModuleCard` | inline con `Surface` (DS v3) | ✅ Eliminado en 4D |
+| `Stepper` | (sin uso) | ✅ Eliminado en 4D |
+| `FormField` | (sin uso) | ✅ Eliminado en 4D |
+| `LoadingState` | (sin reemplazo directo, usado solo internamente por DataTable legacy) | 🟡 deletion bloqueada — ~6 archivos en gamification/portal lo importan directo |
+| `SubNav` | `SubNav` (DS v3, mismo archivo movido) | ✅ Movido a opai-ds en 4D2 |
+| `PageHeader` | `PageHeader` (DS v3, mismo archivo movido) | ✅ Movido a opai-ds en 4D2 |
+| `OpaiSurface`, `OpaiPageHero`, `OpaiSectionHeader` | (eliminar, ya nadie los usa) | ⏳ 4E |
+| `SubNav` | (a evaluar) | ⏳ 4D2 |
+| `PageHeader` | (mover a opai-ds, no migrar) | ⏳ 4D2 (80 imports) |
+| `OpaiSurface`, `OpaiPageHero`, `OpaiSectionHeader` | (eliminados, sin consumers) | ✅ Eliminado en 4E |
+
+### Estado de `@/components/opai` post 4D2
+
+Después de 4D2, `@/components/opai/index.ts` exporta solo:
+- `AppShell`, `AppSidebar`, `AppLayoutClient` (layout)
+- `ThemeProvider`, `ThemeToggle`, `ThemeLogo` (theming)
+- `DataTable`, `EmptyState`, `LoadingState` (legacy bloqueado por 4C2 —
+  esos 3 archivos siguen en `@/components/opai/` hasta que las 3 pages SC
+  pendientes se refactoreen a SC+CC wrapper)
+
+### Estado de `@/components/opai` post 4C2
+
+Tras 4C2 las 3 pages que importaban DataTable/EmptyState/LoadingState
+desde el barrel `@/components/opai` quedaron migradas:
+
+- `src/app/(app)/opai/configuracion/auditoria/page.tsx` (SC + nuevo
+  `<AuditLogsTable>` CC en `src/components/audit/`)
+- `src/app/(app)/ops/audit-pautas/page.tsx` (SC + nuevo
+  `<PautasAuditTable>` CC en `src/components/audit/`, exporta
+  `formatAction`/`formatEntity` que la SC consume para el `<select>`)
+- `src/app/(app)/payroll/parameters/page.tsx` (CC standalone, migración
+  mecánica de la API legacy a DS v3)
+
+**La deletion final de `DataTable.tsx`/`EmptyState.tsx`/`LoadingState.tsx`
+NO se ejecutó** — se descubrió que ~27 archivos adicionales aún los
+importan via direct-path (`from "@/components/opai/DataTable"` etc.), no
+via el barrel. La regla 6.1 del plan exigía 0 matches en ambos greps
+para borrar; el grep de direct-path tenía 27 matches. La consolidación
+real cierra cuando se migren esos archivos en sesiones follow-up:
+
+- `src/components/crm/` (≈12 archivos, mayormente EmptyState)
+- `src/components/gamification/` (≈7 archivos, mix de DataTable/EmptyState/LoadingState)
+- `src/components/portal/` y `src/components/portal/cliente/` (3 archivos)
+- `src/components/cpq/CpqQuoteDetail.tsx`
+- `src/components/ops/guardia-sections/` (2 archivos con DataTable)
+- `src/app/(app)/opai/configuracion/gamificacion/GamificacionConfigClient.tsx`
+
+Cuando todos esos call sites se migren, los 3 legacy components se
+pueden borrar y quitar del barrel `index.ts`.
+
+### Cuándo crear un nuevo primitive en `opai-ds/`
+
+Si necesitas un componente que no existe en `/opai-ds-playground`, **proponerlo como primitive** antes de implementarlo inline. Criterio:
+
+- Si lo vas a usar en ≥ 2 lugares → primitive en `opai-ds/`.
+- Si es algo único de un módulo → componente local OK, pero compuesto SOLO con primitives de `opai-ds`.
+
+## Cluster 5B.0 — Barrida global de tokens semánticos ✅
+
+**Sub-fase de barrida automatizada** que migró ~5.900 hex hardcoded a tokens semánticos del DS v3 en una sola pasada.
+
+### Tokens canónicos (post 5B.0)
+
+Texto:
+- Verde/OK (`emerald-*`, `green-*`) → `text-status-ok-fg`
+- Ámbar/WARN (`amber-*`, `yellow-*`, `orange-*`) → `text-status-warn-fg`
+- Rojo/DANGER (`red-*`, `rose-*`) → `text-status-danger-fg`
+- Azul/INFO (`blue-*`, `sky-*`, `indigo-*`, `cyan-*`, `teal-*`) → `text-status-info-fg`
+
+Backgrounds soft (con opacidad 5/10/15/20/25):
+- → `bg-status-{ok|warn|danger|info}-soft`
+
+Borders soft (con opacidad 20/30/40/50):
+- → `border-status-{ok|warn|danger|info}-border`
+
+Bg solid (sin opacidad — para dots/chips):
+- → `bg-status-{ok|warn|danger|info}`
+
+### Exclusiones
+
+- `src/components/presentation/**` (PDFs comerciales)
+- `src/components/emails/**`, `src/lib/emails/**`
+- `src/app/login/**`, `src/app/(auth)/**`
+- Archivos con marker `@ds-allow-legacy`
+
+### Drift residual
+
+Casos edge que NO se automatizaron (hover, focus, gradientes, props de charts, combinaciones con `dark:`, opacidades 400/X) se manejan caso por caso en sub-fases granulares posteriores.
+
+### Script
+
+`scripts/sweep-color-tokens.mjs` — disponible para futuros sweeps si se introduce drift accidentalmente.
+
+### 5B.2 — Rondas ✅ COMPLETO
+
+- ✅ 5B.2.a — Dashboard + Centro IA (pages + RondasDashboardGlobal)
+- ✅ 5B.2.b.1 — Monitoreo Grid + componentes compartidos
+- ✅ 5B.2.b.2 — Monitoreo paneles + modales + mobile
+- ✅ 5B.2.c — Reportes + Alertas + Configuración
+
+**Cluster 5B.2 cerrado.** Todo el módulo Rondas alineado al DS v3:
+- Headers con `<PageHero>` (iconTone emerald).
+- Tipos de ronda (Libre/Programada) → tints DS v3.
+- Heat map de compliance simplificado (5 niveles status-*).
+- StatusBadge compartido con tokens semánticos.
+- Trust score gradients consistentes en todos los componentes.
+- Categorías especiales (EXTRA, audio, asignado, speed, select, CP omitido)
+  → tints DS v3.
+- PanicAlertBanner preservado con marker @ds-allow-legacy (alarma operativa).
+
+Próximo cluster: 5B.3 (Tickets) — ~3-4 h.

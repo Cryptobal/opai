@@ -2,7 +2,8 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/opai";
+import { PageHero } from "@/components/opai-ds";
+import { CheckCircle2 } from "lucide-react";
 import { TeSubnav, TeTurnosClient } from "@/components/ops";
 
 export default async function TeAprobacionesPage() {
@@ -37,8 +38,12 @@ export default async function TeAprobacionesPage() {
 
   return (
     <div className="space-y-6 min-w-0">
-      <PageHeader
-        title="TE · Aprobaciones RRHH"
+      <PageHero
+        icon={<CheckCircle2 />}
+        iconTone="amber"
+        eyebrow={["Turnos Extras", "Aprobaciones"]}
+        title="Aprobaciones RRHH"
+        subtitle="validación final"
         description="Aprueba o rechaza turnos extra pendientes."
       />
       <TeSubnav />

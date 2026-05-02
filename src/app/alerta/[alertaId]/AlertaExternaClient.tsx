@@ -82,7 +82,7 @@ export function AlertaExternaClient({
       <Layout>
         <div className="text-center space-y-4">
           <div className="text-5xl">✅</div>
-          <h1 className="text-2xl font-bold text-emerald-400">¡Turno Aceptado!</h1>
+          <h1 className="text-2xl font-bold text-status-ok-fg">¡Turno Aceptado!</h1>
           <p className="text-zinc-300">
             El supervisor ha sido notificado. Te contactará para confirmar los detalles.
           </p>
@@ -98,7 +98,7 @@ export function AlertaExternaClient({
       <Layout>
         <div className="text-center space-y-4">
           <div className="text-5xl">🤝</div>
-          <h1 className="text-xl font-bold text-amber-400">Este puesto ya fue aceptado</h1>
+          <h1 className="text-xl font-bold text-status-warn-fg">Este puesto ya fue aceptado</h1>
           <p className="text-zinc-300">
             Otro guardia se adelantó. ¡Gracias por tu amable disposición!
           </p>
@@ -128,7 +128,7 @@ export function AlertaExternaClient({
       <Layout>
         <div className="text-center space-y-4">
           <div className="text-5xl">❌</div>
-          <h1 className="text-xl font-bold text-red-400">Error al procesar</h1>
+          <h1 className="text-xl font-bold text-status-danger-fg">Error al procesar</h1>
           <p className="text-zinc-300">
             Hubo un error al aceptar el turno. Intenta nuevamente.
           </p>
@@ -149,7 +149,7 @@ export function AlertaExternaClient({
       <div className="space-y-6">
         {alerta.urgencia === "URGENTE" && (
           <div className="text-center">
-            <span className="inline-block px-3 py-1 rounded-full bg-red-500/20 text-red-400 text-xs font-semibold animate-pulse border border-red-500/30">
+            <span className="inline-block px-3 py-1 rounded-full bg-status-danger-soft text-status-danger-fg text-xs font-semibold animate-pulse border border-status-danger-border">
               🚨 URGENTE
             </span>
           </div>
@@ -170,7 +170,7 @@ export function AlertaExternaClient({
         <button
           onClick={handleAceptar}
           disabled={loading}
-          className="w-full py-4 rounded-xl bg-emerald-600 text-white font-semibold text-lg hover:bg-emerald-500 active:bg-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full py-4 rounded-xl bg-status-ok text-white font-semibold text-lg hover:brightness-110 active:brightness-95 transition disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? (
             <span className="flex items-center justify-center gap-2">
@@ -240,7 +240,7 @@ function InfoCard({
 
       <div>
         <p className="text-xs text-zinc-500 uppercase tracking-wider">Pago</p>
-        <p className="text-2xl font-bold text-emerald-400">{monto}</p>
+        <p className="text-2xl font-bold text-status-ok-fg">{monto}</p>
       </div>
     </div>
   );

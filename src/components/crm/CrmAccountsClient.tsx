@@ -20,7 +20,7 @@ import Link from "next/link";
 import { Loader2, Plus, ChevronRight, Globe, MessageSquare, GitMerge } from "lucide-react";
 import { DuplicateAccountModal } from "./DuplicateAccountModal";
 import { CRM_MODULES } from "./CrmModuleIcons";
-import { EmptyState } from "@/components/opai/EmptyState";
+import { EmptyState } from "@/components/opai-ds";
 import { CrmDates } from "@/components/crm/CrmDates";
 import { CrmToolbar } from "./CrmToolbar";
 import type { ViewMode } from "@/components/shared/ViewToggle";
@@ -353,7 +353,7 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
         <CardContent className="pt-5">
           {filteredAccounts.length === 0 ? (
             <EmptyState
-              icon={<CRM_MODULES.accounts.icon className="h-8 w-8" />}
+              icon={CRM_MODULES.accounts.icon}
               title="Sin cuentas"
               description={
                 search || typeFilter !== "all"

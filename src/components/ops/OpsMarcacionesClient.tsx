@@ -26,7 +26,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
-import { KpiCard, KpiGrid } from "@/components/opai";
+import { Stat, StatGrid } from "@/components/opai-ds";
 
 // ─── Tipos ───
 
@@ -363,16 +363,16 @@ export function OpsMarcacionesClient({ initialClients }: OpsMarcacionesClientPro
       </div>
 
       {/* -- Dashboard resumen -- */}
-      <KpiGrid columns={4}>
-        <KpiCard title="Marcaciones hoy" value={stats.totalHoy} variant="blue" />
-        <KpiCard title="Entradas hoy" value={stats.entradasHoy} variant="emerald" />
-        <KpiCard title="Salidas hoy" value={stats.salidasHoy} variant="amber" />
-        <KpiCard
-          title="Fuera de radio"
+      <StatGrid lgCols={4}>
+        <Stat label="Marcaciones hoy" value={stats.totalHoy} variant="brand" />
+        <Stat label="Entradas hoy" value={stats.entradasHoy} variant="ok" />
+        <Stat label="Salidas hoy" value={stats.salidasHoy} variant="warn" />
+        <Stat
+          label="Fuera de radio"
           value={stats.fueraRadioHoy}
-          variant={stats.fueraRadioHoy > 0 ? "amber" : "default"}
+          variant={stats.fueraRadioHoy > 0 ? "warn" : "default"}
         />
-      </KpiGrid>
+      </StatGrid>
 
       {/* ── Filtros ── */}
       <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-card p-3">
@@ -468,8 +468,8 @@ export function OpsMarcacionesClient({ initialClients }: OpsMarcacionesClientPro
                         <span
                           className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${
                             m.tipo === "entrada"
-                              ? "bg-emerald-500/15 text-emerald-400"
-                              : "bg-orange-500/15 text-orange-400"
+                              ? "bg-status-ok-soft text-status-ok-fg"
+                              : "bg-status-warn-soft text-status-warn-fg"
                           }`}
                         >
                           {m.tipo === "entrada" ? <LogIn className="h-3 w-3" /> : <LogOut className="h-3 w-3" />}
@@ -507,9 +507,9 @@ export function OpsMarcacionesClient({ initialClients }: OpsMarcacionesClientPro
                       {/* Geo */}
                       <td className="px-3 py-2 text-center">
                         {m.geo.validada ? (
-                          <CheckCircle2 className="h-4 w-4 text-emerald-400 mx-auto" />
+                          <CheckCircle2 className="h-4 w-4 text-status-ok-fg mx-auto" />
                         ) : m.geo.distanciaM != null ? (
-                          <AlertTriangle className="h-4 w-4 text-red-400 mx-auto" />
+                          <AlertTriangle className="h-4 w-4 text-status-danger-fg mx-auto" />
                         ) : (
                           <MapPin className="h-4 w-4 text-muted-foreground mx-auto" />
                         )}

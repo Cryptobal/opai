@@ -6,8 +6,7 @@ import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { EmptyState } from "@/components/opai/EmptyState";
-import { KpiCard } from "@/components/opai";
+import { EmptyState, Stat } from "@/components/opai-ds";
 import { FileText, ChevronRight, Plus, Loader2, MessageSquare, ExternalLink, CalendarClock, Zap } from "lucide-react";
 import { formatCLP, formatNumber, formatUFSuffix } from "@/lib/utils";
 import { clpToUf } from "@/lib/uf-utils";
@@ -49,10 +48,10 @@ type AccountRow = {
 };
 
 const STATUS_MAP: Record<string, { label: string; className: string }> = {
-  draft: { label: "Borrador", className: "border-amber-500/30 text-amber-600 dark:text-amber-400 bg-amber-500/10" },
-  sent: { label: "Enviada", className: "border-blue-500/30 text-blue-600 dark:text-blue-400" },
-  approved: { label: "Aprobada", className: "border-emerald-500/30 text-emerald-600 dark:text-emerald-400" },
-  rejected: { label: "Rechazada", className: "border-red-500/30 text-red-600 dark:text-red-400" },
+  draft: { label: "Borrador", className: "border-status-warn-border text-status-warn-fg dark:text-status-warn-fg bg-status-warn-soft" },
+  sent: { label: "Enviada", className: "border-status-info-border text-status-info-fg dark:text-status-info-fg" },
+  approved: { label: "Aprobada", className: "border-status-ok-border text-status-ok-fg dark:text-status-ok-fg" },
+  rejected: { label: "Rechazada", className: "border-status-danger-border text-status-danger-fg dark:text-status-danger-fg" },
 };
 
 export function CrmCotizacionesClient({
@@ -142,10 +141,10 @@ export function CrmCotizacionesClient({
     <div className="space-y-4">
       {/* KPI summary */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <KpiCard title="Total" value={String(counts.total)} size="sm" />
-        <KpiCard title="Borradores" value={String(counts.draft)} size="sm" variant="amber" />
-        <KpiCard title="Enviadas" value={String(counts.sent)} size="sm" variant="blue" />
-        <KpiCard title="Aprobadas" value={String(counts.approved)} size="sm" variant="emerald" />
+        <Stat label="Total" value={String(counts.total)} />
+        <Stat label="Borradores" value={String(counts.draft)} variant="warn" />
+        <Stat label="Enviadas" value={String(counts.sent)} variant="brand" />
+        <Stat label="Aprobadas" value={String(counts.approved)} variant="ok" />
       </div>
 
       {/* ── Toolbar ── */}
@@ -180,7 +179,7 @@ export function CrmCotizacionesClient({
         <CardContent className="pt-5">
           {filteredQuotes.length === 0 ? (
             <EmptyState
-              icon={<FileText className="h-8 w-8" />}
+              icon={FileText}
               title="Sin cotizaciones"
               description={
                 search || statusFilter !== "all"
@@ -242,7 +241,7 @@ function QuoteListRow({ quote, ufValue, hasUnreadNotes }: { quote: QuoteRow; ufV
               href={`/crm/leads/${quote.createdFromLeadId}`}
               onClick={(e) => e.stopPropagation()}
             >
-              <Badge variant="outline" className="text-[10px] gap-1 px-1.5 py-0 border-cyan-500/30 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-500/10 transition-colors cursor-pointer">
+              <Badge variant="outline" className="text-[10px] gap-1 px-1.5 py-0 border-status-info-border text-status-info-fg hover:bg-status-info-soft transition-colors cursor-pointer">
                 <Zap className="h-3 w-3" />
                 Desde Lead
               </Badge>
@@ -269,7 +268,7 @@ function QuoteListRow({ quote, ufValue, hasUnreadNotes }: { quote: QuoteRow; ufV
               <Link
                 href={`/crm/deals/${quote.dealId}`}
                 onClick={(e) => e.stopPropagation()}
-                className="text-muted-foreground hover:text-blue-400 hover:underline inline-flex items-center gap-1 transition-colors"
+                className="text-muted-foreground hover:text-status-info-fg hover:underline inline-flex items-center gap-1 transition-colors"
               >
                 {quote.dealTitle}
                 <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -284,7 +283,7 @@ function QuoteListRow({ quote, ufValue, hasUnreadNotes }: { quote: QuoteRow; ufV
             <Link
               href={`/crm/accounts/${quote.accountId}`}
               onClick={(e) => e.stopPropagation()}
-              className="text-teal-500 hover:text-green-400 hover:underline transition-colors"
+              className="text-status-info-fg hover:text-status-ok-fg hover:underline transition-colors"
             >
               {quote.accountName || quote.clientName || "Sin cliente"}
             </Link>
@@ -297,7 +296,7 @@ function QuoteListRow({ quote, ufValue, hasUnreadNotes }: { quote: QuoteRow; ufV
               <Link
                 href={`/crm/contacts/${quote.contactId}`}
                 onClick={(e) => e.stopPropagation()}
-                className="text-sky-500 hover:text-sky-400 hover:underline transition-colors"
+                className="text-status-info-fg hover:text-status-info-fg hover:underline transition-colors"
               >
                 {quote.contactName}
               </Link>
@@ -318,7 +317,7 @@ function QuoteListRow({ quote, ufValue, hasUnreadNotes }: { quote: QuoteRow; ufV
           </div>
           <div className="min-w-0">
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Margen</p>
-            <p className="truncate text-xs font-medium font-mono text-emerald-600 dark:text-emerald-400">
+            <p className="truncate text-xs font-medium font-mono text-status-ok-fg dark:text-status-ok-fg">
               {quote.marginPct != null
                 ? `${formatNumber(quote.marginPct, { minDecimals: 1, maxDecimals: 1 })}%`
                 : "—"}
@@ -340,7 +339,7 @@ function QuoteListRow({ quote, ufValue, hasUnreadNotes }: { quote: QuoteRow; ufV
         </div>
         <div className="text-xs hidden sm:block">
           <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Margen</p>
-          <p className="text-sm font-medium font-mono text-emerald-600 dark:text-emerald-400">
+          <p className="text-sm font-medium font-mono text-status-ok-fg dark:text-status-ok-fg">
             {quote.marginPct != null
               ? `${formatNumber(quote.marginPct, { minDecimals: 1, maxDecimals: 1 })}%`
               : "—"}
@@ -384,7 +383,7 @@ function QuoteCardItem({ quote, ufValue, hasUnreadNotes }: { quote: QuoteRow; uf
               href={`/crm/leads/${quote.createdFromLeadId}`}
               onClick={(e) => e.stopPropagation()}
             >
-              <Badge variant="outline" className="text-[10px] gap-1 px-1.5 py-0 border-cyan-500/30 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-500/10 transition-colors cursor-pointer">
+              <Badge variant="outline" className="text-[10px] gap-1 px-1.5 py-0 border-status-info-border text-status-info-fg hover:bg-status-info-soft transition-colors cursor-pointer">
                 <Zap className="h-3 w-3" />
                 Desde Lead
               </Badge>
@@ -415,7 +414,7 @@ function QuoteCardItem({ quote, ufValue, hasUnreadNotes }: { quote: QuoteRow; uf
             <Link
               href={`/crm/deals/${quote.dealId}`}
               onClick={(e) => e.stopPropagation()}
-              className="text-muted-foreground hover:text-blue-400 hover:underline inline-flex items-center gap-1 transition-colors"
+              className="text-muted-foreground hover:text-status-info-fg hover:underline inline-flex items-center gap-1 transition-colors"
             >
               {quote.dealTitle}
               <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -430,7 +429,7 @@ function QuoteCardItem({ quote, ufValue, hasUnreadNotes }: { quote: QuoteRow; uf
           <Link
             href={`/crm/accounts/${quote.accountId}`}
             onClick={(e) => e.stopPropagation()}
-            className="text-teal-500 hover:text-green-400 hover:underline transition-colors"
+            className="text-status-info-fg hover:text-status-ok-fg hover:underline transition-colors"
           >
             {quote.accountName || quote.clientName || "Sin cliente"}
           </Link>
@@ -443,7 +442,7 @@ function QuoteCardItem({ quote, ufValue, hasUnreadNotes }: { quote: QuoteRow; uf
             <Link
               href={`/crm/contacts/${quote.contactId}`}
               onClick={(e) => e.stopPropagation()}
-              className="text-sky-500 hover:text-sky-400 hover:underline transition-colors block truncate w-full"
+              className="text-status-info-fg hover:text-status-info-fg hover:underline transition-colors block truncate w-full"
               title={quote.contactName}
             >
               {quote.contactName}
@@ -465,7 +464,7 @@ function QuoteCardItem({ quote, ufValue, hasUnreadNotes }: { quote: QuoteRow; uf
         </div>
         <div>
           <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Margen</p>
-          <p className="text-sm font-medium font-mono text-emerald-600 dark:text-emerald-400">
+          <p className="text-sm font-medium font-mono text-status-ok-fg dark:text-status-ok-fg">
             {quote.marginPct != null
               ? `${formatNumber(quote.marginPct, { minDecimals: 1, maxDecimals: 1 })}%`
               : "—"}

@@ -405,28 +405,28 @@ export function AlertasCoberturaClient({ userRole, tenantId }: Props) {
       {stats && stats.totalAlertas > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <KpiCard
-            icon={<Siren className="h-4 w-4 text-blue-400" />}
+            icon={<Siren className="h-4 w-4 text-status-info-fg" />}
             value={String(stats.alertasActivas)}
             label="Activas ahora"
-            color="text-blue-400"
+            color="text-status-info-fg"
           />
           <KpiCard
-            icon={<Clock className="h-4 w-4 text-amber-400" />}
+            icon={<Clock className="h-4 w-4 text-status-warn-fg" />}
             value={`${stats.tiempoPromedioAceptacionMin} min`}
             label="Tiempo promedio"
-            color="text-amber-400"
+            color="text-status-warn-fg"
           />
           <KpiCard
-            icon={<CheckCircle2 className="h-4 w-4 text-emerald-400" />}
+            icon={<CheckCircle2 className="h-4 w-4 text-status-ok-fg" />}
             value={`${stats.tasaAceptacion}%`}
             label="Tasa aceptación"
-            color="text-emerald-400"
+            color="text-status-ok-fg"
           />
           <KpiCard
-            icon={<Shield className="h-4 w-4 text-teal-400" />}
+            icon={<Shield className="h-4 w-4 text-status-info-fg" />}
             value={formatClp(stats.montoTotalOfrecido)}
             label="Total ofrecido"
-            color="text-teal-400"
+            color="text-status-info-fg"
           />
         </div>
       )}
@@ -465,7 +465,7 @@ function AlertaActivaCard({
   const totalOleadas = alerta.oleadasConfig?.length || 0;
 
   return (
-    <Card className={alerta.urgencia === "URGENTE" ? "border-red-500/40" : ""}>
+    <Card className={alerta.urgencia === "URGENTE" ? "border-status-danger-border" : ""}>
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between">
           <div className="space-y-1">
@@ -476,7 +476,7 @@ function AlertaActivaCard({
             )}
             <CardTitle className="text-base">{alerta.installation?.name ?? (alerta.libreComuna ? `Cobertura — ${alerta.libreComuna}` : (alerta.libreAddress ?? "Cobertura"))}</CardTitle>
           </div>
-          <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/30">
+          <Badge variant="outline" className="bg-status-info-soft text-status-info-fg border-status-info-border">
             {alerta.modalidad}
           </Badge>
         </div>
@@ -484,7 +484,7 @@ function AlertaActivaCard({
       <CardContent className="space-y-3">
         <div className="flex items-center justify-between text-sm">
           <span className="text-muted-foreground">Monto</span>
-          <span className="font-mono font-semibold text-emerald-400">
+          <span className="font-mono font-semibold text-status-ok-fg">
             {formatClp(alerta.montoOfrecido)}
           </span>
         </div>
@@ -497,7 +497,7 @@ function AlertaActivaCard({
             </span>
             <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
               <div
-                className="h-full bg-teal-500 rounded-full transition-all"
+                className="h-full bg-status-info rounded-full transition-all"
                 style={{ width: `${totalOleadas > 0 ? ((alerta.oleadaActual + 1) / totalOleadas) * 100 : 0}%` }}
               />
             </div>
@@ -521,7 +521,7 @@ function AlertaActivaCard({
           <Button variant="outline" size="sm" className="flex-1" onClick={onViewDetail}>
             Ver Detalle
           </Button>
-          <Button variant="outline" size="sm" className="text-red-400 hover:text-red-300" onClick={onCancel}>
+          <Button variant="outline" size="sm" className="text-status-danger-fg hover:text-status-danger-fg" onClick={onCancel}>
             <XCircle className="h-3.5 w-3.5" />
           </Button>
         </div>
@@ -546,17 +546,17 @@ function AlertaAceptadaCard({
   const phone = guardia?.persona?.phone;
 
   return (
-    <Card className="border-emerald-500/40">
+    <Card className="border-status-ok-border">
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between">
           <div className="space-y-1">
-            <Badge variant="outline" className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
+            <Badge variant="outline" className="bg-status-ok-soft text-status-ok-fg border-status-ok-border">
               Aceptada
             </Badge>
             <CardTitle className="text-base">{alerta.installation?.name ?? (alerta.libreComuna ? `Cobertura — ${alerta.libreComuna}` : (alerta.libreAddress ?? "Cobertura"))}</CardTitle>
           </div>
           {alerta.esInternoAceptacion === false && (
-            <Badge variant="outline" className="bg-purple-500/20 text-purple-400 border-purple-500/30">
+            <Badge variant="outline" className="bg-tint-violet text-tint-violet-fg border-tint-violet-fg/30">
               Externo
             </Badge>
           )}
@@ -567,7 +567,7 @@ function AlertaAceptadaCard({
           <p className="text-sm font-medium">{nombreGuardia}</p>
           {phone && (
             <div className="flex items-center gap-3">
-              <a href={`tel:${phone}`} className="text-xs text-teal-400 hover:underline flex items-center gap-1">
+              <a href={`tel:${phone}`} className="text-xs text-status-info-fg hover:underline flex items-center gap-1">
                 <Phone className="h-3 w-3" />
                 {phone}
               </a>
@@ -575,7 +575,7 @@ function AlertaAceptadaCard({
                 href={`https://wa.me/56${phone.replace(/\D/g, "").replace(/^56/, "")}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-xs text-emerald-400 hover:underline flex items-center gap-1"
+                className="text-xs text-status-ok-fg hover:underline flex items-center gap-1"
               >
                 <ExternalLink className="h-3 w-3" />
                 WhatsApp
@@ -586,7 +586,7 @@ function AlertaAceptadaCard({
 
         <div className="flex items-center justify-between text-sm">
           <span className="text-muted-foreground">Monto</span>
-          <span className="font-mono font-semibold text-emerald-400">
+          <span className="font-mono font-semibold text-status-ok-fg">
             {formatClp(alerta.montoOfrecido)}
           </span>
         </div>
@@ -601,7 +601,7 @@ function AlertaAceptadaCard({
           <Button
             variant="default"
             size="sm"
-            className="bg-emerald-600 hover:bg-emerald-700"
+            className="bg-status-ok hover:brightness-110"
             onClick={() => onConfirmar(true)}
           >
             <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
@@ -610,7 +610,7 @@ function AlertaAceptadaCard({
           <Button
             variant="outline"
             size="sm"
-            className="text-red-400 hover:text-red-300"
+            className="text-status-danger-fg hover:text-status-danger-fg"
             onClick={() => onConfirmar(false)}
           >
             <RefreshCw className="h-3.5 w-3.5 mr-1" />

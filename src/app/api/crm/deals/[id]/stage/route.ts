@@ -199,7 +199,7 @@ export async function POST(
 
       // Si el negocio fue ganado, transición portal: prospect → client_active
       // (La notificación de contrato pendiente se envía FUERA de la transacción
-      // para respetar las preferencias de usuario vía sendNotification()).
+      // para respetar las preferencias de usuario vía notify()).
       if (nextStatus === "won" && updated.account.status === "prospect") {
         try {
           await tx.crmAccount.update({
@@ -222,12 +222,13 @@ export async function POST(
     // si el envío de email falla.
     if (nextStatus === "won") {
       try {
-        const { sendNotification } = await import("@/lib/notification-service");
-        await sendNotification({
+        const { notify } = await import("@/lib/notifications/notify");
+        await notify({
           tenantId: ctx.tenantId,
           type: "contract_required",
+          audience: "admin",
           title: `Contrato pendiente: ${updatedDeal.account.name}`,
-          message: `El negocio "${updatedDeal.title}" fue ganado. Se requiere generar un contrato.`,
+          body: `El negocio "${updatedDeal.title}" fue ganado. Se requiere generar un contrato.`,
           data: {
             dealId: updatedDeal.id,
             accountId: updatedDeal.accountId,

@@ -90,7 +90,7 @@ export async function POST(
 
     // Send notification to approval group
     try {
-      const { sendNotificationToUsers } = await import("@/lib/notification-service");
+      const { notify } = await import("@/lib/notifications/notify");
       const targetUserIds: string[] = [];
 
       if (ticketType?.requiresApproval && ticketType.approvalSteps.length > 0) {
@@ -105,14 +105,15 @@ export async function POST(
       }
 
       if (targetUserIds.length > 0) {
-        await sendNotificationToUsers({
+        await notify({
           tenantId: ticket.tenantId,
           type: "ticket_created",
+          targetIds: [...new Set(targetUserIds)],
+          targetType: "ADMIN",
           title: `Apelacion ticket ${ticket.code}`,
-          message: `El guardia apelo el rechazo del ticket "${ticket.title}"`,
+          body: `El guardia apelo el rechazo del ticket "${ticket.title}"`,
           data: { ticketId, code: ticket.code },
           link: `/ops/tickets/${ticketId}`,
-          targetUserIds: [...new Set(targetUserIds)],
         });
       }
     } catch {

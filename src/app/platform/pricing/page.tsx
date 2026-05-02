@@ -25,7 +25,7 @@ export default function PricingPage() {
             onClick={() => setActiveTab(tab.key)}
             className={`border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
               activeTab === tab.key
-                ? 'border-teal-500 text-teal-600 dark:text-teal-400'
+                ? 'border-status-info-border text-status-info-fg'
                 : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
             }`}
           >

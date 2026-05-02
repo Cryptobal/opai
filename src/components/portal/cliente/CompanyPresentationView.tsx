@@ -10,9 +10,9 @@ const SECTIONS = [
   {
     icon: Shield,
     title: 'Seguridad Integral',
-    color: 'text-teal-400',
-    bg: 'bg-teal-500/10',
-    border: 'border-teal-500/15',
+    color: 'text-status-info-fg',
+    bg: 'bg-status-info-soft',
+    border: 'border-status-info-border',
     items: [
       'Guardias seleccionados con evaluación psicométrica y verificación de antecedentes',
       'Protocolos operativos diseñados para cada tipo de instalación',
@@ -36,9 +36,9 @@ const SECTIONS = [
   {
     icon: Scale,
     title: 'Cumplimiento Normativo',
-    color: 'text-blue-400',
-    bg: 'bg-blue-500/10',
-    border: 'border-blue-500/15',
+    color: 'text-status-info-fg',
+    bg: 'bg-status-info-soft',
+    border: 'border-status-info-border',
     items: [
       'OS-10 y documentación actualizada de todos los guardias',
       'Contratos laborales al día con fiscalización interna',
@@ -49,9 +49,9 @@ const SECTIONS = [
   {
     icon: Award,
     title: 'Diferenciadores',
-    color: 'text-amber-400',
-    bg: 'bg-amber-500/10',
-    border: 'border-amber-500/15',
+    color: 'text-status-warn-fg',
+    bg: 'bg-status-warn-soft',
+    border: 'border-status-warn-border',
     items: [
       'Única empresa en Chile con sistema operativo propio de seguridad',
       'Transparencia total: el cliente ve todo en tiempo real',
@@ -62,9 +62,9 @@ const SECTIONS = [
   {
     icon: BadgeCheck,
     title: 'Certificaciones',
-    color: 'text-emerald-400',
-    bg: 'bg-emerald-500/10',
-    border: 'border-emerald-500/15',
+    color: 'text-status-ok-fg',
+    bg: 'bg-status-ok-soft',
+    border: 'border-status-ok-border',
     items: [
       'Empresa de seguridad autorizada por OS-10 de Carabineros',
       'Procesos alineados con estándares ISO 9001',
@@ -75,9 +75,9 @@ const SECTIONS = [
   {
     icon: Monitor,
     title: 'Portal del Cliente',
-    color: 'text-sky-400',
-    bg: 'bg-sky-500/10',
-    border: 'border-sky-500/15',
+    color: 'text-status-info-fg',
+    bg: 'bg-status-info-soft',
+    border: 'border-status-info-border',
     items: [
       'Acceso 24/7 a métricas, reportes y documentación',
       'Chat directo con tu ejecutivo sin intermediarios',
@@ -139,7 +139,7 @@ export function CompanyPresentationView({ contactId }: Props) {
             key={stat.label}
             className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 text-center"
           >
-            <p className="text-2xl font-bold text-teal-400 tabular-nums">{stat.value}</p>
+            <p className="text-2xl font-bold text-status-info-fg tabular-nums">{stat.value}</p>
             <p className="text-[11px] text-zinc-400 mt-1">{stat.label}</p>
           </div>
         ))}

@@ -5,9 +5,9 @@ import { toast } from "sonner";
 import { CheckpointForm } from "@/components/ops/rondas/checkpoint-form";
 import { CheckpointQrGenerator } from "@/components/ops/rondas/checkpoint-qr-generator";
 import { Button } from "@/components/ui/button";
-import { FilterBar } from "@/components/opai";
-import { DataTable, type DataTableColumn } from "@/components/opai-ds/DataTableLegacy";
+import { DataTable, EmptyState, type DataTableColumn } from "@/components/opai-ds";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { MapPin } from "lucide-react";
 
 interface Installation {
   id: string;
@@ -44,25 +44,25 @@ export function RondasCheckpointsClient({
     [rows, installationId],
   );
 
-  const columns: DataTableColumn[] = [
+  const columns: DataTableColumn<Checkpoint>[] = [
     {
-      key: "name",
-      label: "Nombre",
-      render: (_v, row) => (
+      id: "name",
+      header: "Nombre",
+      cell: (row) => (
         <div>
           <p className="font-medium">{row.name}</p>
           {row.description && <p className="text-muted-foreground">{row.description}</p>}
         </div>
       ),
     },
-    { key: "qrCode", label: "QR", className: "font-mono" },
-    { key: "geoRadiusM", label: "Radio", render: (v) => `${v}m` },
-    { key: "isActive", label: "Estado", render: (v) => (v ? "Activo" : "Inactivo") },
+    { id: "qrCode", header: "QR", cell: (row) => <span className="font-mono">{row.qrCode}</span> },
+    { id: "geoRadiusM", header: "Radio", cell: (row) => `${row.geoRadiusM}m` },
+    { id: "isActive", header: "Estado", cell: (row) => (row.isActive ? "Activo" : "Inactivo") },
     {
-      key: "actions",
-      label: "Acciones",
-      className: "text-right",
-      render: (_v, row) => (
+      id: "actions",
+      header: "Acciones",
+      align: "right",
+      cell: (row) => (
         <div className="flex gap-1 justify-end">
           <CheckpointQrGenerator
             code={row.qrCode}
@@ -93,7 +93,7 @@ export function RondasCheckpointsClient({
 
   return (
     <div className="space-y-4">
-      <FilterBar>
+      <div className="flex flex-wrap items-center gap-3 p-3 rounded-ds-md bg-ds-surface-1 border border-ds-border-default">
         <SearchableSelect
           value={installationId}
           options={installations.map((inst) => ({
@@ -103,7 +103,7 @@ export function RondasCheckpointsClient({
           placeholder="Seleccionar instalación..."
           onChange={(val) => setInstallationId(val)}
         />
-      </FilterBar>
+      </div>
 
       {installationId && (
         <CheckpointForm
@@ -131,8 +131,9 @@ export function RondasCheckpointsClient({
 
       <DataTable
         columns={columns}
-        data={filtered}
-        emptyMessage="Sin checkpoints para esta instalación."
+        rows={filtered}
+        rowKey={(row) => row.id}
+        empty={<EmptyState icon={MapPin} title="Sin checkpoints para esta instalación." compact />}
       />
     </div>
   );

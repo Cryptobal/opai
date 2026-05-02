@@ -73,9 +73,9 @@ function getRelativeTime(dateStr: string | null): { label: string; color: string
   if (!dateStr) return { label: "Sin actividad", color: "text-zinc-600" };
   const diff = Date.now() - new Date(dateStr).getTime();
   const hours = diff / (1000 * 60 * 60);
-  if (hours < 1) return { label: "Activo ahora", color: "text-green-400" };
-  if (hours < 24) return { label: "Hoy", color: "text-green-400" };
-  if (hours < 48) return { label: "Ayer", color: "text-yellow-400" };
+  if (hours < 1) return { label: "Activo ahora", color: "text-status-ok-fg" };
+  if (hours < 24) return { label: "Hoy", color: "text-status-ok-fg" };
+  if (hours < 48) return { label: "Ayer", color: "text-status-warn-fg" };
   return { label: `Hace ${Math.floor(hours / 24)} días`, color: "text-zinc-500" };
 }
 
@@ -237,7 +237,7 @@ export function UnifiedDevicesSection({ installationId, pairingCode: initialPair
                   className="text-zinc-400 hover:text-zinc-200"
                 >
                   {copied ? (
-                    <CheckCircle2 className="mr-1.5 h-3.5 w-3.5 text-green-400" />
+                    <CheckCircle2 className="mr-1.5 h-3.5 w-3.5 text-status-ok-fg" />
                   ) : (
                     <Copy className="mr-1.5 h-3.5 w-3.5" />
                   )}
@@ -260,7 +260,7 @@ export function UnifiedDevicesSection({ installationId, pairingCode: initialPair
               </div>
             </div>
             <div className="flex items-center gap-1.5">
-              <CheckCircle2 className="h-3 w-3 text-green-500" />
+              <CheckCircle2 className="h-3 w-3 text-status-ok-fg" />
               <span className="text-xs text-zinc-500">
                 Código permanente · Rondas, Acceso y Marcación
               </span>
@@ -357,7 +357,7 @@ export function UnifiedDevicesSection({ installationId, pairingCode: initialPair
                         <span className={`text-xs ${activity.color}`}>{activity.label}</span>
                         <span className="relative flex h-2.5 w-2.5">
                           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
-                          <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-green-500" />
+                          <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-status-ok" />
                         </span>
 
                         {/* Portal toggles */}
@@ -395,7 +395,7 @@ export function UnifiedDevicesSection({ installationId, pairingCode: initialPair
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="text-zinc-500 hover:text-red-400"
+                          className="text-zinc-500 hover:text-status-danger-fg"
                           onClick={() => setConfirmRevoke(device)}
                           disabled={revokingId === device.id}
                         >
@@ -439,7 +439,7 @@ export function UnifiedDevicesSection({ installationId, pairingCode: initialPair
                         {device.currentGuard?.persona && (
                           <>
                             <span>·</span>
-                            <span className="text-blue-400">
+                            <span className="text-status-info-fg">
                               Guardia: {device.currentGuard.persona.firstName}{" "}
                               {device.currentGuard.persona.lastName}
                             </span>
@@ -453,7 +453,7 @@ export function UnifiedDevicesSection({ installationId, pairingCode: initialPair
                               href={`https://www.google.com/maps?q=${device.lastLatitude ?? device.pairingLatitude},${device.lastLongitude ?? device.pairingLongitude}`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="flex items-center gap-0.5 text-blue-400 hover:underline"
+                              className="flex items-center gap-0.5 text-status-info-fg hover:underline"
                             >
                               <MapPin className="h-3 w-3" />
                               Ubicación

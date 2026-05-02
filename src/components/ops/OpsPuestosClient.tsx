@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { EmptyState } from "@/components/opai";
+import { EmptyState } from "@/components/opai-ds";
 import {
   Dialog,
   DialogContent,
@@ -38,10 +38,10 @@ function toDateInput(date: Date): string {
 
 const LIFECYCLE_COLORS: Record<string, string> = {
   postulante: "bg-zinc-500/15 text-zinc-400 border-zinc-500/30",
-  seleccionado: "bg-blue-500/15 text-blue-300 border-blue-500/30",
-  contratado: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
+  seleccionado: "bg-status-info-soft text-status-info-fg border-status-info-border",
+  contratado: "bg-status-ok-soft text-status-ok-fg border-status-ok-border",
   te: "bg-violet-500/15 text-violet-300 border-violet-500/30",
-  inactivo: "bg-amber-500/15 text-amber-300 border-amber-500/30",
+  inactivo: "bg-status-warn-soft text-status-warn-fg border-status-warn-border",
 };
 
 const LIFECYCLE_LABELS: Record<string, string> = {
@@ -426,7 +426,7 @@ export function OpsPuestosClient({
           <Card>
             <CardContent className="py-6">
               <EmptyState
-                icon={<Building2 className="h-7 w-7" />}
+                icon={Building2}
                 title="Sin puestos"
                 description="No hay puestos activos. Configúralos desde el CRM."
                 action={
@@ -451,8 +451,8 @@ export function OpsPuestosClient({
                     <p className="text-sm font-semibold truncate">{puesto.name}</p>
                     <span className={`shrink-0 rounded px-1 py-0.5 text-[9px] font-semibold border ${
                       night
-                        ? "bg-indigo-500/15 text-indigo-300 border-indigo-500/30"
-                        : "bg-amber-500/15 text-amber-300 border-amber-500/30"
+                        ? "bg-status-info-soft text-status-info-fg border-status-info-border"
+                        : "bg-status-warn-soft text-status-warn-fg border-status-warn-border"
                     }`}>
                       {night ? "N" : "D"}
                     </span>
@@ -467,7 +467,7 @@ export function OpsPuestosClient({
                       <div
                         key={slotNum}
                         className={`flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs ${
-                          assignment ? "border-border/60" : "border-dashed border-amber-500/30 bg-amber-500/5"
+                          assignment ? "border-border/60" : "border-dashed border-status-warn-border bg-status-warn-soft"
                         }`}
                       >
                         <span className="text-muted-foreground font-mono text-[10px] shrink-0 w-5">{slotNum}</span>
@@ -483,7 +483,7 @@ export function OpsPuestosClient({
                               )}
                             </Link>
                           ) : (
-                            <span className="text-amber-400/80 italic text-[11px]">Vacante</span>
+                            <span className="text-status-warn-fg/80 italic text-[11px]">Vacante</span>
                           )}
                         </div>
                         <div className="shrink-0">
@@ -582,7 +582,7 @@ export function OpsPuestosClient({
         <Card>
           <CardContent className="py-6">
             <EmptyState
-              icon={<Building2 className="h-7 w-7" />}
+              icon={Building2}
               title="Sin resultados"
               description={
                 searchQuery
@@ -628,7 +628,7 @@ export function OpsPuestosClient({
                           <span className="text-[11px] text-muted-foreground">
                             {inst.puestosCount} puesto{inst.puestosCount !== 1 ? "s" : ""} · {inst.totalSlots} slot{inst.totalSlots !== 1 ? "s" : ""}
                             {inst.vacantSlots > 0 && (
-                              <span className="text-amber-400"> · {inst.vacantSlots} vacante{inst.vacantSlots !== 1 ? "s" : ""}</span>
+                              <span className="text-status-warn-fg"> · {inst.vacantSlots} vacante{inst.vacantSlots !== 1 ? "s" : ""}</span>
                             )}
                           </span>
                         ) : (
@@ -639,11 +639,11 @@ export function OpsPuestosClient({
                       <div className="flex items-center gap-1.5 shrink-0">
                         {inst.puestosCount > 0 && (
                           inst.hasPauta ? (
-                            <Badge variant="outline" className="bg-emerald-500/10 text-emerald-400 border-emerald-500/30 text-[9px] py-0 px-1.5 h-5">
+                            <Badge variant="outline" className="bg-status-ok-soft text-status-ok-fg border-status-ok-border text-[9px] py-0 px-1.5 h-5">
                               {currentMonthLabel}
                             </Badge>
                           ) : (
-                            <Badge variant="outline" className="bg-red-500/10 text-red-400 border-red-500/30 text-[9px] py-0 px-1.5 h-5">
+                            <Badge variant="outline" className="bg-status-danger-soft text-status-danger-fg border-status-danger-border text-[9px] py-0 px-1.5 h-5">
                               Sin pauta
                             </Badge>
                           )
@@ -690,7 +690,7 @@ export function OpsPuestosClient({
               <Input placeholder="Buscar guardia…" value={assignSearch} onChange={(e) => setAssignSearch(e.target.value)} className="pl-9" />
             </div>
             {assignWarning && (
-              <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-2.5 text-[11px] text-amber-300">
+              <div className="rounded-md border border-status-warn-border bg-status-warn-soft p-2.5 text-[11px] text-status-warn-fg">
                 Ya asignado a <span className="font-semibold">{assignWarning.puestoName}</span> en{" "}
                 <span className="font-semibold">{assignWarning.installationName}</span>. Al confirmar, se cerrará esa asignación.
               </div>

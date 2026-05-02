@@ -45,20 +45,6 @@ export function RoleSwitcher() {
     const [query, setQuery] = useState('');
     const inputRef = useRef<HTMLInputElement>(null);
 
-    // Atajo de teclado: ⌘⇧R (Mac) / Ctrl+Shift+R (Win/Linux)
-    useEffect(() => {
-        const onKey = (e: KeyboardEvent) => {
-            const isMac = navigator.platform.toLowerCase().includes('mac');
-            const modifier = isMac ? e.metaKey : e.ctrlKey;
-            if (modifier && e.shiftKey && (e.key === 'r' || e.key === 'R')) {
-                e.preventDefault();
-                setOpen((prev) => !prev);
-            }
-        };
-        window.addEventListener('keydown', onKey);
-        return () => window.removeEventListener('keydown', onKey);
-    }, []);
-
     // Reset query al cerrar
     useEffect(() => {
         if (!open) setQuery('');
@@ -124,12 +110,12 @@ export function RoleSwitcher() {
                     className={cn(
                         'inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all duration-200 border',
                         isSimulating
-                            ? 'bg-amber-500/10 text-amber-300 border-amber-500/30 hover:bg-amber-500/20 ring-1 ring-amber-500/20'
+                            ? 'bg-status-warn-soft text-status-warn-fg border-status-warn-border hover:bg-status-warn-soft ring-1 ring-amber-500/20'
                             : `${activeColor.bg} ${activeColor.text} ${activeColor.border} hover:opacity-80`,
                     )}
                     aria-label="Cambiar rol de simulación"
                     aria-expanded={open}
-                    title="Simular rol (⌘⇧R)"
+                    title="Simular rol"
                 >
                     <Eye className="h-3 w-3 opacity-70 shrink-0" />
                     <span className="hidden sm:inline whitespace-nowrap min-w-0">{activeLabel}</span>
@@ -147,16 +133,11 @@ export function RoleSwitcher() {
             >
                 {/* Header */}
                 <div className="px-3 py-2.5 border-b border-border/50 shrink-0">
-                    <div className="flex items-center justify-between gap-2">
-                        <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground/70">
-                            Simular vista de rol
-                        </p>
-                        <kbd className="hidden sm:inline-flex items-center gap-0.5 rounded border border-border/50 bg-muted/40 px-1 py-0.5 text-[9px] font-mono text-muted-foreground/60">
-                            ⌘⇧R
-                        </kbd>
-                    </div>
+                    <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground/70">
+                        Simular vista de rol
+                    </p>
                     {isSimulating && (
-                        <p className="text-[10px] text-amber-400/80 mt-0.5">
+                        <p className="text-[10px] text-status-warn-fg/80 mt-0.5">
                             Rol real: {getRoleLabel(realRole)}
                         </p>
                     )}
@@ -227,7 +208,7 @@ export function RoleSwitcher() {
                                 stopSimulation();
                                 setOpen(false);
                             }}
-                            className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs font-medium text-amber-400 transition-colors hover:bg-amber-500/10"
+                            className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs font-medium text-status-warn-fg transition-colors hover:bg-status-warn-soft"
                         >
                             <EyeOff className="h-3.5 w-3.5 shrink-0" />
                             <span className="whitespace-nowrap">Volver a mi rol real</span>
@@ -295,7 +276,7 @@ function RoleGroup({ title, roles, realRole, effectiveRole, modifiedMap, onSelec
                         </span>
                         {isModified && (
                             <Sparkles
-                                className="h-3 w-3 text-amber-400/80 shrink-0"
+                                className="h-3 w-3 text-status-warn-fg/80 shrink-0"
                                 aria-label="modificado"
                             />
                         )}

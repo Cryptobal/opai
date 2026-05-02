@@ -91,7 +91,7 @@ function AppShellInner({
   return (
     <>
       <PlatformDataAttribute />
-      <div className="relative min-h-[100dvh] overflow-x-hidden">
+      <div className="relative min-h-[100dvh] overflow-x-clip">
         {/* ── Mobile topbar (redesigned — no hamburger, no sidebar) ── */}
         {sidebar && (
           <header
@@ -131,7 +131,7 @@ function AppShellInner({
               >
                 <MessageCircle className="h-5 w-5" />
                 {chatCtx.totalUnread > 0 && (
-                  <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-background" />
+                  <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-status-danger ring-2 ring-background" />
                 )}
               </button>
               <button
@@ -142,7 +142,7 @@ function AppShellInner({
               >
                 <Bell className="h-5 w-5" />
                 {notifUnreadCount > 0 && (
-                  <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-background animate-pulse" />
+                  <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-status-danger ring-2 ring-background animate-pulse" />
                 )}
               </button>
             </div>
@@ -197,7 +197,7 @@ function AppShellInner({
                 {children}
               </div>
             ) : (
-              <div className="w-full max-w-full pt-4 pb-28 lg:pt-0 lg:pb-6 animate-in-page min-w-0 overflow-x-hidden px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12" role="region">
+              <div className="w-full max-w-full pt-4 pb-28 lg:pt-0 lg:pb-6 animate-in-page min-w-0 overflow-x-clip px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12" role="region">
                 {children}
               </div>
             )}

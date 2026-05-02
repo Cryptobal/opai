@@ -37,9 +37,19 @@ export interface OpenToAnalyze {
 export interface PreparedBuckets {
   scoredResponses: ScoredResponse[];
   likertSamples: LikertSample[];
-  lieInputs: Array<{ value: unknown; extremeValues: number[] }>;
-  latencyRows: Array<{ latencyMs: number | null; minLatencyMs: number }>;
+  lieInputs: Array<{
+    value: unknown;
+    extremeValues: number[];
+    weights?: Record<number, number>;
+  }>;
+  lieHits: Array<{ itemId: string; value: number }>;
+  latencyRows: Array<{
+    itemId: string;
+    latencyMs: number | null;
+    minLatencyMs: number;
+  }>;
   openToAnalyze: OpenToAnalyze[];
+  responsesById: Map<string, unknown>;
 }
 
 function extractOpenText(value: unknown): string {
@@ -63,8 +73,10 @@ export function prepareBuckets(
     scoredResponses: [],
     likertSamples: [],
     lieInputs: [],
+    lieHits: [],
     latencyRows: [],
     openToAnalyze: [],
+    responsesById: new Map(),
   };
 
   for (const resp of responses) {
@@ -72,9 +84,11 @@ export function prepareBuckets(
     if (!item) continue;
 
     out.latencyRows.push({
+      itemId: item.id,
       latencyMs: resp.latencyMs,
       minLatencyMs: item.minLatencyMs,
     });
+    out.responsesById.set(item.id, resp.value);
 
     if (item.type === "OPEN") {
       const rubric = item.scoringKey as { dimensions?: PsychDimension[] };
@@ -118,11 +132,22 @@ export function prepareBuckets(
       }
     }
     if (item.type === "LIE") {
-      const key = item.scoringKey as { extremePositiveValues?: number[] };
+      const key = item.scoringKey as {
+        extremePositiveValues?: number[];
+        weights?: Record<number, number>;
+      };
+      const extreme = key.extremePositiveValues ?? [4, 5];
       out.lieInputs.push({
         value: resp.value,
-        extremeValues: key.extremePositiveValues ?? [4, 5],
+        extremeValues: extreme,
+        weights: key.weights,
       });
+      const v = Number(
+        (resp.value as { value?: unknown })?.value ?? resp.value,
+      );
+      if (Number.isFinite(v) && extreme.includes(v)) {
+        out.lieHits.push({ itemId: item.id, value: v });
+      }
     }
   }
 

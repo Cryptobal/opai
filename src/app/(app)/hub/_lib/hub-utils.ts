@@ -32,20 +32,20 @@ export function getScheduleState(scheduledAt: Date, now: Date) {
   if (diffMs <= 0) {
     return {
       label: 'Vencido',
-      className: 'text-[10px] border-red-500/30 text-red-500',
+      className: 'text-[10px] border-status-danger-border text-status-danger-fg',
     };
   }
 
   if (diffMs <= 24 * 60 * 60 * 1000) {
     return {
       label: 'Hoy',
-      className: 'text-[10px] border-amber-500/30 text-amber-500',
+      className: 'text-[10px] border-status-warn-border text-status-warn-fg',
     };
   }
 
   return {
     label: 'Próximo',
-    className: 'text-[10px] border-emerald-500/30 text-emerald-500',
+    className: 'text-[10px] border-status-ok-border text-status-ok-fg',
   };
 }
 

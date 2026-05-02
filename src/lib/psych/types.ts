@@ -50,7 +50,9 @@ export interface OpenScoringKey {
 
 export interface LieScoringKey {
   kind: "lie";
-  // En escala de 5 puntos, "muy de acuerdo" (5) eleva lieScaleScore.
+  /** Map "valor → peso 0..1" para inflación de la escala. Si falta, fallback {4: 1, 5: 1}. */
+  weights?: Record<number, number>;
+  /** Compatibilidad con v1.0.0 — valores que cuentan como hit binario. */
   extremePositiveValues: number[];
 }
 
@@ -78,11 +80,76 @@ export interface DimensionScore {
   itemCount: number;
 }
 
+export type PsychAlertSource = "rule" | "ai";
+
+export type PsychAlertEvidence =
+  | {
+      kind: "low_dimension";
+      threshold: number;
+      observed: number;
+      worstItems: Array<{
+        itemId: string;
+        order: number;
+        prompt: string;
+        response: unknown;
+        normalizedScore: number;
+      }>;
+    }
+  | {
+      kind: "high_lie";
+      threshold: number;
+      observed: number;
+      hits: Array<{
+        itemId: string;
+        order: number;
+        prompt: string;
+        value: number; // 4 o 5
+      }>;
+    }
+  | {
+      kind: "straight_lining";
+      threshold: number;
+      observedStd: number;
+      mean: number;
+      sequence: Array<{ order: number; value: number }>;
+    }
+  | {
+      kind: "fast_latency";
+      threshold: number;
+      observedRatio: number;
+      fastItems: Array<{
+        itemId: string;
+        order: number;
+        prompt: string;
+        latencyMs: number;
+        minLatencyMs: number;
+      }>;
+    }
+  | {
+      kind: "ai_red_flag";
+      itemId: string;
+      order: number;
+      prompt: string;
+      response: string;
+      summary: string;
+      markers: string[];
+      flag: string; // RED_FLAG_AGGRESSION etc.
+    }
+  | {
+      kind: "ai_failure";
+      itemId: string;
+      order: number;
+      prompt: string;
+      errorMessage: string;
+    };
+
 export interface PsychAlert {
   code: PsychFlag | string;
   severity: "info" | "warning" | "critical";
   message: string;
   dimension?: PsychDimension;
+  source: PsychAlertSource;
+  evidence?: PsychAlertEvidence;
 }
 
 export interface OpenAnalysisResult {

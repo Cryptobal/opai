@@ -29,7 +29,7 @@ function ChartTooltip({
   return (
     <div className="rounded-lg border border-border/60 bg-popover/95 px-3 py-2 shadow-xl backdrop-blur-sm">
       <p className="mb-1 text-xs font-medium text-foreground">{label}</p>
-      <p className="text-sm font-semibold tabular-nums text-teal-500">
+      <p className="text-sm font-semibold tabular-nums text-status-info-fg">
         {payload[0].value}
       </p>
     </div>

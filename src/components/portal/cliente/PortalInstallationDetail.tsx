@@ -118,8 +118,8 @@ export function PortalInstallationDetail({
       {/* Header */}
       <div className="bg-zinc-800/50 border border-zinc-700/50 rounded-xl p-4 space-y-3">
         <div className="flex items-start gap-3">
-          <div className="bg-blue-500/10 rounded-lg p-3 flex-shrink-0">
-            <Building2 className="h-6 w-6 text-blue-400" />
+          <div className="bg-status-info-soft rounded-lg p-3 flex-shrink-0">
+            <Building2 className="h-6 w-6 text-status-info-fg" />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
@@ -141,15 +141,15 @@ export function PortalInstallationDetail({
         {demoSummary && (
           <div className="grid grid-cols-3 gap-2 pt-2 border-t border-zinc-700/50">
             <div className="text-center">
-              <p className="text-lg font-bold text-teal-400">{demoSummary.compliance}%</p>
+              <p className="text-lg font-bold text-status-info-fg">{demoSummary.compliance}%</p>
               <p className="text-[10px] text-zinc-500 uppercase tracking-wider">Cumplimiento</p>
             </div>
             <div className="text-center">
-              <p className="text-lg font-bold text-blue-400">{demoSummary.completedRounds}/{demoSummary.totalRounds}</p>
+              <p className="text-lg font-bold text-status-info-fg">{demoSummary.completedRounds}/{demoSummary.totalRounds}</p>
               <p className="text-[10px] text-zinc-500 uppercase tracking-wider">Rondas hoy</p>
             </div>
             <div className="text-center">
-              <p className="text-lg font-bold text-purple-400">{demoSummary.trustScore}</p>
+              <p className="text-lg font-bold text-tint-violet-fg">{demoSummary.trustScore}</p>
               <p className="text-[10px] text-zinc-500 uppercase tracking-wider">Trust Score</p>
             </div>
           </div>
@@ -192,7 +192,7 @@ export function PortalInstallationDetail({
       {isDemo ? (
         <div className="bg-zinc-800/50 border border-zinc-700/50 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-2">
-            <Shield className="w-4 h-4 text-teal-400" />
+            <Shield className="w-4 h-4 text-status-info-fg" />
             <h3 className="text-sm font-medium text-white">Equipo de seguridad</h3>
           </div>
           <p className="text-xs text-zinc-500">
@@ -202,7 +202,7 @@ export function PortalInstallationDetail({
       ) : (
         <div>
           <div className="flex items-center gap-2 mb-3">
-            <Shield className="w-4 h-4 text-teal-400" />
+            <Shield className="w-4 h-4 text-status-info-fg" />
             <h3 className="text-sm font-medium text-zinc-400">
               Equipo de seguridad asignado
             </h3>

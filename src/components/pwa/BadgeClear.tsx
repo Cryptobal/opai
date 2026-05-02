@@ -1,27 +1,14 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useBadgeSync } from '@/hooks/useBadgeSync';
 
 /**
- * Clears the PWA app badge on mount (when the app is opened/focused).
+ * Single source of truth for the PWA app badge.
+ * Delegates to useBadgeSync, which polls /api/badge/count and applies
+ * setAppBadge/clearAppBadge based on the real per-user unread total.
  * Should be mounted in every layout that represents a PWA entry point.
  */
 export function BadgeClear() {
-  useEffect(() => {
-    if ('clearAppBadge' in navigator) {
-      (navigator as any).clearAppBadge().catch(() => {});
-    }
-
-    // Also clear when the page becomes visible (e.g. switching back to the app)
-    function handleVisibilityChange() {
-      if (!document.hidden && 'clearAppBadge' in navigator) {
-        (navigator as any).clearAppBadge().catch(() => {});
-      }
-    }
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, []);
-
+  useBadgeSync();
   return null;
 }

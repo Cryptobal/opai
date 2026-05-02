@@ -7,7 +7,8 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
-import { PageHeader } from "@/components/opai";
+import { PageHero } from "@/components/opai-ds";
+import { Sparkles } from "lucide-react";
 import { ApolloProspectingClient } from "@/components/crm/ApolloProspectingClient";
 
 export default async function ApolloProspectingPage() {
@@ -18,8 +19,12 @@ export default async function ApolloProspectingPage() {
 
   return (
     <>
-      <PageHeader
+      <PageHero
+        icon={<Sparkles />}
+        iconTone="violet"
+        eyebrow={["Comercial", "Prospección"]}
         title="Prospección Apollo"
+        subtitle="contactos y empresas globales"
         description="Busca contactos y empresas en la base de 220M+ de Apollo. La búsqueda de personas no consume créditos."
       />
       <ApolloProspectingClient />

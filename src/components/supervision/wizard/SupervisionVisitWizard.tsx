@@ -23,10 +23,15 @@ import type {
   InstalacionDocumentType,
   DocumentCheckResult,
   GuardDocCheckResult,
+  PendingFinding,
 } from "./types";
 
-export function SupervisionVisitWizard({ onComplete }: { onComplete?: () => void } = {}) {
+export function SupervisionVisitWizard({
+  onComplete,
+  mode = "regular",
+}: { onComplete?: () => void; mode?: "regular" | "vra" } = {}) {
   const router = useRouter();
+  const isVraMode = mode === "vra";
 
   // Core state
   const [currentStep, setCurrentStep] = useState<WizardStep>(1);
@@ -43,6 +48,7 @@ export function SupervisionVisitWizard({ onComplete }: { onComplete?: () => void
   const [installationState, setInstallationState] = useState("normal");
   const [installationStateNotes, setInstallationStateNotes] = useState("");
   const [findings, setFindings] = useState<Finding[]>([]);
+  const [pendingFindings, setPendingFindings] = useState<PendingFinding[]>([]);
 
   // Step 3: Checklist + Book
   const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
@@ -88,10 +94,21 @@ export function SupervisionVisitWizard({ onComplete }: { onComplete?: () => void
   const [validationPhotoPreview, setValidationPhotoPreview] = useState<string | null>(null);
   const [validationType, setValidationType] = useState<"signature" | "photo" | null>(null);
 
+  // Estado del dialog post-checkout en modo VRA
+  const [showVraGenerateDialog, setShowVraGenerateDialog] = useState(false);
+  const [creatingVraReport, setCreatingVraReport] = useState(false);
+
   // Step 1 callback: after check-in
   function handleCheckedIn(visitData: VisitData, dotacion: DotacionGuard[], guardsExpected: number) {
     setVisit(visitData);
     setGuards(dotacion);
+
+    // Rehidrata pendingFindings desde draftData si existen (recuperación tras crash)
+    const draftPending = (visitData.draftData as { pendingFindings?: PendingFinding[] } | null)
+      ?.pendingFindings;
+    if (Array.isArray(draftPending) && draftPending.length > 0) {
+      setPendingFindings(draftPending);
+    }
 
     // Initialize evaluations from dotation
     const initialEvals: GuardEvaluation[] = dotacion.map((g) => ({
@@ -178,6 +195,7 @@ export function SupervisionVisitWizard({ onComplete }: { onComplete?: () => void
             lastEntryDate: null,
             photoFile: null,
             photoPreview: null,
+            pendingLocalId: null,
             autoFindingId: null,
             autoTicketCode: null,
           })),
@@ -210,6 +228,7 @@ export function SupervisionVisitWizard({ onComplete }: { onComplete?: () => void
             lastEntryDate: null,
             photoFile: null,
             photoPreview: null,
+            pendingLocalId: null,
             autoFindingId: null,
             autoTicketCode: null,
           })),
@@ -246,6 +265,7 @@ export function SupervisionVisitWizard({ onComplete }: { onComplete?: () => void
               lastEntryDate: null,
               photoFile: null,
               photoPreview: null,
+              pendingLocalId: null,
               autoFindingId: null,
               autoTicketCode: null,
             })),
@@ -280,13 +300,21 @@ export function SupervisionVisitWizard({ onComplete }: { onComplete?: () => void
   }
 
   /** Collect and POST all doc verificaciones to the verificaciones-fisicas endpoint */
-  async function saveVerificaciones() {
+  async function saveVerificaciones(overrides?: {
+    global?: DocumentCheckResult[];
+    instalacion?: DocumentCheckResult[];
+    guardia?: GuardDocCheckResult[];
+  }) {
     if (!visit) return;
     if (verificacionesSaved) return;
 
+    const globalSrc = overrides?.global ?? globalDocResults;
+    const instSrc = overrides?.instalacion ?? documentResults;
+    const guardSrc = overrides?.guardia ?? guardDocResults;
+
     // Upload all doc verification photos first
     const globalPhotoUrls: Record<string, string> = {};
-    for (const result of globalDocResults) {
+    for (const result of globalSrc) {
       if (result.photoFile) {
         const url = await uploadDocPhoto(visit.id, result.photoFile, result.code);
         if (url) globalPhotoUrls[result.code] = url;
@@ -294,7 +322,7 @@ export function SupervisionVisitWizard({ onComplete }: { onComplete?: () => void
     }
 
     const instalacionPhotoUrls: Record<string, string> = {};
-    for (const result of documentResults) {
+    for (const result of instSrc) {
       if (result.photoFile) {
         const url = await uploadDocPhoto(visit.id, result.photoFile, result.code);
         if (url) instalacionPhotoUrls[result.code] = url;
@@ -302,7 +330,7 @@ export function SupervisionVisitWizard({ onComplete }: { onComplete?: () => void
     }
 
     const guardPhotoUrls: Record<string, Record<string, string>> = {};
-    for (const guardResult of guardDocResults) {
+    for (const guardResult of guardSrc) {
       guardPhotoUrls[guardResult.guardiaId] = {};
       for (const doc of guardResult.docs) {
         if (doc.photoFile) {
@@ -324,7 +352,7 @@ export function SupervisionVisitWizard({ onComplete }: { onComplete?: () => void
     }> = [];
 
     // Global doc results — use tipoDocId (UUID) so la grilla los pueda indexar
-    for (const result of globalDocResults) {
+    for (const result of globalSrc) {
       const tipo = globalDocTypes.find((t) => t.code === result.code);
       verificaciones.push({
         ...(tipo?.tipoDocId ? { tipoDocId: tipo.tipoDocId } : { guardiaDocType: result.code }),
@@ -337,7 +365,7 @@ export function SupervisionVisitWizard({ onComplete }: { onComplete?: () => void
     }
 
     // Installation doc results — use tipoDocId (UUID)
-    for (const result of documentResults) {
+    for (const result of instSrc) {
       const tipo = documentTypes.find((t) => t.code === result.code);
       verificaciones.push({
         ...(tipo?.tipoDocId ? { tipoDocId: tipo.tipoDocId } : { guardiaDocType: result.code }),
@@ -350,7 +378,7 @@ export function SupervisionVisitWizard({ onComplete }: { onComplete?: () => void
     }
 
     // Guard doc results — keep guardiaDocType (by design, capa guardia uses codes)
-    for (const guardResult of guardDocResults) {
+    for (const guardResult of guardSrc) {
       for (const doc of guardResult.docs) {
         const guardUrls = guardPhotoUrls[guardResult.guardiaId] ?? {};
         verificaciones.push({
@@ -470,8 +498,9 @@ export function SupervisionVisitWizard({ onComplete }: { onComplete?: () => void
         bookPhotoUrl = photoJson.data.photoUrl;
       }
 
-      // Save verificaciones (global + instalacion + guardia docs) — also uploads doc photos
-      await saveVerificaciones();
+      // NOTE: saveVerificaciones se ejecuta al cierre (handleFinalize), no aquí.
+      // Esto permite que los hallazgos diferidos (pendingFindings) se persistan
+      // primero y mappeen su `hallazgoId` real en cada verificación.
 
       // Save book data + legacy document checklist
       const documentChecklist: Record<string, boolean> = {};
@@ -650,6 +679,55 @@ export function SupervisionVisitWizard({ onComplete }: { onComplete?: () => void
         }).catch(() => { /* non-blocking */ });
       }
 
+      // 1) Persistir pendingFindings en orden (resuelve hallazgos diferidos del Step 3)
+      const localToReal = new Map<string, { id: string; ticketCode: string | null }>();
+      for (const pf of pendingFindings) {
+        const findingRes = await fetch(`/api/ops/supervision/${visit.id}/findings`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            category: pf.category,
+            severity: pf.severity,
+            description: pf.description,
+            guardId: pf.guardId,
+            ...(pf.tipoDocId ? { tipoDocId: pf.tipoDocId } : {}),
+            ...(pf.guardiaDocCode ? { guardiaDocCode: pf.guardiaDocCode } : {}),
+          }),
+        });
+        const findingJson = await findingRes.json().catch(() => ({}));
+        if (!findingRes.ok || !findingJson.success) {
+          toast.error(`Error al crear hallazgo: ${pf.description.slice(0, 50)}`);
+          throw new Error(findingJson.error ?? "Error al crear hallazgo diferido");
+        }
+        localToReal.set(pf.localId, {
+          id: findingJson.data.id,
+          ticketCode: findingJson.data.ticketCode ?? null,
+        });
+      }
+
+      // 2) Remap pendingLocalId → IDs reales sobre los doc results
+      const remap = (arr: DocumentCheckResult[]): DocumentCheckResult[] =>
+        arr.map((dr) => {
+          if (!dr.pendingLocalId) return dr;
+          const real = localToReal.get(dr.pendingLocalId);
+          return real
+            ? { ...dr, autoFindingId: real.id, autoTicketCode: real.ticketCode }
+            : dr;
+        });
+      const remappedGlobal = remap(globalDocResults);
+      const remappedDoc = remap(documentResults);
+      const remappedGuard = guardDocResults.map((g) => ({ ...g, docs: remap(g.docs) }));
+      setGlobalDocResults(remappedGlobal);
+      setDocumentResults(remappedDoc);
+      setGuardDocResults(remappedGuard);
+
+      // 3) Persistir verificaciones físicas con los IDs reales
+      await saveVerificaciones({
+        global: remappedGlobal,
+        instalacion: remappedDoc,
+        guardia: remappedGuard,
+      });
+
       const res = await fetch(`/api/ops/supervision/${visit.id}/checkout`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -678,13 +756,43 @@ export function SupervisionVisitWizard({ onComplete }: { onComplete?: () => void
       }
 
       toast.success("Visita finalizada correctamente");
-      if (onComplete) onComplete();
-      else router.push("/ops/supervision/historial");
+
+      // Modo VRA: ofrecer generar el informe automáticamente
+      if (isVraMode) {
+        setShowVraGenerateDialog(true);
+      } else {
+        if (onComplete) onComplete();
+        else router.push("/ops/supervision/historial");
+      }
     } catch (e) {
       const message = e instanceof Error ? e.message : "Error al finalizar visita";
       toast.error(message);
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleCreateVraReport() {
+    if (!visit) return;
+    setCreatingVraReport(true);
+    try {
+      const res = await fetch(`/api/vra/reports/from-visit/${visit.id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error);
+      const reportId = json.report.id;
+      toast.success(
+        json.alreadyExisted
+          ? "Informe ya existe — abriendo wizard"
+          : `Informe creado · ${json.importedFindings} hallazgos · ${json.importedPhotos} fotos importadas`,
+      );
+      router.push(`/opai/vra/${reportId}/edit`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Error creando informe");
+      setCreatingVraReport(false);
     }
   }
 
@@ -697,6 +805,18 @@ export function SupervisionVisitWizard({ onComplete }: { onComplete?: () => void
       );
     });
     return { lat: coords.latitude, lng: coords.longitude };
+  }
+
+  // Pending finding handlers — created locally on toggle, persisted at checkout
+  function addPendingFinding(pf: PendingFinding) {
+    setPendingFindings((prev) => {
+      const filtered = prev.filter((p) => p.source !== pf.source);
+      return [...filtered, pf];
+    });
+  }
+
+  function removePendingFinding(source: string) {
+    setPendingFindings((prev) => prev.filter((p) => p.source !== source));
   }
 
   // Finding handlers
@@ -762,6 +882,7 @@ export function SupervisionVisitWizard({ onComplete }: { onComplete?: () => void
           ).length,
           checklistCount: checklistResults.filter((r) => r.isChecked).length,
           photosCount: capturedPhotos.length,
+          pendingFindings,
         },
       };
 
@@ -876,7 +997,7 @@ export function SupervisionVisitWizard({ onComplete }: { onComplete?: () => void
             type="button"
             onClick={handleCancelVisit}
             disabled={saving}
-            className="rounded-lg border border-red-500/30 px-3 py-2 text-xs text-red-400 hover:bg-red-500/10 transition disabled:opacity-50"
+            className="rounded-lg border border-status-danger-border px-3 py-2 text-xs text-status-danger-fg hover:bg-status-danger-soft transition disabled:opacity-50"
           >
             Cancelar visita
           </button>
@@ -884,7 +1005,7 @@ export function SupervisionVisitWizard({ onComplete }: { onComplete?: () => void
       )}
 
       {/* Step content */}
-      {currentStep === 1 && <Step1CheckIn onCheckedIn={handleCheckedIn} />}
+      {currentStep === 1 && <Step1CheckIn onCheckedIn={handleCheckedIn} mode={mode} />}
 
       {currentStep === 2 && visit && (
         <Step2Evaluation
@@ -901,6 +1022,7 @@ export function SupervisionVisitWizard({ onComplete }: { onComplete?: () => void
           onNext={handleStep2Next}
           onPrev={() => setCurrentStep(1)}
           saving={saving}
+          mode={mode}
         />
       )}
 
@@ -944,9 +1066,15 @@ export function SupervisionVisitWizard({ onComplete }: { onComplete?: () => void
           dotacionGuards={guards}
           onFindingCreated={handleFindingCreated}
           onFindingStatusChange={handleFindingStatusChange}
+          onAddPendingFinding={addPendingFinding}
+          onRemovePendingFinding={removePendingFinding}
+          onFindingResolvedLocally={(id) =>
+            setOpenFindings((prev) => prev.filter((f) => f.id !== id))
+          }
           onNext={handleStep3Next}
           onPrev={() => setCurrentStep(2)}
           saving={saving}
+          mode={mode}
         />
       )}
 
@@ -962,6 +1090,7 @@ export function SupervisionVisitWizard({ onComplete }: { onComplete?: () => void
           onNext={handleStep4Next}
           onPrev={() => setCurrentStep(3)}
           saving={saving}
+          mode={mode}
         />
       )}
 
@@ -999,7 +1128,61 @@ export function SupervisionVisitWizard({ onComplete }: { onComplete?: () => void
           onFinalize={handleFinalize}
           onPrev={() => setCurrentStep(4)}
           saving={saving}
+          pendingFindings={pendingFindings}
+          onRemovePendingFinding={removePendingFinding}
         />
+      )}
+
+      {/* Dialog post-checkout VRA: ofrecer generar informe ahora */}
+      {showVraGenerateDialog && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-md rounded-t-xl sm:rounded-xl bg-zinc-900 border border-zinc-800 p-6 space-y-4 shadow-xl">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-status-warn-soft flex items-center justify-center flex-shrink-0">
+                <span className="text-2xl">🛡️</span>
+              </div>
+              <div>
+                <h3 className="font-semibold text-zinc-100">Visita VRA finalizada</h3>
+                <p className="text-xs text-zinc-400">
+                  Capturaste {findings.length} hallazgo(s) y {capturedPhotos.length} foto(s)
+                </p>
+              </div>
+            </div>
+
+            <p className="text-sm text-zinc-300">
+              ¿Querés generar el <strong>informe de vulnerabilidad</strong> ahora mismo? La IA
+              tomará tus hallazgos y fotos como insumo y armará todas las secciones automáticamente.
+            </p>
+
+            <div className="flex flex-col gap-2 pt-2">
+              <button
+                type="button"
+                onClick={handleCreateVraReport}
+                disabled={creatingVraReport}
+                className="w-full px-4 py-3 rounded-lg bg-status-warn hover:brightness-110 text-white font-medium text-sm flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {creatingVraReport ? "Creando informe..." : "Sí, generar informe ahora"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowVraGenerateDialog(false);
+                  if (onComplete) onComplete();
+                  else router.push("/ops/supervision/historial");
+                }}
+                disabled={creatingVraReport}
+                className="w-full px-4 py-3 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-medium text-sm disabled:opacity-50"
+              >
+                Más tarde — generar desde escritorio
+              </button>
+            </div>
+
+            <p className="text-[11px] text-zinc-500 text-center pt-1">
+              Si elegís &quot;más tarde&quot;, los datos quedan guardados en la visita y podés
+              importarlos al crear el informe en el módulo VRA.
+            </p>
+          </div>
+        </div>
       )}
     </div>
   );

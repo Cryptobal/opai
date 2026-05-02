@@ -49,7 +49,7 @@ export default function PsychSendToPsychologistForm(p: Props) {
         />
       </Field>
       {p.err ? (
-        <p className="text-sm text-red-600 dark:text-red-400">{p.err}</p>
+        <p className="text-sm text-status-danger-fg dark:text-status-danger-fg">{p.err}</p>
       ) : null}
       <div className="flex gap-2">
         <button

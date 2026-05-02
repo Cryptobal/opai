@@ -596,7 +596,7 @@ ${guardPhotos.length > 0 ? `
   ${sectionTitle('Próximos pasos')}
   ${['Agendar visita técnica sin costo', 'Revisar y ajustar propuesta si es necesario', 'Firma de contrato', 'Servicio activo en ≤15 días'].map((s, i) => `<div class="bullet-item"><span class="bullet-dot">${i + 1}.</span><span>${esc(s)}</span></div>`).join('')}
   <p class="body-text" style="font-weight:600;margin-top:16px;">¿Tiene dudas? Conversemos:</p>
-  <p class="body-text">WhatsApp: +56 98 230 7771 · Email: ${esc(companyConfig.email)} · Web: ${esc(companyConfig.website)}</p>
+  <p class="body-text">WhatsApp: ${esc(companyConfig.phone)} · Email: ${esc(companyConfig.email)} · Web: ${esc(companyConfig.website)}</p>
 
   <div style="margin-top:32px;">
     ${sectionTitle('Aceptación de Propuesta')}

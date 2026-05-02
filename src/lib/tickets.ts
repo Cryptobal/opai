@@ -65,6 +65,7 @@ export interface TicketType {
   origin: TicketOrigin;
   requiresApproval: boolean;
   assignedTeam: TicketTeam;
+  defaultAssignedToUserId: string | null;
   defaultPriority: TicketPriority;
   slaHours: number;
   icon: string | null;
@@ -288,9 +289,9 @@ export const TICKET_PRIORITY_CONFIG: Record<
   TicketPriority,
   { label: string; shortLabel: string; color: string; bg: string; border: string; description: string }
 > = {
-  p1: { label: "P1 — Crítica", shortLabel: "P1", color: "text-red-500", bg: "bg-red-500/10", border: "border-red-500/30", description: "Requiere atención inmediata" },
-  p2: { label: "P2 — Alta", shortLabel: "P2", color: "text-orange-500", bg: "bg-orange-500/10", border: "border-orange-500/30", description: "Resolver dentro de SLA" },
-  p3: { label: "P3 — Media", shortLabel: "P3", color: "text-yellow-500", bg: "bg-yellow-500/10", border: "border-yellow-500/30", description: "Planificable" },
+  p1: { label: "P1 — Crítica", shortLabel: "P1", color: "text-status-danger-fg", bg: "bg-status-danger-soft", border: "border-status-danger-border", description: "Requiere atención inmediata" },
+  p2: { label: "P2 — Alta", shortLabel: "P2", color: "text-status-warn-fg", bg: "bg-status-warn-soft", border: "border-status-warn-border", description: "Resolver dentro de SLA" },
+  p3: { label: "P3 — Media", shortLabel: "P3", color: "text-status-warn-fg", bg: "bg-status-warn-soft", border: "border-status-warn-border", description: "Planificable" },
   p4: { label: "P4 — Baja", shortLabel: "P4", color: "text-muted-foreground", bg: "bg-muted/10", border: "border-muted/30", description: "Cuando sea posible" },
 };
 
@@ -301,6 +302,20 @@ export const TICKET_TEAM_CONFIG: Record<TicketTeam, { label: string }> = {
   inventario: { label: "Inventario" },
   finanzas: { label: "Finanzas" },
   it_admin: { label: "IT / Admin" },
+};
+
+/**
+ * Mapeo entre `assignedTeam` (string del ticket) y `slug` del AdminGroup.
+ * Se usa para resolver los miembros de un equipo al notificar tickets sin
+ * responsable específico.
+ */
+export const TICKET_TEAM_TO_GROUP_SLUG: Record<TicketTeam, string> = {
+  postventa: "operaciones",
+  ops: "operaciones",
+  rrhh: "rrhh",
+  inventario: "inventario",
+  finanzas: "finanzas",
+  it_admin: "it_admin",
 };
 
 export const TICKET_SOURCE_CONFIG: Record<TicketSource, { label: string }> = {
@@ -724,19 +739,19 @@ export function getSlaPercentage(
 /** Get color class for SLA bar based on percentage */
 export function getSlaColor(percentage: number | null): string {
   if (percentage === null) return "bg-muted-foreground/30";
-  if (percentage <= 0) return "bg-red-500";
-  if (percentage < 30) return "bg-red-500";
-  if (percentage < 60) return "bg-yellow-500";
-  return "bg-emerald-500";
+  if (percentage <= 0) return "bg-status-danger";
+  if (percentage < 30) return "bg-status-danger";
+  if (percentage < 60) return "bg-status-warn";
+  return "bg-status-ok";
 }
 
 /** Get text color class for SLA */
 export function getSlaTextColor(percentage: number | null): string {
   if (percentage === null) return "text-muted-foreground";
-  if (percentage <= 0) return "text-red-500";
-  if (percentage < 30) return "text-red-500";
-  if (percentage < 60) return "text-yellow-500";
-  return "text-emerald-500";
+  if (percentage <= 0) return "text-status-danger-fg";
+  if (percentage < 30) return "text-status-danger-fg";
+  if (percentage < 60) return "text-status-warn-fg";
+  return "text-status-ok-fg";
 }
 
 /** Get border-left color class for priority */

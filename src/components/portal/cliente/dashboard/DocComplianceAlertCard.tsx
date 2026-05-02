@@ -43,10 +43,10 @@ export function DocComplianceAlertCard({ onNavigate }: Props) {
 
   const isCritical = os10Vencido > 0 || docsVencidos > 0;
   const toneClasses = isCritical
-    ? "border-red-500/30 bg-red-500/[0.08]"
-    : "border-amber-500/30 bg-amber-500/[0.08]";
-  const iconTone = isCritical ? "text-red-400" : "text-amber-400";
-  const titleTone = isCritical ? "text-red-300" : "text-amber-300";
+    ? "border-status-danger-border bg-status-danger-soft/30"
+    : "border-status-warn-border bg-status-warn-soft/30";
+  const iconTone = isCritical ? "text-status-danger-fg" : "text-status-warn-fg";
+  const titleTone = isCritical ? "text-status-danger-fg" : "text-status-warn-fg";
 
   const items: string[] = [];
   if (os10Vencido > 0)

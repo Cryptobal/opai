@@ -2,7 +2,8 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canDelete, canEdit, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/opai";
+import { PageHero } from "@/components/opai-ds";
+import { UserPlus } from "lucide-react";
 import { OpsGlobalSearch } from "@/components/ops/OpsGlobalSearch";
 import { OpsRefuerzosClient, PautasSubnav } from "@/components/ops";
 import { resolveRefuerzoStatus } from "@/lib/ops-refuerzos";
@@ -74,9 +75,13 @@ export default async function OpsRefuerzosPage() {
 
   return (
     <div className="space-y-6 min-w-0">
-      <PageHeader
+      <PageHero
+        icon={<UserPlus />}
+        iconTone="emerald"
+        eyebrow={["Operaciones", "Refuerzos"]}
         title="Turnos de refuerzo"
-        description="Solicitudes de refuerzo por instalación y seguimiento para facturación."
+        subtitle="solicitudes y facturación"
+        description="Solicitudes de refuerzo por instalación con seguimiento de aprobación, asignación y facturación."
       />
       <PautasSubnav />
       <OpsGlobalSearch className="w-full sm:max-w-xs" />

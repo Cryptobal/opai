@@ -103,7 +103,7 @@ export function AlertasCoberturaGuardiaSection({ session }: { session: GuardSess
   return (
     <div className="space-y-4 pb-24">
       <h2 className="text-lg font-semibold flex items-center gap-2">
-        <Zap className="h-5 w-5 text-amber-400" />
+        <Zap className="h-5 w-5 text-status-warn-fg" />
         Turnos Disponibles
       </h2>
 
@@ -129,12 +129,12 @@ export function AlertasCoberturaGuardiaSection({ session }: { session: GuardSess
                 key={alerta.id}
                 className={`rounded-xl border p-4 space-y-3 ${
                   alerta.urgencia === "URGENTE"
-                    ? "border-red-500/40 bg-red-500/5"
+                    ? "border-status-danger-border bg-status-danger-soft"
                     : "border-border bg-card"
-                } ${isAccepted ? "border-emerald-500/60 bg-emerald-500/10" : ""}`}
+                } ${isAccepted ? "border-status-ok bg-status-ok-soft" : ""}`}
               >
                 {alerta.urgencia === "URGENTE" && (
-                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-400 animate-pulse">
+                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-status-danger-fg animate-pulse">
                     <Siren className="h-3.5 w-3.5" />
                     URGENTE
                   </span>
@@ -179,8 +179,8 @@ export function AlertasCoberturaGuardiaSection({ session }: { session: GuardSess
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <DollarSign className="h-5 w-5 text-emerald-400" />
-                  <span className="text-xl font-bold text-emerald-400 font-mono">
+                  <DollarSign className="h-5 w-5 text-status-ok-fg" />
+                  <span className="text-xl font-bold text-status-ok-fg font-mono">
                     {fmtClp(alerta.montoOfrecido)}
                   </span>
                 </div>
@@ -198,7 +198,7 @@ export function AlertasCoberturaGuardiaSection({ session }: { session: GuardSess
                 )}
 
                 {isAccepted ? (
-                  <div className="flex items-center justify-center gap-2 py-3 text-emerald-400">
+                  <div className="flex items-center justify-center gap-2 py-3 text-status-ok-fg">
                     <CheckCircle2 className="h-5 w-5" />
                     <span className="font-semibold">¡Turno confirmado!</span>
                   </div>
@@ -210,7 +210,7 @@ export function AlertasCoberturaGuardiaSection({ session }: { session: GuardSess
                   <button
                     onClick={() => handleAceptar(alerta.id)}
                     disabled={isAccepting}
-                    className="w-full py-3.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-semibold text-sm flex items-center justify-center gap-2 transition-colors disabled:opacity-60"
+                    className="w-full py-3.5 rounded-lg bg-status-ok hover:brightness-110 active:brightness-95 text-white font-semibold text-sm flex items-center justify-center gap-2 transition-colors disabled:opacity-60"
                   >
                     {isAccepting ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -253,10 +253,10 @@ function AlertaCountdown({ initialSeconds }: { initialSeconds: number }) {
   const display = `${min}:${String(sec).padStart(2, "0")}`;
   const color =
     seconds > 300
-      ? "text-emerald-400"
+      ? "text-status-ok-fg"
       : seconds > 60
-        ? "text-amber-400"
-        : "text-red-400 animate-pulse";
+        ? "text-status-warn-fg"
+        : "text-status-danger-fg animate-pulse";
 
   return (
     <div className="flex items-center justify-center gap-2">

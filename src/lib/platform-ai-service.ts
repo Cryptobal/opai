@@ -84,6 +84,62 @@ export async function getPlatformAIConfig(): Promise<PlatformAIConfig | null> {
   return null;
 }
 
+/**
+ * Resuelve la config de IA para un tenant específico.
+ * Política:
+ *   1. Si el tenant tiene un TenantAiProvider activo con apiKey y modelo → usar ese.
+ *   2. Si no → caer al provider de plataforma (getPlatformAIConfig).
+ *   3. Si tampoco → null.
+ */
+export async function getAIConfigForTenant(
+  tenantId: string,
+): Promise<PlatformAIConfig | null> {
+  if (!tenantId) return getPlatformAIConfig();
+
+  try {
+    const provider = await prisma.tenantAiProvider.findFirst({
+      where: { tenantId, isActive: true, apiKey: { not: null } },
+      include: {
+        models: { where: { isDefault: true, isActive: true }, take: 1 },
+      },
+    });
+
+    if (provider?.apiKey) {
+      let model: { modelId: string; displayName: string } | null =
+        provider.models[0] ?? null;
+
+      if (!model) {
+        model = await prisma.tenantAiModel.findFirst({
+          where: { providerId: provider.id, isActive: true },
+          orderBy: { costTier: "asc" },
+        });
+      }
+
+      if (model) {
+        const fallbackUrl =
+          KNOWN_PROVIDERS.find(
+            (kp) => kp.providerType === provider.providerType,
+          )?.defaultBaseUrl ?? "";
+
+        return {
+          providerType: provider.providerType,
+          modelId: model.modelId,
+          apiKey: decryptApiKey(provider.apiKey),
+          baseUrl: provider.baseUrl || fallbackUrl,
+          displayName: model.displayName,
+        };
+      }
+    }
+  } catch (error) {
+    console.warn(
+      "[platform-ai-service] Error reading tenant AI config:",
+      error,
+    );
+  }
+
+  return getPlatformAIConfig();
+}
+
 /* ── Usage logging ── */
 
 type UsageLogParams = {

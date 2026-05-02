@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canEdit, hasCapability } from "@/lib/permissions-server";
-import { PageHeader } from "@/components/opai";
+import { PageHero } from "@/components/opai-ds";
+import { PlusCircle } from "lucide-react";
 import { SupervisionVisitWizard } from "@/components/supervision/wizard";
 
 export default async function NuevaVisitaSupervisionPage() {
@@ -17,9 +18,13 @@ export default async function NuevaVisitaSupervisionPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 pb-20">
-      <PageHeader
+      <PageHero
+        icon={<PlusCircle />}
+        iconTone="emerald"
+        eyebrow={["Operaciones", "Supervisión", "Nueva visita"]}
         title="Nueva visita de supervisión"
-        description="Wizard de 5 pasos: Check-in, Evaluación, Verificación, Evidencia y Cierre."
+        subtitle="wizard de 5 pasos"
+        description="Wizard de 5 pasos: Check-in geolocalizado, Evaluación, Verificación con checklist, Evidencia fotográfica y Cierre con firma."
       />
       <SupervisionVisitWizard />
     </div>

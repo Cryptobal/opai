@@ -42,7 +42,7 @@ async function main() {
       senderName: "Carlos Irigoyen Garcés",
       senderCargo: "Director Comercial",
       brandName: "Gard Security",
-      brandPhone: "+56 98 230 7771",
+      brandPhone: "+56 9 6872 7644",
       brandEmail: "comercial@gard.cl",
       portalUrl: "https://opai.gard.cl/portal/cliente",
       portalPin: "3832",

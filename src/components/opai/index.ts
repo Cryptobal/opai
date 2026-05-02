@@ -14,36 +14,12 @@ export type { AppSidebarProps, NavItem, NavSubItem } from './AppSidebar';
 
 export { AppLayoutClient } from './AppLayoutClient';
 
-export { PageHeader } from './PageHeader';
-export type { PageHeaderProps } from './PageHeader';
-
 // UI Components
-export { KpiCard } from './KpiCard';
-export type { KpiCardProps, TrendType } from './KpiCard';
-
-export { KpiGrid } from './KpiGrid';
-export type { KpiGridProps } from './KpiGrid';
-
-export { FilterBar } from './FilterBar';
-export type { FilterBarProps } from './FilterBar';
-
-export { ModuleCard } from './ModuleCard';
-
-export { LoadingSpinner } from './LoadingSpinner';
-
-export { FormField } from './FormField';
-
-export { EmptyState } from './EmptyState';
-export type { EmptyStateProps } from './EmptyState';
+export { DataTable } from './DataTable';
+export type { DataTableColumn, DataTableProps } from './DataTable';
 
 export { LoadingState } from './LoadingState';
 export type { LoadingStateProps, LoadingStateType } from './LoadingState';
-
-export { Avatar } from './Avatar';
-export { Stepper } from './Stepper';
-export { Breadcrumb } from './Breadcrumb';
-export type { BreadcrumbItem } from './Breadcrumb';
-export { StatusBadge } from './StatusBadge';
 
 // Theme
 export { ThemeProvider, useTheme } from './ThemeProvider';
@@ -51,19 +27,15 @@ export { ThemeToggle } from './ThemeToggle';
 export { ThemeLogo } from './ThemeLogo';
 
 // Topbar Components
-export { TemplatesDropdown } from './TemplatesDropdown';
 export { TopbarActions } from './TopbarActions';
 export { DocumentosTopbar } from './DocumentosTopbar';
 export { ReloadButton } from './ReloadButton';
 
 // Navigation
-export { SubNav } from './SubNav';
-export type { SubNavItem } from './SubNav';
 export { BottomNav } from './BottomNav';
 export { CommandPalette } from './CommandPalette';
 
 // Page Components
-export { DocumentosContent } from './DocumentosContent';
 export { DocumentosSubnav } from './DocumentosSubnav';
 export { IntegrationsGmailClient } from './IntegrationsGmailClient';
 export { EmailTemplatesClient } from './EmailTemplatesClient';

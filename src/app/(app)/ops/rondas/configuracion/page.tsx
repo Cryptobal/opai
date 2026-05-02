@@ -2,7 +2,8 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/opai";
+import { PageHero } from "@/components/opai-ds";
+import { Settings } from "lucide-react";
 import { RondasConfiguracionClient } from "@/components/ops/rondas/RondasConfiguracionClient";
 import { RondasSubnav } from "@/components/ops/RondasSubnav";
 
@@ -45,9 +46,13 @@ export default async function RondasConfiguracionPage() {
 
   return (
     <div className="space-y-6 min-w-0">
-      <PageHeader
+      <PageHero
+        icon={<Settings />}
+        iconTone="emerald"
+        eyebrow={["Operaciones", "Rondas", "Configuración"]}
         title="Configuración de rondas"
-        description="Gestiona checkpoints, plantillas y programación por instalación."
+        subtitle="checkpoints, plantillas y programación"
+        description="Define los puntos de control, agrúpalos en plantillas reutilizables y programa cuándo se ejecutan."
       />
       <RondasSubnav />
       <RondasConfiguracionClient

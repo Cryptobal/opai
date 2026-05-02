@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { KpiCard, KpiGrid } from "@/components/opai";
+import { Stat, StatGrid } from "@/components/opai-ds";
 import {
   BarChart,
   Bar,
@@ -131,42 +131,32 @@ export function SupervisionDashboardEnhanced({
       </div>
 
       {/* Row 1: KPI Cards with trends */}
-      <KpiGrid columns={3}>
-        <KpiCard
-          title="Visitas totales"
+      <StatGrid lgCols={3}>
+        <Stat
+          label="Visitas totales"
           value={t?.visitas ?? 0}
-          trend={t && t.trendTotal !== 0 ? (t.trendTotal > 0 ? "up" : "down") : "neutral"}
-          trendValue={t ? `${t.trendTotal > 0 ? "+" : ""}${t.trendTotal}%` : undefined}
+          trend={t?.trendTotal ?? undefined}
         />
-        <KpiCard
-          title="Completadas"
+        <Stat
+          label="Completadas"
           value={t?.visitasCompleted ?? 0}
-          variant="emerald"
-          trend={t && t.trendCompleted !== 0 ? (t.trendCompleted > 0 ? "up" : "down") : "neutral"}
-          trendValue={t ? `${t.trendCompleted > 0 ? "+" : ""}${t.trendCompleted}%` : undefined}
+          variant="ok"
+          trend={t?.trendCompleted ?? undefined}
         />
-        <KpiCard
-          title="Críticas"
-          value={t?.criticas ?? 0}
-          variant="amber"
-        />
-        <KpiCard
-          title="Pendientes"
-          value={t?.pendientes ?? 0}
-          variant="blue"
-        />
-        <KpiCard
-          title="Duración promedio"
+        <Stat label="Críticas" value={t?.criticas ?? 0} variant="warn" />
+        <Stat label="Pendientes" value={t?.pendientes ?? 0} variant="brand" />
+        <Stat
+          label="Duración promedio"
           value={t ? `${t.avgDurationMin}min` : "—"}
-          variant="purple"
+          variant="brand"
         />
-        <KpiCard
-          title="Calificación promedio"
+        <Stat
+          label="Calificación promedio"
           value={t?.avgRating !== null && t?.avgRating !== undefined ? t.avgRating.toFixed(1) : "—"}
-          variant="teal"
-          icon={<Star className="h-4 w-4" />}
+          variant="brand"
+          icon={Star}
         />
-      </KpiGrid>
+      </StatGrid>
 
       {/* Row 2: Charts */}
       <div className="grid gap-4 lg:grid-cols-2">
@@ -229,7 +219,7 @@ export function SupervisionDashboardEnhanced({
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
-              <AlertTriangle className="h-4 w-4 text-amber-400" />
+              <AlertTriangle className="h-4 w-4 text-status-warn-fg" />
               Alertas
             </CardTitle>
           </CardHeader>
@@ -237,7 +227,7 @@ export function SupervisionDashboardEnhanced({
             {/* No visit installations */}
             {dashData?.alerts.noVisitInstallations && dashData.alerts.noVisitInstallations.length > 0 && (
               <div>
-                <p className="mb-1 text-xs font-medium text-red-400">
+                <p className="mb-1 text-xs font-medium text-status-danger-fg">
                   Instalaciones sin visita (+7 días):
                 </p>
                 {dashData.alerts.noVisitInstallations.slice(0, 5).map((inst) => (
@@ -252,7 +242,7 @@ export function SupervisionDashboardEnhanced({
             {/* Express visits */}
             {dashData?.alerts.expressVisits && dashData.alerts.expressVisits.length > 0 && (
               <div>
-                <p className="mb-1 text-xs font-medium text-amber-400">
+                <p className="mb-1 text-xs font-medium text-status-warn-fg">
                   Visitas express (&lt;15m):
                 </p>
                 {dashData.alerts.expressVisits.slice(0, 3).map((v) => (
@@ -266,10 +256,10 @@ export function SupervisionDashboardEnhanced({
             {/* Open findings */}
             {dashData?.alerts && dashData.alerts.openFindingsCount > 0 && (
               <div>
-                <p className="text-xs font-medium text-amber-400">
+                <p className="text-xs font-medium text-status-warn-fg">
                   Hallazgos abiertos: {dashData.alerts.openFindingsCount}
                   {dashData.alerts.overdueFindingsCount > 0 && (
-                    <span className="text-red-400">
+                    <span className="text-status-danger-fg">
                       {" "}({dashData.alerts.overdueFindingsCount} vencidos)
                     </span>
                   )}
@@ -335,10 +325,10 @@ function RatingBar({ label, value }: { label: string; value: number | null }) {
     value === null
       ? "bg-muted"
       : value >= 4
-        ? "bg-emerald-500"
+        ? "bg-status-ok"
         : value >= 3
-          ? "bg-amber-500"
-          : "bg-red-500";
+          ? "bg-status-warn"
+          : "bg-status-danger";
 
   return (
     <div className="space-y-1">

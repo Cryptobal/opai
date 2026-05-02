@@ -138,9 +138,9 @@ export interface DealGroup {
 
 export const STATUS_BADGE: Record<string, string> = {
   draft:    "bg-zinc-800 text-zinc-400",
-  sent:     "bg-blue-900/60 text-blue-300",
-  approved: "bg-emerald-900/60 text-emerald-300",
-  rejected: "bg-red-900/60 text-red-400",
+  sent:     "bg-blue-900/60 text-status-info-fg",
+  approved: "bg-emerald-900/60 text-status-ok-fg",
+  rejected: "bg-red-900/60 text-status-danger-fg",
   expired:  "bg-zinc-700 text-zinc-400",
 };
 

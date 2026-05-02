@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { aiService } from "@/lib/ai-service";
+import { AIError } from "@/lib/ai-errors";
 import { requireAuth, unauthorized, resolveApiPerms, parseBody } from "@/lib/api-auth";
 import { canEdit } from "@/lib/permissions";
+import { buildGenerateSectionPrompt } from "@/lib/protocols/prompts";
 
 type Params = { id: string };
 
@@ -32,13 +34,20 @@ export async function POST(
     if (parsed.error) return parsed.error;
     const { description } = parsed.data;
 
-    const prompt = `Para un protocolo de seguridad de una empresa de guardias en Chile, genera una sección completa sobre: "${description}"
-Responde ÚNICAMENTE con el siguiente JSON válido: {"title":"...","icon":"emoji","items":[{"title":"...","description":"..."}]}
-Incluye al menos 4 ítems detallados, prácticos y accionables.`;
+    const prompt = buildGenerateSectionPrompt({ description });
 
-    let aiResponse: { title: string; icon: string; items: Array<{ title: string; description: string }> };
+    let aiResponse: {
+      title: string;
+      icon: string;
+      items: Array<{
+        title: string;
+        description: string;
+        criticality?: number;
+        legalRequirement?: boolean;
+      }>;
+    };
     try {
-      aiResponse = (await aiService.generateJSON(prompt, 4096)) as typeof aiResponse;
+      aiResponse = (await aiService.generateJSON(prompt, 4096, { tenantId: ctx.tenantId })) as typeof aiResponse;
     } catch (err: unknown) {
       if (err instanceof Error && err.message === "NO_AI_CONFIGURED") {
         return NextResponse.json(
@@ -58,9 +67,12 @@ Incluye al menos 4 ítems detallados, prácticos y accionables.`;
 
     return NextResponse.json({ success: true, data: { section: aiResponse } });
   } catch (error) {
+    if (error instanceof AIError) {
+      return NextResponse.json(error.toResponse(), { status: error.clientHttpStatus });
+    }
     console.error("[PROTOCOL_GENERATE_SECTION] Error:", error);
     return NextResponse.json(
-      { success: false, error: "Error al generar sección con IA" },
+      { success: false, error: "Error al generar sección con IA", code: "INTERNAL_ERROR" },
       { status: 500 },
     );
   }

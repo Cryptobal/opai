@@ -17,7 +17,7 @@ export function PairingSuccess({
     <div className="flex min-h-dvh flex-col items-center justify-center bg-[#0A0F1C] px-6">
       <div className="flex flex-col items-center max-w-sm w-full">
         {/* Green checkmark */}
-        <CheckCircle2 className="h-20 w-20 text-green-500 mb-6" />
+        <CheckCircle2 className="h-20 w-20 text-status-ok-fg mb-6" />
 
         {/* Title */}
         <h1 className="text-2xl font-bold text-white mb-2">
@@ -32,7 +32,7 @@ export function PairingSuccess({
         {/* Installation info */}
         <div className="w-full rounded-xl border border-gray-700 bg-[#111827] px-5 py-4 mb-10">
           <div className="flex items-start gap-3">
-            <Building2 className="h-5 w-5 text-cyan-500 mt-0.5 shrink-0" />
+            <Building2 className="h-5 w-5 text-status-info-fg mt-0.5 shrink-0" />
             <div>
               <p className="font-semibold text-white">{installationName}</p>
               <p className="text-sm text-gray-400 mt-0.5">
@@ -46,7 +46,7 @@ export function PairingSuccess({
         <button
           type="button"
           onClick={onContinue}
-          className="flex w-full items-center justify-center rounded-xl bg-cyan-500 px-4 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-cyan-400 active:bg-cyan-600"
+          className="flex w-full items-center justify-center rounded-xl bg-status-info px-4 py-3.5 text-sm font-semibold text-white transition-colors hover:brightness-110 active:brightness-95"
         >
           COMENZAR
         </button>

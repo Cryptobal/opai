@@ -97,7 +97,7 @@ export function RegistroDemoForm({ utmSource, utmCampaign, tenantSlug = "gard" }
         {/* Company Name */}
         <div>
           <label htmlFor="companyName" className="block text-sm font-medium text-slate-300 mb-1.5">
-            Nombre de la empresa <span className="text-red-400">*</span>
+            Nombre de la empresa <span className="text-status-danger-fg">*</span>
           </label>
           <input
             id="companyName"
@@ -105,7 +105,7 @@ export function RegistroDemoForm({ utmSource, utmCampaign, tenantSlug = "gard" }
             value={form.companyName}
             onChange={(e) => updateField("companyName", e.target.value)}
             placeholder="Ej: Torres del Pacífico"
-            className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder:text-slate-600 focus:border-teal-500/50 focus:outline-none focus:ring-1 focus:ring-teal-500/30 transition-colors"
+            className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder:text-slate-600 focus:border-status-info-border focus:outline-none focus:ring-1 focus:ring-status-info/30 transition-colors"
             autoComplete="organization"
           />
         </div>
@@ -113,7 +113,7 @@ export function RegistroDemoForm({ utmSource, utmCampaign, tenantSlug = "gard" }
         {/* Contact Name */}
         <div>
           <label htmlFor="contactName" className="block text-sm font-medium text-slate-300 mb-1.5">
-            Nombre del contacto <span className="text-red-400">*</span>
+            Nombre del contacto <span className="text-status-danger-fg">*</span>
           </label>
           <input
             id="contactName"
@@ -121,7 +121,7 @@ export function RegistroDemoForm({ utmSource, utmCampaign, tenantSlug = "gard" }
             value={form.contactName}
             onChange={(e) => updateField("contactName", e.target.value)}
             placeholder="Ej: Juan Pérez"
-            className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder:text-slate-600 focus:border-teal-500/50 focus:outline-none focus:ring-1 focus:ring-teal-500/30 transition-colors"
+            className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder:text-slate-600 focus:border-status-info-border focus:outline-none focus:ring-1 focus:ring-status-info/30 transition-colors"
             autoComplete="name"
           />
         </div>
@@ -129,7 +129,7 @@ export function RegistroDemoForm({ utmSource, utmCampaign, tenantSlug = "gard" }
         {/* Email */}
         <div>
           <label htmlFor="email" className="block text-sm font-medium text-slate-300 mb-1.5">
-            Email corporativo <span className="text-red-400">*</span>
+            Email corporativo <span className="text-status-danger-fg">*</span>
           </label>
           <input
             id="email"
@@ -137,7 +137,7 @@ export function RegistroDemoForm({ utmSource, utmCampaign, tenantSlug = "gard" }
             value={form.email}
             onChange={(e) => updateField("email", e.target.value)}
             placeholder="juan@empresa.cl"
-            className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder:text-slate-600 focus:border-teal-500/50 focus:outline-none focus:ring-1 focus:ring-teal-500/30 transition-colors"
+            className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder:text-slate-600 focus:border-status-info-border focus:outline-none focus:ring-1 focus:ring-status-info/30 transition-colors"
             autoComplete="email"
           />
         </div>
@@ -153,7 +153,7 @@ export function RegistroDemoForm({ utmSource, utmCampaign, tenantSlug = "gard" }
             value={form.phone}
             onChange={(e) => updateField("phone", e.target.value)}
             placeholder="+56 9 1234 5678"
-            className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder:text-slate-600 focus:border-teal-500/50 focus:outline-none focus:ring-1 focus:ring-teal-500/30 transition-colors"
+            className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder:text-slate-600 focus:border-status-info-border focus:outline-none focus:ring-1 focus:ring-status-info/30 transition-colors"
             autoComplete="tel"
           />
         </div>
@@ -163,13 +163,13 @@ export function RegistroDemoForm({ utmSource, utmCampaign, tenantSlug = "gard" }
           {/* Industry */}
           <div>
             <label htmlFor="industry" className="block text-sm font-medium text-slate-300 mb-1.5">
-              Rubro <span className="text-red-400">*</span>
+              Rubro <span className="text-status-danger-fg">*</span>
             </label>
             <select
               id="industry"
               value={form.industry}
               onChange={(e) => updateField("industry", e.target.value)}
-              className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white focus:border-teal-500/50 focus:outline-none focus:ring-1 focus:ring-teal-500/30 transition-colors appearance-none"
+              className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white focus:border-status-info-border focus:outline-none focus:ring-1 focus:ring-status-info/30 transition-colors appearance-none"
             >
               <option value="" className="bg-[#0a1628]">Seleccione...</option>
               {INDUSTRY_OPTIONS.map((opt) => (
@@ -189,7 +189,7 @@ export function RegistroDemoForm({ utmSource, utmCampaign, tenantSlug = "gard" }
               id="estimatedGuards"
               value={form.estimatedGuards}
               onChange={(e) => updateField("estimatedGuards", e.target.value)}
-              className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white focus:border-teal-500/50 focus:outline-none focus:ring-1 focus:ring-teal-500/30 transition-colors appearance-none"
+              className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white focus:border-status-info-border focus:outline-none focus:ring-1 focus:ring-status-info/30 transition-colors appearance-none"
             >
               <option value="" className="bg-[#0a1628]">Seleccione...</option>
               {GUARD_OPTIONS.map((opt) => (
@@ -215,7 +215,7 @@ export function RegistroDemoForm({ utmSource, utmCampaign, tenantSlug = "gard" }
 
       {/* Error message */}
       {error && (
-        <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+        <div className="rounded-lg border border-status-danger-border bg-status-danger-soft px-4 py-3 text-sm text-status-danger-fg">
           {error}
         </div>
       )}
@@ -224,7 +224,7 @@ export function RegistroDemoForm({ utmSource, utmCampaign, tenantSlug = "gard" }
       <button
         type="submit"
         disabled={loading}
-        className="w-full rounded-lg bg-teal-600 px-6 py-3 text-sm font-semibold text-white transition-all hover:bg-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full rounded-lg bg-status-info px-6 py-3 text-sm font-semibold text-white transition-all hover:bg-status-info focus:outline-none focus:ring-2 focus:ring-teal-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {loading ? (
           <span className="inline-flex items-center gap-2">

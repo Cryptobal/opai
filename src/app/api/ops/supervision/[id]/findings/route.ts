@@ -21,6 +21,10 @@ const findingSchema = z.object({
   photoUrl: z.string().url().nullable().optional(),
   tipoDocId: z.string().uuid().nullable().optional(),
   guardiaDocCode: z.string().max(200).nullable().optional(),
+  // Campos VRA — solo se llenan cuando la visita es vulnerability_assessment
+  location: z.string().max(200).nullable().optional(),
+  sectorTag: z.string().max(80).nullable().optional(),
+  aggravatingFactors: z.string().max(2000).nullable().optional(),
 });
 
 const ESCALATION_THRESHOLD = 3;
@@ -273,15 +277,16 @@ export async function POST(
               },
             });
 
-            import("@/lib/notification-service").then(({ sendNotificationToUsers }) => {
-              sendNotificationToUsers({
+            import("@/lib/notifications/notify").then(({ notify }) => {
+              notify({
                 tenantId: ctx.tenantId,
                 type: "ticket_created",
+                targetIds: [ctx.userId],
+                targetType: "ADMIN",
                 title: `Ticket escalado a P1 por recurrencia`,
-                message: `${installationName}: ${description.slice(0, 100)} — ${newCount} visitas.`,
+                body: `${installationName}: ${description.slice(0, 100)} — ${newCount} visitas.`,
                 data: { ticketId: existingFinding!.ticketId, code: ticketCode },
                 link: `/ops/tickets/${existingFinding!.ticketId}`,
-                targetUserIds: [ctx.userId],
               }).catch(() => { /* non-blocking */ });
             }).catch(() => { /* non-blocking */ });
           } catch (escErr) {
@@ -313,7 +318,7 @@ export async function POST(
         const ticketSlug = severity === "critical" ? "hallazgo_supervision_critico" : "hallazgo_supervision";
         const ticketType = await prisma.opsTicketType.findFirst({
           where: { tenantId: ctx.tenantId, slug: ticketSlug, isActive: true },
-          select: { id: true, defaultPriority: true, assignedTeam: true, slaHours: true },
+          select: { id: true, defaultPriority: true, assignedTeam: true, slaHours: true, defaultAssignedToUserId: true },
         });
 
         if (ticketType) {
@@ -378,6 +383,7 @@ export async function POST(
                 title: titleNew,
                 description: `Hallazgo detectado durante supervisión:\n\n${description}`,
                 assignedTeam: ticketType.assignedTeam,
+                assignedTo: ticketType.defaultAssignedToUserId ?? null,
                 installationId: visit.installationId,
                 source: "system",
                 reportedBy: ctx.userId,
@@ -392,17 +398,52 @@ export async function POST(
           ticketId = ticket.id;
           ticketCode = ticket.code;
 
-          import("@/lib/notification-service").then(({ sendNotificationToUsers }) => {
-            sendNotificationToUsers({
+          // Notificación: prioriza al responsable por defecto del tipo;
+          // si no hay, notifica a todos los admins del equipo asignado;
+          // si tampoco hay miembros, cae al supervisor para que no se pierda.
+          try {
+            const { notify } = await import("@/lib/notifications/notify");
+            const { resolveTeamAdminIds } = await import(
+              "@/lib/notifications/resolve-team-admins"
+            );
+
+            let targetIds: string[] = [];
+            if (ticketType.defaultAssignedToUserId) {
+              targetIds = [ticketType.defaultAssignedToUserId];
+            } else {
+              targetIds = await resolveTeamAdminIds(
+                ctx.tenantId,
+                ticketType.assignedTeam,
+              );
+            }
+            if (targetIds.length === 0) targetIds = [ctx.userId];
+
+            // Quita al supervisor de los targets para no notificarlo de su
+            // propio reporte (a menos que el supervisor sea el único fallback).
+            const filteredTargets = targetIds.filter((id) => id !== ctx.userId);
+            const finalTargets = filteredTargets.length > 0 ? filteredTargets : targetIds;
+
+            await notify({
               tenantId: ctx.tenantId,
-              type: "ticket_created",
-              title: `Hallazgo ${severityLabel} en supervisión`,
-              message: `${installationName}: ${description.slice(0, 100)}`,
-              data: { ticketId: ticket.id, code: ticket.code },
-              link: `/ops/tickets/${ticket.id}`,
-              targetUserIds: [ctx.userId],
-            }).catch(() => { /* non-blocking */ });
-          }).catch(() => { /* non-blocking */ });
+              type: ticketType.defaultAssignedToUserId
+                ? "ticket_assigned"
+                : "ticket_created",
+              targetIds: finalTargets,
+              targetType: "ADMIN",
+              title: `Hallazgo ${severityLabel} en supervisión — ${ticket.code}`,
+              body: `${installationName}: ${description.slice(0, 140)}`,
+              emailBody: [
+                `Se reportó un hallazgo de severidad ${severityLabel} durante una visita de supervisión.`,
+                `Instalación: ${installationName}`,
+                `Detalle: ${description}`,
+                `Reportado por: ${supervisorName}`,
+              ].join("\n"),
+              data: { ticketId: ticket.id, code: ticket.code, source: "supervision_finding" },
+              link: `/opai/ops/tickets/${ticket.id}`,
+            });
+          } catch (notifyErr) {
+            console.error("[OPS][SUPERVISION] Error notificando hallazgo:", notifyErr);
+          }
         }
       } catch (ticketErr) {
         console.warn("[OPS][SUPERVISION] Failed to auto-create ticket for finding:", ticketErr);
@@ -430,6 +471,9 @@ export async function POST(
           lastDetectedAt: nowCreate,
           lastDetectedVisitId: id,
           ...(ticketId ? { ticketId } : {}),
+          location: parsed.data.location ?? null,
+          sectorTag: parsed.data.sectorTag ?? null,
+          aggravatingFactors: parsed.data.aggravatingFactors ?? null,
         },
       });
 

@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
-import { PageHeader } from "@/components/opai";
+import { PageHero } from "@/components/opai-ds";
+import { AlertCircle } from "lucide-react";
 import { SupervisionHallazgos } from "@/components/supervision/SupervisionHallazgos";
 export default async function HallazgosPage() {
   const session = await auth();
@@ -16,9 +17,13 @@ export default async function HallazgosPage() {
 
   return (
     <div className="space-y-4 min-w-0">
-      <PageHeader
+      <PageHero
+        icon={<AlertCircle />}
+        iconTone="emerald"
+        eyebrow={["Operaciones", "Supervisión", "Hallazgos"]}
         title="Hallazgos"
-        description="Gestión de hallazgos de supervisión"
+        subtitle="gestión de incidencias"
+        description="Lista de hallazgos detectados durante visitas de supervisión, con seguimiento, asignación a tickets y resolución."
       />
       <SupervisionHallazgos />
     </div>

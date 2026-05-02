@@ -41,7 +41,7 @@ interface FormularioPostulacionAtsProps {
 }
 
 const inputClass =
-  "w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500";
+  "w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-status-ok-border focus:outline-none focus:ring-1 focus:ring-emerald-500";
 
 function iconForField(key: string) {
   switch (key) {
@@ -207,8 +207,8 @@ export function FormularioPostulacionAts({
   // Success state — modal inviting to portal
   if (success) {
     return (
-      <div className="rounded-2xl border border-emerald-500/30 bg-emerald-950/30 p-8 text-center">
-        <CheckCircle2 className="mx-auto mb-4 h-16 w-16 text-emerald-400" />
+      <div className="rounded-2xl border border-status-ok-border bg-emerald-950/30 p-8 text-center">
+        <CheckCircle2 className="mx-auto mb-4 h-16 w-16 text-status-ok-fg" />
         <h3 className="mb-2 text-2xl font-bold text-white">
           Postulación enviada
         </h3>
@@ -229,21 +229,21 @@ export function FormularioPostulacionAts({
           </p>
           <ul className="mb-5 space-y-2 text-sm text-slate-300">
             <li className="flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
+              <CheckCircle2 className="h-4 w-4 shrink-0 text-status-ok-fg" />
               Seguimiento en tiempo real de tus postulaciones
             </li>
             <li className="flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
+              <CheckCircle2 className="h-4 w-4 shrink-0 text-status-ok-fg" />
               Acceso a más ofertas de empleo disponibles
             </li>
             <li className="flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
+              <CheckCircle2 className="h-4 w-4 shrink-0 text-status-ok-fg" />
               Completa tu perfil para mejorar tu match
             </li>
           </ul>
           <a
             href="/portal/guardia"
-            className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-500 px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-emerald-600"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-status-ok px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-status-ok"
           >
             Ir al Portal del Guardia
             <ExternalLink className="h-4 w-4" />
@@ -258,7 +258,7 @@ export function FormularioPostulacionAts({
       <div className="text-center">
         <button
           onClick={() => setShowForm(true)}
-          className="inline-flex items-center rounded-lg bg-emerald-500 px-8 py-3 text-lg font-bold text-white transition-colors hover:bg-emerald-600"
+          className="inline-flex items-center rounded-lg bg-status-ok px-8 py-3 text-lg font-bold text-white transition-colors hover:bg-status-ok"
         >
           Postular ahora
         </button>
@@ -305,7 +305,7 @@ export function FormularioPostulacionAts({
         )}
 
         {error && (
-          <div className="rounded-lg border border-red-500/30 bg-red-950/30 px-4 py-3 text-sm text-red-400">
+          <div className="rounded-lg border border-status-danger-border bg-red-950/30 px-4 py-3 text-sm text-status-danger-fg">
             {error}
           </div>
         )}
@@ -314,7 +314,7 @@ export function FormularioPostulacionAts({
           <button
             type="submit"
             disabled={submitting}
-            className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-500 px-6 py-3 text-base font-bold text-white transition-colors hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-status-ok px-6 py-3 text-base font-bold text-white transition-colors hover:bg-status-ok disabled:cursor-not-allowed disabled:opacity-50"
           >
             {submitting ? (
               <>
@@ -364,14 +364,14 @@ function FieldRenderer({
           type="checkbox"
           checked={Boolean(value)}
           onChange={(e) => onChange(e.target.checked)}
-          className="h-4 w-4 rounded border-slate-600 bg-slate-700 text-emerald-500 focus:ring-emerald-500"
+          className="h-4 w-4 rounded border-slate-600 bg-slate-700 text-status-ok-fg focus:ring-emerald-500"
         />
         <div className="flex items-center gap-2">
           <Icon className="h-4 w-4 text-slate-400" />
           <span className="text-sm font-medium text-white">
             {field.label}
             {field.required && (
-              <span className="ml-2 text-xs text-amber-400">(requerido)</span>
+              <span className="ml-2 text-xs text-status-warn-fg">(requerido)</span>
             )}
           </span>
         </div>
@@ -396,7 +396,7 @@ function FieldRenderer({
           onChange={onAddressSelect}
           placeholder="Buscar dirección..."
           showMap={false}
-          wrapperClassName="border-slate-700 bg-slate-800 focus-within:border-emerald-500 focus-within:ring-emerald-500"
+          wrapperClassName="border-slate-700 bg-slate-800 focus-within:border-status-ok-border focus-within:ring-emerald-500"
         />
       </label>
     );
@@ -497,12 +497,12 @@ function DocumentUploadRow({
           <FileText className="h-4 w-4 shrink-0 text-slate-400" />
           <span className="truncate text-sm font-medium text-white">
             {doc.label}
-            {doc.required && <span className="ml-1 text-amber-400">*</span>}
+            {doc.required && <span className="ml-1 text-status-warn-fg">*</span>}
           </span>
         </div>
         {value ? (
           <div className="flex items-center gap-2">
-            <span className="max-w-[160px] truncate text-xs text-emerald-400">
+            <span className="max-w-[160px] truncate text-xs text-status-ok-fg">
               {value.fileName}
             </span>
             <button

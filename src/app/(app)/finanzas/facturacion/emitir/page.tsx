@@ -7,7 +7,8 @@ import {
   hasCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/opai";
+import { PageHero } from "@/components/opai-ds";
+import { FileText } from "lucide-react";
 import { DteForm } from "@/components/finance/DteForm";
 
 export default async function EmitirDtePage() {
@@ -37,8 +38,12 @@ export default async function EmitirDtePage() {
 
   return (
     <div className="space-y-6 min-w-0">
-      <PageHeader
+      <PageHero
+        icon={<FileText />}
+        iconTone="teal"
+        eyebrow={["Finanzas", "Facturación", "Emitir"]}
         title="Emitir DTE"
+        subtitle="factura, boleta o guía"
         description="Emisión de factura electrónica o factura exenta."
       />
       <DteForm

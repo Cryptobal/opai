@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { Textarea } from "@/components/ui/textarea";
-import { EmptyState } from "@/components/opai";
+import { EmptyState } from "@/components/opai-ds";
 import {
   Banknote,
   CheckCircle2,
@@ -95,26 +95,26 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
 const TYPE_CONFIG: Record<string, { label: string; className: string }> = {
   COLLECTION: {
     label: "Cobro",
-    className: "bg-blue-500/15 text-blue-400 border-blue-500/30",
+    className: "bg-status-info-soft text-status-info-fg border-status-info-border",
   },
   DISBURSEMENT: {
     label: "Pago",
-    className: "bg-orange-500/15 text-orange-400 border-orange-500/30",
+    className: "bg-status-warn-soft text-status-warn-fg border-status-warn-border",
   },
 };
 
 const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   PENDING: {
     label: "Pendiente",
-    className: "bg-amber-500/15 text-amber-400 border-amber-500/30",
+    className: "bg-status-warn-soft text-status-warn-fg border-status-warn-border",
   },
   CONFIRMED: {
     label: "Confirmado",
-    className: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+    className: "bg-status-ok-soft text-status-ok-fg border-status-ok-border",
   },
   CANCELLED: {
     label: "Cancelado",
-    className: "bg-red-500/15 text-red-400 border-red-500/30",
+    className: "bg-status-danger-soft text-status-danger-fg border-status-danger-border",
   },
 };
 
@@ -321,7 +321,7 @@ function PaymentsListTab({ canManage }: { canManage: boolean }) {
 
       {filtered.length === 0 ? (
         <EmptyState
-          icon={<Banknote className="h-10 w-10" />}
+          icon={Banknote}
           title="Sin pagos"
           description={
             typeFilter !== "ALL" || dateFrom || dateTo
@@ -444,7 +444,7 @@ function PaymentsListTab({ canManage }: { canManage: boolean }) {
                                     {acting === p.id ? (
                                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
                                     ) : (
-                                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                                      <CheckCircle2 className="h-3.5 w-3.5 text-status-ok-fg" />
                                     )}
                                   </Button>
                                   <Button
@@ -537,7 +537,7 @@ function PaymentsListTab({ canManage }: { canManage: boolean }) {
                           {acting === p.id ? (
                             <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
                           ) : (
-                            <CheckCircle2 className="h-3.5 w-3.5 mr-1 text-emerald-400" />
+                            <CheckCircle2 className="h-3.5 w-3.5 mr-1 text-status-ok-fg" />
                           )}
                           Confirmar
                         </Button>
@@ -703,7 +703,7 @@ function NewPaymentTab({
   if (!canManage) {
     return (
       <EmptyState
-        icon={<Banknote className="h-10 w-10" />}
+        icon={Banknote}
         title="Sin permisos"
         description="No tienes permisos para registrar pagos."
       />
@@ -869,7 +869,7 @@ function NewPaymentTab({
               </div>
             ) : unpaidDtes.length === 0 ? (
               <EmptyState
-                icon={<FileText className="h-10 w-10" />}
+                icon={FileText}
                 title="Sin documentos pendientes"
                 description="Este proveedor no tiene documentos pendientes de pago."
               />

@@ -12,7 +12,7 @@ const TIPOS_DEFAULT = [
   { codigo: "seguro_resp_civil", nombre: "Seguro de Responsabilidad Civil", capa: "global", obligatorio: true, tieneVencimiento: true, diasAlerta: 30, normativa: "Póliza empresa", order: 3 },
   { codigo: "centralizacion_dt", nombre: "Resolución Centralización DT", capa: "global", obligatorio: true, tieneVencimiento: true, diasAlerta: 30, normativa: "CT Art.31 — Vigencia 1 año", order: 4 },
   { codigo: "reglamento_interno", nombre: "Reglamento Interno OHS", capa: "global", obligatorio: true, tieneVencimiento: false, diasAlerta: 0, normativa: "CT Art.154", order: 5 },
-  { codigo: "protocolos_operacionales", nombre: "Protocolos Operacionales", capa: "global", obligatorio: false, tieneVencimiento: false, diasAlerta: 0, normativa: "Manual OS10", order: 6 },
+  { codigo: "protocolos_operacionales", nombre: "Protocolos Operacionales", capa: "global", obligatorio: false, tieneVencimiento: false, diasAlerta: 0, normativa: "Manual OS10", order: 6, useAsAiKnowledge: true },
 
   // Capa INSTALACIÓN
   { codigo: "contrato_mandante", nombre: "Contrato con Mandante", capa: "instalacion", obligatorio: true, tieneVencimiento: true, diasAlerta: 30, normativa: "D.L. 3.607", order: 10 },

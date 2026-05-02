@@ -36,12 +36,12 @@ interface TicketsKanbanProps {
 }
 
 const KANBAN_COLUMNS: { status: TicketStatus; extraStatuses?: TicketStatus[]; color: string }[] = [
-  { status: "pending_approval", color: "bg-orange-500" },
-  { status: "open", color: "bg-amber-500" },
-  { status: "in_progress", color: "bg-blue-500" },
-  { status: "waiting", color: "bg-purple-500" },
-  { status: "resolved", extraStatuses: ["closed"], color: "bg-emerald-500" },
-  { status: "cancelled", color: "bg-red-500" },
+  { status: "pending_approval", color: "bg-status-warn" },
+  { status: "open", color: "bg-status-warn" },
+  { status: "in_progress", color: "bg-status-info" },
+  { status: "waiting", color: "bg-tint-violet-fg" },
+  { status: "resolved", extraStatuses: ["closed"], color: "bg-status-ok" },
+  { status: "cancelled", color: "bg-status-danger" },
 ];
 
 // ═══════════════════════════════════════════════════════════════
@@ -176,7 +176,7 @@ function KanbanCard({
       type="button"
       onClick={onClick}
       className={`w-full rounded-lg border-l-[3px] border border-border bg-[#161b22] p-2 text-left transition-colors hover:bg-[#1c2333] ${borderColor} ${
-        breached && !isTerminal ? "border-red-500/40" : ""
+        breached && !isTerminal ? "border-status-danger-border" : ""
       }`}
     >
       {/* Header: code + priority + avatar */}
@@ -186,7 +186,7 @@ function KanbanCard({
           {ticket.priority.toUpperCase()}
         </span>
         {breached && !isTerminal && (
-          <AlertTriangle className="h-2.5 w-2.5 text-red-500 ml-auto" />
+          <AlertTriangle className="h-2.5 w-2.5 text-status-danger-fg ml-auto" />
         )}
         {ticket.assignedToName ? (
           <div
@@ -196,7 +196,7 @@ function KanbanCard({
             {ticket.assignedToName.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase()}
           </div>
         ) : (
-          <UserCircle className="ml-auto h-4 w-4 text-yellow-500/50" />
+          <UserCircle className="ml-auto h-4 w-4 text-status-warn-fg/50" />
         )}
       </div>
 
@@ -211,8 +211,8 @@ function KanbanCard({
       {/* Guard badge */}
       {ticket.guardiaName && (
         <div className="flex items-center gap-1 mb-0.5">
-          <Shield className="h-2.5 w-2.5 text-blue-400" />
-          <span className="text-[10px] text-blue-400 truncate">{ticket.guardiaName}</span>
+          <Shield className="h-2.5 w-2.5 text-status-info-fg" />
+          <span className="text-[10px] text-status-info-fg truncate">{ticket.guardiaName}</span>
         </div>
       )}
 

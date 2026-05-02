@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -75,43 +74,44 @@ export function GuardiaLiquidacionesTab({ guardiaId }: { guardiaId: string }) {
   return (
     <div className="space-y-2">
       {liquidaciones.map((liq) => (
-        <Card key={liq.id} className="cursor-pointer hover:bg-accent/30 transition-colors" onClick={() => setSelectedLiq(liq)}>
-          <CardContent className="pt-3 pb-3 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium">
-                    {liq.period ? `${MONTHS[liq.period.month - 1]} ${liq.period.year}` : "—"}
-                  </span>
-                  <Badge variant="outline" className="text-[9px] bg-emerald-500/15 text-emerald-400">
-                    PAGADO
-                  </Badge>
-                  {liq.salarySource === "RUT" ? (
-                    <Badge className="text-[9px] bg-amber-500/15 text-amber-400 border-amber-500/30">
-                      <User className="mr-0.5 h-2.5 w-2.5" />
-                      RUT
-                    </Badge>
-                  ) : (
-                    <Badge className="text-[9px] bg-blue-500/15 text-blue-400 border-blue-500/30">
-                      <Building2 className="mr-0.5 h-2.5 w-2.5" />
-                      Instalación
-                    </Badge>
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {liq.daysWorked} días · Bruto: {formatCLP(liq.grossSalary)}
-                </p>
-              </div>
+        <button
+          key={liq.id}
+          type="button"
+          onClick={() => setSelectedLiq(liq)}
+          className="w-full text-left rounded-xl border border-border/60 bg-card/40 px-4 py-3 transition-colors hover:bg-card/60 hover:border-border flex items-center justify-between gap-3"
+        >
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm font-semibold text-foreground">
+                {liq.period ? `${MONTHS[liq.period.month - 1]} ${liq.period.year}` : "—"}
+              </span>
+              <Badge variant="outline" className="text-[9px] bg-status-ok-soft text-status-ok-fg border-status-ok-border">
+                PAGADO
+              </Badge>
+              {liq.salarySource === "RUT" ? (
+                <Badge className="text-[9px] bg-status-warn-soft text-status-warn-fg border-status-warn-border">
+                  <User className="mr-0.5 h-2.5 w-2.5" />
+                  RUT
+                </Badge>
+              ) : (
+                <Badge className="text-[9px] bg-status-info-soft text-status-info-fg border-status-info-border">
+                  <Building2 className="mr-0.5 h-2.5 w-2.5" />
+                  Instalación
+                </Badge>
+              )}
             </div>
-            <div className="text-right flex items-center gap-2">
-              <div>
-                <p className="text-sm font-semibold text-emerald-400">{formatCLP(liq.netSalary)}</p>
-                <p className="text-[10px] text-muted-foreground">Líquido</p>
-              </div>
-              <Eye className="h-4 w-4 text-muted-foreground" />
+            <p className="text-xs text-muted-foreground mt-1">
+              {liq.daysWorked} días · Bruto: <span className="tabular-nums">{formatCLP(liq.grossSalary)}</span>
+            </p>
+          </div>
+          <div className="flex items-center gap-3 shrink-0">
+            <div className="text-right">
+              <p className="text-sm font-semibold text-status-ok-fg tabular-nums">{formatCLP(liq.netSalary)}</p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Líquido</p>
             </div>
-          </CardContent>
-        </Card>
+            <Eye className="h-4 w-4 text-muted-foreground" />
+          </div>
+        </button>
       ))}
 
       {/* Detail modal */}
@@ -135,11 +135,11 @@ export function GuardiaLiquidacionesTab({ guardiaId }: { guardiaId: string }) {
                 </div>
                 <div>
                   <p className="text-[10px] text-muted-foreground">Sueldo Líquido</p>
-                  <p className="font-semibold text-lg text-emerald-400">{formatCLP(selectedLiq.netSalary)}</p>
+                  <p className="font-semibold text-lg text-status-ok-fg">{formatCLP(selectedLiq.netSalary)}</p>
                 </div>
                 <div>
                   <p className="text-[10px] text-muted-foreground">Costo Empleador</p>
-                  <p className="font-medium text-amber-400">{formatCLP(selectedLiq.employerCost)}</p>
+                  <p className="font-medium text-status-warn-fg">{formatCLP(selectedLiq.employerCost)}</p>
                 </div>
               </div>
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { PageHeader } from "@/components/opai/PageHeader";
+import { PageHeader } from "@/components/opai-ds/PageHeader";
 import { ChipTabs } from "@/components/ui/chip-tabs";
 import {
   GamificacionDashboard,

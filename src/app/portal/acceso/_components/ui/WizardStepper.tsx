@@ -24,8 +24,8 @@ export default function WizardStepper({ steps, currentStep }: WizardStepperProps
                   className={`
                     flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold
                     transition-all duration-300
-                    ${isCompleted ? "bg-green-500 text-white" : ""}
-                    ${isActive ? "bg-cyan-500 text-white ring-2 ring-cyan-500/40 ring-offset-2 ring-offset-gray-900" : ""}
+                    ${isCompleted ? "bg-status-ok text-white" : ""}
+                    ${isActive ? "bg-status-info text-white ring-2 ring-status-info/40 ring-offset-2 ring-offset-gray-900" : ""}
                     ${isUpcoming ? "bg-gray-700 text-gray-400 border border-gray-600" : ""}
                   `}
                 >
@@ -46,8 +46,8 @@ export default function WizardStepper({ steps, currentStep }: WizardStepperProps
                 <span
                   className={`
                     mt-1.5 text-xs font-medium text-center max-w-[72px] leading-tight
-                    ${isCompleted ? "text-green-400" : ""}
-                    ${isActive ? "text-cyan-400" : ""}
+                    ${isCompleted ? "text-status-ok-fg" : ""}
+                    ${isActive ? "text-status-info-fg" : ""}
                     ${isUpcoming ? "text-gray-500" : ""}
                   `}
                 >
@@ -61,7 +61,7 @@ export default function WizardStepper({ steps, currentStep }: WizardStepperProps
                   <div
                     className={`
                       h-0.5 w-full transition-all duration-300
-                      ${index < currentStep ? "bg-green-500" : "bg-gray-700"}
+                      ${index < currentStep ? "bg-status-ok" : "bg-gray-700"}
                     `}
                   />
                 </div>

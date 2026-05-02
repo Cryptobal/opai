@@ -295,8 +295,8 @@ export function SupervisionGrilla({
                           <span
                             className={`inline-flex h-6 min-w-[24px] items-center justify-center rounded-md text-[10px] font-semibold ${
                               visit.count === 1
-                                ? "bg-emerald-500/20 text-emerald-400"
-                                : "bg-blue-500/20 text-blue-400"
+                                ? "bg-status-ok-soft text-status-ok-fg"
+                                : "bg-status-info-soft text-status-info-fg"
                             }`}
                           >
                             {visit.count === 1 ? visit.initials : visit.count}
@@ -335,13 +335,13 @@ export function SupervisionGrilla({
       {/* Legend */}
       <div className="flex flex-wrap items-center gap-4 text-[11px] text-muted-foreground">
         <span className="flex items-center gap-1.5">
-          <span className="inline-block h-4 w-6 rounded bg-emerald-500/20 text-center text-[10px] font-semibold text-emerald-400">
+          <span className="inline-block h-4 w-6 rounded bg-status-ok-soft text-center text-[10px] font-semibold text-status-ok-fg">
             AB
           </span>
           1 visita (iniciales)
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="inline-block h-4 w-6 rounded bg-blue-500/20 text-center text-[10px] font-semibold text-blue-400">
+          <span className="inline-block h-4 w-6 rounded bg-status-info-soft text-center text-[10px] font-semibold text-status-info-fg">
             3
           </span>
           Múltiples visitas

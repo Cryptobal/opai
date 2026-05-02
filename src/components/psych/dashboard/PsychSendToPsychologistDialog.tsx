@@ -57,7 +57,7 @@ export default function PsychSendToPsychologistDialog({
       <div className="bg-card border border-border rounded-2xl p-5 md:p-6 max-w-md w-full shadow-xl space-y-4 max-h-[90vh] overflow-auto">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-2">
-            <ShieldCheck className="size-5 text-emerald-600 dark:text-emerald-400" />
+            <ShieldCheck className="size-5 text-status-ok-fg dark:text-status-ok-fg" />
             <h3 className="text-lg font-semibold text-foreground">
               Enviar a psicólogo
             </h3>
@@ -71,7 +71,7 @@ export default function PsychSendToPsychologistDialog({
         </div>
         {done ? (
           <div className="space-y-3">
-            <p className="text-sm text-emerald-700 dark:text-emerald-400">
+            <p className="text-sm text-status-ok-fg dark:text-status-ok-fg">
               ✓ Email enviado a {email}
             </p>
             <div className="rounded-lg border border-border bg-muted/40 p-2 text-[10px] break-all font-mono">

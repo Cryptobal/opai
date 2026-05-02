@@ -236,7 +236,7 @@ export default function ContratoReviewPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-teal-400" />
+        <Loader2 className="h-6 w-6 animate-spin text-status-info-fg" />
       </div>
     );
   }
@@ -244,7 +244,7 @@ export default function ContratoReviewPage() {
   if (error || !doc) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center px-6">
-        <div className="flex items-center gap-3 text-red-400">
+        <div className="flex items-center gap-3 text-status-danger-fg">
           <AlertTriangle className="h-5 w-5" />
           {error || "Contrato no encontrado"}
         </div>
@@ -285,7 +285,7 @@ export default function ContratoReviewPage() {
       <main className="max-w-4xl mx-auto px-4 py-4 sm:py-6 space-y-4 pb-40">
         {/* Acceptance banner */}
         {accepted && (
-          <div className="p-4 bg-teal-900/30 border border-teal-700 rounded-lg text-teal-200 text-sm flex items-start gap-2">
+          <div className="p-4 bg-status-info-soft border border-status-info-border rounded-lg text-status-info-fg text-sm flex items-start gap-2">
             <CheckCircle2 className="h-5 w-5 shrink-0 mt-0.5" />
             <div>
               Contrato aceptado. Recibirá un correo con los pasos siguientes para la firma.
@@ -295,13 +295,13 @@ export default function ContratoReviewPage() {
 
         {/* Onboarding help (only while draft, no suggestions yet) */}
         {!isFinalized && suggestions.length === 0 && !accepted && (
-          <div className="p-4 rounded-lg border border-teal-600/40 bg-teal-950/30 text-sm text-teal-100 flex items-start gap-3">
-            <Pencil className="h-4 w-4 shrink-0 mt-0.5 text-teal-300" />
+          <div className="p-4 rounded-lg border border-status-info-border bg-status-info-soft text-sm text-status-info-fg flex items-start gap-3">
+            <Pencil className="h-4 w-4 shrink-0 mt-0.5 text-status-info-fg" />
             <div className="space-y-1">
               <p className="font-medium">¿Necesita cambios?</p>
-              <p className="text-teal-200/80 text-xs leading-relaxed">
+              <p className="text-status-info-fg/80 text-xs leading-relaxed">
                 Toque el botón{" "}
-                <span className="inline-flex items-center gap-1 bg-teal-500/20 text-teal-200 px-1.5 py-0.5 rounded text-[10px] font-semibold align-middle">
+                <span className="inline-flex items-center gap-1 bg-status-info-soft text-status-info-fg px-1.5 py-0.5 rounded text-[10px] font-semibold align-middle">
                   <Pencil className="h-2.5 w-2.5" /> Sugerir edición
                 </span>{" "}
                 junto a cualquier cláusula. Cuando termine, presione{" "}
@@ -361,7 +361,7 @@ export default function ContratoReviewPage() {
         </div>
 
         {pendingSuggestions.length > 0 && (
-          <p className="text-center text-xs text-amber-300/80 px-2">
+          <p className="text-center text-xs text-status-warn-fg/80 px-2">
             Tiene {pendingSuggestions.length} sugerencia(s) en revisión. Podrá aceptar el
             contrato una vez que el ejecutivo las resuelva.
           </p>
@@ -376,7 +376,7 @@ export default function ContratoReviewPage() {
               <button
                 onClick={handleSendReview}
                 disabled={sendingReview}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-teal-600 hover:bg-teal-500 text-white rounded-lg font-semibold text-base disabled:opacity-50 active:scale-[0.99] transition-transform"
+                className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-status-info hover:bg-status-info text-white rounded-lg font-semibold text-base disabled:opacity-50 active:scale-[0.99] transition-transform"
               >
                 {sendingReview ? (
                   <Loader2 className="h-5 w-5 animate-spin" />
@@ -391,14 +391,14 @@ export default function ContratoReviewPage() {
               </button>
             ) : awaitingResponseCount > 0 ? (
               <div className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-zinc-800/80 text-zinc-300 rounded-lg font-medium text-sm">
-                <Inbox className="h-4 w-4 text-amber-300" />
+                <Inbox className="h-4 w-4 text-status-warn-fg" />
                 Esperando respuesta del ejecutivo ({awaitingResponseCount} en revisión)
               </div>
             ) : canAccept ? (
               <button
                 onClick={() => setShowAcceptConfirm(true)}
                 disabled={submitting}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-teal-600 hover:bg-teal-500 text-white rounded-lg font-semibold text-base disabled:opacity-50 active:scale-[0.99] transition-transform"
+                className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-status-info hover:bg-status-info text-white rounded-lg font-semibold text-base disabled:opacity-50 active:scale-[0.99] transition-transform"
               >
                 {submitting ? (
                   <Loader2 className="h-5 w-5 animate-spin" />
@@ -473,23 +473,23 @@ function StatusBadge({ status }: { status: string }) {
     },
     review: {
       label: "En revisión",
-      bg: "bg-amber-500/20",
-      text: "text-amber-200",
-      border: "border-amber-500/40",
+      bg: "bg-status-warn-soft",
+      text: "text-status-warn-fg",
+      border: "border-status-warn-border",
       icon: <Clock className="h-3 w-3" />,
     },
     approved: {
       label: "Aprobado",
-      bg: "bg-teal-500/20",
-      text: "text-teal-200",
-      border: "border-teal-500/40",
+      bg: "bg-status-info-soft",
+      text: "text-status-info-fg",
+      border: "border-status-info-border",
       icon: <CheckCircle2 className="h-3 w-3" />,
     },
     active: {
       label: "Activo",
-      bg: "bg-teal-500/20",
-      text: "text-teal-200",
-      border: "border-teal-500/40",
+      bg: "bg-status-info-soft",
+      text: "text-status-info-fg",
+      border: "border-status-info-border",
       icon: <CheckCircle2 className="h-3 w-3" />,
     },
   };
@@ -523,22 +523,22 @@ function SuggestionsPanel({
     <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-4 space-y-3">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <h3 className="text-sm font-semibold flex items-center gap-2">
-          <Pencil className="h-4 w-4 text-teal-300" />
+          <Pencil className="h-4 w-4 text-status-info-fg" />
           Mis comentarios
         </h3>
         <div className="flex items-center gap-1.5 flex-wrap">
           {unsentCount > 0 && (
-            <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-teal-500/20 text-teal-200 border border-teal-500/30">
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-status-info-soft text-status-info-fg border border-status-info-border">
               {unsentCount} por enviar
             </span>
           )}
           {awaitingResponseCount > 0 && (
-            <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-amber-500/20 text-amber-200 border border-amber-500/30">
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-status-warn-soft text-status-warn-fg border border-status-warn-border">
               {awaitingResponseCount} esperando
             </span>
           )}
           {reviewJustSent && unsentCount === 0 && (
-            <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-teal-500/20 text-teal-200 border border-teal-500/30">
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-status-info-soft text-status-info-fg border border-status-info-border">
               Enviado ✓
             </span>
           )}
@@ -573,10 +573,10 @@ function SuggestionCard({
     <li
       className={`rounded-md border text-xs overflow-hidden ${
         s.status === "pending"
-          ? "border-amber-700/40 bg-amber-950/20"
+          ? "border-status-warn-border bg-status-warn-soft"
           : s.status === "approved"
-            ? "border-teal-700/40 bg-teal-950/20"
-            : "border-red-800/40 bg-red-950/20"
+            ? "border-status-info-border bg-status-info-soft"
+            : "border-status-danger-border bg-status-danger-soft"
       }`}
     >
       <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-white/5">
@@ -584,10 +584,10 @@ function SuggestionCard({
         <span
           className={
             s.status === "pending"
-              ? "text-amber-300"
+              ? "text-status-warn-fg"
               : s.status === "approved"
-                ? "text-teal-300"
-                : "text-red-300"
+                ? "text-status-info-fg"
+                : "text-status-danger-fg"
           }
         >
           {s.status === "pending"
@@ -640,7 +640,7 @@ function SuggestionCard({
           <button
             type="button"
             onClick={onEdit}
-            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[11px] font-medium bg-teal-500/15 hover:bg-teal-500/25 text-teal-200 border border-teal-500/30"
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[11px] font-medium bg-status-info-soft hover:brightness-110 text-status-info-fg border border-status-info-border"
           >
             <Pencil className="h-3 w-3" />
             Editar
@@ -648,7 +648,7 @@ function SuggestionCard({
           <button
             type="button"
             onClick={onDelete}
-            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[11px] font-medium bg-red-500/10 hover:bg-red-500/20 text-red-300 border border-red-500/30"
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[11px] font-medium bg-status-danger-soft hover:bg-status-danger-soft text-status-danger-fg border border-status-danger-border"
           >
             <X className="h-3 w-3" />
             Eliminar
@@ -738,7 +738,7 @@ function EditSuggestionModal({
           <button
             onClick={onSubmit}
             disabled={submitting || !suggestedContent.trim()}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm bg-teal-600 hover:bg-teal-500 rounded text-white font-medium disabled:opacity-50"
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm bg-status-info hover:bg-status-info rounded text-white font-medium disabled:opacity-50"
           >
             {submitting ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -768,8 +768,8 @@ function DeleteConfirmModal({
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 p-0 sm:p-4">
       <div className="bg-zinc-900 border-t sm:border border-zinc-700 w-full sm:max-w-md sm:rounded-xl rounded-t-xl">
         <div className="px-5 pt-5 pb-3 flex items-start gap-3">
-          <div className="flex-shrink-0 h-10 w-10 rounded-full bg-red-500/15 border border-red-500/30 flex items-center justify-center">
-            <AlertTriangle className="h-5 w-5 text-red-300" />
+          <div className="flex-shrink-0 h-10 w-10 rounded-full bg-status-danger-soft border border-status-danger-border flex items-center justify-center">
+            <AlertTriangle className="h-5 w-5 text-status-danger-fg" />
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="text-base font-semibold text-zinc-100">Eliminar comentario</h3>
@@ -790,7 +790,7 @@ function DeleteConfirmModal({
           <button
             onClick={onConfirm}
             disabled={submitting}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm bg-red-600 hover:bg-red-500 rounded text-white font-semibold disabled:opacity-50"
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm bg-status-danger hover:bg-status-danger rounded text-white font-semibold disabled:opacity-50"
           >
             {submitting ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -818,8 +818,8 @@ function AcceptConfirmModal({
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 p-0 sm:p-4">
       <div className="bg-zinc-900 border-t sm:border border-zinc-700 w-full sm:max-w-md sm:rounded-xl rounded-t-xl">
         <div className="px-5 pt-5 pb-3 flex items-start gap-3">
-          <div className="flex-shrink-0 h-10 w-10 rounded-full bg-teal-500/15 border border-teal-500/30 flex items-center justify-center">
-            <CheckCircle2 className="h-5 w-5 text-teal-300" />
+          <div className="flex-shrink-0 h-10 w-10 rounded-full bg-status-info-soft border border-status-info-border flex items-center justify-center">
+            <CheckCircle2 className="h-5 w-5 text-status-info-fg" />
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="text-base font-semibold text-zinc-100">Aceptar contrato</h3>
@@ -840,7 +840,7 @@ function AcceptConfirmModal({
           <button
             onClick={onConfirm}
             disabled={submitting}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm bg-teal-600 hover:bg-teal-500 rounded text-white font-semibold disabled:opacity-50"
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm bg-status-info hover:bg-status-info rounded text-white font-semibold disabled:opacity-50"
           >
             {submitting ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -924,7 +924,7 @@ function ContractContent({
               {canEdit && bodyText.length > 0 && (
                 <button
                   onClick={() => onSuggestEdit(section.clauseNumber, bodyText)}
-                  className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-teal-500/15 text-teal-200 hover:bg-teal-500/25 active:bg-teal-500/30 border border-teal-500/30 text-[11px] font-semibold min-h-[32px]"
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-status-info-soft text-status-info-fg hover:brightness-110 active:brightness-95 border border-status-info-border text-[11px] font-semibold min-h-[32px]"
                 >
                   <Pencil className="h-3 w-3" />
                   Sugerir edición

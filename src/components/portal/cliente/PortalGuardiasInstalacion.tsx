@@ -65,22 +65,22 @@ const DOC_ESTADO_CFG: Record<
 > = {
   vigente: {
     label: "Vigente",
-    color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
+    color: "text-status-ok-fg bg-status-ok-soft border-status-ok-border",
     Icon: CheckCircle2,
   },
   no_aplica: {
     label: "Vigente",
-    color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
+    color: "text-status-ok-fg bg-status-ok-soft border-status-ok-border",
     Icon: CheckCircle2,
   },
   por_vencer: {
     label: "Por vencer",
-    color: "text-amber-400 bg-amber-500/10 border-amber-500/20",
+    color: "text-status-warn-fg bg-status-warn-soft border-status-warn-border",
     Icon: AlertTriangle,
   },
   vencido: {
     label: "Vencido",
-    color: "text-red-400 bg-red-500/10 border-red-500/20",
+    color: "text-status-danger-fg bg-status-danger-soft border-status-danger-border",
     Icon: XCircle,
   },
   pendiente: {
@@ -229,8 +229,8 @@ export function PortalGuardiasInstalacion({ installationId }: Props) {
                 onClick={() => setExpandedId(isOpen ? null : g.id)}
                 className="w-full flex items-center gap-3 px-3 py-3 text-left hover:bg-white/[0.02] transition-colors"
               >
-                <div className="h-9 w-9 rounded-full bg-teal-600/20 border border-teal-500/30 flex items-center justify-center shrink-0">
-                  <span className="text-xs font-semibold text-teal-300">
+                <div className="h-9 w-9 rounded-full bg-status-info-soft border border-status-info-border flex items-center justify-center shrink-0">
+                  <span className="text-xs font-semibold text-status-info-fg">
                     {g.iniciales}
                   </span>
                 </div>
@@ -248,15 +248,15 @@ export function PortalGuardiasInstalacion({ installationId }: Props) {
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   {g.resumen.vencidos > 0 ? (
-                    <span className="text-[10px] font-semibold text-red-400">
+                    <span className="text-[10px] font-semibold text-status-danger-fg">
                       {g.resumen.vencidos} venc
                     </span>
                   ) : g.resumen.porVencer > 0 ? (
-                    <span className="text-[10px] font-semibold text-amber-400">
+                    <span className="text-[10px] font-semibold text-status-warn-fg">
                       {g.resumen.porVencer} por vencer
                     </span>
                   ) : (
-                    <span className="text-[10px] font-semibold text-emerald-400">
+                    <span className="text-[10px] font-semibold text-status-ok-fg">
                       Al día
                     </span>
                   )}
@@ -332,9 +332,9 @@ function KpiChip({
 }) {
   const toneCls = {
     neutral: "text-zinc-300 bg-white/[0.03]",
-    emerald: "text-emerald-400 bg-emerald-500/5",
-    amber: "text-amber-400 bg-amber-500/5",
-    red: "text-red-400 bg-red-500/5",
+    emerald: "text-status-ok-fg bg-status-ok-soft",
+    amber: "text-status-warn-fg bg-status-warn-soft",
+    red: "text-status-danger-fg bg-status-danger-soft",
   }[tone];
   return (
     <div

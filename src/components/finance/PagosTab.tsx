@@ -13,10 +13,12 @@ import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { EmptyState, KpiCard, KpiGrid } from "@/components/opai";
+import { EmptyState, Stat, StatGrid } from "@/components/opai-ds";
 import {
   Wallet,
   Plus,
@@ -31,6 +33,7 @@ import {
   Square,
   Inbox,
   CheckCircle2,
+  AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FileDropZone } from "@/components/shared/FileDropZone";
@@ -124,6 +127,15 @@ export function PagosTab({ payments, pendingRendiciones }: PagosTabProps) {
   const [expandedPayment, setExpandedPayment] = useState<string | null>(null);
   const [exportingId, setExportingId] = useState<string | null>(null);
   const [uploadingReceiptId, setUploadingReceiptId] = useState<string | null>(null);
+  const [exportIssues, setExportIssues] = useState<{
+    title: string;
+    issues: Array<{
+      beneficiary: string;
+      guardiaId: string | null;
+      rendiciones: string[];
+      missing: string[];
+    }>;
+  } | null>(null);
 
   /* ── Selection ── */
 
@@ -203,14 +215,37 @@ export function PagosTab({ payments, pendingRendiciones }: PagosTabProps) {
         if (!exportRes.ok) {
           const exportData = (await exportRes
             .json()
-            .catch(() => ({}))) as { error?: string };
+            .catch(() => ({}))) as {
+            error?: string;
+            issues?: Array<{
+              beneficiary: string;
+              guardiaId: string | null;
+              rendiciones: string[];
+              missing: string[];
+            }>;
+          };
           toast.success(
             `Pago ${paymentCode} creado con ${selectedIds.size} rendición(es)`
           );
-          throw new Error(
+          const message =
             exportData.error ||
-              "Pago creado, pero no se pudo descargar el archivo Santander"
-          );
+            "Pago creado, pero no se pudo descargar el archivo Santander";
+          if (exportRes.status === 422) {
+            if (exportData.issues && exportData.issues.length > 0) {
+              setExportIssues({
+                title: `Pago ${paymentCode}: faltan datos bancarios`,
+                issues: exportData.issues,
+              });
+            } else {
+              toast.error(message, { duration: 10000 });
+            }
+            setCreateDialogOpen(false);
+            setSelectedIds(new Set());
+            setPaymentNotes("");
+            router.refresh();
+            return;
+          }
+          throw new Error(message);
         }
 
         const blob = await exportRes.blob();
@@ -257,8 +292,28 @@ export function PagosTab({ payments, pendingRendiciones }: PagosTabProps) {
         if (!res.ok) {
           const data = (await res
             .json()
-            .catch(() => ({}))) as { error?: string };
-          throw new Error(data.error || "Error al exportar");
+            .catch(() => ({}))) as {
+            error?: string;
+            issues?: Array<{
+              beneficiary: string;
+              guardiaId: string | null;
+              rendiciones: string[];
+              missing: string[];
+            }>;
+          };
+          const message = data.error || "Error al exportar";
+          if (res.status === 422) {
+            if (data.issues && data.issues.length > 0) {
+              setExportIssues({
+                title: "Faltan datos bancarios para exportar",
+                issues: data.issues,
+              });
+            } else {
+              toast.error(message, { duration: 10000 });
+            }
+            return;
+          }
+          throw new Error(message);
         }
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
@@ -328,14 +383,14 @@ export function PagosTab({ payments, pendingRendiciones }: PagosTabProps) {
   return (
     <div className="space-y-4">
       {/* Summary cards */}
-      <KpiGrid columns={3}>
-        <KpiCard title="Pendientes de pago" value={pendingRendiciones.length} />
-        <KpiCard
-          title="Monto pendiente"
+      <StatGrid lgCols={3}>
+        <Stat label="Pendientes de pago" value={pendingRendiciones.length} />
+        <Stat
+          label="Monto pendiente"
           value={fmtCLP.format(pendingRendiciones.reduce((s, r) => s + r.amount, 0))}
         />
-        <KpiCard title="Pagos realizados" value={payments.length} />
-      </KpiGrid>
+        <Stat label="Pagos realizados" value={payments.length} />
+      </StatGrid>
 
       {/* Tab navigation */}
       <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">
@@ -382,7 +437,7 @@ export function PagosTab({ payments, pendingRendiciones }: PagosTabProps) {
         <div className="space-y-3">
           {pendingRendiciones.length === 0 ? (
             <EmptyState
-              icon={<Inbox className="h-10 w-10" />}
+              icon={Inbox}
               title="Sin rendiciones pendientes de pago"
               description="Las rendiciones aprobadas aparecerán aquí."
             />
@@ -473,7 +528,7 @@ export function PagosTab({ payments, pendingRendiciones }: PagosTabProps) {
                               {r.submitterName}
                             </span>
                             {r.beneficiaryName && (
-                              <span className="text-xs text-emerald-400">
+                              <span className="text-xs text-status-ok-fg">
                                 → {r.beneficiaryName}
                               </span>
                             )}
@@ -520,7 +575,7 @@ export function PagosTab({ payments, pendingRendiciones }: PagosTabProps) {
 
           {filteredPayments.length === 0 ? (
             <EmptyState
-              icon={<Wallet className="h-10 w-10" />}
+              icon={Wallet}
               title="Sin pagos registrados"
               description="Los pagos procesados aparecerán aquí."
             />
@@ -548,14 +603,14 @@ export function PagosTab({ payments, pendingRendiciones }: PagosTabProps) {
                                 className={cn(
                                   "text-[10px]",
                                   p.type === "BATCH_SANTANDER"
-                                    ? "bg-blue-500/15 text-blue-400"
+                                    ? "bg-status-info-soft text-status-info-fg"
                                     : "bg-zinc-500/15 text-zinc-400"
                                 )}
                               >
                                 {TYPE_LABELS[p.type] ?? p.type}
                               </Badge>
                               {p.receiptUrl && (
-                                <Badge className="text-[10px] bg-emerald-500/15 text-emerald-400 border-emerald-500/30">
+                                <Badge className="text-[10px] bg-status-ok-soft text-status-ok-fg border-status-ok-border">
                                   <CheckCircle2 className="h-2.5 w-2.5 mr-0.5" />
                                   Comprobante
                                 </Badge>
@@ -743,6 +798,68 @@ export function PagosTab({ payments, pendingRendiciones }: PagosTabProps) {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Export Santander issues dialog */}
+      <Dialog
+        open={exportIssues !== null}
+        onOpenChange={(open) => {
+          if (!open) setExportIssues(null);
+        }}
+      >
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-status-warn-fg" />
+              {exportIssues?.title ?? "Faltan datos bancarios"}
+            </DialogTitle>
+            <DialogDescription>
+              No se puede exportar el archivo Santander hasta que cada beneficiario
+              tenga RUT, banco y cuenta destino completos en su ficha.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[55vh] overflow-y-auto rounded-md border border-border/40">
+            <ul className="divide-y divide-border/40">
+              {(exportIssues?.issues ?? []).map((issue, idx) => (
+                <li key={`${issue.beneficiary}-${idx}`} className="p-3 space-y-1.5">
+                  <div className="flex items-start justify-between gap-3">
+                    {issue.guardiaId ? (
+                      <a
+                        href={`/personas/guardias/${issue.guardiaId}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium text-sm text-primary underline-offset-2 hover:underline"
+                      >
+                        {issue.beneficiary}
+                      </a>
+                    ) : (
+                      <div className="font-medium text-sm">{issue.beneficiary}</div>
+                    )}
+                    <div className="text-[11px] text-muted-foreground tabular-nums">
+                      {issue.rendiciones.join(", ")}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {issue.missing.map((m) => (
+                      <Badge
+                        key={m}
+                        variant="outline"
+                        className="text-[10px] uppercase tracking-wide border-status-warn-border text-status-warn-fg"
+                      >
+                        Falta {m}
+                      </Badge>
+                    ))}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setExportIssues(null)}>
+              Entendido
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

@@ -14,7 +14,7 @@ import {
   BarChart,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { LoadingSpinner } from "@/components/opai";
+import { Spinner } from "@/components/opai-ds";
 import { Badge } from "@/components/ui/badge";
 import {
   ChevronDown,
@@ -68,21 +68,21 @@ function SparkTooltip({
 /* ── severity helpers ── */
 
 function pctColor(pct: number): string {
-  if (pct >= 30) return "text-red-400";
-  if (pct >= 15) return "text-amber-400";
-  return "text-emerald-400";
+  if (pct >= 30) return "text-status-danger-fg";
+  if (pct >= 15) return "text-status-warn-fg";
+  return "text-status-ok-fg";
 }
 
 function pctBgColor(pct: number): string {
-  if (pct >= 30) return "bg-red-400/10";
-  if (pct >= 15) return "bg-amber-400/10";
-  return "bg-emerald-400/10";
+  if (pct >= 30) return "bg-status-danger-soft";
+  if (pct >= 15) return "bg-status-warn-soft";
+  return "bg-status-ok-soft";
 }
 
 function trendIcon(diff: number | null) {
   if (diff === null) return <Minus className="h-3.5 w-3.5 text-muted-foreground" />;
-  if (diff <= -0.5) return <TrendingDown className="h-3.5 w-3.5 text-emerald-400" />;
-  if (diff >= 0.5) return <TrendingUp className="h-3.5 w-3.5 text-red-400" />;
+  if (diff <= -0.5) return <TrendingDown className="h-3.5 w-3.5 text-status-ok-fg" />;
+  if (diff >= 0.5) return <TrendingUp className="h-3.5 w-3.5 text-status-danger-fg" />;
   return <Minus className="h-3.5 w-3.5 text-muted-foreground" />;
 }
 
@@ -94,7 +94,7 @@ function trendLabel(diff: number | null): string {
 
 function trendColor(diff: number | null): string {
   if (diff === null || Math.abs(diff) < 0.5) return "text-muted-foreground";
-  return diff > 0 ? "text-red-400" : "text-emerald-400";
+  return diff > 0 ? "text-status-danger-fg" : "text-status-ok-fg";
 }
 
 /* ── row with expandable chart ── */
@@ -261,7 +261,7 @@ export function PpcInstallationRanking() {
     return (
       <Card>
         <CardContent className="py-8 flex items-center justify-center">
-          <LoadingSpinner size="md" />
+          <Spinner size="md" />
         </CardContent>
       </Card>
     );

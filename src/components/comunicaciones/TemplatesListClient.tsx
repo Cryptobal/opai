@@ -210,7 +210,7 @@ export default function TemplatesListClient() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-7 text-xs text-muted-foreground hover:text-red-400"
+                  className="h-7 text-xs text-muted-foreground hover:text-status-danger-fg"
                   onClick={() => handleDelete(t.id)}
                 >
                   <Trash2 className="h-3 w-3" />

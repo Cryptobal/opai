@@ -236,7 +236,7 @@ export function ControlNocturnoKpisClient() {
           delta={data.snapshot.week.deltaCumplimiento}
           deltaContext="vs semana equivalente anterior"
           sub={`Omitidas: ${data.snapshot.week.current.omitidas} · Alertas: ${data.snapshot.week.current.alertCount}`}
-          icon={<CalendarDays className="h-4 w-4 text-sky-400" />}
+          icon={<CalendarDays className="h-4 w-4 text-status-info-fg" />}
         />
         <PeriodCard
           label="MTD (mes a la fecha)"
@@ -244,7 +244,7 @@ export function ControlNocturnoKpisClient() {
           delta={data.snapshot.mtd.deltaCumplimiento}
           deltaContext="vs mismo tramo del mes anterior"
           sub={`Omitidas: ${data.snapshot.mtd.current.omitidas} · Alertas: ${data.snapshot.mtd.current.alertCount}`}
-          icon={<ShieldAlert className="h-4 w-4 text-indigo-400" />}
+          icon={<ShieldAlert className="h-4 w-4 text-status-info-fg" />}
         />
         <PeriodCard
           label="YTD (año a la fecha)"
@@ -263,9 +263,9 @@ export function ControlNocturnoKpisClient() {
           value={`${g.cumplimiento}%`}
           icon={
             g.cumplimiento >= 80 ? (
-              <TrendingUp className="h-4 w-4 text-emerald-400" />
+              <TrendingUp className="h-4 w-4 text-status-ok-fg" />
             ) : (
-              <TrendingDown className="h-4 w-4 text-red-400" />
+              <TrendingDown className="h-4 w-4 text-status-danger-fg" />
             )
           }
           accent={g.cumplimiento >= KPI_TARGET ? "emerald" : "red"}
@@ -274,31 +274,31 @@ export function ControlNocturnoKpisClient() {
           label="Rondas completadas"
           value={g.completadas.toLocaleString("es-CL")}
           sub={`de ${g.totalRondas.toLocaleString("es-CL")}`}
-          icon={<CheckCircle2 className="h-4 w-4 text-emerald-400" />}
+          icon={<CheckCircle2 className="h-4 w-4 text-status-ok-fg" />}
         />
         <KpiCard
           label="Rondas omitidas"
           value={g.omitidas.toLocaleString("es-CL")}
-          icon={<XCircle className="h-4 w-4 text-red-400" />}
+          icon={<XCircle className="h-4 w-4 text-status-danger-fg" />}
           accent={g.omitidas > 0 ? "red" : undefined}
         />
         <KpiCard
           label="Alertas"
           value={String(g.alertCount)}
           sub={`inst. bajo ${KPI_TARGET}%`}
-          icon={<AlertTriangle className="h-4 w-4 text-amber-400" />}
+          icon={<AlertTriangle className="h-4 w-4 text-status-warn-fg" />}
           accent={g.alertCount > 0 ? "amber" : undefined}
         />
         <KpiCard
           label="Inst. críticas"
           value={String(g.criticalCount)}
-          icon={<ShieldAlert className="h-4 w-4 text-rose-400" />}
+          icon={<ShieldAlert className="h-4 w-4 text-status-danger-fg" />}
           accent={g.criticalCount > 0 ? "red" : undefined}
         />
         <KpiCard
           label="Desvío prom."
           value={g.avgDesvMin > 0 ? `${g.avgDesvMin}m` : "—"}
-          icon={<Timer className="h-4 w-4 text-sky-400" />}
+          icon={<Timer className="h-4 w-4 text-status-info-fg" />}
         />
       </div>
 
@@ -346,7 +346,7 @@ export function ControlNocturnoKpisClient() {
         <Card>
           <CardContent className="p-4">
             <h3 className="text-sm font-semibold flex items-center gap-2 mb-3">
-              <AlertTriangle className="h-4 w-4 text-amber-400" />
+              <AlertTriangle className="h-4 w-4 text-status-warn-fg" />
               Top 10 riesgos operativos
             </h3>
             <p className="mb-3 text-[11px] text-muted-foreground">
@@ -359,7 +359,7 @@ export function ControlNocturnoKpisClient() {
                 alerts.map((inst) => (
                   <div
                     key={inst.installationId || inst.installationName}
-                    className="flex items-center gap-3 rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2"
+                    className="flex items-center gap-3 rounded-lg border border-status-danger-border bg-status-danger-soft px-3 py-2"
                   >
                     <div className="flex-1 min-w-0">
                       {inst.installationId ? (
@@ -380,7 +380,7 @@ export function ControlNocturnoKpisClient() {
                     <div className="text-right shrink-0">
                       <p
                         className={`text-lg font-bold ${
-                          inst.cumplimiento < 50 ? "text-red-400" : "text-amber-400"
+                          inst.cumplimiento < 50 ? "text-status-danger-fg" : "text-status-warn-fg"
                         }`}
                       >
                         {inst.cumplimiento}%
@@ -396,7 +396,7 @@ export function ControlNocturnoKpisClient() {
         <Card>
           <CardContent className="p-4">
             <h3 className="text-sm font-semibold flex items-center gap-2 mb-3">
-              <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+              <CheckCircle2 className="h-4 w-4 text-status-ok-fg" />
               Top desempeño (sobre meta)
             </h3>
             <p className="mb-3 text-[11px] text-muted-foreground">
@@ -411,7 +411,7 @@ export function ControlNocturnoKpisClient() {
                 data.topBest.slice(0, 10).map((inst) => (
                   <div
                     key={inst.installationId || inst.installationName}
-                    className="flex items-center gap-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2"
+                    className="flex items-center gap-3 rounded-lg border border-status-ok-border bg-status-ok-soft px-3 py-2"
                   >
                     <div className="flex-1 min-w-0">
                       {inst.installationId ? (
@@ -429,7 +429,7 @@ export function ControlNocturnoKpisClient() {
                         Completadas: {inst.completadas}/{inst.totalRondas} · Omitidas: {inst.omitidas}
                       </p>
                     </div>
-                    <p className="text-lg font-bold text-emerald-400 shrink-0">{inst.cumplimiento}%</p>
+                    <p className="text-lg font-bold text-status-ok-fg shrink-0">{inst.cumplimiento}%</p>
                   </div>
                 ))
               )}
@@ -443,7 +443,7 @@ export function ControlNocturnoKpisClient() {
         <CardContent className="p-4">
           <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <h3 className="text-sm font-semibold flex items-center gap-2">
-              <BarChart3 className="h-4 w-4 text-blue-400" />
+              <BarChart3 className="h-4 w-4 text-status-info-fg" />
               Ranking por instalación
             </h3>
             <input
@@ -489,12 +489,12 @@ export function ControlNocturnoKpisClient() {
                         inst.installationName
                       )}
                       {inst.criticos > 0 && (
-                        <span className="ml-1.5 inline-flex items-center rounded-full bg-red-500/15 px-1.5 py-0.5 text-[10px] text-red-400">
+                        <span className="ml-1.5 inline-flex items-center rounded-full bg-status-danger-soft px-1.5 py-0.5 text-[10px] text-status-danger-fg">
                           {inst.criticos} crít.
                         </span>
                       )}
                       {inst.novedades > 0 && (
-                        <span className="ml-1 inline-flex items-center rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] text-amber-400">
+                        <span className="ml-1 inline-flex items-center rounded-full bg-status-warn-soft px-1.5 py-0.5 text-[10px] text-status-warn-fg">
                           {inst.novedades} nov.
                         </span>
                       )}
@@ -503,19 +503,19 @@ export function ControlNocturnoKpisClient() {
                       <span
                         className={`inline-flex items-center rounded-full px-2 py-0.5 font-semibold ${
                           inst.cumplimiento >= 80
-                            ? "bg-emerald-500/15 text-emerald-400"
+                            ? "bg-status-ok-soft text-status-ok-fg"
                             : inst.cumplimiento >= 50
-                              ? "bg-amber-500/15 text-amber-400"
-                              : "bg-red-500/15 text-red-400"
+                              ? "bg-status-warn-soft text-status-warn-fg"
+                              : "bg-status-danger-soft text-status-danger-fg"
                         }`}
                       >
                         {inst.cumplimiento}%
                       </span>
                     </td>
-                    <td className="px-3 py-2 text-center text-emerald-400">
+                    <td className="px-3 py-2 text-center text-status-ok-fg">
                       {inst.completadas}
                     </td>
-                    <td className="px-3 py-2 text-center text-red-400">
+                    <td className="px-3 py-2 text-center text-status-danger-fg">
                       {inst.omitidas}
                     </td>
                     <td className="px-3 py-2 text-center text-muted-foreground">
@@ -582,11 +582,11 @@ function KpiCard({
 }) {
   const accentClass =
     accent === "red"
-      ? "text-red-400"
+      ? "text-status-danger-fg"
       : accent === "amber"
-        ? "text-amber-400"
+        ? "text-status-warn-fg"
         : accent === "emerald"
-          ? "text-emerald-400"
+          ? "text-status-ok-fg"
           : "";
   return (
     <Card>
@@ -620,7 +620,7 @@ function PeriodCard({
   const positive = delta >= 0;
   const absDelta = Math.abs(delta);
   const deltaClass =
-    absDelta === 0 ? "text-muted-foreground" : positive ? "text-emerald-400" : "text-red-400";
+    absDelta === 0 ? "text-muted-foreground" : positive ? "text-status-ok-fg" : "text-status-danger-fg";
   const deltaLabel =
     absDelta === 0
       ? "Sin cambio"

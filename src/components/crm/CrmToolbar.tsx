@@ -57,6 +57,8 @@ export function CrmToolbar({
   selectAll,
   actionSlot,
 }: CrmToolbarProps) {
+  const hasFilters = !!(filters && filters.length > 0 && activeFilter !== undefined && onFilterChange);
+
   return (
     <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
       {/* Search */}
@@ -70,8 +72,23 @@ export function CrmToolbar({
         />
       </div>
 
-      {/* Controls group: mobile-first, sin apretar filtros ni perder el CTA. */}
-      <div className="grid w-full grid-cols-[minmax(0,1fr)_auto_auto_auto] items-center gap-2 min-w-0 sm:flex sm:w-auto sm:flex-wrap">
+      {/* Filtros en su propia fila en móvil para que sean visibles a primera
+          vista (con conteos) en lugar de esconderse tras un dropdown. En
+          desktop vuelven a la misma fila junto a sort/vista/CTA. */}
+      {hasFilters && (
+        <div className="-mx-1 px-1 w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:hidden">
+          <FilterPills
+            options={filters!}
+            active={activeFilter!}
+            onChange={onFilterChange!}
+          />
+        </div>
+      )}
+
+      {/* Controls group: en móvil sólo lleva sort/vista/CTA porque los filtros
+          van en la fila anterior. En desktop incluye filtros + sort + vista +
+          CTA, todo en línea. */}
+      <div className="flex w-full items-center gap-2 min-w-0 sm:w-auto sm:flex-wrap">
         {/* Select all */}
         {selectAll?.show && (
           <Button
@@ -91,13 +108,15 @@ export function CrmToolbar({
           </Button>
         )}
 
-        {/* Filter pills */}
-        {filters && filters.length > 0 && activeFilter !== undefined && onFilterChange && (
-          <FilterPills
-            options={filters}
-            active={activeFilter}
-            onChange={onFilterChange}
-          />
+        {/* Filter pills (solo desktop; en móvil van en fila propia arriba) */}
+        {hasFilters && (
+          <div className="hidden sm:block">
+            <FilterPills
+              options={filters!}
+              active={activeFilter!}
+              onChange={onFilterChange!}
+            />
+          </div>
         )}
 
         {/* Sort */}
@@ -118,8 +137,8 @@ export function CrmToolbar({
           />
         )}
 
-        {/* Action slot */}
-        {actionSlot}
+        {/* Action slot — empujado al borde derecho en móvil para no quedar pegado al view toggle */}
+        {actionSlot && <div className="ml-auto sm:ml-0">{actionSlot}</div>}
       </div>
     </div>
   );

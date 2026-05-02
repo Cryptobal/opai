@@ -48,18 +48,18 @@ interface EmailHistoryClientProps {
 }
 
 const TIPO_BADGE: Record<string, { label: string; cls: string }> = {
-  AUTOMATICO: { label: "Automático", cls: "bg-blue-500/20 text-blue-400" },
+  AUTOMATICO: { label: "Automático", cls: "bg-status-info-soft text-status-info-fg" },
   MANUAL_INDIVIDUAL: { label: "Individual", cls: "bg-muted text-muted-foreground" },
-  MANUAL_MASIVO: { label: "Masivo", cls: "bg-purple-500/20 text-purple-400" },
+  MANUAL_MASIVO: { label: "Masivo", cls: "bg-tint-violet text-tint-violet-fg" },
 };
 
 const ESTADO_BADGE: Record<string, { label: string; cls: string }> = {
   PENDIENTE: { label: "Pendiente", cls: "bg-muted text-muted-foreground" },
-  ENVIADO: { label: "Enviado", cls: "bg-amber-500/20 text-amber-400" },
-  ENTREGADO: { label: "Entregado", cls: "bg-blue-500/20 text-blue-400" },
-  ABIERTO: { label: "Abierto", cls: "bg-emerald-500/20 text-emerald-400" },
-  REBOTADO: { label: "Rebotado", cls: "bg-red-500/20 text-red-400" },
-  ERROR: { label: "Error", cls: "bg-red-500/20 text-red-400" },
+  ENVIADO: { label: "Enviado", cls: "bg-status-warn-soft text-status-warn-fg" },
+  ENTREGADO: { label: "Entregado", cls: "bg-status-info-soft text-status-info-fg" },
+  ABIERTO: { label: "Abierto", cls: "bg-status-ok-soft text-status-ok-fg" },
+  REBOTADO: { label: "Rebotado", cls: "bg-status-danger-soft text-status-danger-fg" },
+  ERROR: { label: "Error", cls: "bg-status-danger-soft text-status-danger-fg" },
 };
 
 const TRIGGER_LABEL: Record<string, string> = {
@@ -255,7 +255,7 @@ export default function EmailHistoryClient({ tenantId }: EmailHistoryClientProps
                       </TableCell>
                       <TableCell className="text-center">
                         {row.abierto ? (
-                          <Check className="h-4 w-4 text-emerald-400 mx-auto" />
+                          <Check className="h-4 w-4 text-status-ok-fg mx-auto" />
                         ) : (
                           <X className="h-4 w-4 text-muted-foreground mx-auto" />
                         )}

@@ -487,8 +487,8 @@ function ClienteChatConversation({
             <ArrowLeft className="h-5 w-5" />
           </button>
         )}
-        <div className="h-8 w-8 rounded-full bg-teal-600/20 flex items-center justify-center">
-          <span className="text-teal-400 text-xs font-bold">#</span>
+        <div className="h-8 w-8 rounded-full bg-status-info-soft flex items-center justify-center">
+          <span className="text-status-info-fg text-xs font-bold">#</span>
         </div>
         <div>
           <h3 className="text-sm font-semibold text-zinc-100">{channel.name}</h3>
@@ -529,7 +529,7 @@ function ClienteChatConversation({
                       <div className="mt-1 space-y-1">
                         {msg.attachments.map((att, i) => (
                           <a key={i} href={att.fileUrl} target="_blank" rel="noopener noreferrer"
-                            className="flex items-center gap-2 text-xs text-[#2dd4bf] hover:text-teal-300">
+                            className="flex items-center gap-2 text-xs text-[#2dd4bf] hover:text-status-info-fg">
                             {att.fileType?.startsWith("image/") ? (
                               <ImageIcon className="h-3 w-3" />
                             ) : (
@@ -551,7 +551,7 @@ function ClienteChatConversation({
           {replyTo && (
             <div className="flex items-center gap-2 px-4 py-2 bg-zinc-800/50 border-t border-zinc-800">
               <div className="flex-1 min-w-0">
-                <p className="text-[10px] text-teal-400">Respondiendo a {replyTo.senderName}</p>
+                <p className="text-[10px] text-status-info-fg">Respondiendo a {replyTo.senderName}</p>
                 <p className="text-xs text-zinc-400 truncate">{replyTo.content}</p>
               </div>
               <button onClick={() => setReplyTo(null)} className="text-zinc-500 hover:text-zinc-300">
@@ -581,7 +581,7 @@ function ClienteChatConversation({
                   <button
                     type="button"
                     onClick={() => removePendingFile(idx)}
-                    className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-zinc-700 text-zinc-300 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                    className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-zinc-700 text-zinc-300 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-status-danger"
                   >
                     <X className="h-2.5 w-2.5" />
                   </button>
@@ -624,7 +624,7 @@ function ClienteChatConversation({
               <button
                 onClick={handleSend}
                 disabled={(!inputText.trim() && pendingFiles.length === 0) || isSending}
-                className="h-[32px] w-[32px] my-[3px] rounded-lg bg-[#2dd4bf] flex items-center justify-center text-zinc-900 disabled:opacity-40 hover:bg-teal-300 transition-colors shrink-0"
+                className="h-[32px] w-[32px] my-[3px] rounded-lg bg-status-info flex items-center justify-center text-zinc-900 disabled:opacity-40 hover:brightness-110 transition-colors shrink-0"
               >
                 {isSending ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

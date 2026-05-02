@@ -73,7 +73,7 @@ function SetupContent() {
       <Card className="w-full max-w-md bg-zinc-900 border-zinc-800">
         <CardHeader className="text-center pb-4">
           <div className="flex justify-center mb-3">
-            <Shield className="h-10 w-10 text-blue-400" />
+            <Shield className="h-10 w-10 text-status-info-fg" />
           </div>
           <CardTitle className="text-white text-xl">Portal de Clientes OPAI</CardTitle>
           <CardDescription className="text-zinc-400 text-sm">
@@ -87,13 +87,13 @@ function SetupContent() {
         <CardContent>
           {state === 'loading' && (
             <div className="flex justify-center py-8">
-              <Loader2 className="h-8 w-8 text-blue-400 animate-spin" />
+              <Loader2 className="h-8 w-8 text-status-info-fg animate-spin" />
             </div>
           )}
 
           {(state === 'invalid' || state === 'expired') && (
             <div className="text-center space-y-4 py-4">
-              <AlertCircle className="h-10 w-10 text-red-400 mx-auto" />
+              <AlertCircle className="h-10 w-10 text-status-danger-fg mx-auto" />
               <p className="text-zinc-400 text-sm">
                 {state === 'expired'
                   ? 'Este enlace expiró (válido 48 horas). Contacta a tu ejecutivo Gard para solicitar un nuevo acceso.'
@@ -139,7 +139,7 @@ function SetupContent() {
                 />
               </div>
               {error && (
-                <p className="text-red-400 text-sm flex items-center gap-1.5">
+                <p className="text-status-danger-fg text-sm flex items-center gap-1.5">
                   <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
                   {error}
                 </p>
@@ -147,7 +147,7 @@ function SetupContent() {
               <Button
                 type="submit"
                 disabled={submitting || pin.length < 4}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                className="w-full bg-status-info hover:brightness-110 text-white"
               >
                 {submitting ? (
                   <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Configurando...</>
@@ -160,7 +160,7 @@ function SetupContent() {
 
           {state === 'success' && (
             <div className="text-center space-y-4 py-4">
-              <CheckCircle className="h-10 w-10 text-green-400 mx-auto" />
+              <CheckCircle className="h-10 w-10 text-status-ok-fg mx-auto" />
               <p className="text-zinc-300 text-sm">Redirigiendo al portal...</p>
             </div>
           )}
@@ -174,7 +174,7 @@ export default function SetupPage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center">
-        <Loader2 className="h-8 w-8 text-blue-400 animate-spin" />
+        <Loader2 className="h-8 w-8 text-status-info-fg animate-spin" />
       </div>
     }>
       <SetupContent />

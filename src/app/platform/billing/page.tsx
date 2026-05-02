@@ -34,9 +34,9 @@ const STATUS_FILTERS: { key: StatusFilter; label: string }[] = [
 ];
 
 const STATUS_BADGE_CLASSES: Record<string, string> = {
-  active: 'bg-emerald-100 text-emerald-700',
-  trial: 'bg-amber-100 text-amber-700',
-  past_due: 'bg-red-100 text-red-700',
+  active: 'bg-status-ok-soft text-status-ok-fg',
+  trial: 'bg-status-warn-soft text-status-warn-fg',
+  past_due: 'bg-status-danger-soft text-status-danger-fg',
   suspended: 'bg-gray-100 text-gray-500',
   cancelled: 'bg-gray-100 text-gray-500',
 };
@@ -136,7 +136,7 @@ export default function PlatformBillingPage() {
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center gap-4 py-24">
-        <p className="text-lg text-red-600">{error}</p>
+        <p className="text-lg text-status-danger-fg">{error}</p>
         <button
           onClick={() => window.location.reload()}
           className="rounded-lg bg-gray-900 px-4 py-2 text-sm text-white hover:bg-gray-800"
@@ -206,7 +206,7 @@ export default function PlatformBillingPage() {
                   <div className="text-xs text-gray-400">{t.slug}</div>
                 </td>
                 <td className="px-4 py-3">
-                  <span className="inline-flex rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                  <span className="inline-flex rounded-full bg-status-info-soft px-2.5 py-0.5 text-xs font-medium text-status-info-fg">
                     {t.plan}
                   </span>
                   <span
@@ -235,7 +235,7 @@ export default function PlatformBillingPage() {
                 </td>
                 <td className="px-4 py-3 text-right">
                   {t.packDiscount > 0 ? (
-                    <span className="text-red-600 dark:text-red-400">
+                    <span className="text-status-danger-fg dark:text-status-danger-fg">
                       -{t.packDiscount.toFixed(2)}
                     </span>
                   ) : (
@@ -271,7 +271,7 @@ export default function PlatformBillingPage() {
               <td className="px-4 py-3 text-right font-medium text-gray-700 dark:text-gray-300">
                 {filtered.reduce((sum, t) => sum + t.addonsTotal, 0).toFixed(2)}
               </td>
-              <td className="px-4 py-3 text-right font-medium text-red-600 dark:text-red-400">
+              <td className="px-4 py-3 text-right font-medium text-status-danger-fg dark:text-status-danger-fg">
                 {filtered.reduce((sum, t) => sum + t.packDiscount, 0) > 0
                   ? `-${filtered.reduce((sum, t) => sum + t.packDiscount, 0).toFixed(2)}`
                   : '\u2014'}

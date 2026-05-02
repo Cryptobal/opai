@@ -2,7 +2,8 @@ import { redirect, notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/opai";
+import { PageHero } from "@/components/opai-ds";
+import { BriefcaseBusiness } from "lucide-react";
 import { AtsCreateJobClient, type AtsJobEditData } from "@/components/ats/AtsCreateJobClient";
 import { getAtsSnippets } from "@/lib/ats/snippets";
 
@@ -58,11 +59,13 @@ export default async function AtsEditarPage({
 
   return (
     <div className="space-y-6 min-w-0">
-      <PageHeader
-        title="Editar aviso de empleo"
+      <PageHero
+        icon={<BriefcaseBusiness />}
+        iconTone="emerald"
+        eyebrow={["Operaciones", "ATS", "Editar"]}
+        title="Editar oferta"
+        subtitle="modificar job posting"
         description="Modifica los datos del aviso publicado."
-        backHref="/ops/ats"
-        backLabel="ATS"
       />
       <AtsCreateJobClient
         mode="edit"

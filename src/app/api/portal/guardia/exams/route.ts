@@ -45,6 +45,7 @@ export async function GET(request: NextRequest) {
         sentAt: a.sentAt.toISOString(),
         openedAt: a.openedAt?.toISOString() ?? null,
         attemptNumber: a.attemptNumber,
+        dueAt: a.dueAt?.toISOString() ?? null,
       }));
 
     const completed = assignments

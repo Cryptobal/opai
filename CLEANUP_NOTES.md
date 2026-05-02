@@ -149,3 +149,54 @@ Revisión humana del diff y del commit log, luego:
 git push -u origin chore/cleanup-quirurgico
 # Abrir PR apuntando a main linkeando este archivo
 ```
+
+## Pendientes — Sistema de Tickets (post-auditoría)
+
+Refactor de notificaciones de tickets ya entregado en la rama
+`claude/ticket-notifications-refactor-7Mf6v`. Lo siguiente queda registrado
+como deuda técnica para iteraciones futuras (no se aborda en este sprint):
+
+1. **Race condition en generación de `code` de ticket**
+   - El bloque `findFirst({ orderBy: { createdAt: 'desc' } })` dentro de la
+     transacción que genera el siguiente código puede colisionar bajo
+     concurrencia (dos hallazgos simultáneos generando el mismo código).
+   - Solución correcta: secuencia Postgres por tenant (`tenant_ticket_seq`)
+     con `nextval()` dentro de la transacción.
+   - Riesgo bajo en el volumen de producción actual; posponemos.
+
+2. **Mention parsing débil**
+   - `name.toLowerCase().includes(mentionLower)` matchea por substring y
+     puede notificar de más (ej. una mención a "ana" notifica también a
+     "Mariana"). El parser no respeta tokens delimitados por espacios o `@`.
+   - Solución: parser de tokens delimitados (regex `@[\w.]+` con match
+     exacto contra usernames normalizados) o adoptar un editor con `Mention`
+     extension (Tiptap, Lexical) que emite IDs serializados.
+
+3. **Tipos separados `ticket_status_changed` y `ticket_comment_added`**
+   - Hoy ambos eventos se entregan reutilizando el tipo `ticket_mention`
+     (Bloque 5). Funciona, pero impide al usuario silenciar uno sin afectar
+     el otro en el panel de preferencias.
+   - Cuando se prioricen las preferencias de notificación granular, agregar
+     ambos tipos al catálogo (`src/lib/notifications/catalog.ts`,
+     `src/lib/notification-types.ts`, `src/app/api/notifications/route.ts`)
+     y reemplazar el `type: "ticket_mention"` en
+     `src/app/api/ops/tickets/[id]/comments/route.ts` y
+     `src/app/api/ops/tickets/[id]/transition/route.ts`.
+
+4. **Reset de `assignedTo` cuando cambia `assignedTeam`**
+   - Hoy el PATCH permite cambiar `assignedTeam` sin tocar `assignedTo`,
+     dejando al ticket asignado a un admin que potencialmente ya no
+     pertenece al nuevo equipo (datos desincronizados).
+   - Decisión de UX pendiente: ¿bloquear el cambio si el assignee no es del
+     nuevo equipo, limpiarlo automáticamente, o solo advertir en la UI?
+
+5. **Server component padre debe pasar `admins` a `TicketTypesConfigClient`**
+   - Bloque 2 dejó la prop `admins?` opcional en
+     `src/components/config/TicketTypesConfigClient.tsx` con un TODO al
+     final del archivo. El selector "Responsable por defecto" del formulario
+     de tipo de ticket sólo se renderiza si la prop llega; sin ella, queda
+     oculto sin romper nada.
+   - El server component que monta `TicketTypesConfigClient` debe consultar
+     `prisma.admin.findMany({ where: { tenantId, status: 'active' }, select: { id, name, email } })`
+     y pasarlo como prop.
+

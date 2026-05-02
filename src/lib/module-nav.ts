@@ -46,6 +46,7 @@ import {
   Smartphone,
   Phone,
   Brain,
+  KeyRound,
   Siren,
   Briefcase,
   // TE
@@ -89,7 +90,7 @@ export interface BottomNavItem {
 const MAIN_ITEMS: (BottomNavItem & { app: string })[] = [
   { key: "hub", href: "/hub", label: "Inicio", icon: Grid3x3, app: "hub" },
   { key: "chat", href: "/chat", label: "Chat", icon: MessageCircle, app: "chat" },
-  { key: "docs", href: "/opai/inicio", label: "Docs", icon: FileText, app: "docs" },
+  { key: "docs", href: "/opai/documentos", label: "Docs", icon: FileText, app: "docs" },
   { key: "crm", href: "/crm", label: "CRM", icon: Building2, app: "crm" },
   { key: "payroll", href: "/payroll", label: "Payroll", icon: Calculator, app: "payroll" },
   { key: "ops", href: "/ops", label: "Ops", icon: ClipboardList, app: "ops" },
@@ -198,7 +199,6 @@ const PAYROLL_ITEMS: BottomNavItem[] = [
 /* ── Docs sub-items ── */
 
 const DOCS_ITEMS: BottomNavItem[] = [
-  { key: "docs-presentaciones", href: "/opai/inicio", label: "Envíos", icon: FileText },
   { key: "docs-gestion", href: "/opai/documentos", label: "Gestión", icon: FolderOpen },
   { key: "docs-operativos", href: "/opai/documentos-operativos", label: "Operativos", icon: ClipboardCheck },
 ];
@@ -238,6 +238,7 @@ const CONFIG_ITEMS: (BottomNavItem & { subKey: string })[] = [
   { key: "config-ticket-types", href: "/opai/configuracion/tipos-ticket", label: "Tickets", icon: Ticket, subKey: "tipos_ticket" },
   { key: "config-alertas-cobertura", href: "/opai/configuracion/alertas-cobertura", label: "Alertas", icon: Siren, subKey: "alertas_cobertura" },
   { key: "config-ia", href: "/opai/configuracion/asistente-ia", label: "Asistente IA", icon: Brain, subKey: "asistente_ia" },
+  { key: "config-ia-providers", href: "/opai/configuracion/inteligencia-artificial", label: "Proveedores de IA", icon: KeyRound, subKey: "inteligencia_artificial" },
 ];
 
 /* ── Module detection ── */
@@ -319,10 +320,8 @@ const MODULE_DETECTIONS: ModuleDetection[] = [
   },
   {
     test: (p) =>
-      p.startsWith("/opai/inicio") ||
       p.startsWith("/opai/documentos-operativos") ||
-      p.startsWith("/opai/documentos") ||
-      p.startsWith("/opai/templates"),
+      p.startsWith("/opai/documentos"),
     getItems: (_perms, isModEnabled) => isModEnabled("documentos") ? DOCS_ITEMS : [],
   },
   {

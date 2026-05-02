@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { DOC_CATEGORIES, WA_USAGE_SLUGS } from "@/lib/docs/token-registry";
 import type { DocTemplate } from "@/types/docs";
-import { EmptyState } from "@/components/opai";
+import { EmptyState } from "@/components/opai-ds";
 import { useCanDelete } from "@/lib/permissions-context";
 
 function getCategoryLabel(module: string, category: string): string {
@@ -151,7 +151,7 @@ function DocTemplatesInner() {
         </div>
       ) : filtered.length === 0 ? (
         <EmptyState
-          icon={<LayoutTemplate className="h-10 w-10" />}
+          icon={LayoutTemplate}
           title="No hay templates de documentos"
           description="Crea tu primer template para empezar a generar documentos"
           action={
@@ -194,7 +194,7 @@ function DocTemplatesInner() {
                         {template.name}
                       </span>
                       {template.isDefault && (
-                        <Star className="h-3 w-3 text-amber-500 fill-amber-500 shrink-0" />
+                        <Star className="h-3 w-3 text-status-warn-fg fill-amber-500 shrink-0" />
                       )}
                     </div>
                     <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground">
@@ -261,7 +261,7 @@ function DocTemplatesInner() {
                     <div className="flex items-center gap-1.5">
                       <span className="text-[13px] font-semibold truncate">{template.name}</span>
                       {template.isDefault && (
-                        <Star className="h-3 w-3 text-amber-500 fill-amber-500 shrink-0" />
+                        <Star className="h-3 w-3 text-status-warn-fg fill-amber-500 shrink-0" />
                       )}
                       <span className="ml-auto text-[10px] text-muted-foreground/50 font-mono shrink-0">
                         v{template._count?.versions || 1}

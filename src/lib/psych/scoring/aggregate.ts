@@ -71,6 +71,7 @@ export function aggregateScores(input: AggregateInput): {
     dimensions.push({ dimension: dim, score: mean, itemCount: count });
 
     const tenantWeight = config.weights[dim] ?? 1.0;
+    if (tenantWeight <= 0) continue; // peso 0 = dimensión informativa, no entra al global
     globalNum += mean * tenantWeight;
     globalDen += tenantWeight;
   }

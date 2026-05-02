@@ -233,7 +233,7 @@ export function ReportarIncidente({
                 onClick={() => setTipo(t.id)}
                 className={`flex min-h-20 flex-col items-center justify-center gap-1 rounded-xl border-2 p-2 text-center transition-colors ${
                   tipo === t.id
-                    ? "border-teal-500 bg-teal-900/20 text-white"
+                    ? "border-status-info bg-status-info-soft text-white"
                     : "border-zinc-700 bg-zinc-800 text-gray-400 hover:border-zinc-600"
                 }`}
               >
@@ -296,7 +296,7 @@ export function ReportarIncidente({
         {/* Description */}
         <div>
           <label className="mb-2 block text-sm font-medium text-gray-200">
-            Descripci&oacute;n <span className="text-red-400">*</span>
+            Descripci&oacute;n <span className="text-status-danger-fg">*</span>
           </label>
           <textarea
             value={descripcion}
@@ -305,7 +305,7 @@ export function ReportarIncidente({
             maxLength={500}
             required
             placeholder="Describe el incidente..."
-            className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-white placeholder-gray-500 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+            className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-white placeholder-gray-500 focus:border-status-info-border focus:outline-none focus:ring-1 focus:ring-status-info-border"
           />
           <p className="mt-1 text-right text-xs text-gray-500">
             {descripcion.length}/500
@@ -315,7 +315,7 @@ export function ReportarIncidente({
         {/* GPS status */}
         <div className="text-sm">
           {gpsStatus === "ok" ? (
-            <p className="text-green-400">
+            <p className="text-status-ok-fg">
               {"\u{1F4CD}"} Ubicaci&oacute;n capturada {"\u2705"}
             </p>
           ) : gpsStatus === "loading" ? (
@@ -323,7 +323,7 @@ export function ReportarIncidente({
               {"\u{1F4CD}"} Obteniendo ubicaci&oacute;n...
             </p>
           ) : (
-            <p className="text-yellow-400">
+            <p className="text-status-warn-fg">
               {"\u{1F4CD}"} No se pudo obtener ubicaci&oacute;n
             </p>
           )}
@@ -338,7 +338,7 @@ export function ReportarIncidente({
             <select
               value={selectedCheckpointId}
               onChange={(e) => setSelectedCheckpointId(e.target.value)}
-              className="w-full min-h-14 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-white focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+              className="w-full min-h-14 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-white focus:border-status-info-border focus:outline-none focus:ring-1 focus:ring-status-info-border"
             >
               <option value="">Sin checkpoint</option>
               {checkpoints.map((cp) => (
@@ -352,14 +352,14 @@ export function ReportarIncidente({
 
         {/* Error message */}
         {error && (
-          <div className="rounded-lg bg-red-900/30 border border-red-700 px-4 py-3 text-sm text-red-400">
+          <div className="rounded-lg bg-status-danger-soft border border-status-danger-border px-4 py-3 text-sm text-status-danger-fg">
             {error}
           </div>
         )}
 
         {/* Offline message */}
         {offlineMsg && (
-          <div className="rounded-lg bg-yellow-900/30 border border-yellow-700 px-4 py-3 text-sm text-yellow-400">
+          <div className="rounded-lg bg-status-warn-soft border border-status-warn-border px-4 py-3 text-sm text-status-warn-fg">
             {offlineMsg}
           </div>
         )}
@@ -369,7 +369,7 @@ export function ReportarIncidente({
           type="button"
           onClick={handleSubmit}
           disabled={!canSubmit}
-          className="flex w-full min-h-14 items-center justify-center gap-2 rounded-xl bg-teal-600 py-3 text-lg font-semibold text-white transition-colors hover:bg-teal-500 disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex w-full min-h-14 items-center justify-center gap-2 rounded-xl bg-status-info py-3 text-lg font-semibold text-white transition-colors hover:bg-status-info disabled:cursor-not-allowed disabled:opacity-50"
         >
           {submitting ? (
             <svg

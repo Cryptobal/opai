@@ -2,7 +2,8 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/opai";
+import { PageHero } from "@/components/opai-ds";
+import { Briefcase } from "lucide-react";
 import { AtsDashboardClient } from "@/components/ats/AtsDashboardClient";
 
 export default async function OpsAtsPage() {
@@ -44,8 +45,12 @@ export default async function OpsAtsPage() {
 
   return (
     <div className="space-y-6 min-w-0">
-      <PageHeader
-        title="ATS — Reclutamiento"
+      <PageHero
+        icon={<Briefcase />}
+        iconTone="emerald"
+        eyebrow={["Operaciones", "ATS"]}
+        title="Reclutamiento"
+        subtitle="pipeline de postulantes"
         description="Gestión de avisos de empleo y pipeline de candidatos."
       />
       <AtsDashboardClient

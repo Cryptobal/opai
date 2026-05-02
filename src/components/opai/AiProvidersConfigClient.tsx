@@ -57,9 +57,9 @@ type AiProvider = {
 };
 
 const COST_CONFIG: Record<string, { label: string; color: string; bgColor: string }> = {
-  low: { label: "Económico", color: "text-emerald-400", bgColor: "bg-emerald-500/15" },
-  medium: { label: "Medio", color: "text-amber-400", bgColor: "bg-amber-500/15" },
-  high: { label: "Alto", color: "text-red-400", bgColor: "bg-red-500/15" },
+  low: { label: "Económico", color: "text-status-ok-fg", bgColor: "bg-status-ok-soft" },
+  medium: { label: "Medio", color: "text-status-warn-fg", bgColor: "bg-status-warn-soft" },
+  high: { label: "Alto", color: "text-status-danger-fg", bgColor: "bg-status-danger-soft" },
 };
 
 const PROVIDER_ICON: Record<string, string> = {
@@ -79,7 +79,7 @@ export function AiProvidersConfigClient() {
 
   const fetchProviders = useCallback(async () => {
     try {
-      const res = await fetch("/api/config/ai-providers");
+      const res = await fetch("/api/tenant/ai-providers");
       const json = await res.json();
       if (json.success) setProviders(json.data);
     } catch {
@@ -111,7 +111,7 @@ export function AiProvidersConfigClient() {
   const handleActivate = async (providerId: string) => {
     setActivating(providerId);
     try {
-      const res = await fetch(`/api/config/ai-providers/${providerId}`, {
+      const res = await fetch(`/api/tenant/ai-providers/${providerId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isActive: true }),
@@ -170,8 +170,8 @@ export function AiProvidersConfigClient() {
             </div>
           ) : configuredProviders.length > 0 ? (
             <div className="flex items-center gap-3 text-muted-foreground">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-500/10">
-                <Power className="h-4 w-4 text-amber-400" />
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-status-warn-soft">
+                <Power className="h-4 w-4 text-status-warn-fg" />
               </div>
               <div className="flex-1">
                 <p className="text-sm font-medium text-foreground">
@@ -346,7 +346,7 @@ function ProviderConfigDialog({
     }
     setRevealLoading(true);
     try {
-      const res = await fetch(`/api/config/ai-providers/${provider.id}/key`);
+      const res = await fetch(`/api/tenant/ai-providers/${provider.id}/key`);
       const json = await res.json();
       if (json.success) {
         setRevealedKey(json.apiKey);
@@ -379,7 +379,7 @@ function ProviderConfigDialog({
       body.isActive = true;
 
       if (Object.keys(body).length > 0) {
-        const res = await fetch(`/api/config/ai-providers/${provider.id}`, {
+        const res = await fetch(`/api/tenant/ai-providers/${provider.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
@@ -411,7 +411,7 @@ function ProviderConfigDialog({
     const testModelId = provider.models.find((m) => m.id === selectedModelId)?.modelId;
 
     try {
-      const res = await fetch(`/api/config/ai-providers/${provider.id}/test`, {
+      const res = await fetch(`/api/tenant/ai-providers/${provider.id}/test`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -614,8 +614,8 @@ function ProviderConfigDialog({
             <div
               className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
                 testResult.ok
-                  ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
-                  : "border-red-500/30 bg-red-500/10 text-red-400"
+                  ? "border-status-ok-border bg-status-ok-soft text-status-ok-fg"
+                  : "border-status-danger-border bg-status-danger-soft text-status-danger-fg"
               }`}
             >
               {testResult.ok ? (

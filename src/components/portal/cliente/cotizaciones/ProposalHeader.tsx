@@ -26,12 +26,12 @@ export function ProposalHeader({ detail, className }: ProposalHeaderProps) {
           {statusLabel}
         </span>
         {canAct && (
-          <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-teal-900/40 text-teal-300">
+          <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-status-info-soft text-status-info-fg">
             Requiere acción
           </span>
         )}
         {detail.aiDescription && (
-          <span className="text-[10px] uppercase tracking-wider bg-teal-500/10 text-teal-400/70 rounded-full px-2 py-0.5 font-medium">
+          <span className="text-[10px] uppercase tracking-wider bg-status-info-soft text-status-info-fg/70 rounded-full px-2 py-0.5 font-medium">
             Análisis OPAI AI
           </span>
         )}
@@ -39,12 +39,12 @@ export function ProposalHeader({ detail, className }: ProposalHeaderProps) {
 
       {/* Price */}
       <div className="flex items-baseline gap-3 flex-wrap">
-        <span className="text-2xl font-bold text-emerald-400 font-mono">
+        <span className="text-2xl font-bold text-status-ok-fg font-mono">
           {formatCurrency(detail.monthlyCost, currencyKey)}
         </span>
         <span className="text-sm text-slate-500">/mes</span>
         {seemsCurrencyWrong(detail.monthlyCost, detail.currency) && (
-          <span className="inline-flex items-center gap-1 text-[10px] text-amber-400">
+          <span className="inline-flex items-center gap-1 text-[10px] text-status-warn-fg">
             <AlertTriangle className="h-3 w-3" />
             Verificar moneda
           </span>

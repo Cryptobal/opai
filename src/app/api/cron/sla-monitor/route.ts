@@ -18,7 +18,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { TICKET_TEAM_CONFIG, type TicketPriority } from "@/lib/tickets";
-import { sendNotification } from "@/lib/notification-service";
+import { notify } from "@/lib/notifications/notify";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -98,30 +98,29 @@ export async function GET(request: NextRequest) {
         const teamLabel = TICKET_TEAM_CONFIG[assignedTeam as keyof typeof TICKET_TEAM_CONFIG]?.label ?? assignedTeam;
 
         if (tickets.length > BATCH_THRESHOLD) {
-          // Batch notification — sólo bell. El email se envía en el digest diario.
+          // Batch — bell only. Email is consolidated in the daily digest.
           notifPromises.push(
-            sendNotification({
+            notify({
               tenantId,
               type: "ticket_sla_breached_batch",
               title: `${tickets.length} tickets con SLA vencido en ${teamLabel}`,
-              message: `Hay ${tickets.length} tickets con SLA vencido en ${teamLabel}`,
+              body: `Hay ${tickets.length} tickets con SLA vencido en ${teamLabel}`,
+              link: `/opai/ops/tickets?status=overdue&team=${assignedTeam}`,
               data: { count: tickets.length, assignedTeam, ticketIds: tickets.map((t) => t.id) },
-              link: `/ops/tickets?status=overdue&team=${assignedTeam}`,
-              channels: ["bell"],
+              forceChannels: { bell: true, email: false, push: false },
             }),
           );
         } else {
-          // Individual notifications — sólo bell.
           for (const t of tickets) {
             notifPromises.push(
-              sendNotification({
+              notify({
                 tenantId: t.tenantId,
                 type: "ticket_sla_breached",
                 title: `SLA vencido: ${t.code}`,
-                message: `El ticket "${t.title}" (${t.priority.toUpperCase()}) ha superado su plazo de SLA. Equipo: ${teamLabel}`,
+                body: `El ticket "${t.title}" (${t.priority.toUpperCase()}) ha superado su plazo de SLA. Equipo: ${teamLabel}`,
+                link: `/opai/ops/tickets/${t.id}`,
                 data: { ticketId: t.id, code: t.code, priority: t.priority },
-                link: `/ops/tickets/${t.id}`,
-                channels: ["bell"],
+                forceChannels: { bell: true, email: false, push: false },
               }),
             );
           }
@@ -182,27 +181,27 @@ export async function GET(request: NextRequest) {
 
         if (tickets.length > BATCH_THRESHOLD) {
           renotifPromises.push(
-            sendNotification({
+            notify({
               tenantId,
               type: "ticket_sla_breached_batch",
               title: `${tickets.length} tickets con SLA vencido en ${teamLabel}`,
-              message: `Hay ${tickets.length} tickets con SLA vencido en ${teamLabel}`,
+              body: `Hay ${tickets.length} tickets con SLA vencido en ${teamLabel}`,
+              link: `/opai/ops/tickets?status=overdue&team=${assignedTeam}`,
               data: { count: tickets.length, assignedTeam, ticketIds: tickets.map((t) => t.id) },
-              link: `/ops/tickets?status=overdue&team=${assignedTeam}`,
-              channels: ["bell"],
+              forceChannels: { bell: true, email: false, push: false },
             }),
           );
         } else {
           for (const t of tickets) {
             renotifPromises.push(
-              sendNotification({
+              notify({
                 tenantId: t.tenantId,
                 type: "ticket_sla_breached",
                 title: `SLA vencido (recordatorio): ${t.code}`,
-                message: `El ticket "${t.title}" (${t.priority.toUpperCase()}) sigue con SLA vencido. Equipo: ${teamLabel}`,
+                body: `El ticket "${t.title}" (${t.priority.toUpperCase()}) sigue con SLA vencido. Equipo: ${teamLabel}`,
+                link: `/opai/ops/tickets/${t.id}`,
                 data: { ticketId: t.id, code: t.code, priority: t.priority },
-                link: `/ops/tickets/${t.id}`,
-                channels: ["bell"],
+                forceChannels: { bell: true, email: false, push: false },
               }),
             );
           }
@@ -264,14 +263,14 @@ export async function GET(request: NextRequest) {
             const minsLeft = Math.round(
               (new Date(t.slaDueAt!).getTime() - now.getTime()) / (1000 * 60),
             );
-            return sendNotification({
+            return notify({
               tenantId: t.tenantId,
               type: "ticket_sla_approaching",
               title: `SLA próximo a vencer: ${t.code}`,
-              message: `El ticket "${t.title}" vence en ~${minsLeft} minutos`,
+              body: `El ticket "${t.title}" vence en ~${minsLeft} minutos`,
+              link: `/opai/ops/tickets/${t.id}`,
               data: { ticketId: t.id, code: t.code, priority: t.priority },
-              link: `/ops/tickets/${t.id}`,
-              channels: ["bell"],
+              forceChannels: { bell: true, email: false, push: false },
             });
           }),
         );

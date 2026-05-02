@@ -34,7 +34,7 @@ export function PortalDocumentos({ session, selectedInstallation, isProspect }: 
       {/* Header */}
       <div className="mb-4">
         <h2 className="text-base font-semibold flex items-center gap-2">
-          <FileText className="h-5 w-5 text-blue-400" />
+          <FileText className="h-5 w-5 text-status-info-fg" />
           Documentación digital
           <OpaiBadge text="Cumplimiento automático" variant="default" />
           {isProspect && <PreviewBadge />}
@@ -122,7 +122,7 @@ function PortalCuentaDocumentos({ isProspect }: { isProspect?: boolean }) {
 
   if (isProspect) {
     return (
-      <div className="rounded-lg border border-teal-500/20 bg-teal-500/5 px-4 py-3 text-xs text-teal-300/80">
+      <div className="rounded-lg border border-status-info-border bg-status-info-soft/30 px-4 py-3 text-xs text-status-info-fg/80">
         Al activar tu servicio, aquí encontrarás todos los documentos compartidos por tu proveedor.
       </div>
     );
@@ -131,7 +131,7 @@ function PortalCuentaDocumentos({ isProspect }: { isProspect?: boolean }) {
   if (loading) {
     return (
       <div className="flex justify-center py-24">
-        <Loader2 className="h-8 w-8 animate-spin text-teal-400" />
+        <Loader2 className="h-8 w-8 animate-spin text-status-info-fg" />
       </div>
     );
   }
@@ -183,7 +183,7 @@ function PortalInstalacionDocumentos({ installationId, isProspect }: { installat
 
   if (isProspect) {
     return (
-      <div className="rounded-lg border border-teal-500/20 bg-teal-500/5 px-4 py-3 text-xs text-teal-300/80">
+      <div className="rounded-lg border border-status-info-border bg-status-info-soft/30 px-4 py-3 text-xs text-status-info-fg/80">
         Al activar tu servicio, aquí encontrarás todos los documentos de tu instalación actualizados automáticamente.
       </div>
     );
@@ -200,7 +200,7 @@ function PortalInstalacionDocumentos({ installationId, isProspect }: { installat
   if (loading) {
     return (
       <div className="flex justify-center py-24">
-        <Loader2 className="h-8 w-8 animate-spin text-teal-400" />
+        <Loader2 className="h-8 w-8 animate-spin text-status-info-fg" />
       </div>
     );
   }
@@ -249,7 +249,7 @@ function FolderFileTree({ folders, files }: { folders: FolderItem[]; files: File
         return (
           <div key={folder.id} className="rounded-lg border border-white/[0.07] bg-white/[0.02] overflow-hidden">
             <div className="flex items-center gap-2 px-3 py-2.5 bg-white/[0.04] border-b border-white/[0.06]">
-              <Folder className="h-4 w-4 text-teal-400/70 shrink-0" />
+              <Folder className="h-4 w-4 text-status-info-fg/70 shrink-0" />
               <span className="text-sm font-medium text-zinc-300">{folder.name}</span>
               <span className="ml-auto text-xs text-zinc-500">{folderFiles.length} archivo{folderFiles.length !== 1 ? "s" : ""}</span>
             </div>
@@ -275,7 +275,7 @@ function FolderFileTree({ folders, files }: { folders: FolderItem[]; files: File
 function FileRow({ file }: { file: FileItem }) {
   return (
     <div className="flex items-center gap-3 px-3 py-2.5">
-      <FileText className="h-7 w-7 text-teal-400/60 shrink-0" />
+      <FileText className="h-7 w-7 text-status-info-fg/60 shrink-0" />
       <div className="min-w-0 flex-1">
         <p className="text-sm font-medium truncate">{file.fileName}</p>
         <p className="text-xs text-zinc-500">{formatBytes(file.size)}</p>

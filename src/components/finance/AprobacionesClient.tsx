@@ -17,7 +17,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { EmptyState, KpiCard, KpiGrid } from "@/components/opai";
+import { EmptyState } from "@/components/opai-ds";
+import { Stat, StatGrid } from "@/components/opai-ds";
 import {
   CheckCircle2,
   XCircle,
@@ -162,10 +163,10 @@ export function AprobacionesClient({
   return (
     <div className="space-y-4">
       {/* Summary */}
-      <KpiGrid columns={2}>
-        <KpiCard title="Pendientes" value={pendingApprovals.length} />
-        <KpiCard title="Monto total" value={fmtCLP.format(totalAmount)} />
-      </KpiGrid>
+      <StatGrid lgCols={2}>
+        <Stat label="Pendientes" value={pendingApprovals.length} />
+        <Stat label="Monto total" value={fmtCLP.format(totalAmount)} />
+      </StatGrid>
 
       {/* Search */}
       <div className="relative max-w-sm">
@@ -181,7 +182,7 @@ export function AprobacionesClient({
       {/* List */}
       {filtered.length === 0 ? (
         <EmptyState
-          icon={<Inbox className="h-10 w-10" />}
+          icon={Inbox}
           title="Sin aprobaciones pendientes"
           description={
             search.trim()
@@ -207,7 +208,7 @@ export function AprobacionesClient({
                         <span className="font-mono text-xs text-muted-foreground">
                           {a.code}
                         </span>
-                        <Badge className="bg-amber-500/15 text-amber-400 border-amber-500/30 text-[10px]">
+                        <Badge className="bg-status-warn-soft text-status-warn-fg border-status-warn-border text-[10px]">
                           Paso {a.approvalOrder}
                         </Badge>
                       </div>
@@ -244,7 +245,7 @@ export function AprobacionesClient({
                           size="sm"
                           onClick={() => handleApprove(a.rendicionId)}
                           disabled={isApproving || isRejecting}
-                          className="bg-emerald-600 hover:bg-emerald-700 h-8 px-3"
+                          className="bg-status-ok hover:brightness-110 h-8 px-3"
                         >
                           {isApproving ? (
                             <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -258,7 +259,7 @@ export function AprobacionesClient({
                           size="sm"
                           onClick={() => openRejectDialog(a.rendicionId)}
                           disabled={isApproving || isRejecting}
-                          className="text-red-400 hover:text-red-300 h-8 px-3"
+                          className="text-status-danger-fg hover:text-status-danger-fg h-8 px-3"
                         >
                           {isRejecting ? (
                             <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -308,7 +309,7 @@ export function AprobacionesClient({
                 size="sm"
                 onClick={handleReject}
                 disabled={!!loadingAction}
-                className="bg-red-600 hover:bg-red-700"
+                className="bg-status-danger hover:brightness-110"
               >
                 {loadingAction?.startsWith("reject") ? (
                   <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />

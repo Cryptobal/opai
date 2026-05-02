@@ -25,8 +25,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { EmptyState } from "@/components/opai";
-import { DataTable, type DataTableColumn } from "@/components/opai-ds/DataTableLegacy";
+import { DataTable, EmptyState, type DataTableColumn } from "@/components/opai-ds";
 import {
   BookText,
   FileSpreadsheet,
@@ -100,22 +99,22 @@ const TABS = [
 type TabId = (typeof TABS)[number]["id"];
 
 const ACCOUNT_TYPE_CONFIG: Record<string, { label: string; className: string }> = {
-  ASSET: { label: "Activo", className: "bg-blue-500/15 text-blue-400 border-blue-500/30" },
-  LIABILITY: { label: "Pasivo", className: "bg-red-500/15 text-red-400 border-red-500/30" },
-  EQUITY: { label: "Patrimonio", className: "bg-purple-500/15 text-purple-400 border-purple-500/30" },
-  REVENUE: { label: "Ingreso", className: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
-  COST: { label: "Costo", className: "bg-orange-500/15 text-orange-400 border-orange-500/30" },
-  EXPENSE: { label: "Gasto", className: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
+  ASSET: { label: "Activo", className: "bg-status-info-soft text-status-info-fg border-status-info-border" },
+  LIABILITY: { label: "Pasivo", className: "bg-status-danger-soft text-status-danger-fg border-status-danger-border" },
+  EQUITY: { label: "Patrimonio", className: "bg-tint-violet text-tint-violet-fg border-tint-violet-fg/30" },
+  REVENUE: { label: "Ingreso", className: "bg-status-ok-soft text-status-ok-fg border-status-ok-border" },
+  COST: { label: "Costo", className: "bg-status-warn-soft text-status-warn-fg border-status-warn-border" },
+  EXPENSE: { label: "Gasto", className: "bg-status-warn-soft text-status-warn-fg border-status-warn-border" },
 };
 
 const JOURNAL_STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   DRAFT: { label: "Borrador", className: "bg-zinc-500/15 text-zinc-400 border-zinc-500/30" },
-  POSTED: { label: "Contabilizado", className: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
-  REVERSED: { label: "Reversado", className: "bg-red-500/15 text-red-400 border-red-500/30" },
+  POSTED: { label: "Contabilizado", className: "bg-status-ok-soft text-status-ok-fg border-status-ok-border" },
+  REVERSED: { label: "Reversado", className: "bg-status-danger-soft text-status-danger-fg border-status-danger-border" },
 };
 
 const PERIOD_STATUS_CONFIG: Record<string, { label: string; className: string }> = {
-  OPEN: { label: "Abierto", className: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
+  OPEN: { label: "Abierto", className: "bg-status-ok-soft text-status-ok-fg border-status-ok-border" },
   CLOSED: { label: "Cerrado", className: "bg-zinc-500/15 text-zinc-400 border-zinc-500/30" },
 };
 
@@ -354,7 +353,7 @@ function AccountsTab({
 
       {filtered.length === 0 ? (
         <EmptyState
-          icon={<BookText className="h-10 w-10" />}
+          icon={BookText}
           title="Sin cuentas"
           description="No hay cuentas en el plan contable. Puedes inicializar el plan de cuentas estándar chileno o crear cuentas manualmente."
           action={
@@ -376,23 +375,22 @@ function AccountsTab({
         <>
           {/* Desktop table */}
           <div className="hidden md:block">
-            <DataTable
-              compact
+            <DataTable<AccountRow>
               columns={[
                 {
-                  key: "code",
-                  label: "Código",
-                  render: (_v, row) => (
+                  id: "code",
+                  header: "Código",
+                  cell: (row) => (
                     <span className="font-mono text-xs" style={{ paddingLeft: `${(row.level - 1) * 16}px` }}>
                       {row.code}
                     </span>
                   ),
                 },
-                { key: "name", label: "Nombre" },
+                { id: "name", header: "Nombre", cell: (row) => row.name },
                 {
-                  key: "type",
-                  label: "Tipo",
-                  render: (_v, row) => {
+                  id: "type",
+                  header: "Tipo",
+                  cell: (row) => {
                     const typeCfg = ACCOUNT_TYPE_CONFIG[row.type] ?? { label: row.type, className: "bg-muted" };
                     return (
                       <Badge variant="outline" className={cn("text-xs", typeCfg.className)}>
@@ -401,49 +399,55 @@ function AccountsTab({
                     );
                   },
                 },
-                { key: "level", label: "Nivel", className: "text-center", render: (v) => <span className="text-muted-foreground">{v}</span> },
                 {
-                  key: "acceptsEntries",
-                  label: "Movimientos",
-                  className: "text-center",
-                  render: (v) =>
-                    v ? (
-                      <span className="text-emerald-400 text-xs">Sí</span>
+                  id: "level",
+                  header: "Nivel",
+                  align: "center",
+                  cell: (row) => <span className="text-muted-foreground">{row.level}</span>,
+                },
+                {
+                  id: "acceptsEntries",
+                  header: "Movimientos",
+                  align: "center",
+                  cell: (row) =>
+                    row.acceptsEntries ? (
+                      <span className="text-status-ok-fg text-xs">Sí</span>
                     ) : (
                       <span className="text-muted-foreground text-xs">No</span>
                     ),
                 },
                 {
-                  key: "isActive",
-                  label: "Estado",
-                  render: (v) => (
+                  id: "isActive",
+                  header: "Estado",
+                  cell: (row) => (
                     <Badge
                       variant="outline"
                       className={cn(
                         "text-xs",
-                        v
-                          ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+                        row.isActive
+                          ? "bg-status-ok-soft text-status-ok-fg border-status-ok-border"
                           : "bg-zinc-500/15 text-zinc-400 border-zinc-500/30"
                       )}
                     >
-                      {v ? "Activa" : "Inactiva"}
+                      {row.isActive ? "Activa" : "Inactiva"}
                     </Badge>
                   ),
                 },
                 ...(canManage
                   ? [{
-                      key: "_actions",
-                      label: "",
-                      render: (_v: any, row: any) => (
+                      id: "_actions",
+                      header: "",
+                      cell: (row: AccountRow) => (
                         <Button variant="ghost" size="sm" onClick={() => openEdit(row)}>
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
                       ),
-                    }]
+                    } satisfies DataTableColumn<AccountRow>]
                   : []),
-              ] as DataTableColumn[]}
-              data={filtered}
-              emptyMessage="Sin cuentas"
+              ]}
+              rows={filtered}
+              rowKey={(row) => row.id}
+              empty={<EmptyState icon={BookText} title="Sin cuentas" compact />}
             />
           </div>
 
@@ -467,7 +471,7 @@ function AccountsTab({
                         </p>
                         <div className="flex gap-3 mt-1 text-xs text-muted-foreground">
                           <span>Nivel {a.level}</span>
-                          {a.acceptsEntries && <span className="text-emerald-400">Acepta movimientos</span>}
+                          {a.acceptsEntries && <span className="text-status-ok-fg">Acepta movimientos</span>}
                         </div>
                       </div>
                       {canManage && (
@@ -675,7 +679,7 @@ function JournalTab({
 
       {filtered.length === 0 ? (
         <EmptyState
-          icon={<FileSpreadsheet className="h-10 w-10" />}
+          icon={FileSpreadsheet}
           title="Sin asientos"
           description="No hay asientos contables registrados."
           action={
@@ -693,27 +697,26 @@ function JournalTab({
         <>
           {/* Desktop table */}
           <div className="hidden md:block">
-            <DataTable
-              compact
+            <DataTable<JournalRow>
               columns={[
                 {
-                  key: "number",
-                  label: "N°",
-                  render: (v) => <span className="font-mono text-xs">{v}</span>,
+                  id: "number",
+                  header: "N°",
+                  cell: (row) => <span className="font-mono text-xs">{row.number}</span>,
                 },
                 {
-                  key: "date",
-                  label: "Fecha",
-                  render: (v) => (
+                  id: "date",
+                  header: "Fecha",
+                  cell: (row) => (
                     <span className="text-muted-foreground">
-                      {format(new Date(v), "dd MMM yyyy", { locale: es })}
+                      {format(new Date(row.date), "dd MMM yyyy", { locale: es })}
                     </span>
                   ),
                 },
                 {
-                  key: "description",
-                  label: "Descripción",
-                  render: (_v, row) => (
+                  id: "description",
+                  header: "Descripción",
+                  cell: (row) => (
                     <div>
                       <div>{row.description}</div>
                       {row.reference && (
@@ -723,22 +726,22 @@ function JournalTab({
                   ),
                 },
                 {
-                  key: "totalDebit",
-                  label: "Debe",
-                  className: "text-right",
-                  render: (v) => <span className="font-mono text-xs">{fmtCLP.format(v)}</span>,
+                  id: "totalDebit",
+                  header: "Debe",
+                  align: "right",
+                  cell: (row) => fmtCLP.format(row.totalDebit),
                 },
                 {
-                  key: "totalCredit",
-                  label: "Haber",
-                  className: "text-right",
-                  render: (v) => <span className="font-mono text-xs">{fmtCLP.format(v)}</span>,
+                  id: "totalCredit",
+                  header: "Haber",
+                  align: "right",
+                  cell: (row) => fmtCLP.format(row.totalCredit),
                 },
                 {
-                  key: "status",
-                  label: "Estado",
-                  render: (v) => {
-                    const stCfg = JOURNAL_STATUS_CONFIG[v] ?? { label: v, className: "bg-muted" };
+                  id: "status",
+                  header: "Estado",
+                  cell: (row) => {
+                    const stCfg = JOURNAL_STATUS_CONFIG[row.status] ?? { label: row.status, className: "bg-muted" };
                     return (
                       <Badge variant="outline" className={cn("text-xs", stCfg.className)}>
                         {stCfg.label}
@@ -747,8 +750,9 @@ function JournalTab({
                   },
                 },
               ]}
-              data={filtered}
-              emptyMessage="Sin asientos"
+              rows={filtered}
+              rowKey={(row) => row.id}
+              empty={<EmptyState icon={FileSpreadsheet} title="Sin asientos" compact />}
             />
           </div>
 
@@ -888,7 +892,7 @@ function LedgerTab({ accounts }: { accounts: AccountRow[] }) {
 
       {ledgerData.length === 0 ? (
         <EmptyState
-          icon={<BookOpen className="h-10 w-10" />}
+          icon={BookOpen}
           title="Sin movimientos"
           description="Seleccione una cuenta y rango de fechas para ver el libro mayor."
         />
@@ -896,53 +900,49 @@ function LedgerTab({ accounts }: { accounts: AccountRow[] }) {
         <>
           {/* Desktop table */}
           <div className="hidden md:block">
-            <DataTable
-              compact
+            <DataTable<LedgerEntry>
               columns={[
                 {
-                  key: "date",
-                  label: "Fecha",
-                  render: (v) => (
+                  id: "date",
+                  header: "Fecha",
+                  cell: (row) => (
                     <span className="text-muted-foreground">
-                      {format(new Date(v), "dd MMM yyyy", { locale: es })}
+                      {format(new Date(row.date), "dd MMM yyyy", { locale: es })}
                     </span>
                   ),
                 },
                 {
-                  key: "journalEntryNumber",
-                  label: "N° Asiento",
-                  render: (v) => <span className="font-mono text-xs">#{v}</span>,
+                  id: "journalEntryNumber",
+                  header: "N° Asiento",
+                  cell: (row) => <span className="font-mono text-xs">#{row.journalEntryNumber}</span>,
                 },
-                { key: "description", label: "Descripción" },
+                { id: "description", header: "Descripción", cell: (row) => row.description },
                 {
-                  key: "debit",
-                  label: "Debe",
-                  className: "text-right",
-                  render: (v) => (
-                    <span className="font-mono text-xs">{v > 0 ? fmtCLP.format(v) : ""}</span>
-                  ),
+                  id: "debit",
+                  header: "Debe",
+                  align: "right",
+                  cell: (row) => (row.debit > 0 ? fmtCLP.format(row.debit) : ""),
                 },
                 {
-                  key: "credit",
-                  label: "Haber",
-                  className: "text-right",
-                  render: (v) => (
-                    <span className="font-mono text-xs">{v > 0 ? fmtCLP.format(v) : ""}</span>
-                  ),
+                  id: "credit",
+                  header: "Haber",
+                  align: "right",
+                  cell: (row) => (row.credit > 0 ? fmtCLP.format(row.credit) : ""),
                 },
                 {
-                  key: "balance",
-                  label: "Saldo",
-                  className: "text-right",
-                  render: (v) => (
-                    <span className={cn("font-mono text-xs font-medium", v < 0 ? "text-red-400" : "")}>
-                      {fmtCLP.format(v)}
+                  id: "balance",
+                  header: "Saldo",
+                  align: "right",
+                  cell: (row) => (
+                    <span className={cn("font-medium", row.balance < 0 ? "text-status-danger-fg" : "")}>
+                      {fmtCLP.format(row.balance)}
                     </span>
                   ),
                 },
               ]}
-              data={ledgerData}
-              emptyMessage="Sin movimientos"
+              rows={ledgerData}
+              rowKey={(_row, i) => String(i)}
+              empty={<EmptyState icon={BookOpen} title="Sin movimientos" compact />}
             />
           </div>
 
@@ -963,7 +963,7 @@ function LedgerTab({ accounts }: { accounts: AccountRow[] }) {
                       {entry.debit > 0 && <span>Debe: <span className="font-mono">{fmtCLP.format(entry.debit)}</span></span>}
                       {entry.credit > 0 && <span>Haber: <span className="font-mono">{fmtCLP.format(entry.credit)}</span></span>}
                     </div>
-                    <span className={cn("font-mono font-medium", entry.balance < 0 ? "text-red-400" : "")}>
+                    <span className={cn("font-mono font-medium", entry.balance < 0 ? "text-status-danger-fg" : "")}>
                       {fmtCLP.format(entry.balance)}
                     </span>
                   </div>
@@ -1052,7 +1052,7 @@ function PeriodsTab({
 
       {periods.length === 0 ? (
         <EmptyState
-          icon={<Calendar className="h-10 w-10 text-white" />}
+          icon={Calendar}
           title="Sin períodos"
           description="No hay períodos contables abiertos."
           action={
@@ -1068,35 +1068,34 @@ function PeriodsTab({
         <>
           {/* Desktop table */}
           <div className="hidden md:block">
-            <DataTable
-              compact
+            <DataTable<PeriodRow>
               columns={[
                 {
-                  key: "month",
-                  label: "Período",
-                  render: (_v, row) => (
+                  id: "month",
+                  header: "Período",
+                  cell: (row) => (
                     <span className="font-medium">{MONTH_NAMES[row.month - 1]} {row.year}</span>
                   ),
                 },
                 {
-                  key: "startDate",
-                  label: "Inicio",
-                  render: (v) => (
-                    <span className="text-muted-foreground">{format(new Date(v), "dd/MM/yyyy")}</span>
+                  id: "startDate",
+                  header: "Inicio",
+                  cell: (row) => (
+                    <span className="text-muted-foreground">{format(new Date(row.startDate), "dd/MM/yyyy")}</span>
                   ),
                 },
                 {
-                  key: "endDate",
-                  label: "Fin",
-                  render: (v) => (
-                    <span className="text-muted-foreground">{format(new Date(v), "dd/MM/yyyy")}</span>
+                  id: "endDate",
+                  header: "Fin",
+                  cell: (row) => (
+                    <span className="text-muted-foreground">{format(new Date(row.endDate), "dd/MM/yyyy")}</span>
                   ),
                 },
                 {
-                  key: "status",
-                  label: "Estado",
-                  render: (v) => {
-                    const stCfg = PERIOD_STATUS_CONFIG[v] ?? { label: v, className: "bg-muted" };
+                  id: "status",
+                  header: "Estado",
+                  cell: (row) => {
+                    const stCfg = PERIOD_STATUS_CONFIG[row.status] ?? { label: row.status, className: "bg-muted" };
                     return (
                       <Badge variant="outline" className={cn("text-xs", stCfg.className)}>
                         {stCfg.label}
@@ -1106,9 +1105,9 @@ function PeriodsTab({
                 },
                 ...(canManage
                   ? [{
-                      key: "_actions",
-                      label: "",
-                      render: (_v: any, row: any) =>
+                      id: "_actions",
+                      header: "",
+                      cell: (row: PeriodRow) =>
                         row.status === "OPEN" ? (
                           <Button
                             variant="ghost"
@@ -1124,11 +1123,12 @@ function PeriodsTab({
                             Cerrar
                           </Button>
                         ) : null,
-                    }]
+                    } satisfies DataTableColumn<PeriodRow>]
                   : []),
-              ] as DataTableColumn[]}
-              data={periods}
-              emptyMessage="Sin períodos"
+              ]}
+              rows={periods}
+              rowKey={(row) => row.id}
+              empty={<EmptyState icon={Calendar} title="Sin períodos" compact />}
             />
           </div>
 

@@ -6,7 +6,8 @@ import {
   hasCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/opai";
+import { PageHero } from "@/components/opai-ds";
+import { Receipt } from "lucide-react";
 import { RendicionDetail } from "@/components/finance/RendicionDetail";
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -158,8 +159,12 @@ export default async function RendicionDetailPage({ params }: PageProps) {
 
   return (
     <div className="space-y-6 min-w-0">
-      <PageHeader
+      <PageHero
+        icon={<Receipt />}
+        iconTone="teal"
+        eyebrow={["Finanzas", "Rendiciones", rendicion.code]}
         title={`Rendición ${rendicion.code}`}
+        subtitle="detalle de rendición"
         description="Detalle de la rendición de gasto."
       />
       <RendicionDetail

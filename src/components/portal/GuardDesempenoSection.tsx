@@ -21,7 +21,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { LoadingState } from "@/components/opai/LoadingState";
-import { EmptyState } from "@/components/opai/EmptyState";
+import { EmptyState } from "@/components/opai-ds";
 import {
   TrustScoreGauge,
   NivelBadge,
@@ -107,11 +107,11 @@ function ScorecardView({ session }: { session: GuardSession }) {
             const raw = d.data;
             // Map API flat response to GuardiaScorecard shape
             const dimensiones: import("@/components/gamification").DimensionScore[] = [
-              { dimension: "rondas", label: "Rondas", score: raw.scoreRondas ?? 0, peso: 30, color: "text-teal-500" },
-              { dimension: "asistencia", label: "Asistencia", score: raw.scoreAsistencia ?? 0, peso: 25, color: "text-cyan-500" },
-              { dimension: "sistema_digital", label: "Sistema Digital", score: raw.scoreSistemaDigital ?? 0, peso: 15, color: "text-purple-500" },
-              { dimension: "supervision", label: "Supervisión", score: raw.scoreSupervision ?? 0, peso: 15, color: "text-yellow-500" },
-              { dimension: "capacitacion", label: "Capacitación", score: raw.scoreCapacitacion ?? 0, peso: 15, color: "text-orange-500" },
+              { dimension: "rondas", label: "Rondas", score: raw.scoreRondas ?? 0, peso: 30, color: "text-status-info-fg" },
+              { dimension: "asistencia", label: "Asistencia", score: raw.scoreAsistencia ?? 0, peso: 25, color: "text-status-info-fg" },
+              { dimension: "sistema_digital", label: "Sistema Digital", score: raw.scoreSistemaDigital ?? 0, peso: 15, color: "text-tint-violet-fg" },
+              { dimension: "supervision", label: "Supervisión", score: raw.scoreSupervision ?? 0, peso: 15, color: "text-status-warn-fg" },
+              { dimension: "capacitacion", label: "Capacitación", score: raw.scoreCapacitacion ?? 0, peso: 15, color: "text-status-warn-fg" },
             ];
             const mapped: GuardiaScorecard = {
               guardiaId: session.guardiaId,
@@ -150,7 +150,12 @@ function ScorecardView({ session }: { session: GuardSession }) {
   }, [session.guardiaId]);
 
   if (loading) return <LoadingState text="Cargando scorecard..." />;
-  if (!scorecard) return <EmptyState title="Sin datos de desempeno" description="Aun no hay informacion de gamificacion disponible." compact />;
+  if (!scorecard) return <EmptyState
+    icon={<TrendingUp className="h-8 w-8" />}
+    title="Sin datos de desempeno"
+    description="Aun no hay informacion de gamificacion disponible."
+    compact
+  />;
 
   // Level progression
   const nivelKeys = Object.keys(NIVEL_CONFIG);
@@ -171,7 +176,7 @@ function ScorecardView({ session }: { session: GuardSession }) {
           <div className="w-full max-w-[200px] space-y-1">
             <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
               <div
-                className="h-full rounded-full bg-teal-500 transition-all duration-500"
+                className="h-full rounded-full bg-status-info transition-all duration-500"
                 style={{ width: `${levelProgress}%` }}
               />
             </div>
@@ -188,13 +193,13 @@ function ScorecardView({ session }: { session: GuardSession }) {
       <div className="grid grid-cols-2 gap-3">
         <Card>
           <CardContent className="p-3 text-center">
-            <p className="text-lg font-bold tabular-nums text-teal-500">{scorecard.puntosMes}</p>
+            <p className="text-lg font-bold tabular-nums text-status-info-fg">{scorecard.puntosMes}</p>
             <p className="text-[11px] uppercase text-muted-foreground tracking-wide">Puntos del mes</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-3 text-center">
-            <p className="text-lg font-bold tabular-nums text-blue-500">
+            <p className="text-lg font-bold tabular-nums text-status-info-fg">
               #{scorecard.rankingInstalacion} <span className="text-sm font-normal text-muted-foreground">de {scorecard.totalGuardiasInstalacion}</span>
             </p>
             <p className="text-[11px] uppercase text-muted-foreground tracking-wide">Ranking</p>
@@ -202,13 +207,13 @@ function ScorecardView({ session }: { session: GuardSession }) {
         </Card>
         <Card>
           <CardContent className="p-3 text-center">
-            <p className="text-lg font-bold tabular-nums text-amber-500">{scorecard.percentil}%</p>
+            <p className="text-lg font-bold tabular-nums text-status-warn-fg">{scorecard.percentil}%</p>
             <p className="text-[11px] uppercase text-muted-foreground tracking-wide">Percentil</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-3 text-center">
-            <p className={`text-lg font-bold tabular-nums ${tendenciaDiff >= 0 ? "text-emerald-500" : "text-red-500"}`}>
+            <p className={`text-lg font-bold tabular-nums ${tendenciaDiff >= 0 ? "text-status-ok-fg" : "text-status-danger-fg"}`}>
               {tendenciaDiff >= 0 ? "+" : ""}{tendenciaDiff}
             </p>
             <p className="text-[11px] uppercase text-muted-foreground tracking-wide">Tendencia</p>
@@ -277,16 +282,21 @@ function RankingView({ session }: { session: GuardSession }) {
   }, [session.guardiaId]);
 
   if (loading) return <LoadingState text="Cargando ranking..." />;
-  if (ranking.length === 0) return <EmptyState title="Sin datos de ranking" description="No hay datos de ranking disponibles." compact />;
+  if (ranking.length === 0) return <EmptyState
+    icon={<BarChart3 className="h-8 w-8" />}
+    title="Sin datos de ranking"
+    description="No hay datos de ranking disponibles."
+    compact
+  />;
 
   return (
     <div className="space-y-4">
       {/* My position card */}
       {miPosicion && (
-        <Card className="border-teal-500/30">
+        <Card className="border-status-info-border">
           <CardContent className="p-4 flex items-center gap-4">
             <div className="text-center">
-              <p className="text-3xl font-bold tabular-nums text-teal-500">#{miPosicion.posicion}</p>
+              <p className="text-3xl font-bold tabular-nums text-status-info-fg">#{miPosicion.posicion}</p>
               <p className="text-[11px] text-muted-foreground">Tu posicion</p>
             </div>
             <div className="flex-1 min-w-0">
@@ -303,10 +313,10 @@ function RankingView({ session }: { session: GuardSession }) {
         {ranking.map((entry, idx) => {
           const isMe = entry.esYo === true;
           const TrendIcon = entry.tendencia === "up" ? TrendingUp : entry.tendencia === "down" ? TrendingDown : Minus;
-          const trendColor = entry.tendencia === "up" ? "text-emerald-500" : entry.tendencia === "down" ? "text-red-500" : "text-muted-foreground";
+          const trendColor = entry.tendencia === "up" ? "text-status-ok-fg" : entry.tendencia === "down" ? "text-status-danger-fg" : "text-muted-foreground";
 
           return (
-            <Card key={idx} className={isMe ? "bg-teal-500/5 border-teal-500/20" : ""}>
+            <Card key={idx} className={isMe ? "bg-status-info-soft/30 border-status-info-border" : ""}>
               <CardContent className="p-3 flex items-center gap-3">
                 {/* Position */}
                 <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center shrink-0">
@@ -315,7 +325,7 @@ function RankingView({ session }: { session: GuardSession }) {
 
                 {/* Name */}
                 <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-semibold truncate ${isMe ? "text-teal-500" : ""}`}>
+                  <p className={`text-sm font-semibold truncate ${isMe ? "text-status-info-fg" : ""}`}>
                     {isMe ? "Tu" : entry.anonimo ? "Anonimo" : entry.nombre ?? "Anonimo"}
                   </p>
                   <p className="text-xs text-muted-foreground tabular-nums">
@@ -362,7 +372,7 @@ function BadgesView({ session }: { session: GuardSession }) {
   }, [session.guardiaId]);
 
   if (loading) return <LoadingState text="Cargando badges..." />;
-  if (badges.length === 0) return <EmptyState icon={<Award className="h-10 w-10" />} title="Sin badges" description="Completa desafios y mejora tu desempeno para desbloquear badges." compact />;
+  if (badges.length === 0) return <EmptyState icon={<Award className="h-8 w-8" />} title="Sin badges" description="Completa desafios y mejora tu desempeno para desbloquear badges." compact />;
 
   return (
     <div className="space-y-4">
@@ -399,7 +409,7 @@ function DesafiosView({ session }: { session: GuardSession }) {
   }, [session.guardiaId]);
 
   if (loading) return <LoadingState text="Cargando desafios..." />;
-  if (desafios.length === 0) return <EmptyState icon={<Target className="h-10 w-10" />} title="Sin desafios activos" description="No hay desafios disponibles en este momento." compact />;
+  if (desafios.length === 0) return <EmptyState icon={<Target className="h-8 w-8" />} title="Sin desafios activos" description="No hay desafios disponibles en este momento." compact />;
 
   return (
     <div className="space-y-3">
@@ -416,7 +426,7 @@ function DesafiosView({ session }: { session: GuardSession }) {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-semibold truncate">{d.nombre}</p>
-                    {isCompleted && <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />}
+                    {isCompleted && <CheckCircle2 className="h-4 w-4 text-status-ok-fg shrink-0" />}
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{d.descripcion}</p>
                 </div>
@@ -437,7 +447,7 @@ function DesafiosView({ session }: { session: GuardSession }) {
                   </div>
                   <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
                     <div
-                      className="h-full rounded-full bg-teal-500 transition-all duration-500"
+                      className="h-full rounded-full bg-status-info transition-all duration-500"
                       style={{ width: `${Math.min(progress, 100)}%` }}
                     />
                   </div>
@@ -588,7 +598,7 @@ function ReconocimientoView({ session }: { session: GuardSession }) {
                       onClick={() => setSelectedCategoria(cat)}
                       className={`rounded-full px-4 py-2 text-sm font-medium transition-colors min-h-[44px] ${
                         selectedCategoria === cat
-                          ? "bg-teal-500 text-white"
+                          ? "bg-status-info text-white"
                           : "bg-muted text-muted-foreground hover:text-foreground"
                       }`}
                     >
@@ -643,7 +653,7 @@ function ReconocimientoView({ session }: { session: GuardSession }) {
       {/* Feed */}
       {feed.length === 0 ? (
         <EmptyState
-          icon={<Heart className="h-10 w-10" />}
+          icon={<Heart className="h-8 w-8" />}
           title="Sin actividad social"
           description="Se el primero en enviar un reconocimiento a un companero."
           compact
@@ -740,17 +750,17 @@ function BeneficiosView({ session }: { session: GuardSession }) {
   return (
     <div className="space-y-4">
       {/* Points available card */}
-      <Card className="border-teal-500/30">
+      <Card className="border-status-info-border">
         <CardContent className="p-4 text-center">
           <p className="text-[11px] uppercase text-muted-foreground tracking-wide mb-1">Puntos disponibles</p>
-          <p className="text-3xl font-bold tabular-nums text-teal-500">{puntosDisponibles}</p>
+          <p className="text-3xl font-bold tabular-nums text-status-info-fg">{puntosDisponibles}</p>
         </CardContent>
       </Card>
 
       {/* Benefits list */}
       {beneficios.length === 0 ? (
         <EmptyState
-          icon={<Gift className="h-10 w-10" />}
+          icon={<Gift className="h-8 w-8" />}
           title="Sin beneficios disponibles"
           description="Los beneficios se habilitaran proximamente."
           compact
@@ -777,7 +787,7 @@ function BeneficiosView({ session }: { session: GuardSession }) {
                       <span>{b.proveedor}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold tabular-nums text-teal-500">{b.costoPuntos} pts</span>
+                      <span className="text-sm font-bold tabular-nums text-status-info-fg">{b.costoPuntos} pts</span>
                       <Button
                         size="sm"
                         disabled={!canAfford || !b.disponible || isCanjando}

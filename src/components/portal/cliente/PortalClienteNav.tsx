@@ -182,7 +182,7 @@ export function PortalClienteNav({
                       }}
                       className={cn(
                         'flex items-center gap-3 w-full px-4 py-2.5 text-sm transition-colors',
-                        active ? 'text-teal-400 bg-teal-500/10' : 'text-zinc-300 hover:bg-zinc-700',
+                        active ? 'text-status-info-fg bg-status-info-soft' : 'text-zinc-300 hover:bg-zinc-700',
                       )}
                     >
                       <Icon className="h-4 w-4 flex-shrink-0" />

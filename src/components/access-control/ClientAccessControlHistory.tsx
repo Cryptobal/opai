@@ -183,7 +183,7 @@ export function ClientAccessControlHistory({ installationId }: Props) {
                           })}
                         </span>
                       ) : (
-                        <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/30 text-xs">
+                        <Badge className="bg-status-ok-soft text-status-ok-fg border-status-ok-border text-xs">
                           En sitio
                         </Badge>
                       )}

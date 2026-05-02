@@ -222,22 +222,22 @@ export function AlertaDetalleClient({ alertaId, tenantId }: Props) {
 
       {/* Guardia aceptada banner */}
       {guardia && (alerta.estado === "ACEPTADA" || alerta.estado === "PENDIENTE_CONFIRMACION") && (
-        <Card className="border-emerald-500/40 bg-emerald-500/5">
+        <Card className="border-status-ok-border bg-status-ok-soft">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                  <CheckCircle2 className="h-4 w-4 text-status-ok-fg" />
                   <span className="font-medium">{nombreGuardia}</span>
                   {alerta.esInternoAceptacion === false && (
-                    <Badge variant="outline" className="bg-purple-500/20 text-purple-400 border-purple-500/30 text-[10px]">
+                    <Badge variant="outline" className="bg-tint-violet text-tint-violet-fg border-tint-violet-fg/30 text-[10px]">
                       Externo
                     </Badge>
                   )}
                 </div>
                 {guardia.persona.phone && (
                   <div className="flex items-center gap-3 text-xs">
-                    <a href={`tel:${guardia.persona.phone}`} className="text-teal-400 hover:underline flex items-center gap-1">
+                    <a href={`tel:${guardia.persona.phone}`} className="text-status-info-fg hover:underline flex items-center gap-1">
                       <Phone className="h-3 w-3" />
                       {guardia.persona.phone}
                     </a>
@@ -245,7 +245,7 @@ export function AlertaDetalleClient({ alertaId, tenantId }: Props) {
                       href={`https://wa.me/56${guardia.persona.phone.replace(/\D/g, "").replace(/^56/, "")}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-emerald-400 hover:underline flex items-center gap-1"
+                      className="text-status-ok-fg hover:underline flex items-center gap-1"
                     >
                       <ExternalLink className="h-3 w-3" />
                       WhatsApp
@@ -254,11 +254,11 @@ export function AlertaDetalleClient({ alertaId, tenantId }: Props) {
                 )}
               </div>
               <div className="flex gap-2">
-                <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => handleConfirmar(true)}>
+                <Button size="sm" className="bg-status-ok hover:brightness-110" onClick={() => handleConfirmar(true)}>
                   <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
                   Sí se presentó
                 </Button>
-                <Button variant="outline" size="sm" className="text-red-400" onClick={() => handleConfirmar(false)}>
+                <Button variant="outline" size="sm" className="text-status-danger-fg" onClick={() => handleConfirmar(false)}>
                   <RefreshCw className="h-3.5 w-3.5 mr-1" />
                   Re-Alertar
                 </Button>
@@ -285,7 +285,7 @@ export function AlertaDetalleClient({ alertaId, tenantId }: Props) {
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Monto</span>
-              <span className="font-mono text-emerald-400">{formatClp(alerta.montoOfrecido)}</span>
+              <span className="font-mono text-status-ok-fg">{formatClp(alerta.montoOfrecido)}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Horario</span>
@@ -339,9 +339,9 @@ export function AlertaDetalleClient({ alertaId, tenantId }: Props) {
                       <div
                         className={`w-3 h-3 rounded-full border-2 ${
                           isActive
-                            ? "border-teal-400 bg-teal-400/30 animate-pulse"
+                            ? "border-status-info-border bg-status-info-soft animate-pulse"
                             : isCompleted
-                            ? "border-emerald-500 bg-emerald-500"
+                            ? "border-status-ok-border bg-status-ok"
                             : "border-muted-foreground/30 bg-transparent"
                         }`}
                       />
@@ -409,9 +409,9 @@ export function AlertaDetalleClient({ alertaId, tenantId }: Props) {
                   const esPoolTE = n.guardia?.lifecycleStatus === "te";
                   const tipoLabel = esContratado ? "Contratado" : esPoolTE ? "Turno Extra" : "—";
                   const tipoClass = esContratado
-                    ? "bg-blue-500/20 text-blue-400 border-blue-500/30"
+                    ? "bg-status-info-soft text-status-info-fg border-status-info-border"
                     : esPoolTE
-                    ? "bg-purple-500/20 text-purple-400 border-purple-500/30"
+                    ? "bg-tint-violet text-tint-violet-fg border-tint-violet-fg/30"
                     : "bg-muted/30 text-muted-foreground";
                   const CanalIcon = n.canal === "WHATSAPP" ? MessageCircle : n.canal === "EMAIL" ? Mail : Bell;
                   return (
@@ -439,15 +439,15 @@ export function AlertaDetalleClient({ alertaId, tenantId }: Props) {
                       </TableCell>
                       <TableCell>
                         {n.entregada ? (
-                          <Badge variant="outline" className="bg-emerald-500/20 text-emerald-400 text-[10px]">
+                          <Badge variant="outline" className="bg-status-ok-soft text-status-ok-fg text-[10px]">
                             Entregada
                           </Badge>
                         ) : n.errorDetalle ? (
-                          <Badge variant="outline" className="bg-red-500/20 text-red-400 text-[10px]">
+                          <Badge variant="outline" className="bg-status-danger-soft text-status-danger-fg text-[10px]">
                             Fallida
                           </Badge>
                         ) : (
-                          <Badge variant="outline" className="bg-amber-500/20 text-amber-400 text-[10px]">
+                          <Badge variant="outline" className="bg-status-warn-soft text-status-warn-fg text-[10px]">
                             Pendiente
                           </Badge>
                         )}
@@ -469,7 +469,7 @@ export function AlertaDetalleClient({ alertaId, tenantId }: Props) {
         <Card>
           <CardContent className="p-4 flex gap-3">
             {alerta.estado === "ACTIVA" && (
-              <Button variant="outline" size="sm" className="text-red-400" onClick={handleCancelar}>
+              <Button variant="outline" size="sm" className="text-status-danger-fg" onClick={handleCancelar}>
                 <XCircle className="h-3.5 w-3.5 mr-1.5" />
                 Cancelar Alerta
               </Button>
@@ -515,8 +515,8 @@ export function AlertaDetalleClient({ alertaId, tenantId }: Props) {
                         variant="outline"
                         className={
                           (a as any).exito === true || a.resultado === "ACEPTADA"
-                            ? "bg-emerald-500/20 text-emerald-400"
-                            : "bg-red-500/20 text-red-400"
+                            ? "bg-status-ok-soft text-status-ok-fg"
+                            : "bg-status-danger-soft text-status-danger-fg"
                         }
                       >
                         {(a as any).exito === true || a.resultado === "ACEPTADA" ? "✅ Aceptado" : "❌ No alcanzó"}

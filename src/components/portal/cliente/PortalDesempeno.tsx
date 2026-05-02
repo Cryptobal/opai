@@ -1,13 +1,12 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Users, Calendar, Shield, CheckCircle2, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { Users, Calendar, Shield, CheckCircle2, TrendingUp, TrendingDown, Minus, Building2, AlertCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrustScoreGauge, NivelBadge, getTrustScoreColor } from "@/components/gamification";
-import { KpiCard } from "@/components/opai/KpiCard";
-import { KpiGrid } from "@/components/opai/KpiGrid";
+import { Stat, StatGrid } from "@/components/opai-ds";
 import { LoadingState } from "@/components/opai/LoadingState";
-import { EmptyState } from "@/components/opai/EmptyState";
+import { EmptyState } from "@/components/opai-ds";
 import { ClienteSession } from "@/lib/portal-cliente-types";
 import { PreviewBadge } from "./PreviewBadge";
 import { OpaiBadge } from "./OpaiBadge";
@@ -119,7 +118,11 @@ export function PortalDesempeno({ session, selectedInstallation, isProspect }: P
   /* ── Early returns ── */
 
   if (!isProspect && !selectedInstallation) {
-    return <EmptyState title="Selecciona una instalación" compact />;
+    return <EmptyState
+      icon={<Building2 className="h-8 w-8" />}
+      title="Selecciona una instalación"
+      compact
+    />;
   }
 
   if (loading) {
@@ -131,11 +134,19 @@ export function PortalDesempeno({ session, selectedInstallation, isProspect }: P
   }
 
   if (error) {
-    return <EmptyState title={error} compact />;
+    return <EmptyState
+      icon={<AlertCircle className="h-8 w-8" />}
+      title={error}
+      compact
+    />;
   }
 
   if (!data) {
-    return <EmptyState title="Sin datos de desempeño" compact />;
+    return <EmptyState
+      icon={<TrendingUp className="h-8 w-8" />}
+      title="Sin datos de desempeño"
+      compact
+    />;
   }
 
   /* ── Derived values ── */
@@ -144,7 +155,7 @@ export function PortalDesempeno({ session, selectedInstallation, isProspect }: P
   const hasIndustryAvg = typeof industryAvg === "number";
   const diff = hasIndustryAvg ? data.trustScore - industryAvg : 0;
   const diffSign = diff >= 0 ? "+" : "";
-  const diffColor = diff >= 0 ? "text-emerald-400" : "text-red-400";
+  const diffColor = diff >= 0 ? "text-status-ok-fg" : "text-status-danger-fg";
   const sortedGuards = [...data.guardias].sort((a, b) => b.trustScore - a.trustScore);
 
   const TrendIcon = (t: "up" | "down" | "neutral") => {
@@ -194,32 +205,32 @@ export function PortalDesempeno({ session, selectedInstallation, isProspect }: P
       </Card>
 
       {/* ── 2. KPIs Grid ── */}
-      <KpiGrid columns={4}>
-        <KpiCard
-          title="Guardias activos"
+      <StatGrid lgCols={4}>
+        <Stat
+          label="Guardias activos"
           value={data.kpis.guardiasActivos}
-          icon={<Users className="h-4 w-4" />}
-          variant="teal"
+          icon={Users}
+          variant="brand"
         />
-        <KpiCard
-          title="Asistencia mes"
+        <Stat
+          label="Asistencia mes"
           value={`${data.kpis.asistenciaMes}%`}
-          icon={<Calendar className="h-4 w-4" />}
-          variant="emerald"
+          icon={Calendar}
+          variant="ok"
         />
-        <KpiCard
-          title="Rondas completadas"
+        <Stat
+          label="Rondas completadas"
           value={`${data.kpis.rondasCompletadas}%`}
-          icon={<Shield className="h-4 w-4" />}
-          variant="blue"
+          icon={Shield}
+          variant="brand"
         />
-        <KpiCard
-          title="Días sin incidentes"
+        <Stat
+          label="Días sin incidentes"
           value={data.kpis.diasSinIncidentes}
-          icon={<CheckCircle2 className="h-4 w-4" />}
-          variant="amber"
+          icon={CheckCircle2}
+          variant="warn"
         />
-      </KpiGrid>
+      </StatGrid>
 
       {/* ── 3. Guard Ranking Table ── */}
       <Card>
@@ -228,16 +239,20 @@ export function PortalDesempeno({ session, selectedInstallation, isProspect }: P
         </CardHeader>
         <CardContent>
           {sortedGuards.length === 0 ? (
-            <EmptyState title="Sin guardias asignados" compact />
+            <EmptyState
+              icon={<Users className="h-8 w-8" />}
+              title="Sin guardias asignados"
+              compact
+            />
           ) : (
             <div className="divide-y divide-border">
               {sortedGuards.map((guard, idx) => {
                 const Icon = TrendIcon(guard.tendencia);
                 const trendColor =
                   guard.tendencia === "up"
-                    ? "text-emerald-400"
+                    ? "text-status-ok-fg"
                     : guard.tendencia === "down"
-                    ? "text-red-400"
+                    ? "text-status-danger-fg"
                     : "text-muted-foreground";
                 return (
                   <div

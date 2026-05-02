@@ -72,9 +72,9 @@ export default function HeroSection() {
               {/* Top bar */}
               <div className="flex items-center gap-2 px-4 py-3 border-b border-white/[0.07] bg-[#0B1120]/80">
                 <div className="flex gap-1.5">
-                  <div className="w-3 h-3 rounded-full bg-red-500/40" />
-                  <div className="w-3 h-3 rounded-full bg-yellow-500/40" />
-                  <div className="w-3 h-3 rounded-full bg-green-500/40" />
+                  <div className="w-3 h-3 rounded-full bg-status-danger/40" />
+                  <div className="w-3 h-3 rounded-full bg-status-warn/40" />
+                  <div className="w-3 h-3 rounded-full bg-status-ok/40" />
                 </div>
                 <div className="flex-1 text-center text-xs text-[#94A3B8] font-mono">
                   opai.cl/ops/dashboard
@@ -114,7 +114,7 @@ export default function HeroSection() {
                       <span className="font-mono text-xs text-[#94A3B8]">{row.time}</span>
                       <span
                         className={`w-1.5 h-1.5 rounded-full ${
-                          row.type === "alert" ? "bg-amber-400" : "bg-[#00D4AA]"
+                          row.type === "alert" ? "bg-status-warn" : "bg-[#00D4AA]"
                         }`}
                       />
                       <span className="text-sm text-[#E2E8F0]">{row.text}</span>
@@ -128,8 +128,8 @@ export default function HeroSection() {
             <div className="absolute -right-4 top-1/2 -translate-y-1/2 translate-x-1/2 hidden lg:block">
               <div className="bg-[#141E30] border border-[#00D4AA]/20 rounded-lg p-3 shadow-xl shadow-black/40 w-52">
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-                  <span className="text-xs font-semibold text-amber-400">Alerta cobertura</span>
+                  <span className="w-2 h-2 rounded-full bg-status-warn animate-pulse" />
+                  <span className="text-xs font-semibold text-status-warn-fg">Alerta cobertura</span>
                 </div>
                 <p className="text-xs text-[#94A3B8]">
                   Puesto #4 sin guardia. WhatsApp enviado a 3 reemplazos disponibles.

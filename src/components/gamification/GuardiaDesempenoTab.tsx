@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LoadingState } from "@/components/opai/LoadingState";
-import { EmptyState } from "@/components/opai/EmptyState";
+import { EmptyState } from "@/components/opai-ds";
 import {
   TrustScoreGauge,
   NivelBadge,
@@ -81,6 +81,7 @@ export function GuardiaDesempenoTab({ guardiaId }: GuardiaDesempenoTabProps) {
   if (!scorecard) {
     return (
       <EmptyState
+        icon={<TrendingUp className="h-8 w-8" />}
         title="Sin datos de desempeno"
         description="Este guardia aun no tiene datos de gamificacion registrados."
         compact
@@ -115,13 +116,13 @@ export function GuardiaDesempenoTab({ guardiaId }: GuardiaDesempenoTabProps) {
               </div>
               <div className="flex items-center justify-center sm:justify-start gap-1.5 text-sm">
                 {trendUp ? (
-                  <TrendingUp className="h-4 w-4 text-emerald-500" />
+                  <TrendingUp className="h-4 w-4 text-status-ok-fg" />
                 ) : (
-                  <TrendingDown className="h-4 w-4 text-red-500" />
+                  <TrendingDown className="h-4 w-4 text-status-danger-fg" />
                 )}
                 <span
                   className={
-                    trendUp ? "text-emerald-500" : "text-red-500"
+                    trendUp ? "text-status-ok-fg" : "text-status-danger-fg"
                   }
                 >
                   {trendUp ? "+" : ""}

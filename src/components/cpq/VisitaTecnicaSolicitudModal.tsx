@@ -219,7 +219,7 @@ export function VisitaTecnicaSolicitudModal({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Briefcase className="h-5 w-5 text-sky-400" />
+            <Briefcase className="h-5 w-5 text-status-info-fg" />
             Programar visita técnica
           </DialogTitle>
         </DialogHeader>
@@ -234,7 +234,7 @@ export function VisitaTecnicaSolicitudModal({
                 <p className="text-xs text-muted-foreground flex items-center gap-1">
                   <MapPin className="h-3 w-3 flex-shrink-0" />
                   {mapsUrl ? (
-                    <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="text-sky-500 hover:underline">
+                    <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="text-status-info-fg hover:underline">
                       {installation.address}
                     </a>
                   ) : installation.address}
@@ -282,12 +282,12 @@ export function VisitaTecnicaSolicitudModal({
                       disabled={sending}
                       className={`flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors ${
                         isSelected
-                          ? "bg-sky-500/15 text-sky-300"
+                          ? "bg-status-info-soft text-status-info-fg"
                           : "text-muted-foreground hover:bg-muted/60"
                       }`}
                     >
                       <div className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
-                        isSelected ? "border-sky-500 bg-sky-500" : "border-muted-foreground/40"
+                        isSelected ? "border-status-info-border bg-status-info" : "border-muted-foreground/40"
                       }`}>
                         {isSelected && <Check className="h-3 w-3 text-white" />}
                       </div>

@@ -245,12 +245,13 @@ export async function POST(
     if (createdGuardia) {
       try {
         const fullName = `${body.firstName} ${body.lastName}`.trim();
-        const { sendNotification } = await import("@/lib/notification-service");
-        await sendNotification({
+        const { notify } = await import("@/lib/notifications/notify");
+        await notify({
           tenantId,
           type: "new_te_ingreso",
+          audience: "admin",
           title: `Nuevo ingreso TE: ${fullName}`,
-          message: `${fullName} completó el formulario de ingreso Turno Extra (${body.documents.length} documento(s)).`,
+          body: `${fullName} completó el formulario de ingreso Turno Extra (${body.documents.length} documento(s)).`,
           link: `/personas/guardias/${createdGuardia.id}`,
           data: {
             guardiaId: createdGuardia.id,

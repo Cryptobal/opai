@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
-import { ensureInventarioAccess } from "@/lib/inventory";
+import { ensureInventarioAccess, ensureInventarioEdit } from "@/lib/inventory";
+import { createOpsAuditLog } from "@/lib/ops";
 import { requireTenantModule } from '@/lib/require-module';
 import { z } from "zod";
 
@@ -25,8 +26,10 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const type = searchParams.get("type");
+    const includeInactive = searchParams.get("includeInactive") === "true";
 
-    const where: Record<string, unknown> = { tenantId: ctx.tenantId, active: true };
+    const where: Record<string, unknown> = { tenantId: ctx.tenantId };
+    if (!includeInactive) where.active = true;
     if (type) where.type = type;
 
     const warehouses = await prisma.inventoryWarehouse.findMany({
@@ -55,7 +58,7 @@ export async function POST(request: NextRequest) {
 
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbidden = await ensureInventarioAccess(ctx);
+    const forbidden = await ensureInventarioEdit(ctx);
     if (forbidden) return forbidden;
 
     const body = await request.json();
@@ -81,6 +84,14 @@ export async function POST(request: NextRequest) {
         installation: { select: { id: true, name: true } },
       },
     });
+
+    await createOpsAuditLog(
+      ctx,
+      "inventario.warehouse.created",
+      "inventario.warehouse",
+      warehouse.id,
+      { name: warehouse.name, type: warehouse.type },
+    );
 
     return NextResponse.json(warehouse);
   } catch (e) {

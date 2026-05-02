@@ -241,12 +241,12 @@ export function CpqTemplateConfig() {
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-semibold truncate">{t.name}</span>
                     {t.isDefault && (
-                      <span className="shrink-0 rounded bg-emerald-500/20 px-1.5 py-0.5 text-xs font-medium text-emerald-500">
+                      <span className="shrink-0 rounded bg-status-ok-soft px-1.5 py-0.5 text-xs font-medium text-status-ok-fg">
                         Default
                       </span>
                     )}
                     {isSystem && (
-                      <span className="shrink-0 rounded bg-blue-500/20 px-1.5 py-0.5 text-xs font-medium text-blue-400">
+                      <span className="shrink-0 rounded bg-status-info-soft px-1.5 py-0.5 text-xs font-medium text-status-info-fg">
                         Sistema
                       </span>
                     )}
@@ -265,7 +265,7 @@ export function CpqTemplateConfig() {
                   <Button
                     size="sm"
                     variant="ghost"
-                    className={cn("h-8 text-xs px-2", t.active ? "text-red-400 hover:text-red-300" : "text-emerald-400 hover:text-emerald-300")}
+                    className={cn("h-8 text-xs px-2", t.active ? "text-status-danger-fg hover:text-status-danger-fg" : "text-status-ok-fg hover:text-status-ok-fg")}
                     onClick={() => handleToggleActive(t)}
                   >
                     {t.active ? "Desactivar" : "Activar"}
@@ -370,7 +370,7 @@ export function CpqTemplateConfig() {
                     {SECTION_LABELS[k]}
                   </span>
                 ))}
-                <span className="inline-flex rounded-full bg-blue-500/10 px-2 py-0.5 text-xs text-blue-400 font-medium">
+                <span className="inline-flex rounded-full bg-status-info-soft px-2 py-0.5 text-xs text-status-info-fg font-medium">
                   Encabezado: {HEADER_STYLE_OPTIONS.find((o) => o.value === editForm.sections.headerStyle)?.label ?? "Estándar"}
                 </span>
               </div>

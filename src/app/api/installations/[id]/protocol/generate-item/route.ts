@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { aiService } from "@/lib/ai-service";
+import { AIError } from "@/lib/ai-errors";
 import { requireAuth, unauthorized, resolveApiPerms, parseBody } from "@/lib/api-auth";
 import { canEdit } from "@/lib/permissions";
+import { buildGenerateItemPrompt } from "@/lib/protocols/prompts";
 
 type Params = { id: string };
 
@@ -33,13 +35,16 @@ export async function POST(
     if (parsed.error) return parsed.error;
     const { sectionTitle, description } = parsed.data;
 
-    const prompt = `Dentro de la sección "${sectionTitle}" de un protocolo de seguridad para una empresa de guardias en Chile, genera un procedimiento detallado sobre: "${description}"
-Responde ÚNICAMENTE con el siguiente JSON válido: {"title":"...","description":"..."}
-El título debe ser conciso y la descripción detallada, práctica y accionable.`;
+    const prompt = buildGenerateItemPrompt({ sectionTitle, description });
 
-    let aiResponse: { title: string; description: string };
+    let aiResponse: {
+      title: string;
+      description: string;
+      criticality?: number;
+      legalRequirement?: boolean;
+    };
     try {
-      aiResponse = (await aiService.generateJSON(prompt, 2048)) as typeof aiResponse;
+      aiResponse = (await aiService.generateJSON(prompt, 2048, { tenantId: ctx.tenantId })) as typeof aiResponse;
     } catch (err: unknown) {
       if (err instanceof Error && err.message === "NO_AI_CONFIGURED") {
         return NextResponse.json(
@@ -59,9 +64,12 @@ El título debe ser conciso y la descripción detallada, práctica y accionable.
 
     return NextResponse.json({ success: true, data: { item: aiResponse } });
   } catch (error) {
+    if (error instanceof AIError) {
+      return NextResponse.json(error.toResponse(), { status: error.clientHttpStatus });
+    }
     console.error("[PROTOCOL_GENERATE_ITEM] Error:", error);
     return NextResponse.json(
-      { success: false, error: "Error al generar ítem con IA" },
+      { success: false, error: "Error al generar ítem con IA", code: "INTERNAL_ERROR" },
       { status: 500 },
     );
   }

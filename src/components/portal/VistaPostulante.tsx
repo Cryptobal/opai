@@ -64,13 +64,13 @@ const TURNO_LABELS: Record<string, string> = {
 };
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  NUEVA: { label: "Enviada", color: "bg-blue-500/15 text-blue-400" },
-  EN_REVISION: { label: "En revision", color: "bg-amber-500/15 text-amber-400" },
-  PRESELECCIONADO: { label: "Preseleccionado", color: "bg-emerald-500/15 text-emerald-400" },
-  ENTREVISTA: { label: "Entrevista", color: "bg-purple-500/15 text-purple-400" },
-  SELECCIONADO: { label: "Seleccionado", color: "bg-emerald-600/15 text-emerald-300" },
-  DESCARTADO: { label: "No seleccionado", color: "bg-red-500/15 text-red-400" },
-  CONTRATADO: { label: "Contratado", color: "bg-teal-500/15 text-teal-400" },
+  NUEVA: { label: "Enviada", color: "bg-status-info-soft text-status-info-fg" },
+  EN_REVISION: { label: "En revision", color: "bg-status-warn-soft text-status-warn-fg" },
+  PRESELECCIONADO: { label: "Preseleccionado", color: "bg-status-ok-soft text-status-ok-fg" },
+  ENTREVISTA: { label: "Entrevista", color: "bg-tint-violet text-tint-violet-fg" },
+  SELECCIONADO: { label: "Seleccionado", color: "bg-status-ok-soft text-status-ok-fg" },
+  DESCARTADO: { label: "No seleccionado", color: "bg-status-danger-soft text-status-danger-fg" },
+  CONTRATADO: { label: "Contratado", color: "bg-status-info-soft text-status-info-fg" },
 };
 
 export function VistaPostulante({ session, onLogout }: VistaPostulanteProps) {
@@ -91,7 +91,7 @@ export function VistaPostulante({ session, onLogout }: VistaPostulanteProps) {
             <p className="text-sm font-semibold truncate">
               {session.firstName} {session.lastName}
             </p>
-            <Badge variant="secondary" className="text-[10px] bg-amber-500/15 text-amber-400 border-0">
+            <Badge variant="secondary" className="text-[10px] bg-status-warn-soft text-status-warn-fg border-0">
               Buscando empleo
             </Badge>
           </div>
@@ -128,7 +128,7 @@ function TabButton({ icon, label, active, onClick }: { icon: React.ReactNode; la
   return (
     <button
       onClick={onClick}
-      className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-lg transition-colors ${active ? "text-teal-400" : "text-muted-foreground"}`}
+      className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-lg transition-colors ${active ? "text-status-info-fg" : "text-muted-foreground"}`}
     >
       {icon}
       <span className="text-[10px] font-medium">{label}</span>
@@ -205,7 +205,7 @@ function OfertasDisponibles({ guardiaId }: { guardiaId: string }) {
               <p className="text-xs text-muted-foreground">{offer.tenant.name}</p>
             </div>
             {offer.matchScore > 0 && (
-              <Badge variant="secondary" className="shrink-0 text-[10px] bg-teal-500/15 text-teal-400 border-0">
+              <Badge variant="secondary" className="shrink-0 text-[10px] bg-status-info-soft text-status-info-fg border-0">
                 <Star className="h-3 w-3 mr-0.5" />
                 {offer.matchScore}%
               </Badge>
@@ -319,8 +319,8 @@ function PerfilPostulante({ session }: { session: GuardSession }) {
       <h2 className="text-lg font-bold">Mi perfil</h2>
       <div className="rounded-xl border bg-card p-4 space-y-3">
         <div className="flex items-center gap-3">
-          <div className="h-12 w-12 rounded-full bg-teal-500/15 flex items-center justify-center">
-            <User className="h-6 w-6 text-teal-400" />
+          <div className="h-12 w-12 rounded-full bg-status-info-soft flex items-center justify-center">
+            <User className="h-6 w-6 text-status-info-fg" />
           </div>
           <div>
             <p className="text-sm font-semibold">{session.firstName} {session.lastName}</p>

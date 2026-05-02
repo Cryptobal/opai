@@ -47,7 +47,7 @@ export function PortalComparativa({ session, isProspect }: Props) {
     return (
       <div className="flex-1 max-w-6xl mx-auto w-full px-4 py-4 pb-24 space-y-4">
         <div className="flex items-center gap-2">
-          <GitCompare className="h-5 w-5 text-blue-400" />
+          <GitCompare className="h-5 w-5 text-status-info-fg" />
           <h2 className="text-base font-semibold">Comparativa de desempeño</h2>
           <PreviewBadge />
         </div>
@@ -55,10 +55,10 @@ export function PortalComparativa({ session, isProspect }: Props) {
         <div className="bg-zinc-800/60 border border-zinc-700/50 rounded-xl p-5 space-y-3">
           <p className="text-sm text-zinc-300 font-medium">Benchmarks del servicio</p>
           <ul className="space-y-2 text-xs text-zinc-400">
-            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Compara rendimiento entre instalaciones</li>
-            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Métricas de rondas, asistencia y tickets</li>
-            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Ranking automático de instalaciones</li>
-            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Gráficos interactivos por periodo</li>
+            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-status-info" />Compara rendimiento entre instalaciones</li>
+            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-status-info" />Métricas de rondas, asistencia y tickets</li>
+            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-status-info" />Ranking automático de instalaciones</li>
+            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-status-info" />Gráficos interactivos por periodo</li>
           </ul>
         </div>
       </div>
@@ -127,7 +127,7 @@ export function PortalComparativa({ session, isProspect }: Props) {
     <div className="flex-1 max-w-6xl mx-auto w-full px-4 py-4 pb-24 space-y-4">
       {/* Header */}
       <div className="flex items-center gap-2">
-        <GitCompare className="h-5 w-5 text-blue-400" />
+        <GitCompare className="h-5 w-5 text-status-info-fg" />
         <h2 className="text-base font-semibold">Comparativa de desempeño</h2>
         <span className="text-xs text-zinc-500 ml-auto">Últimos 30 días</span>
       </div>
@@ -141,7 +141,7 @@ export function PortalComparativa({ session, isProspect }: Props) {
             className={cn(
               'px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
               metric === m
-                ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                ? 'bg-status-info-soft text-status-info-fg border border-status-info-border'
                 : 'bg-zinc-800 text-zinc-400 hover:text-zinc-200 border border-zinc-700'
             )}
           >
@@ -158,7 +158,7 @@ export function PortalComparativa({ session, isProspect }: Props) {
           </div>
         ) : error ? (
           <div className="flex items-center justify-center h-48">
-            <p className="text-xs text-red-400">{error}</p>
+            <p className="text-xs text-status-danger-fg">{error}</p>
           </div>
         ) : data.length === 0 ? (
           <div className="flex items-center justify-center h-48">
@@ -208,11 +208,11 @@ export function PortalComparativa({ session, isProspect }: Props) {
                   className={cn(
                     'w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0',
                     idx === 0
-                      ? 'bg-yellow-500/20 text-yellow-400'
+                      ? 'bg-status-warn-soft text-status-warn-fg'
                       : idx === 1
                       ? 'bg-zinc-400/20 text-zinc-300'
                       : idx === 2
-                      ? 'bg-orange-500/20 text-orange-400'
+                      ? 'bg-status-warn-soft text-status-warn-fg'
                       : 'bg-zinc-800 text-zinc-500'
                   )}
                 >

@@ -103,23 +103,23 @@ function useCurrentHour() {
 }
 
 function trustBg(score: number | null): string {
-  if (score == null) return "bg-zinc-800/30";
-  if (score >= 80) return "bg-emerald-500/12 border-emerald-500/25";
-  if (score >= 60) return "bg-amber-500/12 border-amber-500/25";
-  return "bg-red-500/12 border-red-500/25";
+  if (score == null) return "bg-muted/30";
+  if (score >= 80) return "bg-status-ok-soft border-status-ok-border";
+  if (score >= 60) return "bg-status-warn-soft border-status-warn-border";
+  return "bg-status-danger-soft border-status-danger-border";
 }
 
 function trustTextColor(score: number | null): string {
   if (score == null) return "text-zinc-600";
-  if (score >= 80) return "text-emerald-400";
-  if (score >= 60) return "text-amber-400";
-  return "text-red-400";
+  if (score >= 80) return "text-status-ok-fg";
+  if (score >= 60) return "text-status-warn-fg";
+  return "text-status-danger-fg";
 }
 
 function coberturaDot(status: string): string {
-  if (status === "completa") return "bg-emerald-500";
-  if (status === "parcial") return "bg-amber-500";
-  if (status === "descubierta") return "bg-red-500";
+  if (status === "completa") return "bg-status-ok";
+  if (status === "parcial") return "bg-status-warn";
+  if (status === "descubierta") return "bg-status-danger";
   return "bg-zinc-600";
 }
 
@@ -157,30 +157,30 @@ function getCellState(
       return { ...base, bg: trustBg(ronda.trustScore), border: "border border-solid", icon: "\u26A1\u270B", textColor: trustTextColor(ronda.trustScore), showTrust: true };
     }
     if (ronda.status === "completada" && !ronda.autoPopulated) {
-      return { ...base, bg: "bg-emerald-500/10 border-emerald-500/20", border: "border border-solid", icon: "\u270B", textColor: "text-emerald-400" };
+      return { ...base, bg: "bg-status-ok-soft border-status-ok-border", border: "border border-solid", icon: "\u270B", textColor: "text-status-ok-fg" };
     }
     if (ronda.status === "omitida") {
-      return { ...base, bg: "bg-red-500/12 border-red-500/25", border: "border border-solid", icon: "\u2715", textColor: "text-red-400" };
+      return { ...base, bg: "bg-status-danger-soft border-status-danger-border", border: "border border-solid", icon: "\u2715", textColor: "text-status-danger-fg" };
     }
     if (ronda.status === "no_aplica") {
       return { ...base, bg: "bg-zinc-800/20", border: "border border-dashed border-zinc-700/20", icon: "\u2014", textColor: "text-zinc-600", subtle: true };
     }
     if (ronda.status === "pendiente" && isPastSlot) {
-      return { ...base, bg: "bg-red-500/10 border-red-500/25", border: "border border-solid", icon: "\u2715", textColor: "text-red-400" };
+      return { ...base, bg: "bg-status-danger-soft border-status-danger-border", border: "border border-solid", icon: "\u2715", textColor: "text-status-danger-fg" };
     }
     if (ronda.status === "pendiente" && isCurrentSlot) {
-      return { ...base, bg: "bg-cyan-500/10 border-cyan-500/30", border: "border border-solid", textColor: "text-cyan-400", pulse: true };
+      return { ...base, bg: "bg-status-info-soft border-status-info-border", border: "border border-solid", textColor: "text-status-info-fg", pulse: true };
     }
     // Future with expected ronda — subtle indigo tint (not red)
-    return { ...base, bg: "bg-indigo-500/[0.04] border-indigo-500/10", border: "border border-dashed", textColor: "text-indigo-400/40" };
+    return { ...base, bg: "bg-status-info-soft/30 border-status-info-border/30", border: "border border-dashed", textColor: "text-status-info-fg/40" };
   }
 
   // CELL WITHOUT EXPECTED RONDA (manual check-in)
   if (ronda.status === "completada") {
-    return { ...base, bg: "bg-emerald-500/6 border-emerald-500/12", border: "border border-dashed", icon: "\u270B", textColor: "text-emerald-400" };
+    return { ...base, bg: "bg-status-ok-soft/50 border-status-ok-border/50", border: "border border-dashed", icon: "\u270B", textColor: "text-status-ok-fg" };
   }
   if (ronda.status === "omitida") {
-    return { ...base, bg: "bg-amber-500/8 border-amber-500/15", border: "border border-dashed", icon: "\u270B\uD83D\uDCDD", textColor: "text-amber-400" };
+    return { ...base, bg: "bg-status-warn-soft/50 border-status-warn-border/50", border: "border border-dashed", icon: "\u270B\uD83D\uDCDD", textColor: "text-status-warn-fg" };
   }
   if (isPastSlot) {
     return { ...base, bg: "bg-[#0a0f1c]/30", icon: "\u00B7", subtle: true, textColor: "text-zinc-700" };
@@ -235,9 +235,9 @@ function GridRow({
   const isDescubierta = cobertura === "descubierta";
 
   const rowBg = isDescubierta
-    ? "bg-red-500/[0.06] border-l-[3px] border-l-red-500"
+    ? "bg-status-danger-soft/30 border-l-[3px] border-l-status-danger"
     : isSelected
-      ? "bg-cyan-500/[0.04] ring-1 ring-inset ring-cyan-500/20"
+      ? "bg-status-info-soft/30 ring-1 ring-inset ring-status-info-border"
       : "";
 
   // First present guard's hora for the read-only Lleg. columns
@@ -266,14 +266,14 @@ function GridRow({
         >
           <div className="flex items-center gap-1.5">
             <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${coberturaDot(cobertura)}`} />
-            <span className="text-[11px] font-medium text-[#f1f5f9] group-hover:text-cyan-400 transition-colors truncate max-w-[140px]">
+            <span className="text-[11px] font-medium text-[#f1f5f9] group-hover:text-status-info-fg transition-colors truncate max-w-[140px]">
               {instalacion.installationName}
             </span>
           </div>
           {instalacion.statusInstalacion !== "normal" && (
             <div className="text-[9px] mt-0.5 pl-3">
               <span className={
-                instalacion.statusInstalacion === "critico" ? "text-red-400" : "text-amber-400"
+                instalacion.statusInstalacion === "critico" ? "text-status-danger-fg" : "text-status-warn-fg"
               }>
                 {instalacion.statusInstalacion}
               </span>
@@ -324,7 +324,7 @@ function GridRow({
         const state = getCellState(ronda, isCurrentSlot, isPastSlot);
 
         return (
-          <td key={slot} className={`px-0.5 py-1 ${isCurrentSlot ? "bg-cyan-500/[0.03]" : ""}`}>
+          <td key={slot} className={`px-0.5 py-1 ${isCurrentSlot ? "bg-status-info-soft/20" : ""}`}>
             <div
               onClick={() => onCellClick?.({
                 ronda,
@@ -347,7 +347,7 @@ function GridRow({
                       </span>
                     )}
                     {state.icon && <span className="opacity-70">{state.icon}</span>}
-                    {ronda.notes && <span className="text-blue-400">{"\uD83D\uDCAC"}</span>}
+                    {ronda.notes && <span className="text-status-info-fg">{"\uD83D\uDCAC"}</span>}
                   </div>
                 </>
               ) : (
@@ -427,7 +427,7 @@ function GridSummaryRow({
               </div>
               {avgTrust !== null && (
                 <div className={`text-[8px] font-medium tabular-nums ${
-                  avgTrust >= 80 ? "text-emerald-400" : avgTrust >= 60 ? "text-amber-400" : "text-red-400"
+                  avgTrust >= 80 ? "text-status-ok-fg" : avgTrust >= 60 ? "text-status-warn-fg" : "text-status-danger-fg"
                 }`}>
                   {avgTrust}
                 </div>
@@ -442,7 +442,7 @@ function GridSummaryRow({
         <td className="px-1 py-1.5">
           <div className="text-[9px] text-[#64748b] tabular-nums">
             <span className="font-semibold text-[#94a3b8]">{nocGuardias.length}</span> puestos
-            {nocPPC > 0 && <span className="text-amber-400 ml-1">({nocPPC} PPC)</span>}
+            {nocPPC > 0 && <span className="text-status-warn-fg ml-1">({nocPPC} PPC)</span>}
           </div>
         </td>
         <td />
@@ -451,7 +451,7 @@ function GridSummaryRow({
         <td className="px-1 py-1.5">
           <div className="text-[9px] text-[#64748b] tabular-nums">
             <span className="font-semibold text-[#94a3b8]">{diuGuardias.length}</span> puestos
-            {diuPPC > 0 && <span className="text-amber-400 ml-1">({diuPPC} PPC)</span>}
+            {diuPPC > 0 && <span className="text-status-warn-fg ml-1">({diuPPC} PPC)</span>}
           </div>
         </td>
       </tr>
@@ -523,21 +523,21 @@ function GridHeaderBar({
           {totalInstalaciones} inst. &middot; {totalSlots} slots
         </span>
         {isSaving && (
-          <div className="flex items-center gap-1.5 text-[10px] text-cyan-400/60">
-            <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+          <div className="flex items-center gap-1.5 text-[10px] text-status-info-fg/60">
+            <div className="w-1.5 h-1.5 rounded-full bg-status-info animate-pulse" />
             Guardando
           </div>
         )}
       </div>
       <div className="flex items-center gap-3">
-        <span className="text-[10px] text-emerald-400 tabular-nums">{summary.completadas} completadas</span>
+        <span className="text-[10px] text-status-ok-fg tabular-nums">{summary.completadas} completadas</span>
         {summary.omitidas > 0 && (
-          <span className="text-[10px] text-red-400 tabular-nums">{summary.omitidas} omitidas</span>
+          <span className="text-[10px] text-status-danger-fg tabular-nums">{summary.omitidas} omitidas</span>
         )}
         <span className={`text-[10px] font-bold tabular-nums ${
-          summary.cumplimiento >= 80 ? "text-emerald-400"
-          : summary.cumplimiento >= 60 ? "text-amber-400"
-          : "text-red-400"
+          summary.cumplimiento >= 80 ? "text-status-ok-fg"
+          : summary.cumplimiento >= 60 ? "text-status-warn-fg"
+          : "text-status-danger-fg"
         }`}>
           {summary.cumplimiento}%
         </span>
@@ -545,7 +545,7 @@ function GridHeaderBar({
           <button
             onClick={handleRefresh}
             disabled={refreshing}
-            className="px-2.5 py-1 rounded bg-cyan-500/10 border border-cyan-500/30 text-[10px] text-cyan-400 font-medium hover:bg-cyan-500/20 hover:border-cyan-500/50 transition-colors disabled:opacity-50"
+            className="px-2.5 py-1 rounded bg-status-info-soft border border-status-info-border text-[10px] text-status-info-fg font-medium hover:brightness-110 transition-colors disabled:opacity-50"
             title="Re-sincronizar guardias desde la pauta diaria"
           >
             {refreshing ? "Refrescando..." : "Refrescar de pauta"}
@@ -602,7 +602,7 @@ function GridNotesSection({
         onChange={isReadOnly ? undefined : (e) => handleChange(e.target.value)}
         readOnly={isReadOnly}
         rows={2}
-        className={`w-full bg-[#0a0f1c] border border-[#1a1f2e] rounded-lg px-3 py-2 text-xs text-[#94a3b8] focus:border-cyan-500/50 focus:outline-none resize-none ${isReadOnly ? "opacity-60 cursor-default" : ""}`}
+        className={`w-full bg-[#0a0f1c] border border-[#1a1f2e] rounded-lg px-3 py-2 text-xs text-[#94a3b8] focus:border-status-info-border focus:outline-none resize-none ${isReadOnly ? "opacity-60 cursor-default" : ""}`}
         placeholder="Notas generales del turno..."
       />
 
@@ -730,7 +730,7 @@ export default function MonitoreoGrid({
                   data-current-slot={i === currentSlotIdx}
                   className={`w-16 px-1 py-2 text-center font-medium text-[10px] ${
                     i === currentSlotIdx
-                      ? "text-cyan-400 border-b-2 border-cyan-500"
+                      ? "text-status-info-fg border-b-2 border-status-info"
                       : "text-[#475569]"
                   }`}
                 >

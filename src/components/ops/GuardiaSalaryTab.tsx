@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   Loader2,
   Building2,
@@ -88,12 +87,12 @@ export function GuardiaSalaryTab({ guardiaId }: { guardiaId: string }) {
     <div className="space-y-3">
       <div className="flex items-center gap-2 flex-wrap">
         {salary.source === "RUT" ? (
-          <Badge className="bg-amber-500/15 text-amber-400 border-amber-500/30 text-[10px]">
+          <Badge className="bg-status-warn-soft text-status-warn-fg border-status-warn-border text-[10px]">
             <User className="mr-1 h-3 w-3" />
             Por RUT
           </Badge>
         ) : (
-          <Badge className="bg-blue-500/15 text-blue-400 border-blue-500/30 text-[10px]">
+          <Badge className="bg-status-info-soft text-status-info-fg border-status-info-border text-[10px]">
             <Building2 className="mr-1 h-3 w-3" />
             Por Instalación
           </Badge>
@@ -105,59 +104,59 @@ export function GuardiaSalaryTab({ guardiaId }: { guardiaId: string }) {
         )}
       </div>
 
-      <Link href={`/personas/guardias/sueldos-rut?guardiaId=${guardiaId}`}>
-        <Card className="cursor-pointer transition-colors hover:bg-muted/50 hover:border-primary/30">
-          <CardContent className="pt-3 pb-2 space-y-2">
-            <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
-              <div>
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Base</p>
-                <p className="text-sm font-medium">${salary.baseSalary.toLocaleString("es-CL")}</p>
+      <Link href={`/personas/guardias/sueldos-rut?guardiaId=${guardiaId}`} className="block">
+        <div className="rounded-xl border border-border/60 bg-card/40 cursor-pointer transition-colors hover:bg-card/60 hover:border-border">
+          <div className="p-4 sm:p-5 space-y-3">
+            <div className="grid grid-cols-2 gap-2 sm:gap-3">
+              <div className="rounded-lg border border-border/40 bg-card/40 p-3">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Base</p>
+                <p className="text-[13px] font-medium tabular-nums mt-1">${salary.baseSalary.toLocaleString("es-CL")}</p>
               </div>
-              <div>
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Colación</p>
-                <p className="text-sm font-medium">${salary.colacion.toLocaleString("es-CL")}</p>
+              <div className="rounded-lg border border-border/40 bg-card/40 p-3">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Colación</p>
+                <p className="text-[13px] font-medium tabular-nums mt-1">${salary.colacion.toLocaleString("es-CL")}</p>
               </div>
-              <div>
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Movilización</p>
-                <p className="text-sm font-medium">${salary.movilizacion.toLocaleString("es-CL")}</p>
+              <div className="rounded-lg border border-border/40 bg-card/40 p-3">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Movilización</p>
+                <p className="text-[13px] font-medium tabular-nums mt-1">${salary.movilizacion.toLocaleString("es-CL")}</p>
               </div>
-              <div>
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Bonos</p>
-                <p className="text-sm font-medium">${totalBonos.toLocaleString("es-CL")}</p>
+              <div className="rounded-lg border border-border/40 bg-card/40 p-3">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Bonos</p>
+                <p className="text-[13px] font-medium tabular-nums mt-1">${totalBonos.toLocaleString("es-CL")}</p>
               </div>
             </div>
 
             {salary.bonos.length > 0 && (
-              <div className="space-y-0.5 pt-1 border-t border-border/30">
+              <div className="space-y-1 pt-2 border-t border-border/30">
                 {salary.bonos.map((b, i) => (
                   <div key={i} className="flex items-center justify-between text-[11px]">
                     <span className="text-muted-foreground truncate">{b.bonoName}</span>
-                    <span className="font-medium shrink-0">${b.amount.toLocaleString("es-CL")}</span>
+                    <span className="font-medium tabular-nums shrink-0">${b.amount.toLocaleString("es-CL")}</span>
                   </div>
                 ))}
               </div>
             )}
 
-            <div className="pt-1.5 border-t border-border/30 space-y-1">
+            <div className="pt-2 border-t border-border/30 space-y-1.5">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Total haberes</span>
-                <span className="text-sm font-semibold">${totalHaberes.toLocaleString("es-CL")}</span>
+                <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Total haberes</span>
+                <span className="text-sm font-semibold tabular-nums">${totalHaberes.toLocaleString("es-CL")}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Dcto. legal est. (~20%)</span>
-                <span className="text-xs text-red-400">-${descuentosEstimados.toLocaleString("es-CL")}</span>
+                <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Dcto. legal est. (~20%)</span>
+                <span className="text-xs text-status-danger-fg tabular-nums">-${descuentosEstimados.toLocaleString("es-CL")}</span>
               </div>
-              <div className="flex items-center justify-between pt-1 border-t border-border/30">
-                <span className="text-[10px] font-semibold uppercase tracking-wider">Líquido estimado</span>
-                <span className="text-sm font-bold text-emerald-400">${liquidoEstimado.toLocaleString("es-CL")}</span>
+              <div className="flex items-center justify-between pt-1.5 border-t border-border/30">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.08em]">Líquido estimado</span>
+                <span className="text-sm font-bold text-status-ok-fg tabular-nums">${liquidoEstimado.toLocaleString("es-CL")}</span>
               </div>
             </div>
-          </CardContent>
-          <div className="px-3 pb-2 flex items-center justify-end gap-1 text-[11px] text-muted-foreground">
+          </div>
+          <div className="px-4 pb-3 flex items-center justify-end gap-1 text-[11px] text-muted-foreground">
             Ver en Sueldos por RUT
             <ChevronRight className="h-3.5 w-3.5" />
           </div>
-        </Card>
+        </div>
       </Link>
     </div>
   );

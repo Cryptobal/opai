@@ -119,7 +119,7 @@ export function LoginScreen({ onLogin }: Props) {
 
         {error && (
           <div className="rounded-xl px-4 py-3 mb-4" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)" }}>
-            <p className="text-xs text-red-400 text-center">{error}</p>
+            <p className="text-xs text-status-danger-fg text-center">{error}</p>
           </div>
         )}
 

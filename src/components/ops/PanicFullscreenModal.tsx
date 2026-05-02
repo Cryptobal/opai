@@ -1,3 +1,7 @@
+// @ds-allow-legacy: Modal de alerta de pánico full-screen — los rojos
+// intensos (bg-red-900, border-red-800, ring-red-500) y verde de WhatsApp
+// (bg-green-700) son intencionales para máxima legibilidad operativa.
+// Mismo patrón que portal/rondas/PanicoModal.
 "use client";
 
 import { useState } from "react";
@@ -52,9 +56,9 @@ export function PanicFullscreenModal({ alerts, onResolve }: PanicFullscreenModal
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-red-900/80 backdrop-blur-sm">
       {/* Pulsing red border effect */}
-      <div className="absolute inset-0 animate-pulse pointer-events-none border-[6px] border-red-500/50" />
+      <div className="absolute inset-0 animate-pulse pointer-events-none border-[6px] border-status-danger-border" />
 
-      <div className="relative mx-4 w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border-2 border-red-500 bg-zinc-900 p-6 shadow-2xl shadow-red-900/50 space-y-6">
+      <div className="relative mx-4 w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border-2 border-status-danger-border bg-zinc-900 p-6 shadow-2xl shadow-red-900/50 space-y-6">
         {alerts.map((alert, idx) => (
           <div key={alert.alertaId} className="space-y-4">
             {idx > 0 && <hr className="border-red-800" />}
@@ -62,11 +66,11 @@ export function PanicFullscreenModal({ alerts, onResolve }: PanicFullscreenModal
             {/* Header */}
             <div className="flex items-center gap-3">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-red-900/60 ring-2 ring-red-500/40">
-                <AlertTriangle className="h-6 w-6 text-red-400" />
+                <AlertTriangle className="h-6 w-6 text-status-danger-fg" />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-red-400">ALERTA DE PANICO</h2>
-                <p className="text-xs text-red-300">
+                <h2 className="text-xl font-bold text-status-danger-fg">ALERTA DE PANICO</h2>
+                <p className="text-xs text-status-danger-fg">
                   {new Date(alert.timestamp).toLocaleTimeString("es-CL", {
                     hour: "2-digit",
                     minute: "2-digit",
@@ -110,7 +114,7 @@ export function PanicFullscreenModal({ alerts, onResolve }: PanicFullscreenModal
                 href={`https://maps.google.com/?q=${alert.lat},${alert.lng}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-2 text-sm text-teal-400 hover:text-teal-300"
+                className="flex items-center gap-2 text-sm text-status-info-fg hover:text-status-info-fg"
               >
                 <MapPin className="h-4 w-4" />
                 Ver ubicacion en mapa
@@ -119,7 +123,7 @@ export function PanicFullscreenModal({ alerts, onResolve }: PanicFullscreenModal
 
             {/* Resolution notes — required before closing */}
             <div className="space-y-2">
-              <label className="block text-xs font-semibold uppercase tracking-wide text-red-300">
+              <label className="block text-xs font-semibold uppercase tracking-wide text-status-danger-fg">
                 ¿Qué pasó con esta alerta? (obligatorio)
               </label>
               <textarea
@@ -132,10 +136,10 @@ export function PanicFullscreenModal({ alerts, onResolve }: PanicFullscreenModal
                 }}
                 placeholder="Describe qué ocurrió y cómo se atendió (mín. 10 caracteres)..."
                 rows={3}
-                className="w-full rounded-lg border border-red-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500"
+                className="w-full rounded-lg border border-red-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-status-danger-border focus:outline-none focus:ring-1 focus:ring-red-500"
               />
               {errorsMap[alert.alertaId] && (
-                <p className="text-xs font-medium text-red-400">{errorsMap[alert.alertaId]}</p>
+                <p className="text-xs font-medium text-status-danger-fg">{errorsMap[alert.alertaId]}</p>
               )}
               <p className="text-[11px] text-zinc-500">
                 {(notesMap[alert.alertaId] ?? "").trim().length}/10 caracteres mínimo
@@ -148,7 +152,7 @@ export function PanicFullscreenModal({ alerts, onResolve }: PanicFullscreenModal
                 <button
                   onClick={() => handleResolve(alert.alertaId)}
                   disabled={loadingIds.has(alert.alertaId)}
-                  className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-red-600 py-3 text-sm font-bold text-white shadow-lg hover:bg-red-500 disabled:opacity-60"
+                  className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-status-danger py-3 text-sm font-bold text-white shadow-lg hover:bg-status-danger disabled:opacity-60"
                 >
                   {loadingIds.has(alert.alertaId) ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -203,7 +207,7 @@ export function PanicFullscreenModal({ alerts, onResolve }: PanicFullscreenModal
                     router.push("/chat");
                   }
                 }}
-                className="flex w-full items-center justify-center gap-2 rounded-lg bg-teal-700 py-3 text-sm font-bold text-white hover:bg-teal-600"
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-teal-700 py-3 text-sm font-bold text-white hover:bg-status-info"
               >
                 <MessageCircle className="h-4 w-4" />
                 IR AL CHAT DE LA INSTALACIÓN

@@ -11,7 +11,8 @@ import {
   collectLinkedQuoteIds,
   resolveDealActiveQuotationSummary,
 } from "@/lib/crm-deal-active-quotation";
-import { PageHeader } from "@/components/opai";
+import { PageHero } from "@/components/opai-ds";
+import { TrendingUp } from "lucide-react";
 import { CrmDealsClient } from "@/components/crm";
 import { triggerFollowUpProcessing } from "@/lib/followup-selfheal";
 
@@ -205,9 +206,13 @@ export default async function CrmDealsPage({
 
   return (
     <>
-      <PageHeader
+      <PageHero
+        icon={<TrendingUp />}
+        iconTone="violet"
+        eyebrow={["Comercial", "Negocios"]}
         title="Negocios"
-        description={getDealsFocusText(focus) ?? "Pipeline comercial y oportunidades"}
+        subtitle="pipeline y oportunidades"
+        description={getDealsFocusText(focus) ?? "Vista de oportunidades comerciales en kanban o lista. Filtra por etapa, foco temporal o seguimientos pendientes."}
       />
       <CrmDealsClient
         initialDeals={initialDeals}

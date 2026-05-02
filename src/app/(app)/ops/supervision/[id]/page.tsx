@@ -3,7 +3,8 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { resolvePagePerms, canView, canEdit, canDelete, hasCapability } from "@/lib/permissions-server";
-import { PageHeader } from "@/components/opai";
+import { PageHero } from "@/components/opai-ds";
+import { ClipboardList } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -149,11 +150,15 @@ export default async function VisitaSupervisionDetailPage({
 
   return (
     <div className="space-y-6 min-w-0">
-      <PageHeader
+      <PageHero
+        icon={<ClipboardList />}
+        iconTone="emerald"
+        eyebrow={["Operaciones", "Supervisión"]}
         title={`Visita ${visit.installation.name}`}
+        subtitle="detalle de visita"
         description={`Check-in: ${formatDateTime(visit.checkInAt)}`}
         actions={
-          <div className="flex flex-wrap items-center gap-2">
+          <>
             <Button asChild variant="outline" size="sm">
               <Link href="/ops/supervision">Volver</Link>
             </Button>
@@ -163,7 +168,7 @@ export default async function VisitaSupervisionDetailPage({
               canEdit={userCanEdit}
               canDelete={userCanDelete}
             />
-          </div>
+          </>
         }
       />
 

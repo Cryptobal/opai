@@ -78,7 +78,7 @@ export function GuardSelector({
     <div className="flex min-h-dvh flex-col bg-[#0A0F1C] px-6 py-10">
       {/* Installation name */}
       <div className="flex items-center gap-2 mb-8">
-        <Building2 className="h-5 w-5 text-cyan-500 shrink-0" />
+        <Building2 className="h-5 w-5 text-status-info-fg shrink-0" />
         <span className="text-sm font-medium text-gray-300 truncate">
           {installationName}
         </span>
@@ -90,7 +90,7 @@ export function GuardSelector({
       </h1>
 
       {error && (
-        <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+        <div className="mb-4 rounded-xl border border-status-danger-border bg-status-danger-soft px-4 py-3 text-sm text-status-danger-fg">
           {error}
         </div>
       )}
@@ -99,7 +99,7 @@ export function GuardSelector({
       {loading ? (
         <div className="flex flex-1 items-center justify-center">
           <div className="flex flex-col items-center gap-3">
-            <Loader2 className="h-8 w-8 animate-spin text-cyan-500" />
+            <Loader2 className="h-8 w-8 animate-spin text-status-info-fg" />
             <p className="text-sm text-gray-400">Cargando guardias...</p>
           </div>
         </div>
@@ -111,10 +111,10 @@ export function GuardSelector({
               type="button"
               disabled={selecting !== null}
               onClick={() => handleSelect(guard)}
-              className="flex w-full items-center gap-3 rounded-xl border border-gray-700 bg-[#111827] px-4 py-4 text-left transition-colors hover:border-cyan-500/50 hover:bg-gray-800/80 active:bg-gray-800 disabled:opacity-60 disabled:cursor-not-allowed"
+              className="flex w-full items-center gap-3 rounded-xl border border-gray-700 bg-[#111827] px-4 py-4 text-left transition-colors hover:border-status-info-border hover:bg-gray-800/80 active:bg-gray-800 disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {selecting === guard.id ? (
-                <Loader2 className="h-5 w-5 animate-spin text-cyan-500 shrink-0" />
+                <Loader2 className="h-5 w-5 animate-spin text-status-info-fg shrink-0" />
               ) : (
                 <User className="h-5 w-5 text-gray-400 shrink-0" />
               )}

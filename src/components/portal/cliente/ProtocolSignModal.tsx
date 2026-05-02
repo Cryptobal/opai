@@ -72,13 +72,13 @@ export function ProtocolSignModal({
 
         <div>
           <label className="text-xs text-zinc-400 mb-1 block">
-            Nombre completo <span className="text-red-400">*</span>
+            Nombre completo <span className="text-status-danger-fg">*</span>
           </label>
           <input
             type="text"
             value={firmanteNombre}
             onChange={(e) => setFirmanteNombre(e.target.value)}
-            className="w-full h-9 rounded-lg border border-zinc-700 bg-zinc-800 px-3 text-sm text-white focus:outline-none focus:border-teal-400"
+            className="w-full h-9 rounded-lg border border-zinc-700 bg-zinc-800 px-3 text-sm text-white focus:outline-none focus:border-status-info-border"
           />
         </div>
 
@@ -89,7 +89,7 @@ export function ProtocolSignModal({
             value={firmanteRut}
             onChange={(e) => setFirmanteRut(e.target.value)}
             placeholder="12.345.678-9"
-            className="w-full h-9 rounded-lg border border-zinc-700 bg-zinc-800 px-3 text-sm text-white focus:outline-none focus:border-teal-400"
+            className="w-full h-9 rounded-lg border border-zinc-700 bg-zinc-800 px-3 text-sm text-white focus:outline-none focus:border-status-info-border"
           />
         </div>
 
@@ -106,7 +106,7 @@ export function ProtocolSignModal({
           </span>
         </label>
 
-        {error && <p className="text-xs text-red-400">{error}</p>}
+        {error && <p className="text-xs text-status-danger-fg">{error}</p>}
 
         <div className="flex gap-2">
           <button
@@ -118,7 +118,7 @@ export function ProtocolSignModal({
           <button
             onClick={handleSubmit}
             disabled={!checked || !firmanteNombre.trim() || submitting}
-            className="flex-1 h-10 rounded-lg bg-teal-600 hover:bg-teal-500 disabled:opacity-40 text-white text-sm font-semibold flex items-center justify-center gap-2"
+            className="flex-1 h-10 rounded-lg bg-status-info hover:bg-status-info disabled:opacity-40 text-white text-sm font-semibold flex items-center justify-center gap-2"
           >
             {submitting ? (
               <Loader2 className="w-4 h-4 animate-spin" />

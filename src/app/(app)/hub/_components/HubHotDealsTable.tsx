@@ -15,15 +15,15 @@ interface Props {
 
 function HeatIndicator({ score }: { score: number }) {
   const title = 'Interés: vistas + descargas en portal + logins (últimos 7 días)';
-  if (score >= 70) return <span title={title} className="text-red-400 font-semibold text-sm tabular-nums whitespace-nowrap cursor-help">🔥🔥🔥 {score}</span>;
-  if (score >= 30) return <span title={title} className="text-orange-400 font-semibold text-sm tabular-nums whitespace-nowrap cursor-help">🔥🔥 {score}</span>;
+  if (score >= 70) return <span title={title} className="text-status-danger-fg font-semibold text-sm tabular-nums whitespace-nowrap cursor-help">🔥🔥🔥 {score}</span>;
+  if (score >= 30) return <span title={title} className="text-status-warn-fg font-semibold text-sm tabular-nums whitespace-nowrap cursor-help">🔥🔥 {score}</span>;
   if (score > 0) return <span title={title} className="text-muted-foreground font-semibold text-sm tabular-nums whitespace-nowrap cursor-help">🔥 {score}</span>;
   return <span className="text-muted-foreground text-sm">—</span>;
 }
 
 function TrendIcon({ trend }: { trend: 'up' | 'down' | 'flat' }) {
-  if (trend === 'up') return <span className="text-emerald-400 text-xs">↑</span>;
-  if (trend === 'down') return <span className="text-red-400 text-xs">↓</span>;
+  if (trend === 'up') return <span className="text-status-ok-fg text-xs">↑</span>;
+  if (trend === 'down') return <span className="text-status-danger-fg text-xs">↓</span>;
   return <span className="text-muted-foreground text-xs">—</span>;
 }
 
@@ -50,7 +50,7 @@ function ActionIcons({ deal, sellerFirstName, tenantName }: { deal: ClosingHotDe
         <button
           type="button"
           onClick={handlePhone}
-          className="text-muted-foreground/50 hover:text-emerald-400 transition-colors p-0.5 -m-0.5 bg-transparent border-0 cursor-pointer"
+          className="text-muted-foreground/50 hover:text-status-ok-fg transition-colors p-0.5 -m-0.5 bg-transparent border-0 cursor-pointer"
           title="Llamar"
         >
           <Phone className="h-[14px] w-[14px]" />
@@ -60,7 +60,7 @@ function ActionIcons({ deal, sellerFirstName, tenantName }: { deal: ClosingHotDe
         <button
           type="button"
           onClick={handleWhatsApp}
-          className="text-muted-foreground/50 hover:text-green-400 transition-colors p-0.5 -m-0.5 bg-transparent border-0 cursor-pointer"
+          className="text-muted-foreground/50 hover:text-status-ok-fg transition-colors p-0.5 -m-0.5 bg-transparent border-0 cursor-pointer"
           title="WhatsApp"
         >
           <MessageCircle className="h-[14px] w-[14px]" />
@@ -70,7 +70,7 @@ function ActionIcons({ deal, sellerFirstName, tenantName }: { deal: ClosingHotDe
         <button
           type="button"
           onClick={handleEmail}
-          className="text-muted-foreground/50 hover:text-blue-400 transition-colors p-0.5 -m-0.5 bg-transparent border-0 cursor-pointer"
+          className="text-muted-foreground/50 hover:text-status-info-fg transition-colors p-0.5 -m-0.5 bg-transparent border-0 cursor-pointer"
           title="Email"
         >
           <Mail className="h-[14px] w-[14px]" />
@@ -138,7 +138,7 @@ export function HubHotDealsTable({ deals, sellerFirstName, tenantName }: Props) 
             }}
           >
             {/* Rank */}
-            <span className={`text-sm tabular-nums font-medium ${rank <= 3 ? 'text-teal-400' : 'text-muted-foreground'}`}>
+            <span className={`text-sm tabular-nums font-medium ${rank <= 3 ? 'text-status-info-fg' : 'text-muted-foreground'}`}>
               {rank}
             </span>
 
@@ -181,7 +181,7 @@ export function HubHotDealsTable({ deals, sellerFirstName, tenantName }: Props) 
             </span>
 
             {/* Monto */}
-            <span className="text-right text-sm font-bold tabular-nums text-teal-400 whitespace-nowrap">
+            <span className="text-right text-sm font-bold tabular-nums text-status-info-fg whitespace-nowrap">
               {deal.amount > 0 ? `${formatCLP(Math.round(deal.amount / 1000))}k/mes` : '—'}
             </span>
           </div>

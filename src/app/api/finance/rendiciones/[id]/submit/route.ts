@@ -113,20 +113,24 @@ export async function POST(
         console.error("[Finance] Error sending submit notification:", err),
       );
 
-      // Push: expense report submitted — notify approvers
+      // Notify approvers (bell + push). Email is handled separately above
+      // by notifyRendicionSubmitted with its dedicated template.
       try {
-        const { sendPushToSpecificAdmins } = await import('@/lib/pwa/push-service');
+        const { notify } = await import('@/lib/notifications/notify');
         const submitterName = submitter?.name ?? 'Un supervisor';
-        await sendPushToSpecificAdmins(
-          ctx.tenantId,
-          approverIds,
-          'expense_report_submitted',
-          'Rendición de gastos enviada',
-          `${submitterName} envió una rendición para revisión`,
-          `/opai/finance/rendiciones/${id}`,
-        );
+        await notify({
+          tenantId: ctx.tenantId,
+          type: 'expense_report_submitted',
+          targetIds: approverIds,
+          targetType: 'ADMIN',
+          title: 'Rendición de gastos enviada',
+          body: `${submitterName} envió una rendición para revisión`,
+          link: `/opai/finance/rendiciones/${id}`,
+          data: { rendicionId: id, code: existing.code },
+          forceChannels: { email: false },
+        });
       } catch (err) {
-        console.error('[FINANCE] Error sending expense_report_submitted push:', err);
+        console.error('[FINANCE] Error notifying expense_report_submitted:', err);
       }
     }
 

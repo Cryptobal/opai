@@ -161,7 +161,7 @@ export function ChatChannelListItem({
               {canDelete && onDelete && (
                 <DropdownMenuItem
                   onClick={(e) => { e.stopPropagation(); onDelete(); }}
-                  className="text-red-400 focus:text-red-400"
+                  className="text-status-danger-fg focus:text-status-danger-fg"
                 >
                   <Trash2 className="mr-2 h-4 w-4" />
                   Eliminar

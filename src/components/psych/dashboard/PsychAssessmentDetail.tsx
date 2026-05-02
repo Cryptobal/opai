@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import PsychRadarChart from "./PsychRadarChart";
 import PsychOpenAnalysisCard from "./PsychOpenAnalysisCard";
 import PsychAssessmentScoreCard from "./PsychAssessmentScoreCard";
+import PsychTechnicalIssues from "./PsychTechnicalIssues";
 import ReminderBanner from "./PsychReminderBanner";
 import type { OpenAnalysisResult, PsychAlert } from "@/lib/psych/types";
 
@@ -92,6 +93,10 @@ export default function PsychAssessmentDetail({
     );
   }
 
+  const allAlerts = result.alerts ?? [];
+  const technicalAlerts = allAlerts.filter((a) => a.code === "OPEN_ANALYSIS_FAILED");
+  const candidateAlerts = allAlerts.filter((a) => a.code !== "OPEN_ANALYSIS_FAILED");
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       {/* En mobile: sidebar (score + alertas) arriba del radar. */}
@@ -102,7 +107,7 @@ export default function PsychAssessmentDetail({
           band={result.band}
           lieScaleScore={result.lieScaleScore}
           straightLining={result.straightLining}
-          alerts={result.alerts ?? []}
+          alerts={candidateAlerts}
           canWrite={canWrite}
           reviewedAt={result.reviewedAt}
           reviewedBy={result.reviewedBy}
@@ -137,6 +142,7 @@ export default function PsychAssessmentDetail({
             ))}
           </div>
         ) : null}
+        <PsychTechnicalIssues alerts={technicalAlerts} onRescore={handleRescore} />
       </div>
     </div>
   );

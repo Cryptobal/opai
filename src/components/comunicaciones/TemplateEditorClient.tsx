@@ -116,7 +116,7 @@ function SortableBlock({
       style={style}
       className={`group relative rounded-lg border-2 transition-colors cursor-pointer ${
         isSelected
-          ? "border-orange-500/60 bg-orange-500/5"
+          ? "border-status-warn bg-status-warn-soft/30"
           : "border-transparent hover:border-white/10"
       }`}
       onClick={onSelect}
@@ -130,7 +130,7 @@ function SortableBlock({
           <GripVertical className="h-4 w-4" />
         </button>
         <button
-          className="p-1 text-muted-foreground hover:text-red-400"
+          className="p-1 text-muted-foreground hover:text-status-danger-fg"
           onClick={(e) => {
             e.stopPropagation();
             onDelete();
@@ -533,7 +533,7 @@ function PropertyEditor({
                 type="checkbox"
                 checked={c[key] !== false}
                 onChange={(e) => set(key, e.target.checked)}
-                className="h-4 w-4 rounded border-input accent-orange-500"
+                className="h-4 w-4 rounded border-input accent-primary"
               />
               <span className="text-sm">{label}</span>
             </label>
@@ -582,7 +582,7 @@ function PropertyEditor({
                 <button
                   type="button"
                   onClick={() => removeItem(idx)}
-                  className="p-1 text-muted-foreground hover:text-red-400"
+                  className="p-1 text-muted-foreground hover:text-status-danger-fg"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
@@ -908,7 +908,7 @@ export default function TemplateEditorClient({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7 text-muted-foreground hover:text-red-400"
+                    className="h-7 w-7 text-muted-foreground hover:text-status-danger-fg"
                     onClick={() => deleteBlock(selectedBlock.id)}
                   >
                     <Trash2 className="h-3.5 w-3.5" />

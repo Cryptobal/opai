@@ -10,12 +10,12 @@ import {
   TrendingUp,
   TrendingDown,
   Minus,
+  Trophy,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { KpiCard } from "@/components/opai/KpiCard";
-import { KpiGrid } from "@/components/opai/KpiGrid";
+import { Stat, StatGrid } from "@/components/opai-ds";
 import { LoadingState } from "@/components/opai/LoadingState";
-import { EmptyState } from "@/components/opai/EmptyState";
+import { EmptyState } from "@/components/opai-ds";
 import {
   TrustScoreGauge,
   NivelBadge,
@@ -85,7 +85,11 @@ export function InstalacionDesempenoSection({ instalacionId }: Props) {
 
   /* ── No data ── */
   if (!data || !data.periodo) {
-    return <EmptyState title="Sin datos de gamificación" compact />;
+    return <EmptyState
+      icon={<Trophy className="h-8 w-8" />}
+      title="Sin datos de gamificación"
+      compact
+    />;
   }
 
   /* ── Derived metrics ── */
@@ -107,8 +111,8 @@ export function InstalacionDesempenoSection({ instalacionId }: Props) {
 
   /* ── Trend icon helper ── */
   const TrendIcon = ({ value }: { value: number }) => {
-    if (value > 0) return <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />;
-    if (value < 0) return <TrendingDown className="h-3.5 w-3.5 text-red-500" />;
+    if (value > 0) return <TrendingUp className="h-3.5 w-3.5 text-status-ok-fg" />;
+    if (value < 0) return <TrendingDown className="h-3.5 w-3.5 text-status-danger-fg" />;
     return <Minus className="h-3.5 w-3.5 text-muted-foreground" />;
   };
 
@@ -128,36 +132,32 @@ export function InstalacionDesempenoSection({ instalacionId }: Props) {
 
         {/* Right: KPI Grid */}
         <div className="flex-1 min-w-0">
-          <KpiGrid columns={2}>
-            <KpiCard
-              title="Guardias"
+          <StatGrid lgCols={2}>
+            <Stat
+              label="Guardias"
               value={totalGuardias}
-              variant="teal"
-              size="sm"
-              icon={<Users className="h-4 w-4" />}
+              variant="brand"
+              icon={Users}
             />
-            <KpiCard
-              title="Asistencia %"
+            <Stat
+              label="Asistencia %"
               value={`${avgAsistencia.toFixed(0)}%`}
-              variant="emerald"
-              size="sm"
-              icon={<Calendar className="h-4 w-4" />}
+              variant="ok"
+              icon={Calendar}
             />
-            <KpiCard
-              title="Rondas %"
+            <Stat
+              label="Rondas %"
               value={`${avgRondas.toFixed(0)}%`}
-              variant="blue"
-              size="sm"
-              icon={<Shield className="h-4 w-4" />}
+              variant="brand"
+              icon={Shield}
             />
-            <KpiCard
-              title="Badges este mes"
+            <Stat
+              label="Badges este mes"
               value={badgesEsteMes}
-              variant="purple"
-              size="sm"
-              icon={<CheckCircle2 className="h-4 w-4" />}
+              variant="brand"
+              icon={CheckCircle2}
             />
-          </KpiGrid>
+          </StatGrid>
         </div>
       </div>
 
@@ -170,7 +170,11 @@ export function InstalacionDesempenoSection({ instalacionId }: Props) {
         </CardHeader>
         <CardContent className="p-4 pt-2 sm:p-5 sm:pt-2">
           {guardias.length === 0 ? (
-            <EmptyState title="Sin guardias registrados" inline />
+            <EmptyState
+              icon={<Users className="h-8 w-8" />}
+              title="Sin guardias registrados"
+              compact
+            />
           ) : (
             <div className="space-y-1">
               {guardias.map((g) => (

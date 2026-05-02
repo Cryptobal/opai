@@ -109,13 +109,13 @@ export function PortalEquipoDirectorio({ isProspect }: Props) {
     <div className="flex-1 max-w-2xl mx-auto w-full px-4 py-4 pb-24">
       <div className="flex items-center justify-between mb-1">
         <div className="flex items-center gap-2">
-          <UserCheck className="h-5 w-5 text-teal-400" />
+          <UserCheck className="h-5 w-5 text-status-info-fg" />
           <h2 className="text-lg font-semibold">Equipo de guardias</h2>
         </div>
         {isProspect && <PreviewBadge />}
       </div>
       <div className="flex items-center gap-2 mb-4">
-        <span className="text-[10px] uppercase tracking-wider text-teal-300/80 bg-teal-400/10 border border-teal-400/20 rounded-full px-2 py-0.5">
+        <span className="text-[10px] uppercase tracking-wider text-status-info-fg/80 bg-status-info-soft border border-status-info-border rounded-full px-2 py-0.5">
           Cumplimiento automático
         </span>
       </div>

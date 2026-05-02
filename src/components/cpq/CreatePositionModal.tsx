@@ -40,6 +40,13 @@ const getShiftHours = (startTime: string, endTime: string) => {
   return (endMinutes - startMinutes) / 60;
 };
 
+const normalizeCatalogLabel = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+
 export function CreatePositionModal({ quoteId, onCreated, disabled }: CreatePositionModalProps) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -73,9 +80,36 @@ export function CreatePositionModal({ quoteId, onCreated, disabled }: CreatePosi
         fetch("/api/cpq/roles?active=true").then((r) => r.json()),
         fetch("/api/cpq/puestos?active=true").then((r) => r.json()),
       ]).then(([c, r, p]) => {
-        setCargos(c.data || []);
-        setRoles(r.data || []);
-        setPuestos(p.data || []);
+        const nextCargos = c.data || [];
+        const nextRoles = r.data || [];
+        const nextPuestos = p.data || [];
+        setCargos(nextCargos);
+        setRoles(nextRoles);
+        setPuestos(nextPuestos);
+
+        const defaultPuesto =
+          nextPuestos.find((item: CpqPuestoTrabajo) => {
+            const label = normalizeCatalogLabel(item.name || "");
+            return label.includes("control") && label.includes("acceso");
+          }) ??
+          nextPuestos.find((item: CpqPuestoTrabajo) =>
+            normalizeCatalogLabel(item.name || "").includes("acceso")
+          ) ??
+          nextPuestos[0];
+
+        const defaultCargo =
+          nextCargos.find((item: CpqCargo) => normalizeCatalogLabel(item.name || "") === "guardia") ??
+          nextCargos.find((item: CpqCargo) =>
+            normalizeCatalogLabel(item.name || "").includes("guardia")
+          ) ??
+          nextCargos[0];
+
+        setForm((prev) => ({
+          ...prev,
+          puestoTrabajoId: prev.puestoTrabajoId || defaultPuesto?.id || "",
+          cargoId: prev.cargoId || defaultCargo?.id || "",
+          rolId: prev.rolId || nextRoles[0]?.id || "",
+        }));
       }).catch(console.error);
     }
   }, [open]);
@@ -284,9 +318,9 @@ export function CreatePositionModal({ quoteId, onCreated, disabled }: CreatePosi
               </Button>
 
               {preview && (
-                <div className="rounded-md border border-emerald-500/20 bg-emerald-500/5 p-3 text-xs space-y-1">
-                  <div className="flex justify-between"><span className="text-emerald-400">Costo empresa / guardia</span><span className="font-mono text-emerald-400">{formatCurrency(preview.monthly_employer_cost_clp)}</span></div>
-                  <div className="flex justify-between"><span className="text-blue-400">Líquido / guardia</span><span className="font-mono text-blue-400">{formatCurrency(preview.worker_net_salary_estimate)}</span></div>
+                <div className="rounded-md border border-status-ok-border bg-status-ok-soft p-3 text-xs space-y-1">
+                  <div className="flex justify-between"><span className="text-status-ok-fg">Costo empresa / guardia</span><span className="font-mono text-status-ok-fg">{formatCurrency(preview.monthly_employer_cost_clp)}</span></div>
+                  <div className="flex justify-between"><span className="text-status-info-fg">Líquido / guardia</span><span className="font-mono text-status-info-fg">{formatCurrency(preview.worker_net_salary_estimate)}</span></div>
                   <div className="flex justify-between border-t pt-1"><span>Total puesto</span><span className="font-mono">{formatCurrency(preview.monthly_employer_cost_clp * form.numGuards * form.numPuestos)}</span></div>
                 </div>
               )}

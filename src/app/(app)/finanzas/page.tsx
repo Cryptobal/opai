@@ -1,13 +1,16 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, hasModuleAccess, hasCapability, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHeader, ModuleCard } from "@/components/opai";
+import { PageHero } from "@/components/opai-ds";
+import { Surface } from "@/components/opai-ds";
 import {
   Receipt,
   CheckCircle2,
   Wallet,
   BarChart3,
+  Landmark,
 } from "lucide-react";
 
 export default async function FinanzasDashboardPage() {
@@ -66,7 +69,7 @@ export default async function FinanzasDashboardPage() {
       icon: Receipt,
       count: pendingRendiciones > 0 ? pendingRendiciones : null,
       countLabel: "pendiente(s)",
-      color: "text-emerald-400 bg-emerald-400/10",
+      color: "text-status-ok-fg bg-status-ok-soft",
       show: true,
     },
     {
@@ -76,7 +79,7 @@ export default async function FinanzasDashboardPage() {
       icon: CheckCircle2,
       count: pendingApprovals > 0 ? pendingApprovals : null,
       countLabel: "por aprobar",
-      color: "text-blue-400 bg-blue-400/10",
+      color: "text-status-info-fg bg-status-info-soft",
       show: canApprove,
     },
     {
@@ -86,7 +89,7 @@ export default async function FinanzasDashboardPage() {
       icon: Wallet,
       count: amountPending > 0 ? fmtCLP.format(amountPending) : null,
       countLabel: "por pagar",
-      color: "text-purple-400 bg-purple-400/10",
+      color: "text-tint-violet-fg bg-tint-violet",
       show: canPay,
     },
     {
@@ -96,28 +99,43 @@ export default async function FinanzasDashboardPage() {
       icon: BarChart3,
       count: null,
       countLabel: null,
-      color: "text-amber-400 bg-amber-400/10",
+      color: "text-status-warn-fg bg-status-warn-soft",
       show: true,
     },
   ];
 
   return (
     <div className="space-y-6 min-w-0">
-      <PageHeader
+      <PageHero
+        icon={<Landmark />}
+        iconTone="teal"
+        eyebrow={["Finanzas"]}
         title="Finanzas"
+        subtitle="rendiciones, aprobaciones y pagos"
         description="Rendiciones de gastos, aprobaciones, pagos y reportes."
       />
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 min-w-0">
-        {modules.filter((m) => m.show).map((item) => (
-          <ModuleCard
-            key={item.href}
-            title={item.title}
-            description={item.description}
-            icon={item.icon}
-            href={item.href}
-            count={item.count ?? undefined}
-          />
-        ))}
+        {modules.filter((m) => m.show).map((item) => {
+          const Icon = item.icon;
+          return (
+            <Link key={item.href} href={item.href} className="block">
+              <Surface elevation={1} padding="md" hoverable className="h-full">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-ds-md bg-primary/10 text-primary shrink-0">
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-display text-[14px] font-semibold text-ds-text-1">{item.title}</p>
+                    <p className="text-[12px] text-ds-text-3 mt-0.5">{item.description}</p>
+                    {item.count != null && (
+                      <p className="font-display text-2xl font-bold text-ds-text-1 ds-num mt-2">{item.count}</p>
+                    )}
+                  </div>
+                </div>
+              </Surface>
+            </Link>
+          );
+        })}
       </div>
     </div>
   );

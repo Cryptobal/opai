@@ -259,7 +259,7 @@ export function BneIntegrationCard({
             {ready ? (
               <Badge
                 variant="default"
-                className="text-[10px] px-1.5 py-0 bg-green-600"
+                className="text-[10px] px-1.5 py-0 bg-status-ok"
               >
                 <CheckCircle2 className="h-3 w-3 mr-0.5" />
                 Conectado

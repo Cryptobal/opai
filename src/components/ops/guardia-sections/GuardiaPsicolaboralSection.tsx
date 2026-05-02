@@ -90,7 +90,7 @@ export default function GuardiaPsicolaboralSection({
         </button>
       </div>
       {err ? (
-        <p className="text-sm text-red-600 dark:text-red-400">{err}</p>
+        <p className="text-sm text-status-danger-fg dark:text-status-danger-fg">{err}</p>
       ) : null}
       <PersonalPsychPanel personaId={personaId} guardName={guardName} />
       {modal ? (

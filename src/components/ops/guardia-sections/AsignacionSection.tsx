@@ -34,48 +34,50 @@ export default function AsignacionSection({ asignaciones }: AsignacionSectionPro
   const history = asignaciones.filter((a) => !a.isActive);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {current ? (
-        <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/5 p-4">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm font-semibold text-emerald-300">
+        <div className="rounded-xl border border-status-ok-border bg-status-ok-soft p-4 sm:p-5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-status-ok-fg">
                 {current.puesto.name}
-                <span className="ml-2 text-xs text-emerald-300/60">Slot {current.slotNumber}</span>
+                <span className="ml-2 text-xs font-normal text-status-ok-fg/60">Slot {current.slotNumber}</span>
               </p>
-              <p className="text-xs text-emerald-200/80 mt-1">
+              <p className="text-xs text-status-ok-fg/80 mt-1">
                 {current.installation.name}
                 {current.installation.account && ` · ${current.installation.account.name}`}
               </p>
-              <p className="text-xs text-emerald-200/60 mt-0.5">
-                {current.puesto.shiftStart} - {current.puesto.shiftEnd} · Desde {formatDateUTC(current.startDate)}
+              <p className="text-xs text-status-ok-fg/60 mt-1">
+                {current.puesto.shiftStart} – {current.puesto.shiftEnd} · Desde {formatDateUTC(current.startDate)}
               </p>
             </div>
-            <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-medium text-emerald-300 border border-emerald-500/30">
+            <span className="shrink-0 rounded-full bg-status-ok-soft px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-status-ok-fg border border-status-ok-border">
               Activo
             </span>
           </div>
         </div>
       ) : (
-        <p className="text-sm text-amber-400 py-1">Sin asignación activa — guardia no asignado a ningún puesto.</p>
+        <div className="rounded-xl border border-status-warn-border bg-status-warn-soft p-4 text-sm text-status-warn-fg">
+          Sin asignación activa — guardia no asignado a ningún puesto.
+        </div>
       )}
 
       {history.length > 0 && (
         <div className="space-y-2">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Historial de asignaciones</p>
-          <div className="space-y-1.5">
+          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.08em]">Historial de asignaciones</p>
+          <div className="space-y-2">
             {history.map((h) => (
-              <div key={h.id} className="rounded-md border border-border/60 px-3 py-2 text-xs">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span className="font-medium">{h.puesto.name}</span>
+              <div key={h.id} className="rounded-xl border border-border/60 bg-card/40 px-3 py-2.5 text-xs transition-colors hover:bg-card/60 hover:border-border">
+                <div className="flex items-center justify-between gap-2 min-w-0">
+                  <div className="min-w-0 truncate">
+                    <span className="font-medium text-foreground">{h.puesto.name}</span>
                     <span className="text-muted-foreground"> · {h.installation.name}</span>
                     {h.installation.account && (
                       <span className="text-muted-foreground"> · {h.installation.account.name}</span>
                     )}
                   </div>
                 </div>
-                <p className="text-muted-foreground mt-0.5">
+                <p className="text-muted-foreground mt-1 tabular-nums">
                   {formatDateUTC(h.startDate)}
                   {h.endDate && ` → ${formatDateUTC(h.endDate)}`}
                   {h.reason && ` · ${h.reason}`}

@@ -93,7 +93,7 @@ function EditorMode() {
       <FxSection fx={fx} onChanged={load} />
 
       {!active && (
-        <Card className="border-amber-500/50">
+        <Card className="border-status-warn-border">
           <CardHeader>
             <CardTitle>Sin versión activa</CardTitle>
             <CardDescription>
@@ -888,13 +888,13 @@ function NewVersionForm({
           Activar inmediatamente
         </label>
         {setActiveFlag && (
-          <div className="text-xs text-amber-600 dark:text-amber-400">
+          <div className="text-xs text-status-warn-fg dark:text-status-warn-fg">
             Esto desactivará la versión actual.
           </div>
         )}
 
         {error && <div className="text-sm text-destructive">{error}</div>}
-        {success && <div className="text-sm text-green-600 dark:text-green-400">{success}</div>}
+        {success && <div className="text-sm text-status-ok-fg dark:text-status-ok-fg">{success}</div>}
 
         <Button onClick={submit} disabled={saving || !canSubmit}>
           {saving ? "Creando…" : "Crear versión"}

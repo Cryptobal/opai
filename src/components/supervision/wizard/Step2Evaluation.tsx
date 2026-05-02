@@ -26,6 +26,7 @@ type Props = {
   onNext: () => void;
   onPrev: () => void;
   saving: boolean;
+  mode?: "regular" | "vra";
 };
 
 const RATING_LABELS: Record<number, string> = {
@@ -53,10 +54,10 @@ function RatingButtons({
           const isSelected = value === n;
           const colorClass = isSelected
             ? n >= 4
-              ? "border-emerald-500 bg-emerald-500/20 text-emerald-400"
+              ? "border-status-ok-border bg-status-ok-soft text-status-ok-fg"
               : n === 3
-                ? "border-amber-500 bg-amber-500/20 text-amber-400"
-                : "border-red-500 bg-red-500/20 text-red-400"
+                ? "border-status-warn-border bg-status-warn-soft text-status-warn-fg"
+                : "border-status-danger-border bg-status-danger-soft text-status-danger-fg"
             : "border-border bg-background text-muted-foreground hover:border-muted-foreground/50";
 
           return (
@@ -73,7 +74,7 @@ function RatingButtons({
       </div>
       {value !== null && (
         <p className={`text-[10px] text-center ${
-          value >= 4 ? "text-emerald-400" : value === 3 ? "text-amber-400" : "text-red-400"
+          value >= 4 ? "text-status-ok-fg" : value === 3 ? "text-status-warn-fg" : "text-status-danger-fg"
         }`}>
           {RATING_LABELS[value]}
         </p>
@@ -91,20 +92,20 @@ function GuardResultBadge({ avg }: { avg: number | null }) {
   if (avg === null) return null;
   if (avg >= 4) {
     return (
-      <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px]">
+      <Badge className="bg-status-ok-soft text-status-ok-fg border-status-ok-border text-[10px]">
         Bien
       </Badge>
     );
   }
   if (avg >= 3) {
     return (
-      <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 text-[10px]">
+      <Badge className="bg-status-warn-soft text-status-warn-fg border-status-warn-border text-[10px]">
         Regular
       </Badge>
     );
   }
   return (
-    <Badge className="bg-red-500/20 text-red-400 border-red-500/30 text-[10px]">
+    <Badge className="bg-status-danger-soft text-status-danger-fg border-status-danger-border text-[10px]">
       Deficiente
     </Badge>
   );
@@ -124,6 +125,7 @@ export function Step2Evaluation({
   onNext,
   onPrev,
   saving,
+  mode = "regular",
 }: Props) {
   const [showFindingModal, setShowFindingModal] = useState(false);
   const [findingGuardId, setFindingGuardId] = useState<string | null>(null);
@@ -172,9 +174,9 @@ export function Step2Evaluation({
 
   function avgColor(v: number | null): string {
     if (v === null) return "text-muted-foreground";
-    if (v >= 4) return "text-emerald-400";
-    if (v >= 3) return "text-amber-400";
-    return "text-red-400";
+    if (v >= 4) return "text-status-ok-fg";
+    if (v >= 3) return "text-status-warn-fg";
+    return "text-status-danger-fg";
   }
 
   return (
@@ -237,7 +239,7 @@ export function Step2Evaluation({
                   <div
                     key={evaluation.guardId ?? index}
                     className={`rounded-lg border p-3 transition-colors ${
-                      isLowRating ? "border-red-500/30 bg-red-500/5" : ""
+                      isLowRating ? "border-status-danger-border bg-status-danger-soft" : ""
                     }`}
                   >
                     <div className="mb-3 flex items-center justify-between">
@@ -291,7 +293,7 @@ export function Step2Evaluation({
                       <Button
                         variant="outline"
                         size="sm"
-                        className="w-full text-amber-400 hover:text-amber-300"
+                        className="w-full text-status-warn-fg hover:text-status-warn-fg"
                         onClick={() => {
                           setFindingGuardId(evaluation.guardId);
                           setShowFindingModal(true);
@@ -309,7 +311,7 @@ export function Step2Evaluation({
 
           {/* Findings counter */}
           {findings.length > 0 && (
-            <div className="flex items-center gap-2 rounded-lg bg-amber-500/10 p-3 text-sm text-amber-400">
+            <div className="flex items-center gap-2 rounded-lg bg-status-warn-soft p-3 text-sm text-status-warn-fg">
               <AlertTriangle className="h-4 w-4 flex-shrink-0" />
               {findings.length} hallazgo(s) registrado(s)
             </div>
@@ -370,6 +372,7 @@ export function Step2Evaluation({
         <FindingModal
           visitId={visit.id}
           guardId={findingGuardId}
+          mode={mode}
           onClose={() => setShowFindingModal(false)}
           onCreated={(finding) => {
             onFindingCreated(finding);

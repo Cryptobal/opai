@@ -54,8 +54,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { StatusBadge } from "@/components/opai/StatusBadge";
 import { EntityDetailLayout, useEntityTabs, type EntityTab, type EntityHeaderAction } from "./EntityDetailLayout";
 import { DetailField, DetailFieldGrid } from "./DetailField";
 import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";
@@ -86,7 +86,7 @@ function TruncatedText({ label, text, maxChars = 200, className }: { label?: str
   const isLong = text.length > maxChars;
   return (
     <div className={cn("space-y-1.5", className)}>
-      {label && <Label className="text-xs text-muted-foreground">{label}</Label>}
+      {label && <Label>{label}</Label>}
       <p className="text-sm whitespace-pre-wrap break-words">
         {isLong && !expanded ? text.slice(0, maxChars) + "..." : text}
       </p>
@@ -517,6 +517,9 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
   const [proposalTemplates, setProposalTemplates] = useState<{ id: string; name: string; slug?: string }[]>([]);
   const [ufValue, setUfValue] = useState<number | null>(null);
   const [expandedInstallations, setExpandedInstallations] = useState<Record<string, boolean>>({});
+  // Estado independiente para la subsección "Datos básicos" (nombre/dirección/comuna/ciudad)
+  // dentro de cada instalación. Por defecto: expandido.
+  const [expandedInstDatos, setExpandedInstDatos] = useState<Record<string, boolean>>({});
 
   // Backward compat aliases from cpqConfigs
   const firstInstKey = installations[0]?._key;
@@ -735,7 +738,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
             <>
               <span className="font-semibold text-foreground">{formatCurrency(leadCpqMonthlyTotalClp)}</span>
               {uf ? (
-                <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                <span className="text-status-ok-fg dark:text-status-ok-fg font-medium">
                   {(leadCpqMonthlyTotalClp / uf).toFixed(2)} UF
                 </span>
               ) : (
@@ -761,12 +764,12 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
         className="flex items-center gap-1 rounded-md border border-border/60 bg-muted/30 px-2 py-1 text-[10px] text-muted-foreground tabular-nums"
         title="Autoguardado del borrador (Cuenta, Contacto, Negocio, Instalaciones, CPQ…), ~2,5 s después del último cambio."
       >
-        {autoSaveStatus === "pending" && <span className="text-amber-500">●</span>}
+        {autoSaveStatus === "pending" && <span className="text-status-warn-fg">●</span>}
         {autoSaveStatus === "pending" && <span className="hidden min-[400px]:inline">Cambios…</span>}
         {autoSaveStatus === "saving" && <Loader2 className="h-3 w-3 animate-spin shrink-0" aria-hidden />}
         {autoSaveStatus === "saving" && <span>Guardando</span>}
-        {autoSaveStatus === "saved" && <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0" aria-hidden />}
-        {autoSaveStatus === "saved" && <span className="text-emerald-600 dark:text-emerald-400">Guardado</span>}
+        {autoSaveStatus === "saved" && <CheckCircle2 className="h-3 w-3 text-status-ok-fg shrink-0" aria-hidden />}
+        {autoSaveStatus === "saved" && <span className="text-status-ok-fg dark:text-status-ok-fg">Guardado</span>}
         {autoSaveStatus === "error" && <span className="text-destructive">Error</span>}
       </div>
     ) : (
@@ -1908,9 +1911,9 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
 
         {/* Solicitud del cliente — siempre visible en General */}
         {(lead.serviceType || lead.notes) && (
-          <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-4 space-y-3">
-            <h4 className="text-sm font-medium text-blue-400 flex items-center gap-2">
-              <FileText className="h-4 w-4 text-blue-400 shrink-0" />
+          <div className="rounded-lg border border-status-info-border bg-status-info-soft p-4 space-y-3">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-status-info-fg flex items-center gap-2">
+              <FileText className="h-4 w-4 text-status-info-fg shrink-0" />
               Solicitud
             </h4>
             <div className="space-y-2 text-sm">
@@ -1929,8 +1932,8 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
 
         {/* Datos Apollo — visibles solo si hay datos reales */}
         {apolloData && (apolloData.person?.title || apolloData.person?.seniority || apolloData.person?.linkedinUrl || apolloData.organization?.name || apolloData.organization?.industry) && (
-          <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-4 space-y-3">
-            <h4 className="text-sm font-medium text-amber-400 flex items-center gap-2">
+          <div className="rounded-lg border border-status-warn-border bg-status-warn-soft p-4 space-y-3">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-status-warn-fg flex items-center gap-2">
               <Sparkles className="h-4 w-4" />
               Datos Apollo
             </h4>
@@ -1957,7 +1960,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
                   {apolloData.organization.annualRevenue && <DetailField label="Revenue anual" value={apolloData.organization.annualRevenue} />}
                   {apolloData.organization.keywords && apolloData.organization.keywords.length > 0 && (
                     <div className="md:col-span-2 lg:col-span-3">
-                      <Label className="text-xs text-muted-foreground">Keywords</Label>
+                      <Label>Keywords</Label>
                       <div className="flex flex-wrap gap-1 mt-1">
                         {apolloData.organization.keywords.slice(0, 10).map((k) => (
                           <Badge key={k} variant="outline" className="text-[10px]">{k}</Badge>
@@ -1978,8 +1981,8 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
 
         {/* Entidades creadas (lead aprobado) */}
         {lead.status === "approved" && convertedEntities && (
-          <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-4 space-y-3">
-            <h4 className="text-sm font-medium text-emerald-400 flex items-center gap-2">
+          <div className="rounded-lg border border-status-ok-border bg-status-ok-soft p-4 space-y-3">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-status-ok-fg flex items-center gap-2">
               <CheckCircle2 className="h-4 w-4" />
               Registros creados
             </h4>
@@ -1996,7 +1999,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
               )}
               {convertedEntities.contact && (
                 <Link href={`/crm/contacts/${convertedEntities.contact.id}`} className="flex items-center gap-3 rounded-md border border-border p-3 hover:bg-muted/50 transition-colors">
-                  <Users className="h-4 w-4 text-blue-500 shrink-0" />
+                  <Users className="h-4 w-4 text-status-info-fg shrink-0" />
                   <div className="min-w-0 flex-1">
                     <p className="text-xs text-muted-foreground">Contacto</p>
                     <p className="font-medium truncate">{[convertedEntities.contact.firstName, convertedEntities.contact.lastName].filter(Boolean).join(" ")}</p>
@@ -2006,7 +2009,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
               )}
               {convertedEntities.deal && (
                 <Link href={`/crm/deals/${convertedEntities.deal.id}`} className="flex items-center gap-3 rounded-md border border-border p-3 hover:bg-muted/50 transition-colors">
-                  <Briefcase className="h-4 w-4 text-amber-500 shrink-0" />
+                  <Briefcase className="h-4 w-4 text-status-warn-fg shrink-0" />
                   <div className="min-w-0 flex-1">
                     <p className="text-xs text-muted-foreground">Negocio</p>
                     <p className="font-medium truncate">{convertedEntities.deal.title}</p>
@@ -2016,7 +2019,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
               )}
               {convertedEntities.quotes.map((q) => (
                 <Link key={q.id} href={`/cpq/${q.id}`} className="flex items-center gap-3 rounded-md border border-border p-3 hover:bg-muted/50 transition-colors">
-                  <FileText className="h-4 w-4 text-emerald-500 shrink-0" />
+                  <FileText className="h-4 w-4 text-status-ok-fg shrink-0" />
                   <div className="min-w-0 flex-1">
                     <p className="text-xs text-muted-foreground">Cotización CPQ</p>
                     <p className="font-medium truncate">{q.code}{q.installationName ? ` — ${q.installationName}` : ""}</p>
@@ -2062,7 +2065,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
         {/* Rejection info */}
         {lead.status === "rejected" && rejectionInfo && (
           <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 space-y-3">
-            <h4 className="text-sm font-medium text-destructive flex items-center gap-2">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-destructive flex items-center gap-2">
               <XCircle className="h-4 w-4" />
               Información del rechazo
             </h4>
@@ -2086,8 +2089,8 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
     const conflictAlerts = (
       <div className="space-y-3">
         {duplicates.length > 0 && (
-          <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
-            <div className="flex items-center gap-2 text-amber-400 text-sm font-medium">
+          <div className="rounded-lg border border-status-warn-border bg-status-warn-soft p-3 space-y-2">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-status-warn-fg">
               <AlertTriangle className="h-4 w-4" />
               Cuenta con el mismo nombre ya existe
             </div>
@@ -2114,8 +2117,8 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
           </div>
         )}
         {existingContact && (
-          <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
-            <div className="flex items-center gap-2 text-amber-400 text-sm font-medium">
+          <div className="rounded-lg border border-status-warn-border bg-status-warn-soft p-3 space-y-2">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-status-warn-fg">
               <AlertTriangle className="h-4 w-4" />
               Ya existe un contacto con este email
             </div>
@@ -2139,8 +2142,8 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
           </div>
         )}
         {installationConflicts.length > 0 && (
-          <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
-            <div className="flex items-center gap-2 text-amber-400 text-sm font-medium">
+          <div className="rounded-lg border border-status-warn-border bg-status-warn-soft p-3 space-y-2">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-status-warn-fg">
               <AlertTriangle className="h-4 w-4" />
               Instalación con el mismo nombre ya existe en esta cuenta
             </div>
@@ -2170,31 +2173,31 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
 
     // TAB: Account
     const accountContent = (
-        <div className="space-y-4 rounded-lg border border-border bg-card p-4 sm:p-5">
+        <div className="space-y-4 rounded-xl border border-border bg-card p-4 sm:p-5">
           {conflictAlerts}
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
             <div className="space-y-1.5 md:col-span-2 lg:col-span-3">
-              <Label className="text-xs">Nombre de empresa *</Label>
+              <Label>Nombre de empresa *</Label>
               <Input value={approveForm.accountName} onChange={(e) => updateApproveForm("accountName", e.target.value)} placeholder="Nombre de la empresa" className={inputClassName} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">RUT</Label>
+              <Label>RUT</Label>
               <Input value={approveForm.rut} onChange={(e) => updateApproveForm("rut", e.target.value)} placeholder="76.123.456-7" className={inputClassName} />
             </div>
             <div className="space-y-1.5 md:col-span-2">
-              <Label className="text-xs">Razón social (empresa)</Label>
+              <Label>Razón social (empresa)</Label>
               <Input value={approveForm.legalName} onChange={(e) => updateApproveForm("legalName", e.target.value)} placeholder="Empresa SpA / Ltda / S.A." className={inputClassName} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Representante legal</Label>
+              <Label>Representante legal</Label>
               <Input value={approveForm.legalRepresentativeName} onChange={(e) => updateApproveForm("legalRepresentativeName", e.target.value)} placeholder="Nombre completo" className={inputClassName} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">RUT representante legal</Label>
+              <Label>RUT representante legal</Label>
               <Input value={approveForm.legalRepresentativeRut} onChange={(e) => updateApproveForm("legalRepresentativeRut", e.target.value)} placeholder="12.345.678-9" className={inputClassName} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Industria</Label>
+              <Label>Industria</Label>
               <SearchableSelect
                 value={approveForm.industry}
                 options={industries.map((i) => ({ id: i.name, label: i.name }))}
@@ -2203,38 +2206,38 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Segmento</Label>
+              <Label>Segmento</Label>
               <Input value={approveForm.segment} onChange={(e) => updateApproveForm("segment", e.target.value)} placeholder="Corporativo, PYME..." className={inputClassName} />
             </div>
             <div className="space-y-1.5 md:col-span-2 lg:col-span-3">
               <div className="flex items-center justify-between gap-2">
-                <Label className="text-xs">Página web</Label>
+                <Label>Página web</Label>
                 <div className="flex items-center gap-2">
                   <Button type="button" size="sm" variant="outline" className="h-7 text-xs" onClick={enrichCompanyInfoFromWebsite} disabled={enrichingCompanyInfo || !approveForm.website.trim()}>
                     {enrichingCompanyInfo && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
                     Traer datos web
                   </Button>
-                  <Button type="button" size="sm" variant="outline" className="h-7 text-xs border-amber-500/40 text-amber-400 hover:bg-amber-500/10" onClick={enrichFromApollo} disabled={enrichingApollo || (!lead.email && !approveForm.website.trim() && !lead.firstName)}>
+                  <Button type="button" size="sm" variant="outline" className="h-7 text-xs border-status-warn-border text-status-warn-fg hover:bg-status-warn-soft" onClick={enrichFromApollo} disabled={enrichingApollo || (!lead.email && !approveForm.website.trim() && !lead.firstName)}>
                     {enrichingApollo ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Sparkles className="mr-1 h-3 w-3" />}
                     Apollo
                   </Button>
                 </div>
               </div>
               <Input value={approveForm.website} onChange={(e) => updateApproveForm("website", e.target.value)} placeholder="https://www.empresa.cl" className={inputClassName} />
-              <p className="text-[10px] text-muted-foreground">Se detecta automáticamente desde el dominio del email. Se asocia a la cuenta.</p>
+              <p className="text-xs text-muted-foreground">Se detecta automáticamente desde el dominio del email. Se asocia a la cuenta.</p>
             </div>
             <div className="space-y-1.5 md:col-span-2 lg:col-span-3">
-              <Label className="text-xs">Información de la empresa</Label>
+              <Label>Información de la empresa</Label>
               <textarea value={approveForm.companyInfo} onChange={(e) => updateApproveForm("companyInfo", e.target.value)}
                 placeholder="Resumen comercial de qué hace la empresa..." className={`w-full min-h-[96px] resize-y rounded-md border px-3 py-2 text-sm ${inputClassName}`} rows={4} />
               {detectedCompanyLogoUrl && (
                 <div className="space-y-2 rounded-md border border-border bg-muted/20 p-2">
-                  <div className="text-[10px] text-muted-foreground">Logo detectado</div>
+                  <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Logo detectado</div>
                   <div className="flex items-center gap-3">
                     <img src={detectedCompanyLogoUrl} alt="Logo empresa detectado" className="h-12 w-12 rounded border border-border bg-background object-contain" />
-                    <span className="truncate text-[10px] text-muted-foreground">{detectedCompanyLogoUrl}</span>
+                    <span className="truncate text-xs text-muted-foreground">{detectedCompanyLogoUrl}</span>
                   </div>
-                  <Button type="button" variant="ghost" size="sm" className="h-6 px-2 text-[10px]"
+                  <Button type="button" variant="ghost" size="sm" className="h-6 px-2 text-xs"
                     onClick={async () => { try { await navigator.clipboard.writeText(detectedCompanyLogoUrl); toast.success("URL del logo copiada."); } catch { toast.error("No se pudo copiar."); } }}>
                     Copiar URL
                   </Button>
@@ -2247,25 +2250,25 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
 
     // TAB: Contacts
     const contactsContent = (
-        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 rounded-lg border border-border bg-card p-4 sm:p-5">
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 rounded-xl border border-border bg-card p-4 sm:p-5">
           <div className="space-y-1.5">
-            <Label className="text-xs">Nombre *</Label>
+            <Label>Nombre *</Label>
             <Input value={approveForm.contactFirstName} onChange={(e) => updateApproveForm("contactFirstName", e.target.value)} placeholder="Nombre" className={inputClassName} />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Apellido</Label>
+            <Label>Apellido</Label>
             <Input value={approveForm.contactLastName} onChange={(e) => updateApproveForm("contactLastName", e.target.value)} placeholder="Apellido" className={inputClassName} />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Cargo</Label>
+            <Label>Cargo</Label>
             <Input value={approveForm.roleTitle} onChange={(e) => updateApproveForm("roleTitle", e.target.value)} placeholder="Gerente, jefe..." className={inputClassName} />
           </div>
           <div className="space-y-1.5 md:col-span-2 lg:col-span-1">
-            <Label className="text-xs">Email</Label>
+            <Label>Email</Label>
             <Input value={approveForm.email} onChange={(e) => updateApproveForm("email", e.target.value)} placeholder="correo@empresa.com" className={inputClassName} />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Teléfono</Label>
+            <Label>Teléfono</Label>
             <Input value={approveForm.phone} onChange={(e) => updateApproveForm("phone", e.target.value)} placeholder="+56 9 1234 5678" className={inputClassName} />
           </div>
         </div>
@@ -2273,17 +2276,17 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
 
     // TAB: Deals
     const dealsContent = (
-        <div className="space-y-3 rounded-lg border border-border bg-card p-4 sm:p-5">
+        <div className="space-y-3 rounded-xl border border-border bg-card p-4 sm:p-5">
           <div className="space-y-1.5">
-            <Label className="text-xs">Título del negocio</Label>
+            <Label>Título del negocio</Label>
             <Input value={approveForm.dealTitle} onChange={(e) => updateApproveForm("dealTitle", e.target.value)} placeholder="Oportunidad para..." className={inputClassName} />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Solicitud</Label>
+            <Label>Solicitud</Label>
             <textarea value={approveForm.notes} onChange={(e) => updateApproveForm("notes", e.target.value)}
               placeholder="Descripción de la solicitud (se copiará al negocio y cotización)..."
               className={`w-full min-h-[120px] resize-y rounded-md border px-3 py-2 text-sm ${inputClassName}`} rows={5} />
-            <p className="text-[10px] text-muted-foreground">Esta solicitud se agregará al negocio y a las cotizaciones creadas.</p>
+            <p className="text-xs text-muted-foreground">Esta solicitud se agregará al negocio y a las cotizaciones creadas.</p>
           </div>
         </div>
     );
@@ -2377,7 +2380,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
                     <>
                       {dispCur === "UF" ? (
                         <>
-                          <span className="text-sm font-semibold tabular-nums text-emerald-500 dark:text-emerald-400">
+                          <span className="text-sm font-semibold tabular-nums text-status-ok-fg dark:text-status-ok-fg">
                             {saleUf != null
                               ? `${saleUf.toLocaleString("es-CL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} UF`
                               : "— UF"}
@@ -2386,11 +2389,11 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
                         </>
                       ) : (
                         <>
-                          <span className="text-sm font-semibold tabular-nums text-sky-500 dark:text-sky-400">
+                          <span className="text-sm font-semibold tabular-nums text-status-info-fg dark:text-status-info-fg">
                             {formatCurrency(saleClp)}
                           </span>
                           {saleUf != null ? (
-                            <span className="text-[11px] font-medium tabular-nums text-emerald-600/85 dark:text-emerald-400/90">
+                            <span className="text-[11px] font-medium tabular-nums text-status-ok-fg/85">
                               {saleUf.toLocaleString("es-CL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} UF
                             </span>
                           ) : null}
@@ -2409,42 +2412,72 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
               )}
               {/* Collapsible content */}
               {isExpanded && (
-              <div className="space-y-3 border-t border-border/30 px-3 pb-3 pt-2 sm:px-4 sm:pb-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <div className="space-y-1">
-                    <Label className="text-[11px]">Nombre *</Label>
-                    <Input value={inst.name} onChange={(e) => updateInstallation(inst._key, "name", e.target.value)} placeholder="Bodega central, Sucursal norte..." className={`h-9 text-sm ${inputClassName}`} />
-                  </div>
-                  <div className="relative z-[5] space-y-1">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-[11px]">Dirección (Google Maps)</Label>
-                      {(inst.address || (inst.lat != null && inst.lng != null)) && (
-                        <a
-                          href={inst.lat != null && inst.lng != null ? `https://www.google.com/maps/@${inst.lat},${inst.lng},17z` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(inst.address)}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-[11px] text-emerald-400 hover:text-emerald-300 inline-flex items-center gap-1"
-                          title="Abrir en Google Maps"
-                        >
-                          <ExternalLink className="h-3 w-3" />
-                          Abrir en Maps
-                        </a>
+              <div className="space-y-2 border-t border-border/30 px-3 pb-3 pt-2 sm:px-4 sm:pb-4">
+                {/* ── Datos básicos (subsección colapsable independiente) ── */}
+                {(() => {
+                  const datosOpen = expandedInstDatos[inst._key] !== false; // default abierto
+                  const summaryParts = [inst.commune, inst.city].filter(Boolean);
+                  const addressShort = inst.address?.split(",")[0]?.trim();
+                  const summary = !datosOpen
+                    ? [addressShort, ...summaryParts].filter(Boolean).join(" · ") || "Sin dirección"
+                    : null;
+                  return (
+                    <Card className="shadow-sm overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={() => setExpandedInstDatos((prev) => ({ ...prev, [inst._key]: !datosOpen }))}
+                        className="flex items-center justify-between w-full px-3 py-2.5 hover:bg-muted/10 transition-colors"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground shrink-0">Datos básicos</h2>
+                          {!datosOpen && summary && (
+                            <span className="text-[11px] text-muted-foreground truncate">{summary}</span>
+                          )}
+                        </div>
+                        <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", datosOpen && "rotate-180")} />
+                      </button>
+                      {datosOpen && (
+                        <div className="px-3 pb-3 space-y-2">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <div className="space-y-1">
+                              <Label className="text-[11px]">Nombre *</Label>
+                              <Input value={inst.name} onChange={(e) => updateInstallation(inst._key, "name", e.target.value)} placeholder="Bodega central, Sucursal norte..." className={`h-9 text-sm ${inputClassName}`} />
+                            </div>
+                            <div className="relative z-[5] space-y-1">
+                              <div className="flex items-center justify-between">
+                                <Label className="text-[11px]">Dirección (Google Maps)</Label>
+                                {(inst.address || (inst.lat != null && inst.lng != null)) && (
+                                  <a
+                                    href={inst.lat != null && inst.lng != null ? `https://www.google.com/maps/@${inst.lat},${inst.lng},17z` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(inst.address)}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-[11px] text-status-ok-fg hover:text-status-ok-fg inline-flex items-center gap-1"
+                                    title="Abrir en Google Maps"
+                                  >
+                                    <ExternalLink className="h-3 w-3" />
+                                    Abrir en Maps
+                                  </a>
+                                )}
+                              </div>
+                              <AddressAutocomplete value={inst.address} onChange={(result) => handleAddressChange(inst._key, result)} placeholder="Buscar dirección..." showMap={false} />
+                              <MapsUrlPasteInput onResolve={(result) => handleAddressChange(inst._key, result)} className="mt-1.5" />
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                            <div className="space-y-1">
+                              <Label className="text-[11px]">Comuna</Label>
+                              <Input value={inst.commune} onChange={(e) => updateInstallation(inst._key, "commune", e.target.value)} placeholder="Las Condes" className={`h-9 text-sm ${inputClassName}`} />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-[11px]">Ciudad</Label>
+                              <Input value={inst.city} onChange={(e) => updateInstallation(inst._key, "city", e.target.value)} placeholder="Santiago" className={`h-9 text-sm ${inputClassName}`} />
+                            </div>
+                          </div>
+                        </div>
                       )}
-                    </div>
-                    <AddressAutocomplete value={inst.address} onChange={(result) => handleAddressChange(inst._key, result)} placeholder="Buscar dirección..." showMap={false} />
-                    <MapsUrlPasteInput onResolve={(result) => handleAddressChange(inst._key, result)} className="mt-1.5" />
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  <div className="space-y-1">
-                    <Label className="text-[11px]">Comuna</Label>
-                    <Input value={inst.commune} onChange={(e) => updateInstallation(inst._key, "commune", e.target.value)} placeholder="Las Condes" className={`h-9 text-sm ${inputClassName}`} />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-[11px]">Ciudad</Label>
-                    <Input value={inst.city} onChange={(e) => updateInstallation(inst._key, "city", e.target.value)} placeholder="Santiago" className={`h-9 text-sm ${inputClassName}`} />
-                  </div>
-                </div>
+                    </Card>
+                  );
+                })()}
 
                 {/* ── CPQ Embebido (dentro de cada instalación) ── */}
                 <LeadInstallationCpq
@@ -2467,16 +2500,203 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
             </div>
             );
           })}
-          <p className="text-[10px] text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             Cada instalación tiene su propia configuración. El nombre de cotización sigue al nombre de la instalación hasta que lo edites. Con la fila plegada ves total UF/CLP y márgenes según la moneda elegida.
           </p>
         </div>
     );
 
+  /* ── Toolbar superior de acciones del lead (sticky bajo el header, estilo CPQ) ──
+   * Reemplaza la antigua barra inferior. Visualmente:
+   *   ┌──────────────────────────────────────────────────────────┐
+   *   │ Banner de estado (info / verificación completada)         │
+   *   │ [Guardar] [Rechazar]            [Verificar y aprobar] [Enviar] │
+   *   └──────────────────────────────────────────────────────────┘
+   * En mobile: secundarios y primarios cada uno en su propia fila para
+   * que no queden apretados; en ≥sm todo entra en una sola línea.   */
+  const showApproveAndSend =
+    duplicateChecked &&
+    approveForm.email.trim() &&
+    installations.some((i) => i.dotacion.length > 0 || (cpqConfigs[i._key]?.positions?.length ?? 0) > 0);
+  const approveLabel = !duplicateChecked
+    ? "Verificar y aprobar"
+    : duplicates.length > 0 || existingContact || installationConflicts.length > 0
+      ? "Confirmar (con conflictos)"
+      : "Confirmar aprobación";
+  const hasConflicts =
+    duplicateChecked && (duplicates.length > 0 || existingContact !== null || installationConflicts.length > 0);
+  const filledInstallations = installations.filter((i) => i.name.trim());
+  const leadActionBar = isEditable ? (
+    <div className="border-t border-border/40 bg-muted/15 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 xl:-mx-10 xl:px-10 2xl:-mx-12 2xl:px-12 py-2.5 space-y-2">
+      {/* Status — compacto, ocupa la mínima altura posible */}
+      {duplicateChecked ? (
+        <div
+          className={cn(
+            "rounded-md border px-2.5 py-1.5 text-xs",
+            hasConflicts
+              ? "border-status-warn-border bg-status-warn-soft"
+              : "border-status-ok-border bg-status-ok-soft"
+          )}
+        >
+          <p
+            className={cn(
+              "inline-flex items-center gap-1.5 text-[11px] font-medium",
+              hasConflicts ? "text-status-warn-fg" : "text-status-ok-fg"
+            )}
+          >
+            {hasConflicts ? (
+              <AlertTriangle className="h-3.5 w-3.5" />
+            ) : (
+              <CheckCircle2 className="h-3.5 w-3.5" />
+            )}
+            {hasConflicts
+              ? "Verificación con conflictos — al confirmar se creará:"
+              : "Verificación completada — al confirmar se creará:"}
+          </p>
+          <div className="mt-1 flex flex-wrap gap-1.5">
+            <Badge variant="outline" className="h-5 gap-1 px-1.5 text-[10px] font-normal">
+              <Building2 className="h-3 w-3" />
+              {useExistingAccountId ? (
+                <>
+                  <span className="text-status-warn-fg">Usar:</span>
+                  <span className="max-w-[120px] truncate">
+                    {duplicates.find((d) => d.id === useExistingAccountId)?.name || "existente"}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="text-status-ok-fg">Nueva:</span>
+                  <span className="max-w-[140px] truncate">{approveForm.accountName}</span>
+                </>
+              )}
+            </Badge>
+            <Badge variant="outline" className="h-5 gap-1 px-1.5 text-[10px] font-normal">
+              <Users className="h-3 w-3" />
+              {existingContact ? (
+                contactResolution === "use_existing" ? (
+                  <>
+                    <span className="text-status-warn-fg">Mantener:</span>
+                    <span className="max-w-[120px] truncate">{existingContact.firstName}</span>
+                  </>
+                ) : contactResolution === "overwrite" ? (
+                  <>
+                    <span className="text-status-warn-fg">Sobrescribir:</span>
+                    <span className="max-w-[120px] truncate">{existingContact.firstName}</span>
+                  </>
+                ) : (
+                  <span className="text-status-ok-fg">Nuevo contacto</span>
+                )
+              ) : (
+                <>
+                  <span className="text-status-ok-fg">Nuevo:</span>
+                  <span className="max-w-[140px] truncate">
+                    {approveForm.contactFirstName} {approveForm.contactLastName}
+                  </span>
+                </>
+              )}
+            </Badge>
+            <Badge variant="outline" className="h-5 gap-1 px-1.5 text-[10px] font-normal">
+              <Briefcase className="h-3 w-3" />
+              <span className="max-w-[140px] truncate">{approveForm.dealTitle}</span>
+            </Badge>
+            {filledInstallations.length > 0 && (
+              <Badge variant="outline" className="h-5 gap-1 px-1.5 text-[10px] font-normal">
+                <MapPin className="h-3 w-3" />
+                <span className="max-w-[160px] truncate">
+                  {filledInstallations.map((i) => i.name).join(", ")}
+                </span>
+              </Badge>
+            )}
+          </div>
+        </div>
+      ) : (
+        <p className="hidden sm:flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <Info className="h-3.5 w-3.5 text-muted-foreground/70 shrink-0" aria-hidden />
+          Nada se crea hasta que hagas clic en &quot;Verificar y aprobar&quot; y luego confirmes.
+        </p>
+      )}
+
+      {/* Acciones — secundarias a la izquierda, primarias a la derecha */}
+      <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-2">
+        <div className="flex gap-1.5 sm:gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={saveLeadDraft}
+            disabled={approving || savingLead}
+            className="h-8 flex-1 gap-1.5 px-2.5 text-xs sm:flex-initial sm:px-3"
+            title="Guardar el borrador del lead en estado «en revisión» (no crea nada todavía)"
+          >
+            {savingLead ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+            ) : (
+              <Save className="h-3.5 w-3.5" aria-hidden />
+            )}
+            <span>Guardar</span>
+            <span className="hidden md:inline">en revisión</span>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={openRejectModal}
+            disabled={approving || savingLead}
+            className="h-8 flex-1 gap-1.5 px-2.5 text-xs text-destructive hover:text-destructive sm:flex-initial sm:px-3"
+            title="Rechazar el lead (puedes incluir motivo y enviar correo)"
+          >
+            <XCircle className="h-3.5 w-3.5" aria-hidden />
+            Rechazar
+          </Button>
+        </div>
+        <div className="flex gap-1.5 sm:ml-auto sm:gap-2">
+          <Button
+            onClick={approveLead}
+            disabled={approving || savingLead || sendingExpress}
+            size="sm"
+            className={cn(
+              "h-8 flex-1 gap-1.5 px-3 text-xs font-medium shadow-sm sm:flex-initial",
+              hasConflicts
+                ? "bg-status-warn text-white hover:brightness-110"
+                : "bg-status-ok text-white hover:brightness-110"
+            )}
+            title={
+              !duplicateChecked
+                ? "Comprobar duplicados de cuenta/contacto e instalaciones antes de aprobar"
+                : "Confirmar y crear cuenta, contacto, negocio y cotizaciones"
+            }
+          >
+            {approving ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+            ) : (
+              <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
+            )}
+            <span className="truncate">{approveLabel}</span>
+          </Button>
+          {showApproveAndSend && (
+            <Button
+              onClick={approveAndSend}
+              disabled={approving || savingLead || sendingExpress}
+              size="sm"
+              className="h-8 flex-1 gap-1.5 px-3 text-xs font-medium bg-status-info text-white shadow-sm hover:brightness-110 sm:flex-initial"
+              title="Aprobar y enviar la propuesta al cliente por email + portal"
+            >
+              {sendingExpress ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+              ) : (
+                <Send className="h-3.5 w-3.5" aria-hidden />
+              )}
+              <span className="truncate">
+                <span className="hidden sm:inline">Aprobar y </span>Enviar
+              </span>
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
+  ) : null;
+
   return (
     <>
       <EntityDetailLayout
-        className={isEditable ? "pb-52 sm:pb-28" : undefined}
         breadcrumb={["CRM", "Prospectos", lead.companyName || fullName]}
         breadcrumbHrefs={["/crm", "/crm/leads"]}
         header={{
@@ -2485,23 +2705,24 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
           status: statusInfo,
           actions: headerActions,
           extra: (
-            <div className="flex flex-wrap items-center justify-end gap-2">
+            <div className="flex flex-wrap items-center justify-end gap-1 sm:gap-2">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
                     size="sm"
                     variant={lead.firstContactAt ? "outline" : "default"}
-                    className="h-8 gap-1.5"
+                    className="h-8 w-8 sm:w-auto px-0 sm:px-3 sm:gap-1.5"
                     disabled={markingContact}
+                    title={lead.firstContactAt ? `Contactado · ${CONTACT_CHANNEL_LABELS[lead.firstContactChannel || ""] || lead.firstContactChannel || "—"}` : "Marcar contactado"}
                   >
                     {markingContact ? (
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
                     ) : lead.firstContactAt ? (
-                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                      <CheckCircle2 className="h-3.5 w-3.5 text-status-ok-fg" />
                     ) : (
                       <UserCheck className="h-3.5 w-3.5" />
                     )}
-                    <span className="text-xs">
+                    <span className="hidden sm:inline text-xs">
                       {lead.firstContactAt
                         ? `Contactado · ${CONTACT_CHANNEL_LABELS[lead.firstContactChannel || ""] || lead.firstContactChannel || "—"}`
                         : "Marcar contactado"}
@@ -2523,15 +2744,16 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-              {headerAutosaveIndicator}
+              {/* Indicador de autosave: solo desktop para no saturar la cabecera mobile */}
+              <span className="hidden sm:inline-flex">{headerAutosaveIndicator}</span>
               {lead.phone ? (
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1 sm:gap-1.5">
                   <a href={`tel:+${sanitizePhone(lead.phone || "")}`} title="Llamar"
                     className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-background text-foreground hover:bg-muted transition-colors">
                     <Phone className="h-4 w-4" />
                   </a>
                   <a href={buildWhatsAppUrl()} target="_blank" rel="noopener noreferrer" title="WhatsApp"
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-green-600/30 bg-green-600/15 text-green-400 hover:bg-green-600/25 transition-colors">
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-status-ok-border bg-status-ok-soft text-status-ok-fg hover:brightness-110 transition-colors">
                     <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" /></svg>
                   </a>
                 </div>
@@ -2543,6 +2765,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
         activeTab={activeTab}
         onTabChange={setActiveTab}
         stickyMeta={leadStickyMeta}
+        pipelineBar={leadActionBar}
       >
         {activeTab === "general" && generalContent}
         {activeTab === "account" && isEditable && accountContent}
@@ -2551,7 +2774,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
         {activeTab === "installations" && isEditable && (
           <div className="space-y-4">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <h3 className="text-sm font-medium">Instalaciones y Dotación</h3>
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Instalaciones y Dotación</h3>
               <Button type="button" variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={addInstallation}>
                 <Plus className="h-3 w-3" /> Nueva instalación
               </Button>
@@ -2562,82 +2785,12 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
         {activeTab === "files" && <FileAttachments entityType="lead" entityId={lead.id} readOnly={!isEditable} title="Documentos" />}
       </EntityDetailLayout>
 
-      {/* ── Sticky action bar for editable leads ── */}
-      {/* pointer-events-none en el contenedor: si el scroll deja campos (p. ej. dirección Maps) bajo esta barra, los clics llegan al input y no se “comen” el overlay sticky. Los botones llevan pointer-events-auto. */}
-      {isEditable && (
-        <div className="sticky bottom-14 lg:bottom-0 -mx-4 sm:-mx-6 lg:-mx-8 xl:-mx-10 2xl:-mx-12 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] z-10 pointer-events-none">
-          {!duplicateChecked && (
-            <p className="text-xs text-muted-foreground mb-2 w-full text-center sm:text-left">
-              Nada se crea hasta que hagas clic en &quot;Verificar y aprobar&quot; y luego confirmes.
-            </p>
-          )}
-          {duplicateChecked && (
-            <div className="mb-2 rounded-md border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-xs text-foreground space-y-1">
-              <p className="font-medium text-emerald-400">Verificación completada — al confirmar se creará:</p>
-              <div className="flex flex-wrap gap-2 mt-1.5">
-                <Badge variant="outline" className="gap-1.5 text-[11px]">
-                  <Building2 className="h-3 w-3" />
-                  {useExistingAccountId
-                    ? <><span className="text-amber-400">Usar:</span> {duplicates.find((d) => d.id === useExistingAccountId)?.name || "existente"}</>
-                    : <><span className="text-emerald-400">Nueva:</span> {approveForm.accountName}</>}
-                </Badge>
-                <Badge variant="outline" className="gap-1.5 text-[11px]">
-                  <Users className="h-3 w-3" />
-                  {existingContact
-                    ? contactResolution === "use_existing"
-                      ? <><span className="text-amber-400">Mantener:</span> {existingContact.firstName}</>
-                      : contactResolution === "overwrite"
-                        ? <><span className="text-amber-400">Sobrescribir:</span> {existingContact.firstName}</>
-                        : <span className="text-emerald-400">Nuevo contacto</span>
-                    : <><span className="text-emerald-400">Nuevo:</span> {approveForm.contactFirstName} {approveForm.contactLastName}</>}
-                </Badge>
-                <Badge variant="outline" className="gap-1.5 text-[11px]">
-                  <Briefcase className="h-3 w-3" />
-                  {approveForm.dealTitle}
-                </Badge>
-                {installations.filter((i) => i.name.trim()).length > 0 && (
-                  <Badge variant="outline" className="gap-1.5 text-[11px]">
-                    <MapPin className="h-3 w-3" />
-                    {installations.filter((i) => i.name.trim()).map((i) => i.name).join(", ")}
-                  </Badge>
-                )}
-              </div>
-            </div>
-          )}
-          {/* Mobile: Aprobar first (top, thumb-reachable), then others */}
-          <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2">
-            <Button variant="outline" size="sm" onClick={saveLeadDraft} disabled={approving || savingLead} className="pointer-events-auto sm:order-1">
-              {savingLead ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-              Guardar en revisión
-            </Button>
-            <Button variant="outline" size="sm" onClick={openRejectModal} disabled={approving || savingLead} className="pointer-events-auto text-destructive hover:text-destructive sm:order-2">
-              <XCircle className="mr-2 h-4 w-4" />
-              Rechazar
-            </Button>
-            <Button onClick={approveLead} disabled={approving || savingLead || sendingExpress} className="pointer-events-auto sm:order-3">
-              {approving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
-              {!duplicateChecked
-                ? "Verificar y aprobar"
-                : (duplicates.length > 0 || existingContact || installationConflicts.length > 0)
-                  ? "Confirmar aprobación (con conflictos)"
-                  : "Confirmar aprobación"}
-            </Button>
-            {duplicateChecked && approveForm.email.trim() && installations.some((i) => i.dotacion.length > 0 || (cpqConfigs[i._key]?.positions?.length ?? 0) > 0) && (
-              <Button onClick={approveAndSend} disabled={approving || savingLead || sendingExpress} className="pointer-events-auto sm:order-4 bg-emerald-600 hover:bg-emerald-700 text-white">
-                {sendingExpress ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-                Aprobar y Enviar
-              </Button>
-            )}
-          </div>
-        </div>
-      )}
-
       {/* ── Approval Success Modal ── */}
       <Dialog open={!!approvalResult} onOpenChange={(open) => { if (!open) { setApprovalResult(null); router.push("/crm/leads"); } }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+              <CheckCircle2 className="h-5 w-5 text-status-ok-fg" />
               Lead aprobado
             </DialogTitle>
             <DialogDescription>
@@ -2648,7 +2801,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
             <div className="space-y-3">
               <div className="space-y-2 text-sm">
                 <Link href={`/crm/contacts/${approvalResult.contact.id}`} className="flex items-center gap-3 rounded-md border border-border p-3 hover:bg-muted/50 transition-colors">
-                  <Users className="h-4 w-4 text-blue-500 shrink-0" />
+                  <Users className="h-4 w-4 text-status-info-fg shrink-0" />
                   <div className="min-w-0 flex-1">
                     <p className="text-xs text-muted-foreground">Contacto</p>
                     <p className="font-medium truncate">{approvalResult.contact.firstName} {approvalResult.contact.lastName}</p>
@@ -2664,7 +2817,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
                   <ExternalLink className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                 </Link>
                 <Link href={`/crm/deals/${approvalResult.deal.id}`} className="flex items-center gap-3 rounded-md border border-border p-3 hover:bg-muted/50 transition-colors">
-                  <Briefcase className="h-4 w-4 text-amber-500 shrink-0" />
+                  <Briefcase className="h-4 w-4 text-status-warn-fg shrink-0" />
                   <div className="min-w-0 flex-1">
                     <p className="text-xs text-muted-foreground">Negocio</p>
                     <p className="font-medium truncate">{approvalResult.deal.title}</p>
@@ -2673,7 +2826,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
                 </Link>
                 {approvalResult.quotes.map((q) => (
                   <Link key={q.id} href={`/cpq/${q.id}`} className="flex items-center gap-3 rounded-md border border-border p-3 hover:bg-muted/50 transition-colors">
-                    <FileText className="h-4 w-4 text-emerald-500 shrink-0" />
+                    <FileText className="h-4 w-4 text-status-ok-fg shrink-0" />
                     <div className="min-w-0 flex-1">
                       <p className="text-xs text-muted-foreground">Cotización CPQ</p>
                       <p className="font-medium truncate">{q.code}{q.installationName ? ` — ${q.installationName}` : ""}</p>
@@ -2691,10 +2844,16 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
                   <FileText className="mr-2 h-4 w-4" />
                   Ir al CPQ — Revisar y ajustar
                 </Button>
-                {approveForm.email.trim() && approvalResult.quotes.length > 0 && (
+                {/* Botón "Enviar propuesta ahora" — siempre visible cuando se
+                    creó la cotización. Antes estaba gateado por
+                    approveForm.email.trim(), pero el endpoint /send-portal usa
+                    el email del contacto recién creado (vía recipientContactId),
+                    no el del formulario. Si el form quedaba sin email el botón
+                    desaparecía aunque el contacto sí lo tuviera. */}
+                {approvalResult.quotes.length > 0 && (
                   <Button
                     variant="default"
-                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+                    className="w-full bg-status-ok hover:brightness-110 text-white"
                     disabled={sendingExpress}
                     onClick={async () => {
                       setSendingExpress(true);
@@ -2762,7 +2921,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <MessageCircle className="h-5 w-5 text-green-400" />
+              <MessageCircle className="h-5 w-5 text-status-ok-fg" />
               ¡Enviado! Ahora por WhatsApp
             </DialogTitle>
           </DialogHeader>
@@ -2770,8 +2929,8 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
             <p className="text-sm text-muted-foreground">
               Email enviado a <strong className="text-foreground">{whatsappSentTo || "el cliente"}</strong>. Haz clic para enviarle el mismo mensaje por WhatsApp.
             </p>
-            <div className="rounded-lg border border-green-500/20 bg-green-500/5 p-3 space-y-1">
-              <p className="text-xs font-semibold text-green-400 uppercase tracking-wide">El mensaje incluye</p>
+            <div className="rounded-lg border border-status-ok-border bg-status-ok-soft/30 p-3 space-y-1">
+              <p className="text-xs font-semibold text-status-ok-fg uppercase tracking-wide">El mensaje incluye</p>
               <p className="text-xs text-muted-foreground">🔑 Email y PIN de acceso al portal</p>
               <p className="text-xs text-muted-foreground">🔗 Link al portal y a la propuesta técnica</p>
               <p className="text-xs text-muted-foreground">📋 Beneficios del portal explicados</p>
@@ -2780,7 +2939,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
           <DialogFooter className="flex-col gap-2 sm:flex-col">
             {whatsappUrl && (
               <Button
-                className="w-full gap-2 bg-green-600 hover:bg-green-700 text-white h-11"
+                className="w-full gap-2 bg-status-ok hover:brightness-110 text-white h-11"
                 onClick={() => { window.open(whatsappUrl, "_blank"); setWhatsappModalOpen(false); router.push("/crm/leads"); }}
               >
                 <MessageCircle className="h-4 w-4" />
@@ -2805,13 +2964,13 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-1.5">
-              <Label className="text-xs">Motivo *</Label>
+              <Label>Motivo *</Label>
               <select className={selectClassName} value={rejectReason} onChange={(e) => setRejectReason(e.target.value as LeadRejectReason)}>
                 {REJECTION_REASON_OPTIONS.map((opt) => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
               </select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Nota interna</Label>
+              <Label>Nota interna</Label>
               <textarea value={rejectNote} onChange={(e) => setRejectNote(e.target.value)} placeholder="Contexto interno del rechazo..."
                 className={`w-full min-h-[80px] resize-none rounded-md border px-3 py-2 text-sm ${inputClassName}`} rows={3} />
             </div>
@@ -2822,21 +2981,21 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
             {rejectSendEmail && (
               <div className="space-y-3 rounded-md border border-border p-3">
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Template (opcional)</Label>
+                  <Label>Template (opcional)</Label>
                   <select className={selectClassName} value={rejectTemplateId} onChange={(e) => applyRejectTemplate(e.target.value)}>
                     <option value="">Sin template</option>
                     {docTemplatesReject.map((t) => (<option key={t.id} value={t.id}>{t.name}</option>))}
                   </select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Asunto *</Label>
+                  <Label>Asunto *</Label>
                   <Input value={rejectEmailSubject} onChange={(e) => setRejectEmailSubject(e.target.value)} placeholder="Asunto del correo" className={inputClassName} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Mensaje *</Label>
+                  <Label>Mensaje *</Label>
                   <textarea value={rejectEmailBody} onChange={(e) => setRejectEmailBody(e.target.value)} placeholder="Contenido del correo..."
                     className={`w-full min-h-[140px] rounded-md border px-3 py-2 text-sm ${inputClassName}`} rows={6} />
-                  <p className="text-[10px] text-muted-foreground">La firma configurada en el sistema se agrega automáticamente al momento del envío.</p>
+                  <p className="text-xs text-muted-foreground">La firma configurada en el sistema se agrega automáticamente al momento del envío.</p>
                 </div>
               </div>
             )}

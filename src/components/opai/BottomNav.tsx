@@ -69,7 +69,7 @@ const ALL_NAV_OPTIONS: MainNavItem[] = [
   { key: "personas", href: "/personas/guardias", label: "Personas", icon: Users },
   { key: "finanzas", href: "/finanzas", label: "Finanzas", icon: Receipt },
   { key: "payroll", href: "/payroll", label: "Payroll", icon: Calculator },
-  { key: "documentos", href: "/opai/inicio", label: "Docs", icon: FileText },
+  { key: "documentos", href: "/opai/documentos", label: "Docs", icon: FileText },
 ];
 
 const MAS_ITEM: MainNavItem = { key: "mas", href: "#mas", label: "Más", icon: LayoutGrid, isDrawer: true };
@@ -151,7 +151,7 @@ function getActiveModule(pathname: string): string | null {
   if (pathname.startsWith("/payroll")) return "payroll";
   if (pathname.startsWith("/finanzas")) return "finanzas";
   if (pathname.startsWith("/opai/configuracion")) return "config";
-  if (pathname.startsWith("/opai/inicio") || pathname.startsWith("/opai/documentos") || pathname.startsWith("/opai/templates")) return "docs";
+  if (pathname.startsWith("/opai/documentos") || pathname.startsWith("/opai/documentos-operativos")) return "docs";
   if (pathname.startsWith("/te")) return "te";
   if (pathname.startsWith("/reportes/dt")) return "reportes_dt";
   return null;
@@ -255,12 +255,12 @@ function MainNav({ pathname, userRole, navConfig }: { pathname: string; userRole
             href={item.href}
             className={cn(
               "relative flex flex-col items-center justify-center gap-0.5 min-w-[44px] min-h-[44px] px-3 py-1 active:scale-95 transition-all",
-              isActive ? "text-emerald-400" : "text-muted-foreground"
+              isActive ? "text-status-ok-fg" : "text-muted-foreground"
             )}
           >
             <item.icon className="h-5 w-5" />
             {isActive && (
-              <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-emerald-400 animate-in fade-in duration-200" />
+              <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-status-ok animate-in fade-in duration-200" />
             )}
             <span className="text-[11px] font-medium leading-tight">{item.label}</span>
           </Link>
@@ -295,16 +295,16 @@ function MasDrawer({ open, onOpenChange, userRole, navConfig }: { open: boolean;
   const isAdmin = userRole === 'owner' || userRole === 'admin';
 
   const modules: MasModuleItem[] = useMemo(() => [
-    { key: "finanzas", href: "/finanzas", label: "Finanzas", icon: Landmark, color: "text-amber-400", show: hasModuleAccess(permissions, "finance") },
-    { key: "payroll", href: "/payroll", label: "Payroll", icon: Wallet, color: "text-violet-400", show: hasModuleAccess(permissions, "payroll") },
-    { key: "documentos", href: "/opai/inicio", label: "Documentos", icon: FolderOpen, color: "text-sky-400", show: hasModuleAccess(permissions, "docs") },
-    { key: "reportes-dt", href: "/reportes/dt", label: "Reportes DT", icon: FileBarChart, color: "text-rose-400", show: canView(permissions, "reportes_dt") },
+    { key: "finanzas", href: "/finanzas", label: "Finanzas", icon: Landmark, color: "text-status-warn-fg", show: hasModuleAccess(permissions, "finance") },
+    { key: "payroll", href: "/payroll", label: "Payroll", icon: Wallet, color: "text-tint-violet-fg", show: hasModuleAccess(permissions, "payroll") },
+    { key: "documentos", href: "/opai/documentos", label: "Documentos", icon: FolderOpen, color: "text-status-info-fg", show: hasModuleAccess(permissions, "docs") },
+    { key: "reportes-dt", href: "/reportes/dt", label: "Reportes DT", icon: FileBarChart, color: "text-status-danger-fg", show: canView(permissions, "reportes_dt") },
   ], [permissions]);
 
   const tools: MasModuleItem[] = useMemo(() => [
     { key: "config", href: "/opai/configuracion", label: "Configuración", icon: Settings, color: "text-zinc-400", show: isAdmin },
-    { key: "portales", href: "/portales", label: "Portales", icon: Monitor, color: "text-teal-400", show: isAdmin },
-    { key: "simular-rol", label: "Simular Rol", icon: Eye, color: "text-blue-400", show: isAdmin, action: 'role-switcher' },
+    { key: "portales", href: "/portales", label: "Portales", icon: Monitor, color: "text-status-info-fg", show: isAdmin },
+    { key: "simular-rol", label: "Simular Rol", icon: Eye, color: "text-status-info-fg", show: isAdmin, action: 'role-switcher' },
   ], [isAdmin]);
 
   const handleNavigate = (href: string) => {
@@ -397,7 +397,7 @@ function MasDrawer({ open, onOpenChange, userRole, navConfig }: { open: boolean;
                 onClick={toggleTheme}
                 className="flex items-center gap-3 w-full rounded-lg px-3 py-2.5 text-sm text-foreground/80 hover:bg-muted/50 active:scale-[0.98] transition-all"
               >
-                {theme === 'dark' ? <Moon className="h-4.5 w-4.5 text-blue-400" /> : <Sun className="h-4.5 w-4.5 text-amber-400" />}
+                {theme === 'dark' ? <Moon className="h-4.5 w-4.5 text-status-info-fg" /> : <Sun className="h-4.5 w-4.5 text-status-warn-fg" />}
                 <span>{theme === 'dark' ? 'Tema oscuro' : 'Tema claro'}</span>
               </button>
 
@@ -418,7 +418,7 @@ function MasDrawer({ open, onOpenChange, userRole, navConfig }: { open: boolean;
                   onOpenChange(false);
                   setShowSignOutDialog(true);
                 }}
-                className="flex items-center gap-3 w-full rounded-lg px-3 py-2.5 text-sm text-red-400 hover:bg-red-500/10 active:scale-[0.98] transition-all"
+                className="flex items-center gap-3 w-full rounded-lg px-3 py-2.5 text-sm text-status-danger-fg hover:bg-status-danger-soft active:scale-[0.98] transition-all"
               >
                 <LogOut className="h-4.5 w-4.5" />
                 <span>Cerrar Sesión</span>
@@ -491,7 +491,7 @@ function BarCustomizer({ allOptions, selectedKeys, onUpdate, maxVisible = 4, all
         onClick={() => setOpen((v: boolean) => !v)}
         className="flex items-center gap-3 w-full rounded-lg px-3 py-2.5 text-sm text-foreground/80 hover:bg-muted/50 active:scale-[0.98] transition-all"
       >
-        <SlidersHorizontal className="h-4.5 w-4.5 text-emerald-400" />
+        <SlidersHorizontal className="h-4.5 w-4.5 text-status-ok-fg" />
         <span className="flex-1 text-left">Personalizar barra</span>
         <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform duration-200", open && "rotate-180")} />
       </button>
@@ -509,7 +509,7 @@ function BarCustomizer({ allOptions, selectedKeys, onUpdate, maxVisible = 4, all
                 key={opt.key}
                 className={cn(
                   "flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors",
-                  isVisible ? "bg-emerald-500/10" : isSelected ? "bg-muted/30" : "bg-transparent"
+                  isVisible ? "bg-status-ok-soft" : isSelected ? "bg-muted/30" : "bg-transparent"
                 )}
               >
                 {allowDeselect ? (
@@ -519,7 +519,7 @@ function BarCustomizer({ allOptions, selectedKeys, onUpdate, maxVisible = 4, all
                     className={cn(
                       "flex items-center justify-center w-5 h-5 rounded border transition-colors",
                       isSelected
-                        ? "bg-emerald-500 border-emerald-500 text-white"
+                        ? "bg-status-ok border-status-ok-border text-white"
                         : "border-border text-transparent hover:border-muted-foreground"
                     )}
                   >
@@ -528,7 +528,7 @@ function BarCustomizer({ allOptions, selectedKeys, onUpdate, maxVisible = 4, all
                 ) : (
                   <span className={cn(
                     "flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold shrink-0",
-                    isVisible ? "bg-emerald-500/20 text-emerald-400" : "bg-muted text-muted-foreground"
+                    isVisible ? "bg-status-ok-soft text-status-ok-fg" : "bg-muted text-muted-foreground"
                   )}>
                     {idx + 1}
                   </span>
@@ -664,7 +664,7 @@ function ModuleSubNav({ items, activeModule, pathname, onBack }: { items: Bottom
           <>
             <Icon className="h-5 w-5" />
             {isActive && (
-              <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-emerald-400 animate-in fade-in duration-200" />
+              <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-status-ok animate-in fade-in duration-200" />
             )}
             <span className="text-[11px] font-medium leading-tight truncate max-w-[60px]">{item.label}</span>
           </>
@@ -672,7 +672,7 @@ function ModuleSubNav({ items, activeModule, pathname, onBack }: { items: Bottom
 
         const itemClass = cn(
           "relative flex flex-col items-center justify-center gap-0.5 min-w-[44px] min-h-[44px] flex-1 px-1 py-1 active:scale-95 transition-all",
-          isActive ? "text-emerald-400" : "text-muted-foreground"
+          isActive ? "text-status-ok-fg" : "text-muted-foreground"
         );
 
         if (isChatToggle) {
@@ -725,7 +725,7 @@ function ModuleSubNav({ items, activeModule, pathname, onBack }: { items: Bottom
                     className={cn(
                       "flex items-center gap-3 rounded-lg px-3 py-3 text-sm transition-colors",
                       isActive
-                        ? "bg-emerald-500/10 text-emerald-400 font-medium"
+                        ? "bg-status-ok-soft text-status-ok-fg font-medium"
                         : "text-foreground/80 hover:bg-muted/50"
                     )}
                   >

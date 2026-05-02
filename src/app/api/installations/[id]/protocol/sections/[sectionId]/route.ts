@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, resolveApiPerms, parseBody } from "@/lib/api-auth";
 import { canEdit } from "@/lib/permissions";
+import { clearKnowledgeCache } from "@/lib/protocols/knowledge-aggregator";
 
 type Params = { id: string; sectionId: string };
 
@@ -55,6 +56,8 @@ export async function PUT(
       },
     });
 
+    clearKnowledgeCache(ctx.tenantId);
+
     return NextResponse.json({ success: true, data: section });
   } catch (error) {
     console.error("[PROTOCOL] Error updating section:", error);
@@ -96,6 +99,8 @@ export async function DELETE(
     }
 
     await prisma.protocolSection.delete({ where: { id: sectionId } });
+
+    clearKnowledgeCache(ctx.tenantId);
 
     return NextResponse.json({ success: true });
   } catch (error) {

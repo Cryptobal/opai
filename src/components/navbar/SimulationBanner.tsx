@@ -18,8 +18,8 @@ export function SimulationBanner() {
         <div
             className={cn(
                 'sticky top-0 z-[45] flex items-center justify-center gap-3 px-4 py-1.5',
-                'bg-amber-600/90 text-white text-xs font-medium backdrop-blur-sm',
-                'border-b border-amber-500/50',
+                'bg-status-warn text-white text-xs font-medium backdrop-blur-sm',
+                'border-b border-status-warn-border',
                 'animate-in slide-in-from-top-2 duration-300',
             )}
         >

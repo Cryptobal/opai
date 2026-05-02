@@ -52,71 +52,71 @@ const TYPE_CONFIG: Record<
     label: "Lead",
     groupLabel: "Leads",
     icon: Users,
-    color: "text-emerald-400",
-    bgColor: "bg-emerald-400/10",
+    color: "text-status-ok-fg",
+    bgColor: "bg-status-ok-soft",
   },
   account: {
     label: "Cuenta",
     groupLabel: "Cuentas",
     icon: Building2,
-    color: "text-blue-400",
-    bgColor: "bg-blue-400/10",
+    color: "text-status-info-fg",
+    bgColor: "bg-status-info-soft",
   },
   contact: {
     label: "Contacto",
     groupLabel: "Contactos",
     icon: Contact,
-    color: "text-sky-400",
-    bgColor: "bg-sky-400/10",
+    color: "text-status-info-fg",
+    bgColor: "bg-status-info-soft",
   },
   deal: {
     label: "Negocio",
     groupLabel: "Negocios",
     icon: TrendingUp,
-    color: "text-purple-400",
-    bgColor: "bg-purple-400/10",
+    color: "text-tint-violet-fg",
+    bgColor: "bg-tint-violet",
   },
   quote: {
     label: "Cotización",
     groupLabel: "Cotizaciones",
     icon: FileText,
-    color: "text-amber-400",
-    bgColor: "bg-amber-400/10",
+    color: "text-status-warn-fg",
+    bgColor: "bg-status-warn-soft",
   },
   installation: {
     label: "Instalación",
     groupLabel: "Instalaciones",
     icon: MapPin,
-    color: "text-teal-400",
-    bgColor: "bg-teal-400/10",
+    color: "text-status-info-fg",
+    bgColor: "bg-status-info-soft",
   },
   guardia: {
     label: "Guardia",
     groupLabel: "Guardias",
     icon: ShieldUser,
-    color: "text-sky-400",
-    bgColor: "bg-sky-400/10",
+    color: "text-status-info-fg",
+    bgColor: "bg-status-info-soft",
   },
   document: {
     label: "Documento",
     groupLabel: "Documentos",
     icon: File,
-    color: "text-orange-400",
-    bgColor: "bg-orange-400/10",
+    color: "text-status-warn-fg",
+    bgColor: "bg-status-warn-soft",
   },
   pauta_mensual: {
     label: "Pauta mensual",
     groupLabel: "Pautas mensuales",
     icon: CalendarDays,
-    color: "text-teal-400",
-    bgColor: "bg-teal-400/10",
+    color: "text-status-info-fg",
+    bgColor: "bg-status-info-soft",
   },
   channel: {
     label: "Chat",
     groupLabel: "Chats",
     icon: MessageCircle,
-    color: "text-teal-400",
-    bgColor: "bg-teal-400/10",
+    color: "text-status-info-fg",
+    bgColor: "bg-status-info-soft",
   },
 };
 
@@ -422,7 +422,7 @@ export function GlobalSearch({
                       <div className="flex items-start justify-between gap-2">
                         <p className="text-sm font-medium truncate">{result.title}</p>
                         {showPinBadge && (
-                          <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold tabular-nums bg-emerald-500/20 text-emerald-400">
+                          <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold tabular-nums bg-status-ok-soft text-status-ok-fg">
                             {result.pinDisplay}
                           </span>
                         )}

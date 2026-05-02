@@ -101,6 +101,7 @@ const TYPE_SOURCE_MODULE: Record<string, SourceModuleKey> = {
   new_te_ingreso: "guardia",
   refuerzo_solicitud_created: "operaciones",
   ticket_created: "operaciones",
+  ticket_assigned: "operaciones",
   ticket_approved: "operaciones",
   ticket_rejected: "operaciones",
   ticket_sla_breached: "operaciones",
@@ -509,8 +510,8 @@ async function getRoleExcludedNotificationTypes(ctx: AuthContext): Promise<strin
 }
 
 async function getUserBellDisabledTypes(ctx: AuthContext): Promise<string[]> {
-  const record = await prisma.userNotificationPreference.findUnique({
-    where: { userId_tenantId: { userId: ctx.userId, tenantId: ctx.tenantId } },
+  const record = await prisma.notificationPreference.findUnique({
+    where: { subscriberType_subscriberId: { subscriberType: "ADMIN", subscriberId: ctx.userId } },
   });
   if (!record?.preferences) return [];
   const prefs = record.preferences as unknown as UserNotifPrefsMap;
@@ -539,6 +540,7 @@ function visibleNotificationsWhere(
     "mention",
     "ticket_mention",
     "ticket_created",
+    "ticket_assigned",
   ];
 
   const orConditions: Prisma.NotificationWhereInput[] = [
@@ -573,6 +575,7 @@ function visibleNotificationsWhere(
     "refuerzo_solicitud_created",
     "ticket_mention",
     "ticket_created",
+    "ticket_assigned",
   ]) {
     if (baseExclusions.includes(targetedType)) continue; // Skip if role excludes it
     orConditions.push({
@@ -593,8 +596,8 @@ function visibleNotificationsWhere(
 // NOTE: Anteriormente aquí existía ensureGuardiaDocExpiryNotifications(),
 // que se ejecutaba como side-effect del GET. Ahora las notificaciones de
 // documentos de guardia por vencer/vencidos son creadas por el cron job en
-// /api/cron/guardia-doc-notifications, que usa sendNotification() para
-// respetar las preferencias por usuario (bell/email).
+// /api/cron/guardia-doc-notifications, que usa notify() para respetar las
+// preferencias por usuario (bell/email/push).
 
 export async function GET(request: NextRequest) {
   try {

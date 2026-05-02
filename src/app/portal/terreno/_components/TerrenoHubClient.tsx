@@ -137,7 +137,7 @@ export function TerrenoHubClient() {
           )}
           <div className="flex items-center justify-center gap-2">
             <div
-              className="w-4 h-4 rounded-full border-2 border-amber-400/30 border-t-amber-400 animate-spin"
+              className="w-4 h-4 rounded-full border-2 border-status-warn-border/30 border-t-status-warn animate-spin"
               aria-hidden
             />
             <span className="text-sm text-gray-400">Cargando...</span>
@@ -263,11 +263,11 @@ export function TerrenoHubClient() {
               }}
             >
               <div
-                className="w-[6px] h-[6px] rounded-full bg-amber-400"
+                className="w-[6px] h-[6px] rounded-full bg-status-warn"
                 style={{ boxShadow: "0 0 8px rgba(245,158,11,0.7)" }}
                 aria-hidden
               />
-              <span className="text-[11px] font-medium text-amber-300">
+              <span className="text-[11px] font-medium text-status-warn-fg">
                 {config.installationName}
               </span>
             </div>
@@ -445,7 +445,7 @@ function TerrenoPairingScreen({ onPaired }: { onPaired: () => void }) {
       <form onSubmit={handleSubmit}>
         {error ? (
           <div
-            className="rounded-xl px-4 py-3 mb-4 text-sm text-red-400"
+            className="rounded-xl px-4 py-3 mb-4 text-sm text-status-danger-fg"
             style={{
               background: "rgba(239,68,68,0.08)",
               border: "1px solid rgba(239,68,68,0.2)",

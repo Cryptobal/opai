@@ -108,12 +108,30 @@ async function calculateBadgeCount(
       for (const count of unreads.values()) chatUnreads += count;
     }
 
-    // Bell notification unreads (admin only)
+    // Bell notification unreads (admin only) — per-user via NotificationReadState
     let bellUnreads = 0;
     if (userType === 'admin') {
-      bellUnreads = await prisma.notification.count({
-        where: { tenantId, read: false },
+      const allTenantNotifs = await prisma.notification.findMany({
+        where: { tenantId },
+        select: { id: true, read: true, data: true },
       });
+      if (allTenantNotifs.length > 0) {
+        const readStateRows = await prisma.notificationReadState.findMany({
+          where: {
+            userId,
+            notificationId: { in: allTenantNotifs.map((n) => n.id) },
+          },
+          select: { notificationId: true },
+        });
+        const readSet = new Set(readStateRows.map((r) => r.notificationId));
+        bellUnreads = allTenantNotifs.filter((n) => {
+          const d = (n.data as Record<string, unknown> | null) ?? {};
+          const targetUserId =
+            typeof d.targetUserId === 'string' ? d.targetUserId : null;
+          if (targetUserId) return targetUserId === userId && !n.read;
+          return !readSet.has(n.id);
+        }).length;
+      }
     }
 
     return chatUnreads + bellUnreads;
@@ -179,7 +197,48 @@ async function batchCalculateBadgeCounts(
       excludedByUser.set(key, set);
     }
 
-    // 3. For each user, batch their unread counts using batchUnreadCounts
+    // 3a. Pre-compute per-admin bell unreads with a single global query
+    // (instead of one count() per admin recipient). Uses NotificationReadState
+    // to respect per-user read tracking for broadcast notifications.
+    const adminIds = recipients
+      .filter((r) => r.subscriberType === 'ADMIN')
+      .map((r) => r.subscriberId);
+
+    const unreadByAdminId = new Map<string, number>();
+    if (adminIds.length > 0) {
+      const allTenantNotifs = await prisma.notification.findMany({
+        where: { tenantId },
+        select: { id: true, read: true, data: true },
+      });
+      if (allTenantNotifs.length > 0) {
+        const readRows = await prisma.notificationReadState.findMany({
+          where: {
+            userId: { in: adminIds },
+            notificationId: { in: allTenantNotifs.map((n) => n.id) },
+          },
+          select: { notificationId: true, userId: true },
+        });
+        const readByUser = new Map<string, Set<string>>();
+        for (const adminId of adminIds) readByUser.set(adminId, new Set());
+        for (const row of readRows) {
+          readByUser.get(row.userId)!.add(row.notificationId);
+        }
+
+        for (const adminId of adminIds) {
+          const readSet = readByUser.get(adminId)!;
+          const count = allTenantNotifs.filter((n) => {
+            const d = (n.data as Record<string, unknown> | null) ?? {};
+            const targetUserId =
+              typeof d.targetUserId === 'string' ? d.targetUserId : null;
+            if (targetUserId) return targetUserId === adminId && !n.read;
+            return !readSet.has(n.id);
+          }).length;
+          unreadByAdminId.set(adminId, count);
+        }
+      }
+    }
+
+    // 3b. For each user, batch their unread counts using batchUnreadCounts
     // (single SQL per user, much better than N×3 queries)
     await Promise.all(
       recipients.map(async (r) => {
@@ -204,12 +263,10 @@ async function batchCalculateBadgeCounts(
           for (const count of unreads.values()) chatUnreads += count;
         }
 
-        // Bell notification unreads (admin only)
+        // Bell notification unreads (admin only) — pre-computed per-user above
         let bellUnreads = 0;
         if (r.subscriberType === 'ADMIN') {
-          bellUnreads = await prisma.notification.count({
-            where: { tenantId, read: false },
-          });
+          bellUnreads = unreadByAdminId.get(r.subscriberId) ?? 0;
         }
 
         badgeCounts.set(key, chatUnreads + bellUnreads);
@@ -244,154 +301,6 @@ async function sendToSubscription(
   }
 }
 
-// ── sendPushToPortalUser (Prompt 2 — enriched payload) ──
-
-interface SendPushParams {
-  tenantId: string;
-  notifKey: string;
-  userType: UserType;
-  userId: string;
-  portalType: 'cliente' | 'guardia' | 'rondas' | 'app';
-  title: string;
-  body: string;
-  url?: string;
-  tag?: string;
-  notificationId?: string;
-  badgeCount?: number;
-  icon?: string;
-  image?: string;
-  timestamp?: number;
-}
-
-export async function sendPushToPortalUser({
-  tenantId,
-  notifKey,
-  userType,
-  userId,
-  portalType,
-  title,
-  body,
-  url,
-  tag,
-  notificationId,
-  badgeCount,
-  icon,
-  image,
-  timestamp,
-}: SendPushParams) {
-  ensureVapidInitialized();
-
-  // 1. Check user-level preferences (portal users only)
-  if (userType !== 'admin') {
-    const prefs = await prisma.portalNotificationPreference.findUnique({
-      where: {
-        userType_userId_portalType: { userType, userId, portalType },
-      },
-    });
-    if (prefs) {
-      const prefMap = prefs.preferences as Record<string, { push?: boolean }>;
-      if (prefMap[notifKey]?.push === false) return;
-    }
-  }
-
-  // 1b. Check global config
-  if (!(await isGloballyEnabled(tenantId, notifKey))) return;
-
-  // 2. Get active push subscriptions — filtered by portal to avoid cross-portal notifications
-  const subscriberType = toChatSenderType(userType);
-  const subscriptions = await prisma.chatPushSubscription.findMany({
-    where: {
-      tenantId,
-      subscriberType: subscriberType,
-      subscriberId: userId,
-      portalType: portalType,
-      isActive: true,
-    },
-  });
-
-  if (subscriptions.length === 0) return;
-
-  // 3. Calculate real badge count if not provided (Prompt 1)
-  const realBadgeCount = badgeCount ?? await calculateBadgeCount(tenantId, userType, userId);
-
-  // 4. Build enriched payload (Prompt 2)
-  const defaultIcon = '/icons/icon-192x192.png';
-
-  const payload = JSON.stringify({
-    title,
-    body,
-    icon: icon || defaultIcon,
-    badge: '/iconos_azul/icon-72x72.png',
-    image: image || undefined,
-    tag: tag || notifKey,
-    renotify: !!tag,
-    silent: false,
-    timestamp: timestamp || Date.now(),
-    data: {
-      url,
-      type: notifKey === 'chat_message' ? 'chat_message' : 'system_notification',
-      ...(notificationId && { notificationId }),
-      badgeCount: realBadgeCount,
-    },
-  });
-
-  // 5. Send to each subscription
-  await Promise.allSettled(subscriptions.map((sub) => sendToSubscription(sub, payload)));
-}
-
-// ── Broadcast to Admins ──
-
-export async function sendPushToAdmins(
-  tenantId: string,
-  notifKey: string,
-  title: string,
-  body: string,
-  url?: string,
-): Promise<void> {
-  const admins = await prisma.admin.findMany({
-    where: { tenantId, role: { in: ['owner', 'admin'] }, status: 'active' },
-    select: { id: true },
-  });
-  await Promise.allSettled(
-    admins.map((admin) =>
-      sendPushToPortalUser({
-        tenantId,
-        notifKey,
-        userType: 'admin',
-        userId: admin.id,
-        portalType: 'app',
-        title: `\uD83D\uDD14 ${title}`,
-        body,
-        url,
-      })
-    )
-  );
-}
-
-export async function sendPushToSpecificAdmins(
-  tenantId: string,
-  adminIds: string[],
-  notifKey: string,
-  title: string,
-  body: string,
-  url?: string,
-): Promise<void> {
-  if (adminIds.length === 0) return;
-  await Promise.allSettled(
-    adminIds.map((userId) =>
-      sendPushToPortalUser({
-        tenantId,
-        notifKey,
-        userType: 'admin',
-        userId,
-        portalType: 'app',
-        title: `\uD83D\uDD14 ${title}`,
-        body,
-        url,
-      })
-    )
-  );
-}
 
 // ── Chat Message Push Notifications ──
 
@@ -561,8 +470,6 @@ function getNotificationClickUrl(
         return `/portal/rondas?section=chat&channel=${channelId}`;
       case 'cliente':
         return `/portal/cliente?section=chat&channel=${channelId}`;
-      case 'supervisor':
-        return `/portal/supervisor?section=chat&channel=${channelId}`;
     }
   }
   // Fallback for subscriptions without portalType
@@ -650,14 +557,18 @@ export async function sendChatPushNotifications({
     const portalRecipients = recipients.filter((r) => r.subscriberType !== 'ADMIN');
     const portalPrefsMap = new Map<string, Record<string, { push?: boolean }>>();
     if (portalRecipients.length > 0) {
-      const portalPrefs = await prisma.portalNotificationPreference.findMany({
+      const portalPrefs = await prisma.notificationPreference.findMany({
         where: {
-          userId: { in: portalRecipients.map((r) => r.subscriberId) },
+          subscriberType: { in: portalRecipients.map((r) => r.subscriberType) },
+          subscriberId: { in: portalRecipients.map((r) => r.subscriberId) },
         },
-        select: { userType: true, userId: true, preferences: true },
+        select: { subscriberType: true, subscriberId: true, preferences: true },
       });
+      const subTypeToUserType: Record<string, string> = { GUARD: 'guardia', CLIENT: 'cliente', RONDAS: 'rondas' };
       for (const pp of portalPrefs) {
-        portalPrefsMap.set(`${pp.userType}:${pp.userId}`, pp.preferences as Record<string, { push?: boolean }>);
+        const userTypeKey = subTypeToUserType[pp.subscriberType];
+        if (!userTypeKey) continue;
+        portalPrefsMap.set(`${userTypeKey}:${pp.subscriberId}`, pp.preferences as Record<string, { push?: boolean }>);
       }
     }
 

@@ -517,13 +517,13 @@ export function MarcacionScreen({
           <p className="text-sm text-white/60">{installationName}</p>
         </div>
         {!isOnline && (
-          <span className="rounded-full bg-amber-500/20 px-3 py-1 text-xs font-medium text-amber-400">
+          <span className="rounded-full bg-status-warn-soft px-3 py-1 text-xs font-medium text-status-warn-fg">
             Sin conexión
           </span>
         )}
       </div>
       <div className="mt-2 text-center">
-        <p className="text-3xl font-mono font-bold text-emerald-400 tabular-nums">{timeStr}</p>
+        <p className="text-3xl font-mono font-bold text-status-ok-fg tabular-nums">{timeStr}</p>
         <p className="text-sm text-white/50 capitalize">{dateStr}</p>
       </div>
     </div>
@@ -573,7 +573,7 @@ export function MarcacionScreen({
           >
             <div className="text-6xl mb-4">{lastMarca.tipo === "entrada" ? "✅" : "🚪"}</div>
             <p className="text-2xl font-bold text-white">{lastMarca.guardiaName}</p>
-            <p className="text-emerald-400 font-semibold mt-2 text-lg">
+            <p className="text-status-ok-fg font-semibold mt-2 text-lg">
               {lastMarca.tipo === "entrada" ? "ENTRADA" : "SALIDA"}{" "}
               {new Date(lastMarca.timestamp).toLocaleTimeString("es-CL", {
                 hour: "2-digit",
@@ -587,10 +587,10 @@ export function MarcacionScreen({
                 className="rounded-xl p-3 mt-4 text-left"
                 style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.4)" }}
               >
-                <p className="text-amber-400 text-sm font-semibold">
+                <p className="text-status-warn-fg text-sm font-semibold">
                   ⚠ Marcación fuera de rango{lastMarca.geoDistanciaM != null ? ` (${lastMarca.geoDistanciaM}m)` : ""}
                 </p>
-                <p className="text-amber-400/70 text-xs mt-1">
+                <p className="text-status-warn-fg/70 text-xs mt-1">
                   Tu supervisor será notificado. Esta marcación quedará registrada como fuera de rango.
                 </p>
               </div>
@@ -601,7 +601,7 @@ export function MarcacionScreen({
               </p>
             )}
             {lastMarca.offline && (
-              <p className="text-xs text-amber-400 mt-3">
+              <p className="text-xs text-status-warn-fg mt-3">
                 Registrada offline — se sincronizará al recuperar conexión
               </p>
             )}
@@ -623,7 +623,7 @@ export function MarcacionScreen({
             style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)" }}
           >
             <div className="text-5xl mb-3">❌</div>
-            <p className="text-red-400 font-medium">{error}</p>
+            <p className="text-status-danger-fg font-medium">{error}</p>
             <p className="text-sm text-white/30 mt-3">Vuelve a pantalla principal en 4s...</p>
           </div>
         </div>
@@ -666,7 +666,7 @@ export function MarcacionScreen({
             </div>
 
             {error && (
-              <p className="text-red-400 text-sm text-center">{error}</p>
+              <p className="text-status-danger-fg text-sm text-center">{error}</p>
             )}
 
             <button
@@ -703,7 +703,7 @@ export function MarcacionScreen({
     const tipo = guardiaInfo.nextTipo;
     const tipoColor = tipo === "entrada" ? "rgba(16,185,129,0.4)" : "rgba(239,68,68,0.4)";
     const tipoBorder = tipo === "entrada" ? "rgba(16,185,129,0.3)" : "rgba(239,68,68,0.3)";
-    const tipoText = tipo === "entrada" ? "text-emerald-400" : "text-red-400";
+    const tipoText = tipo === "entrada" ? "text-status-ok-fg" : "text-status-danger-fg";
     const gpsReady = gpsStatus === "ok" && geoPosition != null;
 
     return (
@@ -740,7 +740,7 @@ export function MarcacionScreen({
 
           {error && (
             <div
-              className="rounded-xl p-3 mb-3 text-sm text-red-400 text-center"
+              className="rounded-xl p-3 mb-3 text-sm text-status-danger-fg text-center"
               style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)" }}
             >
               {error}
@@ -820,7 +820,7 @@ export function MarcacionScreen({
             className="rounded-xl p-3 mb-6 text-center"
             style={{ background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.3)" }}
           >
-            <p className="text-amber-400 text-xs font-medium">
+            <p className="text-status-warn-fg text-xs font-medium">
               ⚠️ Marcación con PIN — requiere validación del supervisor
             </p>
           </div>
@@ -828,7 +828,7 @@ export function MarcacionScreen({
           {/* Guardia info */}
           <div className="mb-6 text-center">
             <p className="text-white font-bold text-lg">{guardiaInfo.name}</p>
-            <p className={`text-sm font-semibold ${tipo === "entrada" ? "text-emerald-400" : "text-red-400"}`}>
+            <p className={`text-sm font-semibold ${tipo === "entrada" ? "text-status-ok-fg" : "text-status-danger-fg"}`}>
               {tipo === "entrada" ? "ENTRADA" : "SALIDA"}
             </p>
           </div>
@@ -853,7 +853,7 @@ export function MarcacionScreen({
             </div>
 
             {error && (
-              <p className="text-red-400 text-sm text-center">{error}</p>
+              <p className="text-status-danger-fg text-sm text-center">{error}</p>
             )}
 
             <button

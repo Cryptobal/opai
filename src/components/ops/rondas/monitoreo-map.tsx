@@ -529,7 +529,7 @@ export function MonitoreoMap({
       <div ref={containerRef} className="w-full h-full min-h-[400px]" />
 
       <div className="absolute top-3 left-3 flex items-center gap-2">
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/90 px-2.5 py-1 text-[10px] font-bold text-white shadow-lg">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-status-ok px-2.5 py-1 text-[10px] font-bold text-white shadow-lg">
           <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
           En vivo · 30s
         </span>
@@ -550,28 +550,28 @@ export function MonitoreoMap({
 
       <div className="absolute bottom-3 left-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-black/75 backdrop-blur-sm px-3 py-2 text-[11px] font-medium text-white shadow-lg max-w-[calc(100%-24px)]">
         <span className="flex items-center gap-1.5" title="Instalación">
-          <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 text-cyan-400 flex-shrink-0" fill="currentColor">
+          <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 text-status-info-fg flex-shrink-0" fill="currentColor">
             <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 110-5 2.5 2.5 0 010 5z" />
           </svg>
           Instalación
         </span>
         <span className="flex items-center gap-1.5" title="Guardia activo">
-          <span className="h-3 w-3 rounded-full bg-emerald-500 ring-2 ring-white/60 flex-shrink-0" /> Guardia
+          <span className="h-3 w-3 rounded-full bg-status-ok ring-2 ring-white/60 flex-shrink-0" /> Guardia
         </span>
         <span className="flex items-center gap-1.5" title="Alerta activa">
-          <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 text-red-500 flex-shrink-0" fill="currentColor">
+          <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 text-status-danger-fg flex-shrink-0" fill="currentColor">
             <path d="M12 2L1 21h22L12 2z" />
           </svg>
           Alerta
         </span>
         <span className="flex items-center gap-1.5" title="Checkpoint marcado">
-          <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 ring-1 ring-white/30 flex-shrink-0" /> Marcado
+          <span className="h-2.5 w-2.5 rounded-full bg-status-ok ring-1 ring-white/30 flex-shrink-0" /> Marcado
         </span>
         <span className="flex items-center gap-1.5" title="Checkpoint pendiente">
           <span className="h-2.5 w-2.5 rounded-full bg-zinc-500 ring-1 ring-white/20 flex-shrink-0" /> Pendiente
         </span>
         <span className="flex items-center gap-1.5" title="Recorrido del guardia">
-          <span className="inline-block h-0.5 w-5 bg-emerald-400/80 flex-shrink-0" /> Recorrido
+          <span className="inline-block h-0.5 w-5 bg-status-ok/80 flex-shrink-0" /> Recorrido
         </span>
       </div>
     </div>

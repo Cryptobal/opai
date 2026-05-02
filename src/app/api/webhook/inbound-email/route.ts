@@ -156,6 +156,7 @@ export async function POST(request: NextRequest) {
         fromEmail: from,
         ownDomain: tenantCfg.website || undefined,
         ownCompanyName: tenantCfg.commercialName || undefined,
+        tenantId,
       });
     } catch (extractErr) {
       console.warn("[inbound-email] Extract failed, creating lead from envelope:", extractErr);
@@ -293,12 +294,13 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-      const { sendNotification } = await import("@/lib/notification-service");
-      await sendNotification({
+      const { notify } = await import("@/lib/notifications/notify");
+      await notify({
         tenantId,
         type: "new_lead",
+        audience: "admin",
         title: "Nuevo lead por correo",
-        message: `${extracted.companyName || "Sin empresa"} – ${subject}`,
+        body: `${extracted.companyName || "Sin empresa"} – ${subject}`,
         data: { leadId: lead.id, source: "email_forward" },
         link: `/crm/leads?focus=${lead.id}`,
       });

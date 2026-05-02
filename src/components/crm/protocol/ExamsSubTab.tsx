@@ -106,15 +106,15 @@ type Schedule = "now" | "on_assign" | "recurring";
 // ---------------------------------------------------------------------------
 
 function scoreColor(score: number) {
-  if (score >= 80) return "text-emerald-400";
-  if (score >= 60) return "text-amber-400";
-  return "text-red-400";
+  if (score >= 80) return "text-status-ok-fg";
+  if (score >= 60) return "text-status-warn-fg";
+  return "text-status-danger-fg";
 }
 
 function scoreBg(score: number) {
-  if (score >= 80) return "bg-emerald-500";
-  if (score >= 60) return "bg-amber-500";
-  return "bg-red-500";
+  if (score >= 80) return "bg-status-ok";
+  if (score >= 60) return "bg-status-warn";
+  return "bg-status-danger";
 }
 
 function ScoreBar({ score }: { score: number }) {
@@ -145,8 +145,8 @@ function trendIcon(t: "up" | "down" | "stable") {
 
 function typeBadge(type: "protocol" | "security_general") {
   if (type === "protocol")
-    return <Badge className="bg-blue-500/15 text-blue-400 border-transparent">📋 Protocolo</Badge>;
-  return <Badge className="bg-purple-500/15 text-purple-400 border-transparent">🛡️ Seguridad</Badge>;
+    return <Badge className="bg-status-info-soft text-status-info-fg border-transparent">📋 Protocolo</Badge>;
+  return <Badge className="bg-tint-violet text-tint-violet-fg border-transparent">🛡️ Seguridad</Badge>;
 }
 
 function statusBadge(status: "draft" | "active" | "archived") {
@@ -185,13 +185,31 @@ export function ExamsSubTab({ installationId }: Props) {
   const [aiLoading, setAiLoading] = useState(false);
   const [questionCount, setQuestionCount] = useState(10);
   const [schedule, setSchedule] = useState<Schedule>("now");
-  const [recurMonths, setRecurMonths] = useState(3);
+  // Recurring frequency in days. `null` = inherit tenant default.
+  const [recurDays, setRecurDays] = useState<number | null>(null);
+  // Tenant default loaded lazily when user picks "recurring".
+  const [tenantDefaultDays, setTenantDefaultDays] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // Global documents for security_general
-  const [globalDocs, setGlobalDocs] = useState<Array<{ id: string; fileName: string; fileSize: number | null }>>([]);
+  // AI knowledge sources (DocOperacional + legacy fallback) for security_general
+  type AiSource = {
+    id: string;
+    origin: "doc_operacional" | "protocol_document_legacy";
+    scope: "global" | "instalacion";
+    fileName: string;
+    fileSize: number | null;
+    tipoCodigo: string | null;
+    tipoNombre: string | null;
+  };
+  const [aiSources, setAiSources] = useState<AiSource[]>([]);
   const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
-  const [globalDocsLoading, setGlobalDocsLoading] = useState(false);
+  const [aiSourcesLoading, setAiSourcesLoading] = useState(false);
+  type UsedAiSource = {
+    id: string;
+    origin: "doc_operacional" | "protocol_document_legacy";
+    fileName: string;
+  };
+  const [usedSources, setUsedSources] = useState<UsedAiSource[]>([]);
 
   // Send dialog
   const [sendExamId, setSendExamId] = useState<string | null>(null);
@@ -327,20 +345,41 @@ export function ExamsSubTab({ installationId }: Props) {
     };
   }, [historyGuardId, base]);
 
-  // Fetch global docs when needed
+  // Fetch tenant knowledge default once when user picks "recurring"
+  useEffect(() => {
+    if (schedule !== "recurring" || tenantDefaultDays !== null) return;
+    let cancelled = false;
+    fetch("/api/configuracion/knowledge")
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((json: { success?: boolean; data?: { recurringDefaultDays?: number } }) => {
+        if (!cancelled && json?.success && json.data?.recurringDefaultDays) {
+          setTenantDefaultDays(json.data.recurringDefaultDays);
+        }
+      })
+      .catch(() => { /* fallback al placeholder genérico */ });
+    return () => { cancelled = true; };
+  }, [schedule, tenantDefaultDays]);
+
+  // Fetch AI knowledge sources when needed
   useEffect(() => {
     if (!createOpen || newType !== "security_general") return;
     let cancelled = false;
-    setGlobalDocsLoading(true);
-    fetch("/api/config/global-documents")
-      .then((r) => r.ok ? r.json() : Promise.reject())
-      .then((json: { success?: boolean; data?: Array<{ id: string; fileName: string; fileSize: number | null }> }) => {
-        if (!cancelled && json.success) setGlobalDocs(json.data ?? []);
+    setAiSourcesLoading(true);
+    fetch(`${base}/ai-sources`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((json: { success?: boolean; data?: AiSource[] }) => {
+        if (!cancelled && json.success) setAiSources(json.data ?? []);
       })
-      .catch(() => { /* ignore */ })
-      .finally(() => { if (!cancelled) setGlobalDocsLoading(false); });
-    return () => { cancelled = true; };
-  }, [createOpen, newType]);
+      .catch(() => {
+        /* ignore */
+      })
+      .finally(() => {
+        if (!cancelled) setAiSourcesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [createOpen, newType, base]);
 
   // ----- Actions -----
 
@@ -356,7 +395,14 @@ export function ExamsSubTab({ installationId }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ questionCount, type: newType, documentIds: selectedDocIds }),
       });
-      const json = (await res.json()) as { success?: boolean; data?: { questions?: Array<{ questionText?: string; options?: string[]; correctAnswer?: number }> }; error?: string };
+      const json = (await res.json()) as {
+        success?: boolean;
+        data?: {
+          questions?: Array<{ questionText?: string; options?: string[]; correctAnswer?: number }>;
+          sources?: UsedAiSource[];
+        };
+        error?: string;
+      };
       if (!res.ok) {
         const msg = json?.error ?? "No se pudieron generar preguntas.";
         if (msg.includes("secciones") || msg.includes("protocolo")) {
@@ -385,6 +431,7 @@ export function ExamsSubTab({ installationId }: Props) {
         };
       });
       setQuestions(mapped);
+      setUsedSources(json?.data?.sources ?? []);
       toast.success(mapped.length > 0 ? `Se generaron ${mapped.length} preguntas` : "No se generaron preguntas. Agrega manualmente.");
     } catch {
       toast.error("No se pudieron generar preguntas. Verifica la configuración de IA.");
@@ -416,7 +463,8 @@ export function ExamsSubTab({ installationId }: Props) {
         title: newTitle.trim(),
         type: newType,
         scheduleType: scheduleTypeMap[schedule],
-        recurringMonths: schedule === "recurring" ? recurMonths : undefined,
+        // recurringDays: null = hereda default tenant; positivo = override
+        recurringDays: schedule === "recurring" ? recurDays : undefined,
         passingScore: 60,
         questions: questions.map((q, i) => ({
           questionText: q.text,
@@ -426,6 +474,7 @@ export function ExamsSubTab({ installationId }: Props) {
           sectionRef: "",
           order: i,
         })),
+        sources: newType === "security_general" ? usedSources : undefined,
       };
       const res = await fetch(base, {
         method: "POST",
@@ -497,8 +546,10 @@ export function ExamsSubTab({ installationId }: Props) {
     setQuestions([]);
     setQuestionCount(10);
     setSchedule("now");
-    setRecurMonths(3);
+    setRecurDays(null);
     setSelectedDocIds([]);
+    setAiSources([]);
+    setUsedSources([]);
   }
 
   // ----- Question editing helpers -----
@@ -573,7 +624,7 @@ export function ExamsSubTab({ installationId }: Props) {
           label="Bajo rendimiento"
           value={stats?.lowPerformanceCount ?? 0}
           valueClass={
-            (stats?.lowPerformanceCount ?? 0) > 0 ? "text-red-400" : undefined
+            (stats?.lowPerformanceCount ?? 0) > 0 ? "text-status-danger-fg" : undefined
           }
         />
       </div>
@@ -697,50 +748,96 @@ export function ExamsSubTab({ installationId }: Props) {
                 <div className="space-y-2">
                   <Label>Documentos base para generar preguntas</Label>
                   <p className="text-xs text-muted-foreground">
-                    Selecciona los documentos globales (OS10, manuales) de los que se generarán las preguntas.
+                    Selecciona los documentos marcados como base de IA (Plan
+                    de Evacuación, Plan de Contingencia, Matriz de Riesgos,
+                    etc.) de los que se generarán las preguntas.
                   </p>
-                  {globalDocsLoading ? (
+                  {aiSourcesLoading ? (
                     <div className="flex items-center gap-2 py-3 text-sm text-muted-foreground">
                       <Loader2 className="h-4 w-4 animate-spin" />
                       Cargando documentos...
                     </div>
-                  ) : globalDocs.length === 0 ? (
-                    <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
-                      <p className="text-xs text-amber-400">
-                        No hay documentos globales. Sube documentos en{" "}
-                        <a href="/opai/configuracion/documentos-operacionales" className="underline font-medium" target="_blank">
-                          Configuración → Documentos Globales
+                  ) : aiSources.length === 0 ? (
+                    <div className="rounded-lg border border-status-warn-border bg-status-warn-soft p-3">
+                      <p className="text-xs text-status-warn-fg">
+                        No hay documentos disponibles para la IA. Sube
+                        documentos y activa el switch &quot;Usar como base de
+                        IA&quot; en{" "}
+                        <a
+                          href="/opai/configuracion/documentos-operacionales"
+                          className="underline font-medium"
+                          target="_blank"
+                        >
+                          Configuración → Documentos Operacionales
                         </a>
+                        .
                       </p>
                     </div>
                   ) : (
-                    <div className="space-y-1.5 max-h-[200px] overflow-y-auto rounded-lg border p-2">
-                      {globalDocs.map((doc) => (
-                        <label
-                          key={doc.id}
-                          className={`flex items-center gap-3 rounded-md px-3 py-2 cursor-pointer transition-colors ${
-                            selectedDocIds.includes(doc.id) ? "bg-primary/10 border border-primary/30" : "hover:bg-muted/40"
-                          }`}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={selectedDocIds.includes(doc.id)}
-                            onChange={(e) =>
-                              setSelectedDocIds((prev) =>
-                                e.target.checked ? [...prev, doc.id] : prev.filter((x) => x !== doc.id)
-                              )
-                            }
-                            className="accent-primary"
-                          />
-                          <FileText className="h-4 w-4 text-blue-500 shrink-0" />
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-medium truncate">{doc.fileName}</p>
-                            {doc.fileSize && (
-                              <p className="text-[10px] text-muted-foreground">{(doc.fileSize / 1024 / 1024).toFixed(1)} MB</p>
-                            )}
+                    <div className="space-y-2 max-h-[260px] overflow-y-auto rounded-lg border p-2">
+                      {(["global", "instalacion"] as const).map((scope) => {
+                        const docs = aiSources.filter((s) => s.scope === scope);
+                        if (docs.length === 0) return null;
+                        return (
+                          <div key={scope} className="space-y-1">
+                            <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/80 px-1">
+                              {scope === "global"
+                                ? "📋 Empresa (globales)"
+                                : "📍 Esta instalación"}
+                            </p>
+                            {docs.map((doc) => (
+                              <label
+                                key={doc.id}
+                                className={`flex items-center gap-3 rounded-md px-3 py-2 cursor-pointer transition-colors ${
+                                  selectedDocIds.includes(doc.id)
+                                    ? "bg-primary/10 border border-primary/30"
+                                    : "hover:bg-muted/40"
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={selectedDocIds.includes(doc.id)}
+                                  onChange={(e) =>
+                                    setSelectedDocIds((prev) =>
+                                      e.target.checked
+                                        ? [...prev, doc.id]
+                                        : prev.filter((x) => x !== doc.id),
+                                    )
+                                  }
+                                  className="accent-primary"
+                                />
+                                <FileText className="h-4 w-4 text-status-info-fg shrink-0" />
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm font-medium truncate">
+                                    {doc.fileName}
+                                  </p>
+                                  <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                                    {doc.tipoNombre && (
+                                      <span className="truncate">
+                                        {doc.tipoNombre}
+                                      </span>
+                                    )}
+                                    {doc.fileSize != null && (
+                                      <span>
+                                        {(doc.fileSize / 1024 / 1024).toFixed(1)}{" "}
+                                        MB
+                                      </span>
+                                    )}
+                                    {doc.origin === "protocol_document_legacy" && (
+                                      <Badge
+                                        variant="outline"
+                                        className="text-[9px] px-1 py-0"
+                                      >
+                                        legacy
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </div>
+                              </label>
+                            ))}
                           </div>
-                        </label>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -835,7 +932,7 @@ export function ExamsSubTab({ installationId }: Props) {
                                 }
                                 className={`h-6 w-6 rounded-full border text-xs font-medium flex items-center justify-center shrink-0 transition-colors ${
                                   q.correctIndex === oi
-                                    ? "border-emerald-500 bg-emerald-500/20 text-emerald-400"
+                                    ? "border-status-ok-border bg-status-ok-soft text-status-ok-fg"
                                     : "border-border text-muted-foreground hover:border-muted-foreground"
                                 }`}
                               >
@@ -912,21 +1009,48 @@ export function ExamsSubTab({ installationId }: Props) {
                   ))}
                 </div>
                 {schedule === "recurring" && (
-                  <div className="flex items-center gap-2 pt-1">
-                    <Label className="text-xs whitespace-nowrap">
-                      Cada
-                    </Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      max={24}
-                      className="w-20 h-8 text-xs"
-                      value={recurMonths}
-                      onChange={(e) =>
-                        setRecurMonths(Number(e.target.value) || 1)
-                      }
-                    />
-                    <span className="text-xs text-muted-foreground">meses</span>
+                  <div className="space-y-1.5 pt-1">
+                    <div className="flex items-center gap-2">
+                      <Label className="text-xs whitespace-nowrap">Cada</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={365}
+                        placeholder={
+                          tenantDefaultDays != null
+                            ? `${tenantDefaultDays}`
+                            : "default tenant"
+                        }
+                        className="w-24 h-8 text-xs"
+                        value={recurDays ?? ""}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          if (v === "") {
+                            setRecurDays(null);
+                            return;
+                          }
+                          const n = Number.parseInt(v, 10);
+                          setRecurDays(Number.isFinite(n) && n > 0 ? n : null);
+                        }}
+                      />
+                      <span className="text-xs text-muted-foreground">días</span>
+                      {recurDays !== null && (
+                        <button
+                          type="button"
+                          onClick={() => setRecurDays(null)}
+                          className="text-[11px] text-primary hover:underline"
+                        >
+                          Heredar del tenant
+                        </button>
+                      )}
+                    </div>
+                    {recurDays === null && (
+                      <p className="text-[11px] text-muted-foreground">
+                        {tenantDefaultDays != null
+                          ? `Hereda del default tenant: ${tenantDefaultDays} días.`
+                          : "Hereda del default tenant configurado en /opai/configuracion/conocimiento."}
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
@@ -1118,12 +1242,12 @@ export function ExamsSubTab({ installationId }: Props) {
                                 key={oi}
                                 className={`flex items-center gap-2 rounded-md px-2 py-1 text-xs ${
                                   isCorrect
-                                    ? "bg-emerald-500/10 text-emerald-400 font-medium"
+                                    ? "bg-status-ok-soft text-status-ok-fg font-medium"
                                     : "text-muted-foreground"
                                 }`}
                               >
                                 <span className={`h-4 w-4 rounded-full border flex items-center justify-center text-[10px] shrink-0 ${
-                                  isCorrect ? "border-emerald-500 bg-emerald-500/20" : "border-border"
+                                  isCorrect ? "border-status-ok-border bg-status-ok-soft" : "border-border"
                                 }`}>
                                   {isCorrect ? <Check className="h-2.5 w-2.5" /> : String.fromCharCode(65 + oi)}
                                 </span>
@@ -1314,7 +1438,7 @@ function ExamsList({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 text-red-400 hover:text-red-300"
+                  className="h-8 w-8 text-status-danger-fg hover:text-status-danger-fg"
                   onClick={() => onDelete(exam.id)}
                 >
                   <Trash2 className="h-3.5 w-3.5" />

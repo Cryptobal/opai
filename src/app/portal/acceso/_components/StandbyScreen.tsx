@@ -116,7 +116,7 @@ export function StandbyScreen({
     >
       {/* Installation */}
       <div className="flex items-center gap-2 mb-12">
-        <Building2 className="h-5 w-5 text-cyan-500 shrink-0" />
+        <Building2 className="h-5 w-5 text-status-info-fg shrink-0" />
         <span className="text-sm font-medium text-gray-400">
           {installationName}
         </span>

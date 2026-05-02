@@ -347,7 +347,7 @@ export function ChatConversation({
             <button
               type="button"
               onClick={() => setClearConfirmOpen(true)}
-              className="flex h-8 w-8 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-800 hover:text-red-400 transition-colors"
+              className="flex h-8 w-8 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-800 hover:text-status-danger-fg transition-colors"
               title="Limpiar conversacion"
             >
               <Trash2 className="h-4 w-4" />

@@ -53,6 +53,8 @@ const MODULE_LABELS: Record<keyof PortalConfig, string> = {
   comparativa: 'Vista comparativa',
   alertas: 'Alertas',
   gamificacion: 'Gamificación',
+  conocimiento: 'Conocimiento del equipo',
+  canSeeGuardNames: 'Mostrar nombres de guardia (Conocimiento)',
 }
 
 export function AccountPortalSection({ accountId, contacts, accountStatus, accountIsActive, onRefresh }: Props) {
@@ -203,10 +205,10 @@ export function AccountPortalSection({ accountId, contacts, accountStatus, accou
     return (
       <div className="space-y-3">
         <h3 className="text-sm font-medium">Portal del cliente</h3>
-        <Card className="border-amber-500/20 bg-amber-500/5">
+        <Card className="border-status-warn-border bg-status-warn-soft">
           <CardContent className="py-6 text-center">
-            <Shield className="h-8 w-8 text-amber-400/40 mx-auto mb-2" />
-            <p className="text-sm text-amber-400">
+            <Shield className="h-8 w-8 text-status-warn-fg/40 mx-auto mb-2" />
+            <p className="text-sm text-status-warn-fg">
               El portal del cliente está disponible para cuentas con estado &quot;Prospecto&quot; o &quot;Cliente activo&quot;.
             </p>
             <p className="text-xs text-muted-foreground mt-1">
@@ -240,7 +242,7 @@ export function AccountPortalSection({ accountId, contacts, accountStatus, accou
       <Card>
         <CardContent className="pt-4 pb-3">
           <div className="flex items-center gap-2 mb-3">
-            <Shield className="h-4 w-4 text-teal-400" />
+            <Shield className="h-4 w-4 text-status-info-fg" />
             <p className="text-xs text-muted-foreground">
               URL del portal: <span className="text-foreground font-mono text-[11px]">{portalUrl}</span>
             </p>
@@ -276,10 +278,10 @@ export function AccountPortalSection({ accountId, contacts, accountStatus, accou
                           <Badge className="text-[9px] bg-primary/15 text-primary">Principal</Badge>
                         )}
                         {portalEnabled && (
-                          <Badge className="text-[9px] bg-emerald-500/15 text-emerald-400">Portal activo</Badge>
+                          <Badge className="text-[9px] bg-status-ok-soft text-status-ok-fg">Portal activo</Badge>
                         )}
                         {hasPin && (
-                          <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold tabular-nums bg-emerald-500/20 text-emerald-400">
+                          <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold tabular-nums bg-status-ok-soft text-status-ok-fg">
                             PIN: {c.portalPinVisible}
                           </span>
                         )}
@@ -294,16 +296,16 @@ export function AccountPortalSection({ accountId, contacts, accountStatus, accou
                               Enviada: {new Date(c.portalInvitationSentAt).toLocaleDateString("es-CL", { day: "numeric", month: "short", year: "numeric" })}
                             </span>
                           ) : (
-                            <span className="text-amber-400/80" title="Invitación no enviada">
+                            <span className="text-status-warn-fg/80" title="Invitación no enviada">
                               Invitación no enviada
                             </span>
                           )}
                           {c.portalLastAccessAt ? (
-                            <span className="text-emerald-400/90" title="Último ingreso al portal">
+                            <span className="text-status-ok-fg/90" title="Último ingreso al portal">
                               Ingresó: {new Date(c.portalLastAccessAt).toLocaleDateString("es-CL", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
                             </span>
                           ) : (
-                            <span className="text-amber-400/80" title="Aún no ha ingresado al portal">
+                            <span className="text-status-warn-fg/80" title="Aún no ha ingresado al portal">
                               Nunca ingresó
                             </span>
                           )}
@@ -342,7 +344,7 @@ export function AccountPortalSection({ accountId, contacts, accountStatus, accou
                                 className={cn(
                                   "h-7 min-w-[7rem] gap-1",
                                   portalEnabled
-                                    ? "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border-emerald-500/30"
+                                    ? "bg-status-ok-soft text-status-ok-fg hover:brightness-110 border-status-ok-border"
                                     : "text-muted-foreground",
                                 )}
                                 title={portalEnabled ? "Deshabilitar acceso" : "Habilitar acceso"}
@@ -361,7 +363,7 @@ export function AccountPortalSection({ accountId, contacts, accountStatus, accou
                                   size="sm"
                                   className={cn(
                                     "h-7 w-7 p-0",
-                                    c.portalInvitationSentAt && "text-emerald-400/80",
+                                    c.portalInvitationSentAt && "text-status-ok-fg/80",
                                   )}
                                   title={c.portalInvitationSentAt ? "Reenviar invitación" : "Enviar credenciales por email"}
                                   onClick={() => sendEmail(c.id)}
@@ -372,7 +374,7 @@ export function AccountPortalSection({ accountId, contacts, accountStatus, accou
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-7 w-7 p-0 text-red-400 hover:text-red-300"
+                                className="h-7 w-7 p-0 text-status-danger-fg hover:text-status-danger-fg"
                                 title="Revocar acceso"
                                 onClick={() => revokeAccess(c.id)}
                               >

@@ -98,8 +98,8 @@ export function GuardSelectorHeader({
   return (
     <div className="sticky top-0 z-10 bg-gray-900/95 backdrop-blur-sm border-b border-white/5 px-4 py-2.5 opai-ios-surface-sheet-top">
       <div className="flex items-center gap-2 mb-1">
-        <MapPin className="h-3.5 w-3.5 text-teal-400 shrink-0" />
-        <span className="text-xs text-teal-400 truncate font-medium">
+        <MapPin className="h-3.5 w-3.5 text-status-info-fg shrink-0" />
+        <span className="text-xs text-status-info-fg truncate font-medium">
           {installationName}
         </span>
       </div>
@@ -111,7 +111,7 @@ export function GuardSelectorHeader({
           disabled={setting}
           className={`w-full flex items-center justify-between gap-2 h-9 rounded-lg px-3 text-sm transition-colors ${
             noGuard
-              ? "border border-amber-500/60 bg-amber-500/10 text-amber-300"
+              ? "border border-status-warn-border bg-status-warn-soft text-status-warn-fg"
               : "border border-white/10 bg-white/5 text-white"
           }`}
         >
@@ -148,14 +148,14 @@ export function GuardSelectorHeader({
                   onClick={() => handleSelect(g)}
                   className={`w-full text-left px-3 py-2.5 text-sm transition-colors hover:bg-white/5 ${
                     g.id === currentGuardId
-                      ? "text-teal-400 bg-teal-400/5"
+                      ? "text-status-info-fg bg-status-info-soft/30"
                       : "text-zinc-200"
                   }`}
                 >
                   <span className="flex items-center justify-between gap-2">
                     <span className="truncate">{g.name}</span>
                     {g.isTurnoExtra && (
-                      <span className="shrink-0 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-400">
+                      <span className="shrink-0 rounded-full bg-status-warn-soft px-1.5 py-0.5 text-[10px] font-medium text-status-warn-fg">
                         turno extra
                       </span>
                     )}

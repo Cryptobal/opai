@@ -84,7 +84,7 @@ export function CpqPdfPreviewPanel({
             className={cn(
               "h-9 rounded-md border px-2 text-xs font-semibold transition-colors",
               mode === "cotizacion"
-                ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-400"
+                ? "border-status-ok-border bg-status-ok-soft text-status-ok-fg"
                 : "border-transparent text-muted-foreground hover:bg-muted"
             )}
           >
@@ -96,7 +96,7 @@ export function CpqPdfPreviewPanel({
             className={cn(
               "h-9 rounded-md border px-2 text-xs font-semibold transition-colors",
               mode === "presentacion"
-                ? "border-blue-500/50 bg-blue-500/10 text-blue-400"
+                ? "border-status-info-border bg-status-info-soft text-status-info-fg"
                 : "border-transparent text-muted-foreground hover:bg-muted"
             )}
           >

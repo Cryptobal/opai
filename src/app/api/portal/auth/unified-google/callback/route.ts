@@ -13,12 +13,12 @@ import type { ClienteSession, PortalConfig } from "@/lib/portal-cliente-types";
  *
  * Resolves the Google email into one of three roles:
  *   - guardia  → reuse createGuardSession + guard_google_session cookie
- *   - supervisor → NextAuth Google sign-in (redirect to /api/auth/signin/google)
+ *   - admin    → NextAuth Google sign-in for ERP (redirect to /api/auth/signin/google → /hub)
  *   - cliente  → reuse buildClienteSessionCookie
  *
  * Resolution:
  *   0 matches → redirect to /postulacion with Google hint
- *   1 match   → create the session and redirect to the portal
+ *   1 match   → create the session and redirect (admin → ERP /hub; otherwise the portal)
  *   2+ matches → redirect to hub with ?roles= query so the user can pick
  */
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
@@ -149,9 +149,9 @@ export async function GET(request: NextRequest) {
     contactResult.status === "fulfilled" ? contactResult.value : null;
 
   // 4. Count matches
-  const matchTypes: Array<"guardia" | "supervisor" | "cliente"> = [];
+  const matchTypes: Array<"guardia" | "admin" | "cliente"> = [];
   if (guardia) matchTypes.push("guardia");
-  if (admin) matchTypes.push("supervisor");
+  if (admin) matchTypes.push("admin");
   if (contact) matchTypes.push("cliente");
 
   // 5a. No match → ATS postulation
@@ -218,7 +218,7 @@ export async function GET(request: NextRequest) {
     return response;
   }
 
-  if (role === "supervisor" && admin) {
+  if (role === "admin" && admin) {
     // Link googleId if missing — NextAuth will also do this on signIn, but
     // setting it proactively ensures the next sign-in matches by id.
     if (!admin.googleId) {
@@ -232,10 +232,10 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Hand off to NextAuth's Google provider so it creates the session
-    // cookie. NextAuth will prompt again only if the session isn't already
-    // valid — with `prompt=select_account` the UX is smooth.
-    const callbackUrl = encodeURIComponent(`${baseUrl}/portal/supervisor`);
+    // Hand off to NextAuth's Google provider so it creates the ERP session
+    // cookie and lands the user on /hub. With `prompt=select_account` the UX
+    // is smooth even when the user is already signed in to Google.
+    const callbackUrl = encodeURIComponent(`${baseUrl}/hub`);
     return NextResponse.redirect(
       `${baseUrl}/api/auth/signin/google?callbackUrl=${callbackUrl}`,
     );

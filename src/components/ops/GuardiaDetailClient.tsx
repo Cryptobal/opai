@@ -42,6 +42,7 @@ import {
 } from "@/components/ui/dialog";
 import { CollapsibleSection } from "@/components/crm/CollapsibleSection";
 import { EntityDetailLayout, type EntityHeaderAction, type EntityTab } from "@/components/crm/EntityDetailLayout";
+import { UnassignedHiredBadge } from "@/components/ops/UnassignedHiredBadge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
@@ -541,7 +542,7 @@ export function GuardiaDetailClient({
           <div className="space-y-3">
             {showPlanSeleccion && (
               <CollapsibleSection
-                icon={<MapPin className="h-4 w-4 text-amber-500" />}
+                icon={<MapPin className="h-4 w-4 text-status-warn-fg" />}
                 title="Plan de selección"
                 defaultOpen
               >
@@ -568,7 +569,7 @@ export function GuardiaDetailClient({
               </CollapsibleSection>
             )}
             <CollapsibleSection
-              icon={<User className="h-4 w-4 text-indigo-500" />}
+              icon={<User className="h-4 w-4 text-status-info-fg" />}
               title="Identificación y contacto"
               defaultOpen
             >
@@ -577,7 +578,7 @@ export function GuardiaDetailClient({
                 <span className={cn(
                   "shrink-0 rounded px-2.5 py-1 text-sm font-semibold tabular-nums",
                   guardia.marcacionPin
-                    ? "bg-emerald-500/25 text-emerald-400 border border-emerald-500/30"
+                    ? "bg-status-ok-soft text-status-ok-fg border border-status-ok-border"
                     : "bg-muted text-muted-foreground border border-border"
                 )}>
                   {SHOW_PIN_IN_PROFILE && guardia.marcacionPinVisible
@@ -627,20 +628,20 @@ export function GuardiaDetailClient({
                 asignaciones={asignaciones} canManageGuardias={canManageGuardias}
                 onBankAccountsChange={(bankAccounts) => setGuardia((prev) => ({ ...prev, bankAccounts }))}
               />
-              <div className="grid grid-cols-2 gap-3 mt-3 pt-3 border-t border-border/40">
-                <div>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Fecha creación</p>
-                  <p className="text-sm">{guardia.createdAt ? new Date(guardia.createdAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 mt-5">
+                <div className="rounded-xl border border-border/60 bg-card/40 p-3 sm:p-4">
+                  <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Fecha creación</p>
+                  <p className="text-[13px] font-medium text-foreground">{guardia.createdAt ? new Date(guardia.createdAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}</p>
                 </div>
-                <div>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Última modificación</p>
-                  <p className="text-sm">{guardia.updatedAt ? new Date(guardia.updatedAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}</p>
+                <div className="rounded-xl border border-border/60 bg-card/40 p-3 sm:p-4">
+                  <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Última modificación</p>
+                  <p className="text-[13px] font-medium text-foreground">{guardia.updatedAt ? new Date(guardia.updatedAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}</p>
                 </div>
               </div>
             </CollapsibleSection>
             {guardia.persona.id && (
               <CollapsibleSection
-                icon={<Brain className="h-4 w-4 text-purple-500" />}
+                icon={<Brain className="h-4 w-4 text-tint-violet-fg" />}
                 title="Evaluación psicolaboral"
                 defaultOpen={false}
               >
@@ -654,7 +655,7 @@ export function GuardiaDetailClient({
               </CollapsibleSection>
             )}
             <CollapsibleSection
-              icon={<UserPlus className="h-4 w-4 text-emerald-500" />}
+              icon={<UserPlus className="h-4 w-4 text-status-ok-fg" />}
               title="Onboarding"
               defaultOpen={false}
             >
@@ -666,7 +667,7 @@ export function GuardiaDetailClient({
         return (
           <div className="space-y-3">
             {!(guardia.persona.personalEmail || guardia.personalEmail) && guardia.lifecycleStatus === "contratado" && (
-              <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-400">
+              <div className="flex items-start gap-2 rounded-lg border border-status-warn-border bg-status-warn-soft p-3 text-sm text-status-warn-fg">
                 <span className="mt-0.5 shrink-0">⚠</span>
                 <span>
                   <strong>Email personal faltante</strong> — requerido por Res. N°38 para envío de comprobantes de asistencia.{" "}
@@ -677,14 +678,14 @@ export function GuardiaDetailClient({
               </div>
             )}
             <CollapsibleSection
-              icon={<MapPin className="h-4 w-4 text-teal-500" />}
+              icon={<MapPin className="h-4 w-4 text-status-info-fg" />}
               title="Asignación"
               defaultOpen
             >
               <AsignacionSection asignaciones={asignaciones} />
             </CollapsibleSection>
             <CollapsibleSection
-              icon={<Fingerprint className="h-4 w-4 text-blue-500" />}
+              icon={<Fingerprint className="h-4 w-4 text-status-info-fg" />}
               title="Marcación asistencia"
               defaultOpen
             >
@@ -702,14 +703,14 @@ export function GuardiaDetailClient({
               />
             </CollapsibleSection>
             <CollapsibleSection
-              icon={<Clock className="h-4 w-4 text-sky-500" />}
+              icon={<Clock className="h-4 w-4 text-status-info-fg" />}
               title="Marcaciones históricas"
               defaultOpen={false}
             >
               <GuardiaMarcacionesTab guardiaId={guardia.id} />
             </CollapsibleSection>
             <CollapsibleSection
-              icon={<CalendarDays className="h-4 w-4 text-cyan-500" />}
+              icon={<CalendarDays className="h-4 w-4 text-status-info-fg" />}
               title="Días trabajados"
               defaultOpen={false}
               action={
@@ -725,14 +726,14 @@ export function GuardiaDetailClient({
               <DiasTrabajadesSection guardiaId={guardia.id} />
             </CollapsibleSection>
             <CollapsibleSection
-              icon={<CalendarDays className="h-4 w-4 text-amber-500" />}
+              icon={<CalendarDays className="h-4 w-4 text-status-warn-fg" />}
               title="Turnos extra"
               defaultOpen={false}
             >
               <TurnosExtraSection guardiaId={guardia.id} />
             </CollapsibleSection>
             <CollapsibleSection
-              icon={<TrendingUp className="h-4 w-4 text-emerald-500" />}
+              icon={<TrendingUp className="h-4 w-4 text-status-ok-fg" />}
               title="Desempeño"
               defaultOpen={false}
             >
@@ -751,7 +752,7 @@ export function GuardiaDetailClient({
         return (
           <div className="space-y-3">
             <CollapsibleSection
-              icon={<Briefcase className="h-4 w-4 text-blue-500" />}
+              icon={<Briefcase className="h-4 w-4 text-status-info-fg" />}
               title="Contratos"
               defaultOpen
             >
@@ -787,7 +788,7 @@ export function GuardiaDetailClient({
               />
             </CollapsibleSection>
             <CollapsibleSection
-              icon={<FileText className="h-4 w-4 text-emerald-500" />}
+              icon={<FileText className="h-4 w-4 text-status-ok-fg" />}
               title="Ficha de documentos"
               defaultOpen
             >
@@ -802,7 +803,7 @@ export function GuardiaDetailClient({
               />
             </CollapsibleSection>
             <CollapsibleSection
-              icon={<FileText className="h-4 w-4 text-sky-500" />}
+              icon={<FileText className="h-4 w-4 text-status-info-fg" />}
               title="Documentos adicionales"
               defaultOpen={false}
             >
@@ -810,7 +811,7 @@ export function GuardiaDetailClient({
             </CollapsibleSection>
             {hasInventarioAccess && (
               <CollapsibleSection
-                icon={<Shirt className="h-4 w-4 text-orange-500" />}
+                icon={<Shirt className="h-4 w-4 text-status-warn-fg" />}
                 title="Uniformes"
                 defaultOpen={false}
               >
@@ -823,14 +824,14 @@ export function GuardiaDetailClient({
         return (
           <div className="space-y-3">
             <CollapsibleSection
-              icon={<DollarSign className="h-4 w-4 text-emerald-500" />}
+              icon={<DollarSign className="h-4 w-4 text-status-ok-fg" />}
               title="Estructura de sueldo"
               defaultOpen
             >
               <GuardiaSalaryTab guardiaId={guardia.id} />
             </CollapsibleSection>
             <CollapsibleSection
-              icon={<Receipt className="h-4 w-4 text-amber-500" />}
+              icon={<Receipt className="h-4 w-4 text-status-warn-fg" />}
               title="Liquidaciones"
               defaultOpen={false}
             >
@@ -838,7 +839,7 @@ export function GuardiaDetailClient({
             </CollapsibleSection>
             {personaAdminId && (
               <CollapsibleSection
-                icon={<Receipt className="h-4 w-4 text-blue-500" />}
+                icon={<Receipt className="h-4 w-4 text-status-info-fg" />}
                 title="Rendiciones de gastos"
                 defaultOpen={false}
               >
@@ -929,7 +930,7 @@ export function GuardiaDetailClient({
           avatar: {
             photoUrl: guardia.faceIdPhotoUrl,
             initials,
-            color: "bg-indigo-500/10 text-indigo-500",
+            color: "bg-status-info-soft text-status-info-fg",
           },
           title: fullName,
           subtitle: guardia.persona.rut ? `RUT ${guardia.persona.rut}` : undefined,
@@ -937,6 +938,12 @@ export function GuardiaDetailClient({
             label: LIFECYCLE_LABELS[guardia.lifecycleStatus] || guardia.lifecycleStatus,
             variant: LIFECYCLE_STATUS_VARIANT[guardia.lifecycleStatus] || "secondary",
           },
+          statusAdornment: (
+            <UnassignedHiredBadge
+              lifecycleStatus={guardia.lifecycleStatus}
+              currentInstallationId={guardia.currentInstallation?.id ?? null}
+            />
+          ),
           actions: headerActions,
         }}
         tabs={TABS}

@@ -120,7 +120,7 @@ export function ClauseBubbleMenu({ editor }: Props) {
               setSlugDraft(currentClauseId);
               setEditingSlug(true);
             }}
-            className="h-7 gap-1 text-xs text-teal-600"
+            className="h-7 gap-1 text-xs text-status-info-fg"
           >
             <BookmarkCheck className="h-3.5 w-3.5" />
             {currentClauseId}
@@ -133,7 +133,7 @@ export function ClauseBubbleMenu({ editor }: Props) {
 
       <div className="mx-1 h-4 w-px bg-border" />
 
-      <Button type="button" size="sm" variant="ghost" onClick={handleDeleteClause} className="h-7 gap-1 text-xs text-red-600">
+      <Button type="button" size="sm" variant="ghost" onClick={handleDeleteClause} className="h-7 gap-1 text-xs text-status-danger-fg">
         <Trash2 className="h-3.5 w-3.5" />
         Eliminar
       </Button>

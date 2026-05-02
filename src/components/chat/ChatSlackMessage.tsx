@@ -14,9 +14,9 @@ interface ChatSlackMessageProps {
 
 function defaultSenderColor(type: ChatSenderType): string {
   switch (type) {
-    case "ADMIN": return "text-blue-400";
-    case "GUARD": return "text-emerald-400";
-    case "CLIENT": return "text-amber-400";
+    case "ADMIN": return "text-status-info-fg";
+    case "GUARD": return "text-status-ok-fg";
+    case "CLIENT": return "text-status-warn-fg";
     default: return "text-zinc-400";
   }
 }

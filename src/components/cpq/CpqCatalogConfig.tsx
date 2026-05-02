@@ -5,7 +5,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { PageHeader } from "@/components/opai";
+import { PageHero } from "@/components/opai-ds";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,7 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ArrowLeft, Save, Plus, Trash2, ChevronDown, Info } from "lucide-react";
+import { ArrowLeft, Save, Plus, Trash2, ChevronDown, Info, Settings as SettingsIcon } from "lucide-react";
 import { toast } from "sonner";
 import { formatNumber, parseLocalizedNumber, cn } from "@/lib/utils";
 
@@ -280,8 +280,12 @@ export function CpqCatalogConfig({ showHeader = true }: { showHeader?: boolean }
     <div className="space-y-4">
       {showHeader && (
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <PageHeader
+          <PageHero
+            icon={<SettingsIcon />}
+            iconTone="violet"
+            eyebrow={["Comercial", "CPQ", "Catálogo"]}
             title="Configuración CPQ"
+            subtitle="items, tiers y reglas"
             description="Catálogo maestro global para todas las cotizaciones"
           />
           <div className="flex items-center gap-2">
@@ -426,8 +430,8 @@ export function CpqCatalogConfig({ showHeader = true }: { showHeader?: boolean }
             />
           </div>
         </div>
-        <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs space-y-2">
-          <div className="font-semibold text-emerald-300">Factor automático ajuste feriados</div>
+        <div className="rounded-md border border-status-ok-border bg-status-ok-soft p-3 text-xs space-y-2">
+          <div className="font-semibold text-status-ok-fg">Factor automático ajuste feriados</div>
           <div className="text-muted-foreground">
             <strong className="text-foreground">Factor mensual feriados</strong>:{" "}
             <span className="font-medium text-foreground">{formatNumber(holidayMonthlyFactor, { minDecimals: 3, maxDecimals: 3 })}</span> = {formatNumber(globalParams.holidayAnnualCount)} ÷ 12 (promedio de feriados por mes).
@@ -438,14 +442,14 @@ export function CpqCatalogConfig({ showHeader = true }: { showHeader?: boolean }
           </div>
           <div className="text-muted-foreground">
             <strong className="text-foreground">Factor total</strong>:{" "}
-            <span className="font-semibold text-emerald-200">
+            <span className="font-semibold text-status-ok-fg">
               {formatNumber(holidayTotalFactor, { minDecimals: 4, maxDecimals: 4 })}
             </span>{" "}
             = 0,5 × factor mensual × factor comercial.
           </div>
-          <div className="border-t border-emerald-500/20 pt-2 mt-2 text-muted-foreground">
+          <div className="border-t border-status-ok-border pt-2 mt-2 text-muted-foreground">
             <strong className="text-foreground">Cómo se calcula:</strong>{" "}
-            <strong className="text-emerald-200">
+            <strong className="text-status-ok-fg">
               Ajuste mensual feriados = (costo empresa mensual total guardias ÷ 30) × (feriados/año ÷ 12) × 0,5 × (1 + holgura%)
             </strong>
             . El ajuste resultante se suma al costo mensual de la cotización.
@@ -533,7 +537,7 @@ export function CpqCatalogConfig({ showHeader = true }: { showHeader?: boolean }
                         className={cn(
                           "rounded-md border p-2 space-y-3",
                           item.isDefault
-                            ? "border-emerald-500/50 bg-emerald-500/5"
+                            ? "border-status-ok-border bg-status-ok-soft"
                             : "border-border/60"
                         )}
                       >
@@ -550,7 +554,7 @@ export function CpqCatalogConfig({ showHeader = true }: { showHeader?: boolean }
                         >
                           <div className="min-w-0 flex items-center gap-2">
                             {item.isDefault && (
-                              <span className="shrink-0 rounded bg-emerald-500/20 px-1.5 py-0.5 text-xs font-medium text-emerald-500">
+                              <span className="shrink-0 rounded bg-status-ok-soft px-1.5 py-0.5 text-xs font-medium text-status-ok-fg">
                                 Default
                               </span>
                             )}

@@ -13,6 +13,14 @@ import {
 } from "@/lib/ai/help-chat-tools";
 import { getFileBuffer } from "@/lib/storage";
 import { extractText } from "@/lib/knowledge/extract";
+import {
+  createLeadSchema,
+  createAccountSchema,
+  createContactSchema,
+  createDealSchema,
+} from "@/lib/validations/crm";
+import { toSentenceCase } from "@/lib/text-format";
+import { canEdit, type RolePermissions } from "@/lib/permissions";
 
 function baseToolDefinitions() {
   return [
@@ -409,9 +417,109 @@ function v2ToolDefinitions() {
   ];
 }
 
-export function getToolDefinitionsV2(allowDataQuestions: boolean) {
+function writeToolDefinitions() {
+  return [
+    {
+      type: "function" as const,
+      function: {
+        name: "create_lead",
+        description:
+          "Crea un nuevo lead/prospecto en el CRM. Usa cuando el usuario pida explícitamente crear/registrar un lead, prospecto o oportunidad nueva. Requiere al menos uno de: companyName, firstName+lastName, email o phone. Si faltan todos, pregunta al usuario antes de llamar.",
+        parameters: {
+          type: "object",
+          properties: {
+            companyName: { type: "string", description: "Razón social o nombre de la empresa." },
+            firstName: { type: "string", description: "Nombre del contacto." },
+            lastName: { type: "string", description: "Apellido del contacto." },
+            email: { type: "string", description: "Email de contacto." },
+            phone: { type: "string", description: "Teléfono de contacto (formato libre)." },
+            source: { type: "string", description: "Origen del lead (ej: web, referido, evento)." },
+            industry: { type: "string", description: "Industria/rubro del prospecto." },
+            address: { type: "string" },
+            commune: { type: "string" },
+            city: { type: "string" },
+            website: { type: "string" },
+            serviceType: { type: "string", description: "Tipo de servicio de seguridad solicitado." },
+            notes: { type: "string", description: "Notas u observaciones." },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "create_account",
+        description:
+          "Crea una nueva cuenta CRM (prospecto o cliente). Usa cuando el usuario pida crear/registrar una cuenta, empresa o cliente nuevo. El campo 'name' es OBLIGATORIO. Si no lo tienes, pregunta antes de llamar.",
+        parameters: {
+          type: "object",
+          properties: {
+            name: { type: "string", description: "Nombre comercial de la cuenta. OBLIGATORIO." },
+            type: { type: "string", enum: ["prospect", "client"], description: "Por defecto prospect." },
+            rut: { type: "string", description: "RUT de la empresa." },
+            legalName: { type: "string", description: "Razón social legal." },
+            industry: { type: "string" },
+            segment: { type: "string" },
+            website: { type: "string" },
+            address: { type: "string" },
+            commune: { type: "string" },
+            notes: { type: "string" },
+          },
+          required: ["name"],
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "create_contact",
+        description:
+          "Crea un nuevo contacto asociado a una cuenta CRM existente. Usa cuando el usuario pida agregar un contacto a una cuenta. Requiere accountId (UUID), firstName, lastName y email. Si el usuario menciona la cuenta por nombre y no por ID, llama search_accounts primero para obtener el accountId.",
+        parameters: {
+          type: "object",
+          properties: {
+            accountId: { type: "string", description: "UUID de la cuenta. OBTÉNLO con search_accounts si el usuario solo dio el nombre." },
+            firstName: { type: "string", description: "Nombre. OBLIGATORIO." },
+            lastName: { type: "string", description: "Apellido. OBLIGATORIO." },
+            email: { type: "string", description: "Email. OBLIGATORIO." },
+            phone: { type: "string" },
+            roleTitle: { type: "string", description: "Cargo o rol del contacto." },
+            isPrimary: { type: "boolean", description: "Si es contacto principal." },
+          },
+          required: ["accountId", "firstName", "lastName", "email"],
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "create_deal",
+        description:
+          "Crea un nuevo deal/oportunidad de negocio asociado a una cuenta. Requiere accountId (UUID). Si el usuario solo dio el nombre de la cuenta, llama search_accounts primero. Sugiere title si el usuario no lo provee.",
+        parameters: {
+          type: "object",
+          properties: {
+            accountId: { type: "string", description: "UUID de la cuenta. OBLIGATORIO." },
+            title: { type: "string", description: "Nombre del deal." },
+            amount: { type: "number", description: "Monto en CLP." },
+            probability: { type: "number", description: "Probabilidad 0-100." },
+            expectedCloseDate: { type: "string", description: "Fecha esperada de cierre (ISO YYYY-MM-DD)." },
+          },
+          required: ["accountId"],
+          additionalProperties: false,
+        },
+      },
+    },
+  ];
+}
+
+export function getToolDefinitionsV2(allowDataQuestions: boolean, allowWrites: boolean = false) {
   if (!allowDataQuestions) return [];
-  return [...baseToolDefinitions(), ...v2ToolDefinitions()];
+  const reads = [...baseToolDefinitions(), ...v2ToolDefinitions()];
+  return allowWrites ? [...reads, ...writeToolDefinitions()] : reads;
 }
 
 async function executeLegacyTool(
@@ -1766,15 +1874,319 @@ async function readBinaryFile(opts: {
   }
 }
 
+async function logAiAction(opts: {
+  tenantId: string;
+  userId: string;
+  toolName: string;
+  args: unknown;
+  status: "success" | "denied" | "validation_error" | "internal_error";
+  resultEntityId?: string;
+  resultEntityType?: string;
+  errorMessage?: string;
+  startedAt: number;
+}) {
+  try {
+    await prisma.aiActionLog.create({
+      data: {
+        tenantId: opts.tenantId,
+        userId: opts.userId,
+        toolName: opts.toolName,
+        args: opts.args as Prisma.InputJsonValue,
+        status: opts.status,
+        resultEntityId: opts.resultEntityId ?? null,
+        resultEntityType: opts.resultEntityType ?? null,
+        errorMessage: opts.errorMessage ?? null,
+        durationMs: Date.now() - opts.startedAt,
+      },
+    });
+  } catch (e) {
+    console.warn("[AiActionLog] Failed to write log:", e);
+  }
+}
+
+async function toolCreateLead(
+  tenantId: string,
+  userId: string,
+  perms: RolePermissions,
+  args: Record<string, unknown>,
+): Promise<unknown> {
+  const t0 = Date.now();
+  if (!canEdit(perms, "crm", "leads")) {
+    await logAiAction({ tenantId, userId, toolName: "create_lead", args, status: "denied", errorMessage: "Sin permiso crm.leads.edit", startedAt: t0 });
+    return { ok: false, error: "No tienes permiso para crear leads en este tenant. Contacta a tu administrador." };
+  }
+  const parsed = createLeadSchema.safeParse(args);
+  if (!parsed.success) {
+    const msg = parsed.error.issues.map(i => `${i.path.join(".")}: ${i.message}`).join("; ");
+    await logAiAction({ tenantId, userId, toolName: "create_lead", args, status: "validation_error", errorMessage: msg, startedAt: t0 });
+    return { ok: false, error: `Datos inválidos: ${msg}` };
+  }
+  const body = parsed.data;
+  const hasAnyKey = body.companyName || (body.firstName && body.lastName) || body.email || body.phone;
+  if (!hasAnyKey) {
+    await logAiAction({ tenantId, userId, toolName: "create_lead", args, status: "validation_error", errorMessage: "Sin campos identificatorios", startedAt: t0 });
+    return { ok: false, error: "Faltan datos identificatorios. Necesito al menos uno: empresa, nombre+apellido, email o teléfono." };
+  }
+  try {
+    const firstName = toSentenceCase(body.firstName ?? undefined);
+    const lastName = toSentenceCase(body.lastName ?? undefined);
+    const lead = await prisma.crmLead.create({
+      data: {
+        tenantId,
+        status: "pending",
+        source: body.source || null,
+        firstName,
+        lastName,
+        email: body.email || null,
+        phone: body.phone || null,
+        companyName: body.companyName || null,
+        notes: body.notes || null,
+        industry: body.industry || null,
+        address: body.address || null,
+        commune: body.commune || null,
+        city: body.city || null,
+        website: body.website || null,
+        serviceType: body.serviceType || null,
+      },
+    });
+    await logAiAction({ tenantId, userId, toolName: "create_lead", args, status: "success", resultEntityId: lead.id, resultEntityType: "crm_lead", startedAt: t0 });
+    const displayName =
+      [lead.firstName, lead.lastName].filter(Boolean).join(" ").trim() ||
+      lead.companyName ||
+      lead.email ||
+      lead.phone ||
+      "Lead sin nombre";
+    return {
+      ok: true,
+      data: {
+        id: lead.id,
+        entityType: "crm_lead",
+        name: displayName,
+        url: `/crm/leads/${lead.id}`,
+        companyName: lead.companyName,
+        email: lead.email,
+        phone: lead.phone,
+        status: lead.status,
+      },
+    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Error desconocido";
+    await logAiAction({ tenantId, userId, toolName: "create_lead", args, status: "internal_error", errorMessage: msg, startedAt: t0 });
+    return { ok: false, error: `No se pudo crear el lead: ${msg}` };
+  }
+}
+
+async function toolCreateAccount(
+  tenantId: string,
+  userId: string,
+  perms: RolePermissions,
+  args: Record<string, unknown>,
+): Promise<unknown> {
+  const t0 = Date.now();
+  if (!canEdit(perms, "crm", "accounts")) {
+    await logAiAction({ tenantId, userId, toolName: "create_account", args, status: "denied", errorMessage: "Sin permiso crm.accounts.edit", startedAt: t0 });
+    return { ok: false, error: "No tienes permiso para crear cuentas." };
+  }
+  const parsed = createAccountSchema.safeParse(args);
+  if (!parsed.success) {
+    const msg = parsed.error.issues.map(i => `${i.path.join(".")}: ${i.message}`).join("; ");
+    await logAiAction({ tenantId, userId, toolName: "create_account", args, status: "validation_error", errorMessage: msg, startedAt: t0 });
+    return { ok: false, error: `Datos inválidos: ${msg}` };
+  }
+  const body = parsed.data;
+  try {
+    const account = await prisma.crmAccount.create({
+      data: {
+        tenantId,
+        name: body.name,
+        type: body.type,
+        rut: body.rut || null,
+        legalName: body.legalName || null,
+        legalRepresentativeName: body.legalRepresentativeName || null,
+        legalRepresentativeRut: body.legalRepresentativeRut || null,
+        industry: body.industry || null,
+        segment: body.segment || null,
+        status: body.status,
+        isActive: body.isActive,
+        website: body.website || null,
+        address: body.address || null,
+        commune: body.commune || null,
+        notaryName: body.notaryName || null,
+        notaryDate: body.notaryDate || null,
+        notes: body.notes || null,
+      },
+    });
+    await logAiAction({ tenantId, userId, toolName: "create_account", args, status: "success", resultEntityId: account.id, resultEntityType: "crm_account", startedAt: t0 });
+    return {
+      ok: true,
+      data: {
+        id: account.id,
+        entityType: "crm_account",
+        name: account.name,
+        url: `/crm/accounts/${account.id}`,
+        type: account.type,
+        rut: account.rut,
+        industry: account.industry,
+      },
+    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Error desconocido";
+    await logAiAction({ tenantId, userId, toolName: "create_account", args, status: "internal_error", errorMessage: msg, startedAt: t0 });
+    return { ok: false, error: `No se pudo crear la cuenta: ${msg}` };
+  }
+}
+
+async function toolCreateContact(
+  tenantId: string,
+  userId: string,
+  perms: RolePermissions,
+  args: Record<string, unknown>,
+): Promise<unknown> {
+  const t0 = Date.now();
+  if (!canEdit(perms, "crm", "contacts")) {
+    await logAiAction({ tenantId, userId, toolName: "create_contact", args, status: "denied", errorMessage: "Sin permiso crm.contacts.edit", startedAt: t0 });
+    return { ok: false, error: "No tienes permiso para crear contactos." };
+  }
+  const parsed = createContactSchema.safeParse(args);
+  if (!parsed.success) {
+    const msg = parsed.error.issues.map(i => `${i.path.join(".")}: ${i.message}`).join("; ");
+    await logAiAction({ tenantId, userId, toolName: "create_contact", args, status: "validation_error", errorMessage: msg, startedAt: t0 });
+    return { ok: false, error: `Datos inválidos: ${msg}` };
+  }
+  const body = parsed.data;
+  const account = await prisma.crmAccount.findFirst({
+    where: { id: body.accountId, tenantId },
+    select: { id: true, name: true },
+  });
+  if (!account) {
+    await logAiAction({ tenantId, userId, toolName: "create_contact", args, status: "validation_error", errorMessage: "Cuenta no encontrada o no pertenece al tenant", startedAt: t0 });
+    return { ok: false, error: "La cuenta indicada no existe o no pertenece a tu organización." };
+  }
+  try {
+    const contact = await prisma.crmContact.create({
+      data: {
+        tenantId,
+        accountId: body.accountId,
+        firstName: body.firstName,
+        lastName: body.lastName,
+        email: body.email,
+        phone: body.phone || null,
+        roleTitle: body.roleTitle || null,
+        isPrimary: body.isPrimary,
+      },
+    });
+    await logAiAction({ tenantId, userId, toolName: "create_contact", args, status: "success", resultEntityId: contact.id, resultEntityType: "crm_contact", startedAt: t0 });
+    const displayName = `${contact.firstName} ${contact.lastName}`.trim();
+    return {
+      ok: true,
+      data: {
+        id: contact.id,
+        entityType: "crm_contact",
+        name: displayName,
+        url: `/crm/contacts/${contact.id}`,
+        email: contact.email,
+        phone: contact.phone,
+        roleTitle: contact.roleTitle,
+        accountId: contact.accountId,
+        accountName: account.name,
+      },
+    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Error desconocido";
+    await logAiAction({ tenantId, userId, toolName: "create_contact", args, status: "internal_error", errorMessage: msg, startedAt: t0 });
+    return { ok: false, error: `No se pudo crear el contacto: ${msg}` };
+  }
+}
+
+async function toolCreateDeal(
+  tenantId: string,
+  userId: string,
+  perms: RolePermissions,
+  args: Record<string, unknown>,
+): Promise<unknown> {
+  const t0 = Date.now();
+  if (!canEdit(perms, "crm", "deals")) {
+    await logAiAction({ tenantId, userId, toolName: "create_deal", args, status: "denied", errorMessage: "Sin permiso crm.deals.edit", startedAt: t0 });
+    return { ok: false, error: "No tienes permiso para crear deals." };
+  }
+  const parsed = createDealSchema.safeParse(args);
+  if (!parsed.success) {
+    const msg = parsed.error.issues.map(i => `${i.path.join(".")}: ${i.message}`).join("; ");
+    await logAiAction({ tenantId, userId, toolName: "create_deal", args, status: "validation_error", errorMessage: msg, startedAt: t0 });
+    return { ok: false, error: `Datos inválidos: ${msg}` };
+  }
+  const body = parsed.data;
+  const account = await prisma.crmAccount.findFirst({
+    where: { id: body.accountId, tenantId },
+    select: { id: true, name: true },
+  });
+  if (!account) {
+    await logAiAction({ tenantId, userId, toolName: "create_deal", args, status: "validation_error", errorMessage: "Cuenta no encontrada", startedAt: t0 });
+    return { ok: false, error: "La cuenta indicada no existe o no pertenece a tu organización." };
+  }
+  try {
+    let stageId = body.stageId;
+    if (!stageId) {
+      const firstStage = await prisma.crmPipelineStage.findFirst({
+        where: { tenantId, isActive: true },
+        orderBy: { order: "asc" },
+        select: { id: true },
+      });
+      if (!firstStage) {
+        await logAiAction({ tenantId, userId, toolName: "create_deal", args, status: "validation_error", errorMessage: "No hay pipeline configurado", startedAt: t0 });
+        return { ok: false, error: "No hay etapas de pipeline configuradas. Configura el pipeline antes de crear deals." };
+      }
+      stageId = firstStage.id;
+    }
+    const deal = await prisma.crmDeal.create({
+      data: {
+        tenantId,
+        accountId: body.accountId,
+        title: body.title || `Deal — ${account.name}`,
+        stageId,
+        primaryContactId: body.primaryContactId || null,
+        amount: body.amount,
+        probability: body.probability,
+        expectedCloseDate: body.expectedCloseDate ? new Date(body.expectedCloseDate) : null,
+        proposalLink: body.proposalLink || null,
+      },
+    });
+    await logAiAction({ tenantId, userId, toolName: "create_deal", args, status: "success", resultEntityId: deal.id, resultEntityType: "crm_deal", startedAt: t0 });
+    return {
+      ok: true,
+      data: {
+        id: deal.id,
+        entityType: "crm_deal",
+        name: deal.title,
+        url: `/crm/deals/${deal.id}`,
+        amount: Number(deal.amount),
+        probability: deal.probability,
+        accountId: deal.accountId,
+        accountName: account.name,
+      },
+    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Error desconocido";
+    await logAiAction({ tenantId, userId, toolName: "create_deal", args, status: "internal_error", errorMessage: msg, startedAt: t0 });
+    return { ok: false, error: `No se pudo crear el deal: ${msg}` };
+  }
+}
+
 export async function executeToolCallV2(
   toolName: string,
   args: Record<string, unknown>,
   tenantId: string,
   userId: string,
+  perms: RolePermissions,
   canViewAllRendiciones: boolean,
 ): Promise<unknown> {
   const legacy = await executeLegacyTool(toolName, args, tenantId, userId, canViewAllRendiciones);
   if (legacy !== null) return legacy;
+
+  if (toolName === "create_lead") return await toolCreateLead(tenantId, userId, perms, args);
+  if (toolName === "create_account") return await toolCreateAccount(tenantId, userId, perms, args);
+  if (toolName === "create_contact") return await toolCreateContact(tenantId, userId, perms, args);
+  if (toolName === "create_deal") return await toolCreateDeal(tenantId, userId, perms, args);
 
   try {
     switch (toolName) {

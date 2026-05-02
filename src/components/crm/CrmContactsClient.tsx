@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { Plus, Pencil, Loader2, ChevronRight, Mail, Phone, MessageSquare } from "lucide-react";
 import { CRM_MODULES } from "./CrmModuleIcons";
-import { EmptyState } from "@/components/opai/EmptyState";
+import { EmptyState } from "@/components/opai-ds";
 import { CrmDates } from "@/components/crm/CrmDates";
 import { CrmToolbar } from "./CrmToolbar";
 import type { ViewMode } from "@/components/shared/ViewToggle";
@@ -417,7 +417,7 @@ export function CrmContactsClient({
         <CardContent className="pt-5">
           {filteredContacts.length === 0 ? (
             <EmptyState
-              icon={<CRM_MODULES.contacts.icon className="h-8 w-8" />}
+              icon={CRM_MODULES.contacts.icon}
               title="Sin contactos"
               description={
                 search
@@ -447,7 +447,7 @@ export function CrmContactsClient({
                           <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">Principal</Badge>
                         )}
                         {contact.portalPinVisible && (
-                          <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold tabular-nums bg-emerald-500/20 text-emerald-400">
+                          <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold tabular-nums bg-status-ok-soft text-status-ok-fg">
                             PIN: {contact.portalPinVisible}
                           </span>
                         )}
@@ -498,7 +498,7 @@ export function CrmContactsClient({
                               </span>
                             )}
                             {contact.portalPinVisible && (
-                              <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold tabular-nums bg-emerald-500/20 text-emerald-400">
+                              <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold tabular-nums bg-status-ok-soft text-status-ok-fg">
                                 PIN: {contact.portalPinVisible}
                               </span>
                             )}

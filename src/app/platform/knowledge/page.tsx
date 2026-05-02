@@ -44,9 +44,9 @@ function formatBytes(bytes: number) {
 
 function StatusBadge({ status }: { status: string }) {
   const colors: Record<string, string> = {
-    processing: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
-    ready: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
-    error: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+    processing: 'bg-status-warn-soft text-status-warn-fg',
+    ready: 'bg-status-ok-soft text-status-ok-fg',
+    error: 'bg-status-danger-soft text-status-danger-fg',
   };
 
   return (
@@ -204,7 +204,7 @@ export default function PlatformKnowledgePage() {
         </div>
         <button
           onClick={() => setShowUpload(true)}
-          className="flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white hover:bg-teal-700 transition-colors"
+          className="flex items-center gap-2 rounded-lg bg-status-info px-4 py-2 text-sm font-medium text-white hover:brightness-110 transition-colors"
         >
           <Upload className="h-4 w-4" />
           Subir documento
@@ -277,7 +277,7 @@ export default function PlatformKnowledgePage() {
                   accept=".pdf,.md,.txt,.docx"
                   onChange={(e) => setFile(e.target.files?.[0] || null)}
                   required
-                  className="mt-1 w-full text-sm text-gray-500 file:mr-4 file:rounded-lg file:border-0 file:bg-teal-50 file:px-4 file:py-2 file:text-sm file:font-medium file:text-teal-700 hover:file:bg-teal-100 dark:text-gray-400 dark:file:bg-teal-900/30 dark:file:text-teal-400"
+                  className="mt-1 w-full text-sm text-gray-500 file:mr-4 file:rounded-lg file:border-0 file:bg-status-info-soft file:px-4 file:py-2 file:text-sm file:font-medium file:text-status-info-fg hover:file:brightness-110 dark:text-gray-400"
                 />
                 <p className="mt-1 text-xs text-gray-400">PDF, Markdown, TXT o DOCX. Máx 10MB.</p>
               </div>
@@ -293,7 +293,7 @@ export default function PlatformKnowledgePage() {
                 <button
                   type="submit"
                   disabled={uploading || !file || !title.trim()}
-                  className="flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white hover:bg-teal-700 disabled:opacity-50 transition-colors"
+                  className="flex items-center gap-2 rounded-lg bg-status-info px-4 py-2 text-sm font-medium text-white hover:brightness-110 disabled:opacity-50 transition-colors"
                 >
                   {uploading && <Loader2 className="h-4 w-4 animate-spin" />}
                   {uploading ? 'Subiendo...' : 'Subir'}
@@ -358,7 +358,7 @@ export default function PlatformKnowledgePage() {
                     <button
                       onClick={() => handleToggle(item.id, item.enabled)}
                       className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                        item.enabled ? 'bg-teal-500' : 'bg-gray-300 dark:bg-gray-600'
+                        item.enabled ? 'bg-status-info' : 'bg-gray-300 dark:bg-gray-600'
                       }`}
                     >
                       <span
@@ -380,7 +380,7 @@ export default function PlatformKnowledgePage() {
                       <button
                         onClick={() => handleReprocess(item.id)}
                         disabled={reprocessing === item.id}
-                        className="rounded p-1 text-gray-400 hover:bg-teal-50 hover:text-teal-600 dark:hover:bg-teal-900/20 disabled:opacity-50"
+                        className="rounded p-1 text-gray-400 hover:bg-status-info-soft hover:text-status-info-fg disabled:opacity-50"
                         title="Reprocesar (regenerar embeddings)"
                       >
                         {reprocessing === item.id ? (
@@ -392,7 +392,7 @@ export default function PlatformKnowledgePage() {
                       <button
                         onClick={() => handleDelete(item.id)}
                         disabled={deleting === item.id}
-                        className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 disabled:opacity-50"
+                        className="rounded p-1 text-gray-400 hover:bg-status-danger-soft hover:text-status-danger-fg disabled:opacity-50"
                         title="Eliminar"
                       >
                         {deleting === item.id ? (

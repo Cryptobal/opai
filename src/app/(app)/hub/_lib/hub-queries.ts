@@ -196,7 +196,7 @@ export async function getClosingHubData(
           select: { firstName: true, lastName: true, email: true, phone: true, portalLastAccessAt: true },
         },
         stage: {
-          select: { name: true, color: true, order: true, isClosedWon: true, isClosedLost: true },
+          select: { name: true, color: true, order: true, isClosedWon: true, isClosedLost: true, isAccepted: true },
         },
         quotes: { select: { quoteId: true } },
         followUpLogs: {
@@ -233,12 +233,13 @@ export async function getClosingHubData(
     prisma.crmDeal.count({
       where: { tenantId, proposalSentAt: { gte: thirtyDaysAgo } },
     }),
-    // Won deals in 30d (via stage history)
+    // Won deals in 30d (via stage history) — incluye tanto isClosedWon como
+    // isAccepted (en este negocio "Adjudicado" se marca como isAccepted).
     prisma.crmDealStageHistory.findMany({
       where: {
         tenantId,
         changedAt: { gte: thirtyDaysAgo },
-        toStage: { is: { isClosedWon: true } },
+        toStage: { is: { OR: [{ isClosedWon: true }, { isAccepted: true }] } },
         deal: { is: { proposalSentAt: { not: null } } },
       },
       select: { dealId: true },
@@ -430,11 +431,19 @@ export async function getClosingHubData(
   }
 
   // Build hot deals: open deals with portal engagement or proposal sent
+  // EXCLUYE etapas cerradas (Adjudicado/Aceptado/Perdido) — un deal puede seguir
+  // con status='open' aunque su stage ya sea closedWon, isAccepted o closedLost.
+  // En este negocio "Adjudicado" usa isAccepted (proyecto aceptado, por iniciar).
   const hotDealCandidates: ClosingHotDeal[] = [];
   for (const deal of openDeals) {
+    if (deal.stage.isClosedWon || deal.stage.isClosedLost || deal.stage.isAccepted) continue;
     const eng = getDealEngagement(deal);
+    // "Caliente" = el cliente HA INTERACTUADO con el portal.
+    // Antes incluíamos también deals con proposalSentAt aunque no tuvieran
+    // engagement, pero eso llenaba la tabla con propuestas que nadie había
+    // visto. Ahora exigimos al menos una vista, descarga o login del portal.
     const hasPortalEngagement = eng.totalViews > 0 || eng.totalDownloads > 0 || eng.totalLogins > 0;
-    if (!hasPortalEngagement && !deal.proposalSentAt) continue;
+    if (!hasPortalEngagement) continue;
 
     const lastActivity = getLastPortalActivity(eng);
     const contactName = [deal.primaryContact?.lastName, deal.primaryContact?.firstName]
@@ -469,9 +478,64 @@ export async function getClosingHubData(
   ));
   const hotDeals = hotDealCandidates.slice(0, 10);
 
+  // ── Cierres recientes 30 días ──
+  // Toma los wonDealRows (deals que pasaron a una etapa closedWon en últimos 30d)
+  // y construye una lista enriquecida con info de la cuenta y monto.
+  const wonDealIds = wonDealRows.map((r) => r.dealId);
+  const recentWonDeals = wonDealIds.length > 0
+    ? await prisma.crmDeal.findMany({
+        where: { id: { in: wonDealIds }, tenantId },
+        select: {
+          id: true,
+          title: true,
+          amount: true,
+          totalPuestos: true,
+          activeQuotationId: true,
+          account: { select: { id: true, name: true } },
+          stage: { select: { name: true, color: true } },
+          primaryContact: {
+            select: { firstName: true, lastName: true, phone: true, email: true },
+          },
+          stageHistory: {
+            where: {
+              toStage: { is: { OR: [{ isClosedWon: true }, { isAccepted: true }] } },
+              changedAt: { gte: thirtyDaysAgo },
+            },
+            orderBy: { changedAt: 'desc' },
+            take: 1,
+            select: { changedAt: true },
+          },
+          quotes: { select: { quoteId: true } },
+        },
+      })
+    : [];
+
+  const closedDeals: import('./hub-types').ClosingClosedDeal[] = recentWonDeals
+    .map((deal) => {
+      const summary = resolveDealActiveQuotationSummary(deal, quoteById, ufValue);
+      const contactName = [deal.primaryContact?.lastName, deal.primaryContact?.firstName]
+        .filter(Boolean).join(' ') || 'Sin contacto';
+      return {
+        id: deal.id,
+        companyName: deal.account?.name ?? 'Sin empresa',
+        dealTitle: deal.title,
+        contactName,
+        contactPhone: deal.primaryContact?.phone ?? null,
+        contactEmail: deal.primaryContact?.email ?? null,
+        stageName: deal.stage.name,
+        stageColor: deal.stage.color,
+        amount: summary ? summary.amountClp : Number(deal.amount),
+        totalPuestos: deal.totalPuestos,
+        closedAt: deal.stageHistory[0]?.changedAt ?? null,
+      };
+    })
+    .sort((a, b) => (b.closedAt?.getTime() ?? 0) - (a.closedAt?.getTime() ?? 0));
+
   // Build stale deals: no portal activity (login/view/download) in 7+ days
+  // (también excluye stages cerrados/aceptados igual que hot deals)
   const staleDealCandidates: ClosingStaleDeal[] = [];
   for (const deal of openDeals) {
+    if (deal.stage.isClosedWon || deal.stage.isClosedLost || deal.stage.isAccepted) continue;
     if (!deal.proposalSentAt) continue;
     const eng = getDealEngagement(deal);
     const lastPortalActivity = getLastPortalActivity(eng);
@@ -680,6 +744,7 @@ export async function getClosingHubData(
     },
     hotDeals,
     staleDeals,
+    closedDeals,
     pendingLeads,
     portalTopUsers,
     funnel: {
@@ -1155,8 +1220,10 @@ export async function getOpsMetrics(
     prisma.opsPuestoOperativo.count({
       where: { tenantId, active: true },
     }),
+    // Guardias activos = status active AND asignados a una instalación
+    // (excluye postulantes/seleccionados que aún no operan en terreno)
     prisma.opsGuardia.count({
-      where: { tenantId, status: 'active' },
+      where: { tenantId, status: 'active', currentInstallationId: { not: null } },
     }),
     prisma.opsGuardia.count({
       where: { tenantId, status: 'active', createdAt: { gte: monthStart } },
@@ -1365,16 +1432,6 @@ export function getAlerts(
   const alerts: HubAlert[] = [];
 
   if (opsMetrics) {
-    if (opsMetrics.unresolvedAlerts > 0) {
-      alerts.push({
-        id: 'round-alerts',
-        severity: opsMetrics.criticalAlerts > 0 ? 'critical' : 'warning',
-        message: `${opsMetrics.unresolvedAlerts} alerta(s) de ronda sin resolver${opsMetrics.criticalAlerts > 0 ? ` (${opsMetrics.criticalAlerts} crítica(s))` : ''}`,
-        href: '/ops/rondas/alertas',
-        count: opsMetrics.unresolvedAlerts,
-      });
-    }
-
     if (opsMetrics.attendance.absent > 0) {
       alerts.push({
         id: 'attendance-absent',
@@ -1404,17 +1461,6 @@ export function getAlerts(
       message: `${crmMetrics.followUpsOverdueCount} seguimiento(s) vencido(s)`,
       href: '/crm/deals?focus=followup-overdue',
       count: crmMetrics.followUpsOverdueCount,
-    });
-  }
-
-  if (financeMetrics && financeMetrics.pendingApprovalCount > 0) {
-    alerts.push({
-      id: 'rendiciones-pending',
-      severity:
-        financeMetrics.pendingApprovalCount >= 5 ? 'warning' : 'info',
-      message: `${financeMetrics.pendingApprovalCount} rendición(es) pendiente(s) de aprobación`,
-      href: '/finanzas/aprobaciones',
-      count: financeMetrics.pendingApprovalCount,
     });
   }
 
@@ -1469,8 +1515,8 @@ export async function getNotifications(
     .map((t) => t.key);
 
   // 2. Get user bell-disabled types
-  const userPrefRecord = await prisma.userNotificationPreference.findUnique({
-    where: { userId_tenantId: { userId, tenantId } },
+  const userPrefRecord = await prisma.notificationPreference.findUnique({
+    where: { subscriberType_subscriberId: { subscriberType: "ADMIN", subscriberId: userId } },
   });
   const userDisabledTypes: string[] = [];
   if (userPrefRecord?.preferences) {
@@ -1568,6 +1614,7 @@ function resolveNotificationType(type: string): NotificationType {
 
 export async function getTicketMetrics(
   tenantId: string,
+  userId: string,
 ): Promise<TicketMetrics> {
   const todayStr = getTodayChile();
   const todayDate = new Date(todayStr);
@@ -1583,6 +1630,7 @@ export async function getTicketMetrics(
       p1PendingCount,
       unassignedCount,
       urgentTickets,
+      myAssignedActiveCount,
     ] = await Promise.all([
       prisma.opsTicket.count({
         where: { tenantId, status: 'open' },
@@ -1640,6 +1688,13 @@ export async function getTicketMetrics(
           slaDueAt: true,
         },
       }),
+      prisma.opsTicket.count({
+        where: {
+          tenantId,
+          assignedTo: userId,
+          status: { in: ['open', 'in_progress', 'waiting', 'pending_approval'] },
+        },
+      }),
     ]);
 
     return {
@@ -1649,6 +1704,7 @@ export async function getTicketMetrics(
       breachedCount,
       p1PendingCount,
       unassignedCount,
+      myAssignedActiveCount,
       urgentTickets: urgentTickets.map((t) => ({
         id: t.id,
         code: t.code,
@@ -1667,6 +1723,7 @@ export async function getTicketMetrics(
       breachedCount: 0,
       p1PendingCount: 0,
       unassignedCount: 0,
+      myAssignedActiveCount: 0,
       urgentTickets: [],
       moduleActive: false,
     };

@@ -20,6 +20,10 @@ export type PortalConfig = {
   comparativa: boolean
   alertas: boolean
   gamificacion: boolean
+  /** Sub-tab "Conocimiento del equipo" dentro de Documentos > Protocolos. */
+  conocimiento?: boolean
+  /** Si true, los nombres de guardia se muestran completos en Conocimiento del equipo. */
+  canSeeGuardNames?: boolean
 }
 
 export const DEFAULT_PORTAL_CONFIG: PortalConfig = {
@@ -41,6 +45,8 @@ export const DEFAULT_PORTAL_CONFIG: PortalConfig = {
   comparativa: true,
   alertas: true,
   gamificacion: true,
+  conocimiento: true,
+  canSeeGuardNames: false,
 }
 
 export interface ClienteSession {

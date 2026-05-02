@@ -18,8 +18,8 @@ export function GpsStatusIndicator({ accuracy, isWatching }: GpsStatusProps) {
   if (accuracy == null) {
     return (
       <div className="flex items-center gap-1.5 rounded-lg bg-gray-800/80 px-2.5 py-1.5 backdrop-blur-sm">
-        <SignalIcon bars={1} color="text-yellow-400" />
-        <span className="text-xs font-medium text-yellow-400 animate-pulse">Buscando...</span>
+        <SignalIcon bars={1} color="text-status-warn-fg" />
+        <span className="text-xs font-medium text-status-warn-fg animate-pulse">Buscando...</span>
       </div>
     );
   }
@@ -36,10 +36,10 @@ export function GpsStatusIndicator({ accuracy, isWatching }: GpsStatusProps) {
 }
 
 function getGpsLevel(accuracy: number): { label: string; color: string; bars: number } {
-  if (accuracy <= 10) return { label: "Preciso", color: "text-green-400", bars: 4 };
-  if (accuracy <= 30) return { label: "Normal", color: "text-green-400", bars: 3 };
-  if (accuracy <= 50) return { label: "Impreciso", color: "text-yellow-400", bars: 2 };
-  return { label: "Debil", color: "text-red-400", bars: 1 };
+  if (accuracy <= 10) return { label: "Preciso", color: "text-status-ok-fg", bars: 4 };
+  if (accuracy <= 30) return { label: "Normal", color: "text-status-ok-fg", bars: 3 };
+  if (accuracy <= 50) return { label: "Impreciso", color: "text-status-warn-fg", bars: 2 };
+  return { label: "Debil", color: "text-status-danger-fg", bars: 1 };
 }
 
 function SignalIcon({ bars, color }: { bars: number; color: string }) {

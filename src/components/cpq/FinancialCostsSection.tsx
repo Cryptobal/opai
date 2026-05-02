@@ -52,12 +52,12 @@ export function FinancialCostsSection({ value, onChange, isLocked, calculatedBas
             className={cn(
               "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-xs font-medium transition-colors",
               value.financialEnabled
-                ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+                ? "bg-status-ok-soft text-status-ok-fg dark:text-status-ok-fg"
                 : "bg-muted/30 text-muted-foreground"
             )}
             onClick={() => update({ financialEnabled: !value.financialEnabled })}
           >
-            <span className={cn("h-1.5 w-1.5 rounded-full", value.financialEnabled ? "bg-emerald-500" : "bg-muted-foreground")} />
+            <span className={cn("h-1.5 w-1.5 rounded-full", value.financialEnabled ? "bg-status-ok" : "bg-muted-foreground")} />
             {value.financialEnabled ? "On" : "Off"}
           </button>
         </div>
@@ -132,7 +132,7 @@ export function FinancialCostsSection({ value, onChange, isLocked, calculatedBas
           )}
         </div>
         {value.financialEnabled && monthlyFinancial > 0 && (
-          <div className="text-xs text-emerald-700 dark:text-emerald-400 font-medium">
+          <div className="text-xs text-status-ok-fg dark:text-status-ok-fg font-medium">
             = {formatCurrency(monthlyFinancial)}/mes
           </div>
         )}
@@ -148,12 +148,12 @@ export function FinancialCostsSection({ value, onChange, isLocked, calculatedBas
             className={cn(
               "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-xs font-medium transition-colors",
               value.policyEnabled
-                ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+                ? "bg-status-ok-soft text-status-ok-fg dark:text-status-ok-fg"
                 : "bg-muted/30 text-muted-foreground"
             )}
             onClick={() => update({ policyEnabled: !value.policyEnabled })}
           >
-            <span className={cn("h-1.5 w-1.5 rounded-full", value.policyEnabled ? "bg-emerald-500" : "bg-muted-foreground")} />
+            <span className={cn("h-1.5 w-1.5 rounded-full", value.policyEnabled ? "bg-status-ok" : "bg-muted-foreground")} />
             {value.policyEnabled ? "On" : "Off"}
           </button>
         </div>

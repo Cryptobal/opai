@@ -80,12 +80,12 @@ const ESTADO_CFG: Record<
 > = {
   ok: {
     label: "OK",
-    color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+    color: "bg-status-ok-soft text-status-ok-fg border-status-ok-border",
     Icon: CheckCircle2,
   },
   fuera_rango: {
     label: "Fuera GPS",
-    color: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+    color: "bg-status-warn-soft text-status-warn-fg border-status-warn-border",
     Icon: AlertTriangle,
   },
   sin_gps: {
@@ -95,7 +95,7 @@ const ESTADO_CFG: Record<
   },
   sin_foto: {
     label: "Sin foto",
-    color: "bg-orange-500/10 text-orange-400 border-orange-500/20",
+    color: "bg-status-warn-soft text-status-warn-fg border-status-warn-border",
     Icon: CameraOff,
   },
 };
@@ -121,10 +121,10 @@ function groupByDate(marcaciones: MarcacionPortal[]): Map<string, MarcacionPorta
 function MetodoBadge({ metodoId }: { metodoId: string | null }) {
   if (!metodoId) return null;
   const map: Record<string, { label: string; cls: string }> = {
-    face_id: { label: "Face ID", cls: "bg-purple-500/20 text-purple-300" },
-    foto: { label: "Foto", cls: "bg-blue-500/20 text-blue-300" },
-    pin_fallback: { label: "PIN", cls: "bg-amber-500/20 text-amber-300" },
-    rut_pin: { label: "RUT+PIN", cls: "bg-amber-500/20 text-amber-300" },
+    face_id: { label: "Face ID", cls: "bg-tint-violet text-tint-violet-fg" },
+    foto: { label: "Foto", cls: "bg-status-info-soft text-status-info-fg" },
+    pin_fallback: { label: "PIN", cls: "bg-status-warn-soft text-status-warn-fg" },
+    rut_pin: { label: "RUT+PIN", cls: "bg-status-warn-soft text-status-warn-fg" },
     manual: { label: "Manual", cls: "bg-slate-500/20 text-slate-300" },
   };
   const m = map[metodoId] ?? { label: metodoId, cls: "bg-slate-500/20 text-slate-300" };
@@ -172,9 +172,9 @@ function KpiTile({
 }) {
   const toneCls = {
     neutral: "text-zinc-300",
-    emerald: "text-emerald-400",
-    amber: "text-amber-400",
-    red: "text-red-400",
+    emerald: "text-status-ok-fg",
+    amber: "text-status-warn-fg",
+    red: "text-status-danger-fg",
   }[tone];
   return (
     <button
@@ -183,7 +183,7 @@ function KpiTile({
       className={cn(
         "rounded-xl border px-3 py-2 text-left transition-colors",
         active
-          ? "border-teal-500/40 bg-teal-500/10"
+          ? "border-status-info-border bg-status-info-soft"
           : "border-white/10 bg-white/[0.02] hover:border-white/20"
       )}
     >
@@ -293,7 +293,7 @@ export function PortalMarcaciones({ session, selectedInstallation }: Props) {
       <div className="flex items-start justify-between gap-2">
         <div>
           <div className="flex items-center gap-2">
-            <UserCheck className="h-5 w-5 text-teal-400" />
+            <UserCheck className="h-5 w-5 text-status-info-fg" />
             <h2 className="text-base font-semibold text-white">Marcaciones</h2>
           </div>
           <p className="text-xs text-slate-500 mt-1">{installationName}</p>
@@ -419,7 +419,7 @@ export function PortalMarcaciones({ session, selectedInstallation }: Props) {
           <span className="text-sm">Cargando marcaciones...</span>
         </div>
       ) : error ? (
-        <div className="flex flex-col items-center justify-center py-16 gap-2 text-red-400">
+        <div className="flex flex-col items-center justify-center py-16 gap-2 text-status-danger-fg">
           <AlertTriangle className="h-6 w-6" />
           <p className="text-sm">{error}</p>
         </div>
@@ -434,7 +434,7 @@ export function PortalMarcaciones({ session, selectedInstallation }: Props) {
                 setEstado("");
                 setQ("");
               }}
-              className="text-xs text-teal-400 underline"
+              className="text-xs text-status-info-fg underline"
             >
               Limpiar filtros
             </button>
@@ -460,8 +460,8 @@ export function PortalMarcaciones({ session, selectedInstallation }: Props) {
                   className={cn(
                     "rounded-xl border p-3 space-y-2",
                     isEntrada
-                      ? "border-emerald-500/20 bg-emerald-500/5"
-                      : "border-red-500/20 bg-red-500/5"
+                      ? "border-status-ok-border bg-status-ok-soft"
+                      : "border-status-danger-border bg-status-danger-soft"
                   )}
                 >
                   {/* Row 1: badge + guard name + time */}
@@ -471,8 +471,8 @@ export function PortalMarcaciones({ session, selectedInstallation }: Props) {
                         className={cn(
                           "shrink-0 px-2 py-0.5 rounded-full text-[11px] font-semibold",
                           isEntrada
-                            ? "bg-emerald-500/20 text-emerald-400"
-                            : "bg-red-500/20 text-red-400"
+                            ? "bg-status-ok-soft text-status-ok-fg"
+                            : "bg-status-danger-soft text-status-danger-fg"
                         )}
                       >
                         {isEntrada ? "Entrada" : "Salida"}
@@ -520,7 +520,7 @@ export function PortalMarcaciones({ session, selectedInstallation }: Props) {
                           href={`https://www.google.com/maps?q=${m.lat},${m.lng}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-[10px] text-blue-400 hover:underline"
+                          className="inline-flex items-center gap-1 text-[10px] text-status-info-fg hover:underline"
                         >
                           <MapPin className="h-2.5 w-2.5" />
                           Ver mapa
@@ -547,7 +547,7 @@ function GpsLabel({
 }) {
   if (gpsStatus === "dentro_rango") {
     return (
-      <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400">
+      <span className="inline-flex items-center gap-1 text-[10px] text-status-ok-fg">
         <MapPin className="h-2.5 w-2.5" />
         GPS OK{distancia != null ? ` (${Math.round(distancia)}m)` : ""}
       </span>
@@ -555,7 +555,7 @@ function GpsLabel({
   }
   if (gpsStatus === "fuera_rango") {
     return (
-      <span className="inline-flex items-center gap-1 text-[10px] text-amber-400">
+      <span className="inline-flex items-center gap-1 text-[10px] text-status-warn-fg">
         <MapPin className="h-2.5 w-2.5" />
         Fuera ({distancia != null ? `${Math.round(distancia)}m` : "?"})
       </span>

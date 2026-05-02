@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { aiService } from "@/lib/ai-service";
+import { AIError } from "@/lib/ai-errors";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
+import { clearKnowledgeCache } from "@/lib/protocols/knowledge-aggregator";
 import { canEdit } from "@/lib/permissions";
 
 type Params = { id: string };
@@ -55,8 +57,11 @@ export async function POST(
 
       let result: { sections: SectionPayload[] };
       try {
-        result = (await aiService.processDocument(base64, EXTRACTION_PROMPT, 4096)) as typeof result;
+        result = (await aiService.processDocument(base64, EXTRACTION_PROMPT, 4096, { tenantId: ctx.tenantId })) as typeof result;
       } catch (err: unknown) {
+        if (err instanceof AIError) {
+          return NextResponse.json(err.toResponse(), { status: err.clientHttpStatus });
+        }
         if (err instanceof Error && err.message === "NO_AI_CONFIGURED") {
           return NextResponse.json(
             { success: false, error: "NO_AI_CONFIGURED", message: "No hay un proveedor de IA configurado. Configura uno en Ajustes > IA." },
@@ -107,11 +112,16 @@ export async function POST(
       ),
     );
 
+    clearKnowledgeCache(ctx.tenantId);
+
     return NextResponse.json({ success: true, data: { sections: created } });
   } catch (error) {
+    if (error instanceof AIError) {
+      return NextResponse.json(error.toResponse(), { status: error.clientHttpStatus });
+    }
     console.error("[PROTOCOL_EXTRACT_PDF] Error:", error);
     return NextResponse.json(
-      { success: false, error: "Error al extraer protocolo del PDF" },
+      { success: false, error: "Error al extraer protocolo del PDF", code: "INTERNAL_ERROR" },
       { status: 500 },
     );
   }

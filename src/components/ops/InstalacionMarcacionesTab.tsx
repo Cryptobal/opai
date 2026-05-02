@@ -109,7 +109,7 @@ export function InstalacionMarcacionesTab({ installationId }: { installationId: 
             { label: "Sin salida", value: summary.sinSalida, warn: summary.sinSalida > 0 },
           ].map((s) => (
             <div key={s.label} className="bg-card rounded-lg border border-border p-2 text-center">
-              <p className={cn("text-lg font-bold", s.warn ? "text-amber-600" : "text-foreground")}>
+              <p className={cn("text-lg font-bold", s.warn ? "text-status-warn-fg" : "text-foreground")}>
                 {s.value}{s.of !== undefined ? `/${s.of}` : ""}
               </p>
               <p className="text-[10px] text-muted-foreground">{s.label}</p>
@@ -147,11 +147,11 @@ export function InstalacionMarcacionesTab({ installationId }: { installationId: 
                   <td className="px-3 py-2">
                     {row.entrada ? (
                       <div className="space-y-0.5">
-                        <p className="font-mono text-xs text-emerald-600 font-bold">
+                        <p className="font-mono text-xs text-status-ok-fg font-bold">
                           {fmtHora(row.entrada.timestamp)}
                         </p>
                         {row.entrada.atrasoMinutos && row.entrada.atrasoMinutos > 0 && (
-                          <p className="text-[10px] text-red-500">+{row.entrada.atrasoMinutos}min</p>
+                          <p className="text-[10px] text-status-danger-fg">+{row.entrada.atrasoMinutos}min</p>
                         )}
                         <MarcacionModificadaBadge
                           isModified={row.entrada.isModified}
@@ -166,7 +166,7 @@ export function InstalacionMarcacionesTab({ installationId }: { installationId: 
                   <td className="px-3 py-2">
                     {row.salida ? (
                       <div className="space-y-0.5">
-                        <p className="font-mono text-xs text-orange-600 font-bold">
+                        <p className="font-mono text-xs text-status-warn-fg font-bold">
                           {fmtHora(row.salida.timestamp)}
                         </p>
                         <MarcacionModificadaBadge
@@ -183,9 +183,9 @@ export function InstalacionMarcacionesTab({ installationId }: { installationId: 
                     {!row.entrada && !row.salida ? (
                       <span className="text-[10px] text-slate-400">Sin marcas</span>
                     ) : row.entrada && row.salida ? (
-                      <span title="Completo"><CheckCircle className="w-4 h-4 text-emerald-500" /></span>
+                      <span title="Completo"><CheckCircle className="w-4 h-4 text-status-ok-fg" /></span>
                     ) : (
-                      <span title="Incompleto"><AlertCircle className="w-4 h-4 text-amber-500" /></span>
+                      <span title="Incompleto"><AlertCircle className="w-4 h-4 text-status-warn-fg" /></span>
                     )}
                   </td>
                 </tr>

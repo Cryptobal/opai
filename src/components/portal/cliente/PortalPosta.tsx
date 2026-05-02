@@ -6,9 +6,9 @@ import { usePortalData } from '@/hooks/usePortalData'
 import { ExportButton } from './shared/ExportButton'
 
 const STATUS_CONFIG = {
-  normal: { label: 'Normal', color: 'text-emerald-400 bg-emerald-500/10' },
-  novedad: { label: 'Con novedades', color: 'text-amber-400 bg-amber-500/10' },
-  critico: { label: 'Critico', color: 'text-red-400 bg-red-500/10' },
+  normal: { label: 'Normal', color: 'text-status-ok-fg bg-status-ok-soft' },
+  novedad: { label: 'Con novedades', color: 'text-status-warn-fg bg-status-warn-soft' },
+  critico: { label: 'Critico', color: 'text-status-danger-fg bg-status-danger-soft' },
   no_aplica: { label: 'N/A', color: 'text-zinc-500 bg-zinc-800' },
 }
 
@@ -35,7 +35,7 @@ export function PortalPosta({ selectedInstallation }: Props) {
       <div className="mb-4 flex items-start justify-between gap-2">
         <div>
           <h2 className="text-white font-semibold text-lg flex items-center gap-2">
-            <BookOpen className="h-5 w-5 text-blue-400" /> Bitácora digital
+            <BookOpen className="h-5 w-5 text-status-info-fg" /> Bitácora digital
             {isDemo && <PreviewBadge />}
           </h2>
           <p className="text-xs text-zinc-500 mt-1 ml-7">Registro digital de novedades — Adiós al cuaderno</p>

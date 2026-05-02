@@ -4,7 +4,8 @@ import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
 import { formatPersonName } from "@/lib/personas";
-import { PageHeader } from "@/components/opai";
+import { PageHero } from "@/components/opai-ds";
+import { BarChart3 } from "lucide-react";
 import { RondasReportesClient } from "@/components/ops/rondas";
 import { RondasSubnav } from "@/components/ops/RondasSubnav";
 import { asRouteSnapshot, asWalkRoute } from "@/lib/rondas/ejecucion-map-helpers";
@@ -199,9 +200,13 @@ export default async function RondasReportesPage() {
 
   return (
     <div className="space-y-6 min-w-0">
-      <PageHeader
+      <PageHero
+        icon={<BarChart3 />}
+        iconTone="emerald"
+        eyebrow={["Operaciones", "Rondas", "Reportes"]}
         title="Reportes de rondas"
-        description="Cumplimiento, cobertura y confiabilidad por instalación y guardia."
+        subtitle="análisis y compliance"
+        description="Análisis de cumplimiento, trust score, alertas, performance por instalación y por guardia."
       />
       <RondasSubnav />
       <RondasReportesClient

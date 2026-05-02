@@ -10,9 +10,9 @@ export function TrustScoreBadge({ score }: { score: number | null | undefined })
   }
 
   const tone =
-    score >= 80 ? "bg-emerald-500/15 text-emerald-400 border-emerald-400/30"
-      : score >= 60 ? "bg-amber-500/15 text-amber-400 border-amber-400/30"
-      : "bg-red-500/15 text-red-400 border-red-400/30";
+    score >= 80 ? "bg-status-ok-soft text-status-ok-fg border-status-ok-border"
+      : score >= 60 ? "bg-status-warn-soft text-status-warn-fg border-status-warn-border"
+      : "bg-status-danger-soft text-status-danger-fg border-status-danger-border";
 
   return (
     <span className={cn("inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium", tone)}>

@@ -8,8 +8,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";
-import { Avatar, EmptyState } from "@/components/opai";
-import { ShieldUser, Plus, ExternalLink, Phone, MapPin, Building2, UserPlus, ChevronDown, ChevronRight, Loader2, RefreshCw, MessageCircle, FileCheck, FileX, Download, MoreHorizontal, Key } from "lucide-react";
+import { Avatar, EmptyState } from "@/components/opai-ds";
+import { ShieldUser, Plus, ExternalLink, Phone, MapPin, Building2, UserPlus, ChevronDown, ChevronRight, Loader2, RefreshCw, MessageCircle, FileCheck, FileX, Download, MoreHorizontal, Key, AlertCircle } from "lucide-react";
 import { ListToolbar } from "@/components/shared/ListToolbar";
 import type { ViewMode } from "@/components/shared/ViewToggle";
 import {
@@ -46,6 +46,7 @@ import {
 } from "@/lib/personas";
 import { canEditGuardiasPlanSeleccion, hasOpsCapability } from "@/lib/ops-rbac";
 import { SeleccionadoDestinoFields } from "@/components/ops/SeleccionadoDestinoFields";
+import { UnassignedHiredBadge, isContratadoSinAsignacion } from "@/components/ops/UnassignedHiredBadge";
 import { SHOW_PIN_IN_PROFILE } from "@/lib/guard-portal";
 
 type GuardiaItem = {
@@ -93,6 +94,8 @@ type GuardiaItem = {
   marcacionPin?: string | null;
   marcacionPinVisible?: string | null;
   hasHistorialPenal?: boolean;
+  profileComplete?: boolean;
+  profileMissing?: string[];
   bankAccounts?: Array<{
     id: string;
     bankName: string;
@@ -105,6 +108,20 @@ type GuardiaItem = {
 interface GuardiasClientProps {
   initialGuardias: GuardiaItem[];
   userRole: string;
+}
+
+function ProfileIncompleteBadge({ missing }: { missing?: string[] }) {
+  const list = missing && missing.length > 0 ? missing.join(", ") : "datos básicos";
+  return (
+    <span
+      title={`Ficha incompleta — falta: ${list}`}
+      onClick={(e) => e.stopPropagation()}
+      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-status-warn-soft text-status-warn-fg text-[10px] font-medium border border-status-warn-border cursor-help"
+    >
+      <AlertCircle className="h-3 w-3" />
+      Incompleta
+    </span>
+  );
 }
 
 export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProps) {
@@ -157,9 +174,9 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
   };
 
   const LIFECYCLE_COLORS: Record<string, string> = {
-    postulante: "bg-blue-500/15 text-blue-400",
-    seleccionado: "bg-amber-500/15 text-amber-400",
-    contratado: "bg-cyan-500/15 text-cyan-400",
+    postulante: "bg-status-info-soft text-status-info-fg",
+    seleccionado: "bg-status-warn-soft text-status-warn-fg",
+    contratado: "bg-status-info-soft text-status-info-fg",
     te: "bg-violet-500/15 text-violet-400",
     inactivo: "bg-muted text-muted-foreground",
   };
@@ -350,7 +367,11 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
     return guardias.filter((item) => {
-      if (lifecycleFilter !== "all" && item.lifecycleStatus !== lifecycleFilter) return false;
+      if (lifecycleFilter === "contratado_sin_asignacion") {
+        if (!isContratadoSinAsignacion(item.lifecycleStatus, item.currentInstallation?.id ?? null)) return false;
+      } else if (lifecycleFilter !== "all" && item.lifecycleStatus !== lifecycleFilter) {
+        return false;
+      }
       if (!query) return true;
       const text =
         `${formatPersonName(item.persona.firstName, item.persona.lastName)} ${item.persona.rut ?? ""} ${item.persona.email ?? ""} ${item.code ?? ""} ${item.persona.addressFormatted ?? ""} ${item.currentInstallation?.name ?? ""} ${item.intendedInstallation?.name ?? ""} ${item.intendedInstallation?.account?.name ?? ""}`.toLowerCase();
@@ -648,7 +669,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                       }
                     }}
                   />
-                  {rutError ? <p className="text-xs text-red-400">{rutError}</p> : null}
+                  {rutError ? <p className="text-xs text-status-danger-fg">{rutError}</p> : null}
                 </div>
                 <Input
                   placeholder="Email *"
@@ -898,7 +919,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                 window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank", "noopener,noreferrer");
               }}
             >
-              <MessageCircle className="h-3.5 w-3.5 mr-2 text-emerald-500" />
+              <MessageCircle className="h-3.5 w-3.5 mr-2 text-status-ok-fg" />
               Enviar formulario Turno Extra (WhatsApp)
             </DropdownMenuItem>
             <DropdownMenuItem
@@ -915,7 +936,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                 }
               }}
             >
-              <MessageCircle className="h-3.5 w-3.5 mr-2 text-emerald-500" />
+              <MessageCircle className="h-3.5 w-3.5 mr-2 text-status-ok-fg" />
               Enviar formulario Postulación (WhatsApp)
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -964,11 +985,14 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                 key: s,
                 label: LIFECYCLE_LABELS[s] || s,
               })),
+              { key: "contratado_sin_asignacion", label: "Sin asignación" },
             ]}
             activeFilter={lifecycleFilter}
             onFilterChange={(f) => {
               setLifecycleFilter(f);
-              if (viewMode === "spreadsheet") {
+              if (f === "contratado_sin_asignacion") {
+                if (viewMode === "spreadsheet") setViewMode("list");
+              } else if (viewMode === "spreadsheet") {
                 void handleLoadGrid(f);
               }
             }}
@@ -984,7 +1008,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
 
           {filtered.length === 0 ? (
             <EmptyState
-              icon={<ShieldUser className="h-8 w-8" />}
+              icon={ShieldUser}
               title="Sin personas"
               description="Agrega personas para habilitar asignación en pauta. Haz clic en una persona para ver su ficha, documentos, cuentas bancarias e historial."
               compact
@@ -1014,6 +1038,13 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center gap-2 flex-wrap min-w-0">
                           <p className="text-sm font-semibold truncate">{fullName}</p>
+                          {item.profileComplete === false && (
+                            <ProfileIncompleteBadge missing={item.profileMissing} />
+                          )}
+                          <UnassignedHiredBadge
+                            lifecycleStatus={item.lifecycleStatus}
+                            currentInstallationId={item.currentInstallation?.id ?? null}
+                          />
                           {canChangeLifecycle ? (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
@@ -1053,15 +1084,15 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                         )}
                         </div>
                         {pinDisplay(item) && (
-                          <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold tabular-nums bg-emerald-500/20 text-emerald-400">
+                          <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold tabular-nums bg-status-ok-soft text-status-ok-fg">
                             {pinDisplay(item)}
                           </span>
                         )}
                         <span
                           className={`shrink-0 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium ${
                             item.hasHistorialPenal
-                              ? "bg-emerald-500/15 text-emerald-400"
-                              : "bg-red-500/15 text-red-400"
+                              ? "bg-status-ok-soft text-status-ok-fg"
+                              : "bg-status-danger-soft text-status-danger-fg"
                           }`}
                           title={item.hasHistorialPenal ? "Antecedentes penales al día" : "Sin antecedentes penales"}
                         >
@@ -1076,7 +1107,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                         <div className="flex items-center gap-2 mt-1" onClick={(e) => e.stopPropagation()}>
                           <a
                             href={`tel:+56${phone}`}
-                            className="inline-flex items-center gap-1 text-xs text-sky-400 hover:text-sky-300 hover:underline"
+                            className="inline-flex items-center gap-1 text-xs text-status-info-fg hover:text-status-info-fg hover:underline"
                             onClick={(e) => e.stopPropagation()}
                           >
                             <Phone className="h-3 w-3" />
@@ -1171,8 +1202,15 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                     {/* Col 2: Nombre + estado + teléfono + mobile extras */}
                     <div className="min-w-0">
                       <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-2 min-w-0">
+                        <div className="flex items-center gap-2 min-w-0 flex-wrap">
                           <p className="text-sm font-semibold truncate min-w-0">{fullName}</p>
+                          {item.profileComplete === false && (
+                            <ProfileIncompleteBadge missing={item.profileMissing} />
+                          )}
+                          <UnassignedHiredBadge
+                            lifecycleStatus={item.lifecycleStatus}
+                            currentInstallationId={item.currentInstallation?.id ?? null}
+                          />
                           {canChangeLifecycle ? (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
@@ -1216,15 +1254,15 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
                           {pinDisplay(item) && (
-                            <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold tabular-nums bg-emerald-500/20 text-emerald-400">
+                            <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold tabular-nums bg-status-ok-soft text-status-ok-fg">
                               {pinDisplay(item)}
                             </span>
                           )}
                           <span
                             className={`shrink-0 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium ${
                               item.hasHistorialPenal
-                                ? "bg-emerald-500/15 text-emerald-400"
-                                : "bg-red-500/15 text-red-400"
+                                ? "bg-status-ok-soft text-status-ok-fg"
+                                : "bg-status-danger-soft text-status-danger-fg"
                             }`}
                             title={item.hasHistorialPenal ? "Antecedentes penales al día" : "Sin antecedentes penales"}
                           >
@@ -1237,7 +1275,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                         <div className="flex items-center gap-2 mt-0.5" onClick={(e) => e.stopPropagation()}>
                           <a
                             href={`tel:+56${phone}`}
-                            className="inline-flex items-center gap-1 text-xs text-sky-400 hover:text-sky-300 hover:underline"
+                            className="inline-flex items-center gap-1 text-xs text-status-info-fg hover:text-status-info-fg hover:underline"
                             onClick={(e) => e.stopPropagation()}
                           >
                             <Phone className="h-3 w-3" />
@@ -1247,7 +1285,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                             href={`https://wa.me/56${phone}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 rounded-full bg-green-600/15 px-2 py-0.5 text-xs font-medium text-green-500 hover:bg-green-600/25 transition-colors"
+                            className="inline-flex items-center gap-1 rounded-full bg-status-ok-soft px-2 py-0.5 text-xs font-medium text-status-ok-fg hover:brightness-110 transition-colors"
                             onClick={(e) => e.stopPropagation()}
                           >
                             <svg className="h-3 w-3" viewBox="0 0 24 24" fill="currentColor">
@@ -1319,7 +1357,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                     <div className="min-w-0 max-md:hidden w-[120px] shrink-0">
                       {phone ? (
                         <span className="text-xs text-muted-foreground" onClick={(e) => e.stopPropagation()}>
-                          <a href={`tel:+56${phone}`} className="hover:text-sky-400 transition-colors">+56 {phone}</a>
+                          <a href={`tel:+56${phone}`} className="hover:text-status-info-fg transition-colors">+56 {phone}</a>
                         </span>
                       ) : (
                         <span className="text-xs text-muted-foreground/50">—</span>
@@ -1397,7 +1435,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                 </div>
               ) : !gridData ? (
                 <EmptyState
-                  icon={<ShieldUser className="h-8 w-8" />}
+                  icon={ShieldUser}
                   title="Sin datos"
                   description="No se pudieron cargar los datos de la grilla."
                   compact
@@ -1480,7 +1518,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                               {s.ppc > 0 && (
                                 <>
                                   <span className="text-border">·</span>
-                                  <span className="text-amber-400">PPC <span className="font-semibold">{s.ppc}</span></span>
+                                  <span className="text-status-warn-fg">PPC <span className="font-semibold">{s.ppc}</span></span>
                                 </>
                               )}
                             </span>
@@ -1517,7 +1555,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                                         title={row[col.key] || ""}
                                       >
                                         {col.key === "os10" ? (
-                                          <span className={row[col.key] === "Sí" ? "text-emerald-400" : "text-muted-foreground"}>
+                                          <span className={row[col.key] === "Sí" ? "text-status-ok-fg" : "text-muted-foreground"}>
                                             {row[col.key] || "—"}
                                           </span>
                                         ) : col.key === "os10Expira" && row[col.key] ? (
@@ -1572,7 +1610,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                                     title={row[col.key] || ""}
                                   >
                                     {col.key === "os10" ? (
-                                      <span className={row[col.key] === "Sí" ? "text-emerald-400" : "text-muted-foreground"}>
+                                      <span className={row[col.key] === "Sí" ? "text-status-ok-fg" : "text-muted-foreground"}>
                                         {row[col.key] || "—"}
                                       </span>
                                     ) : col.key === "os10Expira" && row[col.key] ? (

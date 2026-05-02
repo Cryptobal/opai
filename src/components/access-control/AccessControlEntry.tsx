@@ -286,7 +286,7 @@ export function AccessControlEntry({
                   <button
                     key={type}
                     onClick={() => handleSelectType(type)}
-                    className="flex flex-col items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 p-5 transition-colors hover:border-blue-500/50 hover:bg-blue-500/5 active:bg-blue-500/10"
+                    className="flex flex-col items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 p-5 transition-colors hover:border-status-info-border hover:bg-status-info-soft active:bg-status-info-soft"
                   >
                     {TYPE_ICONS[type]}
                     <span className="text-sm font-medium text-zinc-200">{tc.label}</span>
@@ -310,9 +310,9 @@ export function AccessControlEntry({
             ) : needsMrzCapture ? (
               <div className="space-y-3">
                 {rut && (
-                  <div className="flex items-center gap-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 px-3 py-2">
-                    <Check className="h-4 w-4 text-emerald-400" />
-                    <span className="text-sm text-emerald-300">
+                  <div className="flex items-center gap-2 rounded-lg bg-status-ok-soft border border-status-ok-border px-3 py-2">
+                    <Check className="h-4 w-4 text-status-ok-fg" />
+                    <span className="text-sm text-status-ok-fg">
                       RUT: <span className="font-mono font-medium">{rut}</span>
                     </span>
                   </div>
@@ -327,7 +327,7 @@ export function AccessControlEntry({
               <>
                 <Button
                   onClick={() => setShowQR(true)}
-                  className="w-full h-16 text-base bg-blue-600 hover:bg-blue-500"
+                  className="w-full h-16 text-base bg-status-info hover:bg-status-info"
                   size="lg"
                 >
                   <QrCode className="mr-2 h-6 w-6" />
@@ -365,7 +365,7 @@ export function AccessControlEntry({
                         inputMode="numeric"
                       />
                       {rutBody.length >= 7 && (
-                        <span className="pr-3 text-lg font-mono font-bold text-emerald-400 select-none animate-in fade-in">
+                        <span className="pr-3 text-lg font-mono font-bold text-status-ok-fg select-none animate-in fade-in">
                           -{computeRutDv(rutBody)}
                         </span>
                       )}
@@ -373,7 +373,7 @@ export function AccessControlEntry({
                     <Button
                       onClick={handleManualRut}
                       disabled={rutBody.length < 7 || !validateRut(rut) || validating}
-                      className={rutBody.length >= 7 ? "bg-emerald-600 hover:bg-emerald-700" : ""}
+                      className={rutBody.length >= 7 ? "bg-status-ok hover:brightness-110" : ""}
                     >
                       {validating ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -413,12 +413,12 @@ export function AccessControlEntry({
               {TYPE_ICONS[selectedType]}
               <span>{RECORD_TYPE_CONFIG[selectedType].label}</span>
               {validationResult?.listMatch === "whitelist" && (
-                <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/30">
+                <Badge className="bg-status-ok-soft text-status-ok-fg border-status-ok-border">
                   Autorizado
                 </Badge>
               )}
               {validationResult?.isFrequent && (
-                <Badge className="bg-blue-500/10 text-blue-400 border-blue-500/30">
+                <Badge className="bg-status-info-soft text-status-info-fg border-status-info-border">
                   Frecuente
                 </Badge>
               )}
@@ -487,7 +487,7 @@ export function AccessControlEntry({
             <Button
               onClick={handleConfirmEntry}
               disabled={submitting}
-              className="w-full h-12 bg-emerald-600 hover:bg-emerald-500 text-white text-base"
+              className="w-full h-12 bg-status-ok hover:bg-status-ok text-white text-base"
             >
               {submitting ? (
                 <Loader2 className="mr-2 h-5 w-5 animate-spin" />

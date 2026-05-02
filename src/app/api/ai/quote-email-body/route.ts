@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { aiService } from "@/lib/ai-service";
+import { AIError } from "@/lib/ai-errors";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
 
@@ -109,15 +110,18 @@ INSTRUCCIONES ESTRICTAS:
     }`;
 
     const body = (
-      await aiService.generateText(prompt, { maxTokens: 450, temperature: 0.6 })
+      await aiService.generateText(prompt, { maxTokens: 450, temperature: 0.6 }, { tenantId: ctx.tenantId })
     ).trim();
 
     return NextResponse.json({ success: true, data: { body } });
   } catch (error) {
+    if (error instanceof AIError) {
+      return NextResponse.json(error.toResponse(), { status: error.clientHttpStatus });
+    }
     console.error("Error generating email body:", error);
     const message = error instanceof Error ? error.message : "Error generando email";
     return NextResponse.json(
-      { success: false, error: message },
+      { success: false, error: message, code: "INTERNAL_ERROR" },
       { status: 500 }
     );
   }

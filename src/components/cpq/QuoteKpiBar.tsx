@@ -69,7 +69,7 @@ export function QuoteKpiBar({
   return (
     <div
       className={cn(
-        "rounded-lg border border-emerald-500/20 bg-emerald-500/[0.03] overflow-hidden transition-all duration-200",
+        "rounded-lg border border-status-ok-border bg-status-ok-soft/30 overflow-hidden transition-all duration-200",
         className
       )}
     >
@@ -83,13 +83,13 @@ export function QuoteKpiBar({
         )}
       >
         {/* Sale price */}
-        <span className="text-sm font-bold font-mono text-emerald-700 dark:text-emerald-400 truncate">
+        <span className="text-sm font-bold font-mono text-status-ok-fg dark:text-status-ok-fg truncate">
           {formatCLP(totalSalePrice)}
         </span>
 
         {/* UF equivalent */}
         {ufDisplay && (
-          <span className="text-sm font-semibold text-emerald-600/70 dark:text-emerald-400/60 shrink-0">
+          <span className="text-sm font-semibold text-status-ok-fg/70 shrink-0">
             {ufDisplay}
           </span>
         )}
@@ -97,7 +97,7 @@ export function QuoteKpiBar({
         <span className="flex-1" />
 
         {/* Margin badge */}
-        <span className="inline-flex items-center rounded-md bg-emerald-500/15 px-2 py-0.5 text-sm font-semibold text-emerald-700 dark:text-emerald-400 shrink-0">
+        <span className="inline-flex items-center rounded-md bg-status-ok-soft px-2 py-0.5 text-sm font-semibold text-status-ok-fg dark:text-status-ok-fg shrink-0">
           {marginLabel}%
         </span>
 
@@ -143,7 +143,7 @@ export function QuoteKpiBar({
           <p className="text-xs uppercase tracking-wider text-muted-foreground">
             Margen
           </p>
-          <p className="text-xs font-bold font-mono text-emerald-700 dark:text-emerald-400">
+          <p className="text-xs font-bold font-mono text-status-ok-fg dark:text-status-ok-fg">
             {formatCurrency(marginAmount)}
           </p>
         </div>
@@ -152,9 +152,9 @@ export function QuoteKpiBar({
       {/* Additional lines breakdown */}
       {isExpanded && additionalLinesTotal > 0 && (
         <div className="px-3 pb-2">
-          <div className={cn(CPQ_BREAKDOWN_SHELL, CPQ_BREAKDOWN_ROW, "py-1 border-t border-purple-500/20 text-xs")}>
-            <span className="text-xs text-purple-400 break-words min-w-0">Serv. adicionales</span>
-            <span className={cpqBreakdownAmount("text-sm font-medium text-purple-400")}>
+          <div className={cn(CPQ_BREAKDOWN_SHELL, CPQ_BREAKDOWN_ROW, "py-1 border-t border-tint-violet-fg/20 text-xs")}>
+            <span className="text-xs text-tint-violet-fg break-words min-w-0">Serv. adicionales</span>
+            <span className={cpqBreakdownAmount("text-sm font-medium text-tint-violet-fg")}>
               {formatCurrency(additionalLinesTotal)}
             </span>
           </div>

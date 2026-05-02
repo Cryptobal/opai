@@ -276,6 +276,7 @@ export async function extractLeadFromEmail(params: {
   fromEmail?: string | null;
   ownDomain?: string | null;
   ownCompanyName?: string | null;
+  tenantId?: string | null;
 }): Promise<ExtractedLeadData> {
   let textBody = params.textBody?.trim() || stripHtml(params.htmlBody || "");
 
@@ -341,7 +342,7 @@ export async function extractLeadFromEmail(params: {
 
   let parsed: Record<string, string>;
   try {
-    const result = await aiService.generateJSON(fullPrompt, 1500);
+    const result = await aiService.generateJSON(fullPrompt, 1500, params.tenantId ? { tenantId: params.tenantId } : undefined);
     parsed = result && typeof result === "object" ? (result as Record<string, string>) : {};
   } catch (err) {
     console.warn("[email-lead-extractor] AIService error (NO_AI_CONFIGURED?):", err);

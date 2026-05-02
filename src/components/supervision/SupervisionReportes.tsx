@@ -11,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { KpiCard, KpiGrid } from "@/components/opai";
+import { Stat, StatGrid } from "@/components/opai-ds";
 import {
   BarChart,
   Bar,
@@ -256,63 +256,41 @@ export function SupervisionReportes({
       </div>
 
       {/* ===== 2. Executive Summary KPIs ===== */}
-      <KpiGrid columns={4}>
-        <KpiCard
-          title="Visitas totales"
+      <StatGrid lgCols={4}>
+        <Stat
+          label="Visitas totales"
           value={t?.visitas ?? 0}
-          icon={<FileText className="h-4 w-4" />}
-          trend={
-            t && t.trendTotal !== 0
-              ? t.trendTotal > 0
-                ? "up"
-                : "down"
-              : "neutral"
-          }
-          trendValue={
-            t
-              ? `${t.trendTotal > 0 ? "+" : ""}${t.trendTotal}%`
-              : undefined
-          }
+          icon={FileText}
+          trend={t?.trendTotal ?? undefined}
         />
-        <KpiCard
-          title="Completadas"
+        <Stat
+          label="Completadas"
           value={t?.visitasCompleted ?? 0}
-          variant="emerald"
-          icon={<TrendingUp className="h-4 w-4" />}
-          trend={
-            t && t.trendCompleted !== 0
-              ? t.trendCompleted > 0
-                ? "up"
-                : "down"
-              : "neutral"
-          }
-          trendValue={
-            t
-              ? `${t.trendCompleted > 0 ? "+" : ""}${t.trendCompleted}%`
-              : undefined
-          }
+          variant="ok"
+          icon={TrendingUp}
+          trend={t?.trendCompleted ?? undefined}
         />
-        <KpiCard
-          title="Cobertura"
+        <Stat
+          label="Cobertura"
           value={t ? `${t.coveragePct}%` : "—"}
-          variant="blue"
-          description={
+          variant="brand"
+          hint={
             t
               ? `${t.instalacionesVisitadas} de ${t.instalacionesAsignadas} instalaciones`
               : undefined
           }
         />
-        <KpiCard
-          title="Calificación promedio"
+        <Stat
+          label="Calificación promedio"
           value={
             t?.avgRating !== null && t?.avgRating !== undefined
               ? t.avgRating.toFixed(1)
               : "—"
           }
-          variant="teal"
-          icon={<Star className="h-4 w-4" />}
+          variant="brand"
+          icon={Star}
         />
-      </KpiGrid>
+      </StatGrid>
 
       {/* ===== 3. Charts Grid ===== */}
       <div className="grid gap-4 lg:grid-cols-2">
@@ -524,10 +502,10 @@ export function SupervisionReportes({
                           <span
                             className={
                               s.avgRating >= 4
-                                ? "text-emerald-400"
+                                ? "text-status-ok-fg"
                                 : s.avgRating >= 3
-                                  ? "text-amber-400"
-                                  : "text-red-400"
+                                  ? "text-status-warn-fg"
+                                  : "text-status-danger-fg"
                             }
                           >
                             {s.avgRating.toFixed(1)}
@@ -553,7 +531,7 @@ export function SupervisionReportes({
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
-              <AlertTriangle className="h-4 w-4 text-amber-400" />
+              <AlertTriangle className="h-4 w-4 text-status-warn-fg" />
               Instalaciones sin visita reciente
             </CardTitle>
           </CardHeader>
@@ -571,10 +549,10 @@ export function SupervisionReportes({
 
                 const severityColor =
                   severity === "critical"
-                    ? "text-red-400 border-red-500/30 bg-red-500/5"
+                    ? "text-status-danger-fg border-status-danger-border bg-status-danger-soft"
                     : severity === "warning"
-                      ? "text-amber-400 border-amber-500/30 bg-amber-500/5"
-                      : "text-blue-400 border-blue-500/30 bg-blue-500/5";
+                      ? "text-status-warn-fg border-status-warn-border bg-status-warn-soft"
+                      : "text-status-info-fg border-status-info-border bg-status-info-soft";
 
                 return (
                   <div
@@ -595,10 +573,10 @@ export function SupervisionReportes({
                       variant="outline"
                       className={
                         severity === "critical"
-                          ? "border-red-500/50 text-red-400"
+                          ? "border-status-danger-border text-status-danger-fg"
                           : severity === "warning"
-                            ? "border-amber-500/50 text-amber-400"
-                            : "border-blue-500/50 text-blue-400"
+                            ? "border-status-warn-border text-status-warn-fg"
+                            : "border-status-info-border text-status-info-fg"
                       }
                     >
                       {inst.daysSinceVisit !== null

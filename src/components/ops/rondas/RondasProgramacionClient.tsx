@@ -5,8 +5,8 @@ import { toast } from "sonner";
 import { ProgramacionForm } from "@/components/ops/rondas/programacion-form";
 import { previewSlotTimes } from "@/lib/rondas/schedule-engine";
 import { Button } from "@/components/ui/button";
-import { DataTable } from "@/components/opai-ds/DataTableLegacy";
-import type { DataTableColumn } from "@/components/opai-ds/DataTableLegacy";
+import { DataTable, EmptyState, type DataTableColumn } from "@/components/opai-ds";
+import { Inbox } from "lucide-react";
 
 interface ProgramacionItem {
   id: string;
@@ -30,25 +30,25 @@ export function RondasProgramacionClient({
 }) {
   const [rows, setRows] = useState(initialRows);
 
-  const columns: DataTableColumn[] = [
+  const columns: DataTableColumn<ProgramacionItem>[] = [
     {
-      key: "rondaTemplate",
-      label: "Plantilla",
-      render: (_v, row) => row.rondaTemplate?.name ?? row.rondaTemplateId,
+      id: "rondaTemplate",
+      header: "Plantilla",
+      cell: (row) => row.rondaTemplate?.name ?? row.rondaTemplateId,
     },
-    { key: "diasSemana", label: "Días", render: (v) => v.join(",") },
+    { id: "diasSemana", header: "Días", cell: (row) => row.diasSemana.join(",") },
     {
-      key: "horario",
-      label: "Horario",
-      render: (_v, row) => `${row.horaInicio} - ${row.horaFin}`,
+      id: "horario",
+      header: "Horario",
+      cell: (row) => `${row.horaInicio} - ${row.horaFin}`,
     },
     {
-      key: "frecuenciaMinutos",
-      label: "Horarios de rondas",
-      render: (_v, row) => {
+      id: "frecuenciaMinutos",
+      header: "Horarios de rondas",
+      cell: (row) => {
         const custom = row.horariosCustom as string[] | null;
         const slots = previewSlotTimes(row.horaInicio, row.horaFin, row.frecuenciaMinutos, custom);
-        const label = custom && custom.length > 0 ? `${custom.length} horarios manuales` : `Cada ${_v} min`;
+        const label = custom && custom.length > 0 ? `${custom.length} horarios manuales` : `Cada ${row.frecuenciaMinutos} min`;
         return (
           <div className="space-y-1">
             <span className="text-[11px] text-[#64748b]">{label}</span>
@@ -63,12 +63,12 @@ export function RondasProgramacionClient({
         );
       },
     },
-    { key: "isActive", label: "Estado", render: (v) => (v ? "Activa" : "Inactiva") },
+    { id: "isActive", header: "Estado", cell: (row) => (row.isActive ? "Activa" : "Inactiva") },
     {
-      key: "actions",
-      label: "Acciones",
-      className: "text-right",
-      render: (_v, row) => (
+      id: "actions",
+      header: "Acciones",
+      align: "right",
+      cell: (row) => (
         <div className="flex items-center justify-end gap-1">
           <Button
             size="sm"
@@ -135,8 +135,9 @@ export function RondasProgramacionClient({
 
       <DataTable
         columns={columns}
-        data={rows}
-        emptyMessage="Sin programaciones registradas."
+        rows={rows}
+        rowKey={(row) => row.id}
+        empty={<EmptyState icon={Inbox} title="Sin programaciones registradas." compact />}
       />
     </div>
   );

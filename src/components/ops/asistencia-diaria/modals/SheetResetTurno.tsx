@@ -83,7 +83,7 @@ export function SheetResetTurno({
 
       {/* Pending/Approved TE */}
       {isPendingOrApproved && (
-        <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+        <div className="rounded-md border border-status-warn-border bg-status-warn-soft p-3 text-sm">
           <p>
             Se eliminará el TE de <strong>{guardName}</strong> (${Number(te.amountClp).toLocaleString("es-CL")})
           </p>
@@ -93,7 +93,7 @@ export function SheetResetTurno({
 
       {/* Paid TE — non-admin */}
       {isPaidTe && !canManagePaidTeReset && (
-        <div className="rounded-md border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-300">
+        <div className="rounded-md border border-status-danger-border bg-status-danger-soft p-3 text-sm text-status-danger-fg">
           <p className="font-medium">No se puede resetear: TE pagado.</p>
           <p className="text-xs mt-1">Solicita override a un admin.</p>
         </div>
@@ -102,7 +102,7 @@ export function SheetResetTurno({
       {/* Paid TE — admin */}
       {isPaidTe && canManagePaidTeReset && (
         <div className="space-y-3">
-          <div className="rounded-md border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-300">
+          <div className="rounded-md border border-status-danger-border bg-status-danger-soft p-3 text-sm text-status-danger-fg">
             <p className="font-medium">PELIGRO: TE PAGADO</p>
             <p className="text-xs mt-1">
               TE de {guardName} (${Number(te.amountClp).toLocaleString("es-CL")}) — estado: pagado.

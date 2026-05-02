@@ -62,7 +62,7 @@ export default function PsychAssessmentScoreCard({
         </dl>
       </div>
       {reviewedAt ? (
-        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-700 dark:text-emerald-400">
+        <div className="rounded-xl border border-status-ok-border bg-status-ok-soft p-4 text-sm text-status-ok-fg dark:text-status-ok-fg">
           <p className="flex items-center gap-2 font-medium">
             <ShieldCheck className="size-4" /> Firmado por {reviewedBy}
           </p>
@@ -73,7 +73,7 @@ export default function PsychAssessmentScoreCard({
       ) : canWrite ? (
         <button
           onClick={() => setSendOpen(true)}
-          className="w-full rounded-lg border border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20 px-3 py-3 text-sm min-h-[44px] flex items-center justify-center gap-2"
+          className="w-full rounded-lg border border-status-ok-border bg-status-ok-soft text-status-ok-fg dark:text-status-ok-fg hover:bg-status-ok-soft px-3 py-3 text-sm min-h-[44px] flex items-center justify-center gap-2"
         >
           <ShieldCheck className="size-4" />
           Enviar a psicólogo para firma

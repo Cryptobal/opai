@@ -115,6 +115,40 @@ export async function POST(
       }
     }
 
+    // Notificación de cambio de estado a interesados.
+    try {
+      const interested = new Set<string>();
+      if (updated.assignedTo) interested.add(updated.assignedTo);
+      if (updated.reportedBy) interested.add(updated.reportedBy);
+      interested.delete(ctx.userId);
+      if (interested.size > 0) {
+        const STATUS_LABELS: Record<string, string> = {
+          open: "Abierto",
+          in_progress: "En progreso",
+          waiting: "En espera",
+          pending_approval: "Pendiente de aprobación",
+          resolved: "Resuelto",
+          closed: "Cerrado",
+          rejected: "Rechazado",
+          cancelled: "Cancelado",
+        };
+        const newLabel = STATUS_LABELS[targetStatus] ?? targetStatus;
+        const { notify } = await import("@/lib/notifications/notify");
+        await notify({
+          tenantId: ctx.tenantId,
+          type: "ticket_mention", // reusa tipo existente; ver nota en comments
+          targetIds: Array.from(interested),
+          targetType: "ADMIN",
+          title: `Ticket ${updated.code} → ${newLabel}`,
+          body: `"${updated.title}" cambió a ${newLabel}`,
+          link: `/opai/ops/tickets/${updated.id}`,
+          data: { ticketId: updated.id, code: updated.code, status: targetStatus, source: "transition" },
+        });
+      }
+    } catch (notifyErr) {
+      console.error("[OPS] Error notificando transición:", notifyErr);
+    }
+
     // Build response
     const guardiaName =
       updated.guardia?.persona

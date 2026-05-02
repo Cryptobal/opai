@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { DetailField, DetailFieldGrid } from "@/components/crm/DetailField";
+import { DetailField, DetailFieldGrid } from "@/components/opai/DetailField";
 import {
   BANK_ACCOUNT_TYPES,
   CHILE_BANKS,
@@ -234,50 +234,48 @@ export default function DatosPersonalesSection({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Identificación */}
       <div>
-        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Identificación</p>
-        <DetailFieldGrid columns={3}>
-          <DetailField label="Nombre completo" value={formatPersonName(persona.firstName, persona.lastName)} />
-          <DetailField label="RUT" value={persona.rut} mono copyable />
-          <DetailField label="Fecha de nacimiento" value={persona.birthDate ? formatDateUTC(persona.birthDate) : undefined} />
+        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.08em] mb-2.5">Identificación</p>
+        <DetailFieldGrid columns={3} boxed>
+          <DetailField boxed label="Nombre completo" value={formatPersonName(persona.firstName, persona.lastName)} />
+          <DetailField boxed label="RUT" value={persona.rut} mono copyable />
+          <DetailField boxed label="Fecha de nacimiento" value={persona.birthDate ? formatDateUTC(persona.birthDate) : undefined} />
           <DetailField
+            boxed
             label="Sexo"
             value={persona.sex ? persona.sex.charAt(0).toUpperCase() + persona.sex.slice(1) : undefined}
           />
-          <DetailField label="Nacionalidad" value={persona.nacionalidad} />
+          <DetailField boxed label="Nacionalidad" value={persona.nacionalidad} />
         </DetailFieldGrid>
       </div>
-
-      <div className="border-t border-border" />
 
       {/* Contacto */}
       <div>
-        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Contacto</p>
-        <DetailFieldGrid columns={3}>
-          <DetailField label="Email" value={persona.email} copyable />
-          <DetailField label="Celular" value={persona.phoneMobile} mono copyable />
+        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.08em] mb-2.5">Contacto</p>
+        <DetailFieldGrid columns={3} boxed>
+          <DetailField boxed label="Email" value={persona.email} copyable />
+          <DetailField boxed label="Celular" value={persona.phoneMobile} mono copyable />
         </DetailFieldGrid>
       </div>
 
-      <div className="border-t border-border" />
-
       {/* Datos previsionales */}
       <div>
-        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Datos previsionales</p>
-        <DetailFieldGrid columns={3}>
-          <DetailField label="Régimen previsional" value={getRegimenPrevisionalLabel(persona.regimenPrevisional)} />
-          <DetailField label="¿Jubilado?" value={persona.isJubilado ? "Sí" : "No"} />
+        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.08em] mb-2.5">Datos previsionales</p>
+        <DetailFieldGrid columns={3} boxed>
+          <DetailField boxed label="Régimen previsional" value={getRegimenPrevisionalLabel(persona.regimenPrevisional)} />
+          <DetailField boxed label="¿Jubilado?" value={persona.isJubilado ? "Sí" : "No"} />
           {persona.isJubilado && (
             <>
-              <DetailField label="Cotiza AFP" value={persona.cotizaAFP ? "Sí" : "No"} />
-              <DetailField label="Cotiza AFC" value={persona.cotizaAFC ? "Sí" : "No"} />
+              <DetailField boxed label="Cotiza AFP" value={persona.cotizaAFP ? "Sí" : "No"} />
+              <DetailField boxed label="Cotiza AFC" value={persona.cotizaAFC ? "Sí" : "No"} />
             </>
           )}
-          <DetailField label="Cotiza salud" value={persona.cotizaSalud !== false ? "Sí" : "No"} />
-          <DetailField label="AFP" value={persona.afp} />
+          <DetailField boxed label="Cotiza salud" value={persona.cotizaSalud !== false ? "Sí" : "No"} />
+          <DetailField boxed label="AFP" value={persona.afp} />
           <DetailField
+            boxed
             label="Sistema de salud"
             value={
               persona.healthSystem === "isapre"
@@ -288,6 +286,7 @@ export default function DatosPersonalesSection({
             }
           />
           <DetailField
+            boxed
             label="Cotización"
             value={
               persona.healthSystem === "isapre" && persona.isapreHasExtraPercent
@@ -298,18 +297,17 @@ export default function DatosPersonalesSection({
         </DetailFieldGrid>
       </div>
 
-      <div className="border-t border-border" />
-
       {/* Laboral */}
       <div>
-        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Laboral</p>
-        <DetailFieldGrid columns={3}>
-          <DetailField label="Movilización" value={persona.hasMobilization ? "Con movilización" : "Sin movilización"} />
-          <DetailField label="Turnos extra" value={availableExtraShifts ? "Disponible para TE" : "No disponible para TE"} />
-          <DetailField label="Fecha de ingreso" value={hiredAt ? formatDateUTC(hiredAt) : undefined} />
-          <DetailField label="Recibe anticipo" value={recibeAnticipo ? "Sí" : "No"} />
-          <DetailField label="Monto anticipo" value={montoAnticipo ? `$ ${montoAnticipo.toLocaleString("es-CL")}` : "$ 0"} mono />
+        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.08em] mb-2.5">Laboral</p>
+        <DetailFieldGrid columns={3} boxed>
+          <DetailField boxed label="Movilización" value={persona.hasMobilization ? "Con movilización" : "Sin movilización"} />
+          <DetailField boxed label="Turnos extra" value={availableExtraShifts ? "Disponible para TE" : "No disponible para TE"} />
+          <DetailField boxed label="Fecha de ingreso" value={hiredAt ? formatDateUTC(hiredAt) : undefined} />
+          <DetailField boxed label="Recibe anticipo" value={recibeAnticipo ? "Sí" : "No"} />
+          <DetailField boxed label="Monto anticipo" value={montoAnticipo ? `$ ${montoAnticipo.toLocaleString("es-CL")}` : "$ 0"} mono />
           <DetailField
+            boxed
             label="Cargo / Instalación"
             value={(() => {
               const current = asignaciones.find((a) => a.isActive);
@@ -327,23 +325,24 @@ export default function DatosPersonalesSection({
         </DetailFieldGrid>
       </div>
 
-      <div className="border-t border-border" />
-
       {/* Datos bancarios */}
       <div>
-        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Datos bancarios</p>
-        <DetailFieldGrid columns={3}>
+        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.08em] mb-2.5">Datos bancarios</p>
+        <DetailFieldGrid columns={3} boxed>
           <DetailField
+            boxed
             label="Banco"
             value={existingAccount ? (CHILE_BANKS.find((b) => b.code === existingAccount.bankCode)?.name ?? existingAccount.bankName) : undefined}
             placeholder="Sin datos"
           />
           <DetailField
+            boxed
             label="Tipo cuenta"
             value={existingAccount ? (ACCOUNT_TYPE_LABEL[existingAccount.accountType] ?? existingAccount.accountType) : undefined}
             placeholder="Sin datos"
           />
           <DetailField
+            boxed
             label="Número de cuenta"
             value={existingAccount?.accountNumber}
             mono
@@ -353,51 +352,48 @@ export default function DatosPersonalesSection({
         </DetailFieldGrid>
       </div>
 
-      <div className="border-t border-border" />
-
       {/* Uniforme y físico */}
       <div>
-        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Uniforme y físico</p>
-        <DetailFieldGrid columns={3}>
-          <DetailField label="Calzado" value={persona.shoeSize} />
-          <DetailField label="Pantalón" value={persona.pantsSize} />
-          <DetailField label="Polera" value={persona.tshirtSize} />
-          <DetailField label="Camisa" value={persona.shirtSize} />
-          <DetailField label="Geólogo" value={persona.geologoSize} />
-          <DetailField label="Polar" value={persona.polarSize} />
-          <DetailField label="Chaqueta" value={persona.jacketSize} />
-          <DetailField label="Estatura" value={persona.heightCm ? `${persona.heightCm} cm` : undefined} />
-          <DetailField label="Peso" value={persona.weightKg ? `${persona.weightKg} kg` : undefined} />
+        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.08em] mb-2.5">Uniforme y físico</p>
+        <DetailFieldGrid columns={3} boxed>
+          <DetailField boxed label="Calzado" value={persona.shoeSize} />
+          <DetailField boxed label="Pantalón" value={persona.pantsSize} />
+          <DetailField boxed label="Polera" value={persona.tshirtSize} />
+          <DetailField boxed label="Camisa" value={persona.shirtSize} />
+          <DetailField boxed label="Geólogo" value={persona.geologoSize} />
+          <DetailField boxed label="Polar" value={persona.polarSize} />
+          <DetailField boxed label="Chaqueta" value={persona.jacketSize} />
+          <DetailField boxed label="Estatura" value={persona.heightCm ? `${persona.heightCm} cm` : undefined} />
+          <DetailField boxed label="Peso" value={persona.weightKg ? `${persona.weightKg} kg` : undefined} />
         </DetailFieldGrid>
       </div>
 
-      <div className="border-t border-border" />
-
       {/* Domicilio */}
       <div>
-        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Domicilio</p>
-        <div className="grid gap-x-6 gap-y-4 md:grid-cols-[1fr_200px] md:items-start">
+        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.08em] mb-2.5">Domicilio</p>
+        <div className="grid gap-2 sm:gap-3 md:grid-cols-[1fr_220px] md:items-stretch">
           <DetailField
+            boxed
             label="Dirección"
             value={persona.addressFormatted}
             icon={persona.addressFormatted ? <MapPin className="h-3 w-3" /> : undefined}
           />
-          <div className="min-w-0">
-            <dt className="text-xs font-medium text-muted-foreground mb-0.5 uppercase tracking-wide">Ubicación</dt>
+          <div className="min-w-0 rounded-xl border border-border/60 bg-card/40 p-3 sm:p-4">
+            <dt className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Ubicación</dt>
             <dd>
               {mapUrl ? (
                 <a
                   href={`https://www.google.com/maps/@${persona.lat},${persona.lng},17z`}
                   target="_blank"
                   rel="noreferrer"
-                  className="rounded-lg overflow-hidden border border-border block h-[120px] w-[200px]"
+                  className="rounded-lg overflow-hidden border border-border block h-[120px] w-full"
                   title="Abrir en Google Maps"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={mapUrl} alt="Mapa guardia" className="h-full w-full object-cover" />
                 </a>
               ) : (
-                <div className="rounded-lg border border-dashed border-border h-[120px] w-[200px] flex items-center justify-center text-xs text-muted-foreground">
+                <div className="rounded-lg border border-dashed border-border h-[120px] w-full flex items-center justify-center text-xs text-muted-foreground">
                   <MapPin className="h-4 w-4 mr-1" />
                   Sin mapa
                 </div>

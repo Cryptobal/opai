@@ -2,7 +2,8 @@ import { redirect, notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/opai";
+import { PageHero } from "@/components/opai-ds";
+import { Briefcase } from "lucide-react";
 import { AtsPipelineClient } from "@/components/ats/AtsPipelineClient";
 import { getAtsConfig } from "@/lib/ats/config";
 
@@ -87,11 +88,13 @@ export default async function AtsPipelinePage({
 
   return (
     <div className="space-y-6 min-w-0 pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0">
-      <PageHeader
+      <PageHero
+        icon={<Briefcase />}
+        iconTone="emerald"
+        eyebrow={["Operaciones", "ATS", job.titulo]}
         title={job.titulo}
+        subtitle="detalle y pipeline"
         description={`${job.turno} · ${job.region} · ${job.applications.length} postulantes`}
-        backHref="/ops/ats"
-        backLabel="ATS"
       />
       <AtsPipelineClient
         job={JSON.parse(JSON.stringify(job))}

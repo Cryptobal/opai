@@ -16,7 +16,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { TePeriodSelector } from "./TePeriodSelector";
-import { LoadingSpinner } from "@/components/opai";
+import { Spinner } from "@/components/opai-ds";
 
 /* ── types ── */
 
@@ -57,9 +57,9 @@ function toDateStr(d: Date): string {
 }
 
 function rateColor(rate: number): string {
-  if (rate >= 25) return "text-red-400";
-  if (rate >= 10) return "text-amber-400";
-  return "text-emerald-400";
+  if (rate >= 25) return "text-status-danger-fg";
+  if (rate >= 10) return "text-status-warn-fg";
+  return "text-status-ok-fg";
 }
 
 function rateBadge(rate: number): { label: string; variant: "destructive" | "outline" | "secondary" } {
@@ -125,7 +125,7 @@ function RankingRow({ item, from, to }: { item: RankItem; from: string; to: stri
         </span>
 
         <span className={`flex items-center gap-0.5 shrink-0 w-12 justify-end text-[11px] font-medium ${
-          item.trendDiff > 0 ? "text-red-400" : item.trendDiff < 0 ? "text-emerald-400" : "text-muted-foreground"
+          item.trendDiff > 0 ? "text-status-danger-fg" : item.trendDiff < 0 ? "text-status-ok-fg" : "text-muted-foreground"
         }`}>
           {item.trendDiff > 0 ? <TrendingUp className="h-3 w-3" /> : item.trendDiff < 0 ? <TrendingDown className="h-3 w-3" /> : <Minus className="h-3 w-3" />}
           {item.trendDiff !== 0 ? Math.abs(item.trendDiff) : ""}
@@ -148,7 +148,7 @@ function RankingRow({ item, from, to }: { item: RankItem; from: string; to: stri
             <div className="px-3 pb-3 pt-1">
               {loadingDetail ? (
                 <div className="flex items-center justify-center py-2">
-                  <LoadingSpinner size="sm" />
+                  <Spinner size="sm" />
                 </div>
               ) : details.length === 0 ? (
                 <p className="text-xs text-muted-foreground py-2">Sin registros de detalle</p>
@@ -212,7 +212,7 @@ export function TeAusentismoRanking() {
             <div className="flex items-start justify-between gap-2">
               <div className="space-y-1">
                 <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">Total faltas</p>
-                <p className={`text-2xl font-bold tabular-nums ${data && data.totalAbsences > 0 ? "text-red-400" : "text-foreground"}`}>
+                <p className={`text-2xl font-bold tabular-nums ${data && data.totalAbsences > 0 ? "text-status-danger-fg" : "text-foreground"}`}>
                   {data?.totalAbsences ?? "–"}
                 </p>
                 <p className="text-[11px] text-muted-foreground">de {data?.totalPlannedShifts ?? 0} turnos · click ver ranking</p>
@@ -227,7 +227,7 @@ export function TeAusentismoRanking() {
               <div className="space-y-1">
                 <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">% Ausentismo</p>
                 <p className={`text-2xl font-bold tabular-nums ${
-                  data && data.absenteeismRate >= 10 ? "text-red-400" : data && data.absenteeismRate >= 5 ? "text-amber-400" : "text-emerald-400"
+                  data && data.absenteeismRate >= 10 ? "text-status-danger-fg" : data && data.absenteeismRate >= 5 ? "text-status-warn-fg" : "text-status-ok-fg"
                 }`}>
                   {data ? `${data.absenteeismRate}%` : "–"}
                 </p>
@@ -242,7 +242,7 @@ export function TeAusentismoRanking() {
             <div className="flex items-start justify-between gap-2">
               <div className="space-y-1">
                 <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">Sin faltas</p>
-                <p className="text-2xl font-bold tabular-nums text-emerald-400">
+                <p className="text-2xl font-bold tabular-nums text-status-ok-fg">
                   {data?.guardsWithZeroAbsences ?? "–"}
                 </p>
                 <p className="text-[11px] text-muted-foreground">
@@ -286,7 +286,7 @@ export function TeAusentismoRanking() {
         <CardContent className="px-0 pb-1">
           {loading ? (
             <div className="flex items-center justify-center py-8">
-              <LoadingSpinner size="md" />
+              <Spinner size="md" />
             </div>
           ) : !data || data.rankings.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-sm text-muted-foreground gap-1">

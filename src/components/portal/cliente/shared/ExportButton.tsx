@@ -95,7 +95,7 @@ export function ExportButton({
             onClick={() => handle("xlsx")}
             className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-white/[0.05] text-left"
           >
-            <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-400" />
+            <FileSpreadsheet className="h-3.5 w-3.5 text-status-ok-fg" />
             Excel
           </button>
         </div>

@@ -290,7 +290,7 @@ export function OpsMarcacionTab({ config, setConfig, saving, onSave }: OpsMarcac
                   Cargando usuarios...
                 </div>
               ) : adminsError ? (
-                <div className="flex items-center gap-2 rounded border border-amber-500/30 bg-amber-500/5 px-3 py-3 text-xs text-amber-700 dark:text-amber-300">
+                <div className="flex items-center gap-2 rounded border border-status-warn-border bg-status-warn-soft px-3 py-3 text-xs text-status-warn-fg dark:text-status-warn-fg">
                   <AlertTriangle className="h-4 w-4 shrink-0" />
                   {adminsError}
                 </div>

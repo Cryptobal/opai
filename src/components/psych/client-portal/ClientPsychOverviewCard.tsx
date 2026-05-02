@@ -38,7 +38,7 @@ export default function ClientPsychOverviewCard({
         </span>
       </div>
       {degradedFromFull ? (
-        <p className="text-xs text-amber-800 bg-amber-50 rounded-md px-2 py-1">
+        <p className="text-xs text-status-warn-fg bg-status-warn-soft rounded-md px-2 py-1">
           Nivel solicitado (Completo) no disponible: falta firma de DPA.
         </p>
       ) : null}
@@ -51,7 +51,7 @@ export default function ClientPsychOverviewCard({
         <p className="text-xs text-muted-foreground mb-1">Cobertura vigente</p>
         <div className="h-2 bg-muted rounded-full overflow-hidden">
           <div
-            className="h-full bg-emerald-500 transition-all"
+            className="h-full bg-status-ok transition-all"
             style={{ width: `${pct}%` }}
           />
         </div>
@@ -74,7 +74,7 @@ function Metric({
     <div>
       <p
         className={`text-2xl font-semibold ${
-          tone === "ok" ? "text-emerald-700" : "text-foreground"
+          tone === "ok" ? "text-status-ok-fg" : "text-foreground"
         }`}
       >
         {value}

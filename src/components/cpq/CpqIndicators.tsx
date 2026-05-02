@@ -92,20 +92,20 @@ export function CpqIndicators({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-2.5",
+        "flex items-center gap-2 sm:gap-3 rounded-lg border border-border bg-card px-2.5 py-1.5 sm:px-4 sm:py-2.5",
         className
       )}
     >
-      <div className="flex items-center gap-1 text-muted-foreground">
-        <TrendingUp className="h-3.5 w-3.5" />
-        <span className="text-xs font-medium uppercase">Indicadores</span>
+      <div className="flex items-center gap-1 text-muted-foreground shrink-0">
+        <TrendingUp className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+        <span className="text-[10px] sm:text-xs font-medium uppercase">Indicadores</span>
       </div>
 
       {/* UF */}
       {data?.uf && (
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs text-muted-foreground">UF</span>
-          <span className="text-sm font-mono font-semibold tabular-nums">
+        <div className="flex items-center gap-1 sm:gap-1.5 min-w-0">
+          <span className="text-[10px] sm:text-xs text-muted-foreground">UF</span>
+          <span className="text-xs sm:text-sm font-mono font-semibold tabular-nums truncate">
             {formatCLP(data.uf.value)}
           </span>
           {data.uf.date && (
@@ -118,9 +118,9 @@ export function CpqIndicators({ className }: { className?: string }) {
 
       {/* UTM */}
       {data?.utm && (
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs text-muted-foreground">UTM</span>
-          <span className="text-sm font-mono font-semibold tabular-nums">
+        <div className="flex items-center gap-1 sm:gap-1.5 min-w-0">
+          <span className="text-[10px] sm:text-xs text-muted-foreground">UTM</span>
+          <span className="text-xs sm:text-sm font-mono font-semibold tabular-nums truncate">
             {formatCLP(data.utm.value)}
           </span>
           {data.utm.monthShort && (
@@ -136,7 +136,7 @@ export function CpqIndicators({ className }: { className?: string }) {
         type="button"
         onClick={refreshIndicators}
         disabled={loading}
-        className="ml-1 inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground/60 transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
+        className="ml-auto inline-flex h-5 w-5 sm:h-6 sm:w-6 items-center justify-center rounded-md text-muted-foreground/60 transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50 shrink-0"
         aria-label="Actualizar indicadores"
         title="Actualizar UF/UTM"
       >

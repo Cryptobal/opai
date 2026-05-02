@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { EmptyState } from "@/components/opai/EmptyState";
+import { EmptyState } from "@/components/opai-ds";
 import {
   Mail,
   CheckCircle2,
@@ -69,37 +69,37 @@ const STATUS_CONFIG: Record<
   sent: {
     label: "Enviado",
     icon: Send,
-    className: "bg-blue-50 text-blue-600 border-blue-200",
+    className: "bg-status-info-soft text-status-info-fg border-status-info-border",
   },
   received: {
     label: "Recibido",
     icon: ArrowDownLeft,
-    className: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    className: "bg-status-ok-soft text-status-ok-fg border-status-ok-border",
   },
   delivered: {
     label: "Entregado",
     icon: CheckCircle2,
-    className: "bg-green-50 text-green-600 border-green-200",
+    className: "bg-status-ok-soft text-status-ok-fg border-status-ok-border",
   },
   opened: {
     label: "Abierto",
     icon: Eye,
-    className: "bg-emerald-50 text-emerald-600 border-emerald-200",
+    className: "bg-status-ok-soft text-status-ok-fg border-status-ok-border",
   },
   clicked: {
     label: "Clic",
     icon: MousePointerClick,
-    className: "bg-purple-50 text-purple-600 border-purple-200",
+    className: "bg-tint-violet text-tint-violet-fg border-tint-violet-fg/30",
   },
   bounced: {
     label: "Rebotado",
     icon: AlertTriangle,
-    className: "bg-red-50 text-red-600 border-red-200",
+    className: "bg-status-danger-soft text-status-danger-fg border-status-danger-border",
   },
   complained: {
     label: "Spam",
     icon: AlertTriangle,
-    className: "bg-red-50 text-red-700 border-red-300",
+    className: "bg-status-danger-soft text-status-danger-fg border-status-danger-border",
   },
 };
 
@@ -382,9 +382,9 @@ export function EmailHistoryList({
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
                   {msg.direction === "out" ? (
-                    <Send className="h-4 w-4 text-blue-500 shrink-0" />
+                    <Send className="h-4 w-4 text-status-info-fg shrink-0" />
                   ) : (
-                    <ArrowDownLeft className="h-4 w-4 text-green-500 shrink-0" />
+                    <ArrowDownLeft className="h-4 w-4 text-status-ok-fg shrink-0" />
                   )}
                   <div className="min-w-0">
                     <p className="text-sm font-medium truncate">{msg.subject}</p>
@@ -399,7 +399,7 @@ export function EmailHistoryList({
                   {msg.source === "followup" && (
                     <Badge
                       variant="outline"
-                      className="text-[10px] border-amber-500/30 text-amber-500"
+                      className="text-[10px] border-status-warn-border text-status-warn-fg"
                     >
                       Automático
                     </Badge>

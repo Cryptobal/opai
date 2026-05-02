@@ -143,13 +143,13 @@ export default function PricingSection() {
               key={plan.name}
               className={`relative rounded-2xl border p-6 sm:p-8 transition-all ${
                 plan.popular
-                  ? "border-blue-500/30 bg-[#141E30]/60 scale-[1.02] shadow-xl shadow-blue-500/5"
+                  ? "border-status-info-border bg-[#141E30]/60 scale-[1.02] shadow-xl shadow-blue-500/5"
                   : "border-white/[0.07] bg-[#141E30]/30"
               }`}
             >
               {plan.popular && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <span className="bg-blue-500 text-white text-xs font-semibold px-3 py-1 rounded-full">
+                  <span className="bg-status-info text-white text-xs font-semibold px-3 py-1 rounded-full">
                     Más popular
                   </span>
                 </div>
@@ -189,7 +189,7 @@ export default function PricingSection() {
                 }
                 className={`block w-full text-center py-3 rounded-xl text-sm font-semibold transition-all mb-6 ${
                   plan.popular
-                    ? "bg-blue-500 hover:bg-blue-600 text-white"
+                    ? "bg-status-info hover:bg-status-info text-white"
                     : "border border-white/10 hover:border-white/20 text-white hover:bg-white/5"
                 }`}
               >

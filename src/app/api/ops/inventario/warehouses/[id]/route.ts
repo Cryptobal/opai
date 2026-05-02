@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
-import { ensureInventarioAccess } from "@/lib/inventory";
+import {
+  ensureInventarioAccess,
+  ensureInventarioEdit,
+  ensureInventarioDelete,
+} from "@/lib/inventory";
+import { createOpsAuditLog } from "@/lib/ops";
 import { requireTenantModule } from '@/lib/require-module';
 import { z } from "zod";
 
@@ -64,7 +69,7 @@ export async function PATCH(
 
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbidden = await ensureInventarioAccess(ctx);
+    const forbidden = await ensureInventarioEdit(ctx);
     if (forbidden) return forbidden;
 
     const { id } = await params;
@@ -76,6 +81,11 @@ export async function PATCH(
         { status: 400 }
       );
     }
+
+    const previous = await prisma.inventoryWarehouse.findFirst({
+      where: { id, tenantId: ctx.tenantId },
+      select: { name: true, type: true, active: true, supervisorId: true, installationId: true },
+    });
 
     const count = await prisma.inventoryWarehouse.updateMany({
       where: { id, tenantId: ctx.tenantId },
@@ -104,11 +114,104 @@ export async function PATCH(
       },
     });
 
+    await createOpsAuditLog(
+      ctx,
+      "inventario.warehouse.updated",
+      "inventario.warehouse",
+      id,
+      { previous: previous ?? null, changes: parsed.data },
+    );
+
     return NextResponse.json(updated);
   } catch (e) {
     console.error("[inventario/warehouses/[id] PATCH]", e);
     return NextResponse.json(
       { success: false, error: "Error al actualizar bodega" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const modCheck = await requireTenantModule('ops_inventario');
+    if (!modCheck.authorized) return modCheck.response;
+
+    const ctx = await requireAuth();
+    if (!ctx) return unauthorized();
+    const forbidden = await ensureInventarioDelete(ctx);
+    if (forbidden) return forbidden;
+
+    const { id } = await params;
+
+    const warehouse = await prisma.inventoryWarehouse.findFirst({
+      where: { id, tenantId: ctx.tenantId },
+      include: {
+        _count: {
+          select: {
+            stockRecords: true,
+            movementsFrom: true,
+            movementsTo: true,
+            purchaseLines: true,
+          },
+        },
+      },
+    });
+
+    if (!warehouse) {
+      return NextResponse.json(
+        { success: false, error: "Bodega no encontrada" },
+        { status: 404 }
+      );
+    }
+
+    const hasStockWithQty = await prisma.inventoryStock.count({
+      where: { warehouseId: id, tenantId: ctx.tenantId, quantity: { gt: 0 } },
+    });
+
+    if (hasStockWithQty > 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "No se puede eliminar: la bodega aún tiene stock con cantidades > 0. Mueve el stock primero o desactiva la bodega.",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (warehouse._count.movementsFrom > 0 || warehouse._count.movementsTo > 0 || warehouse._count.purchaseLines > 0) {
+      // Hay historial: en vez de borrar duro, sugerimos desactivar.
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Esta bodega tiene movimientos o compras asociados. Por trazabilidad solo puede desactivarse.",
+        },
+        { status: 400 }
+      );
+    }
+
+    // Borrado seguro (sin historial ni stock).
+    await prisma.inventoryStock.deleteMany({
+      where: { warehouseId: id, tenantId: ctx.tenantId },
+    });
+    await prisma.inventoryWarehouse.delete({ where: { id } });
+
+    await createOpsAuditLog(
+      ctx,
+      "inventario.warehouse.deleted",
+      "inventario.warehouse",
+      id,
+      { name: warehouse.name, type: warehouse.type },
+    );
+
+    return NextResponse.json({ success: true });
+  } catch (e) {
+    console.error("[inventario/warehouses/[id] DELETE]", e);
+    return NextResponse.json(
+      { success: false, error: "Error al eliminar bodega" },
       { status: 500 }
     );
   }

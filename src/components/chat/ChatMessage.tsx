@@ -43,11 +43,11 @@ interface ChatMessageProps {
 function senderColor(type: ChatSenderType): string {
   switch (type) {
     case "ADMIN":
-      return "text-blue-400";
+      return "text-status-info-fg";
     case "GUARD":
-      return "text-emerald-400";
+      return "text-status-ok-fg";
     case "CLIENT":
-      return "text-amber-400";
+      return "text-status-warn-fg";
     default:
       return "text-zinc-400";
   }
@@ -76,16 +76,16 @@ function getInitials(name: string): string {
  * Entity type configuration for context/entity reference rendering.
  */
 const ENTITY_CONFIG: Record<string, { icon: string; color: string; basePath: string }> = {
-  lead: { icon: "🎯", color: "bg-orange-500/20 text-orange-300 border-orange-500/30", basePath: "/crm/leads" },
-  account: { icon: "🏢", color: "bg-blue-500/20 text-blue-300 border-blue-500/30", basePath: "/crm/accounts" },
-  contact: { icon: "👤", color: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30", basePath: "/crm/contacts" },
-  deal: { icon: "💼", color: "bg-purple-500/20 text-purple-300 border-purple-500/30", basePath: "/crm/deals" },
-  quote: { icon: "📋", color: "bg-cyan-500/20 text-cyan-300 border-cyan-500/30", basePath: "/crm/cotizaciones" },
-  installation: { icon: "📍", color: "bg-indigo-500/20 text-indigo-300 border-indigo-500/30", basePath: "/crm/installations" },
-  guardia: { icon: "🛡️", color: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30", basePath: "/personas/guardias" },
-  document: { icon: "📄", color: "bg-amber-500/20 text-amber-300 border-amber-500/30", basePath: "/opai/documentos" },
+  lead: { icon: "🎯", color: "bg-status-warn-soft text-status-warn-fg border-status-warn-border", basePath: "/crm/leads" },
+  account: { icon: "🏢", color: "bg-status-info-soft text-status-info-fg border-status-info-border", basePath: "/crm/accounts" },
+  contact: { icon: "👤", color: "bg-status-ok-soft text-status-ok-fg border-status-ok-border", basePath: "/crm/contacts" },
+  deal: { icon: "💼", color: "bg-tint-violet text-tint-violet-fg border-tint-violet-fg/30", basePath: "/crm/deals" },
+  quote: { icon: "📋", color: "bg-status-info-soft text-status-info-fg border-status-info-border", basePath: "/crm/cotizaciones" },
+  installation: { icon: "📍", color: "bg-status-info-soft text-status-info-fg border-status-info-border", basePath: "/crm/installations" },
+  guardia: { icon: "🛡️", color: "bg-status-ok-soft text-status-ok-fg border-status-ok-border", basePath: "/personas/guardias" },
+  document: { icon: "📄", color: "bg-status-warn-soft text-status-warn-fg border-status-warn-border", basePath: "/opai/documentos" },
   pauta_mensual: { icon: "📊", color: "bg-violet-500/20 text-violet-300 border-violet-500/30", basePath: "/ops/pauta-mensual" },
-  channel: { icon: "💬", color: "bg-teal-500/20 text-teal-300 border-teal-500/30", basePath: "/chat" },
+  channel: { icon: "💬", color: "bg-status-info-soft text-status-info-fg border-status-info-border", basePath: "/chat" },
 };
 
 /**
@@ -119,10 +119,10 @@ function renderContent(
           className={cn(
             "inline-flex items-center rounded px-1 py-0.5 text-xs font-medium",
             isTodos
-              ? "bg-red-500/20 text-red-300"
+              ? "bg-status-danger-soft text-status-danger-fg"
               : isMe
-                ? "bg-blue-500/30 text-blue-200"
-                : "bg-teal-500/20 text-teal-300"
+                ? "bg-status-info text-white"
+                : "bg-status-info-soft text-status-info-fg"
           )}
         >
           @{isTodos ? "todos" : displayName}
@@ -205,7 +205,7 @@ export function ChatMessage({ message, mentionDisplayMap, isOwn, isFirstInGroup,
         isOwn && "max-xl:justify-end",
         showHeader ? "pt-2 pb-0.5" : "py-0.5",
         message.sendStatus === "sending" && "opacity-70",
-        message.sendStatus === "failed" && "bg-red-500/5"
+        message.sendStatus === "failed" && "bg-status-danger-soft"
       )}
       onMouseEnter={() => { if (!message.systemEventType) setShowTrigger(true); }}
       onMouseLeave={() => { if (!dropdownOpen) { setShowTrigger(false); setShowReactionBar(false); } }}
@@ -335,14 +335,14 @@ export function ChatMessage({ message, mentionDisplayMap, isOwn, isFirstInGroup,
           </span>
         )}
         {isOwn && message.sendStatus === "failed" && (
-          <span className="inline-flex items-center gap-1.5 text-[11px] text-red-400 ml-1">
+          <span className="inline-flex items-center gap-1.5 text-[11px] text-status-danger-fg ml-1">
             <AlertCircle className="h-3 w-3" />
             <span className="font-medium">No se envió</span>
             {onRetry && (
               <button
                 type="button"
                 onClick={() => onRetry(message.id)}
-                className="inline-flex items-center gap-1 rounded-md border border-red-400/30 bg-red-400/10 px-1.5 py-0.5 text-[10px] font-medium text-red-300 transition-colors hover:bg-red-400/20 active:scale-95"
+                className="inline-flex items-center gap-1 rounded-md border border-status-danger-border bg-status-danger-soft px-1.5 py-0.5 text-[10px] font-medium text-status-danger-fg transition-colors hover:brightness-110 active:scale-95"
               >
                 <RotateCcw className="h-3 w-3" />
                 Reintentar
@@ -362,7 +362,7 @@ export function ChatMessage({ message, mentionDisplayMap, isOwn, isFirstInGroup,
 
         {/* Read receipt (own messages only, never for pending/failed) */}
         {isOwn && !message.sendStatus && typeof readByCount === "number" && readByCount > 0 && (
-          <span className="text-[10px] text-blue-400 ml-1" title={`Visto por ${readByCount}`}>
+          <span className="text-[10px] text-status-info-fg ml-1" title={`Visto por ${readByCount}`}>
             ✓✓
           </span>
         )}
@@ -398,7 +398,7 @@ export function ChatMessage({ message, mentionDisplayMap, isOwn, isFirstInGroup,
             onClick={() => onOpenThread(message.id)}
             className={cn(
               "flex items-center gap-1.5 mt-1 px-2 py-1 rounded-lg text-xs transition-colors",
-              "text-teal-400 hover:bg-teal-500/10"
+              "text-status-info-fg hover:bg-status-info-soft"
             )}
           >
             <MessageSquare className="h-3 w-3" />
@@ -471,7 +471,7 @@ export function ChatMessage({ message, mentionDisplayMap, isOwn, isFirstInGroup,
                 {(isOwn || canDeleteAny) && onDelete && (
                   <DropdownMenuItem
                     onClick={() => { onDelete(message.id); closeDesktop(); }}
-                    className="text-red-400 focus:text-red-400"
+                    className="text-status-danger-fg focus:text-status-danger-fg"
                   >
                     <Trash2 className="mr-2 h-3.5 w-3.5" />
                     Eliminar mensaje

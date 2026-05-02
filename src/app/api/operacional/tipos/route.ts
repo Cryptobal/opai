@@ -43,6 +43,7 @@ export async function GET(request: NextRequest) {
       normativa: t.normativa,
       order: t.order,
       obligatorioEnVisita: t.obligatorioEnVisita,
+      useAsAiKnowledge: t.useAsAiKnowledge,
       // Para capa global, incluir info del documento actual
       documentoActual: t.capa === "global" && t.documentos.length > 0
         ? {
@@ -110,6 +111,7 @@ export async function POST(request: NextRequest) {
         normativa: body.normativa?.trim() || null,
         order: (maxOrder?.order ?? 0) + 1,
         obligatorioEnVisita: body.obligatorioEnVisita ?? true,
+        useAsAiKnowledge: body.useAsAiKnowledge ?? false,
       },
     });
 

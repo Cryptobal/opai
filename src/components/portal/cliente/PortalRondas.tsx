@@ -68,17 +68,17 @@ const STATUS_CONFIG: Record<
 > = {
   en_curso: {
     label: "En curso",
-    color: "bg-yellow-500/20 text-yellow-400",
+    color: "bg-status-warn-soft text-status-warn-fg",
     icon: Clock,
   },
   completada: {
     label: "Completada",
-    color: "bg-emerald-500/20 text-emerald-400",
+    color: "bg-status-ok-soft text-status-ok-fg",
     icon: CheckCircle2,
   },
   incompleta: {
     label: "Incompleta",
-    color: "bg-amber-500/20 text-amber-400",
+    color: "bg-status-warn-soft text-status-warn-fg",
     icon: AlertTriangle,
   },
 };
@@ -319,7 +319,7 @@ export function PortalRondas({ selectedInstallation }: Props) {
             </div>
             <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
               <div
-                className="h-full bg-teal-500 rounded-full transition-all"
+                className="h-full bg-status-info rounded-full transition-all"
                 style={{ width: `${selected.porcentajeCompletado}%` }}
               />
             </div>
@@ -350,10 +350,10 @@ export function PortalRondas({ selectedInstallation }: Props) {
               {selected.incidentes.map((inc) => (
                 <div
                   key={inc.id}
-                  className="bg-zinc-900 border border-red-900/40 rounded-lg p-3"
+                  className="bg-zinc-900 border border-status-danger-border rounded-lg p-3"
                 >
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-medium text-red-400">
+                    <span className="text-xs font-medium text-status-danger-fg">
                       {inc.tipo.replace(/_/g, " ")}
                     </span>
                     <span className="text-[10px] text-zinc-500">
@@ -387,7 +387,7 @@ export function PortalRondas({ selectedInstallation }: Props) {
                   <div
                     className={cn(
                       "w-2 h-2 rounded-full flex-shrink-0",
-                      m.geoValidada ? "bg-emerald-400" : "bg-amber-400"
+                      m.geoValidada ? "bg-status-ok" : "bg-status-warn"
                     )}
                   />
                   <div className="flex-1 min-w-0">
@@ -418,7 +418,7 @@ export function PortalRondas({ selectedInstallation }: Props) {
     <div className="max-w-lg mx-auto px-4 py-4 pb-24">
       <div className="mb-4">
         <div className="flex items-center gap-2">
-          <MapPin className="h-4 w-4 text-teal-400" />
+          <MapPin className="h-4 w-4 text-status-info-fg" />
           <h2 className="text-base font-semibold">Rondas en tiempo real</h2>
           {isDemo && <PreviewBadge />}
           <OpaiBadge variant="live" />
@@ -474,7 +474,7 @@ export function PortalRondas({ selectedInstallation }: Props) {
             className={cn(
               "text-[11px] font-medium px-2.5 py-1 rounded-full border transition-colors",
               range === opt.key
-                ? "bg-teal-500/15 border-teal-400/40 text-teal-300"
+                ? "bg-status-info-soft border-status-info-border text-status-info-fg"
                 : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200",
             )}
           >
@@ -487,7 +487,7 @@ export function PortalRondas({ selectedInstallation }: Props) {
       </div>
 
       {error && (
-        <div className="bg-red-500/10 border border-red-500/30 text-red-300 text-xs rounded-lg px-3 py-2 mb-3">
+        <div className="bg-status-danger-soft border border-status-danger-border text-status-danger-fg text-xs rounded-lg px-3 py-2 mb-3">
           {error}
         </div>
       )}
@@ -557,7 +557,7 @@ export function PortalRondas({ selectedInstallation }: Props) {
                     </div>
                     <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-teal-500 rounded-full"
+                        className="h-full bg-status-info rounded-full"
                         style={{ width: `${r.porcentajeCompletado}%` }}
                       />
                     </div>

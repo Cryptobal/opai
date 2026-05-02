@@ -26,14 +26,14 @@ export function OpaiBadge({
     <span
       className={cn(
         "inline-flex items-center gap-1 text-[10px] uppercase tracking-wider font-medium rounded-full px-2 py-0.5",
-        "bg-teal-500/10 text-teal-400/80 border border-teal-500/15",
+        "bg-status-info-soft text-status-info-fg/80 border border-status-info-border",
         className,
       )}
     >
       {variant === "live" && (
         <span className="relative flex h-1.5 w-1.5">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-status-ok opacity-75" />
+          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-status-ok" />
         </span>
       )}
       {displayText}

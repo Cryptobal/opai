@@ -118,10 +118,10 @@ export function PortalReportes({ session, isProspect }: Props) {
         <div className="bg-zinc-800/60 border border-zinc-700/50 rounded-xl p-5 space-y-3">
           <p className="text-sm text-zinc-300 font-medium">Reportes mensuales automáticos</p>
           <ul className="space-y-2 text-xs text-zinc-400">
-            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Métricas de cumplimiento y operación</li>
-            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Evaluación de guardias y desempeño</li>
-            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Recomendaciones de mejora</li>
-            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Descarga en PDF</li>
+            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-status-info" />Métricas de cumplimiento y operación</li>
+            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-status-info" />Evaluación de guardias y desempeño</li>
+            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-status-info" />Recomendaciones de mejora</li>
+            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-status-info" />Descarga en PDF</li>
           </ul>
         </div>
       </div>
@@ -141,7 +141,7 @@ export function PortalReportes({ session, isProspect }: Props) {
   /* ── Error ── */
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center h-40 gap-2 text-red-400">
+      <div className="flex flex-col items-center justify-center h-40 gap-2 text-status-danger-fg">
         <p className="text-sm">{error}</p>
         <button
           onClick={fetchReportes}
@@ -192,8 +192,8 @@ export function PortalReportes({ session, isProspect }: Props) {
             className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4 flex items-center gap-4"
           >
             {/* Icon */}
-            <div className="flex-shrink-0 h-10 w-10 rounded-lg bg-blue-900/30 flex items-center justify-center">
-              <FileText className="h-5 w-5 text-blue-400" />
+            <div className="flex-shrink-0 h-10 w-10 rounded-lg bg-status-info-soft flex items-center justify-center">
+              <FileText className="h-5 w-5 text-status-info-fg" />
             </div>
 
             {/* Info */}
@@ -212,10 +212,10 @@ export function PortalReportes({ session, isProspect }: Props) {
                     className={cn(
                       "text-xs font-medium px-1.5 py-0.5 rounded",
                       compliance >= 80
-                        ? "bg-emerald-900/50 text-emerald-400"
+                        ? "bg-status-ok-soft text-status-ok-fg"
                         : compliance >= 60
-                        ? "bg-yellow-900/50 text-yellow-400"
-                        : "bg-red-900/50 text-red-400"
+                        ? "bg-status-warn-soft text-status-warn-fg"
+                        : "bg-status-danger-soft text-status-danger-fg"
                     )}
                   >
                     {compliance}% cumplimiento
@@ -237,7 +237,7 @@ export function PortalReportes({ session, isProspect }: Props) {
               className={cn(
                 "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex-shrink-0",
                 hasPdf
-                  ? "bg-blue-600 hover:bg-blue-500 text-white"
+                  ? "bg-status-info hover:bg-status-info text-white"
                   : "bg-zinc-800 text-zinc-600 cursor-not-allowed"
               )}
               title={hasPdf ? "Descargar PDF" : "PDF no disponible aun"}

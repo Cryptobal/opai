@@ -44,19 +44,19 @@ const SEVERITY_TONES: Record<
     icon: "text-zinc-400",
   },
   success: {
-    bg: "bg-emerald-500/[0.06]",
-    dot: "bg-emerald-400",
-    icon: "text-emerald-400",
+    bg: "bg-status-ok-soft/30",
+    dot: "bg-status-ok",
+    icon: "text-status-ok-fg",
   },
   warning: {
-    bg: "bg-amber-500/[0.06]",
-    dot: "bg-amber-400",
-    icon: "text-amber-400",
+    bg: "bg-status-warn-soft/30",
+    dot: "bg-status-warn",
+    icon: "text-status-warn-fg",
   },
   critical: {
-    bg: "bg-red-500/[0.08]",
-    dot: "bg-red-400",
-    icon: "text-red-400",
+    bg: "bg-status-danger-soft/30",
+    dot: "bg-status-danger",
+    icon: "text-status-danger-fg",
   },
 };
 

@@ -4,9 +4,9 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { RondaTemplateForm } from "@/components/ops/rondas/ronda-template-form";
 import { Button } from "@/components/ui/button";
-import { FilterBar } from "@/components/opai";
-import { DataTable, type DataTableColumn } from "@/components/opai-ds/DataTableLegacy";
+import { DataTable, EmptyState, type DataTableColumn } from "@/components/opai-ds";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { FileText } from "lucide-react";
 
 interface InstallationOption {
   id: string;
@@ -58,28 +58,28 @@ export function RondasTemplatesClient({
     setRows(tplJson.data);
   };
 
-  const columns: DataTableColumn[] = [
+  const columns: DataTableColumn<TemplateItem>[] = [
     {
-      key: "name",
-      label: "Nombre",
-      render: (_v, row) => (
+      id: "name",
+      header: "Nombre",
+      cell: (row) => (
         <div>
           <p className="font-medium">{row.name}</p>
           {row.description && <p className="text-muted-foreground">{row.description}</p>}
         </div>
       ),
     },
-    { key: "orderMode", label: "Orden" },
+    { id: "orderMode", header: "Orden", cell: (row) => row.orderMode },
     {
-      key: "checkpoints",
-      label: "Checkpoints",
-      render: (v) => v.map((c: any) => c.checkpoint.name).join(", "),
+      id: "checkpoints",
+      header: "Checkpoints",
+      cell: (row) => row.checkpoints.map((c) => c.checkpoint.name).join(", "),
     },
     {
-      key: "actions",
-      label: "Acciones",
-      className: "text-right",
-      render: (_v, row) => (
+      id: "actions",
+      header: "Acciones",
+      align: "right",
+      cell: (row) => (
         <Button
           size="sm"
           variant="outline"
@@ -103,7 +103,7 @@ export function RondasTemplatesClient({
 
   return (
     <div className="space-y-4">
-      <FilterBar>
+      <div className="flex flex-wrap items-center gap-3 p-3 rounded-ds-md bg-ds-surface-1 border border-ds-border-default">
         <SearchableSelect
           value={installationId}
           options={installations.map((installation) => ({
@@ -113,7 +113,7 @@ export function RondasTemplatesClient({
           placeholder="Seleccionar instalación..."
           onChange={(val) => { void loadInstallationData(val); }}
         />
-      </FilterBar>
+      </div>
 
       <RondaTemplateForm
         installationId={installationId}
@@ -136,8 +136,9 @@ export function RondasTemplatesClient({
 
       <DataTable
         columns={columns}
-        data={rows}
-        emptyMessage="Sin plantillas creadas."
+        rows={rows}
+        rowKey={(row) => row.id}
+        empty={<EmptyState icon={FileText} title="Sin plantillas creadas." compact />}
       />
     </div>
   );

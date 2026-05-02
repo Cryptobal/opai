@@ -66,13 +66,13 @@ export function CreateTenantForm() {
   };
 
   const inputClass =
-    'w-full rounded-xl border border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 dark:placeholder-gray-500 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500';
+    'w-full rounded-xl border border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 dark:placeholder-gray-500 focus:border-status-info focus:outline-none focus:ring-1 focus:ring-status-info';
   const labelClass = 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1';
 
   return (
     <form onSubmit={handleSubmit} className="max-w-2xl space-y-8">
       {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 dark:bg-red-950 px-4 py-3 text-sm text-red-700 dark:text-red-400">
+        <div className="rounded-xl border border-status-danger-border bg-status-danger-soft px-4 py-3 text-sm text-status-danger-fg">
           {error}
         </div>
       )}
@@ -85,7 +85,7 @@ export function CreateTenantForm() {
 
         <div>
           <label htmlFor="name" className={labelClass}>
-            Nombre <span className="text-red-500">*</span>
+            Nombre <span className="text-status-danger-fg">*</span>
           </label>
           <input
             id="name"
@@ -100,7 +100,7 @@ export function CreateTenantForm() {
 
         <div>
           <label htmlFor="slug" className={labelClass}>
-            Slug <span className="text-red-500">*</span>
+            Slug <span className="text-status-danger-fg">*</span>
           </label>
           <input
             id="slug"
@@ -138,7 +138,7 @@ export function CreateTenantForm() {
 
         <div>
           <label htmlFor="ownerName" className={labelClass}>
-            Nombre <span className="text-red-500">*</span>
+            Nombre <span className="text-status-danger-fg">*</span>
           </label>
           <input
             id="ownerName"
@@ -153,7 +153,7 @@ export function CreateTenantForm() {
 
         <div>
           <label htmlFor="ownerEmail" className={labelClass}>
-            Email <span className="text-red-500">*</span>
+            Email <span className="text-status-danger-fg">*</span>
           </label>
           <input
             id="ownerEmail"
@@ -168,7 +168,7 @@ export function CreateTenantForm() {
 
         <div>
           <label htmlFor="ownerPassword" className={labelClass}>
-            Contraseña <span className="text-red-500">*</span>
+            Contraseña <span className="text-status-danger-fg">*</span>
           </label>
           <input
             id="ownerPassword"
@@ -191,7 +191,7 @@ export function CreateTenantForm() {
 
         <div>
           <label htmlFor="plan" className={labelClass}>
-            Plan <span className="text-red-500">*</span>
+            Plan <span className="text-status-danger-fg">*</span>
           </label>
           <select
             id="plan"
@@ -226,7 +226,7 @@ export function CreateTenantForm() {
       <button
         type="submit"
         disabled={loading}
-        className="w-full rounded-xl bg-teal-500 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-teal-600 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+        className="w-full rounded-xl bg-status-info px-6 py-3 text-sm font-semibold text-white transition-colors hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-status-info focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {loading ? 'Creando...' : 'Crear Tenant'}
       </button>

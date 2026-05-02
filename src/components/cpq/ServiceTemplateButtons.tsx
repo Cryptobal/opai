@@ -30,7 +30,7 @@ export function ServiceTemplateButtons({
       <div className="flex items-center justify-between">
         <p className="text-xs font-medium text-muted-foreground">Plantillas rápidas</p>
         {existingPositionsCount != null && existingPositionsCount > 0 && (
-          <p className="text-xs text-amber-600">
+          <p className="text-xs text-status-warn-fg">
             Reemplazará {existingPositionsCount} puesto(s) existente(s)
           </p>
         )}

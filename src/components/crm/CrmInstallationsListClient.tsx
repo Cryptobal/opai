@@ -16,7 +16,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { EmptyState } from "@/components/opai/EmptyState";
+import { EmptyState, Tag, IconBubble } from "@/components/opai-ds";
+import { cn } from "@/lib/utils";
 import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";
 import { MapsUrlPasteInput } from "@/components/ui/MapsUrlPasteInput";
 import { CrmDates } from "@/components/crm/CrmDates";
@@ -177,11 +178,12 @@ export function CrmInstallationsListClient({
                 key={opt.key}
                 type="button"
                 onClick={() => setStatusFilter(opt.key)}
-                className={`whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors shrink-0 ${
+                className={cn(
+                  "whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium transition-colors shrink-0",
                   statusFilter === opt.key
                     ? "bg-primary/15 text-primary border border-primary/30"
-                    : "text-muted-foreground hover:text-foreground border border-transparent"
-                }`}
+                    : "text-muted-foreground hover:text-foreground border border-border"
+                )}
               >
                 {opt.label}
               </button>
@@ -270,7 +272,7 @@ export function CrmInstallationsListClient({
                 <Button variant="outline" onClick={() => setOpen(false)} disabled={loading}>
                   Cancelar
                 </Button>
-                <Button onClick={createInstallation} disabled={loading} className="bg-emerald-600 hover:bg-emerald-700">
+                <Button onClick={createInstallation} disabled={loading} className="bg-status-ok hover:brightness-110">
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Crear
                 </Button>
@@ -285,7 +287,7 @@ export function CrmInstallationsListClient({
         <CardContent className="pt-5">
           {filteredInstallations.length === 0 ? (
             <EmptyState
-              icon={<MapPin className="h-8 w-8" />}
+              icon={MapPin}
               title="Sin instalaciones"
               description={
                 search || statusFilter !== "all"
@@ -312,34 +314,34 @@ export function CrmInstallationsListClient({
                             <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-destructive" />
                           </span>
                         )}
-                        <span
-                          className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                            inst.status === "active"
-                              ? "border border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-                              : inst.status === "inactive"
-                                ? "border border-amber-500/30 bg-amber-500/10 text-amber-300"
-                                : "border border-zinc-500/30 bg-zinc-500/10 text-zinc-400"
-                          }`}
+                        <Tag
+                          variant={
+                            inst.status === "active" ? "ok" :
+                            inst.status === "inactive" ? "warn" :
+                            "neutral"
+                          }
+                          size="sm"
+                          dot
                         >
                           {inst.status === "active" ? "Activa" : inst.status === "inactive" ? "Inactiva" : "Prospecto"}
-                        </span>
+                        </Tag>
                         {inst.nocturnoEnabled !== false && (
-                          <span title="Control nocturno activo"><Moon className="h-3.5 w-3.5 text-indigo-400" /></span>
+                          <span title="Control nocturno activo"><Moon className="h-3.5 w-3.5 text-status-info-fg" /></span>
                         )}
                         {inst.status === "active" && (inst.totalSlots ?? 0) > 0 ? (
                           <>
-                            <span className="text-[10px] text-muted-foreground flex items-center gap-0.5" title="Guardias asignados / Slots requeridos">
+                            <span className="inline-flex items-center gap-1 text-[11px] tabular-nums text-muted-foreground" title="Guardias asignados / Slots requeridos">
                               <Users className="h-3 w-3" />
                               {inst.assignedGuards ?? 0}/{inst.totalSlots}
                             </span>
                             {(inst.totalSlots! - (inst.assignedGuards ?? 0)) > 0 && (
-                              <span className="rounded-full px-1.5 py-0.5 text-[9px] font-semibold border border-red-500/30 bg-red-500/10 text-red-400" title="Puestos por cubrir">
+                              <Tag variant="danger" size="sm">
                                 {inst.totalSlots! - (inst.assignedGuards ?? 0)} PPC
-                              </span>
+                              </Tag>
                             )}
                           </>
                         ) : inst.status === "active" && (inst.totalSlots ?? 0) === 0 ? (
-                          <span className="rounded-full px-1.5 py-0.5 text-[9px] font-semibold border border-amber-500/30 bg-amber-500/10 text-amber-400">Sin puestos</span>
+                          <Tag variant="warn" size="sm">Sin puestos</Tag>
                         ) : null}
                       </div>
                       {inst.account && (
@@ -374,9 +376,7 @@ export function CrmInstallationsListClient({
                   <div className="flex items-start justify-between gap-2 p-4">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2.5">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-500/10 text-blue-400">
-                          <MapPin className="h-4 w-4" />
-                        </div>
+                        <IconBubble icon={MapPin} tone="sky" size="md" />
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
                             <p className="font-medium text-sm group-hover:text-primary transition-colors truncate">{inst.name}</p>
@@ -386,22 +386,22 @@ export function CrmInstallationsListClient({
                                 <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-destructive" />
                               </span>
                             )}
-                            <span
-                              className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                                inst.status === "active"
-                                  ? "border border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-                                  : inst.status === "inactive"
-                                    ? "border border-amber-500/30 bg-amber-500/10 text-amber-300"
-                                    : "border border-zinc-500/30 bg-zinc-500/10 text-zinc-400"
-                              }`}
+                            <Tag
+                              variant={
+                                inst.status === "active" ? "ok" :
+                                inst.status === "inactive" ? "warn" :
+                                "neutral"
+                              }
+                              size="sm"
+                              dot
                             >
                               {inst.status === "active" ? "Activa" : inst.status === "inactive" ? "Inactiva" : "Prospecto"}
-                            </span>
+                            </Tag>
                             {inst.nocturnoEnabled !== false && (
-                              <span title="Control nocturno activo"><Moon className="h-3.5 w-3.5 text-indigo-400" /></span>
+                              <span title="Control nocturno activo"><Moon className="h-3.5 w-3.5 text-status-info-fg" /></span>
                             )}
                           </div>
-                          {inst.account && <p className="text-[11px] text-muted-foreground">{inst.account.name}</p>}
+                          {inst.account && <p className="text-xs text-muted-foreground">{inst.account.name}</p>}
                         </div>
                       </div>
                       {inst.address && (
@@ -417,20 +417,19 @@ export function CrmInstallationsListClient({
                       )}
                       {inst.status === "active" && (inst.totalSlots ?? 0) > 0 ? (
                         <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border/50">
-                          <span className="text-[10px] text-muted-foreground flex items-center gap-1" title="Guardias asignados / Slots requeridos">
+                          <span className="inline-flex items-center gap-1 text-[11px] tabular-nums text-muted-foreground" title="Guardias asignados / Slots requeridos">
                             <Users className="h-3 w-3" />
                             {inst.assignedGuards ?? 0}/{inst.totalSlots} guardias
                           </span>
                           {(inst.totalSlots! - (inst.assignedGuards ?? 0)) > 0 && (
-                            <span className="rounded-full px-1.5 py-0.5 text-[9px] font-semibold border border-red-500/30 bg-red-500/10 text-red-400" title="Puestos por cubrir">
-                              <ShieldAlert className="h-2.5 w-2.5 inline mr-0.5" />
+                            <Tag variant="danger" size="sm" icon={ShieldAlert}>
                               {inst.totalSlots! - (inst.assignedGuards ?? 0)} PPC
-                            </span>
+                            </Tag>
                           )}
                         </div>
                       ) : inst.status === "active" && (inst.totalSlots ?? 0) === 0 ? (
                         <div className="mt-2 pt-2 border-t border-border/50">
-                          <span className="rounded-full px-1.5 py-0.5 text-[9px] font-semibold border border-amber-500/30 bg-amber-500/10 text-amber-400">Sin puestos creados</span>
+                          <Tag variant="warn" size="sm">Sin puestos creados</Tag>
                         </div>
                       ) : null}
                     </div>

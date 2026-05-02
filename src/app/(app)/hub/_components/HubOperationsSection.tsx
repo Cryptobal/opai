@@ -13,6 +13,7 @@ import { HubCollapsibleSection } from './HubCollapsibleSection';
 import { HubMiniDonut } from './charts/HubMiniDonut';
 import { HubSegmentedBar } from './charts/HubSegmentedBar';
 import { HubSparkline } from './charts/HubSparkline';
+import { HubRondasHeatmap } from './charts/HubRondasHeatmap';
 import type { OpsMetrics } from '../_lib/hub-types';
 
 interface HubOperationsSectionProps {
@@ -23,9 +24,9 @@ export function HubOperationsSection({ opsMetrics }: HubOperationsSectionProps) 
   const { attendance, rounds } = opsMetrics;
   const coveragePct = attendance.coveragePercent;
   const coverageColor =
-    coveragePct >= 95 ? 'text-emerald-500 border-emerald-500/30' :
-    coveragePct >= 80 ? 'text-amber-500 border-amber-500/30' :
-    'text-red-500 border-red-500/30';
+    coveragePct >= 95 ? 'text-status-ok-fg border-status-ok-border' :
+    coveragePct >= 80 ? 'text-status-warn-fg border-status-warn-border' :
+    'text-status-danger-fg border-status-danger-border';
 
   const attendanceSegments = [
     { value: attendance.present, color: '#10b981', label: 'Presente' },
@@ -184,6 +185,11 @@ export function HubOperationsSection({ opsMetrics }: HubOperationsSectionProps) 
           </div>
           <HubSegmentedBar segments={roundsSegments} />
         </div>
+      </div>
+
+      {/* Heatmap de rondas — últimos 30 días */}
+      <div className="mt-4">
+        <HubRondasHeatmap />
       </div>
     </HubCollapsibleSection>
   );

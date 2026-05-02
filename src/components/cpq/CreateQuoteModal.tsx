@@ -207,7 +207,7 @@ export function CreateQuoteModal({ onCreated, variant = "modal", defaultClientNa
               />
             </div>
           )}
-          <Button type="submit" size="sm" className="w-full bg-emerald-600 hover:bg-emerald-700" disabled={loading}>
+          <Button type="submit" size="sm" className="w-full bg-status-ok hover:brightness-110" disabled={loading}>
             {loading ? "Creando..." : "Crear y continuar"}
           </Button>
         </form>

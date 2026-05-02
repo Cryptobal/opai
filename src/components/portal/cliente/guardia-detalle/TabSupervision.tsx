@@ -39,7 +39,7 @@ export function TabSupervision({ supervision }: Props) {
               )}
             </div>
             {s.isReinforcement && (
-              <span className="text-[10px] text-amber-400 bg-amber-400/10 border border-amber-400/20 rounded-full px-2 py-0.5">
+              <span className="text-[10px] text-status-warn-fg bg-status-warn-soft border border-status-warn-border rounded-full px-2 py-0.5">
                 Refuerzo
               </span>
             )}
@@ -63,7 +63,7 @@ export function TabSupervision({ supervision }: Props) {
 function ScoreCell({ label, value }: { label: string; value: number | null }) {
   return (
     <div className="rounded bg-white/[0.03] py-2">
-      <div className="text-lg font-mono font-semibold text-teal-300">
+      <div className="text-lg font-mono font-semibold text-status-info-fg">
         {value ?? "—"}
       </div>
       <div className="text-[10px] uppercase tracking-wider text-zinc-500">

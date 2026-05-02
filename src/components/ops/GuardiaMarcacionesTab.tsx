@@ -38,8 +38,8 @@ const METODO_LABEL: Record<string, string> = {
 };
 
 const GPS_CONFIG = {
-  dentro_rango: { label: "En rango", className: "text-emerald-600" },
-  fuera_rango: { label: "Fuera de rango", className: "text-amber-600" },
+  dentro_rango: { label: "En rango", className: "text-status-ok-fg" },
+  fuera_rango: { label: "Fuera de rango", className: "text-status-warn-fg" },
   sin_gps: { label: "Sin GPS", className: "text-slate-400" },
 } as const;
 
@@ -125,7 +125,7 @@ export function GuardiaMarcacionesTab({ guardiaId }: { guardiaId: string }) {
             { label: "Modificadas", value: stats.modificadas, warn: stats.modificadas > 0 },
           ].map((s) => (
             <div key={s.label} className="bg-card rounded-lg border border-border p-2 text-center">
-              <p className={cn("text-lg font-bold", s.warn ? "text-amber-600" : "text-foreground")}>
+              <p className={cn("text-lg font-bold", s.warn ? "text-status-warn-fg" : "text-foreground")}>
                 {s.value}
               </p>
               <p className="text-[10px] text-muted-foreground">{s.label}</p>
@@ -177,10 +177,10 @@ export function GuardiaMarcacionesTab({ guardiaId }: { guardiaId: string }) {
                 >
                   <span className={cn("text-xs", isToday && "text-primary")}>{day}</span>
                   <div className="flex flex-wrap gap-0.5 mt-0.5">
-                    {hasEntrada && <span className="w-2 h-2 rounded-full bg-emerald-500" title="Entrada" />}
-                    {hasSalida && <span className="w-2 h-2 rounded-full bg-orange-500" title="Salida" />}
-                    {hasModificada && <span className="w-2 h-2 rounded-full bg-amber-400" title="Modificada" />}
-                    {hasFueraRango && <span className="w-2 h-2 rounded-full bg-red-400" title="GPS fuera de rango" />}
+                    {hasEntrada && <span className="w-2 h-2 rounded-full bg-status-ok" title="Entrada" />}
+                    {hasSalida && <span className="w-2 h-2 rounded-full bg-status-warn" title="Salida" />}
+                    {hasModificada && <span className="w-2 h-2 rounded-full bg-status-warn" title="Modificada" />}
+                    {hasFueraRango && <span className="w-2 h-2 rounded-full bg-status-danger" title="GPS fuera de rango" />}
                   </div>
                 </button>
               );
@@ -212,19 +212,19 @@ export function GuardiaMarcacionesTab({ guardiaId }: { guardiaId: string }) {
                   <div key={m.id} className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg">
                     <div className={cn(
                       "w-2 h-2 rounded-full mt-1.5 shrink-0",
-                      m.tipo === "entrada" ? "bg-emerald-500" : "bg-orange-500"
+                      m.tipo === "entrada" ? "bg-status-ok" : "bg-status-warn"
                     )} />
                     <div className="flex-1 min-w-0 space-y-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className={cn(
                           "text-xs font-semibold",
-                          m.tipo === "entrada" ? "text-emerald-600" : "text-orange-600"
+                          m.tipo === "entrada" ? "text-status-ok-fg" : "text-status-warn-fg"
                         )}>
                           {m.tipo === "entrada" ? "Entrada" : "Salida"}
                         </span>
                         <span className="text-sm font-mono font-bold">{hora}</span>
                         {m.atrasoMinutos && m.atrasoMinutos > 0 && (
-                          <span className="text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded">
+                          <span className="text-[10px] bg-status-danger-soft text-status-danger-fg px-1.5 py-0.5 rounded">
                             +{m.atrasoMinutos}min atraso
                           </span>
                         )}
@@ -246,7 +246,7 @@ export function GuardiaMarcacionesTab({ guardiaId }: { guardiaId: string }) {
                         <span>{m.installation.name}</span>
                       </div>
                       {m.isModified && m.modificationReason && (
-                        <p className="text-[11px] text-amber-600 flex items-center gap-1">
+                        <p className="text-[11px] text-status-warn-fg flex items-center gap-1">
                           <AlertCircle className="w-3 h-3" />
                           Motivo: {m.modificationReason}
                         </p>
@@ -262,10 +262,10 @@ export function GuardiaMarcacionesTab({ guardiaId }: { guardiaId: string }) {
 
       {/* Leyenda */}
       <div className="flex flex-wrap gap-3 text-[10px] text-muted-foreground">
-        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500" /> Entrada</span>
-        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-orange-500" /> Salida</span>
-        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400" /> Modificada</span>
-        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-400" /> GPS fuera de rango</span>
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-status-ok" /> Entrada</span>
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-status-warn" /> Salida</span>
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-status-warn" /> Modificada</span>
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-status-danger" /> GPS fuera de rango</span>
       </div>
     </div>
   );
