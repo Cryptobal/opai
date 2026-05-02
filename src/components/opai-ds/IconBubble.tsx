@@ -36,7 +36,9 @@ import { type Tone, toneClasses } from "@/lib/design-system/tokens";
 
 export type IconBubbleVariant = "brand" | "neutral" | "ok" | "warn" | "danger" | "info";
 export type IconBubbleSize = "sm" | "md" | "lg" | "xl";
-export type IconBubbleTone = Tone;
+export type IconBubbleTone = Tone | "primary";
+
+const PRIMARY_TONE_CLASSES = "bg-primary/15 text-primary";
 
 const VARIANT_BG: Record<IconBubbleVariant, string> = {
   brand:   "bg-gradient-to-br from-primary/20 to-primary/5",
@@ -97,7 +99,11 @@ export function IconBubble({
   className,
 }: IconBubbleProps) {
   const useTone = tone !== undefined;
-  const containerColor = useTone ? toneClasses(tone) : VARIANT_BG[variant];
+  const containerColor = useTone
+    ? tone === "primary"
+      ? PRIMARY_TONE_CLASSES
+      : toneClasses(tone)
+    : VARIANT_BG[variant];
   const iconColor = useTone ? "" : VARIANT_FG[variant];
   const iconClassName = cn(SIZE_ICON[size], iconColor);
 

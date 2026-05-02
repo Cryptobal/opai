@@ -5,10 +5,10 @@
  */
 
 import { DocumentosSubnav } from '@/components/opai';
-import { PageHeader } from '@/components/opai-ds';
+import { PageHero } from '@/components/opai-ds';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { FileText, Eye, Calendar } from 'lucide-react';
+import { FileText, Eye, Calendar, LayoutTemplate } from 'lucide-react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
@@ -56,11 +56,14 @@ export default async function TemplatesPage() {
   ];
 
   return (
-    <>
-      <PageHeader
-        title="Templates de Presentación"
-        description="Gestiona los templates disponibles para crear presentaciones"
-        className="mb-2"
+    <div className="space-y-6 min-w-0">
+      <PageHero
+        icon={<LayoutTemplate />}
+        iconTone="rose"
+        eyebrow={["Documentos", "Templates"]}
+        title="Templates"
+        subtitle="presentación comercial, emails y formatos"
+        description="Gestiona los templates HTML de presentaciones, emails y formatos personalizados."
       />
 
       <DocumentosSubnav />
@@ -112,6 +115,6 @@ export default async function TemplatesPage() {
           </p>
         </CardContent>
       </Card>
-    </>
+    </div>
   );
 }

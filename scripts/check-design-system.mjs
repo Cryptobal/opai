@@ -1212,6 +1212,38 @@ const MIGRATED_PATHS = [
   // no-bg-white-opacity en backdrops). Se agregarán cuando se haga su pasada
   // de limpieza tipográfica completa en el cluster 5-final.c (cleanup
   // legacy + strict mode global + docs finales del DS v3).
+  // Cluster 5-final.c.1 — Mobile polish + liquid-glass.
+  // 5 issues mobile UX detectados durante review visual de Carlos +
+  // migración de HubGreeting al tratamiento hero. Toaster Sonner pasa a
+  // opai-liquid-glass + bottom-center mobile + safe-area offset.
+  // CommandPalette mobile a opai-liquid-glass + backdrop blur visible
+  // + bottom-sheet feel. ConfigPageLayout header en card translúcida.
+  // 6 pages docs (templates, documentos, documentos/templates,
+  // documentos-operativos, documentos/templates/[id], documentos/templates/nuevo)
+  // migradas a <PageHero> con iconTone="rose" — establece "rose" como
+  // tono del cluster Documentos transversal. HubGreeting migrado a
+  // <PageHero> con iconTone="primary" — establece "primary" como tono
+  // del Hub (centro de comando, distinto de los 5 clusters temáticos).
+  // Catálogo final iconTones (7): primary (Hub), emerald (Operaciones),
+  // violet (Comercial), sky (Personas), amber (Payroll), teal (Finanzas),
+  // rose (Documentos).
+  //
+  // CommandPalette.tsx NO se agrega a MIGRATED_PATHS aún: la migración a
+  // opai-liquid-glass está completa pero el archivo sigue teniendo drift
+  // tipográfico legacy fuera de eso (text-[10px]/text-[11px] en kbd hints,
+  // pin badges, group headings, status badges) y bg-white/N en los kbd
+  // hints del footer desktop. Mismo criterio que 4A..5-final.b — se
+  // agregará cuando se haga su pasada de limpieza tipográfica completa
+  // en el cluster 5-final.c (cleanup legacy + strict mode global).
+  "src/components/ui/toaster.tsx",
+  "src/components/configuracion/ConfigPageLayout.tsx",
+  "src/app/(app)/hub/_components/HubGreeting.tsx",
+  "src/app/(app)/opai/templates/page.tsx",
+  "src/app/(app)/opai/documentos/page.tsx",
+  "src/app/(app)/opai/documentos/templates/page.tsx",
+  "src/app/(app)/opai/documentos-operativos/page.tsx",
+  "src/app/(app)/opai/documentos/templates/[id]/page.tsx",
+  "src/app/(app)/opai/documentos/templates/nuevo/page.tsx",
 ];
 
 // ───────────────────────────────────────────────────────────────────
