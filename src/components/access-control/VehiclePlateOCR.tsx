@@ -105,7 +105,7 @@ export function VehiclePlateOCR({ tenantId, onPlateDetected }: Props) {
         <Button
           onClick={handleCapture}
           disabled={processing}
-          className="w-full h-12 bg-purple-600 hover:bg-purple-500"
+          className="w-full h-12 bg-tint-violet-fg text-white hover:brightness-110"
         >
           {processing ? (
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />

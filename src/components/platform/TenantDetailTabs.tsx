@@ -102,7 +102,7 @@ function EditableField({
           <span className="text-sm text-gray-900 dark:text-gray-100">{value || '—'}</span>
           <button
             onClick={() => setEditing(true)}
-            className="text-xs text-status-info-fg hover:text-blue-800"
+            className="text-xs text-status-info-fg hover:brightness-110"
           >
             Editar
           </button>
@@ -133,7 +133,7 @@ function EditableField({
         <div className="flex gap-2">
           <button
             onClick={handleSave}
-            className="rounded bg-status-info px-2 py-1 text-xs text-white hover:bg-blue-700"
+            className="rounded bg-status-info px-2 py-1 text-xs text-white hover:brightness-110"
           >
             Guardar
           </button>
@@ -334,14 +334,14 @@ export function TenantDetailTabs({ tenantId }: { tenantId: string }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-status-info border-t-transparent" />
       </div>
     );
   }
 
   if (error || !data) {
     return (
-      <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-center text-status-danger-fg">
+      <div className="rounded-lg border border-status-danger-border bg-status-danger-soft p-6 text-center text-status-danger-fg">
         {error || 'No se pudo cargar el tenant'}
       </div>
     );
@@ -360,7 +360,7 @@ export function TenantDetailTabs({ tenantId }: { tenantId: string }) {
               onClick={() => setActiveTab(tab.key)}
               className={`border-b-2 px-1 py-3 text-sm font-medium transition-colors ${
                 activeTab === tab.key
-                  ? 'border-blue-600 text-status-info-fg dark:text-status-info-fg'
+                  ? 'border-status-info text-status-info-fg'
                   : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
               }`}
             >
@@ -429,8 +429,8 @@ function InfoTab({
               <span
                 className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
                   tenant.active
-                    ? 'bg-emerald-100 text-status-ok-fg'
-                    : 'bg-red-100 text-status-danger-fg'
+                    ? 'bg-status-ok-soft text-status-ok-fg'
+                    : 'bg-status-danger-soft text-status-danger-fg'
                 }`}
               >
                 {tenant.active ? 'Activo' : 'Inactivo'}
@@ -488,14 +488,14 @@ function InfoTab({
           {tenant.active ? (
             <button
               onClick={onSuspend}
-              className="rounded-lg bg-status-danger px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+              className="rounded-lg bg-status-danger px-4 py-2 text-sm font-medium text-white hover:brightness-110"
             >
               Suspender tenant
             </button>
           ) : (
             <button
               onClick={onReactivate}
-              className="rounded-lg bg-status-ok px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+              className="rounded-lg bg-status-ok px-4 py-2 text-sm font-medium text-white hover:brightness-110"
             >
               Reactivar tenant
             </button>
@@ -549,7 +549,7 @@ function AdminsTab({ admins }: { admins: TenantAdmin[] }) {
                 {admin.email}
               </td>
               <td className="whitespace-nowrap px-6 py-4">
-                <span className="inline-flex items-center rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">
+                <span className="inline-flex items-center rounded-full bg-tint-violet px-2 py-0.5 text-xs font-medium text-tint-violet-fg">
                   {admin.role}
                 </span>
               </td>
@@ -557,7 +557,7 @@ function AdminsTab({ admins }: { admins: TenantAdmin[] }) {
                 <span
                   className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
                     admin.status === 'active'
-                      ? 'bg-emerald-100 text-status-ok-fg'
+                      ? 'bg-status-ok-soft text-status-ok-fg'
                       : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
                   }`}
                 >
@@ -673,7 +673,7 @@ function HistoryTab({ tenantId }: { tenantId: string }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-status-info border-t-transparent" />
       </div>
     );
   }
@@ -688,9 +688,9 @@ function HistoryTab({ tenantId }: { tenantId: string }) {
 
   const planBadge: Record<string, string> = {
     free: 'bg-gray-100 text-gray-600',
-    starter: 'bg-blue-100 text-blue-700',
-    profesional: 'bg-teal-100 text-teal-700',
-    enterprise: 'bg-purple-100 text-purple-700',
+    starter: 'bg-status-info-soft text-status-info-fg',
+    profesional: 'bg-status-info-soft text-status-info-fg',
+    enterprise: 'bg-tint-violet text-tint-violet-fg',
   };
 
   return (

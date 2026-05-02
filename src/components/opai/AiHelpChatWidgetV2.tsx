@@ -349,9 +349,9 @@ function CardsBlock({
                 className={cn(
                   "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium",
                   item.badgeColor === "green" && "bg-status-ok-soft text-status-ok-fg",
-                  item.badgeColor === "red" && "bg-rose-500/20 text-status-danger-fg",
-                  item.badgeColor === "blue" && "bg-sky-500/20 text-status-info-fg",
-                  item.badgeColor === "purple" && "bg-violet-500/20 text-violet-300",
+                  item.badgeColor === "red" && "bg-status-danger-soft text-status-danger-fg",
+                  item.badgeColor === "blue" && "bg-status-info-soft text-status-info-fg",
+                  item.badgeColor === "purple" && "bg-tint-violet text-tint-violet-fg",
                   (!item.badgeColor || item.badgeColor === "amber" || item.badgeColor === "yellow") && "bg-status-warn-soft text-status-warn-fg",
                 )}
               >
@@ -379,9 +379,9 @@ function CardsBlock({
                   className={cn(
                     "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium",
                     item.badgeColor === "green" && "bg-status-ok-soft text-status-ok-fg",
-                    item.badgeColor === "red" && "bg-rose-500/20 text-status-danger-fg",
-                    item.badgeColor === "blue" && "bg-sky-500/20 text-status-info-fg",
-                    item.badgeColor === "purple" && "bg-violet-500/20 text-violet-300",
+                    item.badgeColor === "red" && "bg-status-danger-soft text-status-danger-fg",
+                    item.badgeColor === "blue" && "bg-status-info-soft text-status-info-fg",
+                    item.badgeColor === "purple" && "bg-tint-violet text-tint-violet-fg",
                     (!item.badgeColor || item.badgeColor === "amber" || item.badgeColor === "yellow") && "bg-status-warn-soft text-status-warn-fg",
                   )}
                 >
@@ -456,7 +456,7 @@ function SuggestionsBlock({
           key={`${s.label}-${i}`}
           type="button"
           onClick={() => onAction(s.action)}
-          className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-cyan-500/25 to-emerald-500/20 border border-status-info-border px-3 py-1.5 text-xs font-medium text-cyan-100 hover:from-cyan-500/35 hover:to-emerald-500/30 transition"
+          className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-status-info-soft to-status-ok-soft border border-status-info-border px-3 py-1.5 text-xs font-medium text-status-info-fg hover:brightness-110 transition"
         >
           <SuggestionIconEl icon={s.icon} />
           {s.label}
@@ -548,7 +548,7 @@ function linkifyLine(line: string) {
           href={href}
           target="_blank"
           rel="noreferrer noopener"
-          className="underline underline-offset-2 text-status-info-fg hover:text-cyan-200"
+          className="underline underline-offset-2 text-status-info-fg hover:brightness-110"
         >
           {text}
         </a>,
@@ -1365,7 +1365,7 @@ export function AiHelpChatWidgetV2() {
     <>
       <div
         className={cn(
-          "flex items-center justify-between border-b border-white/[0.08] px-4 py-3 bg-gradient-to-r from-cyan-500/15 via-emerald-500/10 to-indigo-500/15",
+          "flex items-center justify-between border-b border-white/[0.08] px-4 py-3 bg-gradient-to-r from-status-info-soft via-status-ok-soft to-status-info-soft",
         )}
       >
         <div className="flex items-center gap-2 text-base font-semibold text-white">
@@ -1383,11 +1383,11 @@ export function AiHelpChatWidgetV2() {
       </div>
 
       {pageContext ? (
-        <div className="border-b border-cyan-500/20 px-3 py-2 bg-gradient-to-r from-cyan-500/10 to-emerald-500/5">
+        <div className="border-b border-status-info-border px-3 py-2 bg-gradient-to-r from-status-info-soft/30 to-status-ok-soft/30">
           <div className="flex items-center gap-2">
             <Sparkles className="h-3.5 w-3.5 shrink-0 text-status-info-fg" />
             <div className="min-w-0 flex-1">
-              <p className="text-[10px] uppercase tracking-wide text-cyan-300/70">Hablando sobre</p>
+              <p className="text-[10px] uppercase tracking-wide text-status-info-fg/70">Hablando sobre</p>
               <p className="text-xs font-medium text-white truncate">{pageContext.entityName}</p>
             </div>
             <button
@@ -1434,11 +1434,11 @@ export function AiHelpChatWidgetV2() {
       >
         {loadingMessages ? (
           <div className="flex items-center justify-center py-10">
-            <Loader2 className="h-5 w-5 animate-spin text-cyan-400/80" />
+            <Loader2 className="h-5 w-5 animate-spin text-status-info-fg/80" />
           </div>
         ) : messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-8 px-2 text-center">
-            <Sparkles className="h-10 w-10 text-cyan-400/90 mb-3" />
+            <Sparkles className="h-10 w-10 text-status-info-fg/90 mb-3" />
             <p className="text-sm font-medium text-white mb-1">¿En qué te ayudo?</p>
             <p className="text-xs text-white/50 mb-4">Pregunta por módulos, datos del tenant o cómo usar OPAI.</p>
             <div className="flex flex-col gap-2 w-full max-w-xs">
@@ -1447,7 +1447,7 @@ export function AiHelpChatWidgetV2() {
                   key={q}
                   type="button"
                   onClick={() => void sendMessage(q)}
-                  className="rounded-full border border-cyan-500/25 bg-gradient-to-r from-cyan-500/10 to-emerald-500/10 px-3 py-2 text-xs text-cyan-100 hover:from-cyan-500/20 hover:to-emerald-500/15 transition"
+                  className="rounded-full border border-status-info-border bg-gradient-to-r from-status-info-soft/30 to-status-ok-soft/30 px-3 py-2 text-xs text-status-info-fg hover:brightness-110 transition"
                 >
                   {q}
                 </button>
@@ -1462,7 +1462,7 @@ export function AiHelpChatWidgetV2() {
                 className={cn(
                   "max-w-[95%] rounded-2xl px-3 py-2.5 text-sm",
                   msg.role === "user"
-                    ? "ml-auto bg-gradient-to-br from-cyan-500/35 to-emerald-600/25 text-white border border-white/10"
+                    ? "ml-auto bg-gradient-to-br from-status-info to-status-ok text-white border border-white/10"
                     : "mr-auto bg-white/[0.04] text-white/95 border border-white/[0.06]",
                 )}
               >
@@ -1492,7 +1492,7 @@ export function AiHelpChatWidgetV2() {
                     key={`follow-${q}`}
                     type="button"
                     onClick={() => void sendMessage(q)}
-                    className="rounded-full border border-cyan-500/25 bg-gradient-to-r from-cyan-500/10 to-emerald-500/10 px-3 py-1.5 text-[11px] text-cyan-100 hover:from-cyan-500/20 hover:to-emerald-500/15 transition"
+                    className="rounded-full border border-status-info-border bg-gradient-to-r from-status-info-soft/30 to-status-ok-soft/30 px-3 py-1.5 text-[11px] text-status-info-fg hover:brightness-110 transition"
                   >
                     {q}
                   </button>
@@ -1502,11 +1502,11 @@ export function AiHelpChatWidgetV2() {
           </>
         )}
         {(sending && !streamingStarted) || activeToolName ? (
-          <div className="flex items-center gap-1.5 px-2 py-2 text-xs text-cyan-200/80">
+          <div className="flex items-center gap-1.5 px-2 py-2 text-xs text-status-info-fg/80">
             <span className="inline-flex gap-1">
-              <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-bounce [animation-delay:0ms]" />
-              <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-bounce [animation-delay:120ms]" />
-              <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-bounce [animation-delay:240ms]" />
+              <span className="h-1.5 w-1.5 rounded-full bg-status-info animate-bounce [animation-delay:0ms]" />
+              <span className="h-1.5 w-1.5 rounded-full bg-status-info animate-bounce [animation-delay:120ms]" />
+              <span className="h-1.5 w-1.5 rounded-full bg-status-info animate-bounce [animation-delay:240ms]" />
             </span>
             <span>{activeToolName ? friendlyToolLabel(activeToolName) : "Pensando..."}</span>
           </div>
@@ -1532,7 +1532,7 @@ export function AiHelpChatWidgetV2() {
             size="icon"
             onClick={() => void sendMessage()}
             disabled={sending || !input.trim()}
-            className="bg-gradient-to-br from-cyan-500 to-emerald-600 text-white shadow-[0_8px_24px_rgba(16,185,129,0.25)]"
+            className="bg-gradient-to-br from-status-info to-status-ok text-white shadow-[0_8px_24px_rgba(16,185,129,0.25)]"
           >
             {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           </Button>
@@ -1546,7 +1546,7 @@ export function AiHelpChatWidgetV2() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed right-4 md:right-6 z-40 h-12 w-12 rounded-full bg-gradient-to-br from-cyan-400 via-emerald-500 to-indigo-600 text-white shadow-[0_10px_30px_rgba(16,185,129,0.4)] transition-transform hover:scale-[1.05] bottom-[calc(var(--bottom-nav-height,56px)+1rem)] lg:bottom-6"
+        className="fixed right-4 md:right-6 z-40 h-12 w-12 rounded-full bg-gradient-to-br from-status-info via-status-ok to-status-info text-white shadow-[0_10px_30px_rgba(16,185,129,0.4)] transition-transform hover:scale-[1.05] bottom-[calc(var(--bottom-nav-height,56px)+1rem)] lg:bottom-6"
         aria-label="Abrir OPAI Intelligence"
       >
         <MessageCircle className="mx-auto h-5 w-5" />
@@ -1560,7 +1560,7 @@ export function AiHelpChatWidgetV2() {
             aria-hidden="true"
           />
 
-          <div className="hidden md:flex fixed right-6 bottom-24 z-50 w-[440px] h-[72vh] max-h-[720px] flex-col rounded-2xl border border-cyan-500/20 bg-[#1a1a2e]/98 backdrop-blur-xl shadow-2xl overflow-hidden text-white">
+          <div className="hidden md:flex fixed right-6 bottom-24 z-50 w-[440px] h-[72vh] max-h-[720px] flex-col rounded-2xl border border-status-info-border bg-[#1a1a2e]/98 backdrop-blur-xl shadow-2xl overflow-hidden text-white">
             {panelShell(false)}
           </div>
 

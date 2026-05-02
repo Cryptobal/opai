@@ -231,9 +231,9 @@ export function TemplateSidebar({
                 onClick={onToggleTokens}
                 className={cn(
                   'w-full flex items-center justify-between px-4 py-3 rounded-lg transition-all text-sm font-bold',
-                  showTokens 
-                    ? 'bg-status-warn-soft border-2 border-amber-400/50 text-status-warn-fg shadow-lg shadow-amber-500/20' 
-                    : 'bg-teal-500/20 border-2 border-teal-400/50 text-status-info-fg shadow-lg shadow-teal-500/20'
+                  showTokens
+                    ? 'bg-status-warn-soft border-2 border-status-warn-border text-status-warn-fg shadow-lg'
+                    : 'bg-status-info-soft border-2 border-status-info-border text-status-info-fg shadow-lg'
                 )}
               >
                 <span>{showTokens ? '🔤 Ver Tokens' : '📝 Ver Datos'}</span>
@@ -284,7 +284,7 @@ export function TemplateSidebar({
                               className={cn(
                                 'w-full flex items-center gap-2 px-2 py-1.5 rounded-lg transition-all text-left',
                                 isActive
-                                  ? 'bg-teal-500/20 border border-teal-400/30 text-white font-bold shadow-lg'
+                                  ? 'bg-status-info-soft border border-status-info-border text-white font-bold shadow-lg'
                                   : 'hover:bg-white/5 text-white/60 hover:text-white/90'
                               )}
                             >
@@ -309,7 +309,7 @@ export function TemplateSidebar({
               {/* Botón Volver al Dashboard - DESTACADO */}
               <a
                 href="/opai/inicio"
-                className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 transition-all text-sm font-bold text-white shadow-lg shadow-blue-500/30"
+                className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-gradient-to-r from-status-info to-tint-violet-fg hover:brightness-110 transition-all text-sm font-bold text-white shadow-lg"
               >
                 <FileText className="w-4 h-4" />
                 Volver al Dashboard
@@ -327,7 +327,7 @@ export function TemplateSidebar({
                 href="/templates/email/preview"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-status-warn-soft border border-status-warn-border hover:bg-amber-500/30 transition-all text-xs font-bold text-white"
+                className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-status-warn-soft border border-status-warn-border hover:brightness-110 transition-all text-xs font-bold text-white"
               >
                 <FileText className="w-3 h-3" />
                 Template Email
@@ -337,7 +337,7 @@ export function TemplateSidebar({
                 href="/templates/pricing-format?admin=true"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-purple-500/20 border border-purple-500/30 hover:bg-purple-500/30 transition-all text-xs font-bold text-white"
+                className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-tint-violet border border-tint-violet-fg/30 hover:brightness-110 transition-all text-xs font-bold text-white"
               >
                 <FileText className="w-3 h-3" />
                 Ver formato propuesta
@@ -347,7 +347,7 @@ export function TemplateSidebar({
                 href="/p/demo-polpaico-2026-02"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-teal-500 to-blue-500 hover:from-teal-400 hover:to-blue-400 transition-all text-xs font-bold text-white shadow-lg"
+                className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-status-info to-status-info hover:brightness-110 transition-all text-xs font-bold text-white shadow-lg"
               >
                 <Eye className="w-3 h-3" />
                 Ver como cliente

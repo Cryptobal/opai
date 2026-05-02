@@ -34,7 +34,7 @@ export function ConversionChart({ stats, conversionRate, openRate, clickRate }: 
       label: 'Enviadas', 
       value: stats.sent, 
       percentage: 100,
-      color: 'bg-purple-500'
+      color: 'bg-tint-violet-fg'
     },
     { 
       label: 'Vistas (Éxito)', 
@@ -55,7 +55,7 @@ export function ConversionChart({ stats, conversionRate, openRate, clickRate }: 
       {/* Header con botón collapse */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <div className="p-1.5 rounded-md bg-gradient-to-br from-pink-500 to-purple-600">
+          <div className="p-1.5 rounded-md bg-gradient-to-br from-tint-rose-fg to-tint-violet-fg">
             <TrendingUp className="w-4 h-4 text-white" />
           </div>
           <div>

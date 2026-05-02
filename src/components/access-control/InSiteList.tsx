@@ -110,7 +110,7 @@ export function InSiteList({ installationId, guardId, maxStayHours, onExitRegist
             {counts.persons} personas
           </span>
           <span className="flex items-center gap-1 text-zinc-300">
-            <Car className="h-4 w-4 text-purple-400" />
+            <Car className="h-4 w-4 text-tint-violet-fg" />
             {counts.vehicles} vehículos
           </span>
         </div>

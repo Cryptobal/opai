@@ -373,7 +373,7 @@ export function AccessControlEntry({
                     <Button
                       onClick={handleManualRut}
                       disabled={rutBody.length < 7 || !validateRut(rut) || validating}
-                      className={rutBody.length >= 7 ? "bg-status-ok hover:bg-emerald-700" : ""}
+                      className={rutBody.length >= 7 ? "bg-status-ok hover:brightness-110" : ""}
                     >
                       {validating ? (
                         <Loader2 className="h-4 w-4 animate-spin" />

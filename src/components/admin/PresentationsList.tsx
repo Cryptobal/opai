@@ -66,12 +66,12 @@ interface PresentationsListProps {
 const AVATAR_COLORS = [
   'bg-status-info-soft text-status-info-fg',
   'bg-status-ok-soft text-status-ok-fg',
-  'bg-purple-500/20 text-purple-400',
+  'bg-tint-violet text-tint-violet-fg',
   'bg-status-warn-soft text-status-warn-fg',
-  'bg-cyan-500/20 text-status-info-fg',
-  'bg-rose-500/20 text-status-danger-fg',
-  'bg-indigo-500/20 text-status-info-fg',
-  'bg-teal-500/20 text-status-info-fg',
+  'bg-tint-sky text-tint-sky-fg',
+  'bg-tint-rose text-tint-rose-fg',
+  'bg-tint-amber text-tint-amber-fg',
+  'bg-tint-teal text-tint-teal-fg',
 ];
 
 function getAvatarColor(name: string) {
@@ -639,14 +639,14 @@ function PresentationRow({
                 href={`/p/${presentation.uniqueId}?preview=true`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex h-8 items-center gap-1.5 rounded-md bg-status-info-soft hover:bg-blue-500/25 text-status-info-fg px-3 text-xs font-medium transition-colors"
+                className="inline-flex h-8 items-center gap-1.5 rounded-md bg-status-info-soft hover:brightness-110 text-status-info-fg px-3 text-xs font-medium transition-colors"
               >
                 <ExternalLink className="w-3.5 h-3.5" />
                 Ver
               </a>
               <button
                 onClick={(e) => { e.stopPropagation(); onCopy(presentation.uniqueId); }}
-                className="inline-flex h-8 items-center gap-1.5 rounded-md bg-purple-500/15 hover:bg-purple-500/25 text-purple-400 px-3 text-xs font-medium transition-colors"
+                className="inline-flex h-8 items-center gap-1.5 rounded-md bg-tint-violet hover:brightness-110 text-tint-violet-fg px-3 text-xs font-medium transition-colors"
               >
                 {copiedId === presentation.uniqueId ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                 Copiar
@@ -663,7 +663,7 @@ function PresentationRow({
                   href={dealUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex h-8 items-center gap-1.5 rounded-md bg-orange-500/15 hover:bg-orange-500/25 text-status-warn-fg px-3 text-xs font-medium transition-colors"
+                  className="inline-flex h-8 items-center gap-1.5 rounded-md bg-status-warn-soft hover:brightness-110 text-status-warn-fg px-3 text-xs font-medium transition-colors"
                 >
                   <Building2 className="w-3.5 h-3.5" />
                   CRM

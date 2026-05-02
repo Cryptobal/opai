@@ -260,7 +260,7 @@ function MainNav({ pathname, userRole, navConfig }: { pathname: string; userRole
           >
             <item.icon className="h-5 w-5" />
             {isActive && (
-              <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-emerald-400 animate-in fade-in duration-200" />
+              <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-status-ok animate-in fade-in duration-200" />
             )}
             <span className="text-[11px] font-medium leading-tight">{item.label}</span>
           </Link>
@@ -296,7 +296,7 @@ function MasDrawer({ open, onOpenChange, userRole, navConfig }: { open: boolean;
 
   const modules: MasModuleItem[] = useMemo(() => [
     { key: "finanzas", href: "/finanzas", label: "Finanzas", icon: Landmark, color: "text-status-warn-fg", show: hasModuleAccess(permissions, "finance") },
-    { key: "payroll", href: "/payroll", label: "Payroll", icon: Wallet, color: "text-violet-400", show: hasModuleAccess(permissions, "payroll") },
+    { key: "payroll", href: "/payroll", label: "Payroll", icon: Wallet, color: "text-tint-violet-fg", show: hasModuleAccess(permissions, "payroll") },
     { key: "documentos", href: "/opai/inicio", label: "Documentos", icon: FolderOpen, color: "text-status-info-fg", show: hasModuleAccess(permissions, "docs") },
     { key: "reportes-dt", href: "/reportes/dt", label: "Reportes DT", icon: FileBarChart, color: "text-status-danger-fg", show: canView(permissions, "reportes_dt") },
   ], [permissions]);
@@ -664,7 +664,7 @@ function ModuleSubNav({ items, activeModule, pathname, onBack }: { items: Bottom
           <>
             <Icon className="h-5 w-5" />
             {isActive && (
-              <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-emerald-400 animate-in fade-in duration-200" />
+              <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-status-ok animate-in fade-in duration-200" />
             )}
             <span className="text-[11px] font-medium leading-tight truncate max-w-[60px]">{item.label}</span>
           </>

@@ -50,7 +50,7 @@ interface EmailHistoryClientProps {
 const TIPO_BADGE: Record<string, { label: string; cls: string }> = {
   AUTOMATICO: { label: "Automático", cls: "bg-status-info-soft text-status-info-fg" },
   MANUAL_INDIVIDUAL: { label: "Individual", cls: "bg-muted text-muted-foreground" },
-  MANUAL_MASIVO: { label: "Masivo", cls: "bg-purple-500/20 text-purple-400" },
+  MANUAL_MASIVO: { label: "Masivo", cls: "bg-tint-violet text-tint-violet-fg" },
 };
 
 const ESTADO_BADGE: Record<string, { label: string; cls: string }> = {

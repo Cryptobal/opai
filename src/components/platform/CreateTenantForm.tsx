@@ -66,13 +66,13 @@ export function CreateTenantForm() {
   };
 
   const inputClass =
-    'w-full rounded-xl border border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 dark:placeholder-gray-500 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500';
+    'w-full rounded-xl border border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 dark:placeholder-gray-500 focus:border-status-info focus:outline-none focus:ring-1 focus:ring-status-info';
   const labelClass = 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1';
 
   return (
     <form onSubmit={handleSubmit} className="max-w-2xl space-y-8">
       {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 dark:bg-red-950 px-4 py-3 text-sm text-status-danger-fg dark:text-status-danger-fg">
+        <div className="rounded-xl border border-status-danger-border bg-status-danger-soft px-4 py-3 text-sm text-status-danger-fg">
           {error}
         </div>
       )}
@@ -226,7 +226,7 @@ export function CreateTenantForm() {
       <button
         type="submit"
         disabled={loading}
-        className="w-full rounded-xl bg-status-info px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-status-info focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+        className="w-full rounded-xl bg-status-info px-6 py-3 text-sm font-semibold text-white transition-colors hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-status-info focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {loading ? 'Creando...' : 'Crear Tenant'}
       </button>

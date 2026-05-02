@@ -101,7 +101,7 @@ export function DocumentosContent({ presentations, stats, conversionRate }: Docu
             <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
               Conversión
             </p>
-            <p className="text-2xl font-bold font-mono tracking-tight mt-0.5 text-purple-400">
+            <p className="text-2xl font-bold font-mono tracking-tight mt-0.5 text-tint-violet-fg">
               {conversionDisplay}
             </p>
             <p className="text-[11px] text-muted-foreground/70 mt-0.5">vista/envío</p>

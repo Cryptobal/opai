@@ -102,9 +102,9 @@ const PLAN_SLUGS = ['free', 'starter', 'profesional', 'enterprise'] as const;
 
 const PLAN_BADGE_COLORS: Record<string, string> = {
   free: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
-  starter: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-status-info-fg',
-  profesional: 'bg-teal-100 text-teal-700 dark:bg-teal-900 dark:text-status-info-fg',
-  enterprise: 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300',
+  starter: 'bg-status-info-soft text-status-info-fg',
+  profesional: 'bg-status-info-soft text-status-info-fg',
+  enterprise: 'bg-tint-violet text-tint-violet-fg',
 };
 
 const MODULE_LABELS: Record<string, { name: string; category: string }> = {
@@ -149,10 +149,10 @@ const MODULE_LABELS: Record<string, { name: string; category: string }> = {
 const MODULE_CATEGORIES = ['Core', 'Operaciones', 'Profesional', 'Add-ons'] as const;
 
 const TAG_COLORS: Record<string, string> = {
-  operacional: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-status-info-fg',
-  comercial: 'bg-amber-100 text-status-warn-fg dark:bg-amber-900 dark:text-status-warn-fg',
-  financiero: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-status-ok-fg',
-  premium: 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300',
+  operacional: 'bg-status-info-soft text-status-info-fg',
+  comercial: 'bg-status-warn-soft text-status-warn-fg',
+  financiero: 'bg-status-ok-soft text-status-ok-fg',
+  premium: 'bg-tint-violet text-tint-violet-fg',
 };
 
 // ── Component ──
@@ -405,14 +405,14 @@ export function TenantAddonsSection({ tenantId }: { tenantId: string }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-status-info border-t-transparent" />
       </div>
     );
   }
 
   if (error || !tenantData || !addonsData || !plansData) {
     return (
-      <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-center text-status-danger-fg">
+      <div className="rounded-lg border border-status-danger-border bg-status-danger-soft p-6 text-center text-status-danger-fg">
         {error || 'No se pudieron cargar los datos'}
       </div>
     );
@@ -435,7 +435,7 @@ export function TenantAddonsSection({ tenantId }: { tenantId: string }) {
       {/* Mutating overlay */}
       {mutating && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/10">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-teal-600 border-t-transparent" />
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-status-info border-t-transparent" />
         </div>
       )}
 
@@ -468,7 +468,7 @@ export function TenantAddonsSection({ tenantId }: { tenantId: string }) {
                   isCurrent
                     ? 'bg-status-info text-white'
                     : isSelected
-                      ? 'bg-teal-100 text-teal-800 ring-2 ring-teal-500 dark:bg-teal-900 dark:text-teal-200'
+                      ? 'bg-status-info-soft text-status-info-fg ring-2 ring-status-info'
                       : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
                 }`}
               >
@@ -484,7 +484,7 @@ export function TenantAddonsSection({ tenantId }: { tenantId: string }) {
                   setSelectedPlanSlug(null);
                 }}
                 disabled={mutating}
-                className="ml-2 rounded-lg bg-status-info px-3 py-1.5 text-sm font-semibold text-white hover:bg-teal-700"
+                className="ml-2 rounded-lg bg-status-info px-3 py-1.5 text-sm font-semibold text-white hover:brightness-110"
               >
                 Confirmar cambio a {selectedPlanSlug}
               </button>
@@ -524,7 +524,7 @@ export function TenantAddonsSection({ tenantId }: { tenantId: string }) {
                     patchPlan({ customPricePerGuard: val });
                     setEditingField(null);
                   }}
-                  className="rounded bg-status-info px-2 py-1 text-xs text-white hover:bg-blue-700"
+                  className="rounded bg-status-info px-2 py-1 text-xs text-white hover:brightness-110"
                 >
                   Guardar
                 </button>
@@ -579,7 +579,7 @@ export function TenantAddonsSection({ tenantId }: { tenantId: string }) {
                     patchPlan({ customBaseMinimum: val });
                     setEditingField(null);
                   }}
-                  className="rounded bg-status-info px-2 py-1 text-xs text-white hover:bg-blue-700"
+                  className="rounded bg-status-info px-2 py-1 text-xs text-white hover:brightness-110"
                 >
                   Guardar
                 </button>
@@ -629,7 +629,7 @@ export function TenantAddonsSection({ tenantId }: { tenantId: string }) {
                     patchPlan({ maxGuards: Number(draftMaxGuards) });
                     setEditingField(null);
                   }}
-                  className="rounded bg-status-info px-2 py-1 text-xs text-white hover:bg-blue-700"
+                  className="rounded bg-status-info px-2 py-1 text-xs text-white hover:brightness-110"
                 >
                   Guardar
                 </button>
@@ -673,7 +673,7 @@ export function TenantAddonsSection({ tenantId }: { tenantId: string }) {
                     patchPlan({ maxAdmins: Number(draftMaxAdmins) });
                     setEditingField(null);
                   }}
-                  className="rounded bg-status-info px-2 py-1 text-xs text-white hover:bg-blue-700"
+                  className="rounded bg-status-info px-2 py-1 text-xs text-white hover:brightness-110"
                 >
                   Guardar
                 </button>
@@ -719,13 +719,13 @@ export function TenantAddonsSection({ tenantId }: { tenantId: string }) {
           return (
             <>
               {previewSlug && (
-                <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30 p-3 text-xs">
-                  <div className="font-semibold text-amber-800 dark:text-status-warn-fg mb-1">
+                <div className="mb-4 rounded-lg border border-status-warn-border bg-status-warn-soft p-3 text-xs">
+                  <div className="font-semibold text-status-warn-fg mb-1">
                     Vista previa de cambio: {currentSlug} → {previewSlug}
                   </div>
                   <div className="flex flex-wrap gap-3">
                     <div>
-                      <span className="text-green-700 dark:text-status-ok-fg font-medium">+ Ganan:</span>{' '}
+                      <span className="text-status-ok-fg font-medium">+ Ganan:</span>{' '}
                       {Array.from(previewSet!)
                         .filter((m) => !currentSet.has(m))
                         .map((m) => MODULE_LABELS[m]?.name ?? m)
@@ -756,15 +756,15 @@ export function TenantAddonsSection({ tenantId }: { tenantId: string }) {
                             key={slug}
                             className={`p-2 text-center text-xs font-semibold capitalize ${
                               isCurrent
-                                ? 'bg-teal-50 dark:bg-teal-950/30 text-teal-700 dark:text-status-info-fg border-x-2 border-teal-500'
+                                ? 'bg-status-info-soft text-status-info-fg border-x-2 border-status-info'
                                 : isPreview
-                                  ? 'bg-amber-50 dark:bg-amber-950/30 text-status-warn-fg dark:text-status-warn-fg border-x-2 border-amber-400'
+                                  ? 'bg-status-warn-soft text-status-warn-fg border-x-2 border-status-warn'
                                   : 'text-gray-500 dark:text-gray-400'
                             }`}
                           >
                             {slug}
                             {isCurrent && (
-                              <div className="text-[10px] font-bold text-teal-600 dark:text-status-info-fg">
+                              <div className="text-[10px] font-bold text-status-info-fg">
                                 ACTIVO
                               </div>
                             )}
@@ -807,14 +807,14 @@ export function TenantAddonsSection({ tenantId }: { tenantId: string }) {
                                     key={slug}
                                     className={`p-2 text-center ${
                                       isCurrent
-                                        ? 'bg-teal-50/60 dark:bg-teal-950/20 border-x-2 border-teal-500'
+                                        ? 'bg-status-info-soft/60 border-x-2 border-status-info'
                                         : isPreview
-                                          ? 'bg-amber-50/60 dark:bg-amber-950/20 border-x-2 border-amber-400'
+                                          ? 'bg-status-warn-soft/60 border-x-2 border-status-warn'
                                           : ''
                                     }`}
                                   >
                                     {included ? (
-                                      <span className="text-teal-600 dark:text-status-info-fg font-bold">
+                                      <span className="text-status-info-fg font-bold">
                                         ✓
                                       </span>
                                     ) : (
@@ -854,7 +854,7 @@ export function TenantAddonsSection({ tenantId }: { tenantId: string }) {
                   checked={addon.isActive}
                   onChange={() => toggleAddon(addon.slug, !addon.isActive)}
                   disabled={mutating}
-                  className="h-4 w-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+                  className="h-4 w-4 rounded border-gray-300 text-status-info focus:ring-status-info"
                 />
 
                 {/* Name */}
@@ -875,7 +875,7 @@ export function TenantAddonsSection({ tenantId }: { tenantId: string }) {
 
                 {/* Included in plan badge */}
                 {isIncludedInPlan && (
-                  <span className="bg-teal-100 dark:bg-teal-900 text-teal-700 dark:text-status-info-fg px-2 py-0.5 rounded text-xs font-medium">
+                  <span className="bg-status-info-soft text-status-info-fg px-2 py-0.5 rounded text-xs font-medium">
                     INCLUIDO EN PLAN
                   </span>
                 )}
@@ -914,7 +914,7 @@ export function TenantAddonsSection({ tenantId }: { tenantId: string }) {
                                 saveAddonCustomPrice(addon.slug, Number(val));
                               }
                             }}
-                            className="text-xs text-status-info-fg hover:text-blue-800"
+                            className="text-xs text-status-info-fg hover:brightness-110"
                           >
                             OK
                           </button>
@@ -936,7 +936,7 @@ export function TenantAddonsSection({ tenantId }: { tenantId: string }) {
                             }));
                             setEditingAddonPrice(addon.slug);
                           }}
-                          className="text-xs text-status-info-fg hover:text-blue-800"
+                          className="text-xs text-status-info-fg hover:brightness-110"
                         >
                           {activeAddon?.customPrice != null
                             ? `custom: UF ${formatUF(activeAddon.customPrice)}`
@@ -982,14 +982,14 @@ export function TenantAddonsSection({ tenantId }: { tenantId: string }) {
                       {pack.name}
                     </h4>
                     {pack.applied ? (
-                      <span className="rounded-full bg-emerald-100 dark:bg-emerald-900 px-2 py-0.5 text-xs font-medium text-status-ok-fg dark:text-status-ok-fg">
+                      <span className="rounded-full bg-status-ok-soft px-2 py-0.5 text-xs font-medium text-status-ok-fg">
                         Activo
                       </span>
                     ) : (
                       <button
                         onClick={() => applyPack(pack.slug)}
                         disabled={mutating}
-                        className="rounded bg-status-info px-3 py-1 text-xs font-medium text-white hover:bg-teal-700 disabled:opacity-50"
+                        className="rounded bg-status-info px-3 py-1 text-xs font-medium text-white hover:brightness-110 disabled:opacity-50"
                       >
                         Aplicar pack
                       </button>
@@ -1014,7 +1014,7 @@ export function TenantAddonsSection({ tenantId }: { tenantId: string }) {
                     })}
                   </div>
                   <div className="flex items-center gap-3 text-xs">
-                    <span className="font-medium text-teal-600 dark:text-status-info-fg">
+                    <span className="font-medium text-status-info-fg">
                       -{pack.discountPct}% descuento
                     </span>
                     {savings > 0 && (
@@ -1091,7 +1091,7 @@ export function TenantAddonsSection({ tenantId }: { tenantId: string }) {
                 <td className="py-2 font-semibold text-gray-900 dark:text-gray-100">
                   Total mensual estimado
                 </td>
-                <td className="py-2 text-right font-mono font-bold text-teal-600 dark:text-status-info-fg whitespace-nowrap text-base">
+                <td className="py-2 text-right font-mono font-bold text-status-info-fg whitespace-nowrap text-base">
                   UF {formatUF(billing.total)}
                 </td>
               </tr>

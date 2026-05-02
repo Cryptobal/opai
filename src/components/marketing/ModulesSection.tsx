@@ -50,7 +50,7 @@ const PLAN_COLORS: Record<string, string> = {
 const PLAN_BADGE_BG: Record<string, string> = {
   starter: "bg-[#00D4AA]/10 text-[#00D4AA]",
   pro: "bg-status-info-soft text-status-info-fg",
-  suite: "bg-purple-500/10 text-purple-400",
+  suite: "bg-tint-violet text-tint-violet-fg",
 };
 
 export default function ModulesSection() {

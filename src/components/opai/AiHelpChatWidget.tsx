@@ -81,7 +81,7 @@ function linkifyLine(line: string) {
           href={href}
           target="_blank"
           rel="noreferrer noopener"
-          className="underline underline-offset-2 text-status-info-fg hover:text-cyan-200"
+          className="underline underline-offset-2 text-status-info-fg hover:brightness-110"
         >
           {text}
         </a>,
@@ -360,7 +360,7 @@ export function AiHelpChatWidget() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed right-4 md:right-6 z-40 h-12 w-12 rounded-full bg-gradient-to-br from-emerald-400 via-cyan-400 to-indigo-500 text-slate-950 shadow-[0_10px_30px_rgba(16,185,129,0.35)] transition-transform hover:scale-[1.05] bottom-[calc(var(--bottom-nav-height,56px)+1rem)] lg:bottom-6"
+        className="fixed right-4 md:right-6 z-40 h-12 w-12 rounded-full bg-gradient-to-br from-status-ok via-status-info to-status-info text-white shadow-[0_10px_30px_rgba(16,185,129,0.35)] transition-transform hover:scale-[1.05] bottom-[calc(var(--bottom-nav-height,56px)+1rem)] lg:bottom-6"
         aria-label="Abrir asistente IA"
       >
         <MessageCircle className="mx-auto h-5 w-5" />
@@ -375,8 +375,8 @@ export function AiHelpChatWidget() {
           />
 
           {/* Desktop: panel anclado abajo derecha */}
-          <div className="hidden md:flex fixed right-6 bottom-24 z-50 h-[68vh] max-h-[680px] w-[420px] flex-col rounded-2xl border border-cyan-500/20 bg-background/95 backdrop-blur shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between border-b border-border/70 px-4 py-3 bg-gradient-to-r from-cyan-500/10 via-emerald-500/5 to-indigo-500/10">
+          <div className="hidden md:flex fixed right-6 bottom-24 z-50 h-[68vh] max-h-[680px] w-[420px] flex-col rounded-2xl border border-status-info-border bg-background/95 backdrop-blur shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between border-b border-border/70 px-4 py-3 bg-gradient-to-r from-status-info-soft/30 via-status-ok-soft/30 to-status-info-soft/30">
               <div className="flex items-center gap-2 text-base font-semibold">
                 <Bot className="h-4 w-4 text-status-info-fg" />
                 Asistente IA
@@ -479,7 +479,7 @@ export function AiHelpChatWidget() {
 
           {/* Mobile: full-screen */}
             <div className="md:hidden fixed inset-0 z-50 bg-background flex flex-col">
-              <div className="flex items-center justify-between border-b border-border/70 px-4 py-3 bg-gradient-to-r from-cyan-500/10 via-emerald-500/5 to-indigo-500/10">
+              <div className="flex items-center justify-between border-b border-border/70 px-4 py-3 bg-gradient-to-r from-status-info-soft/30 via-status-ok-soft/30 to-status-info-soft/30">
               <div className="flex items-center gap-2 text-base font-semibold">
                   <Bot className="h-4 w-4 text-status-info-fg" />
                 Asistente IA

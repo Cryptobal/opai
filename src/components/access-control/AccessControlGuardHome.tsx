@@ -142,7 +142,7 @@ export function AccessControlGuardHome({
             <span className="text-zinc-500">personas</span>
           </div>
           <div className="flex items-center gap-1.5 text-sm">
-            <Car className="h-4 w-4 text-purple-400" />
+            <Car className="h-4 w-4 text-tint-violet-fg" />
             <span className="font-semibold text-zinc-200">{inSiteCount.vehicles}</span>
             <span className="text-zinc-500">vehículos</span>
           </div>
