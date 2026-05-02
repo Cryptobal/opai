@@ -44,7 +44,7 @@ export default function ClientPsychSection() {
   }, []);
 
   if (err) {
-    return <p className="text-sm text-rose-700">No se pudo cargar: {err}</p>;
+    return <p className="text-sm text-status-danger-fg">No se pudo cargar: {err}</p>;
   }
   if (!contracts) return <p className="text-sm text-muted-foreground">Cargando…</p>;
 

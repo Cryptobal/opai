@@ -39,8 +39,8 @@ interface ModificacionRecord {
 
 function EstadoBadge({ estado }: { estado: Estado }) {
   const classes: Record<Estado, string> = {
-    pendiente: "bg-amber-100 text-amber-800 border border-amber-300",
-    opuesta: "bg-red-100 text-red-800 border border-red-300",
+    pendiente: "bg-status-warn-soft text-status-warn-fg border border-status-warn-border",
+    opuesta: "bg-status-danger-soft text-status-danger-fg border border-status-danger-border",
     consolidada: "bg-slate-100 text-slate-700 border border-slate-300",
   };
   const labels: Record<Estado, string> = {

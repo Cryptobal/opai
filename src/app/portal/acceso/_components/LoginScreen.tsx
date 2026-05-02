@@ -112,7 +112,7 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="guardia@gardsecurity.com"
-            className="w-full rounded-xl border border-gray-700 bg-gray-900/60 px-4 py-3 text-sm text-white placeholder-gray-500 outline-none transition-colors focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+            className="w-full rounded-xl border border-gray-700 bg-gray-900/60 px-4 py-3 text-sm text-white placeholder-gray-500 outline-none transition-colors focus:border-status-info-border focus:ring-1 focus:ring-status-info"
           />
         </div>
 
@@ -130,7 +130,7 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="********"
-              className="w-full rounded-xl border border-gray-700 bg-gray-900/60 px-4 py-3 pr-12 text-sm text-white placeholder-gray-500 outline-none transition-colors focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+              className="w-full rounded-xl border border-gray-700 bg-gray-900/60 px-4 py-3 pr-12 text-sm text-white placeholder-gray-500 outline-none transition-colors focus:border-status-info-border focus:ring-1 focus:ring-status-info"
             />
             <button
               type="button"
@@ -162,7 +162,7 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
         <button
           type="submit"
           disabled={loading}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-500 px-4 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-cyan-400 disabled:opacity-60 disabled:cursor-not-allowed active:bg-cyan-600"
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-status-info px-4 py-3.5 text-sm font-semibold text-white transition-colors hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed active:brightness-95"
         >
           {loading ? (
             <>

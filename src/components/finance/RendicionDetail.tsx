@@ -144,7 +144,7 @@ const STATUS_CONFIG: Record<string, { label: string; className: string; icon: ty
   IN_APPROVAL: { label: "En aprobación", className: "bg-status-warn-soft text-status-warn-fg border-status-warn-border", icon: Clock },
   APPROVED: { label: "Aprobada", className: "bg-status-ok-soft text-status-ok-fg border-status-ok-border", icon: CheckCircle2 },
   REJECTED: { label: "Rechazada", className: "bg-status-danger-soft text-status-danger-fg border-status-danger-border", icon: XCircle },
-  PAID: { label: "Pagada", className: "bg-purple-500/15 text-purple-400 border-purple-500/30", icon: Wallet },
+  PAID: { label: "Pagada", className: "bg-tint-violet text-tint-violet-fg border-tint-violet-fg/30", icon: Wallet },
 };
 
 const ACTION_LABELS: Record<string, string> = {
@@ -697,7 +697,7 @@ export function RendicionDetail({ rendicion, permissions }: RendicionDetailProps
                 size="sm"
                 onClick={() => performAction("approve")}
                 disabled={loading === "approve"}
-                className="bg-status-ok hover:bg-emerald-700"
+                className="bg-status-ok hover:brightness-110"
               >
                 {loading === "approve" ? (
                   <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
@@ -751,7 +751,7 @@ export function RendicionDetail({ rendicion, permissions }: RendicionDetailProps
             size="sm"
             onClick={() => performAction("pay")}
             disabled={loading === "pay"}
-            className="bg-purple-600 hover:bg-purple-700"
+            className="bg-tint-violet hover:brightness-110 text-tint-violet-fg"
           >
             {loading === "pay" ? (
               <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
@@ -795,7 +795,7 @@ export function RendicionDetail({ rendicion, permissions }: RendicionDetailProps
                 size="sm"
                 onClick={handleReject}
                 disabled={loading === "reject"}
-                className="bg-status-danger hover:bg-red-700"
+                className="bg-status-danger hover:brightness-110"
               >
                 {loading === "reject" ? (
                   <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />

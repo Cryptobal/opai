@@ -23,14 +23,14 @@ const TYPE_CONFIG: Record<
     groupLabel: "Guardias",
     icon: ShieldUser,
     color: "text-status-info-fg",
-    bgColor: "bg-sky-400/10",
+    bgColor: "bg-status-info-soft",
   },
   pauta_mensual: {
     label: "Pauta mensual",
     groupLabel: "Pautas mensuales",
     icon: CalendarDays,
     color: "text-status-info-fg",
-    bgColor: "bg-teal-400/10",
+    bgColor: "bg-status-info-soft",
   },
 };
 

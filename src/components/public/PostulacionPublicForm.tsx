@@ -372,7 +372,7 @@ export function PostulacionPublicForm({ token, tenantSlug = "gard" }: Postulacio
             Completa tus datos y sube tus documentos para que el equipo de operaciones revise tu postulación.
           </p>
           {submitSuccessMessage ? (
-            <div className="mt-3 rounded-md border border-status-ok-border bg-status-ok-soft px-4 py-3 text-sm text-emerald-200">
+            <div className="mt-3 rounded-md border border-status-ok-border bg-status-ok-soft px-4 py-3 text-sm text-status-ok-fg">
               {submitSuccessMessage}
             </div>
           ) : null}

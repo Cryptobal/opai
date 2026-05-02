@@ -101,9 +101,9 @@ type TabId = (typeof TABS)[number]["id"];
 const ACCOUNT_TYPE_CONFIG: Record<string, { label: string; className: string }> = {
   ASSET: { label: "Activo", className: "bg-status-info-soft text-status-info-fg border-status-info-border" },
   LIABILITY: { label: "Pasivo", className: "bg-status-danger-soft text-status-danger-fg border-status-danger-border" },
-  EQUITY: { label: "Patrimonio", className: "bg-purple-500/15 text-purple-400 border-purple-500/30" },
+  EQUITY: { label: "Patrimonio", className: "bg-tint-violet text-tint-violet-fg border-tint-violet-fg/30" },
   REVENUE: { label: "Ingreso", className: "bg-status-ok-soft text-status-ok-fg border-status-ok-border" },
-  COST: { label: "Costo", className: "bg-orange-500/15 text-status-warn-fg border-status-warn-border" },
+  COST: { label: "Costo", className: "bg-status-warn-soft text-status-warn-fg border-status-warn-border" },
   EXPENSE: { label: "Gasto", className: "bg-status-warn-soft text-status-warn-fg border-status-warn-border" },
 };
 

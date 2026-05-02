@@ -335,7 +335,7 @@ export function MarcacionClient({ code }: { code: string }) {
                     setShowGpsModal(false);
                     requestGeo();
                   }}
-                  className="flex-1 py-2.5 text-sm font-bold text-white bg-status-info rounded-lg hover:bg-blue-700"
+                  className="flex-1 py-2.5 text-sm font-bold text-white bg-status-info rounded-lg hover:brightness-110"
                 >
                   Reintentar
                 </button>
@@ -450,7 +450,7 @@ function LoginScreen({
       <h2 className="text-lg font-semibold text-slate-900 mb-4">Identificación</h2>
 
       {error && (
-        <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg mb-4">
+        <div className="flex items-start gap-2 p-3 bg-status-danger-soft border border-status-danger-border rounded-lg mb-4">
           <XCircle className="w-5 h-5 text-status-danger-fg shrink-0 mt-0.5" />
           <p className="text-sm text-status-danger-fg">{error}</p>
         </div>
@@ -491,7 +491,7 @@ function LoginScreen({
         <button
           onClick={onSubmit}
           disabled={loading || rut.length < 9 || pin.length < 4}
-          className="w-full py-3.5 bg-status-info hover:bg-blue-700 disabled:bg-slate-400 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 text-base shadow-sm"
+          className="w-full py-3.5 bg-status-info hover:brightness-110 disabled:bg-slate-400 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 text-base shadow-sm"
         >
           {loading ? (
             <Loader2 className="w-5 h-5 animate-spin" />
@@ -597,10 +597,10 @@ function MarcarScreen({
       {/* ── ESTADO DE GEOLOCALIZACIÓN (evidencia, no restricción — Res. N°38 Art. 19) ── */}
       <div className={`flex items-center gap-2 p-3 rounded-lg mb-4 ${
         geoReady
-          ? "bg-emerald-50 border border-emerald-200"
+          ? "bg-status-ok-soft border border-status-ok-border"
           : geoStatus === "denied" || geoStatus === "error"
-          ? "bg-amber-50 border border-amber-200"
-          : "bg-amber-50 border border-amber-200"
+          ? "bg-status-warn-soft border border-status-warn-border"
+          : "bg-status-warn-soft border border-status-warn-border"
       }`}>
         {geoReady ? (
           <>
@@ -622,7 +622,7 @@ function MarcarScreen({
               </p>
               <button
                 onClick={onRequestGeo}
-                className="mt-2 text-xs font-medium text-status-danger-fg underline hover:text-red-900"
+                className="mt-2 text-xs font-medium text-status-danger-fg underline hover:brightness-110"
               >
                 Reintentar
               </button>
@@ -632,7 +632,7 @@ function MarcarScreen({
       </div>
 
       {error && (
-        <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg mb-4">
+        <div className="flex items-start gap-2 p-3 bg-status-danger-soft border border-status-danger-border rounded-lg mb-4">
           <XCircle className="w-5 h-5 text-status-danger-fg shrink-0 mt-0.5" />
           <p className="text-sm text-status-danger-fg">{error}</p>
         </div>
@@ -661,14 +661,14 @@ function MarcarScreen({
             </div>
             <button
               onClick={onCapturePhoto}
-              className="w-full flex items-center justify-center gap-2 py-2 bg-status-info hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+              className="w-full flex items-center justify-center gap-2 py-2 bg-status-info hover:brightness-110 text-white text-sm font-medium rounded-lg transition-colors"
             >
               <Camera className="w-4 h-4" />
               Capturar
             </button>
           </div>
         ) : fotoBase64 ? (
-          <div className="flex items-center gap-2 p-2 bg-emerald-50 border border-emerald-200 rounded-lg">
+          <div className="flex items-center gap-2 p-2 bg-status-ok-soft border border-status-ok-border rounded-lg">
             <CheckCircle2 className="w-4 h-4 text-status-ok-fg shrink-0" />
             <p className="text-sm text-status-ok-fg">Foto capturada</p>
           </div>
@@ -696,7 +696,7 @@ function MarcarScreen({
           <button
             onClick={() => onMarcar("entrada")}
             disabled={!canMark}
-            className="w-full py-4 bg-status-ok hover:bg-emerald-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold text-lg rounded-xl transition-colors flex items-center justify-center gap-3"
+            className="w-full py-4 bg-status-ok hover:brightness-110 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold text-lg rounded-xl transition-colors flex items-center justify-center gap-3"
           >
             {loading ? (
               <Loader2 className="w-6 h-6 animate-spin" />
@@ -711,7 +711,7 @@ function MarcarScreen({
           <button
             onClick={() => onMarcar("salida")}
             disabled={!canMark}
-            className="w-full py-4 bg-orange-600 hover:bg-orange-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold text-lg rounded-xl transition-colors flex items-center justify-center gap-3"
+            className="w-full py-4 bg-status-warn hover:brightness-110 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold text-lg rounded-xl transition-colors flex items-center justify-center gap-3"
           >
             {loading ? (
               <Loader2 className="w-6 h-6 animate-spin" />
@@ -766,7 +766,7 @@ function ConfirmacionScreen({
   return (
     <div className="p-6 text-center">
       {/* Ícono de éxito */}
-      <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-100 mb-4">
+      <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-status-ok-soft mb-4">
         <CheckCircle2 className="w-9 h-9 text-status-ok-fg" />
       </div>
 
@@ -781,10 +781,10 @@ function ConfirmacionScreen({
 
       {/* Estado geo */}
       {data.gpsStatus === "fuera_rango" && (
-        <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-300 rounded-lg mb-4 text-left">
+        <div className="flex items-start gap-2 p-3 bg-status-warn-soft border border-status-warn-border rounded-lg mb-4 text-left">
           <AlertTriangle className="w-5 h-5 text-status-warn-fg shrink-0 mt-0.5" />
           <div>
-            <p className="text-sm font-semibold text-amber-800">
+            <p className="text-sm font-semibold text-status-warn-fg">
               Marcación registrada fuera de rango ({data.geoDistanciaM}m)
             </p>
             <p className="text-xs text-status-warn-fg mt-1">
@@ -796,9 +796,9 @@ function ConfirmacionScreen({
       <div
         className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium mb-4 ${
           data.gpsStatus === "dentro_rango"
-            ? "bg-emerald-100 text-status-ok-fg"
+            ? "bg-status-ok-soft text-status-ok-fg"
             : data.gpsStatus === "fuera_rango"
-            ? "bg-yellow-100 text-yellow-700"
+            ? "bg-status-warn-soft text-status-warn-fg"
             : "bg-slate-100 text-slate-600"
         }`}
       >
@@ -832,7 +832,7 @@ function ConfirmacionScreen({
       <div className="space-y-2">
         <button
           onClick={onNueva}
-          className="w-full py-3 bg-status-info hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors"
+          className="w-full py-3 bg-status-info hover:brightness-110 text-white font-semibold rounded-lg transition-colors"
         >
           Nueva marcación
         </button>

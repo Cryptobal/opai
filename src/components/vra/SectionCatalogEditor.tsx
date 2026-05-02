@@ -179,7 +179,7 @@ function SectionRow({
           {!isClonedFromSystem && !template.isSystem && (
             <Badge
               variant="outline"
-              className="text-[10px] py-0 border-emerald-300 text-status-ok-fg dark:text-status-ok-fg"
+              className="text-[10px] py-0 border-status-ok-border text-status-ok-fg"
             >
               Custom
             </Badge>

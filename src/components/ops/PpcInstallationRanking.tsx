@@ -74,9 +74,9 @@ function pctColor(pct: number): string {
 }
 
 function pctBgColor(pct: number): string {
-  if (pct >= 30) return "bg-red-400/10";
-  if (pct >= 15) return "bg-amber-400/10";
-  return "bg-emerald-400/10";
+  if (pct >= 30) return "bg-status-danger-soft";
+  if (pct >= 15) return "bg-status-warn-soft";
+  return "bg-status-ok-soft";
 }
 
 function trendIcon(diff: number | null) {

@@ -31,7 +31,7 @@ const BROWSER_OPTIONS: { id: PwaBrowserChoice; label: string; sublabel: string }
 
 function StepBubble({ n }: { n: number }) {
   return (
-    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-teal-500/20 text-status-info-fg font-bold text-base">
+    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-status-info-soft text-status-info-fg font-bold text-base">
       {n}
     </span>
   );
@@ -60,7 +60,7 @@ function InstructionsContent({
   if (browser === 'safari_ios') {
     return (
       <div className="space-y-5">
-        <div className="rounded-xl bg-status-info-soft border border-teal-500/20 p-4 text-center">
+        <div className="rounded-xl bg-status-info-soft border border-status-info-border p-4 text-center">
           <p className="text-status-info-fg text-sm font-medium">
             En iPhone se agrega desde el menú <strong className="text-white">Compartir</strong>
           </p>
@@ -113,7 +113,7 @@ function InstructionsContent({
   if (browser === 'chrome_android') {
     return (
       <div className="space-y-5">
-        <div className="rounded-xl bg-status-info-soft border border-teal-500/20 p-4 text-center">
+        <div className="rounded-xl bg-status-info-soft border border-status-info-border p-4 text-center">
           <p className="text-status-info-fg text-sm font-medium">
             En Chrome se instala desde el menú <strong className="text-white">⋮</strong> (tres puntos)
           </p>
@@ -156,7 +156,7 @@ function InstructionsContent({
   if (browser === 'samsung') {
     return (
       <div className="space-y-5">
-        <div className="rounded-xl bg-status-info-soft border border-teal-500/20 p-4 text-center">
+        <div className="rounded-xl bg-status-info-soft border border-status-info-border p-4 text-center">
           <p className="text-status-info-fg text-sm font-medium">
             En Samsung Internet usa el menú
             <Menu className="inline w-3.5 h-3.5 ml-1 -mt-0.5" />

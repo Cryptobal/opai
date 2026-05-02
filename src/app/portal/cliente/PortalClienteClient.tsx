@@ -332,7 +332,7 @@ function PortalClienteShell() {
             {session.isProspect && (
               <button
                 onClick={() => setShowTour(true)}
-                className="text-xs text-status-info-fg border border-teal-400/30 rounded px-2 py-1 hover:bg-teal-400/10 transition-colors"
+                className="text-xs text-status-info-fg border border-status-info-border rounded px-2 py-1 hover:bg-status-info-soft transition-colors"
               >
                 Tour
               </button>

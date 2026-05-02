@@ -72,7 +72,7 @@ export function HubCrmSection({ closingData, sellerFirstName, upcomingProjects =
 
   return (
     <HubCollapsibleSection
-      icon={<span className="h-2.5 w-2.5 rounded-full bg-teal-400 inline-block" />}
+      icon={<span className="h-2.5 w-2.5 rounded-full bg-status-info inline-block" />}
       title="Hub de Cierre"
       badge={
         <div className="flex items-center gap-2">

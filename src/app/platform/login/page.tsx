@@ -114,7 +114,7 @@ export default function PlatformLoginPage() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-status-info-border focus:ring-1 focus:ring-status-info"
                   placeholder="admin@opai.cl"
                   required
                 />
@@ -128,14 +128,14 @@ export default function PlatformLoginPage() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-status-info-border focus:ring-1 focus:ring-status-info"
                   required
                 />
               </div>
             </div>
 
             {error && (
-              <div className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-status-danger-fg">
+              <div className="mt-4 rounded-lg bg-status-danger-soft px-3 py-2 text-sm text-status-danger-fg">
                 {error}
               </div>
             )}

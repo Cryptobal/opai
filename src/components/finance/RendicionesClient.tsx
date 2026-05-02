@@ -97,7 +97,7 @@ const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   },
   PAID: {
     label: "Pagada",
-    className: "bg-purple-500/15 text-purple-400 border-purple-500/30",
+    className: "bg-tint-violet text-tint-violet-fg border-tint-violet-fg/30",
   },
 };
 
@@ -955,7 +955,7 @@ function RendicionesClientInner({
               <Button
                 onClick={handleBulkApprove}
                 disabled={processing}
-                className="bg-status-ok hover:bg-emerald-700"
+                className="bg-status-ok hover:brightness-110"
               >
                 {processing ? (
                   <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />

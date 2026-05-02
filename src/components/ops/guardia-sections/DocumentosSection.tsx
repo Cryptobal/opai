@@ -481,7 +481,7 @@ export default function DocumentosSection({
   return (
     <div className="space-y-4">
       {expiringDocs.length > 0 && (
-        <div className="rounded-xl border border-status-warn-border bg-amber-500/[0.08] px-4 py-2.5 text-xs text-status-warn-fg">
+        <div className="rounded-xl border border-status-warn-border bg-status-warn-soft px-4 py-2.5 text-xs text-status-warn-fg">
           {expiringDocs.length} documento(s) vencido(s) o por vencer
         </div>
       )}

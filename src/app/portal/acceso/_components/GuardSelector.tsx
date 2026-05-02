@@ -111,7 +111,7 @@ export function GuardSelector({
               type="button"
               disabled={selecting !== null}
               onClick={() => handleSelect(guard)}
-              className="flex w-full items-center gap-3 rounded-xl border border-gray-700 bg-[#111827] px-4 py-4 text-left transition-colors hover:border-cyan-500/50 hover:bg-gray-800/80 active:bg-gray-800 disabled:opacity-60 disabled:cursor-not-allowed"
+              className="flex w-full items-center gap-3 rounded-xl border border-gray-700 bg-[#111827] px-4 py-4 text-left transition-colors hover:border-status-info-border hover:bg-gray-800/80 active:bg-gray-800 disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {selecting === guard.id ? (
                 <Loader2 className="h-5 w-5 animate-spin text-status-info-fg shrink-0" />

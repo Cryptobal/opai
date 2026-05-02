@@ -92,7 +92,7 @@ export default function PsychDeleteDialog({
           <button
             onClick={handleDelete}
             disabled={!canDelete || busy}
-            className="rounded-lg bg-status-danger text-white hover:bg-red-700 disabled:opacity-50 px-4 py-2 min-h-[44px] flex-1"
+            className="rounded-lg bg-status-danger text-white hover:brightness-110 disabled:opacity-50 px-4 py-2 min-h-[44px] flex-1"
           >
             {busy ? "Eliminando…" : "Eliminar definitivamente"}
           </button>

@@ -47,7 +47,7 @@ export function InstallationHeader({
           {isOnline ? (
             <div className="flex items-center gap-1.5">
               <span className="relative flex h-2.5 w-2.5">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-40" />
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-status-ok opacity-40" />
                 <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-status-ok" />
               </span>
               <Wifi className="h-4 w-4 text-status-ok-fg" />

@@ -74,7 +74,7 @@ export default function PersonalPsychPanel({ personaId, guardName }: Props) {
     }
   }
 
-  if (err) return <p className="text-sm text-rose-700">{err}</p>;
+  if (err) return <p className="text-sm text-status-danger-fg">{err}</p>;
   if (!rows) return <p className="text-sm text-muted-foreground">Cargando…</p>;
 
   const lastSubmitted = rows.find((r) => r.submittedAt);
@@ -88,7 +88,7 @@ export default function PersonalPsychPanel({ personaId, guardName }: Props) {
   return (
     <div className="space-y-3">
       {overdue ? (
-        <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm text-amber-900 flex items-center justify-between gap-3">
+        <div className="rounded-lg bg-status-warn-soft border border-status-warn-border p-3 text-sm text-status-warn-fg flex items-center justify-between gap-3">
           <span>
             Reevaluación vencida (última:{" "}
             {lastSubmitted?.submittedAt
@@ -99,14 +99,14 @@ export default function PersonalPsychPanel({ personaId, guardName }: Props) {
           <button
             onClick={handleRequestNew}
             disabled={busy}
-            className="rounded-md bg-amber-600 text-white px-3 py-1.5 text-xs"
+            className="rounded-md bg-status-warn text-white px-3 py-1.5 text-xs"
           >
             {busy ? "Enviando…" : "Enviar nueva"}
           </button>
         </div>
       ) : null}
       {notRec ? (
-        <div className="rounded-lg bg-rose-50 border border-rose-200 p-3 text-sm text-rose-900">
+        <div className="rounded-lg bg-status-danger-soft border border-status-danger-border p-3 text-sm text-status-danger-fg">
           Última evaluación: <b>No recomendado</b>. Considera activar plan de acción.
         </div>
       ) : null}

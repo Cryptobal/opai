@@ -72,7 +72,7 @@ export default async function PricingFormatPage(props: PricingFormatPageProps) {
         <div className="p-4 sm:p-8 overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="bg-gray-100 border-b-2 border-teal-500">
+              <tr className="bg-gray-100 border-b-2 border-status-info-border">
                 <th className="text-left p-3 text-sm font-bold text-gray-700">Descripción</th>
                 <th className="text-center p-3 text-sm font-bold text-gray-700">Cant.</th>
                 <th className="text-right p-3 text-sm font-bold text-gray-700">P. Unit.</th>
@@ -92,10 +92,10 @@ export default async function PricingFormatPage(props: PricingFormatPageProps) {
           </table>
           
           {/* Total */}
-          <div className="mt-6 bg-teal-50 p-6 rounded-lg border-2 border-teal-500">
+          <div className="mt-6 bg-status-info-soft p-6 rounded-lg border-2 border-status-info-border">
             <div className="flex justify-between items-center">
               <span className="text-xl font-black text-gray-800">TOTAL NETO MENSUAL</span>
-              <span className="text-3xl font-black text-teal-600">{formatCurrency(pricing.subtotal)}</span>
+              <span className="text-3xl font-black text-status-info-fg">{formatCurrency(pricing.subtotal)}</span>
             </div>
             <p className="text-xs text-gray-500 mt-2">Valores netos. IVA se factura según ley.</p>
           </div>

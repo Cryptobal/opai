@@ -104,8 +104,8 @@ type AvailableVisit = {
 
 const SEVERITY_OPTIONS = [
   { value: "critical", label: "Crítico", color: "bg-status-danger" },
-  { value: "high", label: "Alto", color: "bg-orange-600" },
-  { value: "medium", label: "Medio", color: "bg-yellow-600" },
+  { value: "high", label: "Alto", color: "bg-status-warn" },
+  { value: "medium", label: "Medio", color: "bg-status-info" },
   { value: "low", label: "Bajo", color: "bg-status-ok" },
 ];
 
@@ -201,7 +201,7 @@ export function VraReportWizardClient({ report: initialReport }: { report: Repor
             size="sm"
             onClick={handleDeleteReport}
             disabled={deleting}
-            className="gap-1.5 text-status-danger-fg hover:text-status-danger-fg hover:bg-red-50 dark:hover:bg-red-950 border-red-200 dark:border-red-900"
+            className="gap-1.5 text-status-danger-fg hover:text-status-danger-fg hover:bg-status-danger-soft border-status-danger-border"
           >
             {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
             Eliminar borrador
@@ -224,7 +224,7 @@ export function VraReportWizardClient({ report: initialReport }: { report: Repor
                   className={cn(
                     "flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors min-w-0",
                     isActive && "bg-primary text-primary-foreground",
-                    !isActive && isDone && "bg-emerald-100 text-status-ok-fg dark:bg-emerald-900/30 dark:text-status-ok-fg",
+                    !isActive && isDone && "bg-status-ok-soft text-status-ok-fg",
                     !isActive && !isDone && "text-muted-foreground hover:bg-muted",
                   )}
                 >
@@ -1265,10 +1265,10 @@ function Step4Generate({
               <Badge className="bg-status-danger text-white">{distrib.critical} crít</Badge>
             )}
             {distrib.high > 0 && (
-              <Badge className="bg-orange-600 text-white">{distrib.high} alto</Badge>
+              <Badge className="bg-status-warn text-white">{distrib.high} alto</Badge>
             )}
             {distrib.medium > 0 && (
-              <Badge className="bg-yellow-600 text-white">{distrib.medium} med</Badge>
+              <Badge className="bg-status-info text-white">{distrib.medium} med</Badge>
             )}
             {distrib.low > 0 && (
               <Badge className="bg-status-ok text-white">{distrib.low} bajo</Badge>
@@ -1279,7 +1279,7 @@ function Step4Generate({
       </div>
 
       {!canGenerate && (
-        <div className="bg-orange-50 dark:bg-orange-950 border border-orange-200 dark:border-orange-800 rounded-md p-4 text-sm text-orange-700 dark:text-status-warn-fg flex items-start gap-2">
+        <div className="bg-status-warn-soft border border-status-warn-border rounded-md p-4 text-sm text-status-warn-fg flex items-start gap-2">
           <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
           <div>
             <strong>Sin datos para generar.</strong> Volvé al paso 2 o 3 y agregá al menos una foto
@@ -1289,7 +1289,7 @@ function Step4Generate({
       )}
 
       {generating && (
-        <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-md p-4 text-sm text-blue-700 dark:text-status-info-fg">
+        <div className="bg-status-info-soft border border-status-info-border rounded-md p-4 text-sm text-status-info-fg">
           <Loader2 className="h-4 w-4 inline animate-spin mr-2" />
           <strong>Generando informe...</strong> Fase 1/3: análisis visual de fotos. Fase 2/3:
           generación de secciones. Fase 3/3: ensamblaje. No cierres esta ventana.

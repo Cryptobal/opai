@@ -120,7 +120,7 @@ export function ClauseBubbleMenu({ editor }: Props) {
               setSlugDraft(currentClauseId);
               setEditingSlug(true);
             }}
-            className="h-7 gap-1 text-xs text-teal-600"
+            className="h-7 gap-1 text-xs text-status-info-fg"
           >
             <BookmarkCheck className="h-3.5 w-3.5" />
             {currentClauseId}

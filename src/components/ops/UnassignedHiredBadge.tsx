@@ -18,7 +18,7 @@ export function UnassignedHiredBadge({
       title="Contratado sin asignación operativa"
       onClick={(e) => e.stopPropagation()}
       className={cn(
-        "inline-flex shrink-0 items-center text-amber-500/80 dark:text-amber-400/80 cursor-help",
+        "inline-flex shrink-0 items-center text-status-warn-fg/80 cursor-help",
         className
       )}
       aria-label="Contratado sin asignación operativa"

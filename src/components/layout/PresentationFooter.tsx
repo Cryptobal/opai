@@ -99,7 +99,7 @@ export function PresentationFooter({
                   href={`mailto:${contact.email}`}
                   className="flex items-center gap-3 text-base text-white/80 hover:text-status-info-fg transition-colors group"
                 >
-                  <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center group-hover:bg-teal-500/20 transition-colors">
+                  <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center group-hover:bg-status-info-soft transition-colors">
                     <Mail className="w-5 h-5" />
                   </div>
                   <span>{contact.email}</span>
@@ -111,7 +111,7 @@ export function PresentationFooter({
                   href={`tel:${contact.phone}`}
                   className="flex items-center gap-3 text-base text-white/80 hover:text-status-info-fg transition-colors group"
                 >
-                  <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center group-hover:bg-teal-500/20 transition-colors">
+                  <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center group-hover:bg-status-info-soft transition-colors">
                     <Phone className="w-5 h-5" />
                   </div>
                   <span>{contact.phone}</span>
@@ -125,7 +125,7 @@ export function PresentationFooter({
                   rel="noopener noreferrer"
                   className="flex items-center gap-3 text-base text-white/80 hover:text-status-info-fg transition-colors group"
                 >
-                  <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center group-hover:bg-teal-500/20 transition-colors">
+                  <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center group-hover:bg-status-info-soft transition-colors">
                     <Globe className="w-5 h-5" />
                   </div>
                   <span>{website}</span>
@@ -139,7 +139,7 @@ export function PresentationFooter({
                   rel="noopener noreferrer"
                   className="flex items-start gap-3 text-base text-white/80 hover:text-status-info-fg transition-colors group"
                 >
-                  <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center group-hover:bg-teal-500/20 transition-colors flex-shrink-0">
+                  <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center group-hover:bg-status-info-soft transition-colors flex-shrink-0">
                     <MapPin className="w-5 h-5" />
                   </div>
                   <div className="flex items-start gap-2">

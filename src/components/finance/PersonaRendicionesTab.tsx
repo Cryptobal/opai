@@ -45,7 +45,7 @@ const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   },
   PAID: {
     label: "Pagada",
-    className: "bg-purple-500/15 text-purple-400 border-purple-500/30",
+    className: "bg-tint-violet text-tint-violet-fg border-tint-violet-fg/30",
   },
 };
 
@@ -113,7 +113,7 @@ export function PersonaRendicionesTab({ adminId }: PersonaRendicionesTabProps) {
           </div>
         </div>
         <div className="rounded-xl border border-border/60 bg-card/40 p-3 sm:p-4 flex items-center gap-3 transition-colors hover:bg-card/60 hover:border-border">
-          <CheckCircle2 className="h-5 w-5 text-purple-400 shrink-0" />
+          <CheckCircle2 className="h-5 w-5 text-tint-violet-fg shrink-0" />
           <div className="min-w-0">
             <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Monto pagado</p>
             <p className="text-lg font-semibold tabular-nums">{formatCLP(paidAmount)}</p>

@@ -34,9 +34,9 @@ const STATUS_FILTERS: { key: StatusFilter; label: string }[] = [
 ];
 
 const STATUS_BADGE_CLASSES: Record<string, string> = {
-  active: 'bg-emerald-100 text-status-ok-fg',
-  trial: 'bg-amber-100 text-status-warn-fg',
-  past_due: 'bg-red-100 text-status-danger-fg',
+  active: 'bg-status-ok-soft text-status-ok-fg',
+  trial: 'bg-status-warn-soft text-status-warn-fg',
+  past_due: 'bg-status-danger-soft text-status-danger-fg',
   suspended: 'bg-gray-100 text-gray-500',
   cancelled: 'bg-gray-100 text-gray-500',
 };
@@ -206,7 +206,7 @@ export default function PlatformBillingPage() {
                   <div className="text-xs text-gray-400">{t.slug}</div>
                 </td>
                 <td className="px-4 py-3">
-                  <span className="inline-flex rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900 dark:text-status-info-fg">
+                  <span className="inline-flex rounded-full bg-status-info-soft px-2.5 py-0.5 text-xs font-medium text-status-info-fg">
                     {t.plan}
                   </span>
                   <span

@@ -46,7 +46,7 @@ export function PairingSuccess({
         <button
           type="button"
           onClick={onContinue}
-          className="flex w-full items-center justify-center rounded-xl bg-cyan-500 px-4 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-cyan-400 active:bg-cyan-600"
+          className="flex w-full items-center justify-center rounded-xl bg-status-info px-4 py-3.5 text-sm font-semibold text-white transition-colors hover:brightness-110 active:brightness-95"
         >
           COMENZAR
         </button>

@@ -18,7 +18,7 @@ interface ModalDetalleMarcacionProps {
 function MetodoBadge({ metodoId }: { metodoId?: string | null }) {
   if (!metodoId) return null;
   const map: Record<string, { label: string; color: string }> = {
-    face_id: { label: "Face ID", color: "bg-purple-500/20 text-purple-300" },
+    face_id: { label: "Face ID", color: "bg-tint-violet text-tint-violet-fg" },
     foto: { label: "Foto", color: "bg-status-info-soft text-status-info-fg" },
     pin_fallback: { label: "PIN", color: "bg-status-warn-soft text-status-warn-fg" },
     rut_pin: { label: "RUT+PIN", color: "bg-status-warn-soft text-status-warn-fg" },

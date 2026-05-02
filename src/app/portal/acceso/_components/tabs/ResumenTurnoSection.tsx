@@ -36,7 +36,7 @@ const TYPE_ICONS: Record<AccessRecordType, React.ReactNode> = {
 const TYPE_COLORS: Record<AccessRecordType, string> = {
   visit: "border-status-info-border bg-status-info-soft text-status-info-fg",
   provider: "border-status-warn-border bg-status-warn-soft text-status-warn-fg",
-  vehicle: "border-purple-500/30 bg-purple-500/10 text-purple-400",
+  vehicle: "border-tint-violet-fg/30 bg-tint-violet text-tint-violet-fg",
   staff: "border-status-ok-border bg-status-ok-soft text-status-ok-fg",
   delivery: "border-status-warn-border bg-status-warn-soft text-status-warn-fg",
 };

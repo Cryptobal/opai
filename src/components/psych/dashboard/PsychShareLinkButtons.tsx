@@ -26,7 +26,7 @@ export function ChannelButtons({
       <button
         onClick={() => onSend("whatsapp")}
         disabled={sending !== null || !phone}
-        className="w-full min-h-[44px] rounded-lg bg-status-ok text-white hover:bg-emerald-700 disabled:opacity-50 flex items-center justify-center gap-2 font-medium text-sm"
+        className="w-full min-h-[44px] rounded-lg bg-status-ok text-white hover:brightness-110 disabled:opacity-50 flex items-center justify-center gap-2 font-medium text-sm"
       >
         <MessageCircle className="size-4" />
         {sending === "whatsapp" ? "Abriendo…" : "WhatsApp"}

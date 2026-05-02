@@ -23,13 +23,13 @@ const CONFIG: Record<Estado, { label: string; title: string; icon: React.Element
     label: "Modificada",
     title: "Modificación pendiente de oposición (48h)",
     icon: AlertCircle,
-    className: "bg-amber-100 text-status-warn-fg border-amber-200",
+    className: "bg-status-warn-soft text-status-warn-fg border-status-warn-border",
   },
   opuesta: {
     label: "Opuesta",
     title: "Modificación opuesta por el trabajador",
     icon: XCircle,
-    className: "bg-red-100 text-status-danger-fg border-red-200",
+    className: "bg-status-danger-soft text-status-danger-fg border-status-danger-border",
   },
   consolidada: {
     label: "Consolidada",

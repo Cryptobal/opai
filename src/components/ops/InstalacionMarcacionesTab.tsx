@@ -166,7 +166,7 @@ export function InstalacionMarcacionesTab({ installationId }: { installationId: 
                   <td className="px-3 py-2">
                     {row.salida ? (
                       <div className="space-y-0.5">
-                        <p className="font-mono text-xs text-orange-600 font-bold">
+                        <p className="font-mono text-xs text-status-warn-fg font-bold">
                           {fmtHora(row.salida.timestamp)}
                         </p>
                         <MarcacionModificadaBadge

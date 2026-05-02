@@ -87,7 +87,7 @@ export function PresentationHeader({
 
               {/* Centro: Nombre de la propuesta (Subject) - solo desktop */}
               {quoteName && quoteName !== 'la cotización' ? (
-                <div className="hidden lg:flex items-center gap-2 px-4 py-1.5 rounded-full bg-status-info-soft border border-teal-400/30">
+                <div className="hidden lg:flex items-center gap-2 px-4 py-1.5 rounded-full bg-status-info-soft border border-status-info-border">
                   <span className="font-bold text-status-info-fg">{quoteName}</span>
                 </div>
               ) : null}
@@ -145,7 +145,7 @@ export function PresentationHeader({
               title="WhatsApp"
               aria-label="Contactar por WhatsApp"
             >
-              <div className="w-10 h-10 rounded-full bg-status-ok-soft border border-status-ok-border hover:bg-status-ok hover:border-green-500 flex items-center justify-center transition-all hover:scale-110">
+              <div className="w-10 h-10 rounded-full bg-status-ok-soft border border-status-ok-border hover:bg-status-ok hover:border-status-ok-border flex items-center justify-center transition-all hover:scale-110">
                 <MessageCircle className="w-5 h-5 text-status-ok-fg group-hover:text-white transition-colors" />
               </div>
             </a>
@@ -155,7 +155,7 @@ export function PresentationHeader({
               href={cta.meeting_link}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-status-info-border hover:bg-status-info hover:border-teal-500 text-white/80 hover:text-white transition-all hover:scale-105 text-sm font-semibold"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-status-info-border hover:bg-status-info hover:border-status-info-border text-white/80 hover:text-white transition-all hover:scale-105 text-sm font-semibold"
               title="Agendar visita técnica"
               aria-label="Agendar visita técnica"
             >

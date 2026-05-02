@@ -22,13 +22,13 @@ function statusOf(g: GuardEntry): { label: string; cls: string } {
   if (g.isValid) {
     return {
       label: `Evaluado · vigente hasta ${formatDate(g.validUntil)}`,
-      cls: "bg-emerald-100 text-emerald-900",
+      cls: "bg-status-ok-soft text-status-ok-fg",
     };
   }
   if (g.evaluatedAt) {
     return {
       label: `Por reevaluar (último: ${formatDate(g.evaluatedAt)})`,
-      cls: "bg-amber-100 text-amber-900",
+      cls: "bg-status-warn-soft text-status-warn-fg",
     };
   }
   return {
