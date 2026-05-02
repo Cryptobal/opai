@@ -14,7 +14,7 @@ export default async function DocumentosPage() {
 
   const perms = await resolvePagePerms(session.user);
   if (!canView(perms, "docs", "gestion")) {
-    redirect("/opai/inicio");
+    redirect("/hub");
   }
 
   return (

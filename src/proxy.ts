@@ -2,7 +2,7 @@
  * Middleware - Protección de rutas con Auth.js v5
  * OPAI: Rutas bajo /opai/*
  *
- * Protege: /opai/inicio, /opai/templates/*, /opai/preview/*, /opai/usuarios
+ * Protege: /opai/documentos/*, /opai/usuarios
  * Permite: /p/*, /api/*, /opai/login, /activate, assets
  *
  * Placeholders públicos: /hub, /crm

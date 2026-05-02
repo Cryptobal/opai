@@ -40,7 +40,6 @@ export { BottomNav } from './BottomNav';
 export { CommandPalette } from './CommandPalette';
 
 // Page Components
-export { DocumentosContent } from './DocumentosContent';
 export { DocumentosSubnav } from './DocumentosSubnav';
 export { IntegrationsGmailClient } from './IntegrationsGmailClient';
 export { EmailTemplatesClient } from './EmailTemplatesClient';

@@ -69,7 +69,7 @@ const ALL_NAV_OPTIONS: MainNavItem[] = [
   { key: "personas", href: "/personas/guardias", label: "Personas", icon: Users },
   { key: "finanzas", href: "/finanzas", label: "Finanzas", icon: Receipt },
   { key: "payroll", href: "/payroll", label: "Payroll", icon: Calculator },
-  { key: "documentos", href: "/opai/inicio", label: "Docs", icon: FileText },
+  { key: "documentos", href: "/opai/documentos", label: "Docs", icon: FileText },
 ];
 
 const MAS_ITEM: MainNavItem = { key: "mas", href: "#mas", label: "Más", icon: LayoutGrid, isDrawer: true };
@@ -151,7 +151,7 @@ function getActiveModule(pathname: string): string | null {
   if (pathname.startsWith("/payroll")) return "payroll";
   if (pathname.startsWith("/finanzas")) return "finanzas";
   if (pathname.startsWith("/opai/configuracion")) return "config";
-  if (pathname.startsWith("/opai/inicio") || pathname.startsWith("/opai/documentos") || pathname.startsWith("/opai/templates")) return "docs";
+  if (pathname.startsWith("/opai/documentos") || pathname.startsWith("/opai/documentos-operativos")) return "docs";
   if (pathname.startsWith("/te")) return "te";
   if (pathname.startsWith("/reportes/dt")) return "reportes_dt";
   return null;
@@ -297,7 +297,7 @@ function MasDrawer({ open, onOpenChange, userRole, navConfig }: { open: boolean;
   const modules: MasModuleItem[] = useMemo(() => [
     { key: "finanzas", href: "/finanzas", label: "Finanzas", icon: Landmark, color: "text-status-warn-fg", show: hasModuleAccess(permissions, "finance") },
     { key: "payroll", href: "/payroll", label: "Payroll", icon: Wallet, color: "text-tint-violet-fg", show: hasModuleAccess(permissions, "payroll") },
-    { key: "documentos", href: "/opai/inicio", label: "Documentos", icon: FolderOpen, color: "text-status-info-fg", show: hasModuleAccess(permissions, "docs") },
+    { key: "documentos", href: "/opai/documentos", label: "Documentos", icon: FolderOpen, color: "text-status-info-fg", show: hasModuleAccess(permissions, "docs") },
     { key: "reportes-dt", href: "/reportes/dt", label: "Reportes DT", icon: FileBarChart, color: "text-status-danger-fg", show: canView(permissions, "reportes_dt") },
   ], [permissions]);
 

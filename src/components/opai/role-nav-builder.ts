@@ -203,13 +203,12 @@ export function buildNavItems({
       ].filter(Boolean) as NavItem['children'],
     },
     {
-      href: '/opai/inicio',
+      href: '/opai/documentos',
       label: 'Documentos',
       icon: FolderOpen,
       show: canAccessModule(hasModuleAccess(permissions, 'docs'), 'documentos'),
       badge: moduleBadges.docs,
       children: [
-        { href: '/opai/inicio', label: 'Envíos', icon: FileText },
         { href: '/opai/documentos', label: 'Gestión', icon: FolderOpen, badge: notes.document },
         { href: '/opai/documentos-operativos', label: 'Operativos', icon: ClipboardCheck },
       ],
