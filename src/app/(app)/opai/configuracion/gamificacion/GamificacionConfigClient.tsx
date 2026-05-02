@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from "react";
 
-import { LoadingState } from "@/components/opai/LoadingState";
-import { EmptyState } from "@/components/opai-ds";
+import { EmptyState, LoadingState } from "@/components/opai-ds";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

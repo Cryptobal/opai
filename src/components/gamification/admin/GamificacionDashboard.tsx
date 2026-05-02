@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { DataTable, EmptyState, Stat, StatGrid, type DataTableColumn } from "@/components/opai-ds";
-import { LoadingState } from "@/components/opai/LoadingState";
+import { DataTable, EmptyState, LoadingState, Stat, StatGrid, type DataTableColumn } from "@/components/opai-ds";
 import { Users, TrendingUp, Trophy, Award } from "lucide-react";
 import { toast } from "sonner";
 

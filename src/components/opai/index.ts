@@ -14,10 +14,6 @@ export type { AppSidebarProps, NavItem, NavSubItem } from './AppSidebar';
 
 export { AppLayoutClient } from './AppLayoutClient';
 
-// UI Components
-export { LoadingState } from './LoadingState';
-export type { LoadingStateProps, LoadingStateType } from './LoadingState';
-
 // Theme
 export { ThemeProvider, useTheme } from './ThemeProvider';
 export { ThemeToggle } from './ThemeToggle';
