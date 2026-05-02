@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { PageHeader } from "@/components/opai-ds/PageHeader";
+import { PageHero } from "@/components/opai-ds";
 import { ChipTabs } from "@/components/ui/chip-tabs";
 import {
   GamificacionDashboard,
@@ -10,7 +10,7 @@ import {
   FondosManagement,
   BeneficiosManagement,
 } from "@/components/gamification/admin";
-import { BarChart3, Award, Target, DollarSign, Gift } from "lucide-react";
+import { BarChart3, Award, Target, DollarSign, Gift, Trophy } from "lucide-react";
 
 const TABS = [
   { id: "dashboard", label: "Dashboard", icon: BarChart3 },
@@ -25,9 +25,13 @@ export function GamificacionAdminClient() {
 
   return (
     <div className="space-y-6 min-w-0">
-      <PageHeader
+      <PageHero
+        icon={<Trophy />}
+        iconTone="sky"
+        eyebrow={["Personas", "Gamificación"]}
         title="Gamificación"
-        description="Trust Score, puntos, badges, desafíos, fondos y beneficios"
+        subtitle="Trust Score, badges y desafíos"
+        description="Trust Score, puntos, badges, desafíos, fondos y beneficios."
         backHref="/personas/guardias"
         backLabel="Personas"
       />
