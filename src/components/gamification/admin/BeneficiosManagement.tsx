@@ -1,13 +1,22 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { DataTable, type DataTableColumn } from "@/components/opai-ds/DataTableLegacy";
+import { DataTable, EmptyState, type DataTableColumn } from "@/components/opai-ds";
 import { Button } from "@/components/ui/button";
-import { Plus, Pencil, Trash2, Check, X } from "lucide-react";
+import { Plus, Pencil, Trash2, Check, X, Gift } from "lucide-react";
 import { toast } from "sonner";
 
+type BeneficioRow = {
+  id: string;
+  nombre: string;
+  categoria: string;
+  costoPuntos?: number;
+  proveedor: string;
+  disponible?: boolean;
+};
+
 export function BeneficiosManagement() {
-  const [beneficios, setBeneficios] = useState<any[]>([]);
+  const [beneficios, setBeneficios] = useState<BeneficioRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -21,33 +30,34 @@ export function BeneficiosManagement() {
       .finally(() => setLoading(false));
   }, []);
 
-  const columns: DataTableColumn[] = [
-    { key: "nombre", label: "Nombre" },
-    { key: "categoria", label: "Categoría" },
+  const columns: DataTableColumn<BeneficioRow>[] = [
+    { id: "nombre", header: "Nombre", cell: (row) => row.nombre },
+    { id: "categoria", header: "Categoría", cell: (row) => row.categoria },
     {
-      key: "costoPuntos",
-      label: "Costo",
-      render: (v: number) => (
-        <span className="font-medium">{v ?? 0} pts</span>
+      id: "costoPuntos",
+      header: "Costo",
+      cell: (row) => (
+        <span className="font-medium">{row.costoPuntos ?? 0} pts</span>
       ),
     },
-    { key: "proveedor", label: "Proveedor" },
+    { id: "proveedor", header: "Proveedor", cell: (row) => row.proveedor },
     {
-      key: "disponible",
-      label: "Activo",
-      className: "w-16 text-center",
-      render: (v: boolean) =>
-        v ? (
+      id: "disponible",
+      header: "Activo",
+      align: "center",
+      width: "w-16",
+      cell: (row) =>
+        row.disponible ? (
           <Check className="h-4 w-4 text-status-ok-fg mx-auto" />
         ) : (
           <X className="h-4 w-4 text-muted-foreground mx-auto" />
         ),
     },
     {
-      key: "_actions",
-      label: "",
-      className: "w-20",
-      render: (_: any, row: any) => (
+      id: "_actions",
+      header: "",
+      width: "w-20",
+      cell: () => (
         <div className="flex items-center gap-1">
           <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
             <Pencil className="h-3.5 w-3.5" />
@@ -71,7 +81,13 @@ export function BeneficiosManagement() {
           Nuevo Beneficio
         </Button>
       </div>
-      <DataTable columns={columns} data={beneficios} loading={loading} compact />
+      <DataTable
+        columns={columns}
+        rows={beneficios}
+        rowKey={(row) => row.id}
+        loading={loading}
+        empty={<EmptyState icon={Gift} title="Sin beneficios" compact />}
+      />
     </div>
   );
 }

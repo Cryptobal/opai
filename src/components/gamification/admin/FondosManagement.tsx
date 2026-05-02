@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { DataTable, type DataTableColumn } from "@/components/opai-ds/DataTableLegacy";
+import { DataTable, EmptyState, type DataTableColumn } from "@/components/opai-ds";
 import { Button } from "@/components/ui/button";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, PiggyBank } from "lucide-react";
 import { toast } from "sonner";
 
 function formatDate(dateStr?: string | null): string {
@@ -24,8 +24,17 @@ function formatMoney(amount?: number | null): string {
   return `$${amount.toLocaleString("es-CL")}`;
 }
 
+type FondoRow = {
+  id: string;
+  nombre: string;
+  tipo: string;
+  monto?: number;
+  fechaInicio?: string | null;
+  fechaFin?: string | null;
+};
+
 export function FondosManagement() {
-  const [fondos, setFondos] = useState<any[]>([]);
+  const [fondos, setFondos] = useState<FondoRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -39,29 +48,30 @@ export function FondosManagement() {
       .finally(() => setLoading(false));
   }, []);
 
-  const columns: DataTableColumn[] = [
-    { key: "nombre", label: "Nombre" },
-    { key: "tipo", label: "Tipo" },
+  const columns: DataTableColumn<FondoRow>[] = [
+    { id: "nombre", header: "Nombre", cell: (row) => row.nombre },
+    { id: "tipo", header: "Tipo", cell: (row) => row.tipo },
     {
-      key: "monto",
-      label: "Monto",
-      render: (v: number) => formatMoney(v),
+      id: "monto",
+      header: "Monto",
+      align: "right",
+      cell: (row) => formatMoney(row.monto),
     },
     {
-      key: "fechaInicio",
-      label: "Inicio",
-      render: (v: string) => formatDate(v),
+      id: "fechaInicio",
+      header: "Inicio",
+      cell: (row) => formatDate(row.fechaInicio),
     },
     {
-      key: "fechaFin",
-      label: "Fin",
-      render: (v: string) => formatDate(v),
+      id: "fechaFin",
+      header: "Fin",
+      cell: (row) => formatDate(row.fechaFin),
     },
     {
-      key: "_actions",
-      label: "",
-      className: "w-20",
-      render: (_: any, row: any) => (
+      id: "_actions",
+      header: "",
+      width: "w-20",
+      cell: () => (
         <div className="flex items-center gap-1">
           <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
             <Pencil className="h-3.5 w-3.5" />
@@ -85,7 +95,13 @@ export function FondosManagement() {
           Nuevo Fondo
         </Button>
       </div>
-      <DataTable columns={columns} data={fondos} loading={loading} compact />
+      <DataTable
+        columns={columns}
+        rows={fondos}
+        rowKey={(row) => row.id}
+        loading={loading}
+        empty={<EmptyState icon={PiggyBank} title="Sin fondos" compact />}
+      />
     </div>
   );
 }

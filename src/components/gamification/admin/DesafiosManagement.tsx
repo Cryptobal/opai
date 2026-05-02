@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { DataTable, type DataTableColumn } from "@/components/opai-ds/DataTableLegacy";
+import { DataTable, EmptyState, type DataTableColumn } from "@/components/opai-ds";
 import { Button } from "@/components/ui/button";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Target } from "lucide-react";
 import { toast } from "sonner";
 
 function formatDate(dateStr?: string | null): string {
@@ -19,8 +19,17 @@ function formatDate(dateStr?: string | null): string {
   }
 }
 
+type DesafioRow = {
+  id: string;
+  nombre: string;
+  tipo: string;
+  fechaInicio?: string | null;
+  fechaFin?: string | null;
+  recompensaPuntos?: number;
+};
+
 export function DesafiosManagement() {
-  const [desafios, setDesafios] = useState<any[]>([]);
+  const [desafios, setDesafios] = useState<DesafioRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -34,31 +43,31 @@ export function DesafiosManagement() {
       .finally(() => setLoading(false));
   }, []);
 
-  const columns: DataTableColumn[] = [
-    { key: "nombre", label: "Nombre" },
-    { key: "tipo", label: "Tipo" },
+  const columns: DataTableColumn<DesafioRow>[] = [
+    { id: "nombre", header: "Nombre", cell: (row) => row.nombre },
+    { id: "tipo", header: "Tipo", cell: (row) => row.tipo },
     {
-      key: "fechaInicio",
-      label: "Inicio",
-      render: (v: string) => formatDate(v),
+      id: "fechaInicio",
+      header: "Inicio",
+      cell: (row) => formatDate(row.fechaInicio),
     },
     {
-      key: "fechaFin",
-      label: "Fin",
-      render: (v: string) => formatDate(v),
+      id: "fechaFin",
+      header: "Fin",
+      cell: (row) => formatDate(row.fechaFin),
     },
     {
-      key: "recompensaPuntos",
-      label: "Puntos",
-      render: (v: number) => (
-        <span className="text-status-ok-fg font-medium">+{v ?? 0}</span>
+      id: "recompensaPuntos",
+      header: "Puntos",
+      cell: (row) => (
+        <span className="text-status-ok-fg font-medium">+{row.recompensaPuntos ?? 0}</span>
       ),
     },
     {
-      key: "_actions",
-      label: "",
-      className: "w-20",
-      render: (_: any, row: any) => (
+      id: "_actions",
+      header: "",
+      width: "w-20",
+      cell: () => (
         <div className="flex items-center gap-1">
           <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
             <Pencil className="h-3.5 w-3.5" />
@@ -82,7 +91,13 @@ export function DesafiosManagement() {
           Nuevo Desafío
         </Button>
       </div>
-      <DataTable columns={columns} data={desafios} loading={loading} compact />
+      <DataTable
+        columns={columns}
+        rows={desafios}
+        rowKey={(row) => row.id}
+        loading={loading}
+        empty={<EmptyState icon={Target} title="Sin desafíos" compact />}
+      />
     </div>
   );
 }

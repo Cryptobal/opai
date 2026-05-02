@@ -15,9 +15,6 @@ export type { AppSidebarProps, NavItem, NavSubItem } from './AppSidebar';
 export { AppLayoutClient } from './AppLayoutClient';
 
 // UI Components
-export { DataTable } from './DataTable';
-export type { DataTableColumn, DataTableProps } from './DataTable';
-
 export { LoadingState } from './LoadingState';
 export type { LoadingStateProps, LoadingStateType } from './LoadingState';
 
