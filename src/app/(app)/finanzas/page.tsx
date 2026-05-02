@@ -3,13 +3,14 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, hasModuleAccess, hasCapability, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/opai-ds";
+import { PageHero } from "@/components/opai-ds";
 import { Surface } from "@/components/opai-ds";
 import {
   Receipt,
   CheckCircle2,
   Wallet,
   BarChart3,
+  Landmark,
 } from "lucide-react";
 
 export default async function FinanzasDashboardPage() {
@@ -68,7 +69,7 @@ export default async function FinanzasDashboardPage() {
       icon: Receipt,
       count: pendingRendiciones > 0 ? pendingRendiciones : null,
       countLabel: "pendiente(s)",
-      color: "text-status-ok-fg bg-emerald-400/10",
+      color: "text-status-ok-fg bg-status-ok-soft",
       show: true,
     },
     {
@@ -78,7 +79,7 @@ export default async function FinanzasDashboardPage() {
       icon: CheckCircle2,
       count: pendingApprovals > 0 ? pendingApprovals : null,
       countLabel: "por aprobar",
-      color: "text-status-info-fg bg-blue-400/10",
+      color: "text-status-info-fg bg-status-info-soft",
       show: canApprove,
     },
     {
@@ -88,7 +89,7 @@ export default async function FinanzasDashboardPage() {
       icon: Wallet,
       count: amountPending > 0 ? fmtCLP.format(amountPending) : null,
       countLabel: "por pagar",
-      color: "text-purple-400 bg-purple-400/10",
+      color: "text-tint-violet-fg bg-tint-violet",
       show: canPay,
     },
     {
@@ -98,15 +99,19 @@ export default async function FinanzasDashboardPage() {
       icon: BarChart3,
       count: null,
       countLabel: null,
-      color: "text-status-warn-fg bg-amber-400/10",
+      color: "text-status-warn-fg bg-status-warn-soft",
       show: true,
     },
   ];
 
   return (
     <div className="space-y-6 min-w-0">
-      <PageHeader
+      <PageHero
+        icon={<Landmark />}
+        iconTone="teal"
+        eyebrow={["Finanzas"]}
         title="Finanzas"
+        subtitle="rendiciones, aprobaciones y pagos"
         description="Rendiciones de gastos, aprobaciones, pagos y reportes."
       />
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 min-w-0">

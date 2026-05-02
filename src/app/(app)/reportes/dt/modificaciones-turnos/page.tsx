@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
-import { PageHeader } from "@/components/opai-ds";
+import { PageHero } from "@/components/opai-ds";
+import { History } from "lucide-react";
 import { ModificacionesTurnosClient } from "@/components/reportes-dt/ModificacionesTurnosClient";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
@@ -15,7 +16,14 @@ export default async function ModificacionesTurnosPage() {
   });
   return (
     <div className="space-y-6">
-      <PageHeader title="Modificaciones de Turnos" description="Res. Exenta N°38 Art. 19 — DT Chile" />
+      <PageHero
+        icon={<History />}
+        iconTone="teal"
+        eyebrow={["Reportes", "DT", "Modificaciones"]}
+        title="Modificaciones de Turnos"
+        subtitle="Res. N°38 Art. 19"
+        description="Res. Exenta N°38 Art. 19 — DT Chile"
+      />
       <ModificacionesTurnosClient installations={installations} />
     </div>
   );

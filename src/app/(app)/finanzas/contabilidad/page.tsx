@@ -7,7 +7,8 @@ import {
   hasCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/opai-ds";
+import { PageHero } from "@/components/opai-ds";
+import { BookOpen } from "lucide-react";
 import { ContabilidadClient } from "@/components/finance/ContabilidadClient";
 
 export default async function ContabilidadPage() {
@@ -80,8 +81,12 @@ export default async function ContabilidadPage() {
 
   return (
     <div className="space-y-6 min-w-0">
-      <PageHeader
+      <PageHero
+        icon={<BookOpen />}
+        iconTone="teal"
+        eyebrow={["Finanzas", "Contabilidad"]}
         title="Contabilidad"
+        subtitle="plan de cuentas y asientos"
         description="Plan de cuentas, asientos contables, libro mayor y períodos."
       />
       <ContabilidadClient

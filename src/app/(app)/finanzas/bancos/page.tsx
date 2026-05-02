@@ -7,7 +7,8 @@ import {
   hasCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/opai-ds";
+import { PageHero } from "@/components/opai-ds";
+import { Building2 } from "lucide-react";
 import { BancosClient } from "@/components/finance/BancosClient";
 
 export default async function BancosPage() {
@@ -53,8 +54,12 @@ export default async function BancosPage() {
 
   return (
     <div className="space-y-6 min-w-0">
-      <PageHeader
+      <PageHero
+        icon={<Building2 />}
+        iconTone="teal"
+        eyebrow={["Finanzas", "Bancos"]}
         title="Bancos"
+        subtitle="cuentas y movimientos"
         description="Gestión de cuentas bancarias, movimientos e importación de cartolas."
       />
       <BancosClient

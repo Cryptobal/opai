@@ -7,7 +7,8 @@ import {
   hasCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/opai-ds";
+import { PageHero } from "@/components/opai-ds";
+import { FileMinus } from "lucide-react";
 import { CreditNoteForm } from "@/components/finance/CreditNoteForm";
 
 interface PageProps {
@@ -58,8 +59,12 @@ export default async function NotaCreditoPage({ searchParams }: PageProps) {
 
   return (
     <div className="space-y-6 min-w-0">
-      <PageHeader
+      <PageHero
+        icon={<FileMinus />}
+        iconTone="teal"
+        eyebrow={["Finanzas", "Facturación", "Notas", "Crédito"]}
         title="Emitir Nota de Crédito"
+        subtitle="ajuste a la baja"
         description="Emitir nota de crédito electrónica referenciando un DTE."
       />
       <CreditNoteForm
