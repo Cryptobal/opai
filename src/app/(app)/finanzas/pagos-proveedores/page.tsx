@@ -7,7 +7,8 @@ import {
   hasCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/opai-ds";
+import { PageHero } from "@/components/opai-ds";
+import { Send } from "lucide-react";
 import { PagosProveedoresClient } from "@/components/finance/PagosProveedoresClient";
 
 export default async function PagosProveedoresPage() {
@@ -36,8 +37,12 @@ export default async function PagosProveedoresPage() {
 
   return (
     <div className="space-y-6 min-w-0">
-      <PageHeader
+      <PageHero
+        icon={<Send />}
+        iconTone="teal"
+        eyebrow={["Finanzas", "Pagos a Proveedores"]}
         title="Pagos a Proveedores"
+        subtitle="transferencias y abonos"
         description="Registro y gestion de pagos a proveedores con asignacion a documentos."
       />
       <PagosProveedoresClient

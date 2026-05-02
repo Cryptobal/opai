@@ -1081,6 +1081,49 @@ const MIGRATED_PATHS = [
   "src/components/notifications/SoundSettings.tsx",
   "src/components/pwa/InAppNotificationProvider.tsx",
   "src/components/pwa/NotificationSettings.tsx",
+  // Cluster 5F.2c — Finanzas + DT + Cumplimiento. Último cluster temático
+  // del proyecto. Establece iconTone='teal' (turquesa) — diferenciado de
+  // Payroll (amber) y resto de clusters.
+  //
+  // 22 pages migradas a <PageHero> con iconTone='teal'. 4 hex residuales
+  // eliminados en /finanzas/page.tsx modules array (status-* tokens; 'Pagos'
+  // categórico → tint-violet, igual que 'deal' del CRM).
+  //
+  // Cumplimiento page ya usa <ConfigPageLayout> — solo certificado.
+  // /finanzas/pagos/page.tsx es un redirect de 5 líneas — certificado.
+  // /reportes/dt/layout.tsx no tiene header — certificado.
+  //
+  // Cero cambios funcionales: rendiciones, DTE, contabilidad, conciliación,
+  // reportes DT, cumplimiento — todo igual.
+  //
+  // ComplianceConfigClient.tsx NO se agrega a MIGRATED_PATHS: mismo criterio
+  // que 4A/4B/4C/4D/5A/5B/5C/5D+5E/5F.1/5F.2a — color drift = 0, pero tiene
+  // drift tipográfico legacy (text-[11px] sin marcas eyebrow) que requiere
+  // pasada de limpieza tipográfica futura.
+  "src/app/(app)/finanzas/page.tsx",
+  "src/app/(app)/finanzas/aprobaciones/page.tsx",
+  "src/app/(app)/finanzas/bancos/page.tsx",
+  "src/app/(app)/finanzas/conciliacion/page.tsx",
+  "src/app/(app)/finanzas/contabilidad/page.tsx",
+  "src/app/(app)/finanzas/contabilidad/asientos/nuevo/page.tsx",
+  "src/app/(app)/finanzas/facturacion/page.tsx",
+  "src/app/(app)/finanzas/facturacion/emitir/page.tsx",
+  "src/app/(app)/finanzas/facturacion/notas/credito/page.tsx",
+  "src/app/(app)/finanzas/facturacion/notas/debito/page.tsx",
+  "src/app/(app)/finanzas/pagos/page.tsx",
+  "src/app/(app)/finanzas/pagos-proveedores/page.tsx",
+  "src/app/(app)/finanzas/proveedores/page.tsx",
+  "src/app/(app)/finanzas/rendiciones/page.tsx",
+  "src/app/(app)/finanzas/rendiciones/[id]/page.tsx",
+  "src/app/(app)/finanzas/rendiciones/nueva/page.tsx",
+  "src/app/(app)/finanzas/reportes/page.tsx",
+  "src/app/(app)/reportes/dt/page.tsx",
+  "src/app/(app)/reportes/dt/layout.tsx",
+  "src/app/(app)/reportes/dt/asistencia-diaria/page.tsx",
+  "src/app/(app)/reportes/dt/domingos-festivos/page.tsx",
+  "src/app/(app)/reportes/dt/jornada-diaria/page.tsx",
+  "src/app/(app)/reportes/dt/modificaciones-turnos/page.tsx",
+  "src/app/(app)/opai/configuracion/cumplimiento/page.tsx",
   // Agregar aquí cuando se migren:
   // "src/components/personas/",
   // "src/components/crm/",

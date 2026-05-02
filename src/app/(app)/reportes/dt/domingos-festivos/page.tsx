@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
-import { PageHeader } from "@/components/opai-ds";
+import { PageHero } from "@/components/opai-ds";
+import { CalendarRange } from "lucide-react";
 import { DomingosFestivosClient } from "@/components/reportes-dt/DomingosFestivosClient";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
@@ -15,8 +16,12 @@ export default async function DomingosFestivosPage() {
   });
   return (
     <div className="space-y-6">
-      <PageHeader
+      <PageHero
+        icon={<CalendarRange />}
+        iconTone="teal"
+        eyebrow={["Reportes", "DT", "Domingos y Festivos"]}
         title="Domingos y Festivos"
+        subtitle="Art. 38 Código del Trabajo"
         description="Art. 38 Código del Trabajo — trabajadores que laboraron en domingo o festivo"
       />
       <DomingosFestivosClient installations={installations} />

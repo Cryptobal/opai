@@ -7,7 +7,8 @@ import {
   canEdit,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/opai-ds";
+import { PageHero } from "@/components/opai-ds";
+import { Truck } from "lucide-react";
 import { ProveedoresClient } from "@/components/finance/ProveedoresClient";
 
 export default async function ProveedoresPage() {
@@ -56,8 +57,12 @@ export default async function ProveedoresPage() {
 
   return (
     <div className="space-y-6 min-w-0">
-      <PageHeader
+      <PageHero
+        icon={<Truck />}
+        iconTone="teal"
+        eyebrow={["Finanzas", "Proveedores"]}
         title="Proveedores"
+        subtitle="ficha y condiciones"
         description="Gestión de proveedores y sus datos bancarios."
       />
       <ProveedoresClient
