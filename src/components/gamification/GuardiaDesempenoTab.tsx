@@ -10,8 +10,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { LoadingState } from "@/components/opai/LoadingState";
-import { EmptyState } from "@/components/opai-ds";
+import { EmptyState, LoadingState } from "@/components/opai-ds";
 import {
   TrustScoreGauge,
   NivelBadge,

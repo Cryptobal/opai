@@ -20,8 +20,7 @@ import { ChipTabs, type ChipTab } from "@/components/ui/chip-tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LoadingState } from "@/components/opai/LoadingState";
-import { EmptyState } from "@/components/opai-ds";
+import { EmptyState, LoadingState } from "@/components/opai-ds";
 import {
   TrustScoreGauge,
   NivelBadge,

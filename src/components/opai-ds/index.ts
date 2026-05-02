@@ -22,6 +22,7 @@ export {
 export { EmptyState, type EmptyStateProps } from "./EmptyState";
 export { Spinner, type SpinnerProps } from "./Spinner";
 export { Skeleton, type SkeletonProps } from "./Skeleton";
+export { LoadingState, type LoadingStateProps, type LoadingStateType } from "./LoadingState";
 export { MetricBar, type MetricBarProps } from "./MetricBar";
 export { DataTable, type DataTableProps, type DataTableColumn } from "./DataTable";
 export {

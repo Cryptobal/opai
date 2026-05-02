@@ -13,9 +13,7 @@ import {
   Trophy,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Stat, StatGrid } from "@/components/opai-ds";
-import { LoadingState } from "@/components/opai/LoadingState";
-import { EmptyState } from "@/components/opai-ds";
+import { EmptyState, LoadingState, Stat, StatGrid } from "@/components/opai-ds";
 import {
   TrustScoreGauge,
   NivelBadge,

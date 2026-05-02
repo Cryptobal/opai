@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { LoadingState } from "@/components/opai/LoadingState";
+import { LoadingState } from "@/components/opai-ds";
 import type { GuardSession } from "@/lib/guard-portal";
 
 interface DatosPersonales {
