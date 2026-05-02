@@ -377,23 +377,22 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
         paddingTop: 'env(safe-area-inset-top, 0px)',
       }}
     >
-      {/* Overlay — desktop only (mobile is full-screen sheet) */}
+      {/* Overlay — visible mobile + desktop */}
       <button
         type="button"
         aria-label="Cerrar buscador"
         onClick={handleClose}
-        className="absolute inset-0 hidden sm:block bg-black/70 backdrop-blur-md animate-in fade-in duration-200"
+        className="absolute inset-0 bg-black/60 backdrop-blur-md animate-in fade-in duration-200"
       />
 
-      {/* Sheet / Modal */}
+      {/* Sheet / Modal — liquid glass mobile + desktop */}
       <div
         className={cn(
-          'relative flex flex-col min-h-0',
-          // Mobile: fill screen (slide up from bottom)
-          'flex-1 w-full bg-background animate-in slide-in-from-bottom-4 fade-in duration-200',
+          'relative flex flex-col min-h-0 opai-liquid-glass',
+          // Mobile: fill screen (slide up from bottom) with bottom-sheet feel
+          'flex-1 w-full rounded-t-3xl animate-in slide-in-from-bottom-4 fade-in duration-200',
           // Desktop: centered card
-          'sm:flex-none sm:w-full sm:max-w-[640px] sm:mx-auto sm:rounded-2xl sm:border sm:border-border/60 sm:bg-card sm:shadow-2xl sm:shadow-black/40 sm:slide-in-from-top-4 sm:zoom-in-[0.98] sm:overflow-hidden',
-          'sm:ring-1 sm:ring-white/[0.03]',
+          'sm:flex-none sm:w-full sm:max-w-[640px] sm:mx-auto sm:rounded-2xl sm:slide-in-from-top-4 sm:zoom-in-[0.98] sm:overflow-hidden',
           isIOS && 'opai-ios-command-palette',
         )}
         style={{
@@ -636,16 +635,16 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
           <div className="hidden sm:flex items-center justify-between border-t border-border/60 bg-muted/20 px-4 py-2 shrink-0">
             <div className="flex items-center gap-4 text-[11px] text-muted-foreground">
               <span className="inline-flex items-center gap-1.5">
-                <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded border border-border/60 bg-background/80 px-1">
+                <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded border border-white/15 bg-white/10 px-1">
                   <ArrowUp className="h-3 w-3" />
                 </span>
-                <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded border border-border/60 bg-background/80 px-1">
+                <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded border border-white/15 bg-white/10 px-1">
                   <ArrowDown className="h-3 w-3" />
                 </span>
                 <span>navegar</span>
               </span>
               <span className="inline-flex items-center gap-1.5">
-                <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded border border-border/60 bg-background/80 px-1">
+                <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded border border-white/15 bg-white/10 px-1">
                   <CornerDownLeft className="h-3 w-3" />
                 </span>
                 <span>abrir</span>
@@ -659,7 +658,7 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
           {/* ── Footer (mobile — compact count + safe area spacer) ── */}
           <div
             className={cn(
-              'sm:hidden flex items-center justify-center border-t border-border/60 bg-muted/20 px-4 py-2 shrink-0 text-[11px] text-muted-foreground/70 tabular-nums',
+              'sm:hidden flex items-center justify-center border-t border-white/10 bg-white/5 px-4 py-2 shrink-0 text-[11px] text-muted-foreground/70 tabular-nums',
               isIOS && 'opai-ios-command-palette-chrome',
             )}
             style={{

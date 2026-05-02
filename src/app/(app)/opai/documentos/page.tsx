@@ -1,7 +1,9 @@
+import { FileText } from "lucide-react";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { DocumentosSubnav } from "@/components/opai/DocumentosSubnav";
 import { DocsClient } from "@/components/docs/DocsClient";
+import { PageHero } from "@/components/opai-ds";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 
 export default async function DocumentosPage() {
@@ -17,6 +19,14 @@ export default async function DocumentosPage() {
 
   return (
     <div className="space-y-6 min-w-0">
+      <PageHero
+        icon={<FileText />}
+        iconTone="rose"
+        eyebrow={["Documentos"]}
+        title="Documentos"
+        subtitle="gestión documental"
+        description="Documentos comerciales, contratos y archivos compartidos."
+      />
       <DocumentosSubnav />
       <DocsClient />
     </div>

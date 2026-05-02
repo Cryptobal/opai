@@ -1,22 +1,41 @@
 /**
- * Global toast host (Sonner) — Dark theme
+ * Global toast host (Sonner) — liquid-glass + mobile-aware positioning
  */
 "use client";
 
 import { Toaster as SonnerToaster } from "sonner";
+import { useIsMobileViewport } from "@/hooks/useIsMobileViewport";
 
 export function Toaster() {
+  const isMobile = useIsMobileViewport();
+
   return (
     <SonnerToaster
       theme="dark"
-      richColors
-      position="bottom-right"
+      richColors={false}
+      position={isMobile ? "bottom-center" : "bottom-right"}
       closeButton
       expand={false}
       visibleToasts={3}
       duration={4000}
+      offset={isMobile ? "calc(env(safe-area-inset-bottom) + 80px)" : "16px"}
       toastOptions={{
-        className: "!bg-card !border-border !text-foreground",
+        unstyled: false,
+        classNames: {
+          toast:
+            "!opai-liquid-glass !text-foreground !rounded-2xl !p-4 !shadow-2xl !border !border-white/12",
+          description: "!text-muted-foreground",
+          actionButton:
+            "!opai-liquid-glass-button !text-white !rounded-full !px-3 !py-1.5 !text-xs !font-medium !ml-auto",
+          cancelButton:
+            "!bg-transparent !text-muted-foreground !rounded-full !px-3 !py-1.5 !text-xs !font-medium",
+          closeButton:
+            "!bg-transparent !border-0 !text-muted-foreground hover:!text-foreground",
+          error: "!border-status-danger-border",
+          success: "!border-status-ok-border",
+          warning: "!border-status-warn-border",
+          info: "!border-status-info-border",
+        },
       }}
     />
   );
