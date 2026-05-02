@@ -2,11 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { useNotifications } from "@/contexts/NotificationContext";
 import { useNotificationSidePanelContext } from "./NotificationSidePanelContext";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useIsIOS } from "@/hooks/usePlatform";
+import { useIsMobileViewport } from "@/hooks/useIsMobileViewport";
+import { SwipeableNotificationItem } from "./SwipeableNotificationItem";
+import { PullToRefresh } from "./PullToRefresh";
 import {
   Bell,
   CheckCheck,
@@ -86,6 +90,20 @@ export function NotificationSidePanel() {
   const [actionLoading, setActionLoading] = useState(false);
   const [filter, setFilter] = useState<NotificationFilter>("all");
   const [moduleFilter, setModuleFilter] = useState<string>("all");
+
+  // Mobile UX state
+  const isMobile = useIsMobileViewport();
+  const [openSwipeId, setOpenSwipeId] = useState<string | null>(null);
+  const [pendingDeleteIds, setPendingDeleteIds] = useState<Set<string>>(new Set());
+  const pendingDeleteTimeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
+  useEffect(() => {
+    const timeouts = pendingDeleteTimeoutsRef.current;
+    return () => {
+      timeouts.forEach((t) => clearTimeout(t));
+      timeouts.clear();
+    };
+  }, []);
 
   // Reply modal state
   const [replyModalOpen, setReplyModalOpen] = useState(false);
@@ -221,6 +239,59 @@ export function NotificationSidePanel() {
     [notifications, markAsRead, markAsUnread]
   );
 
+  /* ---- Mobile swipe handlers ---- */
+  const handleSwipeOpenChange = useCallback((id: string, open: boolean) => {
+    setOpenSwipeId(open ? id : null);
+  }, []);
+
+  const handleToggleReadMobile = useCallback(
+    (n: NotificationItem) => {
+      void setOneReadState(n.id, !n.read);
+    },
+    [setOneReadState]
+  );
+
+  const handleDeleteWithUndo = useCallback(
+    (n: NotificationItem) => {
+      // Optimistic UI: hide immediately via local set
+      setPendingDeleteIds((prev) => {
+        const next = new Set(prev);
+        next.add(n.id);
+        return next;
+      });
+
+      toast("Notificacion eliminada", {
+        action: {
+          label: "Deshacer",
+          onClick: () => {
+            const timeout = pendingDeleteTimeoutsRef.current.get(n.id);
+            if (timeout) clearTimeout(timeout);
+            pendingDeleteTimeoutsRef.current.delete(n.id);
+            setPendingDeleteIds((prev) => {
+              const next = new Set(prev);
+              next.delete(n.id);
+              return next;
+            });
+          },
+        },
+        duration: 5000,
+      });
+
+      const timeout = setTimeout(() => {
+        void deleteNotification(n.id);
+        pendingDeleteTimeoutsRef.current.delete(n.id);
+        setPendingDeleteIds((prev) => {
+          const next = new Set(prev);
+          next.delete(n.id);
+          return next;
+        });
+      }, 5000);
+
+      pendingDeleteTimeoutsRef.current.set(n.id, timeout);
+    },
+    [deleteNotification]
+  );
+
   /* ---- Bulk actions ---- */
   const handleMarkAllRead = async () => {
     setActionLoading(true);
@@ -320,11 +391,12 @@ export function NotificationSidePanel() {
   const filteredNotifications = useMemo(
     () =>
       notifications.filter((n) => {
+        if (pendingDeleteIds.has(n.id)) return false;
         if (filter === "unread" && n.read) return false;
         if (moduleFilter === "all") return true;
         return getModuleMeta(n).key === moduleFilter;
       }),
-    [notifications, moduleFilter, filter]
+    [notifications, moduleFilter, filter, pendingDeleteIds]
   );
 
   /* ---- Module options (dynamic chips) ---- */
@@ -462,8 +534,8 @@ export function NotificationSidePanel() {
       </div>
 
       {/* Notification list */}
-      <div className="flex-1 min-h-0 overflow-y-auto">
-        {loading ? (
+      {(() => {
+        const listInner = loading ? (
           <div className="py-12 flex items-center justify-center">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
@@ -478,9 +550,8 @@ export function NotificationSidePanel() {
               const moduleMeta = getModuleMeta(n);
               const contextLabel = getContextLabel(n);
               const isSystem = isSystemNotification(n);
-              return (
+              const itemBody = (
                 <div
-                  key={n.id}
                   className={cn(
                     "group/notif flex items-start gap-2.5 p-3 hover:bg-accent/50 transition-colors",
                     !n.read && "bg-primary/5",
@@ -590,21 +661,38 @@ export function NotificationSidePanel() {
                     )}
                   </div>
 
-                  {/* Delete button */}
-                  <div className="shrink-0 flex flex-col items-center gap-1 mt-0.5">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        void deleteNotification(n.id);
-                      }}
-                      className="rounded p-0.5 text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors opacity-0 group-hover/notif:opacity-100"
-                      title="Eliminar notificacion"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
+                  {/* Delete button (desktop only — mobile uses swipe) */}
+                  {!isMobile && (
+                    <div className="shrink-0 flex flex-col items-center gap-1 mt-0.5">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void deleteNotification(n.id);
+                        }}
+                        className="rounded p-0.5 text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors opacity-0 group-hover/notif:opacity-100"
+                        title="Eliminar notificacion"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  )}
                 </div>
+              );
+              return isMobile ? (
+                <SwipeableNotificationItem
+                  key={n.id}
+                  id={n.id}
+                  isRead={n.read}
+                  isOpen={openSwipeId === n.id}
+                  onOpenChange={(open) => handleSwipeOpenChange(n.id, open)}
+                  onToggleRead={() => handleToggleReadMobile(n)}
+                  onDelete={() => handleDeleteWithUndo(n)}
+                >
+                  {itemBody}
+                </SwipeableNotificationItem>
+              ) : (
+                <div key={n.id}>{itemBody}</div>
               );
             })}
 
@@ -621,8 +709,15 @@ export function NotificationSidePanel() {
               </div>
             )}
           </div>
-        )}
-      </div>
+        );
+        return isMobile ? (
+          <div className="flex-1 min-h-0">
+            <PullToRefresh onRefresh={refetch}>{listInner}</PullToRefresh>
+          </div>
+        ) : (
+          <div className="flex-1 min-h-0 overflow-y-auto">{listInner}</div>
+        );
+      })()}
     </>
   );
 
