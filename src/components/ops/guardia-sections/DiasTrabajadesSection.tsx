@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowUpRight, Loader2 } from "lucide-react";
-import { DataTable, type DataTableColumn } from "@/components/opai/DataTable";
+import { ArrowUpRight, Loader2, CalendarCheck } from "lucide-react";
+import { DataTable, EmptyState, type DataTableColumn } from "@/components/opai-ds";
 
 /** Format a date-only value using UTC to avoid timezone shift */
 function formatDateUTC(value: string | Date): string {
@@ -30,12 +30,12 @@ interface DiasTrabajadesSectionProps {
   guardiaId: string;
 }
 
-const baseColumns: (guardiaId: string) => DataTableColumn[] = (guardiaId) => [
+const buildColumns = (guardiaId: string): DataTableColumn<DiaTrabajadoRow>[] => [
   {
-    key: "_link",
-    label: "",
-    className: "w-8",
-    render: (_: unknown, row: DiaTrabajadoRow) => (
+    id: "_link",
+    header: "",
+    width: "w-8",
+    cell: (row) => (
       <Link
         href={`/ops/pauta-diaria?date=${row.date}&guardiaId=${guardiaId}`}
         className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:text-primary hover:bg-muted/50 transition-colors"
@@ -46,31 +46,35 @@ const baseColumns: (guardiaId: string) => DataTableColumn[] = (guardiaId) => [
     ),
   },
   {
-    key: "date",
-    label: "Fecha",
-    render: (value: string) => formatDateUTC(value),
+    id: "date",
+    header: "Fecha",
+    cell: (row) => formatDateUTC(row.date),
   },
   {
-    key: "installationName",
-    label: "Instalación",
-    render: (value: string) => value || "—",
+    id: "installationName",
+    header: "Instalación",
+    cell: (row) => row.installationName || "—",
   },
   {
-    key: "puestoName",
-    label: "Puesto",
-    render: (value: string) => value || "—",
+    id: "puestoName",
+    header: "Puesto",
+    cell: (row) => row.puestoName || "—",
   },
   {
-    key: "slotNumber",
-    label: "Slot",
-    className: "text-center",
-    render: (value: number) => `S${value}`,
+    id: "slotNumber",
+    header: "Slot",
+    align: "center",
+    cell: (row) => `S${row.slotNumber}`,
   },
   {
-    key: "attendanceStatus",
-    label: "Tipo",
-    render: (value: string) =>
-      value === "asistio" ? "Asistió" : value === "reemplazo" ? "Reemplazo" : value,
+    id: "attendanceStatus",
+    header: "Tipo",
+    cell: (row) =>
+      row.attendanceStatus === "asistio"
+        ? "Asistió"
+        : row.attendanceStatus === "reemplazo"
+          ? "Reemplazo"
+          : row.attendanceStatus,
   },
 ];
 
@@ -146,10 +150,10 @@ export default function DiasTrabajadesSection({ guardiaId }: DiasTrabajadesSecti
             </div>
           )}
           <DataTable
-            columns={baseColumns(guardiaId)}
-            data={diasTrabajados}
-            compact
-            emptyMessage="Sin días trabajados registrados en el período."
+            columns={buildColumns(guardiaId)}
+            rows={diasTrabajados}
+            rowKey={(row) => row.id}
+            empty={<EmptyState icon={CalendarCheck} title="Sin días trabajados registrados en el período." compact />}
           />
         </>
       )}

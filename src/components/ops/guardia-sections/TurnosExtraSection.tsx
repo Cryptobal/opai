@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowUpRight } from "lucide-react";
-import { DataTable, type DataTableColumn } from "@/components/opai/DataTable";
+import { ArrowUpRight, Clock } from "lucide-react";
+import { DataTable, EmptyState, type DataTableColumn } from "@/components/opai-ds";
 
 /** Format a date-only value using UTC to avoid timezone shift */
 function formatDateUTC(value: string | Date): string {
@@ -35,54 +35,54 @@ const STATUS_LABELS: Record<string, string> = {
   rejected: "Rechazado",
 };
 
-const baseColumns: (guardiaId: string) => DataTableColumn[] = (guardiaId) => [
+const buildColumns = (guardiaId: string): DataTableColumn<TeRow>[] => [
   {
-    key: "_link",
-    label: "",
-    className: "w-8",
-    render: (_: unknown, row: TeRow) => {
+    id: "_link",
+    header: "",
+    width: "w-8",
+    cell: (row) => {
       const dateStr = typeof row.date === "string" ? row.date.slice(0, 10) : new Date(row.date).toISOString().slice(0, 10);
       return (
-      <Link
-        href={`/ops/pauta-diaria?date=${dateStr}&guardiaId=${guardiaId}`}
-        className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:text-primary hover:bg-muted/50 transition-colors"
-        title="Ver en pauta diaria"
-      >
-        <ArrowUpRight className="h-3 w-3" />
-      </Link>
+        <Link
+          href={`/ops/pauta-diaria?date=${dateStr}&guardiaId=${guardiaId}`}
+          className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:text-primary hover:bg-muted/50 transition-colors"
+          title="Ver en pauta diaria"
+        >
+          <ArrowUpRight className="h-3 w-3" />
+        </Link>
       );
     },
   },
   {
-    key: "date",
-    label: "Fecha",
-    render: (value: string) => formatDateUTC(value),
+    id: "date",
+    header: "Fecha",
+    cell: (row) => formatDateUTC(row.date),
   },
   {
-    key: "installationName",
-    label: "Instalación",
-    render: (value: string) => value || "—",
+    id: "installationName",
+    header: "Instalación",
+    cell: (row) => row.installationName || "—",
   },
   {
-    key: "puestoName",
-    label: "Puesto",
-    render: (value: string) => value || "—",
+    id: "puestoName",
+    header: "Puesto",
+    cell: (row) => row.puestoName || "—",
   },
   {
-    key: "amountClp",
-    label: "Monto",
-    className: "text-right",
-    render: (value: number) => `$${value.toLocaleString("es-CL")}`,
+    id: "amountClp",
+    header: "Monto",
+    align: "right",
+    cell: (row) => `$${row.amountClp.toLocaleString("es-CL")}`,
   },
   {
-    key: "status",
-    label: "Estado",
-    render: (value: string) => STATUS_LABELS[value] || value,
+    id: "status",
+    header: "Estado",
+    cell: (row) => STATUS_LABELS[row.status] || row.status,
   },
   {
-    key: "paidAt",
-    label: "Fecha de pago",
-    render: (value: string | null) => (value ? formatDateUTC(value) : "—"),
+    id: "paidAt",
+    header: "Fecha de pago",
+    cell: (row) => (row.paidAt ? formatDateUTC(row.paidAt) : "—"),
   },
 ];
 
@@ -134,11 +134,11 @@ export default function TurnosExtraSection({ guardiaId }: TurnosExtraSectionProp
         Historial de turnos extra (reemplazos y cubrimientos) de este guardia.
       </p>
       <DataTable
-        columns={baseColumns(guardiaId)}
-        data={turnosExtra}
+        columns={buildColumns(guardiaId)}
+        rows={turnosExtra}
+        rowKey={(row) => row.id}
         loading={turnosExtraLoading}
-        compact
-        emptyMessage="Sin turnos extra registrados."
+        empty={<EmptyState icon={Clock} title="Sin turnos extra registrados." compact />}
       />
     </div>
   );

@@ -1,15 +1,23 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Stat, StatGrid } from "@/components/opai-ds";
-import { DataTable, type DataTableColumn } from "@/components/opai/DataTable";
+import { DataTable, EmptyState, Stat, StatGrid, type DataTableColumn } from "@/components/opai-ds";
 import { LoadingState } from "@/components/opai/LoadingState";
 import { Users, TrendingUp, Trophy, Award } from "lucide-react";
 import { toast } from "sonner";
 
+type RankRow = {
+  guardiaId?: string;
+  posicion: number;
+  nombre: string;
+  trustScore?: number;
+  nivelActual?: string;
+  puntosNetos?: number;
+};
+
 export function GamificacionDashboard() {
   const [loading, setLoading] = useState(true);
-  const [ranking, setRanking] = useState<any[]>([]);
+  const [ranking, setRanking] = useState<RankRow[]>([]);
   const [totalGuardias, setTotalGuardias] = useState(0);
   const [avgTrustScore, setAvgTrustScore] = useState(0);
 
@@ -18,7 +26,7 @@ export function GamificacionDashboard() {
 
     async function load() {
       try {
-        const [configRes, rankingRes] = await Promise.all([
+        const [, rankingRes] = await Promise.all([
           fetch("/api/gamification/config").then((r) => r.json()),
           fetch("/api/gamification/rankings/global?limit=10").then((r) => r.json()),
         ]);
@@ -30,10 +38,10 @@ export function GamificacionDashboard() {
           setRanking(data.ranking ?? []);
           setTotalGuardias(data.total ?? 0);
 
-          const scores = (data.ranking ?? []) as any[];
+          const scores = (data.ranking ?? []) as RankRow[];
           if (scores.length > 0) {
             const avg =
-              scores.reduce((s: number, r: any) => s + (r.trustScore ?? 0), 0) /
+              scores.reduce((s, r) => s + (r.trustScore ?? 0), 0) /
               scores.length;
             setAvgTrustScore(Math.round(avg * 10) / 10);
           }
@@ -51,29 +59,31 @@ export function GamificacionDashboard() {
     };
   }, []);
 
-  const rankColumns: DataTableColumn[] = [
+  const rankColumns: DataTableColumn<RankRow>[] = [
     {
-      key: "posicion",
-      label: "#",
-      className: "w-12 text-center",
-      render: (v: number) => (
-        <span className="font-mono text-muted-foreground">{v}</span>
+      id: "posicion",
+      header: "#",
+      align: "center",
+      width: "w-12",
+      cell: (row) => (
+        <span className="font-mono text-muted-foreground">{row.posicion}</span>
       ),
     },
-    { key: "nombre", label: "Guardia" },
+    { id: "nombre", header: "Guardia", cell: (row) => row.nombre },
     {
-      key: "trustScore",
-      label: "Trust Score",
-      render: (v: number) => (
-        <span className="font-semibold font-mono">{v ?? 0}</span>
+      id: "trustScore",
+      header: "Trust Score",
+      cell: (row) => (
+        <span className="font-semibold font-mono">{row.trustScore ?? 0}</span>
       ),
     },
-    { key: "nivelActual", label: "Nivel" },
+    { id: "nivelActual", header: "Nivel", cell: (row) => row.nivelActual ?? "—" },
     {
-      key: "puntosNetos",
-      label: "Puntos",
-      render: (v: number) => (
-        <span className="font-mono">{(v ?? 0).toLocaleString("es-CL")}</span>
+      id: "puntosNetos",
+      header: "Puntos",
+      align: "right",
+      cell: (row) => (
+        <span className="font-mono">{(row.puntosNetos ?? 0).toLocaleString("es-CL")}</span>
       ),
     },
   ];
@@ -115,10 +125,9 @@ export function GamificacionDashboard() {
         <h2 className="text-sm font-semibold">Top 10 Guardias</h2>
         <DataTable
           columns={rankColumns}
-          data={ranking}
-          loading={false}
-          compact
-          emptyMessage="No hay datos de ranking disponibles"
+          rows={ranking}
+          rowKey={(row, i) => row.guardiaId ?? String(i)}
+          empty={<EmptyState icon={Trophy} title="No hay datos de ranking disponibles" compact />}
         />
       </div>
     </div>

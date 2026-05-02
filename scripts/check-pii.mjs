@@ -37,6 +37,8 @@ const ALLOWED_RUT_PLACEHOLDERS = new Set([
   "77.985.438-8",
   // Placeholder used in BneIntegrationCard "RUT empleador" input.
   "77.840.623-3",
+  // Fictional RUT (>50M, no real RUT in this range) used in email-lead-extractor tests.
+  "59.090.630-1",
 ]);
 
 const SAMPLE_PATHS_ALLOWLIST = [
