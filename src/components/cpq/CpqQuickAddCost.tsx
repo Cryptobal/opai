@@ -116,7 +116,7 @@ export function CpqQuickAddCost({
   };
 
   return (
-    <div className="rounded-lg border border-status-ok-border bg-emerald-500/[0.04] p-3 space-y-2.5">
+    <div className="rounded-lg border border-status-ok-border bg-status-ok-soft/30 p-3 space-y-2.5">
       <div className="flex items-center justify-between">
         <span className="text-sm font-bold text-status-ok-fg">+ Nuevo costo</span>
         <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground">
@@ -265,7 +265,7 @@ export function CpqQuickAddCost({
         </div>
         <Button
           size="sm"
-          className="h-7 px-3 text-sm gap-1 bg-status-ok hover:bg-emerald-700 text-white"
+          className="h-7 px-3 text-sm gap-1 bg-status-ok hover:brightness-110 text-white"
           onClick={handleSubmit}
           disabled={saving || (!search.trim() && !selectedItem)}
         >

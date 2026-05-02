@@ -241,7 +241,7 @@ export function FollowUpDecisionContent({
             <Button
               onClick={() => onConfirm(buildDecision(true))}
               disabled={isDisabled}
-              className="w-full gap-2 bg-green-600 hover:bg-green-700 text-white h-11"
+              className="w-full gap-2 bg-status-ok hover:brightness-110 text-white h-11"
             >
               {loading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

@@ -215,7 +215,7 @@ export function ProtocolSectionCard({
                     {section.items.length}{" "}
                     {section.items.length === 1 ? "ítem" : "ítems"}
                     {isHidden && (
-                      <span className="ml-2 inline-flex items-center gap-1 text-amber-300/80">
+                      <span className="ml-2 inline-flex items-center gap-1 text-status-warn-fg/80">
                         <EyeOff className="h-3 w-3" /> oculta en portal
                       </span>
                     )}

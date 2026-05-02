@@ -287,7 +287,7 @@ export function VisitaTecnicaSolicitudModal({
                       }`}
                     >
                       <div className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
-                        isSelected ? "border-sky-500 bg-status-info" : "border-muted-foreground/40"
+                        isSelected ? "border-status-info-border bg-status-info" : "border-muted-foreground/40"
                       }`}>
                         {isSelected && <Check className="h-3 w-3 text-white" />}
                       </div>

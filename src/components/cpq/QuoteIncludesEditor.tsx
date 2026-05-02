@@ -131,12 +131,12 @@ function SortableItem({
               if (e.key === "Enter") onEditConfirm();
               if (e.key === "Escape") onEditCancel();
             }}
-            className="flex-1 text-xs bg-muted/30 border border-teal-400/30 outline-none text-foreground py-1 px-2 rounded"
+            className="flex-1 text-xs bg-muted/30 border border-status-info-border outline-none text-foreground py-1 px-2 rounded"
             placeholder="Escribe un ítem..."
           />
           <button
             type="button"
-            className="shrink-0 p-0.5 rounded hover:bg-teal-500/20 transition-colors"
+            className="shrink-0 p-0.5 rounded hover:bg-status-info-soft transition-colors"
             onClick={onEditConfirm}
             title="Guardar"
           >
@@ -620,7 +620,7 @@ export function QuoteIncludesEditor({ quoteId, isLocked = false }: QuoteIncludes
           <span className="text-xs font-semibold">Incluye</span>
         </div>
         <div className="flex items-center gap-2 py-2">
-          <div className="h-3 w-3 border-2 border-teal-400/40 border-t-teal-400 rounded-full animate-spin" />
+          <div className="h-3 w-3 border-2 border-status-info-border border-t-status-info rounded-full animate-spin" />
           <span className="text-xs text-muted-foreground">Cargando...</span>
         </div>
       </Card>
@@ -677,7 +677,7 @@ export function QuoteIncludesEditor({ quoteId, isLocked = false }: QuoteIncludes
       {/* Custom item input */}
       {!isLocked && (
         <div className="flex items-center gap-1.5">
-          <Plus className="h-3 w-3 text-teal-400/60 shrink-0" />
+          <Plus className="h-3 w-3 text-status-info-fg/60 shrink-0" />
           <input
             value={customText}
             onChange={(e) => setCustomText(e.target.value)}
@@ -690,7 +690,7 @@ export function QuoteIncludesEditor({ quoteId, isLocked = false }: QuoteIncludes
           {customText.trim() && (
             <button
               type="button"
-              className="shrink-0 p-1 rounded hover:bg-teal-500/20 transition-colors"
+              className="shrink-0 p-1 rounded hover:bg-status-info-soft transition-colors"
               onClick={handleAddCustom}
               title="Guardar ítem"
             >
@@ -729,9 +729,9 @@ export function QuoteIncludesEditor({ quoteId, isLocked = false }: QuoteIncludes
                       if (e.key === "Enter") handleEditSuggestionConfirm();
                       if (e.key === "Escape") { setEditingSuggestionId(null); setEditingSuggestionValue(""); }
                     }}
-                    className="flex-1 text-xs bg-muted/30 border border-teal-400/30 outline-none text-foreground py-0.5 px-2 rounded"
+                    className="flex-1 text-xs bg-muted/30 border border-status-info-border outline-none text-foreground py-0.5 px-2 rounded"
                   />
-                  <button type="button" className="shrink-0 p-0.5 rounded hover:bg-teal-500/20" onClick={handleEditSuggestionConfirm} title="Guardar">
+                  <button type="button" className="shrink-0 p-0.5 rounded hover:bg-status-info-soft" onClick={handleEditSuggestionConfirm} title="Guardar">
                     <Check className="h-3 w-3 text-status-info-fg" />
                   </button>
                   <button type="button" className="shrink-0 p-0.5 rounded hover:bg-status-danger-soft" onClick={() => { setEditingSuggestionId(null); setEditingSuggestionValue(""); }} title="Cancelar">
@@ -749,7 +749,7 @@ export function QuoteIncludesEditor({ quoteId, isLocked = false }: QuoteIncludes
                     <span>{suggestion.text}</span>
                   </button>
                   {suggestion.isDefault && (
-                    <span className="text-[9px] text-teal-400/50 shrink-0">default</span>
+                    <span className="text-[9px] text-status-info-fg/50 shrink-0">default</span>
                   )}
                   <div className="flex items-center gap-0.5 opacity-0 group-hover/sug:opacity-100 transition-all shrink-0">
                     <button

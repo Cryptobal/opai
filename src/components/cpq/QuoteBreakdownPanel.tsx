@@ -63,7 +63,7 @@ export function QuoteBreakdownPanel({
           size="lg"
           isDark={isDark}
           primaryClassName={isDark ? "!text-white" : "text-foreground"}
-          secondaryClassName={isDark ? "!text-emerald-400/75" : "text-emerald-600/80"}
+          secondaryClassName={isDark ? "!text-status-ok-fg/75" : "text-status-ok-fg/80"}
           align="center"
         />
         <div className={cn("flex items-center justify-center gap-3 mt-2 text-xs", isDark ? "text-zinc-400" : "text-muted-foreground")}>
@@ -86,7 +86,7 @@ export function QuoteBreakdownPanel({
             "flex-1 py-1.5 rounded-md text-xs font-semibold transition-colors",
             mode === "total"
               ? isDark
-                ? "bg-emerald-600/30 text-status-ok-fg border border-status-ok-border"
+                ? "bg-status-ok-soft text-status-ok-fg border border-status-ok-border"
                 : "bg-background text-foreground shadow-sm"
               : isDark
               ? "text-zinc-400 hover:text-zinc-300"
@@ -102,7 +102,7 @@ export function QuoteBreakdownPanel({
             "flex-1 py-1.5 rounded-md text-xs font-semibold transition-colors",
             mode === "por-puesto"
               ? isDark
-                ? "bg-emerald-600/30 text-status-ok-fg border border-status-ok-border"
+                ? "bg-status-ok-soft text-status-ok-fg border border-status-ok-border"
                 : "bg-background text-foreground shadow-sm"
               : isDark
               ? "text-zinc-400 hover:text-zinc-300"
@@ -380,7 +380,7 @@ function TotalView({ data, isDark }: TotalViewProps) {
           <span className="text-sm font-semibold uppercase tracking-wide text-status-ok-fg break-words min-w-0">
             Margen comercial
           </span>
-          <span className={cpqBreakdownAmount("text-xs text-emerald-500/70 font-normal")}>
+          <span className={cpqBreakdownAmount("text-xs text-status-ok-fg/70 font-normal")}>
             {data.marginPct}% sobre precio venta
           </span>
         </div>
@@ -402,10 +402,10 @@ function TotalView({ data, isDark }: TotalViewProps) {
         <div
           className={cn(
             "rounded-lg border px-3 py-2 space-y-1",
-            isDark ? "border-orange-500/20 bg-orange-500/5" : "border-orange-500/20 bg-orange-500/5",
+            isDark ? "border-status-warn-border bg-status-warn-soft/30" : "border-status-warn-border bg-status-warn-soft/30",
           )}
         >
-          <span className="text-sm font-semibold uppercase tracking-wide text-orange-500/80">
+          <span className="text-sm font-semibold uppercase tracking-wide text-status-warn-fg/80">
             Costo Financiero
           </span>
           {data.financial > 0 && (
@@ -630,10 +630,10 @@ function PositionCard({
           <div
             className={cn(
               "rounded-lg border px-2.5 py-2 w-full",
-              isDark ? "border-sky-500/25 bg-sky-500/[0.07]" : "border-status-info-border bg-sky-500/5",
+              isDark ? "border-status-info-border bg-status-info-soft/30" : "border-status-info-border bg-status-info-soft/30",
             )}
           >
-            <p className={cn("text-sm font-semibold uppercase tracking-wide", isDark ? "text-status-info-fg" : "text-sky-700")}>
+            <p className={cn("text-sm font-semibold uppercase tracking-wide", isDark ? "text-status-info-fg" : "text-status-info-fg")}>
               Sueldo líquido estimado
             </p>
             <div className="mt-1 flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
@@ -646,11 +646,11 @@ function PositionCard({
                 ufValue={data.ufValue}
                 size="md"
                 isDark={isDark}
-                primaryClassName={isDark ? "text-sky-100" : "text-sky-900 dark:text-sky-100"}
+                primaryClassName={isDark ? "text-status-info-fg" : "text-status-info-fg"}
               />
             </div>
             {pos.totalGuardsInPosition > 1 && (
-              <div className="mt-1.5 flex flex-wrap items-end justify-between gap-x-4 gap-y-1 pt-1.5 border-t border-sky-500/20">
+              <div className="mt-1.5 flex flex-wrap items-end justify-between gap-x-4 gap-y-1 pt-1.5 border-t border-status-info-border">
                 <span className={cn("text-sm", isDark ? "text-zinc-400" : "text-muted-foreground")}>
                   Total puesto ({pos.totalGuardsInPosition} guardias)
                 </span>
@@ -660,13 +660,13 @@ function PositionCard({
                   ufValue={data.ufValue}
                   size="sm"
                   isDark={isDark}
-                  primaryClassName={isDark ? "text-sky-200" : "text-sky-800 dark:text-sky-200"}
+                  primaryClassName={isDark ? "text-status-info-fg" : "text-status-info-fg"}
                 />
               </div>
             )}
           </div>
         ) : (
-          <p className={cn("text-sm leading-snug", isDark ? "text-amber-400/90" : "text-status-warn-fg")}>
+          <p className={cn("text-sm leading-snug", isDark ? "text-status-warn-fg/90" : "text-status-warn-fg")}>
             Sueldo líquido: no hay estimación en este puesto. Si la cotización está bloqueada, el valor quedó al enviarla; si falta, al desbloquear usa Recalcular en el puesto.
           </p>
         )}
@@ -772,7 +772,7 @@ function PositionCard({
                 clp={pos.totalLaborCost}
                 data={data}
                 isDark={isDark}
-                primaryClassName={isDark ? "text-status-info-fg" : "text-blue-700 font-semibold"}
+                primaryClassName={isDark ? "text-status-info-fg" : "text-status-info-fg font-semibold"}
               />
             </div>
           </div>
@@ -801,7 +801,7 @@ function PositionCard({
                 <span
                   className={cn(
                     "text-xs block min-w-0 break-words",
-                    isDark ? "text-emerald-500/60" : "text-emerald-600/70",
+                    isDark ? "text-status-ok-fg/60" : "text-status-ok-fg/70",
                   )}
                 >
                   + Costos adicionales prorrateados + margen + financiero

@@ -344,7 +344,7 @@ export function FinancialPanel(props: FinancialPanelProps) {
                 size="lg"
                 isDark
                 primaryClassName="!text-white font-extrabold"
-                secondaryClassName="!text-emerald-400/80"
+                secondaryClassName="!text-status-ok-fg/80"
               />
               <div className="flex gap-4 mt-2 pt-2 border-t border-status-ok-border">
                 <div>
@@ -368,7 +368,7 @@ export function FinancialPanel(props: FinancialPanelProps) {
               {[
                 { label: "Mano de obra", amount: laborCost, color: "bg-status-ok" },
                 { label: "Directos", amount: directCosts, color: "bg-status-info" },
-                { label: "Indirectos", amount: indirectCosts, color: "bg-purple-500" },
+                { label: "Indirectos", amount: indirectCosts, color: "bg-tint-violet-fg" },
                 { label: "Financiero", amount: financialCosts, color: "bg-status-warn" },
                 { label: "Margen", amount: marginAmount, color: "bg-foreground/60" },
               ].map((item) => (
@@ -420,7 +420,7 @@ export function FinancialPanel(props: FinancialPanelProps) {
                     size="lg"
                     isDark
                     primaryClassName="!text-white font-extrabold"
-                    secondaryClassName="!text-emerald-400/80"
+                    secondaryClassName="!text-status-ok-fg/80"
                   />
                 </div>
               </div>

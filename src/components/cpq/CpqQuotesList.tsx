@@ -117,7 +117,7 @@ export function CpqQuotesList({ quotes, loading, onRefresh }: CpqQuotesListProps
                     <span className="ml-2">{statusLabel(quote.status)}</span>
                   </Badge>
                   {listed ? (
-                    <Badge variant="outline" className="text-xs shrink-0 border-teal-500/40 text-teal-600 dark:text-status-info-fg">
+                    <Badge variant="outline" className="text-xs shrink-0 border-status-info-border text-status-info-fg">
                       Portal
                     </Badge>
                   ) : null}

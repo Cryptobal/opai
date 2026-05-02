@@ -44,7 +44,7 @@ interface GuardOption {
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   completada: { label: "Completada", color: "bg-status-ok-soft text-status-ok-fg" },
-  incompleta: { label: "Incompleta", color: "bg-yellow-500/20 text-status-warn-fg" },
+  incompleta: { label: "Incompleta", color: "bg-status-warn-soft text-status-warn-fg" },
   en_curso: { label: "En curso", color: "bg-status-info-soft text-status-info-fg" },
   no_realizada: { label: "No realizada", color: "bg-status-danger-soft text-status-danger-fg" },
   pendiente: { label: "Pendiente", color: "bg-gray-500/20 text-gray-400" },
@@ -54,14 +54,14 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 
 function trustBadge(score: number | null) {
   if (score == null || score === 0) return { color: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400", label: "-" };
-  if (score >= 80) return { color: "bg-emerald-100 text-status-ok-fg dark:bg-emerald-900/30 dark:text-status-ok-fg", label: `${score}%` };
-  if (score >= 60) return { color: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-status-warn-fg", label: `${score}%` };
-  return { color: "bg-red-100 text-status-danger-fg dark:bg-red-900/30 dark:text-status-danger-fg", label: `${score}%` };
+  if (score >= 80) return { color: "bg-status-ok-soft text-status-ok-fg", label: `${score}%` };
+  if (score >= 60) return { color: "bg-status-warn-soft text-status-warn-fg", label: `${score}%` };
+  return { color: "bg-status-danger-soft text-status-danger-fg", label: `${score}%` };
 }
 
 function verificationBadge(method: string | null) {
   if (!method) return null;
-  if (method === "QR" || method === "BOTH") return { icon: QrCode, label: "QR", color: "text-purple-400" };
+  if (method === "QR" || method === "BOTH") return { icon: QrCode, label: "QR", color: "text-tint-violet-fg" };
   return { icon: MapPin, label: "GPS", color: "text-status-ok-fg" };
 }
 

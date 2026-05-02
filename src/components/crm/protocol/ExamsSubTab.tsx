@@ -146,7 +146,7 @@ function trendIcon(t: "up" | "down" | "stable") {
 function typeBadge(type: "protocol" | "security_general") {
   if (type === "protocol")
     return <Badge className="bg-status-info-soft text-status-info-fg border-transparent">📋 Protocolo</Badge>;
-  return <Badge className="bg-purple-500/15 text-purple-400 border-transparent">🛡️ Seguridad</Badge>;
+  return <Badge className="bg-tint-violet text-tint-violet-fg border-transparent">🛡️ Seguridad</Badge>;
 }
 
 function statusBadge(status: "draft" | "active" | "archived") {

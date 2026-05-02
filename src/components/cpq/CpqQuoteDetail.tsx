@@ -1429,7 +1429,7 @@ export function CpqQuoteDetail({
               return (
                 <Button
                   size="sm"
-                  className="h-7 w-7 p-0 bg-status-ok hover:bg-emerald-700 text-white border-0 shadow-sm"
+                  className="h-7 w-7 p-0 bg-status-ok hover:brightness-110 text-white border-0 shadow-sm"
                   disabled={baseDisabled}
                   title={
                     missingEmail
@@ -1548,7 +1548,7 @@ export function CpqQuoteDetail({
                       <span className={cn(
                         "inline-flex h-4 w-7 items-center rounded-full border transition-colors shrink-0",
                         portalListedEffective
-                          ? "bg-emerald-500/80 border-emerald-500/60"
+                          ? "bg-status-ok/80 border-status-ok-border"
                           : "bg-muted border-border"
                       )}>
                         <span className={cn(
@@ -1619,7 +1619,7 @@ export function CpqQuoteDetail({
                   "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium whitespace-nowrap shrink-0 transition-all",
                   "focus:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                   roleSummary.length > 0
-                    ? "border-blue-500/25 bg-blue-500/[0.06] text-blue-700 dark:text-status-info-fg cursor-pointer hover:bg-blue-500/[0.12] hover:border-status-info-border"
+                    ? "border-status-info-border bg-status-info-soft/30 text-status-info-fg cursor-pointer hover:bg-status-info-soft hover:border-status-info-border"
                     : "border-border/60 bg-muted/30 text-muted-foreground cursor-default",
                 )}
                 aria-expanded={guardsBreakdownOpen}
@@ -2321,7 +2321,7 @@ export function CpqQuoteDetail({
                             className={cn(
                               "h-5 rounded px-1.5 text-xs font-semibold capitalize transition-colors",
                               (line.tipo || "servicio") === t
-                                ? "bg-purple-500/20 text-purple-400 border border-purple-500/30"
+                                ? "bg-tint-violet text-tint-violet-fg border border-tint-violet-fg/30"
                                 : "bg-muted/30 text-muted-foreground border border-transparent hover:bg-muted/50",
                             )}
                           >
@@ -2374,7 +2374,7 @@ export function CpqQuoteDetail({
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7 text-red-400/60 hover:text-status-danger-fg hover:bg-status-danger-soft"
+                          className="h-7 w-7 text-status-danger-fg/60 hover:text-status-danger-fg hover:bg-status-danger-soft"
                           onClick={() => setAdditionalLines((prev) => prev.filter((_, i) => i !== idx))}
                           disabled={isLocked}
                         >
@@ -2427,7 +2427,7 @@ export function CpqQuoteDetail({
                 <Button
                   variant="outline"
                   size="sm"
-                  className="gap-1.5 border-purple-500/30 text-purple-400 hover:bg-purple-500/10"
+                  className="gap-1.5 border-tint-violet-fg/30 text-tint-violet-fg hover:bg-tint-violet"
                   onClick={() =>
                     setAdditionalLines((prev) => [
                       ...prev,
@@ -2455,9 +2455,9 @@ export function CpqQuoteDetail({
               </div>
             )}
             {additionalLines.length > 0 && (
-              <div className={cn(CPQ_BREAKDOWN_SHELL, CPQ_BREAKDOWN_ROW, "pt-1 border-t border-purple-500/20 text-xs")}>
-                <span className="text-sm font-medium text-purple-300 break-words min-w-0">Total líneas adicionales</span>
-                <span className={cpqBreakdownAmount("text-sm font-bold text-purple-300")}>
+              <div className={cn(CPQ_BREAKDOWN_SHELL, CPQ_BREAKDOWN_ROW, "pt-1 border-t border-tint-violet-fg/20 text-xs")}>
+                <span className="text-sm font-medium text-tint-violet-fg break-words min-w-0">Total líneas adicionales</span>
+                <span className={cpqBreakdownAmount("text-sm font-bold text-tint-violet-fg")}>
                   {formatCurrency(additionalLinesTotal)}
                 </span>
               </div>
@@ -2986,7 +2986,7 @@ export function CpqQuoteDetail({
                   </div>
                 </div>
                 <Button
-                  className="h-9 w-full gap-2 bg-status-ok text-white hover:bg-emerald-700"
+                  className="h-9 w-full gap-2 bg-status-ok text-white hover:brightness-110"
                   disabled={!canSendPortalProposal}
                   onClick={() => setPortalProposalOpen(true)}
                 >
@@ -3082,7 +3082,7 @@ export function CpqQuoteDetail({
           // mensaje accionable explicando qué falta para enviar.
           return (
             <Button
-              className="w-full h-11 gap-2 text-sm font-semibold bg-status-ok hover:bg-emerald-700 text-white"
+              className="w-full h-11 gap-2 text-sm font-semibold bg-status-ok hover:brightness-110 text-white"
               disabled={baseDisabled}
               title={missingEmail ? "El contacto no tiene email cargado" : undefined}
               onClick={() => {
@@ -3146,7 +3146,7 @@ export function CpqQuoteDetail({
             <p className="text-sm text-muted-foreground">
               Email enviado a <strong className="text-foreground">{whatsappSentTo}</strong>. Haz clic para enviarle el mismo mensaje por WhatsApp.
             </p>
-            <div className="rounded-lg border border-green-500/20 bg-green-500/5 p-3 space-y-1">
+            <div className="rounded-lg border border-status-ok-border bg-status-ok-soft/30 p-3 space-y-1">
               <p className="text-xs font-semibold text-status-ok-fg uppercase tracking-wide">El mensaje incluye</p>
               <p className="text-xs text-muted-foreground">🔑 Email y PIN de acceso al portal</p>
               <p className="text-xs text-muted-foreground">🔗 Link al portal y a la propuesta técnica</p>
@@ -3155,7 +3155,7 @@ export function CpqQuoteDetail({
           </div>
           <DialogFooter className="flex-col gap-2 sm:flex-col">
             <Button
-              className="w-full gap-2 bg-green-600 hover:bg-green-700 text-white h-11"
+              className="w-full gap-2 bg-status-ok hover:brightness-110 text-white h-11"
               onClick={() => {
                 if (whatsappUrl) window.open(whatsappUrl, "_blank");
                 setWhatsappModalOpen(false);
@@ -3270,14 +3270,14 @@ export function CpqQuoteDetail({
                 const msg = lines.join("\n");
                 const encoded = encodeURIComponent(msg);
                 return (
-                  <div className="rounded-lg border border-green-500/20 bg-green-500/5 p-3 space-y-2">
+                  <div className="rounded-lg border border-status-ok-border bg-status-ok-soft/30 p-3 space-y-2">
                     <p className="text-xs font-semibold text-status-ok-fg uppercase tracking-wide">Mensaje prellenado</p>
                     <div className="max-h-[280px] overflow-y-auto">
                       <p className="text-sm text-muted-foreground whitespace-pre-line">{msg}</p>
                     </div>
                     <div className="flex flex-col gap-2 pt-2">
                       <Button
-                        className="w-full gap-2 bg-green-600 hover:bg-green-700 text-white"
+                        className="w-full gap-2 bg-status-ok hover:brightness-110 text-white"
                         onClick={() => {
                           window.open(`https://wa.me/?text=${encoded}`, "_blank");
                           setVisitaTecnicaWaModalOpen(false);

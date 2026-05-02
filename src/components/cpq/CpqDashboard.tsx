@@ -133,7 +133,7 @@ export function CpqDashboard({ initialQuotes }: CpqDashboardProps) {
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <Badge variant="outline">Borrador</Badge>
             <Badge variant="secondary">Enviada</Badge>
-            <Badge className="border-teal-500/40 text-teal-600 dark:text-status-info-fg" variant="outline">
+            <Badge className="border-status-info-border text-status-info-fg" variant="outline">
               Portal
             </Badge>
           </div>
@@ -202,7 +202,7 @@ export function CpqDashboard({ initialQuotes }: CpqDashboardProps) {
               onClick={() => setPortalOnly((v) => !v)}
               className={
                 portalOnly
-                  ? "bg-status-info-soft border-status-info-border text-teal-700 dark:text-status-info-fg"
+                  ? "bg-status-info-soft border-status-info-border text-status-info-fg"
                   : "bg-background border-border text-muted-foreground hover:bg-accent"
               }
               title="Filtrar cotizaciones visibles en el portal del cliente"

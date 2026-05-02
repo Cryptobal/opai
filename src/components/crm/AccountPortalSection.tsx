@@ -207,7 +207,7 @@ export function AccountPortalSection({ accountId, contacts, accountStatus, accou
         <h3 className="text-sm font-medium">Portal del cliente</h3>
         <Card className="border-status-warn-border bg-status-warn-soft">
           <CardContent className="py-6 text-center">
-            <Shield className="h-8 w-8 text-amber-400/40 mx-auto mb-2" />
+            <Shield className="h-8 w-8 text-status-warn-fg/40 mx-auto mb-2" />
             <p className="text-sm text-status-warn-fg">
               El portal del cliente está disponible para cuentas con estado &quot;Prospecto&quot; o &quot;Cliente activo&quot;.
             </p>
@@ -296,16 +296,16 @@ export function AccountPortalSection({ accountId, contacts, accountStatus, accou
                               Enviada: {new Date(c.portalInvitationSentAt).toLocaleDateString("es-CL", { day: "numeric", month: "short", year: "numeric" })}
                             </span>
                           ) : (
-                            <span className="text-amber-400/80" title="Invitación no enviada">
+                            <span className="text-status-warn-fg/80" title="Invitación no enviada">
                               Invitación no enviada
                             </span>
                           )}
                           {c.portalLastAccessAt ? (
-                            <span className="text-emerald-400/90" title="Último ingreso al portal">
+                            <span className="text-status-ok-fg/90" title="Último ingreso al portal">
                               Ingresó: {new Date(c.portalLastAccessAt).toLocaleDateString("es-CL", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
                             </span>
                           ) : (
-                            <span className="text-amber-400/80" title="Aún no ha ingresado al portal">
+                            <span className="text-status-warn-fg/80" title="Aún no ha ingresado al portal">
                               Nunca ingresó
                             </span>
                           )}
@@ -344,7 +344,7 @@ export function AccountPortalSection({ accountId, contacts, accountStatus, accou
                                 className={cn(
                                   "h-7 min-w-[7rem] gap-1",
                                   portalEnabled
-                                    ? "bg-status-ok-soft text-status-ok-fg hover:bg-emerald-500/30 border-status-ok-border"
+                                    ? "bg-status-ok-soft text-status-ok-fg hover:brightness-110 border-status-ok-border"
                                     : "text-muted-foreground",
                                 )}
                                 title={portalEnabled ? "Deshabilitar acceso" : "Habilitar acceso"}
@@ -363,7 +363,7 @@ export function AccountPortalSection({ accountId, contacts, accountStatus, accou
                                   size="sm"
                                   className={cn(
                                     "h-7 w-7 p-0",
-                                    c.portalInvitationSentAt && "text-emerald-400/80",
+                                    c.portalInvitationSentAt && "text-status-ok-fg/80",
                                   )}
                                   title={c.portalInvitationSentAt ? "Reenviar invitación" : "Enviar credenciales por email"}
                                   onClick={() => sendEmail(c.id)}
