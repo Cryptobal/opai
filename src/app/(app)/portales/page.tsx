@@ -6,8 +6,8 @@
  */
 
 import { useState } from 'react';
-import { Shield, Route, Monitor, Users, ScanLine, Fingerprint } from 'lucide-react';
-import { PageHeader } from '@/components/opai-ds';
+import { Shield, Route, Monitor, Users, ScanLine, Fingerprint, LayoutGrid } from 'lucide-react';
+import { PageHero } from '@/components/opai-ds';
 import { PortalCard } from '@/components/portales/PortalCard';
 import { PortalViewer } from '@/components/portales/PortalViewer';
 import type { LucideIcon } from 'lucide-react';
@@ -74,8 +74,12 @@ export default function PortalesPage() {
 
     return (
         <>
-            <PageHeader
+            <PageHero
+                icon={<LayoutGrid />}
+                iconTone="sky"
+                eyebrow={["Portales"]}
                 title="Portales"
+                subtitle="apps externas de OPAI"
                 description="Accede y gestiona los portales externos de OPAI."
             />
 

@@ -9,7 +9,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { PageHeader } from '@/components/opai-ds';
+import { PageHero } from '@/components/opai-ds';
+import { Trophy } from 'lucide-react';
 import { timeAgo } from '@/lib/utils';
 
 const PORTAL_LABELS: Record<string, string> = {
@@ -103,8 +104,12 @@ export default function PortalRankingPage() {
         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => router.push('/portales')}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <PageHeader
+        <PageHero
+          icon={<Trophy />}
+          iconTone="sky"
+          eyebrow={["Portales", portalLabel, "Ranking"]}
           title={`Ranking — ${portalLabel}`}
+          subtitle={`últimos ${days} días`}
           description={descriptionMap[portalId]}
         />
       </div>

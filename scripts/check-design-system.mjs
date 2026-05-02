@@ -1310,6 +1310,24 @@ const MIGRATED_PATHS = [
   // - presentation/ (~201 hex marketing landing) → 5-final.c.3 con marker
   //   dir-level.
   // - portal/rondas/PanicoModal, RondasPortalClient → ya marcados.
+  // Cluster 5-final.c.9 — Final PageHeader → PageHero migration.
+  // Last 4 pages migrated from legacy <PageHeader> (DS) to <PageHero>
+  // (DS v3). PageHeader.tsx legacy DS component DELETED. Audit confirmó
+  // 0 hex drift en los 4 archivos antes de la migración: por eso van
+  // directo a strict mode.
+  //
+  // Cluster mapping:
+  //   - personas/gamificacion/GamificacionAdminClient → sky (Personas) +
+  //     Trophy. backHref/backLabel preservados.
+  //   - opai/perfil → primary (Hub) + UserCircle2.
+  //   - portales/[portalId]/ranking → sky (Personas) + Trophy. CRLF
+  //     line-endings preservados. Custom <Button> back arriba mantenido
+  //     (no reemplazado por backHref del PageHero).
+  //   - portales → sky (Personas) + LayoutGrid.
+  "src/app/(app)/personas/gamificacion/GamificacionAdminClient.tsx",
+  "src/app/(app)/opai/perfil/page.tsx",
+  "src/app/(app)/portales/[portalId]/ranking/page.tsx",
+  "src/app/(app)/portales/page.tsx",
 ];
 
 // ───────────────────────────────────────────────────────────────────
