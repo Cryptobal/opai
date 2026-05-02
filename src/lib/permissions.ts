@@ -1032,7 +1032,6 @@ export function apiPathToModule(pathname: string): ModuleKey | null {
   if (pathname.startsWith("/api/crm/")) return "crm";
   if (
     pathname.startsWith("/api/docs/") ||
-    pathname === "/api/presentations" ||
     pathname === "/api/templates"
   )
     return "docs";
@@ -1072,8 +1071,6 @@ export function apiPathToSubmodule(
   if (pathname.startsWith("/api/crm/contacts")) return { module: "crm", submodule: "contacts" };
   if (pathname.startsWith("/api/crm/deals")) return { module: "crm", submodule: "deals" };
   // Docs
-  if (pathname === "/api/presentations" || pathname.startsWith("/api/presentations/"))
-    return { module: "docs", submodule: "gestion" };
   if (pathname === "/api/templates" || pathname.startsWith("/api/templates/"))
     return { module: "docs", submodule: "gestion" };
   if (pathname.startsWith("/api/docs/")) return { module: "docs", submodule: "gestion" };
