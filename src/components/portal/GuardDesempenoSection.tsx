@@ -21,7 +21,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { LoadingState } from "@/components/opai/LoadingState";
-import { EmptyState } from "@/components/opai/EmptyState";
+import { EmptyState } from "@/components/opai-ds";
 import {
   TrustScoreGauge,
   NivelBadge,
@@ -150,7 +150,12 @@ function ScorecardView({ session }: { session: GuardSession }) {
   }, [session.guardiaId]);
 
   if (loading) return <LoadingState text="Cargando scorecard..." />;
-  if (!scorecard) return <EmptyState title="Sin datos de desempeno" description="Aun no hay informacion de gamificacion disponible." compact />;
+  if (!scorecard) return <EmptyState
+    icon={<TrendingUp className="h-8 w-8" />}
+    title="Sin datos de desempeno"
+    description="Aun no hay informacion de gamificacion disponible."
+    compact
+  />;
 
   // Level progression
   const nivelKeys = Object.keys(NIVEL_CONFIG);
@@ -277,7 +282,12 @@ function RankingView({ session }: { session: GuardSession }) {
   }, [session.guardiaId]);
 
   if (loading) return <LoadingState text="Cargando ranking..." />;
-  if (ranking.length === 0) return <EmptyState title="Sin datos de ranking" description="No hay datos de ranking disponibles." compact />;
+  if (ranking.length === 0) return <EmptyState
+    icon={<BarChart3 className="h-8 w-8" />}
+    title="Sin datos de ranking"
+    description="No hay datos de ranking disponibles."
+    compact
+  />;
 
   return (
     <div className="space-y-4">
@@ -362,7 +372,7 @@ function BadgesView({ session }: { session: GuardSession }) {
   }, [session.guardiaId]);
 
   if (loading) return <LoadingState text="Cargando badges..." />;
-  if (badges.length === 0) return <EmptyState icon={<Award className="h-10 w-10" />} title="Sin badges" description="Completa desafios y mejora tu desempeno para desbloquear badges." compact />;
+  if (badges.length === 0) return <EmptyState icon={<Award className="h-8 w-8" />} title="Sin badges" description="Completa desafios y mejora tu desempeno para desbloquear badges." compact />;
 
   return (
     <div className="space-y-4">
@@ -399,7 +409,7 @@ function DesafiosView({ session }: { session: GuardSession }) {
   }, [session.guardiaId]);
 
   if (loading) return <LoadingState text="Cargando desafios..." />;
-  if (desafios.length === 0) return <EmptyState icon={<Target className="h-10 w-10" />} title="Sin desafios activos" description="No hay desafios disponibles en este momento." compact />;
+  if (desafios.length === 0) return <EmptyState icon={<Target className="h-8 w-8" />} title="Sin desafios activos" description="No hay desafios disponibles en este momento." compact />;
 
   return (
     <div className="space-y-3">
@@ -643,7 +653,7 @@ function ReconocimientoView({ session }: { session: GuardSession }) {
       {/* Feed */}
       {feed.length === 0 ? (
         <EmptyState
-          icon={<Heart className="h-10 w-10" />}
+          icon={<Heart className="h-8 w-8" />}
           title="Sin actividad social"
           description="Se el primero en enviar un reconocimiento a un companero."
           compact
@@ -750,7 +760,7 @@ function BeneficiosView({ session }: { session: GuardSession }) {
       {/* Benefits list */}
       {beneficios.length === 0 ? (
         <EmptyState
-          icon={<Gift className="h-10 w-10" />}
+          icon={<Gift className="h-8 w-8" />}
           title="Sin beneficios disponibles"
           description="Los beneficios se habilitaran proximamente."
           compact

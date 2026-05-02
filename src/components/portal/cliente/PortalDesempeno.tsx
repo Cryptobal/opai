@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Users, Calendar, Shield, CheckCircle2, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { Users, Calendar, Shield, CheckCircle2, TrendingUp, TrendingDown, Minus, Building2, AlertCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrustScoreGauge, NivelBadge, getTrustScoreColor } from "@/components/gamification";
 import { Stat, StatGrid } from "@/components/opai-ds";
 import { LoadingState } from "@/components/opai/LoadingState";
-import { EmptyState } from "@/components/opai/EmptyState";
+import { EmptyState } from "@/components/opai-ds";
 import { ClienteSession } from "@/lib/portal-cliente-types";
 import { PreviewBadge } from "./PreviewBadge";
 import { OpaiBadge } from "./OpaiBadge";
@@ -118,7 +118,11 @@ export function PortalDesempeno({ session, selectedInstallation, isProspect }: P
   /* ── Early returns ── */
 
   if (!isProspect && !selectedInstallation) {
-    return <EmptyState title="Selecciona una instalación" compact />;
+    return <EmptyState
+      icon={<Building2 className="h-8 w-8" />}
+      title="Selecciona una instalación"
+      compact
+    />;
   }
 
   if (loading) {
@@ -130,11 +134,19 @@ export function PortalDesempeno({ session, selectedInstallation, isProspect }: P
   }
 
   if (error) {
-    return <EmptyState title={error} compact />;
+    return <EmptyState
+      icon={<AlertCircle className="h-8 w-8" />}
+      title={error}
+      compact
+    />;
   }
 
   if (!data) {
-    return <EmptyState title="Sin datos de desempeño" compact />;
+    return <EmptyState
+      icon={<TrendingUp className="h-8 w-8" />}
+      title="Sin datos de desempeño"
+      compact
+    />;
   }
 
   /* ── Derived values ── */
@@ -227,7 +239,11 @@ export function PortalDesempeno({ session, selectedInstallation, isProspect }: P
         </CardHeader>
         <CardContent>
           {sortedGuards.length === 0 ? (
-            <EmptyState title="Sin guardias asignados" compact />
+            <EmptyState
+              icon={<Users className="h-8 w-8" />}
+              title="Sin guardias asignados"
+              compact
+            />
           ) : (
             <div className="divide-y divide-border">
               {sortedGuards.map((guard, idx) => {

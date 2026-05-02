@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { FileText, Download, ExternalLink, Loader2, UserCircle, Check, Clock, X } from "lucide-react";
-import { EmptyState } from "@/components/opai/EmptyState";
+import { EmptyState } from "@/components/opai-ds";
 import { FilePreviewModal } from "@/components/ui/FilePreviewModal";
 
 import { getDocLabel } from "@/lib/personas";

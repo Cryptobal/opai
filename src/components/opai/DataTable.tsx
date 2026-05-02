@@ -1,6 +1,7 @@
 import { type ReactNode } from 'react';
+import { Inbox } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { EmptyState } from './EmptyState';
+import { EmptyState } from '@/components/opai-ds';
 import { LoadingState } from './LoadingState';
 
 export interface DataTableColumn {
@@ -65,7 +66,7 @@ export function DataTable({
   }
 
   if (data.length === 0) {
-    return <EmptyState title={emptyMessage} compact className={className} />;
+    return <EmptyState icon={<Inbox className="h-8 w-8" />} title={emptyMessage} compact className={className} />;
   }
 
   const headerCellClasses = compact
