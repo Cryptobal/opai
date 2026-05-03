@@ -235,7 +235,7 @@ export function PortalGuardiasInstalacion({ installationId }: Props) {
                   </span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-white truncate">{g.nombre}</p>
+                  <p className="text-sm text-white break-words">{g.nombre}</p>
                   <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
                     <DocEstadoChip estado={g.os10Estado} />
                     <span className="text-[10px] text-zinc-500">
@@ -281,9 +281,9 @@ export function PortalGuardiasInstalacion({ installationId }: Props) {
                           key={i}
                           className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-white/[0.02]"
                         >
-                          <FileCheck className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
+                          <FileCheck className="h-3.5 w-3.5 text-zinc-500 shrink-0 mt-0.5" />
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs text-zinc-200 truncate">
+                            <p className="text-xs text-zinc-200 break-words">
                               {formatDocType(d.tipo)}
                             </p>
                             {d.expiresAt && (

@@ -452,7 +452,7 @@ export function PortalEmpresa({ session }: { session: ClienteSession }) {
             >
               <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm text-white truncate">{rep.nombre}</p>
+                  <p className="text-sm text-white break-words">{rep.nombre}</p>
                   <p className="text-xs text-zinc-400">{rep.rut}</p>
                 </div>
                 <button
