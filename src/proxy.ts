@@ -115,6 +115,9 @@ function isPublicPath(pathname: string): boolean {
   if (pathname.startsWith('/sign/')) return true;
   // Ver documento firmado (link público sin login)
   if (pathname.startsWith('/signed/')) return true;
+  // Tickets — encuesta CSAT pública (L7).
+  if (pathname.startsWith('/csat/')) return true;
+  if (pathname.startsWith('/api/csat/')) return true;
 
   // Assets y estáticos
   if (pathname.startsWith('/_next') || pathname.startsWith('/favicon') || pathname.startsWith('/images') || pathname.startsWith('/logos')) return true;

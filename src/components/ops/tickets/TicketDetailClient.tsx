@@ -1029,6 +1029,9 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
       {/* ── CARD: Tickets relacionados ── */}
       <TicketLinksCard ticketId={ticketId} ticketCode={ticket.code} />
 
+      {/* ── CARD: Encuesta CSAT (solo si el ticket está terminal) ── */}
+      <TicketCsatCard ticketId={ticketId} status={ticket.status} />
+
       {/* ── CARD: Activity Timeline ── */}
       <div className="rounded-xl border border-border bg-ds-surface-1 p-4 space-y-3">
         <div className="flex items-center gap-2">
@@ -2478,6 +2481,143 @@ function TicketLinksCard({
             );
           })}
         </ul>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  CSAT CARD
+//  Para tickets terminales (resolved/closed): muestra el resultado
+//  si el cliente ya respondió, o el link público para compartir.
+//  Si el endpoint no responde 2xx (ambiente sin migración), la card
+//  se oculta.
+// ═══════════════════════════════════════════════════════════════
+
+interface CsatData {
+  token: string | null;
+  tokenExp: string | null;
+  rating: number | null;
+  comment: string | null;
+  submittedAt: string | null;
+}
+
+function TicketCsatCard({
+  ticketId,
+  status,
+}: {
+  ticketId: string;
+  status: string;
+}) {
+  const [data, setData] = useState<CsatData | null>(null);
+  const [enabled, setEnabled] = useState(true);
+  const [copied, setCopied] = useState(false);
+
+  const isTerminal = ["resolved", "closed"].includes(status);
+
+  useEffect(() => {
+    if (!isTerminal || !enabled) return;
+    let cancelled = false;
+    fetch(`/api/ops/tickets/${ticketId}/csat`)
+      .then(async (res) => {
+        if (!res.ok) {
+          if (res.status === 404) {
+            setEnabled(false);
+          }
+          return null;
+        }
+        const json = await res.json();
+        return json?.success ? (json.data as CsatData) : null;
+      })
+      .then((d) => {
+        if (!cancelled && d) setData(d);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [ticketId, isTerminal, enabled]);
+
+  if (!enabled || !isTerminal) return null;
+  if (!data) return null;
+
+  const publicUrl =
+    typeof window !== "undefined" && data.token
+      ? `${window.location.origin}/csat/${data.token}`
+      : null;
+
+  return (
+    <div className="rounded-xl border border-border bg-ds-surface-1 p-4 space-y-3">
+      <div className="flex items-center gap-2">
+        <Check className="h-4 w-4 text-muted-foreground" />
+        <h4 className="text-sm font-medium">Encuesta de satisfacción</h4>
+      </div>
+
+      {data.rating != null ? (
+        <div className="rounded-lg border border-border bg-background/40 p-3 space-y-1.5">
+          <div className="flex items-center gap-2">
+            <span className="text-2xl">
+              {"★".repeat(data.rating)}
+              <span className="text-muted-foreground/40">
+                {"★".repeat(5 - data.rating)}
+              </span>
+            </span>
+            <span className="text-sm font-medium tabular-nums">
+              {data.rating}/5
+            </span>
+            {data.submittedAt && (
+              <span className="ml-auto text-[12px] text-muted-foreground">
+                {new Date(data.submittedAt).toLocaleString("es-CL", {
+                  day: "2-digit",
+                  month: "short",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </span>
+            )}
+          </div>
+          {data.comment && (
+            <p className="text-[13px] leading-relaxed text-muted-foreground whitespace-pre-wrap">
+              {data.comment}
+            </p>
+          )}
+        </div>
+      ) : publicUrl ? (
+        <div className="space-y-2">
+          <p className="text-[13px] text-muted-foreground">
+            Comparte este enlace con el cliente para que califique la
+            experiencia. El enlace no requiere login y expira a 30 días.
+          </p>
+          <div className="flex items-center gap-1.5">
+            <Input
+              readOnly
+              value={publicUrl}
+              className="h-9 text-[12px] font-mono"
+              onFocus={(e) => e.currentTarget.select()}
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-9 text-xs shrink-0"
+              onClick={() => {
+                navigator.clipboard
+                  .writeText(publicUrl)
+                  .then(() => {
+                    setCopied(true);
+                    toast.success("Enlace copiado");
+                    setTimeout(() => setCopied(false), 2000);
+                  })
+                  .catch(() => toast.error("No se pudo copiar"));
+              }}
+            >
+              {copied ? "Copiado" : "Copiar"}
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <p className="text-[13px] text-muted-foreground">
+          Aún no se generó token de encuesta.
+        </p>
       )}
     </div>
   );
