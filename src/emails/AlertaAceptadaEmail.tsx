@@ -13,6 +13,11 @@ import {
   Hr,
 } from "@react-email/components";
 import * as React from "react";
+import {
+  buildEmailUrl,
+  getEmailLogoUrl,
+  getNotificationPrefsUrl,
+} from "@/lib/emails/site-url";
 
 interface AlertaAceptadaEmailProps {
   supervisorNombre: string;
@@ -29,16 +34,9 @@ interface AlertaAceptadaEmailProps {
   linkAlerta: string;
   logoUrl?: string;
   companyName?: string;
+  /** Slug del tenant — se usa para construir todos los links absolutos. */
+  tenantSlug?: string | null;
 }
-
-const SITE_URL = (
-  process.env.NEXTAUTH_URL ||
-  process.env.NEXT_PUBLIC_SITE_URL ||
-  process.env.SITE_URL ||
-  process.env.NEXT_PUBLIC_APP_URL ||
-  process.env.NEXT_PUBLIC_BASE_URL ||
-  "https://opai.gard.cl"
-).replace(/\/$/, "");
 
 export default function AlertaAceptadaEmail({
   supervisorNombre,
@@ -55,9 +53,11 @@ export default function AlertaAceptadaEmail({
   linkAlerta,
   logoUrl,
   companyName = "OPAI",
+  tenantSlug,
 }: AlertaAceptadaEmailProps) {
-  const fullUrl = linkAlerta.startsWith("http") ? linkAlerta : `${SITE_URL}${linkAlerta}`;
-  const logoSrc = logoUrl || `${SITE_URL}/logo-white.png`;
+  const fullUrl = buildEmailUrl(linkAlerta, tenantSlug);
+  const logoSrc = logoUrl || getEmailLogoUrl();
+  const prefsUrl = getNotificationPrefsUrl(tenantSlug, "alerta_cobertura_aceptada");
 
   return (
     <Html>
@@ -169,10 +169,7 @@ export default function AlertaAceptadaEmail({
 
           <Text style={footnote}>
             ¿No quieres recibir este tipo de alertas?{" "}
-            <Link
-              href={`${SITE_URL}/opai/perfil/notificaciones?type=alerta_cobertura_aceptada`}
-              style={footnoteLink}
-            >
+            <Link href={prefsUrl} style={footnoteLink}>
               Administrar notificaciones
             </Link>
           </Text>

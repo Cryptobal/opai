@@ -12,27 +12,24 @@ import {
   Hr,
 } from "@react-email/components";
 import * as React from "react";
-
-const SITE_URL = (
-  process.env.NEXTAUTH_URL ||
-  process.env.NEXT_PUBLIC_SITE_URL ||
-  process.env.SITE_URL ||
-  process.env.NEXT_PUBLIC_APP_URL ||
-  process.env.NEXT_PUBLIC_BASE_URL ||
-  "https://opai.gard.cl"
-).replace(/\/$/, "");
+import { buildEmailUrl, getNotificationPrefsUrl } from "@/lib/emails/site-url";
 
 interface DocumentExpiredEmailProps {
   documentTitle: string;
   expirationDate: string;
   documentUrl: string;
+  /** Slug del tenant — se usa para construir todos los links absolutos. */
+  tenantSlug?: string | null;
 }
 
 export default function DocumentExpiredEmail({
   documentTitle,
   expirationDate,
   documentUrl,
+  tenantSlug,
 }: DocumentExpiredEmailProps) {
+  const fullDocUrl = buildEmailUrl(documentUrl, tenantSlug);
+  const prefsUrl = getNotificationPrefsUrl(tenantSlug, "contract_expired");
   return (
     <Html>
       <Head />
@@ -48,7 +45,7 @@ export default function DocumentExpiredEmail({
             <Text style={line}><strong>Venció el:</strong> {expirationDate}</Text>
           </Section>
           <Section style={buttonWrap}>
-            <Button href={documentUrl} style={button}>Ver documento</Button>
+            <Button href={fullDocUrl} style={button}>Ver documento</Button>
           </Section>
           <Text style={footnote}>
             Revisa el documento y decide si necesitas renovarlo, actualizar sus condiciones o archivarlo.
@@ -56,10 +53,7 @@ export default function DocumentExpiredEmail({
           <Hr style={hr} />
           <Text style={unsubscribeText}>
             ¿No quieres recibir este tipo de alertas?{" "}
-            <Link
-              href={`${SITE_URL}/opai/perfil/notificaciones?type=contract_expired`}
-              style={unsubscribeLink}
-            >
+            <Link href={prefsUrl} style={unsubscribeLink}>
               Administrar notificaciones
             </Link>
           </Text>

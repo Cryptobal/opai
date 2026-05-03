@@ -12,21 +12,15 @@ import {
   Hr,
 } from "@react-email/components";
 import * as React from "react";
-
-const SITE_URL = (
-  process.env.NEXTAUTH_URL ||
-  process.env.NEXT_PUBLIC_SITE_URL ||
-  process.env.SITE_URL ||
-  process.env.NEXT_PUBLIC_APP_URL ||
-  process.env.NEXT_PUBLIC_BASE_URL ||
-  "https://opai.gard.cl"
-).replace(/\/$/, "");
+import { buildEmailUrl, getNotificationPrefsUrl } from "@/lib/emails/site-url";
 
 interface SignatureAllCompletedEmailProps {
   documentTitle: string;
   completedAt: string;
   documentUrl?: string | null;
   pdfUrl?: string | null;
+  /** Slug del tenant — se usa para construir todos los links absolutos. */
+  tenantSlug?: string | null;
 }
 
 export default function SignatureAllCompletedEmail({
@@ -34,7 +28,11 @@ export default function SignatureAllCompletedEmail({
   completedAt,
   documentUrl,
   pdfUrl,
+  tenantSlug,
 }: SignatureAllCompletedEmailProps) {
+  const fullDocumentUrl = documentUrl ? buildEmailUrl(documentUrl, tenantSlug) : null;
+  const fullPdfUrl = pdfUrl ? buildEmailUrl(pdfUrl, tenantSlug) : null;
+  const prefsUrl = getNotificationPrefsUrl(tenantSlug, "document_signed_completed");
   return (
     <Html>
       <Head />
@@ -49,23 +47,20 @@ export default function SignatureAllCompletedEmail({
             <Text style={line}><strong>Estado:</strong> Completado</Text>
             <Text style={line}><strong>Fecha de cierre:</strong> {completedAt}</Text>
           </Section>
-          {documentUrl ? (
+          {fullDocumentUrl ? (
             <Section style={buttonWrap}>
-              <Button href={documentUrl} style={button}>Ver documento (sin iniciar sesión)</Button>
+              <Button href={fullDocumentUrl} style={button}>Ver documento (sin iniciar sesión)</Button>
             </Section>
           ) : null}
-          {pdfUrl ? (
+          {fullPdfUrl ? (
             <Section style={buttonWrap}>
-              <Button href={pdfUrl} style={buttonSecondary}>Descargar PDF firmado</Button>
+              <Button href={fullPdfUrl} style={buttonSecondary}>Descargar PDF firmado</Button>
             </Section>
           ) : null}
           <Hr style={hr} />
           <Text style={unsubscribeText}>
             ¿No quieres recibir este tipo de alertas?{" "}
-            <Link
-              href={`${SITE_URL}/opai/perfil/notificaciones?type=document_signed_completed`}
-              style={unsubscribeLink}
-            >
+            <Link href={prefsUrl} style={unsubscribeLink}>
               Administrar notificaciones
             </Link>
           </Text>

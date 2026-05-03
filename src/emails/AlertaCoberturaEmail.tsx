@@ -13,6 +13,7 @@ import {
   Hr,
 } from "@react-email/components";
 import * as React from "react";
+import { buildEmailUrl, getEmailLogoUrl } from "@/lib/emails/site-url";
 
 interface AlertaCoberturaEmailProps {
   nombre: string;
@@ -27,16 +28,9 @@ interface AlertaCoberturaEmailProps {
   tiempoRestanteMin: number;
   logoUrl?: string;
   companyName?: string;
+  /** Slug del tenant — se usa para construir todos los links absolutos. */
+  tenantSlug?: string | null;
 }
-
-const SITE_URL = (
-  process.env.NEXTAUTH_URL ||
-  process.env.NEXT_PUBLIC_SITE_URL ||
-  process.env.SITE_URL ||
-  process.env.NEXT_PUBLIC_APP_URL ||
-  process.env.NEXT_PUBLIC_BASE_URL ||
-  "https://opai.gard.cl"
-).replace(/\/$/, "");
 
 export default function AlertaCoberturaEmail({
   nombre,
@@ -51,10 +45,12 @@ export default function AlertaCoberturaEmail({
   tiempoRestanteMin,
   logoUrl,
   companyName = "OPAI",
+  tenantSlug,
 }: AlertaCoberturaEmailProps) {
   const esUrgente = urgencia === "URGENTE";
-  const fullUrl = linkAceptar.startsWith("http") ? linkAceptar : `${SITE_URL}${linkAceptar}`;
-  const logoSrc = logoUrl || `${SITE_URL}/logo-white.png`;
+  const fullUrl = buildEmailUrl(linkAceptar, tenantSlug);
+  const logoSrc = logoUrl || getEmailLogoUrl();
+  const portalUrl = buildEmailUrl("/portal/guardia", tenantSlug);
 
   return (
     <Html>
@@ -141,10 +137,7 @@ export default function AlertaCoberturaEmail({
 
           <Text style={footnote}>
             Si no puedes asistir, simplemente ignora este mensaje.{" "}
-            <Link
-              href={`${SITE_URL}/portal/guardia`}
-              style={footnoteLink}
-            >
+            <Link href={portalUrl} style={footnoteLink}>
               Ir al portal
             </Link>
           </Text>
