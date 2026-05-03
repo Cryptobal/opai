@@ -1080,7 +1080,7 @@ function TicketTypeSection({
                       </button>
                     </div>
                     <p
-                      className="text-sm font-medium truncate"
+                      className="text-sm font-medium break-words"
                       onClick={() => onEdit(t.id)}
                     >
                       {t.name}

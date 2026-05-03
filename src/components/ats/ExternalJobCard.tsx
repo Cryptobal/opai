@@ -33,7 +33,7 @@ export function ExternalJobCard({
           <div className="min-w-0 flex-1 space-y-2">
             {/* Title + source badge */}
             <div className="flex flex-wrap items-center gap-2">
-              <h3 className="text-sm font-semibold leading-tight truncate">
+              <h3 className="text-sm font-semibold leading-tight break-words">
                 {job.title}
               </h3>
               <Badge variant="outline" className="shrink-0 text-[10px]">

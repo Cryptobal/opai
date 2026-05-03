@@ -492,17 +492,17 @@ function DocumentUploadRow({
 }: DocumentUploadRowProps) {
   return (
     <div className="rounded-lg border border-slate-700 bg-slate-800/50 px-4 py-3">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2">
-          <FileText className="h-4 w-4 shrink-0 text-slate-400" />
-          <span className="truncate text-sm font-medium text-white">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex min-w-0 items-start gap-2">
+          <FileText className="h-4 w-4 shrink-0 text-slate-400 mt-0.5" />
+          <span className="break-words text-sm font-medium text-white">
             {doc.label}
             {doc.required && <span className="ml-1 text-status-warn-fg">*</span>}
           </span>
         </div>
         {value ? (
-          <div className="flex items-center gap-2">
-            <span className="max-w-[160px] truncate text-xs text-status-ok-fg">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="break-all text-xs text-status-ok-fg" title={value.fileName}>
               {value.fileName}
             </span>
             <button
