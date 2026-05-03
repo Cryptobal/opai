@@ -118,6 +118,9 @@ function isPublicPath(pathname: string): boolean {
   // Tickets — encuesta CSAT pública (L7).
   if (pathname.startsWith('/csat/')) return true;
   if (pathname.startsWith('/api/csat/')) return true;
+  // Tickets — portal público read-only por PIN (L2).
+  // /api/public-tickets/ ya queda cubierto por el prefijo /api/public/.
+  if (pathname.startsWith('/t/')) return true;
 
   // Assets y estáticos
   if (pathname.startsWith('/_next') || pathname.startsWith('/favicon') || pathname.startsWith('/images') || pathname.startsWith('/logos')) return true;

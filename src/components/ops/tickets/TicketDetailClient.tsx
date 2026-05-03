@@ -1029,6 +1029,9 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
       {/* ── CARD: Tickets relacionados ── */}
       <TicketLinksCard ticketId={ticketId} ticketCode={ticket.code} />
 
+      {/* ── CARD: Portal público (PIN) ── */}
+      <TicketPublicPortalCard ticketId={ticketId} ticketCode={ticket.code} />
+
       {/* ── CARD: Encuesta CSAT (solo si el ticket está terminal) ── */}
       <TicketCsatCard ticketId={ticketId} status={ticket.status} />
 
@@ -2618,6 +2621,208 @@ function TicketCsatCard({
         <p className="text-[13px] text-muted-foreground">
           Aún no se generó token de encuesta.
         </p>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  TICKET PUBLIC PORTAL (L2)
+//  Card admin que emite, revoca y muestra estado del PIN público.
+//  El PIN solo es visible UNA VEZ tras emitirlo.
+// ═══════════════════════════════════════════════════════════════
+
+interface PublicPinState {
+  hasPin: boolean;
+  setAt: string | null;
+  lastAccessAt: string | null;
+}
+
+function TicketPublicPortalCard({
+  ticketId,
+  ticketCode,
+}: {
+  ticketId: string;
+  ticketCode: string;
+}) {
+  const [state, setState] = useState<PublicPinState | null>(null);
+  const [enabled, setEnabled] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [issuedPin, setIssuedPin] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/ops/tickets/${ticketId}/public-pin`);
+      if (!res.ok) {
+        if (res.status === 404) setEnabled(false);
+        return;
+      }
+      const json = await res.json();
+      if (json?.success) setState(json.data as PublicPinState);
+    } catch {
+      // ignore
+    }
+  }, [ticketId]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  if (!enabled) return null;
+  if (!state) return null;
+
+  async function handleIssue() {
+    setLoading(true);
+    setIssuedPin(null);
+    try {
+      const res = await fetch(`/api/ops/tickets/${ticketId}/public-pin`, {
+        method: "POST",
+      });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error);
+      setIssuedPin(json.data.pin);
+      toast.success("PIN generado");
+      load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleRevoke() {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/ops/tickets/${ticketId}/public-pin`, {
+        method: "DELETE",
+      });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error);
+      toast.success("Acceso público revocado");
+      setIssuedPin(null);
+      load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const publicUrl =
+    typeof window !== "undefined"
+      ? `${window.location.origin}/t/${ticketCode}`
+      : `/t/${ticketCode}`;
+
+  return (
+    <div className="rounded-xl border border-border bg-ds-surface-1 p-4 space-y-3">
+      <div className="flex items-center gap-2">
+        <ExternalLink className="h-4 w-4 text-muted-foreground" />
+        <h4 className="text-sm font-medium">Compartir con cliente</h4>
+        <span className="ml-auto text-[12px] text-muted-foreground">
+          {state.hasPin ? "PIN activo" : "Sin acceso público"}
+        </span>
+      </div>
+
+      {issuedPin && (
+        <div className="rounded-lg border border-status-warn-border bg-status-warn-soft p-3 space-y-1.5">
+          <p className="text-[12px] font-medium uppercase tracking-wide text-status-warn-fg">
+            PIN — Cópialo ahora
+          </p>
+          <p className="font-mono text-2xl tracking-[0.3em] text-foreground">
+            {issuedPin}
+          </p>
+          <p className="text-[12px] text-status-warn-fg/80">
+            No se volverá a mostrar. Si lo pierdes, genera uno nuevo.
+          </p>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 text-xs"
+            onClick={() => {
+              navigator.clipboard
+                .writeText(issuedPin)
+                .then(() => toast.success("PIN copiado"))
+                .catch(() => toast.error("No se pudo copiar"));
+            }}
+          >
+            Copiar PIN
+          </Button>
+        </div>
+      )}
+
+      {state.hasPin ? (
+        <div className="space-y-2">
+          <p className="text-[13px] text-muted-foreground">
+            Tu cliente puede ver el estado del ticket sin login en:
+          </p>
+          <div className="flex items-center gap-1.5">
+            <Input
+              readOnly
+              value={publicUrl}
+              className="h-9 text-[12px] font-mono"
+              onFocus={(e) => e.currentTarget.select()}
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-9 text-xs shrink-0"
+              onClick={() => {
+                navigator.clipboard
+                  .writeText(publicUrl)
+                  .then(() => toast.success("Enlace copiado"))
+                  .catch(() => toast.error("No se pudo copiar"));
+              }}
+            >
+              Copiar
+            </Button>
+          </div>
+          {state.lastAccessAt && (
+            <p className="text-[12px] text-muted-foreground">
+              Último acceso del cliente:{" "}
+              {new Date(state.lastAccessAt).toLocaleString("es-CL", {
+                day: "2-digit",
+                month: "short",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </p>
+          )}
+          <div className="flex items-center gap-1.5 pt-1">
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 text-xs"
+              disabled={loading}
+              onClick={handleIssue}
+            >
+              Regenerar PIN
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-8 text-xs text-status-danger-fg hover:bg-status-danger-soft"
+              disabled={loading}
+              onClick={handleRevoke}
+            >
+              Revocar acceso
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <p className="text-[13px] text-muted-foreground">
+            Genera un PIN de 6 dígitos para que el cliente vea el estado
+            del ticket en una página pública sin login.
+          </p>
+          <Button
+            size="sm"
+            className="h-9 text-xs"
+            disabled={loading}
+            onClick={handleIssue}
+          >
+            {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : "Generar PIN"}
+          </Button>
+        </div>
       )}
     </div>
   );

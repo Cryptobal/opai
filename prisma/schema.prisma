@@ -5046,6 +5046,16 @@ model OpsTicket {
   csatToken    String?   @unique @map("csat_token")
   csatTokenExp DateTime? @map("csat_token_exp") @db.Timestamptz(6)
 
+  // ── Portal público (L2) ──
+  /// Hash bcrypt del PIN (4-6 dígitos) que el operador comparte con el
+  /// cliente para acceder al portal público /t/[code]. Nunca se devuelve
+  /// el PIN en claro al cliente.
+  publicPinHash      String?   @map("public_pin_hash")
+  publicPinSetAt     DateTime? @map("public_pin_set_at") @db.Timestamptz(6)
+  publicAttempts     Int       @default(0) @map("public_attempts")
+  publicLockedUntil  DateTime? @map("public_locked_until") @db.Timestamptz(6)
+  publicLastAccessAt DateTime? @map("public_last_access_at") @db.Timestamptz(6)
+
   ticketType          OpsTicketType?          @relation(fields: [ticketTypeId], references: [id], onDelete: SetNull)
   guardia             OpsGuardia?             @relation(fields: [guardiaId], references: [id], onDelete: SetNull)
   approvals           OpsTicketApproval[]
