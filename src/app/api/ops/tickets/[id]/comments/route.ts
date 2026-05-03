@@ -10,13 +10,15 @@ type Params = { id: string };
 /* ── Mapper ──────────────────────────────────────────────────── */
 
 function mapComment(c: any, actorMap?: Map<string, { name: string }>): TicketComment {
+  const isDeleted = c.deletedAt != null;
+  const isEdited = c.editedAt != null;
   return {
     id: c.id,
     ticketId: c.ticketId,
     userId: c.userId,
     userName: actorMap?.get(c.userId)?.name ?? null,
-    body: c.body,
-    bodyHtml: c.bodyHtml ?? null,
+    body: isDeleted ? "" : c.body,
+    bodyHtml: isDeleted ? null : c.bodyHtml ?? null,
     isInternal: c.isInternal,
     direction: c.direction ?? "internal",
     fromEmail: c.fromEmail ?? null,
@@ -28,13 +30,19 @@ function mapComment(c: any, actorMap?: Map<string, { name: string }>): TicketCom
     messageId: c.messageId ?? null,
     inReplyToMessageId: c.inReplyToMessageId ?? null,
     threadMessageIds: c.threadMessageIds ?? [],
-    attachments: c.attachments ?? null,
+    attachments: isDeleted ? null : (c.attachments ?? null),
     sentAt: c.sentAt instanceof Date ? c.sentAt.toISOString() : c.sentAt ?? null,
     deliveryStatus: c.deliveryStatus ?? null,
     deliveryError: c.deliveryError ?? null,
     resendId: c.resendId ?? null,
     createdAt: c.createdAt instanceof Date ? c.createdAt.toISOString() : c.createdAt,
     updatedAt: c.updatedAt instanceof Date ? c.updatedAt.toISOString() : c.updatedAt,
+    isDeleted,
+    deletedAt:
+      c.deletedAt instanceof Date ? c.deletedAt.toISOString() : c.deletedAt ?? null,
+    isEdited,
+    editedAt:
+      c.editedAt instanceof Date ? c.editedAt.toISOString() : c.editedAt ?? null,
   };
 }
 
