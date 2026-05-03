@@ -1388,7 +1388,7 @@ export function AiHelpChatWidgetV2() {
             <Sparkles className="h-3.5 w-3.5 shrink-0 text-status-info-fg" />
             <div className="min-w-0 flex-1">
               <p className="text-[10px] uppercase tracking-wide text-status-info-fg/70">Hablando sobre</p>
-              <p className="text-xs font-medium text-white truncate">{pageContext.entityName}</p>
+              <p className="text-xs font-medium text-white truncate" title={pageContext.entityName}>{pageContext.entityName}</p>
             </div>
             <button
               type="button"

@@ -135,7 +135,7 @@ export function RolePreviewSidebar({ permissions, isAdminRole }: RolePreviewSide
             <div key={item.href} className="rounded-md">
               <div className="flex items-center gap-2 px-2.5 py-2 rounded-md text-sm text-foreground/90 bg-background/50 border border-transparent">
                 <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
-                <span className="flex-1 truncate">{item.label}</span>
+                <span className="flex-1 truncate" title={item.label}>{item.label}</span>
                 {visibleChildren.length > 0 && (
                   <span className="text-[10px] text-muted-foreground/60 shrink-0">
                     {visibleChildren.length} sub
@@ -150,7 +150,7 @@ export function RolePreviewSidebar({ permissions, isAdminRole }: RolePreviewSide
                       className="flex items-center gap-2 px-2 py-1 text-xs text-muted-foreground/80"
                     >
                       <span className="h-1 w-1 rounded-full bg-muted-foreground/40" />
-                      <span className="truncate">{sub.label}</span>
+                      <span className="truncate" title={sub.label}>{sub.label}</span>
                     </div>
                   ))}
                 </div>

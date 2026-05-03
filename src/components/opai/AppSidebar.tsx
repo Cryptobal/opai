@@ -262,7 +262,7 @@ export function AppSidebar({
                       </span>
                     )}
                   </span>
-                  {!collapsed && <span className="truncate flex-1 text-left">{item.label}</span>}
+                  {!collapsed && <span className="truncate flex-1 text-left" title={item.label}>{item.label}</span>}
                 </>
               );
 
@@ -351,7 +351,7 @@ export function AppSidebar({
                         </span>
                       )}
                     </span>
-                    {!collapsed && <span className="flex-1 truncate text-left">{item.label}</span>}
+                    {!collapsed && <span className="flex-1 truncate text-left" title={item.label}>{item.label}</span>}
                   </Link>
                   {!collapsed && (
                     <button
