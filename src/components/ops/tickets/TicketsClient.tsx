@@ -140,6 +140,49 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
   const [slaOnly, setSlaOnly] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
 
+  // ── Bulk selection ──
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [bulkTagInput, setBulkTagInput] = useState("");
+  const [bulkAdmins, setBulkAdmins] = useState<
+    Array<{ id: string; name: string }>
+  >([]);
+
+  // Cargar admins solo cuando se entra a modo selección, una vez.
+  useEffect(() => {
+    if (!selectionMode || bulkAdmins.length > 0) return;
+    fetch("/api/ops/admins")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success && Array.isArray(d.data)) {
+          setBulkAdmins(
+            d.data.map((u: { id: string; name: string | null; email: string }) => ({
+              id: u.id,
+              name: u.name || u.email,
+            })),
+          );
+        }
+      })
+      .catch(() => {});
+  }, [selectionMode, bulkAdmins.length]);
+
+  function toggleSelected(ticketId: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(ticketId)) next.delete(ticketId);
+      else next.add(ticketId);
+      return next;
+    });
+  }
+  function clearSelection() {
+    setSelectedIds(new Set());
+  }
+  function exitSelectionMode() {
+    setSelectionMode(false);
+    clearSelection();
+  }
+
   const initialLoadDone = useRef(false);
   const PAGE_SIZE = 50;
   const KANBAN_PAGE_SIZE = 150;
@@ -264,6 +307,51 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
     if (loadingMore || !hasMore) return;
     fetchTickets(page + 1, false);
   }, [fetchTickets, page, loadingMore, hasMore]);
+
+  // Ejecuta una acción masiva contra /api/ops/tickets/bulk y refresca.
+  const runBulkAction = useCallback(
+    async (
+      action: "assign" | "status" | "priority" | "addTag" | "removeTag",
+      payload: Record<string, unknown>,
+    ) => {
+      if (selectedIds.size === 0) return;
+      setBulkLoading(true);
+      try {
+        const res = await fetch("/api/ops/tickets/bulk", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ticketIds: Array.from(selectedIds),
+            action,
+            payload,
+          }),
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error);
+        const { updated, skipped } = data.data as {
+          updated: number;
+          skipped: number;
+        };
+        toast.success(
+          `${updated} actualizado${updated === 1 ? "" : "s"}${
+            skipped > 0
+              ? ` · ${skipped} omitido${skipped === 1 ? "" : "s"}`
+              : ""
+          }`,
+        );
+        exitSelectionMode();
+        fetchTickets(1, true);
+        fetchCounts(originTab, installationFilterId);
+      } catch (err) {
+        toast.error(
+          err instanceof Error ? err.message : "Error en operación masiva",
+        );
+      } finally {
+        setBulkLoading(false);
+      }
+    },
+    [selectedIds, fetchTickets, fetchCounts, originTab, installationFilterId],
+  );
 
   // Sync view + installationId with URL
   useEffect(() => {
@@ -877,6 +965,29 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
           </PopoverContent>
         </Popover>
 
+        {/* Selection mode toggle (solo en list/cards). Bulk no aplica a
+            kanban/by-installation porque la unidad de interacción ahí es
+            distinta (drag, drilldown). */}
+        {(listMode === "list" || listMode === "cards") && (
+          <Button
+            type="button"
+            variant={selectionMode ? "secondary" : "outline"}
+            size="sm"
+            className="h-8 gap-1.5 text-xs"
+            onClick={() => {
+              if (selectionMode) exitSelectionMode();
+              else setSelectionMode(true);
+            }}
+          >
+            <Check className="h-3.5 w-3.5" />
+            {selectionMode
+              ? selectedIds.size > 0
+                ? `${selectedIds.size} seleccionado${selectedIds.size === 1 ? "" : "s"}`
+                : "Cancelar selección"
+              : "Seleccionar"}
+          </Button>
+        )}
+
         {/* View mode toggle */}
         <div className="ml-auto flex gap-1 rounded-md bg-muted p-0.5">
           {([
@@ -934,6 +1045,148 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
           >
             Limpiar todo
           </button>
+        </div>
+      )}
+
+      {/* Bulk action bar (visible cuando hay tickets seleccionados) */}
+      {selectionMode && (
+        <div className="sticky top-0 z-30 -mx-1 rounded-xl border border-primary/30 bg-primary/5 px-3 py-2 backdrop-blur supports-[backdrop-filter]:bg-primary/10">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[13px] font-medium text-foreground">
+              {selectedIds.size === 0
+                ? "Selecciona tickets para acciones masivas"
+                : `${selectedIds.size} seleccionado${selectedIds.size === 1 ? "" : "s"}`}
+            </span>
+
+            {selectedIds.size > 0 && (
+              <button
+                type="button"
+                onClick={() =>
+                  setSelectedIds(new Set(filteredTickets.map((t) => t.id)))
+                }
+                className="text-[12px] text-muted-foreground hover:text-foreground"
+              >
+                Seleccionar visibles ({filteredTickets.length})
+              </button>
+            )}
+            {selectedIds.size > 0 && (
+              <button
+                type="button"
+                onClick={clearSelection}
+                className="text-[12px] text-muted-foreground hover:text-foreground"
+              >
+                Quitar selección
+              </button>
+            )}
+
+            {/* Acciones — solo visibles con al menos 1 seleccionado */}
+            {selectedIds.size > 0 && (
+              <div className="ml-auto flex flex-wrap items-center gap-1.5">
+                {/* Asignar */}
+                <Select
+                  value=""
+                  onValueChange={(v) => {
+                    if (!v) return;
+                    if (v === "__unassign__") {
+                      runBulkAction("assign", { assignedTo: null });
+                    } else {
+                      runBulkAction("assign", { assignedTo: v });
+                    }
+                  }}
+                >
+                  <SelectTrigger className="h-8 w-[160px] text-xs">
+                    <SelectValue placeholder="Asignar a…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__unassign__">Sin asignar</SelectItem>
+                    {bulkAdmins.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>
+                        {a.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {/* Cambiar prioridad */}
+                <Select
+                  value=""
+                  onValueChange={(v) => {
+                    if (!v) return;
+                    runBulkAction("priority", { priority: v });
+                  }}
+                >
+                  <SelectTrigger className="h-8 w-[120px] text-xs">
+                    <SelectValue placeholder="Prioridad…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="p1">P1</SelectItem>
+                    <SelectItem value="p2">P2</SelectItem>
+                    <SelectItem value="p3">P3</SelectItem>
+                    <SelectItem value="p4">P4</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {/* Cambiar estado */}
+                <Select
+                  value=""
+                  onValueChange={(v) => {
+                    if (!v) return;
+                    runBulkAction("status", { status: v });
+                  }}
+                >
+                  <SelectTrigger className="h-8 w-[140px] text-xs">
+                    <SelectValue placeholder="Estado…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="open">Abierto</SelectItem>
+                    <SelectItem value="in_progress">En proceso</SelectItem>
+                    <SelectItem value="waiting">En espera</SelectItem>
+                    <SelectItem value="resolved">Resuelto</SelectItem>
+                    <SelectItem value="cancelled">Cancelado</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {/* Tag add/remove */}
+                <div className="flex items-center gap-1">
+                  <Input
+                    value={bulkTagInput}
+                    onChange={(e) => setBulkTagInput(e.target.value)}
+                    placeholder="tag…"
+                    maxLength={32}
+                    className="h-8 w-24 text-xs"
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-xs"
+                    disabled={!bulkTagInput.trim() || bulkLoading}
+                    onClick={() =>
+                      runBulkAction("addTag", { tag: bulkTagInput.trim() })
+                    }
+                  >
+                    + Tag
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 text-xs text-muted-foreground"
+                    disabled={!bulkTagInput.trim() || bulkLoading}
+                    onClick={() =>
+                      runBulkAction("removeTag", { tag: bulkTagInput.trim() })
+                    }
+                  >
+                    − Tag
+                  </Button>
+                </div>
+
+                {bulkLoading && (
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -1046,6 +1299,9 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
                   key={ticket.id}
                   ticket={ticket}
                   onClick={() => router.push(`/ops/tickets/${ticket.id}`)}
+                  selectable={selectionMode}
+                  selected={selectedIds.has(ticket.id)}
+                  onToggleSelect={toggleSelected}
                 />
               ))}
             </div>
@@ -1056,6 +1312,9 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
                   key={ticket.id}
                   ticket={ticket}
                   onClick={() => router.push(`/ops/tickets/${ticket.id}`)}
+                  selectable={selectionMode}
+                  selected={selectedIds.has(ticket.id)}
+                  onToggleSelect={toggleSelected}
                 />
               ))}
             </div>
@@ -1119,7 +1378,19 @@ function findingCategoryLabel(category: string | null | undefined): string {
   return FINDING_CATEGORY_LABELS[category] ?? "Hallazgo de supervisión";
 }
 
-function TicketCard({ ticket, onClick }: { ticket: Ticket; onClick: () => void }) {
+function TicketCard({
+  ticket,
+  onClick,
+  selectable,
+  selected,
+  onToggleSelect,
+}: {
+  ticket: Ticket;
+  onClick: () => void;
+  selectable?: boolean;
+  selected?: boolean;
+  onToggleSelect?: (ticketId: string) => void;
+}) {
   const statusCfg = TICKET_STATUS_CONFIG[ticket.status];
   const priorityCfg = TICKET_PRIORITY_CONFIG[ticket.priority];
   const slaText = getSlaRemaining(ticket.slaDueAt, ticket.status, ticket.resolvedAt);
@@ -1132,14 +1403,37 @@ function TicketCard({ ticket, onClick }: { ticket: Ticket; onClick: () => void }
   const teamName = TICKET_TEAM_CONFIG[ticket.assignedTeam]?.label ?? ticket.assignedTeam;
   const borderColor = getPriorityBorderColor(ticket.priority);
 
+  // Cuando hay modo de selección activo, click en el cuerpo toggle-ea
+  // selección en lugar de navegar. Esto se siente más natural en mobile
+  // que tener que apuntar al checkbox chiquito.
+  function handleCardActivate() {
+    if (selectable && onToggleSelect) {
+      onToggleSelect(ticket.id);
+      return;
+    }
+    onClick();
+  }
+
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={handleCardActivate}
       className={`group relative flex w-full flex-col gap-2 rounded-xl border-l-[3px] border border-border bg-[#161b22] p-3.5 text-left transition-all hover:bg-[#1c2333] hover:border-primary/20 active:bg-[#1c2333] ${borderColor} ${
         breached && !isTerminal ? "animate-pulse-subtle border-status-danger-border" : ""
-      }`}
+      } ${selected ? "ring-2 ring-primary/60" : ""}`}
     >
+      {selectable && (
+        <span
+          className={`absolute -top-2 -left-2 z-10 flex h-5 w-5 items-center justify-center rounded-full border-2 ${
+            selected
+              ? "bg-primary border-primary text-primary-foreground"
+              : "bg-background border-border text-transparent"
+          }`}
+          aria-hidden="true"
+        >
+          <Check className="h-3 w-3" />
+        </span>
+      )}
       {/* Row 1: Code + Status + Priority + Avatar */}
       <div className="flex items-center gap-2">
         <span className="font-mono text-[10px] text-muted-foreground">{ticket.code}</span>
