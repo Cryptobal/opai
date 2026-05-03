@@ -5047,6 +5047,8 @@ model OpsTicket {
   events              OpsTicketEvent[]
   refuerzoSolicitud   OpsRefuerzoSolicitud?
   supervisionFindings OpsSupervisionFinding[] @relation("supervision_finding_ticket")
+  outgoingLinks       OpsTicketLink[]         @relation("ops_ticket_link_source")
+  incomingLinks       OpsTicketLink[]         @relation("ops_ticket_link_target")
 
   @@unique([tenantId, code], map: "uq_ops_tickets_tenant_code")
   @@index([tenantId], map: "idx_ops_tickets_tenant")
@@ -5158,6 +5160,34 @@ model OpsTicketEvent {
   @@index([ticketId, createdAt], map: "idx_ops_ticket_events_ticket_created")
   @@index([tenantId, type], map: "idx_ops_ticket_events_tenant_type")
   @@map("ops_ticket_events")
+  @@schema("ops")
+}
+
+/// Relación dirigida entre dos tickets. Tipos soportados:
+///  - duplicate_of  (sourceTicket es duplicado de targetTicket)
+///  - blocks        (sourceTicket bloquea a targetTicket)
+///  - blocked_by    (espejo de blocks; lo creamos automáticamente al
+///                   crear blocks para evitar JOIN bidireccional caro)
+///  - relates_to    (relación genérica)
+///  - parent_of     (sourceTicket es padre de targetTicket; útil para
+///                   tickets hijo de un incidente macro)
+///  - child_of      (espejo de parent_of)
+model OpsTicketLink {
+  id             String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId       String   @map("tenant_id")
+  sourceTicketId String   @map("source_ticket_id") @db.Uuid
+  targetTicketId String   @map("target_ticket_id") @db.Uuid
+  type           String
+  createdById    String?  @map("created_by_id")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  sourceTicket OpsTicket @relation("ops_ticket_link_source", fields: [sourceTicketId], references: [id], onDelete: Cascade)
+  targetTicket OpsTicket @relation("ops_ticket_link_target", fields: [targetTicketId], references: [id], onDelete: Cascade)
+
+  @@unique([sourceTicketId, targetTicketId, type], map: "uq_ops_ticket_links_pair_type")
+  @@index([tenantId, sourceTicketId], map: "idx_ops_ticket_links_tenant_source")
+  @@index([tenantId, targetTicketId], map: "idx_ops_ticket_links_tenant_target")
+  @@map("ops_ticket_links")
   @@schema("ops")
 }
 

@@ -1026,6 +1026,9 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
       {/* ── CARD: Adjuntos agregados (de todos los comentarios) ── */}
       <TicketAttachmentsSummary comments={comments} />
 
+      {/* ── CARD: Tickets relacionados ── */}
+      <TicketLinksCard ticketId={ticketId} ticketCode={ticket.code} />
+
       {/* ── CARD: Activity Timeline ── */}
       <div className="rounded-xl border border-border bg-ds-surface-1 p-4 space-y-3">
         <div className="flex items-center gap-2">
@@ -2258,6 +2261,223 @@ export function ReplyTemplatesMenu({
             </div>
           </div>
         </>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  TICKET LINKS (tickets relacionados)
+//  Card stand-alone que carga sus propios links. Si el endpoint no
+//  existe (M4 no aplicado), la card se oculta sola.
+// ═══════════════════════════════════════════════════════════════
+
+interface LinkedTicketSummary {
+  id: string;
+  code: string;
+  title: string;
+  status: string;
+  priority: string;
+}
+interface TicketLinkRow {
+  id: string;
+  direction: "outgoing" | "incoming";
+  type: string;
+  ticket: LinkedTicketSummary;
+  createdAt: string;
+}
+
+const LINK_TYPE_LABELS: Record<string, { outgoing: string; incoming: string }> = {
+  duplicate_of: { outgoing: "Duplicado de", incoming: "Tiene como duplicado" },
+  blocks: { outgoing: "Bloquea a", incoming: "Bloqueado por" },
+  blocked_by: { outgoing: "Bloqueado por", incoming: "Bloquea a" },
+  relates_to: { outgoing: "Relacionado con", incoming: "Relacionado con" },
+  parent_of: { outgoing: "Padre de", incoming: "Hijo de" },
+  child_of: { outgoing: "Hijo de", incoming: "Padre de" },
+};
+
+function TicketLinksCard({
+  ticketId,
+  ticketCode,
+}: {
+  ticketId: string;
+  ticketCode: string;
+}) {
+  const router = useRouter();
+  const [items, setItems] = useState<TicketLinkRow[]>([]);
+  const [enabled, setEnabled] = useState(true);
+  const [adding, setAdding] = useState(false);
+  const [addCode, setAddCode] = useState("");
+  const [addType, setAddType] = useState<string>("relates_to");
+  const [submitting, setSubmitting] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/ops/tickets/${ticketId}/links`);
+      if (!res.ok) {
+        if (res.status === 404) setEnabled(false);
+        return;
+      }
+      const data = await res.json();
+      if (data?.success && Array.isArray(data.data?.items)) {
+        setItems(data.data.items as TicketLinkRow[]);
+      }
+    } catch {
+      // ignore
+    }
+  }, [ticketId]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  if (!enabled) return null;
+
+  async function handleAdd() {
+    const code = addCode.trim();
+    if (!code) return;
+    if (code.toUpperCase() === ticketCode.toUpperCase()) {
+      toast.error("No se puede enlazar el ticket consigo mismo");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/ops/tickets/${ticketId}/links`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetTicketCode: code, type: addType }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      toast.success("Vinculado");
+      setAddCode("");
+      setAdding(false);
+      load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "No se pudo vincular");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleRemove(linkId: string) {
+    try {
+      const res = await fetch(
+        `/api/ops/tickets/${ticketId}/links?linkId=${encodeURIComponent(linkId)}`,
+        { method: "DELETE" },
+      );
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      toast.success("Vínculo eliminado");
+      load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "No se pudo eliminar");
+    }
+  }
+
+  return (
+    <div className="rounded-xl border border-border bg-[#161b22] p-4 space-y-3">
+      <div className="flex items-center gap-2">
+        <ExternalLink className="h-4 w-4 text-muted-foreground" />
+        <h4 className="text-sm font-medium">Tickets relacionados</h4>
+        <span className="text-xs text-muted-foreground">({items.length})</span>
+        <button
+          type="button"
+          onClick={() => setAdding((v) => !v)}
+          className="ml-auto text-[12px] text-primary hover:underline"
+        >
+          {adding ? "Cancelar" : "Vincular"}
+        </button>
+      </div>
+
+      {adding && (
+        <div className="rounded-lg border border-border bg-background/40 p-2.5 space-y-2">
+          <div className="flex items-center gap-1.5">
+            <Input
+              value={addCode}
+              onChange={(e) => setAddCode(e.target.value)}
+              placeholder="TK-202604-0461"
+              maxLength={32}
+              className="h-9 text-[13px] font-mono"
+            />
+            <Select value={addType} onValueChange={setAddType}>
+              <SelectTrigger className="h-9 w-[140px] text-[13px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="relates_to">Relacionado</SelectItem>
+                <SelectItem value="duplicate_of">Duplicado de</SelectItem>
+                <SelectItem value="blocks">Bloquea a</SelectItem>
+                <SelectItem value="blocked_by">Bloqueado por</SelectItem>
+                <SelectItem value="parent_of">Padre de</SelectItem>
+                <SelectItem value="child_of">Hijo de</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button
+              size="sm"
+              className="h-9 text-xs"
+              disabled={!addCode.trim() || submitting}
+              onClick={handleAdd}
+            >
+              {submitting ? <Loader2 className="h-3 w-3 animate-spin" /> : "Vincular"}
+            </Button>
+          </div>
+          <p className="text-[12px] text-muted-foreground">
+            Ingresa el código del ticket destino (ej. TK-202604-0461). Para
+            relaciones direccionales (bloqueo / padre-hijo) se crea
+            automáticamente el espejo en el otro ticket.
+          </p>
+        </div>
+      )}
+
+      {items.length === 0 ? (
+        !adding && (
+          <p className="text-[13px] text-muted-foreground">
+            No hay tickets relacionados.
+          </p>
+        )
+      ) : (
+        <ul className="space-y-1">
+          {items.map((it) => {
+            const labels = LINK_TYPE_LABELS[it.type];
+            const label =
+              (labels && labels[it.direction]) ??
+              `${it.direction === "outgoing" ? "→" : "←"} ${it.type}`;
+            return (
+              <li
+                key={it.id}
+                className="group flex items-center gap-2 rounded-md border border-border/60 bg-background/40 px-2.5 py-1.5"
+              >
+                <span className="rounded-full bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
+                  {label}
+                </span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    router.push(`/ops/tickets/${it.ticket.id}`)
+                  }
+                  className="flex flex-1 items-center gap-1.5 truncate text-left hover:underline"
+                >
+                  <span className="font-mono text-[12px] text-muted-foreground">
+                    {it.ticket.code}
+                  </span>
+                  <span className="truncate text-[13px] font-medium">
+                    {it.ticket.title}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleRemove(it.id)}
+                  className="opacity-0 group-hover:opacity-100 rounded p-1 text-muted-foreground hover:bg-status-danger-soft hover:text-status-danger-fg transition-opacity"
+                  aria-label="Eliminar vínculo"
+                  title="Eliminar"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </button>
+              </li>
+            );
+          })}
+        </ul>
       )}
     </div>
   );
