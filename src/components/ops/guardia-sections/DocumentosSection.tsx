@@ -16,6 +16,7 @@ import {
   FolderPlus,
   ChevronDown,
   ChevronRight,
+  Globe,
   Pencil,
   Search,
   Trash2,
@@ -523,8 +524,10 @@ export default function DocumentosSection({
           return (
             <div
               key={slot.code}
+              data-doc-id={doc?.id ?? `slot-${slot.code}`}
               className={cn(
-                "flex flex-wrap items-center gap-2 px-3 py-2.5 transition-all duration-150",
+                "grid grid-cols-[auto_1fr] sm:flex sm:flex-wrap sm:items-center",
+                "gap-x-3 gap-y-2 px-3 py-2.5 transition-all duration-150",
                 !doc?.fileUrl && "bg-zinc-950/20",
                 isDragOver && "bg-primary/10 ring-1 ring-inset ring-primary/40 shadow-[inset_0_0_12px_rgba(59,130,246,0.1)]",
               )}
@@ -541,7 +544,6 @@ export default function DocumentosSection({
               onDragLeave={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                // Solo limpiar si salimos del contenedor (no de un hijo)
                 if (!e.currentTarget.contains(e.relatedTarget as Node)) {
                   setDragOverCode(null);
                 }
@@ -556,120 +558,138 @@ export default function DocumentosSection({
               }}
             >
               {/* Status icon */}
-              <div className="shrink-0">{status.icon}</div>
+              <div className="shrink-0 self-start sm:self-auto pt-0.5 sm:pt-0">{status.icon}</div>
 
-              {/* Name + normativa */}
-              <div className="min-w-0 flex-1">
-                <p className="text-sm text-foreground leading-tight">{slot.label}</p>
-                {slot.normativa && (
-                  <p className="text-[11px] text-muted-foreground/70 mt-0.5">{slot.normativa}</p>
-                )}
+              {/* Name + normativa + status (clic abre preview en móvil) */}
+              <div className="min-w-0 sm:flex-1">
+                <button
+                  type="button"
+                  className={cn(
+                    "w-full text-left disabled:cursor-default",
+                    doc?.fileUrl && "cursor-pointer hover:opacity-80 transition-opacity",
+                  )}
+                  disabled={!doc?.fileUrl}
+                  onClick={() => doc?.fileUrl && setPreviewDoc(doc)}
+                  title={doc?.fileUrl ? "Ver documento" : undefined}
+                >
+                  <p className="text-sm text-foreground leading-tight break-words">{slot.label}</p>
+                  {slot.normativa && (
+                    <p className="text-[11px] text-muted-foreground/70 mt-0.5 break-words">{slot.normativa}</p>
+                  )}
+                  {/* Status inline solo en móvil */}
+                  <span className={cn("sm:hidden text-[11px] mt-1 inline-block font-medium", status.color)}>
+                    {status.label}
+                  </span>
+                </button>
               </div>
 
-              {/* Status label */}
-              <span className={cn("text-[11px] shrink-0", status.color)}>
+              {/* Status label en desktop */}
+              <span className={cn("hidden sm:inline text-[11px] shrink-0 font-medium", status.color)}>
                 {status.label}
               </span>
 
-              {/* Expiry date controls */}
-              {doc?.fileUrl && hasExpiration && canManageDocs && (
-                <div className="flex items-center gap-1 shrink-0">
-                  <Input
-                    type="date"
-                    className="h-7 w-[128px] text-[11px] bg-background"
-                    title="Fecha de vencimiento"
-                    value={
-                      doc.id && expiryDraftByDocId[doc.id] !== undefined
-                        ? expiryDraftByDocId[doc.id]
-                        : toDateInput(doc.expiresAt)
-                    }
-                    onChange={(e) =>
-                      setExpiryDraftByDocId((p) => ({ ...p, [doc.id]: e.target.value }))
-                    }
-                  />
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    className="h-7 text-[10px] px-2"
-                    disabled={busy || savingDocId === doc.id}
-                    onClick={() => void handleSaveExpiry(doc)}
-                  >
-                    {savingDocId === doc.id ? "…" : "Guardar venc."}
-                  </Button>
-                </div>
-              )}
-
-              {doc?.fileUrl && hasExpiration && !canManageDocs && doc.expiresAt && (
-                <span className="text-[11px] text-muted-foreground shrink-0 hidden sm:inline">
-                  Vence: {formatExpiration(doc.expiresAt)}
-                </span>
-              )}
-
-              {/* Action buttons */}
-              {doc?.fileUrl && (
-                <div className="flex items-center gap-0.5 shrink-0">
-                  {canManageDocs && (
+              {/* Acciones — móvil: col-span-2 abajo; desktop: fluyen inline */}
+              <div className="col-span-2 flex flex-wrap items-center gap-1 sm:col-span-1 sm:contents">
+                {/* Expiry date controls */}
+                {doc?.fileUrl && hasExpiration && canManageDocs && (
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Input
+                      type="date"
+                      className="h-7 w-[128px] text-[11px] bg-background"
+                      title="Fecha de vencimiento"
+                      value={
+                        doc.id && expiryDraftByDocId[doc.id] !== undefined
+                          ? expiryDraftByDocId[doc.id]
+                          : toDateInput(doc.expiresAt)
+                      }
+                      onChange={(e) =>
+                        setExpiryDraftByDocId((p) => ({ ...p, [doc.id]: e.target.value }))
+                      }
+                    />
                     <Button
-                      variant="ghost"
-                      size="icon"
-                      className={cn("h-7 w-7", doc.portalVisible && "text-status-ok-fg")}
-                      title={doc.portalVisible ? "Visible en portal" : "Oculto del portal"}
-                      onClick={() => handleTogglePortalVisible(doc)}
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      className="h-7 text-[10px] px-2"
+                      disabled={busy || savingDocId === doc.id}
+                      onClick={() => void handleSaveExpiry(doc)}
                     >
-                      {doc.portalVisible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />}
+                      {savingDocId === doc.id ? "…" : "Guardar venc."}
                     </Button>
-                  )}
-                  <Button variant="ghost" size="icon" className="h-7 w-7" title="Ver" onClick={() => setPreviewDoc(doc)}>
-                    <Search className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
-                    <a href={`${doc.fileUrl}?download=true`} download={slot.label} title="Descargar">
-                      <Download className="h-3.5 w-3.5" />
-                    </a>
-                  </Button>
-                </div>
-              )}
+                  </div>
+                )}
 
-              {/* Upload / Replace / Delete buttons */}
-              {canManageDocs && (
-                <div className="flex items-center gap-1 shrink-0">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-[11px]"
-                    disabled={busy}
-                    onClick={() => {
-                      setPendingSlotCode(slot.code);
-                      queueMicrotask(() => slotFileInputRef.current?.click());
-                    }}
-                  >
-                    {busy ? "…" : doc?.fileUrl ? "Reemplazar" : "Subir"}
-                  </Button>
-                  {doc?.fileUrl && (
-                    <>
-                      <ConfirmDialog
-                        open={confirmDeleteId === doc.id}
-                        onOpenChange={(open) => setConfirmDeleteId(open ? doc.id : null)}
-                        title="Eliminar documento"
-                        description={`¿Eliminar "${slot.label}"?`}
-                        onConfirm={() => handleDeleteDocument(doc.id)}
-                      />
+                {doc?.fileUrl && hasExpiration && !canManageDocs && doc.expiresAt && (
+                  <span className="text-[11px] text-muted-foreground shrink-0 hidden sm:inline">
+                    Vence: {formatExpiration(doc.expiresAt)}
+                  </span>
+                )}
+
+                {/* Action buttons */}
+                {doc?.fileUrl && (
+                  <div className="flex items-center gap-0.5 shrink-0">
+                    {canManageDocs && (
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-7 w-7 text-destructive hover:text-destructive"
-                        title="Eliminar"
-                        onClick={() => setConfirmDeleteId(doc.id)}
-                        disabled={deletingDocId === doc.id}
+                        className={cn("h-7 w-7", doc.portalVisible && "text-status-ok-fg")}
+                        title={doc.portalVisible ? "Visible en portal" : "Oculto del portal"}
+                        onClick={() => handleTogglePortalVisible(doc)}
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
+                        {doc.portalVisible ? <Globe className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />}
                       </Button>
-                    </>
-                  )}
-                </div>
-              )}
+                    )}
+                    <Button variant="ghost" size="icon" className="h-7 w-7" title="Ver documento" onClick={() => setPreviewDoc(doc)}>
+                      <Eye className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
+                      <a href={`${doc.fileUrl}?download=true`} download={slot.label} title="Descargar">
+                        <Download className="h-3.5 w-3.5" />
+                      </a>
+                    </Button>
+                  </div>
+                )}
+
+                {/* Upload / Replace / Delete buttons */}
+                {canManageDocs && (
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-[11px]"
+                      disabled={busy}
+                      onClick={() => {
+                        setPendingSlotCode(slot.code);
+                        queueMicrotask(() => slotFileInputRef.current?.click());
+                      }}
+                    >
+                      {busy ? "…" : doc?.fileUrl ? "Reemplazar" : "Subir"}
+                    </Button>
+                    {doc?.fileUrl && (
+                      <>
+                        <ConfirmDialog
+                          open={confirmDeleteId === doc.id}
+                          onOpenChange={(open) => setConfirmDeleteId(open ? doc.id : null)}
+                          title="Eliminar documento"
+                          description={`¿Eliminar "${slot.label}"?`}
+                          onConfirm={() => handleDeleteDocument(doc.id)}
+                        />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-destructive hover:text-destructive"
+                          title="Eliminar"
+                          onClick={() => setConfirmDeleteId(doc.id)}
+                          disabled={deletingDocId === doc.id}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           );
         })}
