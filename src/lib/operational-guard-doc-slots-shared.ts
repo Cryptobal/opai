@@ -37,12 +37,21 @@ export const FALLBACK_GUARD_TIPOS: Array<{
   },
   {
     codigo: "credencial_os10",
-    nombre: "Credencial OS10 (Tarjeta)",
+    nombre: "Credencial OS-10 (Tarjeta)",
     normativa: "D.S. 93 Art.18 — Vigencia 3 años",
     obligatorio: true,
     tieneVencimiento: true,
     diasAlerta: 90,
     order: 21,
+  },
+  {
+    codigo: "certificado_os10",
+    nombre: "Certificado OS-10",
+    normativa: "D.S. 867 Art.5",
+    obligatorio: true,
+    tieneVencimiento: false,
+    diasAlerta: 0,
+    order: 22,
   },
   {
     codigo: "certificado_antecedentes",
@@ -51,7 +60,7 @@ export const FALLBACK_GUARD_TIPOS: Array<{
     obligatorio: true,
     tieneVencimiento: true,
     diasAlerta: 15,
-    order: 22,
+    order: 23,
   },
   {
     codigo: "examen_psicologico",
@@ -60,7 +69,7 @@ export const FALLBACK_GUARD_TIPOS: Array<{
     obligatorio: true,
     tieneVencimiento: true,
     diasAlerta: 30,
-    order: 23,
+    order: 24,
   },
   {
     codigo: "registro_capacitacion",
@@ -69,7 +78,7 @@ export const FALLBACK_GUARD_TIPOS: Array<{
     obligatorio: true,
     tieneVencimiento: true,
     diasAlerta: 30,
-    order: 24,
+    order: 25,
   },
   {
     codigo: "historial_penal",
@@ -78,7 +87,7 @@ export const FALLBACK_GUARD_TIPOS: Array<{
     obligatorio: true,
     tieneVencimiento: true,
     diasAlerta: 30,
-    order: 25,
+    order: 26,
   },
 ];
 
