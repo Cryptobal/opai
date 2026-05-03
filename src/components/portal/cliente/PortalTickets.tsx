@@ -283,7 +283,7 @@ export function PortalTickets({ session, selectedInstallation, isProspect }: Pro
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs text-zinc-200 truncate">{a.fileName}</p>
+                            <p className="text-xs text-zinc-200 break-all">{a.fileName}</p>
                             <p className="text-[10px] text-zinc-500">{formatBytes(a.fileSize)}</p>
                           </div>
                         </a>
@@ -309,7 +309,7 @@ export function PortalTickets({ session, selectedInstallation, isProspect }: Pro
                   >
                     <Paperclip className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs text-zinc-200 truncate">{a.fileName}</p>
+                      <p className="text-xs text-zinc-200 break-all">{a.fileName}</p>
                       <p className="text-[10px] text-zinc-500">{formatBytes(a.fileSize)}</p>
                     </div>
                     <button

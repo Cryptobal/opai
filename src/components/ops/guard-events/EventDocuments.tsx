@@ -299,12 +299,12 @@ export function EventDocuments({ event, onDocumentGenerated }: EventDocumentsPro
             return (
               <div
                 key={doc.id}
-                className="flex items-center gap-3 rounded-md border border-border bg-card p-3"
+                className="flex flex-wrap items-start gap-x-3 gap-y-2 rounded-md border border-border bg-card p-3"
               >
-                <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{doc.title}</p>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <FileText className="h-4 w-4 shrink-0 text-muted-foreground mt-0.5" />
+                <div className="min-w-0 w-full sm:flex-1 sm:w-auto">
+                  <p className="break-words text-sm font-medium">{doc.title}</p>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
                     {doc.templateName && <span>{doc.templateName}</span>}
                     <span>{new Date(doc.createdAt).toLocaleDateString("es-CL")}</span>
                   </div>

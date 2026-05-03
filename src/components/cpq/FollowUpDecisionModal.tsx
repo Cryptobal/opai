@@ -336,7 +336,7 @@ export function FollowUpDecisionModal({
             {recipientEmail !== undefined && (
               <div className="flex items-center gap-2 text-sm">
                 <span className="text-muted-foreground w-8 text-right shrink-0">Para</span>
-                <span className="font-medium text-foreground truncate">{recipientEmail || "—"}</span>
+                <span className="font-medium text-foreground break-all">{recipientEmail || "—"}</span>
               </div>
             )}
             {onCcChange !== undefined && (

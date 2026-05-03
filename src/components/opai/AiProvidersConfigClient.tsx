@@ -623,7 +623,7 @@ function ProviderConfigDialog({
               ) : (
                 <XCircle className="h-4 w-4 shrink-0" />
               )}
-              <span className="truncate">{testResult.msg}</span>
+              <span className="break-words">{testResult.msg}</span>
             </div>
           )}
 

@@ -126,7 +126,7 @@ export function ProtocolWizardPdf({
                   className="flex items-center gap-2 rounded-lg border border-border/60 bg-card/50 px-3 py-2 text-sm"
                 >
                   <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                  <span className="truncate text-foreground">{f.name}</span>
+                  <span className="break-all text-foreground min-w-0">{f.name}</span>
                   <span className="text-xs text-muted-foreground shrink-0 ml-auto">
                     {(f.size / 1024).toFixed(0)} KB
                   </span>

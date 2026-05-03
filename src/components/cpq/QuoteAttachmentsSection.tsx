@@ -213,9 +213,9 @@ export function QuoteAttachmentsSection({
                   key={a.id}
                   className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-3 text-sm"
                 >
-                  <FileText className="h-5 w-5 shrink-0 text-muted-foreground" />
+                  <FileText className="h-5 w-5 shrink-0 text-muted-foreground mt-0.5" />
                   <div className="min-w-0 flex-1">
-                    <p className="font-medium truncate" title={a.fileName}>
+                    <p className="font-medium break-all" title={a.fileName}>
                       {a.fileName}
                     </p>
                     <p className="text-xs text-muted-foreground">{formatSize(a.size)}</p>

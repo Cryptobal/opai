@@ -131,11 +131,11 @@ export function ClientAccessControlLive({ installationId }: Props) {
                 className="flex items-center justify-between rounded-lg border border-zinc-700 bg-zinc-900 p-3"
               >
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <Badge variant="outline" className="text-xs border-zinc-600">
                       {tc.label}
                     </Badge>
-                    <span className="text-sm font-medium text-zinc-200 truncate">
+                    <span className="text-sm font-medium text-zinc-200 break-words">
                       {r.fullName || r.vehiclePlate || "—"}
                     </span>
                   </div>

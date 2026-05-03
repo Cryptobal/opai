@@ -94,7 +94,7 @@ export function ConfigHomeClient({ sections, isAdmin }: ConfigHomeClientProps) {
                         <span className="text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-status-warn-soft text-status-warn-fg">Admin</span>
                       )}
                     </p>
-                    <p className="text-xs text-muted-foreground mt-0.5 truncate">{item.description}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 break-words">{item.description}</p>
                   </div>
                   <ChevronRight className="h-4 w-4 text-muted-foreground/30 shrink-0 group-hover:text-muted-foreground/60 group-hover:translate-x-0.5 transition-all" />
                 </Link>
@@ -130,7 +130,7 @@ export function ConfigHomeClient({ sections, isAdmin }: ConfigHomeClientProps) {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium leading-tight">{item.title}</p>
-                    <p className="text-[11px] text-muted-foreground truncate">{item.description}</p>
+                    <p className="text-[11px] text-muted-foreground break-words">{item.description}</p>
                   </div>
                   <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/25 shrink-0" />
                 </Link>

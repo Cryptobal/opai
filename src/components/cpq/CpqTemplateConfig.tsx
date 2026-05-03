@@ -235,11 +235,11 @@ export function CpqTemplateConfig() {
                 !t.active && "opacity-50",
               )}
             >
-              <div className="flex items-center gap-3 min-w-0">
-                <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+              <div className="flex items-start gap-3 min-w-0">
+                <FileText className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold truncate">{t.name}</span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-semibold break-words">{t.name}</span>
                     {t.isDefault && (
                       <span className="shrink-0 rounded bg-status-ok-soft px-1.5 py-0.5 text-xs font-medium text-status-ok-fg">
                         Default
@@ -251,7 +251,7 @@ export function CpqTemplateConfig() {
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-muted-foreground truncate">{t.description}</p>
+                  <p className="text-xs text-muted-foreground break-words">{t.description}</p>
                 </div>
               </div>
               <div className="flex items-center gap-1.5 shrink-0">

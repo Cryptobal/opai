@@ -264,8 +264,8 @@ export function PortalDesempeno({ session, selectedInstallation, isProspect }: P
 
                     {/* Name + badge + asistencia */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium truncate">{guard.nombre}</span>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm font-medium break-words">{guard.nombre}</span>
                         <NivelBadge nivel={guard.nivel} />
                       </div>
                       <p className="text-xs text-muted-foreground mt-0.5">

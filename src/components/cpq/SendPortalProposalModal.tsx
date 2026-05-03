@@ -402,7 +402,7 @@ export function SendPortalProposalModal({
                             className="rounded border-border"
                           />
                           <Paperclip className="h-4 w-4 text-muted-foreground shrink-0" />
-                          <span className="truncate">{att.fileName}</span>
+                          <span className="break-all">{att.fileName}</span>
                         </label>
                       ))}
                     </>

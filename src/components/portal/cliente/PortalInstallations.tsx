@@ -36,8 +36,8 @@ export function PortalInstallations({ session, onSelectInstallation, isProspect 
               <Building2 className="h-5 w-5 text-status-info-fg" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-white font-medium text-sm truncate">{inst.name}</p>
-              <p className="text-zinc-500 text-xs mt-0.5 truncate">ID: {inst.id}</p>
+              <p className="text-white font-medium text-sm break-words">{inst.name}</p>
+              <p className="text-zinc-500 text-xs mt-0.5 break-all">ID: {inst.id}</p>
             </div>
             <ChevronRight className="h-4 w-4 text-zinc-600 flex-shrink-0" />
           </button>

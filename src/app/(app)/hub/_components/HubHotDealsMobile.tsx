@@ -51,11 +51,11 @@ export function HubHotDealsMobile({ deals, sellerFirstName, tenantName }: Props)
           >
             <div className="p-3">
               {/* Line 1: rank + empresa + score */}
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className={`flex-none w-5 h-5 rounded-full text-xs font-bold flex items-center justify-center ${rank <= 3 ? 'bg-status-info-soft text-status-info-fg' : 'bg-primary/10 text-muted-foreground'}`}>
                   {rank}
                 </span>
-                <span className="text-base font-medium truncate flex-1">{deal.companyName}</span>
+                <span className="text-base font-medium break-words flex-1 min-w-0">{deal.companyName}</span>
                 <HeatIndicator score={deal.heatScore} />
               </div>
 

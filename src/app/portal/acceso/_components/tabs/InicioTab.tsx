@@ -197,9 +197,9 @@ export default function InicioTab({
                   key={record.id}
                   className="flex items-center gap-3 rounded-lg border border-[#F59E0B]/30 bg-[#F59E0B]/5 p-3"
                 >
-                  <AlertTriangle className="h-4 w-4 shrink-0 text-[#F59E0B]" />
+                  <AlertTriangle className="h-4 w-4 shrink-0 text-[#F59E0B] mt-0.5" />
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-[#F9FAFB] truncate">
+                    <p className="text-sm font-medium text-[#F9FAFB] break-words">
                       {record.fullName || record.vehiclePlate || "Sin identificar"}
                     </p>
                     <p className="text-sm text-[#9CA3AF]">
@@ -273,10 +273,10 @@ export default function InicioTab({
 
                     {/* Name and details */}
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-[#F9FAFB] truncate">
+                      <p className="text-sm font-medium text-[#F9FAFB] break-words">
                         {record.fullName || record.vehiclePlate || "Sin identificar"}
                       </p>
-                      <p className="text-sm text-[#9CA3AF] truncate">
+                      <p className="text-sm text-[#9CA3AF] break-words">
                         {record.company || tc.label}
                       </p>
                     </div>

@@ -568,7 +568,7 @@ export function AccountContractsSection({
               >
                 <div className="flex-1 min-w-0 w-full">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-medium text-sm truncate max-w-[16rem] sm:max-w-none">
+                    <span className="font-medium text-sm break-words">
                       {c.title}
                     </span>
                     <Badge
@@ -609,12 +609,12 @@ export function AccountContractsSection({
                     </span>
                     {renderExpirationPill(c)}
                     {c.deal && (
-                      <span className="text-xs text-muted-foreground truncate">
+                      <span className="text-xs text-muted-foreground break-words">
                         Negocio: {c.deal.title}
                       </span>
                     )}
                     {c.templateName && (
-                      <span className="text-xs text-muted-foreground truncate">
+                      <span className="text-xs text-muted-foreground break-words">
                         Plantilla: {c.templateName}
                       </span>
                     )}
@@ -729,7 +729,7 @@ export function AccountContractsSection({
             {uploadFile && (
               <div className="rounded-md bg-muted/50 px-3 py-2 text-xs flex items-center gap-2">
                 <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="truncate flex-1">{uploadFile.name}</span>
+                <span className="break-all flex-1 min-w-0">{uploadFile.name}</span>
                 <span className="text-muted-foreground tabular-nums">
                   {(uploadFile.size / 1024 / 1024).toFixed(2)} MB
                 </span>
@@ -919,7 +919,7 @@ export function AccountContractsSection({
             {editContract && (
               <div className="rounded-md bg-muted/50 px-3 py-2 text-xs flex items-center gap-2">
                 <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="truncate flex-1">{editContract.title}</span>
+                <span className="break-words flex-1 min-w-0">{editContract.title}</span>
               </div>
             )}
 

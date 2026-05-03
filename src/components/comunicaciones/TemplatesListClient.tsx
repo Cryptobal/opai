@@ -147,8 +147,8 @@ export default function TemplatesListClient() {
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
-                  <h3 className="text-sm font-semibold truncate">{t.nombre}</h3>
-                  <p className="text-xs text-muted-foreground truncate mt-0.5">
+                  <h3 className="text-sm font-semibold break-words">{t.nombre}</h3>
+                  <p className="text-xs text-muted-foreground break-words mt-0.5">
                     {t.asunto}
                   </p>
                 </div>

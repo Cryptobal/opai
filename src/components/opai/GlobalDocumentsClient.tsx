@@ -482,9 +482,9 @@ function EmpresaTab({
                               <Circle className="h-5 w-5 text-zinc-600" />
                             )}
                           </div>
-                          <div className="flex-1 min-w-0">
+                          <div className="min-w-0 w-full sm:flex-1 sm:w-auto">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <p className="text-sm font-medium truncate">{tipo.nombre}</p>
+                              <p className="text-sm font-medium break-words">{tipo.nombre}</p>
                               {!tipo.obligatorio && <Badge variant="outline" className="text-[10px] px-1.5 py-0">Opcional</Badge>}
                               {tipo.useAsAiKnowledge && (
                                 <Badge
@@ -495,11 +495,11 @@ function EmpresaTab({
                                 </Badge>
                               )}
                             </div>
-                            {tipo.normativa && <p className="text-xs text-muted-foreground truncate">{tipo.normativa}</p>}
+                            {tipo.normativa && <p className="text-xs text-muted-foreground break-words">{tipo.normativa}</p>}
                             {doc && (
                               <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground flex-wrap">
                                 <FileText className="h-3 w-3" />
-                                <span className="truncate">{doc.fileName}</span>
+                                <span className="break-all">{doc.fileName}</span>
                                 <span>·</span>
                                 <span>{formatFileSize(doc.fileSize)}</span>
                                 {doc.expiresAt && (
@@ -811,13 +811,13 @@ function InstalacionTab({
         <div className="space-y-2">
           {tipos.map((tipo) => (
             <Card key={tipo.id}>
-              <CardContent className="flex items-center gap-3 py-3 px-4">
+              <CardContent className="flex flex-wrap items-center gap-x-3 gap-y-2 py-3 px-4">
                 <div className="shrink-0">
                   <Building2 className="h-5 w-5 text-zinc-500" />
                 </div>
-                <div className="flex-1 min-w-0">
+                <div className="min-w-0 w-full sm:flex-1 sm:w-auto">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <p className="text-sm font-medium truncate">{tipo.nombre}</p>
+                    <p className="text-sm font-medium break-words">{tipo.nombre}</p>
                     {!tipo.obligatorio && <Badge variant="outline" className="text-[10px] px-1.5 py-0">Opcional</Badge>}
                     {tipo.tieneVencimiento && <Badge variant="outline" className="text-[10px] px-1.5 py-0">Con vencimiento</Badge>}
                     {tipo.useAsAiKnowledge && (
@@ -829,7 +829,7 @@ function InstalacionTab({
                       </Badge>
                     )}
                   </div>
-                  {tipo.normativa && <p className="text-xs text-muted-foreground truncate">{tipo.normativa}</p>}
+                  {tipo.normativa && <p className="text-xs text-muted-foreground break-words">{tipo.normativa}</p>}
                 </div>
                 <VisitaCheckbox tipo={tipo} onRefresh={onRefresh} />
                 <AiKnowledgeToggle tipo={tipo} onRefresh={onRefresh} />
@@ -1104,7 +1104,7 @@ function UploadDocModal({
             {uploadFile ? (
               <div className="flex items-center gap-2 justify-center">
                 <FileText className="h-5 w-5 text-status-danger-fg" />
-                <span className="text-sm font-medium truncate">{uploadFile.name}</span>
+                <span className="text-sm font-medium break-all">{uploadFile.name}</span>
                 <Badge variant="secondary">{formatFileSize(uploadFile.size)}</Badge>
               </div>
             ) : (

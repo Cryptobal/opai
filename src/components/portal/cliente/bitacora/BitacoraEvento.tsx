@@ -87,7 +87,7 @@ export function BitacoraEventoItem({ ev }: { ev: TimelineEvent }) {
           {ev.guardiaName && (
             <>
               <span>·</span>
-              <span className="truncate">{ev.guardiaName}</span>
+              <span className="break-words">{ev.guardiaName}</span>
             </>
           )}
         </div>

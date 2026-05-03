@@ -189,10 +189,10 @@ export function CpqCostCategoryConfig() {
                     c.active ? "border-border/40" : "border-border/20 opacity-50",
                   )}
                 >
-                  <div className="flex items-center gap-2 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2 min-w-0">
                     <span className="text-base shrink-0">{ICON_EMOJI[c.icon ?? "box"] ?? "📦"}</span>
-                    <span className="text-sm font-medium truncate">{c.name}</span>
-                    <span className="text-xs text-muted-foreground">{c.slug}</span>
+                    <span className="text-sm font-medium break-words">{c.name}</span>
+                    <span className="text-xs text-muted-foreground break-all">{c.slug}</span>
                   </div>
                   <Button
                     size="sm"

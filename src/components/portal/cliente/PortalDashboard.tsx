@@ -566,7 +566,7 @@ export function PortalDashboard({ selectedInstallation, onNavigate }: Props) {
                   <Icon className={cn("h-4 w-4 shrink-0 mt-0.5", colorCls)} />
                   <div className="min-w-0">
                     <p className="text-sm">{a.text}</p>
-                    {a.detail && <p className="text-[10px] text-zinc-400 truncate">{a.detail}</p>}
+                    {a.detail && <p className="text-[10px] text-zinc-400 break-words">{a.detail}</p>}
                   </div>
                 </div>
               );

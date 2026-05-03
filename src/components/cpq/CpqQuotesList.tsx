@@ -108,7 +108,7 @@ export function CpqQuotesList({ quotes, loading, onRefresh }: CpqQuotesListProps
             >
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-sm font-semibold truncate">
+                  <p className="text-sm font-semibold break-words">
                     {quote.code}
                     {quote.name ? ` — ${quote.name}` : ""}
                   </p>
@@ -122,7 +122,7 @@ export function CpqQuotesList({ quotes, loading, onRefresh }: CpqQuotesListProps
                     </Badge>
                   ) : null}
                 </div>
-                <p className="text-xs sm:text-sm text-muted-foreground truncate">
+                <p className="text-xs sm:text-sm text-muted-foreground break-words">
                   {quote.clientName || "Cliente sin nombre"} · {quote.totalPositions} puestos ·{" "}
                   {quote.totalGuards} guardias
                 </p>

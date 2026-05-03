@@ -29,7 +29,7 @@ export function TabExamenes({ examenes }: Props) {
           <div className="flex items-start gap-3">
             <Icono estado={e.estado} />
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">{e.examenTitulo}</p>
+              <p className="text-sm font-medium break-words">{e.examenTitulo}</p>
               <div className="flex items-center gap-2 text-[11px] text-zinc-500 mt-1">
                 {e.completedAt && (
                   <span>

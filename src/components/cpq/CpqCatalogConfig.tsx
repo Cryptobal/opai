@@ -552,14 +552,14 @@ export function CpqCatalogConfig({ showHeader = true }: { showHeader?: boolean }
                           }
                           aria-expanded={!isCollapsed}
                         >
-                          <div className="min-w-0 flex items-center gap-2">
+                          <div className="min-w-0 flex flex-wrap items-start gap-2">
                             {item.isDefault && (
                               <span className="shrink-0 rounded bg-status-ok-soft px-1.5 py-0.5 text-xs font-medium text-status-ok-fg">
                                 Default
                               </span>
                             )}
-                            <div>
-                              <p className="text-sm font-semibold truncate">
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold break-words">
                                 {item.name || "Sin nombre"}
                               </p>
                               <p className="text-xs text-muted-foreground">

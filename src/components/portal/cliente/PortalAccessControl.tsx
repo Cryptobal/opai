@@ -59,7 +59,7 @@ export function PortalAccessControl({ session, selectedInstallation, isProspect 
               <div key={i} className="flex items-center gap-3 px-4 py-3">
                 <span className="text-xs text-zinc-500 w-12 shrink-0">{entry.time}</span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-zinc-200 truncate">{entry.name}</p>
+                  <p className="text-sm text-zinc-200 break-words">{entry.name}</p>
                   <p className="text-xs text-zinc-500">{entry.type} · {entry.method}</p>
                 </div>
                 <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${

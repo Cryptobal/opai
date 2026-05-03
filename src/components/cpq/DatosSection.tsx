@@ -530,8 +530,8 @@ export function DatosSection({
 
       {crmContext.installationId && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <MapPin className="h-3 w-3 shrink-0" />
-          <span className="truncate">{selectedInstallationAddress || "Sin dirección registrada"}</span>
+          <MapPin className="h-3 w-3 shrink-0 mt-0.5" />
+          <span className="break-words">{selectedInstallationAddress || "Sin dirección registrada"}</span>
           {selectedInstallationMapsUrl && (
             <button
               type="button"

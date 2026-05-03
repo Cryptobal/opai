@@ -108,7 +108,7 @@ export function PortalProtocolosLista({ selectedInstallation }: Props) {
               )}
               <BookOpen className="h-4 w-4 text-status-info-fg shrink-0" />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{protocol.title}</p>
+                <p className="text-sm font-medium break-words">{protocol.title}</p>
                 <div className="flex items-center gap-2 mt-0.5">
                   <span className="text-[10px] text-zinc-500">{protocol.version}</span>
                   <span className="text-[10px] text-zinc-600">·</span>

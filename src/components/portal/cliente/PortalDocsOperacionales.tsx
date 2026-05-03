@@ -285,10 +285,10 @@ function PortalSection({
 
 function DocRow({ doc }: { doc: DocPortal }) {
   return (
-    <div className="flex items-center gap-3 py-2">
+    <div className="flex items-start gap-3 py-2">
       <StatusIcon status={doc.status} />
       <div className="flex-1 min-w-0">
-        <p className="text-sm truncate">{doc.tipo}</p>
+        <p className="text-sm break-words">{doc.tipo}</p>
         {doc.expiresAt && (
           <p className="text-xs text-zinc-500">
             Vence: {new Intl.DateTimeFormat("es-CL", { timeZone: "UTC" }).format(new Date(doc.expiresAt))}

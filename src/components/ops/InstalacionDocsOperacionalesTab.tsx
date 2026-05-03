@@ -427,7 +427,7 @@ export function InstalacionDocsOperacionalesTab({ installationId }: Props) {
               {uploadFile ? (
                 <div className="flex items-center gap-2 justify-center">
                   <FileText className="h-5 w-5 text-status-danger-fg" />
-                  <span className="text-sm font-medium truncate">{uploadFile.name}</span>
+                  <span className="text-sm font-medium break-all">{uploadFile.name}</span>
                 </div>
               ) : (
                 <div className="flex flex-col items-center gap-1">
@@ -538,11 +538,11 @@ function TipoDocRow({
   const hallazgoAbierto = hallazgo && (hallazgo.status === "open" || hallazgo.status === "in_progress");
 
   return (
-    <div className="flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-muted/20 transition-colors">
+    <div className="flex flex-wrap items-start gap-x-3 gap-y-2 py-2 px-3 rounded-lg hover:bg-muted/20 transition-colors">
       <StatusIcon status={digitalStatus} />
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <p className={cn("text-sm font-medium truncate", !doc && "text-zinc-400")}>{tipo.nombre}</p>
+      <div className="min-w-0 w-full sm:flex-1 sm:w-auto">
+        <div className="flex items-center gap-2 flex-wrap">
+          <p className={cn("text-sm font-medium break-words", !doc && "text-zinc-400")}>{tipo.nombre}</p>
           {tipo.obligatorio && (
             <span className="text-[10px] text-status-warn-fg shrink-0">obligatorio</span>
           )}
@@ -552,10 +552,10 @@ function TipoDocRow({
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
           {doc ? (
             <>
-              <span className="truncate">{doc.fileName}</span>
+              <span className="break-all">{doc.fileName}</span>
               {doc.expiresAt && (
                 <>
                   <span>·</span>

@@ -274,10 +274,10 @@ function FolderFileTree({ folders, files }: { folders: FolderItem[]; files: File
 
 function FileRow({ file }: { file: FileItem }) {
   return (
-    <div className="flex items-center gap-3 px-3 py-2.5">
-      <FileText className="h-7 w-7 text-status-info-fg/60 shrink-0" />
+    <div className="flex items-start gap-3 px-3 py-2.5">
+      <FileText className="h-7 w-7 text-status-info-fg/60 shrink-0 mt-0.5" />
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium truncate">{file.fileName}</p>
+        <p className="text-sm font-medium break-all">{file.fileName}</p>
         <p className="text-xs text-zinc-500">{formatBytes(file.size)}</p>
       </div>
       {file.publicUrl && (

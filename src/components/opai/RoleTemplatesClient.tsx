@@ -819,7 +819,7 @@ function RoleSummaryTab({
                   >
                     <Icon className="h-3 w-3" />
                   </span>
-                  <span className="text-sm font-medium flex-1 truncate">{mod.label}</span>
+                  <span className="text-sm font-medium flex-1 truncate" title={mod.label}>{mod.label}</span>
                   <span className={cn("text-[10px] font-semibold uppercase", v.text)}>
                     {v.label}
                   </span>

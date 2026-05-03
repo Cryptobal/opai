@@ -61,7 +61,7 @@ export function ProtocolSignModal({
         <div className="flex items-start justify-between gap-3">
           <div>
             <h3 className="text-lg font-semibold text-white">Firmar protocolo</h3>
-            <p className="text-xs text-zinc-400 mt-0.5 truncate">
+            <p className="text-xs text-zinc-400 mt-0.5 break-words">
               {protocolTitle} · {protocolVersion}
             </p>
           </div>

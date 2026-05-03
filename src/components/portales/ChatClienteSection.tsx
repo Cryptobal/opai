@@ -160,7 +160,7 @@ export function ChatClienteSection({ session, isProspect }: ChatClienteSectionPr
     >
       <span className="text-[#2dd4bf] text-base font-bold shrink-0">#</span>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-zinc-100 truncate">{ch.name}</p>
+        <p className="text-sm font-medium text-zinc-100 break-words">{ch.name}</p>
         {ch.lastMessagePreview && (
           <p className="text-[11px] text-zinc-500 truncate">{ch.lastMessagePreview}</p>
         )}
@@ -221,7 +221,7 @@ export function ChatClienteSection({ session, isProspect }: ChatClienteSectionPr
                   <Lock className="h-2.5 w-2.5 text-zinc-500 absolute -bottom-0.5 -right-0.5" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-zinc-400 truncate">{lc.name}</p>
+                  <p className="text-sm font-medium text-zinc-400 break-words">{lc.name}</p>
                   <p className="text-[11px] text-zinc-600 truncate">{lc.desc}</p>
                 </div>
                 <Lock className="h-3.5 w-3.5 text-zinc-600 shrink-0" />

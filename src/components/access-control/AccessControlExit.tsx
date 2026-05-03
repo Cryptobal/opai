@@ -135,11 +135,11 @@ export function AccessControlExit({ installationId, guardId, onClose }: Props) {
                 >
                   <div className="flex items-start justify-between">
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <Badge variant="outline" className="text-xs border-zinc-600">
                           {tc.label}
                         </Badge>
-                        <span className="text-sm font-medium text-zinc-200 truncate">
+                        <span className="text-sm font-medium text-zinc-200 break-words">
                           {record.fullName || record.vehiclePlate || "Sin identificar"}
                         </span>
                       </div>

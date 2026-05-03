@@ -263,11 +263,11 @@ export function ProtocolDocumentsSubTab({ installationId }: Props) {
                     <FileText className="h-4 w-4" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">
+                    <p className="text-sm font-medium break-words">
                       {doc.tipo.nombre}
                     </p>
                     <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
-                      <span className="truncate">{doc.fileName}</span>
+                      <span className="break-all">{doc.fileName}</span>
                       <span>·</span>
                       <span>{formatFileSize(doc.fileSize)}</span>
                       <span>·</span>
@@ -322,7 +322,7 @@ export function ProtocolDocumentsSubTab({ installationId }: Props) {
                       className="flex items-center gap-2 rounded-lg border border-status-warn-border bg-background/40 px-3 py-2 text-xs"
                     >
                       <FileText className="h-3.5 w-3.5 text-status-warn-fg shrink-0" />
-                      <span className="truncate text-foreground">
+                      <span className="break-all text-foreground">
                         {d.fileName}
                       </span>
                       <span className="ml-auto text-muted-foreground shrink-0">
@@ -429,7 +429,7 @@ export function ProtocolDocumentsSubTab({ installationId }: Props) {
                     <FileText className="h-4 w-4" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">
+                    <p className="text-sm font-medium break-all">
                       {doc.fileName}
                     </p>
                     <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">

@@ -152,8 +152,8 @@ export function GuardSelectorHeader({
                       : "text-zinc-200"
                   }`}
                 >
-                  <span className="flex items-center justify-between gap-2">
-                    <span className="truncate">{g.name}</span>
+                  <span className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="break-words">{g.name}</span>
                     {g.isTurnoExtra && (
                       <span className="shrink-0 rounded-full bg-status-warn-soft px-1.5 py-0.5 text-[10px] font-medium text-status-warn-fg">
                         turno extra
