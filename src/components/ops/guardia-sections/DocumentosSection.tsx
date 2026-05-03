@@ -783,13 +783,14 @@ export default function DocumentosSection({
 
       {/* Documents in folders (extras not in the unified checklist) */}
       {(() => {
-        // Docs claimed by unified checklist
-        const claimedIds = new Set<string>();
+        // Tipos cubiertos por el checklist unificado: cualquier doc de estos tipos
+        // pertenece a un slot y NO debe duplicarse en "Otros documentos",
+        // aunque existan varios registros del mismo tipo en DB.
+        const claimedTypes = new Set<string>();
         for (const slot of unifiedSlots) {
-          const d = pickDocForSlot(documents, slot.personaTypes);
-          if (d) claimedIds.add(d.id);
+          for (const t of slot.personaTypes) claimedTypes.add(t);
         }
-        const extraDocs = documents.filter((d) => !claimedIds.has(d.id));
+        const extraDocs = documents.filter((d) => !claimedTypes.has(d.type));
         if (extraDocs.length === 0 && folders.length === 0) return null;
 
         const docsByFolder = extraDocs.reduce((acc, d) => {
