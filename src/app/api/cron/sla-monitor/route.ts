@@ -19,6 +19,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { TICKET_TEAM_CONFIG, type TicketPriority } from "@/lib/tickets";
 import { notify } from "@/lib/notifications/notify";
+import { resolveTeamAdminIds } from "@/lib/notifications/resolve-team-admins";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -39,6 +40,19 @@ const ESCALATION_CADENCE_MS: Record<string, number> = {
 
 /** Batch threshold: if more than this many breached per team, send one batch notification */
 const BATCH_THRESHOLD = 5;
+
+/**
+ * Resuelve los destinatarios de una notificación de SLA para un ticket.
+ * Prioriza al responsable individual; si no hay, cae al equipo asignado.
+ * Retorna [] si no hay nadie a quien notificar (caller debe manejar el caso).
+ */
+async function resolveSlaTargets(
+  tenantId: string,
+  ticket: { assignedTo: string | null; assignedTeam: string },
+): Promise<string[]> {
+  if (ticket.assignedTo) return [ticket.assignedTo];
+  return resolveTeamAdminIds(tenantId, ticket.assignedTeam);
+}
 
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get("authorization");
@@ -99,23 +113,36 @@ export async function GET(request: NextRequest) {
 
         if (tickets.length > BATCH_THRESHOLD) {
           // Batch — bell only. Email is consolidated in the daily digest.
-          notifPromises.push(
-            notify({
-              tenantId,
-              type: "ticket_sla_breached_batch",
-              title: `${tickets.length} tickets con SLA vencido en ${teamLabel}`,
-              body: `Hay ${tickets.length} tickets con SLA vencido en ${teamLabel}`,
-              link: `/opai/ops/tickets?status=overdue&team=${assignedTeam}`,
-              data: { count: tickets.length, assignedTeam, ticketIds: tickets.map((t) => t.id) },
-              forceChannels: { bell: true, email: false, push: false },
-            }),
-          );
+          // Targeted al equipo asignado (no broadcast a todos los admins).
+          const teamTargets = await resolveTeamAdminIds(tenantId, assignedTeam);
+          if (teamTargets.length > 0) {
+            notifPromises.push(
+              notify({
+                tenantId,
+                type: "ticket_sla_breached_batch",
+                targetIds: teamTargets,
+                targetType: "ADMIN",
+                title: `${tickets.length} tickets con SLA vencido en ${teamLabel}`,
+                body: `Hay ${tickets.length} tickets con SLA vencido en ${teamLabel}`,
+                link: `/opai/ops/tickets?status=overdue&team=${assignedTeam}`,
+                data: { count: tickets.length, assignedTeam, ticketIds: tickets.map((t) => t.id) },
+                forceChannels: { bell: true, email: false, push: false },
+              }),
+            );
+          }
         } else {
           for (const t of tickets) {
+            const targets = await resolveSlaTargets(t.tenantId, {
+              assignedTo: t.assignedTo,
+              assignedTeam: t.assignedTeam,
+            });
+            if (targets.length === 0) continue; // sin responsables → no notificar
             notifPromises.push(
               notify({
                 tenantId: t.tenantId,
                 type: "ticket_sla_breached",
+                targetIds: targets,
+                targetType: "ADMIN",
                 title: `SLA vencido: ${t.code}`,
                 body: `El ticket "${t.title}" (${t.priority.toUpperCase()}) ha superado su plazo de SLA. Equipo: ${teamLabel}`,
                 link: `/opai/ops/tickets/${t.id}`,
@@ -145,6 +172,7 @@ export async function GET(request: NextRequest) {
         title: true,
         priority: true,
         assignedTeam: true,
+        assignedTo: true,
         lastSlaNotifiedAt: true,
         snoozedUntil: true,
       },
@@ -180,23 +208,36 @@ export async function GET(request: NextRequest) {
         const teamLabel = TICKET_TEAM_CONFIG[assignedTeam as keyof typeof TICKET_TEAM_CONFIG]?.label ?? assignedTeam;
 
         if (tickets.length > BATCH_THRESHOLD) {
-          renotifPromises.push(
-            notify({
-              tenantId,
-              type: "ticket_sla_breached_batch",
-              title: `${tickets.length} tickets con SLA vencido en ${teamLabel}`,
-              body: `Hay ${tickets.length} tickets con SLA vencido en ${teamLabel}`,
-              link: `/opai/ops/tickets?status=overdue&team=${assignedTeam}`,
-              data: { count: tickets.length, assignedTeam, ticketIds: tickets.map((t) => t.id) },
-              forceChannels: { bell: true, email: false, push: false },
-            }),
-          );
+          // Targeted al equipo asignado (no broadcast a todos los admins).
+          const teamTargets = await resolveTeamAdminIds(tenantId, assignedTeam);
+          if (teamTargets.length > 0) {
+            renotifPromises.push(
+              notify({
+                tenantId,
+                type: "ticket_sla_breached_batch",
+                targetIds: teamTargets,
+                targetType: "ADMIN",
+                title: `${tickets.length} tickets con SLA vencido en ${teamLabel}`,
+                body: `Hay ${tickets.length} tickets con SLA vencido en ${teamLabel}`,
+                link: `/opai/ops/tickets?status=overdue&team=${assignedTeam}`,
+                data: { count: tickets.length, assignedTeam, ticketIds: tickets.map((t) => t.id) },
+                forceChannels: { bell: true, email: false, push: false },
+              }),
+            );
+          }
         } else {
           for (const t of tickets) {
+            const targets = await resolveSlaTargets(t.tenantId, {
+              assignedTo: t.assignedTo,
+              assignedTeam: t.assignedTeam,
+            });
+            if (targets.length === 0) continue; // sin responsables → no notificar
             renotifPromises.push(
               notify({
                 tenantId: t.tenantId,
                 type: "ticket_sla_breached",
+                targetIds: targets,
+                targetType: "ADMIN",
                 title: `SLA vencido (recordatorio): ${t.code}`,
                 body: `El ticket "${t.title}" (${t.priority.toUpperCase()}) sigue con SLA vencido. Equipo: ${teamLabel}`,
                 link: `/opai/ops/tickets/${t.id}`,
@@ -227,6 +268,7 @@ export async function GET(request: NextRequest) {
         title: true,
         priority: true,
         assignedTeam: true,
+        assignedTo: true,
         slaDueAt: true,
         snoozedUntil: true,
       },
@@ -259,13 +301,20 @@ export async function GET(request: NextRequest) {
 
       if (newApproaching.length > 0) {
         await Promise.allSettled(
-          newApproaching.map((t) => {
+          newApproaching.map(async (t) => {
             const minsLeft = Math.round(
               (new Date(t.slaDueAt!).getTime() - now.getTime()) / (1000 * 60),
             );
+            const targets = await resolveSlaTargets(t.tenantId, {
+              assignedTo: t.assignedTo,
+              assignedTeam: t.assignedTeam,
+            });
+            if (targets.length === 0) return null;
             return notify({
               tenantId: t.tenantId,
               type: "ticket_sla_approaching",
+              targetIds: targets,
+              targetType: "ADMIN",
               title: `SLA próximo a vencer: ${t.code}`,
               body: `El ticket "${t.title}" vence en ~${minsLeft} minutos`,
               link: `/opai/ops/tickets/${t.id}`,
