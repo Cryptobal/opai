@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import {
   AlertTriangle,
+  Bookmark,
   Check,
   ChevronRight,
   Clock,
@@ -15,11 +16,18 @@ import {
   Shield,
   ShieldCheck,
   SlidersHorizontal,
+  Star,
   Ticket as TicketIcon,
+  Trash2,
   User,
   UserCircle,
   X,
 } from "lucide-react";
+import {
+  useTicketSavedViews,
+  viewStatesEqual,
+  type TicketViewState,
+} from "./useTicketSavedViews";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -298,6 +306,48 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
     });
   }
 
+  // ── Vistas guardadas (localStorage) ──
+  const {
+    views: savedViews,
+    save: saveView,
+    remove: removeView,
+    rename: renameView,
+  } = useTicketSavedViews();
+  const [savedViewsOpen, setSavedViewsOpen] = useState(false);
+  const [savedViewName, setSavedViewName] = useState("");
+
+  const currentViewState: TicketViewState = useMemo(
+    () => ({
+      filterStatus,
+      filterPriorities: Array.from(filterPriorities),
+      originTab,
+      filterTypeId,
+      assignedFilter,
+      slaOnly,
+      search: debouncedSearch,
+    }),
+    [
+      filterStatus,
+      filterPriorities,
+      originTab,
+      filterTypeId,
+      assignedFilter,
+      slaOnly,
+      debouncedSearch,
+    ],
+  );
+
+  function applyViewState(state: TicketViewState) {
+    setFilterStatus(state.filterStatus);
+    setFilterPriorities(new Set(state.filterPriorities));
+    setOriginTab(state.originTab);
+    setFilterTypeId(state.filterTypeId);
+    setAssignedFilter(state.assignedFilter);
+    setSlaOnly(state.slaOnly);
+    setSearchQuery(state.search ?? "");
+    setInstallationFilterId(null);
+  }
+
   // Apply a quick-view preset (one-click filter combo).
   function applyQuickView(key: QuickViewKey) {
     // Baseline: active only, no priorities, any assignee, no sla flag, no origin/type filter.
@@ -536,6 +586,133 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
             </button>
           );
         })}
+
+        {/* Vistas guardadas (localStorage) — al final de los quick views */}
+        <Popover open={savedViewsOpen} onOpenChange={setSavedViewsOpen}>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              className={`shrink-0 inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                savedViews.length > 0 &&
+                savedViews.some((v) => viewStatesEqual(v.state, currentViewState))
+                  ? "bg-primary/10 text-primary border-primary/30"
+                  : "border-transparent bg-muted/60 text-muted-foreground hover:text-foreground"
+              }`}
+              title="Vistas guardadas"
+            >
+              <Bookmark className="h-3.5 w-3.5" />
+              <span>Mis vistas</span>
+              {savedViews.length > 0 && (
+                <span className="opacity-80">({savedViews.length})</span>
+              )}
+            </button>
+          </PopoverTrigger>
+          <PopoverContent
+            align="start"
+            className="w-72 p-0"
+            sideOffset={6}
+          >
+            <div className="border-b border-border p-3 space-y-2">
+              <Label className="text-xs">Guardar vista actual</Label>
+              <div className="flex items-center gap-1.5">
+                <Input
+                  value={savedViewName}
+                  onChange={(e) => setSavedViewName(e.target.value)}
+                  placeholder="Ej: Mis P1 críticos"
+                  className="h-9 text-[13px]"
+                  maxLength={60}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && savedViewName.trim()) {
+                      e.preventDefault();
+                      saveView(savedViewName.trim(), currentViewState);
+                      setSavedViewName("");
+                      toast.success("Vista guardada");
+                    }
+                  }}
+                />
+                <Button
+                  size="sm"
+                  className="h-9 text-xs"
+                  disabled={!savedViewName.trim()}
+                  onClick={() => {
+                    if (!savedViewName.trim()) return;
+                    saveView(savedViewName.trim(), currentViewState);
+                    setSavedViewName("");
+                    toast.success("Vista guardada");
+                  }}
+                >
+                  <Star className="mr-1 h-3 w-3" />
+                  Guardar
+                </Button>
+              </div>
+            </div>
+
+            <div className="max-h-72 overflow-y-auto p-1">
+              {savedViews.length === 0 ? (
+                <p className="px-3 py-3 text-center text-xs text-muted-foreground">
+                  Sin vistas guardadas. Combina filtros y guarda esta vista para reutilizarla.
+                </p>
+              ) : (
+                <ul className="space-y-0.5">
+                  {savedViews.map((v) => {
+                    const isActive = viewStatesEqual(v.state, currentViewState);
+                    return (
+                      <li
+                        key={v.id}
+                        className={`flex items-center gap-1 rounded-md px-1.5 py-1 ${
+                          isActive ? "bg-primary/10" : "hover:bg-accent"
+                        }`}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => {
+                            applyViewState(v.state);
+                            setSavedViewsOpen(false);
+                          }}
+                          className="flex flex-1 items-center gap-2 text-left text-[13px]"
+                          title={`Aplicar vista: ${v.name}`}
+                        >
+                          <Star
+                            className={`h-3 w-3 ${
+                              isActive
+                                ? "text-primary"
+                                : "text-muted-foreground"
+                            }`}
+                          />
+                          <span className="truncate">{v.name}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const next = window.prompt(
+                              "Renombrar vista:",
+                              v.name,
+                            );
+                            if (next && next.trim()) renameView(v.id, next);
+                          }}
+                          className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                          aria-label="Renombrar vista"
+                          title="Renombrar"
+                        >
+                          <FileText className="h-3 w-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeView(v.id)}
+                          className="rounded p-1 text-muted-foreground hover:bg-status-danger-soft hover:text-status-danger-fg"
+                          aria-label="Eliminar vista"
+                          title="Eliminar"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          </PopoverContent>
+        </Popover>
       </div>
 
       {/* Toolbar: Filtros popover + view mode */}
