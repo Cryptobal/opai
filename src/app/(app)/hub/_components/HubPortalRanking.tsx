@@ -24,7 +24,7 @@ export function HubPortalRanking({ users }: Props) {
       <div className="px-3.5 py-2.5 border-b border-border/50 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <Users className="h-3.5 w-3.5 text-status-info-fg shrink-0" />
-          <span className="text-sm font-bold truncate">Top clientes en portal</span>
+          <span className="text-sm font-bold break-words">Top clientes en portal</span>
           <span className="text-xs text-status-info-fg font-bold tabular-nums bg-status-info-soft rounded px-1.5 py-0.5">
             {users.length}
           </span>
@@ -47,15 +47,15 @@ export function HubPortalRanking({ users }: Props) {
               {i + 1}
             </span>
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5">
-                <span className="text-sm font-medium truncate">{user.accountName}</span>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-sm font-medium break-words">{user.accountName}</span>
                 {user.isProspect && (
                   <Badge variant="outline" className="text-xs h-4 px-1 border-status-warn-border text-status-warn-fg shrink-0">
                     Prospecto
                   </Badge>
                 )}
               </div>
-              <span className="text-xs text-muted-foreground truncate block">
+              <span className="text-xs text-muted-foreground break-words block">
                 {user.contactName}
                 {user.lastAccessAt && ` · ${timeAgo(user.lastAccessAt)}`}
               </span>

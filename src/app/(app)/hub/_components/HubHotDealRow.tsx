@@ -44,11 +44,11 @@ export function HubHotDealRow({ deal, rank }: Props) {
           {rank}
         </span>
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <p className="text-base font-medium truncate">{deal.companyName}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-base font-medium break-words">{deal.companyName}</p>
             <HeatIndicator score={deal.heatScore} />
           </div>
-          <p className="text-sm text-muted-foreground truncate">{deal.dealTitle}</p>
+          <p className="text-sm text-muted-foreground break-words">{deal.dealTitle}</p>
           <div className="flex items-center gap-2 mt-0.5 flex-wrap">
             <Badge
               variant="outline"
@@ -148,12 +148,12 @@ export function HubHotDealTableRow({ deal, rank }: Props) {
         </span>
       </td>
       <td className="px-2 py-2">
-        <p className="text-sm font-medium truncate max-w-[200px]">{deal.companyName}</p>
-        <p className="text-xs text-muted-foreground truncate max-w-[200px]">{deal.dealTitle}</p>
+        <p className="text-sm font-medium truncate max-w-[200px]" title={deal.companyName}>{deal.companyName}</p>
+        <p className="text-xs text-muted-foreground truncate max-w-[200px]" title={deal.dealTitle}>{deal.dealTitle}</p>
       </td>
       <td className="px-2 py-2">
         <div className="flex items-center gap-1.5">
-          <span className="text-sm truncate max-w-[100px]">{deal.contactName}</span>
+          <span className="text-sm truncate max-w-[100px]" title={deal.contactName}>{deal.contactName}</span>
           {deal.contactPhone && (
             <a
               href={`tel:+${normalizeChileanPhone(deal.contactPhone)}`}

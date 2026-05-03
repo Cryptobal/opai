@@ -147,7 +147,7 @@ export default function EsperadosHoySection({
                 {/* Top row: name + status */}
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-[#F9FAFB] truncate">
+                    <p className="text-sm font-medium text-[#F9FAFB] break-words">
                       {prereg.visitorName}
                     </p>
                     {prereg.visitorRut && (

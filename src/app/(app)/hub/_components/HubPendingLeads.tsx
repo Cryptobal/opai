@@ -39,11 +39,11 @@ export function HubPendingLeads({ leads }: Props) {
             className="flex items-center gap-2 px-3 py-2.5 transition-colors hover:bg-accent/20"
           >
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-bold truncate">
+              <p className="text-sm font-bold break-words">
                 {lead.companyName || lead.contactName}
               </p>
               {lead.companyName && (
-                <p className="text-sm text-muted-foreground truncate">{lead.contactName}</p>
+                <p className="text-sm text-muted-foreground break-words">{lead.contactName}</p>
               )}
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
