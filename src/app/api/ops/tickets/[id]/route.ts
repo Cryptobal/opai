@@ -521,6 +521,24 @@ export async function PATCH(
               updatedAt: now,
             },
           });
+
+          // Si el ticket viene de un finding sobre doc-guardia, marcar
+          // notificaciones cruzadas como leídas (cross-dedup cleanup).
+          const finding = await prisma.opsSupervisionFinding.findFirst({
+            where: { ticketId: id, tenantId: ctx.tenantId },
+            select: { guardId: true },
+          });
+          if (finding?.guardId) {
+            await prisma.notification.updateMany({
+              where: {
+                tenantId: ctx.tenantId,
+                type: { in: ["guardia_doc_expired", "guardia_doc_expiring"] },
+                data: { path: ["guardiaId"], equals: finding.guardId },
+                read: false,
+              },
+              data: { read: true },
+            });
+          }
         } catch (syncErr) {
           console.warn("[OPS][TICKETS] No se pudieron sincronizar los findings:", syncErr);
         }

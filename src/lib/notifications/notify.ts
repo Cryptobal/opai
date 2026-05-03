@@ -54,6 +54,12 @@ export async function notify(params: NotifyParams): Promise<{ delivered: number 
     : await fetchAudienceRecipients(params.tenantId, subType, typeDef);
   if (recipients.length === 0) return { delivered: 0 };
 
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: params.tenantId },
+    select: { slug: true },
+  });
+  const tenantSlug = tenant?.slug ?? null;
+
   let bellCreatedForBroadcast = false;
   let delivered = 0;
 
@@ -117,6 +123,7 @@ export async function notify(params: NotifyParams): Promise<{ delivered: number 
             secondaryActionColor: params.emailSecondaryAction?.color,
             category: typeDef.category,
             notificationType: typeDef.key,
+            tenantSlug,
           }),
         );
         await resend.emails.send({

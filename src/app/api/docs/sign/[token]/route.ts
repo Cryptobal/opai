@@ -466,6 +466,12 @@ export async function POST(
       console.warn("Sign: could not load notify targets for email", e);
     }
 
+    const tenantForEmails = await prisma.tenant.findUnique({
+      where: { id: result.tenantId },
+      select: { slug: true },
+    });
+    const emailTenantSlug = tenantForEmails?.slug ?? null;
+
     for (const email of notifyTargets) {
       try {
         await sendSignatureCompletedNotifyEmail({
@@ -475,6 +481,7 @@ export async function POST(
           signerEmail,
           signedAt: signedAtText,
           statusUrl,
+          tenantSlug: emailTenantSlug,
         });
       } catch (e) {
         console.warn("Sign: failed to send notify email to", email, e);
@@ -533,6 +540,7 @@ export async function POST(
             completedAt: doneAt,
             documentUrl: publicViewUrl || statusUrl,
             pdfUrl: pdfDownloadUrl || undefined,
+            tenantSlug: emailTenantSlug,
           });
         } catch (e) {
           console.warn("Sign: failed to send completed email to", email, e);

@@ -11,15 +11,7 @@ import {
   Hr,
 } from "@react-email/components";
 import * as React from "react";
-
-const SITE_URL = (
-  process.env.NEXTAUTH_URL ||
-  process.env.NEXT_PUBLIC_SITE_URL ||
-  process.env.SITE_URL ||
-  process.env.NEXT_PUBLIC_APP_URL ||
-  process.env.NEXT_PUBLIC_BASE_URL ||
-  "https://opai.gard.cl"
-).replace(/\/$/, "");
+import { buildEmailUrl, getNotificationPrefsUrl } from "@/lib/emails/site-url";
 
 interface SignatureCompletedNotifyEmailProps {
   documentTitle: string;
@@ -27,6 +19,8 @@ interface SignatureCompletedNotifyEmailProps {
   signerEmail: string;
   signedAt: string;
   statusUrl?: string;
+  /** Slug del tenant — se usa para construir todos los links absolutos. */
+  tenantSlug?: string | null;
 }
 
 export default function SignatureCompletedNotifyEmail({
@@ -35,7 +29,10 @@ export default function SignatureCompletedNotifyEmail({
   signerEmail,
   signedAt,
   statusUrl,
+  tenantSlug,
 }: SignatureCompletedNotifyEmailProps) {
+  const fullStatusUrl = statusUrl ? buildEmailUrl(statusUrl, tenantSlug) : null;
+  const prefsUrl = getNotificationPrefsUrl(tenantSlug, "document_signed_completed");
   return (
     <Html>
       <Head />
@@ -51,22 +48,19 @@ export default function SignatureCompletedNotifyEmail({
             <Text style={line}><strong>Email:</strong> {signerEmail}</Text>
             <Text style={line}><strong>Fecha:</strong> {signedAt}</Text>
           </Section>
-          {statusUrl ? (
+          {fullStatusUrl ? (
             <Text style={text}>
               Ver estado de la firma:
               <br />
-              <Link href={statusUrl} style={link}>
-                {statusUrl}
+              <Link href={fullStatusUrl} style={link}>
+                {fullStatusUrl}
               </Link>
             </Text>
           ) : null}
           <Hr style={hr} />
           <Text style={unsubscribeText}>
             ¿No quieres recibir este tipo de alertas?{" "}
-            <Link
-              href={`${SITE_URL}/opai/perfil/notificaciones?type=document_signed_completed`}
-              style={unsubscribeLink}
-            >
+            <Link href={prefsUrl} style={unsubscribeLink}>
               Administrar notificaciones
             </Link>
           </Text>

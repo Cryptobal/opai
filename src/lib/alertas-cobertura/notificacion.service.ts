@@ -148,11 +148,12 @@ export async function notificarGuardiaAlerta(params: {
             monto: montoFormateado,
             funciones: params.funciones,
             urgencia: params.urgencia,
-            linkAceptar: `${SITE_URL}${linkAceptar}`,
+            linkAceptar,
             esInterno: params.esInterno,
             tiempoRestanteMin: params.tiempoRestanteOleadaMin,
             logoUrl: emailConfig.logoUrl,
             companyName: emailConfig.companyName,
+            tenantSlug: emailConfig.tenantSlug ?? null,
           }),
         );
 
@@ -435,9 +436,10 @@ export async function notificarSupervisorAceptacion(params: {
           funciones: params.funciones,
           distanciaKm: params.distanciaKm,
           esInterno: params.esInterno,
-          linkAlerta: `${SITE_URL}${linkAlerta}`,
+          linkAlerta,
           logoUrl: emailConfig.logoUrl,
           companyName: emailConfig.companyName,
+          tenantSlug: emailConfig.tenantSlug ?? null,
         }),
       );
 

@@ -70,6 +70,7 @@ export async function sendSignatureCompletedNotifyEmail(input: {
   signerEmail: string;
   signedAt: string;
   statusUrl?: string;
+  tenantSlug?: string | null;
 }): Promise<SignatureMailResult> {
   try {
     const html = await render(SignatureCompletedNotifyEmail(input));
@@ -120,6 +121,7 @@ export async function sendSignatureAllCompletedEmail(input: {
   completedAt: string;
   documentUrl?: string | null;
   pdfUrl?: string | null;
+  tenantSlug?: string | null;
 }): Promise<SignatureMailResult> {
   try {
     const html = await render(SignatureAllCompletedEmail(input));

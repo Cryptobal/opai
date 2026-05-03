@@ -12,21 +12,15 @@ import {
   Hr,
 } from "@react-email/components";
 import * as React from "react";
-
-const SITE_URL = (
-  process.env.NEXTAUTH_URL ||
-  process.env.NEXT_PUBLIC_SITE_URL ||
-  process.env.SITE_URL ||
-  process.env.NEXT_PUBLIC_APP_URL ||
-  process.env.NEXT_PUBLIC_BASE_URL ||
-  "https://opai.gard.cl"
-).replace(/\/$/, "");
+import { buildEmailUrl, getNotificationPrefsUrl } from "@/lib/emails/site-url";
 
 interface DocumentExpiringEmailProps {
   documentTitle: string;
   expirationDate: string;
   daysRemaining: number;
   documentUrl: string;
+  /** Slug del tenant — se usa para construir todos los links absolutos. */
+  tenantSlug?: string | null;
 }
 
 export default function DocumentExpiringEmail({
@@ -34,7 +28,10 @@ export default function DocumentExpiringEmail({
   expirationDate,
   daysRemaining,
   documentUrl,
+  tenantSlug,
 }: DocumentExpiringEmailProps) {
+  const fullDocUrl = buildEmailUrl(documentUrl, tenantSlug);
+  const prefsUrl = getNotificationPrefsUrl(tenantSlug, "contract_expiring");
   return (
     <Html>
       <Head />
@@ -52,7 +49,7 @@ export default function DocumentExpiringEmail({
             <Text style={line}><strong>Días restantes:</strong> {daysRemaining}</Text>
           </Section>
           <Section style={buttonWrap}>
-            <Button href={documentUrl} style={button}>Ver documento</Button>
+            <Button href={fullDocUrl} style={button}>Ver documento</Button>
           </Section>
           <Text style={footnote}>
             Puedes renovar o actualizar el documento antes de su vencimiento para evitar interrupciones.
@@ -60,10 +57,7 @@ export default function DocumentExpiringEmail({
           <Hr style={hr} />
           <Text style={unsubscribeText}>
             ¿No quieres recibir este tipo de alertas?{" "}
-            <Link
-              href={`${SITE_URL}/opai/perfil/notificaciones?type=contract_expiring`}
-              style={unsubscribeLink}
-            >
+            <Link href={prefsUrl} style={unsubscribeLink}>
               Administrar notificaciones
             </Link>
           </Text>

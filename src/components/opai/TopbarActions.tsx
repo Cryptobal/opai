@@ -76,9 +76,25 @@ export function TopbarActions({
           <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-status-danger ring-2 ring-background" />
         )}
       </button>
+      {/* Móvil: link directo a la lista. Desktop: toggle del side panel. */}
+      <Link
+        href="/opai/notificaciones"
+        className="sm:hidden relative inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        aria-label="Ver notificaciones"
+      >
+        <Bell className="h-4 w-4" />
+        {notifUnreadCount > 0 && (
+          <Badge
+            variant="destructive"
+            className="absolute -right-1 -top-1 h-5 min-w-5 rounded-full p-0 text-[10px] flex items-center justify-center animate-pulse"
+          >
+            {notifUnreadCount > 9 ? "9+" : notifUnreadCount}
+          </Badge>
+        )}
+      </Link>
       <button
         type="button"
-        className="relative inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        className="hidden sm:inline-flex relative h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
         onClick={handleToggleNotifications}
         aria-label="Notificaciones"
       >

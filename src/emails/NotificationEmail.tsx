@@ -13,6 +13,11 @@ import {
   Hr,
 } from "@react-email/components";
 import * as React from "react";
+import {
+  buildEmailUrl,
+  getEmailLogoUrl,
+  getNotificationPrefsUrl,
+} from "@/lib/emails/site-url";
 
 interface NotificationEmailProps {
   title: string;
@@ -27,18 +32,9 @@ interface NotificationEmailProps {
   category?: string;
   /** Notification type key (e.g. "contract_expiring") for granular unsubscribe link */
   notificationType?: string;
+  /** Slug del tenant — se usa para construir todos los links absolutos. */
+  tenantSlug?: string | null;
 }
-
-// En Vercel prod no existen NEXTAUTH_URL ni NEXT_PUBLIC_SITE_URL.
-// Fallback chain igual a alertas-cobertura/notificacion.service.ts
-const SITE_URL = (
-  process.env.NEXTAUTH_URL ||
-  process.env.NEXT_PUBLIC_SITE_URL ||
-  process.env.SITE_URL ||
-  process.env.NEXT_PUBLIC_APP_URL ||
-  process.env.NEXT_PUBLIC_BASE_URL ||
-  "https://opai.gard.cl"
-).replace(/\/$/, "");
 
 export default function NotificationEmail({
   title,
@@ -50,17 +46,14 @@ export default function NotificationEmail({
   secondaryActionColor,
   category,
   notificationType,
+  tenantSlug,
 }: NotificationEmailProps) {
-  const fullUrl = actionUrl
-    ? actionUrl.startsWith("http")
-      ? actionUrl
-      : `${SITE_URL}${actionUrl}`
-    : undefined;
+  const fullUrl = actionUrl ? buildEmailUrl(actionUrl, tenantSlug) : undefined;
   const fullSecondaryUrl = secondaryActionUrl
-    ? secondaryActionUrl.startsWith("http")
-      ? secondaryActionUrl
-      : `${SITE_URL}${secondaryActionUrl}`
+    ? buildEmailUrl(secondaryActionUrl, tenantSlug)
     : undefined;
+  const prefsUrl = getNotificationPrefsUrl(tenantSlug, notificationType);
+  const logoUrl = getEmailLogoUrl();
 
   return (
     <Html>
@@ -70,10 +63,10 @@ export default function NotificationEmail({
         <Container style={container}>
           <Section style={header}>
             <Img
-              src={`${SITE_URL}/logo-white.png`}
+              src={logoUrl}
               alt="OPAI"
-              width={80}
-              height={28}
+              width={120}
+              height={32}
               style={logo}
             />
           </Section>
@@ -117,10 +110,7 @@ export default function NotificationEmail({
 
           <Text style={footnote}>
             ¿No quieres recibir este tipo de alertas?{" "}
-            <Link
-              href={`${SITE_URL}/opai/perfil/notificaciones${notificationType ? `?type=${notificationType}` : ""}`}
-              style={footnoteLink}
-            >
+            <Link href={prefsUrl} style={footnoteLink}>
               Administrar notificaciones
             </Link>
           </Text>

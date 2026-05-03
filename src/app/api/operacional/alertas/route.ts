@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureOpsAccess } from "@/lib/ops";
+import { GUARDIA_ALERTING_LIFECYCLE_STATUSES } from "@/lib/personas";
 
 export async function GET() {
   try {
@@ -23,11 +24,15 @@ export async function GET() {
       orderBy: [{ status: "desc" }, { expiresAt: "asc" }],
     });
 
-    // Persona docs vencidos
+    // Persona docs vencidos — solo guardias activos (postulantes/inactivos no alertan)
     const personaDocsVencidos = await prisma.opsDocumentoPersona.findMany({
       where: {
         tenantId: ctx.tenantId,
         status: "vencido",
+        guardia: {
+          status: "active",
+          lifecycleStatus: { in: [...GUARDIA_ALERTING_LIFECYCLE_STATUSES] },
+        },
       },
       include: {
         guardia: {
