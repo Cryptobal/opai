@@ -24,7 +24,7 @@ export function EquipoGuardiaRow({ guardia, onOpen }: Props) {
         </span>
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate">{guardia.nombre}</p>
+        <p className="text-sm font-medium break-words">{guardia.nombre}</p>
         <div className="flex items-center gap-2 text-[11px] text-zinc-500">
           <Os10Pill estado={os10Estado} />
           {resumen.vencidos > 0 && (

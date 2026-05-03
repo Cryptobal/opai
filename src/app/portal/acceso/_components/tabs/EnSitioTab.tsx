@@ -366,7 +366,7 @@ export default function EnSitioTab({
                       </Badge>
                     </div>
 
-                    <p className="text-sm font-medium text-[#F9FAFB] truncate">
+                    <p className="text-sm font-medium text-[#F9FAFB] break-words">
                       {record.fullName ||
                         record.vehiclePlate ||
                         "Sin identificar"}

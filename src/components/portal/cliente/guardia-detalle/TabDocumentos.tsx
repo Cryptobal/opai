@@ -39,9 +39,9 @@ export function TabDocumentos({ documentos }: Props) {
           key={i}
           className="flex items-center gap-3 rounded-lg bg-white/[0.02] px-3 py-2.5"
         >
-          <FileText className="h-4 w-4 text-zinc-500 flex-shrink-0" />
+          <FileText className="h-4 w-4 text-zinc-500 flex-shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
-            <p className="text-sm truncate">{d.tipo}</p>
+            <p className="text-sm break-words">{d.tipo}</p>
             {d.expiresAt && (
               <p className="text-[11px] text-zinc-500">
                 Vence {new Date(d.expiresAt).toLocaleDateString("es-CL")}

@@ -83,7 +83,7 @@ function InfoRow({
         <p className="text-[10px] uppercase tracking-wider text-zinc-500">
           {label}
         </p>
-        <p className="text-sm truncate">{value}</p>
+        <p className="text-sm break-words">{value}</p>
       </div>
     </div>
   );

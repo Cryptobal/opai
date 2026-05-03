@@ -1925,7 +1925,7 @@ function ProtocoloSection({ session, onBack }: { session: GuardSession; onBack: 
         </Button>
         <div className="flex-1 min-w-0">
           <h2 className="text-base font-semibold">📋 Protocolo de Instalación</h2>
-          <p className="text-xs text-muted-foreground truncate">{session.currentInstallationName}</p>
+          <p className="text-xs text-muted-foreground truncate" title={session.currentInstallationName ?? undefined}>{session.currentInstallationName}</p>
         </div>
         <Button variant="outline" size="sm" onClick={() => toast.info("Descarga de PDF próximamente")} className="shrink-0">
           <Download className="h-4 w-4" />
@@ -2002,7 +2002,7 @@ function ProtocoloSection({ session, onBack }: { session: GuardSession; onBack: 
                   <FileText className="h-4 w-4 text-status-info-fg" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{doc.fileName}</p>
+                  <p className="text-sm font-medium break-all">{doc.fileName}</p>
                   {doc.fileSize && (
                     <p className="text-[10px] text-muted-foreground">{(doc.fileSize / 1024 / 1024).toFixed(1)} MB</p>
                   )}

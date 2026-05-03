@@ -297,7 +297,7 @@ export function CotizacionCard({
                           key={att.id}
                           className="flex items-center justify-between gap-2 rounded-md bg-white/[0.04] px-2.5 py-2 text-xs"
                         >
-                          <span className="truncate text-slate-300 font-medium">{att.fileName}</span>
+                          <span className="break-all text-slate-300 font-medium min-w-0">{att.fileName}</span>
                           <div className="flex items-center gap-2 shrink-0">
                             {att.publicUrl && (
                               <>

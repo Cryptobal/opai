@@ -31,7 +31,7 @@ export function InstallationHeader({
             className="flex items-center gap-1 text-xs text-gray-400 transition-colors active:text-status-info-fg"
           >
             <UserRoundCheck className="h-3 w-3 shrink-0" />
-            <span className="truncate">{guardName}</span>
+            <span className="break-words">{guardName}</span>
             <span className="text-xs text-gray-500">· Cambiar</span>
           </button>
         </div>

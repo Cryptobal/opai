@@ -143,8 +143,8 @@ export function InstallationSelector({ guardId, onSelect }: InstallationSelector
                 <p className="font-medium text-white">{inst.name}</p>
                 {inst.address && (
                   <p className="mt-0.5 flex items-center gap-1 text-sm text-gray-400">
-                    <MapPin className="h-3 w-3 shrink-0" />
-                    <span className="truncate">{inst.address}</span>
+                    <MapPin className="h-3 w-3 shrink-0 mt-0.5" />
+                    <span className="break-words">{inst.address}</span>
                   </p>
                 )}
               </div>
