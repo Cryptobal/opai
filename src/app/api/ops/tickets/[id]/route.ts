@@ -150,8 +150,19 @@ export async function GET(
     const adminMap = Object.fromEntries(admins.map((a) => [a.id, a.name]));
 
     const mapped = mapTicketDetail(ticket);
-    mapped.reportedByName = ticket.reportedBy ? adminMap[ticket.reportedBy] ?? null : null;
-    mapped.assignedToName = ticket.assignedTo ? adminMap[ticket.assignedTo] ?? null : null;
+    // reportedBy puede ser un Admin (manual), un OpsGuardia (Portal Guardia)
+    // o un CrmContact (Portal Cliente). assignedTo siempre es Admin.
+    const { resolveActorNames } = await import("@/lib/notifications/resolve-actor-name");
+    const actorMap = await resolveActorNames(
+      ctx.tenantId,
+      [ticket.reportedBy, ticket.assignedTo].filter(Boolean) as string[],
+    );
+    mapped.reportedByName = ticket.reportedBy
+      ? actorMap.get(ticket.reportedBy)?.name ?? null
+      : null;
+    mapped.assignedToName = ticket.assignedTo
+      ? actorMap.get(ticket.assignedTo)?.name ?? adminMap[ticket.assignedTo] ?? null
+      : null;
     if (mapped.approvals) {
       mapped.approvals = mapped.approvals.map((a) => ({
         ...a,

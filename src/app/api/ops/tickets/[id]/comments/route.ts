@@ -9,12 +9,12 @@ type Params = { id: string };
 
 /* ── Mapper ──────────────────────────────────────────────────── */
 
-function mapComment(c: any): TicketComment {
+function mapComment(c: any, actorMap?: Map<string, { name: string }>): TicketComment {
   return {
     id: c.id,
     ticketId: c.ticketId,
     userId: c.userId,
-    userName: null,
+    userName: actorMap?.get(c.userId)?.name ?? null,
     body: c.body,
     bodyHtml: c.bodyHtml ?? null,
     isInternal: c.isInternal,
@@ -69,7 +69,11 @@ export async function GET(
       orderBy: { createdAt: "desc" },
     });
 
-    const items: TicketComment[] = comments.map(mapComment);
+    const { resolveActorNames } = await import("@/lib/notifications/resolve-actor-name");
+    const userIds = [...new Set(comments.map((c) => c.userId).filter(Boolean))];
+    const actorMap = await resolveActorNames(ctx.tenantId, userIds);
+
+    const items: TicketComment[] = comments.map((c) => mapComment(c, actorMap));
 
     return NextResponse.json({ success: true, data: { items } });
   } catch (error) {
@@ -242,8 +246,11 @@ export async function POST(
       }
     }
 
+    const { resolveActorNames } = await import("@/lib/notifications/resolve-actor-name");
+    const actorMap = await resolveActorNames(ctx.tenantId, [comment.userId]);
+
     return NextResponse.json(
-      { success: true, data: mapComment(comment) },
+      { success: true, data: mapComment(comment, actorMap) },
       { status: 201 },
     );
   } catch (error) {
