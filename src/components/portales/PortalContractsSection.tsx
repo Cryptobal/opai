@@ -111,9 +111,9 @@ export function PortalContractsSection({ tenantId, accountId }: Props) {
           >
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <FileText className="h-4 w-4 text-status-info-fg shrink-0" />
-                  <h3 className="text-sm font-medium truncate">{c.title}</h3>
+                <div className="flex items-start gap-2 mb-1">
+                  <FileText className="h-4 w-4 text-status-info-fg shrink-0 mt-0.5" />
+                  <h3 className="text-sm font-medium break-words">{c.title}</h3>
                 </div>
                 <p className="text-[10px] text-zinc-500 mb-2">{categoryLabel}</p>
 

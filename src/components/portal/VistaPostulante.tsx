@@ -87,15 +87,15 @@ export function VistaPostulante({ session, onLogout }: VistaPostulanteProps) {
         }
       >
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <p className="text-sm font-semibold truncate">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-sm font-semibold break-words" title={`${session.firstName} ${session.lastName}`}>
               {session.firstName} {session.lastName}
             </p>
             <Badge variant="secondary" className="text-[10px] bg-status-warn-soft text-status-warn-fg border-0">
               Buscando empleo
             </Badge>
           </div>
-          <p className="text-xs text-muted-foreground truncate">Portal Guardia</p>
+          <p className="text-xs text-muted-foreground break-words">Portal Guardia</p>
         </div>
         <Button variant="ghost" size="icon" onClick={onLogout} aria-label="Cerrar sesion">
           <LogOut className="h-4 w-4" />
@@ -201,8 +201,8 @@ function OfertasDisponibles({ guardiaId }: { guardiaId: string }) {
         <div key={offer.id} className="rounded-xl border bg-card p-4 space-y-3">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 flex-1">
-              <h3 className="text-sm font-semibold truncate">{offer.titulo}</h3>
-              <p className="text-xs text-muted-foreground">{offer.tenant.name}</p>
+              <h3 className="text-sm font-semibold break-words">{offer.titulo}</h3>
+              <p className="text-xs text-muted-foreground break-words">{offer.tenant.name}</p>
             </div>
             {offer.matchScore > 0 && (
               <Badge variant="secondary" className="shrink-0 text-[10px] bg-status-info-soft text-status-info-fg border-0">
@@ -294,8 +294,8 @@ function MisPostulaciones({ guardiaId }: { guardiaId: string }) {
           <div key={app.id} className="rounded-xl border bg-card p-4 space-y-2">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0 flex-1">
-                <h3 className="text-sm font-semibold truncate">{app.jobPosting.titulo}</h3>
-                <p className="text-xs text-muted-foreground">{app.jobPosting.tenant.name}</p>
+                <h3 className="text-sm font-semibold break-words">{app.jobPosting.titulo}</h3>
+                <p className="text-xs text-muted-foreground break-words">{app.jobPosting.tenant.name}</p>
               </div>
               <Badge variant="secondary" className={`shrink-0 text-[10px] border-0 ${statusCfg.color}`}>
                 {statusCfg.label}

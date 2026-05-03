@@ -341,7 +341,7 @@ function DealColumn({
           backgroundColor: `${stageColor}10`,
         }}
       >
-        <span className="text-xs font-semibold truncate flex-1 min-w-0" style={{ color: stageColor }}>
+        <span className="text-xs font-semibold truncate flex-1 min-w-0" style={{ color: stageColor }} title={stage.name}>
           {stage.name}
         </span>
         <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">
@@ -415,7 +415,7 @@ function DealCard({
               </span>
             )}
           </span>
-          <p className="text-[11px] text-muted-foreground truncate mt-0.5">
+          <p className="text-[11px] text-muted-foreground truncate mt-0.5" title={deal.account?.name}>
             {deal.account?.name}
           </p>
           <p className="text-[10px] text-muted-foreground mt-0.5">
@@ -511,7 +511,7 @@ function MobileStageList({
               className="w-full flex items-center justify-between gap-2 rounded-md px-3 py-2 transition-colors hover:bg-muted/50"
               style={{ borderLeft: `3px solid ${stageColor}` }}
             >
-              <span className="text-sm font-semibold truncate" style={{ color: stageColor }}>
+              <span className="text-sm font-semibold truncate" style={{ color: stageColor }} title={column.stage.name}>
                 {column.stage.name}
               </span>
               <div className="flex items-center gap-2 shrink-0">
@@ -543,7 +543,7 @@ function MobileStageList({
                     >
                       <div className="flex-1 min-w-0">
                         <span className="flex items-center gap-1">
-                          <p className="text-[13px] font-medium truncate">{deal.title}</p>
+                          <p className="text-[13px] font-medium truncate" title={deal.title}>{deal.title}</p>
                           {unreadNoteIds?.has(deal.id) && (
                             <span className="relative shrink-0" title="Notas no leídas">
                               <MessageSquare className="h-3 w-3 text-muted-foreground" />
@@ -551,7 +551,7 @@ function MobileStageList({
                             </span>
                           )}
                         </span>
-                        <p className="text-[11px] text-muted-foreground truncate mt-0.5">
+                        <p className="text-[11px] text-muted-foreground truncate mt-0.5" title={deal.account?.name}>
                           {deal.account?.name}
                         </p>
                         <p className="text-[10px] text-muted-foreground mt-0.5">
@@ -1289,7 +1289,7 @@ export function CrmDealsClient({
                       />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <p className="font-medium text-sm truncate">{deal.title}</p>
+                          <p className="font-medium text-sm truncate" title={deal.title}>{deal.title}</p>
                           <Badge
                             variant="outline"
                             className="text-[10px] h-4 shrink-0"
@@ -1309,7 +1309,7 @@ export function CrmDealsClient({
                             </span>
                           )}
                         </div>
-                        <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
+                        <p className="text-[11px] text-muted-foreground mt-0.5 truncate" title={`${deal.account?.name ?? ""}${deal.primaryContact ? ` · ${deal.primaryContact.firstName} ${deal.primaryContact.lastName}`.trim() : ""}`}>
                           {deal.account?.name}
                           {deal.primaryContact && ` · ${deal.primaryContact.firstName} ${deal.primaryContact.lastName}`.trim()}
                         </p>

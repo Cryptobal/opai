@@ -320,8 +320,8 @@ function EventListItem({
         <Icon className="h-4 w-4 text-muted-foreground" />
       </div>
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <p className="truncate text-sm font-medium">{getSubtypeLabel(event.subtype)}</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="break-words text-sm font-medium">{getSubtypeLabel(event.subtype)}</p>
           <Badge variant={statusCfg.variant} className="shrink-0 text-[10px]">
             {statusCfg.label}
           </Badge>
@@ -993,8 +993,8 @@ function EventDetailView({
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 rounded-md border border-border p-2 text-sm hover:bg-accent/50"
               >
-                <Paperclip className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="truncate">{att.name}</span>
+                <Paperclip className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <span className="break-all">{att.name}</span>
               </a>
             ))}
           </div>
