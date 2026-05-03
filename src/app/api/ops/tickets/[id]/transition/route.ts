@@ -92,6 +92,20 @@ export async function POST(
       },
     });
 
+    // Audit trail: cambio de estado.
+    try {
+      const { recordTicketEvent } = await import("@/lib/tickets-events");
+      await recordTicketEvent({
+        tenantId: ctx.tenantId,
+        ticketId: id,
+        type: "status_changed",
+        actorId: ctx.userId,
+        data: { from: currentStatus, to: targetStatus, source: "transition" },
+      });
+    } catch {
+      // best-effort
+    }
+
     // Sync bidireccional: si el ticket pasa a un estado terminal, cerrar los
     // findings asociados que sigan abiertos para que no se usen como candidatos
     // de dedup en visitas futuras (se creará ticket nuevo con SLA fresco).

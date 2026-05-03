@@ -353,6 +353,114 @@ export async function PATCH(
       );
     }
 
+    // Audit trail: emitir eventos por cada cambio relevante. Best-effort,
+    // no bloquea el flujo si falla.
+    try {
+      const { recordTicketEvent } = await import("@/lib/tickets-events");
+      const events: Array<Promise<unknown>> = [];
+      if (
+        body.status !== undefined &&
+        body.status !== existing.status
+      ) {
+        events.push(
+          recordTicketEvent({
+            tenantId: ctx.tenantId,
+            ticketId: id,
+            type: "status_changed",
+            actorId: ctx.userId,
+            data: { from: existing.status, to: body.status },
+          }),
+        );
+      }
+      if (
+        body.assignedTo !== undefined &&
+        body.assignedTo !== existing.assignedTo
+      ) {
+        events.push(
+          recordTicketEvent({
+            tenantId: ctx.tenantId,
+            ticketId: id,
+            type: "assignee_changed",
+            actorId: ctx.userId,
+            data: { from: existing.assignedTo, to: body.assignedTo ?? null },
+          }),
+        );
+      }
+      if (
+        body.priority !== undefined &&
+        body.priority !== existing.priority
+      ) {
+        events.push(
+          recordTicketEvent({
+            tenantId: ctx.tenantId,
+            ticketId: id,
+            type: "priority_changed",
+            actorId: ctx.userId,
+            data: { from: existing.priority, to: body.priority },
+          }),
+        );
+      }
+      if (
+        body.assignedTeam !== undefined &&
+        body.assignedTeam !== existing.assignedTeam
+      ) {
+        events.push(
+          recordTicketEvent({
+            tenantId: ctx.tenantId,
+            ticketId: id,
+            type: "team_changed",
+            actorId: ctx.userId,
+            data: { from: existing.assignedTeam, to: body.assignedTeam },
+          }),
+        );
+      }
+      if (body.slaDueAt !== undefined && updateData.slaDueAt) {
+        events.push(
+          recordTicketEvent({
+            tenantId: ctx.tenantId,
+            ticketId: id,
+            type: "sla_extended",
+            actorId: ctx.userId,
+            data: {
+              from: existing.slaDueAt?.toISOString() ?? null,
+              to: (updateData.slaDueAt as Date).toISOString(),
+              reason: body.slaExtensionReason ?? null,
+            },
+          }),
+        );
+      }
+      if (body.slaPaused !== undefined) {
+        events.push(
+          recordTicketEvent({
+            tenantId: ctx.tenantId,
+            ticketId: id,
+            type: body.slaPaused === true ? "sla_paused" : "sla_resumed",
+            actorId: ctx.userId,
+            data:
+              body.slaPaused === true
+                ? { reason: body.slaPausedReason ?? null }
+                : { extendedToDueAt: updateData.slaDueAt instanceof Date ? updateData.slaDueAt.toISOString() : null },
+          }),
+        );
+      }
+      if (body.snoozedUntil !== undefined) {
+        events.push(
+          recordTicketEvent({
+            tenantId: ctx.tenantId,
+            ticketId: id,
+            type: body.snoozedUntil ? "sla_snoozed" : "sla_unsnoozed",
+            actorId: ctx.userId,
+            data: body.snoozedUntil
+              ? { until: new Date(body.snoozedUntil).toISOString() }
+              : {},
+          }),
+        );
+      }
+      if (events.length > 0) await Promise.allSettled(events);
+    } catch (auditErr) {
+      console.error("[OPS] Audit events failed:", auditErr);
+    }
+
     // Notificar al nuevo responsable si cambió la asignación.
     if (
       body.assignedTo !== undefined &&

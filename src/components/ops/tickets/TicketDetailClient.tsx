@@ -71,10 +71,21 @@ interface TicketDetailClientProps {
   userGroupIds: string[];
 }
 
+interface TicketEvent {
+  id: string;
+  ticketId: string;
+  type: string;
+  actorId: string | null;
+  actorName: string | null;
+  data: unknown;
+  createdAt: string;
+}
+
 export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }: TicketDetailClientProps) {
   const router = useRouter();
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [comments, setComments] = useState<TicketComment[]>([]);
+  const [events, setEvents] = useState<TicketEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [newComment, setNewComment] = useState("");
   const [sendingComment, setSendingComment] = useState(false);
@@ -114,14 +125,20 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
   const fetchTicket = useCallback(async () => {
     setLoading(true);
     try {
-      const [ticketRes, commentsRes] = await Promise.all([
+      const [ticketRes, commentsRes, eventsRes] = await Promise.all([
         fetch(`/api/ops/tickets/${ticketId}`),
         fetch(`/api/ops/tickets/${ticketId}/comments`),
+        fetch(`/api/ops/tickets/${ticketId}/events`),
       ]);
       const ticketData = await ticketRes.json();
       const commentsData = await commentsRes.json();
+      // Eventos opcionales: si la tabla aún no fue migrada en algún
+      // ambiente, el endpoint puede devolver 404/500. No se cae el flujo.
+      const eventsData = eventsRes.ok ? await eventsRes.json() : null;
       if (ticketData.success) setTicket(ticketData.data);
       if (commentsData.success) setComments(commentsData.data.items);
+      if (eventsData?.success) setEvents(eventsData.data.items);
+      else setEvents([]);
     } catch {
       toast.error("Error al cargar ticket");
     } finally {
@@ -1010,9 +1027,11 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
           <span className="text-xs text-muted-foreground">({comments.length})</span>
         </div>
 
-        {/* Timeline */}
+        {/* Timeline — mezcla cronológica de comments + events.
+            'ticket_created' del audit lo escondemos porque ya tenemos el
+            TimelineEvent de "Creó el ticket" arriba. */}
         <div className="relative space-y-0">
-          {comments.length > 0 && (
+          {(comments.length > 0 || events.length > 0) && (
             <div className="absolute left-[11px] top-4 bottom-4 w-px bg-border" />
           )}
 
@@ -1024,17 +1043,41 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
             content="Creó el ticket"
           />
 
-          {comments.map((comment) => (
-            <EmailTimelineEvent
-              key={comment.id}
-              comment={comment}
-              isSending={comment.id.startsWith("temp-")}
-              currentUserId={userId}
-              currentUserRole={userRole}
-              onEdit={handleEditComment}
-              onDelete={handleDeleteComment}
-            />
-          ))}
+          {(() => {
+            type Item =
+              | { kind: "comment"; t: number; comment: TicketComment }
+              | { kind: "event"; t: number; event: TicketEvent };
+            const items: Item[] = [
+              ...comments.map<Item>((c) => ({
+                kind: "comment",
+                t: new Date(c.createdAt).getTime(),
+                comment: c,
+              })),
+              ...events
+                .filter((e) => e.type !== "ticket_created")
+                .map<Item>((e) => ({
+                  kind: "event",
+                  t: new Date(e.createdAt).getTime(),
+                  event: e,
+                })),
+            ];
+            items.sort((a, b) => a.t - b.t);
+            return items.map((it) =>
+              it.kind === "comment" ? (
+                <EmailTimelineEvent
+                  key={`c-${it.comment.id}`}
+                  comment={it.comment}
+                  isSending={it.comment.id.startsWith("temp-")}
+                  currentUserId={userId}
+                  currentUserRole={userRole}
+                  onEdit={handleEditComment}
+                  onDelete={handleDeleteComment}
+                />
+              ) : (
+                <TicketAuditEvent key={`e-${it.event.id}`} event={it.event} />
+              ),
+            );
+          })()}
         </div>
 
         {/* ── Composer ── */}
@@ -1828,5 +1871,154 @@ function TicketAttachmentsSummary({ comments }: { comments: TicketComment[] }) {
         })}
       </ul>
     </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  TICKET AUDIT EVENT
+//  Render compacto de un evento del audit trail en el timeline.
+//  Usa los mismos estilos que TimelineEvent pero con icono específico
+//  por tipo + descripción humanizada del cambio.
+// ═══════════════════════════════════════════════════════════════
+
+interface TicketEventForRender {
+  id: string;
+  type: string;
+  actorId: string | null;
+  actorName: string | null;
+  data: unknown;
+  createdAt: string;
+}
+
+const STATUS_LABELS: Record<string, string> = {
+  pending_approval: "Pendiente de aprobación",
+  open: "Abierto",
+  in_progress: "En proceso",
+  waiting: "En espera",
+  resolved: "Resuelto",
+  closed: "Cerrado",
+  rejected: "Rechazado",
+  cancelled: "Cancelado",
+};
+
+const TEAM_LABELS: Record<string, string> = {
+  postventa: "Post-venta",
+  comercial: "Comercial",
+  operaciones: "Operaciones",
+  rrhh: "RRHH",
+  finanzas: "Finanzas",
+  ti: "TI",
+};
+
+function describeEvent(ev: TicketEventForRender): {
+  icon: React.ReactNode;
+  iconBg: string;
+  text: string;
+} {
+  const data = (ev.data ?? {}) as Record<string, unknown>;
+  const fmt = (v: unknown) => (v == null ? "—" : String(v));
+  switch (ev.type) {
+    case "status_changed":
+      return {
+        icon: <ChevronRight className="h-3 w-3" />,
+        iconBg: "bg-primary/20 text-primary",
+        text: `Cambió el estado: ${STATUS_LABELS[String(data.from)] ?? fmt(data.from)} → ${STATUS_LABELS[String(data.to)] ?? fmt(data.to)}`,
+      };
+    case "assignee_changed": {
+      if (!data.from && data.to) {
+        return {
+          icon: <UserCircle className="h-3 w-3" />,
+          iconBg: "bg-status-info-soft text-status-info-fg",
+          text: `Asignó el ticket`,
+        };
+      }
+      if (data.from && !data.to) {
+        return {
+          icon: <UserCircle className="h-3 w-3" />,
+          iconBg: "bg-status-warn-soft text-status-warn-fg",
+          text: "Quitó la asignación",
+        };
+      }
+      return {
+        icon: <UserCircle className="h-3 w-3" />,
+        iconBg: "bg-status-info-soft text-status-info-fg",
+        text: "Reasignó el ticket",
+      };
+    }
+    case "priority_changed":
+      return {
+        icon: <Zap className="h-3 w-3" />,
+        iconBg: "bg-status-warn-soft text-status-warn-fg",
+        text: `Cambió prioridad: ${String(data.from).toUpperCase()} → ${String(data.to).toUpperCase()}`,
+      };
+    case "team_changed":
+      return {
+        icon: <Users className="h-3 w-3" />,
+        iconBg: "bg-status-info-soft text-status-info-fg",
+        text: `Cambió equipo: ${TEAM_LABELS[String(data.from)] ?? fmt(data.from)} → ${TEAM_LABELS[String(data.to)] ?? fmt(data.to)}`,
+      };
+    case "sla_extended":
+      return {
+        icon: <Calendar className="h-3 w-3" />,
+        iconBg: "bg-status-warn-soft text-status-warn-fg",
+        text: `Aplazó el SLA${data.reason ? ` — ${String(data.reason)}` : ""}`,
+      };
+    case "sla_paused":
+      return {
+        icon: <Pause className="h-3 w-3" />,
+        iconBg: "bg-status-warn-soft text-status-warn-fg",
+        text: `Pausó el SLA${data.reason ? ` — ${String(data.reason)}` : ""}`,
+      };
+    case "sla_resumed":
+      return {
+        icon: <Play className="h-3 w-3" />,
+        iconBg: "bg-status-ok-soft text-status-ok-fg",
+        text: "Reanudó el SLA",
+      };
+    case "sla_snoozed":
+      return {
+        icon: <BellOff className="h-3 w-3" />,
+        iconBg: "bg-status-info-soft text-status-info-fg",
+        text: `Silenció avisos`,
+      };
+    case "sla_unsnoozed":
+      return {
+        icon: <BellOff className="h-3 w-3" />,
+        iconBg: "bg-muted text-muted-foreground",
+        text: "Reactivó avisos",
+      };
+    case "approval_decision":
+      return {
+        icon:
+          data.decision === "approved" ? (
+            <Check className="h-3 w-3" />
+          ) : (
+            <Trash2 className="h-3 w-3" />
+          ),
+        iconBg:
+          data.decision === "approved"
+            ? "bg-status-ok-soft text-status-ok-fg"
+            : "bg-status-danger-soft text-status-danger-fg",
+        text: `${data.decision === "approved" ? "Aprobó" : "Rechazó"} paso ${fmt(data.stepOrder)}: ${fmt(data.stepLabel)}${data.comment ? ` — ${String(data.comment)}` : ""}`,
+      };
+    default:
+      return {
+        icon: <FileText className="h-3 w-3" />,
+        iconBg: "bg-muted text-muted-foreground",
+        text: ev.type,
+      };
+  }
+}
+
+function TicketAuditEvent({ event }: { event: TicketEventForRender }) {
+  const { icon, iconBg, text } = describeEvent(event);
+  return (
+    <TimelineEvent
+      icon={icon}
+      iconBg={iconBg}
+      user={event.actorName ?? "Sistema"}
+      time={event.createdAt}
+      content={text}
+    />
   );
 }
