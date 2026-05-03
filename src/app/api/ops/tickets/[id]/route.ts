@@ -230,6 +230,21 @@ export async function PATCH(
       updateData.status = body.status;
       if (body.status === "resolved") updateData.resolvedAt = now;
       if (body.status === "closed") updateData.closedAt = now;
+      // Genera token CSAT al pasar a resolved/closed por primera vez.
+      if (body.status === "resolved" || body.status === "closed") {
+        try {
+          const { generateCsatToken, defaultCsatExpiry } = await import(
+            "@/lib/tickets-csat"
+          );
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          if (!(existing as any).csatToken) {
+            updateData.csatToken = generateCsatToken();
+            updateData.csatTokenExp = defaultCsatExpiry();
+          }
+        } catch {
+          // ignore
+        }
+      }
     }
     if (body.title !== undefined) updateData.title = body.title;
     if (body.description !== undefined) updateData.description = body.description;

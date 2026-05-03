@@ -76,6 +76,24 @@ export async function POST(
       updateData.closedAt = new Date();
     }
 
+    // Genera token CSAT al pasar a resolved/closed por primera vez.
+    // Si el ticket ya tiene token (por ejemplo se reabrió y se vuelve a
+    // resolver), conservamos el original para no invalidar votos previos.
+    if (targetStatus === "resolved" || targetStatus === "closed") {
+      try {
+        const { generateCsatToken, defaultCsatExpiry } = await import(
+          "@/lib/tickets-csat"
+        );
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if (!(ticket as any).csatToken) {
+          updateData.csatToken = generateCsatToken();
+          updateData.csatTokenExp = defaultCsatExpiry();
+        }
+      } catch {
+        // ignore — si no se puede generar token, el ticket igual cierra.
+      }
+    }
+
     const updated = await prisma.opsTicket.update({
       where: { id },
       data: updateData,

@@ -5040,6 +5040,12 @@ model OpsTicket {
   createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
+  // ── CSAT (encuesta post-cierre) ──
+  /// Token público (b64-url) que se entrega al cliente cuando el ticket
+  /// se resuelve para que pueda calificar la experiencia sin login.
+  csatToken    String?   @unique @map("csat_token")
+  csatTokenExp DateTime? @map("csat_token_exp") @db.Timestamptz(6)
+
   ticketType          OpsTicketType?          @relation(fields: [ticketTypeId], references: [id], onDelete: SetNull)
   guardia             OpsGuardia?             @relation(fields: [guardiaId], references: [id], onDelete: SetNull)
   approvals           OpsTicketApproval[]
@@ -5049,6 +5055,7 @@ model OpsTicket {
   supervisionFindings OpsSupervisionFinding[] @relation("supervision_finding_ticket")
   outgoingLinks       OpsTicketLink[]         @relation("ops_ticket_link_source")
   incomingLinks       OpsTicketLink[]         @relation("ops_ticket_link_target")
+  csat                OpsTicketCsat?
 
   @@unique([tenantId, code], map: "uq_ops_tickets_tenant_code")
   @@index([tenantId], map: "idx_ops_tickets_tenant")
@@ -5188,6 +5195,28 @@ model OpsTicketLink {
   @@index([tenantId, sourceTicketId], map: "idx_ops_ticket_links_tenant_source")
   @@index([tenantId, targetTicketId], map: "idx_ops_ticket_links_tenant_target")
   @@map("ops_ticket_links")
+  @@schema("ops")
+}
+
+/// Encuesta de satisfacción del cliente (CSAT) por ticket.
+/// 1 fila por ticket: el cliente puede actualizar su rating mientras el
+/// token siga vigente (mismo deviceFingerprint o sin él).
+model OpsTicketCsat {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  ticketId    String   @unique @map("ticket_id") @db.Uuid
+  tenantId    String   @map("tenant_id")
+  rating      Int /// 1..5
+  comment     String?
+  submittedAt DateTime @default(now()) @map("submitted_at") @db.Timestamptz(6)
+  /// Hash opcional del IP/UA del primer submit, para detectar votos
+  /// fraudulentos sin almacenar PII directa.
+  fingerprint String?
+
+  ticket OpsTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, submittedAt], map: "idx_ops_ticket_csat_tenant_submitted")
+  @@index([tenantId, rating], map: "idx_ops_ticket_csat_tenant_rating")
+  @@map("ops_ticket_csat")
   @@schema("ops")
 }
 
