@@ -127,6 +127,20 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
 
   useEffect(() => { fetchTicket(); }, [fetchTicket]);
 
+  // Tick cada 30s para re-renderizar el countdown de SLA y el flag
+  // `breached` mientras el ticket sigue activo. No re-fetch: solo Date.now()
+  // recalcula los derivados de slaDueAt/resolvedAt.
+  const [, setSlaTick] = useState(0);
+  useEffect(() => {
+    if (!ticket) return;
+    const isTerminal = ["resolved", "closed", "rejected", "cancelled"].includes(
+      ticket.status,
+    );
+    if (isTerminal) return;
+    const id = setInterval(() => setSlaTick((n) => n + 1), 30_000);
+    return () => clearInterval(id);
+  }, [ticket?.id, ticket?.status]);
+
   // Fetch admins and groups for @mention and assignee
   useEffect(() => {
     fetch("/api/ops/admins")
@@ -699,6 +713,7 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
               createdAt={ticket.createdAt}
               status={ticket.status}
               resolvedAt={ticket.resolvedAt}
+              live
             />
           </div>
         )}

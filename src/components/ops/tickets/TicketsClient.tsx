@@ -1116,13 +1116,29 @@ export function SlaBar({
   status,
   resolvedAt,
   showText = true,
+  live = false,
 }: {
   slaDueAt: string | null;
   createdAt: string;
   status?: TicketStatus;
   resolvedAt?: string | null;
   showText?: boolean;
+  /** Refresca el countdown cada 30s. Activarlo solo en vistas estáticas
+   *  (detalle de ticket); en listas largas degrada el render. */
+  live?: boolean;
 }) {
+  // Tick para forzar recálculo del tiempo restante. Solo si live=true y el
+  // ticket no está en estado terminal.
+  const [, setTick] = useState(0);
+  const isTerminal =
+    !!status &&
+    ["resolved", "closed", "rejected", "cancelled"].includes(status);
+  useEffect(() => {
+    if (!live || isTerminal) return;
+    const id = setInterval(() => setTick((n) => n + 1), 30_000);
+    return () => clearInterval(id);
+  }, [live, isTerminal]);
+
   const slaText = getSlaRemaining(slaDueAt, status, resolvedAt);
   const slaPercent = getSlaPercentage(slaDueAt, createdAt, status, resolvedAt);
   const slaColor = getSlaColor(slaPercent);
