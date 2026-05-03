@@ -175,6 +175,25 @@ export async function POST(
       },
     });
 
+    // Audit trail: decisión de aprobación.
+    try {
+      const { recordTicketEvent } = await import("@/lib/tickets-events");
+      await recordTicketEvent({
+        tenantId: ctx.tenantId,
+        ticketId,
+        type: "approval_decision",
+        actorId: ctx.userId,
+        data: {
+          stepOrder: currentApproval.stepOrder,
+          stepLabel: currentApproval.stepLabel,
+          decision,
+          comment: body.comment ?? null,
+        },
+      });
+    } catch {
+      // best-effort
+    }
+
     // Load ticket type for post-approval action
     const ticketType = ticket.ticketTypeId
       ? await prisma.opsTicketType.findUnique({

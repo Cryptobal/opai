@@ -1852,21 +1852,21 @@ model NotificationPreference {
 /// cron drains rows whose scheduledFor has passed, sending one coalesced
 /// banner per group_key. Critical types bypass the outbox entirely.
 model PushOutbox {
-  id              String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId        String    @map("tenant_id")
-  subscriberType  String    @map("subscriber_type")
-  subscriberId    String    @map("subscriber_id")
-  notifKey        String    @map("notif_key")
-  groupKey        String    @map("group_key")
-  title           String
-  body            String
-  url             String?
-  data            Json      @default("{}")
-  count           Int       @default(1)
-  scheduledFor    DateTime  @map("scheduled_for") @db.Timestamptz(6)
-  sentAt          DateTime? @map("sent_at") @db.Timestamptz(6)
-  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id             String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId       String    @map("tenant_id")
+  subscriberType String    @map("subscriber_type")
+  subscriberId   String    @map("subscriber_id")
+  notifKey       String    @map("notif_key")
+  groupKey       String    @map("group_key")
+  title          String
+  body           String
+  url            String?
+  data           Json      @default("{}")
+  count          Int       @default(1)
+  scheduledFor   DateTime  @map("scheduled_for") @db.Timestamptz(6)
+  sentAt         DateTime? @map("sent_at") @db.Timestamptz(6)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@index([scheduledFor], map: "idx_push_outbox_due")
   @@index([subscriberType, subscriberId, groupKey], map: "idx_push_outbox_group")
@@ -4959,23 +4959,23 @@ model OpsMonitoreoTurno {
 }
 
 model OpsTicketType {
-  id               String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId         String   @map("tenant_id")
-  slug             String
-  name             String
-  description      String?
-  origin           String   @default("internal")
-  requiresApproval Boolean  @default(false) @map("requires_approval")
-  assignedTeam     String   @map("assigned_team")
+  id                      String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId                String   @map("tenant_id")
+  slug                    String
+  name                    String
+  description             String?
+  origin                  String   @default("internal")
+  requiresApproval        Boolean  @default(false) @map("requires_approval")
+  assignedTeam            String   @map("assigned_team")
   defaultAssignedToUserId String?  @map("default_assigned_to_user_id")
-  defaultPriority  String   @default("p3") @map("default_priority")
-  slaHours         Int      @default(72) @map("sla_hours")
-  icon             String?
-  isActive         Boolean  @default(true) @map("is_active")
-  sortOrder        Int      @default(0) @map("sort_order")
-  onApprovalAction String?  @map("on_approval_action")
-  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  defaultPriority         String   @default("p3") @map("default_priority")
+  slaHours                Int      @default(72) @map("sla_hours")
+  icon                    String?
+  isActive                Boolean  @default(true) @map("is_active")
+  sortOrder               Int      @default(0) @map("sort_order")
+  onApprovalAction        String?  @map("on_approval_action")
+  createdAt               DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   approvalSteps OpsTicketTypeApprovalStep[]
   tickets       OpsTicket[]
@@ -5044,6 +5044,7 @@ model OpsTicket {
   guardia             OpsGuardia?             @relation(fields: [guardiaId], references: [id], onDelete: SetNull)
   approvals           OpsTicketApproval[]
   comments            OpsTicketComment[]
+  events              OpsTicketEvent[]
   refuerzoSolicitud   OpsRefuerzoSolicitud?
   supervisionFindings OpsSupervisionFinding[] @relation("supervision_finding_ticket")
 
@@ -5113,6 +5114,38 @@ model OpsTicketComment {
   @@index([messageId], map: "idx_ops_ticket_comments_message_id")
   @@index([ticketId, direction], map: "idx_ops_ticket_comments_ticket_dir")
   @@map("ops_ticket_comments")
+  @@schema("ops")
+}
+
+/// Audit trail de eventos del ticket: cambios de estado, asignación,
+/// prioridad, equipo, SLA (extendido / pausado / reanudado / silenciado),
+/// aprobación, etc. Se renderiza en el timeline para que el operador
+/// vea quién hizo qué y cuándo.
+model OpsTicketEvent {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  ticketId  String   @map("ticket_id") @db.Uuid
+  tenantId  String   @map("tenant_id")
+  /// Tipo de evento (string libre para evolucionar sin migrar enum):
+  ///   status_changed, assignee_changed, priority_changed,
+  ///   team_changed, sla_extended, sla_paused, sla_resumed,
+  ///   sla_snoozed, approval_decision, ticket_created, comment_deleted,
+  ///   comment_edited, link_added, link_removed, attachment_added,
+  ///   csat_submitted, etc.
+  type      String
+  /// ID del actor que realizó el cambio. Sigue la convención de
+  /// `OpsTicket.reportedBy`: puede ser un Admin (cuid) o, si en el
+  /// futuro se permiten eventos del Portal Guardia/Cliente, un UUID.
+  actorId   String?  @map("actor_id")
+  /// Estructura libre con los detalles del cambio (`from`/`to`,
+  /// motivo, etc.). Mantener pequeño (< 4 KB).
+  data      Json?    @db.JsonB
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  ticket OpsTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId, createdAt], map: "idx_ops_ticket_events_ticket_created")
+  @@index([tenantId, type], map: "idx_ops_ticket_events_tenant_type")
+  @@map("ops_ticket_events")
   @@schema("ops")
 }
 

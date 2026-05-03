@@ -343,7 +343,7 @@ export async function POST(request: NextRequest) {
         : 0;
       const code = generateTicketCode(lastSeq + 1);
 
-      return tx.opsTicket.create({
+      const created = await tx.opsTicket.create({
         data: {
           tenantId: ctx.tenantId,
           code,
@@ -370,6 +370,24 @@ export async function POST(request: NextRequest) {
         },
         include: ticketListIncludes,
       });
+
+      // Audit: ticket creado.
+      const { recordTicketEvent } = await import("@/lib/tickets-events");
+      await recordTicketEvent({
+        tenantId: ctx.tenantId,
+        ticketId: created.id,
+        type: "ticket_created",
+        actorId: ctx.userId,
+        data: {
+          source: created.source,
+          priority: created.priority,
+          assignedTeam: created.assignedTeam,
+          assignedTo: created.assignedTo,
+          requiresApproval,
+        },
+        tx,
+      });
+      return created;
     });
 
     // Notify reporter + first approval group (bell + email + push, targeted)
