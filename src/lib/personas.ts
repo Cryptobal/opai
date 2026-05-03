@@ -21,6 +21,16 @@ export const GUARDIA_LIFECYCLE_STATUSES = [
 
 export type GuardiaLifecycleStatus = (typeof GUARDIA_LIFECYCLE_STATUSES)[number];
 
+/**
+ * Estados del lifecycle que reciben alertas de documentación vencida.
+ * Postulantes e inactivos NO reciben alertas (no están trabajando o ya salieron).
+ */
+export const GUARDIA_ALERTING_LIFECYCLE_STATUSES = [
+  "seleccionado",
+  "contratado",
+  "te",
+] as const;
+
 /** Transiciones permitidas desde cada estado. */
 export function getLifecycleTransitions(currentStatus: string): GuardiaLifecycleStatus[] {
   const s = currentStatus.toLowerCase();

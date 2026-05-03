@@ -108,6 +108,18 @@ export async function PATCH(
       reason: terminationReason,
     });
 
+    if (body.lifecycleStatus === "inactivo" && existing.lifecycleStatus !== "inactivo") {
+      await prisma.notification.updateMany({
+        where: {
+          tenantId: ctx.tenantId,
+          type: { in: ["guardia_doc_expired", "guardia_doc_expiring"] },
+          data: { path: ["guardiaId"], equals: id },
+          read: false,
+        },
+        data: { read: true },
+      });
+    }
+
     // Trigger onboarding cuando guardia pasa a contratado (activo)
     if (
       body.lifecycleStatus === "contratado" &&

@@ -11,6 +11,7 @@ import { prisma } from "@/lib/prisma";
 import { addDays } from "date-fns";
 import { getGuardiaDocumentosConfig } from "@/lib/guardia-documentos-config";
 import { notify } from "@/lib/notifications/notify";
+import { GUARDIA_ALERTING_LIFECYCLE_STATUSES } from "@/lib/personas";
 
 export async function GET(request: NextRequest) {
   try {
@@ -82,6 +83,10 @@ async function processGuardiaDocExpiryNotifications(tenantId: string) {
       tenantId,
       expiresAt: { not: null, lte: limitDate },
       status: { not: "vencido" },
+      guardia: {
+        status: "active",
+        lifecycleStatus: { in: [...GUARDIA_ALERTING_LIFECYCLE_STATUSES] },
+      },
     },
     include: {
       guardia: {
