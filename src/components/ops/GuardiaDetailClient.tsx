@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useRegisterChatPageContext } from "@/components/opai/ChatPageContextProvider";
@@ -282,8 +282,30 @@ export function GuardiaDetailClient({
   hasInventarioAccess = false,
 }: GuardiaDetailClientProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [guardia, setGuardia] = useState(initialGuardia);
   const [activeTab, setActiveTab] = useState<TabKey>("perfil");
+
+  useEffect(() => {
+    const focusTab = searchParams?.get("tab");
+    const focusDocId = searchParams?.get("doc");
+    if (focusTab && (TABS as Array<{ id: string }>).some((t) => t.id === focusTab)) {
+      setActiveTab(focusTab as TabKey);
+    }
+    if (focusDocId) {
+      const t = setTimeout(() => {
+        const el = document.querySelector(`[data-doc-id="${focusDocId}"]`);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+          el.classList.add("ring-2", "ring-primary", "ring-offset-2");
+          setTimeout(() => {
+            el.classList.remove("ring-2", "ring-primary", "ring-offset-2");
+          }, 2500);
+        }
+      }, 600);
+      return () => clearTimeout(t);
+    }
+  }, [searchParams]);
 
   // Contexto de página para OPAI Intelligence (chat contextual tipo Notion)
   useRegisterChatPageContext({

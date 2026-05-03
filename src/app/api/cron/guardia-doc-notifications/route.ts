@@ -141,7 +141,7 @@ async function processGuardiaDocExpiryNotifications(tenantId: string) {
       type,
       title,
       body: message,
-      link: `/personas/guardias/${doc.guardiaId}`,
+      link: `/personas/guardias/${doc.guardiaId}?tab=operaciones&doc=${doc.id}`,
       data: {
         guardiaId: doc.guardiaId,
         guardiaDocumentId: doc.id,
