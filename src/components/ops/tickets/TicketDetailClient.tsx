@@ -25,6 +25,7 @@ import {
   Play,
   Send,
   Shield,
+  Sparkles,
   Trash2,
   User,
   UserCircle,
@@ -63,6 +64,12 @@ import {
 import { TicketApprovalTimeline } from "./TicketApprovalTimeline";
 import { TicketFindingCard } from "./TicketFindingCard";
 import { SlaBar } from "./TicketsClient";
+import {
+  useReplyTemplates,
+  renderTemplate,
+  type ReplyTemplate,
+  type RenderContext,
+} from "./useReplyTemplates";
 
 interface TicketDetailClientProps {
   ticketId: string;
@@ -1110,6 +1117,27 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
           ) : (
             <div className="flex items-start gap-2">
               <div className="relative flex-1">
+                {/* Plantillas (sobre el input para no romper el layout
+                    flex). El menú es un popover absolutely-positioned. */}
+                <div className="mb-1.5 flex items-center justify-end">
+                  <ReplyTemplatesMenu
+                    scope="internal"
+                    align="end"
+                    context={{
+                      ticket: { code: ticket.code, title: ticket.title },
+                      guardia: { nombre: ticket.guardiaName },
+                      user: { nombre: ticket.assignedToName },
+                    }}
+                    onApply={(rendered) => {
+                      const trimmed = rendered.trim();
+                      if (!trimmed) return;
+                      // Si ya hay texto, anteponemos un salto.
+                      setNewComment((prev) =>
+                        prev.trim() ? `${prev.trimEnd()}\n${trimmed}` : trimmed,
+                      );
+                    }}
+                  />
+                </div>
                 <Input
                   value={newComment}
                   onChange={handleCommentChange}
@@ -1692,6 +1720,24 @@ function EmailComposer({
         </div>
       </div>
 
+      <div className="flex items-center justify-end">
+        <ReplyTemplatesMenu
+          scope="email"
+          align="end"
+          context={{
+            ticket: { code: ticket.code, title: ticket.title },
+            guardia: { nombre: ticket.guardiaName },
+            user: { nombre: ticket.assignedToName },
+          }}
+          onApply={(rendered) => {
+            const trimmed = rendered.trim();
+            if (!trimmed) return;
+            setBodyText((prev) =>
+              prev.trim() ? `${prev.trimEnd()}\n${trimmed}` : trimmed,
+            );
+          }}
+        />
+      </div>
       <textarea
         value={bodyText}
         onChange={(e) => setBodyText(e.target.value)}
@@ -2020,5 +2066,199 @@ function TicketAuditEvent({ event }: { event: TicketEventForRender }) {
       time={event.createdAt}
       content={text}
     />
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  REPLY TEMPLATES MENU
+//  Render-agnóstico: cualquier composer (interno o email) le pasa
+//  un onApply y el contexto. El menú se encarga de listar
+//  plantillas (con seed inicial), inyectar la plantilla renderizada
+//  y permitir crear nuevas inline.
+// ═══════════════════════════════════════════════════════════════
+
+export function ReplyTemplatesMenu({
+  context,
+  onApply,
+  scope = "both",
+  align = "start",
+}: {
+  context: RenderContext;
+  onApply: (renderedBody: string) => void;
+  scope?: "internal" | "email" | "both";
+  align?: "start" | "end";
+}) {
+  const { templates, save, remove, seedIfEmpty } = useReplyTemplates();
+  const [open, setOpen] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newBody, setNewBody] = useState("");
+
+  // Plantillas que aplican al scope actual (los de scope="both" siempre).
+  const visible = templates.filter(
+    (t) => t.scope === "both" || t.scope === scope,
+  );
+
+  function handleApply(t: ReplyTemplate) {
+    onApply(renderTemplate(t.body, context));
+    setOpen(false);
+  }
+
+  function handleSave() {
+    if (!newName.trim() || !newBody.trim()) return;
+    save({ name: newName.trim(), body: newBody, scope: "both" });
+    setNewName("");
+    setNewBody("");
+    setShowCreate(false);
+    toast.success("Plantilla guardada");
+  }
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => {
+          if (templates.length === 0) seedIfEmpty();
+          setOpen((v) => !v);
+        }}
+        className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-[12px] text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+        title="Plantillas de respuesta"
+      >
+        <Sparkles className="h-3 w-3" />
+        Plantillas
+        {templates.length > 0 && (
+          <span className="opacity-70">({visible.length})</span>
+        )}
+      </button>
+
+      {open && (
+        <>
+          {/* Backdrop */}
+          <button
+            type="button"
+            aria-label="Cerrar"
+            className="fixed inset-0 z-40 cursor-default"
+            onClick={() => {
+              setOpen(false);
+              setShowCreate(false);
+            }}
+          />
+          <div
+            className={`absolute bottom-full mb-1 z-50 w-80 max-w-[92vw] rounded-xl border border-border bg-popover shadow-md ${
+              align === "end" ? "right-0" : "left-0"
+            }`}
+          >
+            <div className="border-b border-border p-2.5">
+              <p className="text-[12px] font-medium text-muted-foreground uppercase tracking-wide">
+                Plantillas
+              </p>
+              <p className="text-[12px] text-muted-foreground/80 mt-0.5">
+                Macros: <code>{"{{ticket.code}}"}</code>,{" "}
+                <code>{"{{ticket.title}}"}</code>,{" "}
+                <code>{"{{guardia.nombre}}"}</code>,{" "}
+                <code>{"{{user.nombre}}"}</code>.
+              </p>
+            </div>
+
+            <div className="max-h-72 overflow-y-auto p-1">
+              {visible.length === 0 ? (
+                <p className="px-3 py-3 text-center text-[13px] text-muted-foreground">
+                  Sin plantillas guardadas. Crea una abajo.
+                </p>
+              ) : (
+                <ul className="space-y-0.5">
+                  {visible.map((t) => (
+                    <li
+                      key={t.id}
+                      className="group/template flex items-start gap-1 rounded-md px-1.5 py-1 hover:bg-accent"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => handleApply(t)}
+                        className="flex-1 text-left"
+                        title={t.body}
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <Sparkles className="h-3 w-3 text-muted-foreground" />
+                          <span className="text-[13px] font-medium truncate">
+                            {t.name}
+                          </span>
+                        </div>
+                        <p className="mt-0.5 text-[12px] text-muted-foreground line-clamp-2 leading-snug">
+                          {t.body}
+                        </p>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => remove(t.id)}
+                        className="opacity-0 group-hover/template:opacity-100 rounded p-1 text-muted-foreground hover:bg-status-danger-soft hover:text-status-danger-fg transition-opacity"
+                        aria-label={`Eliminar plantilla ${t.name}`}
+                        title="Eliminar"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <div className="border-t border-border p-2.5 space-y-1.5">
+              {!showCreate ? (
+                <button
+                  type="button"
+                  onClick={() => setShowCreate(true)}
+                  className="w-full text-left text-[13px] text-primary hover:underline"
+                >
+                  + Nueva plantilla
+                </button>
+              ) : (
+                <>
+                  <Input
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    placeholder="Nombre"
+                    maxLength={60}
+                    className="h-9 text-[13px]"
+                  />
+                  <textarea
+                    value={newBody}
+                    onChange={(e) => setNewBody(e.target.value)}
+                    placeholder="Cuerpo (usa {{ticket.code}} etc.)"
+                    rows={3}
+                    maxLength={2000}
+                    className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-[13px] leading-relaxed focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  />
+                  <div className="flex items-center justify-end gap-1.5">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => {
+                        setShowCreate(false);
+                        setNewName("");
+                        setNewBody("");
+                      }}
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-7 text-xs"
+                      disabled={!newName.trim() || !newBody.trim()}
+                      onClick={handleSave}
+                    >
+                      Guardar
+                    </Button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
   );
 }
