@@ -851,7 +851,7 @@ export function AtsPipelineClient({
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-start justify-between gap-1">
-                            <p className="text-sm font-medium truncate">
+                            <p className="text-sm font-medium break-words">
                               {app.guardia.persona.firstName} {app.guardia.persona.lastName}
                             </p>
                             <CardActions app={app} jobId={job.id} onMove={moveEtapa} />
@@ -918,7 +918,7 @@ export function AtsPipelineClient({
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between gap-1">
-                          <p className="text-sm font-medium truncate">
+                          <p className="text-sm font-medium break-words">
                             {app.guardia.persona.firstName} {app.guardia.persona.lastName}
                           </p>
                           <CardActions app={app} jobId={job.id} onMove={moveEtapa} />

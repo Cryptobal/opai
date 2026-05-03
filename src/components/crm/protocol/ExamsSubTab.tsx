@@ -813,7 +813,7 @@ export function ExamsSubTab({ installationId }: Props) {
                                   </p>
                                   <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
                                     {doc.tipoNombre && (
-                                      <span className="truncate">
+                                      <span className="break-words">
                                         {doc.tipoNombre}
                                       </span>
                                     )}
@@ -1381,7 +1381,7 @@ function KpiCard({
           <p className={`text-lg font-semibold tabular-nums leading-tight ${valueClass ?? "text-foreground"}`}>
             {value}
           </p>
-          <p className="text-xs text-muted-foreground truncate">{label}</p>
+          <p className="text-xs text-muted-foreground break-words">{label}</p>
         </div>
       </div>
     </Card>

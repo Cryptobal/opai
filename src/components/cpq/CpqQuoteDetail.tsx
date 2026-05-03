@@ -1694,9 +1694,9 @@ export function CpqQuoteDetail({
           </Link>
           <div className="min-w-0">
             <div className="flex items-center gap-2 min-w-0">
-              <h1 className="truncate text-base font-bold tracking-tight">{quote.code}</h1>
+              <h1 className="truncate text-base font-bold tracking-tight" title={quote.code}>{quote.code}</h1>
               {quote.name && (
-                <span className="truncate text-sm font-medium text-muted-foreground">
+                <span className="truncate text-sm font-medium text-muted-foreground" title={quote.name}>
                   {quote.name}
                 </span>
               )}
@@ -1705,7 +1705,7 @@ export function CpqQuoteDetail({
               </Badge>
             </div>
             <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
-              <span className="truncate">{selectedAccountName}{selectedContactName !== "Sin contacto" ? ` · ${selectedContactName}` : ""}</span>
+              <span className="truncate" title={`${selectedAccountName}${selectedContactName !== "Sin contacto" ? ` · ${selectedContactName}` : ""}`}>{selectedAccountName}{selectedContactName !== "Sin contacto" ? ` · ${selectedContactName}` : ""}</span>
               <span className="shrink-0">{headerPersistLabel}</span>
             </div>
           </div>
@@ -2672,7 +2672,7 @@ export function CpqQuoteDetail({
             <Sparkles className="h-4 w-4 text-muted-foreground shrink-0" />
             <h2 className="text-sm font-semibold text-primary shrink-0">Contenido AI</h2>
             {!secAiContent && (
-              <span className="text-xs text-muted-foreground truncate">
+              <span className="text-xs text-muted-foreground break-words">
                 {quote.aiDescription ? "Descripción generada" : "Sin descripción"}
               </span>
             )}
@@ -2847,7 +2847,7 @@ export function CpqQuoteDetail({
           <button type="button" onClick={() => setSecAuditoria((v) => !v)} className="flex-1 flex items-center gap-2 min-w-0 text-left hover:bg-muted/10 transition-colors -m-1 p-1 rounded">
             <h2 className="text-sm font-semibold text-primary shrink-0">Auditoría</h2>
             {!secAuditoria && activityEvents.length > 0 && (
-              <span className="text-xs text-muted-foreground truncate">
+              <span className="text-xs text-muted-foreground break-words">
                 {activityEvents.length} registro{activityEvents.length !== 1 ? "s" : ""}
               </span>
             )}
@@ -2946,7 +2946,7 @@ export function CpqQuoteDetail({
                   <div className="space-y-1.5 rounded-lg border border-border/60 bg-background/35 p-3">
                     {roleSummary.slice(0, 4).map((item, idx) => (
                       <div key={`${item.label}-${idx}`} className="flex items-center justify-between gap-3 rounded-md bg-muted/20 px-2 py-1.5 text-xs">
-                        <span className="truncate text-muted-foreground">{item.label}</span>
+                        <span className="break-words text-muted-foreground">{item.label}</span>
                         <span className="font-mono font-semibold text-foreground">{item.qty}×</span>
                       </div>
                     ))}

@@ -385,8 +385,8 @@ export default function EmailComposerClient({ tenantId }: EmailComposerClientPro
                           {selected && <Check className="h-3 w-3" />}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{g.nombre}</p>
-                          <p className="text-xs text-muted-foreground truncate">
+                          <p className="text-sm font-medium break-words">{g.nombre}</p>
+                          <p className="text-xs text-muted-foreground break-all">
                             {g.code ?? "–"} · {g.email ?? "Sin email"}
                           </p>
                         </div>
