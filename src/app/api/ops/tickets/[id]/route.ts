@@ -96,7 +96,15 @@ function mapTicketDetail(t: any): Ticket {
     createdAt: t.createdAt instanceof Date ? t.createdAt.toISOString() : t.createdAt,
     updatedAt: t.updatedAt instanceof Date ? t.updatedAt.toISOString() : t.updatedAt,
     commentsCount: t._count?.comments ?? 0,
-    attachmentsCount: 0,
+    // Suma de adjuntos a través de todos los comentarios. Evita una
+    // segunda query: comments ya viene en el include.
+    attachmentsCount: Array.isArray(t.comments)
+      ? t.comments.reduce(
+          (acc: number, c: { attachments?: unknown }) =>
+            acc + (Array.isArray(c.attachments) ? c.attachments.length : 0),
+          0,
+        )
+      : 0,
     finding: pickTicketFinding(t),
   };
 }

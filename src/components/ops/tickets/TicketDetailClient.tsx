@@ -999,6 +999,9 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
         </div>
       )}
 
+      {/* ── CARD: Adjuntos agregados (de todos los comentarios) ── */}
+      <TicketAttachmentsSummary comments={comments} />
+
       {/* ── CARD: Activity Timeline ── */}
       <div className="rounded-xl border border-border bg-[#161b22] p-4 space-y-3">
         <div className="flex items-center gap-2">
@@ -1704,6 +1707,126 @@ function InfoField({ label, value, className }: { label: string; value: string; 
     <div>
       <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
       <p className={`text-[13px] font-medium ${className ?? ""}`}>{value}</p>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  ATTACHMENTS SUMMARY
+//  Agrega todos los attachments de los comentarios del ticket en
+//  una sola card. No requiere migración: lee de comment.attachments
+//  (Json) que ya se popula desde el composer de email y replies.
+// ═══════════════════════════════════════════════════════════════
+
+type FlatAttachment = {
+  fileName: string;
+  url?: string;
+  size?: number;
+  contentType?: string;
+  commentId: string;
+  commentDirection: string;
+  commentCreatedAt: string;
+  authorName: string | null;
+};
+
+function flattenAttachments(comments: TicketComment[]): FlatAttachment[] {
+  const out: FlatAttachment[] = [];
+  for (const c of comments) {
+    const atts = (c.attachments ?? []) as Array<{
+      fileName: string;
+      url?: string;
+      size?: number;
+      contentType?: string;
+    }>;
+    if (!Array.isArray(atts) || atts.length === 0) continue;
+    for (const a of atts) {
+      if (!a?.fileName) continue;
+      out.push({
+        fileName: a.fileName,
+        url: a.url,
+        size: a.size,
+        contentType: a.contentType,
+        commentId: c.id,
+        commentDirection: c.direction ?? "internal",
+        commentCreatedAt: c.createdAt,
+        authorName:
+          c.direction === "email_in"
+            ? c.fromName || c.fromEmail || "Externo"
+            : c.userName ?? null,
+      });
+    }
+  }
+  // Más recientes primero.
+  return out.sort(
+    (a, b) =>
+      new Date(b.commentCreatedAt).getTime() -
+      new Date(a.commentCreatedAt).getTime(),
+  );
+}
+
+function formatBytes(size?: number): string | null {
+  if (!size || size <= 0) return null;
+  if (size > 1024 * 1024)
+    return `${(size / 1024 / 1024).toFixed(1)} MB`;
+  return `${Math.round(size / 1024)} KB`;
+}
+
+function TicketAttachmentsSummary({ comments }: { comments: TicketComment[] }) {
+  const flat = flattenAttachments(comments);
+  if (flat.length === 0) return null;
+
+  return (
+    <div className="rounded-xl border border-border bg-[#161b22] p-4 space-y-3">
+      <div className="flex items-center gap-2">
+        <Paperclip className="h-4 w-4 text-muted-foreground" />
+        <h4 className="text-sm font-medium">Adjuntos</h4>
+        <span className="text-xs text-muted-foreground">({flat.length})</span>
+      </div>
+
+      <ul className="space-y-1">
+        {flat.map((a, idx) => {
+          const sizeStr = formatBytes(a.size);
+          const dateStr = new Date(a.commentCreatedAt).toLocaleString("es-CL", {
+            day: "2-digit",
+            month: "short",
+            hour: "2-digit",
+            minute: "2-digit",
+          });
+          return (
+            <li
+              key={`${a.commentId}-${idx}`}
+              className="flex items-center gap-2 rounded-md border border-border/60 bg-background/40 px-2.5 py-1.5"
+            >
+              <Paperclip className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              {a.url ? (
+                <a
+                  href={a.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="truncate text-[13px] font-medium text-foreground hover:underline"
+                  title={a.fileName}
+                >
+                  {a.fileName}
+                </a>
+              ) : (
+                <span
+                  className="truncate text-[13px] font-medium text-muted-foreground"
+                  title={a.fileName}
+                >
+                  {a.fileName}
+                </span>
+              )}
+              <span className="ml-auto flex shrink-0 items-center gap-2 text-[12px] text-muted-foreground">
+                {sizeStr && <span>{sizeStr}</span>}
+                {a.authorName && (
+                  <span className="hidden sm:inline">· {a.authorName}</span>
+                )}
+                <span className="hidden sm:inline">· {dateStr}</span>
+              </span>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }
