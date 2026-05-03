@@ -376,8 +376,10 @@ export async function POST(request: NextRequest) {
       });
       const reporterName = reporter?.name || reporter?.email || "Usuario";
 
-      if (ctx.userId) targetUserIds.push(ctx.userId);
-
+      // El creador NO se auto-notifica de su propio ticket. La notificación al
+      // asignado (si existe) se dispara más abajo vía notifyTicketAssigned.
+      // Aquí solo notificamos al grupo de aprobadores cuando el ticket requiere
+      // aprobación (caso en que SÍ deben enterarse).
       if (requiresApproval && ticketType.approvalSteps.length > 0) {
         const firstStep = ticketType.approvalSteps[0];
         if (firstStep.approverGroupId) {
