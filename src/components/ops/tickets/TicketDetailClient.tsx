@@ -296,13 +296,36 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
     const lastAtIndex = value.lastIndexOf("@");
     if (lastAtIndex >= 0) {
       const afterAt = value.slice(lastAtIndex + 1);
-      if (!afterAt.includes("  ") && afterAt.split(" ").length <= 2) {
+      // Mostrar dropdown solo cuando se empieza a tipear (>= 1 char) para
+      // evitar abrir un menú intrusivo apenas se escribe `@`. La búsqueda
+      // por prefijo de palabra hace el match consistente con el backend.
+      if (
+        afterAt.length >= 1 &&
+        !afterAt.includes("  ") &&
+        afterAt.split(" ").length <= 2
+      ) {
         setMentionFilter(afterAt.toLowerCase());
         setShowMentionList(true);
         return;
       }
     }
     setShowMentionList(false);
+  }
+
+  // Match de UI consistente con el backend:
+  //  - Grupos: match exacto (case insensitive).
+  //  - Usuarios: prefijo de alguna palabra del nombre.
+  // Si más adelante se quiere un fallback a substring, hay que ajustar
+  // también el backend para no abrir el spam por substring.
+  function matchMentionGroup(name: string, filter: string): boolean {
+    return name.toLowerCase() === filter;
+  }
+  function matchMentionUser(name: string, filter: string): boolean {
+    if (!filter) return true;
+    return name
+      .toLowerCase()
+      .split(/\s+/)
+      .some((w) => w.startsWith(filter));
   }
 
   function insertMention(userName: string) {
@@ -1059,7 +1082,7 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
                   <div className="absolute bottom-full left-0 mb-1 w-full max-h-60 overflow-y-auto rounded-xl border border-border bg-popover shadow-md z-50">
                     {/* Groups first */}
                     {availableGroups
-                      .filter((g) => g.name.toLowerCase().includes(mentionFilter))
+                      .filter((g) => matchMentionGroup(g.name, mentionFilter))
                       .slice(0, 4)
                       .map((g) => (
                         <button
@@ -1073,15 +1096,15 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
                         >
                           <Users className="h-3 w-3 text-status-info-fg" />
                           <span>{g.name}</span>
-                          <span className="text-[10px] text-muted-foreground ml-auto">grupo</span>
+                          <span className="text-[12px] text-muted-foreground ml-auto">grupo</span>
                         </button>
                       ))}
-                    {availableGroups.filter((g) => g.name.toLowerCase().includes(mentionFilter)).length > 0 && (
+                    {availableGroups.filter((g) => matchMentionGroup(g.name, mentionFilter)).length > 0 && (
                       <div className="border-t border-border" />
                     )}
                     {/* Users */}
                     {availableUsers
-                      .filter((u) => u.name.toLowerCase().includes(mentionFilter))
+                      .filter((u) => matchMentionUser(u.name, mentionFilter))
                       .slice(0, 8)
                       .map((u) => (
                         <button
@@ -1097,8 +1120,8 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
                           {u.name}
                         </button>
                       ))}
-                    {availableUsers.filter((u) => u.name.toLowerCase().includes(mentionFilter)).length === 0 &&
-                     availableGroups.filter((g) => g.name.toLowerCase().includes(mentionFilter)).length === 0 && (
+                    {availableUsers.filter((u) => matchMentionUser(u.name, mentionFilter)).length === 0 &&
+                     availableGroups.filter((g) => matchMentionGroup(g.name, mentionFilter)).length === 0 && (
                       <p className="px-3 py-2 text-xs text-muted-foreground">No se encontraron resultados</p>
                     )}
                   </div>

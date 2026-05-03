@@ -128,15 +128,29 @@ export async function POST(
       },
     });
 
-    // Parse @mentions (users AND groups) and send notifications
+    // Parse @mentions (users AND groups) and send notifications.
+    // Reglas anti-spam:
+    //  - Mínimo 2 caracteres por mention (descarta @a, @x).
+    //  - Grupos: match EXACTO contra el nombre del grupo (no substring),
+    //    para evitar que "@op" expanda "Operaciones" a 30 personas.
+    //  - Usuarios: match si la mention aparece como PREFIJO de alguna
+    //    palabra del nombre, no como substring arbitrario. Esto evita
+    //    que "@an" matchee a "Juan", "Daniel" y "Mariana" simultáneamente.
+    //  - Máximo 8 mentions distintas por comentario.
     try {
       const mentionPattern = /@([A-Za-z\u00C0-\u024F]+(?:\s+[A-Za-z\u00C0-\u024F]+)*)/g;
       const mentions: string[] = [];
       let match: RegExpExecArray | null;
       while ((match = mentionPattern.exec(body.body)) !== null) {
-        mentions.push(match[1].trim());
+        const m = match[1].trim();
+        if (m.length >= 2) mentions.push(m);
       }
-      if (mentions.length > 0) {
+      // Dedup case-insensitive y cap a 8.
+      const uniqueMentions = Array.from(
+        new Set(mentions.map((m) => m.toLowerCase())),
+      ).slice(0, 8);
+
+      if (uniqueMentions.length > 0) {
         const [allAdmins, allGroups] = await Promise.all([
           prisma.admin.findMany({
             where: { tenantId: ctx.tenantId, status: "active" },
@@ -155,17 +169,13 @@ export async function POST(
         const mentionedUserIds: string[] = [];
         const mentionedGroupIds: string[] = [];
 
-        for (const mention of mentions) {
-          const mentionLower = mention.toLowerCase();
-
-          // 1. Match group by name (exact or substring)
+        for (const mentionLower of uniqueMentions) {
+          // 1. Grupo por match exacto.
           const matchingGroup = allGroups.find(
-            (g) => g.name.toLowerCase() === mentionLower ||
-                   g.name.toLowerCase().includes(mentionLower),
+            (g) => g.name.toLowerCase() === mentionLower,
           );
           if (matchingGroup) {
             mentionedGroupIds.push(matchingGroup.id);
-            // Expand group: add all members (excluding the author)
             for (const m of matchingGroup.memberships) {
               if (m.adminId !== ctx.userId) {
                 mentionedUserIds.push(m.adminId);
@@ -174,13 +184,14 @@ export async function POST(
             continue;
           }
 
-          // 2. Match individual user by name
+          // 2. Usuario por prefijo de palabra (caso insensible).
           for (const admin of allAdmins) {
-            if (
-              admin.name &&
-              admin.name.toLowerCase().includes(mentionLower) &&
-              admin.id !== ctx.userId
-            ) {
+            if (!admin.name || admin.id === ctx.userId) continue;
+            const words = admin.name.toLowerCase().split(/\s+/);
+            const isWordPrefixMatch = words.some((w) =>
+              w.startsWith(mentionLower),
+            );
+            if (isWordPrefixMatch) {
               mentionedUserIds.push(admin.id);
             }
           }
