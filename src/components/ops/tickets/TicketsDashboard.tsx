@@ -54,6 +54,14 @@ interface DashboardData {
     slaBreached: boolean;
     unassigned: boolean;
   }>;
+  mttrByPriority: Array<{ priority: string; avgHours: number; sample: number }>;
+  avgFirstResponseHours: number;
+  firstResponseSample: number;
+  reopenRate: number;
+  reopenSample: number;
+  myStats: { active: number; breached: number };
+  heatmap: number[][]; // 7 días × 24 horas
+  heatmapMax: number;
 }
 
 type Period = "today" | "week" | "month" | "quarter";
@@ -100,7 +108,21 @@ export function TicketsDashboard() {
     );
   }
 
-  const { kpis, teamData, weeklyTrend, slaByPriority, urgentItems } = data;
+  const {
+    kpis,
+    teamData,
+    weeklyTrend,
+    slaByPriority,
+    urgentItems,
+    mttrByPriority,
+    avgFirstResponseHours,
+    firstResponseSample,
+    reopenRate,
+    reopenSample,
+    myStats,
+    heatmap,
+    heatmapMax,
+  } = data;
 
   return (
     <div className="space-y-4">
@@ -162,6 +184,135 @@ export function TicketsDashboard() {
           subtitle="esta semana"
         />
       </div>
+
+      {/* KPI Cards — fila 2: KPIs avanzados (MTTR / first-response /
+          reaperturas / mis tickets) */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+        <KpiCard
+          label="Mis tickets activos"
+          value={myStats.active}
+          icon={<UserX className="h-4 w-4" />}
+          variant={myStats.breached > 0 ? "red" : myStats.active > 0 ? "amber" : "default"}
+          subtitle={
+            myStats.breached > 0
+              ? `${myStats.breached} con SLA vencido`
+              : myStats.active === 0
+                ? "Sin pendientes"
+                : "Sin SLA vencido"
+          }
+        />
+        <KpiCard
+          label="1ª respuesta promedio"
+          value={
+            firstResponseSample > 0 ? `${avgFirstResponseHours}h` : "—"
+          }
+          icon={<Clock className="h-4 w-4" />}
+          variant={
+            firstResponseSample === 0
+              ? "default"
+              : avgFirstResponseHours <= 2
+                ? "emerald"
+                : avgFirstResponseHours <= 8
+                  ? "amber"
+                  : "red"
+          }
+          subtitle={
+            firstResponseSample > 0
+              ? `${firstResponseSample} tickets`
+              : "Sin datos en el periodo"
+          }
+        />
+        <KpiCard
+          label="Reaperturas"
+          value={`${reopenRate}%`}
+          icon={<TrendingUp className="h-4 w-4" />}
+          variant={
+            reopenSample === 0
+              ? "default"
+              : reopenRate <= 5
+                ? "emerald"
+                : reopenRate <= 15
+                  ? "amber"
+                  : "red"
+          }
+          subtitle={
+            reopenSample > 0
+              ? `${reopenSample} resueltos en periodo`
+              : "Sin datos"
+          }
+        />
+        <KpiCard
+          label="MTTR P1"
+          value={
+            (mttrByPriority.find((m) => m.priority === "p1")?.sample ?? 0) > 0
+              ? `${mttrByPriority.find((m) => m.priority === "p1")?.avgHours ?? 0}h`
+              : "—"
+          }
+          icon={<Zap className="h-4 w-4" />}
+          variant="default"
+          subtitle={
+            (mttrByPriority.find((m) => m.priority === "p1")?.sample ?? 0) > 0
+              ? `${mttrByPriority.find((m) => m.priority === "p1")?.sample} tickets`
+              : "Sin P1 cerrados"
+          }
+        />
+      </div>
+
+      {/* MTTR por prioridad (barras horizontales propias) */}
+      {mttrByPriority.some((m) => m.sample > 0) && (
+        <DashboardCard title="MTTR por prioridad">
+          <div className="space-y-2">
+            {mttrByPriority.map((m) => {
+              const cfg =
+                TICKET_PRIORITY_CONFIG[
+                  m.priority as keyof typeof TICKET_PRIORITY_CONFIG
+                ];
+              return (
+                <div key={m.priority} className="space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className={cfg?.color ?? "text-muted-foreground"}>
+                      {m.priority.toUpperCase()}
+                    </span>
+                    <span className="text-muted-foreground">
+                      {m.sample > 0 ? `${m.avgHours}h promedio` : "Sin datos"}
+                      {m.sample > 0 && (
+                        <span className="ml-1 text-[12px]">
+                          ({m.sample})
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                  {m.sample > 0 && (
+                    <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-primary"
+                        style={{
+                          width: `${Math.min(
+                            100,
+                            (m.avgHours /
+                              Math.max(
+                                ...mttrByPriority.map((x) => x.avgHours),
+                                1,
+                              )) *
+                              100,
+                          )}%`,
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </DashboardCard>
+      )}
+
+      {/* Heatmap horario (días × horas) */}
+      {heatmapMax > 0 && (
+        <DashboardCard title="Volumen por día y hora (creación)">
+          <TicketsHeatmap heatmap={heatmap} max={heatmapMax} />
+        </DashboardCard>
+      )}
 
       {/* Tickets by team (horizontal bars) */}
       {teamData.length > 0 && (
@@ -393,6 +544,92 @@ function KpiCard({
       <p className="text-xl font-bold tabular-nums">{value}</p>
       <p className="text-[10px] text-muted-foreground">{label}</p>
       {subtitle && <p className="text-[9px] text-muted-foreground/60">{subtitle}</p>}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  HEATMAP DE CREACIÓN POR DÍA × HORA
+// ═══════════════════════════════════════════════════════════════
+
+const DAY_LABELS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+
+function TicketsHeatmap({
+  heatmap,
+  max,
+}: {
+  heatmap: number[][];
+  max: number;
+}) {
+  // Solo etiquetamos cada 4 horas para que entre en mobile.
+  const hours = Array.from({ length: 24 }, (_, h) => h);
+  return (
+    <div className="overflow-x-auto -mx-2 px-2">
+      <table className="min-w-[640px] w-full border-separate border-spacing-y-0.5 border-spacing-x-0">
+        <thead>
+          <tr>
+            <th className="w-10" />
+            {hours.map((h) => (
+              <th
+                key={h}
+                className="text-[10px] font-mono text-muted-foreground/70 text-center uppercase"
+              >
+                {h % 4 === 0 ? `${String(h).padStart(2, "0")}h` : ""}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {heatmap.map((row, dayIdx) => (
+            <tr key={dayIdx}>
+              <td className="pr-1.5 text-[11px] font-medium text-muted-foreground text-right align-middle">
+                {DAY_LABELS[dayIdx]}
+              </td>
+              {row.map((value, h) => {
+                const intensity = max > 0 ? value / max : 0;
+                // Discretizamos para evitar opacidades raras: 0 / 0.2 / 0.4 / 0.6 / 0.85.
+                const step =
+                  intensity === 0
+                    ? 0
+                    : intensity < 0.25
+                      ? 1
+                      : intensity < 0.5
+                        ? 2
+                        : intensity < 0.75
+                          ? 3
+                          : 4;
+                const stepClass =
+                  step === 0
+                    ? "bg-muted/40"
+                    : step === 1
+                      ? "bg-primary/20"
+                      : step === 2
+                        ? "bg-primary/40"
+                        : step === 3
+                          ? "bg-primary/65"
+                          : "bg-primary/90";
+                return (
+                  <td key={h} className="px-px">
+                    <div
+                      title={`${DAY_LABELS[dayIdx]} ${String(h).padStart(2, "0")}:00 — ${value} ticket${value === 1 ? "" : "s"}`}
+                      className={`h-4 rounded-sm ${stepClass}`}
+                    />
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div className="mt-2 flex items-center justify-end gap-1.5 text-[11px] text-muted-foreground">
+        <span>Menos</span>
+        <span className="h-2.5 w-2.5 rounded-sm bg-muted/40" />
+        <span className="h-2.5 w-2.5 rounded-sm bg-primary/20" />
+        <span className="h-2.5 w-2.5 rounded-sm bg-primary/40" />
+        <span className="h-2.5 w-2.5 rounded-sm bg-primary/65" />
+        <span className="h-2.5 w-2.5 rounded-sm bg-primary/90" />
+        <span>Más</span>
+      </div>
     </div>
   );
 }

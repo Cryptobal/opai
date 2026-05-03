@@ -200,6 +200,143 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    // ── MTTR (Mean Time To Resolve) por prioridad ──
+    // Promedio en horas de la diferencia createdAt → resolvedAt sobre los
+    // tickets resueltos del periodo seleccionado.
+    const mttrByPriority: Array<{ priority: string; avgHours: number; sample: number }> = [];
+    for (const p of priorities) {
+      const resolvedInPeriod = await prisma.opsTicket.findMany({
+        where: {
+          tenantId,
+          priority: p,
+          status: { in: ["resolved", "closed"] },
+          resolvedAt: { gte: periodStart, not: null },
+        },
+        select: { createdAt: true, resolvedAt: true, slaPausedTotalMs: true },
+      });
+      let total = 0;
+      let count = 0;
+      for (const t of resolvedInPeriod) {
+        if (!t.resolvedAt) continue;
+        const grossMs =
+          new Date(t.resolvedAt).getTime() - new Date(t.createdAt).getTime();
+        // Restamos el tiempo en pausa para no inflar el MTTR.
+        const netMs = Math.max(0, grossMs - Number(t.slaPausedTotalMs ?? 0));
+        total += netMs;
+        count++;
+      }
+      mttrByPriority.push({
+        priority: p,
+        avgHours: count > 0 ? Math.round((total / count / 3_600_000) * 10) / 10 : 0,
+        sample: count,
+      });
+    }
+
+    // ── First-response time promedio ──
+    // Diferencia entre createdAt del ticket y createdAt del primer comentario
+    // público (isInternal=false). Si no hay, el ticket no cuenta. Solo
+    // tickets creados en el periodo.
+    const ticketsForFirstResponse = await prisma.opsTicket.findMany({
+      where: {
+        tenantId,
+        createdAt: { gte: periodStart },
+      },
+      select: {
+        id: true,
+        createdAt: true,
+        comments: {
+          where: { isInternal: false },
+          orderBy: { createdAt: "asc" },
+          take: 1,
+          select: { createdAt: true },
+        },
+      },
+    });
+    let firstResponseSum = 0;
+    let firstResponseCount = 0;
+    for (const t of ticketsForFirstResponse) {
+      const first = t.comments[0];
+      if (!first) continue;
+      const ms =
+        new Date(first.createdAt).getTime() - new Date(t.createdAt).getTime();
+      if (ms < 0) continue;
+      firstResponseSum += ms;
+      firstResponseCount++;
+    }
+    const avgFirstResponseHours =
+      firstResponseCount > 0
+        ? Math.round((firstResponseSum / firstResponseCount / 3_600_000) * 10) / 10
+        : 0;
+
+    // ── % reaperturas ──
+    // Aproximación: ticket que pasó por status=resolved y luego volvió a
+    // activo. Sin tabla de eventos no podemos saberlo de forma exacta;
+    // usamos un proxy: tickets actualmente activos cuyo status hoy es
+    // open/in_progress/waiting Y tienen resolvedAt seteado. Es ruido bajo
+    // porque la lógica del transition handler limpia resolvedAt al
+    // reabrir solo para "closed", no para "resolved". Documentamos la
+    // limitación.
+    const [reopenedActiveCount, totalEverResolvedInPeriod] = await Promise.all([
+      prisma.opsTicket.count({
+        where: {
+          tenantId,
+          status: { in: ["open", "in_progress", "waiting"] },
+          resolvedAt: { gte: periodStart, not: null },
+        },
+      }),
+      prisma.opsTicket.count({
+        where: {
+          tenantId,
+          resolvedAt: { gte: periodStart, not: null },
+        },
+      }),
+    ]);
+    const reopenRate =
+      totalEverResolvedInPeriod > 0
+        ? Math.round((reopenedActiveCount / totalEverResolvedInPeriod) * 100)
+        : 0;
+
+    // ── Mis tickets ──
+    const [myActive, myBreached] = await Promise.all([
+      prisma.opsTicket.count({
+        where: {
+          tenantId,
+          assignedTo: ctx.userId,
+          status: { in: ["open", "in_progress", "waiting", "pending_approval"] },
+        },
+      }),
+      prisma.opsTicket.count({
+        where: {
+          tenantId,
+          assignedTo: ctx.userId,
+          status: { in: ["open", "in_progress", "waiting", "pending_approval"] },
+          slaBreached: true,
+        },
+      }),
+    ]);
+
+    // ── Heatmap horario de creación ──
+    // Conteo de tickets creados en el periodo agrupado por (díaSemana, hora).
+    // díaSemana: 0=domingo … 6=sábado.
+    const ticketsForHeatmap = await prisma.opsTicket.findMany({
+      where: {
+        tenantId,
+        createdAt: { gte: periodStart },
+      },
+      select: { createdAt: true },
+    });
+    const heatmap: Array<Array<number>> = Array.from({ length: 7 }, () =>
+      Array.from({ length: 24 }, () => 0),
+    );
+    for (const t of ticketsForHeatmap) {
+      const d = new Date(t.createdAt);
+      heatmap[d.getDay()][d.getHours()] += 1;
+    }
+    const heatmapMax = heatmap.reduce(
+      (m, row) => row.reduce((mm, v) => (v > mm ? v : mm), m),
+      0,
+    );
+
     // ── Urgent attention list ──
     const urgentTickets = await prisma.opsTicket.findMany({
       where: {
@@ -271,6 +408,14 @@ export async function GET(request: NextRequest) {
         weeklyTrend,
         slaByPriority,
         urgentItems,
+        mttrByPriority,
+        avgFirstResponseHours,
+        firstResponseSample: firstResponseCount,
+        reopenRate,
+        reopenSample: totalEverResolvedInPeriod,
+        myStats: { active: myActive, breached: myBreached },
+        heatmap,
+        heatmapMax,
       },
     });
   } catch (error) {
