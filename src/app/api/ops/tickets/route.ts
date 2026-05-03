@@ -131,6 +131,10 @@ function mapTicket(t: any, assigneeMap?: Map<string, string>): Ticket {
     createdAt: t.createdAt instanceof Date ? t.createdAt.toISOString() : t.createdAt,
     updatedAt: t.updatedAt instanceof Date ? t.updatedAt.toISOString() : t.updatedAt,
     commentsCount: t._count?.comments ?? 0,
+    // En la lista no se incluyen comments por costo: sumar attachments
+    // requeriría un sub-aggregate Json. Dejamos 0 acá; el detalle sí lo
+    // calcula. Si alguna vista necesita el conteo, agregar índice GIN
+    // sobre comments.attachments y un raw query.
     attachmentsCount: 0,
     finding: pickTicketFinding(t),
   };
