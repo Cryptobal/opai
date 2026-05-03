@@ -10,13 +10,15 @@ type Params = { id: string; commentId: string };
 /* ── Mapper ──────────────────────────────────────────────────── */
 
 function mapComment(c: any, actorMap?: Map<string, { name: string }>): TicketComment {
+  const isDeleted = c.deletedAt != null;
+  const isEdited = c.editedAt != null;
   return {
     id: c.id,
     ticketId: c.ticketId,
     userId: c.userId,
     userName: actorMap?.get(c.userId)?.name ?? null,
-    body: c.body,
-    bodyHtml: c.bodyHtml ?? null,
+    body: isDeleted ? "" : c.body,
+    bodyHtml: isDeleted ? null : c.bodyHtml ?? null,
     isInternal: c.isInternal,
     direction: c.direction ?? "internal",
     fromEmail: c.fromEmail ?? null,
@@ -28,36 +30,36 @@ function mapComment(c: any, actorMap?: Map<string, { name: string }>): TicketCom
     messageId: c.messageId ?? null,
     inReplyToMessageId: c.inReplyToMessageId ?? null,
     threadMessageIds: c.threadMessageIds ?? [],
-    attachments: c.attachments ?? null,
+    attachments: isDeleted ? null : (c.attachments ?? null),
     sentAt: c.sentAt instanceof Date ? c.sentAt.toISOString() : c.sentAt ?? null,
     deliveryStatus: c.deliveryStatus ?? null,
     deliveryError: c.deliveryError ?? null,
     resendId: c.resendId ?? null,
     createdAt: c.createdAt instanceof Date ? c.createdAt.toISOString() : c.createdAt,
     updatedAt: c.updatedAt instanceof Date ? c.updatedAt.toISOString() : c.updatedAt,
+    isDeleted,
+    deletedAt:
+      c.deletedAt instanceof Date ? c.deletedAt.toISOString() : c.deletedAt ?? null,
+    isEdited,
+    editedAt:
+      c.editedAt instanceof Date ? c.editedAt.toISOString() : c.editedAt ?? null,
   };
 }
 
-/**
- * Determina si el usuario actual puede editar/borrar el comentario.
- * Reglas:
- *  - El autor del comentario siempre puede.
- *  - Owners y Admins pueden editar/borrar comentarios de cualquier usuario
- *    del mismo tenant (moderación).
- *  - Comentarios de tipo email (direction = email_in / email_out) son
- *    inmutables: representan correo enviado o recibido y modificarlos
- *    falsearía el historial. Solo se permite borrar a admins (limpieza).
- */
-function canEdit(opts: {
-  comment: { userId: string; direction: string | null };
+function canEditDelete(opts: {
+  comment: { userId: string; direction: string | null; deletedAt: Date | null };
   userId: string;
   userRole: string;
+  action: "edit" | "delete";
 }): { allowed: boolean; reason?: string } {
+  if (opts.comment.deletedAt) {
+    return { allowed: false, reason: "El comentario ya fue eliminado" };
+  }
   const isAuthor = opts.comment.userId === opts.userId;
   const isAdmin = isAdminRole(opts.userRole);
   const dir = opts.comment.direction ?? "internal";
 
-  if (dir === "email_in" || dir === "email_out") {
+  if (opts.action === "edit" && (dir === "email_in" || dir === "email_out")) {
     return {
       allowed: false,
       reason: "Los emails enviados/recibidos no se pueden editar",
@@ -66,29 +68,16 @@ function canEdit(opts: {
   if (!isAuthor && !isAdmin) {
     return {
       allowed: false,
-      reason: "Solo el autor o un administrador pueden editar este comentario",
+      reason:
+        opts.action === "edit"
+          ? "Solo el autor o un administrador pueden editar este comentario"
+          : "Solo el autor o un administrador pueden eliminar este comentario",
     };
   }
   return { allowed: true };
 }
 
-function canDelete(opts: {
-  comment: { userId: string };
-  userId: string;
-  userRole: string;
-}): { allowed: boolean; reason?: string } {
-  const isAuthor = opts.comment.userId === opts.userId;
-  const isAdmin = isAdminRole(opts.userRole);
-  if (!isAuthor && !isAdmin) {
-    return {
-      allowed: false,
-      reason: "Solo el autor o un administrador pueden eliminar este comentario",
-    };
-  }
-  return { allowed: true };
-}
-
-/* ── PATCH /api/ops/tickets/[id]/comments/[commentId] ─────────── */
+/* ── PATCH ── editar body ─────────────────────────────────────── */
 
 export async function PATCH(
   request: NextRequest,
@@ -102,7 +91,6 @@ export async function PATCH(
 
     const { id: ticketId, commentId } = await params;
     const body = await request.json();
-
     const newBody = typeof body.body === "string" ? body.body.trim() : "";
     if (!newBody) {
       return NextResponse.json(
@@ -117,7 +105,6 @@ export async function PATCH(
       );
     }
 
-    // Cargar el comentario asegurando que pertenezca a un ticket del tenant.
     const existing = await prisma.opsTicketComment.findFirst({
       where: {
         id: commentId,
@@ -128,8 +115,9 @@ export async function PATCH(
         id: true,
         userId: true,
         direction: true,
-        isInternal: true,
         body: true,
+        originalBody: true,
+        deletedAt: true,
       },
     });
     if (!existing) {
@@ -138,11 +126,11 @@ export async function PATCH(
         { status: 404 },
       );
     }
-
-    const check = canEdit({
-      comment: { userId: existing.userId, direction: existing.direction },
+    const check = canEditDelete({
+      comment: existing,
       userId: ctx.userId,
       userRole: ctx.userRole,
+      action: "edit",
     });
     if (!check.allowed) {
       return NextResponse.json(
@@ -151,20 +139,36 @@ export async function PATCH(
       );
     }
 
-    // updatedAt se setea automáticamente vía @updatedAt; el cliente puede
-    // detectar edición comparando createdAt vs updatedAt.
+    const now = new Date();
     const updated = await prisma.opsTicketComment.update({
       where: { id: commentId },
-      data: { body: newBody },
+      data: {
+        body: newBody,
+        editedAt: now,
+        editedBy: ctx.userId,
+        // Solo se setea la primera vez para preservar la intención inicial.
+        originalBody: existing.originalBody ?? existing.body,
+      },
     });
+
+    // Audit trail (best-effort).
+    try {
+      const { recordTicketEvent } = await import("@/lib/tickets-events");
+      await recordTicketEvent({
+        tenantId: ctx.tenantId,
+        ticketId,
+        type: "comment_edited",
+        actorId: ctx.userId,
+        data: { commentId },
+      });
+    } catch {
+      // ignore
+    }
 
     const { resolveActorNames } = await import("@/lib/notifications/resolve-actor-name");
     const actorMap = await resolveActorNames(ctx.tenantId, [updated.userId]);
 
-    return NextResponse.json({
-      success: true,
-      data: mapComment(updated, actorMap),
-    });
+    return NextResponse.json({ success: true, data: mapComment(updated, actorMap) });
   } catch (error) {
     console.error("[OPS] Error editing ticket comment:", error);
     return NextResponse.json(
@@ -174,7 +178,7 @@ export async function PATCH(
   }
 }
 
-/* ── DELETE /api/ops/tickets/[id]/comments/[commentId] ────────── */
+/* ── DELETE ── soft delete ────────────────────────────────────── */
 
 export async function DELETE(
   _request: NextRequest,
@@ -194,7 +198,7 @@ export async function DELETE(
         ticketId,
         ticket: { tenantId: ctx.tenantId },
       },
-      select: { id: true, userId: true },
+      select: { id: true, userId: true, direction: true, deletedAt: true },
     });
     if (!existing) {
       return NextResponse.json(
@@ -202,11 +206,11 @@ export async function DELETE(
         { status: 404 },
       );
     }
-
-    const check = canDelete({
-      comment: { userId: existing.userId },
+    const check = canEditDelete({
+      comment: existing,
       userId: ctx.userId,
       userRole: ctx.userRole,
+      action: "delete",
     });
     if (!check.allowed) {
       return NextResponse.json(
@@ -215,7 +219,27 @@ export async function DELETE(
       );
     }
 
-    await prisma.opsTicketComment.delete({ where: { id: commentId } });
+    const now = new Date();
+    await prisma.opsTicketComment.update({
+      where: { id: commentId },
+      data: {
+        deletedAt: now,
+        deletedBy: ctx.userId,
+      },
+    });
+
+    try {
+      const { recordTicketEvent } = await import("@/lib/tickets-events");
+      await recordTicketEvent({
+        tenantId: ctx.tenantId,
+        ticketId,
+        type: "comment_deleted",
+        actorId: ctx.userId,
+        data: { commentId },
+      });
+    } catch {
+      // ignore
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

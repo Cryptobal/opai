@@ -244,6 +244,12 @@ export interface TicketComment {
   resendId?: string | null;
   createdAt: string;
   updatedAt?: string;
+  // Soft delete + edición (M2). Cuando isDeleted=true, el body llega vacío
+  // desde el server por privacidad; el cliente muestra placeholder.
+  isDeleted?: boolean;
+  deletedAt?: string | null;
+  isEdited?: boolean;
+  editedAt?: string | null;
 }
 
 export interface TicketAttachment {

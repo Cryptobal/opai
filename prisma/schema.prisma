@@ -5088,6 +5088,18 @@ model OpsTicketComment {
   bodyHtml   String? @map("body_html")
   isInternal Boolean @default(false) @map("is_internal")
 
+  // ── Edición / soft delete ──
+  /// Cuerpo original antes de la primera edición. Se llena la primera
+  /// vez que un usuario edita el body; ediciones posteriores no lo
+  /// pisan, así queda trazable la intención inicial.
+  originalBody String?   @map("original_body")
+  editedAt     DateTime? @map("edited_at") @db.Timestamptz(6)
+  editedBy     String?   @map("edited_by")
+  /// Soft delete. La fila se conserva para auditoría; la UI muestra
+  /// 'comentario eliminado' y el body se vacía o queda como estaba.
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(6)
+  deletedBy    String?   @map("deleted_by")
+
   // Email fields
   direction          String    @default("internal") @map("direction")
   fromEmail          String?   @map("from_email")
