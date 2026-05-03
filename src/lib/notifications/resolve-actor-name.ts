@@ -19,6 +19,9 @@ export interface ResolvedActor {
  * Los IDs no encontrados simplemente no aparecen en el Map (el caller decide
  * el fallback, ej. "Usuario").
  */
+// UUID v1-v5 (incluye el formato "uuid_generate_v4" de Postgres).
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 export async function resolveActorNames(
   tenantId: string,
   actorIds: string[],
@@ -27,19 +30,25 @@ export async function resolveActorNames(
   const ids = [...new Set(actorIds.filter(Boolean))];
   if (ids.length === 0) return result;
 
+  // OpsGuardia.id y CrmContact.id son columnas @db.Uuid en Postgres, por lo que
+  // pasarles un id que no es UUID (ej. el cuid de un Admin) hace fallar el
+  // query con "invalid input syntax for type uuid". Filtramos antes de
+  // disparar las queries para evitar el 500.
+  const uuidIds = ids.filter((id) => UUID_RE.test(id));
+
   const [admins, guardias, contacts] = await Promise.all([
     prisma.admin.findMany({
       where: { id: { in: ids }, tenantId },
       select: { id: true, name: true, email: true },
     }),
     prisma.opsGuardia.findMany({
-      where: { id: { in: ids }, tenantId },
+      where: { id: { in: uuidIds }, tenantId },
       include: {
         persona: { select: { firstName: true, lastName: true } },
       },
     }),
     prisma.crmContact.findMany({
-      where: { id: { in: ids }, tenantId },
+      where: { id: { in: uuidIds }, tenantId },
       select: { id: true, firstName: true, lastName: true, email: true },
     }),
   ]);
