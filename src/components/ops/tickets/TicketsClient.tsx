@@ -816,7 +816,7 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
               <SlidersHorizontal className="h-3.5 w-3.5" />
               Filtros
               {activeChips.length > 0 && (
-                <span className="ml-0.5 rounded-full bg-primary/15 px-1.5 text-[10px] font-semibold text-primary">
+                <span className="ml-0.5 rounded-full bg-primary/15 px-1.5 text-[12px] font-semibold text-primary">
                   {activeChips.length}
                 </span>
               )}
@@ -842,9 +842,9 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
           >
             {/* Estado */}
             <div className="space-y-1.5">
-              <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Estado</Label>
+              <Label className="text-[12px] uppercase tracking-wide text-muted-foreground">Estado</Label>
               <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v as typeof filterStatus)}>
-                <SelectTrigger className="h-8 text-xs">
+                <SelectTrigger className="h-10 sm:h-9 text-[13px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="z-[200]">
@@ -862,7 +862,7 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
 
             {/* Prioridad (multi) — sin contadores crudos para no confundir contexto */}
             <div className="space-y-1.5">
-              <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Prioridad</Label>
+              <Label className="text-[12px] uppercase tracking-wide text-muted-foreground">Prioridad</Label>
               <div className="flex flex-wrap gap-1.5">
                 {(Object.entries(TICKET_PRIORITY_CONFIG) as [TicketPriority, (typeof TICKET_PRIORITY_CONFIG)["p1"]][]).map(
                   ([key, cfg]) => {
@@ -872,7 +872,7 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
                         key={key}
                         type="button"
                         onClick={() => togglePriority(key)}
-                        className={`flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                        className={`flex items-center gap-1 rounded-full border px-2.5 py-1 text-[12px] font-medium transition-colors ${
                           on ? `${cfg.bg} ${cfg.border} ${cfg.color}` : "border-border bg-muted/50 text-muted-foreground hover:bg-muted"
                         }`}
                       >
@@ -889,9 +889,9 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
 
             {/* Origen */}
             <div className="space-y-1.5">
-              <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Origen</Label>
+              <Label className="text-[12px] uppercase tracking-wide text-muted-foreground">Origen</Label>
               <Select value={originTab} onValueChange={(v) => setOriginTab(v as typeof originTab)}>
-                <SelectTrigger className="h-8 text-xs">
+                <SelectTrigger className="h-10 sm:h-9 text-[13px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="z-[200]">
@@ -905,9 +905,9 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
 
             {/* Asignación */}
             <div className="space-y-1.5">
-              <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Asignación</Label>
+              <Label className="text-[12px] uppercase tracking-wide text-muted-foreground">Asignación</Label>
               <Select value={assignedFilter} onValueChange={(v) => setAssignedFilter(v as AssignedFilter)}>
-                <SelectTrigger className="h-8 text-xs">
+                <SelectTrigger className="h-10 sm:h-9 text-[13px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="z-[200]">
@@ -921,9 +921,9 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
             {/* Tipo */}
             {ticketTypes.length > 0 && (
               <div className="space-y-1.5">
-                <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Tipo</Label>
+                <Label className="text-[12px] uppercase tracking-wide text-muted-foreground">Tipo</Label>
                 <Select value={filterTypeId} onValueChange={setFilterTypeId}>
-                  <SelectTrigger className="h-8 text-xs">
+                  <SelectTrigger className="h-10 sm:h-9 text-[13px]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="z-[200]">
@@ -954,7 +954,7 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
               <button
                 type="button"
                 onClick={resetAllFilters}
-                className="text-[11px] text-muted-foreground hover:text-foreground"
+                className="text-[12px] text-muted-foreground hover:text-foreground"
               >
                 Restablecer
               </button>
@@ -1009,7 +1009,7 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
                   setInstallationCtx(null);
                 }
               }}
-              className={`rounded-sm px-2 py-1 text-[10px] font-medium ${
+              className={`rounded-sm px-2 py-1 text-[12px] font-medium ${
                 listMode === mode.value ? "bg-background shadow-sm" : "text-muted-foreground"
               }`}
             >
@@ -1025,7 +1025,7 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
           {activeChips.map((chip) => (
             <span
               key={chip.key}
-              className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/60 px-2 py-0.5 text-[11px]"
+              className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/60 px-2 py-0.5 text-[12px]"
             >
               {chip.label}
               <button
@@ -1041,7 +1041,7 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
           <button
             type="button"
             onClick={resetAllFilters}
-            className="text-[11px] text-muted-foreground hover:text-foreground"
+            className="text-[12px] text-muted-foreground hover:text-foreground"
           >
             Limpiar todo
           </button>
@@ -1094,7 +1094,7 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
                     }
                   }}
                 >
-                  <SelectTrigger className="h-8 w-[160px] text-xs">
+                  <SelectTrigger className="h-10 sm:h-9 w-[160px] text-[13px]">
                     <SelectValue placeholder="Asignar a…" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1115,7 +1115,7 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
                     runBulkAction("priority", { priority: v });
                   }}
                 >
-                  <SelectTrigger className="h-8 w-[120px] text-xs">
+                  <SelectTrigger className="h-10 sm:h-9 w-[120px] text-[13px]">
                     <SelectValue placeholder="Prioridad…" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1134,7 +1134,7 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
                     runBulkAction("status", { status: v });
                   }}
                 >
-                  <SelectTrigger className="h-8 w-[140px] text-xs">
+                  <SelectTrigger className="h-10 sm:h-9 w-[140px] text-[13px]">
                     <SelectValue placeholder="Estado…" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1244,7 +1244,7 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
           />
           {hasMore && (
             <div className="flex flex-col items-center gap-2 pt-2">
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-[12px] text-muted-foreground">
                 Mostrando {filteredTickets.length} de {total}
               </p>
               <Button
@@ -1322,7 +1322,7 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
 
           {/* Pagination: load more + counter */}
           <div className="flex flex-col items-center gap-2 pt-2">
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-[12px] text-muted-foreground">
               Mostrando {filteredTickets.length} de {total}
             </p>
             {hasMore && (
@@ -1418,7 +1418,7 @@ function TicketCard({
     <button
       type="button"
       onClick={handleCardActivate}
-      className={`group relative flex w-full flex-col gap-2 rounded-xl border-l-[3px] border border-border bg-[#161b22] p-3.5 text-left transition-all hover:bg-[#1c2333] hover:border-primary/20 active:bg-[#1c2333] ${borderColor} ${
+      className={`group relative flex w-full flex-col gap-2 rounded-xl border-l-[3px] border border-border bg-ds-surface-1 p-3.5 text-left transition-all hover:bg-ds-surface-2 hover:border-primary/20 active:bg-ds-surface-2 ${borderColor} ${
         breached && !isTerminal ? "animate-pulse-subtle border-status-danger-border" : ""
       } ${selected ? "ring-2 ring-primary/60" : ""}`}
     >
@@ -1436,21 +1436,21 @@ function TicketCard({
       )}
       {/* Row 1: Code + Status + Priority + Avatar */}
       <div className="flex items-center gap-2">
-        <span className="font-mono text-[10px] text-muted-foreground">{ticket.code}</span>
-        <Badge variant={statusCfg.variant} className="text-[10px]">
+        <span className="font-mono text-[12px] text-muted-foreground">{ticket.code}</span>
+        <Badge variant={statusCfg.variant} className="text-[12px]">
           {statusCfg.label}
         </Badge>
-        <span className={`text-[10px] font-semibold ${priorityCfg.color}`}>
+        <span className={`text-[12px] font-semibold ${priorityCfg.color}`}>
           {ticket.priority.toUpperCase()}
         </span>
         {ticket.approvalStatus === "pending" && (
-          <Badge variant="secondary" className="text-[10px] gap-0.5">
+          <Badge variant="secondary" className="text-[12px] gap-0.5">
             <ShieldCheck className="h-2.5 w-2.5" />
             Aprobación
           </Badge>
         )}
         {breached && !isTerminal && (
-          <Badge variant="destructive" className="text-[10px] gap-0.5">
+          <Badge variant="destructive" className="text-[12px] gap-0.5">
             <AlertTriangle className="h-2.5 w-2.5" />
             SLA Vencido
           </Badge>
@@ -1486,7 +1486,7 @@ function TicketCard({
 
       {/* Row 2.5: Supervision finding context (documento específico o fallback) */}
       {ticket.finding && (
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px]">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px]">
           <FileText className="h-3 w-3 text-status-warn-fg/80" />
           <span className="font-medium text-status-warn-fg/90">
             {ticket.finding.tipoDocNombre
@@ -1494,23 +1494,23 @@ function TicketCard({
               ?? findingCategoryLabel(ticket.finding.category)}
           </span>
           {ticket.finding.occurrenceCount > 1 && (
-            <span className="rounded bg-status-warn-soft px-1.5 py-0.5 text-[10px] font-semibold text-status-warn-fg">
+            <span className="rounded bg-status-warn-soft px-1.5 py-0.5 text-[12px] font-semibold text-status-warn-fg">
               ×{ticket.finding.occurrenceCount}
             </span>
           )}
           {ticket.finding.tipoDocCapa ? (
-            <span className="text-[10px] text-muted-foreground capitalize">
+            <span className="text-[12px] text-muted-foreground capitalize">
               {ticket.finding.tipoDocCapa}
             </span>
           ) : (
             !ticket.finding.tipoDocNombre && !ticket.finding.guardiaDocCode && (
-              <span className="text-[10px] text-muted-foreground italic">
+              <span className="text-[12px] text-muted-foreground italic">
                 Sin documento específico
               </span>
             )
           )}
           {ticket.finding.guardName && (
-            <span className="text-[10px] text-muted-foreground">
+            <span className="text-[12px] text-muted-foreground">
               · {ticket.finding.guardName}
             </span>
           )}
@@ -1518,7 +1518,7 @@ function TicketCard({
       )}
 
       {/* Row 3: Type + Team */}
-      <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+      <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
         <span className="truncate">{typeName}</span>
         <span className="text-border">·</span>
         <span>{teamName}</span>
@@ -1529,11 +1529,11 @@ function TicketCard({
         <div className="flex items-center gap-1.5">
           <div className="flex items-center gap-1 rounded-full bg-status-info-soft px-2 py-0.5">
             <Shield className="h-3 w-3 text-status-info-fg" />
-            <span className="text-[11px] font-medium text-status-info-fg">
+            <span className="text-[12px] font-medium text-status-info-fg">
               {ticket.guardiaName}
             </span>
             {ticket.guardiaRut && (
-              <span className="text-[10px] text-status-info-fg/60">
+              <span className="text-[12px] text-status-info-fg/60">
                 ({ticket.guardiaRut})
               </span>
             )}
@@ -1547,7 +1547,7 @@ function TicketCard({
           {ticket.tags.map((tag) => (
             <span
               key={tag}
-              className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary"
+              className="rounded-full bg-primary/10 px-2 py-0.5 text-[12px] font-medium text-primary"
             >
               {tag}
             </span>
@@ -1564,7 +1564,7 @@ function TicketCard({
               style={{ width: `${slaPercent === 0 ? 100 : Math.max(slaPercent ?? 0, 2)}%` }}
             />
           </div>
-          <div className={`flex items-center gap-1 text-[10px] font-medium ${slaTextColor}`}>
+          <div className={`flex items-center gap-1 text-[12px] font-medium ${slaTextColor}`}>
             <Clock className="h-3 w-3" />
             <span>{slaText}</span>
           </div>
@@ -1626,7 +1626,7 @@ export function SlaBar({
         />
       </div>
       {showText && (
-        <div className={`flex items-center gap-1 text-[10px] font-medium shrink-0 ${slaTextColor}`}>
+        <div className={`flex items-center gap-1 text-[12px] font-medium shrink-0 ${slaTextColor}`}>
           <Clock className="h-3 w-3" />
           <span>{slaText}</span>
         </div>
@@ -1857,7 +1857,7 @@ function TicketCreateForm({
                     {tt.requiresApproval && (
                       <ShieldCheck className="h-3 w-3 text-status-info-fg" />
                     )}
-                    <span className="text-[10px] text-muted-foreground">
+                    <span className="text-[12px] text-muted-foreground">
                       {TICKET_TEAM_CONFIG[tt.assignedTeam]?.label}
                     </span>
                   </div>
@@ -1867,7 +1867,7 @@ function TicketCreateForm({
           </Select>
         )}
         {selectedType?.description && (
-          <p className="text-[11px] text-muted-foreground">{selectedType.description}</p>
+          <p className="text-[12px] text-muted-foreground">{selectedType.description}</p>
         )}
       </div>
 
@@ -1937,7 +1937,7 @@ function TicketCreateForm({
                   />
                   <div>
                     <p className={`text-xs font-semibold ${active ? cfg.color : ""}`}>{cfg.shortLabel}</p>
-                    <p className="text-[10px] text-muted-foreground">{cfg.description}</p>
+                    <p className="text-[12px] text-muted-foreground">{cfg.description}</p>
                   </div>
                 </button>
               );

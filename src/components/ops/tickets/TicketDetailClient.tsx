@@ -578,7 +578,7 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
       </nav>
 
       {/* ── CARD: Header ── */}
-      <div className={`rounded-xl border bg-[#161b22] p-4 space-y-3 ${breached && !isTerminal ? "border-status-danger-border" : "border-border"}`}>
+      <div className={`rounded-xl border bg-ds-surface-1 p-4 space-y-3 ${breached && !isTerminal ? "border-status-danger-border" : "border-border"}`}>
         {/* Row 1: Code + Status + Priority + Delete */}
         <div className="flex items-center gap-2 flex-wrap">
           <span className="font-mono text-xs text-muted-foreground">{ticket.code}</span>
@@ -620,19 +620,19 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
             {ticket.priority.toUpperCase()}
           </span>
           {breached && !isTerminal && (
-            <Badge variant="destructive" className="gap-0.5 text-[10px]">
+            <Badge variant="destructive" className="gap-0.5 text-[12px]">
               <AlertTriangle className="h-2.5 w-2.5" />
               SLA vencido
             </Badge>
           )}
           {ticket.slaPausedAt && (
-            <Badge variant="secondary" className="gap-0.5 text-[10px] bg-status-warn-soft text-status-warn-fg border-status-warn-border">
+            <Badge variant="secondary" className="gap-0.5 text-[12px] bg-status-warn-soft text-status-warn-fg border-status-warn-border">
               <Pause className="h-2.5 w-2.5" />
               SLA pausado
             </Badge>
           )}
           {ticket.snoozedUntil && new Date(ticket.snoozedUntil) > new Date() && (
-            <Badge variant="secondary" className="gap-0.5 text-[10px] bg-status-info-soft text-status-info-fg border-status-info-border">
+            <Badge variant="secondary" className="gap-0.5 text-[12px] bg-status-info-soft text-status-info-fg border-status-info-border">
               <BellOff className="h-2.5 w-2.5" />
               Silenciado hasta {new Date(ticket.snoozedUntil).toLocaleString("es-CL", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
             </Badge>
@@ -667,7 +667,7 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
             {ticket.tags.map((tag) => (
               <span
                 key={tag}
-                className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary"
+                className="rounded-full bg-primary/10 px-2 py-0.5 text-[12px] font-medium text-primary"
               >
                 {tag}
               </span>
@@ -678,7 +678,7 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
         {/* Guard badge */}
         {ticket.guardiaName && (
           <div>
-            <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-1">
+            <p className="text-[12px] font-medium uppercase tracking-wider text-muted-foreground mb-1">
               Guardia asociado
             </p>
             <button
@@ -691,7 +691,7 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
               <Shield className="h-4 w-4 text-status-info-fg" />
               <div className="text-left">
                 <p className="text-sm font-medium text-status-info-fg">{ticket.guardiaName}</p>
-                <p className="text-[10px] text-status-info-fg/60">
+                <p className="text-[12px] text-status-info-fg/60">
                   {[ticket.guardiaRut, ticket.guardiaCode].filter(Boolean).join(" · ")}
                 </p>
               </div>
@@ -702,7 +702,7 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
 
         {/* Responsible */}
         <div>
-          <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-1">
+          <p className="text-[12px] font-medium uppercase tracking-wider text-muted-foreground mb-1">
             Responsable
           </p>
           {assigningUser ? (
@@ -735,7 +735,7 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
             </div>
           ) : ticket.assignedToName ? (
             <div className="flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/20 text-[10px] font-semibold text-primary">
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/20 text-[12px] font-semibold text-primary">
                 {ticket.assignedToName
                   .split(" ")
                   .slice(0, 2)
@@ -785,7 +785,7 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
         {/* SLA Bar */}
         {ticket.slaDueAt && (
           <div className="pt-1">
-            <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-1">
+            <p className="text-[12px] font-medium uppercase tracking-wider text-muted-foreground mb-1">
               SLA restante
             </p>
             <SlaBar
@@ -801,8 +801,8 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
 
       {/* ── CARD: SLA Controls ── */}
       {ticket.slaDueAt && !isTerminal && (
-        <div className="rounded-xl border border-border bg-[#161b22] p-4 space-y-3">
-          <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+        <div className="rounded-xl border border-border bg-ds-surface-1 p-4 space-y-3">
+          <p className="text-[12px] font-medium uppercase tracking-wider text-muted-foreground">
             Controles SLA
           </p>
           <div className="flex flex-wrap gap-2">
@@ -949,7 +949,7 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
                   {" — "}
                   {ext.reason}
                   <br />
-                  <span className="text-[10px]">
+                  <span className="text-[12px]">
                     {ext.fromDueAt ? new Date(ext.fromDueAt).toLocaleString("es-CL", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "—"}
                     {" → "}
                     {new Date(ext.toDueAt).toLocaleString("es-CL", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
@@ -966,8 +966,8 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
 
       {/* ── CARD: Description ── */}
       {ticket.description && (
-        <div className="rounded-xl border border-border bg-[#161b22] p-4 space-y-2">
-          <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+        <div className="rounded-xl border border-border bg-ds-surface-1 p-4 space-y-2">
+          <p className="text-[12px] font-medium uppercase tracking-wider text-muted-foreground">
             Descripción
           </p>
           <p className="text-sm whitespace-pre-wrap leading-relaxed">{ticket.description}</p>
@@ -976,7 +976,7 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
 
       {/* ── CARD: Approval chain ── */}
       {ticket.approvals && ticket.approvals.length > 0 && (
-        <div className="rounded-xl border border-border bg-[#161b22] p-4">
+        <div className="rounded-xl border border-border bg-ds-surface-1 p-4">
           <TicketApprovalTimeline
             approvals={ticket.approvals}
             currentStep={ticket.currentApprovalStep}
@@ -992,7 +992,7 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
       {/* ── CARD: Resolution notes ── */}
       {ticket.resolutionNotes && (
         <div className="rounded-xl border border-status-ok-border bg-status-ok-soft p-4 space-y-1">
-          <p className="text-[10px] font-medium uppercase tracking-wider text-status-ok-fg">
+          <p className="text-[12px] font-medium uppercase tracking-wider text-status-ok-fg">
             Notas de resolución
           </p>
           <p className="text-sm whitespace-pre-wrap">{ticket.resolutionNotes}</p>
@@ -1003,7 +1003,7 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
       <TicketAttachmentsSummary comments={comments} />
 
       {/* ── CARD: Activity Timeline ── */}
-      <div className="rounded-xl border border-border bg-[#161b22] p-4 space-y-3">
+      <div className="rounded-xl border border-border bg-ds-surface-1 p-4 space-y-3">
         <div className="flex items-center gap-2">
           <MessageSquare className="h-4 w-4 text-muted-foreground" />
           <h4 className="text-sm font-medium">Actividad</h4>
@@ -1397,7 +1397,7 @@ function EmailTimelineEvent({
 
         {/* Email addressing info */}
         {(dir === "email_out" || dir === "email_in") && (
-          <div className="mt-1 space-y-0.5 text-[11px] text-muted-foreground">
+          <div className="mt-1 space-y-0.5 text-[12px] text-muted-foreground">
             {dir === "email_in" && comment.fromEmail && (
               <p>De: <span className="text-foreground">{comment.fromEmail}</span></p>
             )}
@@ -1474,7 +1474,7 @@ function EmailTimelineEvent({
           <button
             type="button"
             onClick={() => setShowHtml(!showHtml)}
-            className="mt-1 text-[10px] text-status-info-fg hover:underline"
+            className="mt-1 text-[12px] text-status-info-fg hover:underline"
           >
             {showHtml ? "Ocultar HTML" : "Ver HTML original"}
           </button>
@@ -1488,7 +1488,7 @@ function EmailTimelineEvent({
 
         {/* Delivery error */}
         {comment.deliveryError && (
-          <p className="mt-1 text-[11px] text-status-danger-fg">{comment.deliveryError}</p>
+          <p className="mt-1 text-[12px] text-status-danger-fg">{comment.deliveryError}</p>
         )}
 
         {/* Attachments */}
@@ -1500,7 +1500,7 @@ function EmailTimelineEvent({
                 href={att.url || "#"}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1 rounded-md border border-border bg-background/50 px-2 py-1 text-[11px] hover:bg-accent transition-colors"
+                className="flex items-center gap-1 rounded-md border border-border bg-background/50 px-2 py-1 text-[12px] hover:bg-accent transition-colors"
               >
                 <Paperclip className="h-3 w-3 text-muted-foreground" />
                 <span className="truncate max-w-[120px]">{att.fileName}</span>
@@ -1622,7 +1622,7 @@ function EmailComposer({
     <div className="space-y-2 rounded-lg border border-status-info-border bg-status-info-soft p-3">
       <div className="space-y-1.5">
         <div className="flex items-center gap-2">
-          <label className="text-[11px] text-muted-foreground w-10 shrink-0">Para:</label>
+          <label className="text-[12px] text-muted-foreground w-10 shrink-0">Para:</label>
           <Input
             value={to}
             onChange={(e) => setTo(e.target.value)}
@@ -1631,7 +1631,7 @@ function EmailComposer({
           />
         </div>
         <div className="flex items-center gap-2">
-          <label className="text-[11px] text-muted-foreground w-10 shrink-0">CC:</label>
+          <label className="text-[12px] text-muted-foreground w-10 shrink-0">CC:</label>
           <Input
             value={cc}
             onChange={(e) => setCc(e.target.value)}
@@ -1640,7 +1640,7 @@ function EmailComposer({
           />
         </div>
         <div className="flex items-center gap-2">
-          <label className="text-[11px] text-muted-foreground w-10 shrink-0">Asunto:</label>
+          <label className="text-[12px] text-muted-foreground w-10 shrink-0">Asunto:</label>
           <Input
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
@@ -1660,7 +1660,7 @@ function EmailComposer({
       {attachmentKeys.length > 0 && (
         <div className="flex flex-wrap gap-1">
           {attachmentKeys.map((key, i) => (
-            <span key={i} className="flex items-center gap-1 rounded bg-muted px-2 py-0.5 text-[11px]">
+            <span key={i} className="flex items-center gap-1 rounded bg-muted px-2 py-0.5 text-[12px]">
               <Paperclip className="h-2.5 w-2.5" />
               {key.split("/").pop()?.substring(0, 30)}
               <button
@@ -1705,7 +1705,7 @@ function EmailComposer({
 function InfoField({ label, value, className }: { label: string; value: string; className?: string }) {
   return (
     <div>
-      <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
+      <p className="text-[12px] font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
       <p className={`text-[13px] font-medium ${className ?? ""}`}>{value}</p>
     </div>
   );
@@ -1776,7 +1776,7 @@ function TicketAttachmentsSummary({ comments }: { comments: TicketComment[] }) {
   if (flat.length === 0) return null;
 
   return (
-    <div className="rounded-xl border border-border bg-[#161b22] p-4 space-y-3">
+    <div className="rounded-xl border border-border bg-ds-surface-1 p-4 space-y-3">
       <div className="flex items-center gap-2">
         <Paperclip className="h-4 w-4 text-muted-foreground" />
         <h4 className="text-sm font-medium">Adjuntos</h4>
