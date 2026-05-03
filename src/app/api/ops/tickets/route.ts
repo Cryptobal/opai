@@ -225,12 +225,15 @@ export async function GET(request: NextRequest) {
       prisma.opsTicket.count({ where }),
     ]);
 
-    // Resolve assignee names
+    // Resolve assignee names. Filtramos por tenantId aunque los ids ya
+    // vienen de tickets tenant-scoped: defensa en profundidad para evitar
+    // cualquier filtración cross-tenant si en el futuro un assigneeId
+    // queda inconsistente.
     const assigneeIds = [...new Set(rows.map((r) => r.assignedTo).filter(Boolean))] as string[];
     let assigneeMap = new Map<string, string>();
     if (assigneeIds.length > 0) {
       const admins = await prisma.admin.findMany({
-        where: { id: { in: assigneeIds } },
+        where: { id: { in: assigneeIds }, tenantId: ctx.tenantId },
         select: { id: true, name: true, email: true },
       });
       assigneeMap = new Map(admins.map((a) => [a.id, a.name || a.email]));
