@@ -224,6 +224,7 @@ export async function POST(request: NextRequest) {
             actionUrl: undefined,
             actionLabel: undefined,
             category: "Portal del Guardia",
+            tenantSlug: emailConfig.tenantSlug,
           })
         );
 

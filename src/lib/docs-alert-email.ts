@@ -15,6 +15,7 @@ export async function sendDocumentExpiringEmail(input: {
   expirationDate: string;
   daysRemaining: number;
   documentUrl: string;
+  tenantSlug?: string | null;
 }): Promise<MailResult> {
   try {
     const html = await render(DocumentExpiringEmail(input));
@@ -38,6 +39,7 @@ export async function sendDocumentExpiredEmail(input: {
   documentTitle: string;
   expirationDate: string;
   documentUrl: string;
+  tenantSlug?: string | null;
 }): Promise<MailResult> {
   try {
     const html = await render(DocumentExpiredEmail(input));

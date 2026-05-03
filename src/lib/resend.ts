@@ -25,6 +25,8 @@ export interface TenantEmailConfig {
   replyTo: string;
   logoUrl: string;
   companyName: string;
+  /** Slug del tenant para construir URLs absolutas en emails (subdomain). */
+  tenantSlug: string | null;
 }
 
 const tenantEmailCache = new Map<string, { config: TenantEmailConfig; ts: number }>();
@@ -47,11 +49,18 @@ export async function getTenantEmailConfig(tenantId: string): Promise<TenantEmai
     const { getTenantCompanyConfig } = await import("@/lib/tenant-config");
     const cfg = await getTenantCompanyConfig(tenantId);
 
+    const { prisma } = await import("@/lib/prisma");
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { slug: true },
+    });
+
     const config: TenantEmailConfig = {
       from: cfg.emailFrom,
       replyTo: cfg.emailReplyTo,
       logoUrl: cfg.logoUrl || "",
       companyName: cfg.companyName || EMAIL_CONFIG.companyName,
+      tenantSlug: tenant?.slug ?? null,
     };
 
     tenantEmailCache.set(tenantId, { config, ts: Date.now() });
@@ -62,6 +71,7 @@ export async function getTenantEmailConfig(tenantId: string): Promise<TenantEmai
       replyTo: EMAIL_CONFIG.replyTo,
       logoUrl: "",
       companyName: EMAIL_CONFIG.companyName,
+      tenantSlug: null,
     };
   }
 }
