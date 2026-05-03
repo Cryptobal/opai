@@ -17,8 +17,10 @@ import {
   Mail,
   MailOpen,
   MessageSquare,
+  MoreVertical,
   Paperclip,
   Pause,
+  Pencil,
   Plane,
   Play,
   Send,
@@ -27,8 +29,10 @@ import {
   User,
   UserCircle,
   Users,
+  X,
   Zap,
 } from "lucide-react";
+import { isAdminRole } from "@/lib/access";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -216,6 +220,59 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
       toast.error("Error al agregar comentario");
     } finally {
       setSendingComment(false);
+    }
+  }
+
+  // Editar comentario existente. Optimistic update con rollback en caso de error.
+  async function handleEditComment(commentId: string, newBody: string) {
+    const trimmed = newBody.trim();
+    if (!trimmed) return;
+    const prevComments = comments;
+    setComments((prev) =>
+      prev.map((c) =>
+        c.id === commentId
+          ? { ...c, body: trimmed, updatedAt: new Date().toISOString() }
+          : c,
+      ),
+    );
+    try {
+      const res = await fetch(
+        `/api/ops/tickets/${ticketId}/comments/${commentId}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ body: trimmed }),
+        },
+      );
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      if (data.data) {
+        setComments((prev) =>
+          prev.map((c) => (c.id === commentId ? data.data : c)),
+        );
+      }
+      toast.success("Comentario editado");
+    } catch (err) {
+      setComments(prevComments);
+      toast.error(err instanceof Error ? err.message : "Error al editar comentario");
+    }
+  }
+
+  // Eliminar comentario. Optimistic remove con rollback en caso de error.
+  async function handleDeleteComment(commentId: string) {
+    const prevComments = comments;
+    setComments((prev) => prev.filter((c) => c.id !== commentId));
+    try {
+      const res = await fetch(
+        `/api/ops/tickets/${ticketId}/comments/${commentId}`,
+        { method: "DELETE" },
+      );
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      toast.success("Comentario eliminado");
+    } catch (err) {
+      setComments(prevComments);
+      toast.error(err instanceof Error ? err.message : "Error al eliminar comentario");
     }
   }
 
@@ -931,6 +988,10 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
               key={comment.id}
               comment={comment}
               isSending={comment.id.startsWith("temp-")}
+              currentUserId={userId}
+              currentUserRole={userRole}
+              onEdit={handleEditComment}
+              onDelete={handleDeleteComment}
             />
           ))}
         </div>
@@ -1096,11 +1157,23 @@ function TimelineEvent({
 function EmailTimelineEvent({
   comment,
   isSending,
+  currentUserId,
+  currentUserRole,
+  onEdit,
+  onDelete,
 }: {
   comment: TicketComment;
   isSending: boolean;
+  currentUserId?: string;
+  currentUserRole?: string;
+  onEdit?: (commentId: string, newBody: string) => void | Promise<void>;
+  onDelete?: (commentId: string) => void | Promise<void>;
 }) {
   const [showHtml, setShowHtml] = useState(false);
+  const [showActionsMenu, setShowActionsMenu] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editBuffer, setEditBuffer] = useState(comment.body);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const dir = comment.direction ?? "internal";
 
   const timeStr = new Date(comment.createdAt).toLocaleString("es-CL", {
@@ -1109,6 +1182,58 @@ function EmailTimelineEvent({
     hour: "2-digit",
     minute: "2-digit",
   });
+
+  // Permisos de edición/borrado en cliente (la API es quien manda; esto solo
+  // controla la visibilidad del menú).
+  const isAuthor = currentUserId != null && comment.userId === currentUserId;
+  const isAdmin = currentUserRole != null && isAdminRole(currentUserRole);
+  const isEmailWire = dir === "email_in" || dir === "email_out";
+  const isOptimistic = isSending || comment.id.startsWith("temp-");
+
+  const canEditClient = !!onEdit && (isAuthor || isAdmin) && !isEmailWire && !isOptimistic;
+  const canDeleteClient = !!onDelete && (isAuthor || isAdmin) && !isOptimistic;
+  const showActionsButton = canEditClient || canDeleteClient;
+
+  // Detecta edición previa: updatedAt > createdAt (con tolerancia de 2s para
+  // jitter de DB).
+  const wasEdited =
+    comment.updatedAt &&
+    new Date(comment.updatedAt).getTime() - new Date(comment.createdAt).getTime() > 2000;
+
+  function startEdit() {
+    setEditBuffer(comment.body);
+    setIsEditing(true);
+    setShowActionsMenu(false);
+  }
+
+  function cancelEdit() {
+    setEditBuffer(comment.body);
+    setIsEditing(false);
+  }
+
+  async function saveEdit() {
+    if (!onEdit) return;
+    const trimmed = editBuffer.trim();
+    if (!trimmed || trimmed === comment.body.trim()) {
+      cancelEdit();
+      return;
+    }
+    await onEdit(comment.id, trimmed);
+    setIsEditing(false);
+  }
+
+  async function confirmDelete() {
+    if (!onDelete) return;
+    if (!confirmingDelete) {
+      setConfirmingDelete(true);
+      // Auto-reset después de 4s si no se confirma.
+      setTimeout(() => setConfirmingDelete(false), 4000);
+      return;
+    }
+    await onDelete(comment.id);
+    setConfirmingDelete(false);
+    setShowActionsMenu(false);
+  }
 
   const dirConfig = {
     internal: {
@@ -1147,27 +1272,87 @@ function EmailTimelineEvent({
         {cfg.icon}
       </div>
 
-      <div className={`min-w-0 flex-1 rounded-lg border p-2 ${cfg.bg}`}>
+      <div className={`group/comment relative min-w-0 flex-1 rounded-lg border p-2 ${cfg.bg}`}>
         {/* Header row */}
-        <div className="flex items-center gap-2 text-xs flex-wrap">
+        <div className="flex items-center gap-2 text-xs flex-wrap pr-7">
           <span className="font-medium">
             {dir === "email_in" ? (comment.fromName || comment.fromEmail || "Externo") : (comment.userName ?? "Usuario")}
           </span>
           <span className="text-muted-foreground">{timeStr}</span>
           {cfg.label && (
-            <Badge variant="outline" className="text-[9px]">
+            <Badge variant="outline" className="text-[12px]">
               {cfg.label}
             </Badge>
           )}
+          {wasEdited && (
+            <span className="text-[12px] italic text-muted-foreground" title="Editado">
+              · editado
+            </span>
+          )}
           {comment.deliveryStatus && (
-            <span className={`text-[10px] font-medium ${deliveryColors[comment.deliveryStatus] ?? "text-muted-foreground"}`}>
+            <span className={`text-[12px] font-medium ${deliveryColors[comment.deliveryStatus] ?? "text-muted-foreground"}`}>
               {comment.deliveryStatus === "sent" ? "Enviado" : comment.deliveryStatus === "delivered" ? "Entregado" : comment.deliveryStatus === "failed" ? "Falló" : comment.deliveryStatus}
             </span>
           )}
           {isSending && (
-            <span className="text-[10px] text-muted-foreground italic">Enviando...</span>
+            <span className="text-[12px] text-muted-foreground italic">Enviando...</span>
           )}
         </div>
+
+        {/* Acciones (editar / eliminar) — visible al hover en desktop, siempre
+            tocable en mobile. Solo se muestra si el usuario tiene permisos. */}
+        {showActionsButton && !isEditing && (
+          <div className="absolute top-1.5 right-1.5">
+            <button
+              type="button"
+              aria-label="Acciones del comentario"
+              onClick={() => setShowActionsMenu((v) => !v)}
+              className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground sm:opacity-0 sm:group-hover/comment:opacity-100 transition-opacity"
+            >
+              <MoreVertical className="h-3.5 w-3.5" />
+            </button>
+            {showActionsMenu && (
+              <>
+                {/* Backdrop para cerrar al tocar fuera */}
+                <button
+                  type="button"
+                  aria-label="Cerrar menú"
+                  className="fixed inset-0 z-40 cursor-default"
+                  onClick={() => {
+                    setShowActionsMenu(false);
+                    setConfirmingDelete(false);
+                  }}
+                />
+                <div className="absolute right-0 top-8 z-50 min-w-[160px] rounded-lg border border-border bg-popover py-1 shadow-md">
+                  {canEditClient && (
+                    <button
+                      type="button"
+                      onClick={startEdit}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors"
+                    >
+                      <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                      Editar
+                    </button>
+                  )}
+                  {canDeleteClient && (
+                    <button
+                      type="button"
+                      onClick={confirmDelete}
+                      className={`flex w-full items-center gap-2 px-3 py-2 text-sm transition-colors ${
+                        confirmingDelete
+                          ? "bg-status-danger-soft text-status-danger-fg font-medium"
+                          : "text-status-danger-fg hover:bg-status-danger-soft"
+                      }`}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      {confirmingDelete ? "Confirmar eliminación" : "Eliminar"}
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
         {/* Email addressing info */}
         {(dir === "email_out" || dir === "email_in") && (
@@ -1187,8 +1372,61 @@ function EmailTimelineEvent({
           </div>
         )}
 
-        {/* Body */}
-        <p className="mt-1 text-sm whitespace-pre-wrap leading-relaxed">{comment.body}</p>
+        {/* Body — modo lectura / modo edición */}
+        {isEditing ? (
+          <div className="mt-2 space-y-2">
+            <textarea
+              value={editBuffer}
+              onChange={(e) => setEditBuffer(e.target.value)}
+              autoFocus
+              rows={Math.max(2, Math.min(8, editBuffer.split("\n").length + 1))}
+              maxLength={5000}
+              className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-[13px] leading-relaxed focus:outline-none focus:ring-2 focus:ring-primary/40"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                  e.preventDefault();
+                  saveEdit();
+                }
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  cancelEdit();
+                }
+              }}
+            />
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[12px] text-muted-foreground">
+                ⌘/Ctrl+Enter para guardar · Esc para cancelar
+              </span>
+              <div className="flex items-center gap-1.5">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={cancelEdit}
+                  className="h-7 text-xs"
+                >
+                  <X className="mr-1 h-3 w-3" />
+                  Cancelar
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={saveEdit}
+                  disabled={
+                    !editBuffer.trim() ||
+                    editBuffer.trim() === comment.body.trim()
+                  }
+                  className="h-7 text-xs"
+                >
+                  <Check className="mr-1 h-3 w-3" />
+                  Guardar
+                </Button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <p className="mt-1 text-sm whitespace-pre-wrap leading-relaxed">{comment.body}</p>
+        )}
 
         {/* HTML toggle for email */}
         {comment.bodyHtml && (
