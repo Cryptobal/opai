@@ -139,10 +139,16 @@ export async function GET(
 
     const [groups, admins] = await Promise.all([
       groupIds.length
-        ? prisma.adminGroup.findMany({ where: { id: { in: groupIds } }, select: { id: true, name: true } })
+        ? prisma.adminGroup.findMany({
+            where: { id: { in: groupIds }, tenantId: ctx.tenantId },
+            select: { id: true, name: true },
+          })
         : [],
       userIds.length
-        ? prisma.admin.findMany({ where: { id: { in: userIds } }, select: { id: true, name: true } })
+        ? prisma.admin.findMany({
+            where: { id: { in: userIds }, tenantId: ctx.tenantId },
+            select: { id: true, name: true },
+          })
         : [],
     ]);
 
