@@ -586,6 +586,20 @@ const MIGRATED_PATHS = [
   "src/app/(app)/ops/tickets/page.tsx",
   "src/app/(app)/ops/tickets/[id]/page.tsx",
 
+  // Cluster 5B.3.q1 — Tickets (TicketDetailClient + TicketsClient).
+  // Migración tipográfica + de surfaces:
+  // - bg-[#161b22] → bg-ds-surface-1 y bg-[#1c2333] → bg-ds-surface-2
+  //   (fin del dark-only).
+  // - text-[10px]/text-[11px] → text-[12px] en metadatos, badges,
+  //   eyebrows y chips. Mantienen uppercase tracking-wide para los
+  //   eyebrows que ya existían.
+  // - SelectTriggers del popover de filtros pasan de h-8 a
+  //   h-10 sm:h-9 (44px touch en mobile).
+  // El módulo ya estaba migrado en color (post 5B.0); esta pasada
+  // cierra el drift pendiente.
+  "src/components/ops/tickets/TicketDetailClient.tsx",
+  "src/components/ops/tickets/TicketsClient.tsx",
+
   // Cluster 5B.4 — Supervisión (módulo completo).
   // Migra los 7 page wrappers al patrón hero (iconTone emerald, varios
   // íconos por sub-sección) y limpia 9 hex residuales en 3 componentes:
