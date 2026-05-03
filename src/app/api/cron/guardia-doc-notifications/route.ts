@@ -136,17 +136,45 @@ async function processGuardiaDocExpiryNotifications(tenantId: string) {
       continue;
     }
 
+    // Cross-dedup: si ya existe un hallazgo de supervisión abierto sobre este
+    // mismo doc del guardia, vincular la notificación al ticket en curso para
+    // que el usuario sepa que ambos avisos hablan del mismo problema.
+    const linkedFinding = await prisma.opsSupervisionFinding.findFirst({
+      where: {
+        tenantId,
+        guardId: doc.guardiaId,
+        guardiaDocCode: doc.type,
+        ticket: { status: { notIn: ["closed", "resolved"] } },
+      },
+      include: { ticket: { select: { code: true, id: true, status: true } } },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const bodyExtra = linkedFinding?.ticket
+      ? `\n\nYa existe ticket abierto sobre este hallazgo: ${linkedFinding.ticket.code}.`
+      : "";
+
     await notify({
       tenantId,
       type,
       title,
-      body: message,
+      body: message + bodyExtra,
       link: `/personas/guardias/${doc.guardiaId}?tab=operaciones&doc=${doc.id}`,
+      emailSecondaryAction: linkedFinding?.ticket
+        ? {
+            url: `/opai/ops/tickets/${linkedFinding.ticket.id}`,
+            label: `Ver ticket ${linkedFinding.ticket.code}`,
+            color: "#0066FF",
+          }
+        : undefined,
       data: {
         guardiaId: doc.guardiaId,
         guardiaDocumentId: doc.id,
         expiresAt: doc.expiresAt,
         docType: doc.type,
+        linkedFindingId: linkedFinding?.id ?? null,
+        linkedTicketId: linkedFinding?.ticket?.id ?? null,
+        linkedTicketCode: linkedFinding?.ticket?.code ?? null,
       },
     });
     created++;
