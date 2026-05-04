@@ -158,6 +158,9 @@ export type InstallationDetail = {
     turnoExtra?: { id: string; status: string; amountClp: number; paidAt?: string | null } | null;
   }>;
   account?: { id: string; name: string; type?: "prospect" | "client"; status?: string; isActive?: boolean } | null;
+  /** Deal que activó esta instalación (sincronización Deal ↔ Quote ↔ Installation) */
+  activatedByDealId?: string | null;
+  activatedByDeal?: { id: string; title: string } | null;
   /** Negocios de la cuenta asociada (solo cuando hay accountId) */
   dealsOfAccount?: Array<{
     id: string;
@@ -2161,6 +2164,27 @@ export function CrmInstallationDetailClient({
           </div>
         </div>
       </div>
+
+      {/* ── Activada por negocio (sincronización Deal ↔ Quote ↔ Installation) ── */}
+      {installation.activatedByDeal ? (
+        <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-status-info-soft text-status-info-fg ring-1 ring-status-info-border">
+            <Briefcase className="h-4 w-4" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+              Activada por negocio
+            </p>
+            <Link
+              href={`/crm/deals/${installation.activatedByDeal.id}`}
+              className="block truncate text-sm font-medium text-foreground hover:text-primary transition-colors"
+            >
+              {installation.activatedByDeal.title}
+            </Link>
+          </div>
+          <ExternalLink className="h-4 w-4 text-muted-foreground/60 shrink-0" />
+        </div>
+      ) : null}
 
       {/* ── Stats strip: métricas operacionales clave ── */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
