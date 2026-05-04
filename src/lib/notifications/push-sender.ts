@@ -28,6 +28,19 @@ export interface SendPushParams {
    * by the flush-push-outbox cron). Critical types bypass the outbox.
    */
   coalesce?: CoalescePolicy;
+  /**
+   * Filtro por canal. Si está omitido, envía a todas las subscriptions activas
+   * (preserva el comportamiento legacy). En `notify()` lo pasamos según
+   * resolvePrefs().
+   */
+  channels?: { desktop: boolean; mobile: boolean };
+}
+
+const MOBILE_UA_REGEX = /Mobi|Android|iPhone|iPad|iPod|Opera Mini|IEMobile/i;
+
+function isMobileSubscription(userAgent: string | null | undefined): boolean {
+  if (!userAgent) return false; // Fail open to desktop (la mayoría)
+  return MOBILE_UA_REGEX.test(userAgent);
 }
 
 function isCritical(notifKey: string): boolean {
@@ -119,6 +132,17 @@ export async function sendPushToSubscriptions(p: SendPushParams) {
   });
   if (subs.length === 0) return;
 
+  let filtered = subs;
+  if (p.channels && (!p.channels.desktop || !p.channels.mobile)) {
+    filtered = subs.filter((s) => {
+      const isMobile = isMobileSubscription(s.userAgent);
+      if (isMobile && !p.channels!.mobile) return false;
+      if (!isMobile && !p.channels!.desktop) return false;
+      return true;
+    });
+  }
+  if (filtered.length === 0) return;
+
   const payload = JSON.stringify({
     title: p.title,
     body: p.body,
@@ -132,7 +156,7 @@ export async function sendPushToSubscriptions(p: SendPushParams) {
   });
 
   await Promise.allSettled(
-    subs.map(async (sub) => {
+    filtered.map(async (sub) => {
       try {
         await webPush.sendNotification(
           { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },

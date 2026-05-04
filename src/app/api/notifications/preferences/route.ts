@@ -3,16 +3,19 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { hasModuleAccess, canView, type ModuleKey } from "@/lib/permissions";
 import { UNIFIED_NOTIFICATION_TYPES, type UnifiedNotificationType } from "@/lib/notifications/catalog";
-
-interface ChannelPrefs {
-  bell?: boolean;
-  email?: boolean;
-  push?: boolean;
-}
+import {
+  normalizePrefs,
+  type ChannelPrefs,
+  type ChannelPrefsLegacy,
+} from "@/lib/notifications/channel-types";
 
 type PrefsMap = Record<string, ChannelPrefs>;
+type LegacyPrefsMap = Record<string, ChannelPrefsLegacy>;
 
-function isAccessible(type: UnifiedNotificationType, perms: import("@/lib/permissions").RolePermissions): boolean {
+function isAccessible(
+  type: UnifiedNotificationType,
+  perms: import("@/lib/permissions").RolePermissions,
+): boolean {
   if (type.module === 'chat') return true;
   const moduleKey = type.module as ModuleKey;
   if (type.submodule) return canView(perms, moduleKey, type.submodule);
@@ -30,7 +33,7 @@ export async function GET() {
         subscriberType_subscriberId: { subscriberType: 'ADMIN', subscriberId: ctx.userId },
       },
     });
-    const saved = (record?.preferences as PrefsMap | null) ?? {};
+    const saved = (record?.preferences as LegacyPrefsMap | null) ?? {};
 
     const accessible = UNIFIED_NOTIFICATION_TYPES.filter(
       (t) => t.audiences.includes('admin') && isAccessible(t, perms),
@@ -39,11 +42,14 @@ export async function GET() {
     const out: PrefsMap = {};
     for (const t of accessible) {
       const def = t.defaults.admin ?? {};
-      const stored = saved[t.key] ?? {};
+      const stored = normalizePrefs(saved[t.key]);
       out[t.key] = {
         bell: typeof stored.bell === 'boolean' ? stored.bell : def.bell ?? false,
         email: typeof stored.email === 'boolean' ? stored.email : def.email ?? false,
-        push: typeof stored.push === 'boolean' ? stored.push : def.push ?? false,
+        pushDesktop:
+          typeof stored.pushDesktop === 'boolean' ? stored.pushDesktop : def.push ?? false,
+        pushMobile:
+          typeof stored.pushMobile === 'boolean' ? stored.pushMobile : def.push ?? false,
       };
     }
 
@@ -65,7 +71,7 @@ export async function PUT(req: NextRequest) {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
 
-    const body = (await req.json().catch(() => ({}))) as { preferences?: PrefsMap };
+    const body = (await req.json().catch(() => ({}))) as { preferences?: Record<string, ChannelPrefsLegacy> };
     const incoming = body.preferences;
     if (!incoming || typeof incoming !== 'object') {
       return NextResponse.json(
@@ -74,15 +80,17 @@ export async function PUT(req: NextRequest) {
       );
     }
 
-    // Sanitize: only allow known channel booleans for known catalog keys
+    // Sanitize: normalizar a shape nuevo y solo aceptar tipos del catálogo
     const sanitized: PrefsMap = {};
     for (const t of UNIFIED_NOTIFICATION_TYPES) {
       const v = incoming[t.key];
       if (!v) continue;
+      const norm = normalizePrefs(v);
       const entry: ChannelPrefs = {};
-      if (typeof v.bell === 'boolean') entry.bell = v.bell;
-      if (typeof v.email === 'boolean') entry.email = v.email;
-      if (typeof v.push === 'boolean') entry.push = v.push;
+      if (typeof norm.bell === 'boolean') entry.bell = norm.bell;
+      if (typeof norm.email === 'boolean') entry.email = norm.email;
+      if (typeof norm.pushDesktop === 'boolean') entry.pushDesktop = norm.pushDesktop;
+      if (typeof norm.pushMobile === 'boolean') entry.pushMobile = norm.pushMobile;
       if (Object.keys(entry).length > 0) sanitized[t.key] = entry;
     }
 

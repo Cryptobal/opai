@@ -42,6 +42,8 @@ import {
   MODULE_BADGE_STYLES,
 } from "@/lib/notification-ui-utils";
 import { SoundSettingsButton } from "@/components/notifications/SoundSettings";
+import { NotifConfigShortcut } from "@/components/notifications/NotifConfigShortcut";
+import { NotificationItemMenu } from "@/components/notifications/NotificationItemMenu";
 
 type NotificationFilter = "all" | "unread";
 
@@ -534,6 +536,7 @@ export function NotificationSidePanel() {
             </button>
           )}
           <div className="flex-1" />
+          <NotifConfigShortcut onClick={() => ctx.closePanel()} />
           <SoundSettingsButton />
         </div>
       </div>
@@ -666,20 +669,17 @@ export function NotificationSidePanel() {
                     )}
                   </div>
 
-                  {/* Delete button (desktop only — mobile uses swipe) */}
+                  {/* Overflow menu (desktop only — mobile uses swipe) */}
                   {!isMobile && (
                     <div className="shrink-0 flex flex-col items-center gap-1 mt-0.5">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          void deleteNotification(n.id);
-                        }}
-                        className="rounded p-0.5 text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors opacity-0 group-hover/notif:opacity-100"
-                        title="Eliminar notificacion"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                      <NotificationItemMenu
+                        notificationId={n.id}
+                        type={n.type}
+                        read={n.read}
+                        onToggleRead={(read) => void setOneReadState(n.id, read)}
+                        onDelete={() => void deleteNotification(n.id)}
+                        onMuted={() => void refetch()}
+                      />
                     </div>
                   )}
                 </div>

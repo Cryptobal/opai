@@ -74,7 +74,9 @@ export async function notify(params: NotifyParams): Promise<{ delivered: number 
     const eff = {
       bell: params.forceChannels?.bell ?? prefs.bell,
       email: params.forceChannels?.email ?? prefs.email,
-      push: params.forceChannels?.push ?? prefs.push,
+      push: params.forceChannels?.push ?? (prefs.pushDesktop || prefs.pushMobile),
+      pushDesktop: params.forceChannels?.push ?? prefs.pushDesktop,
+      pushMobile: params.forceChannels?.push ?? prefs.pushMobile,
     };
 
     // Bell: only admins (portal users have no bell). Targeted vs broadcast:
@@ -139,7 +141,7 @@ export async function notify(params: NotifyParams): Promise<{ delivered: number 
     }
 
     // Push
-    if (eff.push) {
+    if (eff.pushDesktop || eff.pushMobile) {
       await sendPushToSubscriptions({
         tenantId: params.tenantId,
         subscriberType: subType,
@@ -150,6 +152,7 @@ export async function notify(params: NotifyParams): Promise<{ delivered: number 
         url: params.link,
         data: params.data,
         coalesce: typeDef.coalesce,
+        channels: { desktop: eff.pushDesktop, mobile: eff.pushMobile },
       });
     }
 
