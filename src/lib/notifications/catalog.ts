@@ -166,6 +166,20 @@ export const UNIFIED_NOTIFICATION_TYPES: UnifiedNotificationType[] = [
     module: 'docs', category: 'Documentos',
     audiences: ['admin'], defaults: { admin: adminBell(true) },
   },
+
+  // ── Onboarding cliente ──
+  {
+    key: 'onboarding_started', label: 'Onboarding cliente iniciado',
+    description: 'Tickets de onboarding asignados a tu equipo al ganar un deal',
+    module: 'crm', submodule: 'onboarding', category: 'CRM - Onboarding',
+    audiences: ['admin'], defaults: { admin: adminBell(true) },
+  },
+  {
+    key: 'onboarding_completed', label: 'Onboarding cliente completado',
+    description: 'Cuando un onboarding del cliente queda completado',
+    module: 'crm', submodule: 'onboarding', category: 'CRM - Onboarding',
+    audiences: ['admin'], defaults: { admin: adminBell() },
+  },
   {
     key: 'contract_expiring', label: 'Contrato por vencer',
     description: 'Cuando un contrato está próximo a vencer',
