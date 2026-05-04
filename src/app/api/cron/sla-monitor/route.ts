@@ -1,57 +1,164 @@
 /**
  * API Route: /api/cron/sla-monitor
- * GET - Check active tickets for SLA breaches every 15 minutes
+ * GET - Detecta SLA vencidos y notifica AL RESPONSABLE del ticket cada 15 min.
  *
- * - Excludes pausable statuses (waiting, pending_approval, waiting_client) from breach
- * - Respects snoozedUntil: skips snoozed tickets for notifications
- * - Respects slaPausedAt: skips paused tickets from breach
- * - Re-notifies breached tickets with cadence by priority (escalation)
- * - Batches notifications when >5 tickets breached per team per tenant
- * - Protected with CRON_SECRET env var
+ * Reglas de negocio:
+ * - Sólo se notifica al `assignedTo` del ticket. Sin responsable → sin bell.
+ *   El resumen diario por equipo se envía vía /api/cron/sla-daily-digest (email).
+ * - Estados pausables (waiting/pending_approval/waiting_client) no breachean
+ *   aunque pasen su slaDueAt. Tickets con slaPausedAt están fuera.
+ * - Si un usuario tiene >1 SLA vencido en la misma corrida, recibe UNA campana
+ *   consolidada ("Tienes N tickets con SLA vencido") en vez de N campanas.
+ * - Re-notificación con cadencia por prioridad. lastSlaNotifiedAt se actualiza
+ *   en cada notificación efectiva.
+ * - dedupKey en data para defensa frente a reruns accidentales del cron.
  *
- * IMPORTANTE: Este cron sólo crea notificaciones BELL (campana en la app).
- * El envío de EMAILS por SLA se consolida en un digest diario único en
- * /api/cron/sla-daily-digest (6 AM Chile) para evitar spam. Si quieres
- * reactivar emails en tiempo real desde aquí, quita `channels: ["bell"]`.
+ * Sólo crea bells. El email se consolida en sla-daily-digest (6 AM Chile).
+ *
+ * Protected with CRON_SECRET env var.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { TICKET_TEAM_CONFIG, type TicketPriority } from "@/lib/tickets";
+import { type TicketPriority } from "@/lib/tickets";
 import { notify } from "@/lib/notifications/notify";
-import { resolveTeamAdminIds } from "@/lib/notifications/resolve-team-admins";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
-/** Statuses that should NOT trigger breach even if past slaDueAt */
 const PAUSABLE_STATUSES = ["waiting", "pending_approval", "waiting_client"];
-
-/** Statuses that can breach SLA */
 const BREACHABLE_STATUSES = ["open", "in_progress"];
 
 /** Re-notification cadence per priority (in ms) */
 const ESCALATION_CADENCE_MS: Record<string, number> = {
-  p1: 2 * 60 * 60 * 1000,       // 2 hours
-  p2: 6 * 60 * 60 * 1000,       // 6 hours
-  p3: 24 * 60 * 60 * 1000,      // 24 hours
-  p4: 72 * 60 * 60 * 1000,      // 72 hours
+  p1: 2 * 60 * 60 * 1000,   // 2 hours
+  p2: 6 * 60 * 60 * 1000,   // 6 hours
+  p3: 24 * 60 * 60 * 1000,  // 24 hours
+  p4: 72 * 60 * 60 * 1000,  // 72 hours
 };
 
-/** Batch threshold: if more than this many breached per team, send one batch notification */
-const BATCH_THRESHOLD = 5;
+interface SlaTicket {
+  id: string;
+  tenantId: string;
+  code: string;
+  title: string;
+  priority: string;
+  assignedTeam: string;
+  assignedTo: string | null;
+  snoozedUntil: Date | null;
+  slaDueAt?: Date | null;
+  lastSlaNotifiedAt?: Date | null;
+}
 
 /**
- * Resuelve los destinatarios de una notificación de SLA para un ticket.
- * Prioriza al responsable individual; si no hay, cae al equipo asignado.
- * Retorna [] si no hay nadie a quien notificar (caller debe manejar el caso).
+ * Notifica a un usuario sobre sus tickets con SLA vencido.
+ * - 1 ticket: notificación individual.
+ * - >1 ticket: notificación consolidada por usuario.
  */
-async function resolveSlaTargets(
+async function notifyUserBreaches(
   tenantId: string,
-  ticket: { assignedTo: string | null; assignedTeam: string },
-): Promise<string[]> {
-  if (ticket.assignedTo) return [ticket.assignedTo];
-  return resolveTeamAdminIds(tenantId, ticket.assignedTeam);
+  userId: string,
+  tickets: SlaTicket[],
+  isReminder: boolean,
+): Promise<void> {
+  if (tickets.length === 0) return;
+
+  const dateKey = new Date().toISOString().slice(0, 10);
+
+  if (tickets.length === 1) {
+    const t = tickets[0];
+    const titlePrefix = isReminder ? "SLA vencido (recordatorio)" : "SLA vencido";
+    await notify({
+      tenantId,
+      type: "ticket_sla_breached",
+      targetIds: [userId],
+      targetType: "ADMIN",
+      title: `${titlePrefix}: ${t.code}`,
+      body: `El ticket "${t.title}" (${t.priority.toUpperCase()}) ha superado su plazo de SLA.`,
+      link: `/opai/ops/tickets/${t.id}`,
+      data: {
+        ticketId: t.id,
+        code: t.code,
+        priority: t.priority,
+        dedupKey: isReminder
+          ? `sla_reminder:${userId}:${t.id}:${dateKey}`
+          : `sla_breach:${userId}:${t.id}`,
+      },
+      forceChannels: { bell: true, email: false, push: true },
+    });
+    return;
+  }
+
+  // Resumen por usuario
+  const titlePrefix = isReminder ? "Recordatorio SLA" : "SLA vencido";
+  await notify({
+    tenantId,
+    type: "ticket_sla_breached",
+    targetIds: [userId],
+    targetType: "ADMIN",
+    title: `${titlePrefix}: ${tickets.length} tickets tuyos con SLA vencido`,
+    body: `Tienes ${tickets.length} tickets asignados con SLA vencido.`,
+    link: `/opai/ops/tickets?status=overdue&assignee=me`,
+    data: {
+      count: tickets.length,
+      ticketIds: tickets.map((t) => t.id),
+      dedupKey: isReminder
+        ? `sla_reminder_user:${userId}:${dateKey}`
+        : `sla_breach_user:${userId}:${dateKey}`,
+    },
+    forceChannels: { bell: true, email: false, push: true },
+  });
+}
+
+/**
+ * Notifica a un usuario sobre sus tickets próximos a vencer (consolidado o individual).
+ */
+async function notifyUserApproaching(
+  tenantId: string,
+  userId: string,
+  tickets: Array<SlaTicket & { slaDueAt: Date }>,
+): Promise<void> {
+  if (tickets.length === 0) return;
+  const now = Date.now();
+  const dateKey = new Date().toISOString().slice(0, 10);
+
+  if (tickets.length === 1) {
+    const t = tickets[0];
+    const minsLeft = Math.round((t.slaDueAt.getTime() - now) / (1000 * 60));
+    await notify({
+      tenantId,
+      type: "ticket_sla_approaching",
+      targetIds: [userId],
+      targetType: "ADMIN",
+      title: `SLA próximo a vencer: ${t.code}`,
+      body: `El ticket "${t.title}" vence en ~${minsLeft} minutos.`,
+      link: `/opai/ops/tickets/${t.id}`,
+      data: {
+        ticketId: t.id,
+        code: t.code,
+        priority: t.priority,
+        dedupKey: `sla_approaching:${userId}:${t.id}:${dateKey}`,
+      },
+      forceChannels: { bell: true, email: false, push: true },
+    });
+    return;
+  }
+
+  await notify({
+    tenantId,
+    type: "ticket_sla_approaching",
+    targetIds: [userId],
+    targetType: "ADMIN",
+    title: `${tickets.length} tickets tuyos próximos a vencer SLA`,
+    body: `Tienes ${tickets.length} tickets asignados que vencerán pronto.`,
+    link: `/opai/ops/tickets?assignee=me&slaSoon=true`,
+    data: {
+      count: tickets.length,
+      ticketIds: tickets.map((t) => t.id),
+      dedupKey: `sla_approaching_user:${userId}:${dateKey}`,
+    },
+    forceChannels: { bell: true, email: false, push: true },
+  });
 }
 
 export async function GET(request: NextRequest) {
@@ -66,15 +173,14 @@ export async function GET(request: NextRequest) {
     const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000);
 
     // ─────────────────────────────────────────────────────────────
-    // 1. BREACH: Find active tickets that should be marked breached
-    //    Only breachable statuses, not paused, past slaDueAt
+    // 1. BREACH: marcar tickets recién vencidos y notificar al responsable
     // ─────────────────────────────────────────────────────────────
     const breachedTickets = await prisma.opsTicket.findMany({
       where: {
         status: { in: BREACHABLE_STATUSES },
         slaBreached: false,
         slaDueAt: { lte: now },
-        slaPausedAt: null, // Not currently paused
+        slaPausedAt: null,
       },
       select: {
         id: true,
@@ -88,78 +194,42 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // Mark them as breached
+    let notifiedBreach = 0;
     if (breachedTickets.length > 0) {
+      // Marcar como breached siempre (para que sla-daily-digest los considere)
       await prisma.opsTicket.updateMany({
         where: { id: { in: breachedTickets.map((t) => t.id) } },
         data: { slaBreached: true, lastSlaNotifiedAt: now },
       });
 
-      // Group by tenantId + assignedTeam for batching
-      const teamGroups = new Map<string, typeof breachedTickets>();
-      for (const t of breachedTickets) {
-        // Skip snoozed tickets for notification (but still mark as breached)
-        if (t.snoozedUntil && now < new Date(t.snoozedUntil)) continue;
-        const key = `${t.tenantId}::${t.assignedTeam}`;
-        const arr = teamGroups.get(key) ?? [];
-        arr.push(t);
-        teamGroups.set(key, arr);
+      // Filtrar tickets sin responsable o snoozed (sí siguen marcados breached,
+      // pero NO se notifica por bell — el digest diario los cubre por equipo).
+      const toNotify = breachedTickets.filter(
+        (t) => t.assignedTo && !(t.snoozedUntil && now < new Date(t.snoozedUntil)),
+      );
+
+      // Agrupar por (tenantId, assignedTo)
+      const groups = new Map<string, SlaTicket[]>();
+      for (const t of toNotify) {
+        const key = `${t.tenantId}::${t.assignedTo}`;
+        const arr = groups.get(key) ?? [];
+        arr.push(t as SlaTicket);
+        groups.set(key, arr);
       }
 
-      const notifPromises: Promise<any>[] = [];
-      for (const [key, tickets] of teamGroups) {
-        const [tenantId, assignedTeam] = key.split("::");
-        const teamLabel = TICKET_TEAM_CONFIG[assignedTeam as keyof typeof TICKET_TEAM_CONFIG]?.label ?? assignedTeam;
-
-        if (tickets.length > BATCH_THRESHOLD) {
-          // Batch — bell only. Email is consolidated in the daily digest.
-          // Targeted al equipo asignado (no broadcast a todos los admins).
-          const teamTargets = await resolveTeamAdminIds(tenantId, assignedTeam);
-          if (teamTargets.length > 0) {
-            notifPromises.push(
-              notify({
-                tenantId,
-                type: "ticket_sla_breached_batch",
-                targetIds: teamTargets,
-                targetType: "ADMIN",
-                title: `${tickets.length} tickets con SLA vencido en ${teamLabel}`,
-                body: `Hay ${tickets.length} tickets con SLA vencido en ${teamLabel}`,
-                link: `/opai/ops/tickets?status=overdue&team=${assignedTeam}`,
-                data: { count: tickets.length, assignedTeam, ticketIds: tickets.map((t) => t.id) },
-                forceChannels: { bell: true, email: false, push: false },
-              }),
-            );
-          }
-        } else {
-          for (const t of tickets) {
-            const targets = await resolveSlaTargets(t.tenantId, {
-              assignedTo: t.assignedTo,
-              assignedTeam: t.assignedTeam,
-            });
-            if (targets.length === 0) continue; // sin responsables → no notificar
-            notifPromises.push(
-              notify({
-                tenantId: t.tenantId,
-                type: "ticket_sla_breached",
-                targetIds: targets,
-                targetType: "ADMIN",
-                title: `SLA vencido: ${t.code}`,
-                body: `El ticket "${t.title}" (${t.priority.toUpperCase()}) ha superado su plazo de SLA. Equipo: ${teamLabel}`,
-                link: `/opai/ops/tickets/${t.id}`,
-                data: { ticketId: t.id, code: t.code, priority: t.priority },
-                forceChannels: { bell: true, email: false, push: false },
-              }),
-            );
-          }
-        }
+      const promises: Promise<void>[] = [];
+      for (const [key, tickets] of groups) {
+        const [tenantId, userId] = key.split("::");
+        promises.push(notifyUserBreaches(tenantId, userId, tickets, false));
       }
-      await Promise.allSettled(notifPromises);
+      await Promise.allSettled(promises);
+      notifiedBreach = groups.size;
     }
 
     // ─────────────────────────────────────────────────────────────
-    // 2. ESCALATION: Re-notify already breached tickets by cadence
+    // 2. ESCALATION: re-notificar tickets ya breached según cadencia
     // ─────────────────────────────────────────────────────────────
-    const allBreachedActive = await prisma.opsTicket.findMany({
+    const allBreached = await prisma.opsTicket.findMany({
       where: {
         status: { in: [...BREACHABLE_STATUSES, ...PAUSABLE_STATUSES] },
         slaBreached: true,
@@ -178,83 +248,43 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // Filter by snoozedUntil manually and by cadence
-    const ticketsToRenotify = allBreachedActive.filter((t) => {
+    const ticketsToRenotify = allBreached.filter((t) => {
+      if (!t.assignedTo) return false; // sin responsable: sólo digest diario
       if (t.snoozedUntil && now < new Date(t.snoozedUntil)) return false;
-      if (!t.lastSlaNotifiedAt) return true; // never notified
-      const cadenceMs = ESCALATION_CADENCE_MS[t.priority] ?? ESCALATION_CADENCE_MS.p3;
+      if (!t.lastSlaNotifiedAt) return true;
+      const cadenceMs =
+        ESCALATION_CADENCE_MS[t.priority] ?? ESCALATION_CADENCE_MS.p3;
       return now.getTime() - new Date(t.lastSlaNotifiedAt).getTime() >= cadenceMs;
     });
 
+    let notifiedEscalation = 0;
     if (ticketsToRenotify.length > 0) {
-      // Update lastSlaNotifiedAt
       await prisma.opsTicket.updateMany({
         where: { id: { in: ticketsToRenotify.map((t) => t.id) } },
         data: { lastSlaNotifiedAt: now },
       });
 
-      // Group by tenantId + assignedTeam for batching
-      const renotifyGroups = new Map<string, typeof ticketsToRenotify>();
+      const groups = new Map<string, SlaTicket[]>();
       for (const t of ticketsToRenotify) {
-        const key = `${t.tenantId}::${t.assignedTeam}`;
-        const arr = renotifyGroups.get(key) ?? [];
-        arr.push(t);
-        renotifyGroups.set(key, arr);
+        const key = `${t.tenantId}::${t.assignedTo}`;
+        const arr = groups.get(key) ?? [];
+        arr.push(t as SlaTicket);
+        groups.set(key, arr);
       }
 
-      const renotifPromises: Promise<any>[] = [];
-      for (const [key, tickets] of renotifyGroups) {
-        const [tenantId, assignedTeam] = key.split("::");
-        const teamLabel = TICKET_TEAM_CONFIG[assignedTeam as keyof typeof TICKET_TEAM_CONFIG]?.label ?? assignedTeam;
-
-        if (tickets.length > BATCH_THRESHOLD) {
-          // Targeted al equipo asignado (no broadcast a todos los admins).
-          const teamTargets = await resolveTeamAdminIds(tenantId, assignedTeam);
-          if (teamTargets.length > 0) {
-            renotifPromises.push(
-              notify({
-                tenantId,
-                type: "ticket_sla_breached_batch",
-                targetIds: teamTargets,
-                targetType: "ADMIN",
-                title: `${tickets.length} tickets con SLA vencido en ${teamLabel}`,
-                body: `Hay ${tickets.length} tickets con SLA vencido en ${teamLabel}`,
-                link: `/opai/ops/tickets?status=overdue&team=${assignedTeam}`,
-                data: { count: tickets.length, assignedTeam, ticketIds: tickets.map((t) => t.id) },
-                forceChannels: { bell: true, email: false, push: false },
-              }),
-            );
-          }
-        } else {
-          for (const t of tickets) {
-            const targets = await resolveSlaTargets(t.tenantId, {
-              assignedTo: t.assignedTo,
-              assignedTeam: t.assignedTeam,
-            });
-            if (targets.length === 0) continue; // sin responsables → no notificar
-            renotifPromises.push(
-              notify({
-                tenantId: t.tenantId,
-                type: "ticket_sla_breached",
-                targetIds: targets,
-                targetType: "ADMIN",
-                title: `SLA vencido (recordatorio): ${t.code}`,
-                body: `El ticket "${t.title}" (${t.priority.toUpperCase()}) sigue con SLA vencido. Equipo: ${teamLabel}`,
-                link: `/opai/ops/tickets/${t.id}`,
-                data: { ticketId: t.id, code: t.code, priority: t.priority },
-                forceChannels: { bell: true, email: false, push: false },
-              }),
-            );
-          }
-        }
+      const promises: Promise<void>[] = [];
+      for (const [key, tickets] of groups) {
+        const [tenantId, userId] = key.split("::");
+        promises.push(notifyUserBreaches(tenantId, userId, tickets, true));
       }
-      await Promise.allSettled(renotifPromises);
+      await Promise.allSettled(promises);
+      notifiedEscalation = groups.size;
     }
 
     // ─────────────────────────────────────────────────────────────
-    // 3. APPROACHING: Find tickets approaching SLA (within 1 hour)
+    // 3. APPROACHING: tickets que vencen en <= 1h, sólo al responsable
     // ─────────────────────────────────────────────────────────────
-    const approachingTickets = await prisma.opsTicket.findMany({
+    const approachingRaw = await prisma.opsTicket.findMany({
       where: {
         status: { in: [...BREACHABLE_STATUSES, ...PAUSABLE_STATUSES] },
         slaBreached: false,
@@ -274,13 +304,19 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // Filter out snoozed and avoid duplicate notifications
-    const nonSnoozedApproaching = approachingTickets.filter(
-      (t) => !t.snoozedUntil || now >= new Date(t.snoozedUntil),
+    // Filtrar: con responsable, no snoozed, y sin notificación previa en las
+    // últimas 2 horas (defensa contra duplicados por reruns y entre cadencias).
+    const approachingFiltered = approachingRaw.filter(
+      (t) =>
+        t.assignedTo &&
+        t.slaDueAt &&
+        !(t.snoozedUntil && now < new Date(t.snoozedUntil)),
     );
 
-    if (nonSnoozedApproaching.length > 0) {
-      // Check for recent approaching notifications to avoid duplicates
+    let notifiedApproaching = 0;
+    if (approachingFiltered.length > 0) {
+      // Anti-duplicado: descartar tickets que ya tuvieron notificación
+      // approaching para el mismo usuario en las últimas 2 horas.
       const recentNotifs = await prisma.notification.findMany({
         where: {
           type: "ticket_sla_approaching",
@@ -289,49 +325,56 @@ export async function GET(request: NextRequest) {
         select: { data: true },
       });
 
-      const recentTicketIds = new Set(
-        recentNotifs
-          .map((n) => (n.data as any)?.ticketId)
-          .filter(Boolean),
-      );
+      const recentKeys = new Set<string>();
+      for (const n of recentNotifs) {
+        const d = (n.data as Record<string, unknown> | null) ?? {};
+        const ticketId =
+          typeof d.ticketId === "string" ? d.ticketId : null;
+        const ticketIds = Array.isArray(d.ticketIds)
+          ? (d.ticketIds.filter((x) => typeof x === "string") as string[])
+          : [];
+        const targetUserId =
+          typeof d.targetUserId === "string" ? d.targetUserId : null;
+        if (!targetUserId) continue;
+        if (ticketId) recentKeys.add(`${targetUserId}::${ticketId}`);
+        for (const id of ticketIds) recentKeys.add(`${targetUserId}::${id}`);
+      }
 
-      const newApproaching = nonSnoozedApproaching.filter(
-        (t) => !recentTicketIds.has(t.id),
+      const newApproaching = approachingFiltered.filter(
+        (t) => !recentKeys.has(`${t.assignedTo}::${t.id}`),
       );
 
       if (newApproaching.length > 0) {
-        await Promise.allSettled(
-          newApproaching.map(async (t) => {
-            const minsLeft = Math.round(
-              (new Date(t.slaDueAt!).getTime() - now.getTime()) / (1000 * 60),
-            );
-            const targets = await resolveSlaTargets(t.tenantId, {
-              assignedTo: t.assignedTo,
-              assignedTeam: t.assignedTeam,
-            });
-            if (targets.length === 0) return null;
-            return notify({
-              tenantId: t.tenantId,
-              type: "ticket_sla_approaching",
-              targetIds: targets,
-              targetType: "ADMIN",
-              title: `SLA próximo a vencer: ${t.code}`,
-              body: `El ticket "${t.title}" vence en ~${minsLeft} minutos`,
-              link: `/opai/ops/tickets/${t.id}`,
-              data: { ticketId: t.id, code: t.code, priority: t.priority },
-              forceChannels: { bell: true, email: false, push: false },
-            });
-          }),
-        );
+        const groups = new Map<
+          string,
+          Array<SlaTicket & { slaDueAt: Date }>
+        >();
+        for (const t of newApproaching) {
+          const key = `${t.tenantId}::${t.assignedTo}`;
+          const arr = groups.get(key) ?? [];
+          arr.push({ ...(t as SlaTicket), slaDueAt: t.slaDueAt as Date });
+          groups.set(key, arr);
+        }
+
+        const promises: Promise<void>[] = [];
+        for (const [key, tickets] of groups) {
+          const [tenantId, userId] = key.split("::");
+          promises.push(notifyUserApproaching(tenantId, userId, tickets));
+        }
+        await Promise.allSettled(promises);
+        notifiedApproaching = groups.size;
       }
     }
 
     return NextResponse.json({
       success: true,
       data: {
-        breached: breachedTickets.length,
-        escalated: ticketsToRenotify.length,
-        approaching: approachingTickets.length,
+        breachedTotal: breachedTickets.length,
+        breachedNotifiedUsers: notifiedBreach,
+        escalatedTotal: ticketsToRenotify.length,
+        escalatedNotifiedUsers: notifiedEscalation,
+        approachingTotal: approachingFiltered.length,
+        approachingNotifiedUsers: notifiedApproaching,
         timestamp: now.toISOString(),
       },
     });
