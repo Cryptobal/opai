@@ -1524,6 +1524,26 @@ function TicketCard({
         <span>{teamName}</span>
       </div>
 
+      {/* Row 3.5: Responsable + Creador */}
+      {(ticket.assignedToName || ticket.reportedByName) && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-muted-foreground">
+          <span className="inline-flex items-center gap-1 min-w-0">
+            <User className="h-3 w-3 shrink-0" />
+            <span className="text-muted-foreground/70">Responsable:</span>
+            <span className={`truncate ${ticket.assignedToName ? "text-foreground/80 font-medium" : "italic"}`}>
+              {ticket.assignedToName ?? "Sin asignar"}
+            </span>
+          </span>
+          {ticket.reportedByName && (
+            <span className="inline-flex items-center gap-1 min-w-0">
+              <UserCircle className="h-3 w-3 shrink-0" />
+              <span className="text-muted-foreground/70">Creado por:</span>
+              <span className="truncate text-foreground/80 font-medium">{ticket.reportedByName}</span>
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Row 4: Guard badge (if applicable) */}
       {ticket.guardiaName && (
         <div className="flex items-center gap-1.5">

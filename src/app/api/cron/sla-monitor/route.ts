@@ -75,7 +75,7 @@ async function notifyUserBreaches(
       targetType: "ADMIN",
       title: `${titlePrefix}: ${t.code}`,
       body: `El ticket "${t.title}" (${t.priority.toUpperCase()}) ha superado su plazo de SLA.`,
-      link: `/opai/ops/tickets/${t.id}`,
+      link: `/ops/tickets/${t.id}`,
       data: {
         ticketId: t.id,
         code: t.code,
@@ -98,7 +98,7 @@ async function notifyUserBreaches(
     targetType: "ADMIN",
     title: `${titlePrefix}: ${tickets.length} tickets tuyos con SLA vencido`,
     body: `Tienes ${tickets.length} tickets asignados con SLA vencido.`,
-    link: `/opai/ops/tickets?status=overdue&assignee=me`,
+    link: `/ops/tickets?status=overdue&assignee=me`,
     data: {
       count: tickets.length,
       ticketIds: tickets.map((t) => t.id),
@@ -132,7 +132,7 @@ async function notifyUserApproaching(
       targetType: "ADMIN",
       title: `SLA próximo a vencer: ${t.code}`,
       body: `El ticket "${t.title}" vence en ~${minsLeft} minutos.`,
-      link: `/opai/ops/tickets/${t.id}`,
+      link: `/ops/tickets/${t.id}`,
       data: {
         ticketId: t.id,
         code: t.code,
@@ -151,7 +151,7 @@ async function notifyUserApproaching(
     targetType: "ADMIN",
     title: `${tickets.length} tickets tuyos próximos a vencer SLA`,
     body: `Tienes ${tickets.length} tickets asignados que vencerán pronto.`,
-    link: `/opai/ops/tickets?assignee=me&slaSoon=true`,
+    link: `/ops/tickets?assignee=me&slaSoon=true`,
     data: {
       count: tickets.length,
       ticketIds: tickets.map((t) => t.id),

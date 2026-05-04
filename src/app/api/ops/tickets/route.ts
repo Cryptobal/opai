@@ -81,7 +81,11 @@ const ticketListIncludes = {
 
 /* ── Mapper ──────────────────────────────────────────────────── */
 
-function mapTicket(t: any, assigneeMap?: Map<string, string>): Ticket {
+function mapTicket(
+  t: any,
+  assigneeMap?: Map<string, string>,
+  reporterMap?: Map<string, string>,
+): Ticket {
   const guardiaName =
     t.guardia?.persona
       ? formatPersonName(t.guardia.persona.firstName, t.guardia.persona.lastName)
@@ -90,6 +94,10 @@ function mapTicket(t: any, assigneeMap?: Map<string, string>): Ticket {
   const assignedToName = t.assignedTo && assigneeMap
     ? (assigneeMap.get(t.assignedTo) ?? null)
     : (t.assignedToName ?? null);
+
+  const reportedByName = t.reportedBy && reporterMap
+    ? (reporterMap.get(t.reportedBy) ?? null)
+    : null;
 
   return {
     id: t.id,
@@ -114,6 +122,7 @@ function mapTicket(t: any, assigneeMap?: Map<string, string>): Ticket {
     guardiaRut: t.guardia?.persona?.rut ?? null,
     guardiaCode: t.guardia?.code ?? null,
     reportedBy: t.reportedBy,
+    reportedByName,
     slaDueAt: t.slaDueAt instanceof Date ? t.slaDueAt.toISOString() : t.slaDueAt,
     slaBreached: t.slaBreached,
     slaPausedAt: t.slaPausedAt instanceof Date ? t.slaPausedAt.toISOString() : t.slaPausedAt ?? null,
@@ -309,7 +318,17 @@ export async function GET(request: NextRequest) {
       assigneeMap = new Map(admins.map((a) => [a.id, a.name || a.email]));
     }
 
-    const items: Ticket[] = rows.map((r) => mapTicket(r, assigneeMap));
+    // Resolve reporter names. reportedBy puede ser Admin, OpsGuardia o
+    // CrmContact según el origen (manual, portal_guardia, portal_cliente).
+    const reporterIds = [...new Set(rows.map((r) => r.reportedBy).filter(Boolean))] as string[];
+    let reporterMap = new Map<string, string>();
+    if (reporterIds.length > 0) {
+      const { resolveActorNames } = await import("@/lib/notifications/resolve-actor-name");
+      const actors = await resolveActorNames(ctx.tenantId, reporterIds);
+      reporterMap = new Map(Array.from(actors.entries()).map(([id, a]) => [id, a.name]));
+    }
+
+    const items: Ticket[] = rows.map((r) => mapTicket(r, assigneeMap, reporterMap));
 
     return NextResponse.json({
       success: true,
@@ -513,7 +532,7 @@ export async function POST(request: NextRequest) {
           title: `Nuevo ticket: ${ticket.code} - ${ticket.title}`,
           body: bellMessage,
           emailBody: emailLines.join("\n"),
-          link: `/opai/ops/tickets/${ticket.id}`,
+          link: `/ops/tickets/${ticket.id}`,
           data: { ticketId: ticket.id, code: ticket.code, priority: ticket.priority },
         });
       }
@@ -527,7 +546,7 @@ export async function POST(request: NextRequest) {
           targetType: "ADMIN",
           title: `Ticket ${ticket.code} pendiente de aprobación`,
           body: `"${ticket.title}" requiere tu aprobación`,
-          link: `/opai/ops/tickets/${ticket.id}`,
+          link: `/ops/tickets/${ticket.id}`,
           data: { ticketId: ticket.id, code: ticket.code },
         });
       }

@@ -439,7 +439,7 @@ export async function POST(
                 `Reportado por: ${supervisorName}`,
               ].join("\n"),
               data: { ticketId: ticket.id, code: ticket.code, source: "supervision_finding" },
-              link: `/opai/ops/tickets/${ticket.id}`,
+              link: `/ops/tickets/${ticket.id}`,
             });
           } catch (notifyErr) {
             console.error("[OPS][SUPERVISION] Error notificando hallazgo:", notifyErr);
