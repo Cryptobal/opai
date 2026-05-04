@@ -93,43 +93,62 @@ export function ChatMessageList({
   canDeleteAny,
 }: ChatMessageListProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
-  const [isNearBottom, setIsNearBottom] = useState(true);
+  const bottomSentinelRef = useRef<HTMLDivElement>(null);
+  const topSentinelRef = useRef<HTMLDivElement>(null);
+  // isNearBottom es ref (sin re-render) para no romper momentum scroll iOS
+  const isNearBottomRef = useRef(true);
+  // El pill "ir abajo" sí necesita state porque debe re-render para mostrarse,
+  // pero solo cambia cuando cruzamos el sentinel — máximo una vez por gesto.
+  const [showJumpPill, setShowJumpPill] = useState(false);
+  const [unseenCount, setUnseenCount] = useState(0);
   const prevMessageCountRef = useRef(messages.length);
   const prevScrollHeightRef = useRef(0);
   const isLoadingMoreRef = useRef(false);
-  // Count of messages that arrived while scrolled up — shown in jump-to-latest pill
-  const [unseenCount, setUnseenCount] = useState(0);
 
-  // Track scroll position (throttled via rAF to reduce re-renders during scroll)
-  const scrollThrottleRef = useRef<number | null>(null);
-  const latestNearBottomRef = useRef(true);
-  const handleScroll = useCallback(() => {
-    const container = scrollContainerRef.current;
-    if (!container) return;
+  // Observer para "near bottom" — sin setState durante scroll
+  useEffect(() => {
+    const sentinel = bottomSentinelRef.current;
+    const root = scrollContainerRef.current;
+    if (!sentinel || !root) return;
 
-    const { scrollTop, scrollHeight, clientHeight } = container;
-    const threshold = 100;
-    latestNearBottomRef.current = scrollHeight - scrollTop - clientHeight < threshold;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        const near = entry.isIntersecting;
+        isNearBottomRef.current = near;
+        // Solo hacemos setState si cambia el estado del pill, no en cada scroll
+        setShowJumpPill((prev) => (prev === !near ? prev : !near));
+        if (near) setUnseenCount(0);
+      },
+      { root, rootMargin: "0px 0px 100px 0px", threshold: 0 }
+    );
+    obs.observe(sentinel);
+    return () => obs.disconnect();
+  }, []);
 
-    if (scrollThrottleRef.current == null) {
-      scrollThrottleRef.current = window.requestAnimationFrame(() => {
-        setIsNearBottom(latestNearBottomRef.current);
-        scrollThrottleRef.current = null;
-      });
-    }
+  // Observer para load more arriba — sin onScroll
+  useEffect(() => {
+    const sentinel = topSentinelRef.current;
+    const root = scrollContainerRef.current;
+    if (!sentinel || !root) return;
+    if (!hasMore) return;
 
-    // Infinite scroll: load more when scrolled near top (immediate, user expects it)
-    if (scrollTop < 80 && hasMore && !isLoading && !isLoadingMoreRef.current) {
-      isLoadingMoreRef.current = true;
-      prevScrollHeightRef.current = container.scrollHeight;
-      onLoadMore().finally(() => {
-        isLoadingMoreRef.current = false;
-      });
-    }
+    const obs = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (entry.isIntersecting && hasMore && !isLoading && !isLoadingMoreRef.current) {
+          isLoadingMoreRef.current = true;
+          prevScrollHeightRef.current = root.scrollHeight;
+          onLoadMore().finally(() => { isLoadingMoreRef.current = false; });
+        }
+      },
+      { root, rootMargin: "200px 0px 0px 0px", threshold: 0 }
+    );
+    obs.observe(sentinel);
+    return () => obs.disconnect();
   }, [hasMore, isLoading, onLoadMore]);
 
-  // Auto-scroll to bottom on new messages if user was near bottom
+  // Auto-scroll al fondo en mensajes nuevos (si estábamos cerca del fondo)
   useEffect(() => {
     const container = scrollContainerRef.current;
     if (!container) return;
@@ -137,11 +156,10 @@ export function ChatMessageList({
     const prevCount = prevMessageCountRef.current;
     const messageCountChanged = messages.length !== prevCount;
     prevMessageCountRef.current = messages.length;
-
     if (!messageCountChanged) return;
 
-    // If we were loading older messages (prepend), maintain scroll position
-    if (isLoadingMoreRef.current || (!isNearBottom && container.scrollHeight > prevScrollHeightRef.current + 200)) {
+    // Carga de mensajes antiguos: mantener posición visual
+    if (isLoadingMoreRef.current) {
       const newScrollHeight = container.scrollHeight;
       const scrollDiff = newScrollHeight - prevScrollHeightRef.current;
       if (scrollDiff > 0 && prevScrollHeightRef.current > 0) {
@@ -151,40 +169,31 @@ export function ChatMessageList({
       return;
     }
 
-    // Auto-scroll to bottom for new messages (auto = instant, avoids jank on mobile)
-    if (isNearBottom) {
-      bottomRef.current?.scrollIntoView({ behavior: "auto" });
+    if (isNearBottomRef.current) {
+      bottomSentinelRef.current?.scrollIntoView({ behavior: "auto", block: "end" });
       setUnseenCount(0);
     } else if (messages.length > prevCount) {
-      // New messages arrived while user is scrolled up — bump the pill counter
       setUnseenCount((n) => n + (messages.length - prevCount));
     }
-  }, [messages.length, isNearBottom]);
-
-  // Reset unseen counter the moment user scrolls back to the bottom
-  useEffect(() => {
-    if (isNearBottom && unseenCount > 0) setUnseenCount(0);
-  }, [isNearBottom, unseenCount]);
+  }, [messages.length]);
 
   const scrollToLatest = useCallback(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    bottomSentinelRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
     setUnseenCount(0);
   }, []);
 
-  // Initial scroll to bottom
+  // Initial scroll al fondo
   useEffect(() => {
     if (messages.length > 0 && scrollContainerRef.current) {
       const container = scrollContainerRef.current;
       container.scrollTop = container.scrollHeight;
     }
-    // Only run on initial load
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages.length > 0]);
 
   // Group messages by date
   const groupedMessages: { dateKey: string; dateLabel: string; messages: ChatMessageData[] }[] = [];
   let currentDateKey = "";
-
   for (const msg of messages) {
     const dateKey = getDateKey(msg.createdAt);
     if (dateKey !== currentDateKey) {
@@ -199,120 +208,106 @@ export function ChatMessageList({
     }
   }
 
-  // Determine which messages are "own" (sent by current user)
   const isOwnMessage = (msg: ChatMessageData) =>
     msg.senderId === "current-user" || (currentUserId ? msg.senderId === currentUserId : false);
 
   return (
     <div className="relative flex-1 min-h-0">
-    <div
-      ref={scrollContainerRef}
-      onScroll={handleScroll}
-      className="absolute inset-0 overflow-y-auto px-4 py-3 opai-chat-mobile-messages opai-chat-mobile-scroll"
-    >
-      {/* Loading spinner for older messages */}
-      {isLoading && hasMore && messages.length > 0 && (
-        <div className="flex items-center justify-center py-4">
-          <Loader2 className="h-5 w-5 animate-spin text-zinc-500" />
-        </div>
-      )}
-
-      {/* Initial loading skeleton */}
-      {isLoading && messages.length === 0 && (
-        <div className="flex flex-col gap-4 py-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className={`flex gap-2.5 ${i % 2 === 0 ? "" : "justify-end"}`}>
-              {i % 2 === 0 && <div className="h-8 w-8 rounded-full bg-[rgba(255,255,255,0.06)] animate-pulse shrink-0" />}
-              <div className="space-y-1.5" style={{ width: `${45 + i * 10}%` }}>
-                {i % 2 === 0 && <div className="h-3 w-20 rounded bg-[rgba(255,255,255,0.06)] animate-pulse" />}
-                <div className="h-10 rounded-lg bg-[rgba(255,255,255,0.04)] animate-pulse" />
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* No messages state */}
-      {!isLoading && messages.length === 0 && (
-        <div className="flex flex-1 items-center justify-center py-12 text-zinc-500 text-sm">
-          No hay mensajes aun. Envia el primero.
-        </div>
-      )}
-
-      {/* Message groups */}
-      {groupedMessages.map((group) => (
-        <div key={group.dateKey}>
-          {/* Date separator */}
-          <ChatDateDivider label={group.dateLabel} />
-
-          {/* Messages in this group */}
-          {group.messages.map((msg, idx) => {
-            if (msg.systemEventType) {
-              return <ChatMessageSystem key={msg.id} message={msg} />;
-            }
-
-            const prev = idx > 0 ? group.messages[idx - 1] : null;
-            const TIME_GAP_MS = 5 * 60 * 1000;
-            const isFirst =
-              idx === 0 ||
-              !prev ||
-              prev.senderId !== msg.senderId ||
-              !!prev.systemEventType ||
-              new Date(msg.createdAt).getTime() - new Date(prev.createdAt).getTime() > TIME_GAP_MS;
-
-            return (
-              <ChatMessage
-                key={msg.id}
-                message={msg}
-                mentionDisplayMap={mentionDisplayMap}
-                isOwn={isOwnMessage(msg)}
-                isFirstInGroup={isFirst}
-                onReply={() => onReply(msg)}
-                onOpenThread={onOpenThread}
-                onEdit={onEdit}
-                onDelete={onDelete}
-                onRetry={onRetry}
-                onDiscard={onDiscard}
-                channelId={channelId}
-                currentUserId={currentUserId}
-                readByCount={getReadByCount?.(msg)}
-                onReaction={onReaction}
-                canDeleteAny={canDeleteAny}
-              />
-            );
-          })}
-        </div>
-      ))}
-
-      {/* Anchor for auto-scrolling */}
-      <div ref={bottomRef} />
-    </div>
-
-    {/* Jump-to-latest pill (visible when user has scrolled up) */}
-    {!isNearBottom && messages.length > 0 && (
-      <button
-        type="button"
-        onClick={scrollToLatest}
-        className={cn(
-          "absolute left-1/2 -translate-x-1/2 bottom-3 z-10",
-          "inline-flex items-center gap-1.5 rounded-full",
-          "border border-white/[0.08] bg-[#111827]/95 backdrop-blur",
-          "px-3 py-1.5 text-xs font-medium text-zinc-200",
-          "shadow-lg shadow-black/40 transition-all",
-          "hover:bg-[#1a2234] active:scale-95"
-        )}
-        aria-label={unseenCount > 0 ? `${unseenCount} mensajes nuevos` : "Ir al último mensaje"}
+      <div
+        ref={scrollContainerRef}
+        className="absolute inset-0 overflow-y-auto px-4 py-3 opai-chat-mobile-messages opai-chat-mobile-scroll"
+        // Garantiza que solo aceptemos pan vertical en este contenedor
+        style={{ touchAction: "pan-y" }}
       >
-        <ArrowDown className="h-3.5 w-3.5" />
-        {unseenCount > 0 ? (
-          <>
-            {unseenCount} nuevo{unseenCount === 1 ? "" : "s"}
-          </>
-        ) : (
-          <>Ir abajo</>
+        {/* Sentinel arriba — IntersectionObserver dispara loadMore */}
+        <div ref={topSentinelRef} aria-hidden="true" />
+
+        {isLoading && hasMore && messages.length > 0 && (
+          <div className="flex items-center justify-center py-4">
+            <Loader2 className="h-5 w-5 animate-spin text-zinc-500" />
+          </div>
         )}
-      </button>
-    )}
+
+        {isLoading && messages.length === 0 && (
+          <div className="flex flex-col gap-4 py-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className={`flex gap-2.5 ${i % 2 === 0 ? "" : "justify-end"}`}>
+                {i % 2 === 0 && <div className="h-8 w-8 rounded-full bg-[rgba(255,255,255,0.06)] animate-pulse shrink-0" />}
+                <div className="space-y-1.5" style={{ width: `${45 + i * 10}%` }}>
+                  {i % 2 === 0 && <div className="h-3 w-20 rounded bg-[rgba(255,255,255,0.06)] animate-pulse" />}
+                  <div className="h-10 rounded-lg bg-[rgba(255,255,255,0.04)] animate-pulse" />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {!isLoading && messages.length === 0 && (
+          <div className="flex flex-1 items-center justify-center py-12 text-zinc-500 text-sm">
+            No hay mensajes aun. Envia el primero.
+          </div>
+        )}
+
+        {groupedMessages.map((group) => (
+          <div key={group.dateKey}>
+            <ChatDateDivider label={group.dateLabel} />
+            {group.messages.map((msg, idx) => {
+              if (msg.systemEventType) return <ChatMessageSystem key={msg.id} message={msg} />;
+              const prev = idx > 0 ? group.messages[idx - 1] : null;
+              const TIME_GAP_MS = 5 * 60 * 1000;
+              const isFirst =
+                idx === 0 ||
+                !prev ||
+                prev.senderId !== msg.senderId ||
+                !!prev.systemEventType ||
+                new Date(msg.createdAt).getTime() - new Date(prev.createdAt).getTime() > TIME_GAP_MS;
+
+              return (
+                <ChatMessage
+                  key={msg.id}
+                  message={msg}
+                  mentionDisplayMap={mentionDisplayMap}
+                  isOwn={isOwnMessage(msg)}
+                  isFirstInGroup={isFirst}
+                  onReply={() => onReply(msg)}
+                  onOpenThread={onOpenThread}
+                  onEdit={onEdit}
+                  onDelete={onDelete}
+                  onRetry={onRetry}
+                  onDiscard={onDiscard}
+                  channelId={channelId}
+                  currentUserId={currentUserId}
+                  readByCount={getReadByCount?.(msg)}
+                  onReaction={onReaction}
+                  canDeleteAny={canDeleteAny}
+                />
+              );
+            })}
+          </div>
+        ))}
+
+        {/* Sentinel abajo — IntersectionObserver detecta near-bottom */}
+        <div ref={bottomSentinelRef} aria-hidden="true" />
+      </div>
+
+      {showJumpPill && messages.length > 0 && (
+        <button
+          type="button"
+          onClick={scrollToLatest}
+          className={cn(
+            "absolute left-1/2 -translate-x-1/2 bottom-3 z-10",
+            "inline-flex items-center gap-1.5 rounded-full",
+            "border border-white/[0.08] bg-[#111827]/95 backdrop-blur",
+            "px-3 py-1.5 text-xs font-medium text-zinc-200",
+            "shadow-lg shadow-black/40 transition-all",
+            "hover:bg-[#1a2234] active:scale-95"
+          )}
+          aria-label={unseenCount > 0 ? `${unseenCount} mensajes nuevos` : "Ir al último mensaje"}
+        >
+          <ArrowDown className="h-3.5 w-3.5" />
+          {unseenCount > 0 ? <>{unseenCount} nuevo{unseenCount === 1 ? "" : "s"}</> : <>Ir abajo</>}
+        </button>
+      )}
     </div>
   );
 }
