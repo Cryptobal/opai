@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { CheckCircle2, Clock3, Sparkles } from "lucide-react";
 import { OnboardingClientModal } from "./OnboardingClientModal";
+import { Surface } from "@/components/opai-ds/Surface";
 
 type Summary = {
   id: string;
@@ -51,19 +51,21 @@ export function OnboardingAccountBanner({ accountId }: { accountId: string }) {
     const o = probe.onboarding;
     const pct = o.total === 0 ? 0 : Math.round((o.done / o.total) * 100);
     return (
-      <Card>
-        <CardContent className="flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between">
+      <Surface elevation={1} padding="md">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
-            <div className="flex items-center gap-2 text-sm font-medium">
+            <div className="flex items-center gap-2 text-sm font-medium text-ds-text-1">
               {o.status === "completed" ? (
-                <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                <CheckCircle2 className="h-4 w-4 text-status-ok-fg" />
               ) : (
-                <Clock3 className="h-4 w-4 text-blue-500" />
+                <Clock3 className="h-4 w-4 text-status-info-fg" />
               )}
               Onboarding {o.status === "completed" ? "completado" : "en progreso"}
             </div>
-            <p className="text-xs text-muted-foreground">
-              {o.done} de {o.total} steps · {pct}%
+            <p className="text-xs text-ds-text-3">
+              <span className="font-mono tabular-nums">{o.done}</span> de{" "}
+              <span className="font-mono tabular-nums">{o.total}</span> tickets ·{" "}
+              <span className="font-mono tabular-nums">{pct}%</span>
               {o.nextDueAt
                 ? ` · próximo vencimiento ${new Date(o.nextDueAt).toLocaleDateString("es-CL")}`
                 : ""}
@@ -71,25 +73,29 @@ export function OnboardingAccountBanner({ accountId }: { accountId: string }) {
           </div>
           <Link
             href={`/crm/accounts/${accountId}/onboarding/${o.id}`}
-            className="text-sm text-primary hover:underline"
+            className="text-sm font-medium text-primary hover:underline"
           >
             Ver detalle →
           </Link>
-        </CardContent>
-      </Card>
+        </div>
+      </Surface>
     );
   }
 
   if (probe.pendingDealId) {
     return (
       <>
-        <Card className="border-blue-200 bg-blue-50/40 dark:border-blue-900/40 dark:bg-blue-950/20">
-          <CardContent className="flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <Surface
+          elevation={1}
+          padding="md"
+          className="!border-status-info-border !bg-status-info-soft"
+        >
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-2">
-              <Sparkles className="mt-0.5 h-4 w-4 text-blue-500" />
+              <Sparkles className="mt-0.5 h-4 w-4 text-status-info-fg" />
               <div>
-                <p className="text-sm font-medium">Onboarding pendiente</p>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-sm font-medium text-ds-text-1">Onboarding pendiente</p>
+                <p className="text-xs text-ds-text-3">
                   Este cliente fue ganado pero aún no se inició el onboarding.
                 </p>
               </div>
@@ -100,8 +106,8 @@ export function OnboardingAccountBanner({ accountId }: { accountId: string }) {
             >
               Iniciar onboarding
             </Button>
-          </CardContent>
-        </Card>
+          </div>
+        </Surface>
         {modalDealId ? (
           <OnboardingClientModal
             open

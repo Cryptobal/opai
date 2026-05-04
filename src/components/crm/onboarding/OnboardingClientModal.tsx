@@ -16,6 +16,7 @@ import { ValidationsPanel } from "./ValidationsPanel";
 import { PlatformConfigPanel } from "./PlatformConfigPanel";
 import { StepEditor } from "./StepEditor";
 import { AddCustomTicketForm } from "./AddCustomTicketForm";
+import { SectionHeader } from "@/components/opai-ds/SectionHeader";
 import type { OnboardingStepDraft, PreviewData } from "./types";
 
 const TICKET_TYPE_OPTIONS = [
@@ -186,7 +187,7 @@ export function OnboardingClientModal({
             ) : null}
 
             <div className="space-y-2">
-              <h4 className="text-sm font-medium">Tickets a crear</h4>
+              <SectionHeader size="sm" title="Tickets a crear" />
               {steps.map((s) => (
                 <StepEditor
                   key={s.key}

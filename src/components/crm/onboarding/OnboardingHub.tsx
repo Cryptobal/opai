@@ -3,11 +3,14 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, RefreshCw, CheckCircle2, ExternalLink } from "lucide-react";
+import { Loader2, RefreshCw, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { PlatformConfigPanel } from "./PlatformConfigPanel";
 import type { PlatformConfigStatus } from "./types";
+import { Surface } from "@/components/opai-ds/Surface";
+import { SectionHeader } from "@/components/opai-ds/SectionHeader";
+import { Tag, type TagVariant } from "@/components/opai-ds/Tag";
+import { Skeleton } from "@/components/opai-ds/Skeleton";
 
 type Step = {
   id: string;
@@ -42,18 +45,18 @@ type Onboarding = {
   playbook: { id: string; name: string; version: number };
 };
 
-function badgeForStatus(status: string): string {
-  if (["resolved", "closed"].includes(status)) {
-    return "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300";
-  }
-  if (status === "skipped") return "bg-gray-100 text-gray-600";
-  if (status === "in_progress") return "bg-blue-100 text-blue-700";
-  return "bg-amber-100 text-amber-700";
-}
+const STEP_STATUS_TO_TAG: Record<string, { label: string; variant: TagVariant }> = {
+  open:             { label: "Abierto",    variant: "info"    },
+  in_progress:      { label: "En curso",   variant: "info"    },
+  resolved:         { label: "Resuelto",   variant: "ok"      },
+  closed:           { label: "Cerrado",    variant: "neutral" },
+  skipped:          { label: "No aplica",  variant: "neutral" },
+  pending_approval: { label: "Aprobación", variant: "warn"    },
+  waiting:          { label: "En espera",  variant: "neutral" },
+};
 
 function daysUntil(dateStr: string): number {
-  const d = new Date(dateStr).getTime();
-  return Math.ceil((d - Date.now()) / 86_400_000);
+  return Math.ceil((new Date(dateStr).getTime() - Date.now()) / 86_400_000);
 }
 
 export function OnboardingHub({
@@ -83,7 +86,7 @@ export function OnboardingHub({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onboardingId]);
 
-  const refreshStatus = async () => {
+  const refresh = async () => {
     setRefreshing(true);
     try {
       const res = await fetch(`/api/onboarding/${onboardingId}/refresh-status`, {
@@ -91,136 +94,174 @@ export function OnboardingHub({
       });
       const json = await res.json();
       if (!json?.success) throw new Error(json?.error ?? "Error refrescando");
-      toast.success("Estado actualizado");
       await load();
+      toast.success("Estado actualizado");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Error refrescando");
+      toast.error(e instanceof Error ? e.message : "No se pudo actualizar");
     } finally {
       setRefreshing(false);
     }
   };
 
-  const completeOnboarding = async () => {
+  const complete = async () => {
     try {
       const res = await fetch(`/api/onboarding/${onboardingId}/complete`, {
         method: "POST",
       });
       const json = await res.json();
       if (!json?.success) throw new Error(json?.error ?? "No se pudo completar");
-      toast.success("Onboarding completado");
-      await load();
+      toast.success("Onboarding marcado como completado");
+      load();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Error completando");
+      toast.error(e instanceof Error ? e.message : "Error al completar");
     }
   };
 
-  if (loading || !data) {
+  if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      <div className="container mx-auto max-w-4xl space-y-4 p-4">
+        <Skeleton className="h-24 w-full" />
+        <Skeleton className="h-40 w-full" />
+        <Skeleton className="h-40 w-full" />
       </div>
     );
   }
 
-  const stepsByPhase = data.steps.reduce<Record<string, Step[]>>((acc, s) => {
-    const ticketSlug = s.ticket?.code ?? "";
-    const phase = inferPhase(s, ticketSlug);
-    (acc[phase] ||= []).push(s);
-    return acc;
-  }, {});
-  const phases = Object.keys(stepsByPhase).sort();
+  if (!data) {
+    return (
+      <div className="container mx-auto max-w-4xl p-4">
+        <Surface elevation={1} padding="md">
+          <p className="text-sm text-ds-text-3">No se pudo cargar el onboarding.</p>
+        </Surface>
+      </div>
+    );
+  }
 
-  const allTerminal = data.steps.every((s) =>
+  const startDays = daysUntil(data.serviceStartDate);
+  const allDone = data.steps.every((s) =>
     ["resolved", "closed", "skipped"].includes(s.status),
   );
-  const daysLeft = daysUntil(data.serviceStartDate);
+  const startDaysLabel = startDays >= 0 ? `+${startDays}` : `${startDays}`;
 
   return (
     <div className="container mx-auto max-w-4xl space-y-4 p-4">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <Link
-            href={`/crm/accounts/${accountId}`}
-            className="text-xs text-muted-foreground hover:underline"
-          >
-            ← Volver a la cuenta
-          </Link>
-          <h1 className="mt-1 text-xl font-semibold">
-            Onboarding · {data.account?.name ?? "Cliente"}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Sitio: {data.installation?.name ?? "—"} · Inicio:{" "}
-            {new Date(data.serviceStartDate).toLocaleDateString("es-CL")} ·{" "}
-            {data.percentComplete}% completado · {daysLeft} días restantes
-          </p>
-        </div>
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={refreshStatus}
-            disabled={refreshing}
-          >
-            <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
-            Refrescar estado
-          </Button>
-          {data.status === "in_progress" && allTerminal ? (
-            <Button size="sm" onClick={completeOnboarding}>
-              <CheckCircle2 className="mr-2 h-4 w-4" />
-              Marcar como completado
+      <Link
+        href={`/crm/accounts/${accountId}`}
+        className="inline-block text-xs text-ds-text-3 hover:underline"
+      >
+        ← Volver a la cuenta
+      </Link>
+
+      {/* Header / hero */}
+      <Surface elevation={1} padding="md">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="space-y-1">
+            <p className="text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4">
+              Onboarding · {data.playbook.name} v{data.playbook.version}
+            </p>
+            <h2 className="font-display text-2xl font-bold tracking-tight text-ds-text-1">
+              {data.account?.name ?? "Cliente"}
+            </h2>
+            {data.installation ? (
+              <p className="text-sm text-ds-text-3">
+                {data.installation.name}
+                {data.installation.address ? ` · ${data.installation.address}` : ""}
+              </p>
+            ) : null}
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={refresh} disabled={refreshing}>
+              {refreshing ? (
+                <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <RefreshCw className="mr-2 h-3.5 w-3.5" />
+              )}
+              Refrescar
             </Button>
-          ) : null}
+            {allDone && data.status === "in_progress" ? (
+              <Button size="sm" onClick={complete}>
+                <CheckCircle2 className="mr-2 h-3.5 w-3.5" />
+                Completar onboarding
+              </Button>
+            ) : null}
+          </div>
         </div>
-      </div>
 
-      <Card>
-        <CardContent className="p-4 space-y-4">
-          <h2 className="text-sm font-semibold">Tickets</h2>
-          {phases.map((phase) => (
-            <div key={phase} className="space-y-2">
-              <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Fase {phase}
-              </h3>
-              <ul className="space-y-2">
-                {stepsByPhase[phase].map((s) => (
-                  <li
-                    key={s.id}
-                    className="flex flex-col gap-1 rounded-md border p-3 sm:flex-row sm:items-center sm:justify-between"
-                  >
-                    <div className="space-y-0.5">
-                      <p className="text-sm font-medium">{s.title}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {s.ticket
-                          ? `${s.ticket.code} · ${s.ticket.assignedTeam} · ${s.ticket.priority}`
-                          : "Sin ticket"}
-                        {s.ticket?.slaDueAt
-                          ? ` · vence ${new Date(s.ticket.slaDueAt).toLocaleDateString("es-CL")}`
-                          : ""}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`rounded px-2 py-0.5 text-xs font-medium ${badgeForStatus(s.status)}`}
-                      >
-                        {s.status}
-                      </span>
-                      {s.ticket ? (
-                        <Link
-                          href={`/ops/tickets/${s.ticket.id}`}
-                          className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                        >
-                          Ver ticket <ExternalLink className="h-3 w-3" />
-                        </Link>
+        <div className="mt-4 grid grid-cols-3 gap-3">
+          <Stat label="Avance" value={`${data.percentComplete}%`} />
+          <Stat
+            label="Inicio servicio"
+            value={new Date(data.serviceStartDate).toLocaleDateString("es-CL")}
+          />
+          <Stat label="Días" value={startDaysLabel} />
+        </div>
+      </Surface>
+
+      {/* Steps */}
+      <Surface elevation={1} padding="md" className="space-y-3">
+        <SectionHeader
+          size="md"
+          title="Tickets del onboarding"
+          hint={`${data.steps.length} pasos`}
+        />
+        <ul className="space-y-2">
+          {data.steps.map((s) => {
+            const meta =
+              STEP_STATUS_TO_TAG[s.status] ?? { label: s.status, variant: "neutral" as TagVariant };
+            return (
+              <li
+                key={s.id}
+                className="flex items-start justify-between gap-3 rounded-ds-md border border-ds-border-subtle bg-ds-surface-2 p-3"
+              >
+                <div className="min-w-0 flex-1 space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Tag variant={meta.variant} size="sm">
+                      {meta.label}
+                    </Tag>
+                    <span className="text-sm font-medium text-ds-text-1 truncate">
+                      {s.ticket?.code ? (
+                        <span className="font-mono tabular-nums text-ds-text-3">
+                          {s.ticket.code} ·{" "}
+                        </span>
                       ) : null}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
+                      {s.title}
+                    </span>
+                  </div>
+                  {s.ticket ? (
+                    <p className="text-xs text-ds-text-3">
+                      {s.ticket.assignedTeam}
+                      {s.ticket.slaDueAt ? (
+                        <>
+                          {" "}· SLA{" "}
+                          <span
+                            className={
+                              s.ticket.slaBreached
+                                ? "font-mono tabular-nums text-status-danger-fg"
+                                : "font-mono tabular-nums"
+                            }
+                          >
+                            {new Date(s.ticket.slaDueAt).toLocaleDateString("es-CL")}
+                          </span>
+                        </>
+                      ) : null}
+                    </p>
+                  ) : null}
+                </div>
+                {s.ticket ? (
+                  <Link
+                    href={`/ops/tickets/${s.ticket.id}`}
+                    className="shrink-0 text-xs font-medium text-primary hover:underline"
+                  >
+                    Ver ticket →
+                  </Link>
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
+      </Surface>
 
+      {/* Platform config */}
       <PlatformConfigPanel
         status={data.platformConfigStatus}
         installationId={data.installation?.id ?? null}
@@ -229,12 +270,11 @@ export function OnboardingHub({
   );
 }
 
-function inferPhase(step: Step, code: string): string {
-  if (step.isCustom) return "4";
-  const t = step.title.toLowerCase();
-  if (t.includes("contrato")) return "1";
-  if (t.includes("vulnerabilidad") || t.includes("directiva") || t.includes("protocolo"))
-    return "2";
-  if (t.includes("test") || t.includes("uniforme")) return "3";
-  return code ? "2" : "4";
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="space-y-0.5">
+      <p className="text-[11px] uppercase tracking-wider text-ds-text-4">{label}</p>
+      <p className="font-mono tabular-nums text-lg font-semibold text-ds-text-1">{value}</p>
+    </div>
+  );
 }
