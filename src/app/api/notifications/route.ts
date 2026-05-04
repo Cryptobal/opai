@@ -541,6 +541,9 @@ function visibleNotificationsWhere(
     "ticket_mention",
     "ticket_created",
     "ticket_assigned",
+    "ticket_sla_breached",
+    "ticket_sla_approaching",
+    "ticket_sla_breached_batch",
   ];
 
   const orConditions: Prisma.NotificationWhereInput[] = [
@@ -576,6 +579,9 @@ function visibleNotificationsWhere(
     "ticket_mention",
     "ticket_created",
     "ticket_assigned",
+    "ticket_sla_breached",
+    "ticket_sla_approaching",
+    "ticket_sla_breached_batch",
   ]) {
     if (baseExclusions.includes(targetedType)) continue; // Skip if role excludes it
     orConditions.push({
