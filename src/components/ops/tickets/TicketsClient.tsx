@@ -609,43 +609,37 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
 
   return (
     <div className="space-y-3">
-      {/* Header + Nuevo ticket */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-base font-semibold">Tickets</h2>
-          <p className="text-xs text-muted-foreground">
-            Solicitudes, incidentes y requerimientos internos
-          </p>
+      {/* Module switcher (Dashboard / Tickets) + acción primaria.
+          Removimos el h2 + subtítulo: la PageHero del page-level ya dice
+          "Tickets / incidencias y requerimientos". */}
+      <div className="flex items-center gap-2">
+        <div className="flex gap-1 rounded-lg bg-muted p-0.5">
+          {([
+            { value: "dashboard" as const, label: "Dashboard" },
+            { value: "tickets" as const, label: "Tickets" },
+          ]).map((tab) => (
+            <button
+              key={tab.value}
+              type="button"
+              onClick={() => setModuleView(tab.value)}
+              className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                moduleView === tab.value
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
         <Button
           size="sm"
-          className="shrink-0 gap-1.5"
+          className="ml-auto shrink-0 gap-1.5"
           onClick={() => setViewState({ view: "create" })}
         >
           <Plus className="h-4 w-4" />
           Nuevo ticket
         </Button>
-      </div>
-
-      {/* Module view switcher: Dashboard / Tickets */}
-      <div className="flex gap-1 rounded-lg bg-muted p-0.5">
-        {([
-          { value: "dashboard" as const, label: "Dashboard" },
-          { value: "tickets" as const, label: "Tickets" },
-        ]).map((tab) => (
-          <button
-            key={tab.value}
-            type="button"
-            onClick={() => setModuleView(tab.value)}
-            className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-              moduleView === tab.value
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
       </div>
 
       {/* Dashboard view */}
@@ -654,18 +648,11 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
       {/* Tickets view (List/Cards/Kanban) */}
       {moduleView === "tickets" && (
         <>
-      {/* Search bar */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-        <Input
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Buscar tickets..."
-          className="pl-9 h-10 text-[16px] bg-background"
-        />
-      </div>
-
-      {/* Quick views — one-click filter presets */}
+      {/* Quick views — presets de un click. Primera fila del toolbar:
+          atajos comunes ("Activos", "P1", "Mi equipo"…). Debajo viene la
+          barra unificada de search + filtros + view-toggle para uso más
+          fino. Antes había 3 filas separadas (search / chips / filtros);
+          ahora son 2. */}
       <div className="flex items-center gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
         {([
           { key: "active" as const, label: "Activos", count: counts?.active, tone: "primary" as const },
@@ -830,15 +817,29 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
         </Popover>
       </div>
 
-      {/* Toolbar: Filtros popover + view mode */}
+      {/* Toolbar consolidado: Search + Filtros + Selección + View toggle.
+          Todo en una sola fila responsive (wrappea en mobile). El search
+          queda a la izquierda, los pills de filtro arriba en la fila de
+          chips, y los modos de vista a la derecha. */}
       <div className="flex items-center gap-2 flex-wrap">
+        {/* Search */}
+        <div className="relative flex-1 min-w-[180px] sm:max-w-[320px]">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Buscar tickets..."
+            className="h-9 bg-background pl-9 text-sm"
+          />
+        </div>
+
         <Popover open={filtersOpen} onOpenChange={setFiltersOpen}>
           <PopoverTrigger asChild>
             <Button
               type="button"
               variant="outline"
               size="sm"
-              className="h-8 gap-1.5 text-xs"
+              className="h-9 gap-1.5 text-xs"
             >
               <SlidersHorizontal className="h-3.5 w-3.5" />
               Filtros
@@ -1001,7 +1002,7 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
             type="button"
             variant={selectionMode ? "secondary" : "outline"}
             size="sm"
-            className="h-8 gap-1.5 text-xs"
+            className="h-9 gap-1.5 text-xs"
             onClick={() => {
               if (selectionMode) exitSelectionMode();
               else setSelectionMode(true);
@@ -1016,14 +1017,18 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
           </Button>
         )}
 
-        {/* View mode toggle */}
+        {/* View mode toggle. "Por instalación" se oculta cuando ya estamos
+            drilled-in en una instalación específica — ahí ese botón no
+            aporta y confunde. */}
         <div className="ml-auto flex gap-1 rounded-md bg-muted p-0.5">
-          {([
+          {(([
             { value: "list" as const, label: "Lista" },
             { value: "cards" as const, label: "Cards" },
             { value: "kanban" as const, label: "Kanban" },
             { value: "by-installation" as const, label: "Por instalación" },
-          ]).map((mode) => (
+          ]).filter(
+            (m) => m.value !== "by-installation" || !installationFilterId,
+          )).map((mode) => (
             <button
               key={mode.value}
               type="button"
