@@ -7,6 +7,7 @@ import { cpqQuoteListedInClientPortalWhere } from "@/lib/cpq-portal-visibility";
 import { resend } from "@/lib/resend";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
 import { notify } from "@/lib/notifications/notify";
+import { propagateDealLost } from "@/lib/crm/deal-propagation";
 
 export async function POST(
   request: Request,
@@ -76,6 +77,20 @@ export async function POST(
       where: { id: quote.dealId },
       data: { stageId: perdidoStage.id, status: "lost" },
     });
+
+    // Propagación deal lost. La candidata a desactivación se loguea para revisión manual
+    // (no se muestra modal en portal cliente).
+    try {
+      const lostResult = await propagateDealLost(prisma, session.tenantId, quote.dealId);
+      if (lostResult.deactivationCandidate) {
+        console.warn(
+          "[Portal] Deal perdido con candidata a desactivación:",
+          { dealId: quote.dealId, candidate: lostResult.deactivationCandidate }
+        );
+      }
+    } catch (e) {
+      console.error("[Portal] Error propagating deal lost:", e);
+    }
   }
 
   // ── 3. Audit log ──

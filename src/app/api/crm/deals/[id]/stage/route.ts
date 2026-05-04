@@ -9,6 +9,11 @@ import { requireAuth, unauthorized, parseBody } from "@/lib/api-auth";
 import { requireCrmEdit } from "@/lib/api-auth-crm";
 import { updateDealStageSchema } from "@/lib/validations/crm";
 import { requireTenantModule } from '@/lib/require-module';
+import {
+  propagateDealWon,
+  propagateDealLost,
+  type DealLostPropagationResult,
+} from "@/lib/crm/deal-propagation";
 
 export async function POST(
   request: NextRequest,
@@ -61,6 +66,8 @@ export async function POST(
       stage.name === "Cotización enviada" &&
       nextStatus === "open" &&
       !deal.proposalSentAt;
+
+    let dealLostResult: DealLostPropagationResult | null = null;
 
     const updatedDeal = await prisma.$transaction(async (tx) => {
       const updated = await tx.crmDeal.update({
@@ -214,6 +221,21 @@ export async function POST(
         }
       }
 
+      // Propagación Deal ↔ Quote ↔ Installation
+      if (nextStatus === "won") {
+        try {
+          await propagateDealWon(tx, ctx.tenantId, deal.id);
+        } catch (e) {
+          console.error("Error propagating deal won state:", e);
+        }
+      } else if (nextStatus === "lost") {
+        try {
+          dealLostResult = await propagateDealLost(tx, ctx.tenantId, deal.id);
+        } catch (e) {
+          console.error("Error propagating deal lost state:", e);
+        }
+      }
+
       return updated;
     });
 
@@ -276,6 +298,8 @@ export async function POST(
       success: true,
       data: updatedDeal,
       ...(onboardingMeta ?? {}),
+      deactivationCandidate:
+        (dealLostResult as DealLostPropagationResult | null)?.deactivationCandidate ?? null,
     });
   } catch (error) {
     console.error("Error updating CRM deal stage:", error);

@@ -7,6 +7,7 @@ import { cpqQuoteListedInClientPortalWhere } from "@/lib/cpq-portal-visibility";
 import { resend } from "@/lib/resend";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
 import { notify } from "@/lib/notifications/notify";
+import { propagateDealWon } from "@/lib/crm/deal-propagation";
 
 export async function POST(
   _request: Request,
@@ -80,6 +81,26 @@ export async function POST(
       where: { id: quote.dealId },
       data: { stageId: stage.id },
     });
+
+    // Propagación deal won (si la stage es de cierre ganado)
+    const finalStage = await prisma.crmPipelineStage.findUnique({
+      where: { id: stage.id },
+      select: { isClosedWon: true },
+    });
+    if (finalStage?.isClosedWon) {
+      try {
+        const dealId = quote.dealId;
+        await prisma.$transaction(async (tx) => {
+          await tx.crmDeal.update({
+            where: { id: dealId },
+            data: { status: "won" },
+          });
+          await propagateDealWon(tx, session.tenantId, dealId);
+        });
+      } catch (e) {
+        console.error("[Portal] Error propagating deal won:", e);
+      }
+    }
   }
 
   // ── 5. Send email notification (tenant-aware) ──

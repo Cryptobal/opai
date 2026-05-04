@@ -2023,11 +2023,13 @@ model CrmInstallation {
   chatEnabled             Boolean               @default(false) @map("chat_enabled") // habilitar chat grupal de instalación
   startDate               DateTime?             @map("start_date") @db.Date
   endDate                 DateTime?             @map("end_date") @db.Date
+  activatedByDealId       String?               @map("activated_by_deal_id") @db.Uuid
   createdAt               DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt               DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   account                         CrmAccount?                     @relation(fields: [accountId], references: [id], onDelete: Cascade)
   lead                            CrmLead?                        @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  activatedByDeal                 CrmDeal?                        @relation("crm_installation_activated_by_deal", fields: [activatedByDealId], references: [id], onDelete: SetNull)
   quotes                          CpqQuote[]
   opsPuestos                      OpsPuestoOperativo[]
   opsPautas                       OpsPautaMensual[]
@@ -2089,6 +2091,7 @@ model CrmInstallation {
   @@index([status], map: "idx_crm_installations_status")
   @@index([isActive], map: "idx_crm_installations_is_active")
   @@index([leadId], map: "idx_crm_installations_lead")
+  @@index([activatedByDealId], map: "idx_crm_installations_activated_by_deal")
   @@map("installations")
   @@schema("crm")
 }
@@ -2241,6 +2244,7 @@ model CrmDeal {
   followUpLogs    CrmFollowUpLog[]
   dealContacts    CrmDealContact[]
   visitasTecnicas OpsVisitaTecnica[]
+  activatedInstallations CrmInstallation[] @relation("crm_installation_activated_by_deal")
 
   @@index([tenantId], map: "idx_crm_deals_tenant")
   @@index([status], map: "idx_crm_deals_status")

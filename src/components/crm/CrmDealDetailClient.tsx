@@ -55,6 +55,7 @@ import { resolveDocument, tiptapToPlainText } from "@/lib/docs/token-resolver";
 import { FileAttachments } from "./FileAttachments";
 import { AssociatedRecordsPanel, type AssociatedSection } from "@/components/ui/AssociatedRecordsPanel";
 import { CrmActivityTimeline } from "./CrmActivityTimeline";
+import { DeactivateInstallationDialog } from "@/components/crm/DeactivateInstallationDialog";
 
 /** Convierte Tiptap JSON a HTML para email */
 function tiptapToEmailHtml(doc: any): string {
@@ -509,6 +510,10 @@ export function CrmDealDetailClient({
   const [onboardingTarget, setOnboardingTarget] = useState<
     { dealId: string; defaultPlaybookId?: string } | null
   >(null);
+  const [deactivationDialog, setDeactivationDialog] = useState<{
+    installationId: string;
+    installationName: string;
+  } | null>(null);
   const [linking, setLinking] = useState(false);
 
   // ── Email compose state ──
@@ -1132,6 +1137,13 @@ export function CrmDealDetailClient({
       }
       if (!willOpenOnboarding) {
         toast.success("Etapa actualizada");
+      }
+      if (payload?.deactivationCandidate?.installationId) {
+        setDeactivationDialog({
+          installationId: payload.deactivationCandidate.installationId,
+          installationName:
+            payload.deactivationCandidate.installationName ?? "Instalación",
+        });
       }
     } catch (error) {
       console.error(error);
@@ -2277,6 +2289,21 @@ export function CrmDealDetailClient({
             setOnboardingTarget(null);
           }}
           onCreated={() => setOnboardingTarget(null)}
+        />
+      ) : null}
+      {deactivationDialog ? (
+        <DeactivateInstallationDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setDeactivationDialog(null);
+          }}
+          installationId={deactivationDialog.installationId}
+          installationName={deactivationDialog.installationName}
+          dealTitle={dealTitle}
+          onCompleted={() => {
+            setDeactivationDialog(null);
+            router.refresh();
+          }}
         />
       ) : null}
     </>
