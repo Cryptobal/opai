@@ -1,27 +1,35 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Bell, Mail, Smartphone, Save, Loader2, BellOff } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { BellOff, Loader2, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import type { UnifiedNotificationType } from "@/lib/notifications/catalog";
-
-type Channel = "bell" | "email" | "push";
-
-interface ChannelPrefs {
-  bell?: boolean;
-  email?: boolean;
-  push?: boolean;
-}
+import {
+  expandCatalogDefaults,
+  type ChannelPrefs,
+} from "@/lib/notifications/channel-types";
+import { ModuleAccordion } from "./_components/notif-prefs/ModuleAccordion";
+import { PrefsSearchBar } from "./_components/notif-prefs/PrefsSearchBar";
 
 type PrefsMap = Record<string, ChannelPrefs>;
+type Channel = keyof ChannelPrefs;
+
+const MODULE_LABELS: Record<string, string> = {
+  crm: "CRM",
+  cpq: "CPQ",
+  ops: "Operaciones",
+  docs: "Documentos",
+  finance: "Finanzas",
+  payroll: "Payroll",
+  chat: "Chat",
+};
+
+const MODULE_ORDER = ["ops", "crm", "cpq", "docs", "finance", "payroll", "chat"];
 
 interface ApiResponse {
   success: boolean;
-  data: {
-    preferences: PrefsMap;
-    types: UnifiedNotificationType[];
-  };
+  data: { preferences: PrefsMap; types: UnifiedNotificationType[] };
 }
 
 interface Props {
@@ -32,18 +40,12 @@ export function UnifiedNotificationPrefsClient({ highlightType }: Props = {}) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [prefs, setPrefs] = useState<PrefsMap>({});
+  const [initialPrefs, setInitialPrefs] = useState<PrefsMap>({});
   const [types, setTypes] = useState<UnifiedNotificationType[]>([]);
-  const [dirty, setDirty] = useState(false);
+  const [query, setQuery] = useState("");
+  const [openModules, setOpenModules] = useState<Set<string>>(new Set(["ops", "crm"]));
   const [highlighted, setHighlighted] = useState<string | undefined>(highlightType);
   const highlightRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (highlighted && !loading && types.length > 0 && highlightRef.current) {
-      highlightRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
-      const timer = setTimeout(() => setHighlighted(undefined), 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [highlighted, loading, types.length]);
 
   const fetchPrefs = useCallback(async () => {
     setLoading(true);
@@ -52,6 +54,7 @@ export function UnifiedNotificationPrefsClient({ highlightType }: Props = {}) {
       const json: ApiResponse = await res.json();
       if (json.success && json.data) {
         setPrefs(json.data.preferences);
+        setInitialPrefs(json.data.preferences);
         setTypes(json.data.types);
       }
     } catch {
@@ -65,15 +68,71 @@ export function UnifiedNotificationPrefsClient({ highlightType }: Props = {}) {
     void fetchPrefs();
   }, [fetchPrefs]);
 
-  const toggle = (key: string, channel: Channel, value: boolean) => {
-    setPrefs((prev) => ({
-      ...prev,
-      [key]: { ...prev[key], [channel]: value },
-    }));
-    setDirty(true);
-  };
+  useEffect(() => {
+    if (!highlighted || loading || types.length === 0) return;
+    const t = types.find((x) => x.key === highlighted);
+    if (!t) return;
+    setOpenModules((prev) => new Set([...prev, t.module]));
+    const scrollTimer = setTimeout(() => {
+      highlightRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 200);
+    const clearTimer = setTimeout(() => setHighlighted(undefined), 4000);
+    return () => {
+      clearTimeout(scrollTimer);
+      clearTimeout(clearTimer);
+    };
+  }, [highlighted, loading, types]);
 
-  const handleSave = async () => {
+  const toggle = useCallback((key: string, channel: Channel, value: boolean) => {
+    setPrefs((p) => ({ ...p, [key]: { ...p[key], [channel]: value } }));
+  }, []);
+
+  const muteModule = useCallback(
+    (moduleKey: string) => {
+      const moduleTypes = types.filter((t) => t.module === moduleKey);
+      setPrefs((p) => {
+        const next = { ...p };
+        for (const t of moduleTypes) {
+          next[t.key] = { bell: false, email: false, pushDesktop: false, pushMobile: false };
+        }
+        return next;
+      });
+    },
+    [types],
+  );
+
+  const resetModule = useCallback(
+    (moduleKey: string) => {
+      const moduleTypes = types.filter((t) => t.module === moduleKey);
+      setPrefs((p) => {
+        const next = { ...p };
+        for (const t of moduleTypes) {
+          next[t.key] = expandCatalogDefaults(t.defaults.admin ?? {});
+        }
+        return next;
+      });
+    },
+    [types],
+  );
+
+  const dirtyCount = useMemo(() => {
+    let n = 0;
+    for (const t of types) {
+      const before = initialPrefs[t.key] ?? {};
+      const after = prefs[t.key] ?? {};
+      if (
+        before.bell !== after.bell ||
+        before.email !== after.email ||
+        before.pushDesktop !== after.pushDesktop ||
+        before.pushMobile !== after.pushMobile
+      ) {
+        n++;
+      }
+    }
+    return n;
+  }, [prefs, initialPrefs, types]);
+
+  const handleSave = useCallback(async () => {
     setSaving(true);
     try {
       const res = await fetch("/api/notifications/preferences", {
@@ -84,7 +143,7 @@ export function UnifiedNotificationPrefsClient({ highlightType }: Props = {}) {
       const json = (await res.json()) as { success: boolean; error?: string };
       if (json.success) {
         toast.success("Preferencias guardadas");
-        setDirty(false);
+        setInitialPrefs(prefs);
       } else {
         toast.error(json.error || "Error al guardar");
       }
@@ -93,7 +152,26 @@ export function UnifiedNotificationPrefsClient({ highlightType }: Props = {}) {
     } finally {
       setSaving(false);
     }
-  };
+  }, [prefs]);
+
+  const normalizedQuery = query.trim().toLowerCase();
+
+  const grouped = useMemo(() => {
+    const result = new Map<string, Map<string, UnifiedNotificationType[]>>();
+    for (const t of types) {
+      const matches =
+        !normalizedQuery ||
+        t.label.toLowerCase().includes(normalizedQuery) ||
+        t.description.toLowerCase().includes(normalizedQuery);
+      if (!matches) continue;
+      const cats = result.get(t.module) ?? new Map<string, UnifiedNotificationType[]>();
+      const list = cats.get(t.category) ?? [];
+      list.push(t);
+      cats.set(t.category, list);
+      result.set(t.module, cats);
+    }
+    return result;
+  }, [types, normalizedQuery]);
 
   if (loading) {
     return (
@@ -102,7 +180,6 @@ export function UnifiedNotificationPrefsClient({ highlightType }: Props = {}) {
       </div>
     );
   }
-
   if (types.length === 0) {
     return (
       <div className="text-center py-16 text-muted-foreground">
@@ -112,126 +189,59 @@ export function UnifiedNotificationPrefsClient({ highlightType }: Props = {}) {
     );
   }
 
-  const grouped = new Map<string, UnifiedNotificationType[]>();
-  for (const t of types) {
-    const list = grouped.get(t.category) || [];
-    list.push(t);
-    grouped.set(t.category, list);
-  }
+  const effectiveOpen = normalizedQuery
+    ? new Set(MODULE_ORDER.filter((m) => grouped.has(m)))
+    : openModules;
 
   return (
-    <div className="space-y-6 max-w-2xl">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div className="flex items-center gap-6 text-xs text-muted-foreground">
-          <span className="inline-flex items-center gap-1.5">
-            <Bell className="h-3.5 w-3.5" /> Campana
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <Mail className="h-3.5 w-3.5" /> Email
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <Smartphone className="h-3.5 w-3.5" /> Push
-          </span>
-        </div>
-        <Button onClick={() => void handleSave()} disabled={saving || !dirty} size="sm" className="gap-1.5">
-          {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-          Guardar
-        </Button>
-      </div>
+    <div className="space-y-4 max-w-3xl">
+      <PrefsSearchBar
+        query={query}
+        onQueryChange={setQuery}
+        saving={saving}
+        dirtyCount={dirtyCount}
+        onSave={() => void handleSave()}
+      />
 
-      {Array.from(grouped.entries()).map(([category, items]) => (
-        <section key={category} className="rounded-xl border border-border bg-card overflow-hidden">
-          <div className="px-5 py-3 border-b border-border bg-muted/30">
-            <h3 className="text-sm font-semibold">{category}</h3>
-          </div>
-          <div className="divide-y divide-border/50">
-            {items.map((t) => {
-              const def = t.defaults.admin ?? {};
-              const pref = prefs[t.key] ?? {};
-              const isHighlighted = highlighted === t.key;
-              const supportsBell = def.bell !== undefined;
-              const supportsEmail = def.email !== undefined;
-              const supportsPush = def.push !== undefined;
-              return (
-                <div
-                  key={t.key}
-                  ref={isHighlighted ? highlightRef : undefined}
-                  className={`flex items-center gap-4 px-5 py-3 transition-colors duration-1000 ${
-                    isHighlighted ? "bg-primary/10 ring-2 ring-primary/40 ring-inset rounded-md" : ""
-                  }`}
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium">{t.label}</div>
-                    <div className="text-xs text-muted-foreground mt-0.5">{t.description}</div>
-                  </div>
-                  <div className="flex items-center gap-5 shrink-0">
-                    <ChannelToggle
-                      icon={<Bell className="h-3.5 w-3.5 text-muted-foreground" />}
-                      checked={pref.bell ?? def.bell ?? false}
-                      disabled={!supportsBell}
-                      onChange={(v) => toggle(t.key, "bell", v)}
-                      title="Campana"
-                    />
-                    <ChannelToggle
-                      icon={<Mail className="h-3.5 w-3.5 text-muted-foreground" />}
-                      checked={pref.email ?? def.email ?? false}
-                      disabled={!supportsEmail}
-                      onChange={(v) => toggle(t.key, "email", v)}
-                      title="Email"
-                    />
-                    <ChannelToggle
-                      icon={<Smartphone className="h-3.5 w-3.5 text-muted-foreground" />}
-                      checked={pref.push ?? def.push ?? false}
-                      disabled={!supportsPush}
-                      onChange={(v) => toggle(t.key, "push", v)}
-                      title="Push"
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
+      {MODULE_ORDER.filter((m) => grouped.has(m)).map((moduleKey) => (
+        <ModuleAccordion
+          key={moduleKey}
+          moduleKey={moduleKey}
+          moduleLabel={MODULE_LABELS[moduleKey] ?? moduleKey}
+          isOpen={effectiveOpen.has(moduleKey)}
+          onToggleOpen={() =>
+            setOpenModules((prev) => {
+              const next = new Set(prev);
+              if (next.has(moduleKey)) {
+                next.delete(moduleKey);
+              } else {
+                next.add(moduleKey);
+              }
+              return next;
+            })
+          }
+          categories={grouped.get(moduleKey)!}
+          prefs={prefs}
+          highlighted={highlighted}
+          highlightRef={highlightRef}
+          onChannelToggle={toggle}
+          onMute={() => muteModule(moduleKey)}
+          onReset={() => resetModule(moduleKey)}
+        />
       ))}
 
-      {dirty && (
+      {dirtyCount > 0 && (
         <div className="sticky bottom-4 flex justify-end">
-          <Button onClick={() => void handleSave()} disabled={saving} className="gap-1.5 shadow-lg">
+          <Button
+            onClick={() => void handleSave()}
+            disabled={saving}
+            className="gap-1.5 shadow-lg"
+          >
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            Guardar cambios
+            Guardar {dirtyCount} cambios
           </Button>
         </div>
       )}
     </div>
-  );
-}
-
-function ChannelToggle({
-  icon,
-  checked,
-  disabled,
-  onChange,
-  title,
-}: {
-  icon: React.ReactNode;
-  checked: boolean;
-  disabled: boolean;
-  onChange: (v: boolean) => void;
-  title: string;
-}) {
-  return (
-    <label
-      className={`flex items-center gap-2 ${disabled ? "opacity-30 cursor-not-allowed" : "cursor-pointer"}`}
-      title={disabled ? `${title} no aplica para este tipo` : title}
-    >
-      {icon}
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        disabled={disabled}
-        className="accent-primary h-4 w-4"
-      />
-    </label>
   );
 }
