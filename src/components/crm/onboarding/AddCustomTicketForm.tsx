@@ -1,11 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, X } from "lucide-react";
 import {
   type OnboardingStepDraft,
   PRIORITY_OPTIONS,
@@ -59,93 +58,108 @@ export function AddCustomTicketForm({
 
   if (!open) {
     return (
-      <Button
-        variant="outline"
-        size="sm"
+      <button
+        type="button"
         onClick={() => setOpen(true)}
-        className="w-full"
+        className="group flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-ds-border-default bg-transparent px-3 py-2.5 text-sm text-ds-text-3 transition-colors hover:border-primary/60 hover:bg-primary/5 hover:text-primary"
       >
-        <Plus className="mr-2 h-4 w-4" /> Agregar ticket
-      </Button>
+        <Plus className="h-4 w-4 transition-transform group-hover:rotate-90" />
+        Agregar ticket personalizado
+      </button>
     );
   }
 
   return (
-    <div className="rounded-md border bg-muted/30 p-3 space-y-2">
+    <div className="space-y-3 rounded-xl border border-primary/30 bg-primary/[0.04] p-3.5">
       <div className="flex items-center justify-between">
-        <h5 className="text-sm font-medium">Nuevo ticket custom</h5>
-        <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>
-          <X className="h-4 w-4" />
+        <h5 className="text-xs font-semibold uppercase tracking-[0.08em] text-ds-text-2">
+          Nuevo ticket
+        </h5>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => {
+            reset();
+            setOpen(false);
+          }}
+          className="h-6 w-6 text-ds-text-3"
+        >
+          <X className="h-3.5 w-3.5" />
         </Button>
       </div>
-      <div>
-        <Label className="text-xs">Título</Label>
-        <Input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="Describe el ticket"
-        />
+      <Input
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        placeholder="Título del ticket"
+        className="h-9 text-sm"
+      />
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <select
+          value={ticketTypeSlug}
+          onChange={(e) => setTicketTypeSlug(e.target.value)}
+          className="col-span-2 rounded-md border border-ds-border-default bg-ds-surface-0 px-2 py-1.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
+        >
+          {ticketTypeOptions.map((t) => (
+            <option key={t.slug} value={t.slug}>
+              {t.name}
+            </option>
+          ))}
+        </select>
+        <select
+          value={team}
+          onChange={(e) => setTeam(e.target.value)}
+          className="rounded-md border border-ds-border-default bg-ds-surface-0 px-2 py-1.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
+        >
+          {TEAM_OPTIONS.map((t) => (
+            <option key={t.value} value={t.value}>
+              {t.label}
+            </option>
+          ))}
+        </select>
+        <select
+          value={priority}
+          onChange={(e) => setPriority(e.target.value)}
+          className="rounded-md border border-ds-border-default bg-ds-surface-0 px-2 py-1.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
+        >
+          {PRIORITY_OPTIONS.map((p) => (
+            <option key={p.value} value={p.value}>
+              {p.label}
+            </option>
+          ))}
+        </select>
       </div>
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <div>
-          <Label className="text-xs">Tipo</Label>
-          <select
-            value={ticketTypeSlug}
-            onChange={(e) => setTicketTypeSlug(e.target.value)}
-            className="w-full rounded-md border bg-background px-2 py-1.5 text-sm"
-          >
-            {ticketTypeOptions.map((t) => (
-              <option key={t.slug} value={t.slug}>
-                {t.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <Label className="text-xs">Equipo</Label>
-          <select
-            value={team}
-            onChange={(e) => setTeam(e.target.value)}
-            className="w-full rounded-md border bg-background px-2 py-1.5 text-sm"
-          >
-            {TEAM_OPTIONS.map((t) => (
-              <option key={t.value} value={t.value}>
-                {t.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <Label className="text-xs">Prioridad</Label>
-          <select
-            value={priority}
-            onChange={(e) => setPriority(e.target.value)}
-            className="w-full rounded-md border bg-background px-2 py-1.5 text-sm"
-          >
-            {PRIORITY_OPTIONS.map((p) => (
-              <option key={p.value} value={p.value}>
-                {p.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <Label className="text-xs">Offset (días vs inicio)</Label>
+      <div className="flex items-center justify-between gap-2">
+        <label className="flex flex-1 items-center gap-2 text-xs text-ds-text-2">
+          <span className="whitespace-nowrap">Offset</span>
           <Input
             type="number"
             value={offset}
-            onChange={(e) => setOffset(Number.parseInt(e.target.value, 10) || 0)}
+            onChange={(e) =>
+              setOffset(Number.parseInt(e.target.value, 10) || 0)
+            }
+            className="h-8 w-20 text-sm"
           />
-        </div>
+          <span className="whitespace-nowrap text-ds-text-3">días</span>
+        </label>
       </div>
-      <label className="flex items-center gap-2 text-sm">
+      <label className="flex items-center gap-2 text-xs text-ds-text-2">
         <Checkbox
           checked={saveToPlaybook}
           onCheckedChange={(v) => setSaveToPlaybook(!!v)}
         />
-        <span>Guardar también en mi plantilla por defecto</span>
+        <span>Guardar en mi plantilla por defecto</span>
       </label>
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            reset();
+            setOpen(false);
+          }}
+        >
+          Cancelar
+        </Button>
         <Button size="sm" onClick={submit} disabled={!title.trim()}>
           Agregar
         </Button>

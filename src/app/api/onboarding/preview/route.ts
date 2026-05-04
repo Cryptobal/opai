@@ -35,6 +35,7 @@ export async function GET(request: NextRequest) {
       include: {
         account: true,
         primaryContact: true,
+        stage: { select: { id: true, name: true } },
       },
     });
     if (!deal) {
@@ -55,6 +56,8 @@ export async function GET(request: NextRequest) {
           address: true,
           city: true,
           commune: true,
+          lat: true,
+          lng: true,
           marcacionCode: true,
         },
       });
@@ -91,6 +94,14 @@ export async function GET(request: NextRequest) {
         validations,
         account: deal.account,
         installation,
+        primaryContact: deal.primaryContact
+          ? {
+              firstName: deal.primaryContact.firstName,
+              lastName: deal.primaryContact.lastName,
+              email: deal.primaryContact.email ?? null,
+              phone: deal.primaryContact.phone ?? null,
+            }
+          : null,
         serviceStartDate: deal.serviceStartDate,
         defaultPlaybook,
         platformConfigStatus,
@@ -99,6 +110,8 @@ export async function GET(request: NextRequest) {
           title: deal.title,
           accountId: deal.accountId,
           primaryContactId: deal.primaryContactId,
+          activeQuotationId: deal.activeQuotationId ?? null,
+          stageName: deal.stage?.name ?? null,
         },
       },
     });
