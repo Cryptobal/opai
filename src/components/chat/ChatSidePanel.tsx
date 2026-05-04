@@ -104,8 +104,17 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
   const [searchUsers, setSearchUsers] = useState<AdminUser[]>([]);
   const [searchAccounts, setSearchAccounts] = useState<CrmAccountSearchResult[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [showInactiveExternal, setShowInactiveExternal] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("opai.chat.showInactiveExternal") === "true";
+  });
   const [panelEntered, setPanelEntered] = useState(false);
   const [panelClosing, setPanelClosing] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem("opai.chat.showInactiveExternal", String(showInactiveExternal));
+  }, [showInactiveExternal]);
 
   // Animación de entrada del panel móvil
   useEffect(() => {
@@ -163,15 +172,26 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // Derived external channels
-  const prospectChannels = ctx.channels.filter(
+  // Derived external channels (with activity filter)
+  const isActiveExternal = (c: ChatSidePanelChannel) =>
+    (c.messageCount ?? 0) > 0 || c.lastMessageAt != null;
+
+  const allProspectChannels = ctx.channels.filter(
     (c) => c.channelType === "EXTERNAL" && c.account?.status === "prospect"
   );
-  const clientChannels = ctx.channels.filter(
+  const allClientChannels = ctx.channels.filter(
     (c) =>
       c.channelType === "EXTERNAL" &&
       (c.account?.status === "client_active" || c.account?.status === "client_inactive")
   );
+  const prospectChannels = showInactiveExternal
+    ? allProspectChannels
+    : allProspectChannels.filter(isActiveExternal);
+  const clientChannels = showInactiveExternal
+    ? allClientChannels
+    : allClientChannels.filter(isActiveExternal);
+  const hiddenProspectCount = allProspectChannels.length - prospectChannels.length;
+  const hiddenClientCount = allClientChannels.length - clientChannels.length;
 
   const canDeleteChannels = userRole === "owner" || userRole === "admin";
 
@@ -358,6 +378,19 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
                 </span>
               )}
             </button>
+            <button
+              type="button"
+              onClick={() => setShowInactiveExternal((v) => !v)}
+              className={cn(
+                "ml-auto rounded-full px-2.5 py-1 text-[10px] font-medium transition-colors border",
+                showInactiveExternal
+                  ? "bg-amber-500/10 text-amber-400 border-amber-500/30"
+                  : "text-muted-foreground border-transparent hover:text-foreground"
+              )}
+              title={showInactiveExternal ? "Ocultar canales sin actividad" : "Mostrar canales sin actividad"}
+            >
+              {showInactiveExternal ? "Ocultar inactivos" : "Mostrar inactivos"}
+            </button>
           </div>
           <button
             type="button"
@@ -484,6 +517,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
                 onMarkAsRead={ctx.markChannelAsRead}
                 onUpdateNotifPref={ctx.updateChannelNotifPref}
                 onApplySectionNotifPref={applySectionNotifPref}
+                subtitle={!showInactiveExternal && hiddenProspectCount > 0 ? `(+${hiddenProspectCount} sin actividad)` : undefined}
               />
             )}
 
@@ -504,6 +538,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
                 onMarkAsRead={ctx.markChannelAsRead}
                 onUpdateNotifPref={ctx.updateChannelNotifPref}
                 onApplySectionNotifPref={applySectionNotifPref}
+                subtitle={!showInactiveExternal && hiddenClientCount > 0 ? `(+${hiddenClientCount} sin actividad)` : undefined}
               />
             )}
 
@@ -1093,6 +1128,8 @@ function ChannelSection({
   onUpdateNotifPref,
   onApplySectionNotifPref,
   emptyHint,
+  subtitle,
+  extraHeaderActions,
 }: {
   label: string;
   icon: React.ReactNode;
@@ -1111,6 +1148,8 @@ function ChannelSection({
   onUpdateNotifPref?: (channelId: string, pref: NotifPreference) => void;
   onApplySectionNotifPref?: (channelIds: string[], preference: NotifPreference) => Promise<void>;
   emptyHint?: string;
+  subtitle?: React.ReactNode;
+  extraHeaderActions?: React.ReactNode;
 }) {
   const sectionUnread = channels.reduce((sum, ch) => sum + (ch.notificationPreference === 'ALL' ? ch.unreadCount : 0), 0);
   const sectionPref = sectionNotifMode(channels);
@@ -1134,6 +1173,11 @@ function ChannelSection({
           )}
           {icon}
           <span className="truncate text-[13px] font-semibold text-zinc-300">{label}</span>
+          {subtitle && (
+            <span className="text-[10px] font-normal text-muted-foreground/60 normal-case tracking-normal ml-1 truncate">
+              {subtitle}
+            </span>
+          )}
         </button>
         {/* Columna derecha alineada: notif | count | badge | menu | plus */}
         <div className="flex shrink-0 items-center gap-1 pr-2">
@@ -1193,6 +1237,7 @@ function ChannelSection({
               </DropdownMenuContent>
             </DropdownMenu>
           )}
+          {extraHeaderActions}
           {onNewChat && (
             <button
               type="button"

@@ -25,6 +25,7 @@ export type ChatSidePanelChannel = {
   accountId: string | null;
   lastMessageAt: string | null;
   lastMessagePreview: string | null;
+  messageCount: number;
   unreadCount: number;
   notificationPreference: NotifPreference;
   isArchivedByMe: boolean;
