@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, parseBody } from "@/lib/api-auth";
-import { requireDocsView, requireDocsEdit, requireDocsDelete } from "@/lib/api-auth-docs";
+import { requireDocsViewAny, requireDocsEdit, requireDocsDelete } from "@/lib/api-auth-docs";
 import { updateDocTemplateSchema } from "@/lib/validations/docs";
 import { extractTokenKeys } from "@/lib/docs/token-resolver";
 
@@ -19,7 +19,9 @@ export async function GET(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbidden = await requireDocsView(ctx);
+    // GET de una plantilla: lo necesitan tanto el editor de plantillas como
+    // la pantalla de generación de documentos (gestión).
+    const forbidden = await requireDocsViewAny(ctx, ["plantillas", "gestion"]);
     if (forbidden) return forbidden;
 
     const { id } = await params;
@@ -61,7 +63,7 @@ export async function PATCH(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbidden = await requireDocsEdit(ctx);
+    const forbidden = await requireDocsEdit(ctx, "plantillas");
     if (forbidden) return forbidden;
 
     const { id } = await params;
@@ -150,7 +152,7 @@ export async function DELETE(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbidden = await requireDocsDelete(ctx);
+    const forbidden = await requireDocsDelete(ctx, "plantillas");
     if (forbidden) return forbidden;
 
     const { id } = await params;

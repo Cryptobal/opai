@@ -60,6 +60,7 @@ import {
   Trophy,
   // Docs
   FolderOpen,
+  LayoutTemplate,
   // Payroll — unified with sidebar
   Wallet,
   // Config
@@ -198,9 +199,10 @@ const PAYROLL_ITEMS: BottomNavItem[] = [
 
 /* ── Docs sub-items ── */
 
-const DOCS_ITEMS: BottomNavItem[] = [
-  { key: "docs-gestion", href: "/opai/documentos", label: "Gestión", icon: FolderOpen },
-  { key: "docs-operativos", href: "/opai/documentos-operativos", label: "Operativos", icon: ClipboardCheck },
+const DOCS_ITEMS: (BottomNavItem & { subKey: "gestion" | "operativos" | "plantillas" })[] = [
+  { key: "docs-gestion", href: "/opai/documentos", label: "Gestión", icon: FolderOpen, subKey: "gestion" },
+  { key: "docs-operativos", href: "/opai/documentos-operativos", label: "Operativos", icon: ClipboardCheck, subKey: "operativos" },
+  { key: "docs-templates", href: "/opai/documentos/templates", label: "Templates", icon: LayoutTemplate, subKey: "plantillas" },
 ];
 
 /* ── Finance sub-items ── */
@@ -322,7 +324,10 @@ const MODULE_DETECTIONS: ModuleDetection[] = [
     test: (p) =>
       p.startsWith("/opai/documentos-operativos") ||
       p.startsWith("/opai/documentos"),
-    getItems: (_perms, isModEnabled) => isModEnabled("documentos") ? DOCS_ITEMS : [],
+    getItems: (perms, isModEnabled) =>
+      isModEnabled("documentos")
+        ? DOCS_ITEMS.filter((item) => canView(perms, "docs", item.subKey))
+        : [],
   },
   {
     test: (p) => p === "/finanzas" || p.startsWith("/finanzas/"),

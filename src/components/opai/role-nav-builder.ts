@@ -48,6 +48,7 @@ import {
   Briefcase,
   Brain,
   GraduationCap,
+  LayoutTemplate,
 } from 'lucide-react';
 import type { NavItem } from '@/components/opai/AppSidebar';
 import {
@@ -209,9 +210,23 @@ export function buildNavItems({
       show: canAccessModule(hasModuleAccess(permissions, 'docs'), 'documentos'),
       badge: moduleBadges.docs,
       children: [
-        { href: '/opai/documentos', label: 'Gestión', icon: FolderOpen, badge: notes.document },
-        { href: '/opai/documentos-operativos', label: 'Operativos', icon: ClipboardCheck },
-      ],
+        canView(permissions, 'docs', 'gestion') && {
+          href: '/opai/documentos',
+          label: 'Gestión',
+          icon: FolderOpen,
+          badge: notes.document,
+        },
+        canView(permissions, 'docs', 'operativos') && {
+          href: '/opai/documentos-operativos',
+          label: 'Operativos',
+          icon: ClipboardCheck,
+        },
+        canView(permissions, 'docs', 'plantillas') && {
+          href: '/opai/documentos/templates',
+          label: 'Templates',
+          icon: LayoutTemplate,
+        },
+      ].filter(Boolean) as NavItem['children'],
     },
     {
       href: '/reportes/dt',
