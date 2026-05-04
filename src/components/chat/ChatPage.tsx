@@ -51,6 +51,9 @@ export function ChatPage({ currentUserId, userRole }: ChatPageProps) {
   const swipeBack = useSwipeGesture({
     onSwipeRight: () => selectedChannelId && handleBack(),
     mobileOnly: true,
+    edgeOnly: "left",
+    followFinger: true,
+    directionLock: true,
   });
 
   return (

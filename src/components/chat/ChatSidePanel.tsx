@@ -189,6 +189,8 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
     followFinger: true,
     hapticOnComplete: true,
     mobileOnly: true,
+    edgeOnly: "left",
+    directionLock: true,
   });
   const swipeClose = useSwipeGesture({
     onSwipeDown: handleClosePanel,
