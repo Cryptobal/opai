@@ -108,11 +108,19 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
   const prefillTitle = searchParams.get("title");
   const prefillGuardiaId = searchParams.get("guardiaId");
 
+  // Vista por defecto: el query param manda; si no, usamos la última vista
+  // elegida por el usuario (localStorage); si tampoco hay, "cards".
   const urlView = searchParams.get("view");
-  const initialListMode: ListMode =
-    urlView === "by-installation" || urlView === "cards" || urlView === "kanban" || urlView === "list"
-      ? urlView
-      : "list";
+  const isValidListMode = (v: string | null): v is ListMode =>
+    v === "list" || v === "cards" || v === "kanban" || v === "by-installation";
+  const initialListMode: ListMode = (() => {
+    if (isValidListMode(urlView)) return urlView;
+    if (typeof window !== "undefined") {
+      const stored = window.localStorage.getItem("ops-tickets-view-mode");
+      if (isValidListMode(stored)) return stored;
+    }
+    return "cards";
+  })();
   const urlInstallationId = searchParams.get("installationId");
 
   const [viewState, setViewState] = useState<ViewState>(
@@ -136,7 +144,10 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
   const [filterTypeId, setFilterTypeId] = useState<string>("all");
   const [ticketTypes, setTicketTypes] = useState<TicketType[]>([]);
   const [counts, setCounts] = useState<TicketCounts | null>(null);
-  const [assignedFilter, setAssignedFilter] = useState<AssignedFilter>("any");
+  // Filtro por defecto: "asignados a mí" — para que cada usuario entre
+  // directamente a sus propios tickets. Se cambia desde el dropdown o las
+  // pastillas de quick view.
+  const [assignedFilter, setAssignedFilter] = useState<AssignedFilter>("me");
   const [slaOnly, setSlaOnly] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
 
@@ -353,7 +364,7 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
     [selectedIds, fetchTickets, fetchCounts, originTab, installationFilterId],
   );
 
-  // Sync view + installationId with URL
+  // Sync view + installationId with URL y persiste la última vista elegida.
   useEffect(() => {
     const current = new URLSearchParams(window.location.search);
     if (listMode === "by-installation") current.set("view", "by-installation");
@@ -363,6 +374,11 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
     else current.delete("installationId");
     const qs = current.toString();
     router.replace(`/ops/tickets${qs ? `?${qs}` : ""}`, { scroll: false });
+    try {
+      window.localStorage.setItem("ops-tickets-view-mode", listMode);
+    } catch {
+      /* storage puede estar bloqueado (privacy mode) — no es crítico */
+    }
   }, [listMode, installationFilterId, router]);
 
   function handleSelectInstallation(id: string, name: string, total: number) {
