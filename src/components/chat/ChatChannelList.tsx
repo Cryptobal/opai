@@ -10,9 +10,11 @@ import {
   Clock,
   Contact,
   MessageCircle,
+  MoreHorizontal,
   Plus,
   Search,
   SlidersHorizontal,
+  Trash2,
   UserCheck,
   Users,
 } from "lucide-react";
@@ -56,6 +58,7 @@ function SectionHeader({
   collapsed,
   onToggle,
   action,
+  subtitle,
 }: {
   label: string;
   icon: React.ReactNode;
@@ -64,6 +67,7 @@ function SectionHeader({
   collapsed: boolean;
   onToggle: () => void;
   action?: React.ReactNode;
+  subtitle?: React.ReactNode;
 }) {
   return (
     <div className="flex items-center group">
@@ -78,7 +82,14 @@ function SectionHeader({
           <ChevronDown className="h-3 w-3 shrink-0" />
         )}
         {icon}
-        <span className="flex-1 text-left">{label}</span>
+        <span className="flex-1 text-left flex items-baseline gap-1.5 min-w-0">
+          <span className="truncate">{label}</span>
+          {subtitle && (
+            <span className="text-[10px] font-normal normal-case tracking-normal text-[rgba(255,255,255,0.3)] truncate">
+              {subtitle}
+            </span>
+          )}
+        </span>
         <span className="min-w-[20px] text-right text-[10px] font-normal normal-case tracking-normal tabular-nums text-[rgba(255,255,255,0.2)]">
           {count}
         </span>
@@ -123,10 +134,21 @@ export function ChatChannelList({
     archived: true,
   });
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [showInactiveExternal, setShowInactiveExternal] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("opai.chat.showInactiveExternal") === "true";
+  });
+  const [cleanupTarget, setCleanupTarget] = useState<"prospects" | "clients" | null>(null);
+  const [cleanupLoading, setCleanupLoading] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const archivedFetchedRef = useRef(false);
 
   const canDelete = userRole === "owner" || userRole === "admin";
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem("opai.chat.showInactiveExternal", String(showInactiveExternal));
+  }, [showInactiveExternal]);
 
   const fetchChannels = useCallback(async (query?: string) => {
     setIsLoading(true);
@@ -229,6 +251,22 @@ export function ChatChannelList({
     }
   }, [deleteTarget, deleteChannel]);
 
+  const handleCleanupInactive = useCallback(async () => {
+    if (!cleanupTarget) return;
+    setCleanupLoading(true);
+    try {
+      const res = await fetch("/api/chat/channels/cleanup-inactive", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scope: cleanupTarget }),
+      });
+      if (res.ok) await fetchChannels();
+    } finally {
+      setCleanupLoading(false);
+      setCleanupTarget(null);
+    }
+  }, [cleanupTarget, fetchChannels]);
+
   // ── Derived data ──
 
   const isSearching = search.trim().length > 0;
@@ -269,13 +307,26 @@ export function ChatChannelList({
     return list;
   }, [channels, filter, sort, unreadCounts, getDisplayName]);
 
-  const { directChannels, groupChannels, installationReportesChannels, prospectChannels, clientChannels } = useMemo(() => ({
-    directChannels: processedChannels.filter((ch) => ch.channelType === "DIRECT"),
-    groupChannels: processedChannels.filter((ch) => ch.channelType === "GROUP"),
-    installationReportesChannels: processedChannels.filter((ch) => ch.channelType === "INSTALLATION" && ch.subType !== "interno"),
-    prospectChannels: processedChannels.filter((ch) => ch.channelType === "EXTERNAL" && ch.account?.status === "prospect"),
-    clientChannels: processedChannels.filter((ch) => ch.channelType === "EXTERNAL" && ch.account?.status !== "prospect"),
-  }), [processedChannels]);
+  const isActiveExternal = useCallback(
+    (ch: ChatChannelData) => (ch.messageCount ?? 0) > 0 || ch.lastMessageAt != null,
+    []
+  );
+
+  const { directChannels, groupChannels, installationReportesChannels, prospectChannels, clientChannels, hiddenProspectCount, hiddenClientCount } = useMemo(() => {
+    const allProspect = processedChannels.filter((ch) => ch.channelType === "EXTERNAL" && ch.account?.status === "prospect");
+    const allClient = processedChannels.filter((ch) => ch.channelType === "EXTERNAL" && ch.account?.status !== "prospect");
+    const prospect = showInactiveExternal ? allProspect : allProspect.filter(isActiveExternal);
+    const client = showInactiveExternal ? allClient : allClient.filter(isActiveExternal);
+    return {
+      directChannels: processedChannels.filter((ch) => ch.channelType === "DIRECT"),
+      groupChannels: processedChannels.filter((ch) => ch.channelType === "GROUP"),
+      installationReportesChannels: processedChannels.filter((ch) => ch.channelType === "INSTALLATION" && ch.subType !== "interno"),
+      prospectChannels: prospect,
+      clientChannels: client,
+      hiddenProspectCount: allProspect.length - prospect.length,
+      hiddenClientCount: allClient.length - client.length,
+    };
+  }, [processedChannels, showInactiveExternal, isActiveExternal]);
 
   const totalUnread = useMemo(
     () => channels.filter((ch) => !ch.isArchivedByMe).reduce((sum, ch) => sum + ((ch.notificationPreference ?? "ALL") === "ALL" ? (unreadCounts[ch.id] || 0) : 0), 0),
@@ -409,6 +460,19 @@ export function ChatChannelList({
               </span>
             )}
           </button>
+          <button
+            type="button"
+            onClick={() => setShowInactiveExternal((v) => !v)}
+            className={cn(
+              "ml-auto rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-colors border",
+              showInactiveExternal
+                ? "bg-amber-500/10 text-amber-400 border-amber-500/30"
+                : "text-zinc-500 hover:text-zinc-300 border-transparent"
+            )}
+            title={showInactiveExternal ? "Ocultar canales sin actividad" : "Mostrar canales sin actividad"}
+          >
+            {showInactiveExternal ? "Ocultar inactivos" : "Mostrar inactivos"}
+          </button>
         </div>
       </div>
 
@@ -506,15 +570,41 @@ export function ChatChannelList({
                 unreadCount={sectionUnread(prospectChannels)}
                 collapsed={!shouldExpand("prospects")}
                 onToggle={() => toggleSection("prospects")}
+                subtitle={!showInactiveExternal && hiddenProspectCount > 0 ? `(+${hiddenProspectCount} sin actividad)` : undefined}
                 action={
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); setNewExternalStatus("prospect"); }}
-                    className="flex h-5 w-5 items-center justify-center rounded text-zinc-500 hover:bg-zinc-700 hover:text-zinc-200 transition-colors"
-                    title="Nuevo chat con prospecto"
-                  >
-                    <Plus className="h-3 w-3" />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    {canDelete && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            type="button"
+                            onClick={(e) => e.stopPropagation()}
+                            className="flex h-5 w-5 items-center justify-center rounded text-zinc-500 hover:bg-zinc-700 hover:text-zinc-200 transition-colors"
+                            aria-label="Más acciones"
+                          >
+                            <MoreHorizontal className="h-3 w-3" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="z-[200] w-48">
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => setCleanupTarget("prospects")}
+                          >
+                            <Trash2 className="mr-2 h-3.5 w-3.5" />
+                            Limpiar inactivos
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); setNewExternalStatus("prospect"); }}
+                      className="flex h-5 w-5 items-center justify-center rounded text-zinc-500 hover:bg-zinc-700 hover:text-zinc-200 transition-colors"
+                      title="Nuevo chat con prospecto"
+                    >
+                      <Plus className="h-3 w-3" />
+                    </button>
+                  </div>
                 }
               />
               {shouldExpand("prospects") && prospectChannels.length > 0 && (
@@ -531,15 +621,41 @@ export function ChatChannelList({
                 unreadCount={sectionUnread(clientChannels)}
                 collapsed={!shouldExpand("clients")}
                 onToggle={() => toggleSection("clients")}
+                subtitle={!showInactiveExternal && hiddenClientCount > 0 ? `(+${hiddenClientCount} sin actividad)` : undefined}
                 action={
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); setNewExternalStatus("client_active"); }}
-                    className="flex h-5 w-5 items-center justify-center rounded text-zinc-500 hover:bg-zinc-700 hover:text-zinc-200 transition-colors"
-                    title="Nuevo chat con cliente"
-                  >
-                    <Plus className="h-3 w-3" />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    {canDelete && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            type="button"
+                            onClick={(e) => e.stopPropagation()}
+                            className="flex h-5 w-5 items-center justify-center rounded text-zinc-500 hover:bg-zinc-700 hover:text-zinc-200 transition-colors"
+                            aria-label="Más acciones"
+                          >
+                            <MoreHorizontal className="h-3 w-3" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="z-[200] w-48">
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => setCleanupTarget("clients")}
+                          >
+                            <Trash2 className="mr-2 h-3.5 w-3.5" />
+                            Limpiar inactivos
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); setNewExternalStatus("client_active"); }}
+                      className="flex h-5 w-5 items-center justify-center rounded text-zinc-500 hover:bg-zinc-700 hover:text-zinc-200 transition-colors"
+                      title="Nuevo chat con cliente"
+                    >
+                      <Plus className="h-3 w-3" />
+                    </button>
+                  </div>
                 }
               />
               {shouldExpand("clients") && clientChannels.length > 0 && (
@@ -617,6 +733,19 @@ export function ChatChannelList({
         description="Esta acción es permanente y no se puede deshacer. Se eliminarán todos los mensajes para todos los participantes."
         confirmLabel="Eliminar permanentemente"
         onConfirm={confirmDelete}
+        variant="destructive"
+      />
+
+      {/* Cleanup Inactive Confirmation Dialog */}
+      <ConfirmDialog
+        open={!!cleanupTarget}
+        onOpenChange={(open) => { if (!open && !cleanupLoading) setCleanupTarget(null); }}
+        title="¿Eliminar canales sin actividad?"
+        description={`Esta acción eliminará permanentemente todos los canales de ${
+          cleanupTarget === "prospects" ? "prospectos" : "clientes"
+        } que no tienen mensajes. Las cuentas y contactos CRM no se verán afectados.`}
+        confirmLabel={cleanupLoading ? "Eliminando..." : "Eliminar canales sin actividad"}
+        onConfirm={handleCleanupInactive}
         variant="destructive"
       />
     </div>

@@ -29,6 +29,7 @@ import { useIsIOS } from "@/hooks/usePlatform";
 import { useChatSidePanelContext, type ChatSidePanelChannel, type NotifPreference } from "./ChatFloatingProvider";
 import { ChatConversation } from "./ChatConversation";
 import { NewExternalChatModal } from "./NewExternalChatModal";
+import { ChatNewDmModal } from "./ChatNewDmModal";
 import { usePusher } from "./hooks/usePusher";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
@@ -40,6 +41,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 type AdminUser = { id: string; name: string; email: string };
+type CrmAccountSearchResult = { id: string; name: string; status: string };
 
 /* ─── Side Panel Component ─── */
 
@@ -92,17 +94,29 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
     group: true,
     installation_reportes: true,
     installation_interno: true,
-    users: true,
     prospects: true,
     clients: true,
     archived: true,
   });
   const [channelToDelete, setChannelToDelete] = useState<string | null>(null);
-  const [allUsers, setAllUsers] = useState<AdminUser[]>([]);
-  const [creatingDmFor, setCreatingDmFor] = useState<string | null>(null);
-  const [newChatModal, setNewChatModal] = useState<{ open: boolean; defaultStatus?: "prospect" | "client_active" }>({ open: false });
+  const [showNewDm, setShowNewDm] = useState(false);
+  const [newChatModal, setNewChatModal] = useState<{ open: boolean; defaultStatus?: "prospect" | "client_active"; defaultAccountId?: string }>({ open: false });
+  const [searchUsers, setSearchUsers] = useState<AdminUser[]>([]);
+  const [searchAccounts, setSearchAccounts] = useState<CrmAccountSearchResult[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [showInactiveExternal, setShowInactiveExternal] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("opai.chat.showInactiveExternal") === "true";
+  });
+  const [cleanupTarget, setCleanupTarget] = useState<"prospects" | "clients" | null>(null);
+  const [cleanupLoading, setCleanupLoading] = useState(false);
   const [panelEntered, setPanelEntered] = useState(false);
   const [panelClosing, setPanelClosing] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem("opai.chat.showInactiveExternal", String(showInactiveExternal));
+  }, [showInactiveExternal]);
 
   // Animación de entrada del panel móvil
   useEffect(() => {
@@ -134,24 +148,52 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
     prevPanelOpen.current = ctx.isPanelOpen;
   }, [ctx.isPanelOpen, ctx.totalUnread]);
 
-  // Fetch all users once for the "Usuarios" section
+  // Debounced universal search for "Iniciar nueva conversación" suggestions
   useEffect(() => {
-    if (!ctx.isPanelOpen || allUsers.length > 0) return;
-    fetch("/api/chat/mentions/users")
-      .then((r) => r.ok ? r.json() : null)
-      .then((json) => { if (json?.success) setAllUsers(json.data); })
-      .catch(() => {});
-  }, [ctx.isPanelOpen, allUsers.length]);
+    const q = searchQuery.trim();
+    if (q.length < 2) {
+      setSearchUsers([]);
+      setSearchAccounts([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      setSearchLoading(true);
+      try {
+        const [usersRes, accountsRes] = await Promise.all([
+          fetch(`/api/chat/mentions/users?search=${encodeURIComponent(q)}`).then((r) => r.ok ? r.json() : null),
+          fetch(`/api/crm/accounts?search=${encodeURIComponent(q)}`).then((r) => r.ok ? r.json() : null),
+        ]);
+        if (usersRes?.success) setSearchUsers(usersRes.data ?? []);
+        if (accountsRes?.success) setSearchAccounts(accountsRes.data ?? []);
+      } catch {
+        /* ignore */
+      } finally {
+        setSearchLoading(false);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
-  // Derived external channels
-  const prospectChannels = ctx.channels.filter(
+  // Derived external channels (with activity filter)
+  const isActiveExternal = (c: ChatSidePanelChannel) =>
+    (c.messageCount ?? 0) > 0 || c.lastMessageAt != null;
+
+  const allProspectChannels = ctx.channels.filter(
     (c) => c.channelType === "EXTERNAL" && c.account?.status === "prospect"
   );
-  const clientChannels = ctx.channels.filter(
+  const allClientChannels = ctx.channels.filter(
     (c) =>
       c.channelType === "EXTERNAL" &&
       (c.account?.status === "client_active" || c.account?.status === "client_inactive")
   );
+  const prospectChannels = showInactiveExternal
+    ? allProspectChannels
+    : allProspectChannels.filter(isActiveExternal);
+  const clientChannels = showInactiveExternal
+    ? allClientChannels
+    : allClientChannels.filter(isActiveExternal);
+  const hiddenProspectCount = allProspectChannels.length - prospectChannels.length;
+  const hiddenClientCount = allClientChannels.length - clientChannels.length;
 
   const canDeleteChannels = userRole === "owner" || userRole === "admin";
 
@@ -173,6 +215,24 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
     },
     [ctx]
   );
+
+  const handleCleanupInactive = useCallback(async () => {
+    if (!cleanupTarget) return;
+    setCleanupLoading(true);
+    try {
+      const res = await fetch("/api/chat/channels/cleanup-inactive", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scope: cleanupTarget }),
+      });
+      if (res.ok) {
+        await ctx.refreshChannels();
+      }
+    } finally {
+      setCleanupLoading(false);
+      setCleanupTarget(null);
+    }
+  }, [cleanupTarget, ctx]);
 
   const confirmDelete = async () => {
     if (!channelToDelete) return;
@@ -205,8 +265,8 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
     return ch.name;
   }, []);
 
-  // Filter and section channels + users
-  const { directChannels, groupChannels, installationReportesChannels, filteredUsers, filteredTotal } = useMemo(() => {
+  // Filter and section channels
+  const { directChannels, groupChannels, installationReportesChannels, filteredTotal } = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
     const filtered = q
       ? ctx.channels.filter((ch) => {
@@ -217,58 +277,69 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
         })
       : ctx.channels;
 
-    // Filter users by search (exclude users who already have a DM channel)
-    const existingDmUserIds = new Set(
-      ctx.channels
-        .filter((ch) => ch.channelType === "DIRECT" && ch.dmParticipant)
-        .map((ch) => ch.dmParticipant!.id)
-    );
-    const usersToShow = q
-      ? allUsers.filter((u) =>
-          !existingDmUserIds.has(u.id) &&
-          (u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q))
-        )
-      : allUsers.filter((u) => !existingDmUserIds.has(u.id));
-
     const applyUnread = (list: typeof filtered) => filter === "unread" ? list.filter(ch => ch.unreadCount > 0 && ch.notificationPreference !== "MUTED") : list;
 
     return {
       directChannels: applyUnread(filtered.filter((ch) => ch.channelType === "DIRECT")),
       groupChannels: applyUnread(filtered.filter((ch) => ch.channelType === "GROUP")),
       installationReportesChannels: applyUnread(filtered.filter((ch) => ch.channelType === "INSTALLATION" && ch.subType !== "interno")),
-      filteredUsers: filter === "unread" ? [] : usersToShow,
-      filteredTotal: filtered.length + (q ? usersToShow.length : 0),
+      filteredTotal: filtered.length,
     };
-  }, [ctx.channels, searchQuery, getChannelDisplayName, allUsers, filter]);
+  }, [ctx.channels, searchQuery, getChannelDisplayName, filter]);
 
   const isSearching = searchQuery.trim().length > 0;
+
+  // Candidates for "Iniciar nueva conversación": filter out users/accounts already with a channel
+  const newDmCandidates = useMemo(() => {
+    const existingDmUserIds = new Set(
+      ctx.channels
+        .filter((ch) => ch.channelType === "DIRECT" && ch.dmParticipant)
+        .map((ch) => ch.dmParticipant!.id)
+    );
+    return searchUsers.filter((u) => u.id !== ctx.currentUserId && !existingDmUserIds.has(u.id));
+  }, [searchUsers, ctx.channels, ctx.currentUserId]);
+
+  const newExternalCandidates = useMemo(() => {
+    const existingAccountIds = new Set(
+      ctx.channels
+        .filter((ch) => ch.channelType === "EXTERNAL" && ch.account)
+        .map((ch) => ch.account!.id)
+    );
+    return searchAccounts.filter((a) => !existingAccountIds.has(a.id));
+  }, [searchAccounts, ctx.channels]);
 
   const toggleSection = useCallback((key: string) => {
     setCollapsedSections((prev) => ({ ...prev, [key]: !prev[key] }));
   }, []);
 
-  // Create DM from user click
-  const handleStartDm = useCallback(async (user: AdminUser) => {
-    if (creatingDmFor) return;
-    setCreatingDmFor(user.id);
+  // Start a DM with a user from search suggestions
+  const handleStartDmFromSearch = useCallback(async (user: AdminUser) => {
     try {
       const res = await fetch("/api/chat/dms", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ targetAdminId: user.id }),
       });
-      if (!res.ok) throw new Error("Failed to create DM");
-      const json = await res.json();
-      if (json.success) {
-        await ctx.refreshChannels();
-        ctx.selectChannel(json.data.id);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success) {
+          setSearchQuery("");
+          await ctx.refreshChannels();
+          ctx.selectChannel(json.data.id);
+        }
       }
     } catch (err) {
-      console.error("[ChatSidePanel] create DM error:", err);
-    } finally {
-      setCreatingDmFor(null);
+      console.error("[ChatSidePanel] start DM error:", err);
     }
-  }, [creatingDmFor, ctx]);
+  }, [ctx]);
+
+  // Open the external chat modal with a pre-selected account
+  const handleStartExternalFromSearch = useCallback((account: CrmAccountSearchResult) => {
+    const defaultStatus: "prospect" | "client_active" =
+      account.status === "prospect" ? "prospect" : "client_active";
+    setNewChatModal({ open: true, defaultStatus, defaultAccountId: account.id });
+    setSearchQuery("");
+  }, []);
 
   // Build auto-context prefix for first message
   const getAutoContextPrefix = useCallback(() => {
@@ -327,6 +398,19 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
                 </span>
               )}
             </button>
+            <button
+              type="button"
+              onClick={() => setShowInactiveExternal((v) => !v)}
+              className={cn(
+                "ml-auto rounded-full px-2.5 py-1 text-[10px] font-medium transition-colors border",
+                showInactiveExternal
+                  ? "bg-amber-500/10 text-amber-400 border-amber-500/30"
+                  : "text-muted-foreground border-transparent hover:text-foreground"
+              )}
+              title={showInactiveExternal ? "Ocultar canales sin actividad" : "Mostrar canales sin actividad"}
+            >
+              {showInactiveExternal ? "Ocultar inactivos" : "Mostrar inactivos"}
+            </button>
           </div>
           <button
             type="button"
@@ -368,7 +452,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
             <p className="text-sm font-medium text-muted-foreground">Todo al día</p>
             <p className="text-[11px] text-muted-foreground/60">No tienes mensajes sin leer</p>
           </div>
-        ) : filteredTotal === 0 && filteredUsers.length === 0 ? (
+        ) : filteredTotal === 0 && !(isSearching && (newDmCandidates.length > 0 || newExternalCandidates.length > 0 || searchLoading)) ? (
           <div className="flex flex-col items-center gap-1.5 py-10 text-center px-4">
             <MessageCircle className="h-8 w-8 text-muted-foreground/20" />
             <p className="text-xs text-muted-foreground">
@@ -384,8 +468,8 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
           </div>
         ) : (
           <div>
-            {/* Direct Messages */}
-            {directChannels.length > 0 && (
+            {/* Direct Messages — siempre visible (excepto al buscar/filtrar) para acceder a "+" */}
+            {((!isSearching && filter !== "unread") || directChannels.length > 0) && (
               <ChannelSection
                 label="Mensajes directos"
                 icon={<MessageCircle className="h-3.5 w-3.5 text-status-info-fg" />}
@@ -397,6 +481,8 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
                 onMarkAsRead={ctx.markChannelAsRead}
                 onUpdateNotifPref={ctx.updateChannelNotifPref}
                 onApplySectionNotifPref={applySectionNotifPref}
+                onNewChat={() => setShowNewDm(true)}
+                emptyHint="Sin mensajes directos. Toca + para iniciar uno."
               />
             )}
 
@@ -451,6 +537,10 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
                 onMarkAsRead={ctx.markChannelAsRead}
                 onUpdateNotifPref={ctx.updateChannelNotifPref}
                 onApplySectionNotifPref={applySectionNotifPref}
+                subtitle={!showInactiveExternal && hiddenProspectCount > 0 ? `(+${hiddenProspectCount} sin actividad)` : undefined}
+                extraHeaderActions={canDeleteChannels ? (
+                  <CleanupSectionButton onCleanup={() => setCleanupTarget("prospects")} />
+                ) : undefined}
               />
             )}
 
@@ -471,6 +561,10 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
                 onMarkAsRead={ctx.markChannelAsRead}
                 onUpdateNotifPref={ctx.updateChannelNotifPref}
                 onApplySectionNotifPref={applySectionNotifPref}
+                subtitle={!showInactiveExternal && hiddenClientCount > 0 ? `(+${hiddenClientCount} sin actividad)` : undefined}
+                extraHeaderActions={canDeleteChannels ? (
+                  <CleanupSectionButton onCleanup={() => setCleanupTarget("clients")} />
+                ) : undefined}
               />
             )}
 
@@ -495,15 +589,64 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
               />
             )}
 
-            {/* Users (for starting DMs) */}
-            {filteredUsers.length > 0 && filter !== "unread" && (
-              <UserSection
-                users={filteredUsers}
-                collapsed={isSearching ? false : !!collapsedSections["users"]}
-                onToggle={() => toggleSection("users")}
-                onSelectUser={handleStartDm}
-                creatingDmFor={creatingDmFor}
-              />
+            {/* Iniciar nueva conversación — solo aparece al buscar */}
+            {isSearching && (newDmCandidates.length > 0 || newExternalCandidates.length > 0 || searchLoading) && (
+              <div className="opai-chat-mobile-section border-t border-border/30 mt-2 pt-2">
+                <div className="px-4 py-2 text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                  Iniciar nueva conversación
+                  {searchLoading && <Loader2 className="h-3 w-3 animate-spin" />}
+                </div>
+                {newDmCandidates.length > 0 && (
+                  <div className="mb-2">
+                    <div className="px-4 py-1 text-[10px] text-muted-foreground/70 uppercase">Usuarios</div>
+                    {newDmCandidates.map((u) => (
+                      <button
+                        key={u.id}
+                        type="button"
+                        onClick={() => handleStartDmFromSearch(u)}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-accent/50 text-left"
+                      >
+                        <div
+                          className="h-8 w-8 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-bold"
+                          style={{ backgroundColor: "#0d9488" }}
+                        >
+                          {u.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm truncate">{u.name}</div>
+                          <div className="text-[10px] text-muted-foreground/70 truncate">{u.email}</div>
+                        </div>
+                        <Plus className="h-4 w-4 text-muted-foreground shrink-0" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {newExternalCandidates.length > 0 && (
+                  <div>
+                    <div className="px-4 py-1 text-[10px] text-muted-foreground/70 uppercase">Cuentas CRM (sin chat)</div>
+                    {newExternalCandidates.map((a) => (
+                      <button
+                        key={a.id}
+                        type="button"
+                        onClick={() => handleStartExternalFromSearch(a)}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-accent/50 text-left"
+                      >
+                        <div
+                          className="h-8 w-8 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-bold"
+                          style={{ backgroundColor: a.status === "prospect" ? "#16a34a" : "#0284c7" }}
+                        >
+                          {a.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm truncate">{a.name}</div>
+                          <div className="text-[10px] text-muted-foreground/70 truncate capitalize">{a.status.replace(/_/g, " ")}</div>
+                        </div>
+                        <Plus className="h-4 w-4 text-muted-foreground shrink-0" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
           </div>
         )}
@@ -695,15 +838,39 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
         variant="destructive"
       />
 
+      <ConfirmDialog
+        open={!!cleanupTarget}
+        onOpenChange={(open) => { if (!open && !cleanupLoading) setCleanupTarget(null); }}
+        title="¿Eliminar canales sin actividad?"
+        description={`Esta acción eliminará permanentemente todos los canales de ${
+          cleanupTarget === "prospects" ? "prospectos" : "clientes"
+        } que no tienen mensajes. Las cuentas y contactos CRM no se verán afectados.`}
+        confirmLabel={cleanupLoading ? "Eliminando..." : "Eliminar canales sin actividad"}
+        onConfirm={handleCleanupInactive}
+        variant="destructive"
+      />
+
       <NewExternalChatModal
         open={newChatModal.open}
         defaultStatus={newChatModal.defaultStatus}
+        defaultAccountId={newChatModal.defaultAccountId}
         onClose={() => setNewChatModal({ open: false })}
         onCreated={(channelId) => {
           ctx.refreshChannels();
           ctx.selectChannel(channelId);
         }}
       />
+
+      {showNewDm && (
+        <ChatNewDmModal
+          onClose={() => setShowNewDm(false)}
+          onSelectDm={(channelId) => {
+            setShowNewDm(false);
+            ctx.refreshChannels();
+            ctx.selectChannel(channelId);
+          }}
+        />
+      )}
     </>
   );
 }
@@ -778,6 +945,24 @@ function GroupChannelsSection({
     },
     [onBulkNotifPref]
   );
+
+  // Collapse state per subgroup. Subgroups with >5 channels are collapsed by default.
+  const [subgroupCollapsed, setSubgroupCollapsed] = useState<Record<string, boolean>>({});
+  useEffect(() => {
+    setSubgroupCollapsed((prev) => {
+      const next = { ...prev };
+      for (const g of groups) {
+        if (next[g.key] === undefined) {
+          next[g.key] = g.channels.length > 5;
+        }
+      }
+      return next;
+    });
+  }, [groups]);
+
+  const toggleSubgroup = useCallback((key: string) => {
+    setSubgroupCollapsed((prev) => ({ ...prev, [key]: !prev[key] }));
+  }, []);
 
   return (
     <div className="opai-chat-mobile-section">
@@ -857,16 +1042,40 @@ function GroupChannelsSection({
       </div>
       {!collapsed && (
         <div className="divide-y divide-border/20 opai-chat-mobile-channel-stack opai-chat-mobile-section-body">
-          {groups.map((grp) => (
+          {groups.map((grp) => {
+            const isCollapsible = grp.channels.length > 5;
+            const isSingle = grp.channels.length === 1;
+            const isCollapsed = isCollapsible && (subgroupCollapsed[grp.key] ?? true);
+            const subUnread = grp.channels.reduce((s, c) => s + (c.notificationPreference === "ALL" ? c.unreadCount : 0), 0);
+            return (
             <div key={grp.key}>
-              <div className="flex items-center group/sub">
+              <div
+                className={cn(
+                  "flex items-center group/sub",
+                  (isCollapsible || isSingle) && "cursor-pointer hover:bg-accent/30"
+                )}
+                onClick={() => {
+                  if (isSingle) onSelectChannel(grp.channels[0].id);
+                  else if (isCollapsible) toggleSubgroup(grp.key);
+                }}
+              >
                 <div className="flex-1 flex items-center gap-2 px-4 py-2 pl-6 text-[11px] font-medium text-muted-foreground/80">
                   <div
-                    className="h-2 w-2 rounded-full shrink-0"
+                    className="h-2.5 w-2.5 rounded-full shrink-0 ring-1 ring-border/40"
                     style={{ backgroundColor: grp.color }}
                   />
-                  <span className="capitalize">{grp.label}</span>
-                  <span className="text-[10px] text-muted-foreground/60">({grp.channels.length})</span>
+                  <span className="capitalize truncate">{grp.label}</span>
+                  <span className="text-[10px] text-muted-foreground/60 tabular-nums">({grp.channels.length})</span>
+                  {subUnread > 0 && (
+                    <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-status-info px-1 text-[9px] font-bold text-white">
+                      {subUnread > 99 ? "99+" : subUnread}
+                    </span>
+                  )}
+                  {isCollapsible && (
+                    isCollapsed
+                      ? <ChevronRight className="h-3 w-3 text-muted-foreground ml-auto" />
+                      : <ChevronDown className="h-3 w-3 text-muted-foreground ml-auto" />
+                  )}
                 </div>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -899,68 +1108,71 @@ function GroupChannelsSection({
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
-              <div className="divide-y divide-border/20 opai-chat-mobile-channel-stack opai-chat-mobile-section-body">
-                {grp.channels.map((ch) => (
-                  <div key={ch.id} className="relative group flex items-center">
-                    <div className="flex-1 min-w-0">
-                      <ChannelListItem
-                        channel={ch}
-                        displayName={getDisplayName(ch)}
-                        onClick={() => onSelectChannel(ch.id)}
-                      />
-                    </div>
-                    {(onMarkAsRead || onUpdateNotifPref) && (
-                      <div className="absolute right-3 top-1/2 -translate-y-1/2 z-10 pl-2">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <button
-                              type="button"
-                              className="opacity-0 group-hover:opacity-100 h-8 w-8 flex shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-accent/50"
-                              onClick={(e) => e.stopPropagation()}
-                              aria-label="Más opciones"
-                            >
-                              <MoreHorizontal className="h-3.5 w-3.5" />
-                            </button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="z-[70] w-52">
-                            {onMarkAsRead && ch.unreadCount > 0 && (
-                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onMarkAsRead(ch.id); }}>
-                                <CheckCheck className="h-3.5 w-3.5 mr-2" />
-                                Marcar como leído
-                              </DropdownMenuItem>
-                            )}
-                            {onUpdateNotifPref && (
-                              <>
-                                {(onMarkAsRead && ch.unreadCount > 0) && <DropdownMenuSeparator />}
-                                <div className="px-2 py-1.5 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-                                  Notificaciones
-                                </div>
-                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onUpdateNotifPref(ch.id, "ALL"); }}>
-                                  <Bell className="h-3.5 w-3.5 mr-2" />
-                                  Notificar todo
-                                  {ch.notificationPreference === "ALL" && <span className="ml-auto text-status-info-fg text-xs">✓</span>}
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onUpdateNotifPref(ch.id, "MENTIONS_ONLY"); }}>
-                                  <AtSign className="h-3.5 w-3.5 mr-2" />
-                                  Solo menciones
-                                  {ch.notificationPreference === "MENTIONS_ONLY" && <span className="ml-auto text-status-info-fg text-xs">✓</span>}
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onUpdateNotifPref(ch.id, "MUTED"); }}>
-                                  <BellOff className="h-3.5 w-3.5 mr-2" />
-                                  Silenciar
-                                  {ch.notificationPreference === "MUTED" && <span className="ml-auto text-status-info-fg text-xs">✓</span>}
-                                </DropdownMenuItem>
-                              </>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+              {!isCollapsed && !isSingle && (
+                <div className="divide-y divide-border/20 opai-chat-mobile-channel-stack opai-chat-mobile-section-body">
+                  {grp.channels.map((ch) => (
+                    <div key={ch.id} className="relative group flex items-center">
+                      <div className="flex-1 min-w-0">
+                        <ChannelListItem
+                          channel={ch}
+                          displayName={getDisplayName(ch)}
+                          onClick={() => onSelectChannel(ch.id)}
+                        />
                       </div>
-                    )}
-                  </div>
-                ))}
-              </div>
+                      {(onMarkAsRead || onUpdateNotifPref) && (
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2 z-10 pl-2">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button
+                                type="button"
+                                className="opacity-0 group-hover:opacity-100 h-8 w-8 flex shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                                onClick={(e) => e.stopPropagation()}
+                                aria-label="Más opciones"
+                              >
+                                <MoreHorizontal className="h-3.5 w-3.5" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="z-[70] w-52">
+                              {onMarkAsRead && ch.unreadCount > 0 && (
+                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onMarkAsRead(ch.id); }}>
+                                  <CheckCheck className="h-3.5 w-3.5 mr-2" />
+                                  Marcar como leído
+                                </DropdownMenuItem>
+                              )}
+                              {onUpdateNotifPref && (
+                                <>
+                                  {(onMarkAsRead && ch.unreadCount > 0) && <DropdownMenuSeparator />}
+                                  <div className="px-2 py-1.5 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                                    Notificaciones
+                                  </div>
+                                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onUpdateNotifPref(ch.id, "ALL"); }}>
+                                    <Bell className="h-3.5 w-3.5 mr-2" />
+                                    Notificar todo
+                                    {ch.notificationPreference === "ALL" && <span className="ml-auto text-status-info-fg text-xs">✓</span>}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onUpdateNotifPref(ch.id, "MENTIONS_ONLY"); }}>
+                                    <AtSign className="h-3.5 w-3.5 mr-2" />
+                                    Solo menciones
+                                    {ch.notificationPreference === "MENTIONS_ONLY" && <span className="ml-auto text-status-info-fg text-xs">✓</span>}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onUpdateNotifPref(ch.id, "MUTED"); }}>
+                                    <BellOff className="h-3.5 w-3.5 mr-2" />
+                                    Silenciar
+                                    {ch.notificationPreference === "MUTED" && <span className="ml-auto text-status-info-fg text-xs">✓</span>}
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
@@ -998,6 +1210,9 @@ function ChannelSection({
   onMarkAsRead,
   onUpdateNotifPref,
   onApplySectionNotifPref,
+  emptyHint,
+  subtitle,
+  extraHeaderActions,
 }: {
   label: string;
   icon: React.ReactNode;
@@ -1015,6 +1230,9 @@ function ChannelSection({
   onMarkAsRead?: (channelId: string) => void;
   onUpdateNotifPref?: (channelId: string, pref: NotifPreference) => void;
   onApplySectionNotifPref?: (channelIds: string[], preference: NotifPreference) => Promise<void>;
+  emptyHint?: string;
+  subtitle?: React.ReactNode;
+  extraHeaderActions?: React.ReactNode;
 }) {
   const sectionUnread = channels.reduce((sum, ch) => sum + (ch.notificationPreference === 'ALL' ? ch.unreadCount : 0), 0);
   const sectionPref = sectionNotifMode(channels);
@@ -1038,6 +1256,11 @@ function ChannelSection({
           )}
           {icon}
           <span className="truncate text-[13px] font-semibold text-zinc-300">{label}</span>
+          {subtitle && (
+            <span className="text-[10px] font-normal text-muted-foreground/60 normal-case tracking-normal ml-1 truncate">
+              {subtitle}
+            </span>
+          )}
         </button>
         {/* Columna derecha alineada: notif | count | badge | menu | plus */}
         <div className="flex shrink-0 items-center gap-1 pr-2">
@@ -1097,6 +1320,7 @@ function ChannelSection({
               </DropdownMenuContent>
             </DropdownMenu>
           )}
+          {extraHeaderActions}
           {onNewChat && (
             <button
               type="button"
@@ -1109,7 +1333,12 @@ function ChannelSection({
           )}
         </div>
       </div>
-      {!collapsed && (
+      {!collapsed && channels.length === 0 && emptyHint && (
+        <div className="px-4 py-3 text-[11px] text-muted-foreground/60 opai-chat-mobile-section-body">
+          {emptyHint}
+        </div>
+      )}
+      {!collapsed && channels.length > 0 && (
         <div className="divide-y divide-border/20 opai-chat-mobile-channel-stack opai-chat-mobile-section-body">
           {channels.map((ch) => {
             const hasMenu = onArchive || onUnarchive || (canDelete && onDelete) || onMarkAsRead || onUpdateNotifPref;
@@ -1204,79 +1433,6 @@ function ChannelSection({
   );
 }
 
-/* ─── User Section (for starting DMs) ─── */
-
-function UserSection({
-  users,
-  collapsed,
-  onToggle,
-  onSelectUser,
-  creatingDmFor,
-}: {
-  users: AdminUser[];
-  collapsed: boolean;
-  onToggle: () => void;
-  onSelectUser: (user: AdminUser) => void;
-  creatingDmFor: string | null;
-}) {
-  return (
-    <div className="opai-chat-mobile-section">
-      <div
-        className="flex items-center w-full gap-1 opai-chat-mobile-section-header cursor-pointer"
-        onClick={onToggle}
-      >
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); onToggle(); }}
-          className="flex-1 min-w-0 flex items-center gap-2 px-0 py-0 text-xs font-semibold text-muted-foreground uppercase tracking-wider transition-colors text-left"
-        >
-          {collapsed ? (
-            <ChevronRight className="h-3 w-3 shrink-0" />
-          ) : (
-            <ChevronDown className="h-3 w-3 shrink-0" />
-          )}
-          <Users className="h-3.5 w-3.5 shrink-0" />
-          <span className="truncate text-[13px] font-semibold text-zinc-300">Usuarios</span>
-        </button>
-        <div className="flex shrink-0 items-center gap-1 pr-2">
-          <span className="w-4" />
-          <span className="w-5 text-right text-[10px] font-normal tabular-nums text-muted-foreground/70">
-            {users.length}
-          </span>
-          <span className="w-[18px]" />
-        </div>
-      </div>
-      {!collapsed && (
-        <div className="divide-y divide-border/20 opai-chat-mobile-channel-stack opai-chat-mobile-section-body">
-          {users.map((user) => (
-            <button
-              key={user.id}
-              type="button"
-              onClick={() => onSelectUser(user)}
-              disabled={creatingDmFor === user.id}
-              className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-accent/50 transition-colors text-left disabled:opacity-50"
-            >
-              <div
-                className="h-8 w-8 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-bold"
-                style={{ backgroundColor: "#0d9488" }}
-              >
-                {user.name.charAt(0).toUpperCase()}
-              </div>
-              <div className="flex-1 min-w-0">
-                <span className="text-sm font-medium truncate block">{user.name}</span>
-                <span className="text-[10px] text-muted-foreground/70 truncate block">{user.email}</span>
-              </div>
-              {creatingDmFor === user.id && (
-                <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground shrink-0" />
-              )}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 /* ─── Channel List Item ─── */
 
 function ChannelListItem({
@@ -1358,3 +1514,32 @@ function ChannelListItem({
     </button>
   );
 }
+
+/* ─── Cleanup section button (dropdown) ─── */
+
+function CleanupSectionButton({ onCleanup }: { onCleanup: () => void }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className="h-6 w-6 flex shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground"
+          onClick={(e) => e.stopPropagation()}
+          aria-label="Más acciones de la sección"
+        >
+          <MoreHorizontal className="h-3.5 w-3.5" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="z-[70] w-52">
+        <DropdownMenuItem
+          className="text-destructive focus:text-destructive"
+          onClick={(e) => { e.stopPropagation(); onCleanup(); }}
+        >
+          <Trash2 className="mr-2 h-3.5 w-3.5" />
+          Limpiar inactivos
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+

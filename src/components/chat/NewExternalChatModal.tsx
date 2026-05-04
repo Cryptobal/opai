@@ -24,9 +24,10 @@ interface Props {
   onClose: () => void;
   onCreated: (channelId: string) => void;
   defaultStatus?: "prospect" | "client_active";
+  defaultAccountId?: string;
 }
 
-export function NewExternalChatModal({ open, onClose, onCreated, defaultStatus }: Props) {
+export function NewExternalChatModal({ open, onClose, onCreated, defaultStatus, defaultAccountId }: Props) {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState(search);
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -58,6 +59,7 @@ export function NewExternalChatModal({ open, onClose, onCreated, defaultStatus }
   // Fetch accounts
   useEffect(() => {
     if (!open) return;
+    if (defaultAccountId) return; // Skip listing — will pre-select directly
     setLoadingAccounts(true);
     const params = new URLSearchParams({ search: debouncedSearch });
     if (defaultStatus) params.set("status", defaultStatus);
@@ -66,7 +68,7 @@ export function NewExternalChatModal({ open, onClose, onCreated, defaultStatus }
       .then((j) => { if (j.success) setAccounts(j.data ?? []); })
       .catch(() => {})
       .finally(() => setLoadingAccounts(false));
-  }, [open, debouncedSearch, defaultStatus]);
+  }, [open, debouncedSearch, defaultStatus, defaultAccountId]);
 
   // Fetch contacts when account is selected
   const fetchContacts = useCallback(async (accountId: string) => {
@@ -84,11 +86,27 @@ export function NewExternalChatModal({ open, onClose, onCreated, defaultStatus }
     }
   }, []);
 
-  const handleSelectAccount = (account: Account) => {
+  const handleSelectAccount = useCallback((account: Account) => {
     setSelectedAccount(account);
     setSelectedContactIds([]);
     fetchContacts(account.id);
-  };
+  }, [fetchContacts]);
+
+  // Pre-select account when defaultAccountId is provided
+  useEffect(() => {
+    if (!open || !defaultAccountId) return;
+    let cancelled = false;
+    fetch(`/api/crm/accounts/${defaultAccountId}`)
+      .then((r) => r.json())
+      .then((j) => {
+        if (cancelled) return;
+        if (j.success && j.data) {
+          handleSelectAccount({ id: j.data.id, name: j.data.name, status: j.data.status });
+        }
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [open, defaultAccountId, handleSelectAccount]);
 
   const toggleContact = (id: string) =>
     setSelectedContactIds((prev) =>
