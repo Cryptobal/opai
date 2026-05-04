@@ -1446,7 +1446,7 @@ function TicketCard({
     <button
       type="button"
       onClick={handleCardActivate}
-      className={`group relative flex w-full flex-col gap-2 rounded-xl border-l-[3px] border border-border bg-ds-surface-1 p-3.5 text-left transition-all hover:bg-ds-surface-2 hover:border-primary/20 active:bg-ds-surface-2 ${borderColor} ${
+      className={`group relative flex w-full flex-col gap-2 rounded-xl border-l-[4px] border border-border bg-ds-surface-1 p-3.5 text-left transition-all hover:bg-ds-surface-2 hover:border-primary/20 active:bg-ds-surface-2 ${borderColor} ${
         breached && !isTerminal ? "animate-pulse-subtle border-status-danger-border" : ""
       } ${selected ? "ring-2 ring-primary/60" : ""}`}
     >

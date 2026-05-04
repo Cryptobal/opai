@@ -762,10 +762,13 @@ export function getSlaTextColor(percentage: number | null): string {
 
 /** Get border-left color class for priority */
 export function getPriorityBorderColor(priority: TicketPriority): string {
+  // Usa tokens del DS para mantenerse coherente con los pills de prioridad
+  // (TICKET_PRIORITY_CONFIG.color / .bg). El rail vive como `border-l-[4px]`
+  // en la card y este helper sólo aporta el color.
   const map: Record<TicketPriority, string> = {
-    p1: "border-l-red-500",
-    p2: "border-l-orange-500",
-    p3: "border-l-yellow-500",
+    p1: "border-l-status-danger",
+    p2: "border-l-status-warn",
+    p3: "border-l-status-info",
     p4: "border-l-muted-foreground/30",
   };
   return map[priority];
