@@ -64,7 +64,7 @@ import type { SearchableOption } from "@/components/ui/SearchableSelect";
 import { TicketsDashboard } from "./TicketsDashboard";
 import { TicketsKanban } from "./TicketsKanban";
 import { TicketsByInstallationView } from "./TicketsByInstallationView";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, MapPin } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════
 //  TYPES
@@ -151,6 +151,9 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
   const [assignedFilter, setAssignedFilter] = useState<AssignedFilter>("me");
   const [slaOnly, setSlaOnly] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  // Orden por criticidad por defecto: P1 → SLA vencidos → próximos a vencer.
+  // En cards/list este orden es lo que el operador necesita ver primero.
+  const [sortBy, setSortBy] = useState<"criticality" | "recent" | "sla">("criticality");
 
   // ── Bulk selection ──
   const [selectionMode, setSelectionMode] = useState(false);
@@ -225,8 +228,9 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
     if (assignedFilter !== "any") params.set("assignedTo", assignedFilter);
     if (slaOnly) params.set("slaBreached", "true");
     if (debouncedSearch) params.set("search", debouncedSearch);
+    if (sortBy !== "criticality") params.set("sortBy", sortBy);
     return params;
-  }, [installationFilterId, originTab, filterStatus, filterPriorities, filterTypeId, assignedFilter, slaOnly, debouncedSearch]);
+  }, [installationFilterId, originTab, filterStatus, filterPriorities, filterTypeId, assignedFilter, slaOnly, debouncedSearch, sortBy]);
 
   // Filter signature: when it changes, results must be replaced from page 1.
   // NOTE: listMode is part of the key because kanban uses a larger page size.
@@ -240,7 +244,8 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
     slaOnly,
     debouncedSearch,
     listMode,
-  }), [installationFilterId, originTab, filterStatus, filterPriorities, filterTypeId, assignedFilter, slaOnly, debouncedSearch, listMode]);
+    sortBy,
+  }), [installationFilterId, originTab, filterStatus, filterPriorities, filterTypeId, assignedFilter, slaOnly, debouncedSearch, listMode, sortBy]);
 
   const fetchTickets = useCallback(async (pageNum: number, replace: boolean) => {
     if (replace) setLoading(true);
@@ -1017,6 +1022,21 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
           </Button>
         )}
 
+        {/* Orden — solo aplica a list/cards. Kanban se ordena por
+            columnas de status, by-installation tiene su propio sort. */}
+        {(listMode === "list" || listMode === "cards") && (
+          <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
+            <SelectTrigger className="h-9 w-[150px] text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="z-[200]">
+              <SelectItem value="criticality">Más críticos</SelectItem>
+              <SelectItem value="recent">Más nuevos</SelectItem>
+              <SelectItem value="sla">SLA por vencer</SelectItem>
+            </SelectContent>
+          </Select>
+        )}
+
         {/* View mode toggle. "Por instalación" se oculta cuando ya estamos
             drilled-in en una instalación específica — ahí ese botón no
             aporta y confunde. */}
@@ -1223,25 +1243,75 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
         </div>
       )}
 
-      {/* Drill-down breadcrumb (when filtering by a single installation) */}
+      {/* Drill-in: contexto de la instalación filtrada. Antes era un
+          breadcrumb chiquito ("Volver al mapa › Ametel (6 activos)"); ahora
+          es un header secundario con los counters reales scoped a la
+          instalación, para no perder el contexto al scrollear. */}
       {installationFilterId && installationCtx && listMode !== "by-installation" && (
-        <div className="flex items-center justify-between rounded-md border border-white/10 bg-muted/30 px-3 py-2 text-xs">
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <button
+        <section className="rounded-xl border border-border bg-ds-surface-1 px-4 py-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 text-[11px] uppercase tracking-wide text-muted-foreground">
+                <MapPin className="h-3 w-3" />
+                <span>Instalación</span>
+              </div>
+              <h3 className="mt-0.5 truncate text-base font-semibold text-foreground">
+                {installationCtx.name}
+              </h3>
+              <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                <span>
+                  <span className="font-semibold tabular-nums text-foreground">
+                    {counts?.active ?? installationCtx.total}
+                  </span>{" "}
+                  activos
+                </span>
+                {typeof counts?.activeP1 === "number" && counts.activeP1 > 0 && (
+                  <>
+                    <span className="text-border">·</span>
+                    <span>
+                      <span className="font-semibold tabular-nums text-status-danger-fg">
+                        {counts.activeP1}
+                      </span>{" "}
+                      P1
+                    </span>
+                  </>
+                )}
+                {typeof counts?.slaBreached === "number" && counts.slaBreached > 0 && (
+                  <>
+                    <span className="text-border">·</span>
+                    <span>
+                      <span className="font-semibold tabular-nums text-status-danger-fg">
+                        {counts.slaBreached}
+                      </span>{" "}
+                      SLA vencidos
+                    </span>
+                  </>
+                )}
+                {typeof counts?.unassigned === "number" && counts.unassigned > 0 && (
+                  <>
+                    <span className="text-border">·</span>
+                    <span>
+                      <span className="font-semibold tabular-nums text-status-warn-fg">
+                        {counts.unassigned}
+                      </span>{" "}
+                      sin asignar
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
+            <Button
               type="button"
+              variant="outline"
+              size="sm"
               onClick={handleBackToInstallations}
-              className="flex items-center gap-1 text-foreground hover:underline"
+              className="h-8 shrink-0 gap-1.5 text-xs"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
               Volver al mapa
-            </button>
-            <span>›</span>
-            <span className="font-medium text-foreground">{installationCtx.name}</span>
-            <span className="text-muted-foreground">
-              ({installationCtx.total} {installationCtx.total === 1 ? "ticket activo" : "tickets activos"})
-            </span>
+            </Button>
           </div>
-        </div>
+        </section>
       )}
 
       {/* By-installation view */}
@@ -1447,11 +1517,17 @@ function TicketCard({
     onClick();
   }
 
+  // Layout compacto (3 filas):
+  //   1. título grande + chips críticos a la derecha (P1, SLA vencido,
+  //      aprobación) + avatar
+  //   2. meta: code · estado · tipo · equipo · responsable
+  //   3. SLA bar (si aplica) + tiempo restante
+  //   Filas opcionales (solo si hay datos): finding, guard, tags
   return (
     <button
       type="button"
       onClick={handleCardActivate}
-      className={`group relative flex w-full flex-col gap-2 rounded-xl border-l-[4px] border border-border bg-ds-surface-1 p-3.5 text-left transition-all hover:bg-ds-surface-2 hover:border-primary/20 active:bg-ds-surface-2 ${borderColor} ${
+      className={`group relative flex w-full flex-col gap-1.5 rounded-xl border-l-[4px] border border-border bg-ds-surface-1 p-3.5 text-left transition-all hover:bg-ds-surface-2 hover:border-primary/20 active:bg-ds-surface-2 ${borderColor} ${
         breached && !isTerminal ? "animate-pulse-subtle border-status-danger-border" : ""
       } ${selected ? "ring-2 ring-primary/60" : ""}`}
     >
@@ -1467,30 +1543,42 @@ function TicketCard({
           <Check className="h-3 w-3" />
         </span>
       )}
-      {/* Row 1: Code + Status + Priority + Avatar */}
-      <div className="flex items-center gap-2">
-        <span className="font-mono text-[12px] text-muted-foreground">{ticket.code}</span>
-        <Badge variant={statusCfg.variant} className="text-[12px]">
-          {statusCfg.label}
-        </Badge>
-        <span className={`text-[12px] font-semibold ${priorityCfg.color}`}>
-          {ticket.priority.toUpperCase()}
-        </span>
-        {ticket.approvalStatus === "pending" && (
-          <Badge variant="secondary" className="text-[12px] gap-0.5">
-            <ShieldCheck className="h-2.5 w-2.5" />
-            Aprobación
-          </Badge>
-        )}
-        {breached && !isTerminal && (
-          <Badge variant="destructive" className="text-[12px] gap-0.5">
-            <AlertTriangle className="h-2.5 w-2.5" />
-            SLA Vencido
-          </Badge>
-        )}
 
-        {/* Assignee avatar */}
-        <div className="ml-auto">
+      {/* Fila 1: título + chips críticos + avatar */}
+      <div className="flex items-start gap-2">
+        <p className="flex-1 text-sm font-semibold leading-snug line-clamp-2 text-foreground">
+          {ticket.title}
+        </p>
+        <div className="flex shrink-0 items-center gap-1.5">
+          {/* Pill de prioridad: solo P1/P2 muestran soft bg, P3/P4 son texto */}
+          <span
+            className={`rounded-md px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+              ticket.priority === "p1" || ticket.priority === "p2"
+                ? `${priorityCfg.bg} ${priorityCfg.color}`
+                : `text-muted-foreground bg-muted/60`
+            }`}
+            title={priorityCfg.label}
+          >
+            {ticket.priority.toUpperCase()}
+          </span>
+          {breached && !isTerminal && (
+            <span
+              className="inline-flex items-center gap-0.5 rounded-md bg-status-danger-soft px-1.5 py-0.5 text-[10px] font-semibold text-status-danger-fg"
+              title="SLA vencido"
+            >
+              <AlertTriangle className="h-2.5 w-2.5" />
+              SLA
+            </span>
+          )}
+          {ticket.approvalStatus === "pending" && (
+            <span
+              className="inline-flex items-center gap-0.5 rounded-md bg-status-info-soft px-1.5 py-0.5 text-[10px] font-medium text-status-info-fg"
+              title="Pendiente de aprobación"
+            >
+              <ShieldCheck className="h-2.5 w-2.5" />
+            </span>
+          )}
+          {/* Avatar del responsable */}
           {ticket.assignedToName ? (
             <div
               className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/20 text-[9px] font-semibold text-primary"
@@ -1514,12 +1602,34 @@ function TicketCard({
         </div>
       </div>
 
-      {/* Row 2: Title */}
-      <p className="text-sm font-medium leading-snug line-clamp-2">{ticket.title}</p>
+      {/* Fila 2: meta — code · estado · tipo · equipo · responsable */}
+      <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-muted-foreground">
+        <span className="font-mono">{ticket.code}</span>
+        <span className="text-border">·</span>
+        <Badge variant={statusCfg.variant} className="px-1.5 py-0 text-[10px] font-medium">
+          {statusCfg.label}
+        </Badge>
+        {typeName && (
+          <>
+            <span className="text-border">·</span>
+            <span className="truncate max-w-[160px]">{typeName}</span>
+          </>
+        )}
+        {teamName && teamName !== typeName && (
+          <>
+            <span className="text-border">·</span>
+            <span>{teamName}</span>
+          </>
+        )}
+        <span className="text-border">·</span>
+        <span className={ticket.assignedToName ? "" : "text-status-warn-fg"}>
+          {ticket.assignedToName ?? "Sin asignar"}
+        </span>
+      </div>
 
-      {/* Row 2.5: Supervision finding context (documento específico o fallback) */}
+      {/* Fila opcional: hallazgo de supervisión (con su contexto) */}
       {ticket.finding && (
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px]">
+        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px]">
           <FileText className="h-3 w-3 text-status-warn-fg/80" />
           <span className="font-medium text-status-warn-fg/90">
             {ticket.finding.tipoDocNombre
@@ -1527,60 +1637,31 @@ function TicketCard({
               ?? findingCategoryLabel(ticket.finding.category)}
           </span>
           {ticket.finding.occurrenceCount > 1 && (
-            <span className="rounded bg-status-warn-soft px-1.5 py-0.5 text-[12px] font-semibold text-status-warn-fg">
+            <span className="rounded bg-status-warn-soft px-1 py-0 text-[10px] font-semibold text-status-warn-fg">
               ×{ticket.finding.occurrenceCount}
             </span>
           )}
-          {ticket.finding.tipoDocCapa ? (
-            <span className="text-[12px] text-muted-foreground capitalize">
-              {ticket.finding.tipoDocCapa}
-            </span>
-          ) : (
-            !ticket.finding.tipoDocNombre && !ticket.finding.guardiaDocCode && (
-              <span className="text-[12px] text-muted-foreground italic">
-                Sin documento específico
-              </span>
-            )
-          )}
           {ticket.finding.guardName && (
-            <span className="text-[12px] text-muted-foreground">
-              · {ticket.finding.guardName}
-            </span>
+            <span className="text-muted-foreground">· {ticket.finding.guardName}</span>
           )}
         </div>
       )}
 
-      {/* Row 3: Type + Team */}
-      <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
-        <span className="truncate">{typeName}</span>
-        <span className="text-border">·</span>
-        <span>{teamName}</span>
-      </div>
-
-      {/* Row 4: Guard badge (if applicable) */}
-      {ticket.guardiaName && (
-        <div className="flex items-center gap-1.5">
-          <div className="flex items-center gap-1 rounded-full bg-status-info-soft px-2 py-0.5">
-            <Shield className="h-3 w-3 text-status-info-fg" />
-            <span className="text-[12px] font-medium text-status-info-fg">
-              {ticket.guardiaName}
-            </span>
-            {ticket.guardiaRut && (
-              <span className="text-[12px] text-status-info-fg/60">
-                ({ticket.guardiaRut})
-              </span>
-            )}
-          </div>
+      {/* Fila opcional: guardia */}
+      {ticket.guardiaName && !ticket.finding && (
+        <div className="inline-flex w-fit items-center gap-1 rounded-full bg-status-info-soft px-1.5 py-0.5 text-[11px]">
+          <Shield className="h-3 w-3 text-status-info-fg" />
+          <span className="font-medium text-status-info-fg">{ticket.guardiaName}</span>
         </div>
       )}
 
-      {/* Row 5: Tags */}
+      {/* Fila opcional: tags */}
       {ticket.tags.length > 0 && (
         <div className="flex flex-wrap gap-1">
           {ticket.tags.map((tag) => (
             <span
               key={tag}
-              className="rounded-full bg-primary/10 px-2 py-0.5 text-[12px] font-medium text-primary"
+              className="rounded-full bg-primary/10 px-1.5 py-0 text-[10px] font-medium text-primary"
             >
               {tag}
             </span>
@@ -1588,16 +1669,16 @@ function TicketCard({
         </div>
       )}
 
-      {/* Row 6: SLA Bar */}
+      {/* Fila 3: SLA bar (solo si hay SLA) — más sutil que antes (h-1) */}
       {slaText && (
-        <div className="flex items-center gap-2">
-          <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+        <div className="mt-0.5 flex items-center gap-2">
+          <div className="h-1 flex-1 overflow-hidden rounded-full bg-muted">
             <div
               className={`h-full rounded-full transition-all ${slaColor}`}
               style={{ width: `${slaPercent === 0 ? 100 : Math.max(slaPercent ?? 0, 2)}%` }}
             />
           </div>
-          <div className={`flex items-center gap-1 text-[12px] font-medium ${slaTextColor}`}>
+          <div className={`flex shrink-0 items-center gap-1 text-[11px] font-medium tabular-nums ${slaTextColor}`}>
             <Clock className="h-3 w-3" />
             <span>{slaText}</span>
           </div>

@@ -169,6 +169,14 @@ export async function GET(request: NextRequest) {
     const assignedToParam = searchParams.get("assignedTo");
     const search = searchParams.get("search");
     const slaBreachedOnly = searchParams.get("slaBreached") === "true";
+    // Orden: criticality (default) prioriza P1, SLA vencidos y SLA próximo
+    // a vencer; recent ordena por createdAt desc; sla ordena por slaDueAt asc
+    // mostrando los próximos a vencer primero.
+    const sortByParam = searchParams.get("sortBy");
+    const sortBy: "criticality" | "recent" | "sla" =
+      sortByParam === "recent" || sortByParam === "sla" || sortByParam === "criticality"
+        ? sortByParam
+        : "criticality";
     const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
     const limit = Math.min(200, Math.max(1, parseInt(searchParams.get("limit") ?? "50", 10)));
     const skip = (page - 1) * limit;
@@ -312,11 +320,26 @@ export async function GET(request: NextRequest) {
       where.AND = andClauses;
     }
 
+    // Mapeo de sortBy → Prisma orderBy. "criticality" usa una composición:
+    // priority asc (p1<p2<p3<p4 alfabéticamente) → slaBreached desc (vencidos
+    // primero) → slaDueAt asc (más próximos a vencer primero).
+    const orderBy: Prisma.OpsTicketOrderByWithRelationInput[] =
+      sortBy === "recent"
+        ? [{ createdAt: "desc" }]
+        : sortBy === "sla"
+          ? [{ slaDueAt: { sort: "asc", nulls: "last" } }, { priority: "asc" }]
+          : [
+              { priority: "asc" },
+              { slaBreached: "desc" },
+              { slaDueAt: { sort: "asc", nulls: "last" } },
+              { createdAt: "desc" },
+            ];
+
     const [rows, total] = await Promise.all([
       prisma.opsTicket.findMany({
         where,
         include: ticketListIncludes,
-        orderBy: { createdAt: "desc" },
+        orderBy,
         skip,
         take: limit,
       }),
