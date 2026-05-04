@@ -87,13 +87,14 @@ type TicketCounts = {
   activeP1: number;
   unassigned: number;
   mine: number;
+  myTeam: number;
   byStatus: Record<string, number>;
   byPriority: Record<"p1" | "p2" | "p3" | "p4", number>;
   byOrigin: { all: number; internal: number; guard: number; client: number };
 };
 
-type QuickViewKey = "active" | "p1" | "breached" | "unassigned" | "mine" | "all";
-type AssignedFilter = "any" | "me" | "unassigned";
+type QuickViewKey = "active" | "p1" | "breached" | "unassigned" | "mine" | "my_team" | "all";
+type AssignedFilter = "any" | "me" | "my_team" | "unassigned";
 
 // ═══════════════════════════════════════════════════════════════
 //  MAIN COMPONENT
@@ -480,6 +481,10 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
         setFilterStatus("active");
         setAssignedFilter("me");
         break;
+      case "my_team":
+        setFilterStatus("active");
+        setAssignedFilter("my_team");
+        break;
       case "all":
         setFilterStatus("all");
         break;
@@ -514,6 +519,9 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
     if (filterStatus === "active" && filterPriorities.size === 0 && assignedFilter === "me" && !slaOnly) {
       return "mine";
     }
+    if (filterStatus === "active" && filterPriorities.size === 0 && assignedFilter === "my_team" && !slaOnly) {
+      return "my_team";
+    }
     if (filterStatus === "all" && filterPriorities.size === 0 && assignedFilter === "any" && !slaOnly) {
       return "all";
     }
@@ -546,6 +554,8 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
     }
     if (assignedFilter === "me") {
       activeChips.push({ key: "assigned", label: "Asignados a mí", onClear: () => setAssignedFilter("any") });
+    } else if (assignedFilter === "my_team") {
+      activeChips.push({ key: "assigned", label: "Mi equipo", onClear: () => setAssignedFilter("any") });
     } else if (assignedFilter === "unassigned") {
       activeChips.push({ key: "assigned", label: "Sin asignar", onClear: () => setAssignedFilter("any") });
     }
@@ -663,6 +673,7 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
           { key: "breached" as const, label: "SLA vencidos", count: counts?.slaBreached, tone: "danger" as const },
           { key: "unassigned" as const, label: "Sin asignar", count: counts?.unassigned, tone: "warning" as const },
           { key: "mine" as const, label: "Míos", count: counts?.mine, tone: "default" as const },
+          { key: "my_team" as const, label: "Mi equipo", count: counts?.myTeam, tone: "default" as const },
           { key: "all" as const, label: "Todos", count: counts?.total, tone: "default" as const },
         ]).map((q) => {
           const on = activeQuickView === q.key;
@@ -929,6 +940,7 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
                 <SelectContent className="z-[200]">
                   <SelectItem value="any">Cualquiera</SelectItem>
                   <SelectItem value="me">Asignados a mí</SelectItem>
+                  <SelectItem value="my_team">Asignados a mi equipo</SelectItem>
                   <SelectItem value="unassigned">Sin asignar</SelectItem>
                 </SelectContent>
               </Select>

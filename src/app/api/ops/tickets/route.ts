@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureOpsAccess } from "@/lib/ops";
 import { generateTicketCode, TICKET_TEAM_CONFIG } from "@/lib/tickets";
+import { getAssignedTeamsForUser } from "@/lib/tickets-team-membership";
 import type { Ticket } from "@/lib/tickets";
 import {
   ticketSupervisionFindingInclude,
@@ -261,15 +262,29 @@ export async function GET(request: NextRequest) {
         }
       }
     }
+    const andClauses: Prisma.OpsTicketWhereInput[] = [];
     if (assignedToParam === "me") {
       where.assignedTo = ctx.userId;
     } else if (assignedToParam === "unassigned") {
       where.assignedTo = null;
+    } else if (assignedToParam === "my_team") {
+      // Asignados a mí O asignados a un equipo donde soy miembro.
+      const teams = await getAssignedTeamsForUser(ctx.tenantId, ctx.userId);
+      if (teams.length === 0) {
+        // Sin grupos → degrada a "asignados a mí" para que el filtro sea útil.
+        where.assignedTo = ctx.userId;
+      } else {
+        andClauses.push({
+          OR: [
+            { assignedTo: ctx.userId },
+            { assignedTeam: { in: teams } },
+          ],
+        });
+      }
     } else if (assignedToParam) {
       where.assignedTo = assignedToParam;
     }
 
-    const andClauses: Prisma.OpsTicketWhereInput[] = [];
     if (origin) andClauses.push(originWhere(origin));
     if (search) {
       andClauses.push({
