@@ -178,6 +178,14 @@ export async function GET(request: NextRequest) {
     const assignedToParam = searchParams.get("assignedTo");
     const search = searchParams.get("search");
     const slaBreachedOnly = searchParams.get("slaBreached") === "true";
+    // Orden: criticality (default) prioriza P1, SLA vencidos y SLA próximo
+    // a vencer; recent ordena por createdAt desc; sla ordena por slaDueAt asc
+    // mostrando los próximos a vencer primero.
+    const sortByParam = searchParams.get("sortBy");
+    const sortBy: "criticality" | "recent" | "sla" =
+      sortByParam === "recent" || sortByParam === "sla" || sortByParam === "criticality"
+        ? sortByParam
+        : "criticality";
     const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
     const limit = Math.min(200, Math.max(1, parseInt(searchParams.get("limit") ?? "50", 10)));
     const skip = (page - 1) * limit;
@@ -207,9 +215,14 @@ export async function GET(request: NextRequest) {
     if (slaBreachedOnly) where.slaBreached = true;
 
     // Filtros por entidad CRM (account/deal/contact). Combinables con el resto.
+    // Si la entidad existe pero no resuelve a tickets, marcamos `noMatch` y
+    // devolvemos resultados vacíos sin tocar Prisma. Antes asignábamos
+    // `where.id = "no-match"`, pero `OpsTicket.id` es UUID y Prisma falla con
+    // P2023 ("Error creating UUID").
     const accountId = searchParams.get("accountId");
     const dealId = searchParams.get("dealId");
     const contactId = searchParams.get("contactId");
+    let noMatch = false;
 
     if (accountId) {
       const installations = await prisma.crmInstallation.findMany({
@@ -217,7 +230,7 @@ export async function GET(request: NextRequest) {
         select: { id: true },
       });
       if (installations.length === 0) {
-        where.id = "no-match";
+        noMatch = true;
       } else {
         where.installationId = { in: installations.map((i) => i.id) };
       }
@@ -246,7 +259,7 @@ export async function GET(request: NextRequest) {
         orClauses.push({ installationId: onboarding.installationId });
       }
       if (orClauses.length === 0) {
-        where.id = "no-match";
+        noMatch = true;
       } else {
         where.OR = orClauses;
       }
@@ -258,18 +271,26 @@ export async function GET(request: NextRequest) {
         select: { accountId: true },
       });
       if (!contact?.accountId) {
-        where.id = "no-match";
+        noMatch = true;
       } else {
         const installations = await prisma.crmInstallation.findMany({
           where: { tenantId: ctx.tenantId, accountId: contact.accountId },
           select: { id: true },
         });
         if (installations.length === 0) {
-          where.id = "no-match";
+          noMatch = true;
         } else {
           where.installationId = { in: installations.map((i) => i.id) };
         }
       }
+    }
+
+    // Short-circuit cuando algún filtro CRM no resolvió.
+    if (noMatch) {
+      return NextResponse.json({
+        success: true,
+        data: { items: [], total: 0, page, limit, hasMore: false },
+      });
     }
     const andClauses: Prisma.OpsTicketWhereInput[] = [];
     if (assignedToParam === "me") {
@@ -308,11 +329,26 @@ export async function GET(request: NextRequest) {
       where.AND = andClauses;
     }
 
+    // Mapeo de sortBy → Prisma orderBy. "criticality" usa una composición:
+    // priority asc (p1<p2<p3<p4 alfabéticamente) → slaBreached desc (vencidos
+    // primero) → slaDueAt asc (más próximos a vencer primero).
+    const orderBy: Prisma.OpsTicketOrderByWithRelationInput[] =
+      sortBy === "recent"
+        ? [{ createdAt: "desc" }]
+        : sortBy === "sla"
+          ? [{ slaDueAt: { sort: "asc", nulls: "last" } }, { priority: "asc" }]
+          : [
+              { priority: "asc" },
+              { slaBreached: "desc" },
+              { slaDueAt: { sort: "asc", nulls: "last" } },
+              { createdAt: "desc" },
+            ];
+
     const [rows, total] = await Promise.all([
       prisma.opsTicket.findMany({
         where,
         include: ticketListIncludes,
-        orderBy: { createdAt: "desc" },
+        orderBy,
         skip,
         take: limit,
       }),
