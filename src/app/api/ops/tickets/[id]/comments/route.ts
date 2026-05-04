@@ -255,7 +255,7 @@ export async function POST(
                 body.body.length > 140
                   ? body.body.slice(0, 140) + "..."
                   : body.body,
-              link: `/opai/ops/tickets/${ticketId}`,
+              link: `/ops/tickets/${ticketId}`,
               data: { ticketId, commentId: comment.id, source: "comment" },
             });
           }

@@ -162,7 +162,7 @@ async function processGuardiaDocExpiryNotifications(tenantId: string) {
       link: `/personas/guardias/${doc.guardiaId}?tab=operaciones&doc=${doc.id}`,
       emailSecondaryAction: linkedFinding?.ticket
         ? {
-            url: `/opai/ops/tickets/${linkedFinding.ticket.id}`,
+            url: `/ops/tickets/${linkedFinding.ticket.id}`,
             label: `Ver ticket ${linkedFinding.ticket.code}`,
             color: "#0066FF",
           }

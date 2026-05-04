@@ -173,7 +173,7 @@ export async function POST(
           targetType: "ADMIN",
           title: `Ticket ${updated.code} → ${newLabel}`,
           body: `"${updated.title}" cambió a ${newLabel}`,
-          link: `/opai/ops/tickets/${updated.id}`,
+          link: `/ops/tickets/${updated.id}`,
           data: { ticketId: updated.id, code: updated.code, status: targetStatus, source: "transition" },
         });
       }
