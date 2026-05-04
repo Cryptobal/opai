@@ -1116,6 +1116,23 @@ html {
       background: rgba(255, 255, 255, 0.055) !important;
       border-color: rgba(255, 255, 255, 0.08) !important;
     }
+
+    /* Bloquea pan horizontal del documento cuando el chat móvil está montado.
+       Solo el edge-swipe en el contenedor de conversación (24px del borde izquierdo)
+       puede mover el shell. El resto del chat solo scrollea vertical. */
+    .opai-chat-mobile-shell {
+      touch-action: pan-y;
+      overscroll-behavior: contain;
+    }
+
+    .opai-chat-mobile-topbar {
+      touch-action: pan-y;
+    }
+
+    .opai-chat-mobile-input,
+    .opai-chat-mobile-input-inner {
+      touch-action: pan-y;
+    }
   }
 
   /* Command Palette móvil: buscador full-screen con Liquid Glass sólo en iOS */
