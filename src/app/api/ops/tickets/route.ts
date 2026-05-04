@@ -198,9 +198,14 @@ export async function GET(request: NextRequest) {
     if (slaBreachedOnly) where.slaBreached = true;
 
     // Filtros por entidad CRM (account/deal/contact). Combinables con el resto.
+    // Si la entidad existe pero no resuelve a tickets, marcamos `noMatch` y
+    // devolvemos resultados vacíos sin tocar Prisma. Antes asignábamos
+    // `where.id = "no-match"`, pero `OpsTicket.id` es UUID y Prisma falla con
+    // P2023 ("Error creating UUID").
     const accountId = searchParams.get("accountId");
     const dealId = searchParams.get("dealId");
     const contactId = searchParams.get("contactId");
+    let noMatch = false;
 
     if (accountId) {
       const installations = await prisma.crmInstallation.findMany({
@@ -208,7 +213,7 @@ export async function GET(request: NextRequest) {
         select: { id: true },
       });
       if (installations.length === 0) {
-        where.id = "no-match";
+        noMatch = true;
       } else {
         where.installationId = { in: installations.map((i) => i.id) };
       }
@@ -237,7 +242,7 @@ export async function GET(request: NextRequest) {
         orClauses.push({ installationId: onboarding.installationId });
       }
       if (orClauses.length === 0) {
-        where.id = "no-match";
+        noMatch = true;
       } else {
         where.OR = orClauses;
       }
@@ -249,18 +254,26 @@ export async function GET(request: NextRequest) {
         select: { accountId: true },
       });
       if (!contact?.accountId) {
-        where.id = "no-match";
+        noMatch = true;
       } else {
         const installations = await prisma.crmInstallation.findMany({
           where: { tenantId: ctx.tenantId, accountId: contact.accountId },
           select: { id: true },
         });
         if (installations.length === 0) {
-          where.id = "no-match";
+          noMatch = true;
         } else {
           where.installationId = { in: installations.map((i) => i.id) };
         }
       }
+    }
+
+    // Short-circuit cuando algún filtro CRM no resolvió.
+    if (noMatch) {
+      return NextResponse.json({
+        success: true,
+        data: { items: [], total: 0, page, limit, hasMore: false },
+      });
     }
     const andClauses: Prisma.OpsTicketWhereInput[] = [];
     if (assignedToParam === "me") {
