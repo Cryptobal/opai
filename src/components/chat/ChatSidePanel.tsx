@@ -946,6 +946,24 @@ function GroupChannelsSection({
     [onBulkNotifPref]
   );
 
+  // Collapse state per subgroup. Subgroups with >5 channels are collapsed by default.
+  const [subgroupCollapsed, setSubgroupCollapsed] = useState<Record<string, boolean>>({});
+  useEffect(() => {
+    setSubgroupCollapsed((prev) => {
+      const next = { ...prev };
+      for (const g of groups) {
+        if (next[g.key] === undefined) {
+          next[g.key] = g.channels.length > 5;
+        }
+      }
+      return next;
+    });
+  }, [groups]);
+
+  const toggleSubgroup = useCallback((key: string) => {
+    setSubgroupCollapsed((prev) => ({ ...prev, [key]: !prev[key] }));
+  }, []);
+
   return (
     <div className="opai-chat-mobile-section">
       <div
@@ -1024,16 +1042,40 @@ function GroupChannelsSection({
       </div>
       {!collapsed && (
         <div className="divide-y divide-border/20 opai-chat-mobile-channel-stack opai-chat-mobile-section-body">
-          {groups.map((grp) => (
+          {groups.map((grp) => {
+            const isCollapsible = grp.channels.length > 5;
+            const isSingle = grp.channels.length === 1;
+            const isCollapsed = isCollapsible && (subgroupCollapsed[grp.key] ?? true);
+            const subUnread = grp.channels.reduce((s, c) => s + (c.notificationPreference === "ALL" ? c.unreadCount : 0), 0);
+            return (
             <div key={grp.key}>
-              <div className="flex items-center group/sub">
+              <div
+                className={cn(
+                  "flex items-center group/sub",
+                  (isCollapsible || isSingle) && "cursor-pointer hover:bg-accent/30"
+                )}
+                onClick={() => {
+                  if (isSingle) onSelectChannel(grp.channels[0].id);
+                  else if (isCollapsible) toggleSubgroup(grp.key);
+                }}
+              >
                 <div className="flex-1 flex items-center gap-2 px-4 py-2 pl-6 text-[11px] font-medium text-muted-foreground/80">
                   <div
-                    className="h-2 w-2 rounded-full shrink-0"
+                    className="h-2.5 w-2.5 rounded-full shrink-0 ring-1 ring-border/40"
                     style={{ backgroundColor: grp.color }}
                   />
-                  <span className="capitalize">{grp.label}</span>
-                  <span className="text-[10px] text-muted-foreground/60">({grp.channels.length})</span>
+                  <span className="capitalize truncate">{grp.label}</span>
+                  <span className="text-[10px] text-muted-foreground/60 tabular-nums">({grp.channels.length})</span>
+                  {subUnread > 0 && (
+                    <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-status-info px-1 text-[9px] font-bold text-white">
+                      {subUnread > 99 ? "99+" : subUnread}
+                    </span>
+                  )}
+                  {isCollapsible && (
+                    isCollapsed
+                      ? <ChevronRight className="h-3 w-3 text-muted-foreground ml-auto" />
+                      : <ChevronDown className="h-3 w-3 text-muted-foreground ml-auto" />
+                  )}
                 </div>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -1066,68 +1108,71 @@ function GroupChannelsSection({
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
-              <div className="divide-y divide-border/20 opai-chat-mobile-channel-stack opai-chat-mobile-section-body">
-                {grp.channels.map((ch) => (
-                  <div key={ch.id} className="relative group flex items-center">
-                    <div className="flex-1 min-w-0">
-                      <ChannelListItem
-                        channel={ch}
-                        displayName={getDisplayName(ch)}
-                        onClick={() => onSelectChannel(ch.id)}
-                      />
-                    </div>
-                    {(onMarkAsRead || onUpdateNotifPref) && (
-                      <div className="absolute right-3 top-1/2 -translate-y-1/2 z-10 pl-2">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <button
-                              type="button"
-                              className="opacity-0 group-hover:opacity-100 h-8 w-8 flex shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-accent/50"
-                              onClick={(e) => e.stopPropagation()}
-                              aria-label="Más opciones"
-                            >
-                              <MoreHorizontal className="h-3.5 w-3.5" />
-                            </button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="z-[70] w-52">
-                            {onMarkAsRead && ch.unreadCount > 0 && (
-                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onMarkAsRead(ch.id); }}>
-                                <CheckCheck className="h-3.5 w-3.5 mr-2" />
-                                Marcar como leído
-                              </DropdownMenuItem>
-                            )}
-                            {onUpdateNotifPref && (
-                              <>
-                                {(onMarkAsRead && ch.unreadCount > 0) && <DropdownMenuSeparator />}
-                                <div className="px-2 py-1.5 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-                                  Notificaciones
-                                </div>
-                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onUpdateNotifPref(ch.id, "ALL"); }}>
-                                  <Bell className="h-3.5 w-3.5 mr-2" />
-                                  Notificar todo
-                                  {ch.notificationPreference === "ALL" && <span className="ml-auto text-status-info-fg text-xs">✓</span>}
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onUpdateNotifPref(ch.id, "MENTIONS_ONLY"); }}>
-                                  <AtSign className="h-3.5 w-3.5 mr-2" />
-                                  Solo menciones
-                                  {ch.notificationPreference === "MENTIONS_ONLY" && <span className="ml-auto text-status-info-fg text-xs">✓</span>}
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onUpdateNotifPref(ch.id, "MUTED"); }}>
-                                  <BellOff className="h-3.5 w-3.5 mr-2" />
-                                  Silenciar
-                                  {ch.notificationPreference === "MUTED" && <span className="ml-auto text-status-info-fg text-xs">✓</span>}
-                                </DropdownMenuItem>
-                              </>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+              {!isCollapsed && !isSingle && (
+                <div className="divide-y divide-border/20 opai-chat-mobile-channel-stack opai-chat-mobile-section-body">
+                  {grp.channels.map((ch) => (
+                    <div key={ch.id} className="relative group flex items-center">
+                      <div className="flex-1 min-w-0">
+                        <ChannelListItem
+                          channel={ch}
+                          displayName={getDisplayName(ch)}
+                          onClick={() => onSelectChannel(ch.id)}
+                        />
                       </div>
-                    )}
-                  </div>
-                ))}
-              </div>
+                      {(onMarkAsRead || onUpdateNotifPref) && (
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2 z-10 pl-2">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button
+                                type="button"
+                                className="opacity-0 group-hover:opacity-100 h-8 w-8 flex shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                                onClick={(e) => e.stopPropagation()}
+                                aria-label="Más opciones"
+                              >
+                                <MoreHorizontal className="h-3.5 w-3.5" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="z-[70] w-52">
+                              {onMarkAsRead && ch.unreadCount > 0 && (
+                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onMarkAsRead(ch.id); }}>
+                                  <CheckCheck className="h-3.5 w-3.5 mr-2" />
+                                  Marcar como leído
+                                </DropdownMenuItem>
+                              )}
+                              {onUpdateNotifPref && (
+                                <>
+                                  {(onMarkAsRead && ch.unreadCount > 0) && <DropdownMenuSeparator />}
+                                  <div className="px-2 py-1.5 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                                    Notificaciones
+                                  </div>
+                                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onUpdateNotifPref(ch.id, "ALL"); }}>
+                                    <Bell className="h-3.5 w-3.5 mr-2" />
+                                    Notificar todo
+                                    {ch.notificationPreference === "ALL" && <span className="ml-auto text-status-info-fg text-xs">✓</span>}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onUpdateNotifPref(ch.id, "MENTIONS_ONLY"); }}>
+                                    <AtSign className="h-3.5 w-3.5 mr-2" />
+                                    Solo menciones
+                                    {ch.notificationPreference === "MENTIONS_ONLY" && <span className="ml-auto text-status-info-fg text-xs">✓</span>}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onUpdateNotifPref(ch.id, "MUTED"); }}>
+                                    <BellOff className="h-3.5 w-3.5 mr-2" />
+                                    Silenciar
+                                    {ch.notificationPreference === "MUTED" && <span className="ml-auto text-status-info-fg text-xs">✓</span>}
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
