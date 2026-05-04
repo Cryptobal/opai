@@ -217,36 +217,28 @@ export async function POST(
       return updated;
     });
 
-    // Notificación de contrato pendiente — fuera de la transacción para que
-    // respete las preferencias por usuario (bell/email) y no bloquee el commit
-    // si el envío de email falla.
-    if (nextStatus === "won") {
-      try {
-        const { notify } = await import("@/lib/notifications/notify");
-        await notify({
-          tenantId: ctx.tenantId,
-          type: "contract_required",
-          audience: "admin",
-          title: `Contrato pendiente: ${updatedDeal.account.name}`,
-          body: `El negocio "${updatedDeal.title}" fue ganado. Se requiere generar un contrato.`,
-          data: {
-            dealId: updatedDeal.id,
-            accountId: updatedDeal.accountId,
-            accountName: updatedDeal.account.name,
-            dealTitle: updatedDeal.title,
-          },
-          link: `/opai/documentos/nuevo?accountId=${updatedDeal.accountId}&dealId=${updatedDeal.id}`,
-        });
-      } catch (e) {
-        console.error("Error sending contract_required notification:", e);
-      }
-    }
-
     // Onboarding del cliente: si el deal pasó a won, asegurar el playbook
-    // default del tenant y reportar si requiere onboarding (no creado aún).
+    // default del tenant y reportar si requiere onboarding (no creado aún)
+    // o si ya existe (para que el frontend pueda navegar al hub).
+    //
+    // La notificación legacy `contract_required` se elimina porque el T1 del
+    // playbook de onboarding (paso "Contrato cliente firmado") ya cubre ese
+    // flujo de manera más robusta y trazable.
     let onboardingMeta:
-      | { requiresOnboarding: true; defaultPlaybookId: string }
-      | { existingOnboarding: { id: string; status: string } }
+      | {
+          requiresOnboarding: true;
+          defaultPlaybookId: string;
+          accountId: string;
+          accountName: string;
+        }
+      | {
+          existingOnboarding: {
+            id: string;
+            accountId: string;
+            accountName: string;
+            status: string;
+          };
+        }
       | null = null;
     if (nextStatus === "won") {
       try {
@@ -256,14 +248,23 @@ export async function POST(
         const seed = await ensureDefaultPlaybook(ctx.tenantId);
         const existing = await prisma.clientOnboarding.findUnique({
           where: { dealId: updatedDeal.id },
-          select: { id: true, status: true },
+          select: { id: true, status: true, accountId: true },
         });
         if (existing) {
-          onboardingMeta = { existingOnboarding: existing };
+          onboardingMeta = {
+            existingOnboarding: {
+              id: existing.id,
+              accountId: existing.accountId,
+              accountName: updatedDeal.account.name,
+              status: existing.status,
+            },
+          };
         } else {
           onboardingMeta = {
             requiresOnboarding: true,
             defaultPlaybookId: seed.playbookId,
+            accountId: updatedDeal.accountId,
+            accountName: updatedDeal.account.name,
           };
         }
       } catch (e) {

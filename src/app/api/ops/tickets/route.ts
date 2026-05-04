@@ -195,6 +195,72 @@ export async function GET(request: NextRequest) {
     if (guardiaId) where.guardiaId = guardiaId;
     if (installationId) where.installationId = installationId;
     if (slaBreachedOnly) where.slaBreached = true;
+
+    // Filtros por entidad CRM (account/deal/contact). Combinables con el resto.
+    const accountId = searchParams.get("accountId");
+    const dealId = searchParams.get("dealId");
+    const contactId = searchParams.get("contactId");
+
+    if (accountId) {
+      const installations = await prisma.crmInstallation.findMany({
+        where: { tenantId: ctx.tenantId, accountId },
+        select: { id: true },
+      });
+      if (installations.length === 0) {
+        where.id = "no-match";
+      } else {
+        where.installationId = { in: installations.map((i) => i.id) };
+      }
+    }
+
+    if (dealId) {
+      const onboarding = await prisma.clientOnboarding.findUnique({
+        where: { dealId },
+        select: { id: true, installationId: true, tenantId: true },
+      });
+      const onboardingTicketIds: string[] = onboarding && onboarding.tenantId === ctx.tenantId
+        ? (
+            await prisma.clientOnboardingStep.findMany({
+              where: { onboardingId: onboarding.id, ticketId: { not: null } },
+              select: { ticketId: true },
+            })
+          )
+            .map((s) => s.ticketId)
+            .filter((x): x is string => !!x)
+        : [];
+      const orClauses: Prisma.OpsTicketWhereInput[] = [];
+      if (onboardingTicketIds.length > 0) {
+        orClauses.push({ id: { in: onboardingTicketIds } });
+      }
+      if (onboarding?.installationId) {
+        orClauses.push({ installationId: onboarding.installationId });
+      }
+      if (orClauses.length === 0) {
+        where.id = "no-match";
+      } else {
+        where.OR = orClauses;
+      }
+    }
+
+    if (contactId) {
+      const contact = await prisma.crmContact.findFirst({
+        where: { id: contactId, tenantId: ctx.tenantId },
+        select: { accountId: true },
+      });
+      if (!contact?.accountId) {
+        where.id = "no-match";
+      } else {
+        const installations = await prisma.crmInstallation.findMany({
+          where: { tenantId: ctx.tenantId, accountId: contact.accountId },
+          select: { id: true },
+        });
+        if (installations.length === 0) {
+          where.id = "no-match";
+        } else {
+          where.installationId = { in: installations.map((i) => i.id) };
+        }
+      }
+    }
     if (assignedToParam === "me") {
       where.assignedTo = ctx.userId;
     } else if (assignedToParam === "unassigned") {

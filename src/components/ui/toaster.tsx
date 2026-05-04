@@ -15,7 +15,8 @@ export function Toaster() {
       richColors={false}
       position={isMobile ? "bottom-center" : "bottom-right"}
       closeButton
-      expand={false}
+      expand
+      gap={8}
       visibleToasts={3}
       duration={4000}
       offset={isMobile ? "calc(env(safe-area-inset-bottom) + 80px)" : "16px"}

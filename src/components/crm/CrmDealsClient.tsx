@@ -3,6 +3,7 @@
 
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   type CollisionDetection,
   DndContext,
@@ -649,6 +650,7 @@ export function CrmDealsClient({
   stages: CrmPipelineStage[];
   initialFocus?: DealsFocus;
 }) {
+  const router = useRouter();
   const [deals, setDeals] = useState<CrmDeal[]>(initialDeals);
   const [form, setForm] = useState<DealFormState>(DEFAULT_FORM);
   const [creating, setCreating] = useState(false);
@@ -823,6 +825,22 @@ export function CrmDealsClient({
         setOnboardingTarget({
           dealId,
           defaultPlaybookId: payload.defaultPlaybookId,
+        });
+      } else if (
+        payload?.existingOnboarding?.id &&
+        payload?.existingOnboarding?.accountId
+      ) {
+        const accountId = payload.existingOnboarding.accountId as string;
+        const onboardingId = payload.existingOnboarding.id as string;
+        toast.success("Negocio ganado. Onboarding ya iniciado.", {
+          action: {
+            label: "Ver onboarding",
+            onClick: () =>
+              router.push(
+                `/crm/accounts/${accountId}/onboarding/${onboardingId}`,
+              ),
+          },
+          duration: 8000,
         });
       }
     } catch (error) {

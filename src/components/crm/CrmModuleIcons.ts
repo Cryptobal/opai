@@ -27,6 +27,7 @@ import {
   QrCode,
   Receipt,
   Shirt,
+  Ticket as TicketIcon,
   type LucideIcon,
 } from "lucide-react";
 
@@ -40,7 +41,8 @@ export type CrmModuleKey =
   | "deals"
   | "quotes"
   | "guardias"
-  | "reports";
+  | "reports"
+  | "tickets";
 
 export type CrmSectionKey =
   | "general"
@@ -170,6 +172,15 @@ export const CRM_MODULES: Record<CrmModuleKey, ModuleConfig> = {
     color: "text-muted-foreground bg-muted",
     textColor: "text-muted-foreground",
     bgColor: "bg-muted",
+  },
+  tickets: {
+    key: "tickets",
+    icon: TicketIcon,
+    label: "Ticket",
+    labelPlural: "Tickets",
+    color: "text-status-info-fg bg-status-info-soft",
+    textColor: "text-status-info-fg",
+    bgColor: "bg-status-info-soft",
   },
 };
 

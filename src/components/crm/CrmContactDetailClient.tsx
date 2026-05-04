@@ -29,6 +29,7 @@ import { AssociatedRecordsPanel, type AssociatedSection } from "@/components/ui/
 import { EntityDetailLayout, useEntityTabs, type EntityTab, type EntityHeaderAction } from "./EntityDetailLayout";
 import { DetailField } from "./DetailField";
 import { CrmRelatedRecordCard, CrmRelatedRecordGrid } from "./CrmRelatedRecordCard";
+import { AssociatedTicketsSection } from "./AssociatedTicketsSection";
 import { CRM_MODULES } from "./CrmModuleIcons";
 import {
   Mail,
@@ -47,6 +48,7 @@ import {
   KeyRound,
   MessageCircle,
   ChevronDown,
+  Ticket as TicketIcon,
 } from "lucide-react";
 import { useChatSidePanelContext } from "@/components/chat/ChatFloatingProvider";
 import { toast } from "sonner";
@@ -624,6 +626,12 @@ export function CrmContactDetailClient({
           )}
         </div>
       ),
+    },
+    {
+      id: "tickets",
+      label: "Tickets",
+      icon: TicketIcon,
+      content: <AssociatedTicketsSection filterKey="contactId" filterValue={contact.id} />,
     },
   ];
 
