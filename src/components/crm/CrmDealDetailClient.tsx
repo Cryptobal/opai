@@ -1104,13 +1104,34 @@ export function CrmDealDetailClient({
       if (payload.data?.serviceStartDate) {
         setDealServiceStartDate(payload.data.serviceStartDate);
       }
+      const willOpenOnboarding =
+        !!(payload?.requiresOnboarding && payload?.defaultPlaybookId) ||
+        !!payload?.existingOnboarding?.id;
       if (payload?.requiresOnboarding && payload?.defaultPlaybookId) {
         setOnboardingTarget({
           dealId: deal.id,
           defaultPlaybookId: payload.defaultPlaybookId,
         });
+      } else if (
+        payload?.existingOnboarding?.id &&
+        payload?.existingOnboarding?.accountId
+      ) {
+        const accountId = payload.existingOnboarding.accountId as string;
+        const onboardingId = payload.existingOnboarding.id as string;
+        toast.success("Negocio ganado. Onboarding ya iniciado.", {
+          action: {
+            label: "Ver onboarding",
+            onClick: () =>
+              router.push(
+                `/crm/accounts/${accountId}/onboarding/${onboardingId}`,
+              ),
+          },
+          duration: 8000,
+        });
       }
-      toast.success("Etapa actualizada");
+      if (!willOpenOnboarding) {
+        toast.success("Etapa actualizada");
+      }
     } catch (error) {
       console.error(error);
       setCurrentStage(snapshot);
