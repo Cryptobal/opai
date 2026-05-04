@@ -108,6 +108,8 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
     if (typeof window === "undefined") return false;
     return localStorage.getItem("opai.chat.showInactiveExternal") === "true";
   });
+  const [cleanupTarget, setCleanupTarget] = useState<"prospects" | "clients" | null>(null);
+  const [cleanupLoading, setCleanupLoading] = useState(false);
   const [panelEntered, setPanelEntered] = useState(false);
   const [panelClosing, setPanelClosing] = useState(false);
 
@@ -213,6 +215,24 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
     },
     [ctx]
   );
+
+  const handleCleanupInactive = useCallback(async () => {
+    if (!cleanupTarget) return;
+    setCleanupLoading(true);
+    try {
+      const res = await fetch("/api/chat/channels/cleanup-inactive", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scope: cleanupTarget }),
+      });
+      if (res.ok) {
+        await ctx.refreshChannels();
+      }
+    } finally {
+      setCleanupLoading(false);
+      setCleanupTarget(null);
+    }
+  }, [cleanupTarget, ctx]);
 
   const confirmDelete = async () => {
     if (!channelToDelete) return;
@@ -518,6 +538,9 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
                 onUpdateNotifPref={ctx.updateChannelNotifPref}
                 onApplySectionNotifPref={applySectionNotifPref}
                 subtitle={!showInactiveExternal && hiddenProspectCount > 0 ? `(+${hiddenProspectCount} sin actividad)` : undefined}
+                extraHeaderActions={canDeleteChannels ? (
+                  <CleanupSectionButton onCleanup={() => setCleanupTarget("prospects")} />
+                ) : undefined}
               />
             )}
 
@@ -539,6 +562,9 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
                 onUpdateNotifPref={ctx.updateChannelNotifPref}
                 onApplySectionNotifPref={applySectionNotifPref}
                 subtitle={!showInactiveExternal && hiddenClientCount > 0 ? `(+${hiddenClientCount} sin actividad)` : undefined}
+                extraHeaderActions={canDeleteChannels ? (
+                  <CleanupSectionButton onCleanup={() => setCleanupTarget("clients")} />
+                ) : undefined}
               />
             )}
 
@@ -809,6 +835,18 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
         description="Esta acción es permanente y no se puede deshacer. Se eliminarán todos los mensajes para todos los participantes."
         confirmLabel="Eliminar permanentemente"
         onConfirm={confirmDelete}
+        variant="destructive"
+      />
+
+      <ConfirmDialog
+        open={!!cleanupTarget}
+        onOpenChange={(open) => { if (!open && !cleanupLoading) setCleanupTarget(null); }}
+        title="¿Eliminar canales sin actividad?"
+        description={`Esta acción eliminará permanentemente todos los canales de ${
+          cleanupTarget === "prospects" ? "prospectos" : "clientes"
+        } que no tienen mensajes. Las cuentas y contactos CRM no se verán afectados.`}
+        confirmLabel={cleanupLoading ? "Eliminando..." : "Eliminar canales sin actividad"}
+        onConfirm={handleCleanupInactive}
         variant="destructive"
       />
 
@@ -1431,3 +1469,32 @@ function ChannelListItem({
     </button>
   );
 }
+
+/* ─── Cleanup section button (dropdown) ─── */
+
+function CleanupSectionButton({ onCleanup }: { onCleanup: () => void }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className="h-6 w-6 flex shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground"
+          onClick={(e) => e.stopPropagation()}
+          aria-label="Más acciones de la sección"
+        >
+          <MoreHorizontal className="h-3.5 w-3.5" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="z-[70] w-52">
+        <DropdownMenuItem
+          className="text-destructive focus:text-destructive"
+          onClick={(e) => { e.stopPropagation(); onCleanup(); }}
+        >
+          <Trash2 className="mr-2 h-3.5 w-3.5" />
+          Limpiar inactivos
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
