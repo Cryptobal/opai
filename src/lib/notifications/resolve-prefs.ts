@@ -1,10 +1,14 @@
 import { prisma } from "@/lib/prisma";
 import { type Audience, type UnifiedNotificationType } from "./catalog";
+import { normalizePrefs, type ChannelPrefsLegacy } from "./channel-types";
 
 export interface ResolvedPrefs {
   bell: boolean;
   email: boolean;
+  /** True if either desktop or mobile push are enabled. Kept for backwards-compat. */
   push: boolean;
+  pushDesktop: boolean;
+  pushMobile: boolean;
   inQuietHours: boolean;
 }
 
@@ -22,14 +26,14 @@ interface SettingValue {
 }
 
 interface UserPrefMap {
-  [key: string]: { bell?: boolean; email?: boolean; push?: boolean };
+  [key: string]: ChannelPrefsLegacy;
 }
 
 export async function resolvePrefs(p: ResolvePrefsParams): Promise<ResolvedPrefs> {
   const { tenantId, type, subscriberType, subscriberId, audience, now = new Date() } = p;
   const defaults = type.defaults[audience] ?? {};
 
-  // 1. Tenant-wide push override (Setting.pushGlobalConfig)
+  // 1. Tenant-wide push override (Setting.pushGlobalConfig) — apaga ambos push
   let tenantPushDisabled = false;
   try {
     const setting = await prisma.setting.findFirst({
@@ -50,14 +54,20 @@ export async function resolvePrefs(p: ResolvePrefsParams): Promise<ResolvedPrefs
     where: { subscriberType_subscriberId: { subscriberType, subscriberId } },
   });
   const userPrefMap = (userPref?.preferences as UserPrefMap | null) ?? {};
-  const userOverride = userPrefMap[type.key] ?? {};
+  const userOverride = normalizePrefs(userPrefMap[type.key]);
 
-  let bell = userOverride.bell ?? defaults.bell ?? false;
-  let email = userOverride.email ?? defaults.email ?? false;
-  let push = userOverride.push ?? defaults.push ?? false;
-  if (tenantPushDisabled) push = false;
+  // Defaults del catálogo se expanden a 4 canales (push → pushDesktop=pushMobile)
+  const bell = userOverride.bell ?? defaults.bell ?? false;
+  const email = userOverride.email ?? defaults.email ?? false;
+  let pushDesktop = userOverride.pushDesktop ?? defaults.push ?? false;
+  let pushMobile = userOverride.pushMobile ?? defaults.push ?? false;
 
-  // 3. Quiet hours (per-user, in user TZ)
+  if (tenantPushDisabled) {
+    pushDesktop = false;
+    pushMobile = false;
+  }
+
+  // 3. Quiet hours (per-user, in user TZ) — apaga ambos push si no es crítico
   let inQuietHours = false;
   if (
     userPref?.quietHoursStart != null &&
@@ -74,10 +84,17 @@ export async function resolvePrefs(p: ResolvePrefsParams): Promise<ResolvedPrefs
     inQuietHours = start < end ? hour >= start && hour < end : hour >= start || hour < end;
   }
 
-  // Quiet hours bypass for critical types
   if (inQuietHours && !type.critical) {
-    push = false; // bell + email still flow during quiet hours
+    pushDesktop = false;
+    pushMobile = false;
   }
 
-  return { bell, email, push, inQuietHours };
+  return {
+    bell,
+    email,
+    push: pushDesktop || pushMobile,
+    pushDesktop,
+    pushMobile,
+    inQuietHours,
+  };
 }
