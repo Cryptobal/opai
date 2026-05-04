@@ -40,6 +40,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+type AdminUser = { id: string; name: string; email: string };
+type CrmAccountSearchResult = { id: string; name: string; status: string };
+
 /* ─── Side Panel Component ─── */
 
 export function ChatSidePanel({ userRole }: { userRole?: string }) {
@@ -97,7 +100,10 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
   });
   const [channelToDelete, setChannelToDelete] = useState<string | null>(null);
   const [showNewDm, setShowNewDm] = useState(false);
-  const [newChatModal, setNewChatModal] = useState<{ open: boolean; defaultStatus?: "prospect" | "client_active" }>({ open: false });
+  const [newChatModal, setNewChatModal] = useState<{ open: boolean; defaultStatus?: "prospect" | "client_active"; defaultAccountId?: string }>({ open: false });
+  const [searchUsers, setSearchUsers] = useState<AdminUser[]>([]);
+  const [searchAccounts, setSearchAccounts] = useState<CrmAccountSearchResult[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
   const [panelEntered, setPanelEntered] = useState(false);
   const [panelClosing, setPanelClosing] = useState(false);
 
@@ -130,6 +136,32 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
     }
     prevPanelOpen.current = ctx.isPanelOpen;
   }, [ctx.isPanelOpen, ctx.totalUnread]);
+
+  // Debounced universal search for "Iniciar nueva conversación" suggestions
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (q.length < 2) {
+      setSearchUsers([]);
+      setSearchAccounts([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      setSearchLoading(true);
+      try {
+        const [usersRes, accountsRes] = await Promise.all([
+          fetch(`/api/chat/mentions/users?search=${encodeURIComponent(q)}`).then((r) => r.ok ? r.json() : null),
+          fetch(`/api/crm/accounts?search=${encodeURIComponent(q)}`).then((r) => r.ok ? r.json() : null),
+        ]);
+        if (usersRes?.success) setSearchUsers(usersRes.data ?? []);
+        if (accountsRes?.success) setSearchAccounts(accountsRes.data ?? []);
+      } catch {
+        /* ignore */
+      } finally {
+        setSearchLoading(false);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   // Derived external channels
   const prospectChannels = ctx.channels.filter(
@@ -217,8 +249,56 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
 
   const isSearching = searchQuery.trim().length > 0;
 
+  // Candidates for "Iniciar nueva conversación": filter out users/accounts already with a channel
+  const newDmCandidates = useMemo(() => {
+    const existingDmUserIds = new Set(
+      ctx.channels
+        .filter((ch) => ch.channelType === "DIRECT" && ch.dmParticipant)
+        .map((ch) => ch.dmParticipant!.id)
+    );
+    return searchUsers.filter((u) => u.id !== ctx.currentUserId && !existingDmUserIds.has(u.id));
+  }, [searchUsers, ctx.channels, ctx.currentUserId]);
+
+  const newExternalCandidates = useMemo(() => {
+    const existingAccountIds = new Set(
+      ctx.channels
+        .filter((ch) => ch.channelType === "EXTERNAL" && ch.account)
+        .map((ch) => ch.account!.id)
+    );
+    return searchAccounts.filter((a) => !existingAccountIds.has(a.id));
+  }, [searchAccounts, ctx.channels]);
+
   const toggleSection = useCallback((key: string) => {
     setCollapsedSections((prev) => ({ ...prev, [key]: !prev[key] }));
+  }, []);
+
+  // Start a DM with a user from search suggestions
+  const handleStartDmFromSearch = useCallback(async (user: AdminUser) => {
+    try {
+      const res = await fetch("/api/chat/dms", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetAdminId: user.id }),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success) {
+          setSearchQuery("");
+          await ctx.refreshChannels();
+          ctx.selectChannel(json.data.id);
+        }
+      }
+    } catch (err) {
+      console.error("[ChatSidePanel] start DM error:", err);
+    }
+  }, [ctx]);
+
+  // Open the external chat modal with a pre-selected account
+  const handleStartExternalFromSearch = useCallback((account: CrmAccountSearchResult) => {
+    const defaultStatus: "prospect" | "client_active" =
+      account.status === "prospect" ? "prospect" : "client_active";
+    setNewChatModal({ open: true, defaultStatus, defaultAccountId: account.id });
+    setSearchQuery("");
   }, []);
 
   // Build auto-context prefix for first message
@@ -319,7 +399,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
             <p className="text-sm font-medium text-muted-foreground">Todo al día</p>
             <p className="text-[11px] text-muted-foreground/60">No tienes mensajes sin leer</p>
           </div>
-        ) : filteredTotal === 0 ? (
+        ) : filteredTotal === 0 && !(isSearching && (newDmCandidates.length > 0 || newExternalCandidates.length > 0 || searchLoading)) ? (
           <div className="flex flex-col items-center gap-1.5 py-10 text-center px-4">
             <MessageCircle className="h-8 w-8 text-muted-foreground/20" />
             <p className="text-xs text-muted-foreground">
@@ -335,8 +415,8 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
           </div>
         ) : (
           <div>
-            {/* Direct Messages — siempre visible para acceder a "+" */}
-            {(filter !== "unread" || directChannels.length > 0) && (
+            {/* Direct Messages — siempre visible (excepto al buscar/filtrar) para acceder a "+" */}
+            {((!isSearching && filter !== "unread") || directChannels.length > 0) && (
               <ChannelSection
                 label="Mensajes directos"
                 icon={<MessageCircle className="h-3.5 w-3.5 text-status-info-fg" />}
@@ -448,6 +528,65 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
               />
             )}
 
+            {/* Iniciar nueva conversación — solo aparece al buscar */}
+            {isSearching && (newDmCandidates.length > 0 || newExternalCandidates.length > 0 || searchLoading) && (
+              <div className="opai-chat-mobile-section border-t border-border/30 mt-2 pt-2">
+                <div className="px-4 py-2 text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                  Iniciar nueva conversación
+                  {searchLoading && <Loader2 className="h-3 w-3 animate-spin" />}
+                </div>
+                {newDmCandidates.length > 0 && (
+                  <div className="mb-2">
+                    <div className="px-4 py-1 text-[10px] text-muted-foreground/70 uppercase">Usuarios</div>
+                    {newDmCandidates.map((u) => (
+                      <button
+                        key={u.id}
+                        type="button"
+                        onClick={() => handleStartDmFromSearch(u)}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-accent/50 text-left"
+                      >
+                        <div
+                          className="h-8 w-8 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-bold"
+                          style={{ backgroundColor: "#0d9488" }}
+                        >
+                          {u.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm truncate">{u.name}</div>
+                          <div className="text-[10px] text-muted-foreground/70 truncate">{u.email}</div>
+                        </div>
+                        <Plus className="h-4 w-4 text-muted-foreground shrink-0" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {newExternalCandidates.length > 0 && (
+                  <div>
+                    <div className="px-4 py-1 text-[10px] text-muted-foreground/70 uppercase">Cuentas CRM (sin chat)</div>
+                    {newExternalCandidates.map((a) => (
+                      <button
+                        key={a.id}
+                        type="button"
+                        onClick={() => handleStartExternalFromSearch(a)}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-accent/50 text-left"
+                      >
+                        <div
+                          className="h-8 w-8 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-bold"
+                          style={{ backgroundColor: a.status === "prospect" ? "#16a34a" : "#0284c7" }}
+                        >
+                          {a.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm truncate">{a.name}</div>
+                          <div className="text-[10px] text-muted-foreground/70 truncate capitalize">{a.status.replace(/_/g, " ")}</div>
+                        </div>
+                        <Plus className="h-4 w-4 text-muted-foreground shrink-0" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -641,6 +780,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
       <NewExternalChatModal
         open={newChatModal.open}
         defaultStatus={newChatModal.defaultStatus}
+        defaultAccountId={newChatModal.defaultAccountId}
         onClose={() => setNewChatModal({ open: false })}
         onCreated={(channelId) => {
           ctx.refreshChannels();
