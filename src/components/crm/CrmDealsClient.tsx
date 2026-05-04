@@ -61,6 +61,7 @@ import { GripVertical, Loader2, Plus, ExternalLink, TrendingUp, ChevronRight, Ch
 import { CrmToolbar } from "./CrmToolbar";
 import type { ViewMode } from "@/components/shared/ViewToggle";
 import { toast } from "sonner";
+import { OnboardingClientModal } from "@/components/crm/onboarding/OnboardingClientModal";
 import { useUnreadNoteIds } from "@/lib/hooks";
 
 type DealFormState = {
@@ -679,6 +680,10 @@ export function CrmDealsClient({
   // Accepted-stage dialog state
   const [acceptedPending, setAcceptedPending] = useState<{ dealId: string; stageId: string } | null>(null);
   const [acceptedDate, setAcceptedDate] = useState("");
+  // Onboarding cliente (post-won)
+  const [onboardingTarget, setOnboardingTarget] = useState<
+    { dealId: string; defaultPlaybookId?: string } | null
+  >(null);
 
   const resolveStageIdFromOverId = useCallback((overId: string): string | undefined => {
     if (overId.startsWith("stage-header-")) return overId.replace("stage-header-", "");
@@ -814,6 +819,12 @@ export function CrmDealsClient({
           deal.id === dealId ? { ...deal, ...payload.data } : deal
         )
       );
+      if (payload?.requiresOnboarding && payload?.defaultPlaybookId) {
+        setOnboardingTarget({
+          dealId,
+          defaultPlaybookId: payload.defaultPlaybookId,
+        });
+      }
     } catch (error) {
       console.error(error);
       setDeals((prev) => prev.map((deal) => (deal.id === dealId ? snapshot : deal)));
@@ -1429,6 +1440,20 @@ export function CrmDealsClient({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {onboardingTarget ? (
+        <OnboardingClientModal
+          open
+          dealId={onboardingTarget.dealId}
+          defaultPlaybookId={onboardingTarget.defaultPlaybookId}
+          onClose={() => {
+            toast.message(
+              "Puedes iniciar el onboarding desde la cuenta cuando quieras",
+            );
+            setOnboardingTarget(null);
+          }}
+          onCreated={() => setOnboardingTarget(null)}
+        />
+      ) : null}
     </div>
   );
 }

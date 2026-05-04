@@ -20,6 +20,7 @@ import { getQuoteStatus } from "@/lib/quoteStatus";
 import { CrmInstallationsClient } from "./CrmInstallationsClient";
 import { EmailHistoryList } from "./EmailHistoryList";
 import { EntityDetailLayout, useEntityTabs, type EntityTab, type EntityHeaderAction } from "./EntityDetailLayout";
+import { OnboardingAccountBanner } from "@/components/crm/onboarding/OnboardingAccountBanner";
 import { DetailField } from "./DetailField";
 import { CrmRelatedRecordCard, CrmRelatedRecordGrid } from "./CrmRelatedRecordCard";
 import { CRM_MODULES } from "./CrmModuleIcons";
@@ -1292,7 +1293,15 @@ export function CrmAccountDetailClient({
         onAvatarClick={() => logoInputRef.current?.click()}
         rightPanel={<AssociatedRecordsPanel sections={associatedSections} />}
       >
-        {activeTab === "general" && generalContent}
+        {activeTab === "general" && (
+          <div className="space-y-3">
+            {(account.status === "client_active" ||
+              account.deals.some((d) => d.status === "won")) && (
+              <OnboardingAccountBanner accountId={account.id} />
+            )}
+            {generalContent}
+          </div>
+        )}
 
         {activeTab === "communication" && <EmailHistoryList accountId={account.id} compact />}
         {activeTab === "activity" && (

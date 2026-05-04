@@ -49,6 +49,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/opai-ds";
 import { SearchableSelect, type SearchableOption } from "@/components/ui/SearchableSelect";
 import { toast } from "sonner";
+import { OnboardingClientModal } from "@/components/crm/onboarding/OnboardingClientModal";
 import { resolveDocument, tiptapToPlainText } from "@/lib/docs/token-resolver";
 import { FileAttachments } from "./FileAttachments";
 import { AssociatedRecordsPanel, type AssociatedSection } from "@/components/ui/AssociatedRecordsPanel";
@@ -504,6 +505,9 @@ export function CrmDealDetailClient({
   const [acceptedDate, setAcceptedDate] = useState("");
   const [dealServiceStartDate, setDealServiceStartDate] = useState(deal.serviceStartDate || null);
   const [dealTitle, setDealTitle] = useState(deal.title);
+  const [onboardingTarget, setOnboardingTarget] = useState<
+    { dealId: string; defaultPlaybookId?: string } | null
+  >(null);
   const [linking, setLinking] = useState(false);
 
   // ── Email compose state ──
@@ -1099,6 +1103,12 @@ export function CrmDealDetailClient({
       }
       if (payload.data?.serviceStartDate) {
         setDealServiceStartDate(payload.data.serviceStartDate);
+      }
+      if (payload?.requiresOnboarding && payload?.defaultPlaybookId) {
+        setOnboardingTarget({
+          dealId: deal.id,
+          defaultPlaybookId: payload.defaultPlaybookId,
+        });
       }
       toast.success("Etapa actualizada");
     } catch (error) {
@@ -2197,6 +2207,20 @@ export function CrmDealDetailClient({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {onboardingTarget ? (
+        <OnboardingClientModal
+          open
+          dealId={onboardingTarget.dealId}
+          defaultPlaybookId={onboardingTarget.defaultPlaybookId}
+          onClose={() => {
+            toast.message(
+              "Puedes iniciar el onboarding desde la cuenta cuando quieras",
+            );
+            setOnboardingTarget(null);
+          }}
+          onCreated={() => setOnboardingTarget(null)}
+        />
+      ) : null}
     </>
   );
 }
