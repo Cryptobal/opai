@@ -18,7 +18,7 @@ export async function GET(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbidden = await requireDocsView(ctx);
+    const forbidden = await requireDocsView(ctx, "gestion");
     if (forbidden) return forbidden;
 
     const { id } = await params;
@@ -82,7 +82,7 @@ export async function PATCH(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbidden = await requireDocsEdit(ctx);
+    const forbidden = await requireDocsEdit(ctx, "gestion");
     if (forbidden) return forbidden;
 
     const { id } = await params;
@@ -210,7 +210,7 @@ export async function DELETE(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbidden = await requireDocsDelete(ctx);
+    const forbidden = await requireDocsDelete(ctx, "gestion");
     if (forbidden) return forbidden;
 
     const { id } = await params;

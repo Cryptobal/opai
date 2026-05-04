@@ -43,7 +43,17 @@ export type PreviewData = {
     id: string;
     name: string;
     address?: string | null;
+    city?: string | null;
+    commune?: string | null;
+    lat?: number | null;
+    lng?: number | null;
     marcacionCode?: string | null;
+  } | null;
+  primaryContact: {
+    firstName: string;
+    lastName: string;
+    email?: string | null;
+    phone?: string | null;
   } | null;
   serviceStartDate: string | null;
   defaultPlaybook: {
@@ -52,7 +62,14 @@ export type PreviewData = {
     steps: PlaybookStep[];
   } | null;
   platformConfigStatus: PlatformConfigStatus;
-  deal: { id: string; title: string; accountId: string; primaryContactId?: string | null };
+  deal: {
+    id: string;
+    title: string;
+    accountId: string;
+    primaryContactId?: string | null;
+    activeQuotationId?: string | null;
+    stageName?: string | null;
+  };
 };
 
 export type OnboardingStepDraft = {

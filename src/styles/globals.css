@@ -945,6 +945,31 @@ html {
       0 10px 30px rgba(0, 0, 0, 0.4) !important;
   }
 
+  /* ── Sonner toast (.opai-toast) ────────────────────────────
+     Fondo sólido (no glass) para que múltiples toasts apilados
+     no se fundan visualmente. El backdrop-blur sigue presente para
+     mantener la coherencia con el resto del sistema, pero con un
+     fondo opaco encima.
+     Sonner aplica esta clase al wrapper data-sonner-toast. */
+  .opai-toast,
+  [data-sonner-toast].opai-toast {
+    background: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.04) 0%,
+        rgba(255, 255, 255, 0) 60%
+      ),
+      hsl(var(--card)) !important;
+    border-color: hsl(var(--border)) !important;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  :root:not(.dark) .opai-toast,
+  :root:not(.dark) [data-sonner-toast].opai-toast {
+    background: hsl(var(--card)) !important;
+    border-color: hsl(var(--border)) !important;
+  }
+
   /* Toasts de Sonner en iOS — ChatToast y notifications in-app */
   html[data-platform="ios"] [data-sonner-toast] {
     background:

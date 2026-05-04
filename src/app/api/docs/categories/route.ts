@@ -7,7 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, parseBody } from "@/lib/api-auth";
-import { requireDocsView, requireDocsEdit } from "@/lib/api-auth-docs";
+import { requireDocsViewAny, requireDocsEdit } from "@/lib/api-auth-docs";
 import { z } from "zod";
 
 const createCategorySchema = z.object({
@@ -21,7 +21,8 @@ export async function GET(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbidden = await requireDocsView(ctx);
+    // Catálogo común: cualquier submódulo con view puede leerlo.
+    const forbidden = await requireDocsViewAny(ctx, ["gestion", "operativos", "plantillas"]);
     if (forbidden) return forbidden;
 
     const { searchParams } = new URL(request.url);
@@ -49,7 +50,7 @@ export async function POST(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbidden = await requireDocsEdit(ctx);
+    const forbidden = await requireDocsEdit(ctx, "gestion");
     if (forbidden) return forbidden;
 
     if (typeof (prisma as any).docCategory?.findFirst !== "function") {

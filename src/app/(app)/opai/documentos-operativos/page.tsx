@@ -15,7 +15,7 @@ export default async function DocsOperativosPage() {
   }
 
   const perms = await resolvePagePerms(session.user);
-  if (!canView(perms, "docs", "gestion")) {
+  if (!canView(perms, "docs", "operativos")) {
     redirect("/hub");
   }
 

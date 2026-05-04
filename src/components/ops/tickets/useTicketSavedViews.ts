@@ -13,7 +13,7 @@ export interface TicketViewState {
   filterPriorities: TicketPriority[];
   originTab: "all" | "internal" | "guard" | "client";
   filterTypeId: string; // "all" o un id de OpsTicketType
-  assignedFilter: "any" | "me" | "unassigned";
+  assignedFilter: "any" | "me" | "my_team" | "unassigned";
   slaOnly: boolean;
   search: string;
 }

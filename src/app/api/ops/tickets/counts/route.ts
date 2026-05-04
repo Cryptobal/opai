@@ -3,6 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureOpsAccess } from "@/lib/ops";
+import { getAssignedTeamsForUser } from "@/lib/tickets-team-membership";
 
 export const dynamic = "force-dynamic";
 
@@ -74,6 +75,21 @@ export async function GET(request: NextRequest) {
       status: { in: [...ACTIVE_STATUSES] },
     };
 
+    // "Mi equipo": tickets activos donde soy responsable o asignados a un
+    // equipo del que soy miembro. Si el usuario no está en ningún grupo,
+    // degrada al mismo conteo de "mine".
+    const myTeams = await getAssignedTeamsForUser(ctx.tenantId, ctx.userId);
+    const myTeamWhere: Prisma.OpsTicketWhereInput =
+      myTeams.length > 0
+        ? {
+            ...activeBase,
+            OR: [
+              { assignedTo: ctx.userId },
+              { assignedTeam: { in: myTeams } },
+            ],
+          }
+        : { ...activeBase, assignedTo: ctx.userId };
+
     const [
       total,
       statusGroup,
@@ -83,6 +99,7 @@ export async function GET(request: NextRequest) {
       activeP1,
       unassigned,
       mine,
+      myTeam,
       originAll,
       originInternal,
       originGuard,
@@ -104,6 +121,7 @@ export async function GET(request: NextRequest) {
       prisma.opsTicket.count({ where: { ...activeBase, priority: "p1" } }),
       prisma.opsTicket.count({ where: { ...activeBase, assignedTo: null } }),
       prisma.opsTicket.count({ where: { ...activeBase, assignedTo: ctx.userId } }),
+      prisma.opsTicket.count({ where: myTeamWhere }),
       prisma.opsTicket.count({ where: scopedTenantWhere }),
       prisma.opsTicket.count({
         where: { ...scopedTenantWhere, ...originWhere("internal") },
@@ -149,6 +167,7 @@ export async function GET(request: NextRequest) {
         activeP1,
         unassigned,
         mine,
+        myTeam,
         byStatus,
         byPriority,
         byOrigin: {

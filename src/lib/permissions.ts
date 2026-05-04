@@ -82,7 +82,7 @@ export const SUBMODULE_KEYS = {
     "deals",
     "quotes",
   ] as const,
-  docs: ["gestion"] as const,
+  docs: ["gestion", "operativos", "plantillas"] as const,
   payroll: ["simulador", "parametros"] as const,
   cpq: [] as readonly string[],
   config: [
@@ -265,6 +265,8 @@ export const SUBMODULE_META: SubmoduleMeta[] = [
   { key: "crm.prospecting", module: "crm", submodule: "prospecting", label: "Prospección", href: "/crm/prospecting" },
   // ── Docs ──
   { key: "docs.gestion", module: "docs", submodule: "gestion", label: "Gestión documental", href: "/opai/documentos" },
+  { key: "docs.operativos", module: "docs", submodule: "operativos", label: "Documentos operativos", href: "/opai/documentos-operativos" },
+  { key: "docs.plantillas", module: "docs", submodule: "plantillas", label: "Plantillas (Templates)", href: "/opai/documentos/templates" },
   // ── Payroll ──
   { key: "payroll.simulador", module: "payroll", submodule: "simulador", label: "Simulador", href: "/payroll/simulator" },
   { key: "payroll.parametros", module: "payroll", submodule: "parametros", label: "Parámetros", href: "/payroll/parameters" },
@@ -968,8 +970,13 @@ export function pathToPermission(
   if (pathname.startsWith("/crm/cotizaciones")) return { module: "crm", submodule: "quotes" };
   if (pathname === "/crm" || pathname.startsWith("/crm/")) return { module: "crm" };
 
-  // Docs submodules
-  if (pathname.startsWith("/opai/documentos")) return { module: "docs", submodule: "gestion" };
+  // Docs submodules — orden importa: rutas más específicas primero
+  if (pathname.startsWith("/opai/documentos/templates"))
+    return { module: "docs", submodule: "plantillas" };
+  if (pathname.startsWith("/opai/documentos-operativos"))
+    return { module: "docs", submodule: "operativos" };
+  if (pathname.startsWith("/opai/documentos"))
+    return { module: "docs", submodule: "gestion" };
 
   // Payroll submodules
   if (pathname.startsWith("/payroll/simulator")) return { module: "payroll", submodule: "simulador" };
@@ -1070,9 +1077,11 @@ export function apiPathToSubmodule(
   if (pathname.startsWith("/api/crm/installations")) return { module: "crm", submodule: "installations" };
   if (pathname.startsWith("/api/crm/contacts")) return { module: "crm", submodule: "contacts" };
   if (pathname.startsWith("/api/crm/deals")) return { module: "crm", submodule: "deals" };
-  // Docs
+  // Docs — orden importa: rutas más específicas primero
   if (pathname === "/api/templates" || pathname.startsWith("/api/templates/"))
-    return { module: "docs", submodule: "gestion" };
+    return { module: "docs", submodule: "plantillas" };
+  if (pathname.startsWith("/api/docs/templates"))
+    return { module: "docs", submodule: "plantillas" };
   if (pathname.startsWith("/api/docs/")) return { module: "docs", submodule: "gestion" };
   // Payroll
   if (pathname.startsWith("/api/payroll/simulator")) return { module: "payroll", submodule: "simulador" };

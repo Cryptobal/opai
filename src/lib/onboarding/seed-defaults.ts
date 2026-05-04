@@ -24,6 +24,30 @@ export type EnsureDefaultPlaybookResult = {
 };
 
 /**
+ * Defensive guard: la migration `20260721000000_add_default_assignee_to_ops_ticket_types`
+ * agrega la columna `default_assigned_to_user_id`. En algunos despliegues la
+ * migration no quedó aplicada y Prisma falla con P2022. Usamos `IF NOT EXISTS`
+ * para ser idempotente y no romper si ya está aplicada.
+ */
+let columnGuardApplied = false;
+async function ensureOpsTicketTypeColumns(): Promise<void> {
+  if (columnGuardApplied) return;
+  try {
+    await prisma.$executeRawUnsafe(
+      `ALTER TABLE "ops"."ops_ticket_types" ADD COLUMN IF NOT EXISTS "default_assigned_to_user_id" TEXT`,
+    );
+    await prisma.$executeRawUnsafe(
+      `CREATE INDEX IF NOT EXISTS "idx_ops_ticket_types_default_assignee" ON "ops"."ops_ticket_types" ("default_assigned_to_user_id")`,
+    );
+    columnGuardApplied = true;
+  } catch (err) {
+    // No bloqueamos la operación si la verificación falla por permisos: la
+    // migration normal se encarga del estado correcto.
+    console.warn("[onboarding] ensureOpsTicketTypeColumns: skip", err);
+  }
+}
+
+/**
  * Asegura que el tenant tenga los 6 OpsTicketType del onboarding y un
  * OnboardingPlaybook default ("Estándar" v1) con sus 6 steps.
  * Idempotente: si ya existe, no duplica.
@@ -34,6 +58,8 @@ export async function ensureDefaultPlaybook(
   if (!tenantId) {
     throw new Error("ensureDefaultPlaybook: tenantId is required");
   }
+
+  await ensureOpsTicketTypeColumns();
 
   return prisma.$transaction(async (tx) => {
     let ticketTypesCreated = 0;

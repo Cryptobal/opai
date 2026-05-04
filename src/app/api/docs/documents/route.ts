@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbidden = await requireDocsView(ctx);
+    const forbidden = await requireDocsView(ctx, "gestion");
     if (forbidden) return forbidden;
 
     const { searchParams } = new URL(request.url);
@@ -138,7 +138,7 @@ export async function POST(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbidden = await requireDocsEdit(ctx);
+    const forbidden = await requireDocsEdit(ctx, "gestion");
     if (forbidden) return forbidden;
 
     const parsed = await parseBody(request, createDocumentSchema);
