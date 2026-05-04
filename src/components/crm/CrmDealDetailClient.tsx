@@ -39,6 +39,7 @@ import { ContractEditor } from "@/components/docs/ContractEditor";
 import { EntityDetailLayout, useEntityTabs, type EntityTab, type EntityHeaderAction } from "./EntityDetailLayout";
 import { DetailField } from "./DetailField";
 import { CrmRelatedRecordCard, CrmRelatedRecordGrid } from "./CrmRelatedRecordCard";
+import { AssociatedTicketsSection } from "./AssociatedTicketsSection";
 import { CrmInstallationsClient } from "./CrmInstallationsClient";
 import { CrmSectionCreateButton } from "./CrmSectionCreateButton";
 import { CreateQuoteModal } from "@/components/cpq/CreateQuoteModal";
@@ -1853,6 +1854,13 @@ export function CrmDealDetailClient({
           )}
         </div>
       ),
+    },
+    {
+      id: "tickets",
+      label: "Tickets",
+      icon: TicketIcon,
+      onAdd: () => router.push(`/ops/tickets?createForDealId=${deal.id}`),
+      content: <AssociatedTicketsSection filterKey="dealId" filterValue={deal.id} />,
     },
   ];
 

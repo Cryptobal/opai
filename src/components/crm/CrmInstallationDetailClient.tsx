@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useRegisterChatPageContext } from "@/components/opai/ChatPageContextProvider";
-import { MapPin, ExternalLink, Trash2, Pencil, Loader2, LayoutGrid, Plus, QrCode, Copy, RefreshCw, Moon, UserPlus, UserMinus, Search, CalendarDays, AlertTriangle, Info, Users, Briefcase, FileText, ClipboardList, Shield, ShieldAlert, ShieldCheck, Receipt, Package, UserCircle, BookOpen, History, MessageCircle, Route, Fingerprint, Clock, FileCheck, ChevronDown, Power } from "lucide-react";
+import { MapPin, ExternalLink, Trash2, Pencil, Loader2, LayoutGrid, Plus, QrCode, Copy, RefreshCw, Moon, UserPlus, UserMinus, Search, CalendarDays, AlertTriangle, Info, Users, Briefcase, FileText, ClipboardList, Shield, ShieldAlert, ShieldCheck, Receipt, Package, UserCircle, BookOpen, History, MessageCircle, Route, Fingerprint, Clock, FileCheck, ChevronDown, Power, Ticket as TicketIcon } from "lucide-react";
 import { InstalacionRondasTab } from "./InstalacionRondasTab";
 import { InstalacionMarcacionesTab } from "@/components/ops/InstalacionMarcacionesTab";
 import { PuestoFormModal, type PuestoFormData } from "@/components/shared/PuestoFormModal";
@@ -28,6 +28,7 @@ import { EmptyState, Tag, type TagVariant } from "@/components/opai-ds";
 import { EntityDetailLayout, useEntityTabs, type EntityTab, type EntityHeaderAction } from "./EntityDetailLayout";
 import { DetailField } from "./DetailField";
 import { CrmRelatedRecordCard, CrmRelatedRecordGrid } from "./CrmRelatedRecordCard";
+import { AssociatedTicketsSection } from "./AssociatedTicketsSection";
 import { CRM_MODULES } from "./CrmModuleIcons";
 import { getQuoteStatus } from "@/lib/quoteStatus";
 import { FileAttachments } from "./FileAttachments";
@@ -2480,6 +2481,19 @@ export function CrmInstallationDetailClient({
       count: installation.quotesInstalacion?.length ?? 0,
       content: quotesContent,
       onAdd: installation.account?.id ? () => setQuoteModalOpen(true) : undefined,
+    },
+    {
+      id: "tickets",
+      label: "Tickets",
+      icon: TicketIcon,
+      onAdd: () => router.push(`/ops/tickets?createForInstallationId=${installation.id}`),
+      content: (
+        <AssociatedTicketsSection
+          filterKey="installationId"
+          filterValue={installation.id}
+          prefillInstallationId={installation.id}
+        />
+      ),
     },
     {
       id: "refuerzos",

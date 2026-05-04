@@ -24,6 +24,7 @@ import { OnboardingAccountBanner } from "@/components/crm/onboarding/OnboardingA
 import { OnboardingClientModal } from "@/components/crm/onboarding/OnboardingClientModal";
 import { DetailField } from "./DetailField";
 import { CrmRelatedRecordCard, CrmRelatedRecordGrid } from "./CrmRelatedRecordCard";
+import { AssociatedTicketsSection } from "./AssociatedTicketsSection";
 import { CRM_MODULES } from "./CrmModuleIcons";
 import {
   MapPin,
@@ -926,6 +927,13 @@ export function CrmAccountDetailClient({
           )}
         </div>
       ),
+    },
+    {
+      id: "tickets",
+      label: "Tickets",
+      icon: TicketIcon,
+      onAdd: () => router.push(`/ops/tickets?createForAccountId=${account.id}`),
+      content: <AssociatedTicketsSection filterKey="accountId" filterValue={account.id} />,
     },
     {
       id: "rendiciones",
