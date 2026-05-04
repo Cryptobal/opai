@@ -80,7 +80,7 @@ export function ModuleAccordion({
         <div className="divide-y divide-border/50">
           {Array.from(categories.entries()).map(([category, list]) => (
             <div key={category}>
-              <div className="px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground bg-muted/10">
+              <div className="px-4 py-1.5 text-[11px] font-mono font-semibold uppercase tracking-[0.08em] text-ds-text-4 bg-muted/10">
                 {category}
               </div>
               {list.map((t) => {
