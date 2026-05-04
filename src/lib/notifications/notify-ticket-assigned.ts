@@ -73,7 +73,7 @@ export async function notifyTicketAssigned(params: {
       title: `Ticket asignado: ${ticketCode} — ${ticketTitle}`,
       body: bellMessage,
       emailBody,
-      link: `/opai/ops/tickets/${ticketId}`,
+      link: `/ops/tickets/${ticketId}`,
       data: { ticketId, code: ticketCode, priority: ticketPriority, source },
     });
   } catch (err) {

@@ -134,7 +134,7 @@ export async function GET(request: NextRequest) {
           type: "ticket_sla_breached_batch",
           title,
           body: message,
-          link: `/opai/ops/tickets?status=overdue`,
+          link: `/ops/tickets?status=overdue`,
           data: {
             count: total,
             ticketIds: tickets.map((t) => t.id),

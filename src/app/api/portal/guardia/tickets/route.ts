@@ -201,7 +201,7 @@ export async function POST(request: NextRequest) {
           targetType: "ADMIN",
           title: `Nuevo ticket portal: ${ticket.code} - ${title}`,
           body: `Tipo: ${ticketType.name} · Origen: Portal del guardia${needsApproval ? " · Pendiente de aprobación" : ""}`,
-          link: `/opai/ops/tickets/${ticket.id}`,
+          link: `/ops/tickets/${ticket.id}`,
           data: { ticketId: ticket.id, code: ticket.code, source: "portal" },
         });
       }

@@ -120,6 +120,17 @@ const TYPE_MODULE_FALLBACK: Record<string, string> = {
   ticket_mention: "operaciones",
 };
 
+// Compatibilidad: notificaciones antiguas se generaron con el prefijo
+// /opai/ops/tickets/... que no es una ruta real (la ruta es /ops/tickets/...).
+// Reescribimos el link al hacer click para que siga funcionando con el
+// histórico ya almacenado en BD.
+function normalizeNotificationLink(link: string): string {
+  if (link.startsWith("/opai/ops/tickets")) {
+    return link.replace(/^\/opai\/ops\/tickets/, "/ops/tickets");
+  }
+  return link;
+}
+
 const MODULE_LABELS: Record<string, string> = {
   lead: "Lead",
   negocio: "Negocio",
@@ -379,7 +390,7 @@ export function NotificationListClient() {
   const handleClick = (n: NotificationItem) => {
     if (!n.read) void setOneReadState(n.id, true);
     if (n.link) {
-      router.push(n.link);
+      router.push(normalizeNotificationLink(n.link));
     }
   };
 

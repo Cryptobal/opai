@@ -829,46 +829,48 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
           <p className="text-[12px] font-medium uppercase tracking-wider text-muted-foreground">
             Controles SLA
           </p>
-          <div className="flex flex-wrap gap-2">
+          {/* En mobile mantenemos los 3 botones en una sola fila usando
+              flex-nowrap + min-w-0; los textos se truncan si hace falta. */}
+          <div className="flex flex-nowrap items-center gap-1.5 sm:flex-wrap sm:gap-2">
             {/* Extend SLA */}
             <Button
               variant="outline"
               size="sm"
-              className="h-8 text-xs gap-1"
+              className="h-8 min-w-0 flex-1 px-2 text-xs gap-1 sm:flex-none sm:px-3"
               onClick={() => setShowExtendModal(true)}
             >
-              <Calendar className="h-3 w-3" />
-              Aplazar SLA
+              <Calendar className="h-3 w-3 shrink-0" />
+              <span className="truncate">Aplazar SLA</span>
             </Button>
 
             {/* Pause / Resume SLA */}
             <Button
               variant="outline"
               size="sm"
-              className={`h-8 text-xs gap-1 ${ticket.slaPausedAt ? "border-status-warn-border text-status-warn-fg" : ""}`}
+              className={`h-8 min-w-0 flex-1 px-2 text-xs gap-1 sm:flex-none sm:px-3 ${ticket.slaPausedAt ? "border-status-warn-border text-status-warn-fg" : ""}`}
               disabled={pauseLoading}
               onClick={handleTogglePause}
             >
               {pauseLoading ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
+                <Loader2 className="h-3 w-3 shrink-0 animate-spin" />
               ) : ticket.slaPausedAt ? (
-                <Play className="h-3 w-3" />
+                <Play className="h-3 w-3 shrink-0" />
               ) : (
-                <Pause className="h-3 w-3" />
+                <Pause className="h-3 w-3 shrink-0" />
               )}
-              {ticket.slaPausedAt ? "Reanudar SLA" : "Pausar SLA"}
+              <span className="truncate">{ticket.slaPausedAt ? "Reanudar SLA" : "Pausar SLA"}</span>
             </Button>
 
             {/* Snooze notifications */}
-            <div className="relative">
+            <div className="relative min-w-0 flex-1 sm:flex-none">
               <Button
                 variant="outline"
                 size="sm"
-                className="h-8 text-xs gap-1"
+                className="h-8 w-full min-w-0 px-2 text-xs gap-1 sm:w-auto sm:px-3"
                 onClick={() => setShowSnoozeMenu(!showSnoozeMenu)}
               >
-                <BellOff className="h-3 w-3" />
-                Silenciar avisos
+                <BellOff className="h-3 w-3 shrink-0" />
+                <span className="truncate">Silenciar avisos</span>
               </Button>
               {showSnoozeMenu && (
                 <div className="absolute top-full left-0 mt-1 z-50 w-48 rounded-xl border border-border bg-popover shadow-md">
@@ -2454,7 +2456,7 @@ function TicketLinksCard({
                 key={it.id}
                 className="group flex items-center gap-2 rounded-md border border-border/60 bg-background/40 px-2.5 py-1.5"
               >
-                <span className="rounded-full bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
+                <span className="rounded-full bg-muted px-1.5 py-0.5 text-[12px] font-medium text-muted-foreground">
                   {label}
                 </span>
                 <button

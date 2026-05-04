@@ -136,7 +136,12 @@ export function NotificationBell({ compact = false }: { compact?: boolean }) {
     if (!notification.read) void handleMarkOneRead(notification.id);
     if (notification.link) {
       setOpen(false);
-      router.push(notification.link);
+      // Compat con notificaciones antiguas que se guardaron con /opai/ops/tickets
+      // (ruta inexistente; la real es /ops/tickets).
+      const link = notification.link.startsWith("/opai/ops/tickets")
+        ? notification.link.replace(/^\/opai\/ops\/tickets/, "/ops/tickets")
+        : notification.link;
+      router.push(link);
     }
   };
 

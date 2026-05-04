@@ -309,7 +309,12 @@ export function NotificationSidePanel() {
       if (!n.read) void setOneReadState(n.id, true);
       if (n.link) {
         ctx.closePanel();
-        router.push(n.link);
+        // Compat con notificaciones antiguas que apuntaban a /opai/ops/tickets
+        // (ruta inexistente; la real es /ops/tickets).
+        const link = n.link.startsWith("/opai/ops/tickets")
+          ? n.link.replace(/^\/opai\/ops\/tickets/, "/ops/tickets")
+          : n.link;
+        router.push(link);
       }
     },
     [setOneReadState, router, ctx]

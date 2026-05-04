@@ -306,7 +306,7 @@ export async function POST(
         targetType: "ADMIN",
         title: notifTitle,
         body: notifMessage,
-        link: `/opai/ops/tickets/${ticketId}`,
+        link: `/ops/tickets/${ticketId}`,
         data: { ticketId, code: ticket.code, decision, step: currentApproval.stepLabel },
       });
 
