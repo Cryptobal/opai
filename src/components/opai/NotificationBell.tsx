@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Bell, CheckCheck, ExternalLink, Circle, MessageSquare, Trash2, Settings2 } from 'lucide-react';
+import { Bell, CheckCheck, ExternalLink, Circle, MessageSquare, Trash2 } from 'lucide-react';
+import { NotifConfigShortcut } from '@/components/notifications/NotifConfigShortcut';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -194,6 +195,7 @@ export function NotificationBell({ compact = false }: { compact?: boolean }) {
             )}
           </div>
           <div className="flex items-center gap-1">
+            <NotifConfigShortcut onClick={() => setOpen(false)} />
             <Button
               variant="ghost"
               size="sm"
@@ -201,7 +203,7 @@ export function NotificationBell({ compact = false }: { compact?: boolean }) {
               onClick={() => { setOpen(false); router.push('/opai/notificaciones'); }}
               title="Ver todas las notificaciones"
             >
-              <Settings2 className="h-3.5 w-3.5" />
+              <ExternalLink className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Ver todas</span>
             </Button>
             {unreadCount > 0 && (
