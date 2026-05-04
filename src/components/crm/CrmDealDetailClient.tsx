@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Loader2, ExternalLink, Trash2, FileText, Mail, ChevronRight, ChevronDown, Send, MessageSquare, Star, X, Clock3, MapPin, MoreHorizontal, Check, AlertCircle, Pause, Play, RotateCcw, XCircle, Settings2, Pencil, Info, Users, Briefcase, CalendarClock, Phone, Link2, History, Copy, Building2 } from "lucide-react";
+import { Loader2, ExternalLink, Trash2, FileText, Mail, ChevronRight, ChevronDown, Send, MessageSquare, Star, X, Clock3, MapPin, MoreHorizontal, Check, AlertCircle, Pause, Play, RotateCcw, XCircle, Settings2, Pencil, Info, Users, Briefcase, CalendarClock, Phone, Link2, History, Copy, Building2, ListChecks, Ticket as TicketIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -39,6 +39,7 @@ import { ContractEditor } from "@/components/docs/ContractEditor";
 import { EntityDetailLayout, useEntityTabs, type EntityTab, type EntityHeaderAction } from "./EntityDetailLayout";
 import { DetailField } from "./DetailField";
 import { CrmRelatedRecordCard, CrmRelatedRecordGrid } from "./CrmRelatedRecordCard";
+import { AssociatedTicketsSection } from "./AssociatedTicketsSection";
 import { CrmInstallationsClient } from "./CrmInstallationsClient";
 import { CrmSectionCreateButton } from "./CrmSectionCreateButton";
 import { CreateQuoteModal } from "@/components/cpq/CreateQuoteModal";
@@ -1109,11 +1110,33 @@ export function CrmDealDetailClient({
       if (payload.data?.serviceStartDate) {
         setDealServiceStartDate(payload.data.serviceStartDate);
       }
+      const willOpenOnboarding =
+        !!(payload?.requiresOnboarding && payload?.defaultPlaybookId) ||
+        !!payload?.existingOnboarding?.id;
       if (payload?.requiresOnboarding && payload?.defaultPlaybookId) {
         setOnboardingTarget({
           dealId: deal.id,
           defaultPlaybookId: payload.defaultPlaybookId,
         });
+      } else if (
+        payload?.existingOnboarding?.id &&
+        payload?.existingOnboarding?.accountId
+      ) {
+        const accountId = payload.existingOnboarding.accountId as string;
+        const onboardingId = payload.existingOnboarding.id as string;
+        toast.success("Negocio ganado. Onboarding ya iniciado.", {
+          action: {
+            label: "Ver onboarding",
+            onClick: () =>
+              router.push(
+                `/crm/accounts/${accountId}/onboarding/${onboardingId}`,
+              ),
+          },
+          duration: 8000,
+        });
+      }
+      if (!willOpenOnboarding) {
+        toast.success("Etapa actualizada");
       }
       if (payload?.deactivationCandidate?.installationId) {
         setDeactivationDialog({
@@ -1122,7 +1145,6 @@ export function CrmDealDetailClient({
             payload.deactivationCandidate.installationName ?? "Instalación",
         });
       }
-      toast.success("Etapa actualizada");
     } catch (error) {
       console.error(error);
       setCurrentStage(snapshot);
@@ -1845,6 +1867,13 @@ export function CrmDealDetailClient({
         </div>
       ),
     },
+    {
+      id: "tickets",
+      label: "Tickets",
+      icon: TicketIcon,
+      onAdd: () => router.push(`/ops/tickets?createForDealId=${deal.id}`),
+      content: <AssociatedTicketsSection filterKey="dealId" filterValue={deal.id} />,
+    },
   ];
 
   // ── Tab state & definitions ──
@@ -1864,8 +1893,37 @@ export function CrmDealDetailClient({
     { id: "activity", label: "Actividad", icon: History, count: activityEvents.length },
   ];
 
+  const handleOpenOnboarding = async () => {
+    try {
+      const res = await fetch(`/api/onboarding/by-deal?dealId=${deal.id}`);
+      const json = await res.json();
+      if (!res.ok || !json?.success) {
+        toast.error("No se pudo cargar el onboarding");
+        return;
+      }
+      if (json.data.exists) {
+        router.push(
+          `/crm/accounts/${json.data.onboarding.accountId}/onboarding/${json.data.onboarding.id}`,
+        );
+      } else {
+        setOnboardingTarget({
+          dealId: deal.id,
+          defaultPlaybookId: json.data.defaultPlaybookId,
+        });
+      }
+    } catch {
+      toast.error("No se pudo cargar el onboarding");
+    }
+  };
+
   const headerActions: EntityHeaderAction[] = [
     { label: "Editar negocio", icon: Pencil, onClick: openDealEdit, primary: true },
+    {
+      label: "Onboarding del cliente",
+      icon: ListChecks,
+      onClick: handleOpenOnboarding,
+      hidden: deal.status !== "won",
+    },
     { label: "Enviar correo", icon: Mail, onClick: () => setEmailOpen(true), hidden: !gmailConnected },
     { label: "Eliminar negocio", icon: Trash2, onClick: () => setDeleteConfirm(true), variant: "destructive" },
   ];
