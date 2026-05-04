@@ -1,5 +1,9 @@
 /**
  * Global toast host (Sonner) — liquid-glass + mobile-aware positioning
+ *
+ * `expand` se mantiene en true para que las toasts se apilen como lista
+ * vertical (en lugar de superponerse en abanico). Las nuevas toasts empujan
+ * a las anteriores hacia arriba con animación.
  */
 "use client";
 
@@ -16,15 +20,18 @@ export function Toaster() {
       position={isMobile ? "bottom-center" : "bottom-right"}
       closeButton
       expand
-      gap={8}
-      visibleToasts={3}
+      gap={12}
+      visibleToasts={5}
       duration={4000}
       offset={isMobile ? "calc(env(safe-area-inset-bottom) + 80px)" : "16px"}
       toastOptions={{
         unstyled: false,
+        // `opai-toast` se define en globals.css y reemplaza al glass altamente
+        // translúcido para evitar que múltiples toasts se fundan visualmente
+        // entre sí cuando se apilan.
         classNames: {
           toast:
-            "!opai-liquid-glass !text-foreground !rounded-2xl !p-4 !shadow-2xl !border !border-white/12",
+            "!opai-toast !text-foreground !rounded-2xl !p-4 !shadow-2xl !border",
           description: "!text-muted-foreground",
           actionButton:
             "!opai-liquid-glass-button !text-white !rounded-full !px-3 !py-1.5 !text-xs !font-medium !ml-auto",
