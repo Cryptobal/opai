@@ -29,6 +29,7 @@ import { useIsIOS } from "@/hooks/usePlatform";
 import { useChatSidePanelContext, type ChatSidePanelChannel, type NotifPreference } from "./ChatFloatingProvider";
 import { ChatConversation } from "./ChatConversation";
 import { NewExternalChatModal } from "./NewExternalChatModal";
+import { ChatNewDmModal } from "./ChatNewDmModal";
 import { usePusher } from "./hooks/usePusher";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
@@ -38,8 +39,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
-type AdminUser = { id: string; name: string; email: string };
 
 /* ─── Side Panel Component ─── */
 
@@ -92,14 +91,12 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
     group: true,
     installation_reportes: true,
     installation_interno: true,
-    users: true,
     prospects: true,
     clients: true,
     archived: true,
   });
   const [channelToDelete, setChannelToDelete] = useState<string | null>(null);
-  const [allUsers, setAllUsers] = useState<AdminUser[]>([]);
-  const [creatingDmFor, setCreatingDmFor] = useState<string | null>(null);
+  const [showNewDm, setShowNewDm] = useState(false);
   const [newChatModal, setNewChatModal] = useState<{ open: boolean; defaultStatus?: "prospect" | "client_active" }>({ open: false });
   const [panelEntered, setPanelEntered] = useState(false);
   const [panelClosing, setPanelClosing] = useState(false);
@@ -133,15 +130,6 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
     }
     prevPanelOpen.current = ctx.isPanelOpen;
   }, [ctx.isPanelOpen, ctx.totalUnread]);
-
-  // Fetch all users once for the "Usuarios" section
-  useEffect(() => {
-    if (!ctx.isPanelOpen || allUsers.length > 0) return;
-    fetch("/api/chat/mentions/users")
-      .then((r) => r.ok ? r.json() : null)
-      .then((json) => { if (json?.success) setAllUsers(json.data); })
-      .catch(() => {});
-  }, [ctx.isPanelOpen, allUsers.length]);
 
   // Derived external channels
   const prospectChannels = ctx.channels.filter(
@@ -205,8 +193,8 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
     return ch.name;
   }, []);
 
-  // Filter and section channels + users
-  const { directChannels, groupChannels, installationReportesChannels, filteredUsers, filteredTotal } = useMemo(() => {
+  // Filter and section channels
+  const { directChannels, groupChannels, installationReportesChannels, filteredTotal } = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
     const filtered = q
       ? ctx.channels.filter((ch) => {
@@ -217,58 +205,21 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
         })
       : ctx.channels;
 
-    // Filter users by search (exclude users who already have a DM channel)
-    const existingDmUserIds = new Set(
-      ctx.channels
-        .filter((ch) => ch.channelType === "DIRECT" && ch.dmParticipant)
-        .map((ch) => ch.dmParticipant!.id)
-    );
-    const usersToShow = q
-      ? allUsers.filter((u) =>
-          !existingDmUserIds.has(u.id) &&
-          (u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q))
-        )
-      : allUsers.filter((u) => !existingDmUserIds.has(u.id));
-
     const applyUnread = (list: typeof filtered) => filter === "unread" ? list.filter(ch => ch.unreadCount > 0 && ch.notificationPreference !== "MUTED") : list;
 
     return {
       directChannels: applyUnread(filtered.filter((ch) => ch.channelType === "DIRECT")),
       groupChannels: applyUnread(filtered.filter((ch) => ch.channelType === "GROUP")),
       installationReportesChannels: applyUnread(filtered.filter((ch) => ch.channelType === "INSTALLATION" && ch.subType !== "interno")),
-      filteredUsers: filter === "unread" ? [] : usersToShow,
-      filteredTotal: filtered.length + (q ? usersToShow.length : 0),
+      filteredTotal: filtered.length,
     };
-  }, [ctx.channels, searchQuery, getChannelDisplayName, allUsers, filter]);
+  }, [ctx.channels, searchQuery, getChannelDisplayName, filter]);
 
   const isSearching = searchQuery.trim().length > 0;
 
   const toggleSection = useCallback((key: string) => {
     setCollapsedSections((prev) => ({ ...prev, [key]: !prev[key] }));
   }, []);
-
-  // Create DM from user click
-  const handleStartDm = useCallback(async (user: AdminUser) => {
-    if (creatingDmFor) return;
-    setCreatingDmFor(user.id);
-    try {
-      const res = await fetch("/api/chat/dms", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ targetAdminId: user.id }),
-      });
-      if (!res.ok) throw new Error("Failed to create DM");
-      const json = await res.json();
-      if (json.success) {
-        await ctx.refreshChannels();
-        ctx.selectChannel(json.data.id);
-      }
-    } catch (err) {
-      console.error("[ChatSidePanel] create DM error:", err);
-    } finally {
-      setCreatingDmFor(null);
-    }
-  }, [creatingDmFor, ctx]);
 
   // Build auto-context prefix for first message
   const getAutoContextPrefix = useCallback(() => {
@@ -368,7 +319,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
             <p className="text-sm font-medium text-muted-foreground">Todo al día</p>
             <p className="text-[11px] text-muted-foreground/60">No tienes mensajes sin leer</p>
           </div>
-        ) : filteredTotal === 0 && filteredUsers.length === 0 ? (
+        ) : filteredTotal === 0 ? (
           <div className="flex flex-col items-center gap-1.5 py-10 text-center px-4">
             <MessageCircle className="h-8 w-8 text-muted-foreground/20" />
             <p className="text-xs text-muted-foreground">
@@ -384,8 +335,8 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
           </div>
         ) : (
           <div>
-            {/* Direct Messages */}
-            {directChannels.length > 0 && (
+            {/* Direct Messages — siempre visible para acceder a "+" */}
+            {(filter !== "unread" || directChannels.length > 0) && (
               <ChannelSection
                 label="Mensajes directos"
                 icon={<MessageCircle className="h-3.5 w-3.5 text-status-info-fg" />}
@@ -397,6 +348,8 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
                 onMarkAsRead={ctx.markChannelAsRead}
                 onUpdateNotifPref={ctx.updateChannelNotifPref}
                 onApplySectionNotifPref={applySectionNotifPref}
+                onNewChat={() => setShowNewDm(true)}
+                emptyHint="Sin mensajes directos. Toca + para iniciar uno."
               />
             )}
 
@@ -495,16 +448,6 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
               />
             )}
 
-            {/* Users (for starting DMs) */}
-            {filteredUsers.length > 0 && filter !== "unread" && (
-              <UserSection
-                users={filteredUsers}
-                collapsed={isSearching ? false : !!collapsedSections["users"]}
-                onToggle={() => toggleSection("users")}
-                onSelectUser={handleStartDm}
-                creatingDmFor={creatingDmFor}
-              />
-            )}
           </div>
         )}
       </div>
@@ -704,6 +647,17 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
           ctx.selectChannel(channelId);
         }}
       />
+
+      {showNewDm && (
+        <ChatNewDmModal
+          onClose={() => setShowNewDm(false)}
+          onSelectDm={(channelId) => {
+            setShowNewDm(false);
+            ctx.refreshChannels();
+            ctx.selectChannel(channelId);
+          }}
+        />
+      )}
     </>
   );
 }
@@ -998,6 +952,7 @@ function ChannelSection({
   onMarkAsRead,
   onUpdateNotifPref,
   onApplySectionNotifPref,
+  emptyHint,
 }: {
   label: string;
   icon: React.ReactNode;
@@ -1015,6 +970,7 @@ function ChannelSection({
   onMarkAsRead?: (channelId: string) => void;
   onUpdateNotifPref?: (channelId: string, pref: NotifPreference) => void;
   onApplySectionNotifPref?: (channelIds: string[], preference: NotifPreference) => Promise<void>;
+  emptyHint?: string;
 }) {
   const sectionUnread = channels.reduce((sum, ch) => sum + (ch.notificationPreference === 'ALL' ? ch.unreadCount : 0), 0);
   const sectionPref = sectionNotifMode(channels);
@@ -1109,7 +1065,12 @@ function ChannelSection({
           )}
         </div>
       </div>
-      {!collapsed && (
+      {!collapsed && channels.length === 0 && emptyHint && (
+        <div className="px-4 py-3 text-[11px] text-muted-foreground/60 opai-chat-mobile-section-body">
+          {emptyHint}
+        </div>
+      )}
+      {!collapsed && channels.length > 0 && (
         <div className="divide-y divide-border/20 opai-chat-mobile-channel-stack opai-chat-mobile-section-body">
           {channels.map((ch) => {
             const hasMenu = onArchive || onUnarchive || (canDelete && onDelete) || onMarkAsRead || onUpdateNotifPref;
@@ -1198,79 +1159,6 @@ function ChannelSection({
               </div>
             );
           })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ─── User Section (for starting DMs) ─── */
-
-function UserSection({
-  users,
-  collapsed,
-  onToggle,
-  onSelectUser,
-  creatingDmFor,
-}: {
-  users: AdminUser[];
-  collapsed: boolean;
-  onToggle: () => void;
-  onSelectUser: (user: AdminUser) => void;
-  creatingDmFor: string | null;
-}) {
-  return (
-    <div className="opai-chat-mobile-section">
-      <div
-        className="flex items-center w-full gap-1 opai-chat-mobile-section-header cursor-pointer"
-        onClick={onToggle}
-      >
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); onToggle(); }}
-          className="flex-1 min-w-0 flex items-center gap-2 px-0 py-0 text-xs font-semibold text-muted-foreground uppercase tracking-wider transition-colors text-left"
-        >
-          {collapsed ? (
-            <ChevronRight className="h-3 w-3 shrink-0" />
-          ) : (
-            <ChevronDown className="h-3 w-3 shrink-0" />
-          )}
-          <Users className="h-3.5 w-3.5 shrink-0" />
-          <span className="truncate text-[13px] font-semibold text-zinc-300">Usuarios</span>
-        </button>
-        <div className="flex shrink-0 items-center gap-1 pr-2">
-          <span className="w-4" />
-          <span className="w-5 text-right text-[10px] font-normal tabular-nums text-muted-foreground/70">
-            {users.length}
-          </span>
-          <span className="w-[18px]" />
-        </div>
-      </div>
-      {!collapsed && (
-        <div className="divide-y divide-border/20 opai-chat-mobile-channel-stack opai-chat-mobile-section-body">
-          {users.map((user) => (
-            <button
-              key={user.id}
-              type="button"
-              onClick={() => onSelectUser(user)}
-              disabled={creatingDmFor === user.id}
-              className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-accent/50 transition-colors text-left disabled:opacity-50"
-            >
-              <div
-                className="h-8 w-8 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-bold"
-                style={{ backgroundColor: "#0d9488" }}
-              >
-                {user.name.charAt(0).toUpperCase()}
-              </div>
-              <div className="flex-1 min-w-0">
-                <span className="text-sm font-medium truncate block">{user.name}</span>
-                <span className="text-[10px] text-muted-foreground/70 truncate block">{user.email}</span>
-              </div>
-              {creatingDmFor === user.id && (
-                <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground shrink-0" />
-              )}
-            </button>
-          ))}
         </div>
       )}
     </div>
