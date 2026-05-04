@@ -242,7 +242,40 @@ export async function POST(
       }
     }
 
-    return NextResponse.json({ success: true, data: updatedDeal });
+    // Onboarding del cliente: si el deal pasó a won, asegurar el playbook
+    // default del tenant y reportar si requiere onboarding (no creado aún).
+    let onboardingMeta:
+      | { requiresOnboarding: true; defaultPlaybookId: string }
+      | { existingOnboarding: { id: string; status: string } }
+      | null = null;
+    if (nextStatus === "won") {
+      try {
+        const { ensureDefaultPlaybook } = await import(
+          "@/lib/onboarding/seed-defaults"
+        );
+        const seed = await ensureDefaultPlaybook(ctx.tenantId);
+        const existing = await prisma.clientOnboarding.findUnique({
+          where: { dealId: updatedDeal.id },
+          select: { id: true, status: true },
+        });
+        if (existing) {
+          onboardingMeta = { existingOnboarding: existing };
+        } else {
+          onboardingMeta = {
+            requiresOnboarding: true,
+            defaultPlaybookId: seed.playbookId,
+          };
+        }
+      } catch (e) {
+        console.error("[onboarding] ensure on deal won failed:", e);
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: updatedDeal,
+      ...(onboardingMeta ?? {}),
+    });
   } catch (error) {
     console.error("Error updating CRM deal stage:", error);
     return NextResponse.json(
