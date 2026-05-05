@@ -6,8 +6,9 @@
 
 import { useState } from "react";
 import { AlertTriangle, Phone, MapPin, Loader2, MessageSquare, MessageCircle } from "lucide-react";
-import { whatsappUrl } from "@/app/(app)/hub/_lib/hub-utils";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { useWaTemplate } from "@/lib/whatsapp/use-wa-template";
 
 export interface PanicAlertData {
   alertaId: string;
@@ -30,6 +31,7 @@ interface PanicFullscreenModalProps {
 
 export function PanicFullscreenModal({ alerts, onResolve }: PanicFullscreenModalProps) {
   const router = useRouter();
+  const { resolve: resolveWaTemplate } = useWaTemplate();
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
   const [notesMap, setNotesMap] = useState<Record<string, string>>({});
   const [errorsMap, setErrorsMap] = useState<Record<string, string>>({});
@@ -179,15 +181,27 @@ export function PanicFullscreenModal({ alerts, onResolve }: PanicFullscreenModal
                   </a>
                 )}
                 {alert.guardiaTelefono && (
-                  <a
-                    href={`${whatsappUrl(alert.guardiaTelefono)}?text=${encodeURIComponent("Alerta de panico recibida. Estamos en contacto.")}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
+                    type="button"
+                    onClick={async (e) => {
+                      e.preventDefault();
+                      try {
+                        const { url } = await resolveWaTemplate({
+                          slug: "ops_panic_response",
+                          entityType: "guardia",
+                          entityId: alert.guardiaId,
+                          phoneOverride: alert.guardiaTelefono ?? undefined,
+                        });
+                        window.open(url, "_blank", "noopener,noreferrer");
+                      } catch {
+                        toast.error("No se pudo generar el mensaje");
+                      }
+                    }}
                     className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-green-700 py-3 text-sm font-bold text-white hover:bg-green-600"
                   >
                     <MessageSquare className="h-4 w-4" />
                     WHATSAPP
-                  </a>
+                  </button>
                 )}
               </div>
               <button
