@@ -7,6 +7,7 @@
 
 import { resend, EMAIL_CONFIG } from "@/lib/resend";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
+import { getEmailBaseUrl, getNotificationPrefsUrl } from "@/lib/emails/site-url";
 
 interface ControlNocturnoEmailData {
   reporteId: string;
@@ -26,6 +27,8 @@ interface ControlNocturnoEmailData {
   };
   /** Base URL del sistema (ej: https://app.example.com) */
   baseUrl: string;
+  /** Tenant slug — usado para construir URLs de subdominio en emails. */
+  tenantSlug?: string | null;
 }
 
 function formatDate(dateStr: string): string {
@@ -56,8 +59,9 @@ function getDeltaSummary(delta: number): { text: string; color: string } {
 }
 
 function buildHtml(data: ControlNocturnoEmailData): string {
-  const baseUrl = (data.baseUrl || process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || "https://opai.gard.cl").replace(/\/+$/, "");
+  const baseUrl = getEmailBaseUrl(data.baseUrl, data.tenantSlug);
   const reportUrl = `${baseUrl}/ops/control-nocturno/${data.reporteId}`;
+  const prefsUrl = getNotificationPrefsUrl(data.tenantSlug);
   const weekDelta = data.snapshot
     ? getDeltaSummary(data.snapshot.week.deltaCumplimiento)
     : { text: "", color: "#475569" };
@@ -188,7 +192,7 @@ function buildHtml(data: ControlNocturnoEmailData): string {
             </p>
             <p style="margin:8px 0 0;font-size:11px;color:#94a3b8;text-align:center">
               ¿No quieres recibir este tipo de alertas?
-              <a href="${baseUrl}/opai/perfil/notificaciones" style="color:#0ea5e9;text-decoration:underline">Administrar notificaciones</a>
+              <a href="${prefsUrl}" style="color:#0ea5e9;text-decoration:underline">Administrar notificaciones</a>
             </p>
           </td>
         </tr>

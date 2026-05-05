@@ -9,6 +9,7 @@
 import { resend, EMAIL_CONFIG } from "@/lib/resend";
 import { prisma } from "@/lib/prisma";
 import { parseMarcacionConfigValue } from "@/lib/ops-marcacion-config";
+import { getNotificationPrefsUrl } from "@/lib/emails/site-url";
 
 interface ComprobanteMarcacion {
   guardiaName: string;
@@ -402,6 +403,12 @@ export async function sendNotificacionFueraDeRango(data: NotificacionFueraDeRang
     return;
   }
 
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: data.tenantId },
+    select: { slug: true },
+  });
+  const prefsUrl = getNotificationPrefsUrl(tenant?.slug ?? null);
+
   const [assignments, extraUsers] = await Promise.all([
     marcacionConfig.emailAlertaFueraRangoIncludeSupervisors
       ? prisma.opsAsignacionSupervisor.findMany({
@@ -570,7 +577,7 @@ export async function sendNotificacionFueraDeRango(data: NotificacionFueraDeRang
         </p>
         <p style="color: #94a3b8; font-size: 10px; margin: 8px 0 0;">
           ¿No quieres recibir este tipo de alertas?
-          <a href="${(process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || "https://opai.gard.cl").replace(/\/$/, "")}/opai/perfil/notificaciones" style="color:#0ea5e9;text-decoration:underline">Administrar notificaciones</a>
+          <a href="${prefsUrl}" style="color:#0ea5e9;text-decoration:underline">Administrar notificaciones</a>
         </p>
       </div>
     </div>

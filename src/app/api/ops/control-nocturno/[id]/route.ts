@@ -7,6 +7,7 @@ import { sendControlNocturnoEmail } from "@/lib/control-nocturno-email";
 import { generateControlNocturnoSummary } from "@/lib/control-nocturno-ai";
 import { generateControlNocturnoPdfBuffer } from "@/lib/control-nocturno-pdf";
 import { getControlNocturnoSnapshot } from "@/lib/control-nocturno-kpis";
+import { getEmailBaseUrl } from "@/lib/emails/site-url";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -368,14 +369,12 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     // Send email on submit or resend (must await: serverless kills fire-and-forget on return)
     if (updated && (action === "submit" || action === "resend")) {
-      const baseUrl =
-        process.env.NEXTAUTH_URL ||
-        process.env.NEXT_PUBLIC_SITE_URL ||
-        process.env.SITE_URL ||
-        process.env.NEXT_PUBLIC_APP_URL ||
-        process.env.NEXT_PUBLIC_BASE_URL ||
-        (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null) ||
-        "https://opai.gard.cl";
+      const tenant = await prisma.tenant.findUnique({
+        where: { id: ctx.tenantId },
+        select: { slug: true },
+      });
+      const tenantSlug = tenant?.slug ?? null;
+      const baseUrl = getEmailBaseUrl(null, tenantSlug);
 
       // Generate AI summary (non-blocking, best-effort)
       const aiSummaryPromise = generateControlNocturnoSummary(
@@ -441,6 +440,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         aiSummary,
         ...(snapshot ? { snapshot } : {}),
         baseUrl,
+        tenantSlug,
         tenantId: ctx.tenantId,
       };
 

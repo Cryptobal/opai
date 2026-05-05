@@ -8,6 +8,7 @@
 
 import { resend } from "@/lib/resend";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
+import { getEmailBaseUrl, getNotificationPrefsUrl } from "@/lib/emails/site-url";
 import type { MonitorTurnoPdfData } from "./monitor-turno-pdf";
 
 // ─── Types ─────────────────────────────────────────────────────────────
@@ -61,6 +62,8 @@ export interface MonitorEmailData {
   operatorComments?: string | null;
   aiSummary: string;
   baseUrl: string;
+  /** Tenant slug — usado para construir URLs de subdominio en emails. */
+  tenantSlug?: string | null;
   // v2 additions
   panicos?: PanicoEmailDetail[];
   panicoStats30d?: { total: number; sinResolucion: number; tiempoPromedioMin: number; peorTiempoMin: number; peorInstalacion: string };
@@ -214,8 +217,9 @@ function buildTop5(summaries: InstallationSummary[] | undefined): string {
 }
 
 function buildHtml(data: MonitorEmailData): string {
-  const baseUrl = (data.baseUrl || process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || "https://opai.gard.cl").replace(/\/+$/, "");
-  const monitorUrl = `${baseUrl}/ops/rondas/monitor`;
+  const baseUrl = getEmailBaseUrl(data.baseUrl, data.tenantSlug);
+  const monitorUrl = `${baseUrl}/ops/rondas/monitoreo`;
+  const prefsUrl = getNotificationPrefsUrl(data.tenantSlug);
   const hasPdf = !!data.pdfData;
 
   return `<!DOCTYPE html>
@@ -284,7 +288,7 @@ function buildHtml(data: MonitorEmailData): string {
     <p style="margin:0;font-size:11px;color:#94a3b8;text-align:center">Sistema OPAI — Reporte generado automáticamente</p>
     <p style="margin:8px 0 0;font-size:11px;color:#94a3b8;text-align:center">
       ¿No quieres recibir este tipo de alertas?
-      <a href="${baseUrl}/opai/perfil/notificaciones" style="color:#0ea5e9;text-decoration:underline">Administrar notificaciones</a>
+      <a href="${prefsUrl}" style="color:#0ea5e9;text-decoration:underline">Administrar notificaciones</a>
     </p>
   </td></tr>
 

@@ -6,6 +6,7 @@ import { requireCrmEdit } from "@/lib/api-auth-crm";
 import { resend, getTenantEmailConfig } from "@/lib/resend";
 import { PortalClienteInviteEmail } from "@/emails/PortalClienteInviteEmail";
 import { requireTenantModule } from '@/lib/require-module';
+import { buildEmailUrl } from "@/lib/emails/site-url";
 
 export async function POST(
   request: NextRequest,
@@ -38,7 +39,11 @@ export async function POST(
       return NextResponse.json({ success: false, error: "El portal no está habilitado o no tiene PIN" }, { status: 400 });
     }
 
-    const portalUrl = `${process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || ""}/portal/cliente`;
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: ctx.tenantId },
+      select: { slug: true },
+    });
+    const portalUrl = buildEmailUrl("/portal/cliente", tenant?.slug ?? null);
     const ejecutivo = await prisma.admin.findUnique({
       where: { id: ctx.userId },
       select: { name: true },

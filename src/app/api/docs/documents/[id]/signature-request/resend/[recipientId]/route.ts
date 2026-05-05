@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, resolveApiPerms, unauthorized } from "@/lib/api-auth";
 import { canDelete } from "@/lib/permissions";
 import { sendSignatureReminderEmail } from "@/lib/docs-signature-email";
+import { getCanonicalSiteUrl } from "@/lib/emails/site-url";
 
 function forbidden() {
   return NextResponse.json({ success: false, error: "No autorizado para esta acción" }, { status: 403 });
@@ -73,7 +74,7 @@ export async function POST(
       );
     }
 
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || process.env.NEXT_PUBLIC_APP_URL || "";
+    const siteUrl = getCanonicalSiteUrl();
     const signingUrl = `${siteUrl}/sign/${recipient.token}`;
     const emailResult = await sendSignatureReminderEmail({
       to: recipient.email,

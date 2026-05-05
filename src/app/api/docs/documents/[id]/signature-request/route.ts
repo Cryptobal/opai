@@ -12,6 +12,7 @@ import { createSignatureRequestSchema } from "@/lib/validations/docs";
 import { canDelete } from "@/lib/permissions";
 import type { RolePermissions } from "@/lib/permissions";
 import { sendSignatureRequestEmail } from "@/lib/docs-signature-email";
+import { getCanonicalSiteUrl } from "@/lib/emails/site-url";
 
 function forbidden() {
   return NextResponse.json({ success: false, error: "No autorizado para esta acción" }, { status: 403 });
@@ -208,7 +209,7 @@ export async function POST(
     });
 
     if (created) {
-      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || process.env.NEXT_PUBLIC_APP_URL || "";
+      const siteUrl = getCanonicalSiteUrl();
       const signerOrders = created.recipients
         .filter((r) => r.role === "signer")
         .map((r) => r.signingOrder);

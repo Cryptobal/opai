@@ -41,6 +41,22 @@ export function getTenantSiteUrl(tenantSlug?: string | null): string {
 }
 
 /**
+ * Base URL para emails enviados desde código que no usa templates React.
+ * Acepta un override explícito (ej. `request.headers.get('origin')`) y por
+ * último cae al canónico — NUNCA al obsoleto opai.gard.cl.
+ */
+export function getEmailBaseUrl(
+  override?: string | null,
+  tenantSlug?: string | null,
+): string {
+  if (override && /^https?:\/\//.test(override)) {
+    const cleaned = override.replace(/\/+$/, "");
+    if (!/(\.|^)gard\.cl(\/|$)/.test(cleaned)) return cleaned;
+  }
+  return getTenantSiteUrl(tenantSlug);
+}
+
+/**
  * Resuelve URL absoluta para un link relativo dentro de un email.
  * - Si link ya es http(s), se devuelve tal cual.
  * - Si es ruta absoluta (/...) y hay tenantSlug, se prefija con subdomain del tenant.
