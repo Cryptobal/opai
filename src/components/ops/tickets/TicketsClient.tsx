@@ -1778,24 +1778,33 @@ function TicketCreateForm({
   const [guardiaOptions, setGuardiaOptions] = useState<SearchableOption[]>([]);
   const [guardiaSearchLoading, setGuardiaSearchLoading] = useState(false);
 
-  // ── Client (CrmContact + CrmInstallation) ──
-  const [contactOptions, setContactOptions] = useState<
+  // ── Client (CrmInstallation + CrmContact) ──
+  // Flujo: primero se elige instalación activa; luego se listan los contactos
+  // (con email) de la cuenta dueña de esa instalación.
+  const [installationOptions, setInstallationOptions] = useState<
     Array<{
       id: string;
       label: string;
       description?: string;
       accountId: string;
+    }>
+  >([]);
+  const [installationsLoading, setInstallationsLoading] = useState(false);
+  const [installationId, setInstallationId] = useState("");
+  const [contactOptions, setContactOptions] = useState<
+    Array<{
+      id: string;
+      label: string;
+      description?: string;
       email: string | null;
     }>
   >([]);
   const [contactsLoading, setContactsLoading] = useState(false);
   const [contactId, setContactId] = useState("");
-  const [installationOptions, setInstallationOptions] = useState<
-    SearchableOption[]
-  >([]);
-  const [installationsLoading, setInstallationsLoading] = useState(false);
-  const [installationId, setInstallationId] = useState("");
   const selectedContact = contactOptions.find((c) => c.id === contactId);
+  const selectedInstallation = installationOptions.find(
+    (i) => i.id === installationId,
+  );
 
   // ── Adjuntos al crear ──
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
@@ -1902,12 +1911,44 @@ function TicketCreateForm({
     // We don't auto-search here; SearchableSelect handles it via onInputChange
   }, []);
 
-  // Cargar contactos (con email) cuando el operador elige categoría "client".
-  // Usamos /api/crm/contacts → filtramos por `email` no nulo en el cliente.
+  // Cargar instalaciones activas cuando el operador elige categoría "client".
+  // Filtramos por `isActive` en el cliente (la API no expone ese filtro).
   useEffect(() => {
-    if (ticketCategory !== "client" || contactOptions.length > 0) return;
+    if (ticketCategory !== "client" || installationOptions.length > 0) return;
+    setInstallationsLoading(true);
+    fetch("/api/crm/installations")
+      .then((r) => r.json())
+      .then((d) => {
+        if (!d.success || !Array.isArray(d.data)) return;
+        const opts = d.data
+          .filter((i: any) => i.isActive && i.accountId)
+          .map((i: any) => ({
+            id: i.id,
+            label: i.name,
+            description: [i.account?.name, i.address, i.commune]
+              .filter(Boolean)
+              .join(" · "),
+            accountId: i.accountId as string,
+          }));
+        setInstallationOptions(opts);
+      })
+      .catch(() => {
+        toast.error("Error al cargar instalaciones");
+      })
+      .finally(() => setInstallationsLoading(false));
+  }, [ticketCategory, installationOptions.length]);
+
+  // Cuando cambia la instalación, recargamos los contactos (con email) de su cuenta.
+  useEffect(() => {
+    if (!installationId) {
+      setContactOptions([]);
+      setContactId("");
+      return;
+    }
+    const inst = installationOptions.find((x) => x.id === installationId);
+    if (!inst) return;
     setContactsLoading(true);
-    fetch("/api/crm/contacts")
+    fetch(`/api/crm/contacts?accountId=${inst.accountId}`)
       .then((r) => r.json())
       .then((d) => {
         if (!d.success || !Array.isArray(d.data)) return;
@@ -1919,50 +1960,19 @@ function TicketCreateForm({
               [c.firstName, c.lastName].filter(Boolean).join(" ") ||
               c.email ||
               "Sin nombre",
-            description: c.account?.name
-              ? `${c.account.name}${c.email ? ` · ${c.email}` : ""}`
-              : c.email ?? "",
-            accountId: c.accountId,
+            description: c.email ?? "",
             email: c.email ?? null,
           }));
         setContactOptions(opts);
+        // Auto-selecciona si la instalación solo tiene 1 contacto con email.
+        if (opts.length === 1) setContactId(opts[0].id);
+        else setContactId("");
       })
       .catch(() => {
         toast.error("Error al cargar contactos");
       })
       .finally(() => setContactsLoading(false));
-  }, [ticketCategory, contactOptions.length]);
-
-  // Cuando cambia el contacto, recargamos las instalaciones de su cuenta.
-  useEffect(() => {
-    if (!contactId) {
-      setInstallationOptions([]);
-      setInstallationId("");
-      return;
-    }
-    const c = contactOptions.find((x) => x.id === contactId);
-    if (!c) return;
-    setInstallationsLoading(true);
-    fetch(`/api/crm/installations?accountId=${c.accountId}`)
-      .then((r) => r.json())
-      .then((d) => {
-        if (!d.success || !Array.isArray(d.data)) return;
-        setInstallationOptions(
-          d.data.map((i: any) => ({
-            id: i.id,
-            label: i.name,
-            description: [i.address, i.commune].filter(Boolean).join(" · "),
-          })),
-        );
-        // Auto-selecciona si el contacto solo tiene 1 instalación.
-        if (d.data.length === 1) setInstallationId(d.data[0].id);
-        else setInstallationId("");
-      })
-      .catch(() => {
-        toast.error("Error al cargar instalaciones");
-      })
-      .finally(() => setInstallationsLoading(false));
-  }, [contactId, contactOptions]);
+  }, [installationId, installationOptions]);
 
   const isValid =
     selectedTypeId &&
@@ -2110,30 +2120,6 @@ function TicketCreateForm({
         <div className="space-y-3 rounded-xl border border-status-info-border bg-status-info-soft p-3">
           <div className="space-y-1.5">
             <Label className="text-xs flex items-center gap-1.5">
-              <UserCircle className="h-3.5 w-3.5 text-status-info-fg" />
-              Contacto del cliente *
-            </Label>
-            <SearchableSelect
-              value={contactId}
-              onChange={setContactId}
-              options={contactOptions}
-              placeholder={
-                contactsLoading
-                  ? "Cargando contactos..."
-                  : "Buscar por nombre, email o cuenta..."
-              }
-              emptyText="No hay contactos con email registrado."
-            />
-            {selectedContact && (
-              <p className="text-[12px] text-muted-foreground flex items-center gap-1.5">
-                <Mail className="h-3 w-3" />
-                {selectedContact.email ?? "Sin email"}
-              </p>
-            )}
-          </div>
-
-          <div className="space-y-1.5">
-            <Label className="text-xs flex items-center gap-1.5">
               <Building2 className="h-3.5 w-3.5 text-status-info-fg" />
               Instalación *
             </Label>
@@ -2141,16 +2127,45 @@ function TicketCreateForm({
               value={installationId}
               onChange={setInstallationId}
               options={installationOptions}
-              disabled={!contactId || installationsLoading}
+              disabled={installationsLoading}
               placeholder={
-                !contactId
-                  ? "Selecciona un contacto primero"
-                  : installationsLoading
-                    ? "Cargando instalaciones..."
-                    : "Buscar instalación..."
+                installationsLoading
+                  ? "Cargando instalaciones..."
+                  : "Buscar instalación activa..."
               }
-              emptyText="Este cliente no tiene instalaciones."
+              emptyText="No hay instalaciones activas."
             />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs flex items-center gap-1.5">
+              <UserCircle className="h-3.5 w-3.5 text-status-info-fg" />
+              Contacto del cliente *
+            </Label>
+            <SearchableSelect
+              value={contactId}
+              onChange={setContactId}
+              options={contactOptions}
+              disabled={!installationId || contactsLoading}
+              placeholder={
+                !installationId
+                  ? "Selecciona una instalación primero"
+                  : contactsLoading
+                    ? "Cargando contactos..."
+                    : "Buscar por nombre o email..."
+              }
+              emptyText={
+                selectedInstallation
+                  ? "Esta instalación no tiene contactos con email."
+                  : "No hay contactos con email registrado."
+              }
+            />
+            {selectedContact && (
+              <p className="text-[12px] text-muted-foreground flex items-center gap-1.5">
+                <Mail className="h-3 w-3" />
+                {selectedContact.email ?? "Sin email"}
+              </p>
+            )}
           </div>
 
           <p className="text-[11px] text-muted-foreground">
@@ -2297,7 +2312,7 @@ function TicketCreateForm({
           <Clock className="h-4 w-4 shrink-0" />
           <div>
             <p>
-              SLA: <strong className="text-foreground">{selectedType.slaHours}h</strong>
+              SLA: <strong className="text-foreground">{Math.max(1, Math.ceil(selectedType.slaHours / 24))} días</strong>
             </p>
             <p>
               Equipo: <strong className="text-foreground">{TICKET_TEAM_CONFIG[selectedType.assignedTeam]?.label}</strong>
