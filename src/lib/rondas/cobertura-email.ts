@@ -51,11 +51,15 @@ interface CoberturaEmailMetadata {
   operatorName: string;
   turnoStartedAt: Date;
   baseUrl: string;
+  /** Tenant slug — usado para construir URLs de subdominio en emails. */
+  tenantSlug?: string | null;
 }
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
+
+import { getEmailBaseUrl, getNotificationPrefsUrl } from "@/lib/emails/site-url";
 
 function escapeHtml(str: string): string {
   return str
@@ -347,8 +351,9 @@ export function buildCoberturaEmailHtml(
     minute: "2-digit",
     timeZone: tz,
   });
-  const baseUrl = (meta.baseUrl || process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || "https://opai.gard.cl").replace(/\/+$/, "");
+  const baseUrl = getEmailBaseUrl(meta.baseUrl, meta.tenantSlug);
   const monitorUrl = `${baseUrl}/ops/rondas/monitoreo`;
+  const prefsUrl = getNotificationPrefsUrl(meta.tenantSlug);
 
   const { summary, turnoLabel } = snapshot;
   const headerBg =
@@ -541,7 +546,7 @@ export function buildCoberturaEmailHtml(
             </p>
             <p style="margin:8px 0 0;font-size:11px;color:#94a3b8;text-align:center">
               ¿No quieres recibir este tipo de alertas?
-              <a href="${baseUrl}/opai/perfil/notificaciones" style="color:#0ea5e9;text-decoration:underline">Administrar notificaciones</a>
+              <a href="${prefsUrl}" style="color:#0ea5e9;text-decoration:underline">Administrar notificaciones</a>
             </p>
           </td>
         </tr>

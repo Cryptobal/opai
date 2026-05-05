@@ -4,6 +4,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { getCanonicalSiteUrl, getTenantSiteUrl } from "@/lib/emails/site-url";
 
 function formatDate(d: Date | null | undefined): string {
   if (!d) return "";
@@ -14,22 +15,13 @@ function formatDate(d: Date | null | undefined): string {
   });
 }
 
-function getBaseUrl(): string {
-  const candidates = [
-    process.env.NEXT_PUBLIC_APP_URL,
-    process.env.NEXT_PUBLIC_SITE_URL,
-    process.env.NEXTAUTH_URL,
-    process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null,
-  ];
-  const url = candidates.find((u) => u && u !== "undefined" && !u.includes("undefined"));
-  return url ?? process.env.SITE_URL ?? process.env.NEXT_PUBLIC_BASE_URL ?? "https://opai.gard.cl";
+function getBaseUrl(tenantSlug?: string | null): string {
+  return tenantSlug ? getTenantSiteUrl(tenantSlug) : getCanonicalSiteUrl();
 }
 
 export async function resolveVariables(
   guardiaId: string
 ): Promise<Record<string, string>> {
-  const baseUrl = getBaseUrl().replace(/\/+$/, "");
-
   const guardia = await prisma.opsGuardia.findUnique({
     where: { id: guardiaId },
     include: {
@@ -59,6 +51,7 @@ export async function resolveVariables(
   });
 
   if (!guardia) {
+    const baseUrl = getBaseUrl();
     return {
       nombre: "",
       primerNombre: "",
@@ -75,6 +68,12 @@ export async function resolveVariables(
       portalAcceso: `${baseUrl}/portal/acceso`,
     };
   }
+
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: guardia.tenantId },
+    select: { slug: true },
+  });
+  const baseUrl = getBaseUrl(tenant?.slug ?? null);
 
   const persona = guardia.persona;
   const nombre = [persona.firstName, persona.lastName].filter(Boolean).join(" ");

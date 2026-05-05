@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendSignatureReminderEmail } from "@/lib/docs-signature-email";
+import { getCanonicalSiteUrl } from "@/lib/emails/site-url";
 
 const REMINDER_INTERVAL_HOURS = 24;
 
@@ -19,7 +20,7 @@ export async function GET(request: NextRequest) {
 
     const now = new Date();
     const reminderCutoff = new Date(now.getTime() - REMINDER_INTERVAL_HOURS * 60 * 60 * 1000);
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || process.env.NEXT_PUBLIC_APP_URL || "";
+    const siteUrl = getCanonicalSiteUrl();
 
     let expiredRequestsCount = 0;
     let remindersSentCount = 0;

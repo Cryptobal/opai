@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/api-auth";
 import { generateMarcacionCode } from "@/lib/marcacion";
+import { getEmailBaseUrl } from "@/lib/emails/site-url";
 import { z } from "zod";
 
 const schema = z.object({
@@ -78,7 +79,11 @@ export async function POST(req: NextRequest) {
     });
 
     // Construir la URL de marcación
-    const baseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null) || "https://opai.gard.cl";
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: auth.tenantId },
+      select: { slug: true },
+    });
+    const baseUrl = getEmailBaseUrl(null, tenant?.slug ?? null);
     const marcacionUrl = `${baseUrl}/marcar/${code}`;
 
     return NextResponse.json({

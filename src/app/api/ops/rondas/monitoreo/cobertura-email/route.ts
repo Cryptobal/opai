@@ -11,6 +11,7 @@ import {
 } from "@/lib/rondas/cobertura-email";
 import { getOpsChannelId, sendSystemChatMessage } from "@/lib/chat-system-message";
 import { requireTenantModule } from '@/lib/require-module';
+import { getEmailBaseUrl } from "@/lib/emails/site-url";
 
 /* ── Simple rate limit: 1 email per 2 min per tenant+turnoFilter ── */
 const lastSentMap = new Map<string, number>();
@@ -185,19 +186,18 @@ export async function POST(request: Request) {
     }
 
     const cfg = await getTenantCompanyConfig(ctx.tenantId);
-    const baseUrl =
-      request.headers.get("origin") ||
-      process.env.NEXTAUTH_URL ||
-      process.env.NEXT_PUBLIC_SITE_URL ||
-      process.env.SITE_URL ||
-      process.env.NEXT_PUBLIC_APP_URL ||
-      process.env.NEXT_PUBLIC_BASE_URL ||
-      "https://opai.gard.cl";
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: ctx.tenantId },
+      select: { slug: true },
+    });
+    const tenantSlug = tenant?.slug ?? null;
+    const baseUrl = getEmailBaseUrl(request.headers.get("origin"), tenantSlug);
 
     const html = buildCoberturaEmailHtml(snapshot, {
       operatorName: activeTurno.operatorName ?? "Operador",
       turnoStartedAt: activeTurno.startedAt,
       baseUrl,
+      tenantSlug,
     });
 
     const now = new Date();

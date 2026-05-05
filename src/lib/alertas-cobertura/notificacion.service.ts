@@ -23,19 +23,10 @@ import { es } from "date-fns/locale";
 import { toZonedTime } from "date-fns-tz";
 
 const TZ = "America/Santiago";
-// IMPORTANTE: en Vercel prod no existe NEXTAUTH_URL ni NEXT_PUBLIC_SITE_URL.
-// Los env vars disponibles son SITE_URL, NEXT_PUBLIC_APP_URL y NEXT_PUBLIC_BASE_URL.
-// Si ninguno está disponible, fallback a opai.gard.cl en producción.
-// Sin esto, los emails quedaban con URLs relativas ("/ops/...") que Gmail
-// interpretaba como "http://ops/..." (inválido).
-const SITE_URL = (
-  process.env.NEXTAUTH_URL ||
-  process.env.NEXT_PUBLIC_SITE_URL ||
-  process.env.SITE_URL ||
-  process.env.NEXT_PUBLIC_APP_URL ||
-  process.env.NEXT_PUBLIC_BASE_URL ||
-  "https://opai.gard.cl"
-).replace(/\/$/, "");
+// Resolución canónica desde site-url.ts: nunca apunta a opai.gard.cl
+// y respeta el subdominio del tenant cuando se construyen links concretos.
+import { getCanonicalSiteUrl } from "@/lib/emails/site-url";
+const SITE_URL = getCanonicalSiteUrl();
 
 // ======================================
 // 1. NOTIFICAR GUARDIA — Nueva alerta disponible

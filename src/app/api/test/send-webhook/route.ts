@@ -8,6 +8,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getCanonicalSiteUrl } from '@/lib/emails/site-url';
 
 export async function GET(req: NextRequest) {
   try {
@@ -37,7 +38,7 @@ export async function GET(req: NextRequest) {
     // Extraer datos
     const zohoQuoteId = zohoData.quote_id || zohoData.quote?.id || zohoData.quote?.Quote_Number;
     const quoteNumber = zohoData.quote?.Quote_Number;
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || 'https://opai.gard.cl';
+    const siteUrl = getCanonicalSiteUrl();
     const presentationUrl = `${siteUrl}/p/${lastPresentation.uniqueId}`;
 
     const presentationInfo = {

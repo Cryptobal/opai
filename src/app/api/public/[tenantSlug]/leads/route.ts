@@ -14,6 +14,7 @@ import { resolveTenantFromSlug } from "@/lib/tenant";
 import { sendEmailWithRetry } from "@/lib/email-retry";
 import { getWaTemplate } from "@/lib/whatsapp-templates";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
+import { getEmailBaseUrl } from "@/lib/emails/site-url";
 
 // CORS headers for cross-origin requests from the website
 const corsHeaders = {
@@ -293,14 +294,7 @@ export async function POST(
           </table>`
         : "";
 
-      const baseUrl = (
-        process.env.NEXTAUTH_URL ||
-        process.env.NEXT_PUBLIC_SITE_URL ||
-        process.env.NEXT_PUBLIC_APP_URL ||
-        process.env.NEXT_PUBLIC_BASE_URL ||
-        process.env.SITE_URL ||
-        "https://opai.cl"
-      ).replace(/\/+$/, "");
+      const baseUrl = getEmailBaseUrl(null, tenantSlug);
       // PNG para que el logo se vea en clientes de correo (muchos bloquean SVG)
       const logoUrl = tenantCfg.logoUrl || tenantCfg.brandingLogoWhite || (baseUrl ? `${baseUrl}/logo.png` : "");
       const headerBg = "#0f2847";

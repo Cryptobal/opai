@@ -4,6 +4,7 @@ import { parseBody, requireAuth, unauthorized, resolveApiPerms } from "@/lib/api
 import { canEdit, canDelete, hasCapability } from "@/lib/permissions";
 import { monitoreoTurnoCloseSchema } from "@/lib/validations/rondas";
 import { sendMonitorTurnoEmail } from "@/lib/rondas/monitor-email";
+import { getEmailBaseUrl } from "@/lib/emails/site-url";
 import { buildTurnoReportData } from "@/lib/rondas/monitor-turno-report-data";
 import { requireTenantModule } from '@/lib/require-module';
 
@@ -213,7 +214,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     // Always send email — ops email is always included by sendMonitorTurnoEmail
     const noRealizadas = roundsData.filter(r => r.status === "no_realizada").length;
-    const baseUrl = request.headers.get("origin") || process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || "https://opai.gard.cl";
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: ctx.tenantId },
+      select: { slug: true },
+    });
+    const tenantSlug = tenant?.slug ?? null;
+    const baseUrl = getEmailBaseUrl(request.headers.get("origin"), tenantSlug);
 
     // Build enriched report data (7-day history, guard ranking, semáforo, deltas, reliability, PDF)
     let reportData: Awaited<ReturnType<typeof buildTurnoReportData>> | null = null;
@@ -253,6 +259,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           operatorComments: parsed.data.operatorComments,
           aiSummary,
           baseUrl,
+          tenantSlug,
           // v2 enrichments (graceful if reportData failed)
           panicos: reportData?.panicos,
           panicoStats30d: reportData?.panicoStats30d,

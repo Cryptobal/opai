@@ -7,18 +7,14 @@
  */
 
 import { Resend } from "resend";
+import { getCanonicalSiteUrl, getNotificationPrefsUrl } from "@/lib/emails/site-url";
 
 const resend = process.env.RESEND_API_KEY
   ? new Resend(process.env.RESEND_API_KEY)
   : null;
 
-const SITE_URL =
-  process.env.NEXTAUTH_URL ||
-  process.env.NEXT_PUBLIC_SITE_URL ||
-  process.env.SITE_URL ||
-  process.env.NEXT_PUBLIC_APP_URL ||
-  process.env.NEXT_PUBLIC_BASE_URL ||
-  "https://opai.gard.cl";
+const SITE_URL = getCanonicalSiteUrl();
+const PREFS_URL = getNotificationPrefsUrl();
 
 const FROM = process.env.EMAIL_FROM || "OPAI <noreply@opai.cl>";
 
@@ -54,7 +50,7 @@ export async function notifyRendicionSubmitted(data: {
           `Revísala en: ${SITE_URL}/finanzas/aprobaciones`,
           "",
           "---",
-          `¿No quieres recibir este tipo de alertas? Administrar notificaciones: ${SITE_URL}/opai/perfil/notificaciones`,
+          `¿No quieres recibir este tipo de alertas? Administrar notificaciones: ${PREFS_URL}`,
         ].join("\n"),
       });
     } catch (err) {
@@ -91,7 +87,7 @@ export async function notifyRendicionApproved(data: {
         `Ver detalle: ${SITE_URL}/finanzas`,
         "",
         "---",
-        `¿No quieres recibir este tipo de alertas? Administrar notificaciones: ${SITE_URL}/opai/perfil/notificaciones`,
+        `¿No quieres recibir este tipo de alertas? Administrar notificaciones: ${PREFS_URL}`,
       ].join("\n"),
     });
   } catch (err) {
@@ -128,7 +124,7 @@ export async function notifyRendicionRejected(data: {
         `Puedes corregirla y reenviarla desde: ${SITE_URL}/finanzas`,
         "",
         "---",
-        `¿No quieres recibir este tipo de alertas? Administrar notificaciones: ${SITE_URL}/opai/perfil/notificaciones`,
+        `¿No quieres recibir este tipo de alertas? Administrar notificaciones: ${PREFS_URL}`,
       ].join("\n"),
     });
   } catch (err) {
@@ -164,7 +160,7 @@ export async function notifyRendicionPaid(data: {
         `Ver detalle: ${SITE_URL}/finanzas`,
         "",
         "---",
-        `¿No quieres recibir este tipo de alertas? Administrar notificaciones: ${SITE_URL}/opai/perfil/notificaciones`,
+        `¿No quieres recibir este tipo de alertas? Administrar notificaciones: ${PREFS_URL}`,
       ].join("\n"),
     });
   } catch (err) {

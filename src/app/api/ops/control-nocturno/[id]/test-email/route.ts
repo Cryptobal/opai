@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureOpsAccess } from "@/lib/ops";
 import { sendControlNocturnoEmail } from "@/lib/control-nocturno-email";
+import { getEmailBaseUrl } from "@/lib/emails/site-url";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -34,7 +35,12 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: false, error: "Reporte no encontrado" }, { status: 404 });
     }
 
-    const baseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null) || "https://opai.gard.cl";
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: ctx.tenantId },
+      select: { slug: true },
+    });
+    const tenantSlug = tenant?.slug ?? null;
+    const baseUrl = getEmailBaseUrl(null, tenantSlug);
 
     // Generate PDF
     let pdfBuffer: Uint8Array | undefined;
@@ -80,6 +86,7 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
       criticos: reporte.instalaciones.filter((i) => i.statusInstalacion === "critico").length,
       generalNotes: reporte.generalNotes,
       baseUrl,
+      tenantSlug,
       tenantId: ctx.tenantId,
     };
 
