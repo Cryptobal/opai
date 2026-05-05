@@ -72,11 +72,12 @@ import { ArrowLeft, MapPin } from "lucide-react";
 
 interface TicketsClientProps {
   userRole: string;
+  userId: string;
 }
 
 type ViewState = { view: "list" } | { view: "create" };
 
-type ListMode = "list" | "cards" | "kanban" | "by-installation";
+type ListMode = "cards" | "kanban" | "by-installation";
 
 type ModuleView = "dashboard" | "tickets";
 
@@ -93,14 +94,14 @@ type TicketCounts = {
   byOrigin: { all: number; internal: number; guard: number; client: number };
 };
 
-type QuickViewKey = "active" | "p1" | "breached" | "unassigned" | "mine" | "my_team" | "all";
+type QuickViewKey = "active" | "breached" | "unassigned" | "mine" | "my_team" | "all";
 type AssignedFilter = "any" | "me" | "my_team" | "unassigned";
 
 // ═══════════════════════════════════════════════════════════════
 //  MAIN COMPONENT
 // ═══════════════════════════════════════════════════════════════
 
-export function TicketsClient({ userRole }: TicketsClientProps) {
+export function TicketsClient({ userRole, userId }: TicketsClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -113,12 +114,15 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
   // elegida por el usuario (localStorage); si tampoco hay, "cards".
   const urlView = searchParams.get("view");
   const isValidListMode = (v: string | null): v is ListMode =>
-    v === "list" || v === "cards" || v === "kanban" || v === "by-installation";
+    v === "cards" || v === "kanban" || v === "by-installation";
   const initialListMode: ListMode = (() => {
     if (isValidListMode(urlView)) return urlView;
+    // "list" was a deprecated mode — fall back to cards.
+    if (urlView === "list") return "cards";
     if (typeof window !== "undefined") {
       const stored = window.localStorage.getItem("ops-tickets-view-mode");
       if (isValidListMode(stored)) return stored;
+      if (stored === "list") return "cards";
     }
     return "cards";
   })();
@@ -145,10 +149,9 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
   const [filterTypeId, setFilterTypeId] = useState<string>("all");
   const [ticketTypes, setTicketTypes] = useState<TicketType[]>([]);
   const [counts, setCounts] = useState<TicketCounts | null>(null);
-  // Filtro por defecto: "asignados a mí" — para que cada usuario entre
-  // directamente a sus propios tickets. Se cambia desde el dropdown o las
-  // pastillas de quick view.
-  const [assignedFilter, setAssignedFilter] = useState<AssignedFilter>("me");
+  // Filtro por defecto: "mi equipo" — los tickets propios se distinguen con
+  // un badge "Mío", así que mostramos primero el contexto de equipo.
+  const [assignedFilter, setAssignedFilter] = useState<AssignedFilter>("my_team");
   const [slaOnly, setSlaOnly] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   // Orden por criticidad por defecto: P1 → SLA vencidos → próximos a vencer.
@@ -373,9 +376,7 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
   // Sync view + installationId with URL y persiste la última vista elegida.
   useEffect(() => {
     const current = new URLSearchParams(window.location.search);
-    if (listMode === "by-installation") current.set("view", "by-installation");
-    else if (listMode !== "list") current.set("view", listMode);
-    else current.delete("view");
+    current.set("view", listMode);
     if (installationFilterId) current.set("installationId", installationFilterId);
     else current.delete("installationId");
     const qs = current.toString();
@@ -390,7 +391,7 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
   function handleSelectInstallation(id: string, name: string, total: number) {
     setInstallationFilterId(id);
     setInstallationCtx({ name, total });
-    setListMode("list");
+    setListMode("cards");
   }
 
   function handleBackToInstallations() {
@@ -470,10 +471,6 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
       case "active":
         setFilterStatus("active");
         break;
-      case "p1":
-        setFilterStatus("active");
-        setFilterPriorities(new Set(["p1"]));
-        break;
       case "breached":
         setFilterStatus("active");
         setSlaOnly(true);
@@ -505,15 +502,6 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
     if (!base) return null;
     if (filterStatus === "active" && filterPriorities.size === 0 && assignedFilter === "any" && !slaOnly) {
       return "active";
-    }
-    if (
-      filterStatus === "active" &&
-      filterPriorities.size === 1 &&
-      filterPriorities.has("p1") &&
-      assignedFilter === "any" &&
-      !slaOnly
-    ) {
-      return "p1";
     }
     if (filterStatus === "active" && filterPriorities.size === 0 && assignedFilter === "any" && slaOnly) {
       return "breached";
@@ -661,11 +649,10 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
       <div className="flex items-center gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
         {([
           { key: "active" as const, label: "Activos", count: counts?.active, tone: "primary" as const },
-          { key: "p1" as const, label: "P1", count: counts?.activeP1, tone: "danger" as const },
+          { key: "my_team" as const, label: "Mi equipo", count: counts?.myTeam, tone: "default" as const },
+          { key: "mine" as const, label: "Míos", count: counts?.mine, tone: "default" as const },
           { key: "breached" as const, label: "SLA vencidos", count: counts?.slaBreached, tone: "danger" as const },
           { key: "unassigned" as const, label: "Sin asignar", count: counts?.unassigned, tone: "warning" as const },
-          { key: "mine" as const, label: "Míos", count: counts?.mine, tone: "default" as const },
-          { key: "my_team" as const, label: "Mi equipo", count: counts?.myTeam, tone: "default" as const },
           { key: "all" as const, label: "Todos", count: counts?.total, tone: "default" as const },
         ]).map((q) => {
           const on = activeQuickView === q.key;
@@ -715,8 +702,8 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
             </button>
           </PopoverTrigger>
           <PopoverContent
-            align="start"
-            className="w-72 p-0"
+            align="end"
+            className="w-72 max-w-[92vw] p-0"
             sideOffset={6}
           >
             <div className="border-b border-border p-3 space-y-2">
@@ -833,7 +820,11 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
           <Input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Buscar tickets..."
+            placeholder={
+              listMode === "by-installation"
+                ? "Buscar instalación…"
+                : "Buscar tickets..."
+            }
             className="h-9 bg-background pl-9 text-sm"
           />
         </div>
@@ -999,10 +990,10 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
           </PopoverContent>
         </Popover>
 
-        {/* Selection mode toggle (solo en list/cards). Bulk no aplica a
+        {/* Selection mode toggle (solo en cards). Bulk no aplica a
             kanban/by-installation porque la unidad de interacción ahí es
             distinta (drag, drilldown). */}
-        {(listMode === "list" || listMode === "cards") && (
+        {listMode === "cards" && (
           <Button
             type="button"
             variant={selectionMode ? "secondary" : "outline"}
@@ -1022,9 +1013,9 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
           </Button>
         )}
 
-        {/* Orden — solo aplica a list/cards. Kanban se ordena por
-            columnas de status, by-installation tiene su propio sort. */}
-        {(listMode === "list" || listMode === "cards") && (
+        {/* Orden — solo aplica a cards. Kanban se ordena por columnas de
+            status, by-installation tiene su propio sort. */}
+        {listMode === "cards" && (
           <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
             <SelectTrigger className="h-9 w-[150px] text-xs">
               <SelectValue />
@@ -1042,7 +1033,6 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
             aporta y confunde. */}
         <div className="ml-auto flex gap-1 rounded-md bg-muted p-0.5">
           {(([
-            { value: "list" as const, label: "Lista" },
             { value: "cards" as const, label: "Cards" },
             { value: "kanban" as const, label: "Kanban" },
             { value: "by-installation" as const, label: "Por instalación" },
@@ -1319,12 +1309,14 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
         <TicketsByInstallationView
           originTab={originTab}
           onSelectInstallation={handleSelectInstallation}
+          externalSearch={debouncedSearch}
         />
       ) : listMode === "kanban" ? (
         <>
           <TicketsKanban
             tickets={filteredTickets}
             loading={loading}
+            currentUserId={userId}
             onTicketClick={(id) => router.push(`/ops/tickets/${id}`)}
             onStatusChange={async (ticketId, newStatus) => {
               setTickets((prev) =>
@@ -1395,33 +1387,19 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
         </div>
       ) : (
         <>
-          {listMode === "cards" ? (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {filteredTickets.map((ticket) => (
-                <TicketCard
-                  key={ticket.id}
-                  ticket={ticket}
-                  onClick={() => router.push(`/ops/tickets/${ticket.id}`)}
-                  selectable={selectionMode}
-                  selected={selectedIds.has(ticket.id)}
-                  onToggleSelect={toggleSelected}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {filteredTickets.map((ticket) => (
-                <TicketCard
-                  key={ticket.id}
-                  ticket={ticket}
-                  onClick={() => router.push(`/ops/tickets/${ticket.id}`)}
-                  selectable={selectionMode}
-                  selected={selectedIds.has(ticket.id)}
-                  onToggleSelect={toggleSelected}
-                />
-              ))}
-            </div>
-          )}
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {filteredTickets.map((ticket) => (
+              <TicketCard
+                key={ticket.id}
+                ticket={ticket}
+                onClick={() => router.push(`/ops/tickets/${ticket.id}`)}
+                selectable={selectionMode}
+                selected={selectedIds.has(ticket.id)}
+                onToggleSelect={toggleSelected}
+                isMine={Boolean(userId) && ticket.assignedTo === userId}
+              />
+            ))}
+          </div>
 
           {/* Pagination: load more + counter */}
           <div className="flex flex-col items-center gap-2 pt-2">
@@ -1487,12 +1465,14 @@ function TicketCard({
   selectable,
   selected,
   onToggleSelect,
+  isMine,
 }: {
   ticket: Ticket;
   onClick: () => void;
   selectable?: boolean;
   selected?: boolean;
   onToggleSelect?: (ticketId: string) => void;
+  isMine?: boolean;
 }) {
   const statusCfg = TICKET_STATUS_CONFIG[ticket.status];
   const priorityCfg = TICKET_PRIORITY_CONFIG[ticket.priority];
@@ -1550,6 +1530,14 @@ function TicketCard({
           {ticket.title}
         </p>
         <div className="flex shrink-0 items-center gap-1.5">
+          {isMine && (
+            <span
+              className="rounded-md bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary"
+              title="Asignado a ti"
+            >
+              Mío
+            </span>
+          )}
           {/* Pill de prioridad: solo P1/P2 muestran soft bg, P3/P4 son texto */}
           <span
             className={`rounded-md px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${

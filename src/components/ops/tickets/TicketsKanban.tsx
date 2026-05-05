@@ -33,6 +33,7 @@ interface TicketsKanbanProps {
   loading: boolean;
   onTicketClick: (id: string) => void;
   onStatusChange: (ticketId: string, newStatus: TicketStatus) => void;
+  currentUserId?: string;
 }
 
 const KANBAN_COLUMNS: { status: TicketStatus; extraStatuses?: TicketStatus[]; color: string }[] = [
@@ -53,6 +54,7 @@ export function TicketsKanban({
   loading,
   onTicketClick,
   onStatusChange,
+  currentUserId,
 }: TicketsKanbanProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -140,6 +142,7 @@ export function TicketsKanban({
                     key={ticket.id}
                     ticket={ticket}
                     onClick={() => onTicketClick(ticket.id)}
+                    isMine={Boolean(currentUserId) && ticket.assignedTo === currentUserId}
                   />
                 ))
               )}
@@ -158,9 +161,11 @@ export function TicketsKanban({
 function KanbanCard({
   ticket,
   onClick,
+  isMine,
 }: {
   ticket: Ticket;
   onClick: () => void;
+  isMine?: boolean;
 }) {
   const priorityCfg = TICKET_PRIORITY_CONFIG[ticket.priority];
   const slaText = getSlaRemaining(ticket.slaDueAt, ticket.status, ticket.resolvedAt);
@@ -185,6 +190,14 @@ function KanbanCard({
         <span className={`text-[9px] font-semibold ${priorityCfg.color}`}>
           {ticket.priority.toUpperCase()}
         </span>
+        {isMine && (
+          <span
+            className="rounded bg-primary/15 px-1 py-px text-[8px] font-bold uppercase tracking-wide text-primary"
+            title="Asignado a ti"
+          >
+            Mío
+          </span>
+        )}
         {breached && !isTerminal && (
           <AlertTriangle className="h-2.5 w-2.5 text-status-danger-fg ml-auto" />
         )}
