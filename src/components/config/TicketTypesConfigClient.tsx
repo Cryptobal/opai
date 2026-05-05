@@ -94,6 +94,27 @@ function slugify(name: string): string {
     .replace(/^_|_$/g, "");
 }
 
+// SLA en días — gestionar por horas era impráctico, así que la UI ofrece
+// presets en días. Internamente guardamos slaHours = días * 24 para no
+// romper el modelo de datos ni los cálculos de slaDueAt en la API.
+const SLA_DAY_OPTIONS: Array<{ days: number; label: string }> = [
+  { days: 1, label: "1 día" },
+  { days: 2, label: "2 días" },
+  { days: 3, label: "3 días" },
+  { days: 5, label: "5 días" },
+  { days: 7, label: "7 días (1 semana)" },
+  { days: 10, label: "10 días" },
+  { days: 14, label: "14 días (2 semanas)" },
+  { days: 21, label: "21 días (3 semanas)" },
+  { days: 30, label: "30 días (1 mes)" },
+];
+
+function slaHoursToDays(hours: number): number {
+  // Redondea hacia arriba para no subreportar SLA cuando hay datos
+  // legacy con horas no múltiplos de 24 (e.g. slaHours: 2 → 1 día).
+  return Math.max(1, Math.ceil(hours / 24));
+}
+
 function makeEmptyForm(): TicketTypeFormData {
   return {
     name: "",
@@ -103,7 +124,7 @@ function makeEmptyForm(): TicketTypeFormData {
     assignedTeam: "ops",
     defaultAssignedToUserId: null as string | null,
     defaultPriority: "p3",
-    slaHours: 48,
+    slaHours: 2 * 24,
     requiresApproval: false,
     isActive: true,
     approvalSteps: [],
@@ -580,19 +601,26 @@ function TicketTypeForm({
               </Select>
             </div>
 
-            {/* SLA hours */}
+            {/* SLA en días */}
             <div className="space-y-1.5">
-              <Label className="text-xs">SLA (horas) *</Label>
-              <Input
-                type="number"
-                min={1}
-                max={720}
-                value={form.slaHours}
-                onChange={(e) =>
-                  patch({ slaHours: Number(e.target.value) || 1 })
+              <Label className="text-xs">SLA (días) *</Label>
+              <Select
+                value={String(slaHoursToDays(form.slaHours))}
+                onValueChange={(v) =>
+                  patch({ slaHours: Math.max(1, Number(v) || 1) * 24 })
                 }
-                className="text-sm"
-              />
+              >
+                <SelectTrigger className="text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SLA_DAY_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.days} value={String(opt.days)}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
@@ -998,7 +1026,7 @@ function TicketTypeSection({
                         </span>
                       </td>
                       <td className="px-4 py-3 text-muted-foreground tabular-nums">
-                        {t.slaHours}h
+                        {slaHoursToDays(t.slaHours)} d
                       </td>
                       <td className="px-4 py-3">
                         {t.requiresApproval ? (
@@ -1092,7 +1120,7 @@ function TicketTypeSection({
                       <span className="text-border">·</span>
                       <span className="flex items-center gap-1">
                         <Clock className="h-3 w-3" />
-                        {t.slaHours}h SLA
+                        SLA {slaHoursToDays(t.slaHours)} d
                       </span>
                       <span className="text-border">·</span>
                       <span>
