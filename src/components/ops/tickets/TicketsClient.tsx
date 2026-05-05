@@ -6,11 +6,16 @@ import { toast } from "sonner";
 import {
   AlertTriangle,
   Bookmark,
+  Building2,
   Check,
   ChevronRight,
   Clock,
+  Copy,
   FileText,
+  Image as ImageIcon,
   Loader2,
+  Mail,
+  Paperclip,
   Plus,
   Search,
   Shield,
@@ -19,6 +24,7 @@ import {
   Star,
   Ticket as TicketIcon,
   Trash2,
+  Upload,
   User,
   UserCircle,
   X,
@@ -1759,7 +1765,9 @@ function TicketCreateForm({
   const [saving, setSaving] = useState(false);
   const [ticketTypes, setTicketTypes] = useState<TicketType[]>([]);
   const [loadingTypes, setLoadingTypes] = useState(true);
-  const [ticketCategory, setTicketCategory] = useState<"" | "internal" | "guard">("");
+  const [ticketCategory, setTicketCategory] = useState<
+    "" | "internal" | "guard" | "client"
+  >("");
   const [selectedTypeId, setSelectedTypeId] = useState("");
   const [title, setTitle] = useState(prefillTitle ?? "");
   const [description, setDescription] = useState("");
@@ -1769,6 +1777,38 @@ function TicketCreateForm({
   // Guard search state
   const [guardiaOptions, setGuardiaOptions] = useState<SearchableOption[]>([]);
   const [guardiaSearchLoading, setGuardiaSearchLoading] = useState(false);
+
+  // ── Client (CrmContact + CrmInstallation) ──
+  const [contactOptions, setContactOptions] = useState<
+    Array<{
+      id: string;
+      label: string;
+      description?: string;
+      accountId: string;
+      email: string | null;
+    }>
+  >([]);
+  const [contactsLoading, setContactsLoading] = useState(false);
+  const [contactId, setContactId] = useState("");
+  const [installationOptions, setInstallationOptions] = useState<
+    SearchableOption[]
+  >([]);
+  const [installationsLoading, setInstallationsLoading] = useState(false);
+  const [installationId, setInstallationId] = useState("");
+  const selectedContact = contactOptions.find((c) => c.id === contactId);
+
+  // ── Adjuntos al crear ──
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [filesDragging, setFilesDragging] = useState(false);
+  const filesInputRef = useRef<HTMLInputElement>(null);
+
+  // ── Resultado: PIN público devuelto por la API (mostrar 1 vez) ──
+  const [createdPublicAccess, setCreatedPublicAccess] = useState<{
+    ticket: Ticket;
+    url: string;
+    pin: string;
+    code: string;
+  } | null>(null);
 
   useEffect(() => {
     async function loadTypes() {
@@ -1813,10 +1853,18 @@ function TicketCreateForm({
     : [];
 
   const showGuardSearch = ticketCategory === "guard";
+  const showClientPickers = ticketCategory === "client";
 
   function handleCategoryChange(val: string) {
-    setTicketCategory(val as "" | "internal" | "guard");
+    setTicketCategory(val as "" | "internal" | "guard" | "client");
     setSelectedTypeId("");
+    // Reset selectores cross-categoría para evitar arrastrar valores
+    // de una categoría a otra.
+    if (val !== "guard") setGuardiaId("");
+    if (val !== "client") {
+      setContactId("");
+      setInstallationId("");
+    }
   }
 
   function handleTypeChange(val: string) {
@@ -1854,7 +1902,101 @@ function TicketCreateForm({
     // We don't auto-search here; SearchableSelect handles it via onInputChange
   }, []);
 
-  const isValid = selectedTypeId && title.trim() && (showGuardSearch ? guardiaId : true);
+  // Cargar contactos (con email) cuando el operador elige categoría "client".
+  // Usamos /api/crm/contacts → filtramos por `email` no nulo en el cliente.
+  useEffect(() => {
+    if (ticketCategory !== "client" || contactOptions.length > 0) return;
+    setContactsLoading(true);
+    fetch("/api/crm/contacts")
+      .then((r) => r.json())
+      .then((d) => {
+        if (!d.success || !Array.isArray(d.data)) return;
+        const opts = d.data
+          .filter((c: any) => c.email)
+          .map((c: any) => ({
+            id: c.id,
+            label:
+              [c.firstName, c.lastName].filter(Boolean).join(" ") ||
+              c.email ||
+              "Sin nombre",
+            description: c.account?.name
+              ? `${c.account.name}${c.email ? ` · ${c.email}` : ""}`
+              : c.email ?? "",
+            accountId: c.accountId,
+            email: c.email ?? null,
+          }));
+        setContactOptions(opts);
+      })
+      .catch(() => {
+        toast.error("Error al cargar contactos");
+      })
+      .finally(() => setContactsLoading(false));
+  }, [ticketCategory, contactOptions.length]);
+
+  // Cuando cambia el contacto, recargamos las instalaciones de su cuenta.
+  useEffect(() => {
+    if (!contactId) {
+      setInstallationOptions([]);
+      setInstallationId("");
+      return;
+    }
+    const c = contactOptions.find((x) => x.id === contactId);
+    if (!c) return;
+    setInstallationsLoading(true);
+    fetch(`/api/crm/installations?accountId=${c.accountId}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (!d.success || !Array.isArray(d.data)) return;
+        setInstallationOptions(
+          d.data.map((i: any) => ({
+            id: i.id,
+            label: i.name,
+            description: [i.address, i.commune].filter(Boolean).join(" · "),
+          })),
+        );
+        // Auto-selecciona si el contacto solo tiene 1 instalación.
+        if (d.data.length === 1) setInstallationId(d.data[0].id);
+        else setInstallationId("");
+      })
+      .catch(() => {
+        toast.error("Error al cargar instalaciones");
+      })
+      .finally(() => setInstallationsLoading(false));
+  }, [contactId, contactOptions]);
+
+  const isValid =
+    selectedTypeId &&
+    title.trim() &&
+    (showGuardSearch ? !!guardiaId : true) &&
+    (showClientPickers ? !!contactId && !!installationId : true);
+
+  // ── Helpers para adjuntos ──────────────────────────────────────
+  const ATT_MAX_FILE_SIZE = 25 * 1024 * 1024; // 25 MB
+  const ATT_MAX_FILES = 10;
+
+  function addPendingFiles(list: FileList | File[]) {
+    const incoming = Array.from(list);
+    const tooLarge = incoming.find((f) => f.size > ATT_MAX_FILE_SIZE);
+    if (tooLarge) {
+      toast.error(`"${tooLarge.name}" excede el límite de 25 MB`);
+      return;
+    }
+    setPendingFiles((prev) => {
+      const merged = [...prev, ...incoming];
+      if (merged.length > ATT_MAX_FILES) {
+        toast.error(`Máximo ${ATT_MAX_FILES} archivos`);
+        return merged.slice(0, ATT_MAX_FILES);
+      }
+      return merged;
+    });
+  }
+  function removePendingFile(idx: number) {
+    setPendingFiles((prev) => prev.filter((_, i) => i !== idx));
+  }
+  function formatBytes(size: number): string {
+    if (size > 1024 * 1024) return `${(size / 1024 / 1024).toFixed(1)} MB`;
+    return `${Math.max(1, Math.round(size / 1024))} KB`;
+  }
 
   async function handleSubmit() {
     if (!isValid || !selectedType) return;
@@ -1869,13 +2011,58 @@ function TicketCreateForm({
           description: description.trim() || null,
           priority: priority || selectedType.defaultPriority,
           assignedTeam: selectedType.assignedTeam,
-          source: prefillSource ?? "manual",
+          source: showClientPickers ? "portal_cliente" : prefillSource ?? "manual",
           sourceGuardEventId: prefillSourceId ?? null,
           guardiaId: guardiaId || null,
+          // Tickets de cliente: contacto del CRM + instalación. La API
+          // valida que ambos pertenezcan al mismo tenant + cuenta y
+          // dispara el correo de confirmación + PIN público.
+          reportedByContactId: showClientPickers ? contactId : null,
+          installationId: showClientPickers ? installationId : null,
         }),
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
+
+      // Subir adjuntos al ticket recién creado. Si falla algún archivo
+      // no abortamos el flujo: el ticket ya existe y el operador puede
+      // reintentar la subida desde el detalle.
+      if (pendingFiles.length > 0) {
+        try {
+          const fd = new FormData();
+          for (const f of pendingFiles) fd.append("files", f);
+          const upRes = await fetch(
+            `/api/ops/tickets/${data.data.id}/attachments`,
+            { method: "POST", body: fd },
+          );
+          const upData = await upRes.json();
+          if (!upData.success) {
+            toast.error(
+              upData.error ?? "El ticket se creó pero falló la subida de adjuntos",
+            );
+          }
+        } catch {
+          toast.error(
+            "El ticket se creó pero no se pudieron subir los adjuntos",
+          );
+        }
+      }
+
+      // Si la API generó acceso público (caso ticket de cliente), lo
+      // mostramos al operador antes de saltar al detalle. El cliente
+      // ya recibió el correo; el operador ve el PIN una sola vez por
+      // si necesita pasárselo manualmente.
+      if (data.publicAccess) {
+        setCreatedPublicAccess({
+          ticket: data.data,
+          url: data.publicAccess.url,
+          pin: data.publicAccess.pin,
+          code: data.data.code,
+        });
+        setSaving(false);
+        return;
+      }
+
       onCreated(data.data);
     } catch (err: any) {
       toast.error(err?.message ?? "Error al crear ticket");
@@ -1913,9 +2100,65 @@ function TicketCreateForm({
           <SelectContent>
             <SelectItem value="internal">Solicitud interna</SelectItem>
             <SelectItem value="guard">Solicitud de guardia</SelectItem>
+            <SelectItem value="client">Solicitud de cliente</SelectItem>
           </SelectContent>
         </Select>
       </div>
+
+      {/* Client pickers (appears when category = client) */}
+      {showClientPickers && (
+        <div className="space-y-3 rounded-xl border border-status-info-border bg-status-info-soft p-3">
+          <div className="space-y-1.5">
+            <Label className="text-xs flex items-center gap-1.5">
+              <UserCircle className="h-3.5 w-3.5 text-status-info-fg" />
+              Contacto del cliente *
+            </Label>
+            <SearchableSelect
+              value={contactId}
+              onChange={setContactId}
+              options={contactOptions}
+              placeholder={
+                contactsLoading
+                  ? "Cargando contactos..."
+                  : "Buscar por nombre, email o cuenta..."
+              }
+              emptyText="No hay contactos con email registrado."
+            />
+            {selectedContact && (
+              <p className="text-[12px] text-muted-foreground flex items-center gap-1.5">
+                <Mail className="h-3 w-3" />
+                {selectedContact.email ?? "Sin email"}
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs flex items-center gap-1.5">
+              <Building2 className="h-3.5 w-3.5 text-status-info-fg" />
+              Instalación *
+            </Label>
+            <SearchableSelect
+              value={installationId}
+              onChange={setInstallationId}
+              options={installationOptions}
+              disabled={!contactId || installationsLoading}
+              placeholder={
+                !contactId
+                  ? "Selecciona un contacto primero"
+                  : installationsLoading
+                    ? "Cargando instalaciones..."
+                    : "Buscar instalación..."
+              }
+              emptyText="Este cliente no tiene instalaciones."
+            />
+          </div>
+
+          <p className="text-[11px] text-muted-foreground">
+            Al crear el ticket se enviará un email al contacto con el link de
+            seguimiento del portal y un código de acceso público.
+          </p>
+        </div>
+      )}
 
       {/* Guard search (appears when category = guard) */}
       {showGuardSearch && (
@@ -2063,6 +2306,101 @@ function TicketCreateForm({
         </div>
       )}
 
+      {/* Adjuntos */}
+      <div className="space-y-1.5">
+        <Label className="text-xs flex items-center gap-1.5">
+          <Paperclip className="h-3.5 w-3.5" />
+          Adjuntos
+        </Label>
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => filesInputRef.current?.click()}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ")
+              filesInputRef.current?.click();
+          }}
+          onDragOver={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setFilesDragging(true);
+          }}
+          onDragLeave={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setFilesDragging(false);
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setFilesDragging(false);
+            if (e.dataTransfer.files?.length) {
+              addPendingFiles(e.dataTransfer.files);
+            }
+          }}
+          className={`cursor-pointer rounded-xl border-2 border-dashed p-3 text-center transition-colors ${
+            filesDragging
+              ? "border-primary bg-primary/5"
+              : "border-border hover:border-muted-foreground/50"
+          }`}
+        >
+          <input
+            ref={filesInputRef}
+            type="file"
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              if (e.target.files?.length) addPendingFiles(e.target.files);
+              e.target.value = "";
+            }}
+          />
+          <Upload className="mx-auto h-5 w-5 text-muted-foreground mb-1" />
+          <p className="text-xs text-muted-foreground">
+            Arrastra archivos o{" "}
+            <span className="text-primary underline">busca en tu PC</span>
+          </p>
+          <p className="text-[10px] text-muted-foreground/60 mt-0.5">
+            Hasta {ATT_MAX_FILES} archivos · 25 MB c/u
+          </p>
+        </div>
+        {pendingFiles.length > 0 && (
+          <ul className="space-y-1 pt-1">
+            {pendingFiles.map((f, idx) => {
+              const isImg = f.type.startsWith("image/");
+              return (
+                <li
+                  key={`${f.name}-${idx}`}
+                  className="flex items-center gap-2 rounded-md border border-border/60 bg-background/40 px-2.5 py-1.5"
+                >
+                  {isImg ? (
+                    <ImageIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  ) : (
+                    <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  )}
+                  <span
+                    className="truncate text-[13px] font-medium"
+                    title={f.name}
+                  >
+                    {f.name}
+                  </span>
+                  <span className="ml-auto shrink-0 text-[12px] text-muted-foreground">
+                    {formatBytes(f.size)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removePendingFile(idx)}
+                    className="inline-flex h-6 w-6 items-center justify-center rounded text-status-danger-fg hover:bg-status-danger-soft"
+                    title="Quitar archivo"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+
       {/* Submit */}
       <div className="flex items-center gap-2 pt-2 pb-8">
         <Button
@@ -2077,6 +2415,83 @@ function TicketCreateForm({
           Cancelar
         </Button>
       </div>
+
+      {/* Modal de éxito con PIN público (caso ticket de cliente) */}
+      {createdPublicAccess && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4">
+          <div className="w-full max-w-md rounded-xl border border-border bg-card p-5 shadow-lg space-y-4">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-status-ok-soft text-status-ok-fg">
+                <Check className="h-4 w-4" />
+              </div>
+              <h4 className="text-sm font-semibold">
+                Ticket {createdPublicAccess.code} creado
+              </h4>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Le enviamos un email al contacto con el link de seguimiento. Si
+              necesitas darle acceso público manualmente, comparte el siguiente
+              link y código (visible una sola vez):
+            </p>
+            <div className="space-y-2 rounded-lg border border-border bg-background/40 p-3">
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] uppercase tracking-wider text-muted-foreground shrink-0">
+                  Link
+                </span>
+                <code className="text-[13px] font-mono truncate">
+                  {createdPublicAccess.url}
+                </code>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="ml-auto h-7 px-2"
+                  onClick={() => {
+                    navigator.clipboard
+                      .writeText(createdPublicAccess.url)
+                      .then(() => toast.success("Link copiado"))
+                      .catch(() => toast.error("No se pudo copiar"));
+                  }}
+                >
+                  <Copy className="h-3 w-3" />
+                </Button>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] uppercase tracking-wider text-muted-foreground shrink-0">
+                  Código
+                </span>
+                <code className="text-base font-mono font-semibold tracking-widest">
+                  {createdPublicAccess.pin}
+                </code>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="ml-auto h-7 px-2"
+                  onClick={() => {
+                    navigator.clipboard
+                      .writeText(createdPublicAccess.pin)
+                      .then(() => toast.success("Código copiado"))
+                      .catch(() => toast.error("No se pudo copiar"));
+                  }}
+                >
+                  <Copy className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2">
+              <Button
+                onClick={() => {
+                  const t = createdPublicAccess.ticket;
+                  setCreatedPublicAccess(null);
+                  onCreated(t);
+                }}
+                className="h-9"
+              >
+                Continuar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -9,8 +9,8 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requirePortalClienteAuth } from "@/lib/portal-cliente";
 import { notify } from "@/lib/notifications/notify";
-import { resend, getTenantEmailConfig } from "@/lib/resend";
 import { normalizeTicketAttachments } from "@/lib/portal-cliente-ticket-attachments";
+import { sendClientTicketConfirmationEmail } from "@/lib/tickets-confirmation-email";
 
 export async function GET(request: NextRequest) {
   try {
@@ -242,28 +242,19 @@ export async function POST(request: NextRequest) {
         select: { email: true, firstName: true, lastName: true },
       });
       if (contact?.email) {
-        const emailCfg = await getTenantEmailConfig(session.tenantId);
-        const siteUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://opai.cl";
-        const portalLink = `${siteUrl}/portal/cliente?section=tickets`;
-        const inboundDomain = process.env.TICKETS_INBOUND_DOMAIN || "reply.opai.cl";
-        const replyToAlias = `tickets+${ticket.id}@${inboundDomain}`;
-
-        await resend.emails.send({
-          from: emailCfg.from,
-          to: contact.email,
-          replyTo: replyToAlias,
-          subject: `[${ticket.code}] Hemos recibido tu solicitud: ${title}`,
-          html: buildTicketConfirmationHtml({
-            code: ticket.code,
-            title,
-            description: description ?? null,
-            logoUrl: emailCfg.logoUrl,
-            companyName: emailCfg.companyName,
-            contactName: [contact.firstName, contact.lastName].filter(Boolean).join(" ") || "Estimado/a cliente",
-            portalLink,
-          }),
+        const fullName = [contact.firstName, contact.lastName]
+          .filter(Boolean)
+          .join(" ");
+        await sendClientTicketConfirmationEmail({
+          tenantId: session.tenantId,
+          contactEmail: contact.email,
+          contactName: fullName || null,
+          ticketCode: ticket.code,
+          ticketId: ticket.id,
+          ticketTitle: title,
+          ticketDescription: description ?? null,
         });
-        contactName = [contact.firstName, contact.lastName].filter(Boolean).join(" ") || "Cliente";
+        if (fullName) contactName = fullName;
       }
     } catch (emailErr) {
       console.error("[Portal Cliente] confirmation email error:", emailErr);
@@ -290,48 +281,3 @@ export async function POST(request: NextRequest) {
   }
 }
 
-/* ── HTML builder for ticket confirmation email ──────────── */
-
-function escapeHtml(str: string): string {
-  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
-
-function buildTicketConfirmationHtml(opts: {
-  code: string;
-  title: string;
-  description: string | null;
-  logoUrl: string;
-  companyName: string;
-  contactName: string;
-  portalLink: string;
-}): string {
-  return `<!DOCTYPE html>
-<html lang="es">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
-<body style="margin:0;padding:0;background:#0c1222;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-<div style="max-width:560px;margin:0 auto;padding:32px 16px;">
-  ${opts.logoUrl ? `<img src="${escapeHtml(opts.logoUrl)}" alt="${escapeHtml(opts.companyName)}" style="height:32px;margin-bottom:24px;" />` : `<p style="color:#f1f5f9;font-size:18px;font-weight:700;margin:0 0 24px;">${escapeHtml(opts.companyName)}</p>`}
-  <div style="background:#111827;border:1px solid #1e293b;border-radius:12px;padding:24px;">
-    <p style="color:#f1f5f9;font-size:16px;margin:0 0 8px;">Hola ${escapeHtml(opts.contactName)},</p>
-    <p style="color:#94a3b8;font-size:14px;line-height:1.6;margin:0 0 20px;">
-      Hemos recibido tu solicitud y se ha creado el ticket <strong style="color:#f1f5f9;">${escapeHtml(opts.code)}</strong>.
-    </p>
-    <div style="background:#0c1222;border:1px solid #1e293b;border-radius:8px;padding:16px;margin:0 0 20px;">
-      <p style="color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;margin:0 0 4px;">Ticket</p>
-      <p style="color:#f1f5f9;font-size:14px;font-weight:600;margin:0 0 8px;">${escapeHtml(opts.code)} — ${escapeHtml(opts.title)}</p>
-      ${opts.description ? `<p style="color:#94a3b8;font-size:13px;margin:0;line-height:1.5;">${escapeHtml(opts.description).substring(0, 300)}</p>` : ""}
-    </div>
-    <p style="color:#94a3b8;font-size:14px;line-height:1.6;margin:0 0 20px;">
-      Puedes hacer seguimiento del estado y agregar comentarios desde el portal.
-    </p>
-    <a href="${escapeHtml(opts.portalLink)}" style="display:inline-block;background:#3b82f6;color:#fff;text-decoration:none;padding:10px 24px;border-radius:8px;font-size:14px;font-weight:500;">
-      Ver en el portal
-    </a>
-  </div>
-  <p style="color:#475569;font-size:11px;text-align:center;margin:24px 0 0;">
-    ${escapeHtml(opts.companyName)} — Este es un email automático, puedes responder directamente a este correo.
-  </p>
-</div>
-</body>
-</html>`;
-}
