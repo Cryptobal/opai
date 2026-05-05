@@ -311,12 +311,37 @@ export const DOC_CATEGORIES: Record<string, { key: string; label: string }[]> = 
     { key: "otro_mail", label: "Otro" },
   ],
   whatsapp: [
-    { key: "lead_commercial", label: "Nuevo lead — Comercial al cliente" },
-    { key: "lead_client", label: "Nuevo lead — Cliente al proveedor" },
-    { key: "proposal_sent", label: "Propuesta enviada" },
-    { key: "followup_first", label: "1er seguimiento" },
-    { key: "followup_second", label: "2do seguimiento" },
-    { key: "followup_third", label: "3er seguimiento" },
+    // ── CRM ──
+    { key: "lead_commercial", label: "CRM · Nuevo lead — Comercial al cliente" },
+    { key: "lead_client", label: "CRM · Nuevo lead — Cliente al proveedor" },
+    { key: "proposal_sent", label: "CRM · Propuesta enviada" },
+    { key: "followup_first", label: "CRM · 1er seguimiento" },
+    { key: "followup_second", label: "CRM · 2do seguimiento" },
+    { key: "followup_third", label: "CRM · 3er seguimiento" },
+    { key: "deal_adjudicado", label: "CRM · Negocio adjudicado" },
+    { key: "onboarding_summary", label: "CRM · Resumen de onboarding" },
+    { key: "lead_first_contact", label: "CRM · Primer contacto al lead" },
+    { key: "first_contact_generic", label: "CRM · Saludo genérico (botón ícono)" },
+    { key: "hub_hot", label: "CRM · Hub Cierre — Propuesta caliente" },
+    { key: "hub_stale", label: "CRM · Hub Cierre — Sin actividad" },
+    // ── CPQ ──
+    { key: "cpq_proposal_with_credentials", label: "CPQ · Propuesta enviada con PIN portal" },
+    { key: "cpq_proposal_short", label: "CPQ · Mensaje corto en email portal" },
+    { key: "cpq_visita_tecnica_supervisor", label: "CPQ · Visita técnica al supervisor" },
+    // ── Operaciones ──
+    { key: "ops_guardia_invite_turno_extra", label: "Ops · Invitación formulario Turno Extra" },
+    { key: "ops_guardia_invite_postulacion", label: "Ops · Invitación formulario Postulación" },
+    { key: "ops_guardia_docs_pendientes", label: "Ops · Solicitud de documentos al guardia" },
+    { key: "ops_guardia_entrevista", label: "Ops · Convocatoria a entrevista" },
+    { key: "ops_guardia_recordatorio", label: "Ops · Recordatorio de gestión al guardia" },
+    { key: "ops_panic_response", label: "Ops · Respuesta a alerta de pánico" },
+    // ── Portal Cliente ──
+    { key: "portal_consult_quote", label: "Portal Cliente · Consulta sobre cotización" },
+    { key: "portal_consult_proposal", label: "Portal Cliente · Consulta sobre propuesta" },
+    { key: "portal_consult_general", label: "Portal Cliente · Consulta general" },
+    // ── Presentación / propuesta visualizada ──
+    { key: "presentation_contact_cta", label: "Presentación · CTA contacto" },
+    // ── General ──
     { key: "general", label: "Uso general (elegir desde CRM)" },
   ],
 };
@@ -333,20 +358,138 @@ export const DOC_MODULES = [
 /** Uso de plantillas WhatsApp (usageSlug) → etiqueta y descripción "dónde se usa" */
 export const WA_USAGE_SLUGS: Record<
   string,
-  { label: string; usedIn: string }
+  { label: string; usedIn: string; group: "crm" | "cpq" | "ops" | "portal" | "presentation" }
 > = {
-  lead_commercial:
-    { label: "Nuevo lead — Comercial al cliente", usedIn: "Email al cliente cuando envía solicitud desde el formulario público (botón WhatsApp)." },
-  lead_client:
-    { label: "Nuevo lead — Cliente al proveedor", usedIn: "Email que tú recibes por nuevo lead (botón para enviar WhatsApp al proveedor)." },
-  proposal_sent:
-    { label: "Propuesta enviada", usedIn: "Modal tras enviar propuesta por email y botón «Compartir por WhatsApp» en lista de presentaciones." },
-  followup_first:
-    { label: "1er seguimiento", usedIn: "Notificación interna del 1er seguimiento automático (botón Enviar WhatsApp)." },
-  followup_second:
-    { label: "2do seguimiento", usedIn: "Notificación interna del 2do seguimiento automático (botón Enviar WhatsApp)." },
-  followup_third:
-    { label: "3er seguimiento", usedIn: "Notificación interna del 3er seguimiento automático (botón Enviar WhatsApp)." },
+  // ── CRM ──
+  lead_commercial: {
+    label: "Nuevo lead — Comercial al cliente",
+    usedIn: "Email \"Nuevo lead\" que recibe el ejecutivo (botón \"Contactar al cliente por WhatsApp\").",
+    group: "crm",
+  },
+  lead_client: {
+    label: "Nuevo lead — Cliente al proveedor",
+    usedIn: "Email de confirmación al cliente que envió el formulario público (botón WhatsApp al proveedor).",
+    group: "crm",
+  },
+  proposal_sent: {
+    label: "Propuesta enviada",
+    usedIn: "Modal tras enviar propuesta y botón «Compartir por WhatsApp» en lista de presentaciones.",
+    group: "crm",
+  },
+  followup_first: {
+    label: "1er seguimiento",
+    usedIn: "Notificación interna del 1er seguimiento automático (botón Enviar WhatsApp al cliente).",
+    group: "crm",
+  },
+  followup_second: {
+    label: "2do seguimiento",
+    usedIn: "Notificación interna del 2do seguimiento automático (botón Enviar WhatsApp al cliente).",
+    group: "crm",
+  },
+  followup_third: {
+    label: "3er seguimiento",
+    usedIn: "Notificación interna del 3er seguimiento automático (botón Enviar WhatsApp al cliente).",
+    group: "crm",
+  },
+  deal_adjudicado: {
+    label: "Negocio adjudicado",
+    usedIn: "Botón «Compartir adjudicación por WhatsApp» en detalle de negocio (deal). Incluye datos del negocio, contacto, instalación y dotación.",
+    group: "crm",
+  },
+  onboarding_summary: {
+    label: "Resumen de onboarding",
+    usedIn: "Pantalla post-creación de onboarding del cliente, botón «Enviar al equipo». Incluye dotación, tickets pendientes y datos del cliente.",
+    group: "crm",
+  },
+  lead_first_contact: {
+    label: "Primer contacto al lead",
+    usedIn: "Botón directo «Contactar por WhatsApp» en detalle de lead (mensaje completo con resumen de la solicitud).",
+    group: "crm",
+  },
+  first_contact_generic: {
+    label: "Saludo genérico (botón ícono)",
+    usedIn: "Ícono de WhatsApp en tarjetas/listados de lead, cuenta, contacto, deal. Mensaje corto para iniciar conversación.",
+    group: "crm",
+  },
+  hub_hot: {
+    label: "Hub Cierre — Propuesta caliente",
+    usedIn: "Hub de Cierre, sección «Propuestas calientes» (cliente vio la propuesta recientemente).",
+    group: "crm",
+  },
+  hub_stale: {
+    label: "Hub Cierre — Sin actividad",
+    usedIn: "Hub de Cierre, sección «Propuestas frías» (sin movimiento, reenganche).",
+    group: "crm",
+  },
+  // ── CPQ ──
+  cpq_proposal_with_credentials: {
+    label: "Propuesta enviada con PIN portal",
+    usedIn: "Modal tras enviar propuesta desde CPQ. Incluye link al portal, correo y PIN. CRÍTICO: requiere tokens {{system.portalUrl}}, {{contact.email}} y {{system.portalPin}}.",
+    group: "cpq",
+  },
+  cpq_proposal_short: {
+    label: "Mensaje corto en email portal",
+    usedIn: "Botón «Comunícate por WhatsApp» dentro del email de invitación al portal del prospecto.",
+    group: "cpq",
+  },
+  cpq_visita_tecnica_supervisor: {
+    label: "Visita técnica al supervisor",
+    usedIn: "Modal «¡Visita programada!» tras agendar visita técnica desde CPQ. Mensaje al supervisor con fecha, hora, instalación y puestos.",
+    group: "cpq",
+  },
+  // ── Operaciones ──
+  ops_guardia_invite_turno_extra: {
+    label: "Invitación formulario Turno Extra",
+    usedIn: "Listado de guardias, menú «Enviar formulario Turno Extra» (link al formulario público).",
+    group: "ops",
+  },
+  ops_guardia_invite_postulacion: {
+    label: "Invitación formulario Postulación",
+    usedIn: "Listado de guardias, menú «Enviar formulario Postulación» (link al formulario público de postulación).",
+    group: "ops",
+  },
+  ops_guardia_docs_pendientes: {
+    label: "Solicitud de documentos al guardia",
+    usedIn: "Tab «Comunicaciones» del detalle de guardia, plantilla WhatsApp para pedir documentos.",
+    group: "ops",
+  },
+  ops_guardia_entrevista: {
+    label: "Convocatoria a entrevista",
+    usedIn: "Tab «Comunicaciones» del detalle de guardia, plantilla para citar a entrevista.",
+    group: "ops",
+  },
+  ops_guardia_recordatorio: {
+    label: "Recordatorio de gestión al guardia",
+    usedIn: "Tab «Comunicaciones» del detalle de guardia, plantilla de recordatorio genérico.",
+    group: "ops",
+  },
+  ops_panic_response: {
+    label: "Respuesta a alerta de pánico",
+    usedIn: "Modal de pánico fullscreen, botón para responder al guardia que activó la alerta.",
+    group: "ops",
+  },
+  // ── Portal Cliente ──
+  portal_consult_quote: {
+    label: "Consulta sobre cotización",
+    usedIn: "Botón WhatsApp en portal cliente cuando hay una cotización abierta.",
+    group: "portal",
+  },
+  portal_consult_proposal: {
+    label: "Consulta sobre propuesta",
+    usedIn: "Botón WhatsApp en portal cliente cuando hay una propuesta abierta.",
+    group: "portal",
+  },
+  portal_consult_general: {
+    label: "Consulta general",
+    usedIn: "Botón WhatsApp en portal cliente cuando no hay cotización/propuesta específica.",
+    group: "portal",
+  },
+  // ── Presentación ──
+  presentation_contact_cta: {
+    label: "CTA contacto en propuesta",
+    usedIn: "Header de presentación visualizada por el cliente, botón WhatsApp del CTA principal.",
+    group: "presentation",
+  },
 };
 
 /** Status labels for documents */
