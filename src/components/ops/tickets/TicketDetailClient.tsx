@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -10,9 +10,11 @@ import {
   Check,
   ChevronRight,
   Clock,
+  Download,
   ExternalLink,
   FileText,
   History,
+  Image as ImageIcon,
   Loader2,
   Mail,
   MailOpen,
@@ -27,6 +29,7 @@ import {
   Shield,
   Sparkles,
   Trash2,
+  Upload,
   User,
   UserCircle,
   Users,
@@ -1025,8 +1028,15 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
         </div>
       )}
 
-      {/* ── CARD: Adjuntos agregados (de todos los comentarios) ── */}
-      <TicketAttachmentsSummary comments={comments} />
+      {/* ── CARD: Adjuntos del ticket ──
+          Adjuntos persistidos a nivel de ticket (subir/ver/eliminar) +
+          adjuntos heredados de los comentarios/emails. */}
+      <TicketAttachmentsCard
+        ticketId={ticketId}
+        comments={comments}
+        userId={userId}
+        userRole={userRole}
+      />
 
       {/* ── CARD: Tickets relacionados ── */}
       <TicketLinksCard ticketId={ticketId} ticketCode={ticket.code} />
@@ -1647,7 +1657,7 @@ function EmailComposer({
       for (const f of Array.from(files)) {
         formData.append("files", f);
       }
-      const res = await fetch(`/api/ops/tickets/${ticketId}/attachments`, {
+      const res = await fetch(`/api/ops/tickets/${ticketId}/email-attachments`, {
         method: "POST",
         body: formData,
       });
@@ -1812,10 +1822,10 @@ function InfoField({ label, value, className }: { label: string; value: string; 
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  ATTACHMENTS SUMMARY
-//  Agrega todos los attachments de los comentarios del ticket en
-//  una sola card. No requiere migración: lee de comment.attachments
-//  (Json) que ya se popula desde el composer de email y replies.
+//  ATTACHMENTS CARD
+//  Card unificada para los adjuntos del ticket:
+//   - Adjuntos persistidos (subir / ver / descargar / eliminar)
+//   - Adjuntos heredados de comentarios y emails (solo lectura)
 // ═══════════════════════════════════════════════════════════════
 
 type FlatAttachment = {
@@ -1871,62 +1881,363 @@ function formatBytes(size?: number): string | null {
   return `${Math.round(size / 1024)} KB`;
 }
 
-function TicketAttachmentsSummary({ comments }: { comments: TicketComment[] }) {
-  const flat = flattenAttachments(comments);
-  if (flat.length === 0) return null;
+const ATT_MAX_FILE_SIZE = 25 * 1024 * 1024; // 25 MB
+const ATT_MAX_FILES_PER_BATCH = 10;
+
+interface TicketAttachmentDTO {
+  id: string;
+  fileName: string;
+  fileSize: number;
+  contentType: string;
+  storageKey: string;
+  url: string;
+  uploadedBy: string | null;
+  uploadedByName: string | null;
+  createdAt: string;
+}
+
+function isImageType(contentType?: string, fileName?: string): boolean {
+  if (contentType?.startsWith("image/")) return true;
+  if (!fileName) return false;
+  return /\.(jpe?g|png|webp|gif|avif|svg)$/i.test(fileName);
+}
+
+function TicketAttachmentsCard({
+  ticketId,
+  comments,
+  userId,
+  userRole,
+}: {
+  ticketId: string;
+  comments: TicketComment[];
+  userId: string;
+  userRole: string;
+}) {
+  const [items, setItems] = useState<TicketAttachmentDTO[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const isAdmin = isAdminRole(userRole);
+  const fromComments = useMemo(() => flattenAttachments(comments), [comments]);
+
+  const refresh = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/ops/tickets/${ticketId}/attachments`);
+      const data = await res.json();
+      if (data.success && Array.isArray(data.data)) {
+        setItems(data.data);
+      }
+    } catch {
+      // Silencioso: la card sigue funcionando con la última lista cargada.
+    } finally {
+      setLoading(false);
+    }
+  }, [ticketId]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  const uploadFiles = useCallback(
+    async (files: File[]) => {
+      if (files.length === 0) return;
+      if (files.length > ATT_MAX_FILES_PER_BATCH) {
+        toast.error(`Máximo ${ATT_MAX_FILES_PER_BATCH} archivos por subida`);
+        return;
+      }
+      const tooLarge = files.find((f) => f.size > ATT_MAX_FILE_SIZE);
+      if (tooLarge) {
+        toast.error(`"${tooLarge.name}" excede el límite de 25 MB`);
+        return;
+      }
+
+      setUploading(true);
+      try {
+        const fd = new FormData();
+        for (const f of files) fd.append("files", f);
+        const res = await fetch(
+          `/api/ops/tickets/${ticketId}/attachments`,
+          { method: "POST", body: fd },
+        );
+        const data = await res.json();
+        if (!data.success) {
+          throw new Error(data.error || "Error al subir archivos");
+        }
+        const created = (data.data ?? []) as TicketAttachmentDTO[];
+        setItems((prev) => [...created, ...prev]);
+        toast.success(
+          created.length === 1
+            ? "Archivo subido"
+            : `${created.length} archivos subidos`,
+        );
+      } catch (err) {
+        toast.error(
+          err instanceof Error ? err.message : "Error al subir archivos",
+        );
+      } finally {
+        setUploading(false);
+      }
+    },
+    [ticketId],
+  );
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const list = e.target.files;
+    if (!list?.length) return;
+    void uploadFiles(Array.from(list));
+    e.target.value = "";
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    const dropped = e.dataTransfer.files;
+    if (dropped?.length) void uploadFiles(Array.from(dropped));
+  };
+
+  const handleDelete = async (att: TicketAttachmentDTO) => {
+    const ok = window.confirm(`¿Eliminar el adjunto "${att.fileName}"?`);
+    if (!ok) return;
+    setDeletingId(att.id);
+    try {
+      const res = await fetch(
+        `/api/ops/tickets/${ticketId}/attachments/${att.id}`,
+        { method: "DELETE" },
+      );
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || "No se pudo eliminar");
+      setItems((prev) => prev.filter((it) => it.id !== att.id));
+      toast.success("Adjunto eliminado");
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Error al eliminar adjunto",
+      );
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const totalCount = items.length + fromComments.length;
 
   return (
     <div className="rounded-xl border border-border bg-ds-surface-1 p-4 space-y-3">
       <div className="flex items-center gap-2">
         <Paperclip className="h-4 w-4 text-muted-foreground" />
         <h4 className="text-sm font-medium">Adjuntos</h4>
-        <span className="text-xs text-muted-foreground">({flat.length})</span>
+        <span className="text-xs text-muted-foreground">({totalCount})</span>
+        <div className="ml-auto">
+          <input
+            ref={inputRef}
+            type="file"
+            multiple
+            className="hidden"
+            onChange={handleFileChange}
+            disabled={uploading}
+          />
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 gap-1 text-xs"
+            disabled={uploading}
+            onClick={() => inputRef.current?.click()}
+          >
+            {uploading ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <Upload className="h-3 w-3" />
+            )}
+            Subir
+          </Button>
+        </div>
       </div>
 
-      <ul className="space-y-1">
-        {flat.map((a, idx) => {
-          const sizeStr = formatBytes(a.size);
-          const dateStr = new Date(a.commentCreatedAt).toLocaleString("es-CL", {
-            day: "2-digit",
-            month: "short",
-            hour: "2-digit",
-            minute: "2-digit",
-          });
-          return (
-            <li
-              key={`${a.commentId}-${idx}`}
-              className="flex items-center gap-2 rounded-md border border-border/60 bg-background/40 px-2.5 py-1.5"
-            >
-              <Paperclip className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-              {a.url ? (
-                <a
-                  href={a.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="truncate text-[13px] font-medium text-foreground hover:underline"
-                  title={a.fileName}
-                >
-                  {a.fileName}
-                </a>
-              ) : (
-                <span
-                  className="truncate text-[13px] font-medium text-muted-foreground"
-                  title={a.fileName}
-                >
-                  {a.fileName}
-                </span>
-              )}
-              <span className="ml-auto flex shrink-0 items-center gap-2 text-[12px] text-muted-foreground">
-                {sizeStr && <span>{sizeStr}</span>}
-                {a.authorName && (
-                  <span className="hidden sm:inline">· {a.authorName}</span>
+      {/* Drop zone — visible siempre como hint; resalta al arrastrar. */}
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => inputRef.current?.click()}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") inputRef.current?.click();
+        }}
+        onDragOver={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setIsDragging(true);
+        }}
+        onDragLeave={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setIsDragging(false);
+        }}
+        onDrop={handleDrop}
+        className={`cursor-pointer rounded-lg border-2 border-dashed p-3 text-center transition-colors ${
+          isDragging
+            ? "border-primary bg-primary/5"
+            : "border-border hover:border-muted-foreground/50"
+        }`}
+      >
+        <p className="text-xs text-muted-foreground">
+          Arrastra archivos aquí o{" "}
+          <span className="text-primary underline">busca en tu PC</span>
+        </p>
+        <p className="text-[10px] text-muted-foreground/60 mt-0.5">
+          Hasta {ATT_MAX_FILES_PER_BATCH} archivos · 25 MB c/u
+        </p>
+      </div>
+
+      {/* Lista persistidos */}
+      {loading ? (
+        <div className="flex items-center gap-2 px-1 py-2 text-xs text-muted-foreground">
+          <Loader2 className="h-3 w-3 animate-spin" />
+          Cargando adjuntos…
+        </div>
+      ) : items.length > 0 ? (
+        <ul className="space-y-1">
+          {items.map((a) => {
+            const sizeStr = formatBytes(a.fileSize);
+            const dateStr = new Date(a.createdAt).toLocaleString("es-CL", {
+              day: "2-digit",
+              month: "short",
+              hour: "2-digit",
+              minute: "2-digit",
+            });
+            const canDelete = isAdmin || a.uploadedBy === userId;
+            const isImage = isImageType(a.contentType, a.fileName);
+            return (
+              <li
+                key={a.id}
+                className="flex items-center gap-2 rounded-md border border-border/60 bg-background/40 px-2.5 py-1.5"
+              >
+                {isImage ? (
+                  <ImageIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                ) : (
+                  <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                 )}
-                <span className="hidden sm:inline">· {dateStr}</span>
-              </span>
-            </li>
-          );
-        })}
-      </ul>
+                {a.url ? (
+                  <a
+                    href={a.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="truncate text-[13px] font-medium text-foreground hover:underline"
+                    title={a.fileName}
+                  >
+                    {a.fileName}
+                  </a>
+                ) : (
+                  <span
+                    className="truncate text-[13px] font-medium text-muted-foreground"
+                    title={a.fileName}
+                  >
+                    {a.fileName}
+                  </span>
+                )}
+                <span className="ml-auto flex shrink-0 items-center gap-2 text-[12px] text-muted-foreground">
+                  {sizeStr && <span>{sizeStr}</span>}
+                  {a.uploadedByName && (
+                    <span className="hidden sm:inline">
+                      · {a.uploadedByName}
+                    </span>
+                  )}
+                  <span className="hidden sm:inline">· {dateStr}</span>
+                  {a.url && (
+                    <a
+                      href={a.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      download={a.fileName}
+                      className="inline-flex h-6 w-6 items-center justify-center rounded hover:bg-accent"
+                      title="Descargar"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                    </a>
+                  )}
+                  {canDelete && (
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(a)}
+                      disabled={deletingId === a.id}
+                      className="inline-flex h-6 w-6 items-center justify-center rounded text-status-danger-fg hover:bg-status-danger-soft disabled:opacity-50"
+                      title="Eliminar adjunto"
+                    >
+                      {deletingId === a.id ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-3.5 w-3.5" />
+                      )}
+                    </button>
+                  )}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <p className="px-1 text-xs text-muted-foreground">
+          No hay adjuntos en este ticket todavía.
+        </p>
+      )}
+
+      {/* Adjuntos provenientes de comentarios/emails (solo lectura) */}
+      {fromComments.length > 0 && (
+        <div className="space-y-1 pt-1">
+          <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+            En mensajes ({fromComments.length})
+          </p>
+          <ul className="space-y-1">
+            {fromComments.map((a, idx) => {
+              const sizeStr = formatBytes(a.size);
+              const dateStr = new Date(a.commentCreatedAt).toLocaleString(
+                "es-CL",
+                {
+                  day: "2-digit",
+                  month: "short",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                },
+              );
+              return (
+                <li
+                  key={`${a.commentId}-${idx}`}
+                  className="flex items-center gap-2 rounded-md border border-border/60 bg-background/40 px-2.5 py-1.5"
+                >
+                  <Paperclip className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  {a.url ? (
+                    <a
+                      href={a.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="truncate text-[13px] font-medium text-foreground hover:underline"
+                      title={a.fileName}
+                    >
+                      {a.fileName}
+                    </a>
+                  ) : (
+                    <span
+                      className="truncate text-[13px] font-medium text-muted-foreground"
+                      title={a.fileName}
+                    >
+                      {a.fileName}
+                    </span>
+                  )}
+                  <span className="ml-auto flex shrink-0 items-center gap-2 text-[12px] text-muted-foreground">
+                    {sizeStr && <span>{sizeStr}</span>}
+                    {a.authorName && (
+                      <span className="hidden sm:inline">
+                        · {a.authorName}
+                      </span>
+                    )}
+                    <span className="hidden sm:inline">· {dateStr}</span>
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

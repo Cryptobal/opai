@@ -5070,6 +5070,7 @@ model OpsTicket {
   outgoingLinks       OpsTicketLink[]         @relation("ops_ticket_link_source")
   incomingLinks       OpsTicketLink[]         @relation("ops_ticket_link_target")
   csat                OpsTicketCsat?
+  attachments         OpsTicketAttachment[]
 
   @@unique([tenantId, code], map: "uq_ops_tickets_tenant_code")
   @@index([tenantId], map: "idx_ops_tickets_tenant")
@@ -5209,6 +5210,29 @@ model OpsTicketLink {
   @@index([tenantId, sourceTicketId], map: "idx_ops_ticket_links_tenant_source")
   @@index([tenantId, targetTicketId], map: "idx_ops_ticket_links_tenant_target")
   @@map("ops_ticket_links")
+  @@schema("ops")
+}
+
+/// Adjuntos persistidos a nivel de ticket (independientes de
+/// comentarios/emails). Permiten al operador subir, listar, ver y
+/// eliminar archivos asociados al ticket. El binario vive en R2 y la
+/// fila guarda metadata + storageKey.
+model OpsTicketAttachment {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId    String   @map("tenant_id")
+  ticketId    String   @map("ticket_id") @db.Uuid
+  fileName    String   @map("file_name")
+  fileSize    Int      @map("file_size")
+  contentType String   @map("content_type")
+  storageKey  String   @map("storage_key")
+  uploadedBy  String?  @map("uploaded_by")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  ticket OpsTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId], map: "idx_ops_ticket_attachments_ticket")
+  @@index([tenantId], map: "idx_ops_ticket_attachments_tenant")
+  @@map("ops_ticket_attachments")
   @@schema("ops")
 }
 
