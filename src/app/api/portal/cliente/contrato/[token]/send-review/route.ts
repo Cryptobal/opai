@@ -117,7 +117,7 @@ export async function POST(
         type: "contract_suggestion",
         title: `Revisión recibida: ${newSuggestions.length} cambio(s) al contrato`,
         body: `El cliente envió sus comentarios en "${document.title}".`,
-        link: `/opai/docs/documentos/${document.id}`,
+        link: `/opai/documentos/${document.id}`,
         data: {
           documentId: document.id,
           suggestionsCount: newSuggestions.length,

@@ -355,7 +355,7 @@ export async function POST(request: NextRequest) {
         audience: "admin",
         title: `Entrega a ${guardiaName}`,
         body: `${itemsSummary}${installationName ? ` en ${installationName}` : ""}`,
-        link: "/opai/ops/inventario/entregas",
+        link: "/ops/inventario/entregas",
         data: { movementId: movement.id, guardiaId: deliveryData.guardiaId },
       }).catch((err) => console.error("[inventory_delivery admin]", err));
 
@@ -415,7 +415,7 @@ export async function POST(request: NextRequest) {
           audience: "admin",
           title: "Stock agotado",
           body: `${outNames} en ${outOfStockItems[0].warehouse.name} llegó a 0 unidades.`,
-          link: "/opai/ops/inventario/stock",
+          link: "/ops/inventario/stock",
           data: { stockAlert: "out_of_stock", warehouseId: outOfStockItems[0].warehouseId },
         }).catch((err) => console.error("[stock_alert out]", err));
       } else if (lowStockItems.length > 0) {
@@ -428,7 +428,7 @@ export async function POST(request: NextRequest) {
           audience: "admin",
           title: "Stock bajo mínimo",
           body: `${lowNames} en ${lowStockItems[0].warehouse.name}`,
-          link: "/opai/ops/inventario/stock",
+          link: "/ops/inventario/stock",
           data: { stockAlert: "low", warehouseId: lowStockItems[0].warehouseId },
         }).catch((err) => console.error("[stock_alert low]", err));
       }
