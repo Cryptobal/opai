@@ -10,6 +10,7 @@ import { isDteTypeValid, IVA_RATE } from "../shared/constants/dte-types";
 import { validateRut } from "../shared/validators/rut.validator";
 import { buildInvoiceIssuedEntry } from "../accounting/auto-entry.builder";
 import { createManualEntry, postEntry } from "../accounting/journal-entry.service";
+import { reserveNextFolio } from "./folio-tracker.service";
 
 export type IssueDteInput = {
   dteType: number;
@@ -79,107 +80,134 @@ export async function issueDte(
   const taxAmount = isExempt ? 0 : Math.round(totalNet * taxRate / 100);
   const totalAmount = totalNet + totalExempt + taxAmount;
 
-  // 5. Get next folio
-  const lastDte = await prisma.financeDte.findFirst({
-    where: { tenantId, direction: "ISSUED", dteType: input.dteType },
-    orderBy: { folio: "desc" },
-    select: { folio: true },
-  });
-  const nextFolio = (lastDte?.folio ?? 0) + 1;
+  // 5–9. Folio reservation + provider call + DTE persistence inside one
+  // transaction so a provider error rolls back the folio increment too.
+  const { dte, nextFolio } = await prisma.$transaction(
+    async (tx) => {
+      const config = await tx.tenantDteConfig.findUnique({ where: { tenantId } });
+      const useTracker = config?.provider === "SIMPLEAPI";
 
-  // 6. Build code
-  const code = `${input.dteType}-${nextFolio}`;
+      let folio: number;
+      let cafXml: Buffer | undefined;
 
-  // 7. Get issuer info (from tenant settings or env)
-  const issuerRut = process.env.COMPANY_RUT ?? "76000000-0";
-  const issuerName = process.env.COMPANY_NAME ?? "Empresa";
+      if (useTracker) {
+        const reserved = await reserveNextFolio(tx, tenantId, input.dteType);
+        folio = reserved.folio;
+        cafXml = reserved.cafXml;
+      } else {
+        const lastDte = await tx.financeDte.findFirst({
+          where: { tenantId, direction: "ISSUED", dteType: input.dteType },
+          orderBy: { folio: "desc" },
+          select: { folio: true },
+        });
+        folio = (lastDte?.folio ?? 0) + 1;
+      }
 
-  // 8. Call DTE provider
-  const provider = getDteProvider();
-  const dteRequest: DteIssueRequest = {
-    dteType: input.dteType,
-    folio: nextFolio,
-    date: new Date().toISOString().split("T")[0],
-    issuerRut,
-    issuerName,
-    receiverRut: input.receiverRut,
-    receiverName: input.receiverName,
-    receiverEmail: input.receiverEmail,
-    items: calculatedLines.map((l, i): DteLineItem => ({
-      lineNumber: i + 1,
-      itemCode: l.itemCode,
-      itemName: l.itemName,
-      description: l.description,
-      quantity: l.quantity,
-      unit: l.unit,
-      unitPrice: l.unitPrice,
-      discountPct: l.discountPct,
-      netAmount: l.netAmount,
-      isExempt: l.isExempt ?? false,
-    })),
-    netAmount: totalNet,
-    exemptAmount: totalExempt,
-    taxRate,
-    taxAmount,
-    totalAmount,
-  };
+      const code = `${input.dteType}-${folio}`;
 
-  const result = await provider.issue(dteRequest);
+      // Issuer info: tenant config takes precedence over env vars
+      const issuerRut = config?.emisorRut ?? process.env.COMPANY_RUT ?? "12345678-9";
+      const issuerName = config?.emisorRazonSocial ?? process.env.COMPANY_NAME ?? "Empresa";
 
-  if (!result.success) {
-    throw new Error(`Error emitiendo DTE: ${result.error ?? "Error desconocido"}`);
-  }
-
-  // 9. Store DTE in database
-  const dte = await prisma.financeDte.create({
-    data: {
-      tenantId,
-      direction: "ISSUED",
-      dteType: input.dteType,
-      folio: nextFolio,
-      code,
-      date: new Date(),
-      issuerRut,
-      issuerName,
-      receiverRut: input.receiverRut,
-      receiverName: input.receiverName,
-      receiverEmail: input.receiverEmail ?? null,
-      currency: (input.currency as any) ?? "CLP",
-      netAmount: totalNet,
-      exemptAmount: totalExempt,
-      taxRate,
-      taxAmount,
-      totalAmount,
-      siiStatus: "PENDING",
-      siiTrackId: result.trackId ?? null,
-      pdfUrl: result.pdfUrl ?? null,
-      xmlUrl: result.xmlUrl ?? null,
-      paymentStatus: "UNPAID",
-      amountPaid: 0,
-      amountPending: totalAmount,
-      accountId: input.accountId ?? null,
-      createdBy,
-      notes: input.notes ?? null,
-      lines: {
-        create: calculatedLines.map((l, i) => ({
+      const provider = await getDteProvider(tenantId);
+      const dteRequest: DteIssueRequest = {
+        dteType: input.dteType,
+        folio,
+        date: new Date().toISOString().split("T")[0],
+        issuerRut,
+        issuerName,
+        receiverRut: input.receiverRut,
+        receiverName: input.receiverName,
+        receiverEmail: input.receiverEmail,
+        items: calculatedLines.map((l, i): DteLineItem => ({
           lineNumber: i + 1,
-          itemCode: l.itemCode ?? null,
+          itemCode: l.itemCode,
           itemName: l.itemName,
-          description: l.description ?? null,
+          description: l.description,
           quantity: l.quantity,
-          unit: l.unit ?? null,
+          unit: l.unit,
           unitPrice: l.unitPrice,
-          discountPct: l.discountPct ?? 0,
+          discountPct: l.discountPct,
           netAmount: l.netAmount,
           isExempt: l.isExempt ?? false,
-          accountId: l.accountId ?? null,
-          costCenterId: l.costCenterId ?? null,
-          refuerzoSolicitudId: l.refuerzoSolicitudId ?? null,
         })),
-      },
+        netAmount: totalNet,
+        exemptAmount: totalExempt,
+        taxRate,
+        taxAmount,
+        totalAmount,
+        ...(cafXml ? { cafXml } : {}),
+      };
+
+      const providerResult = await provider.issue(dteRequest);
+
+      if (!providerResult.success) {
+        // Throwing inside $transaction triggers automatic rollback,
+        // including the folio increment in tracker.
+        throw new Error(
+          `Error emitiendo DTE: ${providerResult.error ?? "Error desconocido"}`
+        );
+      }
+
+      const created = await tx.financeDte.create({
+        data: {
+          tenantId,
+          direction: "ISSUED",
+          dteType: input.dteType,
+          folio,
+          code,
+          date: new Date(),
+          issuerRut,
+          issuerName,
+          receiverRut: input.receiverRut,
+          receiverName: input.receiverName,
+          receiverEmail: input.receiverEmail ?? null,
+          currency: (input.currency as any) ?? "CLP",
+          netAmount: totalNet,
+          exemptAmount: totalExempt,
+          taxRate,
+          taxAmount,
+          totalAmount,
+          siiStatus: "PENDING",
+          siiTrackId: providerResult.trackId ?? null,
+          pdfUrl: providerResult.pdfUrl ?? null,
+          xmlUrl: providerResult.xmlUrl ?? null,
+          paymentStatus: "UNPAID",
+          amountPaid: 0,
+          amountPending: totalAmount,
+          accountId: input.accountId ?? null,
+          createdBy,
+          notes: input.notes ?? null,
+          lines: {
+            create: calculatedLines.map((l, i) => ({
+              lineNumber: i + 1,
+              itemCode: l.itemCode ?? null,
+              itemName: l.itemName,
+              description: l.description ?? null,
+              quantity: l.quantity,
+              unit: l.unit ?? null,
+              unitPrice: l.unitPrice,
+              discountPct: l.discountPct ?? 0,
+              netAmount: l.netAmount,
+              isExempt: l.isExempt ?? false,
+              accountId: l.accountId ?? null,
+              costCenterId: l.costCenterId ?? null,
+              refuerzoSolicitudId: l.refuerzoSolicitudId ?? null,
+            })),
+          },
+        },
+        include: { lines: true },
+      });
+
+      return { dte: created, nextFolio: folio };
     },
-    include: { lines: true },
-  });
+    { timeout: 30_000 }
+  );
+
+  // The journal-entry generation and refuerzo updates below intentionally run
+  // OUTSIDE the transaction: the DTE is already issued and persisted, and we
+  // don't want long-running side-effects to lock the DTE row.
+  const code = dte.code;
 
   const refuerzoIds = Array.from(
     new Set(
@@ -266,7 +294,7 @@ export async function checkDteStatus(tenantId: string, dteId: string) {
   if (!dte) throw new Error("DTE no encontrado");
   if (!dte.siiTrackId) throw new Error("DTE no tiene track ID del SII");
 
-  const provider = getDteProvider();
+  const provider = await getDteProvider(tenantId);
   const status = await provider.getStatus(dte.siiTrackId);
 
   // Update status in DB

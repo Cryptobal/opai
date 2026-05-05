@@ -16,6 +16,6 @@ export async function getDtePdf(tenantId: string, dteId: string): Promise<Buffer
   });
   if (!dte) throw new Error("DTE no encontrado");
 
-  const provider = getDteProvider();
+  const provider = await getDteProvider(tenantId);
   return provider.getPdf(dte.dteType, dte.folio);
 }

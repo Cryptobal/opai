@@ -2235,16 +2235,16 @@ model CrmDeal {
   createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  account         CrmAccount            @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  primaryContact  CrmContact?           @relation("crm_deal_primary_contact", fields: [primaryContactId], references: [id], onDelete: SetNull)
-  stage           CrmPipelineStage      @relation(fields: [stageId], references: [id])
-  stageHistory    CrmDealStageHistory[]
-  quotes          CrmDealQuote[]
-  tasks           CrmTask[]
-  followUpLogs    CrmFollowUpLog[]
-  dealContacts    CrmDealContact[]
-  visitasTecnicas OpsVisitaTecnica[]
-  activatedInstallations CrmInstallation[] @relation("crm_installation_activated_by_deal")
+  account                CrmAccount            @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  primaryContact         CrmContact?           @relation("crm_deal_primary_contact", fields: [primaryContactId], references: [id], onDelete: SetNull)
+  stage                  CrmPipelineStage      @relation(fields: [stageId], references: [id])
+  stageHistory           CrmDealStageHistory[]
+  quotes                 CrmDealQuote[]
+  tasks                  CrmTask[]
+  followUpLogs           CrmFollowUpLog[]
+  dealContacts           CrmDealContact[]
+  visitasTecnicas        OpsVisitaTecnica[]
+  activatedInstallations CrmInstallation[]     @relation("crm_installation_activated_by_deal")
 
   @@index([tenantId], map: "idx_crm_deals_tenant")
   @@index([status], map: "idx_crm_deals_status")
@@ -9113,4 +9113,95 @@ model ClientOnboardingStep {
   @@index([ticketId], map: "idx_client_onboarding_steps_ticket")
   @@map("client_onboarding_steps")
   @@schema("ops")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DTE — Configuración por tenant para emisión electrónica (SII)
+// ═══════════════════════════════════════════════════════════════
+
+model TenantDteConfig {
+  id          String  @id @default(cuid())
+  tenantId    String  @unique @map("tenant_id")
+  provider    String  @default("SIMPLEAPI") // SIMPLEAPI | SIMPLEFACTURA | STUB
+  environment String  @default("CERTIFICATION") // CERTIFICATION | PRODUCTION
+  isActive    Boolean @default(false) @map("is_active")
+
+  // Datos del emisor (para construir Encabezado del DTE)
+  emisorRut         String? @map("emisor_rut")
+  emisorRazonSocial String? @map("emisor_razon_social")
+  emisorGiro        String? @map("emisor_giro")
+  emisorActeco      Int?    @map("emisor_acteco")
+  emisorDireccion   String? @map("emisor_direccion")
+  emisorComuna      String? @map("emisor_comuna")
+  emisorCiudad      String? @map("emisor_ciudad")
+  emisorTelefono    String? @map("emisor_telefono")
+  emisorEmail       String? @map("emisor_email")
+
+  // Resolución SII de habilitación como emisor electrónico
+  resolNumero Int?      @map("resol_numero")
+  resolFecha  DateTime? @map("resol_fecha") @db.Date
+
+  // Última sincronización RCV
+  lastRcvSyncAt DateTime? @map("last_rcv_sync_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([tenantId], map: "idx_tenant_dte_config_tenant")
+  @@map("tenant_dte_configs")
+  @@schema("public")
+}
+
+model TenantDteCertificate {
+  id            String   @id @default(cuid())
+  tenantId      String   @unique @map("tenant_id")
+  fileName      String   @map("file_name")
+  pfxDataEnc    Bytes    @map("pfx_data_enc")
+  passwordEnc   String   @map("password_enc") @db.Text
+  rutTitular    String   @map("rut_titular")
+  nombreTitular String?  @map("nombre_titular")
+  emisorCert    String?  @map("emisor_cert")
+  notBefore     DateTime @map("not_before")
+  notAfter      DateTime @map("not_after")
+  fingerprint   String
+  uploadedBy    String   @map("uploaded_by")
+  uploadedAt    DateTime @default(now()) @map("uploaded_at")
+
+  @@index([tenantId], map: "idx_tenant_dte_cert_tenant")
+  @@index([notAfter], map: "idx_tenant_dte_cert_expiry")
+  @@map("tenant_dte_certificates")
+  @@schema("public")
+}
+
+model TenantDteCaf {
+  id                String   @id @default(cuid())
+  tenantId          String   @map("tenant_id")
+  dteType           Int      @map("dte_type")
+  folioDesde        Int      @map("folio_desde")
+  folioHasta        Int      @map("folio_hasta")
+  rutEmisor         String   @map("rut_emisor")
+  fechaAutorizacion DateTime @map("fecha_autorizacion") @db.Date
+  xmlData           Bytes    @map("xml_data")
+  fileName          String   @map("file_name")
+  isActive          Boolean  @default(true) @map("is_active")
+  uploadedBy        String   @map("uploaded_by")
+  uploadedAt        DateTime @default(now()) @map("uploaded_at")
+
+  @@unique([tenantId, dteType, folioDesde, folioHasta], map: "uq_tenant_dte_caf_range")
+  @@index([tenantId, dteType, isActive], map: "idx_tenant_dte_caf_active")
+  @@map("tenant_dte_cafs")
+  @@schema("public")
+}
+
+model TenantDteFolioTracker {
+  id        String   @id @default(cuid())
+  tenantId  String   @map("tenant_id")
+  dteType   Int      @map("dte_type")
+  nextFolio Int      @map("next_folio")
+  cafId     String   @map("caf_id")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([tenantId, dteType], map: "uq_tenant_dte_folio_tracker")
+  @@map("tenant_dte_folio_trackers")
+  @@schema("public")
 }

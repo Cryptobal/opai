@@ -276,6 +276,7 @@ export const SUBMODULE_META: SubmoduleMeta[] = [
   { key: "finance.pagos", module: "finance", submodule: "pagos", label: "Pagos", href: "/finanzas/pagos" },
   { key: "finance.reportes", module: "finance", submodule: "reportes", label: "Reportes", href: "/finanzas/reportes" },
   { key: "finance.configuracion", module: "finance", submodule: "configuracion", label: "Configuración", href: "/opai/configuracion/finanzas" },
+  { key: "finance.configuracion_dte", module: "finance", submodule: "configuracion", label: "Configuración DTE", href: "/opai/configuracion/finanzas/dte" },
   { key: "finance.contabilidad", module: "finance", submodule: "contabilidad", label: "Contabilidad", href: "/finanzas/contabilidad" },
   { key: "finance.facturacion", module: "finance", submodule: "facturacion", label: "Facturación", href: "/finanzas/facturacion" },
   { key: "finance.proveedores", module: "finance", submodule: "proveedores", label: "Proveedores", href: "/finanzas/proveedores" },

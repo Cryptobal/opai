@@ -5,7 +5,12 @@
 
 export type DteIssueRequest = {
   dteType: number; // 33, 34, 39, 52, 56, 61
-  folio: number;
+  /**
+   * Folio del DTE. Opcional: para SimpleAPI lo asigna el folio-tracker
+   * via reserveNextFolio() antes de llamar al provider; para STUB el
+   * dte-issuer.service lo calcula localmente.
+   */
+  folio?: number;
   date: string; // YYYY-MM-DD
   issuerRut: string;
   issuerName: string;
@@ -23,6 +28,11 @@ export type DteIssueRequest = {
     folio: number;
     reason: string;
   };
+  /**
+   * CAF XML (raw bytes) para providers que firman el DTE localmente
+   * (ej. SimpleAPI). Pasado por dte-issuer.service tras reservar folio.
+   */
+  cafXml?: Buffer;
 };
 
 export type DteLineItem = {
@@ -116,18 +126,29 @@ export class StubDteProvider implements DteProviderAdapter {
 }
 
 /**
- * Factory to get the configured DTE provider
+ * Factory to get the configured DTE provider for a given tenant.
+ *
+ * Reads `TenantDteConfig.provider` (per-tenant) and instantiates the right
+ * adapter. Tenants without config → fallback to `StubDteProvider`.
+ *
+ * NOTE: this function is intentionally async + per-tenant. Callers must:
+ *   const provider = await getDteProvider(tenantId);
  */
-export function getDteProvider(): DteProviderAdapter {
-  const provider = process.env.DTE_PROVIDER ?? "STUB";
+export async function getDteProvider(tenantId: string): Promise<DteProviderAdapter> {
+  const { prisma } = await import("@/lib/prisma");
+  const config = await prisma.tenantDteConfig.findUnique({
+    where: { tenantId },
+  });
+  const provider = config?.provider ?? "STUB";
 
   switch (provider) {
+    case "SIMPLEAPI": {
+      const { SimpleApiProvider } = await import("./simpleapi.provider");
+      return new SimpleApiProvider(tenantId);
+    }
+    // Future: case "SIMPLEFACTURA": return new SimpleFacturaProvider(tenantId);
     case "STUB":
-      return new StubDteProvider();
-    // Future: case "FACTO": return new FactoProvider();
-    // Future: case "SIMPLEFACTURA": return new SimpleFacturaProvider();
     default:
-      console.warn(`Unknown DTE provider: ${provider}, falling back to STUB`);
       return new StubDteProvider();
   }
 }
