@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -35,8 +36,11 @@ import {
   ToggleRight,
   RefreshCw,
   MapPin,
+  FileText,
+  ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Surface, IconBubble } from "@/components/opai-ds";
 
 /* ── Types ── */
 
@@ -121,6 +125,27 @@ export function ConfigClient({
 
   return (
     <div className="space-y-4">
+      {/* Acceso a sub-módulos de configuración que viven en su propia ruta */}
+      <Link
+        href="/opai/configuracion/finanzas/dte"
+        className="block rounded-ds-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+      >
+        <Surface elevation={1} padding="md" hoverable>
+          <div className="flex items-center gap-3">
+            <IconBubble icon={FileText} variant="brand" size="md" />
+            <div className="min-w-0 flex-1">
+              <p className="font-display text-[14px] font-semibold text-ds-text-1">
+                DTE — Facturación Electrónica
+              </p>
+              <p className="text-[12px] text-ds-text-3 mt-0.5">
+                Datos del emisor, certificado digital y archivos CAF para emitir facturas al SII
+              </p>
+            </div>
+            <ChevronRight className="h-4 w-4 text-ds-text-4 shrink-0" aria-hidden />
+          </div>
+        </Surface>
+      </Link>
+
       {/* Tab navigation */}
       <nav className="-mx-4 px-4 sm:mx-0 sm:px-0">
         <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">
