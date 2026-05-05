@@ -6223,6 +6223,9 @@ model FinanceDte {
   xmlUrl  String? @map("xml_url")
   cedible Boolean @default(false)
 
+  emailSentAt DateTime? @map("email_sent_at") @db.Timestamptz(6)
+  emailStatus String?   @map("email_status")
+
   journalEntryId String?              @map("journal_entry_id") @db.Uuid
   journalEntry   FinanceJournalEntry? @relation(fields: [journalEntryId], references: [id])
   paymentStatus  FinancePaymentStatus @default(UNPAID) @map("payment_status")

@@ -1,37 +1,48 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { canView } from "@/lib/permissions";
-import { getDtePdf } from "@/modules/finance/billing/dte-pdf.service";
+import { prisma } from "@/lib/prisma";
+import { getDteProvider } from "@/modules/finance/shared/adapters/dte-provider.adapter";
 
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const ctx = await requireAuth();
+  if (!ctx) return unauthorized();
+  const perms = await resolveApiPerms(ctx);
+  if (!canView(perms, "finance", "facturacion")) {
+    return NextResponse.json(
+      { success: false, error: "Sin permisos" },
+      { status: 403 }
+    );
+  }
+
+  const { id } = await params;
+  const dte = await prisma.financeDte.findFirst({
+    where: { id, tenantId: ctx.tenantId, direction: "ISSUED" },
+  });
+  if (!dte) {
+    return NextResponse.json(
+      { success: false, error: "DTE no encontrado" },
+      { status: 404 }
+    );
+  }
+
   try {
-    const ctx = await requireAuth();
-    if (!ctx) return unauthorized();
-    const perms = await resolveApiPerms(ctx);
-    if (!canView(perms, "finance")) {
-      return NextResponse.json(
-        { success: false, error: "Sin permisos" },
-        { status: 403 }
-      );
-    }
-
-    const { id } = await params;
-
-    const pdf = await getDtePdf(ctx.tenantId, id);
-
-    return new NextResponse(new Uint8Array(pdf), {
+    const provider = await getDteProvider(ctx.tenantId);
+    const pdfBuffer = await provider.getPdf(dte.dteType, dte.folio);
+    return new NextResponse(new Uint8Array(pdfBuffer), {
+      status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="dte-${id}.pdf"`,
+        "Content-Disposition": `inline; filename="${dte.code}.pdf"`,
       },
     });
-  } catch (error) {
-    console.error("[Finance/Billing] Error generating PDF:", error);
+  } catch (err) {
+    console.error("[Finance/Billing] Error generating PDF:", err);
     return NextResponse.json(
-      { success: false, error: "Error al generar PDF" },
+      { success: false, error: (err as Error).message },
       { status: 500 }
     );
   }

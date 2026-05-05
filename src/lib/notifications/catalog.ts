@@ -218,6 +218,13 @@ export const UNIFIED_NOTIFICATION_TYPES: UnifiedNotificationType[] = [
     audiences: ['admin'], defaults: { admin: adminBell(true) },
   },
   {
+    key: 'dte_certificate_expiring', label: 'Certificado digital DTE por vencer',
+    description: 'Cuando el certificado digital del emisor electrónico está próximo a vencer',
+    module: 'finance', submodule: 'facturacion', category: 'Finanzas - Facturación',
+    audiences: ['admin'], defaults: { admin: adminBell(true) },
+    critical: true,
+  },
+  {
     key: 'document_rejected', label: 'Documento rechazado',
     description: 'Cuando un cliente rechaza un documento enviado',
     module: 'docs', category: 'Documentos',

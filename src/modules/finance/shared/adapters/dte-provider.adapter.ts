@@ -91,6 +91,12 @@ export interface DteProviderAdapter {
    * Get the PDF of a DTE
    */
   getPdf(dteType: number, folio: number): Promise<Buffer>;
+
+  /**
+   * Get the signed XML of a DTE. Required by SII regulation: the receiver must
+   * be able to validate the digital signature independently of the PDF.
+   */
+  getXml(dteType: number, folio: number): Promise<Buffer>;
 }
 
 /**
@@ -122,6 +128,12 @@ export class StubDteProvider implements DteProviderAdapter {
 
   async getPdf(_dteType: number, _folio: number): Promise<Buffer> {
     return Buffer.from("Stub PDF content");
+  }
+
+  async getXml(dteType: number, folio: number): Promise<Buffer> {
+    return Buffer.from(
+      `<?xml version="1.0"?><DTE_STUB type="${dteType}" folio="${folio}"/>`
+    );
   }
 }
 

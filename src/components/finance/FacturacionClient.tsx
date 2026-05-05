@@ -38,6 +38,8 @@ import {
   FilePlus,
   Loader2,
   RefreshCw,
+  Mail,
+  FileCode,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -50,6 +52,7 @@ interface DteRow {
   folio: number;
   receiverRut: string;
   receiverName: string;
+  receiverEmail: string | null;
   netAmount: number;
   taxAmount: number;
   totalAmount: number;
@@ -57,6 +60,8 @@ interface DteRow {
   currency: string;
   linesCount: number;
   createdAt: string;
+  emailSentAt: string | null;
+  emailStatus: string | null;
 }
 
 interface FolioStatus {
@@ -205,6 +210,7 @@ function DtesTab({ dtes, canManage }: { dtes: DteRow[]; canManage: boolean }) {
   const [typeFilter, setTypeFilter] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [voiding, setVoiding] = useState<string | null>(null);
+  const [sendingEmail, setSendingEmail] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     let list = dtes;
@@ -235,6 +241,44 @@ function DtesTab({ dtes, canManage }: { dtes: DteRow[]; canManage: boolean }) {
       URL.revokeObjectURL(url);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Error inesperado");
+    }
+  };
+
+  const handleDownloadXml = async (id: string, folio: number) => {
+    try {
+      const res = await fetch(`/api/finance/billing/issued/${id}/xml`);
+      if (!res.ok) throw new Error("Error al descargar XML");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `DTE-${folio}.xml`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Error inesperado");
+    }
+  };
+
+  const handleResendEmail = async (id: string) => {
+    setSendingEmail(id);
+    try {
+      const res = await fetch(`/api/finance/billing/issued/${id}/send-email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const body = await res.json();
+      if (res.ok && body.success) {
+        toast.success("Email enviado");
+        router.refresh();
+      } else {
+        toast.error(body.error ?? "Error enviando email");
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Error inesperado");
+    } finally {
+      setSendingEmail(null);
     }
   };
 
@@ -390,6 +434,31 @@ function DtesTab({ dtes, canManage }: { dtes: DteRow[]; canManage: boolean }) {
                   ),
                 },
                 {
+                  id: "emailStatus",
+                  header: "Email",
+                  cell: (row) => {
+                    if (row.emailSentAt) {
+                      return (
+                        <Badge variant="outline" className="text-xs bg-status-ok-soft text-status-ok-fg border-status-ok-border">
+                          Enviado {format(new Date(row.emailSentAt), "dd MMM", { locale: es })}
+                        </Badge>
+                      );
+                    }
+                    if (row.emailStatus === "FAILED") {
+                      return (
+                        <Badge variant="outline" className="text-xs bg-status-danger-soft text-status-danger-fg border-status-danger-border">
+                          Falló
+                        </Badge>
+                      );
+                    }
+                    return (
+                      <Badge variant="outline" className="text-xs">
+                        Pendiente
+                      </Badge>
+                    );
+                  },
+                },
+                {
                   id: "_actions",
                   header: "",
                   cell: (row) => (
@@ -402,6 +471,29 @@ function DtesTab({ dtes, canManage }: { dtes: DteRow[]; canManage: boolean }) {
                       >
                         <Download className="h-3.5 w-3.5" />
                       </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => { e.stopPropagation(); handleDownloadXml(row.id, row.folio); }}
+                        title="Descargar XML"
+                      >
+                        <FileCode className="h-3.5 w-3.5" />
+                      </Button>
+                      {canManage && row.receiverEmail && row.siiStatus !== "ANNULLED" && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => { e.stopPropagation(); handleResendEmail(row.id); }}
+                          disabled={sendingEmail === row.id}
+                          title={row.emailSentAt ? "Reenviar email" : "Enviar email"}
+                        >
+                          {sendingEmail === row.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Mail className="h-3.5 w-3.5" />
+                          )}
+                        </Button>
+                      )}
                       {canManage && row.siiStatus !== "ANNULLED" && (
                         <>
                           <Button
@@ -471,11 +563,43 @@ function DtesTab({ dtes, canManage }: { dtes: DteRow[]; canManage: boolean }) {
                         </div>
                       </div>
                     </div>
-                    <div className="flex gap-1 mt-3 pt-3 border-t border-border">
+                    {(d.emailSentAt || d.emailStatus === "FAILED") && (
+                      <div className="mt-2">
+                        {d.emailSentAt ? (
+                          <Badge variant="outline" className="text-xs bg-status-ok-soft text-status-ok-fg border-status-ok-border">
+                            Email enviado {format(new Date(d.emailSentAt), "dd MMM", { locale: es })}
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-xs bg-status-danger-soft text-status-danger-fg border-status-danger-border">
+                            Email falló
+                          </Badge>
+                        )}
+                      </div>
+                    )}
+                    <div className="flex gap-1 mt-3 pt-3 border-t border-border flex-wrap">
                       <Button variant="ghost" size="sm" onClick={() => handleDownloadPdf(d.id, d.folio)}>
                         <Download className="h-3.5 w-3.5 mr-1" />
                         PDF
                       </Button>
+                      <Button variant="ghost" size="sm" onClick={() => handleDownloadXml(d.id, d.folio)}>
+                        <FileCode className="h-3.5 w-3.5 mr-1" />
+                        XML
+                      </Button>
+                      {canManage && d.receiverEmail && d.siiStatus !== "ANNULLED" && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleResendEmail(d.id)}
+                          disabled={sendingEmail === d.id}
+                        >
+                          {sendingEmail === d.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+                          ) : (
+                            <Mail className="h-3.5 w-3.5 mr-1" />
+                          )}
+                          {d.emailSentAt ? "Reenviar" : "Email"}
+                        </Button>
+                      )}
                       {canManage && d.siiStatus !== "ANNULLED" && (
                         <>
                           <Button

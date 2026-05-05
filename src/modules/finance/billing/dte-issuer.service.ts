@@ -11,6 +11,7 @@ import { validateRut } from "../shared/validators/rut.validator";
 import { buildInvoiceIssuedEntry } from "../accounting/auto-entry.builder";
 import { createManualEntry, postEntry } from "../accounting/journal-entry.service";
 import { reserveNextFolio } from "./folio-tracker.service";
+import { sendDteEmail } from "./dte-email.service";
 
 export type IssueDteInput = {
   dteType: number;
@@ -254,7 +255,15 @@ export async function issueDte(
     }
   }
 
-  // 10. Auto-generate journal entry for facturas (not boletas)
+  // 10. Auto-send email to receiver if requested and address is available.
+  // Fire-and-forget: a failure here shouldn't fail the emission flow.
+  if (input.autoSendEmail !== false && dte.receiverEmail) {
+    sendDteEmail(tenantId, dte.id).catch((err) => {
+      console.error(`[FINANCE] Auto-send email failed for DTE ${dte.id}:`, err);
+    });
+  }
+
+  // 11. Auto-generate journal entry for facturas (not boletas)
   if (input.dteType === 33 || input.dteType === 34) {
     try {
       const entryInput = await buildInvoiceIssuedEntry(tenantId, {
