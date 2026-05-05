@@ -17,7 +17,9 @@ export type TicketEventType =
   | "comment_edited"
   | "link_added"
   | "link_removed"
-  | "csat_submitted";
+  | "csat_submitted"
+  | "attachment_added"
+  | "attachment_removed";
 
 export interface RecordTicketEventInput {
   tenantId: string;
