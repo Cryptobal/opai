@@ -420,6 +420,71 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // ── Soporte "Solicitud de cliente" ─────────────────────────
+    // Cuando el operador crea un ticket en nombre de un contacto del
+    // CRM, validamos que el contacto y la instalación pertenezcan al
+    // mismo tenant + cuenta. Esto permite forzar `source=portal_cliente`
+    // para que el cliente vea el ticket en su portal y dispare el email
+    // de confirmación con link de seguimiento.
+    const rawContactId = typeof body.reportedByContactId === "string"
+      ? body.reportedByContactId.trim()
+      : "";
+    let clientContact: {
+      id: string;
+      email: string | null;
+      firstName: string;
+      lastName: string;
+      accountId: string;
+    } | null = null;
+
+    if (rawContactId) {
+      const contact = await prisma.crmContact.findFirst({
+        where: { id: rawContactId, tenantId: ctx.tenantId },
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          accountId: true,
+        },
+      });
+      if (!contact) {
+        return NextResponse.json(
+          { success: false, error: "Contacto del cliente no encontrado" },
+          { status: 404 },
+        );
+      }
+      clientContact = contact;
+
+      if (!body.installationId) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Falta installationId al crear un ticket de cliente",
+          },
+          { status: 400 },
+        );
+      }
+
+      const inst = await prisma.crmInstallation.findFirst({
+        where: {
+          id: body.installationId,
+          tenantId: ctx.tenantId,
+          accountId: contact.accountId,
+        },
+        select: { id: true },
+      });
+      if (!inst) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "La instalación no pertenece al cliente seleccionado",
+          },
+          { status: 400 },
+        );
+      }
+    }
+
     if (!typeId) {
       const defaultType = await prisma.opsTicketType.findFirst({
         where: { tenantId: ctx.tenantId, isActive: true },
@@ -479,6 +544,15 @@ export async function POST(request: NextRequest) {
         : 0;
       const code = generateTicketCode(lastSeq + 1);
 
+      // En tickets de cliente forzamos `source=portal_cliente` y dejamos
+      // `reportedBy` con el id del CrmContact (el resolver de actores ya
+      // sabe distinguir admin/guardia/contact). Quien lo creó realmente
+      // (el operador) queda en el evento de audit `ticket_created.actorId`.
+      const effectiveSource = clientContact
+        ? "portal_cliente"
+        : body.source ?? "manual";
+      const effectiveReportedBy = clientContact ? clientContact.id : ctx.userId;
+
       const created = await tx.opsTicket.create({
         data: {
           tenantId: ctx.tenantId,
@@ -491,10 +565,10 @@ export async function POST(request: NextRequest) {
           assignedTeam: body.assignedTeam ?? ticketType.assignedTeam,
           assignedTo: body.assignedTo ?? null,
           installationId: body.installationId ?? null,
-          source: body.source ?? "manual",
+          source: effectiveSource,
           sourceGuardEventId: body.sourceGuardEventId ?? null,
           guardiaId: body.guardiaId ?? null,
-          reportedBy: ctx.userId,
+          reportedBy: effectiveReportedBy,
           slaDueAt,
           slaBreached: false,
           tags: body.tags ?? [],
@@ -623,8 +697,61 @@ export async function POST(request: NextRequest) {
       console.error("[OPS] Error notifying ticket creation:", err);
     }
 
+    // ── Email + acceso público para tickets de cliente ────────
+    // Si el operador eligió un contacto del CRM, generamos un PIN de
+    // 6 dígitos para el portal público (/t/[code]) y enviamos al
+    // contacto el correo de confirmación con link a su portal y al
+    // acceso público con el PIN. Best-effort: si falla, no abortamos
+    // la creación, solo dejamos log.
+    let publicAccessReturn: { url: string; pin: string } | null = null;
+    if (clientContact) {
+      try {
+        const bcrypt = await import("bcryptjs");
+        const { randomInt } = await import("crypto");
+        const pin = String(randomInt(0, 1_000_000)).padStart(6, "0");
+        const hash = await bcrypt.default.hash(pin, 10);
+        await prisma.opsTicket.update({
+          where: { id: ticket.id },
+          data: {
+            publicPinHash: hash,
+            publicPinSetAt: new Date(),
+            publicAttempts: 0,
+            publicLockedUntil: null,
+          },
+        });
+        publicAccessReturn = { url: `/t/${ticket.code}`, pin };
+
+        if (clientContact.email) {
+          const fullName = [clientContact.firstName, clientContact.lastName]
+            .filter(Boolean)
+            .join(" ");
+          const { sendClientTicketConfirmationEmail } = await import(
+            "@/lib/tickets-confirmation-email"
+          );
+          await sendClientTicketConfirmationEmail({
+            tenantId: ctx.tenantId,
+            contactEmail: clientContact.email,
+            contactName: fullName || null,
+            ticketCode: ticket.code,
+            ticketId: ticket.id,
+            ticketTitle: ticket.title,
+            ticketDescription: ticket.description ?? null,
+            publicAccess: publicAccessReturn,
+          });
+        }
+      } catch (err) {
+        console.error("[OPS] Error preparando ticket de cliente:", err);
+      }
+    }
+
     return NextResponse.json(
-      { success: true, data: mapTicket(ticket) },
+      {
+        success: true,
+        data: mapTicket(ticket),
+        // Devolvemos el PIN UNA SOLA VEZ para que la UI lo muestre al
+        // operador (por si el cliente no recibió el email).
+        publicAccess: publicAccessReturn,
+      },
       { status: 201 },
     );
   } catch (error) {
