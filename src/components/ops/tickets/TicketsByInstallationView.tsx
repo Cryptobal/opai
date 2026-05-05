@@ -2,8 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import { Loader2, Search } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { Loader2 } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -27,6 +26,7 @@ type DisplayMode = "grid" | "map";
 interface Props {
   originTab: "all" | "internal" | "guard" | "client";
   onSelectInstallation: (id: string, name: string, total: number) => void;
+  externalSearch?: string;
 }
 
 const SORT_OPTIONS: Array<{ value: SortBy; label: string }> = [
@@ -40,19 +40,16 @@ const SORT_OPTIONS: Array<{ value: SortBy; label: string }> = [
 export function TicketsByInstallationView({
   originTab,
   onSelectInstallation,
+  externalSearch,
 }: Props) {
   const [rows, setRows] = useState<InstallationRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [sortBy, setSortBy] = useState<SortBy>("criticality");
   const [onlyWithActive, setOnlyWithActive] = useState(true);
-  const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [displayMode, setDisplayMode] = useState<DisplayMode>("grid");
 
-  useEffect(() => {
-    const h = setTimeout(() => setDebouncedSearch(search.trim().toLowerCase()), 300);
-    return () => clearTimeout(h);
-  }, [search]);
+  // Search comes from the parent toolbar (single global search bar).
+  const debouncedSearch = (externalSearch ?? "").trim().toLowerCase();
 
   const fetchRows = useCallback(async () => {
     setLoading(true);
@@ -108,17 +105,7 @@ export function TicketsByInstallationView({
           Solo con tickets abiertos
         </label>
 
-        <div className="relative ml-auto w-full sm:w-[240px]">
-          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar instalación…"
-            className="h-8 pl-8 text-xs"
-          />
-        </div>
-
-        <div className="flex gap-1 rounded-md bg-muted p-0.5">
+        <div className="ml-auto flex gap-1 rounded-md bg-muted p-0.5">
           {([
             { value: "grid" as const, label: "Grid" },
             { value: "map" as const, label: "Mapa" },

@@ -29,7 +29,7 @@ export default async function OpsTicketsPage() {
       />
       <TicketsSubnav />
       <Suspense>
-        <TicketsClient userRole={session.user.role} />
+        <TicketsClient userRole={session.user.role} userId={session.user.id} />
       </Suspense>
     </div>
   );
