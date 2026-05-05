@@ -280,6 +280,29 @@ export class SimpleApiProvider implements DteProviderAdapter {
     const arrayBuffer = await res.arrayBuffer();
     return Buffer.from(arrayBuffer);
   }
+
+  async getXml(dteType: number, folio: number): Promise<Buffer> {
+    const ctx = await this.loadTenantContext();
+    const res = await fetch(`${BASE_URL}/dte/xml`, {
+      method: "POST",
+      headers: { Authorization: API_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        RutEmisor: ctx.config.emisorRut,
+        TipoDTE: dteType,
+        Folio: folio,
+        Ambiente: ctx.config.environment === "PRODUCTION" ? 1 : 0,
+        Certificado: {
+          Pfx: ctx.certificate.pfxBase64,
+          Password: ctx.certificate.password,
+        },
+      }),
+    });
+    if (!res.ok) {
+      throw new Error(`XML download failed: HTTP ${res.status}`);
+    }
+    const arrayBuffer = await res.arrayBuffer();
+    return Buffer.from(arrayBuffer);
+  }
 }
 
 function mapSiiStatus(raw: unknown): DteStatusResponse["status"] {

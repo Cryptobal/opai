@@ -38,6 +38,7 @@ export default async function FacturacionPage() {
     folio: d.folio,
     receiverRut: d.receiverRut,
     receiverName: d.receiverName,
+    receiverEmail: d.receiverEmail,
     netAmount: d.netAmount.toNumber(),
     taxAmount: d.taxAmount.toNumber(),
     totalAmount: d.totalAmount.toNumber(),
@@ -45,6 +46,8 @@ export default async function FacturacionPage() {
     currency: d.currency,
     linesCount: d.lines.length,
     createdAt: d.createdAt.toISOString(),
+    emailSentAt: d.emailSentAt ? d.emailSentAt.toISOString() : null,
+    emailStatus: d.emailStatus,
   }));
 
   const suppliers = await prisma.financeSupplier.findMany({
