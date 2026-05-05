@@ -46,7 +46,6 @@ export async function POST(request: NextRequest) {
     phone: tenantCfg.phone,
     email: tenantCfg.email,
     whatsappLink: tenantCfg.whatsappLink,
-    address: tenantCfg.direccion,
   };
 
   // Actor (ejecutivo logueado). El modelo es Admin (no User), con `name` único

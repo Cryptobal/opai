@@ -285,7 +285,6 @@ export const TOKEN_MODULES: TokenModule[] = [
       { key: "tenant.phone", label: "Teléfono", path: "phone" },
       { key: "tenant.email", label: "Email Contacto", path: "email" },
       { key: "tenant.whatsappLink", label: "Link WhatsApp", path: "whatsappLink" },
-      { key: "tenant.address", label: "Dirección", path: "address" },
     ],
   },
   {
