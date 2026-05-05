@@ -432,7 +432,7 @@ export async function POST(
           title: `Documento firmado: ${result.documentTitle}`,
           body: `"${result.documentTitle}" ha sido firmado`,
           emailBody: `Todos los firmantes han firmado el documento "${result.documentTitle}".`,
-          link: `/opai/docs/documentos/${result.documentId}`,
+          link: `/opai/documentos/${result.documentId}`,
           data: { documentId: result.documentId, requestId: result.requestId },
         });
       } catch (err) {

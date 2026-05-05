@@ -222,7 +222,7 @@ export async function PATCH(
           type: notifKey,
           title: `Cotización ${statusLabel}`,
           body: `La cotización "${quote?.name || quote?.clientName || quote?.id}" fue ${statusLabel}`,
-          link: `/opai/cpq/cotizaciones/${id}`,
+          link: `/cpq/quotes/${id}`,
           data: { quoteId: id },
         });
       } catch (err) {

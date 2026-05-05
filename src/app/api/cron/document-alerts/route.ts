@@ -96,7 +96,7 @@ export async function GET(request: NextRequest) {
               title: `Contrato por vencer: ${doc.title}`,
               body: `"${doc.title}" vence en ${daysRemaining} días`,
               emailBody: `Vence el ${format(expDate, "dd/MM/yyyy")}. Quedan ${daysRemaining} días.`,
-              link: `/opai/docs/documentos/${doc.id}`,
+              link: `/opai/documentos/${doc.id}`,
               data: { documentId: doc.id },
             });
           } catch (e) {
@@ -183,7 +183,7 @@ export async function GET(request: NextRequest) {
           type: "contract_expired",
           title: `Contrato vencido: ${doc.title}`,
           body: "Este contrato ha expirado y requiere renovación.",
-          link: `/opai/docs/documentos/${doc.id}`,
+          link: `/opai/documentos/${doc.id}`,
           data: { documentId: doc.id },
         });
       } catch (e) {
@@ -252,7 +252,7 @@ export async function GET(request: NextRequest) {
                 type: "contract_adjustment_reminder",
                 title: `Reajuste de contrato: ${doc.title}`,
                 body: `Toca reajuste ${metadata.adjustmentFreq.toLowerCase()} por ${adjType} en ${daysUntilAdjustment} días (${format(nextAdjustment, "dd/MM/yyyy")}).`,
-                link: `/opai/docs/documentos/${doc.id}`,
+                link: `/opai/documentos/${doc.id}`,
                 data: { documentId: doc.id },
               });
               adjustmentReminders++;

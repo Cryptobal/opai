@@ -125,7 +125,7 @@ export async function POST(
           targetType: 'ADMIN',
           title: 'Rendición de gastos enviada',
           body: `${submitterName} envió una rendición para revisión`,
-          link: `/opai/finance/rendiciones/${id}`,
+          link: `/finanzas/rendiciones/${id}`,
           data: { rendicionId: id, code: existing.code },
           forceChannels: { email: false },
         });
