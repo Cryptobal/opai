@@ -6,7 +6,7 @@
  *
  * Uso:
  * - Al crear tenant nuevo (hook en lib/tenant.ts, agregar en otro PR)
- * - Endpoint admin /api/admin/seed-wa-templates para re-seed manual
+ * - Endpoint admin /api/platform/seed-wa-templates para re-seed manual
  */
 
 import { prisma } from "@/lib/prisma";
@@ -21,7 +21,7 @@ export interface SeedResult {
 
 export async function seedWaTemplatesForTenant(
   tenantId: string,
-  createdByUserId: string,
+  createdByAdminId: string,
 ): Promise<SeedResult> {
   const existing = await prisma.docTemplate.findMany({
     where: { tenantId, module: "whatsapp" },
@@ -56,7 +56,7 @@ export async function seedWaTemplatesForTenant(
           content: plainTextToTiptapJson(seed.body) as object,
           isActive: true,
           isDefault: false,
-          createdBy: createdByUserId,
+          createdBy: createdByAdminId,
         },
       });
       result.created.push(seed.slug);

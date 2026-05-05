@@ -4,13 +4,16 @@ import { seedWaTemplatesForTenant } from "@/lib/docs/seed-wa-templates";
 import { prisma } from "@/lib/prisma";
 
 /**
- * POST /api/admin/seed-wa-templates
- * Body: { tenantId: string, all?: boolean }
+ * POST /api/platform/seed-wa-templates
+ * Body: { tenantId: string, all?: boolean, createdByAdminId?: string }
  *
  * Si all=true, re-siembra todos los tenants. Si no, solo el tenantId provisto.
  * Idempotente: no sobrescribe plantillas existentes.
  *
  * Auth: Platform Admin (requirePlatformAuth) — operación cross-tenant.
+ *
+ * `createdByAdminId` es opcional: si no se provee, se usa el primer admin
+ * activo del tenant (DocTemplate.createdBy referencia al modelo Admin).
  */
 export async function POST(request: NextRequest) {
   const ctx = await requirePlatformAuth();
@@ -19,6 +22,7 @@ export async function POST(request: NextRequest) {
   const body = (await request.json().catch(() => ({}))) as {
     tenantId?: string;
     all?: boolean;
+    createdByAdminId?: string;
   };
 
   let tenantIds: string[] = [];
@@ -34,12 +38,28 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // createdBy se registra como el platformAdminId del actor que disparó el seed.
-  // El campo en el schema es String libre (no FK), así que esto identifica
-  // unívocamente al admin de plataforma sin chocar con el FK de Admin.
   const results = [];
   for (const tid of tenantIds) {
-    const r = await seedWaTemplatesForTenant(tid, ctx.platformAdminId);
+    // Resolver createdBy: si no viene, tomar el primer admin activo del tenant.
+    let createdBy = body.createdByAdminId;
+    if (!createdBy) {
+      const firstAdmin = await prisma.admin.findFirst({
+        where: { tenantId: tid, status: "active" },
+        select: { id: true },
+        orderBy: { createdAt: "asc" },
+      });
+      if (!firstAdmin) {
+        results.push({
+          tenantId: tid,
+          created: [],
+          skipped: [],
+          errors: [{ slug: "(all)", error: "Tenant sin admin activo" }],
+        });
+        continue;
+      }
+      createdBy = firstAdmin.id;
+    }
+    const r = await seedWaTemplatesForTenant(tid, createdBy);
     results.push(r);
   }
 
