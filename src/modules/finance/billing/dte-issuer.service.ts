@@ -35,7 +35,28 @@ export type IssueDteInput = {
   notes?: string;
   accountId?: string; // CRM account reference
   autoSendEmail?: boolean;
+  /**
+   * Referencia al DTE original. OBLIGATORIO para tipos 56 (Nota de
+   * Débito) y 61 (Nota de Crédito) — se valida abajo. El SII exige
+   * que estos tipos incluyan el bloque <Referencia> en el XML.
+   */
+  reference?: {
+    /** ID del DTE original en BD (FK lógica a FinanceDte). */
+    docId?: string;
+    /** Tipo del DTE original (33, 34, 39, 56). */
+    type: number;
+    /** Folio del DTE original. */
+    folio: number;
+    /** Fecha de emisión del DTE original (YYYY-MM-DD). */
+    date: string;
+    /** Código SII CodRef: 1=anula, 2=corrige texto, 3=corrige montos. */
+    code: 1 | 2 | 3;
+    /** Razón en texto libre (RazonRef). */
+    reason: string;
+  };
 };
+
+const DTE_TYPES_REQUIRING_REFERENCE = [56, 61] as const;
 
 /**
  * Issue a new DTE (factura, boleta, etc.)
@@ -48,6 +69,21 @@ export async function issueDte(
   // 1. Validate DTE type
   if (!isDteTypeValid(input.dteType)) {
     throw new Error(`Tipo de DTE ${input.dteType} no es valido`);
+  }
+
+  // 1b. Validar referencia obligatoria SII para Nota de Crédito (61)
+  // y Nota de Débito (56). Sin este bloque el SII rechaza el DTE.
+  if (
+    DTE_TYPES_REQUIRING_REFERENCE.includes(
+      input.dteType as (typeof DTE_TYPES_REQUIRING_REFERENCE)[number],
+    )
+  ) {
+    const r = input.reference;
+    if (!r || !r.type || !r.folio || !r.date || !r.code || !r.reason?.trim()) {
+      throw new Error(
+        `Notas de Crédito (61) y Débito (56) requieren bloque 'reference' con tipo, folio, fecha, código y razón del DTE original.`,
+      );
+    }
   }
 
   // 2. Validate receiver RUT
@@ -137,6 +173,15 @@ export async function issueDte(
         taxRate,
         taxAmount,
         totalAmount,
+        ...(input.reference && {
+          reference: {
+            dteType: input.reference.type,
+            folio: input.reference.folio,
+            date: input.reference.date,
+            code: input.reference.code,
+            reason: input.reference.reason,
+          },
+        }),
         ...(cafXml ? { cafXml } : {}),
       };
 
@@ -179,6 +224,14 @@ export async function issueDte(
           accountId: input.accountId ?? null,
           createdBy,
           notes: input.notes ?? null,
+          referenceDteId: input.reference?.docId ?? null,
+          referenceType: input.reference?.type ?? null,
+          referenceFolio: input.reference?.folio ?? null,
+          referenceDate: input.reference?.date
+            ? new Date(input.reference.date)
+            : null,
+          referenceCode: input.reference?.code ?? null,
+          referenceReason: input.reference?.reason ?? null,
           lines: {
             create: calculatedLines.map((l, i) => ({
               lineNumber: i + 1,

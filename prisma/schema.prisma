@@ -6193,6 +6193,8 @@ model FinanceDte {
   referencedBy    FinanceDte[] @relation("DteReference")
   referenceType   Int?         @map("reference_type")
   referenceFolio  Int?         @map("reference_folio")
+  referenceDate   DateTime?    @map("reference_date") @db.Date
+  referenceCode   Int?         @map("reference_code") // SII CodRef: 1=anula, 2=corrige texto, 3=corrige montos
   referenceReason String?      @map("reference_reason")
 
   currency     FinanceCurrency @default(CLP)

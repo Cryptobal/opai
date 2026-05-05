@@ -183,6 +183,20 @@ export class SimpleApiProvider implements DteProviderAdapter {
           MontoItem: it.netAmount,
           IndExe: it.isExempt ? 1 : undefined,
         })),
+        // Referencia obligatoria para tipos 56 (ND) y 61 (NC). El SII
+        // rechaza el DTE si no incluye este bloque cuando corresponde.
+        ...(request.reference && {
+          Referencia: [
+            {
+              NroLinRef: 1,
+              TpoDocRef: request.reference.dteType,
+              FolioRef: request.reference.folio,
+              FchRef: request.reference.date,
+              CodRef: request.reference.code,
+              RazonRef: request.reference.reason,
+            },
+          ],
+        }),
       },
       Caf: cafXml.toString("base64"),
       Certificado: {

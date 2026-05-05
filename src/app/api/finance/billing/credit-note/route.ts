@@ -44,19 +44,36 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // referenceType del payload reusa los códigos SII CodRef (1/2/3).
+    // Default 1 (anula) si el cliente no lo manda — coincide con el
+    // default histórico del CreditNoteForm.
+    const code = (body.referenceType ?? 1) as 1 | 2 | 3;
+
     const result = await issueDte(ctx.tenantId, ctx.userId, {
       dteType: 61,
       receiverRut: originalDte.receiverRut,
       receiverName: originalDte.receiverName,
+      receiverEmail: originalDte.receiverEmail ?? undefined,
+      accountId: originalDte.accountId ?? undefined,
       lines: body.lines,
       notes: body.reason,
+      reference: {
+        docId: originalDte.id,
+        type: originalDte.dteType,
+        folio: originalDte.folio,
+        date: originalDte.date.toISOString().split("T")[0],
+        code,
+        reason: body.reason,
+      },
     });
 
     return NextResponse.json({ success: true, data: result }, { status: 201 });
   } catch (error) {
     console.error("[Finance/Billing] Error issuing credit note:", error);
+    const message =
+      error instanceof Error ? error.message : "Error al emitir nota de crédito";
     return NextResponse.json(
-      { success: false, error: "Error al emitir nota de crédito" },
+      { success: false, error: message },
       { status: 500 }
     );
   }

@@ -44,19 +44,35 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Para Nota de Débito, referenceType usual es 3 (corrige montos)
+    // o 2 (corrige texto). Default 3 si no viene en payload.
+    const code = (body.referenceType ?? 3) as 1 | 2 | 3;
+
     const result = await issueDte(ctx.tenantId, ctx.userId, {
       dteType: 56,
       receiverRut: originalDte.receiverRut,
       receiverName: originalDte.receiverName,
+      receiverEmail: originalDte.receiverEmail ?? undefined,
+      accountId: originalDte.accountId ?? undefined,
       lines: body.lines,
       notes: body.reason,
+      reference: {
+        docId: originalDte.id,
+        type: originalDte.dteType,
+        folio: originalDte.folio,
+        date: originalDte.date.toISOString().split("T")[0],
+        code,
+        reason: body.reason,
+      },
     });
 
     return NextResponse.json({ success: true, data: result }, { status: 201 });
   } catch (error) {
     console.error("[Finance/Billing] Error issuing debit note:", error);
+    const message =
+      error instanceof Error ? error.message : "Error al emitir nota de débito";
     return NextResponse.json(
-      { success: false, error: "Error al emitir nota de débito" },
+      { success: false, error: message },
       { status: 500 }
     );
   }

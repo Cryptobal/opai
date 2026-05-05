@@ -72,7 +72,9 @@ export function CreditNoteForm({ noteType, referenceDte }: Props) {
   const isCredit = noteType === "credit";
 
   const [reason, setReason] = useState("");
-  const [referenceType, setReferenceType] = useState("1");
+  // Default según tipo de nota: NC suele anular (1), ND suele corregir
+  // montos (3). Coincide con los defaults del endpoint en backend.
+  const [referenceType, setReferenceType] = useState(isCredit ? "1" : "3");
   const [lines, setLines] = useState<NoteLine[]>([{ ...EMPTY_LINE }]);
   const [saving, setSaving] = useState(false);
 
@@ -219,13 +221,13 @@ export function CreditNoteForm({ noteType, referenceDte }: Props) {
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Tipo de referencia</Label>
+              <Label>Tipo de corrección (CodRef SII) *</Label>
               <Select value={referenceType} onValueChange={setReferenceType}>
                 <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="1">Anula documento de referencia</SelectItem>
-                  <SelectItem value="2">Corrige texto</SelectItem>
-                  <SelectItem value="3">Corrige montos</SelectItem>
+                  <SelectItem value="1">1 — Anula documento original</SelectItem>
+                  <SelectItem value="2">2 — Corrige texto (no montos)</SelectItem>
+                  <SelectItem value="3">3 — Corrige montos</SelectItem>
                 </SelectContent>
               </Select>
             </div>
