@@ -7,6 +7,7 @@ import {
   ChevronRight, Bell, Building, ClipboardList, ShieldCheck, Bot,
   ClipboardCheck, Receipt, Ticket, Sparkles, Trophy, Siren, Briefcase,
   Settings, FileText, Shield, Brain, ShieldAlert, GraduationCap,
+  MessageCircle,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -21,6 +22,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   "clipboard-list": ClipboardList, ticket: Ticket, receipt: Receipt,
   trophy: Trophy, siren: Siren, briefcase: Briefcase, shield: Shield,
   brain: Brain, "shield-alert": ShieldAlert, "graduation-cap": GraduationCap,
+  "message-circle": MessageCircle,
 };
 
 type ConfigItem = {

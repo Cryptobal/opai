@@ -32,6 +32,11 @@ export interface EntityData {
   contract?: Record<string, any> | null;
   guardia?: Record<string, any> | null;
   labor_event?: Record<string, any> | null;
+  lead?: Record<string, any> | null;
+  actor?: Record<string, any> | null;
+  tenant?: Record<string, any> | null;
+  system?: Record<string, any> | null;
+  blocks?: Record<string, any> | null;
 }
 
 /**
@@ -44,7 +49,7 @@ export function resolveTokenValue(
   const [module, field] = tokenKey.split(".");
   if (!module || !field) return `{{${tokenKey}}}`;
 
-  // System tokens
+  // System tokens (built-in: today/year/month/todayLong; runtime: portalUrl/portalPin/formUrl/mapsLink via entities.system)
   if (module === "system") {
     const now = new Date();
     switch (field) {
@@ -56,9 +61,66 @@ export function resolveTokenValue(
         return now.getFullYear().toString();
       case "month":
         return format(now, "MMMM", { locale: es });
-      default:
-        return `{{${tokenKey}}}`;
     }
+    // Runtime tokens (portalUrl, portalPin, formUrl, mapsLink, etc.) provistos vía entities.system
+    const sys = entities.system as Record<string, any> | undefined;
+    if (sys) {
+      const value = sys[field];
+      if (value !== null && value !== undefined && value !== "") {
+        return String(value);
+      }
+    }
+    return `{{${tokenKey}}}`;
+  }
+
+  // Lead tokens (acepta lead.fullName como composición especial)
+  if (module === "lead") {
+    const lead = entities.lead as Record<string, any> | undefined;
+    if (!lead) return `{{${tokenKey}}}`;
+    if (field === "fullName") {
+      const first = lead.firstName || "";
+      const last = lead.lastName || "";
+      return `${first} ${last}`.trim() || `{{${tokenKey}}}`;
+    }
+    const value = lead[field];
+    if (value === null || value === undefined || value === "") return `{{${tokenKey}}}`;
+    return String(value);
+  }
+
+  // Actor tokens (ejecutivo logueado)
+  if (module === "actor") {
+    const actor = entities.actor as Record<string, any> | undefined;
+    if (!actor) return `{{${tokenKey}}}`;
+    if (field === "fullName") {
+      const first = actor.firstName || "";
+      const last = actor.lastName || "";
+      const full = `${first} ${last}`.trim();
+      if (full) return full;
+      if (actor.name) return String(actor.name);
+      if (actor.email) return String(actor.email);
+      return `{{${tokenKey}}}`;
+    }
+    const value = actor[field];
+    if (value === null || value === undefined || value === "") return `{{${tokenKey}}}`;
+    return String(value);
+  }
+
+  // Tenant tokens (datos de la empresa-marca)
+  if (module === "tenant") {
+    const tenant = entities.tenant as Record<string, any> | undefined;
+    if (!tenant) return `{{${tokenKey}}}`;
+    const value = tenant[field];
+    if (value === null || value === undefined || value === "") return `{{${tokenKey}}}`;
+    return String(value);
+  }
+
+  // Block tokens (texto pre-formateado, se inserta tal cual; ausencia = vacío para no romper el mensaje)
+  if (module === "blocks") {
+    const blocks = entities.blocks as Record<string, any> | undefined;
+    if (!blocks) return "";
+    const value = blocks[field];
+    if (value === null || value === undefined) return "";
+    return String(value);
   }
 
   // Entity tokens

@@ -48,6 +48,30 @@ const MODULE_LABELS: Record<string, string> = {
   whatsapp: "WhatsApp",
 };
 
+const WA_GROUP_LABELS: Record<string, string> = {
+  crm: "CRM",
+  cpq: "CPQ",
+  ops: "Operaciones",
+  portal: "Portal Cliente",
+  presentation: "Presentación",
+  other: "Otros",
+};
+const WA_GROUP_ORDER = ["crm", "cpq", "ops", "portal", "presentation", "other"];
+
+/** Sub-agrupa templates whatsapp por origen (crm/cpq/ops/portal/presentation/other). */
+function groupWaTemplates(temps: DocTemplate[]): { group: string; items: DocTemplate[] }[] {
+  const buckets: Record<string, DocTemplate[]> = {};
+  for (const t of temps) {
+    const slug = t.usageSlug;
+    const group = (slug && WA_USAGE_SLUGS[slug]?.group) || "other";
+    if (!buckets[group]) buckets[group] = [];
+    buckets[group].push(t);
+  }
+  return WA_GROUP_ORDER
+    .filter((g) => buckets[g] && buckets[g].length > 0)
+    .map((g) => ({ group: g, items: buckets[g] }));
+}
+
 export function DocTemplatesClient() {
   return (
     <Suspense fallback={null}>
@@ -166,7 +190,15 @@ function DocTemplatesInner() {
           }
         />
       ) : (
-        Object.entries(grouped).map(([module, temps]) => (
+        Object.entries(grouped).map(([module, temps]) => {
+          // Para WhatsApp sub-agrupamos por origen (CRM/CPQ/Ops/Portal/Presentación)
+          // y renderizamos un grid+lista por cada sub-grupo. Para los demás
+          // módulos mantenemos un solo grupo "all" con TODAS las plantillas.
+          const subGroups =
+            module === "whatsapp"
+              ? groupWaTemplates(temps)
+              : [{ group: "all", items: temps }];
+          return (
           <div key={module}>
             {/* Section label — discrete */}
             <div className="flex items-center gap-2 mb-2 sticky top-0 z-10 bg-background/80 backdrop-blur-sm py-1 -mx-1 px-1">
@@ -177,9 +209,21 @@ function DocTemplatesInner() {
               <span className="text-[11px] text-muted-foreground/50">{temps.length}</span>
             </div>
 
+            {subGroups.map((sg) => (
+              <div key={sg.group} className="mb-2">
+                {module === "whatsapp" && (
+                  <div className="flex items-center gap-2 mb-1.5 px-1">
+                    <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60">
+                      {WA_GROUP_LABELS[sg.group] || sg.group}
+                    </span>
+                    <div className="flex-1 h-px bg-border/50" />
+                    <span className="text-[10px] text-muted-foreground/40">{sg.items.length}</span>
+                  </div>
+                )}
+
             {/* Desktop: grid 3-4 cols */}
             <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 mb-4">
-              {temps.map((template) => (
+              {sg.items.map((template) => (
                 <div
                   key={template.id}
                   className="group relative flex items-center gap-3 rounded-lg border border-border bg-card p-3 hover:border-primary/30 hover:bg-accent/30 transition-all cursor-pointer"
@@ -248,7 +292,7 @@ function DocTemplatesInner() {
 
             {/* Mobile: compact list */}
             <div className="md:hidden space-y-1 mb-4">
-              {temps.map((template) => (
+              {sg.items.map((template) => (
                 <div
                   key={template.id}
                   className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-border bg-card active:scale-[0.98] transition-transform cursor-pointer"
@@ -280,8 +324,11 @@ function DocTemplatesInner() {
                 </div>
               ))}
             </div>
+              </div>
+            ))}
           </div>
-        ))
+          );
+        })
       )}
     </div>
   );
