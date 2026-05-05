@@ -37,6 +37,7 @@ import {
   FileMinus,
   FilePlus,
   Loader2,
+  RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -636,6 +637,7 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
   const [typeFilter, setTypeFilter] = useState("ALL");
   const [receptionFilter, setReceptionFilter] = useState("ALL");
   const [paymentFilter, setPaymentFilter] = useState("ALL");
+  const [syncing, setSyncing] = useState(false);
 
   const loadReceivedDtes = useCallback(async () => {
     try {
@@ -720,6 +722,26 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
     }
   };
 
+  const handleSyncRcv = async () => {
+    setSyncing(true);
+    try {
+      const res = await fetch("/api/finance/config/dte-provider/sync-rcv", {
+        method: "POST",
+      });
+      const body = await res.json();
+      if (!res.ok || !body.success) throw new Error(body.error ?? "Error");
+      toast.success(
+        `Sincronización completada: ${body.data.fetched} consultados, ${body.data.inserted} nuevos.`
+      );
+      await loadReceivedDtes();
+      router.refresh();
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -777,10 +799,25 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
           </Select>
         </div>
         {canManage && (
-          <Button size="sm" onClick={() => setDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-1.5" />
-            Registrar DTE
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSyncRcv}
+              disabled={syncing}
+            >
+              {syncing ? (
+                <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4 mr-1.5" />
+              )}
+              Sincronizar RCV
+            </Button>
+            <Button size="sm" onClick={() => setDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-1.5" />
+              Registrar DTE
+            </Button>
+          </div>
         )}
       </div>
 
