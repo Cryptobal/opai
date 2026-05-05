@@ -48,6 +48,8 @@ export default async function FacturacionPage() {
     createdAt: d.createdAt.toISOString(),
     emailSentAt: d.emailSentAt ? d.emailSentAt.toISOString() : null,
     emailStatus: d.emailStatus,
+    referenceType: d.referenceType,
+    referenceFolio: d.referenceFolio,
   }));
 
   const suppliers = await prisma.financeSupplier.findMany({

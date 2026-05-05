@@ -23,9 +23,21 @@ export type DteIssueRequest = {
   taxRate: number;
   taxAmount: number;
   totalAmount: number;
+  /**
+   * Referencia obligatoria SII para DTEs tipo 56 (Nota de Débito) y 61
+   * (Nota de Crédito). Se serializa como bloque <Referencia> en el XML
+   * que se envía al SII. Validar obligatoriedad en el issuer.
+   */
   reference?: {
+    /** Tipo del DTE original referenciado (33, 34, 39, 56, etc.). */
     dteType: number;
+    /** Folio del DTE original. */
     folio: number;
+    /** Fecha de emisión del DTE original (YYYY-MM-DD). */
+    date: string;
+    /** Código SII CodRef: 1=anula, 2=corrige texto, 3=corrige montos. */
+    code: 1 | 2 | 3;
+    /** Razón en texto libre (RazonRef). */
     reason: string;
   };
   /**
