@@ -55,13 +55,13 @@ export default async function FacturacionPage() {
     foliosCAFs,
   ] = await Promise.all([
     prisma.financeDte.findMany({
-      where: { tenantId, direction: "ISSUED" },
+      where: { tenantId, direction: "ISSUED", siiStatus: { not: "DRAFT" } },
       include: { lines: true },
       orderBy: { createdAt: "desc" },
       take: INITIAL_PAGE_SIZE,
     }),
     prisma.financeDte.count({
-      where: { tenantId, direction: "ISSUED" },
+      where: { tenantId, direction: "ISSUED", siiStatus: { not: "DRAFT" } },
     }),
     prisma.financeSupplier.findMany({
       where: { tenantId },

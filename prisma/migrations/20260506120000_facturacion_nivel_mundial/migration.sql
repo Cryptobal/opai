@@ -7,6 +7,19 @@
 -- ── 1. Enum FinanceSiiStatus: agregar DRAFT al inicio ────────────────
 ALTER TYPE "finance"."FinanceSiiStatus" ADD VALUE IF NOT EXISTS 'DRAFT' BEFORE 'PENDING';
 
+-- ── 1b. Reemplazar el unique constraint por un partial unique index ──
+-- Razón: los borradores (siiStatus=DRAFT) usan folio=0. Sin esta
+-- modificación, sólo se podría tener UN borrador por (tenant, dteType,
+-- direction). Excluyendo DRAFT del unique permitimos N borradores en
+-- paralelo, manteniendo la unicidad real para DTEs emitidos.
+ALTER TABLE "finance"."finance_dtes" DROP CONSTRAINT IF EXISTS "uq_finance_dte_folio";
+DROP INDEX IF EXISTS "finance"."uq_finance_dte_folio";
+CREATE UNIQUE INDEX "uq_finance_dte_folio_emitted"
+  ON "finance"."finance_dtes" ("tenant_id", "direction", "dte_type", "folio")
+  WHERE "sii_status" <> 'DRAFT';
+CREATE INDEX "idx_finance_dte_folio_lookup"
+  ON "finance"."finance_dtes" ("tenant_id", "direction", "dte_type", "folio");
+
 -- ── 2. FinanceDte: campos UF de auditoría ────────────────────────────
 ALTER TABLE "finance"."finance_dtes"
   ADD COLUMN "uf_value_at_issue" DECIMAL(14,2),

@@ -6309,7 +6309,12 @@ model FinanceDte {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  @@unique([tenantId, direction, dteType, folio], map: "uq_finance_dte_folio")
+  // NOTA: la unicidad (tenantId, direction, dteType, folio) se mantiene
+  // como UNIQUE INDEX parcial gestionado vía raw SQL en la migración
+  // (WHERE sii_status <> 'DRAFT'). Prisma no soporta partial unique en el
+  // schema declarativo, así que dejamos solo @@index aquí. No agregar
+  // @@unique o se re-bloquearían múltiples DRAFTs (todos con folio=0).
+  @@index([tenantId, direction, dteType, folio], map: "idx_finance_dte_folio_lookup")
   @@index([tenantId, direction, paymentStatus], map: "idx_finance_dte_payment_status")
   @@index([tenantId, accountId], map: "idx_finance_dte_account")
   @@index([tenantId, supplierId], map: "idx_finance_dte_supplier")
