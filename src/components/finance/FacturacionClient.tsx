@@ -416,6 +416,27 @@ function DtesTab({
     }
   };
 
+  // Estado para tracking de "Actualizar estado SII" por fila.
+  const [checkingStatus, setCheckingStatus] = useState<string | null>(null);
+  const handleCheckStatus = async (id: string, folio: number) => {
+    setCheckingStatus(id);
+    try {
+      const res = await fetch(`/api/finance/billing/issued/${id}/status`);
+      const body = await res.json();
+      if (!res.ok || !body.success) {
+        throw new Error(body.error || `HTTP ${res.status}`);
+      }
+      const newStatus = body.data?.status ?? "PENDING";
+      const msg = body.data?.message ? ` (${body.data.message})` : "";
+      toast.success(`DTE ${folio}: estado SII actualizado → ${newStatus}${msg}`);
+      router.refresh();
+    } catch (err) {
+      toast.error(`DTE ${folio}: ${(err as Error).message}`);
+    } finally {
+      setCheckingStatus(null);
+    }
+  };
+
   const handleDownloadXml = async (id: string, folio: number) => {
     try {
       const res = await fetch(`/api/finance/billing/issued/${id}/xml`);
@@ -823,6 +844,21 @@ function DtesTab({
                             )}
                           </Button>
                         )}
+                        {canManage && (row.siiStatus === "PENDING" || row.siiStatus === "SENT") && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => { e.stopPropagation(); handleCheckStatus(row.id, row.folio); }}
+                            disabled={checkingStatus === row.id}
+                            title="Consultar estado SII (manual)"
+                          >
+                            {checkingStatus === row.id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <RefreshCw className="h-3.5 w-3.5" />
+                            )}
+                          </Button>
+                        )}
                         {canManage && canAnular && (
                           <Button
                             variant="ghost"
@@ -949,6 +985,21 @@ function DtesTab({
                                 <Mail className="h-3.5 w-3.5 mr-1" />
                               )}
                               {d.emailSentAt ? "Reenviar" : "Email"}
+                            </Button>
+                          )}
+                          {canManage && (d.siiStatus === "PENDING" || d.siiStatus === "SENT") && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleCheckStatus(d.id, d.folio)}
+                              disabled={checkingStatus === d.id}
+                            >
+                              {checkingStatus === d.id ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+                              ) : (
+                                <RefreshCw className="h-3.5 w-3.5 mr-1" />
+                              )}
+                              Estado SII
                             </Button>
                           )}
                           {canManage && canAnular && (

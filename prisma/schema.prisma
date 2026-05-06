@@ -6256,6 +6256,14 @@ model FinanceDte {
   siiTrackId    String?          @map("sii_track_id")
   siiResponse   Json?            @map("sii_response")
   siiAcceptedAt DateTime?        @map("sii_accepted_at") @db.Timestamptz(6)
+  /**
+   * Timestamp de la última consulta de estado al SII vía SimpleAPI
+   * (consulta/envio). Usado por el cron horario para no consultar el
+   * mismo DTE más de una vez por hora y respetar cupo SimpleAPI.
+   */
+  siiLastStatusCheckAt DateTime? @map("sii_last_status_check_at") @db.Timestamptz(6)
+  /** Cantidad de veces que se consultó el estado al SII. Para timeout. */
+  siiStatusCheckCount  Int       @default(0) @map("sii_status_check_count")
 
   receptionStatus    FinanceReceptionStatus? @map("reception_status")
   receptionDeadline  DateTime?               @map("reception_deadline") @db.Date
