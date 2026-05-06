@@ -51,6 +51,8 @@ import { KPIRow, TrendChart } from "./FacturacionDashboardWidgets";
 import { LibroIvaTab } from "./LibroIvaTab";
 import { CostCenterEditor } from "./CostCenterEditor";
 import { CreditNoteModal } from "./CreditNoteModal";
+import { IssuedDteDetailDialog } from "./IssuedDteDetailDialog";
+import { Building, MapPin } from "lucide-react";
 
 /* ── Types ── */
 
@@ -332,6 +334,8 @@ function DtesTab({
     dteId: string;
     noteType: "credit" | "debit";
   } | null>(null);
+  /** Modal de detalle de DTE emitido. */
+  const [detailDteId, setDetailDteId] = useState<string | null>(null);
   // Paginación server-side. La SC pre-carga la primera página (50);
   // si el usuario cambia page o pageSize, refetch al endpoint paginado.
   const [page, setPage] = useState(1);
@@ -705,36 +709,25 @@ function DtesTab({
                 {
                   id: "centroCosto",
                   header: "Centro de costo",
-                  cell: (row) => (
-                    <CostCenterEditor
-                      dteId={row.id}
-                      currentAccountId={row.crmAccountId}
-                      currentAccountName={row.crmAccount?.name ?? null}
-                      currentInstallationId={row.installationId}
-                      currentInstallationName={row.installation?.name ?? null}
-                      canEdit={canManage}
-                      onChange={(next) => {
-                        // Actualizar la fila en el state local para feedback inmediato.
-                        setDtes((prev) =>
-                          prev.map((d) =>
-                            d.id === row.id
-                              ? {
-                                  ...d,
-                                  crmAccountId: next.crmAccountId,
-                                  installationId: next.installationId,
-                                  crmAccount: next.crmAccountId && next.accountName
-                                    ? { id: next.crmAccountId, name: next.accountName, legalName: null }
-                                    : null,
-                                  installation: next.installationId && next.installationName
-                                    ? { id: next.installationId, name: next.installationName, commune: null }
-                                    : null,
-                                }
-                              : d,
-                          ),
-                        );
-                      }}
-                    />
-                  ),
+                  cell: (row) => {
+                    if (!row.crmAccount) {
+                      return <span className="text-xs text-muted-foreground italic">Sin asignar</span>;
+                    }
+                    return (
+                      <div className="text-xs space-y-0.5">
+                        <div className="flex items-center gap-1 truncate" title={row.crmAccount.name}>
+                          <Building className="h-3 w-3 shrink-0 text-muted-foreground" />
+                          <span className="truncate font-medium">{row.crmAccount.name}</span>
+                        </div>
+                        {row.installation && (
+                          <div className="flex items-center gap-1 truncate text-muted-foreground" title={row.installation.name}>
+                            <MapPin className="h-3 w-3 shrink-0" />
+                            <span className="truncate">{row.installation.name}</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  },
                 },
                 {
                   id: "_actions",
@@ -762,6 +755,14 @@ function DtesTab({
                     const hasXml = row.hasXml !== false; // default true (compat)
                     return (
                       <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => { e.stopPropagation(); setDetailDteId(row.id); }}
+                          title="Ver detalle de la factura"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                        </Button>
                         {hasXml && (
                           <>
                             <Button
@@ -877,7 +878,11 @@ function DtesTab({
             {filtered.map((d) => {
               const stCfg = SII_STATUS_CONFIG[d.siiStatus] ?? { label: d.siiStatus, className: "bg-muted" };
               return (
-                <Card key={d.id}>
+                <Card
+                  key={d.id}
+                  className="cursor-pointer hover:bg-muted/30 transition-colors"
+                  onClick={() => setDetailDteId(d.id)}
+                >
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
@@ -930,7 +935,10 @@ function DtesTab({
                       const canDebitNote = d.dteType === 61 && d.siiStatus !== "ANNULLED";
                       const hasXml = d.hasXml !== false;
                       return (
-                        <div className="flex gap-1 mt-3 pt-3 border-t border-border flex-wrap">
+                        <div
+                          className="flex gap-1 mt-3 pt-3 border-t border-border flex-wrap"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           {hasXml ? (
                             <>
                               <Button variant="ghost" size="sm" onClick={() => handleDownloadPdf(d.id, d.folio)}>
@@ -1046,6 +1054,16 @@ function DtesTab({
         onClose={() => setNoteModal(null)}
         referenceDteId={noteModal?.dteId ?? null}
         noteType={noteModal?.noteType ?? "credit"}
+      />
+
+      {/* Modal de detalle DTE emitido */}
+      <IssuedDteDetailDialog
+        open={detailDteId !== null}
+        onClose={() => setDetailDteId(null)}
+        dteId={detailDteId}
+        canManage={canManage}
+        onEmitCreditNote={(id) => setNoteModal({ dteId: id, noteType: "credit" })}
+        onEmitDebitNote={(id) => setNoteModal({ dteId: id, noteType: "debit" })}
       />
     </div>
   );
@@ -1471,35 +1489,25 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
                 {
                   id: "centroCosto",
                   header: "Centro de costo",
-                  cell: (row) => (
-                    <CostCenterEditor
-                      dteId={row.id}
-                      currentAccountId={row.crmAccountId}
-                      currentAccountName={row.crmAccount?.name ?? null}
-                      currentInstallationId={row.installationId}
-                      currentInstallationName={row.installation?.name ?? null}
-                      canEdit={canManage}
-                      onChange={(next) => {
-                        setReceivedDtes((prev) =>
-                          prev.map((d) =>
-                            d.id === row.id
-                              ? {
-                                  ...d,
-                                  crmAccountId: next.crmAccountId,
-                                  installationId: next.installationId,
-                                  crmAccount: next.crmAccountId && next.accountName
-                                    ? { id: next.crmAccountId, name: next.accountName, legalName: null }
-                                    : null,
-                                  installation: next.installationId && next.installationName
-                                    ? { id: next.installationId, name: next.installationName, commune: null }
-                                    : null,
-                                }
-                              : d,
-                          ),
-                        );
-                      }}
-                    />
-                  ),
+                  cell: (row) => {
+                    if (!row.crmAccount) {
+                      return <span className="text-xs text-muted-foreground italic">Sin asignar</span>;
+                    }
+                    return (
+                      <div className="text-xs space-y-0.5">
+                        <div className="flex items-center gap-1 truncate" title={row.crmAccount.name}>
+                          <Building className="h-3 w-3 shrink-0 text-muted-foreground" />
+                          <span className="truncate font-medium">{row.crmAccount.name}</span>
+                        </div>
+                        {row.installation && (
+                          <div className="flex items-center gap-1 truncate text-muted-foreground" title={row.installation.name}>
+                            <MapPin className="h-3 w-3 shrink-0" />
+                            <span className="truncate">{row.installation.name}</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  },
                 },
                 {
                   id: "actions",
@@ -1904,6 +1912,29 @@ function ReceivedDteDetailDialog({
                 <span className="font-medium">{supplier.name}</span>
               </p>
             )}
+          </div>
+
+          {/* Centro de costo: cliente CRM al que se imputa este gasto */}
+          <div className="rounded-md border border-border p-4 space-y-2">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground mb-1">
+              Centro de costo
+            </p>
+            <p className="text-xs text-muted-foreground mb-2">
+              Cliente e instalación a los que se imputa este gasto. Útil
+              para reportes de P&L por instalación.
+            </p>
+            <CostCenterEditor
+              dteId={dte.id}
+              currentAccountId={dte.crmAccountId}
+              currentAccountName={dte.crmAccount?.name ?? null}
+              currentInstallationId={dte.installationId}
+              currentInstallationName={dte.installation?.name ?? null}
+              canEdit={canManage}
+              onChange={() => {
+                // El usuario debe refrescar la lista para ver el cambio
+                // reflejado en la tabla. Toast lo avisa.
+              }}
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
