@@ -2622,24 +2622,6 @@ model CrmFollowUpLog {
   @@schema("crm")
 }
 
-// ── WhatsApp Templates (per tenant, editable messages) ──
-
-model CrmWhatsAppTemplate {
-  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId  String   @map("tenant_id")
-  slug      String // "lead_commercial", "lead_client", "proposal_sent", "followup_first", "followup_second"
-  name      String // Human-readable label
-  body      String   @db.Text // Template body with {token} placeholders
-  isActive  Boolean  @default(true) @map("is_active")
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  @@unique([tenantId, slug], map: "uq_crm_wa_template_tenant_slug")
-  @@index([tenantId], map: "idx_crm_wa_templates_tenant")
-  @@map("crm_whatsapp_templates")
-  @@schema("crm")
-}
-
 // ── Email Signatures ──
 
 model CrmEmailSignature {
