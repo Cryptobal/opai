@@ -305,16 +305,18 @@ async function renderDtePage(
   // 3. CUADRO RECEPTOR — un campo por fila full-width
   // ─────────────────────────────────────────────
   const recepBoxY = y;
-  const recepFields: Array<[string, string | null | undefined]> = [
-    ["SEÑOR(ES)", dte.receptor.razonSocial],
-    ["R.U.T.", formatRut(dte.receptor.rut)],
-    ["GIRO", dte.receptor.giro],
-    ["DIRECCIÓN", dte.receptor.direccion],
-    ["COMUNA", dte.receptor.comuna],
-    ["CIUDAD", dte.receptor.ciudad],
-  ].filter(([, v]) => v && String(v).trim().length > 0) as Array<
-    [string, string]
-  >;
+  const recepFields: Array<[string, string]> = (
+    [
+      ["SEÑOR(ES)", dte.receptor.razonSocial],
+      ["R.U.T.", formatRut(dte.receptor.rut)],
+      ["GIRO", dte.receptor.giro],
+      ["DIRECCIÓN", dte.receptor.direccion],
+      ["COMUNA", dte.receptor.comuna],
+      ["CIUDAD", dte.receptor.ciudad],
+    ] as Array<[string, string | null | undefined]>
+  )
+    .filter(([, v]) => v && String(v).trim().length > 0)
+    .map(([label, v]) => [label, String(v)] as [string, string]);
 
   // Layout 2 columnas — cada celda con label propio y value truncado al ancho
   // disponible para no solaparse con la siguiente columna.
