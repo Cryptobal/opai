@@ -1,17 +1,28 @@
 /**
  * API Route: /api/cron/finance-dte-status
- * GET — Polling horario del estado SII de DTEs emitidos pendientes.
+ * GET — Polling DIARIO del estado SII de DTEs emitidos pendientes.
  *
  * Para cada tenant con DTE activo, consulta los DTEs en estado SENT/PENDING
  * que cumplan ciertas condiciones (ver pollPendingDtesStatus) para
- * actualizar su siiStatus a ACCEPTED / REJECTED / ACCEPTED_WITH_OBJECTIONS
+ * actualizar su siiStatus a ACCEPTED / REJECTED / WITH_OBJECTIONS
  * según lo que devuelve el SII vía SimpleAPI consulta/envio.
  *
- * Schedule: cada hora (0 * * * *).
+ * Schedule: 1 vez por día a las 11:00 UTC (= 08:00 Chile invierno,
+ * 07:00 Chile verano). Bajamos de horario a diario por solicitud del
+ * usuario para reducir consumo de cupo SimpleAPI.
+ *
+ * Costo estimado por tenant:
+ *   - 1 ejecución/día
+ *   - Cap de 50 DTEs por ejecución
+ *   - Cap de 7 chequeos por DTE (después timeout)
+ *   - Para Gard (~20 DTEs/día): ~30-50 consultas/día = ~900-1500/mes
+ *
+ * Si necesitás respuesta más rápida del SII, usá el botón "Actualizar
+ * estado SII" (icono RefreshCw) en cada fila de DTE — manual on-demand.
  *
  * Respeta el cupo SimpleAPI:
- *   - Solo consulta DTEs no chequeados en la última hora
- *   - Cap de 30 chequeos por DTE (después se asume rechazo silencioso)
+ *   - Solo consulta DTEs no chequeados en las últimas 23 horas
+ *   - Cap de 7 chequeos por DTE (después se asume rechazo silencioso)
  *   - Solo DTEs con < 7 días de antigüedad
  *   - Si detecta bloqueo de apikey, aborta y no marca timestamp
  *     (próximo intento retoma desde el mismo DTE)
