@@ -46,6 +46,7 @@ import { formatPersonName } from "@/lib/personas";
 import { CrmActivityTimeline } from "./CrmActivityTimeline";
 import { AccessControlConfigTab } from "@/components/access-control/AccessControlConfigTab";
 import { AccessControlListsManager } from "@/components/access-control/AccessControlListsManager";
+import { AccessControlRecordsView } from "@/components/access-control/AccessControlRecordsView";
 import { UnifiedDevicesSection } from "@/components/devices/UnifiedDevicesSection";
 import { InstallationPhoneLines } from "@/components/inventario/InstallationPhoneLines";
 import { InstalacionDocumentosGuardiasTab } from "./InstalacionDocumentosGuardiasTab";
@@ -2070,6 +2071,17 @@ export function CrmInstallationDetailClient({
       : "sections",
   );
 
+  type AccessControlSubTabId = "registros" | "config" | "listas";
+  const initialSubRaw = searchParams?.get("subtab") ?? null;
+  const [accessControlSubTab, setAccessControlSubTab] = useState<AccessControlSubTabId>(
+    initialTab === "access-control" &&
+      (initialSubRaw === "registros" ||
+        initialSubRaw === "config" ||
+        initialSubRaw === "listas")
+      ? initialSubRaw
+      : "registros",
+  );
+
   const [fileCount, setFileCount] = useState(0);
   useEffect(() => {
     fetch(`/api/crm/files?entityType=installation&entityId=${encodeURIComponent(installation.id)}`)
@@ -2660,6 +2672,30 @@ export function CrmInstallationDetailClient({
                 </button>
               )}
             </div>
+          ) : activeTab === "access-control" ? (
+            <div className="flex items-center px-4 py-2 border-t border-border/30">
+              <div className="flex items-center gap-1.5 overflow-x-auto">
+                {(["registros", "config", "listas"] as const).map((id) => {
+                  const labels: Record<AccessControlSubTabId, string> = {
+                    registros: "📋 Registros",
+                    config: "⚙️ Configuración",
+                    listas: "🛡️ Listas",
+                  };
+                  return (
+                    <button
+                      key={id}
+                      onClick={() => setAccessControlSubTab(id)}
+                      className={`whitespace-nowrap rounded-md px-3.5 py-1.5 text-sm font-medium transition-colors ${accessControlSubTab === id
+                          ? "bg-primary text-primary-foreground shadow-sm"
+                          : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                        }`}
+                    >
+                      {labels[id]}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           ) : null
         }
       >
@@ -2720,10 +2756,15 @@ export function CrmInstallationDetailClient({
         )}
         {activeTab === "access-control" && (
           <div className="space-y-6">
-            <AccessControlConfigTab installationId={installation.id} />
-            <div className="border-t border-border pt-6">
+            {accessControlSubTab === "registros" && (
+              <AccessControlRecordsView installationId={installation.id} />
+            )}
+            {accessControlSubTab === "config" && (
+              <AccessControlConfigTab installationId={installation.id} />
+            )}
+            {accessControlSubTab === "listas" && (
               <AccessControlListsManager installationId={installation.id} />
-            </div>
+            )}
           </div>
         )}
         {activeTab === "visitas-tecnicas" && (
