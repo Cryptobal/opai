@@ -2,9 +2,11 @@
 
 import { useRouter } from 'next/navigation';
 import { Phone, MessageCircle } from 'lucide-react';
+import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { timeAgo } from '@/lib/utils';
-import { formatCLP, normalizeChileanPhone, whatsappUrlWithMessage, HUB_WHATSAPP_MESSAGES } from '../_lib/hub-utils';
+import { formatCLP, normalizeChileanPhone } from '../_lib/hub-utils';
+import { useWaTemplate } from '@/lib/whatsapp/use-wa-template';
 import type { ClosingHotDeal } from '../_lib/hub-types';
 
 interface Props {
@@ -27,18 +29,13 @@ function TrendIcon({ trend }: { trend: 'up' | 'down' | 'flat' }) {
   return <span className="text-muted-foreground text-xs">—</span>;
 }
 
-export function HubHotDealsMobile({ deals, sellerFirstName, tenantName }: Props) {
+export function HubHotDealsMobile({ deals, sellerFirstName: _sellerFirstName, tenantName: _tenantName }: Props) {
   const router = useRouter();
+  const { resolve: resolveWaTemplate } = useWaTemplate();
   return (
     <div className="space-y-2">
       {deals.map((deal, idx) => {
         const rank = idx + 1;
-        const waMessage = HUB_WHATSAPP_MESSAGES.hot(
-          deal.contactName,
-          deal.companyName,
-          sellerFirstName,
-          tenantName,
-        );
         return (
           <div
             key={deal.id}
@@ -92,15 +89,25 @@ export function HubHotDealsMobile({ deals, sellerFirstName, tenantName }: Props)
                   </a>
                 )}
                 {deal.contactPhone && (
-                  <a
-                    href={whatsappUrlWithMessage(deal.contactPhone, waMessage)}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
+                    type="button"
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      try {
+                        const { url } = await resolveWaTemplate({
+                          slug: 'hub_hot',
+                          entityType: 'deal',
+                          entityId: deal.id,
+                        });
+                        window.open(url, '_blank', 'noopener,noreferrer');
+                      } catch {
+                        toast.error('No se pudo generar el mensaje');
+                      }
+                    }}
                     className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs font-medium transition-colors hover:bg-status-ok hover:text-white"
-                    onClick={(e) => e.stopPropagation()}
                   >
                     <MessageCircle className="h-3 w-3" /> WA
-                  </a>
+                  </button>
                 )}
               </div>
             </div>

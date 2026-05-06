@@ -14,6 +14,13 @@ const resolveSchema = z.object({
     .optional(),
   /** Datos adicionales para tokens system.* (portalUrl, portalPin, formUrl, mapsLink, etc.) */
   systemTokens: z.record(z.string(), z.string()).optional(),
+  /**
+   * Bloques pre-renderizados que vengan ya formateados desde el cliente
+   * (ej. cpqVisitaPuestos cuando el caller ya tiene los datos para construirlo).
+   * Se inyectan como `entities.blocks.*` para que el resolver los inserte
+   * al expandir tokens `{{blocks.X}}`.
+   */
+  blockTokens: z.record(z.string(), z.string()).optional(),
   /** Teléfono override (si no se quiere usar el del entity). */
   phoneOverride: z.string().optional(),
 });
@@ -32,10 +39,13 @@ export async function POST(request: NextRequest) {
 
   const parsed = await parseBody(request, resolveSchema);
   if (parsed.error) return parsed.error;
-  const { slug, entityId, entityType, systemTokens, phoneOverride } = parsed.data;
+  const { slug, entityId, entityType, systemTokens, blockTokens, phoneOverride } = parsed.data;
 
-  // Entities siempre incluyen tenant + actor + system runtime.
-  const entities: Record<string, unknown> = { system: systemTokens || {} };
+  // Entities siempre incluyen tenant + actor + system runtime + blocks (si vienen).
+  const entities: Record<string, unknown> = {
+    system: systemTokens || {},
+    blocks: blockTokens || {},
+  };
   let phone: string | null = null;
 
   // Tenant (datos de la empresa-marca configurados)

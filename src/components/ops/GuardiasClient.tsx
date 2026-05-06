@@ -48,6 +48,7 @@ import { canEditGuardiasPlanSeleccion, hasOpsCapability } from "@/lib/ops-rbac";
 import { SeleccionadoDestinoFields } from "@/components/ops/SeleccionadoDestinoFields";
 import { UnassignedHiredBadge, isContratadoSinAsignacion } from "@/components/ops/UnassignedHiredBadge";
 import { SHOW_PIN_IN_PROFILE } from "@/lib/guard-portal";
+import { useWaTemplate } from "@/lib/whatsapp/use-wa-template";
 
 type GuardiaItem = {
   id: string;
@@ -126,6 +127,7 @@ function ProfileIncompleteBadge({ missing }: { missing?: string[] }) {
 
 export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProps) {
   const router = useRouter();
+  const { resolve: resolveWaTemplate } = useWaTemplate();
   const [guardias, setGuardias] = useState<GuardiaItem[]>(initialGuardias);
   const [search, setSearch] = useState("");
   const [saving, setSaving] = useState(false);
@@ -913,10 +915,17 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
             )}
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              onClick={() => {
-                const url = `${window.location.origin}/ingreso-te`;
-                const msg = `Hola, te invitamos a completar tu registro como guardia de Turno Extra. Ingresa aquí: ${url}`;
-                window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank", "noopener,noreferrer");
+              onClick={async () => {
+                try {
+                  const url = `${window.location.origin}/ingreso-te`;
+                  const { url: waUrl } = await resolveWaTemplate({
+                    slug: "ops_guardia_invite_turno_extra",
+                    systemTokens: { formUrl: url },
+                  });
+                  window.open(waUrl, "_blank", "noopener,noreferrer");
+                } catch {
+                  toast.error("No se pudo generar el mensaje de invitación");
+                }
               }}
             >
               <MessageCircle className="h-3.5 w-3.5 mr-2 text-status-ok-fg" />
@@ -929,8 +938,11 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                   const payload = await response.json();
                   if (!response.ok || !payload.success) throw new Error(payload.error);
                   const url = payload.data?.url || `${window.location.origin}${payload.data?.path}`;
-                  const msg = `Hola, te invitamos a postularte como guardia. Completa el formulario aquí: ${url}`;
-                  window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank", "noopener,noreferrer");
+                  const { url: waUrl } = await resolveWaTemplate({
+                    slug: "ops_guardia_invite_postulacion",
+                    systemTokens: { formUrl: url },
+                  });
+                  window.open(waUrl, "_blank", "noopener,noreferrer");
                 } catch {
                   toast.error("No se pudo generar el link de postulación");
                 }

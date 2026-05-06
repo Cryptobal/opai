@@ -34,6 +34,14 @@ interface PresentationHeaderProps {
   showTokens?: boolean;
   className?: string;
   website?: string; // Tenant website (e.g. "www.example.cl")
+  /**
+   * Mensaje pre-resuelto para el botón WhatsApp (slug `presentation_contact_cta`).
+   * Si se omite, se usa el fallback hardcoded actual. El contexto de presentación
+   * pública no tiene auth de workspace, por lo que la resolución debe hacerla el
+   * server component que renderice este header (cuando exista) o un endpoint
+   * público específico de presentación (futuro PR).
+   */
+  whatsappMessage?: string;
 }
 
 export function PresentationHeader({
@@ -49,12 +57,17 @@ export function PresentationHeader({
   showTokens = false,
   className,
   website = '',
+  whatsappMessage,
 }: PresentationHeaderProps) {
-  // Build WhatsApp link from cta (tenant-aware) with personalized message
-  const whatsappMessage = `Hola, soy ${contactName} de ${companyName}, vi ${quoteName} y me gustaría conversar`;
+  // Si el caller proveyó el mensaje resuelto desde plantilla, usarlo. Si no,
+  // construir el mensaje hardcoded como fallback. PR2 deja esta dualidad
+  // porque hoy no hay caller vivo (componente deprecated). PRs futuros
+  // pueden resolver `presentation_contact_cta` cuando se reactive el flow.
+  const fallbackWhatsappMessage = `Hola, soy ${contactName} de ${companyName}, vi ${quoteName} y me gustaría conversar`;
+  const finalWhatsappMessage = whatsappMessage ?? fallbackWhatsappMessage;
   const whatsappLink = cta.whatsapp_link
-    ? `${cta.whatsapp_link}?text=${encodeURIComponent(whatsappMessage)}`
-    : `https://wa.me/?text=${encodeURIComponent(whatsappMessage)}`;
+    ? `${cta.whatsapp_link}?text=${encodeURIComponent(finalWhatsappMessage)}`
+    : `https://wa.me/?text=${encodeURIComponent(finalWhatsappMessage)}`;
   const websiteUrl = website.startsWith('http') ? website : `https://${website}`;
   
   return (

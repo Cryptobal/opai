@@ -71,6 +71,7 @@ import type { ServiceTemplate } from "@/lib/cpq/service-templates";
 import { resolveRolIdFromShiftPattern } from "@/lib/cpq/resolve-cpq-role-from-shift-pattern";
 import { isCpqQuoteListedInClientPortal } from "@/lib/cpq-portal-visibility";
 import { buildDefaultPortalInviteEmailSubject } from "@/lib/cpq-portal-email-subject";
+import { useWaTemplate } from "@/lib/whatsapp/use-wa-template";
 
 type ActivityEvent = {
   id: string;
@@ -132,6 +133,7 @@ export function CpqQuoteDetail({
   tenantBrandName,
 }: CpqQuoteDetailProps) {
   const router = useRouter();
+  const { resolve: resolveWaTemplate } = useWaTemplate();
   const [quote, setQuote] = useState<CpqQuote | null>(null);
 
   // Contexto de página para OPAI Intelligence (chat contextual tipo Notion).
@@ -177,6 +179,7 @@ export function CpqQuoteDetail({
   // Visita técnica
   const [visitaTecnicaModalOpen, setVisitaTecnicaModalOpen] = useState(false);
   const [visitaTecnicaWaModalOpen, setVisitaTecnicaWaModalOpen] = useState(false);
+  const [visitaWaResolved, setVisitaWaResolved] = useState<{ message: string; url: string } | null>(null);
   const [visitaTecnicaWaData, setVisitaTecnicaWaData] = useState<{
     supervisorName: string;
     supervisorEmail: string;
@@ -480,6 +483,71 @@ export function CpqQuoteDetail({
       updateParams({ salePriceBase: rounded });
     }
   }, [costSummary, costParams, marginPct]);
+
+  // Resolver el mensaje WhatsApp para el supervisor cuando se programa una
+  // visita técnica. Combina el seed `cpq_visita_tecnica_supervisor` con
+  // datos runtime que solo conoce el cliente (fecha programada, puestos,
+  // mapsLink derivado, etc.).
+  useEffect(() => {
+    if (!visitaTecnicaWaData) {
+      setVisitaWaResolved(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const d = visitaTecnicaWaData;
+      const fecha = new Date(d.scheduledAt);
+      const fechaStr = fecha.toLocaleDateString("es-CL", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+      });
+      const horaStr = `${String(fecha.getHours()).padStart(2, "0")}:${String(fecha.getMinutes()).padStart(2, "0")}`;
+      const mapsLink = d.mapsUrl
+        ?? (d.installationAddress
+          ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(d.installationAddress)}`
+          : "");
+
+      // Bloque "Dotación solicitada" pre-renderizado (mismo formato que el
+      // helper buildCpqVisitaPuestosBlock pero ejecutado client-side).
+      const puestosBlock = d.puestosDetail && d.puestosDetail.length > 0
+        ? [
+            "*Dotación solicitada:*",
+            ...d.puestosDetail.map((p) => {
+              const horario = [p.startTime, p.endTime].filter(Boolean).join("–");
+              const detalle = `${p.name} — ${p.numGuards} guardia${p.numGuards !== 1 ? "s" : ""}${horario ? ` · ${horario}` : ""}`;
+              return `- ${detalle}`;
+            }),
+          ].join("\n")
+        : "";
+
+      try {
+        const { message, url } = await resolveWaTemplate({
+          slug: "cpq_visita_tecnica_supervisor",
+          entityType: "quote",
+          entityId: quoteId,
+          // El seed expone {{system.todayLong}} para la fecha — pasamos la
+          // fecha PROGRAMADA en ese token para mantener compatibilidad sin
+          // requerir editar el seed por tenant.
+          systemTokens: {
+            todayLong: `${fechaStr} a las ${horaStr}`,
+            mapsLink,
+          },
+          blockTokens: {
+            cpqVisitaPuestos: puestosBlock,
+          },
+        });
+
+        if (cancelled) return;
+        setVisitaWaResolved({ message, url });
+      } catch {
+        if (!cancelled) setVisitaWaResolved(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [visitaTecnicaWaData, resolveWaTemplate, quoteId]);
 
   const getDefaultValidUntil = () => {
     const d = new Date();
@@ -3236,60 +3304,26 @@ export function CpqQuoteDetail({
                   Agregar a Google Calendar
                 </Button>
               )}
-              {(() => {
-                const d = visitaTecnicaWaData;
-                const fecha = new Date(d.scheduledAt);
-                const fechaStr = fecha.toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" });
-                const horaStr = `${String(fecha.getHours()).padStart(2, "0")}:${String(fecha.getMinutes()).padStart(2, "0")}`;
-                const lines: string[] = [
-                  `Hola ${d.supervisorName}, se te asignó una visita técnica`,
-                  "",
-                  `${fechaStr} a las ${horaStr}`,
-                ];
-                if (d.installationName) lines.push("", d.installationName);
-                const dir = d.installationAddress ?? "";
-                if (dir) {
-                  const mapsLink = d.mapsUrl ?? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(dir)}`;
-                  lines.push(mapsLink);
-                }
-                if (d.contactName || d.contactPhone) {
-                  lines.push("");
-                  if (d.contactName) lines.push(`Contacto: ${d.contactName}`);
-                  if (d.contactPhone) lines.push(d.contactPhone);
-                }
-                if (d.puestosDetail && d.puestosDetail.length > 0) {
-                  lines.push("", "Dotación solicitada:");
-                  d.puestosDetail.forEach((p) => {
-                    const horario = [p.startTime, p.endTime].filter(Boolean).join("–") || "";
-                    const detalle = `${p.name} — ${p.numGuards} guardia${p.numGuards !== 1 ? "s" : ""}${horario ? ` · ${horario}` : ""}`;
-                    lines.push(`- ${detalle}`);
-                  });
-                }
-                if (d.quoteCode) lines.push("", `Cotización: ${d.quoteCode}`);
-                lines.push("", "Revisa los detalles en tu portal de supervisor.");
-                const msg = lines.join("\n");
-                const encoded = encodeURIComponent(msg);
-                return (
-                  <div className="rounded-lg border border-status-ok-border bg-status-ok-soft/30 p-3 space-y-2">
-                    <p className="text-xs font-semibold text-status-ok-fg uppercase tracking-wide">Mensaje prellenado</p>
-                    <div className="max-h-[280px] overflow-y-auto">
-                      <p className="text-sm text-muted-foreground whitespace-pre-line">{msg}</p>
-                    </div>
-                    <div className="flex flex-col gap-2 pt-2">
-                      <Button
-                        className="w-full gap-2 bg-status-ok hover:brightness-110 text-white"
-                        onClick={() => {
-                          window.open(`https://wa.me/?text=${encoded}`, "_blank");
-                          setVisitaTecnicaWaModalOpen(false);
-                        }}
-                      >
-                        <MessageCircle className="h-4 w-4" />
-                        Elegir grupo / contacto en WhatsApp
-                      </Button>
-                    </div>
+              {visitaWaResolved && (
+                <div className="rounded-lg border border-status-ok-border bg-status-ok-soft/30 p-3 space-y-2">
+                  <p className="text-xs font-semibold text-status-ok-fg uppercase tracking-wide">Mensaje prellenado</p>
+                  <div className="max-h-[280px] overflow-y-auto">
+                    <p className="text-sm text-muted-foreground whitespace-pre-line">{visitaWaResolved.message}</p>
                   </div>
-                );
-              })()}
+                  <div className="flex flex-col gap-2 pt-2">
+                    <Button
+                      className="w-full gap-2 bg-status-ok hover:brightness-110 text-white"
+                      onClick={() => {
+                        window.open(visitaWaResolved.url, "_blank");
+                        setVisitaTecnicaWaModalOpen(false);
+                      }}
+                    >
+                      <MessageCircle className="h-4 w-4" />
+                      Elegir grupo / contacto en WhatsApp
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
           <DialogFooter>

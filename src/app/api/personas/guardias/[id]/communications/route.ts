@@ -6,11 +6,24 @@ import {
   GUARDIA_COMM_TEMPLATES,
   renderGuardiaTemplate,
   type GuardiaCommunicationChannel,
+  type GuardiaCommunicationTemplate,
 } from "@/lib/personas";
 import { sendGuardiaCommunicationSchema } from "@/lib/validations/ops";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
+import { resolveDocument, tiptapToPlainText } from "@/lib/docs/token-resolver";
 
 type Params = { id: string };
+
+/**
+ * Slugs WhatsApp del módulo guardia que se pueden enviar desde la pestaña
+ * "Comunicaciones". El cliente identifica la plantilla en el POST por su
+ * `templateId` que en el caso WA es el `usageSlug`.
+ */
+const GUARDIA_WA_SLUGS = [
+  "ops_guardia_docs_pendientes",
+  "ops_guardia_entrevista",
+  "ops_guardia_recordatorio",
+] as const;
 
 function buildPhoneForWhatsapp(raw?: string | null): string | null {
   if (!raw) return null;
@@ -49,10 +62,30 @@ export async function GET(
       take: 100,
     });
 
+    // Plantillas WA del tenant (DocTemplate). El cliente las consume con el
+    // mismo shape que las de email; el `id` retornado es el `usageSlug` para
+    // que el POST pueda buscarlas por slug. El `body` con tokens crudos NO
+    // se expone aquí — se resuelve en el POST al momento de enviar.
+    const waTemplatesDb = await prisma.docTemplate.findMany({
+      where: {
+        tenantId: ctx.tenantId,
+        module: "whatsapp",
+        usageSlug: { in: [...GUARDIA_WA_SLUGS] },
+        isActive: true,
+      },
+      select: { id: true, name: true, usageSlug: true },
+    });
+    const waTemplates: GuardiaCommunicationTemplate[] = waTemplatesDb.map((t) => ({
+      id: t.usageSlug!,
+      channel: "whatsapp",
+      name: t.name,
+      body: "(plantilla con tokens — se resuelve al enviar)",
+    }));
+
     return NextResponse.json({
       success: true,
       data: {
-        templates: GUARDIA_COMM_TEMPLATES,
+        templates: [...GUARDIA_COMM_TEMPLATES, ...waTemplates],
         sent: history,
       },
     });
@@ -85,13 +118,6 @@ export async function POST(
       return NextResponse.json({ success: false, error: "Guardia no encontrado" }, { status: 404 });
     }
 
-    const template = GUARDIA_COMM_TEMPLATES.find(
-      (item) => item.id === body.templateId && item.channel === body.channel
-    );
-    if (!template) {
-      return NextResponse.json({ success: false, error: "Plantilla de comunicación inválida" }, { status: 400 });
-    }
-
     const tenantCfg = await getTenantCompanyConfig(ctx.tenantId);
     const vars = {
       nombre: toSafeString(guardia.persona.firstName),
@@ -103,8 +129,67 @@ export async function POST(
       link_autogestion: `${request.nextUrl.origin}/personas/guardias/${guardia.id}`,
     };
 
-    const resolvedSubject = template.subject ? renderGuardiaTemplate(template.subject, vars) : null;
-    const resolvedBody = renderGuardiaTemplate(template.body, vars);
+    // Resolver plantilla:
+    //   - email: del array hardcoded GUARDIA_COMM_TEMPLATES
+    //   - whatsapp: del DocTemplate del tenant (templateId es el usageSlug)
+    let resolvedSubject: string | null = null;
+    let resolvedBody = "";
+    let templateInfoId = body.templateId;
+    let templateInfoName = "";
+
+    if (body.channel === "email") {
+      const tpl = GUARDIA_COMM_TEMPLATES.find(
+        (item) => item.id === body.templateId && item.channel === "email",
+      );
+      if (!tpl) {
+        return NextResponse.json({ success: false, error: "Plantilla de comunicación inválida" }, { status: 400 });
+      }
+      resolvedSubject = tpl.subject ? renderGuardiaTemplate(tpl.subject, vars) : null;
+      resolvedBody = renderGuardiaTemplate(tpl.body, vars);
+      templateInfoName = tpl.name;
+    } else if (body.channel === "whatsapp") {
+      const slug = body.templateId;
+      if (!(GUARDIA_WA_SLUGS as readonly string[]).includes(slug)) {
+        return NextResponse.json({ success: false, error: "Slug WA no permitido" }, { status: 400 });
+      }
+      const doc = await prisma.docTemplate.findFirst({
+        where: {
+          tenantId: ctx.tenantId,
+          module: "whatsapp",
+          usageSlug: slug,
+          isActive: true,
+        },
+        select: { content: true, name: true },
+      });
+      if (!doc) {
+        return NextResponse.json({ success: false, error: "Plantilla WA no encontrada" }, { status: 400 });
+      }
+      const { resolvedContent } = resolveDocument(doc.content as never, {
+        guardia: {
+          firstName: guardia.persona.firstName,
+          lastName: guardia.persona.lastName,
+          fullName: `${guardia.persona.firstName} ${guardia.persona.lastName}`.trim(),
+          email: guardia.persona.email,
+          phone: guardia.persona.phoneMobile,
+          rut: guardia.persona.rut,
+          code: guardia.code,
+        },
+        tenant: {
+          commercialName: tenantCfg.commercialName,
+          website: tenantCfg.website,
+          phone: tenantCfg.phone,
+          whatsappLink: tenantCfg.whatsappLink,
+        },
+        system: {
+          link_autogestion: `${request.nextUrl.origin}/personas/guardias/${guardia.id}`,
+        },
+      });
+      resolvedBody = tiptapToPlainText(resolvedContent).trim();
+      templateInfoName = doc.name;
+    } else {
+      return NextResponse.json({ success: false, error: "Canal de comunicación inválido" }, { status: 400 });
+    }
+
     let status = "registrado";
     let providerMessageId: string | null = null;
     let waLink: string | null = null;
@@ -152,8 +237,8 @@ export async function POST(
         eventType: "communication_sent",
         newValue: {
           channel,
-          templateId: template.id,
-          templateName: template.name,
+          templateId: templateInfoId,
+          templateName: templateInfoName,
           subject: resolvedSubject,
           message: resolvedBody,
           status,
@@ -166,7 +251,7 @@ export async function POST(
 
     await createOpsAuditLog(ctx, "personas.guardia.communication.sent", "ops_guardia", guardia.id, {
       channel,
-      templateId: template.id,
+      templateId: templateInfoId,
       status,
     });
 

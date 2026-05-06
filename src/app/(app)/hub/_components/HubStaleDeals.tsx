@@ -1,7 +1,11 @@
+'use client';
+
 import Link from 'next/link';
 import { AlertTriangle, ChevronRight, MessageCircle } from 'lucide-react';
+import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
-import { whatsappUrlWithMessage, HUB_WHATSAPP_MESSAGES, formatCLP } from '../_lib/hub-utils';
+import { formatCLP } from '../_lib/hub-utils';
+import { useWaTemplate } from '@/lib/whatsapp/use-wa-template';
 import type { ClosingStaleDeal } from '../_lib/hub-types';
 
 interface Props {
@@ -20,7 +24,8 @@ function DaysBadge({ days }: { days: number | null }) {
   );
 }
 
-export function HubStaleDeals({ deals, sellerFirstName, tenantName }: Props) {
+export function HubStaleDeals({ deals, sellerFirstName: _sellerFirstName, tenantName: _tenantName }: Props) {
+  const { resolve: resolveWaTemplate } = useWaTemplate();
   if (deals.length === 0) {
     return (
       <div className="rounded-[10px] border border-border bg-card p-3.5">
@@ -49,12 +54,6 @@ export function HubStaleDeals({ deals, sellerFirstName, tenantName }: Props) {
           // Extract days from issue text for badge
           const daysMatch = deal.issue.match(/(\d+)/);
           const days = deal.daysSinceLastView ?? (daysMatch ? parseInt(daysMatch[1]) : null);
-          const waMessage = HUB_WHATSAPP_MESSAGES.stale(
-            deal.contactName,
-            deal.companyName,
-            sellerFirstName,
-            tenantName,
-          );
 
           return (
             <div
@@ -87,17 +86,27 @@ export function HubStaleDeals({ deals, sellerFirstName, tenantName }: Props) {
                 <ChevronRight className="hidden md:block h-3.5 w-3.5 text-muted-foreground/40 shrink-0" />
               </Link>
               {deal.contactPhone && (
-                <a
-                  href={whatsappUrlWithMessage(deal.contactPhone, waMessage)}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  type="button"
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    try {
+                      const { url } = await resolveWaTemplate({
+                        slug: 'hub_stale',
+                        entityType: 'deal',
+                        entityId: deal.id,
+                      });
+                      window.open(url, '_blank', 'noopener,noreferrer');
+                    } catch {
+                      toast.error('No se pudo generar el mensaje');
+                    }
+                  }}
                   className="inline-flex items-center justify-center gap-1.5 rounded-md border border-status-ok-border bg-status-ok-soft px-2.5 py-1.5 text-xs font-medium text-status-ok-fg hover:bg-status-ok hover:text-white transition-colors shrink-0 w-full md:w-auto"
                   title={`Enviar WhatsApp a ${deal.contactPhone}`}
-                  onClick={(e) => e.stopPropagation()}
                 >
                   <MessageCircle className="h-3.5 w-3.5" />
                   WhatsApp
-                </a>
+                </button>
               )}
             </div>
           );

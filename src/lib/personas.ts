@@ -310,6 +310,12 @@ export type GuardiaCommunicationTemplate = {
   body: string;
 };
 
+/**
+ * Plantillas de comunicación a guardias por canal EMAIL.
+ *
+ * Las plantillas WhatsApp se resuelven desde DocTemplate (module=whatsapp,
+ * usageSlug=ops_guardia_*) — ver API /api/personas/guardias/[id]/communications.
+ */
 export const GUARDIA_COMM_TEMPLATES: GuardiaCommunicationTemplate[] = [
   {
     id: "docs_pendientes_email",
@@ -324,18 +330,6 @@ export const GUARDIA_COMM_TEMPLATES: GuardiaCommunicationTemplate[] = [
     name: "Convocatoria a entrevista",
     subject: "Convocatoria a entrevista",
     body: "Hola {nombre}, te invitamos a entrevista. Responde este correo para coordinar disponibilidad.",
-  },
-  {
-    id: "docs_pendientes_whatsapp",
-    channel: "whatsapp",
-    name: "Solicitud de documentos",
-    body: "Hola {nombre}, necesitamos tus documentos pendientes (antecedentes, OS-10, cédula y CV).",
-  },
-  {
-    id: "recordatorio_whatsapp",
-    channel: "whatsapp",
-    name: "Recordatorio de gestión",
-    body: "Hola {nombre}, te recordamos completar tu ficha de guardia y responder este mensaje ante cualquier duda.",
   },
 ];
 

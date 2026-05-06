@@ -7,6 +7,11 @@ export interface ResolveTemplateInput {
   entityId?: string;
   entityType?: "lead" | "deal" | "contact" | "account" | "guardia" | "quote";
   systemTokens?: Record<string, string>;
+  /**
+   * Bloques pre-renderizados que vengan ya formateados desde el cliente
+   * (ej. `cpqVisitaPuestos`). Se exponen como `{{blocks.X}}` en la plantilla.
+   */
+  blockTokens?: Record<string, string>;
   phoneOverride?: string;
 }
 
