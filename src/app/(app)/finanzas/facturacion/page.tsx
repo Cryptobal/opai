@@ -25,12 +25,64 @@ export default async function FacturacionPage() {
   const tenantId = session.user.tenantId;
   const canManage = hasCapability(perms, "facturacion_manage");
 
-  const dtes = await prisma.financeDte.findMany({
-    where: { tenantId, direction: "ISSUED" },
-    include: { lines: true },
-    orderBy: { createdAt: "desc" },
-    take: 200,
-  });
+  const startOfMonth = new Date();
+  startOfMonth.setDate(1);
+  startOfMonth.setHours(0, 0, 0, 0);
+  const startOfPrevMonth = new Date(startOfMonth);
+  startOfPrevMonth.setMonth(startOfPrevMonth.getMonth() - 1);
+
+  const [
+    dtes,
+    suppliers,
+    ventasMesAgg,
+    ventasPrevAgg,
+    pendientesSiiCount,
+    foliosCAFs,
+  ] = await Promise.all([
+    prisma.financeDte.findMany({
+      where: { tenantId, direction: "ISSUED" },
+      include: { lines: true },
+      orderBy: { createdAt: "desc" },
+      take: 200,
+    }),
+    prisma.financeSupplier.findMany({
+      where: { tenantId },
+      select: { id: true, rut: true, name: true },
+      orderBy: { name: "asc" },
+    }),
+    prisma.financeDte.aggregate({
+      where: {
+        tenantId,
+        direction: "ISSUED",
+        siiStatus: { in: ["ACCEPTED", "PENDING", "SENT"] },
+        date: { gte: startOfMonth },
+        dteType: { not: 61 },
+      },
+      _sum: { totalAmount: true, taxAmount: true },
+      _count: { _all: true },
+    }),
+    prisma.financeDte.aggregate({
+      where: {
+        tenantId,
+        direction: "ISSUED",
+        siiStatus: "ACCEPTED",
+        date: { gte: startOfPrevMonth, lt: startOfMonth },
+        dteType: { not: 61 },
+      },
+      _sum: { totalAmount: true },
+    }),
+    prisma.financeDte.count({
+      where: {
+        tenantId,
+        direction: "ISSUED",
+        siiStatus: { in: ["PENDING", "SENT"] },
+      },
+    }),
+    prisma.tenantDteCaf.findMany({
+      where: { tenantId, isActive: true },
+      select: { dteType: true, folioDesde: true, folioHasta: true },
+    }),
+  ]);
 
   const dtesData = dtes.map((d: typeof dtes[number]) => ({
     id: d.id,
@@ -52,11 +104,32 @@ export default async function FacturacionPage() {
     referenceFolio: d.referenceFolio,
   }));
 
-  const suppliers = await prisma.financeSupplier.findMany({
-    where: { tenantId },
-    select: { id: true, rut: true, name: true },
-    orderBy: { name: "asc" },
-  });
+  const ventasMes = ventasMesAgg._sum.totalAmount?.toNumber() ?? 0;
+  const ventasPrev = ventasPrevAgg._sum.totalAmount?.toNumber() ?? 0;
+  const pctVsPrev =
+    ventasPrev > 0 ? ((ventasMes - ventasPrev) / ventasPrev) * 100 : 0;
+  const ivaDebitoMes = ventasMesAgg._sum.taxAmount?.toNumber() ?? 0;
+  const facturasMes = ventasMesAgg._count._all;
+
+  // Folios disponibles = suma de rangos CAF activos. La detección "stock bajo"
+  // queda como `0` aquí; un cálculo real requiere comparar con `nextFolio`
+  // del tracker — refinar en sub-fase posterior.
+  const foliosDisponibles = foliosCAFs.reduce(
+    (acc: number, c: { folioDesde: number; folioHasta: number }) =>
+      acc + (c.folioHasta - c.folioDesde + 1),
+    0,
+  );
+  const foliosLowCount = 0;
+
+  const kpis = {
+    ventasMes,
+    ivaDebitoMes,
+    pendientesSii: pendientesSiiCount,
+    facturasMes,
+    foliosDisponibles,
+    foliosLowCount,
+    comparison: { vs: "vs mes anterior", pct: pctVsPrev },
+  };
 
   return (
     <div className="space-y-6 min-w-0">
@@ -72,6 +145,7 @@ export default async function FacturacionPage() {
         dtes={dtesData}
         canManage={canManage}
         suppliers={suppliers}
+        kpis={kpis}
       />
     </div>
   );
