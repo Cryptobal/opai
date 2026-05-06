@@ -417,6 +417,11 @@ function DtesTab({
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState("ALL");
+  /** Filtro por centro de costo: "ALL" | "NONE" | uuid de cuenta. */
+  const [accountFilter, setAccountFilter] = useState("ALL");
+  const [accountOptions, setAccountOptions] = useState<
+    { id: string; name: string; legalName: string | null }[]
+  >([]);
   const periodOptions = useMemo(() => buildPeriodOptions(36), []);
   const [voiding, setVoiding] = useState<string | null>(null);
   const [sendingEmail, setSendingEmail] = useState<string | null>(null);
@@ -446,12 +451,33 @@ function DtesTab({
     return () => clearTimeout(t);
   }, [search]);
 
+  // Cargar lista de cuentas CRM con DTEs emitidos para el selector de filtro.
   useEffect(() => {
-    // Si NO hay filtros (paginación default + sin búsqueda), usar SSR data.
+    let cancelled = false;
+    fetch("/api/finance/billing/accounts-with-dtes")
+      .then((r) => r.json())
+      .then((body) => {
+        if (cancelled) return;
+        if (body.success && Array.isArray(body.data)) {
+          setAccountOptions(body.data);
+        }
+      })
+      .catch(() => {
+        // silencioso: el filtro queda con sólo Todos / Sin asignar
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    // Si NO hay filtros (paginación default + sin búsqueda + sin cuenta),
+    // usar SSR data para evitar un request innecesario.
     if (
       page === 1 &&
       pageSize === 50 &&
       periodoFilter === "ALL" &&
+      accountFilter === "ALL" &&
       debouncedSearch === ""
     ) {
       setDtes(initialDtes);
@@ -467,6 +493,7 @@ function DtesTab({
         params.set("pageSize", String(pageSize));
         if (periodoFilter !== "ALL") params.set("periodo", periodoFilter);
         if (debouncedSearch) params.set("search", debouncedSearch);
+        if (accountFilter !== "ALL") params.set("accountId", accountFilter);
         const res = await fetch(`/api/finance/billing/issued?${params.toString()}`, {
           signal: ctrl.signal,
         });
@@ -522,9 +549,9 @@ function DtesTab({
       }
     })();
     return () => ctrl.abort();
-  }, [page, pageSize, periodoFilter, debouncedSearch, initialDtes, issuedTotal]);
+  }, [page, pageSize, periodoFilter, accountFilter, debouncedSearch, initialDtes, issuedTotal]);
 
-  // Reset page=1 cuando cambia el período o la búsqueda.
+  // Reset page=1 cuando cambia el período, la búsqueda o el centro de costo.
   useEffect(() => {
     setPage(1);
   }, [debouncedSearch]);
@@ -532,6 +559,10 @@ function DtesTab({
   useEffect(() => {
     setPage(1);
   }, [periodoFilter]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [accountFilter]);
 
   const filtered = useMemo(() => {
     // Búsqueda por nombre/RUT/folio se hace server-side (ver useEffect arriba).
@@ -701,6 +732,20 @@ function DtesTab({
             <SelectItem value="ALL">Todos los períodos</SelectItem>
             {periodOptions.map((p) => (
               <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={accountFilter} onValueChange={setAccountFilter}>
+          <SelectTrigger className="w-full sm:w-56 h-9">
+            <SelectValue placeholder="Centro de costo" />
+          </SelectTrigger>
+          <SelectContent className="max-h-[400px]">
+            <SelectItem value="ALL">Todos los centros</SelectItem>
+            <SelectItem value="NONE">Sin asignar</SelectItem>
+            {accountOptions.map((a) => (
+              <SelectItem key={a.id} value={a.id}>
+                {a.name}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>

@@ -32,11 +32,21 @@ export async function GET(request: NextRequest) {
     // Búsqueda por nombre/RUT del receptor o folio. Server-side para que
     // la búsqueda atraviese todas las páginas, no solo la cargada.
     const search = url.searchParams.get("search")?.trim() || undefined;
+    // Filtro por centro de costo (UX 2.6):
+    //   - ?accountId=<uuid> → DTEs asignados a esa cuenta CRM.
+    //   - ?accountId=NONE   → DTEs sin centro de costo asignado.
+    //   - sin param          → todos.
+    const accountId = url.searchParams.get("accountId") || undefined;
 
     const where: Record<string, unknown> = {
       tenantId: ctx.tenantId,
       direction: "ISSUED",
     };
+    if (accountId === "NONE") {
+      where.crmAccountId = null;
+    } else if (accountId && accountId !== "ALL") {
+      where.crmAccountId = accountId;
+    }
     if (statusFilter === "draft") {
       where.siiStatus = "DRAFT";
     } else if (statusFilter !== "all") {
