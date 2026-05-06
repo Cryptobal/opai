@@ -5,11 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { MapPin, Plus, Minus, Pencil, Trash2, Download, X, LocateFixed } from "lucide-react";
+import { MapPin, Plus, Minus, Pencil, Trash2, X, LocateFixed, FileDown, Archive } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { useGeolocation } from "@/lib/patrullaje/use-geolocation";
 import { CheckpointTasksEditor, type TaskDraft } from "./checkpoint-tasks-editor";
-import QRCode from "qrcode";
+import { generateQrsPdf, generateQrsZip } from "@/lib/qr-export";
+import { toast } from "sonner";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -608,56 +609,43 @@ export function CheckpointMapCreator({
     }
   };
 
-  // Download all QR codes
-  const handleDownloadQrs = async () => {
+  const handleDownloadQrsPdf = async () => {
     const activeWithQr = checkpoints.filter((cp) => cp.isActive && cp.qrCode);
-    if (activeWithQr.length === 0) return;
-
+    if (activeWithQr.length === 0) {
+      toast.warning("No hay checkpoints con QR activos");
+      return;
+    }
     setDownloadingQr(true);
     try {
-      // Create a canvas-based PDF-like printable HTML
-      const qrImages = await Promise.all(
-        activeWithQr.map(async (cp) => {
-          const dataUrl = await QRCode.toDataURL(cp.qrCode!, { width: 200, margin: 1 });
-          return { name: cp.name, code: cp.qrCode!, dataUrl };
-        }),
+      await generateQrsPdf(
+        activeWithQr.map((cp) => ({ name: cp.name, code: cp.qrCode! })),
+        installationName ?? "Instalación",
       );
+      toast.success(`PDF generado con ${activeWithQr.length} QRs`);
+    } catch (e) {
+      console.error(e);
+      toast.error("Error al generar PDF");
+    } finally {
+      setDownloadingQr(false);
+    }
+  };
 
-      // Create printable HTML
-      const html = `<!DOCTYPE html>
-<html><head><meta charset="UTF-8"><title>QR Checkpoints - ${installationName ?? "Instalación"}</title>
-<style>
-  body { font-family: system-ui, sans-serif; margin: 0; padding: 20px; }
-  h1 { font-size: 18px; text-align: center; margin-bottom: 20px; }
-  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
-  .card { text-align: center; border: 1px solid #ddd; border-radius: 8px; padding: 16px; break-inside: avoid; }
-  .card img { width: 150px; height: 150px; }
-  .card .name { font-weight: 600; font-size: 14px; margin-top: 8px; }
-  .card .code { font-size: 10px; color: #666; margin-top: 4px; word-break: break-all; }
-  @media print { .grid { grid-template-columns: repeat(3, 1fr); } }
-</style></head>
-<body>
-  <h1>Checkpoints QR — ${installationName ?? "Instalación"}</h1>
-  <div class="grid">
-    ${qrImages.map((q) => `
-      <div class="card">
-        <img src="${q.dataUrl}" alt="${q.name}" />
-        <div class="name">${q.name}</div>
-        <div class="code">${q.code}</div>
-      </div>
-    `).join("")}
-  </div>
-</body></html>`;
-
-      const blob = new Blob([html], { type: "text/html" });
-      const url = URL.createObjectURL(blob);
-      const win = window.open(url, "_blank");
-      if (win) {
-        win.onload = () => {
-          setTimeout(() => win.print(), 500);
-        };
-      }
-      URL.revokeObjectURL(url);
+  const handleDownloadQrsZip = async () => {
+    const activeWithQr = checkpoints.filter((cp) => cp.isActive && cp.qrCode);
+    if (activeWithQr.length === 0) {
+      toast.warning("No hay checkpoints con QR activos");
+      return;
+    }
+    setDownloadingQr(true);
+    try {
+      await generateQrsZip(
+        activeWithQr.map((cp) => ({ name: cp.name, code: cp.qrCode! })),
+        installationName ?? "Instalación",
+      );
+      toast.success(`ZIP generado con ${activeWithQr.length} QRs`);
+    } catch (e) {
+      console.error(e);
+      toast.error("Error al generar ZIP");
     } finally {
       setDownloadingQr(false);
     }
@@ -779,17 +767,30 @@ export function CheckpointMapCreator({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           {activeCheckpoints.length > 0 && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="gap-1.5"
-              onClick={handleDownloadQrs}
-              disabled={downloadingQr}
-            >
-              <Download className="h-3.5 w-3.5" />
-              {downloadingQr ? "Generando..." : "Descargar QRs"}
-            </Button>
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={handleDownloadQrsPdf}
+                disabled={downloadingQr}
+              >
+                <FileDown className="h-3.5 w-3.5" />
+                {downloadingQr ? "Generando..." : "PDF de QRs"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={handleDownloadQrsZip}
+                disabled={downloadingQr}
+              >
+                <Archive className="h-3.5 w-3.5" />
+                {downloadingQr ? "Generando..." : "ZIP de PNGs"}
+              </Button>
+            </>
           )}
           {!isMobile && (
             <span className="text-xs text-muted-foreground">
