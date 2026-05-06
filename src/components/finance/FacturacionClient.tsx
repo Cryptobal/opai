@@ -43,12 +43,14 @@ import {
   Eye,
   ExternalLink,
   BookOpen,
+  FileEdit,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { PaginationControls } from "./PaginationControls";
 import { KPIRow, TrendChart } from "./FacturacionDashboardWidgets";
 import { LibroIvaTab } from "./LibroIvaTab";
+import { BorradoresTab } from "./BorradoresTab";
 import { CostCenterEditor } from "./CostCenterEditor";
 import { CreditNoteModal } from "./CreditNoteModal";
 import { IssuedDteDetailDialog } from "./IssuedDteDetailDialog";
@@ -145,6 +147,7 @@ interface Props {
 /* ── Constants ── */
 
 const TABS = [
+  { id: "borradores", label: "Borradores", icon: FileEdit },
   { id: "dtes", label: "DTEs Emitidos", icon: FileText },
   { id: "recibidos", label: "DTEs Recibidos", icon: FileInput },
   { id: "libro", label: "Libro IVA", icon: BookOpen },
@@ -260,7 +263,17 @@ export function FacturacionClient({
   suppliers = [],
   kpis,
 }: Props) {
-  const [activeTab, setActiveTab] = useState<TabId>("dtes");
+  // Tab inicial: ?tab=borradores en URL para abrir directo en borradores
+  // (lo usa el "Guardar como borrador" del DteForm tras crear).
+  const initialTab: TabId = (() => {
+    if (typeof window === "undefined") return "dtes";
+    const t = new URLSearchParams(window.location.search).get("tab");
+    if (t && (TABS as readonly { id: string }[]).some((tab) => tab.id === t)) {
+      return t as TabId;
+    }
+    return "dtes";
+  })();
+  const [activeTab, setActiveTab] = useState<TabId>(initialTab);
 
   return (
     <div className="space-y-4">
@@ -293,6 +306,7 @@ export function FacturacionClient({
         </div>
       </nav>
 
+      {activeTab === "borradores" && <BorradoresTab canManage={canManage} />}
       {activeTab === "dtes" && (
         <DtesTab
           dtes={dtes}

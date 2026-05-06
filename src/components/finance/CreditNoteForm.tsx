@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,8 +14,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Trash2, Loader2, Send, Copy } from "lucide-react";
+import { Plus, Trash2, Loader2, Send, Copy, FileEdit } from "lucide-react";
 import { toast } from "sonner";
+import { EmisionConfirmDialog } from "./EmisionConfirmDialog";
 
 /* ── Types ── */
 
@@ -88,6 +89,27 @@ export function CreditNoteForm({ noteType, referenceDte, onSuccess, onCancel }: 
   const [referenceType, setReferenceType] = useState(isCredit ? "1" : "3");
   const [lines, setLines] = useState<NoteLine[]>([{ ...EMPTY_LINE }]);
   const [saving, setSaving] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [tenantBackoffice, setTenantBackoffice] = useState<{ emails: string[]; alwaysSend: boolean }>({
+    emails: [],
+    alwaysSend: false,
+  });
+
+  // Cargar config tenant para mostrar opción de XML al backoffice en confirm.
+  useEffect(() => {
+    fetch("/api/finance/config/dte-provider")
+      .then((r) => r.json())
+      .then((j) => {
+        const cfg = j?.data;
+        if (cfg) {
+          setTenantBackoffice({
+            emails: cfg.defaultXmlRecipientEmails ?? [],
+            alwaysSend: !!cfg.defaultXmlRecipientAlwaysSend,
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const updateLine = useCallback((index: number, field: keyof NoteLine, value: string) => {
     setLines((prev) => {
@@ -129,55 +151,94 @@ export function CreditNoteForm({ noteType, referenceDte, onSuccess, onCancel }: 
     }, 0);
   }, [lines]);
 
-  const handleSubmit = async () => {
+  const validateBeforeSubmit = (): boolean => {
     if (!referenceDte) {
       toast.error("No se ha seleccionado un DTE de referencia");
-      return;
+      return false;
     }
     if (!reason.trim()) {
       toast.error("La razón es obligatoria");
-      return;
+      return false;
     }
     const validLines = lines.filter((l) => l.itemName.trim() && parseFloat(l.unitPrice) > 0);
     if (validLines.length === 0) {
       toast.error("Debe incluir al menos una línea");
-      return;
+      return false;
     }
+    return true;
+  };
 
+  // Validar y abrir el modal de confirmación. La emisión real ocurre en
+  // submitToServer una vez que el usuario confirma.
+  const handleSubmit = () => {
+    if (!validateBeforeSubmit()) return;
+    setConfirmOpen(true);
+  };
+
+  const buildPayload = () => {
+    const validLines = lines.filter((l) => l.itemName.trim() && parseFloat(l.unitPrice) > 0);
+    return {
+      referenceDteId: referenceDte!.id,
+      reason: reason.trim(),
+      referenceType: parseInt(referenceType),
+      lines: validLines.map((l) => ({
+        itemName: l.itemName.trim(),
+        description: l.description.trim() || null,
+        quantity: parseFloat(l.quantity) || 1,
+        unitPrice: parseFloat(l.unitPrice) || 0,
+      })),
+    };
+  };
+
+  const submitToServer = async () => {
     setSaving(true);
     try {
       const endpoint = isCredit
         ? "/api/finance/billing/credit-note"
         : "/api/finance/billing/debit-note";
-
-      const payload = {
-        referenceDteId: referenceDte.id,
-        reason: reason.trim(),
-        referenceType: parseInt(referenceType),
-        lines: validLines.map((l) => ({
-          itemName: l.itemName.trim(),
-          description: l.description.trim() || null,
-          quantity: parseFloat(l.quantity) || 1,
-          unitPrice: parseFloat(l.unitPrice) || 0,
-        })),
-      };
-
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(buildPayload()),
       });
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.error || `Error al emitir nota de ${isCredit ? "crédito" : "débito"}`);
       }
       toast.success(`Nota de ${isCredit ? "crédito" : "débito"} emitida`);
-      // Si se pasó onSuccess (modal), llamarlo en lugar de navegar.
-      // Si no, navegar al listado (uso desde página).
-      if (onSuccess) {
-        onSuccess();
-      } else {
+      setConfirmOpen(false);
+      if (onSuccess) onSuccess();
+      else {
         router.push("/finanzas/facturacion");
+        router.refresh();
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Error inesperado");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveDraft = async () => {
+    if (!validateBeforeSubmit()) return;
+    setSaving(true);
+    try {
+      const endpoint = isCredit
+        ? "/api/finance/billing/credit-note/draft"
+        : "/api/finance/billing/debit-note/draft";
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(buildPayload()),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Error al guardar borrador");
+      }
+      toast.success("Borrador creado");
+      if (onSuccess) onSuccess();
+      else {
+        router.push("/finanzas/facturacion?tab=borradores");
         router.refresh();
       }
     } catch (error) {
@@ -419,11 +480,44 @@ export function CreditNoteForm({ noteType, referenceDte, onSuccess, onCancel }: 
         >
           Cancelar
         </Button>
+        <Button variant="outline" onClick={handleSaveDraft} disabled={saving || !referenceDte}>
+          {saving ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <FileEdit className="h-4 w-4 mr-1.5" />}
+          Guardar como borrador
+        </Button>
         <Button onClick={handleSubmit} disabled={saving || !referenceDte}>
           {saving ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Send className="h-4 w-4 mr-1.5" />}
           Emitir nota de {isCredit ? "crédito" : "débito"}
         </Button>
       </div>
+
+      {/* Modal de confirmación SII */}
+      <EmisionConfirmDialog
+        open={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        onConfirm={() => submitToServer()}
+        loading={saving}
+        dteType={isCredit ? 61 : 56}
+        receiver={{
+          name: referenceDte?.receiverName ?? "",
+          rut: referenceDte?.receiverRut ?? "",
+          email: null,
+        }}
+        totals={{
+          netAmount: total,
+          taxAmount: 0,
+          totalAmount: total,
+          currency: "CLP",
+        }}
+        lines={lines
+          .filter((l) => l.itemName.trim() && parseFloat(l.unitPrice) > 0)
+          .map((l) => ({
+            itemName: l.itemName.trim(),
+            quantity: parseFloat(l.quantity) || 1,
+            unitPrice: parseFloat(l.unitPrice) || 0,
+          }))}
+        defaultBackofficeEmails={tenantBackoffice.emails}
+        defaultBackofficeAlwaysSend={tenantBackoffice.alwaysSend}
+      />
     </div>
   );
 }
