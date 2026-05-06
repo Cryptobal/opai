@@ -12,9 +12,6 @@ interface WhatsAppButtonProps {
   className?: string;
 }
 
-const FALLBACK_PHONE_RAW = "56968727644";
-const FALLBACK_PHONE_DISPLAY = "+56 9 6872 7644";
-
 /** Resuelve qué slug usar según props. */
 function pickSlug(context: "prospect" | "client", cotizacionCode?: string): string {
   if (!cotizacionCode) return "portal_consult_general";
@@ -22,19 +19,18 @@ function pickSlug(context: "prospect" | "client", cotizacionCode?: string): stri
 }
 
 /**
- * Mensaje fallback (mismo texto que el hardcoded actual). Se usa antes
- * de que el endpoint de resolución del tenant cargue, y como red de
- * seguridad si falla la llamada.
+ * Botón WhatsApp del portal cliente.
+ *
+ * Fail-loud: si el tenant NO tiene `phoneRaw` ni `whatsappLink` configurados
+ * en su branding, este botón retorna `null` (no se renderiza). PR5 eliminó
+ * el fallback hardcoded a Gard (`56968727644`) — antes el botón siempre
+ * aparecía y al click caía al teléfono de Gard, lo que en multi-tenant es
+ * un bug grave.
+ *
+ * Mientras carga la URL del template del tenant, el botón también se mantiene
+ * oculto (no hay fallback con mensaje genérico) — solo se renderiza cuando
+ * llega la URL resuelta desde la plantilla del tenant.
  */
-function fallbackMessage(context: "prospect" | "client", cotizacionCode?: string): string {
-  if (cotizacionCode) {
-    return context === "prospect"
-      ? `Hola, tengo una consulta sobre la propuesta ${cotizacionCode}`
-      : `Hola, tengo una consulta sobre la cotización ${cotizacionCode}`;
-  }
-  return "Hola, tengo una consulta sobre mi servicio de seguridad";
-}
-
 export function WhatsAppButton({
   variant = "default",
   context = "client",
@@ -42,20 +38,18 @@ export function WhatsAppButton({
   className,
 }: WhatsAppButtonProps) {
   const { branding } = useBranding();
+  const phoneRaw = branding.phoneRaw?.trim() || "";
+  const phoneDisplay = branding.phone?.trim() || "";
 
-  const phoneRaw = branding.phoneRaw?.trim() || FALLBACK_PHONE_RAW;
-  const phoneDisplay = branding.phone?.trim() || FALLBACK_PHONE_DISPLAY;
+  // Si el tenant no tiene WhatsApp configurado, no renderizar el botón.
+  // NO caemos al fallback de otro tenant.
+  const tenantHasWhatsApp =
+    phoneRaw.length > 0 || (branding.whatsappLink?.trim().length ?? 0) > 0;
 
-  // Estado inicial = URL armada con el fallback. Esto garantiza que el
-  // botón sea funcional incluso antes de que la plantilla cargue.
-  const [resolvedUrl, setResolvedUrl] = useState<string>(() => {
-    const message = fallbackMessage(context, cotizacionCode);
-    const baseLink =
-      branding.whatsappLink?.trim().replace(/\?.*$/, "") || `https://wa.me/${phoneRaw}`;
-    return `${baseLink}?text=${encodeURIComponent(message)}`;
-  });
+  const [resolvedUrl, setResolvedUrl] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!tenantHasWhatsApp) return;
     let cancelled = false;
     (async () => {
       try {
@@ -72,13 +66,17 @@ export function WhatsAppButton({
         if (cancelled || !data?.success || !data?.data?.url) return;
         setResolvedUrl(data.data.url);
       } catch {
-        // Mantener fallback ya seteado.
+        // Sin url resuelta = no renderizar botón (fail-loud).
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [context, cotizacionCode]);
+  }, [context, cotizacionCode, tenantHasWhatsApp]);
+
+  if (!tenantHasWhatsApp || !resolvedUrl) {
+    return null;
+  }
 
   const url = resolvedUrl;
 
