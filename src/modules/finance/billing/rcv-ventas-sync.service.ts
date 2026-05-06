@@ -36,7 +36,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { decryptBuffer, decryptString } from "@/lib/dte-encryption";
-import { callSimpleApi } from "../shared/adapters/simpleapi-http";
+import { callSimpleApi, detectApiKeyBlocked } from "../shared/adapters/simpleapi-http";
 
 export interface RcvVentasSyncResult {
   tenantId: string;
@@ -218,6 +218,16 @@ export async function syncTenantRcvVentas(
         `Red SimpleAPI ${mes}/${anio}: ${err instanceof Error ? err.message : String(err)}`,
       );
       continue;
+    }
+
+    // Detectar bloqueo de apikey: abortar todo el sync (no tiene sentido
+    // seguir reintentando si la apikey está bloqueada por cupo o rate limit).
+    const blocked = detectApiKeyBlocked(response);
+    if (blocked.blocked) {
+      result.errors.push(`API_KEY_${blocked.reason}: ${blocked.message}`);
+      // No actualizamos lastRcvVentasSyncAt para que el próximo intento
+      // (cuando se desbloquee) reintente desde el mismo cursor.
+      return result;
     }
 
     if (!response.ok) {

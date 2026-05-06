@@ -235,3 +235,51 @@ export async function callSimpleApi(
 
   return { ok: res.ok, status: res.status, bodyText, bodyJson, bodyBuffer: respBuffer };
 }
+
+/**
+ * Detecta si una respuesta de SimpleAPI indica que la apikey está bloqueada
+ * por exceder el cupo mensual o el rate limit. SimpleAPI bloquea con
+ * varios códigos según el tipo de límite:
+ *
+ *   - HTTP 401/403 con mensaje "apikey bloqueada" / "límite mensual"
+ *   - HTTP 429 con "rate limit exceeded" (1/sec, 5/min, 100/hora)
+ *   - HTTP 402 (Payment Required) en algunos planes
+ *
+ * El usuario puede desbloquear inmediatamente contratando "Peticiones de
+ * Respaldo" en https://panel.simpleapi.cl/ o subiendo de plan.
+ */
+export function detectApiKeyBlocked(res: SimpleApiResponse): {
+  blocked: boolean;
+  reason: "QUOTA" | "RATE_LIMIT" | null;
+  message: string | null;
+} {
+  if (res.ok) return { blocked: false, reason: null, message: null };
+
+  const body = res.bodyText.toLowerCase();
+  const isQuota =
+    res.status === 401 ||
+    res.status === 402 ||
+    res.status === 403 ||
+    body.includes("apikey") ||
+    body.includes("api key") ||
+    body.includes("límite mensual") ||
+    body.includes("limit mensual") ||
+    body.includes("bloqueada") ||
+    body.includes("blocked");
+  const isRateLimit =
+    res.status === 429 ||
+    body.includes("rate limit") ||
+    body.includes("too many requests");
+
+  if (!isQuota && !isRateLimit) {
+    return { blocked: false, reason: null, message: null };
+  }
+
+  return {
+    blocked: true,
+    reason: isRateLimit ? "RATE_LIMIT" : "QUOTA",
+    message: isRateLimit
+      ? "SimpleAPI rate limit (máx 1/sec, 5/min, 100/hora). Esperá unos minutos y reintentá."
+      : "Apikey de SimpleAPI bloqueada (cupo mensual excedido). Desbloqueá inmediatamente en https://panel.simpleapi.cl/ contratando Peticiones de Respaldo, o subí de plan.",
+  };
+}
