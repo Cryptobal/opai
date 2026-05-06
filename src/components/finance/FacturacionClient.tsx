@@ -175,6 +175,30 @@ const fmtCLP = new Intl.NumberFormat("es-CL", {
   minimumFractionDigits: 0,
 });
 
+/**
+ * Lista de períodos para los selectores de mes (DTEs Emit/Recib).
+ * Formato value: "YYYY-MM". Label: "Mes Año" (ej: "Mayo 2026").
+ * Devuelve los últimos N meses incluyendo el corriente.
+ */
+function buildPeriodOptions(monthsBack = 36): { value: string; label: string }[] {
+  const out: { value: string; label: string }[] = [];
+  const now = new Date();
+  const mesNames = [
+    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+  ];
+  for (let i = 0; i < monthsBack; i++) {
+    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
+    const y = d.getUTCFullYear();
+    const m = d.getUTCMonth() + 1;
+    out.push({
+      value: `${y}-${String(m).padStart(2, "0")}`,
+      label: `${mesNames[m - 1]} ${y}`,
+    });
+  }
+  return out;
+}
+
 const RECEPTION_STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   PENDING_REVIEW: { label: "Pendiente", className: "bg-status-warn-soft text-status-warn-fg border-status-warn-border" },
   ACCEPTED: { label: "Aceptado", className: "bg-status-ok-soft text-status-ok-fg border-status-ok-border" },
@@ -276,6 +300,9 @@ function DtesTab({
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState("ALL");
+  /** Filtro por período "YYYY-MM" o "ALL". Default ALL = sin filtro. */
+  const [periodoFilter, setPeriodoFilter] = useState("ALL");
+  const periodOptions = useMemo(() => buildPeriodOptions(36), []);
   const [voiding, setVoiding] = useState<string | null>(null);
   const [sendingEmail, setSendingEmail] = useState<string | null>(null);
   // Sync de RCV ventas (importar facturas históricas del SII).
@@ -289,7 +316,8 @@ function DtesTab({
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (page === 1 && pageSize === 50) {
+    // Si NO hay filtro y son los defaults de paginación, usar el SSR data.
+    if (page === 1 && pageSize === 50 && periodoFilter === "ALL") {
       setDtes(initialDtes);
       setTotal(issuedTotal);
       return;
@@ -301,6 +329,7 @@ function DtesTab({
         const params = new URLSearchParams();
         params.set("page", String(page));
         params.set("pageSize", String(pageSize));
+        if (periodoFilter !== "ALL") params.set("periodo", periodoFilter);
         const res = await fetch(`/api/finance/billing/issued?${params.toString()}`, {
           signal: ctrl.signal,
         });
@@ -340,7 +369,12 @@ function DtesTab({
       }
     })();
     return () => ctrl.abort();
-  }, [page, pageSize, initialDtes, issuedTotal]);
+  }, [page, pageSize, periodoFilter, initialDtes, issuedTotal]);
+
+  // Reset page=1 cuando cambia el período (para no quedar en página vacía).
+  useEffect(() => {
+    setPage(1);
+  }, [periodoFilter]);
 
   const filtered = useMemo(() => {
     let list = dtes;
@@ -390,24 +424,50 @@ function DtesTab({
     }
   };
 
+  // Estado del dialog de sync ventas. monthsBack:
+  //   "1"     → solo el mes corriente (incremental rápido)
+  //   "6"     → últimos 6 meses
+  //   "12"    → último año
+  //   "24"    → últimos 2 años (tope técnico SimpleAPI por rate limit)
+  //   "ALL"   → desde día 1 (resetea lastRcvVentasSyncAt y trae 60 meses
+  //             para barrer todo el histórico del SII)
+  const [syncDialogOpen, setSyncDialogOpen] = useState(false);
+  const [syncMonths, setSyncMonths] = useState<string>("12");
   const handleSyncRcvVentas = async () => {
-    if (!confirm(
-      "Importar facturas emitidas históricas desde el SII.\n\n" +
-      "Esto trae todas las facturas, NC y ND que el SII tiene registradas " +
-      "para tu RUT (incluyendo las anteriores a OPAI). El primer sync " +
-      "puede tardar varios minutos.\n\n¿Continuar?"
-    )) return;
+    setSyncDialogOpen(false);
     setSyncingVentas(true);
     try {
-      const res = await fetch("/api/finance/config/dte-provider/sync-rcv-ventas", {
-        method: "POST",
-      });
+      const params = new URLSearchParams();
+      if (syncMonths === "ALL") {
+        // Resetea el cursor de sync para que el provider trate este sync
+        // como "primer sync" y barra desde monthsBack hacia atrás (60 meses
+        // = 5 años, suficiente para casi cualquier histórico).
+        params.set("monthsBack", "60");
+        params.set("resetCursor", "true");
+      } else {
+        params.set("monthsBack", syncMonths);
+        // Si el usuario eligió un rango específico (no "1"), también reseteamos
+        // el cursor para que SÍ vaya hacia atrás (sino trae solo el mes
+        // incremental).
+        if (syncMonths !== "1") params.set("resetCursor", "true");
+      }
+      const res = await fetch(
+        `/api/finance/config/dte-provider/sync-rcv-ventas?${params.toString()}`,
+        { method: "POST" },
+      );
       const body = await res.json();
       if (!res.ok || !body.success) throw new Error(body.error ?? "Error en sincronización");
       const { fetched, inserted, skipped, monthsQueried, errors } = body.data;
+      const monthsTxt = `${monthsQueried.length} ${monthsQueried.length === 1 ? "mes" : "meses"}`;
       toast.success(
-        `Sincronización completada: ${fetched} consultados, ${inserted} nuevos, ${skipped} ya existentes (${monthsQueried.length} meses).`,
+        `Sincronización completada: ${fetched} consultados, ${inserted} nuevos, ${skipped} ya existentes (${monthsTxt}).`,
       );
+      if (fetched === 0 && monthsQueried.length > 0) {
+        toast.info(
+          `Período consultado: ${monthsQueried.join(", ")}. SII no devolvió ventas.`,
+          { duration: 8000 },
+        );
+      }
       if (errors && errors.length > 0) {
         toast.warning(`Sync con ${errors.length} error(es). Ver consola.`);
         // eslint-disable-next-line no-console
@@ -498,15 +558,26 @@ function DtesTab({
               ))}
             </SelectContent>
           </Select>
+          <Select value={periodoFilter} onValueChange={setPeriodoFilter}>
+            <SelectTrigger className="w-full sm:w-44 h-9">
+              <SelectValue placeholder="Período" />
+            </SelectTrigger>
+            <SelectContent className="max-h-[400px]">
+              <SelectItem value="ALL">Todos los períodos</SelectItem>
+              {periodOptions.map((p) => (
+                <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         {canManage && (
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
               size="sm"
-              onClick={handleSyncRcvVentas}
+              onClick={() => setSyncDialogOpen(true)}
               disabled={syncingVentas}
-              title="Importa facturas históricas desde el SII (RCV ventas)"
+              title="Importa facturas emitidas desde el SII (RCV ventas)"
             >
               {syncingVentas ? (
                 <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
@@ -844,6 +915,53 @@ function DtesTab({
           />
         </>
       )}
+
+      {/* Dialog de Importar SII */}
+      <Dialog open={syncDialogOpen} onOpenChange={setSyncDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Importar facturas emitidas desde SII</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              Trae todas las facturas, NC y ND que el SII tiene registradas
+              para tu RUT (incluso anteriores a OPAI). El primer sync de un
+              período largo puede tardar varios minutos.
+            </p>
+            <div className="space-y-1.5">
+              <Label>Período a importar</Label>
+              <Select value={syncMonths} onValueChange={setSyncMonths}>
+                <SelectTrigger className="h-10">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">Solo el mes corriente (incremental)</SelectItem>
+                  <SelectItem value="3">Últimos 3 meses</SelectItem>
+                  <SelectItem value="6">Últimos 6 meses</SelectItem>
+                  <SelectItem value="12">Último año (12 meses)</SelectItem>
+                  <SelectItem value="24">Últimos 2 años (24 meses)</SelectItem>
+                  <SelectItem value="ALL">Todo el histórico (5 años)</SelectItem>
+                </SelectContent>
+              </Select>
+              {syncMonths === "ALL" && (
+                <p className="text-xs text-status-warn-fg">
+                  ⚠ "Todo el histórico" puede tardar 5–10 minutos. Limitado por
+                  rate limit SimpleAPI (1/sec, 100/hora).
+                </p>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSyncDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSyncRcvVentas} disabled={syncingVentas}>
+              {syncingVentas && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
+              Importar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -972,6 +1090,9 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
   const [typeFilter, setTypeFilter] = useState("ALL");
   const [receptionFilter, setReceptionFilter] = useState("ALL");
   const [paymentFilter, setPaymentFilter] = useState("ALL");
+  /** Filtro por período "YYYY-MM" o "ALL". Default ALL = sin filtro. */
+  const [periodoFilter, setPeriodoFilter] = useState("ALL");
+  const periodOptions = useMemo(() => buildPeriodOptions(36), []);
   const [syncing, setSyncing] = useState(false);
   // Paginación server-side (selector 10/25/50/100/200) + modal detalle.
   const [page, setPage] = useState(1);
@@ -983,6 +1104,7 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
     setLoading(true);
     try {
       const params = new URLSearchParams();
+      if (periodoFilter !== "ALL") params.set("periodo", periodoFilter);
       params.set("page", String(page));
       params.set("pageSize", String(pageSize));
       const res = await fetch(`/api/finance/billing/received?${params.toString()}`);
@@ -1009,9 +1131,14 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize]);
+  }, [page, pageSize, periodoFilter]);
 
   useEffect(() => { loadReceivedDtes(); }, [loadReceivedDtes]);
+
+  // Reset page=1 cuando cambia el período (para no quedar en página vacía).
+  useEffect(() => {
+    setPage(1);
+  }, [periodoFilter]);
 
   const filtered = useMemo(() => {
     // Defensa: si por alguna razón el state quedó corrupto, devolvemos [].
@@ -1083,17 +1210,38 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
     }
   };
 
+  // Estado del dialog de sync RCV compras (similar al de ventas).
+  const [syncDialogOpen, setSyncDialogOpen] = useState(false);
+  const [syncMonths, setSyncMonths] = useState<string>("3");
   const handleSyncRcv = async () => {
+    setSyncDialogOpen(false);
     setSyncing(true);
     try {
-      const res = await fetch("/api/finance/config/dte-provider/sync-rcv", {
-        method: "POST",
-      });
+      const params = new URLSearchParams();
+      if (syncMonths === "ALL") {
+        params.set("monthsBack", "60");
+        params.set("resetCursor", "true");
+      } else {
+        params.set("monthsBack", syncMonths);
+        if (syncMonths !== "1") params.set("resetCursor", "true");
+      }
+      const res = await fetch(
+        `/api/finance/config/dte-provider/sync-rcv?${params.toString()}`,
+        { method: "POST" },
+      );
       const body = await res.json();
       if (!res.ok || !body.success) throw new Error(body.error ?? "Error");
+      const { fetched, inserted, skipped, monthsQueried } = body.data;
+      const monthsTxt = `${monthsQueried.length} ${monthsQueried.length === 1 ? "mes" : "meses"}`;
       toast.success(
-        `Sincronización completada: ${body.data.fetched} consultados, ${body.data.inserted} nuevos.`
+        `Sincronización completada: ${fetched} consultados, ${inserted} nuevos, ${skipped ?? 0} ya existentes (${monthsTxt}).`,
       );
+      if (fetched === 0 && monthsQueried.length > 0) {
+        toast.info(
+          `Período: ${monthsQueried.join(", ")}. SII no devolvió compras.`,
+          { duration: 8000 },
+        );
+      }
       await loadReceivedDtes();
       router.refresh();
     } catch (err) {
@@ -1158,21 +1306,33 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
               ))}
             </SelectContent>
           </Select>
+          <Select value={periodoFilter} onValueChange={setPeriodoFilter}>
+            <SelectTrigger className="w-full sm:w-44 h-9">
+              <SelectValue placeholder="Período" />
+            </SelectTrigger>
+            <SelectContent className="max-h-[400px]">
+              <SelectItem value="ALL">Todos los períodos</SelectItem>
+              {periodOptions.map((p) => (
+                <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         {canManage && (
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
               size="sm"
-              onClick={handleSyncRcv}
+              onClick={() => setSyncDialogOpen(true)}
               disabled={syncing}
+              title="Importa DTEs recibidos desde el SII (RCV compras)"
             >
               {syncing ? (
                 <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
               ) : (
                 <RefreshCw className="h-4 w-4 mr-1.5" />
               )}
-              Sincronizar RCV
+              Importar SII
             </Button>
             <Button size="sm" onClick={() => setDialogOpen(true)}>
               <Plus className="h-4 w-4 mr-1.5" />
@@ -1370,6 +1530,54 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
         suppliers={suppliers}
         canManage={canManage}
       />
+
+      {/* Dialog: Importar SII (RCV compras) */}
+      <Dialog open={syncDialogOpen} onOpenChange={setSyncDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Importar DTEs recibidos desde SII</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              Trae todas las facturas, NC, ND y guías que el SII tiene
+              registradas como recibidas para tu RUT (incluso anteriores a
+              OPAI). El primer sync de un período largo puede tardar varios
+              minutos.
+            </p>
+            <div className="space-y-1.5">
+              <Label>Período a importar</Label>
+              <Select value={syncMonths} onValueChange={setSyncMonths}>
+                <SelectTrigger className="h-10">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">Solo el mes corriente (incremental)</SelectItem>
+                  <SelectItem value="3">Últimos 3 meses</SelectItem>
+                  <SelectItem value="6">Últimos 6 meses</SelectItem>
+                  <SelectItem value="12">Último año (12 meses)</SelectItem>
+                  <SelectItem value="24">Últimos 2 años (24 meses)</SelectItem>
+                  <SelectItem value="ALL">Todo el histórico (5 años)</SelectItem>
+                </SelectContent>
+              </Select>
+              {syncMonths === "ALL" && (
+                <p className="text-xs text-status-warn-fg">
+                  ⚠ "Todo el histórico" puede tardar 5–10 minutos. Limitado
+                  por rate limit SimpleAPI (1/sec, 100/hora).
+                </p>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSyncDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSyncRcv} disabled={syncing}>
+              {syncing && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
+              Importar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Dialog: Registrar DTE Recibido */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

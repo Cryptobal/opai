@@ -36,6 +36,8 @@ export type ListReceivedDtesOpts = {
   page?: number;
   pageSize?: number;
   supplierId?: string;
+  /** Filtro por período (mes-año) — formato "YYYY-MM". Filtra por FinanceDte.date. */
+  periodo?: string;
 };
 
 // ── Service Functions ──
@@ -47,13 +49,20 @@ export async function listReceivedDtes(
   tenantId: string,
   opts: ListReceivedDtesOpts = {}
 ) {
-  const { page = 1, pageSize = 50, supplierId } = opts;
+  const { page = 1, pageSize = 50, supplierId, periodo } = opts;
 
   const where: Record<string, unknown> = {
     tenantId,
     direction: "RECEIVED",
   };
   if (supplierId) where.supplierId = supplierId;
+  // Filtro por período "YYYY-MM": rango [primer día del mes, primer día del mes siguiente).
+  if (periodo && /^\d{4}-\d{2}$/.test(periodo)) {
+    const [y, m] = periodo.split("-").map((s) => parseInt(s, 10));
+    const from = new Date(Date.UTC(y, m - 1, 1));
+    const to = new Date(Date.UTC(y, m, 1));
+    where.date = { gte: from, lt: to };
+  }
 
   const [dtes, total] = await Promise.all([
     prisma.financeDte.findMany({

@@ -25,18 +25,29 @@ export async function GET(request: NextRequest) {
     const url = new URL(request.url);
     const page = parseInt(url.searchParams.get("page") || "1");
     const pageSize = parseInt(url.searchParams.get("pageSize") || "20");
+    const periodo = url.searchParams.get("periodo") || undefined;
+
+    // Filtro por período "YYYY-MM" sobre FinanceDte.date (fecha tributaria).
+    const where: Record<string, unknown> = {
+      tenantId: ctx.tenantId,
+      direction: "ISSUED",
+    };
+    if (periodo && /^\d{4}-\d{2}$/.test(periodo)) {
+      const [y, m] = periodo.split("-").map((s) => parseInt(s, 10));
+      const from = new Date(Date.UTC(y, m - 1, 1));
+      const to = new Date(Date.UTC(y, m, 1));
+      where.date = { gte: from, lt: to };
+    }
 
     const dtes = await prisma.financeDte.findMany({
-      where: { tenantId: ctx.tenantId },
+      where,
       orderBy: { createdAt: "desc" },
       take: pageSize,
       skip: (page - 1) * pageSize,
       include: { lines: true },
     });
 
-    const total = await prisma.financeDte.count({
-      where: { tenantId: ctx.tenantId },
-    });
+    const total = await prisma.financeDte.count({ where });
 
     return NextResponse.json({
       success: true,

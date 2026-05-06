@@ -6,14 +6,16 @@
  * a `facturacion_configure`.
  */
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { hasFacturacionCapability } from "@/lib/permissions";
+import { prisma } from "@/lib/prisma";
 import { syncTenantRcv } from "@/modules/finance/billing/rcv-sync.service";
 
-export const maxDuration = 60;
+// Permitir hasta 5 minutos para syncs largos (60 meses).
+export const maxDuration = 300;
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   const ctx = await requireAuth();
   if (!ctx) return unauthorized();
   const perms = await resolveApiPerms(ctx);
@@ -24,8 +26,21 @@ export async function POST() {
     );
   }
 
+  const url = new URL(request.url);
+  const monthsBackRaw = url.searchParams.get("monthsBack");
+  const monthsBack = monthsBackRaw
+    ? Math.min(60, Math.max(1, parseInt(monthsBackRaw, 10)))
+    : undefined;
+  const resetCursor = url.searchParams.get("resetCursor") === "true";
+
   try {
-    const result = await syncTenantRcv(ctx.tenantId);
+    if (resetCursor) {
+      await prisma.tenantDteConfig.update({
+        where: { tenantId: ctx.tenantId },
+        data: { lastRcvSyncAt: null },
+      });
+    }
+    const result = await syncTenantRcv(ctx.tenantId, { monthsBack });
     return NextResponse.json({ success: true, data: result });
   } catch (err) {
     return NextResponse.json(
