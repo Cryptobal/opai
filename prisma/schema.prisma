@@ -6268,6 +6268,7 @@ model FinanceDte {
   lines              FinanceDteLine[]
   paymentAllocations FinancePaymentAllocation[]
   factoringOps       FinanceFactoringOperation[]
+  attachments        FinanceDteAttachment[]
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -6306,6 +6307,46 @@ model FinanceDteLine {
   @@index([dteId], map: "idx_finance_dte_line_dte")
   @@index([refuerzoSolicitudId], map: "idx_finance_dte_line_refuerzo")
   @@map("finance_dte_lines")
+  @@schema("finance")
+}
+
+/// Archivos adjuntos a un DTE (XML del proveedor, PDF, comprobante de pago,
+/// etc). Casos de uso:
+///
+///   1. **DTE Recibido**: el SII no expone re-descarga del XML/PDF original;
+///      el proveedor está obligado a mandarlo por email. El usuario sube
+///      acá el archivo recibido para tenerlo guardado en OPAI junto al
+///      registro del RCV.
+///
+///   2. **DTE Emitido**: para guardar comprobantes de envío externo
+///      (acuse de recibo del cliente, intercambio comercial, etc).
+///
+/// Storage: BYTEA en BD para MVP. Si crecen mucho los archivos podemos
+/// migrar a Vercel Blob / R2 con un campo url en vez de data.
+///
+/// Tope blando: 5MB por archivo (validado en el endpoint POST).
+model FinanceDteAttachment {
+  id        String     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  dteId     String     @map("dte_id") @db.Uuid
+  dte       FinanceDte @relation(fields: [dteId], references: [id], onDelete: Cascade)
+  tenantId  String     @map("tenant_id")
+
+  /// Tipo lógico del adjunto (XML, PDF, EMAIL, OTHER).
+  /// El XML del SII viene con extensión .xml; el PDF impreso del proveedor
+  /// con .pdf. EMAIL es el .eml del correo que llegó. OTHER es escape hatch.
+  kind      String     @default("OTHER")
+  filename  String
+  mimeType  String     @map("mime_type")
+  size      Int
+  /// Bytes del archivo. Para PDFs típicos < 500KB; XMLs SII < 50KB.
+  data      Bytes
+
+  uploadedAt DateTime @default(now()) @map("uploaded_at") @db.Timestamptz(6)
+  uploadedBy String   @map("uploaded_by")
+
+  @@index([dteId], map: "idx_finance_dte_attachments_dte")
+  @@index([tenantId, dteId], map: "idx_finance_dte_attachments_tenant_dte")
+  @@map("finance_dte_attachments")
   @@schema("finance")
 }
 

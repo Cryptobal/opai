@@ -1342,6 +1342,7 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
         dte={detailDte}
         onClose={() => setDetailDte(null)}
         suppliers={suppliers}
+        canManage={canManage}
       />
 
       {/* Dialog: Registrar DTE Recibido */}
@@ -1504,6 +1505,16 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
   );
 }
 
+interface DteAttachment {
+  id: string;
+  kind: string;
+  filename: string;
+  mimeType: string;
+  size: number;
+  uploadedAt: string;
+  uploadedBy: string;
+}
+
 /**
  * ReceivedDteDetailDialog — modal de detalle de un DTE recibido.
  *
@@ -1512,19 +1523,93 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
  * "vive" en tu correo. Este modal ofrece:
  *   - Datos del DTE que tenemos del RCV (folio, emisor, montos, estados)
  *   - Link al visor web del SII (requiere sesión SII abierta)
- *   - (Próximo) Botón "Adjuntar XML/PDF" para subir el archivo recibido
+ *   - Sección de adjuntos: subir/descargar/eliminar XML, PDF, etc del
+ *     proveedor (lo que llegó por email).
  */
 function ReceivedDteDetailDialog({
   dte,
   onClose,
   suppliers,
+  canManage,
 }: {
   dte: ReceivedDteRow | null;
   onClose: () => void;
   suppliers: SupplierOption[];
+  canManage: boolean;
 }) {
+  const [attachments, setAttachments] = useState<DteAttachment[]>([]);
+  const [loadingAtt, setLoadingAtt] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
+
+  // Cargar adjuntos al abrir el modal.
+  useEffect(() => {
+    if (!dte) {
+      setAttachments([]);
+      return;
+    }
+    const ctrl = new AbortController();
+    setLoadingAtt(true);
+    fetch(`/api/finance/billing/dte/${dte.id}/attachments`, {
+      signal: ctrl.signal,
+    })
+      .then((r) => r.json())
+      .then((j) => {
+        if (j?.success && Array.isArray(j.data)) setAttachments(j.data);
+      })
+      .catch(() => {})
+      .finally(() => setLoadingAtt(false));
+    return () => ctrl.abort();
+  }, [dte]);
+
   if (!dte) return null;
   const supplier = suppliers.find((s) => s.rut === dte.issuerRut);
+
+  async function handleUpload(file: File) {
+    if (!dte) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error(`Archivo demasiado grande (${Math.round(file.size / 1024)}KB). Máx 5MB.`);
+      return;
+    }
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch(`/api/finance/billing/dte/${dte.id}/attachments`, {
+        method: "POST",
+        body: fd,
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error ?? "Error al subir");
+      setAttachments((prev) => [json.data, ...prev]);
+      toast.success(`${file.name} adjuntado`);
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function handleDelete(attId: string) {
+    if (!dte) return;
+    if (!confirm("¿Eliminar este adjunto?")) return;
+    setDeleting(attId);
+    try {
+      const res = await fetch(
+        `/api/finance/billing/dte/${dte.id}/attachments/${attId}`,
+        { method: "DELETE" },
+      );
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error ?? "Error al eliminar");
+      setAttachments((prev) => prev.filter((a) => a.id !== attId));
+      toast.success("Adjunto eliminado");
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setDeleting(null);
+    }
+  }
+
   const dateStr = format(new Date(dte.date), "dd 'de' MMMM yyyy", { locale: es });
   const dueStr = dte.dueDate
     ? format(new Date(dte.dueDate), "dd 'de' MMMM yyyy", { locale: es })
@@ -1610,28 +1695,126 @@ function ReceivedDteDetailDialog({
             <p className="font-medium mb-1">Nota sobre el documento original</p>
             <p>
               El SII no expone re-descarga del XML/PDF de DTEs recibidos. El
-              proveedor está obligado a enviarte el XML por email; podés
-              guardarlo en tu correo. Para ver el detalle oficial (líneas,
-              certificación) usá el visor del SII con tu sesión:
+              proveedor está obligado a enviarte el XML por email. Subí acá
+              el archivo recibido para tenerlo guardado junto al DTE, y/o
+              ingresá al visor SII para ver el detalle oficial:
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm" asChild>
-              <a href={siiViewerUrl} target="_blank" rel="noopener noreferrer">
-                <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
-                Ver en visor SII
-              </a>
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled
-              title="Próximamente: adjuntar XML/PDF del proveedor"
-            >
-              <Download className="h-3.5 w-3.5 mr-1.5" />
-              Adjuntar XML/PDF (próximamente)
-            </Button>
+          <Button variant="outline" size="sm" asChild>
+            <a href={siiViewerUrl} target="_blank" rel="noopener noreferrer">
+              <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+              Ver en visor SII
+            </a>
+          </Button>
+
+          {/* Sección de adjuntos */}
+          <div className="border-t border-border pt-4 space-y-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-medium">Adjuntos</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  XML, PDF o EML del proveedor (máx 5MB).
+                </p>
+              </div>
+              {canManage && (
+                <label className="cursor-pointer">
+                  <input
+                    type="file"
+                    accept=".xml,.pdf,.eml,application/xml,text/xml,application/pdf,message/rfc822,image/png,image/jpeg"
+                    className="sr-only"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) handleUpload(f);
+                      e.target.value = "";
+                    }}
+                    disabled={uploading}
+                  />
+                  <span
+                    className={cn(
+                      "inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-xs font-medium transition-colors",
+                      uploading
+                        ? "bg-muted text-muted-foreground cursor-wait"
+                        : "bg-background hover:bg-muted",
+                    )}
+                  >
+                    {uploading ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <FilePlus className="h-3.5 w-3.5" />
+                    )}
+                    {uploading ? "Subiendo…" : "Adjuntar archivo"}
+                  </span>
+                </label>
+              )}
+            </div>
+
+            {loadingAtt ? (
+              <div className="flex items-center justify-center py-6">
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              </div>
+            ) : attachments.length === 0 ? (
+              <p className="text-xs text-muted-foreground italic py-3 text-center">
+                Sin adjuntos. Si el proveedor te envió el XML por email,
+                subilo acá.
+              </p>
+            ) : (
+              <ul className="divide-y divide-border rounded-md border border-border">
+                {attachments.map((a) => (
+                  <li
+                    key={a.id}
+                    className="flex items-center justify-between gap-2 p-2.5"
+                  >
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <FileCode className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-sm truncate" title={a.filename}>
+                          {a.filename}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {a.kind} · {Math.round(a.size / 1024)} KB ·{" "}
+                          {format(new Date(a.uploadedAt), "dd MMM yyyy HH:mm", {
+                            locale: es,
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        asChild
+                      >
+                        <a
+                          href={`/api/finance/billing/dte/${dte.id}/attachments/${a.id}`}
+                          download={a.filename}
+                          aria-label={`Descargar ${a.filename}`}
+                        >
+                          <Download className="h-4 w-4" />
+                        </a>
+                      </Button>
+                      {canManage && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                          onClick={() => handleDelete(a.id)}
+                          disabled={deleting === a.id}
+                          aria-label={`Eliminar ${a.filename}`}
+                        >
+                          {deleting === a.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Ban className="h-4 w-4" />
+                          )}
+                        </Button>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
 
