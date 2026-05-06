@@ -101,12 +101,18 @@ export async function POST() {
 
   // 4. Llamar a SimpleAPI scraper: folios/get/{tipo}
   // Multipart con `input` (JSON) + `file` (cert .pfx).
+  // NOTA: el SDK C# de SimpleAPI usa GET con body multipart, pero esa
+  // combinación viola HTTP estándar y `fetch` la rechaza con
+  // "Request with GET/HEAD method cannot have body". Casi todos los
+  // servers que aceptan GET-con-body también aceptan POST equivalente,
+  // así que usamos POST. Si SimpleAPI rechaza con 405 acá, hay que
+  // cambiar a usar `undici.request` (que sí permite GET+body).
   let result;
   try {
     result = await callSimpleApi({
       target: "scraper",
       path: `folios/get/33`,
-      method: "GET", // El SDK usa GET con multipart para esta consulta puntual
+      method: "POST",
       parts: [
         { name: "input", content: JSON.stringify(foliosInput) },
         {
