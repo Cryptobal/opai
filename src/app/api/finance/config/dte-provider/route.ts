@@ -32,6 +32,12 @@ const updateConfigSchema = z.object({
   emisorEmail: z.string().email().optional(),
   resolNumero: z.number().int().nullable().optional(),
   resolFecha: z.string().nullable().optional(),
+  // Emails que reciben alertas operativas: DTE rechazado por SII,
+  // certificado por vencer, etc. Tope blando de 10 destinatarios.
+  alertEmails: z
+    .array(z.string().email("Email inválido"))
+    .max(10, "Máximo 10 emails de alerta")
+    .optional(),
   // Logo del emisor en base64 (PNG/JPG) para el PDF del DTE.
   // Se acepta tanto data URL ("data:image/png;base64,...") como base64
   // crudo. El frontend puede mandar cualquiera de los dos formatos.

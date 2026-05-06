@@ -426,14 +426,29 @@ export async function checkDteStatus(tenantId: string, dteId: string) {
   const status = await provider.getStatus(dte.siiTrackId);
 
   // Update status in DB
+  const previousStatus = dte.siiStatus;
   await prisma.financeDte.update({
     where: { id: dteId },
     data: {
       siiStatus: status.status as any,
       siiResponse: status.rawResponse as any ?? null,
       siiAcceptedAt: status.status === "ACCEPTED" ? new Date() : null,
+      siiLastStatusCheckAt: new Date(),
+      siiStatusCheckCount: { increment: 1 },
     },
   });
+
+  // Disparar alerta si el DTE pasó a REJECTED (transición desde otro estado).
+  if (status.status === "REJECTED" && previousStatus !== "REJECTED") {
+    const { sendDteRejectedAlert } = await import("./dte-rejected-alert.service");
+    sendDteRejectedAlert(tenantId, dteId).catch((err) => {
+      // eslint-disable-next-line no-console
+      console.error(
+        `[checkDteStatus] sendDteRejectedAlert failed for ${dteId}:`,
+        err,
+      );
+    });
+  }
 
   return status;
 }

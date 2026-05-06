@@ -9247,6 +9247,11 @@ model TenantDteConfig {
   // Tamaño máx recomendado: 500KB (idealmente < 100KB para no inflar el PDF).
   logoBase64 String? @map("logo_base64") @db.Text
 
+  // Emails que reciben alertas operativas del módulo facturación
+  // (DTE rechazado por SII, certificado por vencer, etc). Lista vacía
+  // = no se envían alertas. Se ingresan en el hub de configuración DTE.
+  alertEmails String[] @default([]) @map("alert_emails")
+
   // Última sincronización RCV (compras = DTEs RECIBIDOS).
   lastRcvSyncAt DateTime? @map("last_rcv_sync_at")
   // Última sincronización RCV ventas (DTEs EMITIDOS desde el SII).
