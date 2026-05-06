@@ -145,7 +145,8 @@ interface Props {
   issuedTotal?: number;
   canManage: boolean;
   suppliers?: SupplierOption[];
-  kpis: FacturacionKpis;
+  /** KPIs calculados en SSR para el mes actual — sirven de hidratación inicial. */
+  initialKpis: FacturacionKpis;
 }
 
 /* ── Constants ── */
@@ -265,7 +266,7 @@ export function FacturacionClient({
   issuedTotal,
   canManage,
   suppliers = [],
-  kpis,
+  initialKpis,
 }: Props) {
   // Tab inicial: ?tab=borradores en URL para abrir directo en borradores
   // (lo usa el "Guardar como borrador" del DteForm tras crear).
@@ -279,13 +280,53 @@ export function FacturacionClient({
   })();
   const [activeTab, setActiveTab] = useState<TabId>(initialTab);
   // Filtro de período compartido entre KPIs, TrendChart y DtesTab.
-  // "ALL" = sin filtro (default); "YYYY-MM" = mes específico.
+  // "ALL" = últimos 12 meses agregados; "YYYY-MM" = mes específico.
+  // Default "ALL" coincide con el comportamiento previo de la tabla.
   const [periodoFilter, setPeriodoFilter] = useState("ALL");
+  // KPIs como state: SSR provee hidratación para el mes actual; el cliente
+  // refetchea al endpoint /api/finance/billing/kpis cuando cambia el período.
+  const [kpis, setKpis] = useState<FacturacionKpis>(initialKpis);
+  const [kpisLoading, setKpisLoading] = useState(false);
+  // Skip el primer fetch si el filtro coincide con el default del SSR (mes
+  // actual). Cuando el usuario cambia a otro período, refetch.
+  const [hasFetchedKpis, setHasFetchedKpis] = useState(false);
+
+  useEffect(() => {
+    // El SSR calcula el mes actual; "ALL" agrega últimos 12 meses, así que
+    // SIEMPRE difiere del SSR y requiere fetch. Aplicamos fetch en cada
+    // cambio.
+    const ctrl = new AbortController();
+    setKpisLoading(true);
+    (async () => {
+      try {
+        const params = new URLSearchParams();
+        params.set("periodo", periodoFilter);
+        const res = await fetch(
+          `/api/finance/billing/kpis?${params.toString()}`,
+          { signal: ctrl.signal },
+        );
+        if (!res.ok) throw new Error();
+        const json = await res.json();
+        if (json?.success && json.data) {
+          setKpis(json.data as FacturacionKpis);
+        }
+      } catch (err) {
+        if ((err as Error).name !== "AbortError") {
+          // Silencioso: mantenemos los KPIs previos en pantalla.
+          console.error("[FacturacionClient] KPIs refetch failed:", err);
+        }
+      } finally {
+        setKpisLoading(false);
+        setHasFetchedKpis(true);
+      }
+    })();
+    return () => ctrl.abort();
+  }, [periodoFilter]);
 
   return (
     <div className="space-y-4">
       {/* Dashboard widgets */}
-      <KPIRow kpis={kpis} />
+      <KPIRow kpis={kpis} loading={kpisLoading && !hasFetchedKpis} />
       <TrendChart periodo={periodoFilter} />
 
       {/* Tab navigation */}

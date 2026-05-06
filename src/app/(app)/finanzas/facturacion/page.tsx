@@ -197,7 +197,10 @@ export default async function FacturacionPage() {
   );
   const foliosLowCount = folioStatuses.filter((f) => f.lowStock).length;
 
-  const kpis = {
+  // KPIs calculados en SSR para el mes actual: sirven de hidratación
+  // inicial. El cliente refetchea /api/finance/billing/kpis cuando
+  // cambia el filtro de período (Bug 1.1).
+  const initialKpis = {
     ventasMes,
     ivaDebitoMes,
     pendientesSii: pendientesSiiCount,
@@ -222,7 +225,7 @@ export default async function FacturacionPage() {
         issuedTotal={issuedTotal}
         canManage={canManage}
         suppliers={suppliers}
-        kpis={kpis}
+        initialKpis={initialKpis}
       />
     </div>
   );
