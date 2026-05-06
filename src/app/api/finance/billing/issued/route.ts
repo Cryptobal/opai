@@ -49,10 +49,41 @@ export async function GET(request: NextRequest) {
 
     const total = await prisma.financeDte.count({ where });
 
+    // Enriquecer con cliente CRM + instalación (centro de costo).
+    const accountIds = Array.from(
+      new Set(dtes.map((d) => d.crmAccountId).filter((v): v is string => !!v)),
+    );
+    const installationIds = Array.from(
+      new Set(dtes.map((d) => d.installationId).filter((v): v is string => !!v)),
+    );
+    const [accounts, installations] = await Promise.all([
+      accountIds.length > 0
+        ? prisma.crmAccount.findMany({
+            where: { id: { in: accountIds }, tenantId: ctx.tenantId },
+            select: { id: true, name: true, legalName: true },
+          })
+        : Promise.resolve([]),
+      installationIds.length > 0
+        ? prisma.crmInstallation.findMany({
+            where: { id: { in: installationIds }, tenantId: ctx.tenantId },
+            select: { id: true, name: true, commune: true },
+          })
+        : Promise.resolve([]),
+    ]);
+    const accountMap = new Map(accounts.map((a) => [a.id, a]));
+    const installationMap = new Map(installations.map((i) => [i.id, i]));
+    const dtesEnriched = dtes.map((d) => ({
+      ...d,
+      crmAccount: d.crmAccountId ? accountMap.get(d.crmAccountId) ?? null : null,
+      installation: d.installationId
+        ? installationMap.get(d.installationId) ?? null
+        : null,
+    }));
+
     return NextResponse.json({
       success: true,
       data: {
-        dtes,
+        dtes: dtesEnriched,
         pagination: {
           page,
           pageSize,

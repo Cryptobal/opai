@@ -49,6 +49,7 @@ import { toast } from "sonner";
 import { PaginationControls } from "./PaginationControls";
 import { KPIRow, TrendChart } from "./FacturacionDashboardWidgets";
 import { LibroIvaTab } from "./LibroIvaTab";
+import { CostCenterEditor } from "./CostCenterEditor";
 
 /* ── Types ── */
 
@@ -72,6 +73,11 @@ interface DteRow {
   referenceFolio: number | null;
   /** False para DTEs importados de CSV/RCV (no tienen XML local). */
   hasXml?: boolean;
+  /** Centro de costo: cliente CRM + instalación. */
+  crmAccountId?: string | null;
+  installationId?: string | null;
+  crmAccount?: { id: string; name: string; legalName: string | null } | null;
+  installation?: { id: string; name: string; commune: string | null } | null;
 }
 
 interface FolioStatus {
@@ -97,6 +103,11 @@ interface ReceivedDteRow {
   amountPaid: number;
   amountPending: number;
   supplier: { id: string; name: string; rut: string } | null;
+  /** Centro de costo: cliente CRM + instalación. */
+  crmAccountId?: string | null;
+  installationId?: string | null;
+  crmAccount?: { id: string; name: string; legalName: string | null } | null;
+  installation?: { id: string; name: string; commune: string | null } | null;
 }
 
 interface SupplierOption {
@@ -676,6 +687,40 @@ function DtesTab({
                       </Badge>
                     );
                   },
+                },
+                {
+                  id: "centroCosto",
+                  header: "Centro de costo",
+                  cell: (row) => (
+                    <CostCenterEditor
+                      dteId={row.id}
+                      currentAccountId={row.crmAccountId}
+                      currentAccountName={row.crmAccount?.name ?? null}
+                      currentInstallationId={row.installationId}
+                      currentInstallationName={row.installation?.name ?? null}
+                      canEdit={canManage}
+                      onChange={(next) => {
+                        // Actualizar la fila en el state local para feedback inmediato.
+                        setDtes((prev) =>
+                          prev.map((d) =>
+                            d.id === row.id
+                              ? {
+                                  ...d,
+                                  crmAccountId: next.crmAccountId,
+                                  installationId: next.installationId,
+                                  crmAccount: next.crmAccountId && next.accountName
+                                    ? { id: next.crmAccountId, name: next.accountName, legalName: null }
+                                    : null,
+                                  installation: next.installationId && next.installationName
+                                    ? { id: next.installationId, name: next.installationName, commune: null }
+                                    : null,
+                                }
+                              : d,
+                          ),
+                        );
+                      }}
+                    />
+                  ),
                 },
                 {
                   id: "_actions",
@@ -1378,6 +1423,39 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
                       </Badge>
                     );
                   },
+                },
+                {
+                  id: "centroCosto",
+                  header: "Centro de costo",
+                  cell: (row) => (
+                    <CostCenterEditor
+                      dteId={row.id}
+                      currentAccountId={row.crmAccountId}
+                      currentAccountName={row.crmAccount?.name ?? null}
+                      currentInstallationId={row.installationId}
+                      currentInstallationName={row.installation?.name ?? null}
+                      canEdit={canManage}
+                      onChange={(next) => {
+                        setReceivedDtes((prev) =>
+                          prev.map((d) =>
+                            d.id === row.id
+                              ? {
+                                  ...d,
+                                  crmAccountId: next.crmAccountId,
+                                  installationId: next.installationId,
+                                  crmAccount: next.crmAccountId && next.accountName
+                                    ? { id: next.crmAccountId, name: next.accountName, legalName: null }
+                                    : null,
+                                  installation: next.installationId && next.installationName
+                                    ? { id: next.installationId, name: next.installationName, commune: null }
+                                    : null,
+                                }
+                              : d,
+                          ),
+                        );
+                      }}
+                    />
+                  ),
                 },
                 {
                   id: "actions",
