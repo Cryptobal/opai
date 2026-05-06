@@ -4,7 +4,7 @@ import {
   resolvePagePerms,
   hasModuleAccess,
   canView,
-  hasCapability,
+  hasFacturacionCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { PageHero } from "@/components/opai-ds";
@@ -20,10 +20,19 @@ export default async function FacturacionPage() {
   if (!hasModuleAccess(perms, "finance")) {
     redirect("/hub");
   }
-  if (!canView(perms, "finance", "facturacion")) redirect("/finanzas/rendiciones");
+  if (!hasFacturacionCapability(perms, "facturacion_view")) {
+    redirect("/finanzas/rendiciones");
+  }
 
   const tenantId = session.user.tenantId;
-  const canManage = hasCapability(perms, "facturacion_manage");
+  // Capabilities granulares de facturación. La legacy `facturacion_manage`
+  // expande automáticamente a las 7 vía `hasFacturacionCapability`.
+  const canIssue = hasFacturacionCapability(perms, "facturacion_issue");
+  const canCreateDraft = hasFacturacionCapability(perms, "facturacion_create_draft");
+  const canCreditNote = hasFacturacionCapability(perms, "facturacion_credit_note");
+  const canVoid = hasFacturacionCapability(perms, "facturacion_void");
+  const canResendEmail = hasFacturacionCapability(perms, "facturacion_resend_email");
+  const canConfigure = hasFacturacionCapability(perms, "facturacion_configure");
 
   const startOfMonth = new Date();
   startOfMonth.setDate(1);
@@ -31,8 +40,13 @@ export default async function FacturacionPage() {
   const startOfPrevMonth = new Date(startOfMonth);
   startOfPrevMonth.setMonth(startOfPrevMonth.getMonth() - 1);
 
+  // Default: primera página de 50 DTEs (igual que el endpoint paginado).
+  // El cliente puede cambiar pageSize y page con re-fetch al endpoint
+  // /api/finance/billing/issued — el SSR solo precarga la primera vista.
+  const INITIAL_PAGE_SIZE = 50;
   const [
     dtes,
+    issuedTotal,
     suppliers,
     ventasMesAgg,
     ventasPrevAgg,
@@ -43,7 +57,10 @@ export default async function FacturacionPage() {
       where: { tenantId, direction: "ISSUED" },
       include: { lines: true },
       orderBy: { createdAt: "desc" },
-      take: 200,
+      take: INITIAL_PAGE_SIZE,
+    }),
+    prisma.financeDte.count({
+      where: { tenantId, direction: "ISSUED" },
     }),
     prisma.financeSupplier.findMany({
       where: { tenantId },
@@ -143,9 +160,15 @@ export default async function FacturacionPage() {
       />
       <FacturacionClient
         dtes={dtesData}
-        canManage={canManage}
+        issuedTotal={issuedTotal}
         suppliers={suppliers}
         kpis={kpis}
+        canIssue={canIssue}
+        canCreateDraft={canCreateDraft}
+        canCreditNote={canCreditNote}
+        canVoid={canVoid}
+        canResendEmail={canResendEmail}
+        canConfigure={canConfigure}
       />
     </div>
   );

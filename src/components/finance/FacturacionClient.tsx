@@ -46,6 +46,8 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { KPIRow, TrendChart } from "./FacturacionDashboardWidgets";
 import { LibroIvaTab } from "./LibroIvaTab";
+import { PaginationControls } from "./PaginationControls";
+import { Eye, ExternalLink } from "lucide-react";
 
 /* ── Types ── */
 
@@ -112,9 +114,22 @@ interface FacturacionKpis {
 
 interface Props {
   dtes: DteRow[];
-  canManage: boolean;
+  /**
+   * Cantidad total de DTEs emitidos del tenant (para paginación). El SC
+   * pre-carga la primera página de 50; este número permite calcular el
+   * número de páginas y mostrar el rango completo.
+   */
+  issuedTotal?: number;
   suppliers?: SupplierOption[];
   kpis: FacturacionKpis;
+  // Capabilities granulares (gating de UI). El backend igual valida cada
+  // acción con hasFacturacionCapability — esto solo decide qué se muestra.
+  canIssue: boolean;
+  canCreateDraft: boolean;
+  canCreditNote: boolean;
+  canVoid: boolean;
+  canResendEmail: boolean;
+  canConfigure: boolean;
 }
 
 /* ── Constants ── */
@@ -198,9 +213,15 @@ const EMPTY_RECEIVED_FORM = {
 
 export function FacturacionClient({
   dtes,
-  canManage,
+  issuedTotal,
   suppliers = [],
   kpis,
+  canIssue,
+  canCreateDraft,
+  canCreditNote,
+  canVoid,
+  canResendEmail,
+  canConfigure,
 }: Props) {
   const [activeTab, setActiveTab] = useState<TabId>("dtes");
 
@@ -235,10 +256,21 @@ export function FacturacionClient({
         </div>
       </nav>
 
-      {activeTab === "dtes" && <DtesTab dtes={dtes} canManage={canManage} />}
-      {activeTab === "recibidos" && <RecibidosTab suppliers={suppliers} canManage={canManage} />}
+      {activeTab === "dtes" && (
+        <DtesTab
+          dtes={dtes}
+          issuedTotal={issuedTotal ?? dtes.length}
+          canIssue={canIssue}
+          canCreditNote={canCreditNote}
+          canVoid={canVoid}
+          canResendEmail={canResendEmail}
+        />
+      )}
+      {activeTab === "recibidos" && (
+        <RecibidosTab suppliers={suppliers} canCreateDraft={canCreateDraft} />
+      )}
       {activeTab === "libro" && <LibroIvaTab />}
-      {activeTab === "folios" && <FoliosTab canManage={canManage} />}
+      {activeTab === "folios" && <FoliosTab canConfigure={canConfigure} />}
     </div>
   );
 }
@@ -247,13 +279,88 @@ export function FacturacionClient({
    Tab 1: DTEs Emitidos
    ═══════════════════════════════════════════════ */
 
-function DtesTab({ dtes, canManage }: { dtes: DteRow[]; canManage: boolean }) {
+function DtesTab({
+  dtes: initialDtes,
+  issuedTotal,
+  canIssue,
+  canCreditNote,
+  canVoid,
+  canResendEmail,
+}: {
+  dtes: DteRow[];
+  issuedTotal: number;
+  canIssue: boolean;
+  canCreditNote: boolean;
+  canVoid: boolean;
+  canResendEmail: boolean;
+}) {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [voiding, setVoiding] = useState<string | null>(null);
   const [sendingEmail, setSendingEmail] = useState<string | null>(null);
+  // Paginación server-side. La SC pre-carga la primera página (50);
+  // si el usuario cambia page o pageSize, refetch al endpoint paginado.
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+  const [dtes, setDtes] = useState<DteRow[]>(initialDtes);
+  const [total, setTotal] = useState(issuedTotal);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (page === 1 && pageSize === 50) {
+      setDtes(initialDtes);
+      setTotal(issuedTotal);
+      return;
+    }
+    const ctrl = new AbortController();
+    setLoading(true);
+    (async () => {
+      try {
+        const params = new URLSearchParams();
+        params.set("page", String(page));
+        params.set("pageSize", String(pageSize));
+        const res = await fetch(`/api/finance/billing/issued?${params.toString()}`, {
+          signal: ctrl.signal,
+        });
+        if (!res.ok) throw new Error();
+        const json = await res.json();
+        const list: DteRow[] = Array.isArray(json?.data?.dtes)
+          ? json.data.dtes.map((d: Record<string, unknown>) => ({
+              id: String(d.id),
+              dteType: Number(d.dteType),
+              folio: Number(d.folio),
+              receiverRut: String(d.receiverRut ?? ""),
+              receiverName: String(d.receiverName ?? ""),
+              receiverEmail: (d.receiverEmail as string | null) ?? null,
+              netAmount: Number(d.netAmount),
+              taxAmount: Number(d.taxAmount),
+              totalAmount: Number(d.totalAmount),
+              siiStatus: String(d.siiStatus ?? ""),
+              currency: String(d.currency ?? "CLP"),
+              linesCount: Array.isArray(d.lines) ? d.lines.length : 0,
+              createdAt: String(d.createdAt ?? ""),
+              emailSentAt: (d.emailSentAt as string | null) ?? null,
+              emailStatus: (d.emailStatus as string | null) ?? null,
+              referenceType: (d.referenceType as number | null) ?? null,
+              referenceFolio: (d.referenceFolio as number | null) ?? null,
+            }))
+          : [];
+        setDtes(list);
+        if (typeof json?.data?.pagination?.total === "number") {
+          setTotal(json.data.pagination.total);
+        }
+      } catch (err) {
+        if ((err as Error).name !== "AbortError") {
+          toast.error("Error al cargar DTEs emitidos");
+        }
+      } finally {
+        setLoading(false);
+      }
+    })();
+    return () => ctrl.abort();
+  }, [page, pageSize, initialDtes, issuedTotal]);
 
   const filtered = useMemo(() => {
     let list = dtes;
@@ -381,7 +488,7 @@ function DtesTab({ dtes, canManage }: { dtes: DteRow[]; canManage: boolean }) {
             </SelectContent>
           </Select>
         </div>
-        {canManage && (
+        {canIssue && (
           <Link href="/finanzas/facturacion/emitir">
             <Button size="sm">
               <Plus className="h-4 w-4 mr-1.5" />
@@ -399,7 +506,7 @@ function DtesTab({ dtes, canManage }: { dtes: DteRow[]; canManage: boolean }) {
           title="Sin documentos"
           description="No hay DTEs emitidos."
           action={
-            canManage ? (
+            canIssue ? (
               <Link href="/finanzas/facturacion/emitir">
                 <Button size="sm">
                   <Plus className="h-4 w-4 mr-1.5" />
@@ -536,7 +643,7 @@ function DtesTab({ dtes, canManage }: { dtes: DteRow[]; canManage: boolean }) {
                       >
                         <FileCode className="h-3.5 w-3.5" />
                       </Button>
-                      {canManage && row.receiverEmail && row.siiStatus !== "ANNULLED" && (
+                      {canResendEmail && row.receiverEmail && row.siiStatus !== "ANNULLED" && (
                         <Button
                           variant="ghost"
                           size="sm"
@@ -551,35 +658,33 @@ function DtesTab({ dtes, canManage }: { dtes: DteRow[]; canManage: boolean }) {
                           )}
                         </Button>
                       )}
-                      {canManage && row.siiStatus !== "ANNULLED" && (
-                        <>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => { e.stopPropagation(); handleVoid(row.id); }}
-                            disabled={voiding === row.id}
-                            title="Anular"
-                          >
-                            {voiding === row.id ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            ) : (
-                              <Ban className="h-3.5 w-3.5 text-destructive" />
-                            )}
-                          </Button>
-                          {row.dteType === 33 && (
-                            <>
-                              <Link href={`/finanzas/facturacion/notas/credito?referenceDteId=${row.id}`}>
-                                <Button variant="ghost" size="sm" title="Nota de crédito">
-                                  <FileMinus className="h-3.5 w-3.5" />
-                                </Button>
-                              </Link>
-                              <Link href={`/finanzas/facturacion/notas/debito?referenceDteId=${row.id}`}>
-                                <Button variant="ghost" size="sm" title="Nota de débito">
-                                  <FilePlus className="h-3.5 w-3.5" />
-                                </Button>
-                              </Link>
-                            </>
+                      {canVoid && row.siiStatus !== "ANNULLED" && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => { e.stopPropagation(); handleVoid(row.id); }}
+                          disabled={voiding === row.id}
+                          title="Anular"
+                        >
+                          {voiding === row.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Ban className="h-3.5 w-3.5 text-destructive" />
                           )}
+                        </Button>
+                      )}
+                      {canCreditNote && row.siiStatus !== "ANNULLED" && row.dteType === 33 && (
+                        <>
+                          <Link href={`/finanzas/facturacion/notas/credito?referenceDteId=${row.id}`}>
+                            <Button variant="ghost" size="sm" title="Nota de crédito">
+                              <FileMinus className="h-3.5 w-3.5" />
+                            </Button>
+                          </Link>
+                          <Link href={`/finanzas/facturacion/notas/debito?referenceDteId=${row.id}`}>
+                            <Button variant="ghost" size="sm" title="Nota de débito">
+                              <FilePlus className="h-3.5 w-3.5" />
+                            </Button>
+                          </Link>
                         </>
                       )}
                     </div>
@@ -650,7 +755,7 @@ function DtesTab({ dtes, canManage }: { dtes: DteRow[]; canManage: boolean }) {
                         <FileCode className="h-3.5 w-3.5 mr-1" />
                         XML
                       </Button>
-                      {canManage && d.receiverEmail && d.siiStatus !== "ANNULLED" && (
+                      {canResendEmail && d.receiverEmail && d.siiStatus !== "ANNULLED" && (
                         <Button
                           variant="ghost"
                           size="sm"
@@ -665,30 +770,28 @@ function DtesTab({ dtes, canManage }: { dtes: DteRow[]; canManage: boolean }) {
                           {d.emailSentAt ? "Reenviar" : "Email"}
                         </Button>
                       )}
-                      {canManage && d.siiStatus !== "ANNULLED" && (
-                        <>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleVoid(d.id)}
-                            disabled={voiding === d.id}
-                          >
-                            {voiding === d.id ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
-                            ) : (
-                              <Ban className="h-3.5 w-3.5 mr-1 text-destructive" />
-                            )}
-                            Anular
-                          </Button>
-                          {d.dteType === 33 && (
-                            <Link href={`/finanzas/facturacion/notas/credito?referenceDteId=${d.id}`}>
-                              <Button variant="ghost" size="sm">
-                                <FileMinus className="h-3.5 w-3.5 mr-1" />
-                                NC
-                              </Button>
-                            </Link>
+                      {canVoid && d.siiStatus !== "ANNULLED" && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleVoid(d.id)}
+                          disabled={voiding === d.id}
+                        >
+                          {voiding === d.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+                          ) : (
+                            <Ban className="h-3.5 w-3.5 mr-1 text-destructive" />
                           )}
-                        </>
+                          Anular
+                        </Button>
+                      )}
+                      {canCreditNote && d.siiStatus !== "ANNULLED" && d.dteType === 33 && (
+                        <Link href={`/finanzas/facturacion/notas/credito?referenceDteId=${d.id}`}>
+                          <Button variant="ghost" size="sm">
+                            <FileMinus className="h-3.5 w-3.5 mr-1" />
+                            NC
+                          </Button>
+                        </Link>
                       )}
                     </div>
                   </CardContent>
@@ -696,6 +799,18 @@ function DtesTab({ dtes, canManage }: { dtes: DteRow[]; canManage: boolean }) {
               );
             })}
           </div>
+
+          <PaginationControls
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            onPageChange={setPage}
+            onPageSizeChange={(s) => {
+              setPageSize(s);
+              setPage(1);
+            }}
+            loading={loading}
+          />
         </>
       )}
     </div>
@@ -706,7 +821,12 @@ function DtesTab({ dtes, canManage }: { dtes: DteRow[]; canManage: boolean }) {
    Tab 2: Folios
    ═══════════════════════════════════════════════ */
 
-function FoliosTab({ canManage }: { canManage: boolean }) {
+function FoliosTab({ canConfigure }: { canConfigure: boolean }) {
+  // canConfigure se pasa al hijo `FolioCard` para condicionar el botón de
+  // "Subir CAF". Hoy `FolioCard` aún no consume este flag y todos los
+  // folios se ven igual; cuando se agregue el botón de upload, enviar
+  // canConfigure al sub-componente.
+  void canConfigure;
   const [folios, setFolios] = useState<FolioStatus[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -815,7 +935,18 @@ function FoliosTab({ canManage }: { canManage: boolean }) {
    Tab 3: DTEs Recibidos
    ═══════════════════════════════════════════════ */
 
-function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; canManage: boolean }) {
+function RecibidosTab({
+  suppliers,
+  canCreateDraft,
+}: {
+  suppliers: SupplierOption[];
+  canCreateDraft: boolean;
+}) {
+  // `canCreateDraft` controla los botones "Sincronizar RCV" y "Registrar DTE
+  // recibido" — ambas son operaciones que crean registros locales (no emiten
+  // al SII). Quien tiene `facturacion_view` puede ver la lista pero no las
+  // acciones de creación/sync.
+  const canManage = canCreateDraft;
   const router = useRouter();
   const [receivedDtes, setReceivedDtes] = useState<ReceivedDteRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -827,28 +958,43 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
   const [receptionFilter, setReceptionFilter] = useState("ALL");
   const [paymentFilter, setPaymentFilter] = useState("ALL");
   const [syncing, setSyncing] = useState(false);
+  // Paginación server-side. Default 50 (igual que antes); usuario puede
+  // cambiar a 10/25/100/200 desde el selector.
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+  const [total, setTotal] = useState(0);
+  const [detailDte, setDetailDte] = useState<ReceivedDteRow | null>(null);
 
   const loadReceivedDtes = useCallback(async () => {
+    setLoading(true);
     try {
-      const res = await fetch("/api/finance/billing/received");
+      const params = new URLSearchParams();
+      params.set("page", String(page));
+      params.set("pageSize", String(pageSize));
+      const res = await fetch(`/api/finance/billing/received?${params.toString()}`);
       if (!res.ok) throw new Error();
       const json = await res.json();
-      // El endpoint devuelve { data: { dtes: [...], pagination: {...} } }.
-      // Defensivo: aceptamos también la forma plana { data: [...] } por si
-      // algún wrapper futuro lo cambia.
       const list = Array.isArray(json?.data)
         ? json.data
         : Array.isArray(json?.data?.dtes)
           ? json.data.dtes
           : [];
       setReceivedDtes(list);
+      // total puede venir como pagination.total o como length del array
+      // (cuando endpoint legacy no pagina). Defensivo en ambos casos.
+      const t =
+        typeof json?.data?.pagination?.total === "number"
+          ? json.data.pagination.total
+          : list.length;
+      setTotal(t);
     } catch {
       toast.error("Error al cargar DTEs recibidos");
       setReceivedDtes([]);
+      setTotal(0);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page, pageSize]);
 
   useEffect(() => { loadReceivedDtes(); }, [loadReceivedDtes]);
 
@@ -1021,7 +1167,11 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
         )}
       </div>
 
-      <p className="text-xs text-muted-foreground">{filtered.length} documento(s) recibido(s)</p>
+      <p className="text-xs text-muted-foreground">
+        {total > 0
+          ? `${filtered.length.toLocaleString("es-CL")} de ${total.toLocaleString("es-CL")} documento(s)`
+          : `${filtered.length} documento(s) recibido(s)`}
+      </p>
 
       {filtered.length === 0 ? (
         <EmptyState
@@ -1116,6 +1266,25 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
                     );
                   },
                 },
+                {
+                  id: "actions",
+                  header: "",
+                  align: "right",
+                  cell: (row) => (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDetailDte(row);
+                      }}
+                      aria-label="Ver detalle"
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                  ),
+                },
               ] satisfies DataTableColumn<ReceivedDteRow>[]}
               rows={filtered}
               rowKey={(row) => row.id}
@@ -1129,7 +1298,11 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
               const recCfg = RECEPTION_STATUS_CONFIG[d.receptionStatus] ?? { label: d.receptionStatus, className: "bg-muted" };
               const payCfg = PAYMENT_STATUS_CONFIG[d.paymentStatus] ?? { label: d.paymentStatus, className: "bg-muted" };
               return (
-                <Card key={d.id}>
+                <Card
+                  key={d.id}
+                  className="cursor-pointer hover:bg-muted/30 transition-colors"
+                  onClick={() => setDetailDte(d)}
+                >
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
@@ -1154,14 +1327,34 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
                           </span>
                         </div>
                       </div>
+                      <Eye className="h-4 w-4 text-muted-foreground shrink-0" />
                     </div>
                   </CardContent>
                 </Card>
               );
             })}
           </div>
+
+          <PaginationControls
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            onPageChange={setPage}
+            onPageSizeChange={(s) => {
+              setPageSize(s);
+              setPage(1); // reset al cambiar tamaño
+            }}
+            loading={loading}
+          />
         </>
       )}
+
+      {/* Modal de detalle del DTE recibido */}
+      <ReceivedDteDetailDialog
+        dte={detailDte}
+        onClose={() => setDetailDte(null)}
+        suppliers={suppliers}
+      />
 
       {/* Dialog: Registrar DTE Recibido */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -1320,5 +1513,145 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+/**
+ * ReceivedDteDetailDialog — modal de detalle de un DTE recibido.
+ *
+ * Muestra todos los datos que tenemos del DTE (vienen del RCV del SII vía
+ * SimpleAPI o de un alta manual). Como el SII NO expone re-descarga del XML
+ * del DTE recibido, ofrecemos:
+ *   - Link al visor web del SII (si el usuario tiene sesión SII abierta)
+ *   - Botón "Adjuntar PDF/XML del proveedor" (futuro: subir el archivo que
+ *     llegó por email del proveedor; persiste en blob storage)
+ */
+function ReceivedDteDetailDialog({
+  dte,
+  onClose,
+  suppliers,
+}: {
+  dte: ReceivedDteRow | null;
+  onClose: () => void;
+  suppliers: SupplierOption[];
+}) {
+  if (!dte) return null;
+  const supplier = suppliers.find((s) => s.rut === dte.issuerRut);
+  const dateStr = format(new Date(dte.date), "dd 'de' MMMM yyyy", { locale: es });
+  const dueStr = dte.dueDate
+    ? format(new Date(dte.dueDate), "dd 'de' MMMM yyyy", { locale: es })
+    : "Sin fecha de vencimiento";
+  const recCfg = RECEPTION_STATUS_CONFIG[dte.receptionStatus] ?? {
+    label: dte.receptionStatus,
+    className: "bg-muted",
+  };
+  const payCfg = PAYMENT_STATUS_CONFIG[dte.paymentStatus] ?? {
+    label: dte.paymentStatus,
+    className: "bg-muted",
+  };
+
+  // Visor SII oficial. Cualquiera que tenga sesión SII puede abrirlo y ver
+  // el DTE original con su detalle completo (líneas, IVA, certificación).
+  const siiViewerUrl = `https://www4.sii.cl/consdcvinternetui/#/index`;
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <FileInput className="h-5 w-5 text-primary" />
+            {DTE_TYPE_LABELS[dte.dteType] ?? `Tipo ${dte.dteType}`} N° {dte.folio}
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 py-2">
+          {/* Estados */}
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="outline" className={cn("text-xs", recCfg.className)}>
+              Recepción: {recCfg.label}
+            </Badge>
+            <Badge variant="outline" className={cn("text-xs", payCfg.className)}>
+              Pago: {payCfg.label}
+            </Badge>
+          </div>
+
+          {/* Datos del emisor */}
+          <div className="rounded-md border border-border bg-muted/30 p-4 space-y-2">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">
+              Emisor
+            </p>
+            <p className="font-medium">{dte.issuerName}</p>
+            <p className="text-sm font-mono text-muted-foreground">{dte.issuerRut}</p>
+            {supplier && (
+              <p className="text-xs text-muted-foreground">
+                Proveedor vinculado en OPAI: <span className="font-medium">{supplier.name}</span>
+              </p>
+            )}
+          </div>
+
+          {/* Fechas */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Emisión</p>
+              <p className="text-sm">{dateStr}</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Vencimiento</p>
+              <p className="text-sm">{dueStr}</p>
+            </div>
+          </div>
+
+          {/* Montos */}
+          <div className="rounded-md border border-border p-4 space-y-2">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Montos</p>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Neto</span>
+              <span className="font-mono">{fmtCLP.format(dte.netAmount)}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">IVA (19%)</span>
+              <span className="font-mono">{fmtCLP.format(dte.taxAmount)}</span>
+            </div>
+            <div className="flex justify-between text-base font-medium pt-2 border-t border-border">
+              <span>Total</span>
+              <span className="font-mono">{fmtCLP.format(dte.totalAmount)}</span>
+            </div>
+          </div>
+
+          {/* Aviso sobre el XML/PDF del proveedor */}
+          <div className="rounded-md border border-status-info-border bg-status-info-soft p-3 text-xs text-status-info-fg">
+            <p className="font-medium mb-1">Nota sobre el documento original</p>
+            <p>
+              El SII no expone re-descarga del XML/PDF de DTEs recibidos. El
+              proveedor está obligado a enviarte el XML por email; podés
+              guardarlo en tu correo. Para ver el detalle oficial (líneas,
+              certificación) usá el visor del SII con tu sesión:
+            </p>
+          </div>
+
+          {/* Botones */}
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              asChild
+            >
+              <a href={siiViewerUrl} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+                Ver en visor SII
+              </a>
+            </Button>
+            <Button variant="outline" size="sm" disabled title="Próximamente: adjuntar PDF/XML del proveedor">
+              <Download className="h-3.5 w-3.5 mr-1.5" />
+              Adjuntar XML/PDF (próximamente)
+            </Button>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cerrar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
