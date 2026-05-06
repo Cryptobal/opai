@@ -48,6 +48,8 @@ import {
 import { CederDteDialog } from "./factoring/CederDteDialog";
 import { PdfPreviewDialog } from "./PdfPreviewDialog";
 import { DteActionsMenu } from "./DteActionsMenu";
+import { FoliosKpiCards } from "./FoliosKpiCards";
+import { FoliosDetailTable } from "./FoliosDetailTable";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { PaginationControls } from "./PaginationControls";
@@ -94,8 +96,20 @@ interface DteRow {
 
 interface FolioStatus {
   dteType: number;
-  lastFolio: number;
+  cafId: string | null;
+  folioDesde: number | null;
+  folioHasta: number | null;
   nextFolio: number;
+  consumidos: number;
+  disponibles: number;
+  totalCAF: number;
+  porcentajeUsado: number;
+  lowStock: boolean;
+  cafExpiraEn: string | null;
+  ultimoFolio: number;
+  totalEmitidos: number;
+  // Aliases legacy
+  lastFolio: number;
   totalIssued: number;
 }
 
@@ -1045,6 +1059,23 @@ function FoliosTab({ canManage }: { canManage: boolean }) {
 
   useEffect(() => { loadFolios(); }, [loadFolios]);
 
+  // KPIs agregados.
+  const totalDisponibles = folios.reduce((acc, f) => acc + f.disponibles, 0);
+  const lowStockCount = folios.filter((f) => f.lowStock).length;
+  const tiposConCAF = folios.filter((f) => f.totalCAF > 0).length;
+  const expiring = folios
+    .filter((f) => f.cafExpiraEn !== null)
+    .map((f) => {
+      const dias = Math.ceil(
+        (new Date(f.cafExpiraEn as string).getTime() - Date.now()) /
+          (1000 * 60 * 60 * 24),
+      );
+      return dias;
+    })
+    .filter((dias) => dias <= 90);
+  const expiringCount = expiring.length;
+  const minDiasRestantes = expiring.length > 0 ? Math.min(...expiring) : null;
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -1055,78 +1086,17 @@ function FoliosTab({ canManage }: { canManage: boolean }) {
 
   return (
     <div className="space-y-4">
-      <p className="text-xs text-muted-foreground">Estado de folios por tipo de DTE</p>
-
-      {folios.length === 0 ? (
-        <EmptyState
-          icon={Hash}
-          title="Sin datos de folios"
-          description="No hay información de folios disponible."
-        />
-      ) : (
-        <>
-          {/* Desktop table */}
-          <div className="hidden md:block">
-            <DataTable<FolioStatus>
-              columns={[
-                {
-                  id: "dteType",
-                  header: "Tipo DTE",
-                  cell: (row) => <>{DTE_TYPE_LABELS[row.dteType] ?? `Tipo ${row.dteType}`}</>,
-                },
-                {
-                  id: "lastFolio",
-                  header: "Último folio",
-                  align: "center",
-                  cell: (row) => <span className="font-mono text-xs">{row.lastFolio || "—"}</span>,
-                },
-                {
-                  id: "nextFolio",
-                  header: "Siguiente folio",
-                  align: "center",
-                  cell: (row) => <span className="font-mono text-xs">{row.nextFolio}</span>,
-                },
-                {
-                  id: "totalIssued",
-                  header: "Total emitidos",
-                  align: "center",
-                  cell: (row) => <span className="font-mono text-xs">{row.totalIssued}</span>,
-                },
-              ] satisfies DataTableColumn<FolioStatus>[]}
-              rows={folios}
-              rowKey={(row) => String(row.dteType)}
-              empty={<EmptyState icon={Hash} title="Sin datos de folios" compact />}
-            />
-          </div>
-
-          {/* Mobile cards */}
-          <div className="md:hidden space-y-2">
-            {folios.map((f) => (
-              <Card key={f.dteType}>
-                <CardContent className="p-4">
-                  <p className="text-sm font-medium mb-2">
-                    {DTE_TYPE_LABELS[f.dteType] ?? `Tipo ${f.dteType}`}
-                  </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-                    <div>
-                      <span className="text-muted-foreground">Último</span>
-                      <p className="font-mono">{f.lastFolio || "—"}</p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Siguiente</span>
-                      <p className="font-mono">{f.nextFolio}</p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Emitidos</span>
-                      <p className="font-mono">{f.totalIssued}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </>
-      )}
+      <FoliosKpiCards
+        totalDisponibles={totalDisponibles}
+        tiposConCAF={tiposConCAF}
+        lowStockCount={lowStockCount}
+        expiringCount={expiringCount}
+        minDiasRestantes={minDiasRestantes}
+      />
+      <p className="text-xs text-muted-foreground">
+        Estado de folios CAF por tipo de DTE
+      </p>
+      <FoliosDetailTable rows={folios} canManage={canManage} />
     </div>
   );
 }
