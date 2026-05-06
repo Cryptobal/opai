@@ -115,7 +115,10 @@ function normalizeDetalle(d: SimpleApiDetalleRCV): NormalizedRcvDoc | null {
  * - Si ya se sincronizó: trae solo desde el último mes sincronizado hasta hoy.
  * Idempotente: re-correr sobre el mismo período solo inserta nuevos folios.
  */
-export async function syncTenantRcv(tenantId: string): Promise<RcvSyncResult> {
+export async function syncTenantRcv(
+  tenantId: string,
+  options: { monthsBack?: number } = {},
+): Promise<RcvSyncResult> {
   const result: RcvSyncResult = {
     tenantId,
     fetched: 0,
@@ -174,7 +177,11 @@ export async function syncTenantRcv(tenantId: string): Promise<RcvSyncResult> {
   // - Sin sync previo: mes actual + 2 anteriores (para tener histórico inicial).
   // - Con sync previo: desde el mes del último sync hasta el actual.
   const now = new Date();
-  const periods = computePeriodsToSync(config.lastRcvSyncAt, now);
+  const periods = computePeriodsToSync(
+    config.lastRcvSyncAt,
+    now,
+    options.monthsBack ?? 3,
+  );
   result.monthsQueried = periods.map((p) => `${p.mes}/${p.anio}`);
 
   const allDocs: NormalizedRcvDoc[] = [];
@@ -254,15 +261,16 @@ export async function syncTenantRcv(tenantId: string): Promise<RcvSyncResult> {
 function computePeriodsToSync(
   lastSyncAt: Date | null,
   now: Date,
+  monthsBack = 3,
 ): { mes: number; anio: number }[] {
   const currentMonth = now.getUTCMonth() + 1; // 1-12
   const currentYear = now.getUTCFullYear();
 
   const periods: { mes: number; anio: number }[] = [];
 
-  // Sin historial: 3 meses (current + 2 anteriores).
+  // Sin historial: monthsBack meses hacia atrás (default 3).
   if (!lastSyncAt) {
-    for (let i = 2; i >= 0; i--) {
+    for (let i = monthsBack - 1; i >= 0; i--) {
       const d = new Date(Date.UTC(currentYear, currentMonth - 1 - i, 1));
       periods.push({ mes: d.getUTCMonth() + 1, anio: d.getUTCFullYear() });
     }
@@ -281,8 +289,8 @@ function computePeriodsToSync(
     });
     cur = new Date(Date.UTC(cur.getUTCFullYear(), cur.getUTCMonth() + 1, 1));
   }
-  // Cap: nunca más de 12 meses por sync para no abusar del rate limit.
-  return periods.slice(-12);
+  // Cap: nunca más de 60 meses por sync para no abusar del rate limit.
+  return periods.slice(-60);
 }
 
 async function upsertReceivedDte(

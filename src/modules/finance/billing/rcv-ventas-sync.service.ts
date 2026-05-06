@@ -298,8 +298,9 @@ function computePeriodsToSync(
     });
     cur = new Date(Date.UTC(cur.getUTCFullYear(), cur.getUTCMonth() + 1, 1));
   }
-  // Cap: nunca más de 24 meses por sync para no abusar del rate limit.
-  return periods.slice(-24);
+  // Cap: nunca más de 60 meses por sync (5 años — suficiente para casi
+  // cualquier histórico). Rate limit SimpleAPI: 1/sec, 5/min, 100/hour.
+  return periods.slice(-60);
 }
 
 async function upsertIssuedDteFromRcv(

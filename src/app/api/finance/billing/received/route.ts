@@ -28,11 +28,13 @@ export async function GET(request: NextRequest) {
     const page = parseInt(url.searchParams.get("page") || "1");
     const pageSize = parseInt(url.searchParams.get("pageSize") || "50");
     const supplierId = url.searchParams.get("supplierId") || undefined;
+    const periodo = url.searchParams.get("periodo") || undefined;
 
     const result = await listReceivedDtes(ctx.tenantId, {
       page,
       pageSize,
       supplierId,
+      periodo,
     });
 
     return NextResponse.json({ success: true, data: result });
