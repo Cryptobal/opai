@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { Plus, Trash2, Loader2, Send, Download } from "lucide-react";
+import { CustomerCombobox, type CustomerOption } from "./CustomerCombobox";
 import {
   Dialog,
   DialogContent,
@@ -94,6 +95,11 @@ export function DteForm({ availableTypes, accounts }: Props) {
   const router = useRouter();
 
   const [dteType, setDteType] = useState(String(availableTypes[0] ?? 33));
+  // Cliente seleccionado del CRM (vía CustomerCombobox). Si está null, el
+  // usuario está ingresando manualmente los datos del receptor.
+  const [customer, setCustomer] = useState<CustomerOption | null>(null);
+  // Datos manuales del receptor (cuando el cliente NO está en el CRM).
+  // Si hay `customer` seleccionado, estos campos se ignoran al enviar.
   const [receiverRut, setReceiverRut] = useState("");
   const [receiverName, setReceiverName] = useState("");
   const [receiverEmail, setReceiverEmail] = useState("");
@@ -119,9 +125,11 @@ export function DteForm({ availableTypes, accounts }: Props) {
   const [lines, setLines] = useState<DteLine[]>([{ ...EMPTY_LINE }]);
   const [saving, setSaving] = useState(false);
 
-  // Trigger fetch a /receiver-suggestions cuando cambia el RUT (debounce 350ms).
+  // Trigger fetch a /receiver-suggestions para mostrar contactos CC del CRM.
+  // Usa el RUT efectivo (customer del CRM si está seleccionado, sino manual).
+  // Debounce 350ms para no spamear al servidor mientras el usuario escribe.
   useEffect(() => {
-    const rut = receiverRut.trim();
+    const rut = (customer?.rut || receiverRut).trim();
     if (!rut || rut.length < 8) {
       setCrmSuggestions(null);
       return;
@@ -145,7 +153,7 @@ export function DteForm({ availableTypes, accounts }: Props) {
       clearTimeout(t);
       ctrl.abort();
     };
-  }, [receiverRut]);
+  }, [customer, receiverRut]);
 
   const isExenta = dteType === "34";
 
@@ -186,7 +194,13 @@ export function DteForm({ availableTypes, accounts }: Props) {
   }, [lines, isExenta]);
 
   const handleSubmit = async () => {
-    if (!receiverRut.trim() || !receiverName.trim()) {
+    // Datos efectivos del receptor: prioriza customer del CRM si existe;
+    // si no, usa los campos manuales (RUT/RazonSocial/Email).
+    const effRut = (customer?.rut || receiverRut).trim();
+    const effName = (customer?.name || receiverName).trim();
+    const effEmail = (customer?.email || receiverEmail).trim();
+
+    if (!effRut || !effName) {
       toast.error("RUT y nombre del receptor son obligatorios");
       return;
     }
@@ -198,7 +212,7 @@ export function DteForm({ availableTypes, accounts }: Props) {
 
     // Parsear y validar emails CC (separador: coma, espacio o ;).
     const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    const primaryEmail = receiverEmail.trim();
+    const primaryEmail = effEmail;
     const ccCandidates = ccEmailsRaw
       .split(/[\s,;]+/)
       .map((s) => s.trim())
@@ -229,9 +243,9 @@ export function DteForm({ availableTypes, accounts }: Props) {
     try {
       const payload = {
         dteType: parseInt(dteType),
-        receiverRut: receiverRut.trim(),
-        receiverName: receiverName.trim(),
-        receiverEmail: receiverEmail.trim() || null,
+        receiverRut: effRut,
+        receiverName: effName,
+        receiverEmail: effEmail || null,
         receiverEmailCc: ccEmails.length > 0 ? ccEmails : undefined,
         additionalReferences: validRefs.length > 0 ? validRefs : undefined,
         notes: notes.trim() || null,
@@ -363,34 +377,24 @@ export function DteForm({ availableTypes, accounts }: Props) {
 
           <div className="border-t mt-4 pt-4">
             <p className="text-sm font-medium mb-3">Receptor</p>
-            <div className="grid gap-4 md:grid-cols-3">
-              <div className="space-y-1.5">
-                <Label>RUT *</Label>
-                <Input
-                  placeholder="12.345.678-9"
-                  value={receiverRut}
-                  onChange={(e) => setReceiverRut(e.target.value)}
-                  className="h-9"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Razón Social *</Label>
-                <Input
-                  value={receiverName}
-                  onChange={(e) => setReceiverName(e.target.value)}
-                  className="h-9"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Email</Label>
-                <Input
-                  type="email"
-                  value={receiverEmail}
-                  onChange={(e) => setReceiverEmail(e.target.value)}
-                  className="h-9"
-                />
-              </div>
-            </div>
+            {/*
+              CustomerCombobox: busca clientes en el CRM (crm.accounts) por
+              razón social/RUT/email. Si encuentra match, autocompleta todos
+              los datos. Si el cliente no está en CRM, el componente expone
+              modo manual para ingresar RUT/RazonSocial/Email.
+            */}
+            <CustomerCombobox
+              value={customer}
+              onChange={setCustomer}
+              manualRut={receiverRut}
+              manualName={receiverName}
+              manualEmail={receiverEmail}
+              onManualChange={(field, value) => {
+                if (field === "rut") setReceiverRut(value);
+                else if (field === "name") setReceiverName(value);
+                else if (field === "email") setReceiverEmail(value);
+              }}
+            />
           </div>
 
           {/* Sugerencias de contactos CRM cuando el RUT matchea un account */}
