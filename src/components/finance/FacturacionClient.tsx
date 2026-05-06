@@ -1125,7 +1125,7 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
 
           {/* Mobile cards */}
           <div className="md:hidden space-y-2">
-            {filtered.map((d) => {
+            {(Array.isArray(filtered) ? filtered : []).map((d) => {
               const recCfg = RECEPTION_STATUS_CONFIG[d.receptionStatus] ?? { label: d.receptionStatus, className: "bg-muted" };
               const payCfg = PAYMENT_STATUS_CONFIG[d.paymentStatus] ?? { label: d.paymentStatus, className: "bg-muted" };
               return (
