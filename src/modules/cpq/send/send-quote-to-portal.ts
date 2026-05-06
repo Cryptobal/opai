@@ -24,6 +24,7 @@ import {
   truncateCustomEmailSubject,
 } from "@/lib/cpq-portal-email-subject";
 import { buildPortalClienteInviteUrl } from "@/lib/portal-cliente-url";
+import { getWaTemplate } from "@/lib/whatsapp-templates";
 
 export interface SendQuoteToPortalOptions {
   quoteId: string;
@@ -119,9 +120,22 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
 
   const ejecutivo = await prisma.admin.findFirst({
     where: { id: userId, tenantId },
-    select: { name: true },
+    select: { name: true, email: true, cargo: true },
   });
   const ejecutivoName = ejecutivo?.name || "Ejecutivo Comercial";
+
+  // Decompose admin.name en firstName/lastName para tokens actor.* del registry.
+  // El modelo Admin guarda el nombre concatenado; partimos por el primer espacio
+  // para dejar los demás tokens en la rama de "apellidos" (p. ej. "Juan Pérez Soto"
+  // → firstName="Juan", lastName="Pérez Soto").
+  const ejecutivoNameParts = (ejecutivo?.name || "").trim().split(/\s+/);
+  const actorEntity = {
+    firstName: ejecutivoNameParts[0] || "",
+    lastName: ejecutivoNameParts.slice(1).join(" ") || "",
+    fullName: ejecutivo?.name || "Ejecutivo Comercial",
+    email: ejecutivo?.email || "",
+    roleTitle: ejecutivo?.cargo || "",
+  };
 
   // PIN management
   let pin: string;
@@ -306,16 +320,41 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
   const manualRef = quote.name?.trim() || quote.clientName?.trim() || null;
   const installationLabel = quote.installation?.name?.trim() || null;
 
-  const whatsappMsg = [
-    `Hola ${contactName}, qle.`,
-    `Soy ${ejecutivoName} de la empresa ${account.name}.`,
-    `Cotización ${quote.code}.`,
-    manualRef ? `Nombre / referencia: ${manualRef}.` : null,
-    installationLabel ? `Instalación: ${installationLabel}.` : null,
-    `Tengo una consulta.`,
-  ]
-    .filter(Boolean)
-    .join(" ");
+  // Mensaje corto que va dentro del email portal (botón "Comunícate por WhatsApp").
+  // Resuelto desde DocTemplate del tenant (slug cpq_proposal_short). El seed por
+  // defecto produce algo equivalente al texto hardcoded original (con manualRef e
+  // installation cuando aplican vía tokens). Si el tenant edita el template, el
+  // texto sigue su redacción.
+  const whatsappMsg = await getWaTemplate(tenantId, "cpq_proposal_short", {
+    entities: {
+      contact: {
+        firstName: contact.firstName,
+        lastName: contact.lastName,
+        fullName: contactName,
+        email: contact.email,
+        phone: contact.phone,
+      },
+      account: { name: account.name },
+      quote: {
+        code: quote.code,
+        name: quote.name,
+        clientName: quote.clientName,
+      },
+      installation: quote.installation
+        ? { name: quote.installation.name }
+        : undefined,
+      actor: actorEntity,
+      tenant: {
+        commercialName: tenantConfig.commercialName,
+        website: tenantConfig.website,
+        phone: tenantConfig.phone,
+        email: tenantConfig.email,
+        whatsappLink: tenantConfig.whatsappLink,
+      },
+    },
+  });
+
+  // ⚠️ Fallback de teléfono Gard sigue acá hasta PR5 — no tocar.
   const whatsappBase = (tenantConfig.whatsappLink || "https://wa.me/56968727644").replace(/\?.*$/, "");
   const whatsappUrl = `${whatsappBase}?text=${encodeURIComponent(whatsappMsg)}`;
 
@@ -485,6 +524,73 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
     },
   });
 
+  // Bloque pre-formateado: header del mensaje WA con código de cotización +
+  // referencia (manualRef) o cuenta + instalación. El seed `cpq_proposal_with_credentials`
+  // referencia este bloque vía `{{blocks.cpqProposalHeader}}`.
+  const cpqProposalHeaderBlock = (() => {
+    const lines: string[] = [`*Cotización ${quote.code}*`];
+    if (manualRef) {
+      lines.push(`*Nombre / referencia:* ${manualRef}`);
+    } else {
+      lines.push(`*Cuenta:* ${account.name}`);
+    }
+    if (installationLabel) {
+      lines.push(`*Instalación:* ${installationLabel}`);
+    }
+    return lines.join("\n");
+  })();
+
+  const whatsappMessage = await getWaTemplate(tenantId, "cpq_proposal_with_credentials", {
+    entities: {
+      contact: {
+        firstName: contact.firstName,
+        lastName: contact.lastName,
+        fullName: contactName,
+        email: contact.email,
+        phone: contact.phone,
+      },
+      account: { name: account.name },
+      quote: {
+        code: quote.code,
+        name: quote.name,
+        clientName: quote.clientName,
+      },
+      installation: quote.installation
+        ? { name: quote.installation.name }
+        : undefined,
+      actor: actorEntity,
+      tenant: {
+        commercialName: tenantConfig.commercialName,
+        website: tenantConfig.website,
+        whatsappLink: tenantConfig.whatsappLink,
+      },
+      system: {
+        portalUrl,
+        portalPin: pin,
+      },
+      blocks: {
+        cpqProposalHeader: cpqProposalHeaderBlock,
+      },
+    },
+  });
+
+  // Validar que la plantilla del tenant siga conteniendo los tokens críticos
+  // (PIN + portalUrl) tras la resolución. Si alguno falta es porque el tenant
+  // editó la plantilla y los borró: el cliente no podrá entrar al portal solo
+  // con el WA. NO se bloquea el envío — el PIN llega por email igual — pero
+  // se loguea para que ops detecte el problema.
+  if (!whatsappMessage.includes(pin) || !whatsappMessage.includes(portalUrl)) {
+    console.warn(
+      `[whatsapp] Plantilla cpq_proposal_with_credentials del tenant ${tenantId} no contiene tokens críticos. Cliente puede quedar sin PIN/portalUrl en el mensaje WA.`,
+      {
+        tenantId,
+        quoteId,
+        hasPin: whatsappMessage.includes(pin),
+        hasPortalUrl: whatsappMessage.includes(portalUrl),
+      },
+    );
+  }
+
   return {
     emailId: emailResult?.data?.id || null,
     sentTo: contact.email,
@@ -493,18 +599,7 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
     // El link de la propuesta hacia el cliente es siempre el Portal del Cliente.
     proposalLink: portalUrl,
     whatsappPhone: normalizePhone(contact.phone),
-    whatsappMessage: buildWhatsAppMessage({
-      contactName,
-      companyName: account.name,
-      quoteCode: quote.code,
-      manualRef,
-      installationName: installationLabel,
-      email: contact.email,
-      pin,
-      portalUrl,
-      ejecutivoName,
-      brandName: tenantConfig.commercialName,
-    }),
+    whatsappMessage,
     contactName,
   };
 }
@@ -518,59 +613,3 @@ function normalizePhone(raw: string | null | undefined): string | null {
   return cleaned;
 }
 
-interface WhatsAppMsgParams {
-  contactName: string;
-  companyName: string;
-  quoteCode: string;
-  /** Nombre escrito a mano en la cotización (o clientName); si no hay, se usa cuenta en el encabezado */
-  manualRef: string | null;
-  installationName: string | null;
-  email: string;
-  pin: string;
-  portalUrl: string;
-  ejecutivoName: string;
-  brandName: string;
-}
-
-function buildWhatsAppMessage(params: WhatsAppMsgParams): string {
-  const {
-    contactName,
-    companyName,
-    quoteCode,
-    manualRef,
-    installationName,
-    email,
-    pin,
-    portalUrl,
-    ejecutivoName,
-    brandName,
-  } = params;
-  const firstName = contactName.split(" ")[0];
-  const headerLines: string[] = [`*Cotización ${quoteCode}*`];
-  if (manualRef) {
-    headerLines.push(`*Nombre / referencia:* ${manualRef}`);
-  } else {
-    headerLines.push(`*Cuenta:* ${companyName}`);
-  }
-  if (installationName) {
-    headerLines.push(`*Instalación:* ${installationName}`);
-  }
-  return [
-    ...headerLines,
-    "",
-    `Hola ${firstName}, qle. Soy *${ejecutivoName}* de *${brandName}*.`,
-    "",
-    `Te envié por correo una propuesta de seguridad personalizada. En tu portal privado podrás revisar todo el detalle y chatear directamente conmigo.`,
-    "",
-    `*Ingresa al portal desde este link* (tu correo ya está prellenado):`,
-    portalUrl,
-    "",
-    `*Credenciales de acceso:*`,
-    `Correo: ${email}`,
-    `PIN: ${pin}`,
-    "",
-    `Solo ingresa el PIN y listo.`,
-    "",
-    `¿Quieres que agendemos una llamada para revisarla juntos? Responde aquí.`,
-  ].join("\n");
-}
