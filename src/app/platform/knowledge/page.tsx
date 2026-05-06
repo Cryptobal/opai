@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   BookOpen,
   Upload,
@@ -70,6 +70,28 @@ export default function PlatformKnowledgePage() {
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('');
   const [file, setFile] = useState<File | null>(null);
+
+  // Filters
+  const [searchQuery, setSearchQuery] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+
+  const availableCategories = useMemo(() => {
+    const cats = new Set(items.map((d) => d.category).filter(Boolean) as string[]);
+    return Array.from(cats).sort();
+  }, [items]);
+
+  const filteredItems = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return items.filter((d) => {
+      const matchesSearch =
+        !q ||
+        d.title.toLowerCase().includes(q) ||
+        d.fileName.toLowerCase().includes(q) ||
+        (d.description ?? '').toLowerCase().includes(q);
+      const matchesCategory = categoryFilter === 'all' || d.category === categoryFilter;
+      return matchesSearch && matchesCategory;
+    });
+  }, [items, searchQuery, categoryFilter]);
 
   const fetchItems = useCallback(async () => {
     try {
@@ -304,6 +326,34 @@ export default function PlatformKnowledgePage() {
         </div>
       )}
 
+      {/* Filters */}
+      {!loading && items.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3 mb-4">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Buscar por título, archivo o descripción..."
+            className="flex-1 min-w-[220px] rounded-lg border border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 px-3 py-2 text-sm"
+          />
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            className="rounded-lg border border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 px-3 py-2 text-sm"
+          >
+            <option value="all">Todas las categorías</option>
+            {availableCategories.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+          <span className="text-sm text-gray-500 dark:text-gray-400">
+            {filteredItems.length} de {items.length}
+          </span>
+        </div>
+      )}
+
       {/* Table */}
       {loading ? (
         <div className="flex items-center justify-center py-12">
@@ -314,6 +364,13 @@ export default function PlatformKnowledgePage() {
           <BookOpen className="mx-auto mb-3 h-10 w-10 text-gray-300 dark:text-gray-600" />
           <p className="text-sm text-gray-500 dark:text-gray-400">
             No hay documentos de conocimiento. Sube el primero para alimentar al asistente IA.
+          </p>
+        </div>
+      ) : filteredItems.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-gray-300 p-12 text-center dark:border-gray-700">
+          <BookOpen className="mx-auto mb-3 h-10 w-10 text-gray-300 dark:text-gray-600" />
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            No hay documentos que coincidan con los filtros aplicados.
           </p>
         </div>
       ) : (
@@ -332,7 +389,7 @@ export default function PlatformKnowledgePage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-              {items.map((item) => (
+              {filteredItems.map((item) => (
                 <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/30">
                   <td className="px-4 py-3">
                     <div className="font-medium text-gray-900 dark:text-gray-100">{item.title}</div>

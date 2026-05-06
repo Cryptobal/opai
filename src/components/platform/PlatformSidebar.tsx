@@ -5,11 +5,9 @@ import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
-  LayoutDashboard,
   Building2,
   Receipt,
   Tag,
-  Brain,
   MessageSquare,
   BookOpen,
   LogOut,
@@ -19,7 +17,10 @@ import {
   Moon,
   ChevronLeft,
   ChevronRight,
+  Plus,
+  Settings,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { usePlatformTheme } from './PlatformThemeForcer';
 
 interface PlatformSidebarProps {
@@ -27,11 +28,22 @@ interface PlatformSidebarProps {
   adminEmail: string;
 }
 
-const navItems = [
-  { href: '/platform/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/platform/tenants/new', label: 'Nuevo Tenant', icon: Building2 },
-  { href: '/platform/ai', label: 'IA / Providers', icon: Brain },
-  { href: '/platform/pricing', label: 'Pricing', icon: Tag },
+interface NavItem {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  matches?: string[];
+}
+
+const navItems: NavItem[] = [
+  {
+    href: '/platform/dashboard',
+    label: 'Tenants',
+    icon: Building2,
+    matches: ['/platform/dashboard', '/platform/tenants'],
+  },
+  { href: '/platform/tenants/new', label: 'Nuevo Tenant', icon: Plus },
+  { href: '/platform/pricing', label: 'Planes & Add-ons', icon: Tag },
   { href: '/platform/billing', label: 'Facturación', icon: Receipt },
   { href: '/platform/knowledge', label: 'Base de Conocimiento', icon: BookOpen },
   { href: '/platform/marketing', label: 'Marketing Chat', icon: MessageSquare },
@@ -108,9 +120,16 @@ export function PlatformSidebar({ adminName, adminEmail }: PlatformSidebarProps)
         {/* Navigation */}
         <nav className="flex-1 space-y-1 px-2 py-3">
           {navItems.map((item) => {
-            const isActive =
-              pathname === item.href ||
-              (item.href !== '/platform/dashboard' && pathname.startsWith(item.href));
+            const matchesItem = (path: string) => {
+              // Exclude more-specific siblings (e.g. /platform/tenants/new shouldn't activate "Tenants").
+              if (item.href === '/platform/dashboard' && pathname.startsWith('/platform/tenants/new')) {
+                return false;
+              }
+              return pathname === path || pathname.startsWith(path + '/');
+            };
+            const isActive = item.matches
+              ? item.matches.some(matchesItem)
+              : matchesItem(item.href);
             const Icon = item.icon;
             return (
               <Link
@@ -132,6 +151,20 @@ export function PlatformSidebar({ adminName, adminEmail }: PlatformSidebarProps)
 
         {/* Bottom section */}
         <div className="space-y-1 border-t border-white/10 px-2 py-3">
+          {/* Settings */}
+          <Link
+            href="/platform/settings"
+            title={!expanded ? 'Configuración' : undefined}
+            className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
+              pathname.startsWith('/platform/settings')
+                ? 'bg-status-info-soft text-status-info-fg'
+                : 'text-gray-400 hover:bg-white/5 hover:text-white'
+            } ${!expanded ? 'justify-center' : ''}`}
+          >
+            <Settings className="h-4 w-4 shrink-0" />
+            {expanded && <span>Configuración</span>}
+          </Link>
+
           {/* Theme toggle */}
           <button
             onClick={toggleTheme}

@@ -224,8 +224,11 @@ export function TenantTable({ tenants, onImpersonate }: TenantTableProps) {
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 Uso 30d
               </th>
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                Módulos
+              </th>
               <SortHeader
-                label="Ultimo login"
+                label="Último login"
                 sortKey="lastLoginAt"
                 currentSort={sortKey}
                 currentDir={sortDir}
@@ -253,11 +256,17 @@ export function TenantTable({ tenants, onImpersonate }: TenantTableProps) {
                   >
                     {t.plan}
                   </span>
-                  {t.plan === 'enterprise' && (t.monthlyTotal === 0 || t.monthlyTotal === undefined) && (
-                    <span className="ml-1 text-xs text-status-warn-fg" title="Sin precio configurado">
-                      Sin precio
-                    </span>
-                  )}
+                  {t.plan === 'enterprise' &&
+                    (t.monthlyTotal === 0 || t.monthlyTotal === undefined) &&
+                    t.status !== 'trial' && (
+                      <Link
+                        href={`/platform/tenants/${t.id}?tab=plan`}
+                        className="ml-1 text-xs text-status-warn-fg hover:underline"
+                        title="Configurar precio enterprise"
+                      >
+                        Configurar precio
+                      </Link>
+                    )}
                 </td>
                 {/* Estado */}
                 <td className="px-4 py-3">
@@ -290,7 +299,13 @@ export function TenantTable({ tenants, onImpersonate }: TenantTableProps) {
                     <span className="text-xs text-gray-500 dark:text-gray-400">{t.usagePct}%</span>
                   </div>
                 </td>
-                {/* Ultimo login */}
+                {/* Módulos */}
+                <td className="px-4 py-3">
+                  <span className="text-xs font-mono text-gray-600 dark:text-gray-400">
+                    {t.enabledModules}/37
+                  </span>
+                </td>
+                {/* Último login */}
                 <td className="px-4 py-3 text-gray-500 dark:text-gray-400">
                   {timeAgo(t.lastLoginAt)}
                 </td>
@@ -317,7 +332,7 @@ export function TenantTable({ tenants, onImpersonate }: TenantTableProps) {
             {paginated.length === 0 && (
               <tr>
                 <td
-                  colSpan={7}
+                  colSpan={8}
                   className="px-4 py-8 text-center text-sm text-gray-400"
                 >
                   No se encontraron tenants.
@@ -332,7 +347,7 @@ export function TenantTable({ tenants, onImpersonate }: TenantTableProps) {
       {totalPages > 1 && (
         <div className="flex items-center justify-between border-t border-gray-100 px-4 py-3 dark:border-gray-800">
           <span className="text-sm text-gray-500 dark:text-gray-400">
-            Pagina {page + 1} de {totalPages}
+            Página {page + 1} de {totalPages}
           </span>
           <div className="flex gap-2">
             <button
