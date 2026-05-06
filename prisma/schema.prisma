@@ -6043,6 +6043,7 @@ enum FinanceCurrency {
 }
 
 enum FinanceSiiStatus {
+  DRAFT
   PENDING
   SENT
   ACCEPTED
@@ -6194,39 +6195,43 @@ model FinanceDte {
   date      DateTime            @db.Date
   dueDate   DateTime?           @map("due_date") @db.Date
 
-  issuerRut     String  @map("issuer_rut")
-  issuerName    String  @map("issuer_name")
-  receiverRut   String  @map("receiver_rut")
-  receiverName  String  @map("receiver_name")
-  receiverEmail String? @map("receiver_email")
+  issuerRut       String   @map("issuer_rut")
+  issuerName      String   @map("issuer_name")
+  receiverRut     String   @map("receiver_rut")
+  receiverName    String   @map("receiver_name")
+  receiverEmail   String?  @map("receiver_email")
   // Emails CC adicionales para el envío del PDF/XML del DTE.
   // El XML del SII solo lleva UN <CorreoRecep> (campo receiverEmail);
   // este array es solo para que OPAI envíe la copia a más gente vía Resend.
   receiverEmailCc String[] @default([]) @map("receiver_email_cc")
 
-  referenceDteId  String?      @map("reference_dte_id") @db.Uuid
-  referenceDte    FinanceDte?  @relation("DteReference", fields: [referenceDteId], references: [id])
-  referencedBy    FinanceDte[] @relation("DteReference")
-  referenceType   Int?         @map("reference_type")
-  referenceFolio  Int?         @map("reference_folio")
-  referenceDate   DateTime?    @map("reference_date") @db.Date
-  referenceCode   Int?         @map("reference_code") // SII CodRef: 1=anula, 2=corrige texto, 3=corrige montos
-  referenceReason String?      @map("reference_reason")
+  referenceDteId       String?      @map("reference_dte_id") @db.Uuid
+  referenceDte         FinanceDte?  @relation("DteReference", fields: [referenceDteId], references: [id])
+  referencedBy         FinanceDte[] @relation("DteReference")
+  referenceType        Int?         @map("reference_type")
+  referenceFolio       Int?         @map("reference_folio")
+  referenceDate        DateTime?    @map("reference_date") @db.Date
+  referenceCode        Int?         @map("reference_code") // SII CodRef: 1=anula, 2=corrige texto, 3=corrige montos
+  referenceReason      String?      @map("reference_reason")
   // Referencias adicionales (no-DTE): OC, HES, Contrato, Resolución, etc.
   // Array JSON con shape:
   //   [{ tipoDocRef: "801"|"HES"|"803"|..., folioRef: string, fchRef: "YYYY-MM-DD", razonRef: string }]
   // Se serializan al bloque <Referencia> del XML SII junto con la
   // referencia principal (si la hay). Hasta 40 refs totales por DTE
   // según especificación SII. NULL = sin referencias adicionales.
-  additionalReferences Json? @map("additional_references")
+  additionalReferences Json?        @map("additional_references")
 
-  currency     FinanceCurrency @default(CLP)
-  exchangeRate Decimal?        @map("exchange_rate") @db.Decimal(10, 4)
-  netAmount    Decimal         @map("net_amount") @db.Decimal(14, 2)
-  exemptAmount Decimal         @default(0) @map("exempt_amount") @db.Decimal(14, 2)
-  taxRate      Decimal         @default(19.00) @map("tax_rate") @db.Decimal(5, 2)
-  taxAmount    Decimal         @map("tax_amount") @db.Decimal(14, 2)
-  totalAmount  Decimal         @map("total_amount") @db.Decimal(14, 2)
+  currency       FinanceCurrency @default(CLP)
+  exchangeRate   Decimal?        @map("exchange_rate") @db.Decimal(10, 4)
+  // Si currency = UF, se persiste la UF del día usada para convertir a CLP.
+  // Permite auditar la conversión y regenerar reportes históricos.
+  ufValueAtIssue Decimal?        @map("uf_value_at_issue") @db.Decimal(14, 2)
+  ufDateAtIssue  DateTime?       @map("uf_date_at_issue") @db.Date
+  netAmount      Decimal         @map("net_amount") @db.Decimal(14, 2)
+  exemptAmount   Decimal         @default(0) @map("exempt_amount") @db.Decimal(14, 2)
+  taxRate        Decimal         @default(19.00) @map("tax_rate") @db.Decimal(5, 2)
+  taxAmount      Decimal         @map("tax_amount") @db.Decimal(14, 2)
+  totalAmount    Decimal         @map("total_amount") @db.Decimal(14, 2)
 
   accountId  String?          @map("account_id")
   contactId  String?          @map("contact_id")
@@ -6252,18 +6257,20 @@ model FinanceDte {
   receiverComuna    String? @map("receiver_comuna")
   receiverCiudad    String? @map("receiver_ciudad")
 
-  siiStatus     FinanceSiiStatus @default(PENDING) @map("sii_status")
-  siiTrackId    String?          @map("sii_track_id")
-  siiResponse   Json?            @map("sii_response")
-  siiAcceptedAt DateTime?        @map("sii_accepted_at") @db.Timestamptz(6)
+  siiStatus            FinanceSiiStatus @default(PENDING) @map("sii_status")
+  siiTrackId           String?          @map("sii_track_id")
+  siiResponse          Json?            @map("sii_response")
+  siiAcceptedAt        DateTime?        @map("sii_accepted_at") @db.Timestamptz(6)
   /**
    * Timestamp de la última consulta de estado al SII vía SimpleAPI
    * (consulta/envio). Usado por el cron horario para no consultar el
    * mismo DTE más de una vez por hora y respetar cupo SimpleAPI.
    */
-  siiLastStatusCheckAt DateTime? @map("sii_last_status_check_at") @db.Timestamptz(6)
-  /** Cantidad de veces que se consultó el estado al SII. Para timeout. */
-  siiStatusCheckCount  Int       @default(0) @map("sii_status_check_count")
+  siiLastStatusCheckAt DateTime?        @map("sii_last_status_check_at") @db.Timestamptz(6)
+  /**
+   * Cantidad de veces que se consultó el estado al SII. Para timeout.
+   */
+  siiStatusCheckCount  Int              @default(0) @map("sii_status_check_count")
 
   receptionStatus    FinanceReceptionStatus? @map("reception_status")
   receptionDeadline  DateTime?               @map("reception_deadline") @db.Date
@@ -6296,6 +6303,8 @@ model FinanceDte {
   paymentAllocations FinancePaymentAllocation[]
   factoringOps       FinanceFactoringOperation[]
   attachments        FinanceDteAttachment[]
+  emailLogs          FinanceDteEmailLog[]
+  recurringRuns      FinanceDteRecurringRun[]
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -6320,6 +6329,10 @@ model FinanceDteLine {
   quantity            Decimal               @db.Decimal(12, 4)
   unit                String?
   unitPrice           Decimal               @map("unit_price") @db.Decimal(14, 4)
+  // Precio original en UF cuando el DTE es UF. unitPrice ya contiene el
+  // precio convertido a CLP (con la UF del día). Permite reimpresión y
+  // auditoría: "esta línea se facturó por X UF al precio del día Y".
+  unitPriceUf         Decimal?              @map("unit_price_uf") @db.Decimal(14, 4)
   discountPct         Decimal               @default(0) @map("discount_pct") @db.Decimal(5, 2)
   netAmount           Decimal               @map("net_amount") @db.Decimal(14, 2)
   isExempt            Boolean               @default(false) @map("is_exempt")
@@ -6353,20 +6366,20 @@ model FinanceDteLine {
 ///
 /// Tope blando: 5MB por archivo (validado en el endpoint POST).
 model FinanceDteAttachment {
-  id        String     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  dteId     String     @map("dte_id") @db.Uuid
-  dte       FinanceDte @relation(fields: [dteId], references: [id], onDelete: Cascade)
-  tenantId  String     @map("tenant_id")
+  id       String     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  dteId    String     @map("dte_id") @db.Uuid
+  dte      FinanceDte @relation(fields: [dteId], references: [id], onDelete: Cascade)
+  tenantId String     @map("tenant_id")
 
   /// Tipo lógico del adjunto (XML, PDF, EMAIL, OTHER).
   /// El XML del SII viene con extensión .xml; el PDF impreso del proveedor
   /// con .pdf. EMAIL es el .eml del correo que llegó. OTHER es escape hatch.
-  kind      String     @default("OTHER")
-  filename  String
-  mimeType  String     @map("mime_type")
-  size      Int
+  kind     String @default("OTHER")
+  filename String
+  mimeType String @map("mime_type")
+  size     Int
   /// Bytes del archivo. Para PDFs típicos < 500KB; XMLs SII < 50KB.
-  data      Bytes
+  data     Bytes
 
   uploadedAt DateTime @default(now()) @map("uploaded_at") @db.Timestamptz(6)
   uploadedBy String   @map("uploaded_by")
@@ -6374,6 +6387,122 @@ model FinanceDteAttachment {
   @@index([dteId], map: "idx_finance_dte_attachments_dte")
   @@index([tenantId, dteId], map: "idx_finance_dte_attachments_tenant_dte")
   @@map("finance_dte_attachments")
+  @@schema("finance")
+}
+
+/// Plantilla de facturación recurrente. Cada plantilla genera un BORRADOR
+/// (FinanceDte con siiStatus=DRAFT) en su nextRunAt. El usuario revisa,
+/// ajusta y emite manualmente. Diseño deliberado: el cron NO emite directo
+/// al SII; siempre crea borradores que el usuario aprueba. Esto evita
+/// errores caros (factura mal emitida = nota de crédito + nuevo folio).
+model FinanceDteRecurringTemplate {
+  id       String  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId String  @map("tenant_id")
+  name     String
+  isActive Boolean @default(true) @map("is_active")
+
+  // ── Configuración del DTE base ──
+  dteType           Int      @map("dte_type") // 33, 34, 56, 61
+  receiverRut       String   @map("receiver_rut")
+  receiverName      String   @map("receiver_name")
+  receiverEmail     String?  @map("receiver_email")
+  receiverEmailCc   String[] @default([]) @map("receiver_email_cc")
+  receiverGiro      String?  @map("receiver_giro")
+  receiverDireccion String?  @map("receiver_direccion")
+  receiverComuna    String?  @map("receiver_comuna")
+  receiverCiudad    String?  @map("receiver_ciudad")
+  crmAccountId      String?  @map("crm_account_id") @db.Uuid
+  installationId    String?  @map("installation_id") @db.Uuid
+
+  currency             String  @default("CLP") // "CLP" | "UF"
+  /// Líneas como JSON: [{ itemName, description, quantity, unit, unitPrice|unitPriceUf, discountPct, isExempt, accountId }]
+  lines                Json
+  notes                String?
+  /// Referencias adicionales como JSON, mismo shape que additionalReferences en FinanceDte.
+  additionalReferences Json?
+
+  // ── Frecuencia ──
+  // frequency: "monthly" | "biweekly" | "weekly" | "yearly"
+  frequency   String @map("frequency")
+  // Día del mes (1-31, o -1 = último día). Para monthly y yearly.
+  dayOfMonth  Int?   @map("day_of_month")
+  // Día de la semana 0=Domingo .. 6=Sábado. Para weekly/biweekly.
+  dayOfWeek   Int?   @map("day_of_week")
+  // Mes del año 1-12. Solo para yearly.
+  monthOfYear Int?   @map("month_of_year")
+
+  // ── Tracking de ejecución ──
+  startDate DateTime  @map("start_date") @db.Date
+  endDate   DateTime? @map("end_date") @db.Date
+  nextRunAt DateTime? @map("next_run_at") @db.Date
+  lastRunAt DateTime? @map("last_run_at") @db.Date
+  /// Cantidad histórica de borradores generados.
+  runCount  Int       @default(0) @map("run_count")
+
+  /// Auto-envío de email al receptor cuando el usuario emita el borrador
+  /// generado por esta plantilla.
+  autoSendEmail Boolean @default(true) @map("auto_send_email")
+
+  createdBy String   @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  generatedDtes FinanceDteRecurringRun[]
+
+  @@index([tenantId, isActive], map: "idx_dte_recurring_tenant_active")
+  @@index([nextRunAt], map: "idx_dte_recurring_next_run")
+  @@map("finance_dte_recurring_templates")
+  @@schema("finance")
+}
+
+/// Auditable: cada vez que el cron genera un borrador desde un template
+/// se registra acá. Permite ver historial completo del template.
+model FinanceDteRecurringRun {
+  id         String                      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId   String                      @map("tenant_id")
+  templateId String                      @map("template_id") @db.Uuid
+  template   FinanceDteRecurringTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  dteId      String?                     @map("dte_id") @db.Uuid
+  dte        FinanceDte?                 @relation(fields: [dteId], references: [id], onDelete: SetNull)
+  /// "success" | "failed" | "skipped_inactive" | "skipped_endDate"
+  status     String
+  error      String?
+  ranAt      DateTime                    @default(now()) @map("ran_at") @db.Timestamptz(6)
+
+  @@index([tenantId, templateId], map: "idx_dte_recurring_run_template")
+  @@map("finance_dte_recurring_runs")
+  @@schema("finance")
+}
+
+/// Log auditable de cada envío de email relacionado con un DTE (al receptor,
+/// al backoffice/contador, reenvíos manuales, etc). Permite mostrar timeline
+/// en la UI y reauditar disputas tipo "el cliente nunca recibió la factura".
+model FinanceDteEmailLog {
+  id       String     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId String     @map("tenant_id")
+  dteId    String     @map("dte_id") @db.Uuid
+  dte      FinanceDte @relation(fields: [dteId], references: [id], onDelete: Cascade)
+
+  /// "auto_receiver" | "auto_backoffice" | "manual_resend" |
+  /// "manual_override_recipient" | "manual_backoffice"
+  kind        String
+  to          String[]
+  cc          String[] @default([])
+  subject     String
+  /// "pdf_xml" | "xml_only" | "pdf_only"
+  attachments String
+
+  status       String /// "sent" | "failed"
+  resendId     String? @map("resend_id")
+  errorMessage String? @map("error_message")
+
+  sentAt DateTime @default(now()) @map("sent_at") @db.Timestamptz(6)
+  /// userId que disparó el reenvío manual; null para auto.
+  sentBy String?  @map("sent_by")
+
+  @@index([tenantId, dteId], map: "idx_dte_email_log_dte")
+  @@index([tenantId, sentAt], map: "idx_dte_email_log_sent")
+  @@map("finance_dte_email_logs")
   @@schema("finance")
 }
 
@@ -9252,8 +9381,23 @@ model TenantDteConfig {
   // = no se envían alertas. Se ingresan en el hub de configuración DTE.
   alertEmails String[] @default([]) @map("alert_emails")
 
+  // Cada vez que se emite un DTE, además del email al receptor (PDF+XML),
+  // OPAI envía solo el XML a estos destinatarios (típicamente el contador
+  // externo). Lista vacía = no se envía. Hasta 5 destinatarios.
+  defaultXmlRecipientEmails     String[] @default([]) @map("default_xml_recipient_emails")
+  // Si true, el envío al backoffice se hace SIEMPRE (no se puede desmarcar
+  // por DTE en el form). Si false, viene pre-marcado pero el usuario puede
+  // quitarlo en el modal de confirmación.
+  defaultXmlRecipientAlwaysSend Boolean  @default(false) @map("default_xml_recipient_always_send")
+
+  // Plantilla del email al receptor. Placeholders permitidos:
+  // {{razonSocial}}, {{folio}}, {{tipo}}, {{total}}, {{fecha}}, {{receiverName}}.
+  // Si null, se usa el template default del servicio.
+  emailTemplateSubject String? @map("email_template_subject") @db.Text
+  emailTemplateBody    String? @map("email_template_body") @db.Text
+
   // Última sincronización RCV (compras = DTEs RECIBIDOS).
-  lastRcvSyncAt DateTime? @map("last_rcv_sync_at")
+  lastRcvSyncAt       DateTime? @map("last_rcv_sync_at")
   // Última sincronización RCV ventas (DTEs EMITIDOS desde el SII).
   // Sirve para importar el histórico de facturas que el tenant emitió
   // antes de OPAI (vía Zoho, papel, etc) y siguen en el SII.
