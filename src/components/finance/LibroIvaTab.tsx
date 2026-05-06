@@ -48,7 +48,7 @@ const EYEBROW =
 function getMonthOptions(): { value: string; label: string }[] {
   const now = new Date();
   const opts: { value: string; label: string }[] = [];
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 36; i++) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
     const label = d.toLocaleDateString("es-CL", {
