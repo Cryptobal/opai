@@ -45,6 +45,9 @@ import {
   BookOpen,
   FileEdit,
 } from "lucide-react";
+import { CederDteDialog } from "./factoring/CederDteDialog";
+import { PdfPreviewDialog } from "./PdfPreviewDialog";
+import { DteActionsMenu } from "./DteActionsMenu";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { PaginationControls } from "./PaginationControls";
@@ -403,6 +406,10 @@ function DtesTab({
   } | null>(null);
   /** Modal de detalle de DTE emitido. */
   const [detailDteId, setDetailDteId] = useState<string | null>(null);
+  /** Modal de cesión a factoring desde la fila. */
+  const [cedeModalDteId, setCedeModalDteId] = useState<string | null>(null);
+  /** Modal de vista previa PDF. */
+  const [previewDteId, setPreviewDteId] = useState<string | null>(null);
   // Paginación server-side. La SC pre-carga la primera página (50);
   // si el usuario cambia page o pageSize, refetch al endpoint paginado.
   const [page, setPage] = useState(1);
@@ -822,139 +829,25 @@ function DtesTab({
                 {
                   id: "_actions",
                   header: "",
-                  cell: (row) => {
-                    // Reglas SII para acciones según estado y tipo:
-                    //   - PDF/XML: solo si tenemos el XML guardado (hasXml).
-                    //     Los DTEs importados de CSV/RCV no lo tienen.
-                    //   - Anular: SOLO si el SII aún no aceptó (PENDING/SENT).
-                    //     Una vez ACCEPTED, el SII NO permite anular: hay que
-                    //     emitir una Nota de Crédito (CodRef=1).
-                    //   - NC: aplica a 33 (Factura), 34 (Factura Exenta),
-                    //     39 (Boleta), 41 (Boleta Exenta), 56 (Nota Débito).
-                    //   - ND: SOLO aplica a 61 (Nota de Crédito) — la ND se
-                    //     usa exclusivamente para anular una NC emitida por
-                    //     error. Para corregir/anular facturas se usa NC,
-                    //     no ND.
-                    const canAnular =
-                      row.siiStatus === "PENDING" || row.siiStatus === "SENT";
-                    const canCreditNote =
-                      [33, 34, 39, 41, 56].includes(row.dteType) &&
-                      row.siiStatus !== "ANNULLED";
-                    const canDebitNote =
-                      row.dteType === 61 && row.siiStatus !== "ANNULLED";
-                    const hasXml = row.hasXml !== false; // default true (compat)
-                    return (
-                      <div className="flex items-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => { e.stopPropagation(); setDetailDteId(row.id); }}
-                          title="Ver detalle de la factura"
-                        >
-                          <Eye className="h-3.5 w-3.5" />
-                        </Button>
-                        {hasXml && (
-                          <>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={(e) => { e.stopPropagation(); handleDownloadPdf(row.id, row.folio); }}
-                              title="Descargar PDF"
-                            >
-                              <Download className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={(e) => { e.stopPropagation(); handleDownloadXml(row.id, row.folio); }}
-                              title="Descargar XML"
-                            >
-                              <FileCode className="h-3.5 w-3.5" />
-                            </Button>
-                          </>
-                        )}
-                        {!hasXml && (
-                          <span
-                            className="text-xs text-muted-foreground italic px-1"
-                            title="DTE importado del SII — sin XML local. Solo emisiones desde OPAI tienen XML/PDF descargable."
-                          >
-                            (importado)
-                          </span>
-                        )}
-                        {canManage && row.receiverEmail && hasXml && row.siiStatus !== "ANNULLED" && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => { e.stopPropagation(); handleResendEmail(row.id); }}
-                            disabled={sendingEmail === row.id}
-                            title={row.emailSentAt ? "Reenviar email" : "Enviar email"}
-                          >
-                            {sendingEmail === row.id ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            ) : (
-                              <Mail className="h-3.5 w-3.5" />
-                            )}
-                          </Button>
-                        )}
-                        {canManage && (row.siiStatus === "PENDING" || row.siiStatus === "SENT") && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => { e.stopPropagation(); handleCheckStatus(row.id, row.folio); }}
-                            disabled={checkingStatus === row.id}
-                            title="Consultar estado SII (manual)"
-                          >
-                            {checkingStatus === row.id ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            ) : (
-                              <RefreshCw className="h-3.5 w-3.5" />
-                            )}
-                          </Button>
-                        )}
-                        {canManage && canAnular && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => { e.stopPropagation(); handleVoid(row.id); }}
-                            disabled={voiding === row.id}
-                            title="Anular (solo si aún no fue aceptado por SII)"
-                          >
-                            {voiding === row.id ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            ) : (
-                              <Ban className="h-3.5 w-3.5 text-destructive" />
-                            )}
-                          </Button>
-                        )}
-                        {canManage && canCreditNote && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            title="Emitir Nota de Crédito"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setNoteModal({ dteId: row.id, noteType: "credit" });
-                            }}
-                          >
-                            <FileMinus className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
-                        {canManage && canDebitNote && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            title="Emitir Nota de Débito"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setNoteModal({ dteId: row.id, noteType: "debit" });
-                            }}
-                          >
-                            <FilePlus className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
-                      </div>
-                    );
-                  },
+                  cell: (row) => (
+                    <DteActionsMenu
+                      row={row}
+                      canManage={canManage}
+                      sendingEmail={sendingEmail}
+                      checkingStatus={checkingStatus}
+                      voiding={voiding}
+                      onViewDetail={() => setDetailDteId(row.id)}
+                      onPreviewPdf={() => setPreviewDteId(row.id)}
+                      onDownloadPdf={() => handleDownloadPdf(row.id, row.folio)}
+                      onDownloadXml={() => handleDownloadXml(row.id, row.folio)}
+                      onResendEmail={() => handleResendEmail(row.id)}
+                      onCheckStatus={() => handleCheckStatus(row.id, row.folio)}
+                      onVoid={() => handleVoid(row.id)}
+                      onCede={() => setCedeModalDteId(row.id)}
+                      onCreditNote={() => setNoteModal({ dteId: row.id, noteType: "credit" })}
+                      onDebitNote={() => setNoteModal({ dteId: row.id, noteType: "debit" })}
+                    />
+                  ),
                 },
               ] satisfies DataTableColumn<DteRow>[]}
               rows={filtered}
@@ -1016,108 +909,43 @@ function DtesTab({
                         )}
                       </div>
                     )}
-                    {(() => {
-                      // Mismas reglas que en desktop, ver comentario arriba.
-                      const canAnular = d.siiStatus === "PENDING" || d.siiStatus === "SENT";
-                      const canCreditNote = [33, 34, 39, 41, 56].includes(d.dteType) && d.siiStatus !== "ANNULLED";
-                      // ND SOLO aplica a NC (regla SII): se usa para anular
-                      // una NC emitida por error. NO va a facturas.
-                      const canDebitNote = d.dteType === 61 && d.siiStatus !== "ANNULLED";
-                      const hasXml = d.hasXml !== false;
-                      return (
-                        <div
-                          className="flex gap-1 mt-3 pt-3 border-t border-border flex-wrap"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {hasXml ? (
-                            <>
-                              <Button variant="ghost" size="sm" onClick={() => handleDownloadPdf(d.id, d.folio)}>
-                                <Download className="h-3.5 w-3.5 mr-1" />
-                                PDF
-                              </Button>
-                              <Button variant="ghost" size="sm" onClick={() => handleDownloadXml(d.id, d.folio)}>
-                                <FileCode className="h-3.5 w-3.5 mr-1" />
-                                XML
-                              </Button>
-                            </>
-                          ) : (
-                            <span className="text-xs text-muted-foreground italic px-2 py-1.5">
-                              Importado del SII (sin XML local)
-                            </span>
-                          )}
-                          {canManage && d.receiverEmail && hasXml && d.siiStatus !== "ANNULLED" && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleResendEmail(d.id)}
-                              disabled={sendingEmail === d.id}
-                            >
-                              {sendingEmail === d.id ? (
-                                <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
-                              ) : (
-                                <Mail className="h-3.5 w-3.5 mr-1" />
-                              )}
-                              {d.emailSentAt ? "Reenviar" : "Email"}
-                            </Button>
-                          )}
-                          {canManage && (d.siiStatus === "PENDING" || d.siiStatus === "SENT") && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleCheckStatus(d.id, d.folio)}
-                              disabled={checkingStatus === d.id}
-                            >
-                              {checkingStatus === d.id ? (
-                                <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
-                              ) : (
-                                <RefreshCw className="h-3.5 w-3.5 mr-1" />
-                              )}
-                              Estado SII
-                            </Button>
-                          )}
-                          {canManage && canAnular && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleVoid(d.id)}
-                              disabled={voiding === d.id}
-                              title="Anular (solo si SII no aceptó aún)"
-                            >
-                              {voiding === d.id ? (
-                                <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
-                              ) : (
-                                <Ban className="h-3.5 w-3.5 mr-1 text-destructive" />
-                              )}
-                              Anular
-                            </Button>
-                          )}
-                          {canManage && canCreditNote && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() =>
-                                setNoteModal({ dteId: d.id, noteType: "credit" })
-                              }
-                            >
-                              <FileMinus className="h-3.5 w-3.5 mr-1" />
-                              NC
-                            </Button>
-                          )}
-                          {canManage && canDebitNote && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() =>
-                                setNoteModal({ dteId: d.id, noteType: "debit" })
-                              }
-                            >
-                              <FilePlus className="h-3.5 w-3.5 mr-1" />
-                              ND
-                            </Button>
-                          )}
-                        </div>
-                      );
-                    })()}
+                    <div
+                      className="flex gap-1 mt-3 pt-3 border-t border-border"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setDetailDteId(d.id)}
+                        className="flex-1 justify-center"
+                      >
+                        <Eye className="h-3.5 w-3.5 mr-1.5" />
+                        Detalle
+                      </Button>
+                      <DteActionsMenu
+                        row={d}
+                        canManage={canManage}
+                        sendingEmail={sendingEmail}
+                        checkingStatus={checkingStatus}
+                        voiding={voiding}
+                        onViewDetail={() => setDetailDteId(d.id)}
+                        onPreviewPdf={() => setPreviewDteId(d.id)}
+                        onDownloadPdf={() => handleDownloadPdf(d.id, d.folio)}
+                        onDownloadXml={() => handleDownloadXml(d.id, d.folio)}
+                        onResendEmail={() => handleResendEmail(d.id)}
+                        onCheckStatus={() => handleCheckStatus(d.id, d.folio)}
+                        onVoid={() => handleVoid(d.id)}
+                        onCede={() => setCedeModalDteId(d.id)}
+                        onCreditNote={() =>
+                          setNoteModal({ dteId: d.id, noteType: "credit" })
+                        }
+                        onDebitNote={() =>
+                          setNoteModal({ dteId: d.id, noteType: "debit" })
+                        }
+                        triggerVariant="ghost"
+                        hideViewDetail
+                      />
+                    </div>
                   </CardContent>
                 </Card>
               );
@@ -1155,6 +983,41 @@ function DtesTab({
         onEmitCreditNote={(id) => setNoteModal({ dteId: id, noteType: "credit" })}
         onEmitDebitNote={(id) => setNoteModal({ dteId: id, noteType: "debit" })}
       />
+
+      {/* Modal de cesión a factoring desde la fila */}
+      {(() => {
+        const cedeDte = dtes.find((d) => d.id === cedeModalDteId);
+        if (!cedeDte) return null;
+        return (
+          <CederDteDialog
+            open={cedeModalDteId !== null}
+            onOpenChange={(o) => !o && setCedeModalDteId(null)}
+            dte={{
+              id: cedeDte.id,
+              dteType: cedeDte.dteType,
+              folio: cedeDte.folio,
+              receiverName: cedeDte.receiverName,
+              totalAmount: cedeDte.totalAmount,
+            }}
+          />
+        );
+      })()}
+
+      {/* Modal de vista previa PDF */}
+      {(() => {
+        const previewDte = dtes.find((d) => d.id === previewDteId);
+        if (!previewDte) return null;
+        return (
+          <PdfPreviewDialog
+            open={previewDteId !== null}
+            onOpenChange={(o) => !o && setPreviewDteId(null)}
+            dteId={previewDte.id}
+            folio={previewDte.folio}
+            dteType={previewDte.dteType}
+            onDownload={() => handleDownloadPdf(previewDte.id, previewDte.folio)}
+          />
+        );
+      })()}
     </div>
   );
 }
