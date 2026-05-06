@@ -28,6 +28,17 @@ export type IssueDteInput = {
    * OPAI envía copia del PDF/XML a todos vía Resend.
    */
   receiverEmailCc?: string[];
+  /**
+   * Datos del receptor que el SII exige en facturas (tipo 33).
+   * Si no vienen, el provider usa defaults razonables.
+   */
+  receiverGiro?: string;
+  receiverDireccion?: string;
+  receiverComuna?: string;
+  receiverCiudad?: string;
+  /** Centros de costo: vincular DTE al cliente CRM e instalación. */
+  crmAccountId?: string;
+  installationId?: string;
   lines: {
     itemCode?: string;
     itemName: string;
@@ -178,6 +189,12 @@ export async function issueDte(
         receiverRut: input.receiverRut,
         receiverName: input.receiverName,
         receiverEmail: input.receiverEmail,
+        // Datos del receptor que el SII exige (giro/dir/comuna/ciudad).
+        // Si no vienen, el provider usa defaults seguros.
+        receiverGiro: input.receiverGiro,
+        receiverDireccion: input.receiverDireccion,
+        receiverComuna: input.receiverComuna,
+        receiverCiudad: input.receiverCiudad,
         items: calculatedLines.map((l, i): DteLineItem => ({
           lineNumber: i + 1,
           itemCode: l.itemCode,
@@ -234,6 +251,14 @@ export async function issueDte(
           receiverName: input.receiverName,
           receiverEmail: input.receiverEmail ?? null,
           receiverEmailCc: input.receiverEmailCc ?? [],
+          // Datos completos del receptor (para auditoría y reimpresión).
+          receiverGiro: input.receiverGiro ?? null,
+          receiverDireccion: input.receiverDireccion ?? null,
+          receiverComuna: input.receiverComuna ?? null,
+          receiverCiudad: input.receiverCiudad ?? null,
+          // Centros de costo: cliente CRM e instalación.
+          crmAccountId: input.crmAccountId ?? null,
+          installationId: input.installationId ?? null,
           currency: (input.currency as any) ?? "CLP",
           netAmount: totalNet,
           exemptAmount: totalExempt,

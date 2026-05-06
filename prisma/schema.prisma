@@ -6233,6 +6233,25 @@ model FinanceDte {
   supplierId String?          @map("supplier_id") @db.Uuid
   supplier   FinanceSupplier? @relation(fields: [supplierId], references: [id])
 
+  // ── Centros de costo: cliente CRM + instalación ──
+  // Permite asociar cada DTE a su CrmAccount (cliente) e OpsInstallation
+  // (instalación física del servicio). Aplica para EMITIDOS (qué cliente
+  // facturamos) y RECIBIDOS (qué cliente cobra el gasto reembolsable).
+  // Ambos opcionales: permite registrar DTEs sin asignar y catalogar
+  // después en bulk.
+  crmAccountId   String? @map("crm_account_id") @db.Uuid
+  installationId String? @map("installation_id") @db.Uuid
+
+  // ── Datos del receptor para SII ──
+  // El SII requiere Giro/Direccion/Comuna del receptor en facturas
+  // (tipo 33). Si no vienen, se usan defaults razonables. Se autocompletan
+  // del CRM (industry → giro, address → direccion, commune → comuna)
+  // cuando el receptor está vinculado a un account.
+  receiverGiro      String? @map("receiver_giro")
+  receiverDireccion String? @map("receiver_direccion")
+  receiverComuna    String? @map("receiver_comuna")
+  receiverCiudad    String? @map("receiver_ciudad")
+
   siiStatus     FinanceSiiStatus @default(PENDING) @map("sii_status")
   siiTrackId    String?          @map("sii_track_id")
   siiResponse   Json?            @map("sii_response")

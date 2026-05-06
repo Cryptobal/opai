@@ -218,11 +218,13 @@ export class SimpleApiProvider implements DteProviderAdapter {
       Rut: request.receiverRut,
       RazonSocial: request.receiverName,
       // SII rechaza si Giro/Direccion/Comuna van vacíos en facturas (no boletas).
-      // Defaults razonables para clientes nuevos sin datos extras.
-      Giro: "Sin Giro",
-      Direccion: "Sin direccion",
-      Comuna: "Santiago",
-      Ciudad: "Santiago",
+      // Si el caller proveyó datos reales (autocompletados del CRM o
+      // ingresados a mano), se usan; sino fallback a defaults seguros
+      // que el SII acepta (no son ideales pero no rechazan el DTE).
+      Giro: (request.receiverGiro ?? "").trim() || "Sin Giro",
+      Direccion: (request.receiverDireccion ?? "").trim() || "Sin direccion",
+      Comuna: (request.receiverComuna ?? "").trim() || "Santiago",
+      Ciudad: (request.receiverCiudad ?? "").trim() || "Santiago",
     };
     if (request.receiverEmail) {
       receptor.CorreoRecep = request.receiverEmail;
