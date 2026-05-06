@@ -42,10 +42,13 @@ import {
   FileCode,
   Eye,
   ExternalLink,
+  BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { PaginationControls } from "./PaginationControls";
+import { KPIRow, TrendChart } from "./FacturacionDashboardWidgets";
+import { LibroIvaTab } from "./LibroIvaTab";
 
 /* ── Types ── */
 
@@ -100,6 +103,16 @@ interface SupplierOption {
   name: string;
 }
 
+interface FacturacionKpis {
+  ventasMes: number;
+  ivaDebitoMes: number;
+  pendientesSii: number;
+  facturasMes: number;
+  foliosDisponibles: number;
+  foliosLowCount: number;
+  comparison: { vs: string; pct: number };
+}
+
 interface Props {
   dtes: DteRow[];
   /**
@@ -110,6 +123,7 @@ interface Props {
   issuedTotal?: number;
   canManage: boolean;
   suppliers?: SupplierOption[];
+  kpis: FacturacionKpis;
 }
 
 /* ── Constants ── */
@@ -117,6 +131,7 @@ interface Props {
 const TABS = [
   { id: "dtes", label: "DTEs Emitidos", icon: FileText },
   { id: "recibidos", label: "DTEs Recibidos", icon: FileInput },
+  { id: "libro", label: "Libro IVA", icon: BookOpen },
   { id: "folios", label: "Folios", icon: Hash },
 ] as const;
 
@@ -190,11 +205,21 @@ const EMPTY_RECEIVED_FORM = {
 
 /* ── Component ── */
 
-export function FacturacionClient({ dtes, issuedTotal, canManage, suppliers = [] }: Props) {
+export function FacturacionClient({
+  dtes,
+  issuedTotal,
+  canManage,
+  suppliers = [],
+  kpis,
+}: Props) {
   const [activeTab, setActiveTab] = useState<TabId>("dtes");
 
   return (
     <div className="space-y-4">
+      {/* Dashboard widgets */}
+      <KPIRow kpis={kpis} />
+      <TrendChart />
+
       {/* Tab navigation */}
       <nav className="-mx-4 px-4 sm:mx-0 sm:px-0">
         <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">
@@ -228,6 +253,7 @@ export function FacturacionClient({ dtes, issuedTotal, canManage, suppliers = []
         />
       )}
       {activeTab === "recibidos" && <RecibidosTab suppliers={suppliers} canManage={canManage} />}
+      {activeTab === "libro" && <LibroIvaTab />}
       {activeTab === "folios" && <FoliosTab canManage={canManage} />}
     </div>
   );
