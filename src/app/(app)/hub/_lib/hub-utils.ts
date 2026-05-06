@@ -107,31 +107,14 @@ export function normalizeChileanPhone(raw: string): string {
   return n;
 }
 
-/** Returns a wa.me URL for the given phone number. */
+/**
+ * Returns a wa.me URL for the given phone number (sin mensaje pre-llenado).
+ * Para abrir un chat con un contacto sin texto sugerido. Para mensajes con
+ * texto resuelto desde plantilla, usar `useWaTemplate` o `getWaTemplateAndUrl`.
+ */
 export function whatsappUrl(phone: string): string {
   return `https://wa.me/${normalizeChileanPhone(phone)}`;
 }
-
-/** Returns a wa.me URL with a pre-filled message. */
-export function whatsappUrlWithMessage(phone: string, message: string): string {
-  const base = `https://wa.me/${normalizeChileanPhone(phone)}`;
-  if (!message.trim()) return base;
-  return `${base}?text=${encodeURIComponent(message.trim())}`;
-}
-
-/** Mensajes predefinidos WhatsApp para el Hub de Cierre. */
-export const HUB_WHATSAPP_MESSAGES = {
-  /** Propuestas calientes: seguimiento cercano tras revisión de propuesta. */
-  hot: (nombre: string, empresa: string, vendedor: string, tenantName: string) => {
-    const saludo = nombre && nombre !== 'Sin contacto' ? `Hola ${nombre},` : 'Hola,';
-    return `${saludo} soy ${vendedor} de ${tenantName}.\n\nVi que revisaste nuestra propuesta para ${empresa}. ¿Qué te parece? ¿Tienes dudas o quieres que ajustemos algo?\n\nEstoy disponible para ayudarte cuando lo necesites.`;
-  },
-  /** Sin actividad: reenganche amigable. */
-  stale: (nombre: string, empresa: string, vendedor: string, tenantName: string) => {
-    const saludo = nombre && nombre !== 'Sin contacto' ? `Hola ${nombre},` : 'Hola,';
-    return `${saludo} soy ${vendedor} de ${tenantName}.\n\nPaso a saludarte y ver si aún tienes interés en nuestra propuesta de seguridad para ${empresa}.\n\n¿Te gustaría retomar la conversación? Quedo atento a tu respuesta.`;
-  },
-} as const;
 
 /* ------------------------------------------------------------------ */
 /* Activity grouping (client-safe — no Prisma imports)                */
