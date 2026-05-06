@@ -3,8 +3,10 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Eye, Phone, MessageCircle, Mail, ExternalLink } from 'lucide-react';
+import { toast } from 'sonner';
 import { timeAgo } from '@/lib/utils';
-import { formatCLP, normalizeChileanPhone, whatsappUrlWithMessage, HUB_WHATSAPP_MESSAGES } from '../_lib/hub-utils';
+import { formatCLP, normalizeChileanPhone } from '../_lib/hub-utils';
+import { useWaTemplate } from '@/lib/whatsapp/use-wa-template';
 import type { ClosingHotDeal } from '../_lib/hub-types';
 
 interface Props {
@@ -27,17 +29,25 @@ function TrendIcon({ trend }: { trend: 'up' | 'down' | 'flat' }) {
   return <span className="text-muted-foreground text-xs">—</span>;
 }
 
-function ActionIcons({ deal, sellerFirstName, tenantName }: { deal: ClosingHotDeal; sellerFirstName: string; tenantName: string }) {
+function ActionIcons({ deal }: { deal: ClosingHotDeal }) {
+  const { resolve: resolveWaTemplate } = useWaTemplate();
   const phone = deal.contactPhone ? normalizeChileanPhone(deal.contactPhone) : null;
   const handlePhone = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (phone) window.location.href = `tel:+${phone}`;
   };
-  const handleWhatsApp = (e: React.MouseEvent) => {
+  const handleWhatsApp = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (deal.contactPhone) {
-      const msg = HUB_WHATSAPP_MESSAGES.hot(deal.contactName, deal.companyName, sellerFirstName, tenantName);
-      window.open(whatsappUrlWithMessage(deal.contactPhone, msg), '_blank', 'noopener,noreferrer');
+    if (!deal.contactPhone) return;
+    try {
+      const { url } = await resolveWaTemplate({
+        slug: 'hub_hot',
+        entityType: 'deal',
+        entityId: deal.id,
+      });
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch {
+      toast.error('No se pudo generar el mensaje');
     }
   };
   const handleEmail = (e: React.MouseEvent) => {
@@ -91,7 +101,7 @@ function ActionIcons({ deal, sellerFirstName, tenantName }: { deal: ClosingHotDe
   );
 }
 
-export function HubHotDealsTable({ deals, sellerFirstName, tenantName }: Props) {
+export function HubHotDealsTable({ deals, sellerFirstName: _sellerFirstName, tenantName: _tenantName }: Props) {
   const router = useRouter();
   return (
     <div className="rounded-[10px] border border-border bg-card overflow-hidden">
@@ -150,7 +160,7 @@ export function HubHotDealsTable({ deals, sellerFirstName, tenantName }: Props) 
             {/* Contacto + actions on hover */}
             <span className="flex items-center min-w-0 pr-2">
               <span className="text-sm truncate">{deal.contactName}</span>
-              <ActionIcons deal={deal} sellerFirstName={sellerFirstName} tenantName={tenantName} />
+              <ActionIcons deal={deal} />
             </span>
 
             {/* Etapa */}
