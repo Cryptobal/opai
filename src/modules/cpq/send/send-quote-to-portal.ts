@@ -119,9 +119,22 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
 
   const ejecutivo = await prisma.admin.findFirst({
     where: { id: userId, tenantId },
-    select: { name: true },
+    select: { name: true, email: true, cargo: true },
   });
   const ejecutivoName = ejecutivo?.name || "Ejecutivo Comercial";
+
+  // Decompose admin.name en firstName/lastName para tokens actor.* del registry.
+  // El modelo Admin guarda el nombre concatenado; partimos por el primer espacio
+  // para dejar los demás tokens en la rama de "apellidos" (p. ej. "Juan Pérez Soto"
+  // → firstName="Juan", lastName="Pérez Soto").
+  const ejecutivoNameParts = (ejecutivo?.name || "").trim().split(/\s+/);
+  const actorEntity = {
+    firstName: ejecutivoNameParts[0] || "",
+    lastName: ejecutivoNameParts.slice(1).join(" ") || "",
+    fullName: ejecutivo?.name || "Ejecutivo Comercial",
+    email: ejecutivo?.email || "",
+    roleTitle: ejecutivo?.cargo || "",
+  };
 
   // PIN management
   let pin: string;
