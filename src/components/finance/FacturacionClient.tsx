@@ -458,6 +458,30 @@ function DtesTab({
       const body = await res.json();
       if (!res.ok || !body.success) throw new Error(body.error ?? "Error en sincronización");
       const { fetched, inserted, skipped, monthsQueried, errors } = body.data;
+
+      // Detectar bloqueo de apikey (cupo/rate limit) y mostrar alerta grande.
+      const blockedErr = (errors as string[] | undefined)?.find((e) =>
+        e.startsWith("API_KEY_QUOTA") || e.startsWith("API_KEY_RATE_LIMIT"),
+      );
+      if (blockedErr) {
+        const isRateLimit = blockedErr.startsWith("API_KEY_RATE_LIMIT");
+        toast.error(
+          isRateLimit
+            ? "SimpleAPI: rate limit excedido. Esperá unos minutos."
+            : "SimpleAPI: apikey bloqueada. Desbloqueá en panel.simpleapi.cl",
+          {
+            duration: 15000,
+            action: !isRateLimit
+              ? {
+                  label: "Abrir panel",
+                  onClick: () => window.open("https://panel.simpleapi.cl/", "_blank"),
+                }
+              : undefined,
+          },
+        );
+        return;
+      }
+
       const monthsTxt = `${monthsQueried.length} ${monthsQueried.length === 1 ? "mes" : "meses"}`;
       toast.success(
         `Sincronización completada: ${fetched} consultados, ${inserted} nuevos, ${skipped} ya existentes (${monthsTxt}).`,
@@ -935,18 +959,34 @@ function DtesTab({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="1">Solo el mes corriente (incremental)</SelectItem>
-                  <SelectItem value="3">Últimos 3 meses</SelectItem>
-                  <SelectItem value="6">Últimos 6 meses</SelectItem>
-                  <SelectItem value="12">Último año (12 meses)</SelectItem>
-                  <SelectItem value="24">Últimos 2 años (24 meses)</SelectItem>
-                  <SelectItem value="ALL">Todo el histórico (5 años)</SelectItem>
+                  <SelectItem value="1">Solo el mes corriente (incremental) — 1 consulta</SelectItem>
+                  <SelectItem value="3">Últimos 3 meses — 3 consultas</SelectItem>
+                  <SelectItem value="6">Últimos 6 meses — 6 consultas</SelectItem>
+                  <SelectItem value="12">Último año (12 meses) — 12 consultas</SelectItem>
+                  <SelectItem value="24">Últimos 2 años — 24 consultas</SelectItem>
+                  <SelectItem value="ALL">Todo el histórico (5 años) — 60 consultas</SelectItem>
                 </SelectContent>
               </Select>
+              <div className="rounded-md border border-status-info-border bg-status-info-soft p-2.5 text-xs text-status-info-fg">
+                <p className="font-medium mb-0.5">💡 Cupo SimpleAPI</p>
+                <p>
+                  Cada mes consultado = 1 consulta. Plan Gratuito: 30/mes.
+                  Plan Básico (3 UF/año): 100/mes. Plan Estándar (6 UF/año):
+                  1.000/mes. Si te bloquean,{" "}
+                  <a
+                    href="https://panel.simpleapi.cl/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline font-medium"
+                  >
+                    desbloqueá en panel.simpleapi.cl
+                  </a>.
+                </p>
+              </div>
               {syncMonths === "ALL" && (
                 <p className="text-xs text-status-warn-fg">
-                  ⚠ "Todo el histórico" puede tardar 5–10 minutos. Limitado por
-                  rate limit SimpleAPI (1/sec, 100/hora).
+                  ⚠ "Todo el histórico" usa 60 consultas y puede tardar 5–10
+                  minutos. Asegurate de tener cupo disponible.
                 </p>
               )}
             </div>
@@ -1231,7 +1271,31 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
       );
       const body = await res.json();
       if (!res.ok || !body.success) throw new Error(body.error ?? "Error");
-      const { fetched, inserted, skipped, monthsQueried } = body.data;
+      const { fetched, inserted, skipped, monthsQueried, errors } = body.data;
+
+      // Detectar bloqueo de apikey (cupo/rate limit) y mostrar alerta grande.
+      const blockedErr = (errors as string[] | undefined)?.find((e) =>
+        e.startsWith("API_KEY_QUOTA") || e.startsWith("API_KEY_RATE_LIMIT"),
+      );
+      if (blockedErr) {
+        const isRateLimit = blockedErr.startsWith("API_KEY_RATE_LIMIT");
+        toast.error(
+          isRateLimit
+            ? "SimpleAPI: rate limit excedido. Esperá unos minutos."
+            : "SimpleAPI: apikey bloqueada. Desbloqueá en panel.simpleapi.cl",
+          {
+            duration: 15000,
+            action: !isRateLimit
+              ? {
+                  label: "Abrir panel",
+                  onClick: () => window.open("https://panel.simpleapi.cl/", "_blank"),
+                }
+              : undefined,
+          },
+        );
+        return;
+      }
+
       const monthsTxt = `${monthsQueried.length} ${monthsQueried.length === 1 ? "mes" : "meses"}`;
       toast.success(
         `Sincronización completada: ${fetched} consultados, ${inserted} nuevos, ${skipped ?? 0} ya existentes (${monthsTxt}).`,
@@ -1551,18 +1615,34 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="1">Solo el mes corriente (incremental)</SelectItem>
-                  <SelectItem value="3">Últimos 3 meses</SelectItem>
-                  <SelectItem value="6">Últimos 6 meses</SelectItem>
-                  <SelectItem value="12">Último año (12 meses)</SelectItem>
-                  <SelectItem value="24">Últimos 2 años (24 meses)</SelectItem>
-                  <SelectItem value="ALL">Todo el histórico (5 años)</SelectItem>
+                  <SelectItem value="1">Solo el mes corriente (incremental) — 1 consulta</SelectItem>
+                  <SelectItem value="3">Últimos 3 meses — 3 consultas</SelectItem>
+                  <SelectItem value="6">Últimos 6 meses — 6 consultas</SelectItem>
+                  <SelectItem value="12">Último año (12 meses) — 12 consultas</SelectItem>
+                  <SelectItem value="24">Últimos 2 años — 24 consultas</SelectItem>
+                  <SelectItem value="ALL">Todo el histórico (5 años) — 60 consultas</SelectItem>
                 </SelectContent>
               </Select>
+              <div className="rounded-md border border-status-info-border bg-status-info-soft p-2.5 text-xs text-status-info-fg">
+                <p className="font-medium mb-0.5">💡 Cupo SimpleAPI</p>
+                <p>
+                  Cada mes consultado = 1 consulta. Plan Gratuito: 30/mes.
+                  Plan Básico (3 UF/año): 100/mes. Plan Estándar (6 UF/año):
+                  1.000/mes. Si te bloquean,{" "}
+                  <a
+                    href="https://panel.simpleapi.cl/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline font-medium"
+                  >
+                    desbloqueá en panel.simpleapi.cl
+                  </a>.
+                </p>
+              </div>
               {syncMonths === "ALL" && (
                 <p className="text-xs text-status-warn-fg">
-                  ⚠ "Todo el histórico" puede tardar 5–10 minutos. Limitado
-                  por rate limit SimpleAPI (1/sec, 100/hora).
+                  ⚠ "Todo el histórico" usa 60 consultas y puede tardar 5–10
+                  minutos. Asegurate de tener cupo disponible.
                 </p>
               )}
             </div>
