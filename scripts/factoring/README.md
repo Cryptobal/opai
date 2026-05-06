@@ -59,6 +59,33 @@ SIMPLEAPI_KEY=xxx npx tsx scripts/factoring/cesion-sandbox.ts \
 `package.json`). El script no hace nada destructivo: solo escribe
 artefactos en `--out-dir`.
 
+## Modo `--check-only` (read-only)
+
+Si solo querés **consultar el estado** de un TrackId existente (cesión
+ya enviada por Opai u otro sistema, manualmente o por el flujo
+anterior), usá el flag `--check-only`. En este modo el script:
+
+- Saltea pasos 1 y 2 (no llama a SimpleAPI)
+- Solo hace auth SOAP con el cert + `getEstEnvio` contra el SII
+- Es **completamente read-only**: no modifica nada en SII
+
+Útil para validar la integración SOAP contra una cesión real ya
+anotada en producción, sin emitir nada nuevo.
+
+```bash
+npx tsx scripts/factoring/cesion-sandbox.ts \
+  --check-only \
+  --cert ./tmp/cert.pfx --cert-pwd "PWD" \
+  --rut-titular "RUT-DEL-CERT" \
+  --track-id 11998878336 \
+  --ambiente production \
+  --out-dir ./tmp/check-prod-cesion
+```
+
+En modo check-only solo se generan `05-signed-seed.xml`,
+`06-est-envio-response.xml` y `REPORT.md` (los archivos `01-04` son
+de SimpleAPI y se omiten).
+
 ## Verificación de tipado (sin DB)
 
 ```bash

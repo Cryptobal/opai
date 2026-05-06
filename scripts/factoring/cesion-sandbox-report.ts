@@ -8,6 +8,11 @@
  *   EN PROCESO  → exit 0 — el flujo está bien, SII está validando
  *   RECHAZADO   → exit 2 — revisar AEC y re-intentar
  *   DESCONOCIDO → exit 2 — escalar al equipo
+ *
+ * El reporte incluye solo los archivos efectivamente generados según
+ * el modo:
+ *   - FULL: 01-04 (SimpleAPI) + 05-06 (SOAP) + DTE info
+ *   - CHECK-ONLY: solo 05-06 (SOAP)
  */
 
 import { writeFileSync } from "node:fs";
@@ -18,11 +23,13 @@ import type { EstEnvioResult } from "./sii-soap-helpers";
 
 export interface FinalReport {
   args: SandboxArgs;
-  dte: DteSummary;
+  /** En CHECK-ONLY no hay DTE asociado en disco. */
+  dte: DteSummary | null;
   trackId: string;
   estResult: EstEnvioResult;
   veredicto: string;
   exitCode: 0 | 2;
+  mode: "FULL" | "CHECK_ONLY";
 }
 
 const ACEPTADOS = ["EOK", "EPR"] as const;
@@ -62,33 +69,72 @@ export function buildVeredicto(
   };
 }
 
+function buildInputsSection(report: FinalReport): string {
+  if (report.mode === "CHECK_ONLY") {
+    return [
+      `- Modo: CHECK-ONLY (solo consulta SOAP, no se emitió nada)`,
+      `- Ambiente: ${report.args.ambiente}`,
+      `- TrackId consultado: ${report.trackId}`,
+      `- Cert titular: ${report.args.rutTitular}`,
+    ].join("\n");
+  }
+  const dte = report.dte;
+  return [
+    `- Modo: FULL (generar AEC + enviar + consultar)`,
+    `- Ambiente: ${report.args.ambiente}`,
+    `- DTE: tipo ${dte?.tipoDte ?? "—"} folio ${dte?.folio ?? "—"}`,
+    `- Cedente: ${report.args.razonEmisor} (${report.args.rutEmisor})`,
+    `- Cesionario: ${report.args.razonCesionario} (${report.args.rutCesionario})`,
+    `- Monto cesión: $${report.args.montoCesion.toLocaleString("es-CL")}`,
+  ].join("\n");
+}
+
+function buildResultadoSection(report: FinalReport): string {
+  if (report.mode === "CHECK_ONLY") {
+    return [
+      `- ✅ Auth SOAP con cert OK`,
+      `- ✅ Consulta SOAP getEstEnvio OK`,
+      `- TrackId consultado: **${report.trackId}**`,
+      `- Estado actual SII: **${report.estResult.estadoEnvio ?? "—"}** (${report.estResult.descEstado ?? "—"})`,
+    ].join("\n");
+  }
+  return [
+    `- ✅ AEC generado y firmado`,
+    `- ✅ Envío al SII OK, TrackId: **${report.trackId}**`,
+    `- Estado actual SII: **${report.estResult.estadoEnvio ?? "—"}** (${report.estResult.descEstado ?? "—"})`,
+  ].join("\n");
+}
+
+function buildArchivosSection(mode: FinalReport["mode"]): string {
+  const fullFiles = [
+    "- 01-generar-request.json: payload enviado a SimpleAPI",
+    "- 01-generar-response.bin: response cruda de SimpleAPI",
+    "- 02-aec.xml: AEC firmado por SimpleAPI",
+    "- 03-enviar-request.json: payload de envío",
+    "- 04-enviar-response.json: response con TrackId",
+  ];
+  const soapFiles = [
+    "- 05-signed-seed.xml: semilla firmada con cert",
+    "- 06-est-envio-response.xml: response SOAP getEstEnvio",
+  ];
+  return (mode === "CHECK_ONLY" ? soapFiles : [...fullFiles, ...soapFiles]).join("\n");
+}
+
 export function writeFinalReport(report: FinalReport): void {
   const md = `# Sandbox Cesión — Reporte
 Fecha: ${new Date().toISOString()}
 
 ## Inputs
-- Ambiente: ${report.args.ambiente}
-- DTE: tipo ${report.dte.tipoDte} folio ${report.dte.folio}
-- Cedente: ${report.args.razonEmisor} (${report.args.rutEmisor})
-- Cesionario: ${report.args.razonCesionario} (${report.args.rutCesionario})
-- Monto cesión: $${report.args.montoCesion.toLocaleString("es-CL")}
+${buildInputsSection(report)}
 
 ## Resultado
-- ✅ AEC generado y firmado
-- ✅ Envío al SII OK, TrackId: **${report.trackId}**
-- Estado actual SII: **${report.estResult.estadoEnvio ?? "—"}** (${report.estResult.descEstado ?? "—"})
+${buildResultadoSection(report)}
 
 ## Veredicto
 ${report.veredicto}
 
 ## Archivos
-- 01-generar-request.json: payload enviado a SimpleAPI
-- 01-generar-response.bin: response cruda de SimpleAPI
-- 02-aec.xml: AEC firmado por SimpleAPI
-- 03-enviar-request.json: payload de envío
-- 04-enviar-response.json: response con TrackId
-- 05-signed-seed.xml: semilla firmada con cert
-- 06-est-envio-response.xml: response SOAP getEstEnvio
+${buildArchivosSection(report.mode)}
 
 ## Próximo paso
 - Si veredicto es ÉXITO → proceder con bloques 1-10 del plan factoring v3
