@@ -348,7 +348,7 @@ async function renderDtePage(
       color: COLORS.black,
     });
     const valueText = truncateToWidth(
-      value.toUpperCase(),
+      String(value ?? "").toUpperCase(),
       ctx.fontRegular,
       8,
       recepValueMaxW,
