@@ -305,16 +305,18 @@ async function renderDtePage(
   // 3. CUADRO RECEPTOR — un campo por fila full-width
   // ─────────────────────────────────────────────
   const recepBoxY = y;
-  const recepFields: Array<[string, string | null | undefined]> = [
-    ["SEÑOR(ES)", dte.receptor.razonSocial],
-    ["R.U.T.", formatRut(dte.receptor.rut)],
-    ["GIRO", dte.receptor.giro],
-    ["DIRECCIÓN", dte.receptor.direccion],
-    ["COMUNA", dte.receptor.comuna],
-    ["CIUDAD", dte.receptor.ciudad],
-  ].filter(([, v]) => v && String(v).trim().length > 0) as Array<
-    [string, string]
-  >;
+  const recepFields: Array<[string, string]> = (
+    [
+      ["SEÑOR(ES)", dte.receptor.razonSocial],
+      ["R.U.T.", formatRut(dte.receptor.rut)],
+      ["GIRO", dte.receptor.giro],
+      ["DIRECCIÓN", dte.receptor.direccion],
+      ["COMUNA", dte.receptor.comuna],
+      ["CIUDAD", dte.receptor.ciudad],
+    ] as Array<[string, string | null | undefined]>
+  )
+    .filter(([, v]) => v && String(v).trim().length > 0)
+    .map(([label, v]) => [label, String(v)] as [string, string]);
 
   // Layout 2 columnas — cada celda con label propio y value truncado al ancho
   // disponible para no solaparse con la siguiente columna.
@@ -687,9 +689,17 @@ async function renderDtePage(
 
 /**
  * Genera un PNG con el código PDF417 del TED del DTE.
+ *
+ * Nota tipo: los typings de bwip-js (4.10.x) NO exponen las opciones
+ * específicas de PDF417 (`columns`, `eclevel`, `paddingwidth`,
+ * `paddingheight`) en `RenderOptions`. La librería SÍ las acepta en
+ * runtime — son válidas del BWIPP backend (postscript de barcodes).
+ * El cast a `Record<string, unknown>` evita el error TS sin afectar
+ * funcionalidad.
  */
 async function generatePdf417(tedXml: string): Promise<Buffer> {
-  const png = (await (bwipjs.toBuffer as unknown as (opts: Record<string, unknown>) => Promise<Buffer>)({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const png = await (bwipjs.toBuffer as any)({
     bcid: "pdf417",
     text: tedXml,
     columns: 9,
@@ -697,7 +707,7 @@ async function generatePdf417(tedXml: string): Promise<Buffer> {
     scale: 2,
     paddingwidth: 4,
     paddingheight: 4,
-  })) as Buffer;
+  });
   return Buffer.from(png);
 }
 
