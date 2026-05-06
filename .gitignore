@@ -24,6 +24,13 @@ public/uploads/
 .DS_Store
 *.pem
 
+# Certificates digitales y scratch local de scripts/factoring
+# (extract-cert.ts genera .pfx desde la BD para uso local del sandbox).
+# NUNCA commitear estos archivos — contienen firma digital de la empresa.
+/tmp/
+*.pfx
+*.p12
+
 # debug
 npm-debug.log*
 yarn-debug.log*
