@@ -23,6 +23,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { CustomerCombobox, type CustomerOption } from "./CustomerCombobox";
 
 /* ── Types ── */
 
@@ -94,9 +95,10 @@ export function DteForm({ availableTypes, accounts }: Props) {
   const router = useRouter();
 
   const [dteType, setDteType] = useState(String(availableTypes[0] ?? 33));
-  const [receiverRut, setReceiverRut] = useState("");
-  const [receiverName, setReceiverName] = useState("");
-  const [receiverEmail, setReceiverEmail] = useState("");
+  const [customer, setCustomer] = useState<CustomerOption | null>(null);
+  const [manualRut, setManualRut] = useState("");
+  const [manualName, setManualName] = useState("");
+  const [manualEmail, setManualEmail] = useState("");
   const [notes, setNotes] = useState("");
   const [autoSendEmail, setAutoSendEmail] = useState(false);
   const [lines, setLines] = useState<DteLine[]>([{ ...EMPTY_LINE }]);
@@ -141,8 +143,13 @@ export function DteForm({ availableTypes, accounts }: Props) {
   }, [lines, isExenta]);
 
   const handleSubmit = async () => {
-    if (!receiverRut.trim() || !receiverName.trim()) {
-      toast.error("RUT y nombre del receptor son obligatorios");
+    const effectiveRut = (customer?.rut || manualRut).trim();
+    const effectiveName = (customer?.name || manualName).trim();
+    const effectiveEmailRaw = customer?.email ?? manualEmail;
+    const effectiveEmail = effectiveEmailRaw ? effectiveEmailRaw.trim() : "";
+
+    if (!effectiveRut || !effectiveName) {
+      toast.error("RUT y razón social del receptor son obligatorios");
       return;
     }
     const validLines = lines.filter((l) => l.itemName.trim() && parseFloat(l.unitPrice) > 0);
@@ -155,9 +162,9 @@ export function DteForm({ availableTypes, accounts }: Props) {
     try {
       const payload = {
         dteType: parseInt(dteType),
-        receiverRut: receiverRut.trim(),
-        receiverName: receiverName.trim(),
-        receiverEmail: receiverEmail.trim() || null,
+        receiverRut: effectiveRut,
+        receiverName: effectiveName,
+        receiverEmail: effectiveEmail || null,
         notes: notes.trim() || null,
         autoSendEmail,
         lines: validLines.map((l) => ({
@@ -287,34 +294,18 @@ export function DteForm({ availableTypes, accounts }: Props) {
 
           <div className="border-t mt-4 pt-4">
             <p className="text-sm font-medium mb-3">Receptor</p>
-            <div className="grid gap-4 md:grid-cols-3">
-              <div className="space-y-1.5">
-                <Label>RUT *</Label>
-                <Input
-                  placeholder="12.345.678-9"
-                  value={receiverRut}
-                  onChange={(e) => setReceiverRut(e.target.value)}
-                  className="h-9"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Razón Social *</Label>
-                <Input
-                  value={receiverName}
-                  onChange={(e) => setReceiverName(e.target.value)}
-                  className="h-9"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Email</Label>
-                <Input
-                  type="email"
-                  value={receiverEmail}
-                  onChange={(e) => setReceiverEmail(e.target.value)}
-                  className="h-9"
-                />
-              </div>
-            </div>
+            <CustomerCombobox
+              value={customer}
+              onChange={setCustomer}
+              manualRut={manualRut}
+              manualName={manualName}
+              manualEmail={manualEmail}
+              onManualChange={(field, value) => {
+                if (field === "rut") setManualRut(value);
+                else if (field === "name") setManualName(value);
+                else if (field === "email") setManualEmail(value);
+              }}
+            />
           </div>
         </CardContent>
       </Card>
