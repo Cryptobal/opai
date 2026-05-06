@@ -92,13 +92,47 @@ export async function GET(request: NextRequest) {
     ]);
     const accountMap = new Map(accounts.map((a) => [a.id, a]));
     const installationMap = new Map(installations.map((i) => [i.id, i]));
-    const dtesEnriched = dtes.map((d) => ({
-      ...d,
-      crmAccount: d.crmAccountId ? accountMap.get(d.crmAccountId) ?? null : null,
-      installation: d.installationId
-        ? installationMap.get(d.installationId) ?? null
-        : null,
-    }));
+
+    // Factoring: marcar cuáles son cedibles + adjuntar cesión activa si existe.
+    // Tipos cedibles según Ley 19.983: 33, 34, 43, 46.
+    const CEDIBLE_TYPES = new Set([33, 34, 43, 46]);
+    const dteIds = dtes.map((d) => d.id);
+    const activeCessions = dteIds.length > 0
+      ? await prisma.financeFactoringOperation.findMany({
+          where: {
+            tenantId: ctx.tenantId,
+            dteId: { in: dteIds },
+            status: { in: ["SUBMITTED", "APPROVED", "FUNDED", "COLLECTED", "CLOSED"] },
+          },
+          select: { id: true, code: true, status: true, dteId: true },
+        })
+      : [];
+    const cessionByDte = new Map(activeCessions.map((c) => [c.dteId, c]));
+
+    const dtesEnriched = dtes.map((d) => {
+      const activeCession = cessionByDte.get(d.id) ?? null;
+      const canBeCeded =
+        CEDIBLE_TYPES.has(d.dteType) &&
+        d.siiStatus === "ACCEPTED" &&
+        d.dteXml !== null &&
+        d.dteXml.length > 0 &&
+        activeCession === null;
+      return {
+        ...d,
+        crmAccount: d.crmAccountId ? accountMap.get(d.crmAccountId) ?? null : null,
+        installation: d.installationId
+          ? installationMap.get(d.installationId) ?? null
+          : null,
+        canBeCeded,
+        activeCession: activeCession
+          ? {
+              id: activeCession.id,
+              code: activeCession.code,
+              status: activeCession.status,
+            }
+          : null,
+      };
+    });
 
     return NextResponse.json({
       success: true,
