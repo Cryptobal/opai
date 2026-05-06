@@ -103,7 +103,7 @@ Si te interesa continuar, te leo y avanzamos de inmediato.`,
 {{blocks.dealAdjudicacionDotacion}}
 
 *Ver negocio en OPAI*
-{{deal.proposalLink}}
+{{system.opaiUrl}}
 
 ---
 Mensaje generado automáticamente desde {{tenant.commercialName}}`,
@@ -118,6 +118,12 @@ Mensaje generado automáticamente desde {{tenant.commercialName}}`,
 {{blocks.onboardingDotacion}}
 
 {{blocks.onboardingTickets}}
+
+*Ver tickets*
+{{system.ticketsUrl}}
+
+*Ver negocio en OPAI*
+{{system.opaiUrl}}
 
 ---
 Mensaje generado automáticamente desde {{tenant.commercialName}}`,
