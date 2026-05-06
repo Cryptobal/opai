@@ -82,6 +82,13 @@ export async function GET(request: NextRequest) {
             },
           },
         },
+        previousGuardia: {
+          select: {
+            id: true,
+            code: true,
+            persona: { select: { firstName: true, lastName: true } },
+          },
+        },
       },
       orderBy: [{ puestoId: "asc" }, { slotNumber: "asc" }, { date: "asc" }],
     });
@@ -184,6 +191,13 @@ export async function GET(request: NextRequest) {
             },
           },
           replacementGuardia: {
+            select: {
+              id: true,
+              code: true,
+              persona: { select: { firstName: true, lastName: true } },
+            },
+          },
+          previousGuardia: {
             select: {
               id: true,
               code: true,
@@ -345,6 +359,13 @@ export async function GET(request: NextRequest) {
               },
             },
             replacementGuardia: {
+              select: {
+                id: true,
+                code: true,
+                persona: { select: { firstName: true, lastName: true } },
+              },
+            },
+            previousGuardia: {
               select: {
                 id: true,
                 code: true,

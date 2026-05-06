@@ -3173,6 +3173,7 @@ model OpsGuardia {
   guardEvents                  OpsGuardEvent[]
   pautas                       OpsPautaMensual[]                  @relation("ops_pauta_guardia")
   pautasReemplazo              OpsPautaMensual[]                  @relation("ops_pauta_reemplazo_guardia")
+  pautasMensualesPrevias       OpsPautaMensual[]                  @relation("ops_pauta_previous_guardia")
   asistenciasPlanificadas      OpsAsistenciaDiaria[]              @relation("ops_asistencia_planificada_guardia")
   asistenciasReales            OpsAsistenciaDiaria[]              @relation("ops_asistencia_real_guardia")
   asistenciasReemplazo         OpsAsistenciaDiaria[]              @relation("ops_asistencia_reemplazo_guardia")
@@ -3536,6 +3537,11 @@ model OpsPautaMensual {
   replacementReason    String? @map("replacement_reason") // "vacaciones" | "licencia_medica" | "permiso"
   guardEventId         String? @map("guard_event_id") @db.Uuid
 
+  // ── Histórico de desasignación (preservar quien estaba originalmente) ──
+  previousGuardiaId String?   @map("previous_guardia_id") @db.Uuid
+  unassignedAt      DateTime? @map("unassigned_at") @db.Timestamptz(6)
+  unassignedReason  String?   @map("unassigned_reason")
+
   createdBy String?  @map("created_by")
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -3544,6 +3550,7 @@ model OpsPautaMensual {
   puesto             OpsPuestoOperativo @relation(fields: [puestoId], references: [id], onDelete: Cascade)
   plannedGuardia     OpsGuardia?        @relation("ops_pauta_guardia", fields: [plannedGuardiaId], references: [id], onDelete: SetNull)
   replacementGuardia OpsGuardia?        @relation("ops_pauta_reemplazo_guardia", fields: [replacementGuardiaId], references: [id], onDelete: SetNull)
+  previousGuardia    OpsGuardia?        @relation("ops_pauta_previous_guardia", fields: [previousGuardiaId], references: [id], onDelete: SetNull)
   guardEvent         OpsGuardEvent?     @relation(fields: [guardEventId], references: [id], onDelete: SetNull)
 
   @@unique([puestoId, slotNumber, date], map: "uq_ops_pauta_puesto_slot_fecha")
@@ -3551,6 +3558,8 @@ model OpsPautaMensual {
   @@index([installationId, date], map: "idx_ops_pauta_installation_date")
   @@index([plannedGuardiaId], map: "idx_ops_pauta_guardia")
   @@index([replacementGuardiaId], map: "idx_ops_pauta_reemplazo_guardia")
+  @@index([previousGuardiaId], map: "idx_ops_pauta_previous_guardia")
+  @@index([unassignedAt], map: "idx_ops_pauta_unassigned_at")
   @@index([guardEventId], map: "idx_ops_pauta_guard_event")
   @@map("pauta_mensual")
   @@schema("ops")

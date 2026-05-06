@@ -31,7 +31,8 @@ export const checkSchema = z.object({
 
 /**
  * Cleans pauta mensual entries for a guard from a date forward.
- * Removes the guard from planned slots (sets plannedGuardiaId to null).
+ * Preserves history: moves plannedGuardiaId → previousGuardiaId so the UI
+ * can still surface who was originally planned (and why they were removed).
  * Does NOT erase shiftCode — the series pattern stays painted.
  */
 export async function cleanPautaFromDate(
@@ -39,7 +40,8 @@ export async function cleanPautaFromDate(
   puestoId: string,
   slotNumber: number,
   guardiaId: string,
-  fromDate: Date
+  fromDate: Date,
+  reason: string = "manual"
 ) {
   const cleaned = await prisma.opsPautaMensual.updateMany({
     where: {
@@ -50,7 +52,10 @@ export async function cleanPautaFromDate(
       date: { gte: fromDate },
     },
     data: {
+      previousGuardiaId: guardiaId,
       plannedGuardiaId: null,
+      unassignedAt: new Date(),
+      unassignedReason: reason,
     },
   });
 
@@ -174,7 +179,8 @@ export async function executeAsignar(
       existingGuardiaAssignment.puestoId,
       existingGuardiaAssignment.slotNumber,
       body.guardiaId,
-      endDateForPrevious
+      endDateForPrevious,
+      "reasignacion"
     );
 
     await createOpsAuditLog(ctx, "ops.asignacion.closed", "ops_asignacion", existingGuardiaAssignment.id, {
@@ -214,7 +220,8 @@ export async function executeAsignar(
       existingSlotAssignment.puestoId,
       existingSlotAssignment.slotNumber,
       existingSlotAssignment.guardiaId,
-      startDate
+      startDate,
+      "reasignacion"
     );
   } else {
     // Check if slot had a previously deactivated assignment (e.g. from finiquito)
@@ -229,6 +236,25 @@ export async function executeAsignar(
     });
     if (prevDeactivated) slotHadPreviousOccupant = true;
   }
+
+  // 2b. If we're reassigning the SAME guard that was previously unassigned to this slot,
+  // resurrect their planned cells (clear the "desasignado" markers and restore plannedGuardiaId).
+  await prisma.opsPautaMensual.updateMany({
+    where: {
+      tenantId: ctx.tenantId,
+      puestoId: body.puestoId,
+      slotNumber: body.slotNumber,
+      previousGuardiaId: body.guardiaId,
+      plannedGuardiaId: null,
+      date: { gte: startDate },
+    },
+    data: {
+      plannedGuardiaId: body.guardiaId,
+      previousGuardiaId: null,
+      unassignedAt: null,
+      unassignedReason: null,
+    },
+  });
 
   // 3. Create new assignment
   const asignacion = await prisma.opsAsignacionGuardia.create({
@@ -424,7 +450,8 @@ export async function executeDesasignar(
     asignacion.puestoId,
     asignacion.slotNumber,
     asignacion.guardiaId,
-    endDate
+    endDate,
+    body.reason || "desasignacion_manual"
   );
 
   // Auto-sync: if guard has no other active assignments, clear currentInstallationId
