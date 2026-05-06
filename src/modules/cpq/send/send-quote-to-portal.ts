@@ -24,6 +24,7 @@ import {
   truncateCustomEmailSubject,
 } from "@/lib/cpq-portal-email-subject";
 import { buildPortalClienteInviteUrl } from "@/lib/portal-cliente-url";
+import { getWaTemplate } from "@/lib/whatsapp-templates";
 
 export interface SendQuoteToPortalOptions {
   quoteId: string;
@@ -319,16 +320,41 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
   const manualRef = quote.name?.trim() || quote.clientName?.trim() || null;
   const installationLabel = quote.installation?.name?.trim() || null;
 
-  const whatsappMsg = [
-    `Hola ${contactName}, qle.`,
-    `Soy ${ejecutivoName} de la empresa ${account.name}.`,
-    `Cotización ${quote.code}.`,
-    manualRef ? `Nombre / referencia: ${manualRef}.` : null,
-    installationLabel ? `Instalación: ${installationLabel}.` : null,
-    `Tengo una consulta.`,
-  ]
-    .filter(Boolean)
-    .join(" ");
+  // Mensaje corto que va dentro del email portal (botón "Comunícate por WhatsApp").
+  // Resuelto desde DocTemplate del tenant (slug cpq_proposal_short). El seed por
+  // defecto produce algo equivalente al texto hardcoded original (con manualRef e
+  // installation cuando aplican vía tokens). Si el tenant edita el template, el
+  // texto sigue su redacción.
+  const whatsappMsg = await getWaTemplate(tenantId, "cpq_proposal_short", {
+    entities: {
+      contact: {
+        firstName: contact.firstName,
+        lastName: contact.lastName,
+        fullName: contactName,
+        email: contact.email,
+        phone: contact.phone,
+      },
+      account: { name: account.name },
+      quote: {
+        code: quote.code,
+        name: quote.name,
+        clientName: quote.clientName,
+      },
+      installation: quote.installation
+        ? { name: quote.installation.name }
+        : undefined,
+      actor: actorEntity,
+      tenant: {
+        commercialName: tenantConfig.commercialName,
+        website: tenantConfig.website,
+        phone: tenantConfig.phone,
+        email: tenantConfig.email,
+        whatsappLink: tenantConfig.whatsappLink,
+      },
+    },
+  });
+
+  // ⚠️ Fallback de teléfono Gard sigue acá hasta PR5 — no tocar.
   const whatsappBase = (tenantConfig.whatsappLink || "https://wa.me/56968727644").replace(/\?.*$/, "");
   const whatsappUrl = `${whatsappBase}?text=${encodeURIComponent(whatsappMsg)}`;
 
