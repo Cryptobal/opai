@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { TePeriodSelector } from "./TePeriodSelector";
 import { Spinner } from "@/components/opai-ds";
+import { currentYearMonthInChile, todayInChile } from "@/lib/dates-cl";
 
 /* ── types ── */
 
@@ -177,9 +178,11 @@ function RankingRow({ item, from, to }: { item: RankItem; from: string; to: stri
 /* ── main ── */
 
 export function TeAusentismoRanking() {
-  const now = new Date();
-  const [from, setFrom] = useState(toDateStr(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))));
-  const [to, setTo] = useState(toDateStr(now));
+  const { year: yCL, month: mCL } = currentYearMonthInChile();
+  const [from, setFrom] = useState(
+    `${yCL}-${String(mCL).padStart(2, "0")}-01`,
+  );
+  const [to, setTo] = useState(todayInChile());
   const [data, setData] = useState<AusentismoData | null>(null);
   const [loading, setLoading] = useState(true);
   const rankingRef = useRef<HTMLDivElement>(null);
