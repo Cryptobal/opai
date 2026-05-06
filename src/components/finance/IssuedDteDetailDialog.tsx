@@ -30,9 +30,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   FileText, Download, FileCode, Mail, RefreshCw, Loader2,
-  FileMinus, FilePlus, ExternalLink, Copy, Coins,
+  FileMinus, FilePlus, ExternalLink, Copy, Coins, FileSearch,
 } from "lucide-react";
 import { CederDteDialog } from "./factoring/CederDteDialog";
+import { PdfPreviewDialog } from "./PdfPreviewDialog";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { CostCenterEditor } from "./CostCenterEditor";
@@ -150,6 +151,7 @@ export function IssuedDteDetailDialog({
   const [error, setError] = useState<string | null>(null);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [showCederDialog, setShowCederDialog] = useState(false);
+  const [showPdfPreview, setShowPdfPreview] = useState(false);
   const [downloadingXml, setDownloadingXml] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
   const [checkingStatus, setCheckingStatus] = useState(false);
@@ -561,6 +563,10 @@ export function IssuedDteDetailDialog({
           <DialogFooter className="flex flex-wrap gap-2">
             {dte.hasXml && (
               <>
+                <Button variant="outline" size="sm" onClick={() => setShowPdfPreview(true)}>
+                  <FileSearch className="h-3.5 w-3.5 mr-1.5" />
+                  Vista previa
+                </Button>
                 <Button variant="outline" size="sm" onClick={handleDownloadPdf} disabled={downloadingPdf}>
                   {downloadingPdf ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Download className="h-3.5 w-3.5 mr-1.5" />}
                   PDF
@@ -646,6 +652,16 @@ export function IssuedDteDetailDialog({
             receiverName: dte.receiverName,
             totalAmount: dte.totalAmount,
           }}
+        />
+      ) : null}
+      {dte ? (
+        <PdfPreviewDialog
+          open={showPdfPreview}
+          onOpenChange={setShowPdfPreview}
+          dteId={dte.id}
+          folio={dte.folio}
+          dteType={dte.dteType}
+          onDownload={handleDownloadPdf}
         />
       ) : null}
     </Dialog>
