@@ -117,6 +117,33 @@ export const issueDteSchema = z.object({
   receiverRut: z.string().trim().min(8).max(12),
   receiverName: z.string().trim().min(1).max(200),
   receiverEmail: optNull(z.string().email()),
+  /**
+   * Emails CC para el envío del PDF/XML. El XML del SII solo lleva el
+   * receiverEmail principal. Estos son solo para la copia que envía OPAI.
+   * Tope de 10 destinatarios para evitar abuso.
+   */
+  receiverEmailCc: z
+    .array(z.string().email())
+    .max(10, "Máximo 10 emails CC")
+    .optional(),
+  /**
+   * Referencias adicionales (no-DTE): OC, HES, Contrato, Resolución, etc.
+   * Cada referencia tiene tipo (TpoDocRef SII), folio (alfanumérico ok),
+   * fecha (YYYY-MM-DD) y razón. Se concatenan al bloque <Referencia>
+   * del XML SII. Tope de 40 según especificación SII (acá ponemos 30
+   * para dejar margen si además hay reference principal).
+   */
+  additionalReferences: z
+    .array(
+      z.object({
+        tipoDocRef: z.string().trim().min(1).max(10),
+        folioRef: z.string().trim().min(1).max(40),
+        fchRef: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha YYYY-MM-DD"),
+        razonRef: z.string().trim().min(1).max(90),
+      }),
+    )
+    .max(30, "Máximo 30 referencias adicionales")
+    .optional(),
   lines: z.array(dteLineSchema).min(1, "Debe incluir al menos una linea"),
   currency: z.enum(["CLP", "USD", "UF"]).optional(),
   notes: optNull(z.string().trim().max(1000)),

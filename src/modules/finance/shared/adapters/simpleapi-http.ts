@@ -36,36 +36,67 @@ function normalizeApiBase(raw: string): string {
   return `${url}/api/v1/`;
 }
 
-const API_BASE_URL = normalizeApiBase(
-  process.env.SIMPLEAPI_BASE_URL ?? "https://api.simpleapi.cl",
-);
+/**
+ * Override opcional pasado por el caller (típicamente desde
+ * PlatformDteProvider via SimpleApiProvider). Si no viene, se usa env var.
+ */
+export interface SimpleApiAuth {
+  /** apiKey en plaintext. NULL → fallback a SIMPLEAPI_KEY env var. */
+  apiKey: string | null;
+  /** Base URL para target "api". NULL → fallback a SIMPLEAPI_BASE_URL env. */
+  baseUrl: string | null;
+}
+
+/** API base por defecto (env var). Puede ser sobrescrita por SimpleApiAuth.baseUrl. */
+function defaultApiBaseUrl(): string {
+  return normalizeApiBase(
+    process.env.SIMPLEAPI_BASE_URL ?? "https://api.simpleapi.cl",
+  );
+}
+
+/** Scraper base — siempre la misma, no es overridable por tenant ni platform. */
 const SCRAPER_BASE_URL =
   process.env.SIMPLEAPI_SCRAPER_BASE_URL ?? "https://servicios.simpleapi.cl/api/";
 
-const API_KEY = process.env.SIMPLEAPI_KEY ?? "";
+/** apiKey efectiva: override > env var > "" (vacío → throw en getSimpleApiKeyOrThrow). */
+function resolveApiKey(auth?: SimpleApiAuth): string {
+  return auth?.apiKey ?? process.env.SIMPLEAPI_KEY ?? "";
+}
+
+/** baseUrl efectiva para target=api: override > env var. */
+function resolveApiBase(auth?: SimpleApiAuth): string {
+  if (auth?.baseUrl) return normalizeApiBase(auth.baseUrl);
+  return defaultApiBaseUrl();
+}
 
 export type SimpleApiBaseTarget = "api" | "scraper";
 
-function authHeader(): string {
+function authHeader(apiKey: string): string {
   // Basic base64("api:" + apikey) — formato del SDK oficial.
-  const credentials = Buffer.from(`api:${API_KEY}`).toString("base64");
+  const credentials = Buffer.from(`api:${apiKey}`).toString("base64");
   return `Basic ${credentials}`;
 }
 
-export function getSimpleApiKeyOrThrow(): string {
-  if (!API_KEY) {
+/**
+ * Valida que la apiKey efectiva esté configurada.
+ * Acepta override (typicamente desde PlatformDteProvider) y cae en env var.
+ */
+export function getSimpleApiKeyOrThrow(auth?: SimpleApiAuth): string {
+  const key = resolveApiKey(auth);
+  if (!key) {
     throw new Error(
-      "SIMPLEAPI_KEY no está configurada. Setear env var antes de llamar a SimpleAPI.",
+      "SimpleAPI: apiKey no configurada. Configurá una en /platform/dte o seteá SIMPLEAPI_KEY env var.",
     );
   }
-  return API_KEY;
+  return key;
 }
 
 export function buildSimpleApiUrl(
   target: SimpleApiBaseTarget,
   path: string,
+  auth?: SimpleApiAuth,
 ): string {
-  const base = target === "api" ? API_BASE_URL : SCRAPER_BASE_URL;
+  const base = target === "api" ? resolveApiBase(auth) : SCRAPER_BASE_URL;
   // Garantiza un único slash entre base y path.
   const trimmed = path.replace(/^\//, "");
   return base.endsWith("/") ? `${base}${trimmed}` : `${base}/${trimmed}`;
@@ -141,6 +172,12 @@ export interface SimpleApiRequestOptions {
   path: string;
   method?: "GET" | "POST";
   parts: SimpleApiMultipartPart[];
+  /**
+   * Auth/baseUrl override. Si no se pasa, lee de env vars (modo legacy).
+   * Pasarlo es la forma correcta cuando el caller ya resolvió la config
+   * desde PlatformDteProvider.
+   */
+  auth?: SimpleApiAuth;
 }
 
 export interface SimpleApiResponse {
@@ -150,6 +187,8 @@ export interface SimpleApiResponse {
   bodyText: string;
   /** Si bodyText era JSON parseable, acá está el objeto. */
   bodyJson: unknown;
+  /** Bytes crudos del response. Útil para binarios (PDF, ZIP). */
+  bodyBuffer: Buffer;
 }
 
 /**
@@ -160,14 +199,14 @@ export interface SimpleApiResponse {
 export async function callSimpleApi(
   opts: SimpleApiRequestOptions,
 ): Promise<SimpleApiResponse> {
-  getSimpleApiKeyOrThrow();
-  const url = buildSimpleApiUrl(opts.target, opts.path);
+  const apiKey = getSimpleApiKeyOrThrow(opts.auth);
+  const url = buildSimpleApiUrl(opts.target, opts.path, opts.auth);
   const { body, contentType } = buildMultipartBody(opts.parts);
 
   const res = await fetch(url, {
     method: opts.method ?? "POST",
     headers: {
-      Authorization: authHeader(),
+      Authorization: authHeader(apiKey),
       "Content-Type": contentType,
       // Le decimos a SimpleAPI qué codificación esperar en la respuesta.
       Accept: "application/json, text/xml, text/plain",
@@ -194,5 +233,5 @@ export async function callSimpleApi(
     bodyJson = null;
   }
 
-  return { ok: res.ok, status: res.status, bodyText, bodyJson };
+  return { ok: res.ok, status: res.status, bodyText, bodyJson, bodyBuffer: respBuffer };
 }

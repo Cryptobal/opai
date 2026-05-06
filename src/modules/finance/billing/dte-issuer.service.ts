@@ -17,7 +17,17 @@ export type IssueDteInput = {
   dteType: number;
   receiverRut: string;
   receiverName: string;
+  /**
+   * Email primario del receptor — el único que va al XML SII como
+   * <CorreoRecep>. Si querés enviar copia a más gente, usá
+   * `receiverEmailCc` (no afecta el XML SII, solo el envío externo).
+   */
   receiverEmail?: string;
+  /**
+   * Lista de emails adicionales (CC). El XML SII no los lleva, pero
+   * OPAI envía copia del PDF/XML a todos vía Resend.
+   */
+  receiverEmailCc?: string[];
   lines: {
     itemCode?: string;
     itemName: string;
@@ -54,6 +64,18 @@ export type IssueDteInput = {
     /** Razón en texto libre (RazonRef). */
     reason: string;
   };
+  /**
+   * Referencias adicionales (no-DTE) del DTE: Orden de Compra, HES,
+   * Contrato, Resolución, etc. Se concatenan al bloque <Referencia>
+   * después de la referencia principal. Opcional, hasta 40 totales por
+   * DTE según especificación SII.
+   */
+  additionalReferences?: Array<{
+    tipoDocRef: string;
+    folioRef: string;
+    fchRef: string;
+    razonRef: string;
+  }>;
 };
 
 const DTE_TYPES_REQUIRING_REFERENCE = [56, 61] as const;
@@ -182,6 +204,9 @@ export async function issueDte(
             reason: input.reference.reason,
           },
         }),
+        ...(input.additionalReferences && input.additionalReferences.length > 0
+          ? { additionalReferences: input.additionalReferences }
+          : {}),
         ...(cafXml ? { cafXml } : {}),
       };
 
@@ -208,6 +233,7 @@ export async function issueDte(
           receiverRut: input.receiverRut,
           receiverName: input.receiverName,
           receiverEmail: input.receiverEmail ?? null,
+          receiverEmailCc: input.receiverEmailCc ?? [],
           currency: (input.currency as any) ?? "CLP",
           netAmount: totalNet,
           exemptAmount: totalExempt,
@@ -232,6 +258,21 @@ export async function issueDte(
             : null,
           referenceCode: input.reference?.code ?? null,
           referenceReason: input.reference?.reason ?? null,
+          // Referencias adicionales (OC, HES, Contrato, etc) como JSON.
+          // Cast a `any` porque el tipo InputJsonValue de Prisma es muy
+          // estricto y no acepta arrays tipados directamente; el shape ya
+          // está validado en el schema Zod del endpoint.
+          additionalReferences:
+            input.additionalReferences && input.additionalReferences.length > 0
+              ? (input.additionalReferences as any)
+              : undefined,
+          // XML firmado del DTE (devuelto por el provider). Se persiste
+          // para poder regenerar el PDF sin re-emitir contra el SII.
+          // Buffer es Uint8Array en runtime; el cast es solo para satisfacer
+          // el tipo estricto de Prisma (Bytes? = Uint8Array | null).
+          dteXml: providerResult.signedXml
+            ? new Uint8Array(providerResult.signedXml)
+            : null,
           lines: {
             create: calculatedLines.map((l, i) => ({
               lineNumber: i + 1,

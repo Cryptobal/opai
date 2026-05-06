@@ -759,6 +759,36 @@ model PlatformAiProvider {
   @@schema("public")
 }
 
+/// Platform-wide DTE provider configuration. Singleton per providerType.
+/// All tenants share the same DTE integrator (e.g. SimpleAPI). Each tenant
+/// brings their own certificate + CAFs (TenantDteConfig + TenantDteCertificate
+/// + TenantDteCaf). Same pattern as PlatformAiProvider.
+///
+/// Only ONE row should be active platform-wide (enforced by app logic, not
+/// DB constraint, to allow staging/rotating providers without dropping rows).
+model PlatformDteProvider {
+  id           String   @id @default(cuid())
+  /// Identifier of the provider implementation. Examples: "SIMPLEAPI", "STUB".
+  /// Unique → only one row per integration.
+  providerType String   @unique @map("provider_type")
+  /// Display name shown in admin UI (e.g. "SimpleAPI by Chilesystems")
+  displayName  String   @map("display_name")
+  /// Encrypted API key (AES-256-GCM via DTE_ENCRYPTION_KEY).
+  /// NULL → fallback to env var (transitional).
+  apiKey       String?  @map("api_key") @db.Text
+  /// Base URL of the provider API (e.g. https://api.simpleapi.cl)
+  baseUrl      String?  @map("base_url")
+  /// Whether this provider is currently active platform-wide.
+  isActive     Boolean  @default(false) @map("is_active")
+  /// Free-form notes for ops (rate limits, plan info, etc.)
+  notes        String?  @db.Text
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("platform_dte_providers")
+  @@schema("public")
+}
+
 model PlatformAiModel {
   id          String   @id @default(cuid())
   providerId  String   @map("provider_id")
@@ -6169,6 +6199,10 @@ model FinanceDte {
   receiverRut   String  @map("receiver_rut")
   receiverName  String  @map("receiver_name")
   receiverEmail String? @map("receiver_email")
+  // Emails CC adicionales para el envío del PDF/XML del DTE.
+  // El XML del SII solo lleva UN <CorreoRecep> (campo receiverEmail);
+  // este array es solo para que OPAI envíe la copia a más gente vía Resend.
+  receiverEmailCc String[] @default([]) @map("receiver_email_cc")
 
   referenceDteId  String?      @map("reference_dte_id") @db.Uuid
   referenceDte    FinanceDte?  @relation("DteReference", fields: [referenceDteId], references: [id])
@@ -6178,6 +6212,13 @@ model FinanceDte {
   referenceDate   DateTime?    @map("reference_date") @db.Date
   referenceCode   Int?         @map("reference_code") // SII CodRef: 1=anula, 2=corrige texto, 3=corrige montos
   referenceReason String?      @map("reference_reason")
+  // Referencias adicionales (no-DTE): OC, HES, Contrato, Resolución, etc.
+  // Array JSON con shape:
+  //   [{ tipoDocRef: "801"|"HES"|"803"|..., folioRef: string, fchRef: "YYYY-MM-DD", razonRef: string }]
+  // Se serializan al bloque <Referencia> del XML SII junto con la
+  // referencia principal (si la hay). Hasta 40 refs totales por DTE
+  // según especificación SII. NULL = sin referencias adicionales.
+  additionalReferences Json? @map("additional_references")
 
   currency     FinanceCurrency @default(CLP)
   exchangeRate Decimal?        @map("exchange_rate") @db.Decimal(10, 4)
@@ -6205,6 +6246,11 @@ model FinanceDte {
 
   pdfUrl  String? @map("pdf_url")
   xmlUrl  String? @map("xml_url")
+  // XML completo del DTE firmado y timbrado (devuelto por SimpleAPI dte/generar
+  // en el flow de emisión). Se persiste para poder regenerar el PDF en cualquier
+  // momento sin re-emitir contra el SII (los endpoints SII no exponen
+  // re-descarga de XMLs históricos).
+  dteXml  Bytes?  @map("dte_xml")
   cedible Boolean @default(false)
 
   emailSentAt DateTime? @map("email_sent_at") @db.Timestamptz(6)
@@ -9127,6 +9173,11 @@ model TenantDteConfig {
   // Resolución SII de habilitación como emisor electrónico
   resolNumero Int?      @map("resol_numero")
   resolFecha  DateTime? @map("resol_fecha") @db.Date
+
+  // Logo del emisor en base64 (PNG/JPG) para imprimir en el PDF del DTE.
+  // Opcional: si está vacío, el PDF se genera sin logo (solo texto).
+  // Tamaño máx recomendado: 500KB (idealmente < 100KB para no inflar el PDF).
+  logoBase64 String? @map("logo_base64") @db.Text
 
   // Última sincronización RCV
   lastRcvSyncAt DateTime? @map("last_rcv_sync_at")

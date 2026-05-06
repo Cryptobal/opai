@@ -41,6 +41,28 @@ export type DteIssueRequest = {
     reason: string;
   };
   /**
+   * Referencias adicionales (no-DTE): Orden de Compra, HES, Contrato,
+   * Resolución, etc. Se concatenan al bloque <Referencia> después de
+   * la referencia principal. Hasta 40 refs totales por DTE según SII.
+   *
+   * Códigos típicos TpoDocRef:
+   *   "801" — Orden de Compra
+   *   "802" — Nota de Pedido
+   *   "803" — Contrato
+   *   "804" — Resolución
+   *   "HES" — Hoja Entrada de Servicios (alfanumérico)
+   */
+  additionalReferences?: Array<{
+    /** TpoDocRef: numérico (801, 803...) o alfanumérico ("HES", "GD"). */
+    tipoDocRef: string;
+    /** FolioRef: alfanumérico para refs no-tributarias. */
+    folioRef: string;
+    /** FchRef: fecha del documento referenciado YYYY-MM-DD. */
+    fchRef: string;
+    /** RazonRef: descripción libre. */
+    razonRef: string;
+  }>;
+  /**
    * CAF XML (raw bytes) para providers que firman el DTE localmente
    * (ej. SimpleAPI). Pasado por dte-issuer.service tras reservar folio.
    */
@@ -66,6 +88,13 @@ export type DteIssueResponse = {
   folio?: number;
   pdfUrl?: string;
   xmlUrl?: string;
+  /**
+   * XML completo del DTE firmado y timbrado (devuelto por el provider en
+   * el paso `dte/generar`). El issuer service lo persiste en
+   * `FinanceDte.dteXml` para poder regenerar PDFs sin re-emitir contra
+   * el SII (los endpoints SII no exponen re-descarga de XMLs).
+   */
+  signedXml?: Buffer;
   error?: string;
   rawResponse?: unknown;
 };

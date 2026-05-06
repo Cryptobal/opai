@@ -32,6 +32,16 @@ const updateConfigSchema = z.object({
   emisorEmail: z.string().email().optional(),
   resolNumero: z.number().int().nullable().optional(),
   resolFecha: z.string().nullable().optional(),
+  // Logo del emisor en base64 (PNG/JPG) para el PDF del DTE.
+  // Se acepta tanto data URL ("data:image/png;base64,...") como base64
+  // crudo. El frontend puede mandar cualquiera de los dos formatos.
+  // Tope de 800KB en base64 (~600KB binario) para no inflar TenantDteConfig
+  // ni los PDFs generados.
+  logoBase64: z
+    .string()
+    .max(800 * 1024, "Logo demasiado grande (máx 800KB en base64)")
+    .nullable()
+    .optional(),
 });
 
 export async function GET() {
