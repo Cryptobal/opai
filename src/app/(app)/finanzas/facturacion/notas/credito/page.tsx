@@ -3,8 +3,7 @@ import { auth } from "@/lib/auth";
 import {
   resolvePagePerms,
   hasModuleAccess,
-  canView,
-  hasCapability,
+  hasFacturacionCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { PageHero } from "@/components/opai-ds";
@@ -24,8 +23,10 @@ export default async function NotaCreditoPage({ searchParams }: PageProps) {
   if (!hasModuleAccess(perms, "finance")) {
     redirect("/hub");
   }
-  if (!canView(perms, "finance", "facturacion")) redirect("/finanzas/rendiciones");
-  if (!hasCapability(perms, "facturacion_manage")) {
+  if (!hasFacturacionCapability(perms, "facturacion_view")) {
+    redirect("/finanzas/rendiciones");
+  }
+  if (!hasFacturacionCapability(perms, "facturacion_credit_note")) {
     redirect("/finanzas/facturacion");
   }
 

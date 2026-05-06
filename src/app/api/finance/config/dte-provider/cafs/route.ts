@@ -11,7 +11,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
-import { canView, hasCapability } from "@/lib/permissions";
+import { canView, hasFacturacionCapability } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { parseCaf, CafParseError } from "@/lib/dte-caf-parser";
 import { getFolioSummary } from "@/modules/finance/billing/folio-tracker.service";
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
   const ctx = await requireAuth();
   if (!ctx) return unauthorized();
   const perms = await resolveApiPerms(ctx);
-  if (!hasCapability(perms, "rendicion_configure")) {
+  if (!hasFacturacionCapability(perms, "facturacion_configure")) {
     return NextResponse.json(
       { success: false, error: "Sin permisos" },
       { status: 403 }

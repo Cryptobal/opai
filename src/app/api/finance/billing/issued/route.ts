@@ -5,7 +5,7 @@ import {
   resolveApiPerms,
   parseBody,
 } from "@/lib/api-auth";
-import { canView, hasCapability } from "@/lib/permissions";
+import { hasFacturacionCapability } from "@/lib/permissions";
 import { issueDteSchema } from "@/lib/validations/finance";
 import { issueDte } from "@/modules/finance/billing/dte-issuer.service";
 import { prisma } from "@/lib/prisma";
@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const perms = await resolveApiPerms(ctx);
-    if (!canView(perms, "finance")) {
+    if (!hasFacturacionCapability(perms, "facturacion_view")) {
       return NextResponse.json(
         { success: false, error: "Sin permisos" },
         { status: 403 }
@@ -64,9 +64,12 @@ export async function POST(request: NextRequest) {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const perms = await resolveApiPerms(ctx);
-    if (!hasCapability(perms, "rendicion_configure")) {
+    if (!hasFacturacionCapability(perms, "facturacion_issue")) {
       return NextResponse.json(
-        { success: false, error: "Sin permisos" },
+        {
+          success: false,
+          error: "No tiene permiso para emitir facturas",
+        },
         { status: 403 }
       );
     }

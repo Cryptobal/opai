@@ -5,7 +5,7 @@ import {
   resolveApiPerms,
   parseBody,
 } from "@/lib/api-auth";
-import { hasCapability } from "@/lib/permissions";
+import { hasFacturacionCapability } from "@/lib/permissions";
 import { dteCreditNoteSchema } from "@/lib/validations/finance";
 import { issueDte } from "@/modules/finance/billing/dte-issuer.service";
 import { prisma } from "@/lib/prisma";
@@ -15,9 +15,12 @@ export async function POST(request: NextRequest) {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const perms = await resolveApiPerms(ctx);
-    if (!hasCapability(perms, "rendicion_configure")) {
+    if (!hasFacturacionCapability(perms, "facturacion_credit_note")) {
       return NextResponse.json(
-        { success: false, error: "Sin permisos" },
+        {
+          success: false,
+          error: "No tiene permiso para emitir notas de crédito/débito",
+        },
         { status: 403 }
       );
     }
