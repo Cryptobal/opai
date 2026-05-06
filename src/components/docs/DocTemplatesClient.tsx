@@ -20,7 +20,9 @@ import {
   Pencil,
   Copy,
   Star,
+  ChevronRight,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -89,6 +91,38 @@ function DocTemplatesInner() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
 
+  // Estado de colapsado por módulo (persistido en localStorage para que el
+  // usuario mantenga su preferencia entre navegaciones). El estado de
+  // sub-grupos WhatsApp es session-only (resetea al reload, menos crítico).
+  const [collapsedModules, setCollapsedModules] = useState<Record<string, boolean>>(
+    () => {
+      if (typeof window === "undefined") return {};
+      try {
+        const stored = window.localStorage.getItem("docTemplates.collapsed");
+        return stored ? (JSON.parse(stored) as Record<string, boolean>) : {};
+      } catch {
+        return {};
+      }
+    },
+  );
+  const [collapsedWaSubs, setCollapsedWaSubs] = useState<Record<string, boolean>>({});
+
+  const toggleModule = useCallback((m: string) => {
+    setCollapsedModules((prev) => {
+      const next = { ...prev, [m]: !prev[m] };
+      try {
+        window.localStorage.setItem("docTemplates.collapsed", JSON.stringify(next));
+      } catch {
+        /* localStorage puede fallar en private mode — silencioso */
+      }
+      return next;
+    });
+  }, []);
+
+  const toggleWaSub = useCallback((key: string) => {
+    setCollapsedWaSubs((prev) => ({ ...prev, [key]: !prev[key] }));
+  }, []);
+
   const fetchTemplates = useCallback(async () => {
     try {
       setLoading(true);
@@ -105,6 +139,23 @@ function DocTemplatesInner() {
   useEffect(() => {
     fetchTemplates();
   }, [fetchTemplates]);
+
+  // Cuando el usuario llega con ?module=X (atajo "Mensajes WhatsApp" en
+  // Configuración), solo dejamos expandido ese módulo y colapsamos los demás
+  // para enfocar la vista. Esto sobreescribe la preferencia guardada en
+  // localStorage solo en este contexto (un re-toggle manual la actualiza).
+  useEffect(() => {
+    if (!moduleFromUrl) return;
+    if (templates.length === 0) return;
+    const allModules = Array.from(new Set(templates.map((t) => t.module)));
+    setCollapsedModules((prev) => {
+      const next: Record<string, boolean> = { ...prev };
+      for (const m of allModules) next[m] = m !== moduleFromUrl;
+      return next;
+    });
+    // intencional: no persistimos esto en localStorage para no contaminar
+    // la preferencia natural del usuario.
+  }, [moduleFromUrl, templates.length]);
 
   const filtered = (search
     ? templates.filter(
@@ -198,29 +249,57 @@ function DocTemplatesInner() {
             module === "whatsapp"
               ? groupWaTemplates(temps)
               : [{ group: "all", items: temps }];
+          const isModuleCollapsed = !!collapsedModules[module];
           return (
           <div key={module}>
-            {/* Section label — discrete */}
-            <div className="flex items-center gap-2 mb-2 sticky top-0 z-10 bg-background/80 backdrop-blur-sm py-1 -mx-1 px-1">
+            {/* Section header — accordion (clickeable para expand/collapse) */}
+            <button
+              type="button"
+              onClick={() => toggleModule(module)}
+              aria-expanded={!isModuleCollapsed}
+              className="flex items-center gap-2 mb-2 sticky top-0 z-10 bg-background/80 backdrop-blur-sm py-1.5 -mx-1 px-1.5 w-[calc(100%+0.5rem)] hover:bg-accent/30 transition-colors rounded-md text-left"
+            >
+              <ChevronRight
+                className={cn(
+                  "h-3.5 w-3.5 text-muted-foreground/60 transition-transform shrink-0",
+                  !isModuleCollapsed && "rotate-90",
+                )}
+              />
               <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
                 {MODULE_LABELS[module] || module}
               </span>
               <div className="flex-1 h-px bg-border" />
               <span className="text-[11px] text-muted-foreground/50">{temps.length}</span>
-            </div>
+            </button>
 
-            {subGroups.map((sg) => (
+            {!isModuleCollapsed && subGroups.map((sg) => {
+              const subKey = `${module}/${sg.group}`;
+              const isSubCollapsed = !!collapsedWaSubs[subKey];
+              const showSubHeader = module === "whatsapp";
+              return (
               <div key={sg.group} className="mb-2">
-                {module === "whatsapp" && (
-                  <div className="flex items-center gap-2 mb-1.5 px-1">
+                {showSubHeader && (
+                  <button
+                    type="button"
+                    onClick={() => toggleWaSub(subKey)}
+                    aria-expanded={!isSubCollapsed}
+                    className="flex items-center gap-2 mb-1.5 ml-3 px-1 py-1 w-[calc(100%-0.75rem)] hover:bg-accent/20 transition-colors rounded-md text-left"
+                  >
+                    <ChevronRight
+                      className={cn(
+                        "h-3 w-3 text-muted-foreground/50 transition-transform shrink-0",
+                        !isSubCollapsed && "rotate-90",
+                      )}
+                    />
                     <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60">
-                      {WA_GROUP_LABELS[sg.group] || sg.group}
+                      WhatsApp · {WA_GROUP_LABELS[sg.group] || sg.group}
                     </span>
                     <div className="flex-1 h-px bg-border/50" />
                     <span className="text-[10px] text-muted-foreground/40">{sg.items.length}</span>
-                  </div>
+                  </button>
                 )}
-
+                {(!showSubHeader || !isSubCollapsed) && (
+                  <>
             {/* Desktop: grid 3-4 cols */}
             <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 mb-4">
               {sg.items.map((template) => (
@@ -324,8 +403,11 @@ function DocTemplatesInner() {
                 </div>
               ))}
             </div>
+                  </>
+                )}
               </div>
-            ))}
+              );
+            })}
           </div>
           );
         })
