@@ -11,8 +11,12 @@ import {
   BANK_ACCOUNT_TYPES,
   CHILE_BANKS,
   formatPersonName,
+  formatRutForInput,
   getRegimenPrevisionalLabel,
+  normalizeRut,
 } from "@/lib/personas";
+import { Tag } from "@/components/opai-ds";
+import { Label } from "@/components/ui/label";
 
 /** Format a date-only value using UTC to avoid timezone shift */
 function formatDateUTC(value: string | Date): string {
@@ -36,6 +40,7 @@ type BankAccount = {
   accountType: string;
   accountNumber: string;
   holderName: string;
+  holderRut?: string | null;
   isDefault: boolean;
 };
 
@@ -119,26 +124,58 @@ export default function DatosPersonalesSection({
   onBankAccountsChange,
 }: DatosPersonalesSectionProps) {
   const existingAccount = bankAccounts[0] ?? null;
+  const personaRutNormalized = persona.rut ? normalizeRut(persona.rut) : "";
   const [accountForm, setAccountForm] = useState({
     bankCode: "",
     accountType: "",
     accountNumber: "",
     isDefault: true,
+    isThirdParty: false,
+    holderRut: "",
+    holderName: "",
   });
   const [creatingAccount, setCreatingAccount] = useState(false);
 
   useEffect(() => {
     if (existingAccount) {
+      const existingHolderRut = existingAccount.holderRut
+        ? normalizeRut(existingAccount.holderRut)
+        : "";
+      const isThirdParty = !!(
+        existingHolderRut &&
+        personaRutNormalized &&
+        existingHolderRut !== personaRutNormalized
+      );
       setAccountForm({
         bankCode: existingAccount.bankCode ?? "",
         accountType: existingAccount.accountType ?? "",
         accountNumber: existingAccount.accountNumber ?? "",
         isDefault: existingAccount.isDefault ?? true,
+        isThirdParty,
+        holderRut: isThirdParty ? formatRutForInput(existingHolderRut) : "",
+        holderName: isThirdParty ? existingAccount.holderName ?? "" : "",
       });
     } else {
-      setAccountForm({ bankCode: "", accountType: "", accountNumber: "", isDefault: true });
+      setAccountForm({
+        bankCode: "",
+        accountType: "",
+        accountNumber: "",
+        isDefault: true,
+        isThirdParty: false,
+        holderRut: "",
+        holderName: "",
+      });
     }
-  }, [existingAccount?.id, existingAccount?.bankCode, existingAccount?.accountType, existingAccount?.accountNumber, existingAccount?.isDefault]);
+  }, [
+    existingAccount?.id,
+    existingAccount?.bankCode,
+    existingAccount?.accountType,
+    existingAccount?.accountNumber,
+    existingAccount?.isDefault,
+    existingAccount?.holderRut,
+    existingAccount?.holderName,
+    personaRutNormalized,
+  ]);
 
   const mapUrl =
     persona.lat && persona.lng && process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
@@ -150,11 +187,26 @@ export default function DatosPersonalesSection({
       toast.error("Banco, tipo y número de cuenta son obligatorios");
       return;
     }
-    const holderName = persona.rut?.trim();
-    if (!holderName) {
-      toast.error("El guardia debe tener RUT para agregar cuenta bancaria");
-      return;
+    let holderName: string;
+    let thirdPartyRut: string | undefined;
+    if (accountForm.isThirdParty) {
+      const trimmedName = accountForm.holderName.trim();
+      const trimmedRut = accountForm.holderRut.trim();
+      if (!trimmedName || !trimmedRut) {
+        toast.error("RUT y nombre del titular son obligatorios para cuenta de tercero");
+        return;
+      }
+      holderName = trimmedName;
+      thirdPartyRut = normalizeRut(trimmedRut);
+    } else {
+      const guardiaRut = persona.rut?.trim();
+      if (!guardiaRut) {
+        toast.error("El guardia debe tener RUT para agregar cuenta bancaria");
+        return;
+      }
+      holderName = guardiaRut;
     }
+
     setCreatingAccount(true);
     try {
       const bank = CHILE_BANKS.find((b) => b.code === accountForm.bankCode);
@@ -167,6 +219,8 @@ export default function DatosPersonalesSection({
           accountType: accountForm.accountType,
           accountNumber: accountForm.accountNumber,
           holderName,
+          isThirdParty: accountForm.isThirdParty,
+          ...(accountForm.isThirdParty ? { holderRut: thirdPartyRut } : {}),
           isDefault: accountForm.isDefault,
         }),
       });
@@ -183,11 +237,14 @@ export default function DatosPersonalesSection({
         accountType: "",
         accountNumber: "",
         isDefault: false,
+        isThirdParty: false,
+        holderRut: "",
+        holderName: "",
       });
       toast.success("Cuenta bancaria agregada");
     } catch (error) {
       console.error(error);
-      toast.error("No se pudo crear cuenta bancaria");
+      toast.error(error instanceof Error ? error.message : "No se pudo crear cuenta bancaria");
     } finally {
       setCreatingAccount(false);
     }
@@ -198,6 +255,21 @@ export default function DatosPersonalesSection({
     if (!accountForm.bankCode || !accountForm.accountType || !accountForm.accountNumber) {
       toast.error("Banco, tipo y número de cuenta son obligatorios");
       return;
+    }
+    let holderNameToSend: string | undefined;
+    let thirdPartyRut: string | undefined;
+    if (accountForm.isThirdParty) {
+      const trimmedName = accountForm.holderName.trim();
+      const trimmedRut = accountForm.holderRut.trim();
+      if (!trimmedName || !trimmedRut) {
+        toast.error("RUT y nombre del titular son obligatorios para cuenta de tercero");
+        return;
+      }
+      holderNameToSend = trimmedName;
+      thirdPartyRut = normalizeRut(trimmedRut);
+    } else {
+      const guardiaRut = persona.rut?.trim();
+      holderNameToSend = guardiaRut || undefined;
     }
     setCreatingAccount(true);
     try {
@@ -212,6 +284,9 @@ export default function DatosPersonalesSection({
             bankName: bank?.name ?? accountForm.bankCode,
             accountType: accountForm.accountType,
             accountNumber: accountForm.accountNumber,
+            isThirdParty: accountForm.isThirdParty,
+            ...(holderNameToSend !== undefined ? { holderName: holderNameToSend } : {}),
+            ...(accountForm.isThirdParty ? { holderRut: thirdPartyRut } : {}),
           }),
         }
       );
@@ -227,7 +302,7 @@ export default function DatosPersonalesSection({
       toast.success("Cuenta bancaria actualizada");
     } catch (error) {
       console.error(error);
-      toast.error("No se pudo actualizar cuenta bancaria");
+      toast.error(error instanceof Error ? error.message : "No se pudo actualizar cuenta bancaria");
     } finally {
       setCreatingAccount(false);
     }
@@ -327,7 +402,16 @@ export default function DatosPersonalesSection({
 
       {/* Datos bancarios */}
       <div>
-        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.08em] mb-2.5">Datos bancarios</p>
+        <div className="flex items-center gap-2 mb-2.5 flex-wrap">
+          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.08em]">Datos bancarios</p>
+          {existingAccount?.holderRut &&
+            personaRutNormalized &&
+            normalizeRut(existingAccount.holderRut) !== personaRutNormalized && (
+              <Tag variant="warn" size="sm">
+                Cuenta de tercero: {existingAccount.holderName} ({formatRutForInput(existingAccount.holderRut)})
+              </Tag>
+            )}
+        </div>
         <DetailFieldGrid columns={3} boxed>
           <DetailField
             boxed
@@ -445,6 +529,61 @@ export default function DatosPersonalesSection({
               {creatingAccount ? "..." : existingAccount ? "Guardar" : "Agregar"}
             </Button>
           </div>
+
+          <div className="flex items-center gap-2 pt-2 border-t border-border">
+            <input
+              type="checkbox"
+              id={`isThirdParty-${guardiaId}`}
+              checked={accountForm.isThirdParty}
+              onChange={(e) =>
+                setAccountForm((prev) => ({
+                  ...prev,
+                  isThirdParty: e.target.checked,
+                  holderRut: e.target.checked ? prev.holderRut : "",
+                  holderName: e.target.checked ? prev.holderName : "",
+                }))
+              }
+              className="h-4 w-4"
+            />
+            <label htmlFor={`isThirdParty-${guardiaId}`} className="text-xs cursor-pointer">
+              Pago a otro RUT (cuenta de tercero)
+            </label>
+          </div>
+
+          {accountForm.isThirdParty && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2 p-3 bg-status-warn-soft border border-status-warn-border rounded-md">
+              <div className="sm:col-span-2">
+                <p className="text-[11px] text-status-warn-fg mb-2">
+                  ⚠️ Esta cuenta NO está a nombre del trabajador. La planilla de pagos usará el RUT y nombre indicados aquí.
+                </p>
+              </div>
+              <div>
+                <Label className="text-[11px]">RUT del titular *</Label>
+                <Input
+                  value={accountForm.holderRut}
+                  onChange={(e) =>
+                    setAccountForm((prev) => ({
+                      ...prev,
+                      holderRut: formatRutForInput(e.target.value),
+                    }))
+                  }
+                  placeholder="12.345.678-9"
+                  className="h-9 text-sm mt-1"
+                />
+              </div>
+              <div>
+                <Label className="text-[11px]">Nombre del titular *</Label>
+                <Input
+                  value={accountForm.holderName}
+                  onChange={(e) =>
+                    setAccountForm((prev) => ({ ...prev, holderName: e.target.value }))
+                  }
+                  placeholder="Nombre completo"
+                  className="h-9 text-sm mt-1"
+                />
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

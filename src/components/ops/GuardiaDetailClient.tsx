@@ -181,6 +181,7 @@ type GuardiaDetail = {
     accountType: string;
     accountNumber: string;
     holderName: string;
+    holderRut?: string | null;
     isDefault: boolean;
   }>;
   documents: Array<{
