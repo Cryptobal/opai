@@ -5,7 +5,7 @@ import {
   resolveApiPerms,
   parseBody,
 } from "@/lib/api-auth";
-import { canView, hasCapability } from "@/lib/permissions";
+import { hasFacturacionCapability } from "@/lib/permissions";
 import { registerReceivedDteSchema } from "@/lib/validations/finance";
 import {
   listReceivedDtes,
@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const perms = await resolveApiPerms(ctx);
-    if (!canView(perms, "finance")) {
+    if (!hasFacturacionCapability(perms, "facturacion_view")) {
       return NextResponse.json(
         { success: false, error: "Sin permisos" },
         { status: 403 }
@@ -50,9 +50,15 @@ export async function POST(request: NextRequest) {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const perms = await resolveApiPerms(ctx);
-    if (!hasCapability(perms, "rendicion_configure")) {
+    // Registrar un DTE recibido manualmente NO emite al SII; es un registro
+    // local que luego entra al control de pagos. Por eso usa la capability
+    // `facturacion_create_draft`, no `facturacion_issue`.
+    if (!hasFacturacionCapability(perms, "facturacion_create_draft")) {
       return NextResponse.json(
-        { success: false, error: "Sin permisos" },
+        {
+          success: false,
+          error: "No tiene permiso para registrar DTEs recibidos",
+        },
         { status: 403 }
       );
     }

@@ -248,11 +248,11 @@ export async function getPermissionsFromAuth(auth: {
 
 // ── Page guard helpers ──
 
-import { canView, canEdit, canDelete, hasModuleAccess, hasCapability, canViewInstallations, canEditInstallations, canDeleteInstallations } from "./permissions";
-import type { ModuleKey, CapabilityKey } from "./permissions";
+import { canView, canEdit, canDelete, hasModuleAccess, hasCapability, hasFacturacionCapability, canViewInstallations, canEditInstallations, canDeleteInstallations } from "./permissions";
+import type { ModuleKey, CapabilityKey, FacturacionCapability } from "./permissions";
 
-export { canView, canEdit, canDelete, hasModuleAccess, hasCapability, canViewInstallations, canEditInstallations, canDeleteInstallations };
-export type { ModuleKey, CapabilityKey };
+export { canView, canEdit, canDelete, hasModuleAccess, hasCapability, hasFacturacionCapability, canViewInstallations, canEditInstallations, canDeleteInstallations };
+export type { ModuleKey, CapabilityKey, FacturacionCapability };
 
 interface SessionUser {
   role: string;

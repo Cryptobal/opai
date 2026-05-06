@@ -3,8 +3,7 @@ import { auth } from "@/lib/auth";
 import {
   resolvePagePerms,
   hasModuleAccess,
-  canView,
-  hasCapability,
+  hasFacturacionCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { PageHero } from "@/components/opai-ds";
@@ -20,8 +19,17 @@ export default async function EmitirDtePage() {
   if (!hasModuleAccess(perms, "finance")) {
     redirect("/hub");
   }
-  if (!canView(perms, "finance", "facturacion")) redirect("/finanzas/rendiciones");
-  if (!hasCapability(perms, "facturacion_manage")) {
+  if (!hasFacturacionCapability(perms, "facturacion_view")) {
+    redirect("/finanzas/rendiciones");
+  }
+  // La página de emisión es accesible para quienes pueden emitir DTEs O crear
+  // borradores (asistentes contables que preparan el DTE para que un gerente
+  // lo emita). Si quisieras restringir a solo emisores reales, dejá únicamente
+  // `facturacion_issue`.
+  if (
+    !hasFacturacionCapability(perms, "facturacion_issue") &&
+    !hasFacturacionCapability(perms, "facturacion_create_draft")
+  ) {
     redirect("/finanzas/facturacion");
   }
 

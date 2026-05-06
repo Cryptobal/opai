@@ -3,8 +3,7 @@ import { auth } from "@/lib/auth";
 import {
   resolvePagePerms,
   hasModuleAccess,
-  canView,
-  hasCapability,
+  hasFacturacionCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { PageHero } from "@/components/opai-ds";
@@ -20,10 +19,20 @@ export default async function FacturacionPage() {
   if (!hasModuleAccess(perms, "finance")) {
     redirect("/hub");
   }
-  if (!canView(perms, "finance", "facturacion")) redirect("/finanzas/rendiciones");
+  if (!hasFacturacionCapability(perms, "facturacion_view")) {
+    redirect("/finanzas/rendiciones");
+  }
 
   const tenantId = session.user.tenantId;
-  const canManage = hasCapability(perms, "facturacion_manage");
+  // canManage = puede hacer al menos una acción de mutación. La legacy
+  // `facturacion_manage` se expande automáticamente vía
+  // hasFacturacionCapability, así que owner/admin/finanzas no pierden nada.
+  const canManage =
+    hasFacturacionCapability(perms, "facturacion_issue") ||
+    hasFacturacionCapability(perms, "facturacion_credit_note") ||
+    hasFacturacionCapability(perms, "facturacion_void") ||
+    hasFacturacionCapability(perms, "facturacion_resend_email") ||
+    hasFacturacionCapability(perms, "facturacion_configure");
 
   const dtes = await prisma.financeDte.findMany({
     where: { tenantId, direction: "ISSUED" },
