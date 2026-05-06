@@ -137,6 +137,7 @@ const MODULE_LABELS: Record<string, { name: string; category: string }> = {
   payroll: { name: 'Payroll / Nómina', category: 'Add-ons' },
   finanzas: { name: 'Finanzas + DTE', category: 'Add-ons' },
   ats: { name: 'ATS / Reclutamiento', category: 'Add-ons' },
+  psych: { name: 'Evaluación Psicolaboral', category: 'Add-ons' },
   face_id: { name: 'Face ID Biométrico', category: 'Add-ons' },
   ia_operacional: { name: 'IA Operacional', category: 'Add-ons' },
   control_acceso: { name: 'Control de Acceso', category: 'Add-ons' },
@@ -153,7 +154,19 @@ const TAG_COLORS: Record<string, string> = {
   comercial: 'bg-status-warn-soft text-status-warn-fg',
   financiero: 'bg-status-ok-soft text-status-ok-fg',
   premium: 'bg-tint-violet text-tint-violet-fg',
+  rrhh: 'bg-status-warn-soft text-status-warn-fg',
 };
+
+const ADDON_CATEGORY_LABELS: Record<string, string> = {
+  operacional: 'Operacional',
+  comercial: 'Comercial',
+  financiero: 'Financiero',
+  premium: 'Premium',
+  rrhh: 'RRHH',
+  otros: 'Otros',
+};
+
+const ADDON_CATEGORY_ORDER = ['operacional', 'comercial', 'financiero', 'premium', 'rrhh', 'otros'] as const;
 
 // ── Component ──
 
@@ -163,7 +176,28 @@ export function TenantAddonsSection({ tenantId }: { tenantId: string }) {
   const [plansData, setPlansData] = useState<PlansResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [mutating, setMutating] = useState(false);
+  const [mutatingItems, setMutatingItems] = useState<Set<string>>(new Set());
+
+  const startMutation = useCallback((key: string) => {
+    setMutatingItems((prev) => {
+      const next = new Set(prev);
+      next.add(key);
+      return next;
+    });
+  }, []);
+
+  const endMutation = useCallback((key: string) => {
+    setMutatingItems((prev) => {
+      const next = new Set(prev);
+      next.delete(key);
+      return next;
+    });
+  }, []);
+
+  const isMutating = useCallback(
+    (key: string) => mutatingItems.has(key),
+    [mutatingItems],
+  );
 
   // Custom override draft state
   const [draftPricePerGuard, setDraftPricePerGuard] = useState('');
@@ -234,7 +268,8 @@ export function TenantAddonsSection({ tenantId }: { tenantId: string }) {
 
   const patchPlan = useCallback(
     async (fields: Record<string, unknown>) => {
-      setMutating(true);
+      const key = 'plan';
+      startMutation(key);
       try {
         await fetch(`/api/platform/tenants/${tenantId}/plan`, {
           method: 'PATCH',
@@ -243,15 +278,16 @@ export function TenantAddonsSection({ tenantId }: { tenantId: string }) {
         });
         await fetchAll();
       } finally {
-        setMutating(false);
+        endMutation(key);
       }
     },
-    [tenantId, fetchAll],
+    [tenantId, fetchAll, startMutation, endMutation],
   );
 
   const toggleAddon = useCallback(
     async (slug: string, activate: boolean, customPrice?: number) => {
-      setMutating(true);
+      const key = `addon:${slug}`;
+      startMutation(key);
       try {
         if (activate) {
           await fetch(`/api/platform/tenants/${tenantId}/addons`, {
@@ -266,15 +302,16 @@ export function TenantAddonsSection({ tenantId }: { tenantId: string }) {
         }
         await fetchAll();
       } finally {
-        setMutating(false);
+        endMutation(key);
       }
     },
-    [tenantId, fetchAll],
+    [tenantId, fetchAll, startMutation, endMutation],
   );
 
   const applyPack = useCallback(
     async (packSlug: string) => {
-      setMutating(true);
+      const key = `pack:${packSlug}`;
+      startMutation(key);
       try {
         await fetch(`/api/platform/tenants/${tenantId}/addons/pack`, {
           method: 'POST',
@@ -283,15 +320,16 @@ export function TenantAddonsSection({ tenantId }: { tenantId: string }) {
         });
         await fetchAll();
       } finally {
-        setMutating(false);
+        endMutation(key);
       }
     },
-    [tenantId, fetchAll],
+    [tenantId, fetchAll, startMutation, endMutation],
   );
 
   const saveAddonCustomPrice = useCallback(
     async (slug: string, price: number) => {
-      setMutating(true);
+      const key = `addon:${slug}`;
+      startMutation(key);
       try {
         await fetch(`/api/platform/tenants/${tenantId}/addons`, {
           method: 'POST',
@@ -300,11 +338,11 @@ export function TenantAddonsSection({ tenantId }: { tenantId: string }) {
         });
         await fetchAll();
       } finally {
-        setMutating(false);
+        endMutation(key);
         setEditingAddonPrice(null);
       }
     },
-    [tenantId, fetchAll],
+    [tenantId, fetchAll, startMutation, endMutation],
   );
 
   // ── Billing Calculation ──
@@ -400,6 +438,43 @@ export function TenantAddonsSection({ tenantId }: { tenantId: string }) {
     return new Set(catalogPlan?.includedModules ?? []);
   }, [plansData, tenantData]);
 
+  // ── Add-ons grouped by category (tag) ──
+
+  const addonsByCategory = useMemo(() => {
+    const groups: Record<string, AvailableAddon[]> = {};
+    if (!addonsData) return groups;
+    for (const addon of addonsData.availableAddons) {
+      const cat = (addon.tag || 'otros').toLowerCase();
+      if (!groups[cat]) groups[cat] = [];
+      groups[cat].push(addon);
+    }
+    return groups;
+  }, [addonsData]);
+
+  // ── Plan switch billing delta preview ──
+
+  const planSwitchPreview = useMemo(() => {
+    if (!selectedPlanSlug || !tenantData?.plan || !plansData) return null;
+    if (selectedPlanSlug === tenantData.plan.plan) return null;
+    const guards = tenantData.metrics.activeGuards;
+    const currentCp = plansData.plans.find((p) => p.slug === tenantData.plan?.plan);
+    const previewCp = plansData.plans.find((p) => p.slug === selectedPlanSlug);
+    if (!currentCp || !previewCp) return null;
+    const currentMonthly = Math.max(
+      (tenantData.plan.customPricePerGuard ?? currentCp.pricePerGuard) * guards,
+      tenantData.plan.customBaseMinimum ?? currentCp.baseMinimum,
+    );
+    const previewMonthly = Math.max(
+      previewCp.pricePerGuard * guards,
+      previewCp.baseMinimum,
+    );
+    return {
+      currentMonthly,
+      previewMonthly,
+      delta: previewMonthly - currentMonthly,
+    };
+  }, [selectedPlanSlug, tenantData, plansData]);
+
   // ── Render ──
 
   if (loading) {
@@ -432,81 +507,109 @@ export function TenantAddonsSection({ tenantId }: { tenantId: string }) {
 
   return (
     <div className="space-y-6">
-      {/* Mutating overlay */}
-      {mutating && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/10">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-status-info border-t-transparent" />
-        </div>
-      )}
-
       {/* ── Section 1: Plan ── */}
       <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">
         <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">Plan actual</h3>
 
-        {/* Current plan badge */}
-        <div className="mb-4">
-          <span
-            className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold ${
-              PLAN_BADGE_COLORS[plan.plan] || 'bg-gray-100 text-gray-700'
-            }`}
-          >
-            {catalogPlan?.name ?? plan.plan}
-          </span>
-        </div>
-
-        {/* Plan change buttons */}
-        <div className="flex flex-wrap items-center gap-2 mb-6">
+        {/* Plan cards selector */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
           {PLAN_SLUGS.map((slug) => {
             const isCurrent = plan.plan === slug;
             const isSelected = selectedPlanSlug === slug;
+            const cp = plansData.plans.find((p) => p.slug === slug);
+            if (!cp) return null;
             return (
               <button
                 key={slug}
+                type="button"
                 onClick={() => setSelectedPlanSlug(isCurrent ? null : slug)}
-                disabled={mutating}
-                className={`rounded-lg px-3 py-1.5 text-sm font-medium capitalize transition-colors ${
+                disabled={isMutating('plan')}
+                className={`text-left rounded-xl border-2 p-4 transition-all disabled:opacity-50 ${
                   isCurrent
-                    ? 'bg-status-info text-white'
+                    ? 'border-status-info bg-status-info-soft/40'
                     : isSelected
-                      ? 'bg-status-info-soft text-status-info-fg ring-2 ring-status-info'
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+                      ? 'border-status-warn bg-status-warn-soft/40 ring-2 ring-status-warn ring-offset-1'
+                      : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 hover:border-gray-400 dark:hover:border-gray-500'
                 }`}
               >
-                {slug} {isCurrent && '✓'}
+                <div className="flex items-center justify-between mb-2">
+                  <span
+                    className={`text-sm font-semibold capitalize ${
+                      isCurrent ? 'text-status-info-fg' : 'text-gray-900 dark:text-gray-100'
+                    }`}
+                  >
+                    {cp.name}
+                  </span>
+                  {isCurrent && (
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-status-info-fg bg-status-info-soft px-1.5 py-0.5 rounded">
+                      Activo
+                    </span>
+                  )}
+                </div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                  {cp.includedModules.length} módulos incluidos
+                </div>
+                <div className="text-sm font-mono text-gray-700 dark:text-gray-300">
+                  {cp.pricePerGuard > 0
+                    ? `UF ${formatUF(cp.pricePerGuard)}/guardia`
+                    : 'Sin precio (negociado)'}
+                </div>
+                {cp.baseMinimum > 0 && (
+                  <div className="text-xs text-gray-400 dark:text-gray-500">
+                    Mínimo: UF {formatUF(cp.baseMinimum)}/mes
+                  </div>
+                )}
               </button>
             );
           })}
-          {selectedPlanSlug && selectedPlanSlug !== plan.plan && (
-            <>
-              <button
-                onClick={() => {
-                  patchPlan({ plan: selectedPlanSlug });
-                  setSelectedPlanSlug(null);
-                }}
-                disabled={mutating}
-                className="ml-2 rounded-lg bg-status-info px-3 py-1.5 text-sm font-semibold text-white hover:brightness-110"
-              >
-                Confirmar cambio a {selectedPlanSlug}
-              </button>
-              <button
-                onClick={() => setSelectedPlanSlug(null)}
-                className="rounded-lg border border-gray-300 dark:border-gray-700 px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400"
-              >
-                Cancelar
-              </button>
-            </>
-          )}
         </div>
+
+        {selectedPlanSlug && selectedPlanSlug !== plan.plan && (
+          <div className="flex flex-wrap items-center gap-2 mb-6">
+            <button
+              onClick={() => {
+                patchPlan({ plan: selectedPlanSlug });
+                setSelectedPlanSlug(null);
+              }}
+              disabled={isMutating('plan')}
+              className="rounded-lg bg-status-info px-4 py-2 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-50"
+            >
+              Confirmar cambio a {selectedPlanSlug}
+            </button>
+            <button
+              onClick={() => setSelectedPlanSlug(null)}
+              className="rounded-lg border border-gray-300 dark:border-gray-700 px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800"
+            >
+              Cancelar
+            </button>
+            {isMutating('plan') && (
+              <span className="text-xs text-gray-500 animate-pulse">Guardando...</span>
+            )}
+          </div>
+        )}
 
         {/* Custom overrides */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {/* Price per guard */}
           <div>
-            <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
+            <label className="flex items-center gap-2 text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
               Precio por guardia (UF)
+              {plan.customPricePerGuard != null && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-status-warn-soft px-2 py-0.5 text-[10px] font-medium text-status-warn-fg">
+                  Override custom
+                  <button
+                    type="button"
+                    onClick={() => patchPlan({ customPricePerGuard: null })}
+                    title="Restablecer al catálogo"
+                    className="hover:underline"
+                  >
+                    ↺
+                  </button>
+                </span>
+              )}
             </label>
             <div className="text-xs text-gray-400 dark:text-gray-500 mb-1">
-              Catalogo: UF {formatUF(catalogPlan?.pricePerGuard ?? plan.pricePerGuard)}
+              Catálogo: UF {formatUF(catalogPlan?.pricePerGuard ?? plan.pricePerGuard)}
             </div>
             {editingField === 'pricePerGuard' ? (
               <div className="flex items-center gap-2">
@@ -548,7 +651,7 @@ export function TenantAddonsSection({ tenantId }: { tenantId: string }) {
                 <span className="text-sm text-gray-900 dark:text-gray-100">
                   {plan.customPricePerGuard != null
                     ? `UF ${formatUF(plan.customPricePerGuard)} (custom)`
-                    : 'Usar catalogo'}
+                    : 'Usar catálogo'}
                 </span>
                 <span className="text-xs text-status-info-fg">Editar</span>
               </div>
@@ -557,11 +660,24 @@ export function TenantAddonsSection({ tenantId }: { tenantId: string }) {
 
           {/* Base minimum */}
           <div>
-            <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
-              Minimo mensual (UF)
+            <label className="flex items-center gap-2 text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
+              Mínimo mensual (UF)
+              {plan.customBaseMinimum != null && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-status-warn-soft px-2 py-0.5 text-[10px] font-medium text-status-warn-fg">
+                  Override custom
+                  <button
+                    type="button"
+                    onClick={() => patchPlan({ customBaseMinimum: null })}
+                    title="Restablecer al catálogo"
+                    className="hover:underline"
+                  >
+                    ↺
+                  </button>
+                </span>
+              )}
             </label>
             <div className="text-xs text-gray-400 dark:text-gray-500 mb-1">
-              Catalogo: UF {formatUF(catalogPlan?.baseMinimum ?? plan.basePrice)}
+              Catálogo: UF {formatUF(catalogPlan?.baseMinimum ?? plan.basePrice)}
             </div>
             {editingField === 'baseMinimum' ? (
               <div className="flex items-center gap-2">
@@ -603,7 +719,7 @@ export function TenantAddonsSection({ tenantId }: { tenantId: string }) {
                 <span className="text-sm text-gray-900 dark:text-gray-100">
                   {plan.customBaseMinimum != null
                     ? `UF ${formatUF(plan.customBaseMinimum)} (custom)`
-                    : 'Usar catalogo'}
+                    : 'Usar catálogo'}
                 </span>
                 <span className="text-xs text-status-info-fg">Editar</span>
               </div>
@@ -739,6 +855,18 @@ export function TenantAddonsSection({ tenantId }: { tenantId: string }) {
                         .join(', ') || '—'}
                     </div>
                   </div>
+                  {planSwitchPreview && (
+                    <div className="mt-2 pt-2 border-t border-status-warn-border/50 text-status-warn-fg">
+                      <span className="font-medium">Facturación mensual:</span>{' '}
+                      UF {formatUF(planSwitchPreview.currentMonthly)} → UF{' '}
+                      {formatUF(planSwitchPreview.previewMonthly)}
+                      {' '}
+                      <span className="font-mono">
+                        (Δ {planSwitchPreview.delta >= 0 ? '+' : ''}
+                        UF {formatUF(planSwitchPreview.delta)})
+                      </span>
+                    </div>
+                  )}
                 </div>
               )}
               <div className="overflow-x-auto">
@@ -835,116 +963,152 @@ export function TenantAddonsSection({ tenantId }: { tenantId: string }) {
         })()}
       </div>
 
-      {/* ── Section 2: Add-ons ── */}
+      {/* ── Section 2: Add-ons agrupados ── */}
       <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">
-        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">Add-ons</h3>
-        <div className="space-y-2">
-          {addonsData.availableAddons.map((addon) => {
-            const activeAddon = addonsData.activeAddons.find((a) => a.addonSlug === addon.slug);
-            const isIncludedInPlan = addon.moduleKey != null && includedModules.has(addon.moduleKey);
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Add-ons</h3>
+          <div className="text-xs text-gray-500 dark:text-gray-400">
+            {addonsData.activeAddons.length} activos
+          </div>
+        </div>
 
+        <div className="space-y-6">
+          {ADDON_CATEGORY_ORDER.map((cat) => {
+            const items = addonsByCategory[cat];
+            if (!items || items.length === 0) return null;
             return (
-              <div
-                key={addon.slug}
-                className="flex items-center gap-3 rounded-lg border border-gray-100 dark:border-gray-800 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800/50"
-              >
-                {/* Toggle */}
-                <input
-                  type="checkbox"
-                  checked={addon.isActive}
-                  onChange={() => toggleAddon(addon.slug, !addon.isActive)}
-                  disabled={mutating}
-                  className="h-4 w-4 rounded border-gray-300 text-status-info focus:ring-status-info"
-                />
+              <div key={cat}>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">
+                  {ADDON_CATEGORY_LABELS[cat] ?? cat}
+                </h4>
+                <div className="space-y-2">
+                  {items.map((addon) => {
+                    const activeAddon = addonsData.activeAddons.find(
+                      (a) => a.addonSlug === addon.slug,
+                    );
+                    const isIncludedInPlan =
+                      addon.moduleKey != null && includedModules.has(addon.moduleKey);
+                    const rowKey = `addon:${addon.slug}`;
+                    const rowMutating = isMutating(rowKey);
 
-                {/* Name */}
-                <span className="flex-1 text-sm text-gray-900 dark:text-gray-100">
-                  {addon.name}
-                </span>
+                    return (
+                      <div
+                        key={addon.slug}
+                        className={`flex flex-wrap items-center gap-3 rounded-lg border px-4 py-3 transition-colors ${
+                          isIncludedInPlan
+                            ? 'border-status-ok-border bg-status-ok-soft/30'
+                            : 'border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50'
+                        }`}
+                      >
+                        {/* Toggle */}
+                        <input
+                          type="checkbox"
+                          checked={addon.isActive || isIncludedInPlan}
+                          disabled={rowMutating || isIncludedInPlan}
+                          onChange={() => toggleAddon(addon.slug, !addon.isActive)}
+                          title={
+                            isIncludedInPlan
+                              ? 'Ya está incluido en tu plan actual'
+                              : undefined
+                          }
+                          className="h-4 w-4 rounded border-gray-300 text-status-info focus:ring-status-info disabled:opacity-50 disabled:cursor-not-allowed"
+                        />
 
-                {/* Tag badge */}
-                {addon.tag && (
-                  <span
-                    className={`rounded px-2 py-0.5 text-xs font-medium ${
-                      TAG_COLORS[addon.tag] || 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
-                    }`}
-                  >
-                    {addon.tag}
-                  </span>
-                )}
-
-                {/* Included in plan badge */}
-                {isIncludedInPlan && (
-                  <span className="bg-status-info-soft text-status-info-fg px-2 py-0.5 rounded text-xs font-medium">
-                    INCLUIDO EN PLAN
-                  </span>
-                )}
-
-                {/* Price */}
-                <div className="flex items-center gap-2 text-right min-w-[180px] justify-end">
-                  <span className="text-xs text-gray-400 dark:text-gray-500">
-                    UF {formatUF(addon.priceAmount)}
-                    {addon.pricingModel === 'per_guard'
-                      ? '/guardia'
-                      : addon.pricingModel === 'flat'
-                        ? '/mes'
-                        : addon.priceUnit ? `/${addon.priceUnit}` : ''}
-                  </span>
-                  {addon.isActive && (
-                    <>
-                      {editingAddonPrice === addon.slug ? (
-                        <div className="flex items-center gap-1">
-                          <input
-                            type="number"
-                            step="0.01"
-                            className="w-20 rounded border border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 px-1 py-0.5 text-xs"
-                            value={addonPriceDrafts[addon.slug] ?? ''}
-                            onChange={(e) =>
-                              setAddonPriceDrafts((prev) => ({
-                                ...prev,
-                                [addon.slug]: e.target.value,
-                              }))
-                            }
-                            autoFocus
-                          />
-                          <button
-                            onClick={() => {
-                              const val = addonPriceDrafts[addon.slug];
-                              if (val) {
-                                saveAddonCustomPrice(addon.slug, Number(val));
-                              }
-                            }}
-                            className="text-xs text-status-info-fg hover:brightness-110"
-                          >
-                            OK
-                          </button>
-                          <button
-                            onClick={() => setEditingAddonPrice(null)}
-                            className="text-xs text-gray-400 hover:text-gray-600"
-                          >
-                            X
-                          </button>
+                        {/* Name + description */}
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm text-gray-900 dark:text-gray-100">
+                            {addon.name}
+                          </div>
+                          {addon.description && (
+                            <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                              {addon.description}
+                            </div>
+                          )}
                         </div>
-                      ) : (
-                        <button
-                          onClick={() => {
-                            setAddonPriceDrafts((prev) => ({
-                              ...prev,
-                              [addon.slug]: activeAddon?.customPrice != null
-                                ? String(activeAddon.customPrice)
-                                : '',
-                            }));
-                            setEditingAddonPrice(addon.slug);
-                          }}
-                          className="text-xs text-status-info-fg hover:brightness-110"
-                        >
-                          {activeAddon?.customPrice != null
-                            ? `custom: UF ${formatUF(activeAddon.customPrice)}`
-                            : 'precio custom'}
-                        </button>
-                      )}
-                    </>
-                  )}
+
+                        {rowMutating && (
+                          <span className="text-xs text-gray-500 animate-pulse">
+                            Guardando...
+                          </span>
+                        )}
+
+                        {isIncludedInPlan ? (
+                          <span className="bg-status-ok-soft text-status-ok-fg px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap">
+                            Incluido en plan
+                          </span>
+                        ) : (
+                          <div className="flex items-center gap-2 text-right min-w-[160px] justify-end">
+                            <span className="text-xs text-gray-400 dark:text-gray-500">
+                              UF {formatUF(addon.priceAmount)}
+                              {addon.pricingModel === 'per_guard'
+                                ? '/guardia'
+                                : addon.pricingModel === 'flat'
+                                  ? '/mes'
+                                  : addon.priceUnit
+                                    ? `/${addon.priceUnit}`
+                                    : ''}
+                            </span>
+                            {addon.isActive && (
+                              <>
+                                {editingAddonPrice === addon.slug ? (
+                                  <div className="flex items-center gap-1">
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      className="w-20 rounded border border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 px-1 py-0.5 text-xs"
+                                      value={addonPriceDrafts[addon.slug] ?? ''}
+                                      onChange={(e) =>
+                                        setAddonPriceDrafts((prev) => ({
+                                          ...prev,
+                                          [addon.slug]: e.target.value,
+                                        }))
+                                      }
+                                      autoFocus
+                                    />
+                                    <button
+                                      onClick={() => {
+                                        const val = addonPriceDrafts[addon.slug];
+                                        if (val) {
+                                          saveAddonCustomPrice(addon.slug, Number(val));
+                                        }
+                                      }}
+                                      className="text-xs text-status-info-fg hover:brightness-110"
+                                    >
+                                      OK
+                                    </button>
+                                    <button
+                                      onClick={() => setEditingAddonPrice(null)}
+                                      className="text-xs text-gray-400 hover:text-gray-600"
+                                    >
+                                      X
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <button
+                                    onClick={() => {
+                                      setAddonPriceDrafts((prev) => ({
+                                        ...prev,
+                                        [addon.slug]:
+                                          activeAddon?.customPrice != null
+                                            ? String(activeAddon.customPrice)
+                                            : '',
+                                      }));
+                                      setEditingAddonPrice(addon.slug);
+                                    }}
+                                    className="text-xs text-status-info-fg hover:brightness-110"
+                                  >
+                                    {activeAddon?.customPrice != null
+                                      ? `custom: UF ${formatUF(activeAddon.customPrice)}`
+                                      : 'precio custom'}
+                                  </button>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             );
@@ -988,10 +1152,10 @@ export function TenantAddonsSection({ tenantId }: { tenantId: string }) {
                     ) : (
                       <button
                         onClick={() => applyPack(pack.slug)}
-                        disabled={mutating}
+                        disabled={isMutating(`pack:${pack.slug}`)}
                         className="rounded bg-status-info px-3 py-1 text-xs font-medium text-white hover:brightness-110 disabled:opacity-50"
                       >
-                        Aplicar pack
+                        {isMutating(`pack:${pack.slug}`) ? 'Aplicando...' : 'Aplicar pack'}
                       </button>
                     )}
                   </div>
@@ -1034,7 +1198,7 @@ export function TenantAddonsSection({ tenantId }: { tenantId: string }) {
       {billing && (
         <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">
           <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">
-            Resumen de facturacion mensual
+            Resumen de facturación mensual
           </h3>
           <table className="w-full text-sm">
             <tbody>

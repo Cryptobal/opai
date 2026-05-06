@@ -1,12 +1,14 @@
 /**
  * API Route: /api/finance/config/dte-provider/sync-rcv
  * POST - Manual trigger for RCV sync from the UI.
- * Requires `rendicion_configure` capability.
+ * Requires `facturacion_view` (lectura — el sync inserta DTEs recibidos
+ * desde el SII pero no emite nada). Si querés más restrictivo, cambiar
+ * a `facturacion_configure`.
  */
 
 import { NextResponse } from "next/server";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
-import { hasCapability } from "@/lib/permissions";
+import { hasFacturacionCapability } from "@/lib/permissions";
 import { syncTenantRcv } from "@/modules/finance/billing/rcv-sync.service";
 
 export const maxDuration = 60;
@@ -15,7 +17,7 @@ export async function POST() {
   const ctx = await requireAuth();
   if (!ctx) return unauthorized();
   const perms = await resolveApiPerms(ctx);
-  if (!hasCapability(perms, "rendicion_configure")) {
+  if (!hasFacturacionCapability(perms, "facturacion_view")) {
     return NextResponse.json(
       { success: false, error: "Sin permisos" },
       { status: 403 }

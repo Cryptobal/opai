@@ -15,7 +15,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
-import { hasCapability } from "@/lib/permissions";
+import { hasFacturacionCapability } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { encryptBuffer, encryptString } from "@/lib/dte-encryption";
 import { parsePfx, PfxParseError } from "@/lib/dte-pfx-parser";
@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
   const ctx = await requireAuth();
   if (!ctx) return unauthorized();
   const perms = await resolveApiPerms(ctx);
-  if (!hasCapability(perms, "rendicion_configure")) {
+  if (!hasFacturacionCapability(perms, "facturacion_configure")) {
     return NextResponse.json(
       { success: false, error: "Sin permisos" },
       { status: 403 }
@@ -137,7 +137,7 @@ export async function DELETE() {
   const ctx = await requireAuth();
   if (!ctx) return unauthorized();
   const perms = await resolveApiPerms(ctx);
-  if (!hasCapability(perms, "rendicion_configure")) {
+  if (!hasFacturacionCapability(perms, "facturacion_configure")) {
     return NextResponse.json(
       { success: false, error: "Sin permisos" },
       { status: 403 }

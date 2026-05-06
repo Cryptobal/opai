@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
-import { canView } from "@/lib/permissions";
+import { hasFacturacionCapability } from "@/lib/permissions";
 import { checkDteStatus } from "@/modules/finance/billing/dte-issuer.service";
 
 export async function GET(
@@ -11,7 +11,7 @@ export async function GET(
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const perms = await resolveApiPerms(ctx);
-    if (!canView(perms, "finance")) {
+    if (!hasFacturacionCapability(perms, "facturacion_view")) {
       return NextResponse.json(
         { success: false, error: "Sin permisos" },
         { status: 403 }

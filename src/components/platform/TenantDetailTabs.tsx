@@ -245,15 +245,71 @@ function ProgressBar({
   );
 }
 
+// ── Suspend Modal ──
+
+function SuspendModal({
+  open,
+  onClose,
+  onConfirm,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onConfirm: (reason: string) => void;
+}) {
+  const [reason, setReason] = useState('');
+
+  useEffect(() => {
+    if (!open) setReason('');
+  }, [open]);
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-md rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 shadow-xl">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+          Suspender tenant
+        </h3>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+          Esta acción bloqueará el acceso de todos los usuarios del tenant. Indica una razón para registrarla en el historial.
+        </p>
+        <textarea
+          autoFocus
+          rows={3}
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="Razón de suspensión..."
+          className="w-full rounded-lg border border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 px-3 py-2 text-sm"
+        />
+        <div className="mt-4 flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="rounded-lg border border-gray-300 dark:border-gray-700 px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800"
+          >
+            Cancelar
+          </button>
+          <button
+            disabled={!reason.trim()}
+            onClick={() => onConfirm(reason.trim())}
+            className="rounded-lg bg-status-danger px-4 py-2 text-sm font-medium text-white hover:brightness-110 disabled:opacity-50"
+          >
+            Suspender
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Tab Definitions ──
 
 type TabKey = 'info' | 'plan' | 'admins' | 'metrics' | 'history';
 
 const TABS: { key: TabKey; label: string }[] = [
-  { key: 'info', label: 'Informacion' },
+  { key: 'info', label: 'Información' },
   { key: 'plan', label: 'Plan y Add-ons' },
   { key: 'admins', label: 'Administradores' },
-  { key: 'metrics', label: 'Metricas' },
+  { key: 'metrics', label: 'Métricas' },
   { key: 'history', label: 'Historial' },
 ];
 
@@ -267,6 +323,7 @@ export function TenantDetailTabs({ tenantId }: { tenantId: string }) {
   const [data, setData] = useState<TenantDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [suspendOpen, setSuspendOpen] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -313,14 +370,13 @@ export function TenantDetailTabs({ tenantId }: { tenantId: string }) {
     await fetchData();
   };
 
-  const suspendTenant = async () => {
-    const reason = prompt('Razon de suspension:');
-    if (!reason) return;
+  const suspendTenant = async (reason: string) => {
     await fetch(`/api/platform/tenants/${tenantId}/suspend`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ reason }),
     });
+    setSuspendOpen(false);
     await fetchData();
   };
 
@@ -352,13 +408,13 @@ export function TenantDetailTabs({ tenantId }: { tenantId: string }) {
   return (
     <div>
       {/* Tab Bar */}
-      <div className="mb-6 border-b border-gray-200">
-        <nav className="-mb-px flex gap-4">
+      <div className="mb-6 border-b border-gray-200 dark:border-gray-800 -mx-4 sm:mx-0 overflow-x-auto">
+        <nav className="-mb-px flex gap-1 px-4 sm:px-0 min-w-max">
           {TABS.map((tab) => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`border-b-2 px-1 py-3 text-sm font-medium transition-colors ${
+              className={`whitespace-nowrap border-b-2 px-3 py-3 text-sm font-medium transition-colors ${
                 activeTab === tab.key
                   ? 'border-status-info text-status-info-fg'
                   : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
@@ -375,7 +431,7 @@ export function TenantDetailTabs({ tenantId }: { tenantId: string }) {
         <InfoTab
           tenant={tenant}
           onPatch={patchTenant}
-          onSuspend={suspendTenant}
+          onSuspend={() => setSuspendOpen(true)}
           onReactivate={reactivateTenant}
         />
       )}
@@ -388,10 +444,16 @@ export function TenantDetailTabs({ tenantId }: { tenantId: string }) {
       )}
       {activeTab === 'metrics' && !plan && (
         <div className="rounded-lg border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 p-6 text-center text-gray-500 dark:text-gray-400">
-          No hay plan configurado para mostrar metricas.
+          No hay plan configurado para mostrar métricas.
         </div>
       )}
       {activeTab === 'history' && <HistoryTab tenantId={tenantId} />}
+
+      <SuspendModal
+        open={suspendOpen}
+        onClose={() => setSuspendOpen(false)}
+        onConfirm={suspendTenant}
+      />
     </div>
   );
 }
@@ -406,7 +468,7 @@ function InfoTab({
 }: {
   tenant: TenantInfo;
   onPatch: (fields: Record<string, unknown>) => Promise<void>;
-  onSuspend: () => Promise<void>;
+  onSuspend: () => void;
   onReactivate: () => Promise<void>;
 }) {
   return (
@@ -445,12 +507,12 @@ function InfoTab({
           </div>
           {tenant.suspendedReason && (
             <div>
-              <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Razon de suspension</dt>
+              <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Razón de suspensión</dt>
               <dd className="mt-1 text-sm text-status-danger-fg">{tenant.suspendedReason}</dd>
             </div>
           )}
           <div>
-            <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Onboarded por</dt>
+            <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Incorporado por</dt>
             <dd className="mt-1 text-sm text-gray-900 dark:text-gray-100">{tenant.onboardedBy || '—'}</dd>
           </div>
         </dl>
@@ -461,7 +523,7 @@ function InfoTab({
         <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">Contacto y notas</h3>
         <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <EditableField
-            label="Email de facturacion"
+            label="Email de facturación"
             value={tenant.billingEmail || ''}
             onSave={(v) => onPatch({ billingEmail: v })}
           />
@@ -535,7 +597,7 @@ function AdminsTab({ admins }: { admins: TenantAdmin[] }) {
               Estado
             </th>
             <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
-              Ultimo login
+              Último login
             </th>
           </tr>
         </thead>
@@ -610,7 +672,7 @@ function MetricsTab({
       {/* Activity stats */}
       <div className="rounded-lg border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 p-6">
         <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">
-          Actividad (ultimos 30 dias)
+          Actividad (últimos 30 días)
         </h3>
         <dl className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div className="rounded-lg border border-gray-100 dark:border-gray-800 p-4 text-center">

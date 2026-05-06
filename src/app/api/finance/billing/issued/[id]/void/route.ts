@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
-import { hasCapability } from "@/lib/permissions";
+import { hasFacturacionCapability } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
 export async function POST(
@@ -11,9 +11,9 @@ export async function POST(
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const perms = await resolveApiPerms(ctx);
-    if (!hasCapability(perms, "rendicion_configure")) {
+    if (!hasFacturacionCapability(perms, "facturacion_void")) {
       return NextResponse.json(
-        { success: false, error: "Sin permisos" },
+        { success: false, error: "No tiene permiso para anular DTEs" },
         { status: 403 }
       );
     }

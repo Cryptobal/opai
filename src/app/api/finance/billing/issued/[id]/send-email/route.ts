@@ -5,7 +5,7 @@ import {
   resolveApiPerms,
   parseBody,
 } from "@/lib/api-auth";
-import { canEdit } from "@/lib/permissions";
+import { hasFacturacionCapability } from "@/lib/permissions";
 import { z } from "zod";
 import { sendDteEmail } from "@/modules/finance/billing/dte-email.service";
 
@@ -20,9 +20,12 @@ export async function POST(
   const ctx = await requireAuth();
   if (!ctx) return unauthorized();
   const perms = await resolveApiPerms(ctx);
-  if (!canEdit(perms, "finance", "facturacion")) {
+  if (!hasFacturacionCapability(perms, "facturacion_resend_email")) {
     return NextResponse.json(
-      { success: false, error: "Sin permisos" },
+      {
+        success: false,
+        error: "No tiene permiso para reenviar emails de DTE",
+      },
       { status: 403 }
     );
   }

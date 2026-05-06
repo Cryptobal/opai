@@ -14,7 +14,7 @@ import {
   resolveApiPerms,
   parseBody,
 } from "@/lib/api-auth";
-import { canView, hasCapability } from "@/lib/permissions";
+import { canView, hasFacturacionCapability } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
 const updateConfigSchema = z.object({
@@ -87,7 +87,7 @@ export async function PUT(request: NextRequest) {
   const ctx = await requireAuth();
   if (!ctx) return unauthorized();
   const perms = await resolveApiPerms(ctx);
-  if (!hasCapability(perms, "rendicion_configure")) {
+  if (!hasFacturacionCapability(perms, "facturacion_configure")) {
     return NextResponse.json(
       { success: false, error: "Sin permisos" },
       { status: 403 }

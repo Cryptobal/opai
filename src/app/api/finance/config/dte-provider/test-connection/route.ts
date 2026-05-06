@@ -15,7 +15,7 @@
 
 import { NextResponse } from "next/server";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
-import { hasCapability } from "@/lib/permissions";
+import { hasFacturacionCapability } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { decryptBuffer, decryptString } from "@/lib/dte-encryption";
 import { callSimpleApi } from "@/modules/finance/shared/adapters/simpleapi-http";
@@ -24,7 +24,7 @@ export async function POST() {
   const ctx = await requireAuth();
   if (!ctx) return unauthorized();
   const perms = await resolveApiPerms(ctx);
-  if (!hasCapability(perms, "rendicion_configure")) {
+  if (!hasFacturacionCapability(perms, "facturacion_configure")) {
     return NextResponse.json(
       { success: false, error: "Sin permisos" },
       { status: 403 },

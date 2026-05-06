@@ -158,7 +158,16 @@ export const CAPABILITY_KEYS = [
   "rendicion_view_all",
   "rendicion_export",
   "contabilidad_manage",
-  "facturacion_manage",
+  // Facturación granular (preferida). Usar hasFacturacionCapability para
+  // chequearlas — ese helper expande automáticamente la legacy `facturacion_manage`.
+  "facturacion_view",
+  "facturacion_create_draft",
+  "facturacion_issue",
+  "facturacion_credit_note",
+  "facturacion_void",
+  "facturacion_resend_email",
+  "facturacion_configure",
+  "facturacion_manage", // DEPRECATED: legacy capability — se expande a las 7 granulares vía hasFacturacionCapability.
   "ticket_approve",
   "ticket_manage_types",
   "supervision_checkin",
@@ -334,7 +343,14 @@ export const CAPABILITY_META: CapabilityMeta[] = [
   { key: "rendicion_view_all", label: "Ver todas las rendiciones", description: "Puede ver rendiciones de todos los usuarios, no solo las propias", moduleKey: "finance" },
   { key: "rendicion_export", label: "Exportar rendiciones", description: "Puede exportar rendiciones a CSV/Excel", moduleKey: "finance" },
   { key: "contabilidad_manage", label: "Gestionar contabilidad", description: "Puede crear asientos, gestionar plan de cuentas y periodos contables", moduleKey: "finance" },
-  { key: "facturacion_manage", label: "Gestionar facturación", description: "Puede emitir DTEs (facturas, boletas, notas de crédito/débito) y gestionar proveedores", moduleKey: "finance" },
+  { key: "facturacion_view", label: "Ver facturación", description: "Ver DTEs emitidos, recibidos, folios y libro IVA. Solo lectura.", moduleKey: "finance" },
+  { key: "facturacion_create_draft", label: "Crear borradores DTE", description: "Puede preparar DTEs como borrador y registrar DTEs recibidos, sin emitir al SII.", moduleKey: "finance" },
+  { key: "facturacion_issue", label: "Emitir facturas", description: "Puede emitir facturas afectas y exentas (33, 34) al SII. Genera obligaciones fiscales.", moduleKey: "finance" },
+  { key: "facturacion_credit_note", label: "Emitir notas crédito/débito", description: "Puede emitir Notas de Crédito (61) y Notas de Débito (56) al SII.", moduleKey: "finance" },
+  { key: "facturacion_void", label: "Anular DTEs", description: "Puede anular DTEs emitidos. Acción no reversible.", moduleKey: "finance" },
+  { key: "facturacion_resend_email", label: "Reenviar emails de DTE", description: "Puede reenviar el email del DTE al receptor (no emite documentos nuevos).", moduleKey: "finance" },
+  { key: "facturacion_configure", label: "Configurar emisor DTE", description: "Configura datos del emisor, certificado digital y archivos CAF.", moduleKey: "finance" },
+  { key: "facturacion_manage", label: "Gestionar facturación (legacy)", description: "DEPRECATED: capability legacy que otorga todos los permisos de facturación. Use las capabilities granulares.", moduleKey: "finance" },
   { key: "ticket_approve", label: "Aprobar tickets", description: "Puede aprobar o rechazar tickets que le correspondan según su grupo", moduleKey: "ops", submoduleKey: "tickets" },
   { key: "ticket_manage_types", label: "Configurar tipos de ticket", description: "Puede crear/editar tipos de solicitud y cadenas de aprobación", moduleKey: "ops", submoduleKey: "tickets" },
   { key: "supervision_checkin", label: "Check-in de supervisión", description: "Puede iniciar y finalizar visitas con georreferencia", moduleKey: "ops", submoduleKey: "supervision" },
@@ -727,6 +743,49 @@ export function hasCapability(
   cap: CapabilityKey,
 ): boolean {
   return perms.capabilities[cap] === true;
+}
+
+/**
+ * Set canónico de capabilities granulares de facturación.
+ * Usado por `hasFacturacionCapability` para expandir la legacy
+ * `facturacion_manage` cuando se chequean las nuevas capabilities.
+ */
+const FACTURACION_GRANULAR_CAPABILITIES = [
+  "facturacion_view",
+  "facturacion_create_draft",
+  "facturacion_issue",
+  "facturacion_credit_note",
+  "facturacion_void",
+  "facturacion_resend_email",
+  "facturacion_configure",
+] as const satisfies readonly CapabilityKey[];
+
+export type FacturacionCapability =
+  (typeof FACTURACION_GRANULAR_CAPABILITIES)[number];
+
+/**
+ * Chequea una capability granular de facturación.
+ *
+ * Mapea automáticamente la legacy `facturacion_manage` (capability monolítica)
+ * al conjunto completo de capabilities granulares — esto preserva
+ * retro-compatibilidad con roles ya configurados que tenían
+ * `facturacion_manage: true`.
+ *
+ * Preferí este helper sobre `hasCapability(perms, "facturacion_*")` para los
+ * checks de facturación. La capability legacy se irá removiendo en un PR
+ * posterior cuando se confirme migración completa de roles custom.
+ *
+ * @example
+ *   if (!hasFacturacionCapability(perms, "facturacion_issue")) return forbidden();
+ */
+export function hasFacturacionCapability(
+  perms: RolePermissions,
+  capability: FacturacionCapability,
+): boolean {
+  if (perms.capabilities?.[capability] === true) return true;
+  // Legacy: cualquier rol con `facturacion_manage` recibe todas las granulares.
+  if (perms.capabilities?.facturacion_manage === true) return true;
+  return false;
 }
 
 /**
