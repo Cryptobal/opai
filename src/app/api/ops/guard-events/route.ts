@@ -233,7 +233,12 @@ export async function POST(request: NextRequest) {
           plannedGuardiaId: guardiaId,
           date: { gte: dayAfterFiniquito },
         },
-        data: { plannedGuardiaId: null },
+        data: {
+          previousGuardiaId: guardiaId,
+          plannedGuardiaId: null,
+          unassignedAt: new Date(),
+          unassignedReason: "finiquito",
+        },
       });
 
       // Auto-generate Carta de Aviso + Finiquito from templates

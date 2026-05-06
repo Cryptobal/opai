@@ -12,6 +12,7 @@ import { CollapsibleSection } from "@/components/crm/CollapsibleSection";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -20,6 +21,7 @@ import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { Input } from "@/components/ui/input";
 import { hasOpsCapability } from "@/lib/ops-rbac";
 import { formatPersonName } from "@/lib/personas";
+import { GuardiaTeIngresoForm } from "@/components/ops/GuardiaTeIngresoForm";
 
 /* ── types ─────────────────────────────────────── */
 
@@ -184,6 +186,8 @@ export function OpsPautaDiariaClient({
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [replacementOpenId, setReplacementOpenId] = useState<string | null>(null);
   const [replacementSearch, setReplacementSearch] = useState("");
+  const [teModalOpenForItemId, setTeModalOpenForItemId] = useState<string | null>(null);
+  const [extraGuardias, setExtraGuardias] = useState<GuardiaOption[]>([]);
   const replacementPopoverRef = useRef<HTMLDivElement>(null);
   const replacementDropdownRef = useRef<HTMLDivElement>(null);
   const replacementTriggerRef = useRef<HTMLButtonElement | null>(null);
@@ -293,17 +297,20 @@ export function OpsPautaDiariaClient({
     return () => cancelAnimationFrame(id);
   }, [replacementOpenId, isDesktop]);
 
+  // Combined list including TE guardias registered through inline modal
+  const allGuardias = useMemo(() => [...guardias, ...extraGuardias], [guardias, extraGuardias]);
+
   // Filtered guardias for replacement search (when popover is open)
   const replacementGuardiasFiltered = useMemo(() => {
     const q = replacementSearch.trim().toLowerCase();
-    if (!q) return guardias.slice(0, 20);
-    return guardias
+    if (!q) return allGuardias.slice(0, 20);
+    return allGuardias
       .filter((g) => {
         const hay = `${formatPersonName(g.persona.firstName, g.persona.lastName)} ${g.code ?? ""} ${g.persona.rut ?? ""}`.toLowerCase();
         return hay.includes(q);
       })
       .slice(0, 20);
-  }, [guardias, replacementSearch]);
+  }, [allGuardias, replacementSearch]);
 
   // Filter by guardiaId (from URL) and shift (todos/día/noche)
   const shiftFilteredItems = useMemo(() => {
@@ -769,8 +776,8 @@ export function OpsPautaDiariaClient({
                                 }}
                               >
                                 {item.replacementGuardiaId
-                                  ? guardias.find((g) => g.id === item.replacementGuardiaId)
-                                    ? formatPersonName(guardias.find((g) => g.id === item.replacementGuardiaId)!.persona.firstName, guardias.find((g) => g.id === item.replacementGuardiaId)!.persona.lastName)
+                                  ? allGuardias.find((g) => g.id === item.replacementGuardiaId)
+                                    ? formatPersonName(allGuardias.find((g) => g.id === item.replacementGuardiaId)!.persona.firstName, allGuardias.find((g) => g.id === item.replacementGuardiaId)!.persona.lastName)
                                     : "Guardia seleccionado"
                                   : "Buscar guardia…"}
                               </Button>
@@ -784,6 +791,22 @@ export function OpsPautaDiariaClient({
                                     autoFocus
                                   />
                                   <ul className="max-h-60 overflow-auto py-1">
+                                    <li className="px-3 py-2 border-b border-border bg-muted/40">
+                                      <button
+                                        type="button"
+                                        className="text-xs font-medium text-primary hover:underline w-full text-left"
+                                        onClick={() => {
+                                          setTeModalOpenForItemId(item.id);
+                                          setReplacementOpenId(null);
+                                          setReplacementSearch("");
+                                        }}
+                                      >
+                                        + Registrar nuevo guardia TE
+                                      </button>
+                                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                                        Si la persona no está en el sistema, regístrala como TE y se asignará automáticamente como reemplazo.
+                                      </p>
+                                    </li>
                                     {replacementGuardiasFiltered
                                       .filter((g) => g.id !== item.plannedGuardiaId)
                                       .map((g) => (
@@ -1425,6 +1448,22 @@ export function OpsPautaDiariaClient({
               autoFocus
             />
             <ul className="max-h-60 overflow-auto py-1">
+              <li className="px-3 py-2 border-b border-border bg-muted/40">
+                <button
+                  type="button"
+                  className="text-xs font-medium text-primary hover:underline w-full text-left"
+                  onClick={() => {
+                    setTeModalOpenForItemId(openReplacementItem.id);
+                    setReplacementOpenId(null);
+                    setReplacementSearch("");
+                  }}
+                >
+                  + Registrar nuevo guardia TE
+                </button>
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  Si la persona no está en el sistema, regístrala como TE y se asignará automáticamente como reemplazo.
+                </p>
+              </li>
               {replacementGuardiasFiltered
                 .filter((g) => g.id !== openReplacementItem.plannedGuardiaId)
                 .map((g) => (
@@ -1473,6 +1512,71 @@ export function OpsPautaDiariaClient({
           </div>,
           document.body
         )}
+
+      {/* Modal: registrar nuevo guardia TE en línea y auto-asignarlo como reemplazo */}
+      <Dialog
+        open={teModalOpenForItemId !== null}
+        onOpenChange={(open) => {
+          if (!open) setTeModalOpenForItemId(null);
+        }}
+      >
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Registrar nuevo Guardia TE</DialogTitle>
+            <DialogDescription>
+              El nuevo guardia se asignará automáticamente como reemplazo del slot al guardar.
+            </DialogDescription>
+          </DialogHeader>
+
+          {teModalOpenForItemId && (
+            <GuardiaTeIngresoForm
+              userRole={userRole}
+              compact
+              navigateOnSuccess={false}
+              onSuccess={async (created) => {
+                const targetItemId = teModalOpenForItemId;
+                if (!created?.id || !targetItemId) {
+                  setTeModalOpenForItemId(null);
+                  return;
+                }
+                const newGuardia: GuardiaOption = {
+                  id: created.id,
+                  code: null,
+                  lifecycleStatus: "te",
+                  persona: {
+                    firstName: created.firstName ?? "",
+                    lastName: created.lastName ?? "",
+                    rut: null,
+                  },
+                };
+                setExtraGuardias((prev) =>
+                  prev.some((g) => g.id === newGuardia.id) ? prev : [...prev, newGuardia],
+                );
+                try {
+                  await patchAsistencia(
+                    targetItemId,
+                    {
+                      replacementGuardiaId: newGuardia.id,
+                      attendanceStatus: "reemplazo",
+                    },
+                    "Reemplazo asignado tras registro TE",
+                  );
+                  toast.success(
+                    `${formatPersonName(newGuardia.persona.firstName, newGuardia.persona.lastName)} registrado y asignado como reemplazo`,
+                  );
+                } catch (err) {
+                  console.error(err);
+                  toast.error(
+                    "Guardia registrado pero hubo un error al asignarlo. Asígnalo manualmente.",
+                  );
+                } finally {
+                  setTeModalOpenForItemId(null);
+                }
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

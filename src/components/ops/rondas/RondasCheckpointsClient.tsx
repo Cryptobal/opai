@@ -7,7 +7,8 @@ import { CheckpointQrGenerator } from "@/components/ops/rondas/checkpoint-qr-gen
 import { Button } from "@/components/ui/button";
 import { DataTable, EmptyState, type DataTableColumn } from "@/components/opai-ds";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
-import { MapPin } from "lucide-react";
+import { MapPin, FileDown, Archive } from "lucide-react";
+import { generateQrsPdf, generateQrsZip } from "@/lib/qr-export";
 
 interface Installation {
   id: string;
@@ -36,6 +37,7 @@ export function RondasCheckpointsClient({
 }) {
   const [installationId, setInstallationId] = useState(installations[0]?.id ?? "");
   const [rows, setRows] = useState(initialCheckpoints);
+  const [downloadingAll, setDownloadingAll] = useState(false);
   const installationMap = useMemo(() => new Map(installations.map((i) => [i.id, i])), [installations]);
   const selectedInstallation = installationMap.get(installationId);
 
@@ -127,6 +129,65 @@ export function RondasCheckpointsClient({
             toast.success("Checkpoint creado");
           }}
         />
+      )}
+
+      {filtered.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={downloadingAll}
+            onClick={async () => {
+              const items = filtered
+                .filter((cp) => cp.isActive)
+                .map((cp) => ({ name: cp.name, code: cp.qrCode }));
+              if (items.length === 0) {
+                toast.warning("No hay checkpoints activos con QR");
+                return;
+              }
+              setDownloadingAll(true);
+              try {
+                await generateQrsPdf(items, selectedInstallation?.name ?? "Instalación");
+                toast.success(`PDF con ${items.length} QRs descargado`);
+              } catch (e) {
+                console.error(e);
+                toast.error("Error al generar PDF");
+              } finally {
+                setDownloadingAll(false);
+              }
+            }}
+          >
+            <FileDown className="mr-1.5 h-4 w-4" />
+            {downloadingAll ? "Generando..." : "Descargar PDF de todos los QR"}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={downloadingAll}
+            onClick={async () => {
+              const items = filtered
+                .filter((cp) => cp.isActive)
+                .map((cp) => ({ name: cp.name, code: cp.qrCode }));
+              if (items.length === 0) {
+                toast.warning("No hay checkpoints activos con QR");
+                return;
+              }
+              setDownloadingAll(true);
+              try {
+                await generateQrsZip(items, selectedInstallation?.name ?? "Instalación");
+                toast.success(`ZIP con ${items.length} QRs descargado`);
+              } catch (e) {
+                console.error(e);
+                toast.error("Error al generar ZIP");
+              } finally {
+                setDownloadingAll(false);
+              }
+            }}
+          >
+            <Archive className="mr-1.5 h-4 w-4" />
+            ZIP de PNGs
+          </Button>
+        </div>
       )}
 
       <DataTable

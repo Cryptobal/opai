@@ -114,6 +114,14 @@ type PautaItem = {
     id: string;
     persona: { firstName: string; lastName: string; rut?: string | null };
   } | null;
+  previousGuardiaId?: string | null;
+  unassignedAt?: string | null;
+  unassignedReason?: string | null;
+  previousGuardia?: {
+    id: string;
+    code?: string | null;
+    persona: { firstName: string; lastName: string; rut?: string | null };
+  } | null;
 };
 
 type AbsenceInfo = {
@@ -2129,6 +2137,19 @@ export function OpsPautaMensualClient({
                                     const isUnassignedWork = isTrabajo && !cell?.plannedGuardiaId && !cell?.plannedGuardia && !cell?.replacementGuardiaId;
                                     const showAsPpc = (isUnassignedWork || isPostFiniquito) && (!execution || execution.state === "ppc");
 
+                                    // Ghost: cell has previous guardia preserved (was planned but desasignado/finiquitado)
+                                    const previousGhost = cell?.previousGuardia && !cell?.plannedGuardiaId && !cell?.replacementGuardiaId
+                                      ? cell.previousGuardia
+                                      : null;
+                                    const previousGhostName = previousGhost
+                                      ? formatPersonName(previousGhost.persona.firstName, previousGhost.persona.lastName)
+                                      : null;
+                                    const previousGhostTooltip = previousGhost && cell?.unassignedAt
+                                      ? `Desasignado el ${String(cell.unassignedAt).slice(0, 10)}${cell?.unassignedReason ? ` (${cell.unassignedReason})` : ""} — ${previousGhostName}`
+                                      : previousGhost
+                                        ? `Desasignado — ${previousGhostName}`
+                                        : null;
+
                                     return (
                                       <td
                                         key={dateKey}
@@ -2145,13 +2166,15 @@ export function OpsPautaMensualClient({
                                                   : colorClass
                                               }`}
                                             title={
-                                              showAsPpc
-                                                ? "Puesto por cubrir (PPC)"
-                                                : cell?.replacementGuardia
-                                                  ? `Reemplazo: ${formatPersonName(cell.replacementGuardia.persona.firstName, cell.replacementGuardia.persona.lastName)}`
-                                                  : cell?.plannedGuardia
-                                                    ? formatPersonName(cell.plannedGuardia.persona.firstName, cell.plannedGuardia.persona.lastName)
-                                                    : "Sin asignar"
+                                              previousGhostTooltip
+                                                ? previousGhostTooltip
+                                                : showAsPpc
+                                                  ? "Puesto por cubrir (PPC)"
+                                                  : cell?.replacementGuardia
+                                                    ? `Reemplazo: ${formatPersonName(cell.replacementGuardia.persona.firstName, cell.replacementGuardia.persona.lastName)}`
+                                                    : cell?.plannedGuardia
+                                                      ? formatPersonName(cell.plannedGuardia.persona.firstName, cell.plannedGuardia.persona.lastName)
+                                                      : "Sin asignar"
                                             }
                                             onPointerDown={() => {
                                               longPressTargetRef.current = {
@@ -2256,6 +2279,14 @@ export function OpsPautaMensualClient({
                                                 title="Puesto por cubrir"
                                               >
                                                 PPC
+                                              </span>
+                                            ) : null}
+                                            {previousGhost ? (
+                                              <span
+                                                className="absolute -top-1.5 -left-1.5 rounded-full px-[3px] py-[1px] text-[8px] leading-none font-bold shadow-sm bg-muted text-muted-foreground/80 border border-border/60"
+                                                title={previousGhostTooltip ?? undefined}
+                                              >
+                                                ↩
                                               </span>
                                             ) : null}
                                           </div>
