@@ -50,7 +50,7 @@ export async function PATCH(
   const { id } = await params;
   const dte = await prisma.financeDte.findFirst({
     where: { id, tenantId: ctx.tenantId },
-    select: { id: true },
+    select: { id: true, direction: true, receiverRut: true },
   });
   if (!dte) {
     return NextResponse.json(
@@ -88,16 +88,37 @@ export async function PATCH(
   }
 
   // Si pasaron crmAccountId, validamos que exista en el tenant.
+  // Para DTEs EMITIDOS, además exigimos que el RUT del cliente CRM coincida
+  // con receiverRut del DTE: el centro de costo de una factura de venta
+  // tiene que ser el mismo cliente al que se le facturó. Permitir mezclar
+  // RUTs distintos rompe los reportes por cliente y la integridad fiscal.
+  // Para DTEs RECIBIDOS no aplica (factura de proveedor X imputada al
+  // cliente interno Y al que pertenece el gasto).
   if (crmAccountId) {
     const acc = await prisma.crmAccount.findFirst({
       where: { id: crmAccountId, tenantId: ctx.tenantId },
-      select: { id: true },
+      select: { id: true, rut: true, name: true, legalName: true },
     });
     if (!acc) {
       return NextResponse.json(
         { success: false, error: "Cliente CRM no encontrado" },
         { status: 400 },
       );
+    }
+    if (dte.direction === "ISSUED") {
+      const normalize = (v: string | null | undefined) =>
+        (v ?? "").replace(/[.\-\s]/g, "").toUpperCase();
+      const accRut = normalize(acc.rut);
+      const dteRut = normalize(dte.receiverRut);
+      if (!accRut || accRut !== dteRut) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `El RUT del cliente seleccionado (${acc.rut ?? "sin RUT"}) no coincide con el RUT del receptor del DTE (${dte.receiverRut}). Para facturas de venta el centro de costo debe ser el mismo cliente al que se facturó.`,
+          },
+          { status: 400 },
+        );
+      }
     }
   }
 

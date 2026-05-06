@@ -29,6 +29,9 @@ export async function GET(request: NextRequest) {
     // status=draft → solo DRAFT. status=all → DRAFT + emitidos.
     // sin status (default) → solo emitidos (excluye DRAFT).
     const statusFilter = url.searchParams.get("status") || undefined;
+    // Búsqueda por nombre/RUT del receptor o folio. Server-side para que
+    // la búsqueda atraviese todas las páginas, no solo la cargada.
+    const search = url.searchParams.get("search")?.trim() || undefined;
 
     const where: Record<string, unknown> = {
       tenantId: ctx.tenantId,
@@ -38,6 +41,16 @@ export async function GET(request: NextRequest) {
       where.siiStatus = "DRAFT";
     } else if (statusFilter !== "all") {
       where.siiStatus = { not: "DRAFT" };
+    }
+    if (search) {
+      const folioNum = parseInt(search, 10);
+      const rutNeedle = search.replace(/[.\-\s]/g, "");
+      const orClauses: Record<string, unknown>[] = [
+        { receiverName: { contains: search, mode: "insensitive" } },
+        { receiverRut: { contains: rutNeedle, mode: "insensitive" } },
+      ];
+      if (!Number.isNaN(folioNum)) orClauses.push({ folio: folioNum });
+      where.OR = orClauses;
     }
     if (periodo && /^\d{4}-\d{2}$/.test(periodo)) {
       const [y, m] = periodo.split("-").map((s) => parseInt(s, 10));

@@ -407,6 +407,7 @@ export function IssuedDteDetailDialog({
                 currentInstallationId={dte.installationId}
                 currentInstallationName={dte.installation?.name ?? null}
                 canEdit={canManage}
+                restrictToRut={dte.receiverRut}
                 onChange={(next) => {
                   setDte((prev) =>
                     prev

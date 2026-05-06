@@ -56,6 +56,13 @@ interface Props {
   }) => void;
   /** Si false, solo lectura (sin abrir popover). */
   canEdit?: boolean;
+  /**
+   * RUT del receptor del DTE. Si se pasa, la búsqueda de clientes solo
+   * devuelve cuentas con ese RUT. Útil en DTEs EMITIDOS donde el centro
+   * de costo debe ser el mismo cliente al que se facturó. Si no se pasa,
+   * el editor permite buscar cualquier cliente (uso típico: DTE recibido).
+   */
+  restrictToRut?: string | null;
 }
 
 export function CostCenterEditor({
@@ -66,6 +73,7 @@ export function CostCenterEditor({
   currentInstallationId,
   onChange,
   canEdit = true,
+  restrictToRut,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -94,15 +102,20 @@ export function CostCenterEditor({
     setSelectedInstallationName(currentInstallationName ?? null);
   }, [currentAccountId, currentAccountName, currentInstallationId, currentInstallationName]);
 
-  // Búsqueda de clientes con debounce.
+  // Búsqueda de clientes con debounce. Si restrictToRut está, agregamos
+  // el filtro al backend para que solo devuelva cuentas con ese RUT exacto.
   useEffect(() => {
     if (!open) return;
     const ctrl = new AbortController();
     const t = setTimeout(async () => {
       setSearching(true);
       try {
+        const params = new URLSearchParams();
+        params.set("q", query);
+        params.set("limit", "15");
+        if (restrictToRut) params.set("rut", restrictToRut);
         const res = await fetch(
-          `/api/finance/billing/customer-search?q=${encodeURIComponent(query)}&limit=15`,
+          `/api/finance/billing/customer-search?${params.toString()}`,
           { signal: ctrl.signal },
         );
         const json = await res.json();
@@ -117,7 +130,18 @@ export function CostCenterEditor({
       clearTimeout(t);
       ctrl.abort();
     };
-  }, [query, open]);
+  }, [query, open, restrictToRut]);
+
+  // Auto-seleccionar la única cuenta cuando hay restricción de RUT y aún
+  // no hay nada seleccionado (evita un click de UX cuando solo hay 1 match).
+  useEffect(() => {
+    if (!open || !restrictToRut || selectedAccountId) return;
+    if (accounts.length === 1) {
+      const a = accounts[0];
+      setSelectedAccountId(a.id);
+      setSelectedAccountName(a.name);
+    }
+  }, [open, restrictToRut, accounts, selectedAccountId]);
 
   // Cargar instalaciones cuando cambia el cliente seleccionado.
   useEffect(() => {
@@ -246,6 +270,14 @@ export function CostCenterEditor({
               </Button>
             )}
           </div>
+
+          {restrictToRut && (
+            <p className="text-[12px] text-muted-foreground">
+              Solo se muestra el cliente con RUT <span className="font-mono">{restrictToRut}</span>.
+              Para facturas de venta el centro de costo debe ser el mismo cliente al que se facturó —
+              lo único que cambia por DTE es la instalación.
+            </p>
+          )}
 
           {/* Selección de cliente */}
           <div className="space-y-1.5">
