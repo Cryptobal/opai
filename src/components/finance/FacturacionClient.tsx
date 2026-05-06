@@ -50,6 +50,7 @@ import { PdfPreviewDialog } from "./PdfPreviewDialog";
 import { DteActionsMenu } from "./DteActionsMenu";
 import { FoliosKpiCards } from "./FoliosKpiCards";
 import { FoliosDetailTable } from "./FoliosDetailTable";
+import { DteAgingBadge } from "./DteAgingBadge";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { PaginationControls } from "./PaginationControls";
@@ -92,6 +93,12 @@ interface DteRow {
   canBeCeded?: boolean;
   /** Cesión activa asociada al DTE (si existe). */
   activeCession?: { id: string; code: string; status: string } | null;
+  /** Fecha tributaria del DTE (para aging y filtros). */
+  date?: string;
+  /** Vencimiento (opcional). */
+  dueDate?: string | null;
+  /** Estado de pago (UNPAID / PARTIAL / PAID / OVERDUE / WRITTEN_OFF). */
+  paymentStatus?: string | null;
 }
 
 interface FolioStatus {
@@ -497,6 +504,9 @@ function DtesTab({
               activeCession: (d.activeCession as
                 | { id: string; code: string; status: string }
                 | null) ?? null,
+              date: typeof d.date === "string" ? d.date : String(d.date ?? ""),
+              dueDate: (d.dueDate as string | null) ?? null,
+              paymentStatus: (d.paymentStatus as string | null) ?? null,
             }))
           : [];
         setDtes(list);
@@ -780,9 +790,19 @@ function DtesTab({
                   cell: (row) => {
                     const stCfg = SII_STATUS_CONFIG[row.siiStatus] ?? { label: row.siiStatus, className: "bg-muted" };
                     return (
-                      <Badge variant="outline" className={cn("text-xs", stCfg.className)}>
-                        {stCfg.label}
-                      </Badge>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <Badge variant="outline" className={cn("text-xs", stCfg.className)}>
+                          {stCfg.label}
+                        </Badge>
+                        {row.date && (
+                          <DteAgingBadge
+                            date={row.date}
+                            dueDate={row.dueDate}
+                            paymentStatus={row.paymentStatus}
+                            siiStatus={row.siiStatus}
+                          />
+                        )}
+                      </div>
                     );
                   },
                 },
@@ -897,6 +917,14 @@ function DtesTab({
                           <Badge variant="outline" className={cn("text-xs", stCfg.className)}>
                             {stCfg.label}
                           </Badge>
+                          {d.date && (
+                            <DteAgingBadge
+                              date={d.date}
+                              dueDate={d.dueDate}
+                              paymentStatus={d.paymentStatus}
+                              siiStatus={d.siiStatus}
+                            />
+                          )}
                         </div>
                         {d.referenceFolio != null && d.referenceType != null && (
                           <p className="text-[12px] text-ds-text-3 font-mono mb-1">

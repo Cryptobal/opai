@@ -179,6 +179,10 @@ export default async function FacturacionPage() {
       activeCession: cession
         ? { id: cession.id, code: cession.code, status: cession.status }
         : null,
+      // Aging: fecha tributaria + due date + payment status (UX 2.5).
+      date: d.date.toISOString(),
+      dueDate: d.dueDate ? d.dueDate.toISOString() : null,
+      paymentStatus: d.paymentStatus,
     };
   });
 
