@@ -34,12 +34,21 @@ export default async function FacturacionPage() {
     hasFacturacionCapability(perms, "facturacion_resend_email") ||
     hasFacturacionCapability(perms, "facturacion_configure");
 
-  const dtes = await prisma.financeDte.findMany({
-    where: { tenantId, direction: "ISSUED" },
-    include: { lines: true },
-    orderBy: { createdAt: "desc" },
-    take: 200,
-  });
+  // Default: primera página de 50 DTEs (igual que el endpoint paginado).
+  // El cliente puede cambiar pageSize y page con re-fetch al endpoint
+  // /api/finance/billing/issued — el SSR sólo precarga la primera vista.
+  const INITIAL_PAGE_SIZE = 50;
+  const [dtes, issuedTotal] = await Promise.all([
+    prisma.financeDte.findMany({
+      where: { tenantId, direction: "ISSUED" },
+      include: { lines: true },
+      orderBy: { createdAt: "desc" },
+      take: INITIAL_PAGE_SIZE,
+    }),
+    prisma.financeDte.count({
+      where: { tenantId, direction: "ISSUED" },
+    }),
+  ]);
 
   const dtesData = dtes.map((d: typeof dtes[number]) => ({
     id: d.id,
@@ -79,6 +88,7 @@ export default async function FacturacionPage() {
       />
       <FacturacionClient
         dtes={dtesData}
+        issuedTotal={issuedTotal}
         canManage={canManage}
         suppliers={suppliers}
       />
