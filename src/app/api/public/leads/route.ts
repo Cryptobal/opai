@@ -1,20 +1,19 @@
 /**
- * API Route: /api/public/[tenantSlug]/leads
+ * API Route: /api/public/leads
  * POST - Crear lead desde formulario web (público, sin auth)
- *
+ * 
  * Este endpoint es público y está diseñado para recibir datos
- * del formulario de cotización de la página web del tenant.
+ * del formulario de cotización de la página web de Gard Security.
  * Crea un lead en el CRM, genera una notificación y envía un email.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { resolveTenantFromSlug } from "@/lib/tenant";
-import { sendEmailWithRetry } from "@/lib/email-retry";
+import { getDefaultTenantId } from "@/lib/tenant";
+import { resend } from "@/lib/resend";
 import { getWaTemplate } from "@/lib/whatsapp-templates";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
-import { getEmailBaseUrl } from "@/lib/emails/site-url";
 
 // CORS headers for cross-origin requests from the website
 const corsHeaders = {
@@ -69,48 +68,7 @@ export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: corsHeaders });
 }
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ tenantSlug: string }> },
-) {
-  const { tenantSlug } = await params;
-
-  // Rate limit por IP — 5 leads/hora. Fail-open si Redis no responde
-  // o si Upstash no está configurado en este entorno.
-  try {
-    const { getPublicLeadRateLimit, getClientIp } = await import("@/lib/rate-limit");
-    const limiter = getPublicLeadRateLimit();
-    if (limiter) {
-      const ip = getClientIp(request);
-      const { success, limit, remaining, reset } = await limiter.limit(ip);
-      if (!success) {
-        return NextResponse.json(
-          { success: false, error: "Demasiadas solicitudes. Intenta nuevamente en unos minutos." },
-          {
-            status: 429,
-            headers: {
-              ...corsHeaders,
-              "X-RateLimit-Limit": String(limit),
-              "X-RateLimit-Remaining": String(remaining),
-              "X-RateLimit-Reset": String(reset),
-            },
-          },
-        );
-      }
-    }
-  } catch (rlError) {
-    console.warn("Lead rate limit check failed, allowing request", rlError);
-  }
-
-  const tenant = await resolveTenantFromSlug(tenantSlug);
-  if (!tenant) {
-    return NextResponse.json(
-      { success: false, error: "Tenant not found" },
-      { status: 404, headers: corsHeaders },
-    );
-  }
-  const tenantId = tenant.id;
-
+export async function POST(request: NextRequest) {
   try {
     const raw = await request.json();
     const result = publicLeadSchema.safeParse(raw);
@@ -129,6 +87,7 @@ export async function POST(
     const emailOnly = (raw as { emailOnly?: boolean }).emailOnly === true;
 
     const totalGuards = data.dotacion?.reduce((sum, d) => sum + d.cantidad, 0) || 0;
+    const tenantId = await getDefaultTenantId();
     const tenantCfg = await getTenantCompanyConfig(tenantId);
 
     let leadId: string | null = null;
@@ -180,23 +139,21 @@ export async function POST(
       // Cuenta, contacto e instalaciones se crean solo al "Revisar y aprobar" el lead en el CRM.
 
       try {
-        const { notify } = await import("@/lib/notifications/notify");
-        const dotacionInfo = totalGuards > 0 ? ` · ${totalGuards} guardias` : "";
-        await notify({
+        const { sendNotification } = await import("@/lib/notification-service");
+        await sendNotification({
           tenantId,
           type: "new_lead",
           title: `Nuevo lead: ${data.empresa}`,
-          body: `${data.nombre} ${data.apellido} · ${SERVICIO_LABELS[data.servicio] || data.servicio}${dotacionInfo}`,
-          emailBody: `${data.nombre} ${data.apellido} de ${data.empresa} solicita cotización de ${
+          message: `${data.nombre} ${data.apellido} de ${data.empresa} solicita cotización de ${
             data.servicio === "guardias_seguridad"
               ? `guardias de seguridad (${totalGuards} guardias)`
               : data.servicio
           }`,
-          link: `/crm/leads/${lead.id}`,
           data: { leadId: lead.id, email: data.email, company: data.empresa },
+          link: "/crm/leads",
         });
       } catch (e) {
-        console.warn("Lead: failed to notify on new_lead", e);
+        console.warn("Lead: failed to create notification", e);
       }
     }
 
@@ -215,18 +172,11 @@ export async function POST(
           ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(data.direccion)}`
           : "";
 
-    // URL pública del tenant, normalizada con esquema para que WhatsApp genere preview.
-    const tenantWebsiteRaw = (tenantCfg.website || "").trim();
-    const tenantWebUrl = tenantWebsiteRaw
-      ? /^https?:\/\//i.test(tenantWebsiteRaw)
-        ? tenantWebsiteRaw
-        : `https://${tenantWebsiteRaw.replace(/^\/+/, "")}`
-      : "";
-
     // Entities para resolver tokens DocTemplate (lead, tenant, system).
     // Este endpoint corre en contexto PÚBLICO (sin auth), por lo que NO se
     // pasa `actor` — los seeds para los slugs `lead_commercial` y `lead_client`
-    // son agnósticos de actor.
+    // son agnósticos de actor (ver wa-template-seeds.ts).
+    const tenantConfig = await getTenantCompanyConfig(tenantId);
     const leadEntities = {
       lead: {
         firstName: data.nombre,
@@ -244,11 +194,11 @@ export async function POST(
         dotacionResumen: dotacionTexto,
       },
       tenant: {
-        commercialName: tenantCfg.commercialName,
-        website: tenantWebUrl,
-        phone: tenantCfg.phone,
-        email: tenantCfg.email,
-        whatsappLink: tenantCfg.whatsappLink,
+        commercialName: tenantConfig.commercialName,
+        website: tenantConfig.website,
+        phone: tenantConfig.phone,
+        email: tenantConfig.email,
+        whatsappLink: tenantConfig.whatsappLink,
       },
       system: { mapsLink },
     };
@@ -258,12 +208,7 @@ export async function POST(
       getWaTemplate(tenantId, "lead_client", { entities: leadEntities }),
     ]);
 
-    // Ensure the tenant website is always appended at the end (blank-line
-    // separator), regardless of what the tenant's custom WhatsApp template
-    // contains. Avoids duplication if the template already resolved it.
-    const whatsappMsgComercial = tenantWebUrl && !tplComercial.includes(tenantWebUrl)
-      ? `${tplComercial.trimEnd()}\n\n${tenantWebUrl}`
-      : tplComercial;
+    const whatsappMsgComercial = tplComercial;
 
     const celularLimpio = data.celular.replace(/\D/g, "").replace(/^0/, "");
     const waNumCliente = celularLimpio.startsWith("56") ? celularLimpio : `56${celularLimpio}`;
@@ -304,13 +249,13 @@ export async function POST(
           </table>`
         : "";
 
-      const baseUrl = getEmailBaseUrl(null, tenantSlug);
+      const baseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || "https://opai.gard.cl";
       // PNG para que el logo se vea en clientes de correo (muchos bloquean SVG)
-      const logoUrl = tenantCfg.logoUrl || tenantCfg.brandingLogoWhite || (baseUrl ? `${baseUrl}/logo.png` : "");
-      const headerBg = "#0f2847";
-      const ctaBg = "#0f2847";
+      const logoUrl = tenantCfg.logoUrl || `${baseUrl}/Logo%20Gard%20Blanco.png`;
+      const headerBg = "#0f2847"; // azul oscuro Gard
+      const ctaBg = "#0f2847"; // mismo azul Gard para CTA (sin verde)
 
-      await sendEmailWithRetry({
+      await resend.emails.send({
         from: tenantCfg.emailFrom,
         to: tenantCfg.emailContact,
         replyTo: data.email,
@@ -339,20 +284,16 @@ export async function POST(
                   <a href="${waUrlComercial}" style="display: inline-block; background: ${ctaBg}; color: #ffffff; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px;">Contactar al cliente por WhatsApp</a>
                 </p>
                 <p style="margin: 0;">
-                  <a href="${baseUrl}/crm/leads${leadId ? `/${leadId}` : ""}" style="color: ${headerBg}; font-size: 14px; text-decoration: none;">Ver en OPAI →</a>
+                  <a href="${baseUrl}/crm/leads" style="color: ${headerBg}; font-size: 14px; text-decoration: none;">Ver en OPAI →</a>
                 </p>
               </div>
             </div>
           </div>
         `,
-      }, {
-        tenantId,
-        purpose: "lead_commercial",
-        refId: leadId,
       });
 
       // Email de confirmación al cliente
-      await sendEmailWithRetry({
+      await resend.emails.send({
         from: tenantCfg.emailFrom,
         to: data.email,
         subject: `Tu solicitud fue recibida — ${tenantCfg.commercialName} te contactará pronto`,
@@ -390,23 +331,7 @@ export async function POST(
                 </tbody>
               </table>
               ` : ""}
-              <p style="color: #475569; margin: 0 0 24px; font-size: 15px; line-height: 1.6;">Un especialista te contactará por WhatsApp o teléfono dentro de la próxima hora en horario hábil (lunes a viernes 9:00–19:00). Fuera de horario, te contactaremos a primera hora del siguiente día hábil.</p>
-              <table style="width: 100%; margin: 16px 0; border-collapse: collapse;">
-                <tr>
-                  <td style="text-align: center; padding: 8px; font-size: 13px; color: #475569; vertical-align: top;">
-                    <strong style="color: #0f172a; display: block; margin-bottom: 2px;">✓ OS-10</strong>
-                    <span style="font-size: 11px;">Certificados</span>
-                  </td>
-                  <td style="text-align: center; padding: 8px; font-size: 13px; color: #475569; vertical-align: top;">
-                    <strong style="color: #0f172a; display: block; margin-bottom: 2px;">⚡ &lt;1 hora</strong>
-                    <span style="font-size: 11px;">Respuesta</span>
-                  </td>
-                  <td style="text-align: center; padding: 8px; font-size: 13px; color: #475569; vertical-align: top;">
-                    <strong style="color: #0f172a; display: block; margin-bottom: 2px;">🛡️ Sin compromiso</strong>
-                    <span style="font-size: 11px;">Cotización gratis</span>
-                  </td>
-                </tr>
-              </table>
+              <p style="color: #475569; margin: 0 0 24px; font-size: 15px; line-height: 1.6;">Nuestro equipo comercial te contactará en menos de 12 horas hábiles. Si necesitas más información antes, puedes escribirnos o llamarnos:</p>
               <div style="margin: 24px 0; padding: 20px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; text-align: center;">
                 <p style="margin: 0 0 12px;">
                   <a href="${waUrlCliente}" style="display: inline-block; background: ${ctaBg}; color: #ffffff; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px;">Escribir a ${tenantCfg.commercialName} por WhatsApp</a>
@@ -417,10 +342,6 @@ export async function POST(
             </div>
           </div>
         `,
-      }, {
-        tenantId,
-        purpose: "lead_client",
-        refId: leadId,
       });
     } catch (emailError) {
       // Log email error but don't fail the lead creation

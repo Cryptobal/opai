@@ -34,7 +34,12 @@ export const WA_TEMPLATE_SEEDS: WaTemplateSeed[] = [
   {
     slug: "lead_commercial",
     name: "Nuevo lead — Comercial al cliente",
-    body: `Hola {{lead.firstName}}, soy {{actor.firstName}} de {{tenant.commercialName}}.
+    // NOTA: este slug se renderiza en `/api/public/leads` (formulario público
+    // del cotizador), donde NO hay usuario logueado al momento de generar el
+    // mensaje. Por eso este seed evita tokens `{{actor.*}}` (quedarían como
+    // literal en el WA prellenado del email). Si un tenant edita la plantilla
+    // y agrega `{{actor.*}}`, esos tokens NO van a resolverse en este flow.
+    body: `Hola {{lead.firstName}}, te escribo desde el equipo comercial de {{tenant.commercialName}}.
 
 Vi tu solicitud para {{lead.companyName}} en {{lead.address}}: {{lead.serviceLabel}}, dotación {{lead.dotacionResumen}}. Estoy preparando tu cotización ahora.
 
