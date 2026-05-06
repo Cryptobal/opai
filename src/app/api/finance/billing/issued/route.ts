@@ -80,8 +80,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, data: result }, { status: 201 });
   } catch (error) {
     console.error("[Finance/Billing] Error issuing DTE:", error);
+    // Propagar el mensaje del servicio (no enmascarar) para que el cliente
+    // pueda mostrar la causa real (ej: "Falta CAF tipo 33", "SimpleAPI HTTP 401",
+    // "Certificado expirado", etc).
+    const message =
+      error instanceof Error ? error.message : "Error al emitir DTE";
     return NextResponse.json(
-      { success: false, error: "Error al emitir DTE" },
+      { success: false, error: message },
       { status: 500 }
     );
   }

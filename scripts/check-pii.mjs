@@ -39,6 +39,11 @@ const ALLOWED_RUT_PLACEHOLDERS = new Set([
   "77.840.623-3",
   // Fictional RUT (>50M, no real RUT in this range) used in email-lead-extractor tests.
   "59.090.630-1",
+  // RUT publico del SII de Chile (Servicio de Impuestos Internos): receptor
+  // estandar de los sobres DTE enviados al SII. No es PII de ningun
+  // contribuyente, es la entidad destinataria.
+  "60803000-K",
+  "60.803.000-K",
 ]);
 
 const SAMPLE_PATHS_ALLOWLIST = [
