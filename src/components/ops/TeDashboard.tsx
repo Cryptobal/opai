@@ -29,6 +29,7 @@ import {
 import { TePeriodSelector } from "./TePeriodSelector";
 import { formatPersonName } from "@/lib/personas";
 import { Spinner } from "@/components/opai-ds";
+import { currentYearMonthInChile, todayInChile } from "@/lib/dates-cl";
 
 /* ── types ── */
 
@@ -106,9 +107,11 @@ function EvoTooltip({ active, payload }: { active?: boolean; payload?: Array<{ p
 /* ── main ── */
 
 export function TeDashboard() {
-  const now = new Date();
-  const [from, setFrom] = useState(toDateStr(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))));
-  const [to, setTo] = useState(toDateStr(now));
+  const { year: yCL, month: mCL } = currentYearMonthInChile();
+  const [from, setFrom] = useState(
+    `${yCL}-${String(mCL).padStart(2, "0")}-01`,
+  );
+  const [to, setTo] = useState(todayInChile());
   const [stats, setStats] = useState<TeStats | null>(null);
   const [evolution, setEvolution] = useState<EvolutionPoint[]>([]);
   const [evoPeriod, setEvoPeriod] = useState<"weekly" | "monthly">("weekly");

@@ -164,9 +164,11 @@ function generateStepId(): string {
 function ApprovalChainTimeline({
   steps,
   groups,
+  admins,
 }: {
   steps: TicketTypeApprovalStep[] | ApprovalStepDraft[];
   groups: AdminGroup[];
+  admins?: Array<{ id: string; name: string | null; email: string }>;
 }) {
   if (steps.length === 0) {
     return (
@@ -183,8 +185,15 @@ function ApprovalChainTimeline({
           "approverGroupName" in step && step.approverGroupName
             ? step.approverGroupName
             : groups.find((g) => g.id === step.approverGroupId)?.name ?? "—";
-        const label =
-          step.approverType === "group" ? groupName : step.label || "Usuario";
+        const userFromAdmins = step.approverUserId
+          ? admins?.find((a) => a.id === step.approverUserId)
+          : undefined;
+        const userName =
+          ("approverUserName" in step && step.approverUserName) ||
+          userFromAdmins?.name ||
+          userFromAdmins?.email ||
+          (step.approverUserId ? "Usuario sin asignar" : step.label || "Usuario");
+        const label = step.approverType === "group" ? groupName : userName;
 
         return (
           <div key={step.id} className="flex items-center gap-0">
@@ -223,10 +232,12 @@ function ApprovalChainSummary({ steps }: { steps: TicketTypeApprovalStep[] }) {
 function ApprovalChainBuilder({
   steps,
   groups,
+  admins,
   onChange,
 }: {
   steps: ApprovalStepDraft[];
   groups: AdminGroup[];
+  admins?: Array<{ id: string; name: string | null; email: string }>;
   onChange: (steps: ApprovalStepDraft[]) => void;
 }) {
   function addStep() {
@@ -337,17 +348,27 @@ function ApprovalChainBuilder({
                     </SelectContent>
                   </Select>
                 ) : (
-                  <Input
+                  <Select
                     value={step.approverUserId ?? ""}
-                    onChange={(e) =>
+                    onValueChange={(v) => {
+                      const admin = admins?.find((a) => a.id === v);
                       updateStep(idx, {
-                        approverUserId: e.target.value,
-                        label: `Aprobacion usuario`,
-                      })
-                    }
-                    placeholder="ID del usuario..."
-                    className="h-8 text-xs mt-1"
-                  />
+                        approverUserId: v,
+                        label: `Aprobación: ${admin?.name ?? admin?.email ?? "Usuario"}`,
+                      });
+                    }}
+                  >
+                    <SelectTrigger className="h-8 text-xs mt-1">
+                      <SelectValue placeholder="Seleccionar usuario..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(admins ?? []).map((a) => (
+                        <SelectItem key={a.id} value={a.id}>
+                          {a.name ?? a.email}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 )}
               </div>
 
@@ -672,6 +693,7 @@ function TicketTypeForm({
             <ApprovalChainBuilder
               steps={form.approvalSteps}
               groups={groups}
+              admins={admins}
               onChange={(steps) => patch({ approvalSteps: steps })}
             />
           )}
@@ -681,7 +703,11 @@ function TicketTypeForm({
               <p className="text-[11px] text-muted-foreground font-medium mb-2">
                 Vista previa de la cadena
               </p>
-              <ApprovalChainTimeline steps={form.approvalSteps} groups={groups} />
+              <ApprovalChainTimeline
+                steps={form.approvalSteps}
+                groups={groups}
+                admins={admins}
+              />
             </div>
           )}
         </CardContent>
@@ -894,6 +920,7 @@ export function TicketTypesConfigClient({
           title="Solicitudes de Guardias"
           types={guardTypes}
           groups={groups}
+          admins={admins}
           onEdit={setSelectedTypeId}
           onToggleActive={handleToggleActive}
         />
@@ -905,6 +932,7 @@ export function TicketTypesConfigClient({
           title="Solicitudes Internas"
           types={internalTypes}
           groups={groups}
+          admins={admins}
           onEdit={setSelectedTypeId}
           onToggleActive={handleToggleActive}
         />
@@ -916,6 +944,7 @@ export function TicketTypesConfigClient({
           title="Ambos"
           types={bothTypes}
           groups={groups}
+          admins={admins}
           onEdit={setSelectedTypeId}
           onToggleActive={handleToggleActive}
         />
@@ -953,12 +982,14 @@ function TicketTypeSection({
   title,
   types,
   groups,
+  admins,
   onEdit,
   onToggleActive,
 }: {
   title: string;
   types: TicketType[];
   groups: AdminGroup[];
+  admins?: Array<{ id: string; name: string | null; email: string }>;
   onEdit: (id: string) => void;
   onToggleActive: (id: string, isActive: boolean) => void;
 }) {
@@ -1134,6 +1165,7 @@ function TicketTypeSection({
                           <ApprovalChainTimeline
                             steps={t.approvalSteps}
                             groups={groups}
+                            admins={admins}
                           />
                         </div>
                       )}

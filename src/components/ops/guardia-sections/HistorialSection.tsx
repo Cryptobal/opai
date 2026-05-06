@@ -1,10 +1,24 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Search } from "lucide-react";
 
 const EVENT_TYPE_LABEL: Record<string, string> = {
   lifecycle_changed: "Cambio de estado",
   status_changed: "Cambio de estado",
+  created: "Guardia creado",
+  hired: "Contratado",
+  terminated: "Desvinculado",
+  exam_passed: "Examen aprobado",
   document_uploaded: "Documento subido",
   document_updated: "Documento actualizado",
   document_deleted: "Documento eliminado",
@@ -13,10 +27,15 @@ const EVENT_TYPE_LABEL: Record<string, string> = {
   bank_account_created: "Cuenta bancaria creada",
   bank_account_updated: "Cuenta bancaria actualizada",
   bank_account_deleted: "Cuenta bancaria eliminada",
+  bank_account_thirdparty_set: "Cuenta bancaria de tercero asignada",
+  bank_account_thirdparty_changed: "Cuenta bancaria de tercero modificada",
   assigned: "Asignado a puesto",
   unassigned: "Desasignado de puesto",
   public_postulation_submitted: "Postulación recibida",
+  public_postulation_express_submitted: "Postulación express recibida",
   postulation_submitted: "Postulación recibida",
+  ats_public_application: "Postulación ATS",
+  public_te_submitted: "Postulación a turno extra",
   contract_generated: "Contrato generado",
   contract_signed: "Contrato firmado",
   salary_updated: "Sueldo actualizado",
@@ -33,8 +52,15 @@ const EVENT_TYPE_LABEL: Record<string, string> = {
 const EVENT_NODE_COLOR: Record<string, string> = {
   lifecycle_changed: "bg-status-ok",
   status_changed: "bg-status-ok",
+  created: "bg-status-info",
+  hired: "bg-status-ok",
+  terminated: "bg-status-danger",
+  exam_passed: "bg-status-ok",
   public_postulation_submitted: "bg-violet-500",
+  public_postulation_express_submitted: "bg-violet-500",
   postulation_submitted: "bg-violet-500",
+  ats_public_application: "bg-violet-500",
+  public_te_submitted: "bg-violet-500",
   document_uploaded: "bg-status-info",
   document_updated: "bg-status-info",
   document_deleted: "bg-status-danger",
@@ -50,6 +76,8 @@ const EVENT_NODE_COLOR: Record<string, string> = {
   bank_account_created: "bg-status-info",
   bank_account_updated: "bg-status-info",
   bank_account_deleted: "bg-status-danger",
+  bank_account_thirdparty_set: "bg-status-warn",
+  bank_account_thirdparty_changed: "bg-status-warn",
   salary_updated: "bg-status-warn",
   pin_generated: "bg-status-info",
   pin_updated: "bg-status-info",
@@ -350,6 +378,30 @@ function getEventDescriptionLines(event: HistoryEvent): string[] {
 }
 
 export default function HistorialSection({ historyEvents }: HistorialSectionProps) {
+  const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
+
+  const eventTypes = useMemo(() => {
+    const set = new Set(historyEvents.map((e) => e.eventType));
+    return Array.from(set).sort();
+  }, [historyEvents]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return historyEvents.filter((e) => {
+      if (typeFilter !== "all" && e.eventType !== typeFilter) return false;
+      if (!q) return true;
+      const label = EVENT_TYPE_LABEL[e.eventType] ?? e.eventType;
+      const reason = e.reason ?? "";
+      const createdBy = e.createdByName ?? "";
+      return (
+        label.toLowerCase().includes(q) ||
+        reason.toLowerCase().includes(q) ||
+        createdBy.toLowerCase().includes(q)
+      );
+    });
+  }, [historyEvents, search, typeFilter]);
+
   if (historyEvents.length === 0) {
     return (
       <div className="rounded-xl border border-border/60 bg-card/40 p-4 text-sm text-muted-foreground">
@@ -359,37 +411,82 @@ export default function HistorialSection({ historyEvents }: HistorialSectionProp
   }
 
   return (
-    <div className="relative pl-6">
-      {/* Vertical line */}
-      <div className="absolute left-[7px] top-1 bottom-1 w-px bg-border/60" />
+    <div className="space-y-4">
+      {/* Filtros */}
+      <div className="flex flex-col sm:flex-row gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar en el historial..."
+            className="pl-8 h-9 text-sm"
+          />
+        </div>
+        <Select value={typeFilter} onValueChange={setTypeFilter}>
+          <SelectTrigger className="h-9 text-sm w-full sm:w-[220px]">
+            <SelectValue placeholder="Todos los tipos" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos los tipos</SelectItem>
+            {eventTypes.map((t) => (
+              <SelectItem key={t} value={t}>
+                {EVENT_TYPE_LABEL[t] ?? t}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
-      {historyEvents.map((event, idx) => {
-        const label = EVENT_TYPE_LABEL[event.eventType] || event.eventType.replace(/[_-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-        const nodeColor = EVENT_NODE_COLOR[event.eventType] || "bg-muted-foreground/40";
-        const descriptionLines = getEventDescriptionLines(event);
+      <p className="text-xs text-muted-foreground">
+        {filtered.length} de {historyEvents.length} evento
+        {historyEvents.length !== 1 ? "s" : ""}
+      </p>
 
-        return (
-          <div key={event.id} className={cn("relative pb-4", idx === historyEvents.length - 1 && "pb-0")}>
-            {/* Node circle */}
-            <div className={cn("absolute -left-6 top-1 h-3.5 w-3.5 rounded-full border-2 border-background", nodeColor)} />
+      {filtered.length === 0 ? (
+        <div className="rounded-xl border border-border/60 bg-card/40 p-4 text-sm text-muted-foreground">
+          No hay eventos que coincidan con los filtros.
+        </div>
+      ) : (
+        <div className="relative pl-6">
+          {/* Vertical line */}
+          <div className="absolute left-[7px] top-1 bottom-1 w-px bg-border/60" />
 
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-foreground">{label}</p>
-              {descriptionLines.length > 0 && (
-                <div className="mt-0.5 space-y-0.5">
-                  {descriptionLines.map((line, i) => (
-                    <p key={i} className="text-xs text-muted-foreground">{line}</p>
-                  ))}
+          {filtered.map((event, idx) => {
+            const label = EVENT_TYPE_LABEL[event.eventType] || event.eventType.replace(/[_-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+            const nodeColor = EVENT_NODE_COLOR[event.eventType] || "bg-muted-foreground/40";
+            const descriptionLines = getEventDescriptionLines(event);
+
+            return (
+              <div key={event.id} className={cn("relative pb-4", idx === filtered.length - 1 && "pb-0")}>
+                {/* Node circle */}
+                <div className={cn("absolute -left-6 top-1 h-3.5 w-3.5 rounded-full border-2 border-background", nodeColor)} />
+
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-foreground">{label}</p>
+                  {descriptionLines.length > 0 && (
+                    <div className="mt-0.5 space-y-0.5">
+                      {descriptionLines.map((line, i) => (
+                        <p key={i} className="text-xs text-muted-foreground">{line}</p>
+                      ))}
+                    </div>
+                  )}
+                  <p className="text-[11px] text-muted-foreground/70 mt-0.5">
+                    {formatDate(event.createdAt)}
+                    {event.createdByName ? ` · por ${event.createdByName}` : event.createdBy === "system" ? " · por Sistema" : ""}
+                  </p>
                 </div>
-              )}
-              <p className="text-[11px] text-muted-foreground/70 mt-0.5">
-                {formatDate(event.createdAt)}
-                {event.createdByName ? ` · por ${event.createdByName}` : event.createdBy === "system" ? " · por Sistema" : ""}
-              </p>
-            </div>
-          </div>
-        );
-      })}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {historyEvents.length >= 1000 && (
+        <p className="text-[11px] text-muted-foreground/70 italic text-center pt-2">
+          Mostrando los últimos 1000 eventos.
+        </p>
+      )}
     </div>
   );
 }

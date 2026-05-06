@@ -415,6 +415,15 @@ function EventCreateForm({
     return validateCausal159N4(finiquitoDate, guardContract);
   }, [causalDtCode, finiquitoDate, guardContract]);
 
+  // Confirmación de warning no bloqueante para causal 159-4
+  const [warningConfirmed, setWarningConfirmed] = useState(false);
+  const [warningModalOpen, setWarningModalOpen] = useState(false);
+
+  // Resetear la confirmación cuando cambian causal o fecha
+  useEffect(() => {
+    setWarningConfirmed(false);
+  }, [causalDtCode, finiquitoDate]);
+
   // Calculate settlement total
   const totalSettlement = useMemo(() => {
     const vac = Number(vacationPaymentAmount) || 0;
@@ -449,7 +458,13 @@ function EventCreateForm({
 
     if (isFiniquito) {
       if (!finiquitoDate || !causalDtCode) return false;
-      if (causal159N4Validation && !causal159N4Validation.valid) return false;
+      if (
+        causal159N4Validation &&
+        !causal159N4Validation.compliant &&
+        causal159N4Validation.severity === "blocking"
+      ) {
+        return false;
+      }
     } else if (isAusencia) {
       if (!startDate || !endDate) return false;
     } else if (isAmonestacion) {
@@ -598,13 +613,29 @@ function EventCreateForm({
                 className="text-sm max-w-xs"
               />
               {/* Causal 159-4 validation message */}
-              {causal159N4Validation && !causal159N4Validation.valid && (
-                <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-2.5 text-xs text-destructive">
-                  <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
-                  <p>{causal159N4Validation.reason}</p>
-                </div>
-              )}
-              {causal159N4Validation && causal159N4Validation.valid && (
+              {causal159N4Validation &&
+                !causal159N4Validation.compliant &&
+                causal159N4Validation.severity === "blocking" && (
+                  <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-2.5 text-xs text-destructive">
+                    <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-medium">Error</p>
+                      <p>{causal159N4Validation.reason}</p>
+                    </div>
+                  </div>
+                )}
+              {causal159N4Validation &&
+                !causal159N4Validation.compliant &&
+                causal159N4Validation.severity === "warning" && (
+                  <div className="flex items-start gap-2 rounded-md border border-status-warn-border bg-status-warn-soft p-2.5 text-xs text-status-warn-fg">
+                    <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-medium">Advertencia</p>
+                      <p>{causal159N4Validation.reason}</p>
+                    </div>
+                  </div>
+                )}
+              {causal159N4Validation && causal159N4Validation.compliant && (
                 <div className="flex items-start gap-2 rounded-md border border-status-ok-border bg-status-ok-soft p-2.5 text-xs text-status-ok-fg">
                   <Check className="h-4 w-4 shrink-0 mt-0.5" />
                   <p>Causal 159 N°4 válida — dentro de la ventana de tiempo permitida.</p>
@@ -821,7 +852,18 @@ function EventCreateForm({
       {subtype && (
         <div className="flex items-center gap-2 pt-2">
           <Button
-            onClick={handleSubmit}
+            onClick={() => {
+              if (
+                causal159N4Validation &&
+                !causal159N4Validation.compliant &&
+                causal159N4Validation.severity === "warning" &&
+                !warningConfirmed
+              ) {
+                setWarningModalOpen(true);
+                return;
+              }
+              handleSubmit();
+            }}
             disabled={!isValid || saving}
             className="gap-1.5"
           >
@@ -837,6 +879,22 @@ function EventCreateForm({
           </Button>
         </div>
       )}
+
+      <ConfirmDialog
+        open={warningModalOpen}
+        onOpenChange={setWarningModalOpen}
+        title="Advertencia sobre la causal de finiquito"
+        description={causal159N4Validation?.reason ?? ""}
+        confirmLabel="Continuar de todas formas"
+        cancelLabel="Cancelar"
+        variant="default"
+        onConfirm={() => {
+          setWarningConfirmed(true);
+          setWarningModalOpen(false);
+          // Pequeño delay no necesario: handleSubmit ya valida con isValid
+          handleSubmit();
+        }}
+      />
     </div>
   );
 }

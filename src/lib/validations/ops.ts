@@ -332,6 +332,8 @@ export const createGuardiaBankAccountSchema = z.object({
   accountType: z.enum(BANK_ACCOUNT_TYPES),
   accountNumber: z.string().trim().min(4).max(100),
   holderName: z.string().trim().min(3).max(150),
+  holderRut: z.string().trim().min(7).max(15).optional().nullable(),
+  isThirdParty: z.boolean().optional().default(false),
   isDefault: z.boolean().default(false),
 });
 

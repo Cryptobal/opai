@@ -6,7 +6,7 @@ import {
 } from "@/lib/validations/ops";
 import { createOpsAuditLog, ensureOpsAccess } from "@/lib/ops";
 import { prisma } from "@/lib/prisma";
-import { normalizeNullable } from "@/lib/personas";
+import { isValidChileanRut, normalizeNullable, normalizeRut } from "@/lib/personas";
 
 type Params = { id: string };
 
@@ -75,6 +75,23 @@ export async function POST(
       );
     }
 
+    let finalHolderRut: string | null;
+    let finalHolderName: string;
+    if (body.isThirdParty && body.holderRut) {
+      const normalizedRut = normalizeRut(body.holderRut);
+      if (!isValidChileanRut(normalizedRut)) {
+        return NextResponse.json(
+          { success: false, error: "RUT del tercero inválido" },
+          { status: 400 },
+        );
+      }
+      finalHolderRut = normalizedRut;
+      finalHolderName = body.holderName;
+    } else {
+      finalHolderRut = normalizeNullable(guardia.persona?.rut);
+      finalHolderName = body.holderName;
+    }
+
     const created = await prisma.$transaction(async (tx) => {
       if (body.isDefault) {
         await tx.opsCuentaBancaria.updateMany({
@@ -91,22 +108,30 @@ export async function POST(
           bankName: body.bankName,
           accountType: body.accountType,
           accountNumber: body.accountNumber,
-          holderName: body.holderName,
-          holderRut: normalizeNullable(guardia.persona?.rut),
+          holderName: finalHolderName,
+          holderRut: finalHolderRut,
           isDefault: body.isDefault,
         },
       });
     });
 
+    const acctLast4 = created.accountNumber ? created.accountNumber.slice(-4) : null;
     await prisma.opsGuardiaHistory.create({
       data: {
         tenantId: ctx.tenantId,
         guardiaId: id,
-        eventType: "bank_account_created",
+        eventType: body.isThirdParty
+          ? "bank_account_thirdparty_set"
+          : "bank_account_created",
         newValue: {
           bankCode: created.bankCode,
+          bankName: created.bankName,
           accountType: created.accountType,
           isDefault: created.isDefault,
+          isThirdParty: !!body.isThirdParty,
+          holderName: created.holderName,
+          holderRut: created.holderRut,
+          accountNumberLast4: acctLast4,
         },
         createdBy: ctx.userId,
       },
@@ -156,6 +181,27 @@ export async function PATCH(
     if (parsed.error) return parsed.error;
     const body = parsed.data;
 
+    let resolvedHolderRut: string | null | undefined = undefined;
+    if (body.isThirdParty === true) {
+      if (!body.holderRut) {
+        return NextResponse.json(
+          { success: false, error: "RUT del tercero es requerido para cuenta de tercero" },
+          { status: 400 },
+        );
+      }
+      const normalizedRut = normalizeRut(body.holderRut);
+      if (!isValidChileanRut(normalizedRut)) {
+        return NextResponse.json(
+          { success: false, error: "RUT del tercero inválido" },
+          { status: 400 },
+        );
+      }
+      resolvedHolderRut = normalizedRut;
+    } else if (body.isThirdParty === false) {
+      // Volver a usar el RUT del guardia
+      resolvedHolderRut = normalizeNullable(guardia.persona?.rut);
+    }
+
     const updated = await prisma.$transaction(async (tx) => {
       if (body.isDefault) {
         await tx.opsCuentaBancaria.updateMany({
@@ -172,25 +218,39 @@ export async function PATCH(
           accountType: body.accountType ?? undefined,
           accountNumber: body.accountNumber ?? undefined,
           holderName: body.holderName ?? undefined,
+          holderRut: resolvedHolderRut,
           isDefault: body.isDefault ?? undefined,
         },
       });
     });
 
+    const rutChanged = existing.holderRut !== updated.holderRut;
+    const acctLast4 = updated.accountNumber ? updated.accountNumber.slice(-4) : null;
+    const eventType = rutChanged
+      ? "bank_account_thirdparty_changed"
+      : "bank_account_updated";
+
     await prisma.opsGuardiaHistory.create({
       data: {
         tenantId: ctx.tenantId,
         guardiaId: id,
-        eventType: "bank_account_updated",
+        eventType,
         previousValue: {
           bankCode: existing.bankCode,
           accountType: existing.accountType,
           isDefault: existing.isDefault,
+          holderName: existing.holderName,
+          holderRut: existing.holderRut,
         },
         newValue: {
           bankCode: updated.bankCode,
+          bankName: updated.bankName,
           accountType: updated.accountType,
           isDefault: updated.isDefault,
+          isThirdParty: !!body.isThirdParty,
+          holderName: updated.holderName,
+          holderRut: updated.holderRut,
+          accountNumberLast4: acctLast4,
         },
         createdBy: ctx.userId,
       },

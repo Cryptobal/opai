@@ -277,41 +277,52 @@ function daysBetween(date1: string, date2: string): number {
  * Valida si la causal "Término de plazo convenido" (Art. 159 N°4) puede usarse.
  *
  * Reglas (normativa DT):
- * - Solo aplica a contratos a plazo fijo
- * - El finiquito debe hacerse ANTES de la fecha de vencimiento del contrato
- * - Deben faltar 3 o más días para el vencimiento
- * - Si ya venció o faltan menos de 3 días → no se puede usar esta causal
+ * - Solo aplica a contratos a plazo fijo (blocking si no lo es)
+ * - Si no hay fecha de término registrada, no se puede validar (blocking)
+ * - Si ya venció o faltan menos de 3 días → warning (no bloqueante,
+ *   se solicita al usuario confirmar que el aviso de no renovación
+ *   se entregó a tiempo)
  */
 export function validateCausal159N4(
   finiquitoDate: string,
   contract: GuardContract
-): { valid: boolean; reason: string } {
+): { compliant: boolean; severity: "warning" | "blocking"; reason: string } {
   if (contract.contractType !== "plazo_fijo") {
-    return { valid: false, reason: "La causal 'Término de plazo convenido' solo aplica a contratos a plazo fijo." };
+    return {
+      compliant: false,
+      severity: "blocking",
+      reason: "La causal 'Término de plazo convenido' solo aplica a contratos a plazo fijo.",
+    };
   }
 
   const contractEnd = getContractEndDate(contract);
   if (!contractEnd) {
-    return { valid: false, reason: "No hay fecha de término de contrato registrada." };
+    return {
+      compliant: false,
+      severity: "blocking",
+      reason: "No hay fecha de término de contrato registrada.",
+    };
   }
 
   const daysUntilEnd = daysBetween(finiquitoDate, contractEnd);
 
   if (daysUntilEnd < 0) {
     return {
-      valid: false,
-      reason: `El contrato ya venció el ${formatDateUTC(contractEnd)}. No se puede usar esta causal después del vencimiento.`,
+      compliant: false,
+      severity: "warning",
+      reason: `El contrato venció el ${formatDateUTC(contractEnd)}. Puedes registrar el finiquito igualmente, pero verifica que la causal sea correcta.`,
     };
   }
 
   if (daysUntilEnd < 3) {
     return {
-      valid: false,
-      reason: `Faltan solo ${daysUntilEnd} día(s) para el vencimiento (${formatDateUTC(contractEnd)}). Se requieren al menos 3 días de anticipación para usar esta causal.`,
+      compliant: false,
+      severity: "warning",
+      reason: `Faltan solo ${daysUntilEnd} día(s) para el vencimiento (${formatDateUTC(contractEnd)}). La carta de aviso de no renovación debe entregarse al menos 3 días antes; verifica que se haya entregado a tiempo. Puedes registrar el finiquito igualmente.`,
     };
   }
 
-  return { valid: true, reason: "" };
+  return { compliant: true, severity: "warning", reason: "" };
 }
 
 /**

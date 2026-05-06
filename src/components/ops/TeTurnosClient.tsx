@@ -19,6 +19,7 @@ import { EmptyState, Spinner, Tag } from "@/components/opai-ds";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { AlertTriangle, Clock3, FileDown, Plus, Search, BarChart3, List, UserX } from "lucide-react";
 import { formatPersonName } from "@/lib/personas";
+import { currentYearMonthInChile, extractYearMonth } from "@/lib/dates-cl";
 import { TeDashboard } from "./TeDashboard";
 import { TeAusentismoRanking } from "./TeAusentismoRanking";
 
@@ -84,12 +85,13 @@ export function TeTurnosClient({
   const [items, setItems] = useState<TeItem[]>(initialItems);
   const [statusFilter, setStatusFilter] = useState<string>(defaultStatusFilter);
 
-  // Month filter for Registro tab
-  const now = new Date();
-  const [regYear, setRegYear] = useState(now.getUTCFullYear());
-  const [regMonth, setRegMonth] = useState(now.getUTCMonth() + 1);
+  // Month filter for Registro tab — usar fecha local de Chile, no UTC,
+  // para que cerca de medianoche no se "salte" al mes siguiente.
+  const { year: currentYearCL, month: currentMonthCL } = currentYearMonthInChile();
+  const [regYear, setRegYear] = useState(currentYearCL);
+  const [regMonth, setRegMonth] = useState(currentMonthCL);
   const [regLoading, setRegLoading] = useState(false);
-  const isCurrentMonth = regYear === now.getUTCFullYear() && regMonth === now.getUTCMonth() + 1;
+  const isCurrentMonth = regYear === currentYearCL && regMonth === currentMonthCL;
 
   const fetchRegistroMonth = useCallback(async (y: number, m: number) => {
     setRegLoading(true);
@@ -174,11 +176,12 @@ export function TeTurnosClient({
 
   const clearSelection = () => setSelectedIds(new Set());
 
-  // Solo items del mes seleccionado para mostrar (el fetch trae +45 días de historial)
+  // Solo items del mes seleccionado para mostrar (el fetch trae +45 días de historial).
+  // Comparar por slice "YYYY-MM-DD" (timezone-safe para campos @db.Date).
   const itemsDelMes = useMemo(() => {
     return items.filter((item) => {
-      const d = new Date(item.date);
-      return d.getUTCFullYear() === regYear && d.getUTCMonth() + 1 === regMonth;
+      const { year, month } = extractYearMonth(item.date);
+      return year === regYear && month === regMonth;
     });
   }, [items, regYear, regMonth]);
 
@@ -567,10 +570,17 @@ export function TeTurnosClient({
                 className="h-7 rounded-md border border-input bg-background px-2 text-xs"
               >
                 {Array.from({ length: 13 }, (_, i) => {
-                  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
-                  const y = d.getUTCFullYear();
-                  const m = d.getUTCMonth() + 1;
-                  const label = d.toLocaleDateString("es-CL", { month: "long", year: "numeric" });
+                  // Base = mes actual en Chile (no UTC) para evitar off-by-one.
+                  let m = currentMonthCL - i;
+                  let y = currentYearCL;
+                  while (m < 1) {
+                    m += 12;
+                    y -= 1;
+                  }
+                  const label = new Date(y, m - 1, 1).toLocaleDateString("es-CL", {
+                    month: "long",
+                    year: "numeric",
+                  });
                   return (
                     <option key={`${y}-${m}`} value={`${y}-${String(m).padStart(2, "0")}`}>
                       {label.charAt(0).toUpperCase() + label.slice(1)}
@@ -589,7 +599,7 @@ export function TeTurnosClient({
               {!isCurrentMonth && (
                 <button
                   type="button"
-                  onClick={() => handleMonthChange(now.getUTCFullYear(), now.getUTCMonth() + 1)}
+                  onClick={() => handleMonthChange(currentYearCL, currentMonthCL)}
                   className="h-7 rounded-md bg-primary text-primary-foreground px-2 text-[11px] font-medium hover:bg-primary/90 transition-colors"
                 >
                   Hoy

@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
+import { currentYearMonthInChile, todayInChile } from "@/lib/dates-cl";
 
 interface TePeriodSelectorProps {
   from: string;
@@ -26,9 +27,11 @@ export function TePeriodSelector({
   exporting,
 }: TePeriodSelectorProps) {
   const presets = useMemo(() => {
-    const now = new Date();
-    const y = now.getUTCFullYear();
-    const m = now.getUTCMonth();
+    // Usar fecha de Chile (no UTC) para que cerca de medianoche el "mes actual"
+    // sea el correcto desde la perspectiva del usuario chileno.
+    const { year: y, month: monthCL } = currentYearMonthInChile();
+    const m = monthCL - 1; // 0-based para construir Date con Date.UTC
+    const today = todayInChile();
 
     const prevMonthStart = new Date(Date.UTC(y, m - 1, 1));
     const prevMonthEnd = new Date(Date.UTC(y, m, 0));
@@ -37,8 +40,8 @@ export function TePeriodSelector({
 
     return [
       { label: "Mes anterior", from: toDateStr(prevMonthStart), to: toDateStr(prevMonthEnd) },
-      { label: "Mes actual", from: toDateStr(currMonthStart), to: toDateStr(now) },
-      { label: "Acumulado año", from: toDateStr(yearStart), to: toDateStr(now) },
+      { label: "Mes actual", from: toDateStr(currMonthStart), to: today },
+      { label: "Acumulado año", from: toDateStr(yearStart), to: today },
     ];
   }, []);
 
