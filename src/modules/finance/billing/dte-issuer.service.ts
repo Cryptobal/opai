@@ -6,7 +6,8 @@
 import { prisma } from "@/lib/prisma";
 import { getDteProvider } from "../shared/adapters/dte-provider.adapter";
 import type { DteIssueRequest, DteLineItem } from "../shared/adapters/dte-provider.adapter";
-import { isDteTypeValid, IVA_RATE } from "../shared/constants/dte-types";
+import { isDteTypeValid } from "../shared/constants/dte-types";
+import { computeDteAmounts } from "./dte-amounts.helper";
 import { validateRut } from "../shared/validators/rut.validator";
 import { buildInvoiceIssuedEntry } from "../accounting/auto-entry.builder";
 import { createManualEntry, postEntry } from "../accounting/journal-entry.service";
@@ -140,30 +141,19 @@ export async function issueDte(
     throw new Error(`RUT receptor invalido: ${rutValidation.error}`);
   }
 
-  // 3. Calculate line amounts
-  let totalNet = 0;
-  let totalExempt = 0;
-  const calculatedLines: (IssueDteInput["lines"][0] & { netAmount: number })[] = [];
-
-  for (const line of input.lines) {
-    const gross = line.quantity * line.unitPrice;
-    const discount = gross * (line.discountPct ?? 0) / 100;
-    const net = Math.round(gross - discount);
-
-    if (line.isExempt) {
-      totalExempt += net;
-    } else {
-      totalNet += net;
-    }
-
-    calculatedLines.push({ ...line, netAmount: net });
-  }
-
-  // 4. Calculate tax
-  const isExempt = input.dteType === 34; // Factura Exenta
-  const taxRate = isExempt ? 0 : IVA_RATE;
-  const taxAmount = isExempt ? 0 : Math.round(totalNet * taxRate / 100);
-  const totalAmount = totalNet + totalExempt + taxAmount;
+  // 3-4. Calcular líneas, IVA, total. Si currency=UF, convierte cada
+  // unitPriceUf → unitPrice CLP usando la UF del día (vía FxUfRate).
+  // El XML SII y el asiento contable van SIEMPRE en CLP — la UF queda
+  // como auditoría en ufValueAtIssue + line.unitPriceUf.
+  const calc = await computeDteAmounts(input);
+  const totalNet = calc.totalNet;
+  const totalExempt = calc.totalExempt;
+  const taxRate = calc.taxRate;
+  const taxAmount = calc.taxAmount;
+  const totalAmount = calc.totalAmount;
+  const calculatedLines = calc.lines;
+  const ufValueAtIssue = calc.ufValue;
+  const ufDateAtIssue = calc.ufDate;
 
   // 5–9. Folio reservation + provider call + DTE persistence inside one
   // transaction so a provider error rolls back the folio increment too.
@@ -275,6 +265,12 @@ export async function issueDte(
           crmAccountId: input.crmAccountId ?? null,
           installationId: input.installationId ?? null,
           currency: (input.currency as any) ?? "CLP",
+          // Para facturas en UF guardamos también la UF del día y la
+          // fecha exacta de conversión. exchangeRate replica ufValueAtIssue
+          // (legacy field). Permite reauditar y regenerar reportes.
+          exchangeRate: ufValueAtIssue ?? null,
+          ufValueAtIssue: ufValueAtIssue ?? null,
+          ufDateAtIssue: ufDateAtIssue ?? null,
           netAmount: totalNet,
           exemptAmount: totalExempt,
           taxRate,
@@ -322,6 +318,9 @@ export async function issueDte(
               quantity: l.quantity,
               unit: l.unit ?? null,
               unitPrice: l.unitPrice,
+              // Si la moneda del DTE es UF, persiste el precio UF original
+              // que el usuario ingresó. Para CLP queda null.
+              unitPriceUf: input.currency === "UF" ? l.unitPriceUf ?? null : null,
               discountPct: l.discountPct ?? 0,
               netAmount: l.netAmount,
               isExempt: l.isExempt ?? false,
