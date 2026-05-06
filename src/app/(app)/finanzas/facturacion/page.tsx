@@ -102,6 +102,30 @@ export default async function FacturacionPage() {
     }),
   ]);
 
+  // Centro de costo: enriquecer con cliente CRM + instalación.
+  const accountIds = Array.from(
+    new Set(dtes.map((d) => d.crmAccountId).filter((v): v is string => !!v)),
+  );
+  const installationIds = Array.from(
+    new Set(dtes.map((d) => d.installationId).filter((v): v is string => !!v)),
+  );
+  const [accountsCC, installationsCC] = await Promise.all([
+    accountIds.length > 0
+      ? prisma.crmAccount.findMany({
+          where: { id: { in: accountIds }, tenantId },
+          select: { id: true, name: true, legalName: true },
+        })
+      : Promise.resolve([]),
+    installationIds.length > 0
+      ? prisma.crmInstallation.findMany({
+          where: { id: { in: installationIds }, tenantId },
+          select: { id: true, name: true, commune: true },
+        })
+      : Promise.resolve([]),
+  ]);
+  const accountMapCC = new Map(accountsCC.map((a) => [a.id, a]));
+  const installationMapCC = new Map(installationsCC.map((i) => [i.id, i]));
+
   const dtesData = dtes.map((d: typeof dtes[number]) => ({
     id: d.id,
     dteType: d.dteType,
@@ -120,11 +144,16 @@ export default async function FacturacionPage() {
     emailStatus: d.emailStatus,
     referenceType: d.referenceType,
     referenceFolio: d.referenceFolio,
-    // Flag para condicionar botones de descarga PDF/XML. Los DTEs
-    // importados desde CSV/RCV (created_by='system:csv-import' o
-    // 'system:rcv-ventas-sync') no tienen el XML guardado porque el
-    // SII no permite re-descargar XMLs históricos.
+    // Flag para condicionar botones de descarga PDF/XML.
     hasXml: d.dteXml !== null && d.dteXml.length > 0,
+    // Centro de costo: cliente CRM + instalación (para mostrar columna
+    // y permitir edición inline).
+    crmAccountId: d.crmAccountId,
+    installationId: d.installationId,
+    crmAccount: d.crmAccountId ? accountMapCC.get(d.crmAccountId) ?? null : null,
+    installation: d.installationId
+      ? installationMapCC.get(d.installationId) ?? null
+      : null,
   }));
 
   const ventasMes = ventasMesAgg._sum.totalAmount?.toNumber() ?? 0;
