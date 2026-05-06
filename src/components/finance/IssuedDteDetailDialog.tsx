@@ -30,8 +30,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   FileText, Download, FileCode, Mail, RefreshCw, Loader2,
-  FileMinus, FilePlus, ExternalLink, Copy,
+  FileMinus, FilePlus, ExternalLink, Copy, Coins,
 } from "lucide-react";
+import { CederDteDialog } from "./factoring/CederDteDialog";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { CostCenterEditor } from "./CostCenterEditor";
@@ -148,6 +149,7 @@ export function IssuedDteDetailDialog({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [showCederDialog, setShowCederDialog] = useState(false);
   const [downloadingXml, setDownloadingXml] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
   const [checkingStatus, setCheckingStatus] = useState(false);
@@ -616,10 +618,36 @@ export function IssuedDteDetailDialog({
                 </a>
               </Button>
             )}
+            {canManage &&
+            dte.hasXml &&
+            dte.siiStatus === "ACCEPTED" &&
+            [33, 34, 43, 46].includes(dte.dteType) ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowCederDialog(true)}
+              >
+                <Coins className="h-3.5 w-3.5 mr-1.5" />
+                Ceder a factoring
+              </Button>
+            ) : null}
             <Button variant="outline" onClick={onClose}>Cerrar</Button>
           </DialogFooter>
         )}
       </DialogContent>
+      {dte ? (
+        <CederDteDialog
+          open={showCederDialog}
+          onOpenChange={setShowCederDialog}
+          dte={{
+            id: dte.id,
+            dteType: dte.dteType,
+            folio: dte.folio,
+            receiverName: dte.receiverName,
+            totalAmount: dte.totalAmount,
+          }}
+        />
+      ) : null}
     </Dialog>
   );
 }
