@@ -54,6 +54,8 @@ interface ConfigData {
   resolFecha: string | null;
   /** Logo del emisor en base64 (PNG/JPG). Se imprime en el PDF del DTE. */
   logoBase64: string | null;
+  /** Emails que reciben alertas operativas (DTE rechazado, etc). */
+  alertEmails: string[];
 }
 
 interface CertData {
@@ -95,6 +97,7 @@ const DEFAULT_CONFIG: ConfigData = {
   resolNumero: null,
   resolFecha: null,
   logoBase64: null,
+  alertEmails: [],
 };
 
 interface Props {
@@ -401,6 +404,57 @@ export function DteConfigClient({
                   )}
                 </div>
               </div>
+            </div>
+
+            {/* Emails de alerta — destinatarios cuando un DTE es rechazado por SII */}
+            <div className="pt-4 border-t border-ds-border-subtle space-y-2">
+              <div>
+                <Label>Emails de alerta</Label>
+                <p className="text-[12px] text-ds-text-3 mt-0.5">
+                  Destinatarios que reciben aviso cuando un DTE es <strong>rechazado por el SII</strong>,
+                  el certificado está por vencer u otras alertas operativas. Separar con coma o espacio.
+                  Máximo 10 emails.
+                </p>
+              </div>
+              <Input
+                placeholder="finanzas@empresa.cl, contador@empresa.cl"
+                value={config.alertEmails.join(", ")}
+                onChange={(e) => {
+                  // Parseo permisivo: separadores coma, espacio, ;, newline.
+                  const list = e.target.value
+                    .split(/[\s,;]+/)
+                    .map((s) => s.trim())
+                    .filter(Boolean);
+                  setConfig((cfg) => ({ ...cfg, alertEmails: list }));
+                }}
+                className="h-10 sm:h-9"
+              />
+              {config.alertEmails.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  {config.alertEmails.map((email) => {
+                    const isValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+                    return (
+                      <span
+                        key={email}
+                        className={
+                          "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[12px] " +
+                          (isValid
+                            ? "bg-status-ok-soft text-status-ok-fg border border-status-ok-border"
+                            : "bg-status-danger-soft text-status-danger-fg border border-status-danger-border")
+                        }
+                      >
+                        {email}
+                        {!isValid && <span className="ml-0.5">⚠</span>}
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
+              <p className="text-[11px] text-ds-text-4">
+                {config.alertEmails.length} de 10 emails configurados.
+                {config.alertEmails.length === 0 &&
+                  " Si está vacío, no se envían alertas (los rechazos quedan solo en la lista de DTEs)."}
+              </p>
             </div>
 
             <div className="flex items-center gap-3 pt-4 border-t border-ds-border-subtle">

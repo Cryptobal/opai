@@ -26,6 +26,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { getDteProvider } from "../shared/adapters/dte-provider.adapter";
+import { sendDteRejectedAlert } from "./dte-rejected-alert.service";
 
 /** Tope de consultas SII por DTE antes de dar timeout. */
 const MAX_CHECKS_PER_DTE = 30;
@@ -151,6 +152,18 @@ export async function pollPendingDtesStatus(
         where: { id: dte.id },
         data: updateData,
       });
+
+      // Si el estado pasó a REJECTED, dispara alerta email a los
+      // alertEmails configurados del tenant. Async, no bloquea el loop.
+      if (newStatus === "REJECTED") {
+        sendDteRejectedAlert(tenantId, dte.id).catch((err) => {
+          // eslint-disable-next-line no-console
+          console.error(
+            `[dte-status-poll] sendDteRejectedAlert failed for ${dte.id}:`,
+            err,
+          );
+        });
+      }
 
       // Throttle entre consultas (rate limit SimpleAPI 1/sec).
       await new Promise((r) => setTimeout(r, 1100));
