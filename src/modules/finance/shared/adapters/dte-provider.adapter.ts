@@ -17,6 +17,16 @@ export type DteIssueRequest = {
   receiverRut: string;
   receiverName: string;
   receiverEmail?: string;
+  /**
+   * Datos del receptor que el SII exige en facturas (tipo 33). Si no
+   * vienen, el provider usa defaults razonables ("Sin Giro", "Sin
+   * direccion", "Santiago"). Se autocompletan desde CRM cuando el
+   * receptor está vinculado a un account.
+   */
+  receiverGiro?: string;
+  receiverDireccion?: string;
+  receiverComuna?: string;
+  receiverCiudad?: string;
   items: DteLineItem[];
   netAmount: number;
   exemptAmount: number;

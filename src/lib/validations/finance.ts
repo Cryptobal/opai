@@ -13,6 +13,30 @@ function optNull<T extends z.ZodTypeAny>(schema: T) {
   return schema.optional().nullable().transform((v) => v ?? undefined);
 }
 
+/**
+ * Valida el dígito verificador de un RUT chileno (módulo 11).
+ * Acepta formatos "12.345.678-9", "12345678-9", "123456789".
+ * Devuelve true si el DV es correcto. NO valida que el RUT exista en SII
+ * (eso requiere consulta al SII y no es necesario para emitir DTE — el
+ * SII solo rechaza por DV inválido, no por RUT inexistente).
+ */
+function validateRutDV(rut: string): boolean {
+  const clean = rut.replace(/[^\dKk]/g, "").toUpperCase();
+  if (clean.length < 2) return false;
+  const cuerpo = clean.slice(0, -1);
+  const dv = clean.slice(-1);
+  if (!/^\d+$/.test(cuerpo)) return false;
+  let suma = 0;
+  let multi = 2;
+  for (let i = cuerpo.length - 1; i >= 0; i--) {
+    suma += parseInt(cuerpo[i], 10) * multi;
+    multi = multi === 7 ? 2 : multi + 1;
+  }
+  const resto = 11 - (suma % 11);
+  const dvCalc = resto === 11 ? "0" : resto === 10 ? "K" : String(resto);
+  return dv === dvCalc;
+}
+
 // ── Account Plan ──
 
 export const createAccountSchema = z.object({
@@ -114,9 +138,20 @@ export const issueDteSchema = z.object({
   dteType: z.number().int().refine((v) => [33, 34, 39, 52, 56, 61].includes(v), {
     message: "Tipo de DTE invalido",
   }),
-  receiverRut: z.string().trim().min(8).max(12),
+  receiverRut: z.string().trim().min(8).max(12).refine(validateRutDV, {
+    message: "RUT inválido (dígito verificador no coincide)",
+  }),
   receiverName: z.string().trim().min(1).max(200),
   receiverEmail: optNull(z.string().email()),
+  // Datos del receptor (opcional — el provider usa defaults si no vienen).
+  receiverGiro: optNull(z.string().trim().max(80)),
+  receiverDireccion: optNull(z.string().trim().max(200)),
+  receiverComuna: optNull(z.string().trim().max(80)),
+  receiverCiudad: optNull(z.string().trim().max(80)),
+  // Centros de costo: cliente CRM e instalación (opcional pero
+  // recomendado para reportes financieros consolidados).
+  crmAccountId: optNull(z.string().uuid()),
+  installationId: optNull(z.string().uuid()),
   /**
    * Emails CC para el envío del PDF/XML. El XML del SII solo lleva el
    * receiverEmail principal. Estos son solo para la copia que envía OPAI.
