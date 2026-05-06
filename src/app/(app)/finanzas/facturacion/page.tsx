@@ -120,6 +120,11 @@ export default async function FacturacionPage() {
     emailStatus: d.emailStatus,
     referenceType: d.referenceType,
     referenceFolio: d.referenceFolio,
+    // Flag para condicionar botones de descarga PDF/XML. Los DTEs
+    // importados desde CSV/RCV (created_by='system:csv-import' o
+    // 'system:rcv-ventas-sync') no tienen el XML guardado porque el
+    // SII no permite re-descargar XMLs históricos.
+    hasXml: d.dteXml !== null && d.dteXml.length > 0,
   }));
 
   const ventasMes = ventasMesAgg._sum.totalAmount?.toNumber() ?? 0;
