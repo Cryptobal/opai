@@ -30,11 +30,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   FileText, Download, FileCode, Mail, RefreshCw, Loader2,
-  FileMinus, FilePlus, ExternalLink,
+  FileMinus, FilePlus, ExternalLink, Copy,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { CostCenterEditor } from "./CostCenterEditor";
+import { DteEmailTimeline } from "./DteEmailTimeline";
 
 interface DteLine {
   id: string;
@@ -292,6 +293,22 @@ export function IssuedDteDetailDialog({
     }
   }
 
+  async function handleDuplicateAsDraft() {
+    if (!dte) return;
+    try {
+      const res = await fetch(`/api/finance/billing/issued/${dte.id}/duplicate-as-draft`, {
+        method: "POST",
+      });
+      const body = await res.json();
+      if (!res.ok || !body.success) throw new Error(body.error || `HTTP ${res.status}`);
+      toast.success("Borrador creado a partir del DTE");
+      onClose();
+      router.push(`/finanzas/facturacion/emitir?draftId=${body.data?.id}`);
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
+  }
+
   async function handleCheckStatus() {
     if (!dte) return;
     setCheckingStatus(true);
@@ -530,6 +547,9 @@ export function IssuedDteDetailDialog({
                 <p className="text-sm">{dte.notes}</p>
               </div>
             )}
+
+            {/* Timeline auditable de emails enviados (auto + manuales) */}
+            <DteEmailTimeline dteId={dte.id} />
           </div>
         )}
 
@@ -563,6 +583,12 @@ export function IssuedDteDetailDialog({
               <Button variant="outline" size="sm" onClick={handleCheckStatus} disabled={checkingStatus}>
                 {checkingStatus ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5 mr-1.5" />}
                 Estado SII
+              </Button>
+            )}
+            {canManage && (
+              <Button variant="outline" size="sm" onClick={handleDuplicateAsDraft}>
+                <Copy className="h-3.5 w-3.5 mr-1.5" />
+                Duplicar como borrador
               </Button>
             )}
             {canManage && canCreditNote && onEmitCreditNote && (
