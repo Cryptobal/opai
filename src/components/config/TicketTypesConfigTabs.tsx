@@ -6,27 +6,28 @@ import { TicketTypesConfigClient } from "@/components/config/TicketTypesConfigCl
 
 interface TicketTypesConfigTabsProps {
   userRole: string;
+  admins?: Array<{ id: string; name: string | null; email: string }>;
 }
 
-export function TicketTypesConfigTabs({ userRole }: TicketTypesConfigTabsProps) {
+export function TicketTypesConfigTabs({ userRole, admins }: TicketTypesConfigTabsProps) {
   const tabs = [
     {
       id: "guardias",
       label: "De Guardias",
       icon: Shield,
-      content: <TicketTypesConfigClient userRole={userRole} originFilter="guard" />,
+      content: <TicketTypesConfigClient userRole={userRole} originFilter="guard" admins={admins} />,
     },
     {
       id: "internas",
       label: "Internas",
       icon: Building2,
-      content: <TicketTypesConfigClient userRole={userRole} originFilter="internal" />,
+      content: <TicketTypesConfigClient userRole={userRole} originFilter="internal" admins={admins} />,
     },
     {
       id: "todas",
       label: "Todas",
       icon: List,
-      content: <TicketTypesConfigClient userRole={userRole} />,
+      content: <TicketTypesConfigClient userRole={userRole} admins={admins} />,
     },
   ];
 
