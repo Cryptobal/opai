@@ -354,9 +354,19 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
     },
   });
 
-  // ⚠️ Fallback de teléfono Gard sigue acá hasta PR5 — no tocar.
-  const whatsappBase = (tenantConfig.whatsappLink || "https://wa.me/56968727644").replace(/\?.*$/, "");
-  const whatsappUrl = `${whatsappBase}?text=${encodeURIComponent(whatsappMsg)}`;
+  // El whatsappUrl que va dentro del email del portal solo se construye si
+  // el tenant tiene su WhatsApp configurado. Si no, se omite el botón en el
+  // email (no caemos al teléfono de otro tenant — fail-loud).
+  let whatsappUrl: string | null = null;
+  if (tenantConfig.whatsappLink) {
+    const whatsappBase = tenantConfig.whatsappLink.replace(/\?.*$/, "");
+    whatsappUrl = `${whatsappBase}?text=${encodeURIComponent(whatsappMsg)}`;
+  } else {
+    console.warn(
+      `[whatsapp] Tenant ${tenantId} sin whatsappLink configurado. Email portal sin botón WhatsApp.`,
+      { tenantId, quoteId },
+    );
+  }
 
   const quoteNameForEmail =
     quote.name?.trim() || quote.installation?.name?.trim() || undefined;
