@@ -2,21 +2,29 @@
  * DTE Status Poll Service
  *
  * Consulta el estado SII de los DTEs emitidos pendientes de respuesta.
- * Diseñado para ser eficiente con el cupo de SimpleAPI:
+ * Diseñado para ser eficiente con el cupo de SimpleAPI (cron DIARIO):
  *
  *   - Solo consulta DTEs en estado SENT o PENDING (no los ACCEPTED/REJECTED)
  *   - Solo si fueron emitidos hace > 5 min (dar tiempo al SII)
- *   - Solo si NO se consultaron en la última hora (siiLastStatusCheckAt)
- *   - Solo si checkCount < MAX_CHECKS (default 30 → 30 horas de polling)
+ *   - Solo si NO se consultaron en las últimas 23h (siiLastStatusCheckAt)
+ *     → el cron diario solo procesa DTEs que aún no se vieron en este "día"
+ *   - Solo si checkCount < MAX_CHECKS (default 7 → 1 semana de polling)
  *   - Solo si tienen siiTrackId (necesario para consultar)
  *
  * Costo SimpleAPI por DTE en proceso típico:
- *   - 1ª hora: 1 consulta (SII responde rápido)
- *   - Si tarda más: 2-5 consultas adicionales
- *   - Total típico: 3-5 consultas/DTE durante 24-48h
+ *   - Día 1: 1 consulta (SII suele responder antes del próximo cron)
+ *   - Si tarda: 1 consulta más por día hasta 7 días máx
+ *   - Total típico: 1-3 consultas/DTE
  *
- * Para Gard (~20 emisiones/día): ~60-100 consultas DTE/día → ~2-3K/mes.
- * Plan Estándar (5K consultas DTE/mes) cubre con holgura.
+ * Para Gard (~20 emisiones/día):
+ *   - Cron diario procesa ~20 DTEs nuevos = 20 consultas/día
+ *   - + Re-chequeo de DTEs que aún están pendientes (cap 50 por ejecución)
+ *   - Costo típico: ~30-50 consultas/día = ~900-1500/mes
+ *   - Plan Básico (1.500/mes) llega justo
+ *   - Plan Estándar (5K/mes) cubre con margen amplio
+ *
+ * Para reducir aún más: subir MAX_CHECKS_PER_DTE a menor (ej. 5 → asume
+ * rechazo silencioso después de 5 días) o aumentar MIN_INTERVAL.
  *
  * Detección de bloqueo: si SimpleAPI devuelve 401/402/403/429 o body
  * con "apikey bloqueada"/"rate limit", el service se detiene
@@ -28,10 +36,17 @@ import { prisma } from "@/lib/prisma";
 import { getDteProvider } from "../shared/adapters/dte-provider.adapter";
 import { sendDteRejectedAlert } from "./dte-rejected-alert.service";
 
-/** Tope de consultas SII por DTE antes de dar timeout. */
-const MAX_CHECKS_PER_DTE = 30;
-/** Mínimo entre consultas del mismo DTE (no consultar 2 veces en <1h). */
-const MIN_INTERVAL_MS = 60 * 60 * 1000; // 1 hora
+/**
+ * Tope de consultas SII por DTE antes de dar timeout (asume rechazo
+ * silencioso). Con cron diario = 7 días de polling máximo.
+ */
+const MAX_CHECKS_PER_DTE = 7;
+/**
+ * Mínimo entre consultas del mismo DTE. 23h evita que dos ejecuciones
+ * del cron diario ejecuten la misma consulta si hay drift de schedule
+ * (Vercel puede ejecutar con ±15 min de variación).
+ */
+const MIN_INTERVAL_MS = 23 * 60 * 60 * 1000; // 23 horas
 /** Esperar al menos este tiempo desde la emisión antes de consultar. */
 const MIN_AGE_MS = 5 * 60 * 1000; // 5 minutos
 /** Máximo edad de DTE para seguir consultando (después se asume rechazo silencioso). */
