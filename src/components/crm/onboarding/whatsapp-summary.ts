@@ -1,13 +1,21 @@
 /**
- * Construye el mensaje de WhatsApp con el resumen del onboarding recién creado.
+ * Construye los BLOQUES de texto pre-formateados para el mensaje de onboarding.
  *
- * Se invoca después de POST /api/onboarding/start, una vez que ya conocemos
- * los tickets generados. El mensaje sigue el estilo "negocio adjudicado" pero
- * orientado al equipo operativo: pendientes (tickets), puestos/turnos/horarios,
- * sueldos líquidos, dirección con Google Maps y datos del cliente.
+ * El mensaje final lo arma el endpoint /api/whatsapp/resolve-template usando
+ * el slug `onboarding_summary` con estos bloques inyectados como blockTokens.
+ *
+ * Esta refactorización reemplaza la función monolítica `buildOnboardingWhatsAppMessage`
+ * por bloques individuales que se inyectan en la plantilla del tenant. El tenant
+ * puede editar el wrap-around (saludo, orden, despedida) sin tocar la lógica iterativa.
  */
 
 import { formatWeekdaysShort } from "@/lib/cpq/weekdays";
+import {
+  buildOnboardingDatosBlock,
+  buildOnboardingDotacionBlock,
+  buildOnboardingTicketsBlock,
+  type OnboardingTicket,
+} from "@/lib/docs/wa-blocks";
 import type { OnboardingStepDraft, PreviewData } from "./types";
 
 export type QuotePosition = {
@@ -47,20 +55,6 @@ const PRIO_LABEL: Record<string, string> = {
   p5: "P5",
 };
 
-const fmtDate = (d: Date | null): string =>
-  d
-    ? d.toLocaleDateString("es-CL", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      })
-    : "—";
-
-const fmtMoney = (n: number | null | undefined): string =>
-  typeof n === "number" && n > 0
-    ? `$${Math.round(n).toLocaleString("es-CL")}`
-    : "—";
-
 export function buildOnboardingTicketsFromSteps(
   steps: OnboardingStepDraft[],
   serviceStartDate: string | null,
@@ -83,28 +77,31 @@ export function buildOnboardingTicketsFromSteps(
     });
 }
 
-export function buildOnboardingWhatsAppMessage(args: {
+/**
+ * Construye los bloques pre-renderizados del mensaje de onboarding.
+ * El mensaje final se ensambla en el endpoint resolve-template usando estos
+ * bloques como `blockTokens`.
+ */
+export function buildOnboardingBlocks(args: {
   preview: PreviewData;
   serviceStartDate: string | null;
   tickets: CreatedTicketSummary[];
   positions: QuotePosition[];
-  dealUrl: string;
-  ticketsUrl?: string;
-}): string {
-  const { preview, serviceStartDate, tickets, positions, dealUrl, ticketsUrl } =
-    args;
+}): {
+  onboardingDatos: string;
+  onboardingDotacion: string;
+  onboardingTickets: string;
+} {
+  const { preview, serviceStartDate, tickets, positions } = args;
 
-  const lines: string[] = [];
-  const account = preview.account?.name || "—";
-  const installName = preview.installation?.name || "—";
-  const installAddress =
+  const installationAddress =
     [
       preview.installation?.address,
       preview.installation?.commune,
       preview.installation?.city,
     ]
       .filter(Boolean)
-      .join(", ") || "—";
+      .join(", ") || null;
   const hasCoords =
     preview.installation &&
     typeof preview.installation.lat === "number" &&
@@ -112,86 +109,44 @@ export function buildOnboardingWhatsAppMessage(args: {
   const mapsLink = hasCoords
     ? `https://maps.google.com/?q=${preview.installation!.lat},${preview.installation!.lng}`
     : null;
-  const startDateText = serviceStartDate
-    ? new Date(serviceStartDate).toLocaleDateString("es-CL", {
-        day: "2-digit",
-        month: "long",
-        year: "numeric",
-      })
-    : "—";
-  const totalGuards = positions.reduce((sum, p) => sum + (p.numGuards || 0), 0);
   const contact = preview.primaryContact;
   const contactName = contact
-    ? `${contact.firstName ?? ""} ${contact.lastName ?? ""}`.trim() || "—"
-    : "—";
+    ? `${contact.firstName ?? ""} ${contact.lastName ?? ""}`.trim() || null
+    : null;
 
-  lines.push("*ONBOARDING DEL CLIENTE*");
-  lines.push("");
-  lines.push("*Datos del Negocio*");
-  lines.push(`Cliente: ${account}`);
-  lines.push(`Instalación: ${installName}`);
-  if (preview.deal?.stageName) lines.push(`Etapa: ${preview.deal.stageName}`);
-  lines.push("");
+  const onboardingDatos = buildOnboardingDatosBlock({
+    accountName: preview.account?.name || "—",
+    installationName: preview.installation?.name || null,
+    stageName: preview.deal?.stageName || null,
+    serviceStartDate,
+    installationAddress,
+    mapsLink,
+    contactName,
+    contactEmail: contact?.email || null,
+    contactPhone: contact?.phone || null,
+  });
 
-  lines.push("*Inicio del Servicio*");
-  lines.push(startDateText);
-  lines.push("");
+  const onboardingDotacion = buildOnboardingDotacionBlock(
+    positions.map((p) => ({
+      cargoName: p.cargo?.name || "Guardia",
+      puestoName: p.puestoTrabajo?.name || "Sin puesto",
+      customName: p.customName,
+      daysLabel: formatWeekdaysShort(p.weekdays),
+      startTime: p.startTime,
+      endTime: p.endTime,
+      numGuards: p.numGuards,
+      netSalary: p.netSalary,
+    })),
+  );
 
-  lines.push("*Dirección*");
-  lines.push(installAddress);
-  if (mapsLink) {
-    lines.push(`Google Maps: ${mapsLink}`);
-  }
-  lines.push("");
+  const onboardingTickets = buildOnboardingTicketsBlock(
+    tickets.map<OnboardingTicket>((t) => ({
+      title: t.title,
+      teamLabel: TEAM_LABEL[t.team] || t.team,
+      priorityLabel: PRIO_LABEL[t.priority] || t.priority.toUpperCase(),
+      dueDate: t.dueDate,
+    })),
+  );
 
-  lines.push("*Contacto Principal*");
-  lines.push(`Nombre: ${contactName}`);
-  if (contact?.email) lines.push(`Email: ${contact.email}`);
-  if (contact?.phone) lines.push(`Teléfono: ${contact.phone}`);
-  lines.push("");
-
-  if (positions.length > 0) {
-    lines.push(`*Dotación (${totalGuards} guardia${totalGuards === 1 ? "" : "s"})*`);
-    for (const p of positions) {
-      const cargoName = p.cargo?.name || "Guardia";
-      const puestoName = p.puestoTrabajo?.name || "Sin puesto";
-      const days = formatWeekdaysShort(p.weekdays);
-      lines.push("");
-      lines.push(`• ${cargoName} — ${puestoName}`);
-      if (p.customName) lines.push(`   Nombre: ${p.customName}`);
-      lines.push(`   ${days} | ${p.startTime} - ${p.endTime}`);
-      lines.push(
-        `   ${p.numGuards} guardia${p.numGuards === 1 ? "" : "s"} | Líquido: ${fmtMoney(
-          p.netSalary,
-        )}`,
-      );
-    }
-    lines.push("");
-  }
-
-  if (tickets.length > 0) {
-    lines.push(`*Pendientes (${tickets.length} ticket${tickets.length === 1 ? "" : "s"})*`);
-    for (const t of tickets) {
-      const team = TEAM_LABEL[t.team] || t.team;
-      const prio = PRIO_LABEL[t.priority] || t.priority.toUpperCase();
-      lines.push(
-        `• ${t.title} — ${team} · ${prio} · vence ${fmtDate(t.dueDate)}`,
-      );
-    }
-    lines.push("");
-  }
-
-  if (ticketsUrl) {
-    lines.push("*Ver tickets*");
-    lines.push(ticketsUrl);
-    lines.push("");
-  }
-
-  lines.push("*Ver negocio en OPAI*");
-  lines.push(dealUrl);
-  lines.push("");
-  lines.push("---");
-  lines.push("Mensaje generado automáticamente desde OPAI");
-
-  return lines.join("\n");
+  return { onboardingDatos, onboardingDotacion, onboardingTickets };
 }

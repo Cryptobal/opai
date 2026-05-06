@@ -18,12 +18,13 @@ import { AddCustomTicketForm } from "./AddCustomTicketForm";
 import { OnboardingSuccessShare } from "./OnboardingSuccessShare";
 import {
   buildOnboardingTicketsFromSteps,
-  buildOnboardingWhatsAppMessage,
+  buildOnboardingBlocks,
   type CreatedTicketSummary,
   type QuotePosition,
 } from "./whatsapp-summary";
 import type { OnboardingStepDraft, PreviewData } from "./types";
 import { cn } from "@/lib/utils";
+import { useWaTemplate } from "@/lib/whatsapp/use-wa-template";
 
 const TICKET_TYPE_OPTIONS = [
   { slug: "onboarding_contrato_cliente", name: "Contrato cliente firmado" },
@@ -48,6 +49,7 @@ export function OnboardingClientModal({
   onClose: () => void;
   onCreated: (onboardingId: string) => void;
 }) {
+  const { resolve: resolveWaTemplate } = useWaTemplate();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [preview, setPreview] = useState<PreviewData | null>(null);
@@ -201,14 +203,51 @@ export function OnboardingClientModal({
         ? `https://maps.google.com/?q=${preview.installation!.lat},${preview.installation!.lng}`
         : null;
 
-      const message = buildOnboardingWhatsAppMessage({
+      // Resolver mensaje desde la plantilla `onboarding_summary` del tenant.
+      // Los bloques (datos / dotación / tickets) los arma el cliente y se
+      // pasan como blockTokens; el wrap-around lo controla la plantilla.
+      const blocks = buildOnboardingBlocks({
         preview,
         serviceStartDate,
         tickets,
         positions,
-        dealUrl,
-        ticketsUrl,
       });
+
+      let message = "";
+      try {
+        const resolved = await resolveWaTemplate({
+          slug: "onboarding_summary",
+          entityType: "deal",
+          entityId: dealId,
+          systemTokens: {
+            opaiUrl: dealUrl,
+            ticketsUrl: ticketsUrl ?? "",
+          },
+          blockTokens: {
+            onboardingDatos: blocks.onboardingDatos,
+            onboardingDotacion: blocks.onboardingDotacion,
+            onboardingTickets: blocks.onboardingTickets,
+          },
+        });
+        message = resolved.message;
+      } catch {
+        // Fallback: si el resolve falla, ensamblar localmente para no romper
+        // el flujo de creación de onboarding (el modal se queda con un
+        // mensaje funcional aunque no incluya el wrap-around personalizado).
+        message = [
+          "*ONBOARDING DEL CLIENTE*",
+          "",
+          blocks.onboardingDatos,
+          "",
+          blocks.onboardingDotacion,
+          "",
+          blocks.onboardingTickets,
+          "",
+          `*Ver negocio en OPAI*\n${dealUrl}`,
+        ]
+          .filter(Boolean)
+          .join("\n");
+      }
 
       setCreatedSummary({
         onboardingId: json.data.onboardingId,

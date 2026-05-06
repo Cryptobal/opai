@@ -45,6 +45,8 @@ import { CrmSectionCreateButton } from "./CrmSectionCreateButton";
 import { CreateQuoteModal } from "@/components/cpq/CreateQuoteModal";
 import { CRM_MODULES } from "./CrmModuleIcons";
 import { formatWeekdaysShort } from "@/components/cpq/utils";
+import { useWaTemplate } from "@/lib/whatsapp/use-wa-template";
+import { buildAdjudicacionDatosBlock, buildAdjudicacionDotacionBlock } from "@/lib/docs/wa-blocks";
 import { Textarea } from "@/components/ui/textarea";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/opai-ds";
@@ -543,6 +545,7 @@ export function CrmDealDetailClient({
   const createInstallationRef = useRef<{ open: () => void } | null>(null);
 
   // ── WhatsApp Adjudicado state ──
+  const { resolve: resolveWaTemplate } = useWaTemplate();
   const [waAdjudicadoOpen, setWaAdjudicadoOpen] = useState(false);
   const [waAdjudicadoMsg, setWaAdjudicadoMsg] = useState("");
   const [waAdjudicadoLoading, setWaAdjudicadoLoading] = useState(false);
@@ -560,73 +563,56 @@ export function CrmDealDetailClient({
     cargo?: { name: string } | null;
   };
 
-  const buildAdjudicadoMessage = useCallback((positions: QuotePositionRow[]) => {
-    const lines: string[] = [];
-    const contactName = deal.primaryContact ? `${deal.primaryContact.firstName} ${deal.primaryContact.lastName}`.trim() : "—";
-    const contactEmail = deal.primaryContact?.email || "—";
-    const contactPhone = deal.primaryContact?.phone || "—";
-    const accountName = deal.account?.name || "—";
+  /**
+   * Arma los bloques pre-renderizados que la plantilla `deal_adjudicado`
+   * espera vía `{{blocks.dealAdjudicacionDatos}}` y `{{blocks.dealAdjudicacionDotacion}}`.
+   * El wrap-around (saludo, link al deal, despedida) lo controla el tenant
+   * en la plantilla DocTemplate.
+   */
+  const buildAdjudicadoBlocks = useCallback((positions: QuotePositionRow[]) => {
+    const contactName = deal.primaryContact
+      ? `${deal.primaryContact.firstName} ${deal.primaryContact.lastName}`.trim()
+      : null;
     const install = accountInstallations[0];
-    const installName = install?.name || "—";
-    const installAddress = [install?.address, install?.commune, install?.city].filter(Boolean).join(", ") || "—";
-    const hasCoords = install && typeof install.lat === "number" && typeof install.lng === "number";
-    const mapsLink = hasCoords ? `https://maps.google.com/?q=${install.lat},${install.lng}` : null;
-    const startDate = dealServiceStartDate
-      ? new Date(dealServiceStartDate).toLocaleDateString("es-CL", { day: "2-digit", month: "long", year: "numeric" })
-      : "—";
+    const installAddress = [install?.address, install?.commune, install?.city]
+      .filter(Boolean)
+      .join(", ") || null;
+    const hasCoords =
+      install && typeof install.lat === "number" && typeof install.lng === "number";
+    const mapsLink = hasCoords
+      ? `https://maps.google.com/?q=${install.lat},${install.lng}`
+      : null;
     const activeQuote = deal.activeQuoteSummary;
-    const quoteCode = activeQuote?.code || "Sin código";
-    const totalGuards = activeQuote?.totalGuards ?? positions.reduce((sum, p) => sum + p.numGuards, 0);
-    const opaiUrl = typeof window !== "undefined" ? `${window.location.origin}/crm/deals/${deal.id}` : `/crm/deals/${deal.id}`;
 
-    lines.push("*NEGOCIO ADJUDICADO*");
-    lines.push("");
-    lines.push("*Datos del Negocio*");
-    lines.push(`Negocio: ${dealTitle}`);
-    lines.push(`Cliente: ${accountName}`);
-    lines.push(`Etapa: ${currentStage?.name || "Adjudicado"}`);
-    lines.push("");
-    lines.push("*Contacto Principal*");
-    lines.push(`Nombre: ${contactName}`);
-    lines.push(`Email: ${contactEmail}`);
-    lines.push(`Celular: ${contactPhone}`);
-    lines.push("");
-    lines.push("*Instalacion*");
-    lines.push(`Nombre: ${installName}`);
-    lines.push(`Direccion: ${installAddress}`);
-    if (mapsLink) lines.push(`Google Maps: ${mapsLink}`);
-    lines.push("");
-    lines.push("*Fecha de Inicio del Servicio*");
-    lines.push(startDate);
-    lines.push("");
-    lines.push(`*Detalle de la Cotizacion (${quoteCode})*`);
+    const datosBlock = buildAdjudicacionDatosBlock({
+      dealTitle,
+      accountName: deal.account?.name || "—",
+      stageName: currentStage?.name || "Adjudicado",
+      contactName,
+      contactEmail: deal.primaryContact?.email || null,
+      contactPhone: deal.primaryContact?.phone || null,
+      installationName: install?.name || null,
+      installationAddress: installAddress,
+      mapsLink,
+      serviceStartDate: dealServiceStartDate,
+      quoteCode: activeQuote?.code || null,
+      opaiUrl: null, // se inyecta vía system token
+    });
 
-    if (positions.length > 0) {
-      lines.push("");
-      lines.push("*Dotacion de Personal*");
-      for (const pos of positions) {
-        const cargoName = pos.cargo?.name || "Guardia";
-        const puestoName = pos.puestoTrabajo?.name || "Sin puesto";
-        const days = formatWeekdaysShort(pos.weekdays);
-        const netPay = pos.netSalary ? `$${Math.round(pos.netSalary).toLocaleString("es-CL")}` : "—";
-        lines.push("");
-        lines.push(`- ${cargoName} — Puesto: ${puestoName}`);
-        if (pos.customName) lines.push(`  Nombre: ${pos.customName}`);
-        lines.push(`  Dias: ${days} | Horario: ${pos.startTime} - ${pos.endTime}`);
-        lines.push(`  Guardias: ${pos.numGuards} | Sueldo liquido: ${netPay}`);
-      }
-      lines.push("");
-      lines.push(`Total guardias: ${totalGuards}`);
-    }
+    const dotacionBlock = buildAdjudicacionDotacionBlock(
+      positions.map((pos) => ({
+        cargoName: pos.cargo?.name || "Guardia",
+        puestoName: pos.puestoTrabajo?.name || "Sin puesto",
+        customName: pos.customName,
+        daysLabel: formatWeekdaysShort(pos.weekdays),
+        startTime: pos.startTime,
+        endTime: pos.endTime,
+        numGuards: pos.numGuards,
+        netSalary: pos.netSalary,
+      })),
+    );
 
-    lines.push("");
-    lines.push("*Ver negocio en OPAI*");
-    lines.push(opaiUrl);
-    lines.push("");
-    lines.push("---");
-    lines.push("Mensaje generado automaticamente desde OPAI");
-
-    return lines.join("\n");
+    return { datosBlock, dotacionBlock };
   }, [deal, dealTitle, dealServiceStartDate, currentStage, accountInstallations]);
 
   const openWaAdjudicado = async () => {
@@ -643,8 +629,31 @@ export function CrmDealDetailClient({
         }
       } catch { /* ignore */ }
     }
-    setWaAdjudicadoMsg(buildAdjudicadoMessage(positions));
-    setWaAdjudicadoLoading(false);
+
+    const { datosBlock, dotacionBlock } = buildAdjudicadoBlocks(positions);
+    const opaiUrl =
+      typeof window !== "undefined"
+        ? `${window.location.origin}/crm/deals/${deal.id}`
+        : `/crm/deals/${deal.id}`;
+
+    try {
+      const { message } = await resolveWaTemplate({
+        slug: "deal_adjudicado",
+        entityType: "deal",
+        entityId: deal.id,
+        systemTokens: { opaiUrl },
+        blockTokens: {
+          dealAdjudicacionDatos: datosBlock,
+          dealAdjudicacionDotacion: dotacionBlock,
+        },
+      });
+      setWaAdjudicadoMsg(message);
+    } catch {
+      setWaAdjudicadoMsg("");
+      toast.error("No se pudo generar el mensaje de adjudicación");
+    } finally {
+      setWaAdjudicadoLoading(false);
+    }
   };
 
   const sendWaAdjudicado = () => {
