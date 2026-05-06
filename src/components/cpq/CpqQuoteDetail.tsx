@@ -1745,13 +1745,11 @@ export function CpqQuoteDetail({
       </div>{/* end sticky header */}
 
       {/* -- Detail workspace --
-           Cotización enviada (isLocked): layout single-column full-width para que
-           las tablas (puestos, costos, financieros, costos adicionales, etc.) se
-           expandan a la izquierda sin competir con el aside de KPIs. */}
-      <div className={cn(
-        "grid gap-3 min-w-0 overflow-x-clip xl:items-start",
-        !isLocked && "xl:grid-cols-[minmax(0,1fr)_340px]"
-      )}>
+           Layout 2 columnas (main + aside Centro de control) tanto en borrador
+           como en enviada: cuando está enviada, el aside expone Generar PDF /
+           Enviar propuesta para que el usuario siga operando sin volver a
+           borrador. */}
+      <div className="grid gap-3 min-w-0 overflow-x-clip xl:items-start xl:grid-cols-[minmax(0,1fr)_340px]">
       <div className="space-y-2 min-w-0">
       <div className="hidden xl:flex items-center justify-between gap-4 rounded-lg border border-border/60 bg-card/55 px-4 py-3 shadow-sm">
         <div className="flex items-center gap-3 min-w-0">
@@ -2941,7 +2939,6 @@ export function CpqQuoteDetail({
 
       </div>{/* end main column */}
 
-      {!isLocked && (
       <aside className="hidden xl:block min-w-0">
         <div className="sticky top-4 space-y-3">
           <Card className="overflow-hidden border-border/70 bg-card/80 shadow-sm">
@@ -3090,7 +3087,6 @@ export function CpqQuoteDetail({
           </Card>
         </div>
       </aside>
-      )}
 
       </div>{/* end detail workspace */}
 
