@@ -48,6 +48,17 @@ const updateConfigSchema = z.object({
     .max(800 * 1024, "Logo demasiado grande (máx 800KB en base64)")
     .nullable()
     .optional(),
+  // Emails que reciben automáticamente el XML del DTE recién emitido
+  // (típ: contador externo). Tope de 5 destinatarios.
+  defaultXmlRecipientEmails: z
+    .array(z.string().email("Email inválido"))
+    .max(5, "Máximo 5 emails de backoffice")
+    .optional(),
+  defaultXmlRecipientAlwaysSend: z.boolean().optional(),
+  // Plantillas de email al receptor con placeholders {{razonSocial}},
+  // {{folio}}, {{tipo}}, {{total}}, {{fecha}}, {{receiverName}}.
+  emailTemplateSubject: z.string().max(200).nullable().optional(),
+  emailTemplateBody: z.string().max(5000).nullable().optional(),
 });
 
 export async function GET() {

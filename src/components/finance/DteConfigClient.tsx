@@ -56,6 +56,12 @@ interface ConfigData {
   logoBase64: string | null;
   /** Emails que reciben alertas operativas (DTE rechazado, etc). */
   alertEmails: string[];
+  /** Emails que reciben automáticamente el XML del DTE recién emitido. */
+  defaultXmlRecipientEmails: string[];
+  defaultXmlRecipientAlwaysSend: boolean;
+  /** Plantilla de email al receptor (placeholders {{razonSocial}}, etc). */
+  emailTemplateSubject: string | null;
+  emailTemplateBody: string | null;
 }
 
 interface CertData {
@@ -98,6 +104,10 @@ const DEFAULT_CONFIG: ConfigData = {
   resolFecha: null,
   logoBase64: null,
   alertEmails: [],
+  defaultXmlRecipientEmails: [],
+  defaultXmlRecipientAlwaysSend: false,
+  emailTemplateSubject: null,
+  emailTemplateBody: null,
 };
 
 interface Props {
@@ -455,6 +465,84 @@ export function DteConfigClient({
                 {config.alertEmails.length === 0 &&
                   " Si está vacío, no se envían alertas (los rechazos quedan solo en la lista de DTEs)."}
               </p>
+            </div>
+
+            {/* Email XML al backoffice — copia automática al contador externo */}
+            <div className="pt-4 border-t border-ds-border-subtle space-y-2">
+              <div>
+                <Label>Email XML automático al backoffice</Label>
+                <p className="text-[12px] text-ds-text-3 mt-0.5">
+                  Cada vez que se emite un DTE, además del email al receptor (PDF+XML), Opai enviará
+                  automáticamente solo el XML a estos destinatarios. Útil para tu contador externo o
+                  equipo de finanzas. Máximo 5 emails.
+                </p>
+              </div>
+              <Input
+                placeholder="contador@empresa.cl, finanzas@empresa.cl"
+                value={config.defaultXmlRecipientEmails.join(", ")}
+                onChange={(e) => {
+                  const list = e.target.value
+                    .split(/[\s,;]+/)
+                    .map((s) => s.trim())
+                    .filter(Boolean);
+                  setConfig((cfg) => ({ ...cfg, defaultXmlRecipientEmails: list }));
+                }}
+                className="h-10 sm:h-9"
+              />
+              <div className="flex items-center gap-2 pt-1">
+                <Switch
+                  checked={config.defaultXmlRecipientAlwaysSend}
+                  onCheckedChange={(c) =>
+                    setConfig((cfg) => ({ ...cfg, defaultXmlRecipientAlwaysSend: c }))
+                  }
+                  id="xml-always-send"
+                />
+                <Label htmlFor="xml-always-send" className="text-[13px]">
+                  Enviar siempre, sin opción de desmarcar al emitir
+                </Label>
+              </div>
+              <p className="text-[11px] text-ds-text-4">
+                {config.defaultXmlRecipientAlwaysSend
+                  ? "Activo: el envío al backoffice es forzoso en cada emisión."
+                  : "Si hay emails configurados, el checkbox aparecerá pre-marcado en cada emisión y el usuario puede desmarcarlo."}
+              </p>
+            </div>
+
+            {/* Plantilla de email al receptor — placeholders soportados */}
+            <div className="pt-4 border-t border-ds-border-subtle space-y-2">
+              <div>
+                <Label>Plantilla email al receptor (opcional)</Label>
+                <p className="text-[12px] text-ds-text-3 mt-0.5">
+                  Personaliza el asunto y cuerpo del email que se envía al cliente. Si quedan vacíos,
+                  Opai usa el default. Placeholders disponibles:{" "}
+                  <code>{"{{razonSocial}}"}</code>, <code>{"{{folio}}"}</code>, <code>{"{{tipo}}"}</code>,
+                  <code>{"{{total}}"}</code>, <code>{"{{fecha}}"}</code>,{" "}
+                  <code>{"{{receiverName}}"}</code>.
+                </p>
+              </div>
+              <Input
+                placeholder="{{tipo}} N° {{folio}} - {{razonSocial}}"
+                value={config.emailTemplateSubject ?? ""}
+                onChange={(e) =>
+                  setConfig((cfg) => ({
+                    ...cfg,
+                    emailTemplateSubject: e.target.value || null,
+                  }))
+                }
+                className="h-10 sm:h-9"
+              />
+              <textarea
+                placeholder="<p>Estimado/a {{receiverName}}, adjunto la {{tipo}} N° {{folio}}...</p>"
+                value={config.emailTemplateBody ?? ""}
+                onChange={(e) =>
+                  setConfig((cfg) => ({
+                    ...cfg,
+                    emailTemplateBody: e.target.value || null,
+                  }))
+                }
+                rows={6}
+                className="w-full rounded-md border border-ds-border-subtle px-3 py-2 text-[13px] font-mono"
+              />
             </div>
 
             <div className="flex items-center gap-3 pt-4 border-t border-ds-border-subtle">

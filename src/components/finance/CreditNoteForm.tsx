@@ -100,7 +100,7 @@ export function CreditNoteForm({ noteType, referenceDte, onSuccess, onCancel }: 
     fetch("/api/finance/config/dte-provider")
       .then((r) => r.json())
       .then((j) => {
-        const cfg = j?.data;
+        const cfg = j?.data?.config;
         if (cfg) {
           setTenantBackoffice({
             emails: cfg.defaultXmlRecipientEmails ?? [],
