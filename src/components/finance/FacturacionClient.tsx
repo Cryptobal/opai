@@ -229,6 +229,8 @@ function DtesTab({ dtes, canManage }: { dtes: DteRow[]; canManage: boolean }) {
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [voiding, setVoiding] = useState<string | null>(null);
   const [sendingEmail, setSendingEmail] = useState<string | null>(null);
+  // Sync de RCV ventas (importar facturas históricas del SII).
+  const [syncingVentas, setSyncingVentas] = useState(false);
 
   const filtered = useMemo(() => {
     let list = dtes;
@@ -275,6 +277,37 @@ function DtesTab({ dtes, canManage }: { dtes: DteRow[]; canManage: boolean }) {
       URL.revokeObjectURL(url);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Error inesperado");
+    }
+  };
+
+  const handleSyncRcvVentas = async () => {
+    if (!confirm(
+      "Importar facturas emitidas históricas desde el SII.\n\n" +
+      "Esto trae todas las facturas, NC y ND que el SII tiene registradas " +
+      "para tu RUT (incluyendo las anteriores a OPAI). El primer sync " +
+      "puede tardar varios minutos.\n\n¿Continuar?"
+    )) return;
+    setSyncingVentas(true);
+    try {
+      const res = await fetch("/api/finance/config/dte-provider/sync-rcv-ventas", {
+        method: "POST",
+      });
+      const body = await res.json();
+      if (!res.ok || !body.success) throw new Error(body.error ?? "Error en sincronización");
+      const { fetched, inserted, skipped, monthsQueried, errors } = body.data;
+      toast.success(
+        `Sincronización completada: ${fetched} consultados, ${inserted} nuevos, ${skipped} ya existentes (${monthsQueried.length} meses).`,
+      );
+      if (errors && errors.length > 0) {
+        toast.warning(`Sync con ${errors.length} error(es). Ver consola.`);
+        // eslint-disable-next-line no-console
+        console.warn("[RCV Ventas Sync] errors:", errors);
+      }
+      router.refresh();
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setSyncingVentas(false);
     }
   };
 
@@ -357,12 +390,28 @@ function DtesTab({ dtes, canManage }: { dtes: DteRow[]; canManage: boolean }) {
           </Select>
         </div>
         {canManage && (
-          <Link href="/finanzas/facturacion/emitir">
-            <Button size="sm">
-              <Plus className="h-4 w-4 mr-1.5" />
-              Emitir DTE
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSyncRcvVentas}
+              disabled={syncingVentas}
+              title="Importa facturas históricas desde el SII (RCV ventas)"
+            >
+              {syncingVentas ? (
+                <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4 mr-1.5" />
+              )}
+              Importar SII
             </Button>
-          </Link>
+            <Link href="/finanzas/facturacion/emitir">
+              <Button size="sm">
+                <Plus className="h-4 w-4 mr-1.5" />
+                Emitir DTE
+              </Button>
+            </Link>
+          </div>
         )}
       </div>
 

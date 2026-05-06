@@ -9179,8 +9179,12 @@ model TenantDteConfig {
   // Tamaño máx recomendado: 500KB (idealmente < 100KB para no inflar el PDF).
   logoBase64 String? @map("logo_base64") @db.Text
 
-  // Última sincronización RCV
+  // Última sincronización RCV (compras = DTEs RECIBIDOS).
   lastRcvSyncAt DateTime? @map("last_rcv_sync_at")
+  // Última sincronización RCV ventas (DTEs EMITIDOS desde el SII).
+  // Sirve para importar el histórico de facturas que el tenant emitió
+  // antes de OPAI (vía Zoho, papel, etc) y siguen en el SII.
+  lastRcvVentasSyncAt DateTime? @map("last_rcv_ventas_sync_at")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
