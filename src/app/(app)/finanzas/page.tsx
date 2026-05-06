@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, hasModuleAccess, hasCapability, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
+import { cn } from "@/lib/utils";
 import { PageHero } from "@/components/opai-ds";
 import { Surface } from "@/components/opai-ds";
 import {
@@ -11,6 +12,8 @@ import {
   Wallet,
   BarChart3,
   Landmark,
+  FileText,
+  FileInput,
 } from "lucide-react";
 
 export default async function FinanzasDashboardPage() {
@@ -36,21 +39,57 @@ export default async function FinanzasDashboardPage() {
 
   const tenantId = session.user.tenantId;
 
-  const [pendingRendiciones, pendingApprovals, pendingPaymentAmount] =
-    await Promise.all([
-      prisma.financeRendicion.count({
-        where: { tenantId, status: { in: ["DRAFT", "SUBMITTED"] } },
-      }),
-      prisma.financeRendicion.count({
-        where: { tenantId, status: { in: ["SUBMITTED", "IN_APPROVAL"] } },
-      }),
-      prisma.financeRendicion.aggregate({
-        where: { tenantId, status: "APPROVED" },
-        _sum: { amount: true },
-      }),
-    ]);
+  const startOfMonth = new Date();
+  startOfMonth.setDate(1);
+  startOfMonth.setHours(0, 0, 0, 0);
+
+  const [
+    pendingRendiciones,
+    pendingApprovals,
+    pendingPaymentAmount,
+    ventasMesAggregate,
+    pendientesSiiCount,
+    comprasPorRevisarCount,
+    comprasMesAggregate,
+  ] = await Promise.all([
+    prisma.financeRendicion.count({
+      where: { tenantId, status: { in: ["DRAFT", "SUBMITTED"] } },
+    }),
+    prisma.financeRendicion.count({
+      where: { tenantId, status: { in: ["SUBMITTED", "IN_APPROVAL"] } },
+    }),
+    prisma.financeRendicion.aggregate({
+      where: { tenantId, status: "APPROVED" },
+      _sum: { amount: true },
+    }),
+    prisma.financeDte.aggregate({
+      where: {
+        tenantId,
+        direction: "ISSUED",
+        siiStatus: { in: ["ACCEPTED", "PENDING", "SENT"] },
+        createdAt: { gte: startOfMonth },
+      },
+      _sum: { totalAmount: true },
+    }),
+    prisma.financeDte.count({
+      where: { tenantId, direction: "ISSUED", siiStatus: { in: ["PENDING", "SENT"] } },
+    }),
+    prisma.financeDte.count({
+      where: { tenantId, direction: "RECEIVED", receptionStatus: "PENDING_REVIEW" },
+    }),
+    prisma.financeDte.aggregate({
+      where: {
+        tenantId,
+        direction: "RECEIVED",
+        date: { gte: startOfMonth },
+      },
+      _sum: { totalAmount: true },
+    }),
+  ]);
 
   const amountPending = pendingPaymentAmount._sum.amount ?? 0;
+  const ventasMes = ventasMesAggregate._sum.totalAmount?.toNumber() ?? 0;
+  const comprasMes = comprasMesAggregate._sum.totalAmount?.toNumber() ?? 0;
 
   const fmtCLP = new Intl.NumberFormat("es-CL", {
     style: "currency",
@@ -93,6 +132,35 @@ export default async function FinanzasDashboardPage() {
       show: canPay,
     },
     {
+      href: "/finanzas/facturacion",
+      title: "Facturación",
+      description: "Emite DTE: facturas, NC, ND, libro IVA",
+      icon: FileText,
+      count: ventasMes > 0 ? fmtCLP.format(ventasMes) : null,
+      countLabel:
+        pendientesSiiCount > 0
+          ? `ventas mes · ${pendientesSiiCount} pend. SII`
+          : "ventas mes",
+      color: "text-status-ok-fg bg-status-ok-soft",
+      show: canView(perms, "finance", "facturacion"),
+      highlighted: true,
+    },
+    {
+      href: "/finanzas/facturacion?tab=recibidos",
+      title: "Compras",
+      description: "DTE recibidos, sync RCV, control de pagos",
+      icon: FileInput,
+      count:
+        comprasPorRevisarCount > 0
+          ? comprasPorRevisarCount
+          : comprasMes > 0
+            ? fmtCLP.format(comprasMes)
+            : null,
+      countLabel: comprasPorRevisarCount > 0 ? "por revisar" : "compras mes",
+      color: "text-status-warn-fg bg-status-warn-soft",
+      show: canView(perms, "finance", "facturacion"),
+    },
+    {
       href: "/finanzas/reportes",
       title: "Reportes",
       description: "Resumen de gastos por tipo, estado y período.",
@@ -119,7 +187,15 @@ export default async function FinanzasDashboardPage() {
           const Icon = item.icon;
           return (
             <Link key={item.href} href={item.href} className="block">
-              <Surface elevation={1} padding="md" hoverable className="h-full">
+              <Surface
+                elevation={1}
+                padding="md"
+                hoverable
+                className={cn(
+                  "h-full",
+                  item.highlighted && "ring-1 ring-status-ok-border",
+                )}
+              >
                 <div className="flex items-start gap-3">
                   <div className="p-2 rounded-ds-md bg-primary/10 text-primary shrink-0">
                     <Icon className="h-5 w-5" />
