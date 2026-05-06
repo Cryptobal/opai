@@ -40,9 +40,12 @@ import {
   RefreshCw,
   Mail,
   FileCode,
+  Eye,
+  ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { PaginationControls } from "./PaginationControls";
 
 /* ── Types ── */
 
@@ -99,6 +102,12 @@ interface SupplierOption {
 
 interface Props {
   dtes: DteRow[];
+  /**
+   * Cantidad total de DTEs emitidos del tenant (para paginación). El SC
+   * pre-carga la primera página de 50; este número permite calcular el
+   * número de páginas y mostrar el rango completo "Mostrando X de Y".
+   */
+  issuedTotal?: number;
   canManage: boolean;
   suppliers?: SupplierOption[];
 }
@@ -181,7 +190,7 @@ const EMPTY_RECEIVED_FORM = {
 
 /* ── Component ── */
 
-export function FacturacionClient({ dtes, canManage, suppliers = [] }: Props) {
+export function FacturacionClient({ dtes, issuedTotal, canManage, suppliers = [] }: Props) {
   const [activeTab, setActiveTab] = useState<TabId>("dtes");
 
   return (
@@ -211,7 +220,13 @@ export function FacturacionClient({ dtes, canManage, suppliers = [] }: Props) {
         </div>
       </nav>
 
-      {activeTab === "dtes" && <DtesTab dtes={dtes} canManage={canManage} />}
+      {activeTab === "dtes" && (
+        <DtesTab
+          dtes={dtes}
+          issuedTotal={issuedTotal ?? dtes.length}
+          canManage={canManage}
+        />
+      )}
       {activeTab === "recibidos" && <RecibidosTab suppliers={suppliers} canManage={canManage} />}
       {activeTab === "folios" && <FoliosTab canManage={canManage} />}
     </div>
@@ -222,7 +237,15 @@ export function FacturacionClient({ dtes, canManage, suppliers = [] }: Props) {
    Tab 1: DTEs Emitidos
    ═══════════════════════════════════════════════ */
 
-function DtesTab({ dtes, canManage }: { dtes: DteRow[]; canManage: boolean }) {
+function DtesTab({
+  dtes: initialDtes,
+  issuedTotal,
+  canManage,
+}: {
+  dtes: DteRow[];
+  issuedTotal: number;
+  canManage: boolean;
+}) {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("ALL");
@@ -231,6 +254,67 @@ function DtesTab({ dtes, canManage }: { dtes: DteRow[]; canManage: boolean }) {
   const [sendingEmail, setSendingEmail] = useState<string | null>(null);
   // Sync de RCV ventas (importar facturas históricas del SII).
   const [syncingVentas, setSyncingVentas] = useState(false);
+  // Paginación server-side. La SC pre-carga la primera página (50);
+  // si el usuario cambia page o pageSize, refetch al endpoint paginado.
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+  const [dtes, setDtes] = useState<DteRow[]>(initialDtes);
+  const [total, setTotal] = useState(issuedTotal);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (page === 1 && pageSize === 50) {
+      setDtes(initialDtes);
+      setTotal(issuedTotal);
+      return;
+    }
+    const ctrl = new AbortController();
+    setLoading(true);
+    (async () => {
+      try {
+        const params = new URLSearchParams();
+        params.set("page", String(page));
+        params.set("pageSize", String(pageSize));
+        const res = await fetch(`/api/finance/billing/issued?${params.toString()}`, {
+          signal: ctrl.signal,
+        });
+        if (!res.ok) throw new Error();
+        const json = await res.json();
+        const list: DteRow[] = Array.isArray(json?.data?.dtes)
+          ? json.data.dtes.map((d: Record<string, unknown>) => ({
+              id: String(d.id),
+              dteType: Number(d.dteType),
+              folio: Number(d.folio),
+              receiverRut: String(d.receiverRut ?? ""),
+              receiverName: String(d.receiverName ?? ""),
+              receiverEmail: (d.receiverEmail as string | null) ?? null,
+              netAmount: Number(d.netAmount),
+              taxAmount: Number(d.taxAmount),
+              totalAmount: Number(d.totalAmount),
+              siiStatus: String(d.siiStatus ?? ""),
+              currency: String(d.currency ?? "CLP"),
+              linesCount: Array.isArray(d.lines) ? (d.lines as unknown[]).length : 0,
+              createdAt: String(d.createdAt ?? ""),
+              emailSentAt: (d.emailSentAt as string | null) ?? null,
+              emailStatus: (d.emailStatus as string | null) ?? null,
+              referenceType: (d.referenceType as number | null) ?? null,
+              referenceFolio: (d.referenceFolio as number | null) ?? null,
+            }))
+          : [];
+        setDtes(list);
+        if (typeof json?.data?.pagination?.total === "number") {
+          setTotal(json.data.pagination.total);
+        }
+      } catch (err) {
+        if ((err as Error).name !== "AbortError") {
+          toast.error("Error al cargar DTEs emitidos");
+        }
+      } finally {
+        setLoading(false);
+      }
+    })();
+    return () => ctrl.abort();
+  }, [page, pageSize, initialDtes, issuedTotal]);
 
   const filtered = useMemo(() => {
     let list = dtes;
@@ -720,6 +804,18 @@ function DtesTab({ dtes, canManage }: { dtes: DteRow[]; canManage: boolean }) {
               );
             })}
           </div>
+
+          <PaginationControls
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            onPageChange={setPage}
+            onPageSizeChange={(s) => {
+              setPageSize(s);
+              setPage(1);
+            }}
+            loading={loading}
+          />
         </>
       )}
     </div>
@@ -851,10 +947,19 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
   const [receptionFilter, setReceptionFilter] = useState("ALL");
   const [paymentFilter, setPaymentFilter] = useState("ALL");
   const [syncing, setSyncing] = useState(false);
+  // Paginación server-side (selector 10/25/50/100/200) + modal detalle.
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+  const [total, setTotal] = useState(0);
+  const [detailDte, setDetailDte] = useState<ReceivedDteRow | null>(null);
 
   const loadReceivedDtes = useCallback(async () => {
+    setLoading(true);
     try {
-      const res = await fetch("/api/finance/billing/received");
+      const params = new URLSearchParams();
+      params.set("page", String(page));
+      params.set("pageSize", String(pageSize));
+      const res = await fetch(`/api/finance/billing/received?${params.toString()}`);
       if (!res.ok) throw new Error();
       const json = await res.json();
       // El endpoint devuelve { data: { dtes: [...], pagination: {...} } }.
@@ -866,13 +971,19 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
           ? json.data.dtes
           : [];
       setReceivedDtes(list);
+      const t =
+        typeof json?.data?.pagination?.total === "number"
+          ? json.data.pagination.total
+          : list.length;
+      setTotal(t);
     } catch {
       toast.error("Error al cargar DTEs recibidos");
       setReceivedDtes([]);
+      setTotal(0);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page, pageSize]);
 
   useEffect(() => { loadReceivedDtes(); }, [loadReceivedDtes]);
 
@@ -1045,7 +1156,11 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
         )}
       </div>
 
-      <p className="text-xs text-muted-foreground">{filtered.length} documento(s) recibido(s)</p>
+      <p className="text-xs text-muted-foreground">
+        {total > 0
+          ? `${filtered.length.toLocaleString("es-CL")} de ${total.toLocaleString("es-CL")} documento(s)`
+          : `${filtered.length} documento(s) recibido(s)`}
+      </p>
 
       {filtered.length === 0 ? (
         <EmptyState
@@ -1140,6 +1255,25 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
                     );
                   },
                 },
+                {
+                  id: "actions",
+                  header: "",
+                  align: "right",
+                  cell: (row) => (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDetailDte(row);
+                      }}
+                      aria-label="Ver detalle"
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                  ),
+                },
               ] satisfies DataTableColumn<ReceivedDteRow>[]}
               rows={filtered}
               rowKey={(row) => row.id}
@@ -1153,7 +1287,11 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
               const recCfg = RECEPTION_STATUS_CONFIG[d.receptionStatus] ?? { label: d.receptionStatus, className: "bg-muted" };
               const payCfg = PAYMENT_STATUS_CONFIG[d.paymentStatus] ?? { label: d.paymentStatus, className: "bg-muted" };
               return (
-                <Card key={d.id}>
+                <Card
+                  key={d.id}
+                  className="cursor-pointer hover:bg-muted/30 transition-colors"
+                  onClick={() => setDetailDte(d)}
+                >
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
@@ -1178,14 +1316,33 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
                           </span>
                         </div>
                       </div>
+                      <Eye className="h-4 w-4 text-muted-foreground shrink-0" />
                     </div>
                   </CardContent>
                 </Card>
               );
             })}
           </div>
+
+          <PaginationControls
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            onPageChange={setPage}
+            onPageSizeChange={(s) => {
+              setPageSize(s);
+              setPage(1);
+            }}
+            loading={loading}
+          />
         </>
       )}
+
+      <ReceivedDteDetailDialog
+        dte={detailDte}
+        onClose={() => setDetailDte(null)}
+        suppliers={suppliers}
+      />
 
       {/* Dialog: Registrar DTE Recibido */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -1344,5 +1501,146 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+/**
+ * ReceivedDteDetailDialog — modal de detalle de un DTE recibido.
+ *
+ * El SII NO expone re-descarga del XML/PDF de DTEs recibidos. El
+ * proveedor está obligado a enviarte el XML por email; el documento
+ * "vive" en tu correo. Este modal ofrece:
+ *   - Datos del DTE que tenemos del RCV (folio, emisor, montos, estados)
+ *   - Link al visor web del SII (requiere sesión SII abierta)
+ *   - (Próximo) Botón "Adjuntar XML/PDF" para subir el archivo recibido
+ */
+function ReceivedDteDetailDialog({
+  dte,
+  onClose,
+  suppliers,
+}: {
+  dte: ReceivedDteRow | null;
+  onClose: () => void;
+  suppliers: SupplierOption[];
+}) {
+  if (!dte) return null;
+  const supplier = suppliers.find((s) => s.rut === dte.issuerRut);
+  const dateStr = format(new Date(dte.date), "dd 'de' MMMM yyyy", { locale: es });
+  const dueStr = dte.dueDate
+    ? format(new Date(dte.dueDate), "dd 'de' MMMM yyyy", { locale: es })
+    : "Sin fecha de vencimiento";
+  const recCfg = RECEPTION_STATUS_CONFIG[dte.receptionStatus] ?? {
+    label: dte.receptionStatus,
+    className: "bg-muted",
+  };
+  const payCfg = PAYMENT_STATUS_CONFIG[dte.paymentStatus] ?? {
+    label: dte.paymentStatus,
+    className: "bg-muted",
+  };
+  const siiViewerUrl = `https://www4.sii.cl/consdcvinternetui/#/index`;
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <FileInput className="h-5 w-5 text-primary" />
+            {DTE_TYPE_LABELS[dte.dteType] ?? `Tipo ${dte.dteType}`} N° {dte.folio}
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 py-2">
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="outline" className={cn("text-xs", recCfg.className)}>
+              Recepción: {recCfg.label}
+            </Badge>
+            <Badge variant="outline" className={cn("text-xs", payCfg.className)}>
+              Pago: {payCfg.label}
+            </Badge>
+          </div>
+
+          <div className="rounded-md border border-border bg-muted/30 p-4 space-y-2">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">
+              Emisor
+            </p>
+            <p className="font-medium">{dte.issuerName}</p>
+            <p className="text-sm font-mono text-muted-foreground">{dte.issuerRut}</p>
+            {supplier && (
+              <p className="text-xs text-muted-foreground">
+                Proveedor vinculado en OPAI:{" "}
+                <span className="font-medium">{supplier.name}</span>
+              </p>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                Emisión
+              </p>
+              <p className="text-sm">{dateStr}</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                Vencimiento
+              </p>
+              <p className="text-sm">{dueStr}</p>
+            </div>
+          </div>
+
+          <div className="rounded-md border border-border p-4 space-y-2">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">
+              Montos
+            </p>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Neto</span>
+              <span className="font-mono">{fmtCLP.format(dte.netAmount)}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">IVA (19%)</span>
+              <span className="font-mono">{fmtCLP.format(dte.taxAmount)}</span>
+            </div>
+            <div className="flex justify-between text-base font-medium pt-2 border-t border-border">
+              <span>Total</span>
+              <span className="font-mono">{fmtCLP.format(dte.totalAmount)}</span>
+            </div>
+          </div>
+
+          <div className="rounded-md border border-blue-200 bg-blue-50 dark:border-blue-900/50 dark:bg-blue-950/30 p-3 text-xs text-blue-900 dark:text-blue-200">
+            <p className="font-medium mb-1">Nota sobre el documento original</p>
+            <p>
+              El SII no expone re-descarga del XML/PDF de DTEs recibidos. El
+              proveedor está obligado a enviarte el XML por email; podés
+              guardarlo en tu correo. Para ver el detalle oficial (líneas,
+              certificación) usá el visor del SII con tu sesión:
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" asChild>
+              <a href={siiViewerUrl} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+                Ver en visor SII
+              </a>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled
+              title="Próximamente: adjuntar XML/PDF del proveedor"
+            >
+              <Download className="h-3.5 w-3.5 mr-1.5" />
+              Adjuntar XML/PDF (próximamente)
+            </Button>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Cerrar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
