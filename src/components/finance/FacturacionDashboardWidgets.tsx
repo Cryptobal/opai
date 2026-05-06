@@ -150,18 +150,32 @@ export function KPIRow({ kpis }: { kpis: KPIs }) {
   );
 }
 
-export function TrendChart() {
+interface TrendChartProps {
+  /**
+   * Filtro de período sincronizado con la tabla de DTEs:
+   *   - "ALL" o undefined → últimos 6 meses (default).
+   *   - "YYYY-MM"          → solo ese mes.
+   */
+  periodo?: string;
+}
+
+export function TrendChart({ periodo }: TrendChartProps = {}) {
   const [data, setData] = useState<Trend[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/finance/billing/trend")
+    setLoading(true);
+    const url =
+      periodo && periodo !== "ALL"
+        ? `/api/finance/billing/trend?periodo=${encodeURIComponent(periodo)}`
+        : "/api/finance/billing/trend";
+    fetch(url)
       .then((r) => r.json())
       .then((body) => {
         if (body.success) setData(body.data);
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [periodo]);
 
   if (loading) {
     return (
@@ -187,7 +201,9 @@ export function TrendChart() {
           <h3 className="font-display font-semibold text-sm text-ds-text-1">
             Tendencia ventas vs compras
           </h3>
-          <p className="text-[12px] text-ds-text-3">Últimos 6 meses</p>
+          <p className="text-[12px] text-ds-text-3">
+            {periodo && periodo !== "ALL" ? "Período seleccionado" : "Últimos 6 meses"}
+          </p>
         </div>
         <div className="flex items-center gap-3 text-[12px]">
           <div className="flex items-center gap-1.5">

@@ -274,12 +274,15 @@ export function FacturacionClient({
     return "dtes";
   })();
   const [activeTab, setActiveTab] = useState<TabId>(initialTab);
+  // Filtro de período compartido entre KPIs, TrendChart y DtesTab.
+  // "ALL" = sin filtro (default); "YYYY-MM" = mes específico.
+  const [periodoFilter, setPeriodoFilter] = useState("ALL");
 
   return (
     <div className="space-y-4">
       {/* Dashboard widgets */}
       <KPIRow kpis={kpis} />
-      <TrendChart />
+      <TrendChart periodo={periodoFilter} />
 
       {/* Tab navigation */}
       <nav className="-mx-4 px-4 sm:mx-0 sm:px-0">
@@ -312,6 +315,8 @@ export function FacturacionClient({
           dtes={dtes}
           issuedTotal={issuedTotal ?? dtes.length}
           canManage={canManage}
+          periodoFilter={periodoFilter}
+          onPeriodoFilterChange={setPeriodoFilter}
         />
       )}
       {activeTab === "recibidos" && <RecibidosTab suppliers={suppliers} canManage={canManage} />}
@@ -329,17 +334,20 @@ function DtesTab({
   dtes: initialDtes,
   issuedTotal,
   canManage,
+  periodoFilter,
+  onPeriodoFilterChange,
 }: {
   dtes: DteRow[];
   issuedTotal: number;
   canManage: boolean;
+  /** Filtro de período compartido (KPIs + TrendChart + tabla). */
+  periodoFilter: string;
+  onPeriodoFilterChange: (v: string) => void;
 }) {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState("ALL");
-  /** Filtro por período "YYYY-MM" o "ALL". Default ALL = sin filtro. */
-  const [periodoFilter, setPeriodoFilter] = useState("ALL");
   const periodOptions = useMemo(() => buildPeriodOptions(36), []);
   const [voiding, setVoiding] = useState<string | null>(null);
   const [sendingEmail, setSendingEmail] = useState<string | null>(null);
@@ -584,7 +592,7 @@ function DtesTab({
               ))}
             </SelectContent>
           </Select>
-          <Select value={periodoFilter} onValueChange={setPeriodoFilter}>
+          <Select value={periodoFilter} onValueChange={onPeriodoFilterChange}>
             <SelectTrigger className="w-full sm:w-44 h-9">
               <SelectValue placeholder="Período" />
             </SelectTrigger>
