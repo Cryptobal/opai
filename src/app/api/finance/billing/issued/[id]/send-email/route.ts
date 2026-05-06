@@ -5,7 +5,7 @@ import {
   resolveApiPerms,
   parseBody,
 } from "@/lib/api-auth";
-import { canEdit } from "@/lib/permissions";
+import { hasFacturacionCapability } from "@/lib/permissions";
 import { z } from "zod";
 import { sendDteEmail } from "@/modules/finance/billing/dte-email.service";
 
