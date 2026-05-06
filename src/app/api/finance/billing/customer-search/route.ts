@@ -28,6 +28,14 @@ export async function GET(request: NextRequest) {
     parseInt(request.nextUrl.searchParams.get("limit") ?? "20", 10) || 20,
     50,
   );
+  // Filtro fuerte por RUT: cuando el caller pasa ?rut= solo retornamos
+  // accounts cuyo RUT coincida exactamente (ignorando puntos/guion). Lo
+  // usa el CostCenterEditor de un DTE emitido para que no se pueda elegir
+  // un cliente con RUT distinto al receptor del DTE.
+  const rutFilter = request.nextUrl.searchParams
+    .get("rut")
+    ?.replace(/[.\-\s]/g, "")
+    .toUpperCase();
 
   // Limpia separadores comunes del RUT para que "12.345.678-9" calce con "123456789".
   const rutNeedle = search.replace(/[.\-\s]/g, "");
@@ -37,6 +45,10 @@ export async function GET(request: NextRequest) {
       tenantId: ctx.tenantId,
       type: "client",
       isActive: true,
+      // Cuando hay rutFilter usamos contains con la versión normalizada;
+      // la igualdad estricta se aplica post-query (la DB puede guardar
+      // RUTs con o sin formato y `contains` cubre ambos casos).
+      ...(rutFilter ? { rut: { contains: rutFilter, mode: "insensitive" as const } } : {}),
       ...(search.length > 0 && {
         OR: [
           { name: { contains: search, mode: "insensitive" as const } },
@@ -57,8 +69,15 @@ export async function GET(request: NextRequest) {
     take: limit,
   });
 
+  // Si rutFilter está, exigimos igualdad estricta con la versión normalizada
+  // (DB puede tener RUTs con/sin puntos/guión — el `contains` es permisivo
+  // y podría devolver false positives tipo "1234567" matching "12345678").
+  const filteredAccounts = rutFilter
+    ? accounts.filter((a) => (a.rut ?? "").replace(/[.\-\s]/g, "").toUpperCase() === rutFilter)
+    : accounts;
+
   // Email del contacto primario (si existe).
-  const accountIds = accounts.map((a) => a.id);
+  const accountIds = filteredAccounts.map((a) => a.id);
   const contacts = accountIds.length
     ? await prisma.crmContact.findMany({
         where: { accountId: { in: accountIds }, email: { not: null } },
@@ -76,7 +95,7 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     success: true,
-    data: accounts.map((a) => ({
+    data: filteredAccounts.map((a) => ({
       id: a.id,
       name: a.legalName ?? a.name,
       displayName: a.name,

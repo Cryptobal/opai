@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
-import { Plus, Trash2, Loader2, Send, Download } from "lucide-react";
+import { Plus, Trash2, Loader2, Send, Download, FileEdit } from "lucide-react";
 import { CustomerCombobox, type CustomerOption } from "./CustomerCombobox";
 import {
   Dialog,
@@ -24,6 +24,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { EmisionConfirmDialog } from "./EmisionConfirmDialog";
 
 /* ── Types ── */
 
@@ -141,6 +142,101 @@ export function DteForm({ availableTypes, accounts }: Props) {
   const [autoSendEmail, setAutoSendEmail] = useState(true);
   const [lines, setLines] = useState<DteLine[]>([{ ...EMPTY_LINE }]);
   const [saving, setSaving] = useState(false);
+
+  // Selector de moneda. Si UF, los precios de cada línea se interpretan
+  // como UF; el backend los convierte a CLP usando getUfValue() del día.
+  const [currency, setCurrency] = useState<"CLP" | "UF">("CLP");
+  const [ufValue, setUfValue] = useState<number | null>(null);
+  // Modal de confirmación pre-emisión.
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  // Config del tenant para el modal (emails XML al backoffice).
+  const [tenantBackoffice, setTenantBackoffice] = useState<{
+    emails: string[];
+    alwaysSend: boolean;
+  }>({ emails: [], alwaysSend: false });
+
+  // Identificador del borrador en edición. Si viene en URL, cargamos los
+  // datos del borrador y al guardar usamos PATCH en lugar de POST de creación.
+  const searchParams = useSearchParams();
+  const draftIdParam = searchParams?.get("draftId") ?? null;
+  const asDraftFlag = searchParams?.get("asDraft") === "true";
+
+  // Cargar UF del día cuando se elige UF como moneda.
+  useEffect(() => {
+    if (currency !== "UF") {
+      setUfValue(null);
+      return;
+    }
+    const ctrl = new AbortController();
+    fetch("/api/fx/uf", { signal: ctrl.signal })
+      .then((r) => r.json())
+      .then((j) => {
+        const v = j?.data?.value ?? j?.value;
+        if (typeof v === "number") setUfValue(v);
+      })
+      .catch(() => {});
+    return () => ctrl.abort();
+  }, [currency]);
+
+  // Cargar config del tenant (default emails XML al backoffice + plantillas).
+  // GET /dte-provider devuelve { data: { config, certificate, apiKeyConfigured } }.
+  useEffect(() => {
+    fetch("/api/finance/config/dte-provider")
+      .then((r) => r.json())
+      .then((j) => {
+        const cfg = j?.data?.config;
+        if (cfg) {
+          setTenantBackoffice({
+            emails: cfg.defaultXmlRecipientEmails ?? [],
+            alwaysSend: !!cfg.defaultXmlRecipientAlwaysSend,
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Cargar borrador existente si viene draftId en la URL.
+  useEffect(() => {
+    if (!draftIdParam) return;
+    const ctrl = new AbortController();
+    fetch(`/api/finance/billing/drafts/${draftIdParam}`, { signal: ctrl.signal })
+      .then((r) => r.json())
+      .then((j) => {
+        const d = j?.data;
+        if (!d) return;
+        setDteType(String(d.dteType));
+        setReceiverRut(d.receiverRut ?? "");
+        setReceiverName(d.receiverName ?? "");
+        setReceiverEmail(d.receiverEmail ?? "");
+        setReceiverGiro(d.receiverGiro ?? "");
+        setReceiverDireccion(d.receiverDireccion ?? "");
+        setReceiverComuna(d.receiverComuna ?? "");
+        setReceiverCiudad(d.receiverCiudad ?? "");
+        setCcEmailsRaw((d.receiverEmailCc ?? []).join(", "));
+        setNotes(d.notes ?? "");
+        if (d.currency === "UF" || d.currency === "CLP") setCurrency(d.currency);
+        const draftLines = (d.lines ?? []).map((l: Record<string, unknown>) => ({
+          itemName: String(l.itemName ?? ""),
+          description: String(l.description ?? ""),
+          quantity: String(l.quantity ?? "1"),
+          unit: String(l.unit ?? "UN"),
+          // Si el draft estaba en UF, mostramos unitPriceUf; si CLP, unitPrice.
+          unitPrice: String(
+            d.currency === "UF" && l.unitPriceUf != null
+              ? l.unitPriceUf
+              : (l.unitPrice ?? ""),
+          ),
+          discountPct: String(l.discountPct ?? "0"),
+          isExempt: !!l.isExempt,
+          accountId: String(l.accountId ?? ""),
+        }));
+        if (draftLines.length > 0) setLines(draftLines);
+      })
+      .catch(() => {
+        toast.error("No se pudo cargar el borrador");
+      });
+    return () => ctrl.abort();
+  }, [draftIdParam]);
 
   // Cuando se selecciona un customer del CRM, autocompletar los datos del
   // receptor con lo que tenga el CRM (dirección, comuna). Si el campo del
@@ -316,49 +412,147 @@ export function DteForm({ availableTypes, accounts }: Props) {
         r.razonRef.trim(),
     );
 
-    setSaving(true);
-    try {
-      const payload = {
-        dteType: parseInt(dteType),
-        receiverRut: effRut,
-        receiverName: effName,
-        receiverEmail: effEmail || null,
-        receiverEmailCc: ccEmails.length > 0 ? ccEmails : undefined,
-        // Datos del receptor que el SII exige en facturas tipo 33.
-        receiverGiro: receiverGiro.trim() || null,
-        receiverDireccion: receiverDireccion.trim() || null,
-        receiverComuna: receiverComuna.trim() || null,
-        receiverCiudad: receiverCiudad.trim() || null,
-        // Centros de costo: vincular a cliente CRM e instalación.
-        crmAccountId: customer?.id ?? null,
-        installationId: installationId || null,
-        additionalReferences: validRefs.length > 0 ? validRefs : undefined,
-        notes: notes.trim() || null,
-        autoSendEmail,
-        lines: validLines.map((l) => ({
+    // Validación pasada — abrir modal de confirmación. La emisión real
+    // se dispara desde EmisionConfirmDialog.onConfirm → submitToServer.
+    setConfirmOpen(true);
+  };
+
+  /**
+   * Construye el payload (compartido entre emisión real y guardar borrador).
+   * Aplica conversión UF: si currency=UF cada precio va como unitPriceUf
+   * y unitPrice queda 0 (el backend convierte usando getUfValue()).
+   */
+  const buildPayload = (
+    overrides?: { autoSendEmail?: boolean; sendXmlToBackoffice?: boolean },
+  ) => {
+    const effRut = (customer?.rut || receiverRut).trim();
+    const effName = (customer?.name || receiverName).trim();
+    const effEmail = (customer?.email || receiverEmail).trim();
+    const validLines = lines.filter(
+      (l) => l.itemName.trim() && parseFloat(l.unitPrice) > 0,
+    );
+    const ccCandidates = ccEmailsRaw
+      .split(/[\s,;]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const ccEmails = Array.from(
+      new Set(ccCandidates.filter((e) => e !== effEmail)),
+    );
+    const validRefs = additionalRefs.filter(
+      (r) =>
+        r.tipoDocRef.trim() &&
+        r.folioRef.trim() &&
+        r.fchRef &&
+        r.razonRef.trim(),
+    );
+    return {
+      dteType: parseInt(dteType),
+      receiverRut: effRut || undefined,
+      receiverName: effName || undefined,
+      receiverEmail: effEmail || null,
+      receiverEmailCc: ccEmails.length > 0 ? ccEmails : undefined,
+      receiverGiro: receiverGiro.trim() || null,
+      receiverDireccion: receiverDireccion.trim() || null,
+      receiverComuna: receiverComuna.trim() || null,
+      receiverCiudad: receiverCiudad.trim() || null,
+      crmAccountId: customer?.id ?? null,
+      installationId: installationId || null,
+      additionalReferences: validRefs.length > 0 ? validRefs : undefined,
+      notes: notes.trim() || null,
+      autoSendEmail: overrides?.autoSendEmail ?? autoSendEmail,
+      sendXmlToBackoffice: overrides?.sendXmlToBackoffice,
+      currency,
+      lines: validLines.map((l) => {
+        const priceNum = parseFloat(l.unitPrice) || 0;
+        return {
           itemName: l.itemName.trim(),
           description: l.description.trim() || null,
           quantity: parseFloat(l.quantity) || 1,
           unit: l.unit.trim() || null,
-          unitPrice: parseFloat(l.unitPrice) || 0,
+          // Si moneda=UF, el precio del input se manda como unitPriceUf.
+          // El backend lo convierte a CLP usando getUfValue() del día.
+          unitPrice: currency === "UF" ? 0 : priceNum,
+          unitPriceUf: currency === "UF" ? priceNum : undefined,
           discountPct: parseFloat(l.discountPct) || 0,
           isExempt: isExenta || l.isExempt,
           accountId: l.accountId || null,
           refuerzoSolicitudId: l.refuerzoSolicitudId || null,
-        })),
-      };
+        };
+      }),
+    };
+  };
 
-      const res = await fetch("/api/finance/billing/issued", {
-        method: "POST",
+  /** Emisión real — la llama el modal de confirmación tras OK del usuario. */
+  const submitToServer = async (opts: { autoSendEmail: boolean; sendXmlToBackoffice: boolean }) => {
+    setSaving(true);
+    try {
+      const payload = buildPayload(opts);
+      // Si estamos editando un borrador, lo emitimos vía /drafts/[id]/issue.
+      // Esto guarda primero (PATCH) y luego emite — patrón seguro.
+      if (draftIdParam) {
+        const patchRes = await fetch(`/api/finance/billing/drafts/${draftIdParam}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!patchRes.ok) {
+          const err = await patchRes.json();
+          throw new Error(err.error || "Error al guardar borrador antes de emitir");
+        }
+        const issueRes = await fetch(`/api/finance/billing/drafts/${draftIdParam}/issue`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            autoSendEmail: opts.autoSendEmail,
+            sendXmlToBackoffice: opts.sendXmlToBackoffice,
+          }),
+        });
+        if (!issueRes.ok) {
+          const err = await issueRes.json();
+          throw new Error(err.error || "Error al emitir borrador");
+        }
+      } else {
+        const res = await fetch("/api/finance/billing/issued", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error || "Error al emitir DTE");
+        }
+      }
+      toast.success("DTE emitido exitosamente");
+      setConfirmOpen(false);
+      router.push("/finanzas/facturacion");
+      router.refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Error inesperado");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  /** Guardar como borrador (sin emitir, sin reservar folio). */
+  const handleSaveDraft = async () => {
+    setSaving(true);
+    try {
+      const payload = buildPayload();
+      const url = draftIdParam
+        ? `/api/finance/billing/drafts/${draftIdParam}`
+        : "/api/finance/billing/drafts";
+      const method = draftIdParam ? "PATCH" : "POST";
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.error || "Error al emitir DTE");
+        throw new Error(err.error || "Error al guardar borrador");
       }
-      toast.success("DTE emitido exitosamente");
-      router.push("/finanzas/facturacion");
+      toast.success(draftIdParam ? "Borrador actualizado" : "Borrador creado");
+      router.push("/finanzas/facturacion?tab=borradores");
       router.refresh();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Error inesperado");
@@ -441,6 +635,18 @@ export function DteForm({ availableTypes, accounts }: Props) {
 
   return (
     <div className="space-y-6">
+      {draftIdParam && (
+        <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 flex items-center gap-2">
+          <FileEdit className="size-4" />
+          <span>Editando borrador. Aún no se ha emitido al SII.</span>
+        </div>
+      )}
+      {asDraftFlag && !draftIdParam && (
+        <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900 flex items-center gap-2">
+          <FileEdit className="size-4" />
+          <span>Modo borrador: usa "Guardar como borrador" para archivar sin emitir.</span>
+        </div>
+      )}
       {/* Header fields */}
       <Card>
         <CardContent className="pt-4">
@@ -457,6 +663,32 @@ export function DteForm({ availableTypes, accounts }: Props) {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Moneda</Label>
+              <div className="flex gap-1">
+                <Button
+                  type="button"
+                  variant={currency === "CLP" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setCurrency("CLP")}
+                >
+                  CLP
+                </Button>
+                <Button
+                  type="button"
+                  variant={currency === "UF" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setCurrency("UF")}
+                >
+                  UF
+                </Button>
+                {currency === "UF" && ufValue != null && (
+                  <span className="ml-2 self-center text-xs text-muted-foreground">
+                    UF hoy: ${ufValue.toLocaleString("es-CL")}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
@@ -986,11 +1218,57 @@ export function DteForm({ availableTypes, accounts }: Props) {
         >
           Cancelar
         </Button>
+        <Button variant="outline" onClick={handleSaveDraft} disabled={saving}>
+          {saving ? (
+            <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+          ) : (
+            <FileEdit className="h-4 w-4 mr-1.5" />
+          )}
+          {draftIdParam ? "Guardar borrador" : "Guardar como borrador"}
+        </Button>
         <Button onClick={handleSubmit} disabled={saving}>
           {saving ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Send className="h-4 w-4 mr-1.5" />}
           Emitir documento
         </Button>
       </div>
+
+      {/* Modal de confirmación pre-emisión SII */}
+      <EmisionConfirmDialog
+        open={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        onConfirm={(opts) => submitToServer(opts)}
+        loading={saving}
+        dteType={parseInt(dteType)}
+        receiver={{
+          name: (customer?.name || receiverName).trim(),
+          rut: (customer?.rut || receiverRut).trim(),
+          email: (customer?.email || receiverEmail).trim() || null,
+        }}
+        totals={{
+          netAmount: totals.netAmount,
+          taxAmount: totals.taxAmount,
+          totalAmount: totals.totalAmount,
+          currency,
+          ufValue: ufValue ?? undefined,
+          totalUf:
+            currency === "UF" && ufValue && ufValue > 0
+              ? totals.totalAmount / ufValue
+              : undefined,
+        }}
+        lines={lines
+          .filter((l) => l.itemName.trim() && parseFloat(l.unitPrice) > 0)
+          .map((l) => ({
+            itemName: l.itemName.trim(),
+            quantity: parseFloat(l.quantity) || 1,
+            unitPrice:
+              currency === "UF" && ufValue
+                ? Math.round(parseFloat(l.unitPrice) * ufValue * 100) / 100
+                : parseFloat(l.unitPrice) || 0,
+            unitPriceUf: currency === "UF" ? parseFloat(l.unitPrice) || 0 : null,
+          }))}
+        defaultBackofficeEmails={tenantBackoffice.emails}
+        defaultBackofficeAlwaysSend={tenantBackoffice.alwaysSend}
+      />
 
       {/* Import pending billable items dialog */}
       <Dialog open={importOpen} onOpenChange={setImportOpen}>

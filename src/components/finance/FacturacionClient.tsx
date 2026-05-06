@@ -43,12 +43,14 @@ import {
   Eye,
   ExternalLink,
   BookOpen,
+  FileEdit,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { PaginationControls } from "./PaginationControls";
 import { KPIRow, TrendChart } from "./FacturacionDashboardWidgets";
 import { LibroIvaTab } from "./LibroIvaTab";
+import { BorradoresTab } from "./BorradoresTab";
 import { CostCenterEditor } from "./CostCenterEditor";
 import { CreditNoteModal } from "./CreditNoteModal";
 import { IssuedDteDetailDialog } from "./IssuedDteDetailDialog";
@@ -145,6 +147,7 @@ interface Props {
 /* ── Constants ── */
 
 const TABS = [
+  { id: "borradores", label: "Borradores", icon: FileEdit },
   { id: "dtes", label: "DTEs Emitidos", icon: FileText },
   { id: "recibidos", label: "DTEs Recibidos", icon: FileInput },
   { id: "libro", label: "Libro IVA", icon: BookOpen },
@@ -260,7 +263,17 @@ export function FacturacionClient({
   suppliers = [],
   kpis,
 }: Props) {
-  const [activeTab, setActiveTab] = useState<TabId>("dtes");
+  // Tab inicial: ?tab=borradores en URL para abrir directo en borradores
+  // (lo usa el "Guardar como borrador" del DteForm tras crear).
+  const initialTab: TabId = (() => {
+    if (typeof window === "undefined") return "dtes";
+    const t = new URLSearchParams(window.location.search).get("tab");
+    if (t && (TABS as readonly { id: string }[]).some((tab) => tab.id === t)) {
+      return t as TabId;
+    }
+    return "dtes";
+  })();
+  const [activeTab, setActiveTab] = useState<TabId>(initialTab);
 
   return (
     <div className="space-y-4">
@@ -293,6 +306,7 @@ export function FacturacionClient({
         </div>
       </nav>
 
+      {activeTab === "borradores" && <BorradoresTab canManage={canManage} />}
       {activeTab === "dtes" && (
         <DtesTab
           dtes={dtes}
@@ -344,9 +358,21 @@ function DtesTab({
   const [total, setTotal] = useState(issuedTotal);
   const [loading, setLoading] = useState(false);
 
+  // Búsqueda con debounce: trim + 300ms para reducir requests al server.
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   useEffect(() => {
-    // Si NO hay filtro y son los defaults de paginación, usar el SSR data.
-    if (page === 1 && pageSize === 50 && periodoFilter === "ALL") {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  useEffect(() => {
+    // Si NO hay filtros (paginación default + sin búsqueda), usar SSR data.
+    if (
+      page === 1 &&
+      pageSize === 50 &&
+      periodoFilter === "ALL" &&
+      debouncedSearch === ""
+    ) {
       setDtes(initialDtes);
       setTotal(issuedTotal);
       return;
@@ -359,6 +385,7 @@ function DtesTab({
         params.set("page", String(page));
         params.set("pageSize", String(pageSize));
         if (periodoFilter !== "ALL") params.set("periodo", periodoFilter);
+        if (debouncedSearch) params.set("search", debouncedSearch);
         const res = await fetch(`/api/finance/billing/issued?${params.toString()}`, {
           signal: ctrl.signal,
         });
@@ -398,28 +425,25 @@ function DtesTab({
       }
     })();
     return () => ctrl.abort();
-  }, [page, pageSize, periodoFilter, initialDtes, issuedTotal]);
+  }, [page, pageSize, periodoFilter, debouncedSearch, initialDtes, issuedTotal]);
 
-  // Reset page=1 cuando cambia el período (para no quedar en página vacía).
+  // Reset page=1 cuando cambia el período o la búsqueda.
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch]);
+
   useEffect(() => {
     setPage(1);
   }, [periodoFilter]);
 
   const filtered = useMemo(() => {
+    // Búsqueda por nombre/RUT/folio se hace server-side (ver useEffect arriba).
+    // Acá solo filtros de tipo y estado SII (operan sobre la página cargada).
     let list = dtes;
     if (typeFilter !== "ALL") list = list.filter((d) => String(d.dteType) === typeFilter);
     if (statusFilter !== "ALL") list = list.filter((d) => d.siiStatus === statusFilter);
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      list = list.filter(
-        (d) =>
-          String(d.folio).includes(q) ||
-          d.receiverRut.toLowerCase().includes(q) ||
-          d.receiverName.toLowerCase().includes(q)
-      );
-    }
     return list;
-  }, [dtes, typeFilter, statusFilter, search]);
+  }, [dtes, typeFilter, statusFilter]);
 
   const handleDownloadPdf = async (id: string, folio: number) => {
     try {
@@ -532,7 +556,7 @@ function DtesTab({
           <div className="relative flex-1 max-w-sm min-w-0">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Buscar folio, RUT, nombre..."
+              placeholder="Buscar por nombre, RUT o folio..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9 h-9"

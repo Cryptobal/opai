@@ -11,6 +11,8 @@ import { sendDteEmail } from "@/modules/finance/billing/dte-email.service";
 
 const sendSchema = z.object({
   recipientEmail: z.string().email().optional(),
+  // Override de los CC al reenviar manualmente (sin tocar receiverEmailCc).
+  ccOverride: z.array(z.string().email()).max(10).optional(),
 });
 
 export async function POST(
@@ -34,10 +36,18 @@ export async function POST(
   const parsed = await parseBody(request, sendSchema);
   if (parsed.error) return parsed.error;
 
+  // Distinguir si es reenvío al mismo email del receptor o a otro distinto:
+  // permite filtrar logs y mostrar timeline con etiquetas claras.
+  const kind = parsed.data.recipientEmail
+    ? "manual_override_recipient"
+    : "manual_resend";
   const result = await sendDteEmail(
     ctx.tenantId,
     id,
-    parsed.data.recipientEmail
+    parsed.data.recipientEmail,
+    parsed.data.ccOverride,
+    kind,
+    ctx.userId,
   );
   if (!result.success) {
     return NextResponse.json(

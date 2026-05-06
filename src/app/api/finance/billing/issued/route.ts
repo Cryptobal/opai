@@ -26,12 +26,32 @@ export async function GET(request: NextRequest) {
     const page = parseInt(url.searchParams.get("page") || "1");
     const pageSize = parseInt(url.searchParams.get("pageSize") || "20");
     const periodo = url.searchParams.get("periodo") || undefined;
+    // status=draft → solo DRAFT. status=all → DRAFT + emitidos.
+    // sin status (default) → solo emitidos (excluye DRAFT).
+    const statusFilter = url.searchParams.get("status") || undefined;
+    // Búsqueda por nombre/RUT del receptor o folio. Server-side para que
+    // la búsqueda atraviese todas las páginas, no solo la cargada.
+    const search = url.searchParams.get("search")?.trim() || undefined;
 
-    // Filtro por período "YYYY-MM" sobre FinanceDte.date (fecha tributaria).
     const where: Record<string, unknown> = {
       tenantId: ctx.tenantId,
       direction: "ISSUED",
     };
+    if (statusFilter === "draft") {
+      where.siiStatus = "DRAFT";
+    } else if (statusFilter !== "all") {
+      where.siiStatus = { not: "DRAFT" };
+    }
+    if (search) {
+      const folioNum = parseInt(search, 10);
+      const rutNeedle = search.replace(/[.\-\s]/g, "");
+      const orClauses: Record<string, unknown>[] = [
+        { receiverName: { contains: search, mode: "insensitive" } },
+        { receiverRut: { contains: rutNeedle, mode: "insensitive" } },
+      ];
+      if (!Number.isNaN(folioNum)) orClauses.push({ folio: folioNum });
+      where.OR = orClauses;
+    }
     if (periodo && /^\d{4}-\d{2}$/.test(periodo)) {
       const [y, m] = periodo.split("-").map((s) => parseInt(s, 10));
       const from = new Date(Date.UTC(y, m - 1, 1));
