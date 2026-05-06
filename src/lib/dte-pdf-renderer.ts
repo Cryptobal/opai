@@ -348,7 +348,7 @@ async function renderDtePage(
       color: COLORS.black,
     });
     const valueText = truncateToWidth(
-      value.toUpperCase(),
+      String(value ?? "").toUpperCase(),
       ctx.fontRegular,
       8,
       recepValueMaxW,
@@ -689,7 +689,7 @@ async function renderDtePage(
  * Genera un PNG con el código PDF417 del TED del DTE.
  */
 async function generatePdf417(tedXml: string): Promise<Buffer> {
-  const png = await bwipjs.toBuffer({
+  const png = (await (bwipjs.toBuffer as unknown as (opts: Record<string, unknown>) => Promise<Buffer>)({
     bcid: "pdf417",
     text: tedXml,
     columns: 9,
@@ -697,7 +697,7 @@ async function generatePdf417(tedXml: string): Promise<Buffer> {
     scale: 2,
     paddingwidth: 4,
     paddingheight: 4,
-  });
+  })) as Buffer;
   return Buffer.from(png);
 }
 
