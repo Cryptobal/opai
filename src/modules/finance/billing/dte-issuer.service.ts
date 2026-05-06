@@ -46,6 +46,11 @@ export type IssueDteInput = {
     quantity: number;
     unit?: string;
     unitPrice: number;
+    /**
+     * Precio en UF cuando currency="UF". El servicio convierte a CLP con
+     * la UF del día y guarda ambos. Para CLP queda undefined.
+     */
+    unitPriceUf?: number;
     discountPct?: number;
     isExempt?: boolean;
     accountId?: string;
@@ -56,6 +61,16 @@ export type IssueDteInput = {
   notes?: string;
   accountId?: string; // CRM account reference
   autoSendEmail?: boolean;
+  /**
+   * Si true, además del email al receptor (PDF+XML), envía un email
+   * SOLO con el XML adjunto a los destinatarios de backoffice (contador
+   * externo) configurados en TenantDteConfig.defaultXmlRecipientEmails.
+   * Si null/undefined, se aplica el default del tenant
+   * (defaultXmlRecipientAlwaysSend).
+   */
+  sendXmlToBackoffice?: boolean;
+  /** Override de los destinatarios de backoffice. Si vacío, usa el default del tenant. */
+  backofficeEmailsOverride?: string[];
   /**
    * Referencia al DTE original. OBLIGATORIO para tipos 56 (Nota de
    * Débito) y 61 (Nota de Crédito) — se valida abajo. El SII exige

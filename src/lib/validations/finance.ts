@@ -127,11 +127,28 @@ const dteLineSchema = z.object({
   quantity: z.number().positive(),
   unit: optNull(z.string().trim().max(20)),
   unitPrice: z.number().min(0),
+  // Cuando currency=UF, unitPriceUf trae el precio en UF que el usuario
+  // ingresó. El servicio convierte a CLP usando la UF del día y guarda
+  // ambos. Para CLP queda undefined.
+  unitPriceUf: z.number().positive().optional(),
   discountPct: z.number().min(0).max(100).optional(),
   isExempt: z.boolean().optional(),
   accountId: optNull(z.string().uuid()),
   costCenterId: optNull(z.string().uuid()),
   refuerzoSolicitudId: optNull(z.string().uuid()),
+});
+
+// Bloque <Referencia> SII para Notas de Crédito (61) y Débito (56).
+// Para borradores también se acepta opcional para que el usuario pueda
+// preparar la NC/ND antes de elegir el DTE original. Al emitir se valida
+// que esté presente.
+const dteReferenceSchema = z.object({
+  docId: optNull(z.string().uuid()),
+  type: z.number().int(),
+  folio: z.number().int().min(1),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha YYYY-MM-DD"),
+  code: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+  reason: z.string().trim().min(1).max(500),
 });
 
 export const issueDteSchema = z.object({
@@ -184,6 +201,22 @@ export const issueDteSchema = z.object({
   notes: optNull(z.string().trim().max(1000)),
   accountId: optNull(z.string()),
   autoSendEmail: z.boolean().optional(),
+  // Referencia al DTE original (obligatoria para tipos 56 y 61).
+  reference: dteReferenceSchema.optional(),
+  // Email XML al backoffice (contador): si null, se aplica el default
+  // del tenant (TenantDteConfig.defaultXmlRecipientAlwaysSend).
+  sendXmlToBackoffice: z.boolean().optional(),
+  backofficeEmailsOverride: z.array(z.string().email()).max(5).optional(),
+});
+
+// Schema para crear/actualizar borradores. Es el mismo que issueDteSchema
+// pero MÁS permisivo: receiverRut/Name pueden venir parciales mientras el
+// usuario llena el form. La validación dura (RUT con DV correcto, refs
+// para NC/ND) se aplica al emitir, no al guardar el borrador.
+export const draftDteSchema = issueDteSchema.extend({
+  receiverRut: z.string().trim().max(12).optional(),
+  receiverName: z.string().trim().max(200).optional(),
+  reference: dteReferenceSchema.optional(),
 });
 
 export const dteCreditNoteSchema = z.object({
