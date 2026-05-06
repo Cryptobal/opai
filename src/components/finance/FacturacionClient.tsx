@@ -83,6 +83,10 @@ interface DteRow {
   installationId?: string | null;
   crmAccount?: { id: string; name: string; legalName: string | null } | null;
   installation?: { id: string; name: string; commune: string | null } | null;
+  /** Factoring: indica si el DTE puede ser cedido (33/34/43/46 + ACCEPTED + XML + sin cesión activa). */
+  canBeCeded?: boolean;
+  /** Cesión activa asociada al DTE (si existe). */
+  activeCession?: { id: string; code: string; status: string } | null;
 }
 
 interface FolioStatus {
@@ -418,6 +422,19 @@ function DtesTab({
               emailStatus: (d.emailStatus as string | null) ?? null,
               referenceType: (d.referenceType as number | null) ?? null,
               referenceFolio: (d.referenceFolio as number | null) ?? null,
+              hasXml: Boolean(d.hasXml),
+              crmAccountId: (d.crmAccountId as string | null) ?? null,
+              installationId: (d.installationId as string | null) ?? null,
+              crmAccount: (d.crmAccount as
+                | { id: string; name: string; legalName: string | null }
+                | null) ?? null,
+              installation: (d.installation as
+                | { id: string; name: string; commune: string | null }
+                | null) ?? null,
+              canBeCeded: Boolean(d.canBeCeded),
+              activeCession: (d.activeCession as
+                | { id: string; code: string; status: string }
+                | null) ?? null,
             }))
           : [];
         setDtes(list);

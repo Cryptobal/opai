@@ -109,7 +109,10 @@ export default async function FacturacionPage() {
   const installationIds = Array.from(
     new Set(dtes.map((d) => d.installationId).filter((v): v is string => !!v)),
   );
-  const [accountsCC, installationsCC] = await Promise.all([
+  // Factoring: tipos cedibles según Ley 19.983 — 33/34/43/46.
+  const CEDIBLE_TYPES = new Set([33, 34, 43, 46]);
+  const dteIds = dtes.map((d: typeof dtes[number]) => d.id);
+  const [accountsCC, installationsCC, activeCessions] = await Promise.all([
     accountIds.length > 0
       ? prisma.crmAccount.findMany({
           where: { id: { in: accountIds }, tenantId },
@@ -122,39 +125,64 @@ export default async function FacturacionPage() {
           select: { id: true, name: true, commune: true },
         })
       : Promise.resolve([]),
+    dteIds.length > 0
+      ? prisma.financeFactoringOperation.findMany({
+          where: {
+            tenantId,
+            dteId: { in: dteIds },
+            status: { in: ["SUBMITTED", "APPROVED", "FUNDED", "COLLECTED", "CLOSED"] },
+          },
+          select: { id: true, code: true, status: true, dteId: true },
+        })
+      : Promise.resolve([]),
   ]);
   const accountMapCC = new Map(accountsCC.map((a) => [a.id, a]));
   const installationMapCC = new Map(installationsCC.map((i) => [i.id, i]));
+  const cessionByDte = new Map(activeCessions.map((c) => [c.dteId, c]));
 
-  const dtesData = dtes.map((d: typeof dtes[number]) => ({
-    id: d.id,
-    dteType: d.dteType,
-    folio: d.folio,
-    receiverRut: d.receiverRut,
-    receiverName: d.receiverName,
-    receiverEmail: d.receiverEmail,
-    netAmount: d.netAmount.toNumber(),
-    taxAmount: d.taxAmount.toNumber(),
-    totalAmount: d.totalAmount.toNumber(),
-    siiStatus: d.siiStatus,
-    currency: d.currency,
-    linesCount: d.lines.length,
-    createdAt: d.createdAt.toISOString(),
-    emailSentAt: d.emailSentAt ? d.emailSentAt.toISOString() : null,
-    emailStatus: d.emailStatus,
-    referenceType: d.referenceType,
-    referenceFolio: d.referenceFolio,
-    // Flag para condicionar botones de descarga PDF/XML.
-    hasXml: d.dteXml !== null && d.dteXml.length > 0,
-    // Centro de costo: cliente CRM + instalación (para mostrar columna
-    // y permitir edición inline).
-    crmAccountId: d.crmAccountId,
-    installationId: d.installationId,
-    crmAccount: d.crmAccountId ? accountMapCC.get(d.crmAccountId) ?? null : null,
-    installation: d.installationId
-      ? installationMapCC.get(d.installationId) ?? null
-      : null,
-  }));
+  const dtesData = dtes.map((d: typeof dtes[number]) => {
+    const hasXml = d.dteXml !== null && d.dteXml.length > 0;
+    const cession = cessionByDte.get(d.id);
+    const canBeCeded =
+      CEDIBLE_TYPES.has(d.dteType) &&
+      d.siiStatus === "ACCEPTED" &&
+      hasXml &&
+      !cession;
+    return {
+      id: d.id,
+      dteType: d.dteType,
+      folio: d.folio,
+      receiverRut: d.receiverRut,
+      receiverName: d.receiverName,
+      receiverEmail: d.receiverEmail,
+      netAmount: d.netAmount.toNumber(),
+      taxAmount: d.taxAmount.toNumber(),
+      totalAmount: d.totalAmount.toNumber(),
+      siiStatus: d.siiStatus,
+      currency: d.currency,
+      linesCount: d.lines.length,
+      createdAt: d.createdAt.toISOString(),
+      emailSentAt: d.emailSentAt ? d.emailSentAt.toISOString() : null,
+      emailStatus: d.emailStatus,
+      referenceType: d.referenceType,
+      referenceFolio: d.referenceFolio,
+      // Flag para condicionar botones de descarga PDF/XML.
+      hasXml,
+      // Centro de costo: cliente CRM + instalación (para mostrar columna
+      // y permitir edición inline).
+      crmAccountId: d.crmAccountId,
+      installationId: d.installationId,
+      crmAccount: d.crmAccountId ? accountMapCC.get(d.crmAccountId) ?? null : null,
+      installation: d.installationId
+        ? installationMapCC.get(d.installationId) ?? null
+        : null,
+      // Factoring: cedible + cesión activa (mismo shape que el endpoint /issued).
+      canBeCeded,
+      activeCession: cession
+        ? { id: cession.id, code: cession.code, status: cession.status }
+        : null,
+    };
+  });
 
   const ventasMes = ventasMesAgg._sum.totalAmount?.toNumber() ?? 0;
   const ventasPrev = ventasPrevAgg._sum.totalAmount?.toNumber() ?? 0;

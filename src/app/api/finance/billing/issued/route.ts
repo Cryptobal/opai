@@ -111,14 +111,19 @@ export async function GET(request: NextRequest) {
 
     const dtesEnriched = dtes.map((d) => {
       const activeCession = cessionByDte.get(d.id) ?? null;
+      const hasXml = d.dteXml !== null && d.dteXml.length > 0;
       const canBeCeded =
         CEDIBLE_TYPES.has(d.dteType) &&
         d.siiStatus === "ACCEPTED" &&
-        d.dteXml !== null &&
-        d.dteXml.length > 0 &&
+        hasXml &&
         activeCession === null;
+      // Excluir el buffer XML del payload (queda en el server). El cliente
+      // sólo necesita saber si existe vía `hasXml`.
+      const { dteXml: _dteXml, ...rest } = d;
+      void _dteXml;
       return {
-        ...d,
+        ...rest,
+        hasXml,
         crmAccount: d.crmAccountId ? accountMap.get(d.crmAccountId) ?? null : null,
         installation: d.installationId
           ? installationMap.get(d.installationId) ?? null
