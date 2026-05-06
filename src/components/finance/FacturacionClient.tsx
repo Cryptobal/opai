@@ -307,8 +307,6 @@ function DtesTab({
   const periodOptions = useMemo(() => buildPeriodOptions(36), []);
   const [voiding, setVoiding] = useState<string | null>(null);
   const [sendingEmail, setSendingEmail] = useState<string | null>(null);
-  // Sync de RCV ventas (importar facturas históricas del SII).
-  const [syncingVentas, setSyncingVentas] = useState(false);
   // Paginación server-side. La SC pre-carga la primera página (50);
   // si el usuario cambia page o pageSize, refetch al endpoint paginado.
   const [page, setPage] = useState(1);
@@ -456,87 +454,6 @@ function DtesTab({
     }
   };
 
-  // Estado del dialog de sync ventas. monthsBack:
-  //   "1"     → solo el mes corriente (incremental rápido)
-  //   "6"     → últimos 6 meses
-  //   "12"    → último año
-  //   "24"    → últimos 2 años (tope técnico SimpleAPI por rate limit)
-  //   "ALL"   → desde día 1 (resetea lastRcvVentasSyncAt y trae 60 meses
-  //             para barrer todo el histórico del SII)
-  const [syncDialogOpen, setSyncDialogOpen] = useState(false);
-  const [syncMonths, setSyncMonths] = useState<string>("12");
-  const handleSyncRcvVentas = async () => {
-    setSyncDialogOpen(false);
-    setSyncingVentas(true);
-    try {
-      const params = new URLSearchParams();
-      if (syncMonths === "ALL") {
-        // Resetea el cursor de sync para que el provider trate este sync
-        // como "primer sync" y barra desde monthsBack hacia atrás (60 meses
-        // = 5 años, suficiente para casi cualquier histórico).
-        params.set("monthsBack", "60");
-        params.set("resetCursor", "true");
-      } else {
-        params.set("monthsBack", syncMonths);
-        // Si el usuario eligió un rango específico (no "1"), también reseteamos
-        // el cursor para que SÍ vaya hacia atrás (sino trae solo el mes
-        // incremental).
-        if (syncMonths !== "1") params.set("resetCursor", "true");
-      }
-      const res = await fetch(
-        `/api/finance/config/dte-provider/sync-rcv-ventas?${params.toString()}`,
-        { method: "POST" },
-      );
-      const body = await res.json();
-      if (!res.ok || !body.success) throw new Error(body.error ?? "Error en sincronización");
-      const { fetched, inserted, skipped, monthsQueried, errors } = body.data;
-
-      // Detectar bloqueo de apikey (cupo/rate limit) y mostrar alerta grande.
-      const blockedErr = (errors as string[] | undefined)?.find((e) =>
-        e.startsWith("API_KEY_QUOTA") || e.startsWith("API_KEY_RATE_LIMIT"),
-      );
-      if (blockedErr) {
-        const isRateLimit = blockedErr.startsWith("API_KEY_RATE_LIMIT");
-        toast.error(
-          isRateLimit
-            ? "SimpleAPI: rate limit excedido. Esperá unos minutos."
-            : "SimpleAPI: apikey bloqueada. Desbloqueá en panel.simpleapi.cl",
-          {
-            duration: 15000,
-            action: !isRateLimit
-              ? {
-                  label: "Abrir panel",
-                  onClick: () => window.open("https://panel.simpleapi.cl/", "_blank"),
-                }
-              : undefined,
-          },
-        );
-        return;
-      }
-
-      const monthsTxt = `${monthsQueried.length} ${monthsQueried.length === 1 ? "mes" : "meses"}`;
-      toast.success(
-        `Sincronización completada: ${fetched} consultados, ${inserted} nuevos, ${skipped} ya existentes (${monthsTxt}).`,
-      );
-      if (fetched === 0 && monthsQueried.length > 0) {
-        toast.info(
-          `Período consultado: ${monthsQueried.join(", ")}. SII no devolvió ventas.`,
-          { duration: 8000 },
-        );
-      }
-      if (errors && errors.length > 0) {
-        toast.warning(`Sync con ${errors.length} error(es). Ver consola.`);
-        // eslint-disable-next-line no-console
-        console.warn("[RCV Ventas Sync] errors:", errors);
-      }
-      router.refresh();
-    } catch (err) {
-      toast.error((err as Error).message);
-    } finally {
-      setSyncingVentas(false);
-    }
-  };
-
   const handleResendEmail = async (id: string) => {
     setSendingEmail(id);
     try {
@@ -627,28 +544,12 @@ function DtesTab({
           </Select>
         </div>
         {canManage && (
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setSyncDialogOpen(true)}
-              disabled={syncingVentas}
-              title="Importa facturas emitidas desde el SII (RCV ventas)"
-            >
-              {syncingVentas ? (
-                <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
-              ) : (
-                <RefreshCw className="h-4 w-4 mr-1.5" />
-              )}
-              Importar SII
+          <Link href="/finanzas/facturacion/emitir">
+            <Button size="sm">
+              <Plus className="h-4 w-4 mr-1.5" />
+              Emitir DTE
             </Button>
-            <Link href="/finanzas/facturacion/emitir">
-              <Button size="sm">
-                <Plus className="h-4 w-4 mr-1.5" />
-                Emitir DTE
-              </Button>
-            </Link>
-          </div>
+          </Link>
         )}
       </div>
 
@@ -1057,68 +958,6 @@ function DtesTab({
         </>
       )}
 
-      {/* Dialog de Importar SII */}
-      <Dialog open={syncDialogOpen} onOpenChange={setSyncDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Importar facturas emitidas desde SII</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <p className="text-sm text-muted-foreground">
-              Trae todas las facturas, NC y ND que el SII tiene registradas
-              para tu RUT (incluso anteriores a OPAI). El primer sync de un
-              período largo puede tardar varios minutos.
-            </p>
-            <div className="space-y-1.5">
-              <Label>Período a importar</Label>
-              <Select value={syncMonths} onValueChange={setSyncMonths}>
-                <SelectTrigger className="h-10">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1">Solo el mes corriente (incremental) — 1 consulta</SelectItem>
-                  <SelectItem value="3">Últimos 3 meses — 3 consultas</SelectItem>
-                  <SelectItem value="6">Últimos 6 meses — 6 consultas</SelectItem>
-                  <SelectItem value="12">Último año (12 meses) — 12 consultas</SelectItem>
-                  <SelectItem value="24">Últimos 2 años — 24 consultas</SelectItem>
-                  <SelectItem value="ALL">Todo el histórico (5 años) — 60 consultas</SelectItem>
-                </SelectContent>
-              </Select>
-              <div className="rounded-md border border-status-info-border bg-status-info-soft p-2.5 text-xs text-status-info-fg">
-                <p className="font-medium mb-0.5">💡 Cupo SimpleAPI</p>
-                <p>
-                  Cada mes consultado = 1 consulta. Plan Gratuito: 30/mes.
-                  Plan Básico (3 UF/año): 100/mes. Plan Estándar (6 UF/año):
-                  1.000/mes. Si te bloquean,{" "}
-                  <a
-                    href="https://panel.simpleapi.cl/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="underline font-medium"
-                  >
-                    desbloqueá en panel.simpleapi.cl
-                  </a>.
-                </p>
-              </div>
-              {syncMonths === "ALL" && (
-                <p className="text-xs text-status-warn-fg">
-                  ⚠ "Todo el histórico" usa 60 consultas y puede tardar 5–10
-                  minutos. Asegurate de tener cupo disponible.
-                </p>
-              )}
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSyncDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleSyncRcvVentas} disabled={syncingVentas}>
-              {syncingVentas && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
-              Importar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
@@ -1250,7 +1089,6 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
   /** Filtro por período "YYYY-MM" o "ALL". Default ALL = sin filtro. */
   const [periodoFilter, setPeriodoFilter] = useState("ALL");
   const periodOptions = useMemo(() => buildPeriodOptions(36), []);
-  const [syncing, setSyncing] = useState(false);
   // Paginación server-side (selector 10/25/50/100/200) + modal detalle.
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
@@ -1367,71 +1205,6 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
     }
   };
 
-  // Estado del dialog de sync RCV compras (similar al de ventas).
-  const [syncDialogOpen, setSyncDialogOpen] = useState(false);
-  const [syncMonths, setSyncMonths] = useState<string>("3");
-  const handleSyncRcv = async () => {
-    setSyncDialogOpen(false);
-    setSyncing(true);
-    try {
-      const params = new URLSearchParams();
-      if (syncMonths === "ALL") {
-        params.set("monthsBack", "60");
-        params.set("resetCursor", "true");
-      } else {
-        params.set("monthsBack", syncMonths);
-        if (syncMonths !== "1") params.set("resetCursor", "true");
-      }
-      const res = await fetch(
-        `/api/finance/config/dte-provider/sync-rcv?${params.toString()}`,
-        { method: "POST" },
-      );
-      const body = await res.json();
-      if (!res.ok || !body.success) throw new Error(body.error ?? "Error");
-      const { fetched, inserted, skipped, monthsQueried, errors } = body.data;
-
-      // Detectar bloqueo de apikey (cupo/rate limit) y mostrar alerta grande.
-      const blockedErr = (errors as string[] | undefined)?.find((e) =>
-        e.startsWith("API_KEY_QUOTA") || e.startsWith("API_KEY_RATE_LIMIT"),
-      );
-      if (blockedErr) {
-        const isRateLimit = blockedErr.startsWith("API_KEY_RATE_LIMIT");
-        toast.error(
-          isRateLimit
-            ? "SimpleAPI: rate limit excedido. Esperá unos minutos."
-            : "SimpleAPI: apikey bloqueada. Desbloqueá en panel.simpleapi.cl",
-          {
-            duration: 15000,
-            action: !isRateLimit
-              ? {
-                  label: "Abrir panel",
-                  onClick: () => window.open("https://panel.simpleapi.cl/", "_blank"),
-                }
-              : undefined,
-          },
-        );
-        return;
-      }
-
-      const monthsTxt = `${monthsQueried.length} ${monthsQueried.length === 1 ? "mes" : "meses"}`;
-      toast.success(
-        `Sincronización completada: ${fetched} consultados, ${inserted} nuevos, ${skipped ?? 0} ya existentes (${monthsTxt}).`,
-      );
-      if (fetched === 0 && monthsQueried.length > 0) {
-        toast.info(
-          `Período: ${monthsQueried.join(", ")}. SII no devolvió compras.`,
-          { duration: 8000 },
-        );
-      }
-      await loadReceivedDtes();
-      router.refresh();
-    } catch (err) {
-      toast.error((err as Error).message);
-    } finally {
-      setSyncing(false);
-    }
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -1500,26 +1273,10 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
           </Select>
         </div>
         {canManage && (
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setSyncDialogOpen(true)}
-              disabled={syncing}
-              title="Importa DTEs recibidos desde el SII (RCV compras)"
-            >
-              {syncing ? (
-                <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
-              ) : (
-                <RefreshCw className="h-4 w-4 mr-1.5" />
-              )}
-              Importar SII
-            </Button>
-            <Button size="sm" onClick={() => setDialogOpen(true)}>
-              <Plus className="h-4 w-4 mr-1.5" />
-              Registrar DTE
-            </Button>
-          </div>
+          <Button size="sm" onClick={() => setDialogOpen(true)}>
+            <Plus className="h-4 w-4 mr-1.5" />
+            Registrar DTE
+          </Button>
         )}
       </div>
 
@@ -1712,69 +1469,7 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
         canManage={canManage}
       />
 
-      {/* Dialog: Importar SII (RCV compras) */}
-      <Dialog open={syncDialogOpen} onOpenChange={setSyncDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Importar DTEs recibidos desde SII</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <p className="text-sm text-muted-foreground">
-              Trae todas las facturas, NC, ND y guías que el SII tiene
-              registradas como recibidas para tu RUT (incluso anteriores a
-              OPAI). El primer sync de un período largo puede tardar varios
-              minutos.
-            </p>
-            <div className="space-y-1.5">
-              <Label>Período a importar</Label>
-              <Select value={syncMonths} onValueChange={setSyncMonths}>
-                <SelectTrigger className="h-10">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1">Solo el mes corriente (incremental) — 1 consulta</SelectItem>
-                  <SelectItem value="3">Últimos 3 meses — 3 consultas</SelectItem>
-                  <SelectItem value="6">Últimos 6 meses — 6 consultas</SelectItem>
-                  <SelectItem value="12">Último año (12 meses) — 12 consultas</SelectItem>
-                  <SelectItem value="24">Últimos 2 años — 24 consultas</SelectItem>
-                  <SelectItem value="ALL">Todo el histórico (5 años) — 60 consultas</SelectItem>
-                </SelectContent>
-              </Select>
-              <div className="rounded-md border border-status-info-border bg-status-info-soft p-2.5 text-xs text-status-info-fg">
-                <p className="font-medium mb-0.5">💡 Cupo SimpleAPI</p>
-                <p>
-                  Cada mes consultado = 1 consulta. Plan Gratuito: 30/mes.
-                  Plan Básico (3 UF/año): 100/mes. Plan Estándar (6 UF/año):
-                  1.000/mes. Si te bloquean,{" "}
-                  <a
-                    href="https://panel.simpleapi.cl/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="underline font-medium"
-                  >
-                    desbloqueá en panel.simpleapi.cl
-                  </a>.
-                </p>
-              </div>
-              {syncMonths === "ALL" && (
-                <p className="text-xs text-status-warn-fg">
-                  ⚠ "Todo el histórico" usa 60 consultas y puede tardar 5–10
-                  minutos. Asegurate de tener cupo disponible.
-                </p>
-              )}
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSyncDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleSyncRcv} disabled={syncing}>
-              {syncing && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
-              Importar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+
 
       {/* Dialog: Registrar DTE Recibido */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
