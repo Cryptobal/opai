@@ -1,10 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Copy, Mail, MessageCircle, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { GUARDIA_COMM_TEMPLATES } from "@/lib/personas";
 
 type HistoryEvent = {
   id: string;
@@ -14,6 +13,12 @@ type HistoryEvent = {
   createdBy?: string | null;
   createdByName?: string | null;
   createdAt: string;
+};
+
+type TemplateOption = {
+  id: string;
+  channel: "email" | "whatsapp";
+  name: string;
 };
 
 interface CommunicationSectionProps {
@@ -32,14 +37,37 @@ export default function CommunicationSection({
   onHistoryEventAdded,
 }: CommunicationSectionProps) {
   const [sendingComm, setSendingComm] = useState(false);
-  const [commForm, setCommForm] = useState({
-    channel: "email",
-    templateId: GUARDIA_COMM_TEMPLATES.find((t) => t.channel === "email")?.id ?? "",
-  });
+  const [templates, setTemplates] = useState<TemplateOption[]>([]);
+  const [commForm, setCommForm] = useState({ channel: "email", templateId: "" });
+
+  // Cargar plantillas (email locales + whatsapp desde DocTemplate del tenant).
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/personas/guardias/${guardiaId}/communications`, { cache: "no-store" });
+        const json = await res.json();
+        if (cancelled || !json?.success || !Array.isArray(json.data?.templates)) return;
+        const list = json.data.templates as TemplateOption[];
+        setTemplates(list);
+        // Auto-seleccionar la primera plantilla del canal por defecto si no hay selección.
+        setCommForm((prev) => {
+          if (prev.templateId) return prev;
+          const first = list.find((t) => t.channel === prev.channel);
+          return { channel: prev.channel, templateId: first?.id ?? "" };
+        });
+      } catch {
+        // Silencioso: el botón quedará deshabilitado por templateId vacío.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [guardiaId]);
 
   const availableTemplates = useMemo(
-    () => GUARDIA_COMM_TEMPLATES.filter((tpl) => tpl.channel === commForm.channel),
-    [commForm.channel]
+    () => templates.filter((tpl) => tpl.channel === commForm.channel),
+    [templates, commForm.channel]
   );
 
   const communicationHistory = useMemo(
@@ -95,7 +123,7 @@ export default function CommunicationSection({
             value={commForm.channel}
             onChange={(e) => {
               const nextChannel = e.target.value;
-              const firstTemplate = GUARDIA_COMM_TEMPLATES.find((tpl) => tpl.channel === nextChannel)?.id ?? "";
+              const firstTemplate = templates.find((tpl) => tpl.channel === nextChannel)?.id ?? "";
               setCommForm({ channel: nextChannel, templateId: firstTemplate });
             }}
           >
