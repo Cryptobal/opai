@@ -122,6 +122,67 @@ export type DteVoidRequest = {
   reason: string;
 };
 
+/**
+ * Request para ceder una factura a una empresa de factoring (Bloque
+ * factoring v3). Genera el AEC firmado vía SimpleAPI y lo envía al
+ * RPETC del SII. Multi-tenant — el provider es per-tenant.
+ */
+export type DteCedeRequest = {
+  // ── DTE original ──
+  dteType: number; // típicamente 33; admite 34/43/46
+  dteFolio: number;
+  dteIssuerRut: string;
+  dteReceiverRut: string;
+  dteDate: string; // YYYY-MM-DD (FchEmis del DTE)
+  dteTotalAmount: number;
+  /** XML completo del DTE original (firmado y aceptado por SII). */
+  dteXml: Buffer;
+
+  // ── Cesionario (snapshot al momento de la cesión) ──
+  cesionarioRut: string;
+  cesionarioRazonSocial: string;
+  cesionarioDireccion: string;
+  cesionarioEmail: string;
+
+  // ── Cedente (snapshot — datos comerciales del emisor del DTE) ──
+  cedenteRazonSocial: string;
+  cedenteDireccion: string;
+  cedenteEmail: string;
+
+  // ── RUT autorizado a firmar (persona natural del cert digital) ──
+  rutAutorizadoNombre: string;
+  rutAutorizadoRut: string;
+
+  // ── Términos económicos (V1: cesión TOTAL, secuencia 1) ──
+  /** En V1 este monto = dteTotalAmount, redondeado a entero. */
+  montoCesion: number;
+  /** YYYY-MM-DD — UltimoVencimiento del cobro al deudor. */
+  fechaUltimoVencimiento: string;
+  emailDeudor?: string;
+  otrasCondiciones?: string;
+
+  // ── Contacto en la carátula del AEC ──
+  contactNombre: string;
+  contactFono?: string;
+  contactEmail: string;
+};
+
+/**
+ * Response del adapter tras el envío del AEC al RPETC.
+ * - success=true → AEC firmado y aceptado por RPETC; trackId asignado.
+ * - success=false → error en alguno de los pasos; ver `error`.
+ *   `aecXml` puede venir con éxito parcial (generado pero no enviado).
+ */
+export type DteCedeResponse = {
+  success: boolean;
+  trackId?: string;
+  aecXml?: Buffer;
+  /** Estado reportado por SimpleAPI tras `cesion/enviar` (informativo). */
+  status?: string;
+  error?: string;
+  rawResponse?: unknown;
+};
+
 export interface DteProviderAdapter {
   /**
    * Issue a DTE document
@@ -148,6 +209,13 @@ export interface DteProviderAdapter {
    * be able to validate the digital signature independently of the PDF.
    */
   getXml(dteType: number, folio: number): Promise<Buffer>;
+
+  /**
+   * Cede una factura a una empresa de factoring: genera el AEC firmado
+   * (SimpleAPI/proveedor) y lo envía al RPETC del SII. La consulta del
+   * estado oficial vía SOAP se hace aparte (ver `cession-status-poll.service`).
+   */
+  cede(request: DteCedeRequest): Promise<DteCedeResponse>;
 }
 
 /**
@@ -185,6 +253,17 @@ export class StubDteProvider implements DteProviderAdapter {
     return Buffer.from(
       `<?xml version="1.0"?><DTE_STUB type="${dteType}" folio="${folio}"/>`
     );
+  }
+
+  async cede(request: DteCedeRequest): Promise<DteCedeResponse> {
+    return {
+      success: true,
+      trackId: `STUB-CES-${Date.now()}`,
+      aecXml: Buffer.from(
+        `<?xml version="1.0"?><DocumentoAEC_STUB folio="${request.dteFolio}"/>`,
+      ),
+      status: "STUB",
+    };
   }
 }
 

@@ -44,6 +44,8 @@ import type {
   DteIssueResponse,
   DteStatusResponse,
   DteVoidRequest,
+  DteCedeRequest,
+  DteCedeResponse,
 } from "./dte-provider.adapter";
 
 /**
@@ -752,6 +754,39 @@ export class SimpleApiProvider implements DteProviderAdapter {
     }
 
     return pdfBuffer;
+  }
+
+  // ─────────────────────────────────────────────
+  // cede — genera AEC firmado y lo envía al RPETC
+  // ─────────────────────────────────────────────
+
+  /**
+   * Cede una factura a una empresa de factoring (Bloque factoring v3).
+   * Delega en `cedeDteSimpleApi` (adapter dedicado) tras resolver el
+   * contexto del tenant. La consulta del estado oficial del SII se
+   * hace aparte vía cron SOAP wsRPETCConsulta.
+   */
+  async cede(request: DteCedeRequest): Promise<DteCedeResponse> {
+    const { cedeDteSimpleApi } = await import("./simpleapi-cesion");
+    let ctx: TenantContext;
+    try {
+      ctx = await this.loadTenantContext();
+    } catch (err) {
+      return {
+        success: false,
+        error:
+          err instanceof Error
+            ? err.message
+            : "Error cargando contexto del tenant",
+      };
+    }
+    return cedeDteSimpleApi(request, {
+      auth: this.auth,
+      environment: ctx.config.environment,
+      pfxBuffer: ctx.certificate.pfxBuffer,
+      pfxPassword: ctx.certificate.password,
+      rutTitular: ctx.certificate.rutTitular,
+    });
   }
 }
 
