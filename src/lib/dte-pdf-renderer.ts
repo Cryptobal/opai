@@ -687,9 +687,17 @@ async function renderDtePage(
 
 /**
  * Genera un PNG con el código PDF417 del TED del DTE.
+ *
+ * Nota tipo: los typings de bwip-js (4.10.x) NO exponen las opciones
+ * específicas de PDF417 (`columns`, `eclevel`, `paddingwidth`,
+ * `paddingheight`) en `RenderOptions`. La librería SÍ las acepta en
+ * runtime — son válidas del BWIPP backend (postscript de barcodes).
+ * El cast a `Record<string, unknown>` evita el error TS sin afectar
+ * funcionalidad.
  */
 async function generatePdf417(tedXml: string): Promise<Buffer> {
-  const png = await bwipjs.toBuffer({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const png = await (bwipjs.toBuffer as any)({
     bcid: "pdf417",
     text: tedXml,
     columns: 9,
