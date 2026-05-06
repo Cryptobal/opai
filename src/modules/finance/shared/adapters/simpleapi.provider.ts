@@ -34,9 +34,16 @@
 import { prisma } from "@/lib/prisma";
 import { decryptBuffer, decryptString } from "@/lib/dte-encryption";
 import {
+  runDtePreflight,
+  type DtePreflightFailure,
+} from "@/modules/finance/billing/dte-preflight";
+import {
   callSimpleApi,
+  detectApiKeyBlocked,
   getSimpleApiKeyOrThrow,
+  isApiKeyAuthenticated,
   type SimpleApiAuth,
+  type SimpleApiResponse,
 } from "./simpleapi-http";
 import type {
   DteProviderAdapter,
@@ -90,6 +97,112 @@ interface TenantContext {
 const RUT_SII = "60803000-K";
 
 /**
+ * Mapea un dteType a la enumeración `Tipo` que SimpleAPI usa en los
+ * endpoints `envio/generar` y `envio/enviar`. Valores válidos según
+ * SimpleAPI (mensaje literal del provider en HTTP 400):
+ *
+ *   - `1` → EnvioDTE   (documentos electrónicos: 33, 34, 56, 61)
+ *   - `2` → EnvioBoleta (boletas: 39 afecta, 41 exenta)
+ *
+ * Si pasás `0` SimpleAPI rechaza con
+ *   `{"mensaje":"Tipo incorrecto. 1.EnvioDTE - 2.EnvioBoleta."}`
+ */
+function envioTipoFromDte(dteType: number): 1 | 2 {
+  return dteType === 39 || dteType === 41 ? 2 : 1;
+}
+
+/**
+ * Tipos DTE que requieren copia cedible (Ley 19.983 — Factoring).
+ * Aplica a facturas afectas/exentas y notas de crédito/débito que se
+ * pueden ceder a terceros. NO aplica a boletas ni guías de despacho.
+ */
+const DTE_TYPES_WITH_CEDIBLE = new Set([33, 34, 43, 56, 61]);
+
+/**
+ * Limpia el campo `LogoBase64` que se manda al endpoint de impresión
+ * de SimpleAPI. El SDK oficial documenta que el logo "Debe ir en
+ * base64" — sin prefijo `data:image/png;base64,`. Pero el frontend de
+ * OPAI puede tener guardada la versión con prefijo (de UIs viejas) o
+ * sin prefijo. Esta función normaliza ambos casos a base64 puro.
+ */
+function stripDataUrlPrefix(b64: string | null | undefined): string {
+  if (!b64) return "";
+  const trimmed = b64.trim();
+  if (trimmed.startsWith("data:")) {
+    const idx = trimmed.indexOf(",");
+    return idx >= 0 ? trimmed.slice(idx + 1) : "";
+  }
+  return trimmed;
+}
+
+
+/**
+ * Convierte una respuesta HTTP no-OK de SimpleAPI en un mensaje
+ * legible y accionable.
+ *
+ * Decisión clave (descubierta empíricamente probando contra
+ * api.simpleapi.cl): SimpleAPI usa **HTTP 401 con body vacío** para
+ * dos casos completamente distintos —
+ *
+ *   1. Apikey inválida / ausente
+ *   2. Apikey OK pero el payload (cert, CAF, JSON) fue rechazado
+ *
+ * Para distinguirlos miramos los headers `x-rate-limit-*`. SimpleAPI
+ * los devuelve SOLO cuando autenticó la apikey y le aplicó el contador
+ * de cuota. Si están presentes en un 401, el problema NO es la apikey:
+ * casi siempre es certificado .pfx con password mal o vencido, o CAF
+ * inválido para el folio reservado.
+ *
+ * `endpoint` se incluye para distinguir cuál de los pasos del flow
+ * falló (`dte/generar`, `envio/generar`, `envio/enviar`,
+ * `consulta/envio`, `impresion/pdf/...`).
+ */
+function describeSimpleApiError(
+  endpoint: string,
+  res: SimpleApiResponse,
+): string {
+  const blocked = detectApiKeyBlocked(res);
+  if (blocked.blocked && blocked.message) {
+    return `SimpleAPI [${endpoint}]: ${blocked.message}`;
+  }
+
+  const trimmedBody = res.bodyText.trim();
+  const apiKeyOk = isApiKeyAuthenticated(res);
+
+  // Caso A: apikey reconocida (rate-limit headers presentes) pero el
+  // request fue rechazado. El problema está en el payload, no en auth.
+  // Es el caso más común en producción y antes se reportaba como "401:"
+  // sin pistas. Damos un diagnóstico orientado a cert/CAF.
+  if (apiKeyOk && (res.status === 401 || res.status === 400 || res.status === 422)) {
+    const detail = trimmedBody
+      ? ` Detalle del provider: ${trimmedBody.slice(0, 400)}.`
+      : "";
+    return (
+      `SimpleAPI [${endpoint}] HTTP ${res.status} con apikey reconocida — ` +
+      `el provider rechazó el payload, NO es problema de SIMPLEAPI_KEY. ` +
+      `Causas más comunes: certificado digital con contraseña incorrecta o vencido, ` +
+      `CAF inválido o agotado para el tipo de DTE, o datos del emisor/receptor mal ` +
+      `formados. Revisá el cert y los CAFs en /opai/configuracion/finanzas/dte.${detail}`
+    );
+  }
+
+  // Caso B: 401/403 sin rate-limit headers Y body vacío → apikey no
+  // reconocida realmente.
+  if (
+    !trimmedBody &&
+    (res.status === 401 || res.status === 403)
+  ) {
+    return (
+      `SimpleAPI [${endpoint}] HTTP ${res.status} sin cuerpo y sin rate-limit headers. ` +
+      `Apikey no reconocida por SimpleAPI: verificá SIMPLEAPI_KEY en Vercel ` +
+      `(sin espacios ni saltos de línea) y el estado en https://panel.simpleapi.cl/.`
+    );
+  }
+
+  return `SimpleAPI [${endpoint}] HTTP ${res.status}: ${trimmedBody.slice(0, 500)}`;
+}
+
+/**
  * Cache en memoria de XMLs generados durante un emit. Se usa como fallback
  * dentro del mismo request si la persistencia en BD no está disponible.
  * En el flujo normal el XML se persiste en `FinanceDte.dteXml` durante issue(),
@@ -118,8 +231,10 @@ export class SimpleApiProvider implements DteProviderAdapter {
   }
 
   /**
-   * Carga config del tenant + certificado (desencriptado en memoria).
-   * El material desencriptado NO se loguea ni persiste.
+   * Carga config + cert del tenant para operaciones que NO emiten un
+   * DTE (getStatus, getPdf, getXml, void). Hace las validaciones
+   * mínimas (cert existe + vigente + descifrable) usando el módulo
+   * de preflight para mantener un solo camino de error.
    */
   private async loadTenantContext(): Promise<TenantContext> {
     const [config, cert] = await Promise.all([
@@ -129,51 +244,162 @@ export class SimpleApiProvider implements DteProviderAdapter {
       }),
     ]);
 
-    if (!config) {
-      throw new Error(
-        `Tenant ${this.tenantId} no tiene TenantDteConfig. Completá los datos en /opai/configuracion/finanzas/dte.`,
-      );
-    }
-    if (!config.emisorRut || !config.emisorRazonSocial) {
-      throw new Error(
-        "Configuración del emisor incompleta (RUT/Razón Social). Completá los datos en /opai/configuracion/finanzas/dte.",
-      );
-    }
-    if (!cert) {
-      throw new Error(
-        "No hay certificado digital cargado. Subí un .pfx en /opai/configuracion/finanzas/dte.",
-      );
-    }
-    if (cert.notAfter < new Date()) {
-      throw new Error(
-        `El certificado digital venció el ${cert.notAfter
-          .toISOString()
-          .split("T")[0]}. Subí uno vigente.`,
-      );
+    // Re-utilizamos el preflight pero solo nos quedamos con los pasos
+    // que NO requieren CAF/folio (estos métodos no emiten). Para eso
+    // pasamos un CAF dummy mínimo y un folio cualquiera, e ignoramos
+    // los errores específicos de CAF.
+    const preflight = runDtePreflight({
+      config: config
+        ? {
+            emisorRut: config.emisorRut,
+            emisorRazonSocial: config.emisorRazonSocial,
+            emisorGiro: config.emisorGiro,
+            emisorActeco: config.emisorActeco,
+            emisorDireccion: config.emisorDireccion,
+            emisorComuna: config.emisorComuna,
+            emisorCiudad: config.emisorCiudad,
+            environment: config.environment,
+          }
+        : null,
+      cert: cert
+        ? {
+            pfxDataEnc: cert.pfxDataEnc,
+            passwordEnc: cert.passwordEnc,
+            rutTitular: cert.rutTitular,
+            notAfter: cert.notAfter,
+            fileName: cert.fileName,
+          }
+        : null,
+      // Para operaciones de lectura no validamos CAF; ya está validado
+      // en el momento de la emisión y el archivo ni se usa acá.
+      cafXml: Buffer.from(""),
+      folio: 0,
+      dteType: 33,
+    });
+
+    if (!preflight.ok) {
+      // Las stages que NO aplican a operaciones de lectura las saltamos
+      // (read-only no usa CAF). Cualquier otra falla sí bloquea.
+      const ignorableStages: DtePreflightFailure["stage"][] = [
+        "caf_missing",
+        "caf_parse",
+        "caf_dte_type",
+        "caf_rut_mismatch",
+        "caf_folio_out_of_range",
+      ];
+      if (!ignorableStages.includes(preflight.stage)) {
+        throw new Error(preflight.message);
+      }
     }
 
-    const pfxBuffer = decryptBuffer(Buffer.from(cert.pfxDataEnc));
-    const password = decryptString(cert.passwordEnc);
+    // Si llegamos acá: el preflight pasó (o solo falló por CAF, que no
+    // necesitamos en operaciones read-only). Cuando solo CAF falló, el
+    // pfx no quedó descifrado en el resultado: lo hacemos a mano.
+    const pfxBuffer = preflight.ok
+      ? preflight.pfxBuffer
+      : decryptBuffer(Buffer.from(cert!.pfxDataEnc));
+    const password = preflight.ok
+      ? preflight.pfxPassword
+      : decryptString(cert!.passwordEnc);
 
     return {
       config: {
-        environment: config.environment as "CERTIFICATION" | "PRODUCTION",
-        emisorRut: config.emisorRut,
-        emisorRazonSocial: config.emisorRazonSocial,
-        emisorGiro: config.emisorGiro ?? "",
-        emisorActeco: config.emisorActeco ?? 0,
-        emisorDireccion: config.emisorDireccion ?? "",
-        emisorComuna: config.emisorComuna ?? "",
-        emisorCiudad: config.emisorCiudad ?? "",
-        emisorTelefono: config.emisorTelefono,
-        emisorEmail: config.emisorEmail,
-        resolNumero: config.resolNumero,
-        resolFecha: config.resolFecha,
+        environment: config!.environment as "CERTIFICATION" | "PRODUCTION",
+        emisorRut: config!.emisorRut!,
+        emisorRazonSocial: config!.emisorRazonSocial!,
+        emisorGiro: config!.emisorGiro ?? "",
+        emisorActeco: config!.emisorActeco ?? 0,
+        emisorDireccion: config!.emisorDireccion ?? "",
+        emisorComuna: config!.emisorComuna ?? "",
+        emisorCiudad: config!.emisorCiudad ?? "",
+        emisorTelefono: config!.emisorTelefono,
+        emisorEmail: config!.emisorEmail,
+        resolNumero: config!.resolNumero,
+        resolFecha: config!.resolFecha,
       },
       certificate: {
         pfxBuffer,
         password,
-        rutTitular: cert.rutTitular,
+        rutTitular: cert!.rutTitular,
+      },
+    };
+  }
+
+  /**
+   * Carga + valida TODO lo necesario para emitir un DTE: config del
+   * emisor, certificado .pfx (descifrable, vigente, password correcta,
+   * RUT coincide), y CAF (válido, RUT coincide, folio en rango).
+   *
+   * Devuelve `{ ok: true, ctx }` con el contexto listo, o un error
+   * EXACTO en `error` que se le va a mostrar al usuario sin necesidad
+   * de adivinar.
+   */
+  private async loadAndValidateForIssue(
+    request: DteIssueRequest,
+  ): Promise<
+    | { ok: true; ctx: TenantContext }
+    | { ok: false; error: string; stage: DtePreflightFailure["stage"] }
+  > {
+    const [config, cert] = await Promise.all([
+      prisma.tenantDteConfig.findUnique({ where: { tenantId: this.tenantId } }),
+      prisma.tenantDteCertificate.findUnique({
+        where: { tenantId: this.tenantId },
+      }),
+    ]);
+
+    const preflight = runDtePreflight({
+      config: config
+        ? {
+            emisorRut: config.emisorRut,
+            emisorRazonSocial: config.emisorRazonSocial,
+            emisorGiro: config.emisorGiro,
+            emisorActeco: config.emisorActeco,
+            emisorDireccion: config.emisorDireccion,
+            emisorComuna: config.emisorComuna,
+            emisorCiudad: config.emisorCiudad,
+            environment: config.environment,
+          }
+        : null,
+      cert: cert
+        ? {
+            pfxDataEnc: cert.pfxDataEnc,
+            passwordEnc: cert.passwordEnc,
+            rutTitular: cert.rutTitular,
+            notAfter: cert.notAfter,
+            fileName: cert.fileName,
+          }
+        : null,
+      cafXml: request.cafXml ?? null,
+      folio: request.folio ?? 0,
+      dteType: request.dteType,
+    });
+
+    if (!preflight.ok) {
+      return { ok: false, error: preflight.message, stage: preflight.stage };
+    }
+
+    return {
+      ok: true,
+      ctx: {
+        config: {
+          environment: config!.environment as "CERTIFICATION" | "PRODUCTION",
+          emisorRut: config!.emisorRut!,
+          emisorRazonSocial: config!.emisorRazonSocial!,
+          emisorGiro: config!.emisorGiro ?? "",
+          emisorActeco: config!.emisorActeco ?? 0,
+          emisorDireccion: config!.emisorDireccion ?? "",
+          emisorComuna: config!.emisorComuna ?? "",
+          emisorCiudad: config!.emisorCiudad ?? "",
+          emisorTelefono: config!.emisorTelefono,
+          emisorEmail: config!.emisorEmail,
+          resolNumero: config!.resolNumero,
+          resolFecha: config!.resolFecha,
+        },
+        certificate: {
+          pfxBuffer: preflight.pfxBuffer,
+          password: preflight.pfxPassword,
+          rutTitular: cert!.rutTitular,
+        },
       },
     };
   }
@@ -364,7 +590,7 @@ export class SimpleApiProvider implements DteProviderAdapter {
     if (!result.ok) {
       return {
         ok: false,
-        error: `dte/generar HTTP ${result.status}: ${result.bodyText.slice(0, 500)}`,
+        error: describeSimpleApiError("dte/generar", result),
       };
     }
 
@@ -387,8 +613,7 @@ export class SimpleApiProvider implements DteProviderAdapter {
       ctx.config.resolFecha ?? new Date("2014-08-22T00:00:00Z");
 
     return {
-      // Tipo del envío: 0 = Documentos (no boletas)
-      Tipo: 0,
+      Tipo: envioTipoFromDte(request.dteType),
       Ambiente: ambiente,
       Caratula: {
         RutEmisor: ctx.config.emisorRut,
@@ -435,7 +660,7 @@ export class SimpleApiProvider implements DteProviderAdapter {
     if (!result.ok) {
       return {
         ok: false,
-        error: `envio/generar HTTP ${result.status}: ${result.bodyText.slice(0, 500)}`,
+        error: describeSimpleApiError("envio/generar", result),
       };
     }
 
@@ -455,7 +680,7 @@ export class SimpleApiProvider implements DteProviderAdapter {
   > {
     const ambiente = ctx.config.environment === "PRODUCTION" ? 1 : 0;
     const payload = {
-      Tipo: 0, // Documentos (no boletas)
+      Tipo: envioTipoFromDte(request.dteType),
       Ambiente: ambiente,
       Certificado: {
         Rut: ctx.certificate.rutTitular,
@@ -488,7 +713,7 @@ export class SimpleApiProvider implements DteProviderAdapter {
     if (!result.ok) {
       return {
         ok: false,
-        error: `envio/enviar HTTP ${result.status}: ${result.bodyText.slice(0, 500)}`,
+        error: describeSimpleApiError("envio/enviar", result),
       };
     }
 
@@ -522,15 +747,20 @@ export class SimpleApiProvider implements DteProviderAdapter {
       };
     }
 
-    let ctx: TenantContext;
-    try {
-      ctx = await this.loadTenantContext();
-    } catch (err) {
+    // Pre-flight EXHAUSTIVO antes de pegarle a SimpleAPI. Valida config,
+    // certificado (descifrable, vigente, password correcta, RUT coincide)
+    // y CAF (parseable, RUT coincide, folio en rango). Si algo falla acá,
+    // el usuario recibe un mensaje EXACTO sin necesidad de adivinar entre
+    // posibles causas.
+    const preflight = await this.loadAndValidateForIssue(request);
+    if (!preflight.ok) {
       return {
         success: false,
-        error: err instanceof Error ? err.message : "Error cargando contexto del tenant",
+        error: preflight.error,
+        rawResponse: { preflightStage: preflight.stage },
       };
     }
+    const ctx = preflight.ctx;
 
     // PASO 1
     const dteResult = await this.generarDteXml(request, ctx);
@@ -615,7 +845,7 @@ export class SimpleApiProvider implements DteProviderAdapter {
         return {
           status: "PENDING",
           trackId,
-          message: `consulta/envio HTTP ${result.status}: ${result.bodyText.slice(0, 200)}`,
+          message: describeSimpleApiError("consulta/envio", result),
         };
       }
 
@@ -683,77 +913,52 @@ export class SimpleApiProvider implements DteProviderAdapter {
   // ─────────────────────────────────────────────
 
   /**
-   * Llama al endpoint `impresion/pdf/carta/v2` de SimpleAPI con el XML
-   * del DTE + datos extra (resolución SII, logo del emisor). Devuelve el
-   * PDF como Buffer listo para descargar.
+   * Genera el PDF impreso del DTE LOCALMENTE, sin depender del
+   * proveedor externo (SimpleAPI). Esto nos da control total sobre el
+   * layout y elimina los campos vacíos / formato pobre que SimpleAPI
+   * genera.
+   *
+   * El flujo es:
+   *   1. Recuperar el XML firmado del DTE de BD (lo persistimos en
+   *      `FinanceDte.dteXml` cuando se emite).
+   *   2. Parsear el XML — incluido el bloque `<TED>` que es la fuente
+   *      de verdad del timbre electrónico.
+   *   3. Renderizar el PDF con `pdf-lib`:
+   *      - PDF417 generado localmente con `bwip-js` desde el TED.
+   *      - Layout limpio estilo iPapers/LibreDTE (sin campos vacíos).
+   *      - Página 2 con copia cedible (Ley 19.983) para tipos
+   *        33/34/43/56/61.
+   *
+   * Para tipos no-cedibles (boletas 39/41, guías 52) genera 1 sola
+   * página. SimpleAPI YA NO se usa para impresión — solo para
+   * emisión / consulta de estado / envío al SII.
    */
   async getPdf(dteType: number, folio: number): Promise<Buffer> {
-    // 1. Recuperar XML del DTE (de BD o cache).
     const dteXml = await this.getXml(dteType, folio);
 
-    // 2. Cargar config del tenant para resolución y logo.
     const ctx = await this.loadTenantContext();
     const numeroResolucion = ctx.config.resolNumero ?? 80;
-    const fechaResolucion = (ctx.config.resolFecha ?? new Date("2014-08-22T00:00:00Z"))
-      .toISOString()
-      .split("T")[0];
+    const fechaResolucion =
+      ctx.config.resolFecha ?? new Date("2014-08-22T00:00:00Z");
 
-    // Logo del tenant (si está cargado en TenantDteConfig.logoBase64).
-    const logoBase64 = await prisma.tenantDteConfig
+    const rawLogo = await prisma.tenantDteConfig
       .findUnique({
         where: { tenantId: this.tenantId },
         select: { logoBase64: true },
       })
       .then((c) => c?.logoBase64 ?? "");
+    const logoBase64 = stripDataUrlPrefix(rawLogo);
 
-    // 3. Llamar al endpoint impresion/pdf/carta/v2
-    const pdfInput: Record<string, unknown> = {
-      NumeroResolucion: numeroResolucion,
-      FechaResolucion: fechaResolucion,
-      LogoBase64: logoBase64,
-      TimbreBase64: "", // SimpleAPI lo genera si está vacío
-    };
+    const { parseDteXml } = await import("@/lib/dte-xml-parser");
+    const { renderDtePdf } = await import("@/lib/dte-pdf-renderer");
 
-    const result = await callSimpleApi({
-      auth: this.auth,
-      target: "api",
-      path: "impresion/pdf/carta/v2",
-      method: "POST",
-      parts: [
-        { name: "input", content: JSON.stringify(pdfInput) },
-        {
-          name: "file",
-          content: dteXml,
-          contentType: "application/xml",
-          filename: `dte_${dteType}_${folio}.xml`,
-        },
-      ],
+    const parsed = parseDteXml(dteXml);
+    return await renderDtePdf(parsed, {
+      numeroResolucion,
+      fechaResolucion,
+      logoBase64,
+      cedible: DTE_TYPES_WITH_CEDIBLE.has(dteType),
     });
-
-    if (!result.ok) {
-      throw new Error(
-        `impresion/pdf HTTP ${result.status}: ${result.bodyText.slice(0, 500)}`,
-      );
-    }
-
-    // El response es el PDF binario directo. Usamos bodyBuffer para evitar
-    // corromper bytes con la decodificación a string.
-    const pdfBuffer = result.bodyBuffer;
-
-    // Verificación: PDF válido empieza con magic bytes %PDF (25 50 44 46).
-    if (
-      pdfBuffer.length < 4 ||
-      pdfBuffer[0] !== 0x25 ||
-      pdfBuffer[1] !== 0x50 ||
-      pdfBuffer[2] !== 0x44 ||
-      pdfBuffer[3] !== 0x46
-    ) {
-      throw new Error(
-        `Respuesta de impresion/pdf no parece un PDF válido (magic bytes: ${pdfBuffer.slice(0, 4).toString("hex")}). Body inicial: ${result.bodyText.slice(0, 200)}`,
-      );
-    }
-
-    return pdfBuffer;
   }
 
   // ─────────────────────────────────────────────

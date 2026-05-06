@@ -189,6 +189,17 @@ export interface SimpleApiResponse {
   bodyJson: unknown;
   /** Bytes crudos del response. Útil para binarios (PDF, ZIP). */
   bodyBuffer: Buffer;
+  /**
+   * Headers `x-rate-limit-*` que SimpleAPI devuelve en CADA respuesta
+   * cuando reconoce la apikey. Son la prueba más confiable de que la
+   * apikey está activa: si vienen, la apikey funciona aunque el HTTP
+   * sea 401 (en ese caso el problema está en el payload, no en auth).
+   */
+  rateLimit: {
+    limit: string | null;
+    remaining: number | null;
+    reset: string | null;
+  };
 }
 
 /**
@@ -233,7 +244,21 @@ export async function callSimpleApi(
     bodyJson = null;
   }
 
-  return { ok: res.ok, status: res.status, bodyText, bodyJson, bodyBuffer: respBuffer };
+  const remainingRaw = res.headers.get("x-rate-limit-remaining");
+  const remainingNum = remainingRaw !== null ? Number(remainingRaw) : NaN;
+
+  return {
+    ok: res.ok,
+    status: res.status,
+    bodyText,
+    bodyJson,
+    bodyBuffer: respBuffer,
+    rateLimit: {
+      limit: res.headers.get("x-rate-limit-limit"),
+      remaining: Number.isFinite(remainingNum) ? remainingNum : null,
+      reset: res.headers.get("x-rate-limit-reset"),
+    },
+  };
 }
 
 /**
@@ -250,36 +275,83 @@ export async function callSimpleApi(
  */
 export function detectApiKeyBlocked(res: SimpleApiResponse): {
   blocked: boolean;
-  reason: "QUOTA" | "RATE_LIMIT" | null;
+  reason: "EXPIRED" | "QUOTA" | "RATE_LIMIT" | null;
   message: string | null;
 } {
   if (res.ok) return { blocked: false, reason: null, message: null };
 
   const body = res.bodyText.toLowerCase();
-  const isQuota =
-    res.status === 401 ||
-    res.status === 402 ||
-    res.status === 403 ||
-    body.includes("apikey") ||
-    body.includes("api key") ||
-    body.includes("límite mensual") ||
-    body.includes("limit mensual") ||
-    body.includes("bloqueada") ||
-    body.includes("blocked");
+
+  // Rate limit explícito (HTTP 429 o body diciéndolo). Independiente
+  // de los rate-limit headers porque también se aplica per-IP en algunos
+  // planes.
   const isRateLimit =
     res.status === 429 ||
     body.includes("rate limit") ||
     body.includes("too many requests");
 
-  if (!isQuota && !isRateLimit) {
-    return { blocked: false, reason: null, message: null };
+  if (isRateLimit) {
+    return {
+      blocked: true,
+      reason: "RATE_LIMIT",
+      message:
+        "SimpleAPI rate limit (máx 1/sec, 5/min, 100/hora). Esperá unos minutos y reintentá.",
+    };
   }
 
-  return {
-    blocked: true,
-    reason: isRateLimit ? "RATE_LIMIT" : "QUOTA",
-    message: isRateLimit
-      ? "SimpleAPI rate limit (máx 1/sec, 5/min, 100/hora). Esperá unos minutos y reintentá."
-      : "Apikey de SimpleAPI bloqueada (cupo mensual excedido). Desbloqueá inmediatamente en https://panel.simpleapi.cl/ contratando Peticiones de Respaldo, o subí de plan.",
-  };
+  // EXPIRED = apikey vencida (plan/contrato expirado). SimpleAPI lo
+  // reporta como JSON `{"error":"Apikey vencida..."}` con HTTP 401 en
+  // los endpoints de servicios.simpleapi.cl. Lo separamos de QUOTA
+  // porque la solución es distinta: hay que renovar el plan, no
+  // contratar peticiones de respaldo.
+  const bodyLooksExpired =
+    body.includes("vencida") ||
+    body.includes("vencido") ||
+    body.includes("expirada") ||
+    body.includes("expirado") ||
+    body.includes("expired");
+
+  if (bodyLooksExpired) {
+    return {
+      blocked: true,
+      reason: "EXPIRED",
+      message:
+        "La apikey de SimpleAPI está VENCIDA (plan/contrato expirado). Andá a https://panel.simpleapi.cl/ → tu cuenta, renová el plan y actualizá SIMPLEAPI_KEY en Vercel si te dieron una nueva. Sin esto NO podés emitir DTEs.",
+    };
+  }
+
+  // QUOTA = apikey bloqueada por cupo mensual. Solo lo declaramos si
+  // el body lo dice explícitamente (la heurística previa marcaba como
+  // QUOTA cualquier 401/403, pero SimpleAPI también devuelve 401 con
+  // body vacío para errores de payload — eso NO es problema de apikey).
+  const bodyLooksQuotaBlocked =
+    body.includes("límite mensual") ||
+    body.includes("limit mensual") ||
+    body.includes("cupo") ||
+    body.includes("bloqueada") ||
+    body.includes("blocked");
+
+  if (bodyLooksQuotaBlocked && (res.status === 401 || res.status === 402 || res.status === 403)) {
+    return {
+      blocked: true,
+      reason: "QUOTA",
+      message:
+        "Apikey de SimpleAPI bloqueada (cupo mensual excedido). Desbloqueá inmediatamente en https://panel.simpleapi.cl/ contratando Peticiones de Respaldo, o subí de plan.",
+    };
+  }
+
+  return { blocked: false, reason: null, message: null };
+}
+
+/**
+ * Determina si SimpleAPI reconoció la apikey en este request, usando
+ * la presencia de los headers `x-rate-limit-*`. SimpleAPI los emite
+ * SOLO cuando autenticó exitosamente la apikey y le aplicó el contador,
+ * por lo que su presencia es prueba positiva de que la apikey funciona.
+ *
+ * Cuando un 401 viene con estos headers, el problema está en el
+ * payload (cert/CAF/JSON), NO en la apikey.
+ */
+export function isApiKeyAuthenticated(res: SimpleApiResponse): boolean {
+  return res.rateLimit.remaining !== null;
 }

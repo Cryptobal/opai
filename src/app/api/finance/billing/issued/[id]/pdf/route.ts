@@ -30,20 +30,34 @@ export async function GET(
   }
 
   try {
+    console.log(
+      `[Finance/Billing/PDF] Generating PDF for DTE ${dte.code} (tipo ${dte.dteType}, folio ${dte.folio})`,
+    );
+    const t0 = Date.now();
     const provider = await getDteProvider(ctx.tenantId);
     const pdfBuffer = await provider.getPdf(dte.dteType, dte.folio);
+    console.log(
+      `[Finance/Billing/PDF] Generated ${pdfBuffer.length} bytes in ${Date.now() - t0}ms`,
+    );
     return new NextResponse(new Uint8Array(pdfBuffer), {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `inline; filename="${dte.code}.pdf"`,
+        "Cache-Control": "no-store, must-revalidate",
       },
     });
   } catch (err) {
-    console.error("[Finance/Billing] Error generating PDF:", err);
+    console.error(
+      `[Finance/Billing/PDF] Error generating PDF for DTE ${dte.code}:`,
+      err,
+    );
     return NextResponse.json(
-      { success: false, error: (err as Error).message },
-      { status: 500 }
+      {
+        success: false,
+        error: err instanceof Error ? err.message : "Error generando PDF",
+      },
+      { status: 500 },
     );
   }
 }

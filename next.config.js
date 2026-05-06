@@ -94,6 +94,12 @@ const nextConfig = {
     '@react-pdf/stylesheet',
     '@react-pdf/textkit',
     '@react-pdf/image',
+    // DTE PDF rendering local (sin SimpleAPI) — pdf-lib + bwip-js son
+    // libs Node-only que NO deben bundlearse con webpack porque rompen
+    // el server (importan APIs de Node.js que webpack intenta polyfillar).
+    'pdf-lib',
+    'bwip-js',
+    'fast-xml-parser',
   ],
   experimental: {
     staleTimes: {

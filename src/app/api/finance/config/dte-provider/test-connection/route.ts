@@ -17,8 +17,12 @@ import { NextResponse } from "next/server";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { hasFacturacionCapability } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
-import { decryptBuffer, decryptString } from "@/lib/dte-encryption";
-import { callSimpleApi } from "@/modules/finance/shared/adapters/simpleapi-http";
+import {
+  callSimpleApi,
+  detectApiKeyBlocked,
+  isApiKeyAuthenticated,
+} from "@/modules/finance/shared/adapters/simpleapi-http";
+import { runDtePreflight } from "@/modules/finance/billing/dte-preflight";
 
 export async function POST() {
   const ctx = await requireAuth();
@@ -31,70 +35,70 @@ export async function POST() {
     );
   }
 
-  // 1. Validar config del tenant
-  const config = await prisma.tenantDteConfig.findUnique({
-    where: { tenantId: ctx.tenantId },
+  // 1. Cargar config + cert + un CAF tipo 33 (si existe) para correr
+  // el preflight COMPLETO. Esto valida exactamente lo mismo que se
+  // valida al emitir un DTE real, sin consumir folio ni crear DTE.
+  const [config, cert, anyCaf33] = await Promise.all([
+    prisma.tenantDteConfig.findUnique({ where: { tenantId: ctx.tenantId } }),
+    prisma.tenantDteCertificate.findUnique({
+      where: { tenantId: ctx.tenantId },
+    }),
+    prisma.tenantDteCaf.findFirst({
+      where: { tenantId: ctx.tenantId, dteType: 33, isActive: true },
+      orderBy: { folioDesde: "asc" },
+    }),
+  ]);
+
+  // Pre-flight: valida config, cert (descifra, password OK, vigente,
+  // RUT match) y CAF si está disponible. Reporta el PRIMER error con
+  // mensaje exacto y stage tipado.
+  const preflight = runDtePreflight({
+    config: config
+      ? {
+          emisorRut: config.emisorRut,
+          emisorRazonSocial: config.emisorRazonSocial,
+          emisorGiro: config.emisorGiro,
+          emisorActeco: config.emisorActeco,
+          emisorDireccion: config.emisorDireccion,
+          emisorComuna: config.emisorComuna,
+          emisorCiudad: config.emisorCiudad,
+          environment: config.environment,
+        }
+      : null,
+    cert: cert
+      ? {
+          pfxDataEnc: cert.pfxDataEnc,
+          passwordEnc: cert.passwordEnc,
+          rutTitular: cert.rutTitular,
+          notAfter: cert.notAfter,
+          fileName: cert.fileName,
+        }
+      : null,
+    cafXml: anyCaf33 ? Buffer.from(anyCaf33.xmlData) : null,
+    folio: anyCaf33?.folioDesde ?? 0,
+    dteType: 33,
   });
-  if (!config?.emisorRut) {
+
+  if (!preflight.ok) {
     return NextResponse.json(
       {
         success: false,
-        error:
-          "Falta configurar el RUT del emisor en /opai/configuracion/finanzas/dte (tab Datos del Emisor).",
+        error: preflight.message,
+        stage: preflight.stage,
       },
       { status: 400 },
     );
   }
 
-  const cert = await prisma.tenantDteCertificate.findUnique({
-    where: { tenantId: ctx.tenantId },
-  });
-  if (!cert) {
-    return NextResponse.json(
-      {
-        success: false,
-        error:
-          "No hay certificado digital cargado en /opai/configuracion/finanzas/dte (tab Certificado Digital).",
-      },
-      { status: 400 },
-    );
-  }
-  if (cert.notAfter < new Date()) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: `El certificado digital venció el ${cert.notAfter
-          .toISOString()
-          .split("T")[0]}. Subí uno vigente.`,
-      },
-      { status: 400 },
-    );
-  }
+  const pfxBuffer = preflight.pfxBuffer;
+  const password = preflight.pfxPassword;
 
-  // 2. Desencriptar certificado en memoria (NO se loguea ni persiste)
-  let pfxBuffer: Buffer;
-  let password: string;
-  try {
-    pfxBuffer = decryptBuffer(Buffer.from(cert.pfxDataEnc));
-    password = decryptString(cert.passwordEnc);
-  } catch (err) {
-    return NextResponse.json(
-      {
-        success: false,
-        error:
-          "No se pudo desencriptar el certificado. Probablemente DTE_ENCRYPTION_KEY cambió o el archivo está corrupto.",
-        details: err instanceof Error ? err.message : String(err),
-      },
-      { status: 500 },
-    );
-  }
-
-  // 3. Construir payload FoliosData (formato del SDK oficial)
-  const ambiente = config.environment === "PRODUCTION" ? 1 : 0;
+  // 2. Construir payload FoliosData (formato del SDK oficial)
+  const ambiente = config!.environment === "PRODUCTION" ? 1 : 0;
   const foliosInput = {
-    RutCertificado: cert.rutTitular,
+    RutCertificado: cert!.rutTitular,
     Password: password,
-    RutEmpresa: config.emisorRut,
+    RutEmpresa: config!.emisorRut!,
     Ambiente: ambiente,
     Tipo: 33, // Factura Electrónica — documento universal para validar
   };
@@ -136,22 +140,64 @@ export async function POST() {
   }
 
   if (!result.ok) {
-    // Formato de error descriptivo para el usuario.
-    const msgFromBody =
-      typeof result.bodyJson === "object" && result.bodyJson
-        ? JSON.stringify(result.bodyJson)
-        : result.bodyText.slice(0, 500);
+    // Diagnóstico priorizado para que el toast del usuario sea EXACTO:
+    //   1. ¿Apikey vencida / cuota / rate-limit?  → mensaje accionable.
+    //   2. ¿Body JSON con `error`?                → mostrar tal cual.
+    //   3. ¿Apikey reconocida (rate-limit hdrs)?  → cert/CAF fueron
+    //      rechazados por SimpleAPI; pista de revisar .pfx.
+    //   4. Fallback genérico.
+    const blocked = detectApiKeyBlocked(result);
+    if (blocked.blocked && blocked.message) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: blocked.message,
+          reason: blocked.reason,
+        },
+        { status: 502 },
+      );
+    }
+
+    const bodyJsonError =
+      result.bodyJson &&
+      typeof result.bodyJson === "object" &&
+      "error" in (result.bodyJson as Record<string, unknown>)
+        ? String((result.bodyJson as { error: unknown }).error)
+        : null;
+
+    if (bodyJsonError) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `SimpleAPI rechazó la consulta: ${bodyJsonError}`,
+        },
+        { status: 502 },
+      );
+    }
+
+    if (
+      isApiKeyAuthenticated(result) &&
+      (result.status === 401 || result.status === 400 || result.status === 422)
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            `SimpleAPI HTTP ${result.status} con apikey reconocida — el provider rechazó ` +
+            `el certificado o los datos del emisor. Causas probables: el .pfx fue subido con ` +
+            `contraseña incorrecta, el cert digital fue revocado en el SII, o el firmante ` +
+            `no está autorizado en el SII para emitir DTEs en nombre del RUT del emisor. ` +
+            `Re-subí el .pfx con la password correcta en /opai/configuracion/finanzas/dte.`,
+          rateLimitRemaining: result.rateLimit.remaining,
+        },
+        { status: 502 },
+      );
+    }
+
     return NextResponse.json(
       {
         success: false,
-        error: `SimpleAPI respondió HTTP ${result.status}`,
-        details: msgFromBody,
-        hint:
-          result.status === 401 || result.status === 403
-            ? "Credenciales incorrectas: verificá SIMPLEAPI_KEY y el password del .pfx."
-            : result.status === 404
-              ? "Endpoint no existe: la URL base de SimpleAPI puede haber cambiado."
-              : "Revisá el body de la respuesta para detalle del error.",
+        error: `SimpleAPI HTTP ${result.status}: ${result.bodyText.slice(0, 400)}`,
       },
       { status: 502 },
     );
@@ -166,9 +212,9 @@ export async function POST() {
   return NextResponse.json({
     success: true,
     data: {
-      message: `Conexión OK con SimpleAPI (ambiente ${config.environment}).`,
-      rutEmisor: config.emisorRut,
-      rutCertificado: cert.rutTitular,
+      message: `Conexión OK con SimpleAPI (ambiente ${config!.environment}).`,
+      rutEmisor: config!.emisorRut,
+      rutCertificado: cert!.rutTitular,
       tipoConsultado: 33,
       foliosDisponiblesEnSii: Number.isFinite(foliosDisponibles)
         ? foliosDisponibles
