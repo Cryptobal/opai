@@ -808,9 +808,18 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
       const res = await fetch("/api/finance/billing/received");
       if (!res.ok) throw new Error();
       const json = await res.json();
-      setReceivedDtes(json.data ?? []);
+      // El endpoint devuelve { data: { dtes: [...], pagination: {...} } }.
+      // Defensivo: aceptamos también la forma plana { data: [...] } por si
+      // algún wrapper futuro lo cambia.
+      const list = Array.isArray(json?.data)
+        ? json.data
+        : Array.isArray(json?.data?.dtes)
+          ? json.data.dtes
+          : [];
+      setReceivedDtes(list);
     } catch {
       toast.error("Error al cargar DTEs recibidos");
+      setReceivedDtes([]);
     } finally {
       setLoading(false);
     }
@@ -819,6 +828,8 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
   useEffect(() => { loadReceivedDtes(); }, [loadReceivedDtes]);
 
   const filtered = useMemo(() => {
+    // Defensa: si por alguna razón el state quedó corrupto, devolvemos [].
+    if (!Array.isArray(receivedDtes)) return [];
     let list = receivedDtes;
     if (typeFilter !== "ALL") list = list.filter((d) => String(d.dteType) === typeFilter);
     if (receptionFilter !== "ALL") list = list.filter((d) => d.receptionStatus === receptionFilter);
