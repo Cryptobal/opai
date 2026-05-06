@@ -50,6 +50,7 @@ import { PaginationControls } from "./PaginationControls";
 import { KPIRow, TrendChart } from "./FacturacionDashboardWidgets";
 import { LibroIvaTab } from "./LibroIvaTab";
 import { CostCenterEditor } from "./CostCenterEditor";
+import { CreditNoteModal } from "./CreditNoteModal";
 
 /* ── Types ── */
 
@@ -326,6 +327,11 @@ function DtesTab({
   const periodOptions = useMemo(() => buildPeriodOptions(36), []);
   const [voiding, setVoiding] = useState<string | null>(null);
   const [sendingEmail, setSendingEmail] = useState<string | null>(null);
+  /** Modal de NC/ND. Cuando hay un dteId + noteType, está abierto. */
+  const [noteModal, setNoteModal] = useState<{
+    dteId: string;
+    noteType: "credit" | "debit";
+  } | null>(null);
   // Paginación server-side. La SC pre-carga la primera página (50);
   // si el usuario cambia page o pageSize, refetch al endpoint paginado.
   const [page, setPage] = useState(1);
@@ -830,18 +836,30 @@ function DtesTab({
                           </Button>
                         )}
                         {canManage && canCreditNote && (
-                          <Link href={`/finanzas/facturacion/notas/credito?referenceDteId=${row.id}`}>
-                            <Button variant="ghost" size="sm" title="Emitir Nota de Crédito">
-                              <FileMinus className="h-3.5 w-3.5" />
-                            </Button>
-                          </Link>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            title="Emitir Nota de Crédito"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setNoteModal({ dteId: row.id, noteType: "credit" });
+                            }}
+                          >
+                            <FileMinus className="h-3.5 w-3.5" />
+                          </Button>
                         )}
                         {canManage && canDebitNote && (
-                          <Link href={`/finanzas/facturacion/notas/debito?referenceDteId=${row.id}`}>
-                            <Button variant="ghost" size="sm" title="Emitir Nota de Débito">
-                              <FilePlus className="h-3.5 w-3.5" />
-                            </Button>
-                          </Link>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            title="Emitir Nota de Débito"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setNoteModal({ dteId: row.id, noteType: "debit" });
+                            }}
+                          >
+                            <FilePlus className="h-3.5 w-3.5" />
+                          </Button>
                         )}
                       </div>
                     );
@@ -976,20 +994,28 @@ function DtesTab({
                             </Button>
                           )}
                           {canManage && canCreditNote && (
-                            <Link href={`/finanzas/facturacion/notas/credito?referenceDteId=${d.id}`}>
-                              <Button variant="ghost" size="sm">
-                                <FileMinus className="h-3.5 w-3.5 mr-1" />
-                                NC
-                              </Button>
-                            </Link>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                setNoteModal({ dteId: d.id, noteType: "credit" })
+                              }
+                            >
+                              <FileMinus className="h-3.5 w-3.5 mr-1" />
+                              NC
+                            </Button>
                           )}
                           {canManage && canDebitNote && (
-                            <Link href={`/finanzas/facturacion/notas/debito?referenceDteId=${d.id}`}>
-                              <Button variant="ghost" size="sm">
-                                <FilePlus className="h-3.5 w-3.5 mr-1" />
-                                ND
-                              </Button>
-                            </Link>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                setNoteModal({ dteId: d.id, noteType: "debit" })
+                              }
+                            >
+                              <FilePlus className="h-3.5 w-3.5 mr-1" />
+                              ND
+                            </Button>
                           )}
                         </div>
                       );
@@ -1014,6 +1040,13 @@ function DtesTab({
         </>
       )}
 
+      {/* Modal NC/ND */}
+      <CreditNoteModal
+        open={noteModal !== null}
+        onClose={() => setNoteModal(null)}
+        referenceDteId={noteModal?.dteId ?? null}
+        noteType={noteModal?.noteType ?? "credit"}
+      />
     </div>
   );
 }

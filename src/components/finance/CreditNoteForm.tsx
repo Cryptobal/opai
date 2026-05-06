@@ -37,6 +37,17 @@ interface ReferenceDte {
 interface Props {
   noteType: "credit" | "debit";
   referenceDte: ReferenceDte | null;
+  /**
+   * Callback opcional al guardar exitosamente. Cuando el form se usa
+   * dentro del modal, el modal lo usa para cerrarse + refrescar lista.
+   * Cuando se usa en una página, no se pasa y el form hace router.push().
+   */
+  onSuccess?: () => void;
+  /**
+   * Callback opcional al cancelar. Mismo patrón: en modal cierra el
+   * dialog, en página vuelve al listado.
+   */
+  onCancel?: () => void;
 }
 
 interface NoteLine {
@@ -67,7 +78,7 @@ const fmtCLP = new Intl.NumberFormat("es-CL", {
 
 /* ── Component ── */
 
-export function CreditNoteForm({ noteType, referenceDte }: Props) {
+export function CreditNoteForm({ noteType, referenceDte, onSuccess, onCancel }: Props) {
   const router = useRouter();
   const isCredit = noteType === "credit";
 
@@ -161,8 +172,14 @@ export function CreditNoteForm({ noteType, referenceDte }: Props) {
         throw new Error(err.error || `Error al emitir nota de ${isCredit ? "crédito" : "débito"}`);
       }
       toast.success(`Nota de ${isCredit ? "crédito" : "débito"} emitida`);
-      router.push("/finanzas/facturacion");
-      router.refresh();
+      // Si se pasó onSuccess (modal), llamarlo en lugar de navegar.
+      // Si no, navegar al listado (uso desde página).
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        router.push("/finanzas/facturacion");
+        router.refresh();
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Error inesperado");
     } finally {
@@ -394,7 +411,10 @@ export function CreditNoteForm({ noteType, referenceDte }: Props) {
       <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
         <Button
           variant="outline"
-          onClick={() => router.push("/finanzas/facturacion")}
+          onClick={() => {
+            if (onCancel) onCancel();
+            else router.push("/finanzas/facturacion");
+          }}
           disabled={saving}
         >
           Cancelar
