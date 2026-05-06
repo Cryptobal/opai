@@ -6143,10 +6143,11 @@ enum FinancePaymentRecordStatus {
 
 enum FinanceFactoringStatus {
   SIMULATED
-  SUBMITTED
-  APPROVED
-  FUNDED
-  COLLECTED
+  SUBMITTED // AEC enviado a RPETC, esperando aceptación SII
+  APPROVED // RPETC anotó cesión + factoring confirmó
+  FUNDED // anticipo recibido en cuenta del tenant
+  COLLECTED // cliente pagó al factoring
+  CLOSED // retención liberada, operación cerrada
   CANCELLED
 
   @@schema("finance")
@@ -6722,6 +6723,36 @@ model FinanceReconciliationMatch {
 }
 
 // ── ERP: Factoring ──
+
+/// Catálogo per-tenant de empresas de factoring (cesionarios).
+model FinanceFactoringCompany {
+  id                   String                      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId             String                      @map("tenant_id")
+  rut                  String
+  razonSocial          String                      @map("razon_social")
+  direccion            String?
+  comuna               String?
+  ciudad               String?
+  email                String?
+  contactName          String?                     @map("contact_name")
+  contactEmail         String?                     @map("contact_email")
+  contactPhone         String?                     @map("contact_phone")
+  defaultAdvanceRate   Decimal?                    @map("default_advance_rate") @db.Decimal(5, 2)
+  defaultInterestRate  Decimal?                    @map("default_interest_rate") @db.Decimal(6, 4)
+  defaultCommissionPct Decimal?                    @map("default_commission_pct") @db.Decimal(5, 2)
+  notes                String?                     @db.Text
+  isActive             Boolean                     @default(true) @map("is_active")
+  operations           FinanceFactoringOperation[]
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([tenantId, rut], map: "uq_factoring_company_rut")
+  @@index([tenantId, isActive], map: "idx_factoring_company_active")
+  @@map("finance_factoring_companies")
+  @@schema("finance")
+}
+
 model FinanceFactoringOperation {
   id                String                 @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   tenantId          String                 @map("tenant_id")
@@ -6751,11 +6782,44 @@ model FinanceFactoringOperation {
   notes             String?
   createdBy         String                 @map("created_by")
 
+  // ── Catálogo factoring (FK opcional) ──
+  factoringCompanyId  String?                  @map("factoring_company_id") @db.Uuid
+  factoringCompanyRel FinanceFactoringCompany? @relation(fields: [factoringCompanyId], references: [id])
+
+  // ── Snapshot del cesionario al momento de cesión ──
+  cesionarioRut       String? @map("cesionario_rut")
+  cesionarioRazonSoc  String? @map("cesionario_razon_social")
+  cesionarioEmail     String? @map("cesionario_email")
+  cesionarioDireccion String? @map("cesionario_direccion")
+
+  // ── Términos económicos ──
+  montoCesion      Decimal?  @map("monto_cesion") @db.Decimal(14, 2)
+  fechaCesion      DateTime? @map("fecha_cesion") @db.Date
+  fechaVencimiento DateTime? @map("fecha_vencimiento") @db.Date
+  plazoDias        Int?      @map("plazo_dias")
+  emailDeudor      String?   @map("email_deudor")
+  otrasCondiciones String?   @map("otras_condiciones")
+
+  // ── Trazabilidad SII / RPETC ──
+  cessionMethod        String    @default("ELECTRONIC") @map("cession_method")
+  aecXml               Bytes?    @map("aec_xml")
+  aecTrackId           String?   @map("aec_track_id")
+  idCesionRpetc        String?   @map("id_cesion_rpetc")
+  cessionLastCheckedAt DateTime? @map("cession_last_checked_at") @db.Timestamptz(6)
+  cessionStatusError   String?   @map("cession_status_error") @db.Text
+  cessionRpetcRaw      Json?     @map("cession_rpetc_raw")
+
+  // ── Hitos del lifecycle ──
+  approvedAt DateTime? @map("approved_at") @db.Timestamptz(6)
+  closedAt   DateTime? @map("closed_at") @db.Timestamptz(6)
+
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@unique([tenantId, code], map: "uq_finance_factoring_code")
   @@index([tenantId, status], map: "idx_finance_factoring_status")
+  @@index([tenantId, factoringCompanyId], map: "idx_factoring_op_company")
+  @@index([tenantId, fechaCesion], map: "idx_factoring_op_fecha_cesion")
   @@map("finance_factoring_operations")
   @@schema("finance")
 }
