@@ -846,6 +846,8 @@ export function buildEmpresaEntityData(settings: Array<{ key: string; value: str
     "empresa.repLegalNombre": "repLegalNombre",
     "empresa.repLegalRut": "repLegalRut",
     "empresa.repLegalFirma": "firmaRepLegal",
+    "empresa.fechaEscrituraPublica": "fechaEscrituraPublica",
+    "empresa.nombreNotaria": "nombreNotaria",
   };
   for (const s of settings) {
     const field = EMPRESA_KEYS[s.key];

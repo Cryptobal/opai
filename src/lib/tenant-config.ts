@@ -25,6 +25,8 @@ export interface TenantCompanyConfig {
   telefono: string;
   repLegalNombre: string;
   repLegalRut: string;
+  fechaEscrituraPublica: string;
+  nombreNotaria: string;
 
   /* Nombre comercial / branding */
   companyName: string;       // razón social corta: "Mi Empresa SpA"
@@ -66,13 +68,15 @@ export interface TenantCompanyConfig {
 
 const DEFAULTS: TenantCompanyConfig = {
   razonSocial: "Empresa Sin Configurar",
-  rut: "00.000.000-0",
+  rut: "11.111.111-1",
   direccion: "",
   comuna: "",
   ciudad: "",
   telefono: "",
   repLegalNombre: "",
   repLegalRut: "",
+  fechaEscrituraPublica: "",
+  nombreNotaria: "",
 
   companyName: "Mi Empresa",
   commercialName: "Mi Empresa",
@@ -121,6 +125,8 @@ const KEY_MAP: Record<string, keyof TenantCompanyConfig> = {
   "empresa.telefono": "telefono",
   "empresa.repLegalNombre": "repLegalNombre",
   "empresa.repLegalRut": "repLegalRut",
+  "empresa.fechaEscrituraPublica": "fechaEscrituraPublica",
+  "empresa.nombreNotaria": "nombreNotaria",
 
   "empresa.companyName": "companyName",
   "empresa.commercialName": "commercialName",

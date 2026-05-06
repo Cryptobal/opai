@@ -36,6 +36,8 @@ export const TOKEN_MODULES: TokenModule[] = [
       { key: "empresa.telefono", label: "Teléfono", path: "telefono" },
       { key: "empresa.repLegalNombre", label: "Rep. Legal (Nombre)", path: "repLegalNombre" },
       { key: "empresa.repLegalRut", label: "Rep. Legal (RUT)", path: "repLegalRut" },
+      { key: "empresa.fechaEscrituraPublica", label: "Fecha Escritura Pública", path: "fechaEscrituraPublica" },
+      { key: "empresa.nombreNotaria", label: "Notaría", path: "nombreNotaria" },
       { key: "empresa.firmaRepLegal", label: "Firma Rep. Legal", path: "firmaRepLegal", type: "signature" },
     ],
   },
