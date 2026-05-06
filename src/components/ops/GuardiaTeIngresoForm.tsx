@@ -29,7 +29,7 @@ const ACCOUNT_TYPE_LABELS: Record<string, string> = {
 
 interface GuardiaTeIngresoFormProps {
   userRole: string;
-  onSuccess?: () => void;
+  onSuccess?: (created?: { id: string; firstName?: string; lastName?: string }) => void;
   compact?: boolean;
   apiUrl?: string;
   navigateOnSuccess?: boolean;
@@ -170,7 +170,15 @@ export function GuardiaTeIngresoForm({
         notaEvaluacion: "",
         comentarioEvaluacion: "",
       });
-      onSuccess?.();
+      onSuccess?.(
+        payload.data?.id
+          ? {
+              id: payload.data.id,
+              firstName: payload.data?.persona?.firstName ?? payload.data?.firstName,
+              lastName: payload.data?.persona?.lastName ?? payload.data?.lastName,
+            }
+          : undefined
+      );
       if (navigateOnSuccess && payload.data?.id) {
         router.push(`/personas/guardias/${payload.data.id}`);
       }
