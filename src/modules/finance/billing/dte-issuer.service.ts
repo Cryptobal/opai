@@ -11,7 +11,7 @@ import { validateRut } from "../shared/validators/rut.validator";
 import { buildInvoiceIssuedEntry } from "../accounting/auto-entry.builder";
 import { createManualEntry, postEntry } from "../accounting/journal-entry.service";
 import { reserveNextFolio } from "./folio-tracker.service";
-import { sendDteEmail } from "./dte-email.service";
+import { sendDteEmail, sendDteXmlToBackoffice } from "./dte-email.service";
 
 export type IssueDteInput = {
   dteType: number;
@@ -392,8 +392,27 @@ export async function issueDte(
   // 10. Auto-send email to receiver if requested and address is available.
   // Fire-and-forget: a failure here shouldn't fail the emission flow.
   if (input.autoSendEmail !== false && dte.receiverEmail) {
-    sendDteEmail(tenantId, dte.id).catch((err) => {
-      console.error(`[FINANCE] Auto-send email failed for DTE ${dte.id}:`, err);
+    sendDteEmail(tenantId, dte.id, undefined, undefined, "auto_receiver", createdBy).catch(
+      (err) => {
+        console.error(`[FINANCE] Auto-send email failed for DTE ${dte.id}:`, err);
+      },
+    );
+  }
+
+  // 10b. Auto-send XML to backoffice if configured at tenant level OR
+  // explicitly requested. Default-on para facturación rutinaria con
+  // contador externo. Fire-and-forget al igual que el auto-receiver.
+  const cfg = await prisma.tenantDteConfig.findUnique({ where: { tenantId } });
+  const shouldSendXml =
+    input.sendXmlToBackoffice === true ||
+    (input.sendXmlToBackoffice !== false && cfg?.defaultXmlRecipientAlwaysSend === true);
+  if (shouldSendXml && (cfg?.defaultXmlRecipientEmails.length ?? 0) > 0) {
+    sendDteXmlToBackoffice(tenantId, dte.id, {
+      emailsOverride: input.backofficeEmailsOverride,
+      triggeredBy: createdBy,
+      kindOverride: "auto_backoffice",
+    }).catch((err) => {
+      console.error(`[FINANCE] Auto-send backoffice XML failed for DTE ${dte.id}:`, err);
     });
   }
 
