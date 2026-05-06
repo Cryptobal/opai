@@ -700,6 +700,13 @@ export function GuardiaDetailClient({
               </div>
             )}
             <CollapsibleSection
+              icon={<History className="h-4 w-4 text-muted-foreground" />}
+              title="Historial del guardia"
+              defaultOpen
+            >
+              <HistorialSection historyEvents={guardia.historyEvents} />
+            </CollapsibleSection>
+            <CollapsibleSection
               icon={<MapPin className="h-4 w-4 text-status-info-fg" />}
               title="Asignación"
               defaultOpen
@@ -760,13 +767,6 @@ export function GuardiaDetailClient({
               defaultOpen={false}
             >
               <GuardiaDesempenoTab guardiaId={guardia.id} />
-            </CollapsibleSection>
-            <CollapsibleSection
-              icon={<History className="h-4 w-4 text-muted-foreground" />}
-              title="Historial del guardia"
-              defaultOpen={false}
-            >
-              <HistorialSection historyEvents={guardia.historyEvents} />
             </CollapsibleSection>
           </div>
         );
