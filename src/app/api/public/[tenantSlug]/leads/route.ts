@@ -223,29 +223,39 @@ export async function POST(
         : `https://${tenantWebsiteRaw.replace(/^\/+/, "")}`
       : "";
 
-    // Token values for lead WhatsApp templates
-    const leadTokenValues: Record<string, string> = {
-      nombre: data.nombre,
-      apellido: data.apellido,
-      empresa: data.empresa,
-      direccion: direccionCompleta,
-      comuna: data.comuna || "",
-      ciudad: data.ciudad || "",
-      servicio: servicioLabel,
-      dotacion: dotacionTexto,
-      email: data.email,
-      celular: data.celular,
-      pagina_web: data.pagina_web || "",
-      tenant_web: tenantWebUrl,
-      industria: data.industria || "",
-      detalle: data.detalle || "",
-      maps_link: mapsLink,
+    // Entities para resolver tokens DocTemplate (lead, tenant, system).
+    // Este endpoint corre en contexto PÚBLICO (sin auth), por lo que NO se
+    // pasa `actor` — los seeds para los slugs `lead_commercial` y `lead_client`
+    // son agnósticos de actor.
+    const leadEntities = {
+      lead: {
+        firstName: data.nombre,
+        lastName: data.apellido,
+        fullName: `${data.nombre} ${data.apellido}`.trim(),
+        email: data.email,
+        phone: data.celular,
+        companyName: data.empresa,
+        address: direccionCompleta,
+        commune: data.comuna || "",
+        city: data.ciudad || "",
+        serviceLabel: servicioLabel,
+        industry: data.industria || "",
+        notes: data.detalle || "",
+        dotacionResumen: dotacionTexto,
+      },
+      tenant: {
+        commercialName: tenantCfg.commercialName,
+        website: tenantWebUrl,
+        phone: tenantCfg.phone,
+        email: tenantCfg.email,
+        whatsappLink: tenantCfg.whatsappLink,
+      },
+      system: { mapsLink },
     };
 
-    // Resolver templates desde la BD (o DocTemplate whatsapp, o defaults)
     const [tplComercial, tplCliente] = await Promise.all([
-      getWaTemplate(tenantId, "lead_commercial", { waValues: leadTokenValues }),
-      getWaTemplate(tenantId, "lead_client", { waValues: leadTokenValues }),
+      getWaTemplate(tenantId, "lead_commercial", { entities: leadEntities }),
+      getWaTemplate(tenantId, "lead_client", { entities: leadEntities }),
     ]);
 
     // Ensure the tenant website is always appended at the end (blank-line

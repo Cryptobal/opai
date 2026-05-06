@@ -1,35 +1,25 @@
 /**
  * WhatsApp Template Resolution — Punto único de entrada.
  *
- * Cascada (en este orden):
- *   1. DocTemplate (module=whatsapp, usageSlug=slug) → resolver con entities → texto plano
- *   2. CrmWhatsAppTemplate.body + waValues → texto resuelto (LEGACY, eliminar en PR5)
- *   3. WA_TEMPLATE_DEFAULTS[slug].body (LEGACY, eliminar en PR5)
+ * Resuelve plantillas WhatsApp por slug usando DocTemplate (module=whatsapp,
+ * usageSlug=slug) con tokens. El seed garantiza que todo tenant tiene las
+ * plantillas activas tras `seedWaTemplatesForTenant`.
  *
- * Después de PR5, solo queda paso 1 (con seed garantizando que todo tenant tenga plantillas).
+ * Si una plantilla no existe (caso edge: tenant nuevo sin seed), retorna
+ * string vacío y loguea warning.
+ *
+ * PR5 eliminó la cascada legacy:
+ *   1. ~~CrmWhatsAppTemplate.body + waValues~~ (eliminado)
+ *   2. ~~WA_TEMPLATE_DEFAULTS[slug].body~~ (eliminado)
+ *   3. DocTemplate (único path)
  */
 
 import { prisma } from "@/lib/prisma";
 import { resolveDocument, tiptapToPlainText, type EntityData } from "@/lib/docs/token-resolver";
-import { WA_TEMPLATE_DEFAULTS } from "@/lib/wa-template-defaults";
-
-/** Reemplaza tokens {key} en un template plain-text (legacy CrmWhatsAppTemplate). */
-export function resolveWaTokens(template: string, values: Record<string, string>): string {
-  let result = template;
-  for (const [key, value] of Object.entries(values)) {
-    const token = key.startsWith("{") ? key : `{${key}}`;
-    result = result.replaceAll(token, value || "");
-  }
-  result = result.replace(/\{[a-zA-Z_]+\}/g, "");
-  result = result.replace(/\n{3,}/g, "\n\n").trim();
-  return result;
-}
 
 export type GetWaTemplateContext = {
   /** Entidades para resolver tokens DocTemplate (account, contact, deal, lead, actor, tenant, system, blocks, ...) */
   entities?: EntityData;
-  /** Valores para tokens legacy CrmWhatsAppTemplate ({nombre}, {empresa}, etc.) */
-  waValues?: Record<string, string>;
 };
 
 /**
@@ -40,30 +30,25 @@ export async function getWaTemplate(
   slug: string,
   context?: GetWaTemplateContext,
 ): Promise<string> {
-  // 1. DocTemplate (sistema unificado)
   const docTpl = await prisma.docTemplate.findFirst({
     where: { tenantId, module: "whatsapp", usageSlug: slug, isActive: true },
     select: { content: true },
   });
-  if (docTpl?.content && context?.entities) {
-    const { resolvedContent } = resolveDocument(docTpl.content as never, context.entities);
-    return tiptapToPlainText(resolvedContent).trim();
+
+  if (!docTpl?.content) {
+    console.warn(
+      `[whatsapp] Plantilla no encontrada para tenant ${tenantId}, slug "${slug}". ` +
+        `Ejecutar seedWaTemplatesForTenant para garantizar plantillas por defecto.`,
+    );
+    return "";
   }
 
-  // 2. Legacy CrmWhatsAppTemplate
-  const legacy = await prisma.crmWhatsAppTemplate.findUnique({
-    where: { tenantId_slug: { tenantId, slug } },
-  });
-  let body: string;
-  if (legacy?.isActive && legacy.body) {
-    body = legacy.body;
-  } else {
-    body = WA_TEMPLATE_DEFAULTS[slug]?.body ?? "";
+  if (!context?.entities) {
+    return tiptapToPlainText(docTpl.content as never).trim();
   }
-  if (context?.waValues && body) {
-    return resolveWaTokens(body, context.waValues);
-  }
-  return body;
+
+  const { resolvedContent } = resolveDocument(docTpl.content as never, context.entities);
+  return tiptapToPlainText(resolvedContent).trim();
 }
 
 /**
