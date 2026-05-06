@@ -3,9 +3,12 @@
 /**
  * DteConfigClient — UI de configuración DTE (3 tabs).
  *
- *  1. Datos del Emisor   — RUT, razón social, giro, ambiente, provider, etc.
+ *  1. Datos del Emisor   — RUT, razón social, giro, ambiente, etc.
  *  2. Certificado Digital — upload de .pfx + password (encriptado AES-256-GCM)
  *  3. Folios (CAFs)       — upload de XML CAF + listado + toggle isActive
+ *
+ * Nota: el PROVIDER DTE (ej. SimpleAPI) ya NO se elige por tenant — es una
+ * decisión platform-wide (PlatformDteProvider) gestionada en /platform/dte.
  *
  * Toda la UI usa primitives de @/components/ui (shadcn) y respeta el patrón
  * del DS v3 (tokens semánticos, sin colores hardcoded).
@@ -36,7 +39,6 @@ import { toast } from "sonner";
 // ── Types — todos los Dates llegan ya serializados como ISO string ────────
 
 interface ConfigData {
-  provider: string;
   environment: string;
   isActive: boolean;
   emisorRut: string | null;
@@ -50,6 +52,8 @@ interface ConfigData {
   emisorEmail: string | null;
   resolNumero: number | null;
   resolFecha: string | null;
+  /** Logo del emisor en base64 (PNG/JPG). Se imprime en el PDF del DTE. */
+  logoBase64: string | null;
 }
 
 interface CertData {
@@ -77,7 +81,6 @@ interface CafData {
 }
 
 const DEFAULT_CONFIG: ConfigData = {
-  provider: "SIMPLEAPI",
   environment: "CERTIFICATION",
   isActive: false,
   emisorRut: "",
@@ -91,6 +94,7 @@ const DEFAULT_CONFIG: ConfigData = {
   emisorEmail: "",
   resolNumero: null,
   resolFecha: null,
+  logoBase64: null,
 };
 
 interface Props {
@@ -167,23 +171,6 @@ export function DteConfigClient({
         <Card>
           <CardContent className="p-6 space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label>Proveedor DTE</Label>
-                <Select
-                  value={config.provider}
-                  onValueChange={(v) =>
-                    setConfig((c) => ({ ...c, provider: v }))
-                  }
-                >
-                  <SelectTrigger className="h-10 sm:h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="SIMPLEAPI">SimpleAPI</SelectItem>
-                    <SelectItem value="STUB">Stub (testing)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
               <div className="space-y-1.5">
                 <Label>Ambiente</Label>
                 <Select
@@ -344,6 +331,78 @@ export function DteConfigClient({
               </div>
             </div>
 
+            {/* Logo del emisor — se imprime en el PDF del DTE */}
+            <div className="pt-4 border-t border-ds-border-subtle space-y-3">
+              <div>
+                <Label>Logo del emisor (opcional)</Label>
+                <p className="text-[12px] text-ds-text-3 mt-0.5">
+                  Aparece en la esquina superior izquierda del PDF de la
+                  factura. PNG o JPG, máximo ~600KB. Se almacena en base64 en
+                  la BD del tenant.
+                </p>
+              </div>
+              <div className="flex items-start gap-4">
+                {config.logoBase64 ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={
+                      config.logoBase64.startsWith("data:")
+                        ? config.logoBase64
+                        : `data:image/png;base64,${config.logoBase64}`
+                    }
+                    alt="Logo emisor"
+                    className="h-16 w-auto max-w-[200px] object-contain rounded border border-ds-border-default bg-ds-surface-1 p-1"
+                  />
+                ) : (
+                  <div className="h-16 w-32 flex items-center justify-center text-[12px] text-ds-text-3 rounded border border-dashed border-ds-border-default bg-ds-surface-1">
+                    Sin logo
+                  </div>
+                )}
+                <div className="flex flex-col gap-2">
+                  <Input
+                    type="file"
+                    accept="image/png,image/jpeg,image/jpg"
+                    className="h-10 sm:h-9"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      if (file.size > 600 * 1024) {
+                        toast.error(
+                          `Logo muy grande (${Math.round(file.size / 1024)}KB). Máx 600KB.`,
+                        );
+                        e.target.value = "";
+                        return;
+                      }
+                      const reader = new FileReader();
+                      reader.onload = () => {
+                        const dataUrl = String(reader.result ?? "");
+                        // Guardamos sin el prefijo data:image/...;base64,
+                        // para que SimpleAPI lo procese directo. El prefijo
+                        // lo agregamos solo para el preview de la UI.
+                        const base64 = dataUrl.split(",")[1] ?? dataUrl;
+                        setConfig((c) => ({ ...c, logoBase64: base64 }));
+                        toast.success(`Logo cargado (${Math.round(file.size / 1024)}KB). Recordá Guardar.`);
+                      };
+                      reader.readAsDataURL(file);
+                      e.target.value = "";
+                    }}
+                  />
+                  {config.logoBase64 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        setConfig((c) => ({ ...c, logoBase64: null }))
+                      }
+                    >
+                      <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                      Quitar logo
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+
             <div className="flex items-center gap-3 pt-4 border-t border-ds-border-subtle">
               <Switch
                 checked={config.isActive}
@@ -367,7 +426,7 @@ export function DteConfigClient({
               <Button
                 variant="outline"
                 onClick={testConnection}
-                disabled={testing || config.provider !== "SIMPLEAPI"}
+                disabled={testing}
               >
                 {testing && <Loader2 className="animate-spin h-4 w-4 mr-2" />}
                 Probar conexión

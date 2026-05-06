@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -99,10 +99,61 @@ export function DteForm({ availableTypes, accounts }: Props) {
   const [manualRut, setManualRut] = useState("");
   const [manualName, setManualName] = useState("");
   const [manualEmail, setManualEmail] = useState("");
+  /**
+   * Emails CC adicionales para el envío del PDF/XML del DTE.
+   * El XML SII solo lleva el email primario; estos van como copia.
+   * Se ingresan separados por coma o Enter.
+   */
+  const [ccEmailsRaw, setCcEmailsRaw] = useState("");
+  /**
+   * Sugerencias de contactos desde el CRM cuando el RUT del receptor
+   * matchea un account existente. Permite al usuario agregar emails
+   * con un click sin tener que copiarlos del CRM.
+   */
+  const [crmSuggestions, setCrmSuggestions] = useState<{
+    account: { id: string; name: string; commercialName: string; rut: string; address: string | null; commune: string | null } | null;
+    contacts: { id: string; fullName: string; email: string; roleTitle: string | null; isPrimary: boolean }[];
+  } | null>(null);
+  /**
+   * Referencias adicionales del DTE: OC, HES, Contrato, etc.
+   * Se serializan al bloque <Referencia> del XML SII.
+   */
+  const [additionalRefs, setAdditionalRefs] = useState<
+    { tipoDocRef: string; folioRef: string; fchRef: string; razonRef: string }[]
+  >([]);
   const [notes, setNotes] = useState("");
   const [autoSendEmail, setAutoSendEmail] = useState(false);
   const [lines, setLines] = useState<DteLine[]>([{ ...EMPTY_LINE }]);
   const [saving, setSaving] = useState(false);
+
+  // Trigger fetch a /receiver-suggestions cuando cambia el RUT efectivo.
+  // Debounce 350ms para no spamear al servidor mientras el usuario escribe.
+  const effectiveRutForLookup = (customer?.rut || manualRut).trim();
+  useEffect(() => {
+    if (!effectiveRutForLookup || effectiveRutForLookup.length < 8) {
+      setCrmSuggestions(null);
+      return;
+    }
+    const ctrl = new AbortController();
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `/api/finance/billing/receiver-suggestions?rut=${encodeURIComponent(effectiveRutForLookup)}`,
+          { signal: ctrl.signal },
+        );
+        if (!res.ok) return;
+        const json = await res.json();
+        if (json?.data?.account) setCrmSuggestions(json.data);
+        else setCrmSuggestions(null);
+      } catch {
+        // Silently ignore — no es crítico para emisión.
+      }
+    }, 350);
+    return () => {
+      clearTimeout(t);
+      ctrl.abort();
+    };
+  }, [effectiveRutForLookup]);
 
   const isExenta = dteType === "34";
 
@@ -158,13 +209,44 @@ export function DteForm({ availableTypes, accounts }: Props) {
       return;
     }
 
+    // Parsear emails CC (separador: coma, espacio o newline). Validar
+    // formato y deduplicar contra el primario.
+    const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const ccCandidates = ccEmailsRaw
+      .split(/[\s,;]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const invalidCc = ccCandidates.filter((e) => !EMAIL_RE.test(e));
+    if (invalidCc.length > 0) {
+      toast.error(`Emails CC inválidos: ${invalidCc.join(", ")}`);
+      return;
+    }
+    const ccEmails = Array.from(
+      new Set(ccCandidates.filter((e) => e !== effectiveEmail)),
+    );
+    if (ccEmails.length > 10) {
+      toast.error("Máximo 10 emails CC.");
+      return;
+    }
+
     setSaving(true);
     try {
+      // Validar referencias: cada una debe estar completa o se descarta.
+      const validRefs = additionalRefs.filter(
+        (r) =>
+          r.tipoDocRef.trim() &&
+          r.folioRef.trim() &&
+          r.fchRef &&
+          r.razonRef.trim(),
+      );
+
       const payload = {
         dteType: parseInt(dteType),
         receiverRut: effectiveRut,
         receiverName: effectiveName,
         receiverEmail: effectiveEmail || null,
+        receiverEmailCc: ccEmails.length > 0 ? ccEmails : undefined,
+        additionalReferences: validRefs.length > 0 ? validRefs : undefined,
         notes: notes.trim() || null,
         autoSendEmail,
         lines: validLines.map((l) => ({
@@ -305,6 +387,83 @@ export function DteForm({ availableTypes, accounts }: Props) {
                 else if (field === "name") setManualName(value);
                 else if (field === "email") setManualEmail(value);
               }}
+            />
+          </div>
+
+          {/* Sugerencias de contactos CRM cuando el RUT matchea un account */}
+          {crmSuggestions?.account && crmSuggestions.contacts.length > 0 && (
+            <div className="border-t mt-4 pt-4 space-y-2">
+              <p className="text-[13px] font-medium text-ds-text-1">
+                {crmSuggestions.contacts.length} contacto(s) en CRM para
+                {" "}
+                <span className="font-mono">{crmSuggestions.account.rut}</span>
+              </p>
+              <p className="text-[12px] text-ds-text-3">
+                Click en un contacto para agregarlo a la lista de envío
+                (queda como CC además del email primario).
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {crmSuggestions.contacts.map((c) => {
+                  const ccArr = ccEmailsRaw
+                    .split(/[\s,;]+/)
+                    .map((s) => s.trim())
+                    .filter(Boolean);
+                  const alreadyAdded = ccArr.includes(c.email);
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => {
+                        if (alreadyAdded) {
+                          setCcEmailsRaw(
+                            ccArr.filter((e) => e !== c.email).join(", "),
+                          );
+                        } else {
+                          setCcEmailsRaw(
+                            [...ccArr, c.email].filter(Boolean).join(", "),
+                          );
+                        }
+                      }}
+                      className={
+                        "rounded-full border px-3 py-1 text-[12px] transition-colors " +
+                        (alreadyAdded
+                          ? "border-primary/40 bg-primary/15 text-primary"
+                          : "border-ds-border-default bg-ds-surface-1 text-ds-text-2 hover:bg-ds-surface-2")
+                      }
+                    >
+                      <span className="font-medium">{c.fullName}</span>
+                      {c.roleTitle && (
+                        <span className="text-ds-text-3"> · {c.roleTitle}</span>
+                      )}
+                      <span className="text-ds-text-3"> · {c.email}</span>
+                      {c.isPrimary && (
+                        <span className="ml-1 text-[10px] uppercase tracking-wide text-primary">
+                          principal
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Emails CC adicionales — solo afecta envío externo, no XML SII */}
+          <div className="border-t mt-4 pt-4 space-y-1.5">
+            <Label htmlFor="cc-emails">
+              Emails CC (opcional)
+            </Label>
+            <p className="text-[12px] text-ds-text-3">
+              Copia del PDF/XML a más destinatarios (contador, finanzas,
+              etc). Separá con coma o espacio. El XML del SII solo lleva
+              el email primario del receptor.
+            </p>
+            <Input
+              id="cc-emails"
+              placeholder="contador@cliente.cl, finanzas@cliente.cl"
+              value={ccEmailsRaw}
+              onChange={(e) => setCcEmailsRaw(e.target.value)}
+              className="h-10 sm:h-9"
             />
           </div>
         </CardContent>
@@ -468,6 +627,125 @@ export function DteForm({ availableTypes, accounts }: Props) {
           })}
         </div>
       </div>
+
+      {/* Referencias adicionales (OC, HES, Contrato, etc) */}
+      <Card>
+        <CardContent className="pt-4 space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <h3 className="text-sm font-medium">Referencias (opcional)</h3>
+              <p className="text-[12px] text-ds-text-3 mt-0.5">
+                Asocia este DTE a documentos del cliente: Orden de Compra,
+                HES, Contrato, etc. Se imprimen en el PDF y van al SII.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                setAdditionalRefs((prev) => [
+                  ...prev,
+                  { tipoDocRef: "801", folioRef: "", fchRef: "", razonRef: "" },
+                ])
+              }
+              disabled={additionalRefs.length >= 30}
+            >
+              <Plus className="h-3.5 w-3.5 mr-1" />
+              Agregar referencia
+            </Button>
+          </div>
+
+          {additionalRefs.length === 0 ? (
+            <p className="text-[12px] text-ds-text-4 italic">
+              Sin referencias. Click en &quot;Agregar referencia&quot; para vincular OC, HES, etc.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {additionalRefs.map((ref, i) => (
+                <div
+                  key={i}
+                  className="grid grid-cols-1 md:grid-cols-12 gap-2 items-start p-2 rounded-md bg-ds-surface-2 border border-ds-border-subtle"
+                >
+                  <div className="md:col-span-2">
+                    <Label className="text-[11px] text-ds-text-3">Tipo *</Label>
+                    <Select
+                      value={ref.tipoDocRef}
+                      onValueChange={(v) =>
+                        setAdditionalRefs((prev) =>
+                          prev.map((r, idx) => (idx === i ? { ...r, tipoDocRef: v } : r)),
+                        )
+                      }
+                    >
+                      <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="801">801 — Orden de Compra</SelectItem>
+                        <SelectItem value="802">802 — Nota de Pedido</SelectItem>
+                        <SelectItem value="803">803 — Contrato</SelectItem>
+                        <SelectItem value="804">804 — Resolución</SelectItem>
+                        <SelectItem value="HES">HES — Hoja Entrada Servicios</SelectItem>
+                        <SelectItem value="GD">GD — Guía Despacho manual</SelectItem>
+                        <SelectItem value="52">52 — Guía Despacho electrónica</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="md:col-span-3">
+                    <Label className="text-[11px] text-ds-text-3">Folio / N° *</Label>
+                    <Input
+                      value={ref.folioRef}
+                      onChange={(e) =>
+                        setAdditionalRefs((prev) =>
+                          prev.map((r, idx) => (idx === i ? { ...r, folioRef: e.target.value } : r)),
+                        )
+                      }
+                      placeholder="PO-2026-0001"
+                      className="h-9 text-xs"
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <Label className="text-[11px] text-ds-text-3">Fecha *</Label>
+                    <Input
+                      type="date"
+                      value={ref.fchRef}
+                      onChange={(e) =>
+                        setAdditionalRefs((prev) =>
+                          prev.map((r, idx) => (idx === i ? { ...r, fchRef: e.target.value } : r)),
+                        )
+                      }
+                      className="h-9 text-xs"
+                    />
+                  </div>
+                  <div className="md:col-span-4">
+                    <Label className="text-[11px] text-ds-text-3">Razón / glosa *</Label>
+                    <Input
+                      value={ref.razonRef}
+                      onChange={(e) =>
+                        setAdditionalRefs((prev) =>
+                          prev.map((r, idx) => (idx === i ? { ...r, razonRef: e.target.value } : r)),
+                        )
+                      }
+                      placeholder="Orden de Compra del cliente"
+                      maxLength={90}
+                      className="h-9 text-xs"
+                    />
+                  </div>
+                  <div className="md:col-span-1 flex items-end justify-end h-full">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() =>
+                        setAdditionalRefs((prev) => prev.filter((_, idx) => idx !== i))
+                      }
+                      className="h-9 w-9 p-0"
+                    >
+                      <Trash2 className="h-3.5 w-3.5 text-status-danger-fg" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Totals */}
       <Card>

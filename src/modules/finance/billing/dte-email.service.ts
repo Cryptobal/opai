@@ -19,15 +19,26 @@ export interface SendDteEmailResult {
 export async function sendDteEmail(
   tenantId: string,
   dteId: string,
-  recipientEmail?: string
+  recipientEmail?: string,
+  /** Emails CC adicionales (override de los persistidos en BD). */
+  ccOverride?: string[],
 ): Promise<SendDteEmailResult> {
   const dte = await prisma.financeDte.findFirst({
     where: { id: dteId, tenantId, direction: "ISSUED" },
   });
   if (!dte) return { success: false, error: "DTE no encontrado" };
 
-  const to = recipientEmail ?? dte.receiverEmail;
-  if (!to) return { success: false, error: "Receptor no tiene email" };
+  // Construir lista de destinatarios: primario (obligatorio) + CC.
+  // Resend acepta to: string[] (hasta 50). Nosotros mandamos todo en
+  // `to` para que el receptor vea quién más recibió la copia (es
+  // habitual en facturación: contador, finanzas, gerente, etc).
+  const primary = recipientEmail ?? dte.receiverEmail ?? null;
+  if (!primary) return { success: false, error: "Receptor no tiene email" };
+
+  const ccList = (ccOverride ?? dte.receiverEmailCc ?? []).filter(
+    (e) => typeof e === "string" && e.trim() && e !== primary,
+  );
+  const to: string[] = [primary, ...ccList];
 
   const tenantConfig = await prisma.tenantDteConfig.findUnique({
     where: { tenantId },

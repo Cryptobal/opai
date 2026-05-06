@@ -41,6 +41,28 @@ export type DteIssueRequest = {
     reason: string;
   };
   /**
+   * Referencias adicionales (no-DTE): Orden de Compra, HES, Contrato,
+   * Resolución, etc. Se concatenan al bloque <Referencia> después de
+   * la referencia principal. Hasta 40 refs totales por DTE según SII.
+   *
+   * Códigos típicos TpoDocRef:
+   *   "801" — Orden de Compra
+   *   "802" — Nota de Pedido
+   *   "803" — Contrato
+   *   "804" — Resolución
+   *   "HES" — Hoja Entrada de Servicios (alfanumérico)
+   */
+  additionalReferences?: Array<{
+    /** TpoDocRef: numérico (801, 803...) o alfanumérico ("HES", "GD"). */
+    tipoDocRef: string;
+    /** FolioRef: alfanumérico para refs no-tributarias. */
+    folioRef: string;
+    /** FchRef: fecha del documento referenciado YYYY-MM-DD. */
+    fchRef: string;
+    /** RazonRef: descripción libre. */
+    razonRef: string;
+  }>;
+  /**
    * CAF XML (raw bytes) para providers que firman el DTE localmente
    * (ej. SimpleAPI). Pasado por dte-issuer.service tras reservar folio.
    */
@@ -66,6 +88,13 @@ export type DteIssueResponse = {
   folio?: number;
   pdfUrl?: string;
   xmlUrl?: string;
+  /**
+   * XML completo del DTE firmado y timbrado (devuelto por el provider en
+   * el paso `dte/generar`). El issuer service lo persiste en
+   * `FinanceDte.dteXml` para poder regenerar PDFs sin re-emitir contra
+   * el SII (los endpoints SII no exponen re-descarga de XMLs).
+   */
+  signedXml?: Buffer;
   error?: string;
   rawResponse?: unknown;
 };
@@ -152,25 +181,42 @@ export class StubDteProvider implements DteProviderAdapter {
 /**
  * Factory to get the configured DTE provider for a given tenant.
  *
- * Reads `TenantDteConfig.provider` (per-tenant) and instantiates the right
- * adapter. Tenants without config → fallback to `StubDteProvider`.
+ * El provider IMPLEMENTATION (e.g. SimpleAPI) es una decisión platform-wide
+ * (`PlatformDteProvider`). Cada tenant trae su propio certificado y CAFs
+ * (`TenantDteConfig` + `TenantDteCertificate` + `TenantDteCaf`).
  *
- * NOTE: this function is intentionally async + per-tenant. Callers must:
+ * Reglas:
+ *   - Sin platform provider activo → StubDteProvider (la app NO se rompe).
+ *   - Sin TenantDteConfig → StubDteProvider (tenant aún no configuró DTE).
+ *   - Ambos OK → instancia el provider correspondiente, inyectando apiKey
+ *     y baseUrl resueltos desde el helper (DB → env fallback).
+ *
+ * NOTE: este factory es intencionalmente async + per-tenant. Callers:
  *   const provider = await getDteProvider(tenantId);
  */
 export async function getDteProvider(tenantId: string): Promise<DteProviderAdapter> {
-  const { prisma } = await import("@/lib/prisma");
-  const config = await prisma.tenantDteConfig.findUnique({
-    where: { tenantId },
-  });
-  const provider = config?.provider ?? "STUB";
+  const [{ prisma }, { getActiveDteProviderConfig }] = await Promise.all([
+    import("@/lib/prisma"),
+    import("@/lib/dte/platform-provider-config"),
+  ]);
 
-  switch (provider) {
+  const [tenantConfig, platformConfig] = await Promise.all([
+    prisma.tenantDteConfig.findUnique({ where: { tenantId } }),
+    getActiveDteProviderConfig(),
+  ]);
+
+  if (!tenantConfig || !platformConfig?.isActive) {
+    return new StubDteProvider();
+  }
+
+  switch (platformConfig.providerType) {
     case "SIMPLEAPI": {
       const { SimpleApiProvider } = await import("./simpleapi.provider");
-      return new SimpleApiProvider(tenantId);
+      return new SimpleApiProvider(tenantId, {
+        apiKey: platformConfig.apiKey,
+        baseUrl: platformConfig.baseUrl,
+      });
     }
-    // Future: case "SIMPLEFACTURA": return new SimpleFacturaProvider(tenantId);
     case "STUB":
     default:
       return new StubDteProvider();

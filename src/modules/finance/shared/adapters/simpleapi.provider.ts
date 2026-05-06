@@ -36,6 +36,7 @@ import { decryptBuffer, decryptString } from "@/lib/dte-encryption";
 import {
   callSimpleApi,
   getSimpleApiKeyOrThrow,
+  type SimpleApiAuth,
 } from "./simpleapi-http";
 import type {
   DteProviderAdapter,
@@ -44,6 +45,15 @@ import type {
   DteStatusResponse,
   DteVoidRequest,
 } from "./dte-provider.adapter";
+
+/**
+ * Overrides inyectados por el factory desde PlatformDteProvider.
+ * Si la apiKey o baseUrl viene NULL, el helper HTTP cae en env var.
+ */
+export interface SimpleApiOverrides {
+  apiKey: string | null;
+  baseUrl: string | null;
+}
 
 // ───────────────────────────────────────────────────────────────────
 // Tipos internos del provider
@@ -78,12 +88,10 @@ interface TenantContext {
 const RUT_SII = "60803000-K";
 
 /**
- * Cache en memoria de XMLs generados durante un emit. Se usa para que
- * `getXml()` pueda devolver el XML sin tener que regenerarlo (los endpoints
- * `dte/xml` separados NO existen en SimpleAPI). El cache vive solo durante
- * el ciclo de vida del request — Vercel reutiliza la lambda entre requests
- * pero igual conviene persistir el XML en DB vía `xmlUrl` o un blob storage
- * para acceso cross-request. Por ahora usamos data: URLs como fallback.
+ * Cache en memoria de XMLs generados durante un emit. Se usa como fallback
+ * dentro del mismo request si la persistencia en BD no está disponible.
+ * En el flujo normal el XML se persiste en `FinanceDte.dteXml` durante issue(),
+ * y se lee desde ahí en getPdf()/getXml() — esto da acceso cross-request.
  */
 const xmlMemoryCache = new Map<string, Buffer>(); // key: `${tipo}-${folio}`
 
@@ -92,8 +100,19 @@ const xmlMemoryCache = new Map<string, Buffer>(); // key: `${tipo}-${folio}`
 // ───────────────────────────────────────────────────────────────────
 
 export class SimpleApiProvider implements DteProviderAdapter {
-  constructor(private readonly tenantId: string) {
-    getSimpleApiKeyOrThrow();
+  /** Auth/baseUrl resueltos desde PlatformDteProvider (o env fallback). */
+  private readonly auth: SimpleApiAuth;
+
+  constructor(
+    private readonly tenantId: string,
+    overrides?: SimpleApiOverrides,
+  ) {
+    this.auth = {
+      apiKey: overrides?.apiKey ?? null,
+      baseUrl: overrides?.baseUrl ?? null,
+    };
+    // Validación temprana: revienta si NO hay apiKey ni en platform ni en env.
+    getSimpleApiKeyOrThrow(this.auth);
   }
 
   /**
@@ -255,18 +274,40 @@ export class SimpleApiProvider implements DteProviderAdapter {
       Detalles: detalles,
     };
 
-    // Bloque <Referencia> obligatorio para tipo 56 (ND) y 61 (NC).
+    // Bloque <Referencia>:
+    //   1. Referencia principal (obligatoria para 56/61, opcional otras)
+    //   2. Referencias adicionales (OC, HES, Contrato, etc.)
+    // SimpleAPI usa nombres distintos en JSON vs los usados en XML:
+    //   - "TipoDocumento" → <TpoDocRef>
+    //   - "FolioReferencia" → <FolioRef>
+    //   - "FechaDocumentoReferenciaString" → <FchRef>
+    //   - "CodigoReferencia" → <CodRef>
+    //   - "RazonReferencia" → <RazonRef>
+    const refs: Array<Record<string, unknown>> = [];
     if (request.reference) {
-      documento.Referencias = [
-        {
-          Numero: 1,
-          TipoDocumento: String(request.reference.dteType),
-          Folio: String(request.reference.folio),
-          FechaReferenciaString: request.reference.date,
-          CodigoReferencia: request.reference.code,
-          RazonReferencia: request.reference.reason,
-        },
-      ];
+      refs.push({
+        Numero: refs.length + 1,
+        TipoDocumento: String(request.reference.dteType),
+        FolioReferencia: String(request.reference.folio),
+        FechaDocumentoReferenciaString: request.reference.date,
+        CodigoReferencia: request.reference.code,
+        RazonReferencia: request.reference.reason,
+      });
+    }
+    if (request.additionalReferences && request.additionalReferences.length > 0) {
+      for (const r of request.additionalReferences) {
+        if (refs.length >= 40) break; // tope SII
+        refs.push({
+          Numero: refs.length + 1,
+          TipoDocumento: r.tipoDocRef,
+          FolioReferencia: r.folioRef,
+          FechaDocumentoReferenciaString: r.fchRef,
+          RazonReferencia: r.razonRef,
+        });
+      }
+    }
+    if (refs.length > 0) {
+      documento.Referencias = refs;
     }
 
     return {
@@ -295,6 +336,7 @@ export class SimpleApiProvider implements DteProviderAdapter {
     const payload = this.buildDtePayload(request, ctx);
 
     const result = await callSimpleApi({
+      auth: this.auth,
       target: "api",
       path: "dte/generar",
       method: "POST",
@@ -365,6 +407,7 @@ export class SimpleApiProvider implements DteProviderAdapter {
     const payload = this.buildSobrePayload(request, ctx);
 
     const result = await callSimpleApi({
+      auth: this.auth,
       target: "api",
       path: "envio/generar",
       method: "POST",
@@ -417,6 +460,7 @@ export class SimpleApiProvider implements DteProviderAdapter {
     };
 
     const result = await callSimpleApi({
+      auth: this.auth,
       target: "api",
       path: "envio/enviar",
       method: "POST",
@@ -511,6 +555,10 @@ export class SimpleApiProvider implements DteProviderAdapter {
       folio: request.folio,
       pdfUrl: undefined,
       xmlUrl: undefined,
+      // Exponemos el XML firmado para que el issuer lo persista en BD.
+      // Con eso, getPdf()/getXml() pueden servir el documento cross-request
+      // sin re-emitir contra el SII.
+      signedXml: dteResult.xml,
       rawResponse: { dteXmlBytes: dteResult.xml.length },
     };
   }
@@ -544,6 +592,7 @@ export class SimpleApiProvider implements DteProviderAdapter {
 
     try {
       const result = await callSimpleApi({
+        auth: this.auth,
         target: "api",
         path: "consulta/envio",
         method: "POST",
@@ -600,37 +649,107 @@ export class SimpleApiProvider implements DteProviderAdapter {
   }
 
   // ─────────────────────────────────────────────
-  // getXml — retorna el XML del DTE generado en issue()
+  // getXml — retorna el XML firmado del DTE
   // ─────────────────────────────────────────────
 
+  /**
+   * Estrategia: primero buscar en BD (FinanceDte.dteXml), luego en cache
+   * de memoria (mismo request), por último error claro.
+   * SimpleAPI no expone endpoint para re-descargar XMLs históricos del SII.
+   */
   async getXml(dteType: number, folio: number): Promise<Buffer> {
-    const key = `${dteType}-${folio}`;
-    const cached = xmlMemoryCache.get(key);
+    const dte = await prisma.financeDte.findFirst({
+      where: { tenantId: this.tenantId, direction: "ISSUED", dteType, folio },
+      select: { dteXml: true },
+    });
+    if (dte?.dteXml && dte.dteXml.length > 0) {
+      return Buffer.from(dte.dteXml);
+    }
+
+    const cached = xmlMemoryCache.get(`${dteType}-${folio}`);
     if (cached) return cached;
 
-    // Si no está en cache (lambda nueva o cleanup), informamos que el XML
-    // debería estar persistido en blob storage. Por ahora retornamos un
-    // mensaje stub indicando la limitación.
     throw new Error(
-      `XML del DTE ${dteType}-${folio} no está en cache de memoria del provider. ` +
-        `SimpleAPI no expone endpoints para re-descargar XMLs ya emitidos. ` +
-        `TODO: persistir el XML en R2/Blob storage al emitir.`,
+      `XML del DTE ${dteType}-${folio} no está disponible. Solo se puede acceder al XML de DTEs emitidos por OPAI tras el refactor del provider; DTEs históricos no tienen el XML persistido y SimpleAPI no expone re-descarga.`,
     );
   }
 
   // ─────────────────────────────────────────────
-  // getPdf — generación de PDF a partir del XML
+  // getPdf — genera PDF impreso del DTE vía SimpleAPI
   // ─────────────────────────────────────────────
 
+  /**
+   * Llama al endpoint `impresion/pdf/carta/v2` de SimpleAPI con el XML
+   * del DTE + datos extra (resolución SII, logo del emisor). Devuelve el
+   * PDF como Buffer listo para descargar.
+   */
   async getPdf(dteType: number, folio: number): Promise<Buffer> {
-    // SimpleAPI no expone un endpoint `dte/pdf` directo. Para generar el
-    // PDF hay que: (1) reconstruir el XML, (2) llamar a `pdf/generar` con
-    // el XML como input. Eso lo dejamos para una sesión futura — por ahora
-    // tiramos error claro para que el caller lo maneje.
-    throw new Error(
-      `Generación de PDF para DTE ${dteType}-${folio} no implementada todavía. ` +
-        `SimpleAPI requiere un flujo separado pdf/generar que aún no está cableado en OPAI.`,
-    );
+    // 1. Recuperar XML del DTE (de BD o cache).
+    const dteXml = await this.getXml(dteType, folio);
+
+    // 2. Cargar config del tenant para resolución y logo.
+    const ctx = await this.loadTenantContext();
+    const numeroResolucion = ctx.config.resolNumero ?? 80;
+    const fechaResolucion = (ctx.config.resolFecha ?? new Date("2014-08-22T00:00:00Z"))
+      .toISOString()
+      .split("T")[0];
+
+    // Logo del tenant (si está cargado en TenantDteConfig.logoBase64).
+    const logoBase64 = await prisma.tenantDteConfig
+      .findUnique({
+        where: { tenantId: this.tenantId },
+        select: { logoBase64: true },
+      })
+      .then((c) => c?.logoBase64 ?? "");
+
+    // 3. Llamar al endpoint impresion/pdf/carta/v2
+    const pdfInput: Record<string, unknown> = {
+      NumeroResolucion: numeroResolucion,
+      FechaResolucion: fechaResolucion,
+      LogoBase64: logoBase64,
+      TimbreBase64: "", // SimpleAPI lo genera si está vacío
+    };
+
+    const result = await callSimpleApi({
+      auth: this.auth,
+      target: "api",
+      path: "impresion/pdf/carta/v2",
+      method: "POST",
+      parts: [
+        { name: "input", content: JSON.stringify(pdfInput) },
+        {
+          name: "file",
+          content: dteXml,
+          contentType: "application/xml",
+          filename: `dte_${dteType}_${folio}.xml`,
+        },
+      ],
+    });
+
+    if (!result.ok) {
+      throw new Error(
+        `impresion/pdf HTTP ${result.status}: ${result.bodyText.slice(0, 500)}`,
+      );
+    }
+
+    // El response es el PDF binario directo. Usamos bodyBuffer para evitar
+    // corromper bytes con la decodificación a string.
+    const pdfBuffer = result.bodyBuffer;
+
+    // Verificación: PDF válido empieza con magic bytes %PDF (25 50 44 46).
+    if (
+      pdfBuffer.length < 4 ||
+      pdfBuffer[0] !== 0x25 ||
+      pdfBuffer[1] !== 0x50 ||
+      pdfBuffer[2] !== 0x44 ||
+      pdfBuffer[3] !== 0x46
+    ) {
+      throw new Error(
+        `Respuesta de impresion/pdf no parece un PDF válido (magic bytes: ${pdfBuffer.slice(0, 4).toString("hex")}). Body inicial: ${result.bodyText.slice(0, 200)}`,
+      );
+    }
+
+    return pdfBuffer;
   }
 }
 

@@ -1,9 +1,11 @@
 /**
  * GET / PUT /api/finance/config/dte-provider
  *
- * GET: devuelve TenantDteConfig + metadata del certificado (sin material sensible)
- *      + flag de si SIMPLEAPI_KEY está configurada en el servidor.
- * PUT: upsert de TenantDteConfig (datos del emisor, ambiente, provider, etc.).
+ * GET: devuelve TenantDteConfig + metadata del certificado (sin material
+ *      sensible) + flag de si la apiKey del platform DTE provider está
+ *      configurada (vía PlatformDteProvider o SIMPLEAPI_KEY env fallback).
+ * PUT: upsert de TenantDteConfig (datos del emisor, ambiente, etc.).
+ *      El provider DTE NO es un campo del tenant — se maneja en /platform/dte.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -16,9 +18,11 @@ import {
 } from "@/lib/api-auth";
 import { canView, hasCapability } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
+import { getActiveDteProviderConfig } from "@/lib/dte/platform-provider-config";
 
 const updateConfigSchema = z.object({
-  provider: z.enum(["SIMPLEAPI", "SIMPLEFACTURA", "STUB"]).optional(),
+  // Nota: `provider` se eliminó del schema. La elección del provider DTE es
+  // platform-wide (PlatformDteProvider) — ver /platform/dte.
   environment: z.enum(["CERTIFICATION", "PRODUCTION"]).optional(),
   isActive: z.boolean().optional(),
   emisorRut: z.string().regex(/^\d{1,8}-[\dKk]$/, "RUT inválido").optional(),
@@ -32,6 +36,16 @@ const updateConfigSchema = z.object({
   emisorEmail: z.string().email().optional(),
   resolNumero: z.number().int().nullable().optional(),
   resolFecha: z.string().nullable().optional(),
+  // Logo del emisor en base64 (PNG/JPG) para el PDF del DTE.
+  // Se acepta tanto data URL ("data:image/png;base64,...") como base64
+  // crudo. El frontend puede mandar cualquiera de los dos formatos.
+  // Tope de 800KB en base64 (~600KB binario) para no inflar TenantDteConfig
+  // ni los PDFs generados.
+  logoBase64: z
+    .string()
+    .max(800 * 1024, "Logo demasiado grande (máx 800KB en base64)")
+    .nullable()
+    .optional(),
 });
 
 export async function GET() {
@@ -63,12 +77,24 @@ export async function GET() {
     },
   });
 
+  // Hoy el provider es platform-wide (PlatformDteProvider). El flag indica
+  // si la apiKey está disponible (DB o env fallback) para que la UI tenant
+  // muestre warning si todavía no hay nada configurado a nivel platform.
+  const platformConfig = await getActiveDteProviderConfig();
+
   return NextResponse.json({
     success: true,
     data: {
       config: config ?? null,
       certificate: cert ?? null,
-      apiKeyConfigured: !!process.env.SIMPLEAPI_KEY,
+      apiKeyConfigured: !!platformConfig?.apiKey,
+      platformProvider: platformConfig
+        ? {
+            providerType: platformConfig.providerType,
+            displayName: platformConfig.displayName,
+            isActive: platformConfig.isActive,
+          }
+        : null,
     },
   });
 }
