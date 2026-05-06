@@ -45,6 +45,12 @@ import {
   BookOpen,
   FileEdit,
 } from "lucide-react";
+import { CederDteDialog } from "./factoring/CederDteDialog";
+import { PdfPreviewDialog } from "./PdfPreviewDialog";
+import { DteActionsMenu } from "./DteActionsMenu";
+import { FoliosKpiCards } from "./FoliosKpiCards";
+import { FoliosDetailTable } from "./FoliosDetailTable";
+import { DteAgingBadge } from "./DteAgingBadge";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { PaginationControls } from "./PaginationControls";
@@ -83,12 +89,34 @@ interface DteRow {
   installationId?: string | null;
   crmAccount?: { id: string; name: string; legalName: string | null } | null;
   installation?: { id: string; name: string; commune: string | null } | null;
+  /** Factoring: indica si el DTE puede ser cedido (33/34/43/46 + ACCEPTED + XML + sin cesión activa). */
+  canBeCeded?: boolean;
+  /** Cesión activa asociada al DTE (si existe). */
+  activeCession?: { id: string; code: string; status: string } | null;
+  /** Fecha tributaria del DTE (para aging y filtros). */
+  date?: string;
+  /** Vencimiento (opcional). */
+  dueDate?: string | null;
+  /** Estado de pago (UNPAID / PARTIAL / PAID / OVERDUE / WRITTEN_OFF). */
+  paymentStatus?: string | null;
 }
 
 interface FolioStatus {
   dteType: number;
-  lastFolio: number;
+  cafId: string | null;
+  folioDesde: number | null;
+  folioHasta: number | null;
   nextFolio: number;
+  consumidos: number;
+  disponibles: number;
+  totalCAF: number;
+  porcentajeUsado: number;
+  lowStock: boolean;
+  cafExpiraEn: string | null;
+  ultimoFolio: number;
+  totalEmitidos: number;
+  // Aliases legacy
+  lastFolio: number;
   totalIssued: number;
 }
 
@@ -141,7 +169,8 @@ interface Props {
   issuedTotal?: number;
   canManage: boolean;
   suppliers?: SupplierOption[];
-  kpis: FacturacionKpis;
+  /** KPIs calculados en SSR para el mes actual — sirven de hidratación inicial. */
+  initialKpis: FacturacionKpis;
 }
 
 /* ── Constants ── */
@@ -261,7 +290,7 @@ export function FacturacionClient({
   issuedTotal,
   canManage,
   suppliers = [],
-  kpis,
+  initialKpis,
 }: Props) {
   // Tab inicial: ?tab=borradores en URL para abrir directo en borradores
   // (lo usa el "Guardar como borrador" del DteForm tras crear).
@@ -274,12 +303,55 @@ export function FacturacionClient({
     return "dtes";
   })();
   const [activeTab, setActiveTab] = useState<TabId>(initialTab);
+  // Filtro de período compartido entre KPIs, TrendChart y DtesTab.
+  // "ALL" = últimos 12 meses agregados; "YYYY-MM" = mes específico.
+  // Default "ALL" coincide con el comportamiento previo de la tabla.
+  const [periodoFilter, setPeriodoFilter] = useState("ALL");
+  // KPIs como state: SSR provee hidratación para el mes actual; el cliente
+  // refetchea al endpoint /api/finance/billing/kpis cuando cambia el período.
+  const [kpis, setKpis] = useState<FacturacionKpis>(initialKpis);
+  const [kpisLoading, setKpisLoading] = useState(false);
+  // Skip el primer fetch si el filtro coincide con el default del SSR (mes
+  // actual). Cuando el usuario cambia a otro período, refetch.
+  const [hasFetchedKpis, setHasFetchedKpis] = useState(false);
+
+  useEffect(() => {
+    // El SSR calcula el mes actual; "ALL" agrega últimos 12 meses, así que
+    // SIEMPRE difiere del SSR y requiere fetch. Aplicamos fetch en cada
+    // cambio.
+    const ctrl = new AbortController();
+    setKpisLoading(true);
+    (async () => {
+      try {
+        const params = new URLSearchParams();
+        params.set("periodo", periodoFilter);
+        const res = await fetch(
+          `/api/finance/billing/kpis?${params.toString()}`,
+          { signal: ctrl.signal },
+        );
+        if (!res.ok) throw new Error();
+        const json = await res.json();
+        if (json?.success && json.data) {
+          setKpis(json.data as FacturacionKpis);
+        }
+      } catch (err) {
+        if ((err as Error).name !== "AbortError") {
+          // Silencioso: mantenemos los KPIs previos en pantalla.
+          console.error("[FacturacionClient] KPIs refetch failed:", err);
+        }
+      } finally {
+        setKpisLoading(false);
+        setHasFetchedKpis(true);
+      }
+    })();
+    return () => ctrl.abort();
+  }, [periodoFilter]);
 
   return (
     <div className="space-y-4">
       {/* Dashboard widgets */}
-      <KPIRow kpis={kpis} />
-      <TrendChart />
+      <KPIRow kpis={kpis} loading={kpisLoading && !hasFetchedKpis} />
+      <TrendChart periodo={periodoFilter} />
 
       {/* Tab navigation */}
       <nav className="-mx-4 px-4 sm:mx-0 sm:px-0">
@@ -312,6 +384,8 @@ export function FacturacionClient({
           dtes={dtes}
           issuedTotal={issuedTotal ?? dtes.length}
           canManage={canManage}
+          periodoFilter={periodoFilter}
+          onPeriodoFilterChange={setPeriodoFilter}
         />
       )}
       {activeTab === "recibidos" && <RecibidosTab suppliers={suppliers} canManage={canManage} />}
@@ -329,17 +403,25 @@ function DtesTab({
   dtes: initialDtes,
   issuedTotal,
   canManage,
+  periodoFilter,
+  onPeriodoFilterChange,
 }: {
   dtes: DteRow[];
   issuedTotal: number;
   canManage: boolean;
+  /** Filtro de período compartido (KPIs + TrendChart + tabla). */
+  periodoFilter: string;
+  onPeriodoFilterChange: (v: string) => void;
 }) {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState("ALL");
-  /** Filtro por período "YYYY-MM" o "ALL". Default ALL = sin filtro. */
-  const [periodoFilter, setPeriodoFilter] = useState("ALL");
+  /** Filtro por centro de costo: "ALL" | "NONE" | uuid de cuenta. */
+  const [accountFilter, setAccountFilter] = useState("ALL");
+  const [accountOptions, setAccountOptions] = useState<
+    { id: string; name: string; legalName: string | null }[]
+  >([]);
   const periodOptions = useMemo(() => buildPeriodOptions(36), []);
   const [voiding, setVoiding] = useState<string | null>(null);
   const [sendingEmail, setSendingEmail] = useState<string | null>(null);
@@ -350,6 +432,10 @@ function DtesTab({
   } | null>(null);
   /** Modal de detalle de DTE emitido. */
   const [detailDteId, setDetailDteId] = useState<string | null>(null);
+  /** Modal de cesión a factoring desde la fila. */
+  const [cedeModalDteId, setCedeModalDteId] = useState<string | null>(null);
+  /** Modal de vista previa PDF. */
+  const [previewDteId, setPreviewDteId] = useState<string | null>(null);
   // Paginación server-side. La SC pre-carga la primera página (50);
   // si el usuario cambia page o pageSize, refetch al endpoint paginado.
   const [page, setPage] = useState(1);
@@ -365,12 +451,33 @@ function DtesTab({
     return () => clearTimeout(t);
   }, [search]);
 
+  // Cargar lista de cuentas CRM con DTEs emitidos para el selector de filtro.
   useEffect(() => {
-    // Si NO hay filtros (paginación default + sin búsqueda), usar SSR data.
+    let cancelled = false;
+    fetch("/api/finance/billing/accounts-with-dtes")
+      .then((r) => r.json())
+      .then((body) => {
+        if (cancelled) return;
+        if (body.success && Array.isArray(body.data)) {
+          setAccountOptions(body.data);
+        }
+      })
+      .catch(() => {
+        // silencioso: el filtro queda con sólo Todos / Sin asignar
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    // Si NO hay filtros (paginación default + sin búsqueda + sin cuenta),
+    // usar SSR data para evitar un request innecesario.
     if (
       page === 1 &&
       pageSize === 50 &&
       periodoFilter === "ALL" &&
+      accountFilter === "ALL" &&
       debouncedSearch === ""
     ) {
       setDtes(initialDtes);
@@ -386,6 +493,7 @@ function DtesTab({
         params.set("pageSize", String(pageSize));
         if (periodoFilter !== "ALL") params.set("periodo", periodoFilter);
         if (debouncedSearch) params.set("search", debouncedSearch);
+        if (accountFilter !== "ALL") params.set("accountId", accountFilter);
         const res = await fetch(`/api/finance/billing/issued?${params.toString()}`, {
           signal: ctrl.signal,
         });
@@ -410,6 +518,22 @@ function DtesTab({
               emailStatus: (d.emailStatus as string | null) ?? null,
               referenceType: (d.referenceType as number | null) ?? null,
               referenceFolio: (d.referenceFolio as number | null) ?? null,
+              hasXml: Boolean(d.hasXml),
+              crmAccountId: (d.crmAccountId as string | null) ?? null,
+              installationId: (d.installationId as string | null) ?? null,
+              crmAccount: (d.crmAccount as
+                | { id: string; name: string; legalName: string | null }
+                | null) ?? null,
+              installation: (d.installation as
+                | { id: string; name: string; commune: string | null }
+                | null) ?? null,
+              canBeCeded: Boolean(d.canBeCeded),
+              activeCession: (d.activeCession as
+                | { id: string; code: string; status: string }
+                | null) ?? null,
+              date: typeof d.date === "string" ? d.date : String(d.date ?? ""),
+              dueDate: (d.dueDate as string | null) ?? null,
+              paymentStatus: (d.paymentStatus as string | null) ?? null,
             }))
           : [];
         setDtes(list);
@@ -425,9 +549,9 @@ function DtesTab({
       }
     })();
     return () => ctrl.abort();
-  }, [page, pageSize, periodoFilter, debouncedSearch, initialDtes, issuedTotal]);
+  }, [page, pageSize, periodoFilter, accountFilter, debouncedSearch, initialDtes, issuedTotal]);
 
-  // Reset page=1 cuando cambia el período o la búsqueda.
+  // Reset page=1 cuando cambia el período, la búsqueda o el centro de costo.
   useEffect(() => {
     setPage(1);
   }, [debouncedSearch]);
@@ -435,6 +559,10 @@ function DtesTab({
   useEffect(() => {
     setPage(1);
   }, [periodoFilter]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [accountFilter]);
 
   const filtered = useMemo(() => {
     // Búsqueda por nombre/RUT/folio se hace server-side (ver useEffect arriba).
@@ -550,60 +678,77 @@ function DtesTab({
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2 flex-1 min-w-0 flex-wrap">
-          <div className="relative flex-1 max-w-sm min-w-0">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por nombre, RUT o folio..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 h-9"
-            />
-          </div>
-          <Select value={typeFilter} onValueChange={setTypeFilter}>
-            <SelectTrigger className="w-full sm:w-40 h-9">
-              <SelectValue placeholder="Tipo" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">Todos los tipos</SelectItem>
-              {Object.entries(DTE_TYPE_LABELS).map(([k, v]) => (
-                <SelectItem key={k} value={k}>{v}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full sm:w-36 h-9">
-              <SelectValue placeholder="Estado" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">Todos</SelectItem>
-              {Object.entries(SII_STATUS_CONFIG).map(([k, v]) => (
-                <SelectItem key={k} value={k}>{v.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={periodoFilter} onValueChange={setPeriodoFilter}>
-            <SelectTrigger className="w-full sm:w-44 h-9">
-              <SelectValue placeholder="Período" />
-            </SelectTrigger>
-            <SelectContent className="max-h-[400px]">
-              <SelectItem value="ALL">Todos los períodos</SelectItem>
-              {periodOptions.map((p) => (
-                <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+    <div className="space-y-3">
+      {/* Barra de búsqueda fuzzy global, prominente */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative flex-1 min-w-0">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por folio, RUT, cliente o monto…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-10 h-10"
+          />
         </div>
         {canManage && (
           <Link href="/finanzas/facturacion/emitir">
-            <Button size="sm">
+            <Button size="sm" className="h-10">
               <Plus className="h-4 w-4 mr-1.5" />
               Emitir DTE
             </Button>
           </Link>
         )}
+      </div>
+
+      {/* Toolbar secundaria con filtros granulares */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Select value={typeFilter} onValueChange={setTypeFilter}>
+          <SelectTrigger className="w-full sm:w-40 h-9">
+            <SelectValue placeholder="Tipo" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ALL">Todos los tipos</SelectItem>
+            {Object.entries(DTE_TYPE_LABELS).map(([k, v]) => (
+              <SelectItem key={k} value={k}>{v}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-full sm:w-36 h-9">
+            <SelectValue placeholder="Estado" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ALL">Todos</SelectItem>
+            {Object.entries(SII_STATUS_CONFIG).map(([k, v]) => (
+              <SelectItem key={k} value={k}>{v.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={periodoFilter} onValueChange={onPeriodoFilterChange}>
+          <SelectTrigger className="w-full sm:w-44 h-9">
+            <SelectValue placeholder="Período" />
+          </SelectTrigger>
+          <SelectContent className="max-h-[400px]">
+            <SelectItem value="ALL">Todos los períodos</SelectItem>
+            {periodOptions.map((p) => (
+              <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={accountFilter} onValueChange={setAccountFilter}>
+          <SelectTrigger className="w-full sm:w-56 h-9">
+            <SelectValue placeholder="Centro de costo" />
+          </SelectTrigger>
+          <SelectContent className="max-h-[400px]">
+            <SelectItem value="ALL">Todos los centros</SelectItem>
+            <SelectItem value="NONE">Sin asignar</SelectItem>
+            {accountOptions.map((a) => (
+              <SelectItem key={a.id} value={a.id}>
+                {a.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <p className="text-xs text-muted-foreground">{filtered.length} documento(s)</p>
@@ -690,9 +835,19 @@ function DtesTab({
                   cell: (row) => {
                     const stCfg = SII_STATUS_CONFIG[row.siiStatus] ?? { label: row.siiStatus, className: "bg-muted" };
                     return (
-                      <Badge variant="outline" className={cn("text-xs", stCfg.className)}>
-                        {stCfg.label}
-                      </Badge>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <Badge variant="outline" className={cn("text-xs", stCfg.className)}>
+                          {stCfg.label}
+                        </Badge>
+                        {row.date && (
+                          <DteAgingBadge
+                            date={row.date}
+                            dueDate={row.dueDate}
+                            paymentStatus={row.paymentStatus}
+                            siiStatus={row.siiStatus}
+                          />
+                        )}
+                      </div>
                     );
                   },
                 },
@@ -756,139 +911,25 @@ function DtesTab({
                 {
                   id: "_actions",
                   header: "",
-                  cell: (row) => {
-                    // Reglas SII para acciones según estado y tipo:
-                    //   - PDF/XML: solo si tenemos el XML guardado (hasXml).
-                    //     Los DTEs importados de CSV/RCV no lo tienen.
-                    //   - Anular: SOLO si el SII aún no aceptó (PENDING/SENT).
-                    //     Una vez ACCEPTED, el SII NO permite anular: hay que
-                    //     emitir una Nota de Crédito (CodRef=1).
-                    //   - NC: aplica a 33 (Factura), 34 (Factura Exenta),
-                    //     39 (Boleta), 41 (Boleta Exenta), 56 (Nota Débito).
-                    //   - ND: SOLO aplica a 61 (Nota de Crédito) — la ND se
-                    //     usa exclusivamente para anular una NC emitida por
-                    //     error. Para corregir/anular facturas se usa NC,
-                    //     no ND.
-                    const canAnular =
-                      row.siiStatus === "PENDING" || row.siiStatus === "SENT";
-                    const canCreditNote =
-                      [33, 34, 39, 41, 56].includes(row.dteType) &&
-                      row.siiStatus !== "ANNULLED";
-                    const canDebitNote =
-                      row.dteType === 61 && row.siiStatus !== "ANNULLED";
-                    const hasXml = row.hasXml !== false; // default true (compat)
-                    return (
-                      <div className="flex items-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => { e.stopPropagation(); setDetailDteId(row.id); }}
-                          title="Ver detalle de la factura"
-                        >
-                          <Eye className="h-3.5 w-3.5" />
-                        </Button>
-                        {hasXml && (
-                          <>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={(e) => { e.stopPropagation(); handleDownloadPdf(row.id, row.folio); }}
-                              title="Descargar PDF"
-                            >
-                              <Download className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={(e) => { e.stopPropagation(); handleDownloadXml(row.id, row.folio); }}
-                              title="Descargar XML"
-                            >
-                              <FileCode className="h-3.5 w-3.5" />
-                            </Button>
-                          </>
-                        )}
-                        {!hasXml && (
-                          <span
-                            className="text-xs text-muted-foreground italic px-1"
-                            title="DTE importado del SII — sin XML local. Solo emisiones desde OPAI tienen XML/PDF descargable."
-                          >
-                            (importado)
-                          </span>
-                        )}
-                        {canManage && row.receiverEmail && hasXml && row.siiStatus !== "ANNULLED" && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => { e.stopPropagation(); handleResendEmail(row.id); }}
-                            disabled={sendingEmail === row.id}
-                            title={row.emailSentAt ? "Reenviar email" : "Enviar email"}
-                          >
-                            {sendingEmail === row.id ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            ) : (
-                              <Mail className="h-3.5 w-3.5" />
-                            )}
-                          </Button>
-                        )}
-                        {canManage && (row.siiStatus === "PENDING" || row.siiStatus === "SENT") && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => { e.stopPropagation(); handleCheckStatus(row.id, row.folio); }}
-                            disabled={checkingStatus === row.id}
-                            title="Consultar estado SII (manual)"
-                          >
-                            {checkingStatus === row.id ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            ) : (
-                              <RefreshCw className="h-3.5 w-3.5" />
-                            )}
-                          </Button>
-                        )}
-                        {canManage && canAnular && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => { e.stopPropagation(); handleVoid(row.id); }}
-                            disabled={voiding === row.id}
-                            title="Anular (solo si aún no fue aceptado por SII)"
-                          >
-                            {voiding === row.id ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            ) : (
-                              <Ban className="h-3.5 w-3.5 text-destructive" />
-                            )}
-                          </Button>
-                        )}
-                        {canManage && canCreditNote && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            title="Emitir Nota de Crédito"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setNoteModal({ dteId: row.id, noteType: "credit" });
-                            }}
-                          >
-                            <FileMinus className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
-                        {canManage && canDebitNote && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            title="Emitir Nota de Débito"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setNoteModal({ dteId: row.id, noteType: "debit" });
-                            }}
-                          >
-                            <FilePlus className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
-                      </div>
-                    );
-                  },
+                  cell: (row) => (
+                    <DteActionsMenu
+                      row={row}
+                      canManage={canManage}
+                      sendingEmail={sendingEmail}
+                      checkingStatus={checkingStatus}
+                      voiding={voiding}
+                      onViewDetail={() => setDetailDteId(row.id)}
+                      onPreviewPdf={() => setPreviewDteId(row.id)}
+                      onDownloadPdf={() => handleDownloadPdf(row.id, row.folio)}
+                      onDownloadXml={() => handleDownloadXml(row.id, row.folio)}
+                      onResendEmail={() => handleResendEmail(row.id)}
+                      onCheckStatus={() => handleCheckStatus(row.id, row.folio)}
+                      onVoid={() => handleVoid(row.id)}
+                      onCede={() => setCedeModalDteId(row.id)}
+                      onCreditNote={() => setNoteModal({ dteId: row.id, noteType: "credit" })}
+                      onDebitNote={() => setNoteModal({ dteId: row.id, noteType: "debit" })}
+                    />
+                  ),
                 },
               ] satisfies DataTableColumn<DteRow>[]}
               rows={filtered}
@@ -921,6 +962,14 @@ function DtesTab({
                           <Badge variant="outline" className={cn("text-xs", stCfg.className)}>
                             {stCfg.label}
                           </Badge>
+                          {d.date && (
+                            <DteAgingBadge
+                              date={d.date}
+                              dueDate={d.dueDate}
+                              paymentStatus={d.paymentStatus}
+                              siiStatus={d.siiStatus}
+                            />
+                          )}
                         </div>
                         {d.referenceFolio != null && d.referenceType != null && (
                           <p className="text-[12px] text-ds-text-3 font-mono mb-1">
@@ -950,108 +999,43 @@ function DtesTab({
                         )}
                       </div>
                     )}
-                    {(() => {
-                      // Mismas reglas que en desktop, ver comentario arriba.
-                      const canAnular = d.siiStatus === "PENDING" || d.siiStatus === "SENT";
-                      const canCreditNote = [33, 34, 39, 41, 56].includes(d.dteType) && d.siiStatus !== "ANNULLED";
-                      // ND SOLO aplica a NC (regla SII): se usa para anular
-                      // una NC emitida por error. NO va a facturas.
-                      const canDebitNote = d.dteType === 61 && d.siiStatus !== "ANNULLED";
-                      const hasXml = d.hasXml !== false;
-                      return (
-                        <div
-                          className="flex gap-1 mt-3 pt-3 border-t border-border flex-wrap"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {hasXml ? (
-                            <>
-                              <Button variant="ghost" size="sm" onClick={() => handleDownloadPdf(d.id, d.folio)}>
-                                <Download className="h-3.5 w-3.5 mr-1" />
-                                PDF
-                              </Button>
-                              <Button variant="ghost" size="sm" onClick={() => handleDownloadXml(d.id, d.folio)}>
-                                <FileCode className="h-3.5 w-3.5 mr-1" />
-                                XML
-                              </Button>
-                            </>
-                          ) : (
-                            <span className="text-xs text-muted-foreground italic px-2 py-1.5">
-                              Importado del SII (sin XML local)
-                            </span>
-                          )}
-                          {canManage && d.receiverEmail && hasXml && d.siiStatus !== "ANNULLED" && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleResendEmail(d.id)}
-                              disabled={sendingEmail === d.id}
-                            >
-                              {sendingEmail === d.id ? (
-                                <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
-                              ) : (
-                                <Mail className="h-3.5 w-3.5 mr-1" />
-                              )}
-                              {d.emailSentAt ? "Reenviar" : "Email"}
-                            </Button>
-                          )}
-                          {canManage && (d.siiStatus === "PENDING" || d.siiStatus === "SENT") && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleCheckStatus(d.id, d.folio)}
-                              disabled={checkingStatus === d.id}
-                            >
-                              {checkingStatus === d.id ? (
-                                <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
-                              ) : (
-                                <RefreshCw className="h-3.5 w-3.5 mr-1" />
-                              )}
-                              Estado SII
-                            </Button>
-                          )}
-                          {canManage && canAnular && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleVoid(d.id)}
-                              disabled={voiding === d.id}
-                              title="Anular (solo si SII no aceptó aún)"
-                            >
-                              {voiding === d.id ? (
-                                <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
-                              ) : (
-                                <Ban className="h-3.5 w-3.5 mr-1 text-destructive" />
-                              )}
-                              Anular
-                            </Button>
-                          )}
-                          {canManage && canCreditNote && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() =>
-                                setNoteModal({ dteId: d.id, noteType: "credit" })
-                              }
-                            >
-                              <FileMinus className="h-3.5 w-3.5 mr-1" />
-                              NC
-                            </Button>
-                          )}
-                          {canManage && canDebitNote && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() =>
-                                setNoteModal({ dteId: d.id, noteType: "debit" })
-                              }
-                            >
-                              <FilePlus className="h-3.5 w-3.5 mr-1" />
-                              ND
-                            </Button>
-                          )}
-                        </div>
-                      );
-                    })()}
+                    <div
+                      className="flex gap-1 mt-3 pt-3 border-t border-border"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setDetailDteId(d.id)}
+                        className="flex-1 justify-center"
+                      >
+                        <Eye className="h-3.5 w-3.5 mr-1.5" />
+                        Detalle
+                      </Button>
+                      <DteActionsMenu
+                        row={d}
+                        canManage={canManage}
+                        sendingEmail={sendingEmail}
+                        checkingStatus={checkingStatus}
+                        voiding={voiding}
+                        onViewDetail={() => setDetailDteId(d.id)}
+                        onPreviewPdf={() => setPreviewDteId(d.id)}
+                        onDownloadPdf={() => handleDownloadPdf(d.id, d.folio)}
+                        onDownloadXml={() => handleDownloadXml(d.id, d.folio)}
+                        onResendEmail={() => handleResendEmail(d.id)}
+                        onCheckStatus={() => handleCheckStatus(d.id, d.folio)}
+                        onVoid={() => handleVoid(d.id)}
+                        onCede={() => setCedeModalDteId(d.id)}
+                        onCreditNote={() =>
+                          setNoteModal({ dteId: d.id, noteType: "credit" })
+                        }
+                        onDebitNote={() =>
+                          setNoteModal({ dteId: d.id, noteType: "debit" })
+                        }
+                        triggerVariant="ghost"
+                        hideViewDetail
+                      />
+                    </div>
                   </CardContent>
                 </Card>
               );
@@ -1089,6 +1073,41 @@ function DtesTab({
         onEmitCreditNote={(id) => setNoteModal({ dteId: id, noteType: "credit" })}
         onEmitDebitNote={(id) => setNoteModal({ dteId: id, noteType: "debit" })}
       />
+
+      {/* Modal de cesión a factoring desde la fila */}
+      {(() => {
+        const cedeDte = dtes.find((d) => d.id === cedeModalDteId);
+        if (!cedeDte) return null;
+        return (
+          <CederDteDialog
+            open={cedeModalDteId !== null}
+            onOpenChange={(o) => !o && setCedeModalDteId(null)}
+            dte={{
+              id: cedeDte.id,
+              dteType: cedeDte.dteType,
+              folio: cedeDte.folio,
+              receiverName: cedeDte.receiverName,
+              totalAmount: cedeDte.totalAmount,
+            }}
+          />
+        );
+      })()}
+
+      {/* Modal de vista previa PDF */}
+      {(() => {
+        const previewDte = dtes.find((d) => d.id === previewDteId);
+        if (!previewDte) return null;
+        return (
+          <PdfPreviewDialog
+            open={previewDteId !== null}
+            onOpenChange={(o) => !o && setPreviewDteId(null)}
+            dteId={previewDte.id}
+            folio={previewDte.folio}
+            dteType={previewDte.dteType}
+            onDownload={() => handleDownloadPdf(previewDte.id, previewDte.folio)}
+          />
+        );
+      })()}
     </div>
   );
 }
@@ -1116,6 +1135,23 @@ function FoliosTab({ canManage }: { canManage: boolean }) {
 
   useEffect(() => { loadFolios(); }, [loadFolios]);
 
+  // KPIs agregados.
+  const totalDisponibles = folios.reduce((acc, f) => acc + f.disponibles, 0);
+  const lowStockCount = folios.filter((f) => f.lowStock).length;
+  const tiposConCAF = folios.filter((f) => f.totalCAF > 0).length;
+  const expiring = folios
+    .filter((f) => f.cafExpiraEn !== null)
+    .map((f) => {
+      const dias = Math.ceil(
+        (new Date(f.cafExpiraEn as string).getTime() - Date.now()) /
+          (1000 * 60 * 60 * 24),
+      );
+      return dias;
+    })
+    .filter((dias) => dias <= 90);
+  const expiringCount = expiring.length;
+  const minDiasRestantes = expiring.length > 0 ? Math.min(...expiring) : null;
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -1126,78 +1162,17 @@ function FoliosTab({ canManage }: { canManage: boolean }) {
 
   return (
     <div className="space-y-4">
-      <p className="text-xs text-muted-foreground">Estado de folios por tipo de DTE</p>
-
-      {folios.length === 0 ? (
-        <EmptyState
-          icon={Hash}
-          title="Sin datos de folios"
-          description="No hay información de folios disponible."
-        />
-      ) : (
-        <>
-          {/* Desktop table */}
-          <div className="hidden md:block">
-            <DataTable<FolioStatus>
-              columns={[
-                {
-                  id: "dteType",
-                  header: "Tipo DTE",
-                  cell: (row) => <>{DTE_TYPE_LABELS[row.dteType] ?? `Tipo ${row.dteType}`}</>,
-                },
-                {
-                  id: "lastFolio",
-                  header: "Último folio",
-                  align: "center",
-                  cell: (row) => <span className="font-mono text-xs">{row.lastFolio || "—"}</span>,
-                },
-                {
-                  id: "nextFolio",
-                  header: "Siguiente folio",
-                  align: "center",
-                  cell: (row) => <span className="font-mono text-xs">{row.nextFolio}</span>,
-                },
-                {
-                  id: "totalIssued",
-                  header: "Total emitidos",
-                  align: "center",
-                  cell: (row) => <span className="font-mono text-xs">{row.totalIssued}</span>,
-                },
-              ] satisfies DataTableColumn<FolioStatus>[]}
-              rows={folios}
-              rowKey={(row) => String(row.dteType)}
-              empty={<EmptyState icon={Hash} title="Sin datos de folios" compact />}
-            />
-          </div>
-
-          {/* Mobile cards */}
-          <div className="md:hidden space-y-2">
-            {folios.map((f) => (
-              <Card key={f.dteType}>
-                <CardContent className="p-4">
-                  <p className="text-sm font-medium mb-2">
-                    {DTE_TYPE_LABELS[f.dteType] ?? `Tipo ${f.dteType}`}
-                  </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-                    <div>
-                      <span className="text-muted-foreground">Último</span>
-                      <p className="font-mono">{f.lastFolio || "—"}</p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Siguiente</span>
-                      <p className="font-mono">{f.nextFolio}</p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Emitidos</span>
-                      <p className="font-mono">{f.totalIssued}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </>
-      )}
+      <FoliosKpiCards
+        totalDisponibles={totalDisponibles}
+        tiposConCAF={tiposConCAF}
+        lowStockCount={lowStockCount}
+        expiringCount={expiringCount}
+        minDiasRestantes={minDiasRestantes}
+      />
+      <p className="text-xs text-muted-foreground">
+        Estado de folios CAF por tipo de DTE
+      </p>
+      <FoliosDetailTable rows={folios} canManage={canManage} />
     </div>
   );
 }

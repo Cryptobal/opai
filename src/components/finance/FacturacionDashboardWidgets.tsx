@@ -47,7 +47,24 @@ interface Trend {
 const EYEBROW =
   "text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-3 mb-1 flex items-center gap-1.5";
 
-export function KPIRow({ kpis }: { kpis: KPIs }) {
+function KPISkeleton() {
+  return (
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <Card key={i} className="p-4 relative overflow-hidden">
+          <div className="space-y-2">
+            <div className="h-3 w-24 bg-ds-surface-2 animate-pulse rounded" />
+            <div className="h-8 w-32 bg-ds-surface-2 animate-pulse rounded" />
+            <div className="h-3 w-20 bg-ds-surface-2 animate-pulse rounded" />
+          </div>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+export function KPIRow({ kpis, loading }: { kpis: KPIs; loading?: boolean }) {
+  if (loading) return <KPISkeleton />;
   const trendUp = kpis.comparison.pct >= 0;
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -150,18 +167,32 @@ export function KPIRow({ kpis }: { kpis: KPIs }) {
   );
 }
 
-export function TrendChart() {
+interface TrendChartProps {
+  /**
+   * Filtro de período sincronizado con la tabla de DTEs:
+   *   - "ALL" o undefined → últimos 6 meses (default).
+   *   - "YYYY-MM"          → solo ese mes.
+   */
+  periodo?: string;
+}
+
+export function TrendChart({ periodo }: TrendChartProps = {}) {
   const [data, setData] = useState<Trend[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/finance/billing/trend")
+    setLoading(true);
+    const url =
+      periodo && periodo !== "ALL"
+        ? `/api/finance/billing/trend?periodo=${encodeURIComponent(periodo)}`
+        : "/api/finance/billing/trend";
+    fetch(url)
       .then((r) => r.json())
       .then((body) => {
         if (body.success) setData(body.data);
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [periodo]);
 
   if (loading) {
     return (
@@ -187,7 +218,9 @@ export function TrendChart() {
           <h3 className="font-display font-semibold text-sm text-ds-text-1">
             Tendencia ventas vs compras
           </h3>
-          <p className="text-[12px] text-ds-text-3">Últimos 6 meses</p>
+          <p className="text-[12px] text-ds-text-3">
+            {periodo && periodo !== "ALL" ? "Período seleccionado" : "Últimos 6 meses"}
+          </p>
         </div>
         <div className="flex items-center gap-3 text-[12px]">
           <div className="flex items-center gap-1.5">

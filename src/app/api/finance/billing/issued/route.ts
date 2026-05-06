@@ -32,24 +32,60 @@ export async function GET(request: NextRequest) {
     // Búsqueda por nombre/RUT del receptor o folio. Server-side para que
     // la búsqueda atraviese todas las páginas, no solo la cargada.
     const search = url.searchParams.get("search")?.trim() || undefined;
+    // Filtro por centro de costo (UX 2.6):
+    //   - ?accountId=<uuid> → DTEs asignados a esa cuenta CRM.
+    //   - ?accountId=NONE   → DTEs sin centro de costo asignado.
+    //   - sin param          → todos.
+    const accountId = url.searchParams.get("accountId") || undefined;
 
     const where: Record<string, unknown> = {
       tenantId: ctx.tenantId,
       direction: "ISSUED",
     };
+    if (accountId === "NONE") {
+      where.crmAccountId = null;
+    } else if (accountId && accountId !== "ALL") {
+      where.crmAccountId = accountId;
+    }
     if (statusFilter === "draft") {
       where.siiStatus = "DRAFT";
     } else if (statusFilter !== "all") {
       where.siiStatus = { not: "DRAFT" };
     }
     if (search) {
-      const folioNum = parseInt(search, 10);
+      // Búsqueda fuzzy global: folio, RUT (con/sin guión), nombre, monto
+      // exacto, o rango "1000-5000".
       const rutNeedle = search.replace(/[.\-\s]/g, "");
       const orClauses: Record<string, unknown>[] = [
         { receiverName: { contains: search, mode: "insensitive" } },
         { receiverRut: { contains: rutNeedle, mode: "insensitive" } },
       ];
-      if (!Number.isNaN(folioNum)) orClauses.push({ folio: folioNum });
+
+      // Folio exacto si el input es íntegro (sin punto, sin guión, sin comas).
+      if (/^\d+$/.test(search.trim())) {
+        const folioNum = parseInt(search.trim(), 10);
+        if (!Number.isNaN(folioNum)) orClauses.push({ folio: folioNum });
+      }
+
+      // Monto exacto: el input es un número (con puntos como sep. de miles).
+      const amountStr = search.replace(/[.\s]/g, "").replace(",", ".");
+      if (/^\d+(\.\d+)?$/.test(amountStr)) {
+        const amountNum = parseFloat(amountStr);
+        if (!Number.isNaN(amountNum) && amountNum > 0) {
+          orClauses.push({ totalAmount: amountNum });
+        }
+      }
+
+      // Rango de monto: "1000-5000" → totalAmount entre min y max.
+      const rangeMatch = search.match(/^([\d.]+)\s*-\s*([\d.]+)$/);
+      if (rangeMatch) {
+        const min = parseFloat(rangeMatch[1].replace(/\./g, ""));
+        const max = parseFloat(rangeMatch[2].replace(/\./g, ""));
+        if (!Number.isNaN(min) && !Number.isNaN(max) && min <= max) {
+          orClauses.push({ totalAmount: { gte: min, lte: max } });
+        }
+      }
+
       where.OR = orClauses;
     }
     if (periodo && /^\d{4}-\d{2}$/.test(periodo)) {
@@ -111,14 +147,19 @@ export async function GET(request: NextRequest) {
 
     const dtesEnriched = dtes.map((d) => {
       const activeCession = cessionByDte.get(d.id) ?? null;
+      const hasXml = d.dteXml !== null && d.dteXml.length > 0;
       const canBeCeded =
         CEDIBLE_TYPES.has(d.dteType) &&
         d.siiStatus === "ACCEPTED" &&
-        d.dteXml !== null &&
-        d.dteXml.length > 0 &&
+        hasXml &&
         activeCession === null;
+      // Excluir el buffer XML del payload (queda en el server). El cliente
+      // sólo necesita saber si existe vía `hasXml`.
+      const { dteXml: _dteXml, ...rest } = d;
+      void _dteXml;
       return {
-        ...d,
+        ...rest,
+        hasXml,
         crmAccount: d.crmAccountId ? accountMap.get(d.crmAccountId) ?? null : null,
         installation: d.installationId
           ? installationMap.get(d.installationId) ?? null

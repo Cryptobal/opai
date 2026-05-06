@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { PageHero } from "@/components/opai-ds";
 import { FileText } from "lucide-react";
 import { FacturacionClient } from "@/components/finance/FacturacionClient";
+import { getFolioStatus } from "@/modules/finance/billing/folio.service";
 
 export default async function FacturacionPage() {
   const session = await auth();
@@ -52,7 +53,7 @@ export default async function FacturacionPage() {
     ventasMesAgg,
     ventasPrevAgg,
     pendientesSiiCount,
-    foliosCAFs,
+    folioStatuses,
   ] = await Promise.all([
     prisma.financeDte.findMany({
       where: { tenantId, direction: "ISSUED", siiStatus: { not: "DRAFT" } },
@@ -96,10 +97,7 @@ export default async function FacturacionPage() {
         siiStatus: { in: ["PENDING", "SENT"] },
       },
     }),
-    prisma.tenantDteCaf.findMany({
-      where: { tenantId, isActive: true },
-      select: { dteType: true, folioDesde: true, folioHasta: true },
-    }),
+    getFolioStatus(tenantId),
   ]);
 
   // Centro de costo: enriquecer con cliente CRM + instalación.
@@ -109,7 +107,10 @@ export default async function FacturacionPage() {
   const installationIds = Array.from(
     new Set(dtes.map((d) => d.installationId).filter((v): v is string => !!v)),
   );
-  const [accountsCC, installationsCC] = await Promise.all([
+  // Factoring: tipos cedibles según Ley 19.983 — 33/34/43/46.
+  const CEDIBLE_TYPES = new Set([33, 34, 43, 46]);
+  const dteIds = dtes.map((d: typeof dtes[number]) => d.id);
+  const [accountsCC, installationsCC, activeCessions] = await Promise.all([
     accountIds.length > 0
       ? prisma.crmAccount.findMany({
           where: { id: { in: accountIds }, tenantId },
@@ -122,39 +123,68 @@ export default async function FacturacionPage() {
           select: { id: true, name: true, commune: true },
         })
       : Promise.resolve([]),
+    dteIds.length > 0
+      ? prisma.financeFactoringOperation.findMany({
+          where: {
+            tenantId,
+            dteId: { in: dteIds },
+            status: { in: ["SUBMITTED", "APPROVED", "FUNDED", "COLLECTED", "CLOSED"] },
+          },
+          select: { id: true, code: true, status: true, dteId: true },
+        })
+      : Promise.resolve([]),
   ]);
   const accountMapCC = new Map(accountsCC.map((a) => [a.id, a]));
   const installationMapCC = new Map(installationsCC.map((i) => [i.id, i]));
+  const cessionByDte = new Map(activeCessions.map((c) => [c.dteId, c]));
 
-  const dtesData = dtes.map((d: typeof dtes[number]) => ({
-    id: d.id,
-    dteType: d.dteType,
-    folio: d.folio,
-    receiverRut: d.receiverRut,
-    receiverName: d.receiverName,
-    receiverEmail: d.receiverEmail,
-    netAmount: d.netAmount.toNumber(),
-    taxAmount: d.taxAmount.toNumber(),
-    totalAmount: d.totalAmount.toNumber(),
-    siiStatus: d.siiStatus,
-    currency: d.currency,
-    linesCount: d.lines.length,
-    createdAt: d.createdAt.toISOString(),
-    emailSentAt: d.emailSentAt ? d.emailSentAt.toISOString() : null,
-    emailStatus: d.emailStatus,
-    referenceType: d.referenceType,
-    referenceFolio: d.referenceFolio,
-    // Flag para condicionar botones de descarga PDF/XML.
-    hasXml: d.dteXml !== null && d.dteXml.length > 0,
-    // Centro de costo: cliente CRM + instalación (para mostrar columna
-    // y permitir edición inline).
-    crmAccountId: d.crmAccountId,
-    installationId: d.installationId,
-    crmAccount: d.crmAccountId ? accountMapCC.get(d.crmAccountId) ?? null : null,
-    installation: d.installationId
-      ? installationMapCC.get(d.installationId) ?? null
-      : null,
-  }));
+  const dtesData = dtes.map((d: typeof dtes[number]) => {
+    const hasXml = d.dteXml !== null && d.dteXml.length > 0;
+    const cession = cessionByDte.get(d.id);
+    const canBeCeded =
+      CEDIBLE_TYPES.has(d.dteType) &&
+      d.siiStatus === "ACCEPTED" &&
+      hasXml &&
+      !cession;
+    return {
+      id: d.id,
+      dteType: d.dteType,
+      folio: d.folio,
+      receiverRut: d.receiverRut,
+      receiverName: d.receiverName,
+      receiverEmail: d.receiverEmail,
+      netAmount: d.netAmount.toNumber(),
+      taxAmount: d.taxAmount.toNumber(),
+      totalAmount: d.totalAmount.toNumber(),
+      siiStatus: d.siiStatus,
+      currency: d.currency,
+      linesCount: d.lines.length,
+      createdAt: d.createdAt.toISOString(),
+      emailSentAt: d.emailSentAt ? d.emailSentAt.toISOString() : null,
+      emailStatus: d.emailStatus,
+      referenceType: d.referenceType,
+      referenceFolio: d.referenceFolio,
+      // Flag para condicionar botones de descarga PDF/XML.
+      hasXml,
+      // Centro de costo: cliente CRM + instalación (para mostrar columna
+      // y permitir edición inline).
+      crmAccountId: d.crmAccountId,
+      installationId: d.installationId,
+      crmAccount: d.crmAccountId ? accountMapCC.get(d.crmAccountId) ?? null : null,
+      installation: d.installationId
+        ? installationMapCC.get(d.installationId) ?? null
+        : null,
+      // Factoring: cedible + cesión activa (mismo shape que el endpoint /issued).
+      canBeCeded,
+      activeCession: cession
+        ? { id: cession.id, code: cession.code, status: cession.status }
+        : null,
+      // Aging: fecha tributaria + due date + payment status (UX 2.5).
+      date: d.date.toISOString(),
+      dueDate: d.dueDate ? d.dueDate.toISOString() : null,
+      paymentStatus: d.paymentStatus,
+    };
+  });
 
   const ventasMes = ventasMesAgg._sum.totalAmount?.toNumber() ?? 0;
   const ventasPrev = ventasPrevAgg._sum.totalAmount?.toNumber() ?? 0;
@@ -163,17 +193,18 @@ export default async function FacturacionPage() {
   const ivaDebitoMes = ventasMesAgg._sum.taxAmount?.toNumber() ?? 0;
   const facturasMes = ventasMesAgg._count._all;
 
-  // Folios disponibles = suma de rangos CAF activos. La detección "stock bajo"
-  // queda como `0` aquí; un cálculo real requiere comparar con `nextFolio`
-  // del tracker — refinar en sub-fase posterior.
-  const foliosDisponibles = foliosCAFs.reduce(
-    (acc: number, c: { folioDesde: number; folioHasta: number }) =>
-      acc + (c.folioHasta - c.folioDesde + 1),
+  // Folios disponibles = suma de `disponibles` por tipo (folioHasta - nextFolio + 1).
+  // foliosLowCount = cantidad de tipos con stock bajo el threshold (50).
+  const foliosDisponibles = folioStatuses.reduce(
+    (acc, f) => acc + f.disponibles,
     0,
   );
-  const foliosLowCount = 0;
+  const foliosLowCount = folioStatuses.filter((f) => f.lowStock).length;
 
-  const kpis = {
+  // KPIs calculados en SSR para el mes actual: sirven de hidratación
+  // inicial. El cliente refetchea /api/finance/billing/kpis cuando
+  // cambia el filtro de período (Bug 1.1).
+  const initialKpis = {
     ventasMes,
     ivaDebitoMes,
     pendientesSii: pendientesSiiCount,
@@ -198,7 +229,7 @@ export default async function FacturacionPage() {
         issuedTotal={issuedTotal}
         canManage={canManage}
         suppliers={suppliers}
-        kpis={kpis}
+        initialKpis={initialKpis}
       />
     </div>
   );

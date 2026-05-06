@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getDteProvider } from "@/modules/finance/shared/adapters/dte-provider.adapter";
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const ctx = await requireAuth();
@@ -29,6 +29,11 @@ export async function GET(
     );
   }
 
+  // ?inline=1 → render embebido en <iframe> (Content-Disposition: inline).
+  // Sin el query, el default es attachment para forzar descarga.
+  const inline = new URL(request.url).searchParams.get("inline") === "1";
+  const disposition = inline ? "inline" : "attachment";
+
   try {
     console.log(
       `[Finance/Billing/PDF] Generating PDF for DTE ${dte.code} (tipo ${dte.dteType}, folio ${dte.folio})`,
@@ -43,7 +48,7 @@ export async function GET(
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="${dte.code}.pdf"`,
+        "Content-Disposition": `${disposition}; filename="${dte.code}.pdf"`,
         "Cache-Control": "no-store, must-revalidate",
       },
     });
