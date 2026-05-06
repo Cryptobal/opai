@@ -74,18 +74,18 @@ export function DteEmailTimeline({ dteId }: { dteId: string }) {
                 {isOk ? (
                   <CheckCircle2 className="size-4 text-green-600" />
                 ) : (
-                  <XCircle className="size-4 text-red-600" />
+                  <XCircle className="size-4 text-status-danger-fg" />
                 )}
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-medium">{meta.label}</span>
                   {meta.auto ? (
-                    <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                    <span className="text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4">
                       automático
                     </span>
                   ) : (
-                    <span className="text-[11px] uppercase tracking-wide text-blue-700">
+                    <span className="text-[11px] font-mono uppercase tracking-[0.08em] text-status-info-fg">
                       manual
                     </span>
                   )}
@@ -105,7 +105,7 @@ export function DteEmailTimeline({ dteId }: { dteId: string }) {
                   </span>
                 </div>
                 {!isOk && log.errorMessage && (
-                  <div className="text-xs text-red-700 mt-0.5">{log.errorMessage}</div>
+                  <div className="text-xs text-status-danger-fg mt-0.5">{log.errorMessage}</div>
                 )}
               </div>
             </li>
