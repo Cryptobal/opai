@@ -169,8 +169,16 @@ const DTE_TYPE_SHORT_LABELS: Record<number, string> = {
   61: "N. Crédito",
 };
 
-/** Tono semántico DS v3 por tipo. NC=danger (anula), ND=warn (corrige). */
+/**
+ * Tono semántico DS v3 por tipo de DTE.
+ *   33 (Factura Afecta)  → tono brand (default azul, no se setea)
+ *   34 (Factura Exenta)  → tono info para distinguir de afecta
+ *   56 (Nota Débito)     → tono warn (corrige/aumenta NC)
+ *   61 (Nota Crédito)    → tono danger (anula factura)
+ *   39 (Boleta)          → tono ok suave
+ */
 const DTE_TYPE_BADGE_CLASS: Record<number, string> = {
+  34: "bg-status-info-soft text-status-info-fg border-status-info-border",
   56: "bg-status-warn-soft text-status-warn-fg border-status-warn-border",
   61: "bg-status-danger-soft text-status-danger-fg border-status-danger-border",
 };
@@ -734,16 +742,17 @@ function DtesTab({
                     //     emitir una Nota de Crédito (CodRef=1).
                     //   - NC: aplica a 33 (Factura), 34 (Factura Exenta),
                     //     39 (Boleta), 41 (Boleta Exenta), 56 (Nota Débito).
-                    //   - ND: aplica a los mismos + 61 (Nota de Crédito —
-                    //     una NC también puede tener ND si tuvo error).
+                    //   - ND: SOLO aplica a 61 (Nota de Crédito) — la ND se
+                    //     usa exclusivamente para anular una NC emitida por
+                    //     error. Para corregir/anular facturas se usa NC,
+                    //     no ND.
                     const canAnular =
                       row.siiStatus === "PENDING" || row.siiStatus === "SENT";
                     const canCreditNote =
                       [33, 34, 39, 41, 56].includes(row.dteType) &&
                       row.siiStatus !== "ANNULLED";
                     const canDebitNote =
-                      [33, 34, 39, 41, 56, 61].includes(row.dteType) &&
-                      row.siiStatus !== "ANNULLED";
+                      row.dteType === 61 && row.siiStatus !== "ANNULLED";
                     const hasXml = row.hasXml !== false; // default true (compat)
                     return (
                       <div className="flex items-center gap-1">
@@ -898,7 +907,9 @@ function DtesTab({
                       // Mismas reglas que en desktop, ver comentario arriba.
                       const canAnular = d.siiStatus === "PENDING" || d.siiStatus === "SENT";
                       const canCreditNote = [33, 34, 39, 41, 56].includes(d.dteType) && d.siiStatus !== "ANNULLED";
-                      const canDebitNote = [33, 34, 39, 41, 56, 61].includes(d.dteType) && d.siiStatus !== "ANNULLED";
+                      // ND SOLO aplica a NC (regla SII): se usa para anular
+                      // una NC emitida por error. NO va a facturas.
+                      const canDebitNote = d.dteType === 61 && d.siiStatus !== "ANNULLED";
                       const hasXml = d.hasXml !== false;
                       return (
                         <div className="flex gap-1 mt-3 pt-3 border-t border-border flex-wrap">
