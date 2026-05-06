@@ -209,6 +209,52 @@ export const issueDteSchema = z.object({
   backofficeEmailsOverride: z.array(z.string().email()).max(5).optional(),
 });
 
+// Schema para plantillas de facturación recurrente. El cron diario crea
+// un borrador (no emite directo) en cada nextRunAt.
+export const recurringTemplateSchema = z.object({
+  name: z.string().trim().min(1).max(100),
+  isActive: z.boolean().default(true),
+  dteType: z.number().int().refine((v) => [33, 34].includes(v), {
+    message: "Solo Factura (33) y Factura Exenta (34) en recurrentes",
+  }),
+  receiverRut: z.string().refine(validateRutDV, {
+    message: "RUT inválido (dígito verificador no coincide)",
+  }),
+  receiverName: z.string().trim().min(1).max(200),
+  receiverEmail: optNull(z.string().email()),
+  receiverEmailCc: z.array(z.string().email()).max(10).default([]),
+  receiverGiro: optNull(z.string().trim().max(80)),
+  receiverDireccion: optNull(z.string().trim().max(200)),
+  receiverComuna: optNull(z.string().trim().max(80)),
+  receiverCiudad: optNull(z.string().trim().max(80)),
+  crmAccountId: optNull(z.string().uuid()),
+  installationId: optNull(z.string().uuid()),
+  currency: z.enum(["CLP", "UF"]).default("CLP"),
+  lines: z.array(dteLineSchema).min(1, "Debe incluir al menos una linea"),
+  notes: optNull(z.string().trim().max(1000)),
+  additionalReferences: z
+    .array(
+      z.object({
+        tipoDocRef: z.string().trim().min(1).max(10),
+        folioRef: z.string().trim().min(1).max(40),
+        fchRef: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha YYYY-MM-DD"),
+        razonRef: z.string().trim().min(1).max(90),
+      }),
+    )
+    .max(30)
+    .optional(),
+  frequency: z.enum(["monthly", "biweekly", "weekly", "yearly"]),
+  // Día del mes 1-31 (o -1 para último día del mes). monthly/yearly.
+  dayOfMonth: z.number().int().min(-1).max(31).optional(),
+  // Día de la semana 0=Domingo .. 6=Sábado. weekly/biweekly.
+  dayOfWeek: z.number().int().min(0).max(6).optional(),
+  // Mes del año 1-12. Solo yearly.
+  monthOfYear: z.number().int().min(1).max(12).optional(),
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha YYYY-MM-DD"),
+  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  autoSendEmail: z.boolean().default(true),
+});
+
 // Schema para crear/actualizar borradores. Es el mismo que issueDteSchema
 // pero MÁS permisivo: receiverRut/Name pueden venir parciales mientras el
 // usuario llena el form. La validación dura (RUT con DV correcto, refs
