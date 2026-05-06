@@ -42,12 +42,12 @@ export function DocTemplateEditorClient({
   const filterModules = useMemo(
     () =>
       module === "crm"
-        ? ["account", "contact", "installation", "deal", "quote", "system", "signature"]
+        ? ["empresa", "account", "contact", "installation", "deal", "quote", "system", "signature"]
         : module === "payroll"
         ? ["empresa", "guardia", "labor_event", "system", "signature"]
         : module === "mail" || module === "whatsapp"
-        ? ["account", "contact", "deal", "system", "signature"]
-        : ["account", "contact", "system", "signature"],
+        ? ["empresa", "account", "contact", "deal", "system", "signature"]
+        : ["empresa", "account", "contact", "system", "signature"],
     [module]
   );
 
