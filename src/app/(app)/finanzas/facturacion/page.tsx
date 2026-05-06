@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { PageHero } from "@/components/opai-ds";
 import { FileText } from "lucide-react";
 import { FacturacionClient } from "@/components/finance/FacturacionClient";
+import { getFolioStatus } from "@/modules/finance/billing/folio.service";
 
 export default async function FacturacionPage() {
   const session = await auth();
@@ -52,7 +53,7 @@ export default async function FacturacionPage() {
     ventasMesAgg,
     ventasPrevAgg,
     pendientesSiiCount,
-    foliosCAFs,
+    folioStatuses,
   ] = await Promise.all([
     prisma.financeDte.findMany({
       where: { tenantId, direction: "ISSUED", siiStatus: { not: "DRAFT" } },
@@ -96,10 +97,7 @@ export default async function FacturacionPage() {
         siiStatus: { in: ["PENDING", "SENT"] },
       },
     }),
-    prisma.tenantDteCaf.findMany({
-      where: { tenantId, isActive: true },
-      select: { dteType: true, folioDesde: true, folioHasta: true },
-    }),
+    getFolioStatus(tenantId),
   ]);
 
   // Centro de costo: enriquecer con cliente CRM + instalación.
@@ -191,15 +189,13 @@ export default async function FacturacionPage() {
   const ivaDebitoMes = ventasMesAgg._sum.taxAmount?.toNumber() ?? 0;
   const facturasMes = ventasMesAgg._count._all;
 
-  // Folios disponibles = suma de rangos CAF activos. La detección "stock bajo"
-  // queda como `0` aquí; un cálculo real requiere comparar con `nextFolio`
-  // del tracker — refinar en sub-fase posterior.
-  const foliosDisponibles = foliosCAFs.reduce(
-    (acc: number, c: { folioDesde: number; folioHasta: number }) =>
-      acc + (c.folioHasta - c.folioDesde + 1),
+  // Folios disponibles = suma de `disponibles` por tipo (folioHasta - nextFolio + 1).
+  // foliosLowCount = cantidad de tipos con stock bajo el threshold (50).
+  const foliosDisponibles = folioStatuses.reduce(
+    (acc, f) => acc + f.disponibles,
     0,
   );
-  const foliosLowCount = 0;
+  const foliosLowCount = folioStatuses.filter((f) => f.lowStock).length;
 
   const kpis = {
     ventasMes,
