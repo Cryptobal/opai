@@ -23,8 +23,22 @@
  *    esa codificación en sus XMLs y SimpleAPI la respeta.
  */
 
-const API_BASE_URL =
-  process.env.SIMPLEAPI_BASE_URL ?? "https://api.simpleapi.cl/api/v1/";
+/**
+ * Normaliza la base URL de SimpleAPI agregando `/api/v1/` si falta.
+ * Necesario porque la env var SIMPLEAPI_BASE_URL históricamente se setea
+ * solo como `https://api.simpleapi.cl` sin path, y eso provoca 404 en
+ * todos los endpoints DTE. Esta función protege contra ese error de config.
+ */
+function normalizeApiBase(raw: string): string {
+  const url = raw.replace(/\/$/, ""); // sin trailing slash
+  // Si ya contiene /api/v1, lo dejamos tal cual (con trailing slash garantizado)
+  if (/\/api\/v\d+/i.test(url)) return `${url}/`;
+  return `${url}/api/v1/`;
+}
+
+const API_BASE_URL = normalizeApiBase(
+  process.env.SIMPLEAPI_BASE_URL ?? "https://api.simpleapi.cl",
+);
 const SCRAPER_BASE_URL =
   process.env.SIMPLEAPI_SCRAPER_BASE_URL ?? "https://servicios.simpleapi.cl/api/";
 
