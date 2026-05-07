@@ -238,71 +238,92 @@ export async function generateGridSlots(params: GenerateGridParams): Promise<voi
   });
 
   for (const inst of instalaciones) {
-    // ── Ronda slots ──
-    const programacion = inst.installationId
-      ? await prisma.opsRondaProgramacion.findFirst({
-          where: {
-            tenantId,
-            rondaTemplate: { installationId: inst.installationId },
-            isActive: true,
-          },
-        })
-      : null;
+    // Cada instalación se procesa de forma independiente: si una falla
+    // (p.ej. timeout puntual o un drift de schema en pauta_mensual), las
+    // demás siguen recibiendo su sync de rondaExpected. Sin esto, un único
+    // error abortaría el for-loop y dejaba todas las instalaciones
+    // restantes con rondaExpected=true por defecto del schema.
+    try {
+      // ── Ronda slots ──
+      const programacion = inst.installationId
+        ? await prisma.opsRondaProgramacion.findFirst({
+            where: {
+              tenantId,
+              rondaTemplate: { installationId: inst.installationId },
+              isActive: true,
+            },
+          })
+        : null;
 
-    const expectedSlots = calculateExpectedSlots(
-      timeSlots,
-      programacion
-        ? {
-            frecuenciaMinutos: programacion.frecuenciaMinutos,
-            horaInicio: programacion.horaInicio,
-            horaFin: programacion.horaFin,
-          }
-        : null,
-    );
+      const expectedSlots = calculateExpectedSlots(
+        timeSlots,
+        programacion
+          ? {
+              frecuenciaMinutos: programacion.frecuenciaMinutos,
+              horaInicio: programacion.horaInicio,
+              horaFin: programacion.horaFin,
+            }
+          : null,
+      );
 
-    const totalExpected = Array.from(expectedSlots.values()).filter(Boolean).length;
-    await prisma.opsControlNocturnoInstalacion.update({
-      where: { id: inst.id },
-      data: {
-        monitoreoType: programacion ? "rondas" : "manual",
-        rondaFrecuencia: programacion?.frecuenciaMinutos ?? null,
-        rondasEsperadas: totalExpected,
-      },
-    });
-
-    for (let i = 0; i < timeSlots.length; i++) {
-      const slotHour = timeSlots[i];
-      const rondaNumber = i + 1;
-      const rondaExpected = expectedSlots.get(slotHour) ?? false;
-
-      const existing = inst.rondas.find((r) => r.rondaNumber === rondaNumber);
-      if (existing) {
-        if (existing.rondaExpected !== rondaExpected) {
-          await prisma.opsControlNocturnoRonda.update({
-            where: { id: existing.id },
-            data: { rondaExpected },
-          });
-        }
-      } else {
-        await prisma.opsControlNocturnoRonda.create({
-          data: {
-            controlInstalacionId: inst.id,
-            rondaNumber,
-            horaEsperada: slotHour,
-            status: "pendiente",
-            rondaExpected,
-          },
-        });
-      }
-    }
-
-    // ── Pre-populate guards & sync guardiasRequeridos from pauta ──
-    const nocturnoRequired = await populateGuards(inst.id, inst.installationId, tenantId, cnDate);
-    if (inst.guardiasRequeridos !== nocturnoRequired) {
+      const totalExpected = Array.from(expectedSlots.values()).filter(Boolean).length;
       await prisma.opsControlNocturnoInstalacion.update({
         where: { id: inst.id },
-        data: { guardiasRequeridos: nocturnoRequired },
+        data: {
+          monitoreoType: programacion ? "rondas" : "manual",
+          rondaFrecuencia: programacion?.frecuenciaMinutos ?? null,
+          rondasEsperadas: totalExpected,
+        },
       });
+
+      for (let i = 0; i < timeSlots.length; i++) {
+        const slotHour = timeSlots[i];
+        const rondaNumber = i + 1;
+        const rondaExpected = expectedSlots.get(slotHour) ?? false;
+
+        const existing = inst.rondas.find((r) => r.rondaNumber === rondaNumber);
+        if (existing) {
+          if (existing.rondaExpected !== rondaExpected) {
+            await prisma.opsControlNocturnoRonda.update({
+              where: { id: existing.id },
+              data: { rondaExpected },
+            });
+          }
+        } else {
+          await prisma.opsControlNocturnoRonda.create({
+            data: {
+              controlInstalacionId: inst.id,
+              rondaNumber,
+              horaEsperada: slotHour,
+              status: "pendiente",
+              rondaExpected,
+            },
+          });
+        }
+      }
+
+      // ── Pre-populate guards & sync guardiasRequeridos from pauta ──
+      // Aislado en su propio try porque depende de pauta_mensual y un fallo
+      // ahí no debería invalidar el sync de rondaExpected ya hecho arriba.
+      try {
+        const nocturnoRequired = await populateGuards(inst.id, inst.installationId, tenantId, cnDate);
+        if (inst.guardiasRequeridos !== nocturnoRequired) {
+          await prisma.opsControlNocturnoInstalacion.update({
+            where: { id: inst.id },
+            data: { guardiasRequeridos: nocturnoRequired },
+          });
+        }
+      } catch (err) {
+        console.error(
+          `[generateGridSlots] populateGuards failed for inst ${inst.id} (installation ${inst.installationId ?? "null"}):`,
+          err,
+        );
+      }
+    } catch (err) {
+      console.error(
+        `[generateGridSlots] inst loop failed for inst ${inst.id} (installation ${inst.installationId ?? "null"}):`,
+        err,
+      );
     }
   }
 }
