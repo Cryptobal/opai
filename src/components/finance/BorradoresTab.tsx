@@ -1,25 +1,25 @@
 "use client";
 
 /**
- * Tab "Borradores" del módulo Facturación.
+ * Tab "Programación" del módulo Facturación (id interno "borradores"
+ * por compat de deeplinks). Tiene dos secciones convivientes:
  *
- * Lista los DTEs en estado DRAFT (no emitidos al SII) Y las plantillas
- * recurrentes que generan borradores automáticamente. Las dos secciones
- * conviven en un solo tab para que el usuario tenga una sola "bandeja
- * de programación" donde ve qué hay pendiente y qué se va a generar.
- *
- * Permite editar, emitir directo (con modal de confirmación), o eliminar
- * cada borrador individual; y enlaza a `/finanzas/facturacion/recurrentes`
- * para gestionar plantillas recurrentes.
+ *   1. Programación recurrente — plantillas que el cron usa para
+ *      generar borradores automáticamente. La gestión completa
+ *      (crear, editar, ejecutar, pausar, eliminar) vive embebida vía
+ *      <RecurringClient>. NO hay link a una "página de gestión"
+ *      separada — eso era duplicación; ahora todo se hace acá.
+ *   2. Borradores libres — DTEs guardados sin emitir al SII. Editar
+ *      o emitir individualmente desde acá.
  */
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Plus, FileEdit, Send, Trash2, Loader2, Repeat, ExternalLink } from "lucide-react";
+import { Plus, FileEdit, Send, Trash2, Loader2, Repeat } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { EmisionConfirmDialog } from "./EmisionConfirmDialog";
-import Link from "next/link";
+import { RecurringClient } from "./RecurringClient";
 
 type DraftDte = {
   id: string;
@@ -34,19 +34,6 @@ type DraftDte = {
   ufValueAtIssue?: number | string | null;
   updatedAt: string;
   lines?: Array<{ itemName: string; quantity: number | string; unitPrice: number | string; unitPriceUf?: number | string | null }>;
-};
-
-type RecurringTemplate = {
-  id: string;
-  name: string;
-  isActive: boolean;
-  dteType: number;
-  receiverName: string;
-  receiverRut: string;
-  currency: string;
-  frequency: string;
-  nextRunAt: string | null;
-  runCount: number;
 };
 
 const DTE_LABELS: Record<number, string> = {
@@ -64,7 +51,6 @@ function fmt(n: number | string): string {
 export function BorradoresTab({ canManage }: { canManage: boolean }) {
   const router = useRouter();
   const [drafts, setDrafts] = React.useState<DraftDte[]>([]);
-  const [recurring, setRecurring] = React.useState<RecurringTemplate[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [confirmDraft, setConfirmDraft] = React.useState<DraftDte | null>(null);
   const [tenantBackoffice, setTenantBackoffice] = React.useState<{ emails: string[]; alwaysSend: boolean }>({
@@ -75,15 +61,12 @@ export function BorradoresTab({ canManage }: { canManage: boolean }) {
 
   const reload = React.useCallback(() => {
     setLoading(true);
-    Promise.all([
-      fetch("/api/finance/billing/drafts?pageSize=100").then((r) => r.json()),
-      fetch("/api/finance/billing/recurring").then((r) => r.json()),
-    ])
-      .then(([draftsJson, recurringJson]) => {
+    // Las plantillas recurrentes las maneja `RecurringClient` (auto-fetch
+    // + refetch tras mutaciones). Acá solo fetcheamos los borradores.
+    fetch("/api/finance/billing/drafts?pageSize=100")
+      .then((r) => r.json())
+      .then((draftsJson) => {
         if (draftsJson?.success) setDrafts(draftsJson.data?.drafts ?? []);
-        if (recurringJson?.success) {
-          setRecurring(recurringJson.data?.templates ?? []);
-        }
       })
       .finally(() => setLoading(false));
   }, []);
@@ -103,18 +86,6 @@ export function BorradoresTab({ canManage }: { canManage: boolean }) {
       })
       .catch(() => {});
   }, [reload]);
-
-  const FREQ_LABELS: Record<string, string> = {
-    monthly: "Mensual",
-    biweekly: "Quincenal",
-    weekly: "Semanal",
-    yearly: "Anual",
-  };
-  const DTE_LABELS_RECURRING: Record<number, string> = {
-    33: "Factura",
-    34: "Factura Exenta",
-  };
-  const activeRecurring = recurring.filter((t) => t.isActive);
 
   const handleDelete = async (id: string) => {
     if (!confirm("¿Eliminar este borrador? Esta acción no es reversible.")) return;
@@ -154,84 +125,20 @@ export function BorradoresTab({ canManage }: { canManage: boolean }) {
 
   return (
     <div className="space-y-6">
-      {/* Sección 1: Plantillas recurrentes (cron genera borradores) */}
+      {/* Sección 1: Programación recurrente — full management inline */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <div>
-            <h2 className="text-lg font-semibold flex items-center gap-2">
-              <Repeat className="h-5 w-5 text-tint-violet-fg" />
-              Programación recurrente
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              Plantillas que generan borradores automáticamente (mensual, quincenal, etc).
-              El cron NO emite directo al SII — siempre revisas el borrador antes de emitir.
-            </p>
-          </div>
-          {canManage && (
-            <Button asChild variant="outline" size="sm">
-              <Link href="/finanzas/facturacion/recurrentes">
-                <ExternalLink className="size-4 mr-1.5" />
-                Gestionar plantillas
-              </Link>
-            </Button>
-          )}
+        <div>
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <Repeat className="h-5 w-5 text-tint-violet-fg" />
+            Programación recurrente
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Plantillas que generan borradores automáticamente (mensual,
+            quincenal, etc). El cron NO emite directo al SII — siempre
+            revisás el borrador antes de emitir.
+          </p>
         </div>
-        <Card>
-          <CardContent className="pt-4">
-            {activeRecurring.length === 0 ? (
-              <p className="py-4 text-center text-sm text-muted-foreground">
-                No hay plantillas recurrentes activas.{" "}
-                {canManage && (
-                  <Link
-                    href="/finanzas/facturacion/recurrentes"
-                    className="text-primary hover:underline"
-                  >
-                    Crear una →
-                  </Link>
-                )}
-              </p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="border-b text-xs uppercase tracking-wide text-muted-foreground">
-                    <tr>
-                      <th className="py-2 text-left">Plantilla</th>
-                      <th className="py-2 text-left">Frecuencia</th>
-                      <th className="py-2 text-left">Próxima ejecución</th>
-                      <th className="py-2 text-right">Corridas</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {activeRecurring.map((t) => (
-                      <tr key={t.id} className="border-b hover:bg-muted/40">
-                        <td className="py-2">
-                          <div className="font-medium">{t.name}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {DTE_LABELS_RECURRING[t.dteType] ?? `Tipo ${t.dteType}`} ·{" "}
-                            {t.receiverName} · {t.currency}
-                          </div>
-                        </td>
-                        <td className="py-2 text-xs">
-                          {FREQ_LABELS[t.frequency] ?? t.frequency}
-                        </td>
-                        <td className="py-2 text-xs">
-                          {t.nextRunAt
-                            ? new Date(t.nextRunAt).toLocaleDateString("es-CL", {
-                                day: "2-digit",
-                                month: "long",
-                                year: "numeric",
-                              })
-                            : "—"}
-                        </td>
-                        <td className="py-2 text-right text-xs">{t.runCount}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <RecurringClient canManage={canManage} />
       </div>
 
       {/* Sección 2: Borradores libres */}

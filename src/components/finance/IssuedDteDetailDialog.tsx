@@ -621,21 +621,29 @@ export function IssuedDteDetailDialog({
               </Button>
             )}
             {canManage && (() => {
-              // Botón siempre habilitado para cualquier DTE emitido. La
-              // única restricción técnica real es tener XML local: sin
-              // él no se puede construir el AEC. Para todo lo demás
-              // (tipo, status SII, ya cedido) dejamos que el backend +
-              // SII devuelvan el error si no aplica.
+              // Botón siempre presente. La única restricción técnica real
+              // es tener XML local: sin él no se puede construir el AEC.
+              // Si el botón está bloqueado, lo dejamos clickeable y al
+              // tap mostramos un toast con la razón clara (los `title`
+              // de HTML no funcionan en mobile, hay que dar feedback
+              // explícito). Para todo lo demás (tipo, status SII, ya
+              // cedido) dejamos que el backend + SII devuelvan el error.
               const noXml = !dte.hasXml;
               const blockedReason = noXml
-                ? "Sin XML local — solo se pueden ceder DTEs emitidos desde OPAI (no importados del SII)."
+                ? "No se puede ceder esta factura: no hay XML local. Los DTEs importados desde el SII (no emitidos en OPAI) no traen el XML original que se necesita para armar el AEC. Solución: reemitir esta factura desde OPAI o subir el XML original."
                 : null;
               return (
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setShowCederDialog(true)}
-                  disabled={!!blockedReason}
+                  onClick={() => {
+                    if (blockedReason) {
+                      toast.error(blockedReason, { duration: 9000 });
+                      return;
+                    }
+                    setShowCederDialog(true);
+                  }}
+                  className={blockedReason ? "opacity-60" : undefined}
                   title={blockedReason ?? "Ceder a factoring"}
                 >
                   <Coins className="h-3.5 w-3.5 mr-1.5" />
