@@ -6,10 +6,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { DataTable, EmptyState, type DataTableColumn } from "@/components/opai-ds";
-import { PageHero } from "@/components/opai-ds";
+import { DataTable, EmptyState, ModuleSubNav, PageHero, type DataTableColumn } from "@/components/opai-ds";
 import { FileText } from "lucide-react";
-import { PayrollSubnav } from "@/components/payroll/PayrollSubnav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, AlertCircle, Info, Inbox } from "lucide-react";
@@ -88,6 +86,7 @@ export default function PayrollParameters() {
 
   return (
     <div className="space-y-6 min-w-0">
+      <ModuleSubNav moduleKey="payroll" />
       {/* Header */}
       <PageHero
         icon={<FileText />}
@@ -103,7 +102,6 @@ export default function PayrollParameters() {
           </Badge>
         }
       />
-      <PayrollSubnav />
 
       {/* Row 1: AFP, SIS/Salud, AFC, Mutual/Topes */}
       <div className="grid gap-3 lg:grid-cols-4">

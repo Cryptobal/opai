@@ -3,9 +3,7 @@
  */
 
 import Link from "next/link";
-import { PageHero } from "@/components/opai-ds";
-import { Surface } from "@/components/opai-ds";
-import { PayrollSubnav } from "@/components/payroll/PayrollSubnav";
+import { ModuleSubNav, PageHero, Surface } from "@/components/opai-ds";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calculator, FileText, Settings, CalendarDays, Wallet, ClipboardCheck, Banknote } from "lucide-react";
 
@@ -50,6 +48,7 @@ export default function PayrollDashboard() {
 
   return (
     <div className="space-y-6 min-w-0">
+      <ModuleSubNav moduleKey="payroll" />
       <PageHero
         icon={<Banknote />}
         iconTone="amber"
@@ -58,7 +57,6 @@ export default function PayrollDashboard() {
         subtitle="liquidaciones y costeo"
         description="Sistema de liquidaciones y costeo para Chile."
       />
-      <PayrollSubnav />
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 min-w-0">
         {modules.map((item) => {

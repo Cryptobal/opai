@@ -2,9 +2,8 @@ import { ClipboardList } from "lucide-react";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
-import { DocumentosSubnav } from "@/components/opai/DocumentosSubnav";
 import { DocsOperativosClient } from "@/components/docs/DocsOperativosClient";
-import { PageHero } from "@/components/opai-ds";
+import { ModuleSubNav, PageHero } from "@/components/opai-ds";
 
 export const metadata = { title: "Docs Operativos — OPAI" };
 
@@ -21,6 +20,7 @@ export default async function DocsOperativosPage() {
 
   return (
     <div className="space-y-6 min-w-0">
+      <ModuleSubNav moduleKey="docs" />
       <PageHero
         icon={<ClipboardList />}
         iconTone="rose"
@@ -29,7 +29,6 @@ export default async function DocsOperativosPage() {
         subtitle="cumplimiento documental"
         description="Control de cumplimiento documental digital y físico por instalación."
       />
-      <DocumentosSubnav />
       <DocsOperativosClient />
     </div>
   );

@@ -1,9 +1,8 @@
 import { FilePlus } from "lucide-react";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { DocumentosSubnav } from "@/components/opai/DocumentosSubnav";
 import { DocTemplateEditorClient } from "@/components/docs/DocTemplateEditorClient";
-import { PageHero } from "@/components/opai-ds";
+import { ModuleSubNav, PageHero } from "@/components/opai-ds";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 
 export default async function NewDocTemplatePage() {
@@ -19,6 +18,7 @@ export default async function NewDocTemplatePage() {
 
   return (
     <div className="space-y-6 min-w-0">
+      <ModuleSubNav moduleKey="docs" />
       <PageHero
         icon={<FilePlus />}
         iconTone="rose"
@@ -26,7 +26,6 @@ export default async function NewDocTemplatePage() {
         title="Nueva plantilla"
         subtitle="crear plantilla de documento"
       />
-      <DocumentosSubnav />
       <DocTemplateEditorClient />
     </div>
   );

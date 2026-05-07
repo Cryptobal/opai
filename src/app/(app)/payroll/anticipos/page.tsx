@@ -1,8 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { PageHero } from "@/components/opai-ds";
+import { ModuleSubNav, PageHero } from "@/components/opai-ds";
 import { Wallet } from "lucide-react";
-import { PayrollSubnav } from "@/components/payroll/PayrollSubnav";
 import { AnticipoProcessClient } from "@/components/payroll/AnticipoProcessClient";
 
 export default async function PayrollAnticiposPage() {
@@ -11,6 +10,7 @@ export default async function PayrollAnticiposPage() {
 
   return (
     <div className="space-y-6 min-w-0">
+      <ModuleSubNav moduleKey="payroll" />
       <PageHero
         icon={<Wallet />}
         iconTone="amber"
@@ -19,7 +19,6 @@ export default async function PayrollAnticiposPage() {
         subtitle="pagos mensuales"
         description="Procesos de pago de anticipos mensuales."
       />
-      <PayrollSubnav />
       <AnticipoProcessClient />
     </div>
   );

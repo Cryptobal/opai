@@ -1,8 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { PageHero } from "@/components/opai-ds";
+import { ModuleSubNav, PageHero } from "@/components/opai-ds";
 import { CalendarDays } from "lucide-react";
-import { PayrollSubnav } from "@/components/payroll/PayrollSubnav";
 import { PayrollPeriodDetailClient } from "@/components/payroll/PayrollPeriodDetailClient";
 interface Props {
   params: Promise<{ id: string }>;
@@ -15,6 +14,7 @@ export default async function PayrollPeriodDetailPage({ params }: Props) {
 
   return (
     <div className="space-y-6 min-w-0">
+      <ModuleSubNav moduleKey="payroll" />
       <PageHero
         icon={<CalendarDays />}
         iconTone="amber"
@@ -23,7 +23,6 @@ export default async function PayrollPeriodDetailPage({ params }: Props) {
         subtitle="liquidaciones, asistencias y archivos"
         description="Detalle completo del período de pago."
       />
-      <PayrollSubnav />
       <PayrollPeriodDetailClient periodId={id} />
     </div>
   );

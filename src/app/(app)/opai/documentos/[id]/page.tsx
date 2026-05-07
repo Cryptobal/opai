@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { DocumentosSubnav } from "@/components/opai/DocumentosSubnav";
+import { ModuleSubNav } from "@/components/opai-ds";
 import { DocDetailClient } from "@/components/docs/DocDetailClient";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 
@@ -22,7 +22,7 @@ export default async function DocumentDetailPage({
 
   return (
     <div className="space-y-6 min-w-0">
-      <DocumentosSubnav />
+      <ModuleSubNav moduleKey="docs" />
       <DocDetailClient documentId={id} />
     </div>
   );

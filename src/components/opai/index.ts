@@ -29,7 +29,6 @@ export { BottomNav } from './BottomNav';
 export { CommandPalette } from './CommandPalette';
 
 // Page Components
-export { DocumentosSubnav } from './DocumentosSubnav';
 export { IntegrationsGmailClient } from './IntegrationsGmailClient';
 export { EmailTemplatesClient } from './EmailTemplatesClient';
 export { ConfigBackLink } from './ConfigBackLink';
