@@ -41,7 +41,11 @@ export async function createDraftDte(
     throw new Error(`Tipo de DTE ${input.dteType} no es valido`);
   }
 
-  const calc = await computeDteAmounts(input);
+  // strict=false en draft: tolera unitPrice CLP con decimales para no
+  // romper drafts existentes generados con la lógica vieja. La validación
+  // estricta corre al emitir (issuer) — si el draft tiene drift, el
+  // usuario lo verá al pasar por el preview antes de emitir.
+  const calc = await computeDteAmounts(input, { strict: false });
 
   return prisma.financeDte.create({
     data: {
@@ -123,7 +127,9 @@ export async function updateDraftDte(
   });
   if (!existing) throw new Error("Borrador no encontrado o ya emitido");
 
-  const calc = await computeDteAmounts(input);
+  // Mismo tratamiento que createDraftDte: tolerante en update para no
+  // romper drafts viejos. Validación estricta corre al emitir.
+  const calc = await computeDteAmounts(input, { strict: false });
 
   return prisma.$transaction(async (tx) => {
     await tx.financeDteLine.deleteMany({ where: { dteId: draftId } });

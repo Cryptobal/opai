@@ -104,11 +104,11 @@ export function EmisionConfirmDialog(props: EmisionConfirmProps) {
               <span className="text-muted-foreground">Email:</span>
               <span>{receiver.email ?? "—"}</span>
               <span className="text-muted-foreground">Neto:</span>
-              <span>{fmtCLP(totals.netAmount)}</span>
+              <span className="font-mono">{fmtCLP(totals.netAmount)}</span>
               <span className="text-muted-foreground">IVA:</span>
-              <span>{fmtCLP(totals.taxAmount)}</span>
+              <span className="font-mono">{fmtCLP(totals.taxAmount)}</span>
               <span className="text-muted-foreground">Total CLP:</span>
-              <span className="font-semibold">{fmtCLP(totals.totalAmount)}</span>
+              <span className="font-mono font-semibold">{fmtCLP(totals.totalAmount)}</span>
               {totals.currency === "UF" && totals.totalUf != null && (
                 <>
                   <span className="text-muted-foreground">≈</span>
@@ -116,6 +116,11 @@ export function EmisionConfirmDialog(props: EmisionConfirmProps) {
                 </>
               )}
             </div>
+            <p className="mt-2 pt-2 border-t border-border text-[12px] text-muted-foreground">
+              Estos son los montos <strong>exactos</strong> que recibirá el SII.
+              Si no coinciden con tu expectativa, cancelá y revisá las
+              cantidades y precios antes de emitir.
+            </p>
           </div>
 
           <div className="text-sm">

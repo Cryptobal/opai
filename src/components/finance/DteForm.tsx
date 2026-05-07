@@ -82,7 +82,12 @@ const EMPTY_LINE: DteLine = {
   accountId: "",
 };
 
-const IVA_RATE = 0.19;
+// IVA_RATE local eliminado intencionalmente: el cálculo de totales
+// pasa por el endpoint /api/finance/billing/preview-amounts (que usa
+// el helper compartido `computeDteAmounts` con strict=true). Esto
+// garantiza que los totales del form = totales emitidos al SII y
+// previene el bug del "1.000.000 quedó en 999.998" que aparecía
+// cuando cliente y server hacían el round con reglas distintas.
 
 const fmtCLP = new Intl.NumberFormat("es-CL", {
   style: "currency",
@@ -327,19 +332,97 @@ export function DteForm({ availableTypes, accounts }: Props) {
     });
   }, []);
 
-  const totals = useMemo(() => {
-    let netAmount = 0;
-    lines.forEach((l) => {
-      const qty = parseFloat(l.quantity) || 0;
-      const price = parseFloat(l.unitPrice) || 0;
-      const discount = parseFloat(l.discountPct) || 0;
-      const lineNet = qty * price * (1 - discount / 100);
-      netAmount += lineNet;
-    });
-    const taxAmount = isExenta ? 0 : Math.round(netAmount * IVA_RATE);
-    const totalAmount = Math.round(netAmount) + taxAmount;
-    return { netAmount: Math.round(netAmount), taxAmount, totalAmount };
-  }, [lines, isExenta]);
+  // Totales = source of truth = server. Llamamos al preview-amounts
+  // endpoint con debounce 250ms cuando cambian líneas/dteType/currency.
+  // Si el preview falla (líneas vacías o validación), mostramos los
+  // últimos totales válidos para no parpadear.
+  const [serverTotals, setServerTotals] = useState<{
+    netAmount: number;
+    taxAmount: number;
+    totalAmount: number;
+    exemptAmount: number;
+  }>({ netAmount: 0, taxAmount: 0, totalAmount: 0, exemptAmount: 0 });
+  const [serverPreviewError, setServerPreviewError] = useState<string | null>(
+    null,
+  );
+
+  useEffect(() => {
+    const validLines = lines.filter(
+      (l) => l.itemName.trim() && parseFloat(l.unitPrice) > 0,
+    );
+    if (validLines.length === 0) {
+      setServerTotals({
+        netAmount: 0,
+        taxAmount: 0,
+        totalAmount: 0,
+        exemptAmount: 0,
+      });
+      setServerPreviewError(null);
+      return;
+    }
+
+    const ctrl = new AbortController();
+    const t = setTimeout(async () => {
+      try {
+        const body = {
+          dteType: parseInt(dteType, 10),
+          currency,
+          lines: validLines.map((l) => ({
+            itemName: l.itemName.trim(),
+            quantity: parseFloat(l.quantity) || 1,
+            unitPrice: parseFloat(l.unitPrice) || 0,
+            unitPriceUf:
+              currency === "UF" ? parseFloat(l.unitPrice) || 0 : undefined,
+            discountPct: parseFloat(l.discountPct) || 0,
+            isExempt: l.isExempt,
+          })),
+          // En UF: pasamos ufOverride si lo tenemos cacheado para que
+          // el preview coincida con lo que verá el usuario al emitir
+          // EN ESTE MISMO MOMENTO. La emisión real igual usa UF del
+          // server (puede haber drift si pasa rato — el modal de
+          // confirmación re-fetchea).
+          ufOverride: currency === "UF" && ufValue ? ufValue : undefined,
+        };
+        const res = await fetch("/api/finance/billing/preview-amounts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+          signal: ctrl.signal,
+        });
+        const json = await res.json();
+        if (!res.ok || !json.success) {
+          setServerPreviewError(json.error ?? "Error en preview");
+          return;
+        }
+        setServerPreviewError(null);
+        setServerTotals({
+          netAmount: json.data.totalNet,
+          taxAmount: json.data.taxAmount,
+          totalAmount: json.data.totalAmount,
+          exemptAmount: json.data.totalExempt,
+        });
+      } catch (err) {
+        if ((err as Error).name === "AbortError") return;
+        setServerPreviewError(
+          (err as Error).message ?? "Error en preview de montos",
+        );
+      }
+    }, 250);
+    return () => {
+      clearTimeout(t);
+      ctrl.abort();
+    };
+  }, [lines, dteType, currency, ufValue]);
+
+  // Compatibilidad con el resto del componente: exponer el shape `totals`.
+  const totals = useMemo(
+    () => ({
+      netAmount: serverTotals.netAmount,
+      taxAmount: serverTotals.taxAmount,
+      totalAmount: serverTotals.totalAmount,
+    }),
+    [serverTotals],
+  );
 
   const handleSubmit = async () => {
     // Datos efectivos del receptor: prioriza customer del CRM si existe;
@@ -1160,9 +1243,10 @@ export function DteForm({ availableTypes, accounts }: Props) {
         </CardContent>
       </Card>
 
-      {/* Totals */}
+      {/* Totals — calculados por el server (preview-amounts) para que
+          el monto que ves acá sea EXACTAMENTE el que se enviará al SII. */}
       <Card>
-        <CardContent className="pt-4">
+        <CardContent className="pt-4 space-y-2">
           <div className="flex flex-col items-end gap-1 text-sm">
             <div className="flex items-center gap-8">
               <span className="text-muted-foreground">Neto</span>
@@ -1179,6 +1263,19 @@ export function DteForm({ availableTypes, accounts }: Props) {
               <span className="font-mono w-28 text-right">{fmtCLP.format(totals.totalAmount)}</span>
             </div>
           </div>
+          <p className="text-[12px] text-muted-foreground text-right">
+            Estos son los montos exactos que se enviarán al SII.
+          </p>
+          {serverPreviewError && (
+            <div className="rounded-md border border-status-danger-border bg-status-danger-soft p-3 text-[13px] text-status-danger-fg">
+              <p className="font-medium">No se puede calcular el total:</p>
+              <p className="mt-0.5">{serverPreviewError}</p>
+              <p className="mt-1 text-[12px]">
+                Revisa que los precios sean enteros (sin centavos) en CLP, o
+                que la cantidad de UF sea válida.
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
 

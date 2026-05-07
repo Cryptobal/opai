@@ -145,7 +145,11 @@ export async function issueDte(
   // unitPriceUf → unitPrice CLP usando la UF del día (vía FxUfRate).
   // El XML SII y el asiento contable van SIEMPRE en CLP — la UF queda
   // como auditoría en ufValueAtIssue + line.unitPriceUf.
-  const calc = await computeDteAmounts(input);
+  //
+  // strict=true: en emisión real rechazamos unitPrice CLP con decimales
+  // (que provocaba el bug del "1.000.000 quedó en 999.998"). Si llega
+  // un input con decimales, throw temprano con mensaje claro.
+  const calc = await computeDteAmounts(input, { strict: true });
   const totalNet = calc.totalNet;
   const totalExempt = calc.totalExempt;
   const taxRate = calc.taxRate;
