@@ -621,19 +621,15 @@ export function IssuedDteDetailDialog({
               </Button>
             )}
             {canManage && (() => {
-              // Visible SIEMPRE para tipos cedibles (33/34/43/46), pero
-              // disabled con tooltip explicativo cuando hay alguna razón
-              // que lo bloquea. Antes lo escondíamos sin explicar y los
-              // usuarios pensaban que el botón "no estaba".
-              const isCedibleType = [33, 34, 43, 46].includes(dte.dteType);
-              if (!isCedibleType) return null;
+              // Botón siempre habilitado para cualquier DTE emitido. La
+              // única restricción técnica real es tener XML local: sin
+              // él no se puede construir el AEC. Para todo lo demás
+              // (tipo, status SII, ya cedido) dejamos que el backend +
+              // SII devuelvan el error si no aplica.
               const noXml = !dte.hasXml;
-              const notAccepted = dte.siiStatus !== "ACCEPTED";
               const blockedReason = noXml
                 ? "Sin XML local — solo se pueden ceder DTEs emitidos desde OPAI (no importados del SII)."
-                : notAccepted
-                  ? "El DTE debe estar ACEPTADO por el SII antes de cederse."
-                  : null;
+                : null;
               return (
                 <Button
                   variant="outline"

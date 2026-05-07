@@ -1009,41 +1009,53 @@ export function DteForm({ availableTypes, accounts }: Props) {
                           <Input
                             value={line.itemName}
                             onChange={(e) => updateLine(i, "itemName", e.target.value)}
-                            className="h-8 text-xs"
+                            className="h-9 text-sm"
                             placeholder="Nombre del ítem"
+                            autoComplete="off"
                           />
                         </td>
                         <td className="px-3 py-2">
                           <Input
-                            type="number" min={1}
+                            type="number"
+                            min={1}
+                            inputMode="decimal"
                             value={line.quantity}
                             onChange={(e) => updateLine(i, "quantity", e.target.value)}
-                            className="h-8 text-xs text-right"
+                            className="h-9 text-sm text-right tabular-nums"
+                            autoComplete="off"
                           />
                         </td>
                         <td className="px-3 py-2">
                           <Input
                             value={line.unit}
                             onChange={(e) => updateLine(i, "unit", e.target.value)}
-                            className="h-8 text-xs"
+                            className="h-9 text-sm"
                             placeholder="UN"
+                            autoComplete="off"
                           />
                         </td>
                         <td className="px-3 py-2">
                           <Input
-                            type="number" min={0}
+                            type="number"
+                            min={0}
+                            inputMode="decimal"
                             value={line.unitPrice}
                             onChange={(e) => updateLine(i, "unitPrice", e.target.value)}
-                            className="h-8 text-xs text-right"
+                            className="h-9 text-sm text-right tabular-nums"
                             placeholder="0"
+                            autoComplete="off"
                           />
                         </td>
                         <td className="px-3 py-2">
                           <Input
-                            type="number" min={0} max={100}
+                            type="number"
+                            min={0}
+                            max={100}
+                            inputMode="decimal"
                             value={line.discountPct}
                             onChange={(e) => updateLine(i, "discountPct", e.target.value)}
-                            className="h-8 text-xs text-right"
+                            className="h-9 text-sm text-right tabular-nums"
+                            autoComplete="off"
                           />
                         </td>
                         <td className="px-3 py-2 text-right font-mono text-xs">
@@ -1063,7 +1075,10 @@ export function DteForm({ availableTypes, accounts }: Props) {
           </Card>
         </div>
 
-        {/* Mobile lines */}
+        {/* Mobile lines: tap-friendly cards (≥44px), tipografía legible
+            (≥12px), autoComplete=off para evitar barra "Autorrellenar
+            contacto" en iOS, inputMode=decimal en numéricos para
+            mostrar el teclado correcto. */}
         <div className="md:hidden space-y-3">
           {lines.map((line, i) => {
             const qty = parseFloat(line.quantity) || 0;
@@ -1072,50 +1087,67 @@ export function DteForm({ availableTypes, accounts }: Props) {
             const subtotal = qty * price * (1 - disc / 100);
             return (
               <Card key={i}>
-                <CardContent className="p-3 space-y-2">
+                <CardContent className="p-3 space-y-2.5">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-muted-foreground">Línea {i + 1}</span>
-                    <Button variant="ghost" size="sm" onClick={() => removeLine(i)} className="h-7 w-7 p-0">
-                      <Trash2 className="h-3 w-3 text-destructive" />
+                    <span className="text-[12px] font-medium text-muted-foreground">Línea {i + 1}</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeLine(i)}
+                      className="h-10 w-10 p-0 sm:h-7 sm:w-7"
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   </div>
                   <Input
                     value={line.itemName}
                     onChange={(e) => updateLine(i, "itemName", e.target.value)}
-                    className="h-8 text-xs"
+                    className="h-10 sm:h-9 text-sm"
                     placeholder="Nombre del ítem *"
+                    autoComplete="off"
+                    autoCorrect="off"
                   />
                   <div className="grid grid-cols-3 gap-2 min-w-0">
                     <div className="space-y-1">
-                      <Label className="text-[10px]">Cant.</Label>
+                      <Label className="text-[12px] uppercase tracking-wide text-muted-foreground">Cant.</Label>
                       <Input
-                        type="number" min={1}
+                        type="number"
+                        min={1}
+                        inputMode="decimal"
                         value={line.quantity}
                         onChange={(e) => updateLine(i, "quantity", e.target.value)}
-                        className="h-8 text-xs text-right"
+                        className="h-10 sm:h-9 text-sm text-right tabular-nums"
+                        autoComplete="off"
                       />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-[10px]">Precio *</Label>
+                      <Label className="text-[12px] uppercase tracking-wide text-muted-foreground">Precio *</Label>
                       <Input
-                        type="number" min={0}
+                        type="number"
+                        min={0}
+                        inputMode="decimal"
                         value={line.unitPrice}
                         onChange={(e) => updateLine(i, "unitPrice", e.target.value)}
-                        className="h-8 text-xs text-right"
+                        className="h-10 sm:h-9 text-sm text-right tabular-nums"
+                        autoComplete="off"
                       />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-[10px]">Desc.%</Label>
+                      <Label className="text-[12px] uppercase tracking-wide text-muted-foreground">Desc.%</Label>
                       <Input
-                        type="number" min={0} max={100}
+                        type="number"
+                        min={0}
+                        max={100}
+                        inputMode="decimal"
                         value={line.discountPct}
                         onChange={(e) => updateLine(i, "discountPct", e.target.value)}
-                        className="h-8 text-xs text-right"
+                        className="h-10 sm:h-9 text-sm text-right tabular-nums"
+                        autoComplete="off"
                       />
                     </div>
                   </div>
-                  <div className="text-right text-xs font-mono">
-                    Subtotal: {fmtCLP.format(Math.round(subtotal))}
+                  <div className="text-right text-[13px] font-mono tabular-nums">
+                    Subtotal: <span className="font-medium">{fmtCLP.format(Math.round(subtotal))}</span>
                   </div>
                 </CardContent>
               </Card>
@@ -1172,7 +1204,7 @@ export function DteForm({ availableTypes, accounts }: Props) {
                         )
                       }
                     >
-                      <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="h-10 sm:h-9 text-sm"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="801">801 — Orden de Compra</SelectItem>
                         <SelectItem value="802">802 — Nota de Pedido</SelectItem>
@@ -1194,7 +1226,8 @@ export function DteForm({ availableTypes, accounts }: Props) {
                         )
                       }
                       placeholder="PO-2026-0001"
-                      className="h-9 text-xs"
+                      className="h-10 sm:h-9 text-sm"
+                      autoComplete="off"
                     />
                   </div>
                   <div className="md:col-span-2">
@@ -1207,7 +1240,7 @@ export function DteForm({ availableTypes, accounts }: Props) {
                           prev.map((r, idx) => (idx === i ? { ...r, fchRef: e.target.value } : r)),
                         )
                       }
-                      className="h-9 text-xs"
+                      className="h-10 sm:h-9 text-sm"
                     />
                   </div>
                   <div className="md:col-span-4">
@@ -1221,7 +1254,8 @@ export function DteForm({ availableTypes, accounts }: Props) {
                       }
                       placeholder="Orden de Compra del cliente"
                       maxLength={90}
-                      className="h-9 text-xs"
+                      className="h-10 sm:h-9 text-sm"
+                      autoComplete="off"
                     />
                   </div>
                   <div className="md:col-span-1 flex items-end justify-end h-full">

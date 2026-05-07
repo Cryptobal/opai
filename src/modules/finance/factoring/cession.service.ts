@@ -18,7 +18,7 @@ import { prisma } from "@/lib/prisma";
 import { getDteProvider } from "../shared/adapters/dte-provider.adapter";
 import { getFactoringCompany } from "./factoring-companies.service";
 
-/** Tipos de DTE que la Ley 19.983 declara cedibles. */
+/** Tipos de DTE que la Ley 19.983 declara cedibles (referencia informativa). */
 const CEDIBLE_DTE_TYPES = new Set<number>([33, 34, 43, 46]);
 
 export interface CedeDteInput {
@@ -133,19 +133,19 @@ async function validateAndLoadDte(tenantId: string, dteId: string) {
     },
   });
   if (!dte) throw new Error("DTE no encontrado en este tenant.");
-  if (!CEDIBLE_DTE_TYPES.has(dte.dteType)) {
-    throw new Error(
-      `Tipo DTE ${dte.dteType} no es cedible (Ley 19.983 solo permite 33, 34, 43, 46).`,
-    );
-  }
-  if (dte.siiStatus !== "ACCEPTED") {
-    throw new Error(
-      `DTE no está ACEPTADO por el SII (estado actual: ${dte.siiStatus ?? "—"}). Solo se pueden ceder DTEs aceptados.`,
-    );
-  }
+  // Tipo cedible: la Ley 19.983 lista 33/34/43/46. Mantenemos la lista
+  // como referencia informativa pero NO bloqueamos al usuario — el SII
+  // rechazará la cesión con un error claro si el tipo no es cedible.
+  // Antes el guard frontend/backend escondía el botón y el equipo no
+  // podía ni intentar la operación; ahora dejamos que la cesión avance
+  // y el provider/SII devuelve el error real si aplica.
+  void CEDIBLE_DTE_TYPES; // marcador de uso intencional
+  // El XML local sigue siendo requerido técnicamente: el AEC se
+  // construye a partir del XML del DTE original. Sin él no hay cesión
+  // posible, no es una restricción de policy.
   if (!dte.dteXml || dte.dteXml.length === 0) {
     throw new Error(
-      "El DTE no tiene XML almacenado en la BD. Solo se pueden ceder DTEs emitidos por OPAI tras la persistencia del XML.",
+      "El DTE no tiene XML almacenado en la BD. Solo se pueden ceder DTEs emitidos desde OPAI (no importados).",
     );
   }
 
