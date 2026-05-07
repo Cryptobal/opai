@@ -7,16 +7,16 @@ import {
   hasCapability,
 } from "@/lib/permissions-server";
 import { PageHero } from "@/components/opai-ds";
-import { LayoutDashboard } from "lucide-react";
-import { DashboardClient } from "@/components/finance/reports/DashboardClient";
+import { FileBarChart } from "lucide-react";
+import { IncomeStatementClient } from "@/components/finance/reports/IncomeStatementClient";
 import { buildPeriod } from "@/modules/finance/reports/shared/period.helper";
-import { getDashboardKpis } from "@/modules/finance/reports/dashboard.service";
+import { getIncomeStatement } from "@/modules/finance/reports/income-statement.service";
 
 export const dynamic = "force-dynamic";
 
-export default async function ReportsPage() {
+export default async function EerrPage() {
   const session = await auth();
-  if (!session?.user) redirect("/opai/login?callbackUrl=/finanzas/reportes");
+  if (!session?.user) redirect("/opai/login?callbackUrl=/finanzas/reportes/eerr");
   const perms = await resolvePagePerms(session.user);
   if (!hasModuleAccess(perms, "finance")) redirect("/hub");
   if (!canView(perms, "finance", "reportes") && !hasCapability(perms, "finance_reports_view")) {
@@ -24,19 +24,21 @@ export default async function ReportsPage() {
   }
 
   const period = buildPeriod("month", new Date());
-  const initialKpis = await getDashboardKpis(session.user.tenantId, period);
+  const initial = await getIncomeStatement(session.user.tenantId, period, {}, {
+    withComparison: true,
+  });
 
   return (
     <div className="space-y-5">
       <PageHero
-        icon={<LayoutDashboard />}
-        iconTone="sky"
+        icon={<FileBarChart />}
+        iconTone="violet"
         eyebrow={["Finanzas", "Reportes"]}
-        title="Dashboard ejecutivo"
-        subtitle="visión 360°"
-        description="KPIs clave, tendencias y rankings en tiempo real."
+        title="Estado de Resultado"
+        subtitle="EE.RR."
+        description="Ingresos, costos y utilidad neta del período. Solo asientos POSTED."
       />
-      <DashboardClient initialPeriod={period} initialKpis={initialKpis} />
+      <IncomeStatementClient initialPeriod={period} initialData={initial} initialCompare />
     </div>
   );
 }

@@ -7,36 +7,36 @@ import {
   hasCapability,
 } from "@/lib/permissions-server";
 import { PageHero } from "@/components/opai-ds";
-import { LayoutDashboard } from "lucide-react";
-import { DashboardClient } from "@/components/finance/reports/DashboardClient";
+import { Grid3x3 } from "lucide-react";
+import { SalesMatrixClient } from "@/components/finance/reports/SalesMatrixClient";
 import { buildPeriod } from "@/modules/finance/reports/shared/period.helper";
-import { getDashboardKpis } from "@/modules/finance/reports/dashboard.service";
+import { getSalesMatrix } from "@/modules/finance/reports/sales-matrix.service";
 
 export const dynamic = "force-dynamic";
 
-export default async function ReportsPage() {
+export default async function VentasPage() {
   const session = await auth();
-  if (!session?.user) redirect("/opai/login?callbackUrl=/finanzas/reportes");
+  if (!session?.user) redirect("/opai/login?callbackUrl=/finanzas/reportes/ventas");
   const perms = await resolvePagePerms(session.user);
   if (!hasModuleAccess(perms, "finance")) redirect("/hub");
   if (!canView(perms, "finance", "reportes") && !hasCapability(perms, "finance_reports_view")) {
     redirect("/finanzas");
   }
 
-  const period = buildPeriod("month", new Date());
-  const initialKpis = await getDashboardKpis(session.user.tenantId, period);
+  const period = buildPeriod("year", new Date());
+  const initial = await getSalesMatrix(session.user.tenantId, period);
 
   return (
     <div className="space-y-5">
       <PageHero
-        icon={<LayoutDashboard />}
-        iconTone="sky"
+        icon={<Grid3x3 />}
+        iconTone="emerald"
         eyebrow={["Finanzas", "Reportes"]}
-        title="Dashboard ejecutivo"
-        subtitle="visión 360°"
-        description="KPIs clave, tendencias y rankings en tiempo real."
+        title="Ventas por cliente"
+        subtitle="heatmap mensual"
+        description="Facturación por centro de costo (CrmAccount) por mes. Espejo F29."
       />
-      <DashboardClient initialPeriod={period} initialKpis={initialKpis} />
+      <SalesMatrixClient initialPeriod={period} initialData={initial} />
     </div>
   );
 }
