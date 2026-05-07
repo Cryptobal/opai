@@ -14,9 +14,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Trash2, Loader2, Send, Copy, FileEdit } from "lucide-react";
+import { Plus, Trash2, Loader2, Send, Copy, FileEdit, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { EmisionConfirmDialog } from "./EmisionConfirmDialog";
+import { PdfPreviewDialog } from "./PdfPreviewDialog";
 
 /* ── Types ── */
 
@@ -90,6 +91,11 @@ export function CreditNoteForm({ noteType, referenceDte, onSuccess, onCancel }: 
   const [lines, setLines] = useState<NoteLine[]>([{ ...EMPTY_LINE }]);
   const [saving, setSaving] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  // Vista previa PDF (Fase 9): NCs/NDs también se benefician — el
+  // usuario ve cómo va a quedar el documento antes de gastar folio.
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewBlobUrl, setPreviewBlobUrl] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
   // Tracking: cuando el CodRef cambia y auto-cargamos las líneas del
   // original, recordamos que vinieron de auto-fill para mostrar el
   // banner correcto y permitir desbloquear si el usuario lo pide.
@@ -274,6 +280,69 @@ export function CreditNoteForm({ noteType, referenceDte, onSuccess, onCancel }: 
       toast.error(error instanceof Error ? error.message : "Error inesperado");
     } finally {
       setSaving(false);
+    }
+  };
+
+  /**
+   * Vista previa PDF de la NC/ND antes de emitir. Reusa el mismo
+   * endpoint /preview-pdf que el DteForm. La NC se modela como
+   * dteType=61 + referencia al DTE original.
+   */
+  const handlePreviewPdf = async () => {
+    if (!validateBeforeSubmit()) return;
+    if (!referenceDte) return;
+
+    setPreviewLoading(true);
+    try {
+      if (previewBlobUrl) URL.revokeObjectURL(previewBlobUrl);
+      const validLines = lines.filter(
+        (l) => l.itemName.trim() && parseFloat(l.unitPrice) > 0,
+      );
+      const body = {
+        dteType: isCredit ? 61 : 56,
+        currency: "CLP" as const,
+        receptor: {
+          rut: referenceDte.receiverRut,
+          razonSocial: referenceDte.receiverName,
+        },
+        lines: validLines.map((l) => ({
+          itemName: l.itemName.trim(),
+          description: l.description?.trim() || null,
+          quantity: parseFloat(l.quantity) || 1,
+          unitPrice: parseFloat(l.unitPrice) || 0,
+        })),
+        // La referencia al DTE original es lo que distingue NC/ND y
+        // aparece en el bloque "REFERENCIAS" del PDF preview.
+        references: [
+          {
+            tipoDocRef: String(referenceDte.dteType),
+            folioRef: String(referenceDte.folio),
+            fchRef: null,
+            razonRef: reason.trim() || null,
+          },
+        ],
+        notes: reason.trim() || null,
+      };
+
+      const res = await fetch("/api/finance/billing/preview-pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(
+          (errBody as { error?: string }).error ?? "Error generando vista previa",
+        );
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      setPreviewBlobUrl(url);
+      setPreviewOpen(true);
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setPreviewLoading(false);
     }
   };
 
@@ -636,15 +705,35 @@ export function CreditNoteForm({ noteType, referenceDte, onSuccess, onCancel }: 
             if (onCancel) onCancel();
             else router.push("/finanzas/facturacion");
           }}
-          disabled={saving}
+          disabled={saving || previewLoading}
         >
           Cancelar
         </Button>
-        <Button variant="outline" onClick={handleSaveDraft} disabled={saving || !referenceDte}>
+        <Button
+          variant="outline"
+          onClick={handlePreviewPdf}
+          disabled={saving || previewLoading || !referenceDte}
+          title="Vista previa de la NC sin gastar folio"
+        >
+          {previewLoading ? (
+            <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+          ) : (
+            <Eye className="h-4 w-4 mr-1.5" />
+          )}
+          Vista previa PDF
+        </Button>
+        <Button
+          variant="outline"
+          onClick={handleSaveDraft}
+          disabled={saving || previewLoading || !referenceDte}
+        >
           {saving ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <FileEdit className="h-4 w-4 mr-1.5" />}
           Guardar como borrador
         </Button>
-        <Button onClick={handleSubmit} disabled={saving || !referenceDte}>
+        <Button
+          onClick={handleSubmit}
+          disabled={saving || previewLoading || !referenceDte}
+        >
           {saving ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Send className="h-4 w-4 mr-1.5" />}
           Emitir nota de {isCredit ? "crédito" : "débito"}
         </Button>
@@ -677,6 +766,22 @@ export function CreditNoteForm({ noteType, referenceDte, onSuccess, onCancel }: 
           }))}
         defaultBackofficeEmails={tenantBackoffice.emails}
         defaultBackofficeAlwaysSend={tenantBackoffice.alwaysSend}
+      />
+
+      {/* Vista previa PDF (Fase 9) — NC/ND también la usan */}
+      <PdfPreviewDialog
+        open={previewOpen}
+        onOpenChange={(o) => {
+          setPreviewOpen(o);
+          if (!o && previewBlobUrl) {
+            URL.revokeObjectURL(previewBlobUrl);
+            setPreviewBlobUrl(null);
+          }
+        }}
+        blobUrl={previewBlobUrl}
+        folio={0}
+        dteType={isCredit ? 61 : 56}
+        isPreview
       />
     </div>
   );

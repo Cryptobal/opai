@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
-import { Plus, Trash2, Loader2, Send, Download, FileEdit } from "lucide-react";
+import { Plus, Trash2, Loader2, Send, Download, FileEdit, Eye } from "lucide-react";
 import { CustomerCombobox, type CustomerOption } from "./CustomerCombobox";
 import {
   Dialog,
@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { EmisionConfirmDialog } from "./EmisionConfirmDialog";
+import { PdfPreviewDialog } from "./PdfPreviewDialog";
 
 /* ── Types ── */
 
@@ -154,6 +155,12 @@ export function DteForm({ availableTypes, accounts }: Props) {
   const [ufValue, setUfValue] = useState<number | null>(null);
   // Modal de confirmación pre-emisión.
   const [confirmOpen, setConfirmOpen] = useState(false);
+  // Vista previa PDF (Fase 9): genera un PDF "como se vería al emitir"
+  // sin gastar folio SII. Útil para validar receptor/líneas/montos
+  // antes de pagar el costo de un folio + posible NC posterior.
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewBlobUrl, setPreviewBlobUrl] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
   // Config del tenant para el modal (emails XML al backoffice).
   const [tenantBackoffice, setTenantBackoffice] = useState<{
     emails: string[];
@@ -613,6 +620,90 @@ export function DteForm({ availableTypes, accounts }: Props) {
       toast.error(error instanceof Error ? error.message : "Error inesperado");
     } finally {
       setSaving(false);
+    }
+  };
+
+  /**
+   * Vista previa PDF: genera un PDF "como se vería al emitir" sin
+   * gastar folio. Llama a /api/finance/billing/preview-pdf con el
+   * shape del form actual y abre el resultado en el modal grande.
+   */
+  const handlePreviewPdf = async () => {
+    // Validar mínimos: receptor y al menos una línea con precio.
+    const effRut = (customer?.rut || receiverRut).trim();
+    const effName = (customer?.name || receiverName).trim();
+    if (!effRut || !effName) {
+      toast.error("RUT y razón social del receptor son obligatorios");
+      return;
+    }
+    const validLines = lines.filter(
+      (l) => l.itemName.trim() && parseFloat(l.unitPrice) > 0,
+    );
+    if (validLines.length === 0) {
+      toast.error("Debe incluir al menos una línea con nombre y precio");
+      return;
+    }
+
+    setPreviewLoading(true);
+    try {
+      // Limpiar blob URL anterior para no tener leaks.
+      if (previewBlobUrl) URL.revokeObjectURL(previewBlobUrl);
+
+      const body = {
+        dteType: parseInt(dteType, 10),
+        currency,
+        receptor: {
+          rut: effRut,
+          razonSocial: effName,
+          giro: receiverGiro || null,
+          direccion: receiverDireccion || null,
+          comuna: receiverComuna || null,
+          ciudad: receiverCiudad || null,
+        },
+        lines: validLines.map((l) => ({
+          itemName: l.itemName.trim(),
+          description: l.description?.trim() || null,
+          quantity: parseFloat(l.quantity) || 1,
+          unit: l.unit || null,
+          unitPrice: parseFloat(l.unitPrice) || 0,
+          unitPriceUf:
+            currency === "UF" ? parseFloat(l.unitPrice) || 0 : undefined,
+          discountPct: parseFloat(l.discountPct) || 0,
+          isExempt: l.isExempt,
+        })),
+        references: additionalRefs
+          .filter(
+            (r) => r.tipoDocRef.trim() && r.folioRef.trim(),
+          )
+          .map((r) => ({
+            tipoDocRef: r.tipoDocRef.trim(),
+            folioRef: r.folioRef.trim(),
+            fchRef: r.fchRef || null,
+            razonRef: r.razonRef?.trim() || null,
+          })),
+        notes: notes?.trim() || null,
+        ufOverride: currency === "UF" && ufValue ? ufValue : undefined,
+      };
+
+      const res = await fetch("/api/finance/billing/preview-pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(
+          (errBody as { error?: string }).error ?? "Error al generar vista previa",
+        );
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      setPreviewBlobUrl(url);
+      setPreviewOpen(true);
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setPreviewLoading(false);
     }
   };
 
@@ -1345,11 +1436,31 @@ export function DteForm({ availableTypes, accounts }: Props) {
         <Button
           variant="outline"
           onClick={() => router.push("/finanzas/facturacion")}
-          disabled={saving}
+          disabled={saving || previewLoading}
         >
           Cancelar
         </Button>
-        <Button variant="outline" onClick={handleSaveDraft} disabled={saving}>
+        {/* Vista previa: NO gasta folio. El PDF lleva marca de agua
+            "VISTA PREVIA · NO EMITIDO". Recomendado siempre antes de
+            emitir, sobre todo en facturas grandes o con muchos items. */}
+        <Button
+          variant="outline"
+          onClick={handlePreviewPdf}
+          disabled={saving || previewLoading}
+          title="Genera PDF como se vería al emitir, sin reservar folio SII"
+        >
+          {previewLoading ? (
+            <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+          ) : (
+            <Eye className="h-4 w-4 mr-1.5" />
+          )}
+          Vista previa PDF
+        </Button>
+        <Button
+          variant="outline"
+          onClick={handleSaveDraft}
+          disabled={saving || previewLoading}
+        >
           {saving ? (
             <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
           ) : (
@@ -1357,7 +1468,7 @@ export function DteForm({ availableTypes, accounts }: Props) {
           )}
           {draftIdParam ? "Guardar borrador" : "Guardar como borrador"}
         </Button>
-        <Button onClick={handleSubmit} disabled={saving}>
+        <Button onClick={handleSubmit} disabled={saving || previewLoading}>
           {saving ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Send className="h-4 w-4 mr-1.5" />}
           Emitir documento
         </Button>
@@ -1399,6 +1510,24 @@ export function DteForm({ availableTypes, accounts }: Props) {
           }))}
         defaultBackofficeEmails={tenantBackoffice.emails}
         defaultBackofficeAlwaysSend={tenantBackoffice.alwaysSend}
+      />
+
+      {/* Vista previa PDF (Fase 9). Genera un PDF "como se vería al
+          emitir" sin reservar folio. Se cierra liberando el blob URL
+          para no acumular memoria. */}
+      <PdfPreviewDialog
+        open={previewOpen}
+        onOpenChange={(o) => {
+          setPreviewOpen(o);
+          if (!o && previewBlobUrl) {
+            URL.revokeObjectURL(previewBlobUrl);
+            setPreviewBlobUrl(null);
+          }
+        }}
+        blobUrl={previewBlobUrl}
+        folio={0}
+        dteType={parseInt(dteType, 10)}
+        isPreview
       />
 
       {/* Import pending billable items dialog */}
