@@ -32,6 +32,9 @@ import {
   Receipt,
   ArrowDownToLine,
   Hash,
+  Clock3,
+  Users,
+  Building2,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -58,6 +61,15 @@ interface AgingBucket {
   monto: number;
 }
 
+interface TopDebtor {
+  accountId: string | null;
+  name: string;
+  rut: string;
+  monto: number;
+  facturasCount: number;
+  diasMasAntigua: number;
+}
+
 interface CobranzasSummary {
   facturadoNeto: number;
   cobrado: number;
@@ -71,6 +83,11 @@ interface CobranzasSummary {
   ivaDebito: number;
   ivaCredito: number;
   cobradoPct: number;
+  dso: number | null;
+  dsoPrev: number | null;
+  topDeudores: TopDebtor[];
+  saldoBancario: number;
+  bankAccountsCount: number;
   periodLabel: string;
   operational?: {
     pendientesSii: number;
@@ -84,6 +101,15 @@ interface TrendPoint {
   facturado: number;
   cobrado: number;
 }
+
+type TrendRangeKey = "3m" | "6m" | "12m" | "ytd";
+
+const TREND_RANGES: { value: TrendRangeKey; label: string }[] = [
+  { value: "3m", label: "3M" },
+  { value: "6m", label: "6M" },
+  { value: "ytd", label: "Año en curso" },
+  { value: "12m", label: "12M" },
+];
 
 const fmtCLP = (n: number) =>
   "$" + new Intl.NumberFormat("es-CL").format(Math.round(n));
@@ -170,37 +196,54 @@ export function SaludFinancieraHero({
 
   const [summary, setSummary] = useState<CobranzasSummary | null>(null);
   const [trend, setTrend] = useState<TrendPoint[] | null>(null);
+  const [trendRange, setTrendRange] = useState<TrendRangeKey>("ytd");
   const [loading, setLoading] = useState(true);
 
+  // Fetch summary cuando cambia el período
   useEffect(() => {
     const ctrl = new AbortController();
     setLoading(true);
-    // El backend acepta directamente "current" como string vacío para
-    // "mes en curso", "PREV" para mes anterior, "YTD" para año en curso,
-    // "ALL" para últimos 12 meses, o "YYYY-MM" para mes específico.
+    // El backend acepta "current" como string vacío para "mes en curso",
+    // "PREV" para mes anterior, "YTD" para año en curso, "ALL" para
+    // últimos 12 meses, o "YYYY-MM" para mes específico.
     const periodParam = periodo === "current" ? "" : periodo;
     const params = new URLSearchParams();
     if (periodParam) params.set("periodo", periodParam);
-    Promise.all([
-      fetch(`/api/finance/billing/cobranzas-summary?${params.toString()}`, {
-        signal: ctrl.signal,
-      }).then((r) => r.json()),
-      fetch("/api/finance/billing/cobranzas-trend?months=6", {
-        signal: ctrl.signal,
-      }).then((r) => r.json()),
-    ])
-      .then(([summaryJson, trendJson]) => {
-        if (summaryJson?.success) setSummary(summaryJson.data);
-        if (trendJson?.success) setTrend(trendJson.data);
+    fetch(`/api/finance/billing/cobranzas-summary?${params.toString()}`, {
+      signal: ctrl.signal,
+    })
+      .then((r) => r.json())
+      .then((j) => {
+        if (j?.success) setSummary(j.data);
       })
       .catch((err) => {
         if ((err as Error).name !== "AbortError") {
-          console.error("[SaludFinancieraHero] fetch error:", err);
+          console.error("[SaludFinancieraHero] summary error:", err);
         }
       })
       .finally(() => setLoading(false));
     return () => ctrl.abort();
   }, [periodo]);
+
+  // Fetch trend cuando cambia el rango del chart (independiente del
+  // período de los stats, así el chart puede mostrar 12m mientras los
+  // stats muestran "mes en curso")
+  useEffect(() => {
+    const ctrl = new AbortController();
+    fetch(`/api/finance/billing/cobranzas-trend?range=${trendRange}`, {
+      signal: ctrl.signal,
+    })
+      .then((r) => r.json())
+      .then((j) => {
+        if (j?.success) setTrend(j.data);
+      })
+      .catch((err) => {
+        if ((err as Error).name !== "AbortError") {
+          console.error("[SaludFinancieraHero] trend error:", err);
+        }
+      });
+    return () => ctrl.abort();
+  }, [trendRange]);
 
   if (loading && !summary) {
     return (
@@ -434,7 +477,134 @@ export function SaludFinancieraHero({
         </div>
       </div>
 
-      {/* Mini-chart 6 meses */}
+      {/* DSO + Saldo bancario + Top deudores */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 min-w-0">
+        {/* DSO con comparativo */}
+        <div className={STAT_TILE}>
+          <div className={STAT_LABEL}>
+            <Clock3 className="h-3 w-3 shrink-0" />
+            <span className="truncate">DSO · días en cobrar</span>
+          </div>
+          {summary.dso === null ? (
+            <div className="text-[13px] text-ds-text-3 italic">
+              Sin ventas en el período
+            </div>
+          ) : (
+            <>
+              <div className="font-display text-xl sm:text-2xl font-bold tracking-tight text-ds-text-1 ds-num">
+                {summary.dso}{" "}
+                <span className="text-[14px] font-normal text-ds-text-3">
+                  días
+                </span>
+              </div>
+              {summary.dsoPrev !== null &&
+                (() => {
+                  const delta = summary.dso! - summary.dsoPrev!;
+                  const better = delta < 0; // bajar DSO es mejorar
+                  const label =
+                    delta === 0
+                      ? "Sin cambios vs período previo"
+                      : `${delta > 0 ? "+" : ""}${delta}d vs período previo`;
+                  return (
+                    <div
+                      className={`text-[12px] mt-1 truncate ${
+                        delta === 0
+                          ? "text-ds-text-3"
+                          : better
+                            ? "text-status-ok-fg"
+                            : "text-status-warn-fg"
+                      }`}
+                      title={`Período actual: ${summary.dso}d · Anterior: ${summary.dsoPrev}d`}
+                    >
+                      {label}
+                    </div>
+                  );
+                })()}
+            </>
+          )}
+        </div>
+        {/* Saldo bancario */}
+        <div className={STAT_TILE}>
+          <div className={STAT_LABEL}>
+            <Building2 className="h-3 w-3 shrink-0" />
+            <span className="truncate">Saldo bancario</span>
+          </div>
+          <KpiAmount value={summary.saldoBancario} />
+          <div className="text-[12px] text-ds-text-3 mt-1 truncate">
+            {summary.bankAccountsCount} cuenta
+            {summary.bankAccountsCount === 1 ? "" : "s"} activa
+            {summary.bankAccountsCount === 1 ? "" : "s"}
+          </div>
+        </div>
+        {/* Spacer para alinear en lg (top deudores ocupa abajo) */}
+        <div className={STAT_TILE}>
+          <div className={STAT_LABEL}>
+            <ArrowDownToLine className="h-3 w-3 shrink-0" />
+            <span className="truncate">Liquidez vs por cobrar</span>
+          </div>
+          <KpiAmount value={summary.saldoBancario - summary.porCobrar} />
+          <div className="text-[12px] text-ds-text-3 mt-1 truncate">
+            Saldo banco − por cobrar
+          </div>
+        </div>
+      </div>
+
+      {/* Top 5 deudores */}
+      {summary.topDeudores.length > 0 && (
+        <div className="rounded-md border border-ds-border-subtle bg-ds-surface-2 p-3 min-w-0">
+          <div className={STAT_LABEL}>
+            <Users className="h-3 w-3 shrink-0" />
+            <span className="truncate">Top deudores</span>
+          </div>
+          <ul className="space-y-1.5 mt-1">
+            {summary.topDeudores.map((d, i) => {
+              const max = summary.topDeudores[0]?.monto ?? 1;
+              const pct = max > 0 ? (d.monto / max) * 100 : 0;
+              const ageColor =
+                d.diasMasAntigua > 60
+                  ? "text-status-danger-fg"
+                  : d.diasMasAntigua > 30
+                    ? "text-status-warn-fg"
+                    : "text-status-ok-fg";
+              return (
+                <li
+                  key={`${d.accountId ?? d.rut}-${i}`}
+                  className="flex items-center gap-2 min-w-0"
+                >
+                  <div className="text-[11px] font-mono text-ds-text-3 w-4 shrink-0 text-right">
+                    {i + 1}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div
+                      className="text-[13px] text-ds-text-1 truncate"
+                      title={`${d.name} (${d.rut})`}
+                    >
+                      {d.name}
+                    </div>
+                    <div className="h-1.5 rounded-full bg-ds-surface-3 overflow-hidden mt-1">
+                      <div
+                        className="h-full bg-status-info-fg"
+                        style={{ width: `${Math.min(100, pct)}%` }}
+                      />
+                    </div>
+                  </div>
+                  <div className="text-[12px] font-mono shrink-0 w-24 text-right text-ds-text-1">
+                    {fmtCLPShort(d.monto)}
+                  </div>
+                  <div
+                    className={`text-[11px] font-mono shrink-0 w-12 text-right ${ageColor}`}
+                    title={`${d.facturasCount} factura${d.facturasCount === 1 ? "" : "s"} · más antigua hace ${d.diasMasAntigua} días`}
+                  >
+                    {d.diasMasAntigua}d
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+
+      {/* Mini-chart con selector de rango */}
       {trend && trend.length > 0 && (
         <div className="rounded-md border border-ds-border-subtle bg-ds-surface-2 p-3">
           <div className="flex items-center justify-between flex-wrap gap-2 mb-2 min-w-0">
@@ -442,14 +612,35 @@ export function SaludFinancieraHero({
               <Banknote className="h-3 w-3 shrink-0" />
               <span className="truncate">Tendencia cobro vs facturación</span>
             </div>
-            <div className="flex items-center gap-3 text-[11px]">
-              <div className="flex items-center gap-1">
-                <div className="w-2 h-2 rounded-full bg-status-info-fg" />
-                <span className="text-ds-text-3">Facturado</span>
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="inline-flex items-center rounded-md border border-ds-border-subtle bg-ds-surface-3 p-0.5 gap-0.5">
+                {TREND_RANGES.map((r) => {
+                  const active = trendRange === r.value;
+                  return (
+                    <button
+                      key={r.value}
+                      type="button"
+                      onClick={() => setTrendRange(r.value)}
+                      className={`h-7 px-2.5 text-[11px] rounded transition-colors whitespace-nowrap ${
+                        active
+                          ? "bg-primary/15 text-primary"
+                          : "text-ds-text-3 hover:bg-ds-surface-2"
+                      }`}
+                    >
+                      {r.label}
+                    </button>
+                  );
+                })}
               </div>
-              <div className="flex items-center gap-1">
-                <div className="w-2 h-2 rounded-full bg-status-ok-fg" />
-                <span className="text-ds-text-3">Cobrado</span>
+              <div className="flex items-center gap-3 text-[11px]">
+                <div className="flex items-center gap-1">
+                  <div className="w-2 h-2 rounded-full bg-status-info-fg" />
+                  <span className="text-ds-text-3">Facturado</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-2 h-2 rounded-full bg-status-ok-fg" />
+                  <span className="text-ds-text-3">Cobrado</span>
+                </div>
               </div>
             </div>
           </div>

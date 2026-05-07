@@ -55,7 +55,10 @@ import { DteAgingBadge } from "./DteAgingBadge";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { PaginationControls } from "./PaginationControls";
-import { TrendChart } from "./FacturacionDashboardWidgets";
+// FacturacionDashboardWidgets ya no se importa: KPIRow se eliminó en
+// Fase 7 y TrendChart en Fase 8 (la tendencia ahora vive dentro del
+// SaludFinancieraHero con su propio selector de rango).
+// import { TrendChart, KPIRow } from "./FacturacionDashboardWidgets";
 import { LibroIvaTab } from "./LibroIvaTab";
 import { BorradoresTab } from "./BorradoresTab";
 import { CostCenterEditor } from "./CostCenterEditor";
@@ -360,12 +363,12 @@ export function FacturacionClient({
         onClickFolios={() => setActiveTab("folios")}
       />
 
-      {/* TrendChart ventas vs compras 6 meses. Es info distinta al
-          mini-chart del hero (que muestra cobrado vs facturado). El
-          KPIRow legacy fue removido en Fase 7 — sus métricas
-          (Facturado/IVA débito) están duplicadas con el hero, y las
-          operativas (Pendientes SII + Folios) ahora son tiles del hero. */}
-      <TrendChart periodo={periodoFilter} />
+      {/* TrendChart legacy (ventas vs compras 6 meses) eliminado en
+          Fase 8: la tendencia cobro vs facturación ahora vive dentro
+          del SaludFinancieraHero con selector propio de rango (3M / 6M
+          / Año en curso / 12M). Si en el futuro queremos volver a
+          mostrar ventas vs compras como vista separada, agregar un
+          tab al chart del hero. */}
 
       {/* Tab navigation */}
       <nav className="-mx-4 px-4 sm:mx-0 sm:px-0">

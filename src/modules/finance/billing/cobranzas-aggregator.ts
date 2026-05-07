@@ -33,6 +33,22 @@ export interface AgingBucket {
   monto: number;
 }
 
+export interface TopDebtor {
+  /** ID del CrmAccount cuando hay vinculación; null si solo tenemos RUT. */
+  accountId: string | null;
+  /** Nombre del cliente (legalName del CrmAccount o receiverName). */
+  name: string;
+  /** RUT canónico del cliente. */
+  rut: string;
+  /** Suma de amountPending de DTEs UNPAID/PARTIAL/OVERDUE. */
+  monto: number;
+  /** # de facturas pendientes que componen el monto. */
+  facturasCount: number;
+  /** Días desde la fecha de emisión más antigua sin cobrar (signo de
+   *  cuán "viejas" son las deudas — más alto = peor). */
+  diasMasAntigua: number;
+}
+
 export interface CobranzasSummary {
   facturadoNeto: number;
   cobrado: number;
@@ -50,6 +66,21 @@ export interface CobranzasSummary {
   ivaCredito: number;
   /** Para badge de "% cobrado del facturado neto del período". */
   cobradoPct: number;
+  /**
+   * Days Sales Outstanding: días promedio que toma cobrar las facturas.
+   * Fórmula: (porCobrar / ventas últimos 30d) × 30.
+   * Si ventas últimos 30d = 0, retorna null (no se puede dividir).
+   * Más bajo = mejor (cobrás rápido).
+   */
+  dso: number | null;
+  /** DSO del período INMEDIATAMENTE anterior al actual (mismo largo). */
+  dsoPrev: number | null;
+  /** Top 5 cuentas con más monto pendiente (clientes morosos). */
+  topDeudores: TopDebtor[];
+  /** Suma de currentBalance de todas las cuentas bancarias activas. */
+  saldoBancario: number;
+  /** Cantidad de cuentas bancarias activas (para mostrar contexto). */
+  bankAccountsCount: number;
   range: PeriodRange;
 }
 
@@ -146,15 +177,183 @@ async function computeAgingForPeriod(
   return { buckets, porCobrar, vencidasCount, vencidasMonto };
 }
 
+/**
+ * Days Sales Outstanding del período. Fórmula clásica:
+ *   DSO = (cuentas por cobrar al cierre / ventas del período) × días
+ *
+ * Interpretación: cuántos días tarda en promedio una factura en cobrarse.
+ * Más bajo = mejor (cobrás rápido).
+ *
+ * Devuelve null si las ventas del período son 0 (no se puede dividir
+ * por cero) o el porCobrar también es 0 (no hay ciclo de cobro).
+ *
+ * Versión "puro cálculo" — recibe los agregados ya hechos para evitar
+ * duplicar queries cuando se llama desde computeCobranzasSummary.
+ */
+function dsoFromAggregates(
+  ventasNetas: number,
+  porCobrar: number,
+  range: PeriodRange,
+): number | null {
+  if (ventasNetas <= 0) return null;
+  if (porCobrar <= 0) return 0;
+  const dias =
+    (range.to.getTime() - range.from.getTime()) / (1000 * 60 * 60 * 24);
+  if (dias <= 0) return null;
+  return Math.round((porCobrar / ventasNetas) * dias);
+}
+
+/**
+ * Top N clientes con más monto pendiente de cobro. Agrupa DTEs
+ * UNPAID/PARTIAL/OVERDUE por (crmAccountId || receiverRut) y ordena
+ * desc por monto. Si dos accountIds tienen el mismo RUT, se cuentan
+ * juntos (defensa contra duplicados de account creados por error).
+ *
+ * NO filtra por período: muestra deuda histórica acumulada (que es
+ * lo que importa para "a quién hay que llamar a cobrar HOY").
+ *
+ * Excluye:
+ *   - DTEs con paymentStatus=CEDED (los cobra el factoring).
+ *   - NCs (no se cobran).
+ */
+async function computeTopDebtorsForTenant(
+  tenantId: string,
+  limit = 5,
+): Promise<TopDebtor[]> {
+  const dtes = await prisma.financeDte.findMany({
+    where: {
+      tenantId,
+      direction: "ISSUED",
+      siiStatus: "ACCEPTED",
+      paymentStatus: { in: ["UNPAID", "PARTIAL", "OVERDUE"] },
+      dteType: { notIn: [61] },
+    },
+    select: {
+      crmAccountId: true,
+      receiverRut: true,
+      receiverName: true,
+      amountPending: true,
+      date: true,
+    },
+  });
+
+  // Agrupar por crmAccountId si existe; sino por RUT canonicalizado.
+  const groups = new Map<
+    string,
+    {
+      accountId: string | null;
+      rut: string;
+      name: string;
+      monto: number;
+      facturasCount: number;
+      oldestDate: Date;
+    }
+  >();
+  for (const d of dtes) {
+    const key = d.crmAccountId ?? `rut:${d.receiverRut}`;
+    const existing = groups.get(key);
+    if (existing) {
+      existing.monto += d.amountPending.toNumber();
+      existing.facturasCount += 1;
+      if (d.date < existing.oldestDate) existing.oldestDate = d.date;
+    } else {
+      groups.set(key, {
+        accountId: d.crmAccountId,
+        rut: d.receiverRut,
+        name: d.receiverName,
+        monto: d.amountPending.toNumber(),
+        facturasCount: 1,
+        oldestDate: d.date,
+      });
+    }
+  }
+
+  // Para los que tienen accountId, traer el nombre canonical del CRM
+  // (más limpio que receiverName). No es crítico, mejora UX.
+  const accountIds = [...groups.values()]
+    .filter((g) => g.accountId)
+    .map((g) => g.accountId as string);
+  if (accountIds.length > 0) {
+    const accounts = await prisma.crmAccount.findMany({
+      where: { id: { in: accountIds }, tenantId },
+      select: { id: true, name: true, legalName: true },
+    });
+    const accMap = new Map(accounts.map((a) => [a.id, a]));
+    for (const g of groups.values()) {
+      if (g.accountId) {
+        const acc = accMap.get(g.accountId);
+        if (acc) g.name = acc.name || acc.legalName || g.name;
+      }
+    }
+  }
+
+  const now = Date.now();
+  const sorted = [...groups.values()]
+    .sort((a, b) => b.monto - a.monto)
+    .slice(0, limit)
+    .map<TopDebtor>((g) => ({
+      accountId: g.accountId,
+      name: g.name,
+      rut: g.rut,
+      monto: g.monto,
+      facturasCount: g.facturasCount,
+      diasMasAntigua: Math.floor(
+        (now - g.oldestDate.getTime()) / (1000 * 60 * 60 * 24),
+      ),
+    }));
+
+  return sorted;
+}
+
+/**
+ * Saldo total de cuentas bancarias activas del tenant. Es lo más
+ * cercano a "efectivo disponible HOY" que tenemos (no neto descuento
+ * de pagos pendientes ni cheques en tránsito).
+ */
+async function computeBankBalanceForTenant(
+  tenantId: string,
+): Promise<{ saldoBancario: number; bankAccountsCount: number }> {
+  const accounts = await prisma.financeBankAccount.findMany({
+    where: { tenantId, isActive: true },
+    select: { currentBalance: true },
+  });
+  const saldo = accounts.reduce(
+    (acc, a) => acc + a.currentBalance.toNumber(),
+    0,
+  );
+  return { saldoBancario: saldo, bankAccountsCount: accounts.length };
+}
+
 export async function computeCobranzasSummary(
   tenantId: string,
   range: PeriodRange,
 ): Promise<CobranzasSummary> {
-  const [sales, purchases, cobrado, aging] = await Promise.all([
+  // Período inmediatamente anterior (mismo largo) para el DSO comparativo.
+  const lengthMs = range.to.getTime() - range.from.getTime();
+  const prevRange = {
+    from: new Date(range.from.getTime() - lengthMs),
+    to: new Date(range.from.getTime()),
+    label: "anterior",
+  };
+
+  const [
+    sales,
+    purchases,
+    cobrado,
+    aging,
+    salesPrev,
+    agingPrev,
+    topDeudores,
+    bank,
+  ] = await Promise.all([
     computeNetSales(tenantId, range),
     computeNetPurchases(tenantId, range),
     sumCobradoForPeriod(tenantId, range),
     computeAgingForPeriod(tenantId, range),
+    computeNetSales(tenantId, prevRange),
+    computeAgingForPeriod(tenantId, prevRange),
+    computeTopDebtorsForTenant(tenantId, 5),
+    computeBankBalanceForTenant(tenantId),
   ]);
 
   const facturadoNeto = sales.ventasNetas;
@@ -162,6 +361,12 @@ export async function computeCobranzasSummary(
   const margenBruto = facturadoNeto - purchases.comprasNetas;
   const cobradoPct =
     facturadoNeto > 0 ? (cobrado / facturadoNeto) * 100 : 0;
+  const dso = dsoFromAggregates(facturadoNeto, aging.porCobrar, range);
+  const dsoPrev = dsoFromAggregates(
+    salesPrev.ventasNetas,
+    agingPrev.porCobrar,
+    prevRange,
+  );
 
   return {
     facturadoNeto,
@@ -176,13 +381,24 @@ export async function computeCobranzasSummary(
     ivaDebito: sales.ivaDebito,
     ivaCredito: purchases.ivaCredito,
     cobradoPct,
+    dso,
+    dsoPrev,
+    topDeudores,
+    saldoBancario: bank.saldoBancario,
+    bankAccountsCount: bank.bankAccountsCount,
     range,
   };
 }
 
 /**
- * Trend mensual de cobrado vs facturado para el chart de los últimos N
- * meses. Devuelve N puntos cronológicos (más antiguo → actual).
+ * Trend mensual de cobrado vs facturado para el chart.
+ *
+ * Acepta un rango como string preset:
+ *   - "3m" / "6m" / "12m" → últimos N meses (incluye el actual).
+ *   - "ytd" → desde enero hasta el mes en curso (1 a 12 puntos según
+ *     mes actual).
+ *
+ * Devuelve N puntos cronológicos (más antiguo → actual).
  *
  * Usa `dte.date` para asignar al período correcto. Esto es CRUCIAL:
  * un cobro de junio sobre una factura de mayo va al bucket de MAYO,
@@ -194,11 +410,34 @@ export interface CobranzasTrendPoint {
   cobrado: number;
 }
 
+export type CobranzasTrendRange = "3m" | "6m" | "12m" | "ytd";
+
+/**
+ * Resuelve el rango string a número de meses hacia atrás contando el
+ * actual. YTD devuelve mes_actual + 1 (de enero al actual inclusive).
+ */
+function monthsForTrendRange(
+  rangeKey: CobranzasTrendRange,
+  now: Date = new Date(),
+): number {
+  switch (rangeKey) {
+    case "3m":
+      return 3;
+    case "6m":
+      return 6;
+    case "12m":
+      return 12;
+    case "ytd":
+      return now.getUTCMonth() + 1;
+  }
+}
+
 export async function computeCobranzasTrend(
   tenantId: string,
-  monthsBack: number = 6,
+  rangeKey: CobranzasTrendRange = "ytd",
   now: Date = new Date(),
 ): Promise<CobranzasTrendPoint[]> {
+  const monthsBack = Math.max(1, monthsForTrendRange(rangeKey, now));
   const points: { range: PeriodRange; mes: string }[] = [];
   for (let i = monthsBack - 1; i >= 0; i--) {
     const from = new Date(

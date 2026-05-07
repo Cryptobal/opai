@@ -1,14 +1,20 @@
 /**
- * GET /api/finance/billing/cobranzas-trend?months=6
+ * GET /api/finance/billing/cobranzas-trend?range=ytd|3m|6m|12m
  *
- * Devuelve N puntos cronológicos (default 6) con `mes`, `facturado`
- * y `cobrado`. Usado por el mini-chart del <SaludFinancieraHero>.
+ * Devuelve N puntos cronológicos según el rango pedido. Default `ytd`
+ * (año en curso, 1 a 12 meses según mes actual). Usado por el
+ * mini-chart del <SaludFinancieraHero>.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { hasFacturacionCapability } from "@/lib/permissions";
-import { computeCobranzasTrend } from "@/modules/finance/billing/cobranzas-aggregator";
+import {
+  computeCobranzasTrend,
+  type CobranzasTrendRange,
+} from "@/modules/finance/billing/cobranzas-aggregator";
+
+const VALID_RANGES: CobranzasTrendRange[] = ["3m", "6m", "12m", "ytd"];
 
 export async function GET(request: NextRequest) {
   try {
@@ -22,12 +28,13 @@ export async function GET(request: NextRequest) {
       );
     }
     const url = new URL(request.url);
-    const monthsRaw = url.searchParams.get("months");
-    const months = Math.min(
-      24,
-      Math.max(2, monthsRaw ? parseInt(monthsRaw, 10) || 6 : 6),
-    );
-    const data = await computeCobranzasTrend(ctx.tenantId, months);
+    const rangeRaw = (url.searchParams.get("range") ?? "ytd") as string;
+    const rangeKey: CobranzasTrendRange = VALID_RANGES.includes(
+      rangeRaw as CobranzasTrendRange,
+    )
+      ? (rangeRaw as CobranzasTrendRange)
+      : "ytd";
+    const data = await computeCobranzasTrend(ctx.tenantId, rangeKey);
     return NextResponse.json({ success: true, data });
   } catch (error) {
     console.error("[Finance/Cobranzas/Trend] Error:", error);
