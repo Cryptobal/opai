@@ -2,9 +2,9 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHero } from "@/components/opai-ds";
+import { ModuleSubNav, PageHero } from "@/components/opai-ds";
 import { ShieldAlert } from "lucide-react";
-import { OpsPpcClient, PautasSubnav } from "@/components/ops";
+import { OpsPpcClient } from "@/components/ops";
 import { OpsGlobalSearch } from "@/components/ops/OpsGlobalSearch";
 export default async function OpsPpcPage() {
   const session = await auth();
@@ -38,6 +38,7 @@ export default async function OpsPpcPage() {
 
   return (
     <div className="space-y-6 min-w-0">
+      <ModuleSubNav moduleKey="ops-pautas" />
       <PageHero
         icon={<ShieldAlert />}
         iconTone="emerald"
@@ -46,7 +47,6 @@ export default async function OpsPpcPage() {
         subtitle="brechas de cobertura"
         description="Visualización de puestos sin guardia asignado o con vacaciones, licencia o permiso. Prioriza coberturas por instalación."
       />
-      <PautasSubnav />
       <OpsGlobalSearch className="w-full sm:max-w-xs" />
       <OpsPpcClient initialClients={JSON.parse(JSON.stringify(clients))} />
     </div>

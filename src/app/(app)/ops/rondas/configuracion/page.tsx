@@ -5,7 +5,6 @@ import { prisma } from "@/lib/prisma";
 import { PageHero } from "@/components/opai-ds";
 import { Settings } from "lucide-react";
 import { RondasConfiguracionClient } from "@/components/ops/rondas/RondasConfiguracionClient";
-import { RondasSubnav } from "@/components/ops/RondasSubnav";
 
 export default async function RondasConfiguracionPage() {
   const session = await auth();
@@ -54,7 +53,6 @@ export default async function RondasConfiguracionPage() {
         subtitle="checkpoints, plantillas y programación"
         description="Define los puntos de control, agrúpalos en plantillas reutilizables y programa cuándo se ejecutan."
       />
-      <RondasSubnav />
       <RondasConfiguracionClient
         installations={JSON.parse(JSON.stringify(installations))}
         clients={JSON.parse(JSON.stringify(accounts))}

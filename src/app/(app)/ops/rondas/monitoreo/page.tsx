@@ -3,7 +3,6 @@ import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { RondasMonitoreoClient } from "@/components/ops/rondas";
-import { RondasSubnav } from "@/components/ops/RondasSubnav";
 
 export default async function RondasMonitoreoPage() {
   const session = await auth();
@@ -181,9 +180,6 @@ export default async function RondasMonitoreoPage() {
 
   return (
     <div className="min-w-0">
-      <div className="hidden md:block px-4 pt-2">
-        <RondasSubnav />
-      </div>
       <RondasMonitoreoClient
         initialRows={JSON.parse(JSON.stringify(activeRows))}
         upcomingRows={JSON.parse(JSON.stringify(upcomingRows))}

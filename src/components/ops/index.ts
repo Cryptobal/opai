@@ -1,4 +1,3 @@
-export * from "./PautasSubnav";
 export * from "./OpsPuestosClient";
 export * from "./OpsPautaMensualClient";
 export { AsistenciaDiariaClient as OpsPautaDiariaClient } from "./asistencia-diaria";
@@ -19,5 +18,4 @@ export * from "./OpsControlNocturnoListClient";
 export * from "./OpsControlNocturnoDetailClient";
 export * from "./OpsGlobalSearch";
 export * from "./rondas";
-export * from "./RondasSubnav";
 export * from "./InventarioSubnav";

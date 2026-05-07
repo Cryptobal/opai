@@ -6,7 +6,6 @@ import { getActiveTurnoId } from "@/lib/rondas/get-active-turno";
 import { PageHero } from "@/components/opai-ds";
 import { BellRing } from "lucide-react";
 import { RondasAlertasClient } from "@/components/ops/rondas";
-import { RondasSubnav } from "@/components/ops/RondasSubnav";
 
 export default async function RondasAlertasPage() {
   const session = await auth();
@@ -58,7 +57,6 @@ export default async function RondasAlertasPage() {
         subtitle="incidencias activas"
         description="Gestión de alertas activas, resueltas e históricas: pánico, batería baja, velocidad anómala, rondas no realizadas."
       />
-      <RondasSubnav />
       <RondasAlertasClient
         initialRows={JSON.parse(JSON.stringify(rows))}
         installations={JSON.parse(JSON.stringify(installations))}

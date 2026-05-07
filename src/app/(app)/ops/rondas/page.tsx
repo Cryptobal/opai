@@ -4,7 +4,6 @@ import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { PageHero } from "@/components/opai-ds";
 import { ShieldCheck } from "lucide-react";
 import { RondasDashboardClient } from "@/components/ops/rondas";
-import { RondasSubnav } from "@/components/ops/RondasSubnav";
 
 export default async function OpsRondasPage() {
   const session = await auth();
@@ -23,7 +22,6 @@ export default async function OpsRondasPage() {
         subtitle="dashboard ejecutivo"
         description="Vista global de rondas e instalaciones con cumplimiento, alertas e incidentes consolidados."
       />
-      <RondasSubnav />
       <RondasDashboardClient />
     </div>
   );

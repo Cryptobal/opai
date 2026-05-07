@@ -7,7 +7,6 @@ import { formatPersonName } from "@/lib/personas";
 import { PageHero } from "@/components/opai-ds";
 import { BarChart3 } from "lucide-react";
 import { RondasReportesClient } from "@/components/ops/rondas";
-import { RondasSubnav } from "@/components/ops/RondasSubnav";
 import { asRouteSnapshot, asWalkRoute } from "@/lib/rondas/ejecucion-map-helpers";
 
 export default async function RondasReportesPage() {
@@ -208,7 +207,6 @@ export default async function RondasReportesPage() {
         subtitle="análisis y compliance"
         description="Análisis de cumplimiento, trust score, alertas, performance por instalación y por guardia."
       />
-      <RondasSubnav />
       <RondasReportesClient
         initialRows={mapped}
         initialTotals={totals}

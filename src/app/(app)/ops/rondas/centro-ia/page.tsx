@@ -4,7 +4,6 @@ import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { PageHero } from "@/components/opai-ds";
 import { Sparkles } from "lucide-react";
 import { RondasCentroIaClient } from "@/components/ops/rondas/RondasCentroIaClient";
-import { RondasSubnav } from "@/components/ops/RondasSubnav";
 
 export default async function RondasCentroIaPage() {
   const session = await auth();
@@ -23,7 +22,6 @@ export default async function RondasCentroIaPage() {
         subtitle="anomalías y predicciones"
         description="Detección automática de patrones anómalos, recomendaciones operativas y configuración de umbrales para el sistema de IA."
       />
-      <RondasSubnav />
       <RondasCentroIaClient />
     </div>
   );
