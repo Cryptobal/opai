@@ -302,7 +302,7 @@ export function SaludFinancieraHero({
           value={isPresetSelected ? "" : periodo}
           onValueChange={(v) => v && setPeriodo(v)}
         >
-          <SelectTrigger className="h-9 sm:h-8 w-[160px] text-[12px]">
+          <SelectTrigger className="h-10 sm:h-9 w-[160px] text-[12px]">
             <SelectValue placeholder="Otro mes…" />
           </SelectTrigger>
           <SelectContent className="max-h-[400px]">
