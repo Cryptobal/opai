@@ -2,7 +2,7 @@ import { FileText } from "lucide-react";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { DocsClient } from "@/components/docs/DocsClient";
-import { ModuleSubNav, PageHero } from "@/components/opai-ds";
+import { PageHero } from "@/components/opai-ds";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 
 export default async function DocumentosPage() {
@@ -18,8 +18,7 @@ export default async function DocumentosPage() {
 
   return (
     <div className="space-y-6 min-w-0">
-      <ModuleSubNav moduleKey="docs" />
-      <PageHero
+<PageHero
         icon={<FileText />}
         iconTone="rose"
         title="Documentos"
