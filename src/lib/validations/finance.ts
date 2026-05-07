@@ -366,6 +366,22 @@ export const updateReceivedDteSchema = z.object({
   notes: optNull(z.string().trim().max(1000)),
 });
 
+/**
+ * Zod schema para `POST /api/finance/billing/received/[id]/acuse`.
+ * `action` es la intención de alto nivel del usuario; el service la
+ * traduce internamente a las llamadas SimpleAPI ACD/RCD/ERM/RFP/RFT.
+ */
+export const acuseReceivedDteSchema = z.object({
+  action: z.enum([
+    "ACCEPT", // ACD + ERM (acepta y habilita uso de crédito IVA)
+    "ACCEPT_CONTENT_ONLY", // solo ACD (sin acuse de mercaderías)
+    "CLAIM_CONTENT", // RCD (rechazo de contenido)
+    "CLAIM_PARTIAL", // RFP (faltante parcial mercaderías)
+    "CLAIM_TOTAL", // RFT (faltante total mercaderías)
+  ]),
+  reason: optNull(z.string().trim().max(500)),
+});
+
 // ── Payment Records (supplier payments / customer collections) ──
 
 export const createPaymentRecordSchema = z.object({

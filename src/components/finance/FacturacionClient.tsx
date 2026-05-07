@@ -1872,6 +1872,11 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
         onClose={() => setDetailDte(null)}
         suppliers={suppliers}
         canManage={canManage}
+        onDecided={() => {
+          // Tras un acuse exitoso al SII, refrescamos la lista para
+          // que el badge de recepción y los filtros reflejen el cambio.
+          loadReceivedDtes();
+        }}
       />
 
 
@@ -2062,16 +2067,30 @@ function ReceivedDteDetailDialog({
   onClose,
   suppliers,
   canManage,
+  onDecided,
 }: {
   dte: ReceivedDteRow | null;
   onClose: () => void;
   suppliers: SupplierOption[];
   canManage: boolean;
+  /**
+   * Callback que se dispara después de un acuse SII exitoso (aceptar o
+   * reclamar). El caller debe refrescar la lista para que el nuevo
+   * `receptionStatus` se vea reflejado en la tabla y filtros.
+   */
+  onDecided?: () => void;
 }) {
   const [attachments, setAttachments] = useState<DteAttachment[]>([]);
   const [loadingAtt, setLoadingAtt] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
+  /**
+   * Acción de acuse en curso. Bloquea el resto de los botones para
+   * evitar dobles clicks que generarían dos llamadas al SII.
+   */
+  const [acuseLoading, setAcuseLoading] = useState<
+    null | "ACCEPT" | "CLAIM_CONTENT" | "CLAIM_PARTIAL" | "CLAIM_TOTAL"
+  >(null);
 
   // Cargar adjuntos al abrir el modal.
   useEffect(() => {
@@ -2141,6 +2160,69 @@ function ReceivedDteDetailDialog({
     }
   }
 
+  /**
+   * Notifica al SII (vía SimpleAPI) la aceptación o reclamo del DTE
+   * recibido. Cada acción es IRREVERSIBLE legalmente — pedimos
+   * confirmación textual antes de disparar la llamada.
+   *
+   * En éxito: cierra el modal y dispara `onDecided` para refrescar la
+   * lista. En error: muestra toast con el mensaje del backend (que viene
+   * mapeado del provider, así que el usuario ve causa-raíz: cert vencido,
+   * apikey bloqueada, fuera de plazo, etc.).
+   */
+  async function handleAcuse(
+    action: "ACCEPT" | "CLAIM_CONTENT" | "CLAIM_PARTIAL" | "CLAIM_TOTAL",
+  ) {
+    if (!dte) return;
+    const labels: Record<typeof action, string> = {
+      ACCEPT:
+        "ACEPTAR el DTE y entregar acuse de recibo de mercaderías al SII (habilita uso del crédito IVA)",
+      CLAIM_CONTENT: "RECLAMAR EL CONTENIDO del DTE en el SII (RCD)",
+      CLAIM_PARTIAL:
+        "Reportar al SII FALTA PARCIAL DE MERCADERÍAS (RFP)",
+      CLAIM_TOTAL: "Reportar al SII FALTA TOTAL DE MERCADERÍAS (RFT)",
+    };
+    const ok = window.confirm(
+      `Vas a ${labels[action]}.\n\n` +
+        `Esta acción es IRREVERSIBLE en el SII. ¿Continuar?`,
+    );
+    if (!ok) return;
+
+    let reason: string | undefined;
+    if (action !== "ACCEPT") {
+      const r = window.prompt(
+        "Motivo del reclamo (opcional, se guarda en notas para auditoría):",
+        "",
+      );
+      reason = r?.trim() || undefined;
+    }
+
+    setAcuseLoading(action);
+    try {
+      const res = await fetch(
+        `/api/finance/billing/received/${dte.id}/acuse`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action, reason }),
+        },
+      );
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error ?? "Error al notificar al SII");
+      }
+      toast.success(
+        json.data?.message ?? "Acción notificada al SII correctamente",
+      );
+      onDecided?.();
+      onClose();
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setAcuseLoading(null);
+    }
+  }
+
   const dateStr = format(new Date(dte.date), "dd 'de' MMMM yyyy", { locale: es });
   const dueStr = dte.dueDate
     ? format(new Date(dte.dueDate), "dd 'de' MMMM yyyy", { locale: es })
@@ -2174,6 +2256,73 @@ function ReceivedDteDetailDialog({
               Pago: {payCfg.label}
             </Badge>
           </div>
+
+          {/* Botones de Acuse al SII — solo cuando el DTE está PENDING_REVIEW
+              y el usuario tiene permisos. La acción notifica al SII vía
+              SimpleAPI (endpoint compras/aceptacionreclamo) y persiste el
+              cambio en FinanceDte.receptionStatus. Operación irreversible. */}
+          {canManage && dte.receptionStatus === "PENDING_REVIEW" && (
+            <div className="rounded-md border border-status-info-border bg-status-info-soft p-3 space-y-2">
+              <p className="text-xs font-medium text-status-info-fg">
+                Acuse al SII
+              </p>
+              <p className="text-xs text-status-info-fg/80">
+                Notifica oficialmente al SII tu decisión sobre este DTE.
+                Aceptar habilita el uso del crédito IVA. Reclamar antes de
+                los 8 días corridos te permite objetar el documento.
+              </p>
+              <div className="flex flex-wrap gap-2 pt-1">
+                <Button
+                  size="sm"
+                  variant="default"
+                  onClick={() => handleAcuse("ACCEPT")}
+                  disabled={acuseLoading !== null}
+                  className="h-9"
+                >
+                  {acuseLoading === "ACCEPT" ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                  ) : null}
+                  Aceptar (ACD + ERM)
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleAcuse("CLAIM_CONTENT")}
+                  disabled={acuseLoading !== null}
+                  className="h-9 border-status-danger-border text-status-danger-fg hover:bg-status-danger-soft"
+                >
+                  {acuseLoading === "CLAIM_CONTENT" ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                  ) : null}
+                  Reclamar contenido (RCD)
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleAcuse("CLAIM_PARTIAL")}
+                  disabled={acuseLoading !== null}
+                  className="h-9 border-status-warn-border text-status-warn-fg hover:bg-status-warn-soft"
+                >
+                  {acuseLoading === "CLAIM_PARTIAL" ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                  ) : null}
+                  Falta parcial (RFP)
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleAcuse("CLAIM_TOTAL")}
+                  disabled={acuseLoading !== null}
+                  className="h-9 border-status-danger-border text-status-danger-fg hover:bg-status-danger-soft"
+                >
+                  {acuseLoading === "CLAIM_TOTAL" ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                  ) : null}
+                  Falta total (RFT)
+                </Button>
+              </div>
+            </div>
+          )}
 
           <div className="rounded-md border border-border bg-muted/30 p-4 space-y-2">
             <p className="text-xs uppercase tracking-wide text-muted-foreground">
