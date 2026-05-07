@@ -35,6 +35,7 @@ export { Toolbar, type ToolbarProps } from "./Toolbar";
 export { HeatGrid, type HeatGridProps, type HeatGridRow, type HeatGridColumn } from "./HeatGrid";
 export { Avatar, type AvatarProps, type AvatarVariant } from "./Avatar";
 export { Breadcrumbs, type BreadcrumbsProps, type BreadcrumbItem } from "./Breadcrumbs";
+export { AutoBreadcrumbs, type AutoBreadcrumbsProps } from "./AutoBreadcrumbs";
 export { SubNav, type SubNavItem } from "./SubNav";
 export { SwipeTabs, type SwipeTabsProps, type SwipeTabItem } from "./SwipeTabs";
 export { ModuleSubNav, type ModuleSubNavProps } from "./ModuleSubNav";
