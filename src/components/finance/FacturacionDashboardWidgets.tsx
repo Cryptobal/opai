@@ -105,10 +105,34 @@ function KPISkeleton() {
   );
 }
 
-export function KPIRow({ kpis, loading }: { kpis: KPIs; loading?: boolean }) {
+interface KPIActions {
+  /** Filtra la tabla a SII status PENDING/SENT. */
+  onClickPendientesSii?: () => void;
+  /** Cambia al tab Folios. */
+  onClickFolios?: () => void;
+  /** Cambia al tab Libro IVA. */
+  onClickIva?: () => void;
+}
+
+export function KPIRow({
+  kpis,
+  loading,
+  actions,
+}: {
+  kpis: KPIs;
+  loading?: boolean;
+  actions?: KPIActions;
+}) {
   if (loading) return <KPISkeleton />;
   const trendUp = kpis.comparison.pct >= 0;
   const period = kpis.periodLabel ?? "Mes en curso";
+  // Helper para envolver una Card con click si hay action handler.
+  // Mantiene la semántica de hover "lift" de Inventario y le agrega
+  // cursor pointer + outline de focus para accesibilidad.
+  const cardCls =
+    "p-4 relative overflow-hidden min-w-0 transition-all duration-fast";
+  const clickableCls =
+    "cursor-pointer hover:ring-1 hover:ring-primary/40 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none";
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 min-w-0">
       <Card className="p-4 relative overflow-hidden min-w-0">
@@ -141,7 +165,22 @@ export function KPIRow({ kpis, loading }: { kpis: KPIs; loading?: boolean }) {
         </div>
       </Card>
 
-      <Card className="p-4 relative overflow-hidden min-w-0">
+      <Card
+        className={`${cardCls} ${actions?.onClickIva ? clickableCls : ""}`}
+        onClick={actions?.onClickIva}
+        role={actions?.onClickIva ? "button" : undefined}
+        tabIndex={actions?.onClickIva ? 0 : undefined}
+        onKeyDown={(e) => {
+          if (
+            actions?.onClickIva &&
+            (e.key === "Enter" || e.key === " ")
+          ) {
+            e.preventDefault();
+            actions.onClickIva();
+          }
+        }}
+        title={actions?.onClickIva ? "Ir al Libro IVA" : undefined}
+      >
         <div className="absolute top-0 right-0 w-24 h-24 bg-status-info-soft rounded-full -mr-8 -mt-8 opacity-60" />
         <div className="relative min-w-0">
           <div className={EYEBROW}>
@@ -156,7 +195,31 @@ export function KPIRow({ kpis, loading }: { kpis: KPIs; loading?: boolean }) {
         </div>
       </Card>
 
-      <Card className="p-4 relative overflow-hidden min-w-0">
+      <Card
+        className={`${cardCls} ${actions?.onClickPendientesSii && kpis.pendientesSii > 0 ? clickableCls : ""}`}
+        onClick={
+          actions?.onClickPendientesSii && kpis.pendientesSii > 0
+            ? actions.onClickPendientesSii
+            : undefined
+        }
+        role={actions?.onClickPendientesSii && kpis.pendientesSii > 0 ? "button" : undefined}
+        tabIndex={actions?.onClickPendientesSii && kpis.pendientesSii > 0 ? 0 : undefined}
+        onKeyDown={(e) => {
+          if (
+            actions?.onClickPendientesSii &&
+            kpis.pendientesSii > 0 &&
+            (e.key === "Enter" || e.key === " ")
+          ) {
+            e.preventDefault();
+            actions.onClickPendientesSii();
+          }
+        }}
+        title={
+          actions?.onClickPendientesSii && kpis.pendientesSii > 0
+            ? "Filtrar tabla por DTEs pendientes en SII"
+            : undefined
+        }
+      >
         <div className="absolute top-0 right-0 w-24 h-24 bg-status-warn-soft rounded-full -mr-8 -mt-8 opacity-60" />
         <div className="relative min-w-0">
           <div className={EYEBROW}>
@@ -178,7 +241,22 @@ export function KPIRow({ kpis, loading }: { kpis: KPIs; loading?: boolean }) {
         </div>
       </Card>
 
-      <Card className="p-4 relative overflow-hidden min-w-0">
+      <Card
+        className={`${cardCls} ${actions?.onClickFolios ? clickableCls : ""}`}
+        onClick={actions?.onClickFolios}
+        role={actions?.onClickFolios ? "button" : undefined}
+        tabIndex={actions?.onClickFolios ? 0 : undefined}
+        onKeyDown={(e) => {
+          if (
+            actions?.onClickFolios &&
+            (e.key === "Enter" || e.key === " ")
+          ) {
+            e.preventDefault();
+            actions.onClickFolios();
+          }
+        }}
+        title={actions?.onClickFolios ? "Ver detalle de folios CAF" : undefined}
+      >
         <div className="absolute top-0 right-0 w-24 h-24 bg-tint-violet rounded-full -mr-8 -mt-8 opacity-60" />
         <div className="relative min-w-0">
           <div className={EYEBROW}>

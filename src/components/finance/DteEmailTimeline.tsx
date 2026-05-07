@@ -73,7 +73,7 @@ export function DteEmailTimeline({ dteId }: { dteId: string }) {
             <li key={log.id} className="flex gap-2 text-sm">
               <div className="shrink-0 mt-0.5">
                 {isOk ? (
-                  <CheckCircle2 className="size-4 text-green-600" />
+                  <CheckCircle2 className="size-4 text-status-ok-fg" />
                 ) : (
                   <XCircle className="size-4 text-status-danger-fg" />
                 )}

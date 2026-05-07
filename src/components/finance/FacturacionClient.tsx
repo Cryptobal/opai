@@ -357,10 +357,28 @@ export function FacturacionClient({
     return () => ctrl.abort();
   }, [periodoFilter]);
 
+  // Estado intermedio: cuando el usuario hace click en "Pendientes SII"
+  // del KPI, queremos cambiar al tab Emitidos Y aplicar el filtro de
+  // estado. Comunicamos a DtesTab vía prop forcedStatusFilter.
+  const [forcedStatusFilter, setForcedStatusFilter] = useState<string | null>(
+    null,
+  );
+
   return (
     <div className="space-y-4">
       {/* Dashboard widgets */}
-      <KPIRow kpis={kpis} loading={kpisLoading && !hasFetchedKpis} />
+      <KPIRow
+        kpis={kpis}
+        loading={kpisLoading && !hasFetchedKpis}
+        actions={{
+          onClickPendientesSii: () => {
+            setActiveTab("dtes");
+            setForcedStatusFilter("PENDING");
+          },
+          onClickFolios: () => setActiveTab("folios"),
+          onClickIva: () => setActiveTab("libro"),
+        }}
+      />
       <TrendChart periodo={periodoFilter} />
 
       {/* Tab navigation */}
@@ -396,6 +414,8 @@ export function FacturacionClient({
           canManage={canManage}
           periodoFilter={periodoFilter}
           onPeriodoFilterChange={setPeriodoFilter}
+          forcedStatusFilter={forcedStatusFilter}
+          onForcedStatusFilterConsumed={() => setForcedStatusFilter(null)}
         />
       )}
       {activeTab === "recibidos" && <RecibidosTab suppliers={suppliers} canManage={canManage} />}
@@ -415,6 +435,8 @@ function DtesTab({
   canManage,
   periodoFilter,
   onPeriodoFilterChange,
+  forcedStatusFilter,
+  onForcedStatusFilterConsumed,
 }: {
   dtes: DteRow[];
   issuedTotal: number;
@@ -422,11 +444,29 @@ function DtesTab({
   /** Filtro de período compartido (KPIs + TrendChart + tabla). */
   periodoFilter: string;
   onPeriodoFilterChange: (v: string) => void;
+  /**
+   * Si viene "PENDING" o "ACCEPTED", el tab aplica ese filtro al cargar
+   * y luego limpia el estado para no quedarse pegado. Lo usa el KPI
+   * "Pendientes SII" del KPIRow para hacer click-through.
+   */
+  forcedStatusFilter?: string | null;
+  onForcedStatusFilterConsumed?: () => void;
 }) {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState("ALL");
+
+  // Click-through desde el KPI: si el padre pide forzar un filtro, lo
+  // aplicamos y avisamos para que limpie el estado. Esto permite que el
+  // usuario pueda cambiarlo libremente después.
+  useEffect(() => {
+    if (forcedStatusFilter && forcedStatusFilter !== statusFilter) {
+      setStatusFilter(forcedStatusFilter);
+      onForcedStatusFilterConsumed?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [forcedStatusFilter]);
   /** Filtro por centro de costo: "ALL" | "NONE" | uuid de cuenta. */
   const [accountFilter, setAccountFilter] = useState("ALL");
   const [accountOptions, setAccountOptions] = useState<
@@ -754,7 +794,7 @@ function DtesTab({
         <EmptyState
           icon={FileText}
           title="Sin documentos"
-          description="No hay DTEs emitidos."
+          description="No hay DTEs emitidos en este período. Podés emitir uno desde cero o programar facturas recurrentes (mensuales, quincenales, etc) que generen borradores automáticamente."
           action={
             canManage ? (
               <Link href="/finanzas/facturacion/emitir">
@@ -1495,9 +1535,22 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
                   cell: (row) => {
                     const payCfg = PAYMENT_STATUS_CONFIG[row.paymentStatus] ?? { label: row.paymentStatus, className: "bg-muted" };
                     return (
-                      <Badge variant="outline" className={cn("text-xs", payCfg.className)}>
-                        {payCfg.label}
-                      </Badge>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <Badge variant="outline" className={cn("text-xs", payCfg.className)}>
+                          {payCfg.label}
+                        </Badge>
+                        {/* Aging para compras: mismo patrón que emitidos.
+                            Si la factura está PAID o CEDED no muestra
+                            aging (resuelto financieramente). */}
+                        {row.date && row.paymentStatus !== "PAID" && (
+                          <DteAgingBadge
+                            date={row.date}
+                            dueDate={row.dueDate}
+                            paymentStatus={row.paymentStatus}
+                            siiStatus="ACCEPTED"
+                          />
+                        )}
+                      </div>
                     );
                   },
                 },
@@ -1993,7 +2046,7 @@ function ReceivedDteDetailDialog({
             </div>
           </div>
 
-          <div className="rounded-md border border-blue-200 bg-blue-50 dark:border-blue-900/50 dark:bg-blue-950/30 p-3 text-xs text-blue-900 dark:text-blue-200">
+          <div className="rounded-md border border-status-info-border bg-status-info-soft p-3 text-xs text-status-info-fg">
             <p className="font-medium mb-1">Nota sobre el documento original</p>
             <p>
               El SII no expone re-descarga del XML/PDF de DTEs recibidos. El

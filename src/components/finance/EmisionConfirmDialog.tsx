@@ -145,7 +145,7 @@ export function EmisionConfirmDialog(props: EmisionConfirmProps) {
           </div>
 
           {totals.currency === "UF" && (
-            <div className="rounded-md border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900">
+            <div className="rounded-md border border-status-info-border bg-status-info-soft p-3 text-xs text-status-info-fg">
               Conversión UF→CLP usando UF del día (${totals.ufValue?.toLocaleString("es-CL")} CLP por UF).
               Los montos al SII van en CLP. La UF queda como auditoría interna.
             </div>
@@ -188,7 +188,7 @@ export function EmisionConfirmDialog(props: EmisionConfirmProps) {
             </div>
           )}
 
-          <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+          <div className="rounded-md border border-status-warn-border bg-status-warn-soft p-3 text-sm text-status-warn-fg">
             <div className="flex items-start gap-2">
               <AlertTriangle className="size-4 shrink-0 mt-0.5" />
               <div>

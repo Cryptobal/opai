@@ -273,11 +273,11 @@ export function RecurringClient({
                     <td className="py-2 text-right text-xs">{t.runCount}</td>
                     <td className="py-2 text-xs">
                       {t.isActive ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-green-100 text-green-800">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-status-ok-soft text-status-ok-fg border border-status-ok-border">
                           Activa
                         </span>
                       ) : (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-gray-100 text-gray-700">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-ds-surface-3 text-ds-text-3 border border-ds-border-subtle">
                           Pausada
                         </span>
                       )}
