@@ -99,7 +99,7 @@ export default async function FacturacionPage() {
   // Factoring: tipos cedibles según Ley 19.983 — 33/34/43/46.
   const CEDIBLE_TYPES = new Set([33, 34, 43, 46]);
   const dteIds = dtes.map((d: typeof dtes[number]) => d.id);
-  const [accountsCC, installationsCC, activeCessions] = await Promise.all([
+  const [accountsCC, installationsCC, activeCessions, linkedCreditNotes] = await Promise.all([
     accountIds.length > 0
       ? prisma.crmAccount.findMany({
           where: { id: { in: accountIds }, tenantId },
@@ -122,10 +122,38 @@ export default async function FacturacionPage() {
           select: { id: true, code: true, status: true, dteId: true },
         })
       : Promise.resolve([]),
+    // NCs vivas sobre los DTEs de la página inicial. Una sola query
+    // batch (mismo patrón que el endpoint /issued) para evitar N+1.
+    dteIds.length > 0
+      ? prisma.financeDte.findMany({
+          where: {
+            tenantId,
+            dteType: 61,
+            referenceDteId: { in: dteIds },
+            siiStatus: { not: "ANNULLED" },
+          },
+          select: {
+            folio: true,
+            netAmount: true,
+            siiStatus: true,
+            referenceCode: true,
+            referenceDteId: true,
+          },
+        })
+      : Promise.resolve([]),
   ]);
   const accountMapCC = new Map(accountsCC.map((a) => [a.id, a]));
   const installationMapCC = new Map(installationsCC.map((i) => [i.id, i]));
   const cessionByDte = new Map(activeCessions.map((c) => [c.dteId, c]));
+  // Agrupamos NCs vivas por dte original para construir el resumen
+  // `linkedCreditNote` que consume la fila de la lista.
+  const ncsByDte = new Map<string, typeof linkedCreditNotes>();
+  for (const nc of linkedCreditNotes) {
+    if (!nc.referenceDteId) continue;
+    const arr = ncsByDte.get(nc.referenceDteId) ?? [];
+    arr.push(nc);
+    ncsByDte.set(nc.referenceDteId, arr);
+  }
 
   const dtesData = dtes.map((d: typeof dtes[number]) => {
     const hasXml = d.dteXml !== null && d.dteXml.length > 0;
@@ -135,6 +163,26 @@ export default async function FacturacionPage() {
       d.siiStatus === "ACCEPTED" &&
       hasXml &&
       !cession;
+    // NCs vivas sobre este DTE → resumen para el badge de la lista.
+    const ncs = ncsByDte.get(d.id) ?? [];
+    const activeNcs = ncs.filter((n) =>
+      ["ACCEPTED", "PENDING", "SENT", "WITH_OBJECTIONS"].includes(n.siiStatus),
+    );
+    const hasFullAnnulment = activeNcs.some((n) => n.referenceCode === 1);
+    const creditedNet = activeNcs.reduce(
+      (acc, n) => acc + Number(n.netAmount ?? 0),
+      0,
+    );
+    const linkedCreditNote = activeNcs.length > 0
+      ? {
+          count: activeNcs.length,
+          hasFullAnnulment,
+          creditedNet,
+          primaryFolio:
+            activeNcs.find((n) => n.referenceCode === 1)?.folio ??
+            activeNcs[0].folio,
+        }
+      : null;
     return {
       id: d.id,
       dteType: d.dteType,
@@ -172,6 +220,8 @@ export default async function FacturacionPage() {
       date: d.date.toISOString(),
       dueDate: d.dueDate ? d.dueDate.toISOString() : null,
       paymentStatus: d.paymentStatus,
+      // NCs vivas: resumen para badge "Con NC" en la lista.
+      linkedCreditNote,
     };
   });
 

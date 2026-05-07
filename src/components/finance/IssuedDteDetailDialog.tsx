@@ -31,6 +31,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   FileText, Download, FileCode, Mail, RefreshCw, Loader2,
   FileMinus, FilePlus, ExternalLink, Copy, Coins, FileSearch, Upload,
+  AlertTriangle, ChevronDown, ChevronRight,
 } from "lucide-react";
 import { CederDteDialog } from "./factoring/CederDteDialog";
 import { PdfPreviewDialog } from "./PdfPreviewDialog";
@@ -51,6 +52,20 @@ interface DteLine {
   discountPct: number;
   netAmount: number;
   isExempt: boolean;
+}
+
+/** NC/ND que referencia a este DTE (lado INCOMING). */
+interface LinkedCreditNote {
+  id: string;
+  dteType: number;
+  folio: number;
+  date: string;
+  netAmount: number;
+  totalAmount: number;
+  siiStatus: string;
+  /** SII CodRef: 1=anula, 2=corrige texto, 3=corrige montos. */
+  referenceCode: number | null;
+  referenceReason: string | null;
 }
 
 interface DteFull {
@@ -74,6 +89,12 @@ interface DteFull {
   currency: string;
   siiStatus: string;
   siiTrackId: string | null;
+  /** Última respuesta cruda del SII (consulta/envio). Json blob. */
+  siiResponse: Record<string, unknown> | null;
+  /** Última fecha de consulta de estado al SII. */
+  siiLastStatusCheckAt: string | null;
+  /** Conteo de consultas al SII (para diagnóstico). */
+  siiStatusCheckCount: number;
   emailSentAt: string | null;
   emailStatus: string | null;
   referenceType: number | null;
@@ -88,6 +109,12 @@ interface DteFull {
   crmAccount: { id: string; name: string } | null;
   installation: { id: string; name: string } | null;
   lines: DteLine[];
+  /** NCs/NDs que referencian este DTE. Vacío si no hay. */
+  creditNotes: LinkedCreditNote[];
+  /** True si ya hay una NC con CodRef=1 viva sobre este DTE. */
+  hasFullAnnulment: boolean;
+  /** Suma de montos netos acreditados por NCs vivas (para saldo). */
+  creditedNet: number;
 }
 
 const DTE_TYPE_LABELS: Record<number, string> = {
@@ -118,6 +145,43 @@ const SII_STATUS_CONFIG: Record<string, { label: string; className: string }> = 
   REJECTED: { label: "Rechazado", className: "bg-status-danger-soft text-status-danger-fg border-status-danger-border" },
   ANNULLED: { label: "Anulado", className: "bg-zinc-500/15 text-zinc-400 border-zinc-500/30" },
 };
+
+/** Etiqueta humana del CodRef SII de una NC/ND. */
+const REF_CODE_LABELS: Record<number, string> = {
+  1: "Anulación total",
+  2: "Corrige texto",
+  3: "Corrige montos",
+};
+
+/**
+ * Extrae glosa humana desde `siiResponse`. SimpleAPI guarda distintas
+ * shapes según el endpoint que respondió, así que probamos varias keys
+ * comunes y caemos al primer string que tenga sentido.
+ */
+function pickSiiGlosa(
+  resp: Record<string, unknown> | null | undefined,
+): string | null {
+  if (!resp) return null;
+  const keys = ["Glosa", "glosa", "Mensaje", "mensaje", "Estado", "estado", "Descripcion", "descripcion"];
+  for (const k of keys) {
+    const v = resp[k];
+    if (typeof v === "string" && v.trim().length > 0) return v.trim();
+  }
+  return null;
+}
+
+function pickSiiCodigo(
+  resp: Record<string, unknown> | null | undefined,
+): string | null {
+  if (!resp) return null;
+  const keys = ["Codigo", "codigo", "Code", "code"];
+  for (const k of keys) {
+    const v = resp[k];
+    if (typeof v === "string" && v.trim().length > 0) return v.trim();
+    if (typeof v === "number") return String(v);
+  }
+  return null;
+}
 
 const fmtCLP = new Intl.NumberFormat("es-CL", {
   style: "currency",
@@ -159,6 +223,8 @@ export function IssuedDteDetailDialog({
   const [showAttachXml, setShowAttachXml] = useState(false);
   const [attachingXml, setAttachingXml] = useState(false);
   const [xmlPaste, setXmlPaste] = useState("");
+  /** Toggle del bloque colapsable "Detalles técnicos SII". */
+  const [showSiiTech, setShowSiiTech] = useState(false);
 
   useEffect(() => {
     if (!open || !dteId) {
@@ -197,6 +263,12 @@ export function IssuedDteDetailDialog({
           currency: d.currency ?? "CLP",
           siiStatus: d.siiStatus ?? "PENDING",
           siiTrackId: d.siiTrackId ?? null,
+          siiResponse:
+            d.siiResponse && typeof d.siiResponse === "object" && !Array.isArray(d.siiResponse)
+              ? (d.siiResponse as Record<string, unknown>)
+              : null,
+          siiLastStatusCheckAt: d.siiLastStatusCheckAt ?? null,
+          siiStatusCheckCount: Number(d.siiStatusCheckCount ?? 0),
           emailSentAt: d.emailSentAt ?? null,
           emailStatus: d.emailStatus ?? null,
           referenceType: d.referenceType ?? null,
@@ -226,6 +298,21 @@ export function IssuedDteDetailDialog({
                 isExempt: Boolean(l.isExempt),
               }))
             : [],
+          creditNotes: Array.isArray(d.creditNotes)
+            ? d.creditNotes.map((n: Record<string, unknown>) => ({
+                id: String(n.id ?? ""),
+                dteType: Number(n.dteType ?? 61),
+                folio: Number(n.folio ?? 0),
+                date: String(n.date ?? ""),
+                netAmount: Number(n.netAmount ?? 0),
+                totalAmount: Number(n.totalAmount ?? 0),
+                siiStatus: String(n.siiStatus ?? "PENDING"),
+                referenceCode: (n.referenceCode as number | null) ?? null,
+                referenceReason: (n.referenceReason as string | null) ?? null,
+              }))
+            : [],
+          hasFullAnnulment: Boolean(d.hasFullAnnulment),
+          creditedNet: Number(d.creditedNet ?? 0),
         });
       })
       .catch((err) => {
@@ -328,8 +415,24 @@ export function IssuedDteDetailDialog({
   const tipoLabel = dte ? DTE_TYPE_LABELS[dte.dteType] ?? `Tipo ${dte.dteType}` : "";
   const stCfg = dte ? SII_STATUS_CONFIG[dte.siiStatus] ?? { label: dte.siiStatus, className: "bg-muted" } : null;
   const canAnular = dte && (dte.siiStatus === "PENDING" || dte.siiStatus === "SENT");
-  const canCreditNote = dte && [33, 34, 39, 41, 56].includes(dte.dteType) && dte.siiStatus !== "ANNULLED";
+  // Saldo neto disponible para una NC parcial. Si llegó a 0 (o tiene
+  // anulación total), el botón se desactiva con tooltip explícito.
+  const remainingNet = dte ? Math.max(0, dte.netAmount - dte.creditedNet) : 0;
+  const isFullyCredited =
+    dte != null && dte.creditedNet > 0 && remainingNet <= 1;
+  const creditNoteBlockedReason: string | null = !dte
+    ? null
+    : dte.hasFullAnnulment
+      ? `Esta factura ya fue anulada con NC ${
+          dte.creditNotes.find((n) => n.referenceCode === 1)?.folio ?? ""
+        }. No se pueden emitir más notas.`
+      : isFullyCredited
+        ? `Saldo agotado: las NCs previas suman $${dte.creditedNet.toLocaleString("es-CL")} del neto original $${dte.netAmount.toLocaleString("es-CL")}.`
+        : null;
   const canDebitNote = dte && dte.dteType === 61 && dte.siiStatus !== "ANNULLED";
+
+  const siiGlosa = dte ? pickSiiGlosa(dte.siiResponse) : null;
+  const siiCodigo = dte ? pickSiiCodigo(dte.siiResponse) : null;
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
@@ -361,6 +464,94 @@ export function IssuedDteDetailDialog({
 
         {!loading && !error && dte && (
           <div className="space-y-4 py-2">
+            {/* Banner: NCs/NDs que referencian a este DTE.
+                Aparece arriba de todo cuando dte.creditNotes.length > 0
+                para que el usuario vea el estado de anulación/corrección
+                antes de cualquier acción. */}
+            {dte.creditNotes.length > 0 && (
+              <div
+                className={cn(
+                  "rounded-md border p-3 space-y-2",
+                  dte.hasFullAnnulment
+                    ? "bg-status-danger-soft border-status-danger-border"
+                    : "bg-status-warn-soft border-status-warn-border",
+                )}
+              >
+                <div className="flex items-start gap-2">
+                  <AlertTriangle
+                    className={cn(
+                      "h-4 w-4 mt-0.5 shrink-0",
+                      dte.hasFullAnnulment
+                        ? "text-status-danger-fg"
+                        : "text-status-warn-fg",
+                    )}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p
+                      className={cn(
+                        "text-sm font-medium",
+                        dte.hasFullAnnulment
+                          ? "text-status-danger-fg"
+                          : "text-status-warn-fg",
+                      )}
+                    >
+                      {dte.hasFullAnnulment
+                        ? "Esta factura está anulada por nota de crédito"
+                        : `Esta factura tiene ${dte.creditNotes.length} ${dte.creditNotes.length === 1 ? "nota" : "notas"} asociada${dte.creditNotes.length === 1 ? "" : "s"}`}
+                    </p>
+                    {!dte.hasFullAnnulment && dte.creditedNet > 0 && (
+                      <p className="text-[12px] text-muted-foreground mt-0.5">
+                        Acreditado: {fmtCLP.format(dte.creditedNet)} de{" "}
+                        {fmtCLP.format(dte.netAmount)} neto · saldo{" "}
+                        {fmtCLP.format(Math.max(0, dte.netAmount - dte.creditedNet))}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <div className="space-y-1 pl-6">
+                  {dte.creditNotes.map((nc) => {
+                    const ncStCfg = SII_STATUS_CONFIG[nc.siiStatus] ?? {
+                      label: nc.siiStatus,
+                      className: "bg-muted",
+                    };
+                    const codeLabel =
+                      nc.referenceCode != null
+                        ? REF_CODE_LABELS[nc.referenceCode] ?? `CodRef ${nc.referenceCode}`
+                        : null;
+                    return (
+                      <div key={nc.id} className="rounded-sm px-2 py-1.5">
+                        <div className="flex items-center gap-2 flex-wrap text-[13px]">
+                          <Badge variant="outline" className="text-[10px]">
+                            {DTE_TYPE_LABELS[nc.dteType] ?? `Tipo ${nc.dteType}`}
+                          </Badge>
+                          <span className="font-mono">N° {nc.folio}</span>
+                          <Badge
+                            variant="outline"
+                            className={cn("text-[10px]", ncStCfg.className)}
+                          >
+                            {ncStCfg.label}
+                          </Badge>
+                          {codeLabel && (
+                            <span className="text-[12px] text-muted-foreground">
+                              · {codeLabel}
+                            </span>
+                          )}
+                          <span className="text-[12px] text-muted-foreground ml-auto font-mono">
+                            {fmtCLP.format(nc.totalAmount)}
+                          </span>
+                        </div>
+                        {nc.referenceReason && (
+                          <p className="text-[12px] text-muted-foreground mt-0.5 italic line-clamp-2">
+                            {nc.referenceReason}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Receptor */}
             <div className="rounded-md border border-border bg-muted/30 p-4 space-y-2">
               <p className="text-xs uppercase tracking-wide text-muted-foreground">Receptor</p>
@@ -525,21 +716,88 @@ export function IssuedDteDetailDialog({
               </div>
             )}
 
-            {/* SII info */}
+            {/* SII info — muestra los datos clave del Servicio de
+                Impuestos Internos. Glosa + Última consulta vienen de
+                `siiResponse` (rellenado por consulta/envio). El bloque
+                "Detalles técnicos" es colapsable y trae el JSON crudo
+                para soporte. */}
             <div className="rounded-md border border-border p-4 space-y-1.5 text-xs">
               <p className="text-xs uppercase tracking-wide text-muted-foreground mb-1">SII</p>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Track ID:</span>
                 <span className="font-mono">{dte.siiTrackId ?? "—"}</span>
               </div>
+              {siiCodigo && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Código:</span>
+                  <span className="font-mono">{siiCodigo}</span>
+                </div>
+              )}
+              {siiGlosa && (
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground shrink-0">Glosa:</span>
+                  <span className="text-right">{siiGlosa}</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Fecha emisión:</span>
                 <span>{format(new Date(dte.date), "dd 'de' MMMM yyyy", { locale: es })}</span>
               </div>
+              {dte.siiLastStatusCheckAt && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Última consulta SII:</span>
+                  <span>
+                    {format(new Date(dte.siiLastStatusCheckAt), "dd MMM yyyy HH:mm", {
+                      locale: es,
+                    })}
+                  </span>
+                </div>
+              )}
               {dte.emailSentAt && (
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Email enviado:</span>
                   <span>{format(new Date(dte.emailSentAt), "dd MMM yyyy HH:mm", { locale: es })}</span>
+                </div>
+              )}
+
+              {/* Detalles técnicos colapsables: información para soporte
+                  o auditoría (conteo de consultas, JSON crudo del SII). */}
+              {(dte.siiResponse || dte.siiStatusCheckCount > 0) && (
+                <div className="pt-2 border-t border-border mt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowSiiTech((v) => !v)}
+                    className="flex items-center gap-1 text-[12px] text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {showSiiTech ? (
+                      <ChevronDown className="h-3 w-3" />
+                    ) : (
+                      <ChevronRight className="h-3 w-3" />
+                    )}
+                    Detalles técnicos
+                  </button>
+                  {showSiiTech && (
+                    <div className="mt-2 space-y-1.5 pl-4">
+                      {dte.siiStatusCheckCount > 0 && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">
+                            Consultas SII realizadas:
+                          </span>
+                          <span className="font-mono">{dte.siiStatusCheckCount}</span>
+                        </div>
+                      )}
+                      {dte.siiResponse && (
+                        <div>
+                          <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1">
+                            Respuesta cruda SII
+                          </p>
+                          <pre className="rounded-md bg-muted/40 border border-border p-2 text-[11px] font-mono overflow-x-auto whitespace-pre-wrap break-all max-h-48">
+                            {JSON.stringify(dte.siiResponse, null, 2)}
+                          </pre>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -615,12 +873,28 @@ export function IssuedDteDetailDialog({
                 Duplicar como borrador
               </Button>
             )}
-            {canManage && canCreditNote && onEmitCreditNote && (
-              <Button variant="outline" size="sm" onClick={() => { onClose(); onEmitCreditNote(dte.id); }}>
-                <FileMinus className="h-3.5 w-3.5 mr-1.5" />
-                Nota de Crédito
-              </Button>
-            )}
+            {canManage &&
+              [33, 34, 39, 41, 56].includes(dte.dteType) &&
+              dte.siiStatus !== "ANNULLED" &&
+              onEmitCreditNote && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (creditNoteBlockedReason) {
+                      toast.error(creditNoteBlockedReason, { duration: 8000 });
+                      return;
+                    }
+                    onClose();
+                    onEmitCreditNote(dte.id);
+                  }}
+                  className={creditNoteBlockedReason ? "opacity-60" : undefined}
+                  title={creditNoteBlockedReason ?? "Emitir nota de crédito"}
+                >
+                  <FileMinus className="h-3.5 w-3.5 mr-1.5" />
+                  Nota de Crédito
+                </Button>
+              )}
             {canManage && canDebitNote && onEmitDebitNote && (
               <Button variant="outline" size="sm" onClick={() => { onClose(); onEmitDebitNote(dte.id); }}>
                 <FilePlus className="h-3.5 w-3.5 mr-1.5" />
