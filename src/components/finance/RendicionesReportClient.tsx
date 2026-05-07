@@ -38,7 +38,7 @@ interface MonthlySummary {
   count: number;
 }
 
-interface ReportesClientProps {
+interface RendicionesReportClientProps {
   statusSummary: StatusSummary[];
   typeSummary: TypeSummary[];
   monthlySummary: MonthlySummary[];
@@ -99,12 +99,12 @@ const fmtCompact = new Intl.NumberFormat("es-CL", {
 
 /* ── Component ── */
 
-export function ReportesClient({
+export function RendicionesReportClient({
   statusSummary,
   typeSummary,
   monthlySummary,
   canExport,
-}: ReportesClientProps) {
+}: RendicionesReportClientProps) {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [exporting, setExporting] = useState(false);
