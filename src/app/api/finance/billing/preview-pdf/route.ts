@@ -49,7 +49,9 @@ export const runtime = "nodejs";
 
 const previewLineSchema = z.object({
   itemName: z.string().trim().min(1).max(200),
-  description: z.string().trim().max(500).optional().nullable(),
+  // 1000 chars (límite SII en <DscItem>) y NO trim — preservamos
+  // saltos de línea exactamente como los tipeó el usuario.
+  description: z.string().max(1000).optional().nullable(),
   quantity: z.number().positive(),
   unit: z.string().trim().max(20).optional().nullable(),
   unitPrice: z.number().min(0),

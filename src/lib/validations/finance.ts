@@ -123,7 +123,10 @@ export const updateSupplierSchema = createSupplierSchema.partial().omit({ rut: t
 const dteLineSchema = z.object({
   itemCode: optNull(z.string().trim().max(50)),
   itemName: z.string().trim().min(1).max(200),
-  description: optNull(z.string().trim().max(500)),
+  // El SII permite hasta 1000 caracteres en <DscItem> con saltos de
+  // línea. Aceptamos hasta ese tope; trim NO se aplica acá para no
+  // perder los `\n` finales que el usuario haya tipeado a propósito.
+  description: optNull(z.string().max(1000)),
   quantity: z.number().positive(),
   unit: optNull(z.string().trim().max(20)),
   unitPrice: z.number().min(0),
@@ -132,6 +135,13 @@ const dteLineSchema = z.object({
   // ambos. Para CLP queda undefined.
   unitPriceUf: z.number().positive().optional(),
   discountPct: z.number().min(0).max(100).optional(),
+  // Tipo de descuento que el usuario eligió en el form. Se persiste en
+  // el JSON `lines` de plantillas recurrentes para preservar la
+  // intención original ($5.000 vs 4,05%). Para DTEs emitidos solo se
+  // guarda discountPct (FinanceDteLine es columnar) — el cron
+  // (re)calcula el % efectivo cuando kind=AMOUNT.
+  discountKind: z.enum(["PCT", "AMOUNT"]).optional(),
+  discountAmount: z.number().min(0).optional(),
   isExempt: z.boolean().optional(),
   accountId: optNull(z.string().uuid()),
   costCenterId: optNull(z.string().uuid()),
@@ -191,7 +201,10 @@ export const issueDteSchema = z.object({
         tipoDocRef: z.string().trim().min(1).max(10),
         folioRef: z.string().trim().min(1).max(40),
         fchRef: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha YYYY-MM-DD"),
-        razonRef: z.string().trim().min(1).max(90),
+        // Razón / glosa de la referencia. SII permite vacío. La UI
+        // dejó de exponerlo (era ruido) — el campo se sigue aceptando
+        // para compat con drafts antiguos que lo tengan poblado.
+        razonRef: z.string().trim().max(90).optional().default(""),
       }),
     )
     .max(30, "Máximo 30 referencias adicionales")
@@ -238,7 +251,10 @@ export const recurringTemplateSchema = z.object({
         tipoDocRef: z.string().trim().min(1).max(10),
         folioRef: z.string().trim().min(1).max(40),
         fchRef: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha YYYY-MM-DD"),
-        razonRef: z.string().trim().min(1).max(90),
+        // Razón / glosa de la referencia. SII permite vacío. La UI
+        // dejó de exponerlo (era ruido) — se sigue aceptando para
+        // compat con drafts antiguos y con plantillas que lo tengan.
+        razonRef: z.string().trim().max(90).optional().default(""),
       }),
     )
     .max(30)
@@ -266,6 +282,13 @@ export const recurringTemplateSchema = z.object({
     ])
     .default("RUN_DAY"),
   ufFixingDay: z.number().int().min(1).max(31).nullable().optional(),
+  // Política para resolver el placeholder {{periodo}} en líneas/notas.
+  //   - CURRENT_MONTH: mes del run (default; factura por adelantado).
+  //   - PREVIOUS_MONTH: mes anterior (factura vencida).
+  //   - NEXT_MONTH: mes siguiente (casos especiales).
+  periodPolicy: z
+    .enum(["CURRENT_MONTH", "PREVIOUS_MONTH", "NEXT_MONTH"])
+    .default("CURRENT_MONTH"),
 });
 
 // Schema para crear/actualizar borradores. Es el mismo que issueDteSchema

@@ -113,6 +113,7 @@ export async function PATCH(
           body.ufFixingPolicy === "CUSTOM_DAY"
             ? (body.ufFixingDay ?? null)
             : null,
+        periodPolicy: body.periodPolicy,
       },
     });
     return NextResponse.json({ success: true, data: updated });

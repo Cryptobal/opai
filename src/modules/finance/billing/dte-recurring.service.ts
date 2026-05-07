@@ -9,6 +9,12 @@
 import { prisma } from "@/lib/prisma";
 import type { FinanceDteRecurringTemplate } from "@prisma/client";
 import { createDraftDte, type DraftDteInput } from "./dte-draft.service";
+import {
+  buildContext,
+  resolvePlaceholders,
+  type PeriodPolicy,
+  type PlaceholderContext,
+} from "./placeholders";
 
 export type Frequency = "monthly" | "biweekly" | "weekly" | "yearly";
 
@@ -125,7 +131,98 @@ export function computeNextRunAt(template: ComputeInput, fromDate?: Date): Date 
   return next;
 }
 
-function templateToDraftInput(t: FinanceDteRecurringTemplate): DraftDteInput {
+/**
+ * Shape de cada línea en el JSON `lines` del template. Algunos campos
+ * son extras opcionales que el form de plantilla agrega para
+ * preservar la "intención" del usuario:
+ *   - discountKind/discountAmount: si el usuario eligió descuento `$`,
+ *     guardamos kind=AMOUNT + amount. El cron lo convierte a
+ *     discountPct según el monto bruto del momento.
+ */
+type TemplateLine = {
+  itemName: string;
+  description?: string | null;
+  quantity?: number;
+  unit?: string;
+  unitPrice?: number;
+  unitPriceUf?: number;
+  discountPct?: number;
+  discountKind?: "PCT" | "AMOUNT";
+  discountAmount?: number;
+  isExempt?: boolean;
+  accountId?: string;
+  refuerzoSolicitudId?: string;
+};
+
+/**
+ * Convierte una línea de plantilla a la forma que `DraftDteInput.lines`
+ * espera. Aplica el resolver de placeholders al `itemName`/`description`
+ * y resuelve `discountKind=AMOUNT` → `discountPct` según el monto bruto
+ * del momento.
+ */
+function templateLineToDraftLine(
+  line: TemplateLine,
+  ctx: PlaceholderContext,
+): NonNullable<DraftDteInput["lines"]>[number] {
+  const quantity = line.quantity ?? 1;
+  const unitPriceClp = line.unitPrice ?? 0;
+  const unitPriceUf = line.unitPriceUf;
+
+  // ufMonto del contexto: si el template es UF, pasamos el unitPriceUf
+  // como referencia para el token {{uf_monto}} (multiplicado por quantity
+  // adentro del resolver).
+  const lineCtx: PlaceholderContext = {
+    ...ctx,
+    ufMonto: ctx.currency === "UF" ? unitPriceUf : undefined,
+    ufMontoQuantity: quantity,
+  };
+
+  // Resolución del descuento: si vino discountKind=AMOUNT, convertimos
+  // a porcentaje contra el monto bruto de la línea (qty * precio sin
+  // descuento). Para UF, el "precio" es unitPriceUf; para CLP es
+  // unitPrice. Si el bruto es 0, el % efectivo es 0.
+  let discountPct = line.discountPct ?? 0;
+  if (line.discountKind === "AMOUNT" && line.discountAmount != null) {
+    const grossPerUnit = ctx.currency === "UF" ? (unitPriceUf ?? 0) : unitPriceClp;
+    const gross = quantity * grossPerUnit;
+    if (gross > 0) {
+      discountPct = Math.round((line.discountAmount / gross) * 10000) / 100;
+      // clamp [0, 100] por seguridad ante input inválido (UI ya lo valida).
+      if (discountPct < 0) discountPct = 0;
+      if (discountPct > 100) discountPct = 100;
+    } else {
+      discountPct = 0;
+    }
+  }
+
+  const itemName = resolvePlaceholders(line.itemName ?? "", lineCtx);
+  const description = line.description
+    ? resolvePlaceholders(line.description, lineCtx)
+    : undefined;
+
+  return {
+    itemName,
+    description,
+    quantity,
+    unit: line.unit,
+    unitPrice: unitPriceClp,
+    unitPriceUf: unitPriceUf,
+    discountPct,
+    isExempt: line.isExempt ?? false,
+    accountId: line.accountId,
+    refuerzoSolicitudId: line.refuerzoSolicitudId,
+  };
+}
+
+function templateToDraftInput(
+  t: FinanceDteRecurringTemplate,
+  ctx: PlaceholderContext,
+): DraftDteInput {
+  const rawLines = (t.lines as TemplateLine[] | null) ?? [];
+  const lines = rawLines.map((l) => templateLineToDraftLine(l, ctx));
+
+  const notes = t.notes ? resolvePlaceholders(t.notes, ctx) : undefined;
+
   return {
     dteType: t.dteType,
     receiverRut: t.receiverRut,
@@ -139,8 +236,8 @@ function templateToDraftInput(t: FinanceDteRecurringTemplate): DraftDteInput {
     crmAccountId: t.crmAccountId ?? undefined,
     installationId: t.installationId ?? undefined,
     currency: t.currency,
-    lines: (t.lines as DraftDteInput["lines"]) ?? [],
-    notes: t.notes ?? undefined,
+    lines,
+    notes,
     additionalReferences: (t.additionalReferences as DraftDteInput["additionalReferences"]) ?? undefined,
     autoSendEmail: t.autoSendEmail,
   };
@@ -190,23 +287,71 @@ export async function runTemplate(tenantId: string, templateId: string) {
     // de crear el draft. Esto "fija" la UF que verá el borrador (queda
     // congelada en `ufValueAtIssue` y no cambia aunque el usuario emita
     // días después).
+    //
+    // Para el resolver de placeholders ({{uf_valor}}, {{uf_fecha}})
+    // necesitamos el valor + fecha incluso cuando policy=RUN_DAY:
+    // si la plantilla NO es UF (currency=CLP) no hay UF que resolver.
     let ufOverride: number | undefined = undefined;
+    let ufContextValue: number | null = null;
+    let ufContextDate: Date | null = null;
     if (template.currency === "UF") {
       const policy = (template.ufFixingPolicy as UfFixingPolicy) ?? "RUN_DAY";
-      const ufDate = resolveUfDateForPolicy(policy, template.ufFixingDay);
-      if (ufDate) {
-        const { getUfValueForDate } = await import("@/lib/uf");
-        ufOverride = await getUfValueForDate(ufDate);
+      const fixedDate = resolveUfDateForPolicy(policy, template.ufFixingDay);
+      const { getUfValueForDate, getUfValue } = await import("@/lib/uf");
+      if (fixedDate) {
+        ufOverride = await getUfValueForDate(fixedDate);
+        ufContextValue = ufOverride;
+        ufContextDate = fixedDate;
+      } else {
+        // policy=RUN_DAY: ufOverride queda undefined → createDraftDte
+        // resuelve la UF del día. Para el contexto del resolver
+        // necesitamos el mismo valor; lo traemos también.
+        const today = new Date();
+        try {
+          ufContextValue = await getUfValue();
+          ufContextDate = new Date(
+            Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()),
+          );
+        } catch {
+          // Si falla el fetch de UF, los placeholders {{uf_valor}}/
+          // {{uf_fecha}} quedan vacíos pero el draft se crea igual
+          // (computeDteAmounts maneja su propia caída de UF).
+          ufContextValue = null;
+          ufContextDate = null;
+        }
       }
-      // Si policy es RUN_DAY, ufOverride queda undefined → el helper
-      // computeDteAmounts dentro de createDraftDte llamará a
-      // getUfValue() (UF del día), que es el comportamiento previo.
     }
+
+    // Nombre de la instalación (para {{instalacion}}). Lookup mínimo,
+    // null si no hay instalación asignada o si el lookup falla.
+    let installationName: string | null = null;
+    if (template.installationId) {
+      const inst = await prisma.crmInstallation.findFirst({
+        where: { id: template.installationId, tenantId },
+        select: { name: true },
+      });
+      installationName = inst?.name ?? null;
+    }
+
+    const periodPolicy = (template.periodPolicy as PeriodPolicy) ?? "CURRENT_MONTH";
+    const ctx: PlaceholderContext = {
+      ...buildContext({
+        periodPolicy,
+        runDate: new Date(),
+        uf:
+          ufContextValue != null && ufContextDate != null
+            ? { value: ufContextValue, date: ufContextDate }
+            : null,
+        cliente: template.receiverName,
+        instalacion: installationName,
+        currency: template.currency === "UF" ? "UF" : "CLP",
+      }),
+    };
 
     const draft = await createDraftDte(
       tenantId,
       template.createdBy,
-      templateToDraftInput(template),
+      templateToDraftInput(template, ctx),
       { ufOverride },
     );
     const next = computeNextRunAt(template);

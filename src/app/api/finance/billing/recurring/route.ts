@@ -91,6 +91,7 @@ export async function POST(request: NextRequest) {
           body.ufFixingPolicy === "CUSTOM_DAY"
             ? (body.ufFixingDay ?? null)
             : null,
+        periodPolicy: body.periodPolicy,
         createdBy: ctx.userId,
       },
     });
