@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,7 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
-import { Plus, Trash2, Loader2, Send, Download, FileEdit, Eye } from "lucide-react";
+import { Plus, Trash2, Loader2, Send, Download, FileEdit, Eye, ExternalLink } from "lucide-react";
 import { CustomerCombobox, type CustomerOption } from "./CustomerCombobox";
 import {
   Dialog,
@@ -893,6 +894,46 @@ export function DteForm({ availableTypes, accounts }: Props) {
                 else if (field === "email") setReceiverEmail(value);
               }}
             />
+
+            {/*
+              Banner de aviso cuando seleccionaste un cliente del CRM pero
+              le faltan campos requeridos por el SII (Giro, Ciudad). Estos
+              campos se autocompletan desde la ficha CRM al elegir el
+              cliente; si están vacíos en CRM, el operador no puede emitir
+              limpio. El banner ofrece dos atajos:
+                1. Editar la cuenta CRM (link a /crm/accounts/[id]).
+                2. Llamar al SII por RUT desde la ficha (botón "Consultar SII").
+            */}
+            {customer && (() => {
+              const missing: string[] = [];
+              if (!customer.giro) missing.push("Giro");
+              if (!customer.city) missing.push("Ciudad");
+              if (missing.length === 0) return null;
+              return (
+                <div className="mt-3 rounded-md border border-status-warn-border bg-status-warn-soft p-3 text-xs">
+                  <p className="font-semibold text-status-warn-fg">
+                    Faltan datos del cliente para SII: {missing.join(" y ")}
+                  </p>
+                  <p className="text-status-warn-fg/80 mt-1">
+                    Estos campos los exige el SII en facturas tipo 33/34. Podés
+                    completarlos manualmente abajo o, mejor aún, ir a la ficha
+                    CRM del cliente y usar el botón <span className="font-medium">Consultar SII</span>{" "}
+                    para traer los datos oficiales por RUT.
+                  </p>
+                  <div className="mt-2">
+                    <Link
+                      href={`/crm/accounts/${customer.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-status-warn-fg font-medium hover:underline"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                      Abrir ficha de la cuenta
+                    </Link>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/*
               Datos adicionales del receptor (giro/dirección/comuna/ciudad)

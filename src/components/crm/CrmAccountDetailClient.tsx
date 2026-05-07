@@ -57,6 +57,7 @@ import {
 import { DuplicateAccountModal } from "./DuplicateAccountModal";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { cn } from "@/lib/utils";
 import { FileAttachments } from "./FileAttachments";
 import { AccountExpensesSection } from "@/components/finance/AccountExpensesSection";
 import { CreateQuoteModal } from "@/components/cpq/CreateQuoteModal";
@@ -258,6 +259,33 @@ export function CrmAccountDetailClient({
   // ── Account edit state ──
   const [editAccountOpen, setEditAccountOpen] = useState(false);
   const [savingAccount, setSavingAccount] = useState(false);
+  /**
+   * Estado del lookup SII: cuando `loading=true` mostramos spinner en
+   * el botón. Cuando `data` viene seteado se abre el modal de preview
+   * con el diff y los checkboxes para aplicar selectivamente.
+   */
+  const [siiLookup, setSiiLookup] = useState<{
+    loading: boolean;
+    data: {
+      rut: string;
+      sii: {
+        razonSocial: string;
+        giro: string | null;
+        giroCodigo: string | null;
+        direccion: string | null;
+        comuna: string | null;
+        ciudad: string | null;
+        correoIntercambio: string | null;
+      };
+      rawSii: {
+        actividadesEconomicas: Array<{ codigo: string; descripcion: string }>;
+        domicilios: Array<{ direccion: string; ciudad: string; comuna: string }>;
+      };
+      diff: Record<string, { current: string | null; sii: string | null; changes: boolean }>;
+      apply: Record<string, boolean>;
+    } | null;
+  }>({ loading: false, data: null });
+  const [applyingSii, setApplyingSii] = useState(false);
   const [updatingAccountType, setUpdatingAccountType] = useState(false);
   const [updatingAccountStatus, setUpdatingAccountStatus] = useState(false);
   const [accountStatusConfirmOpen, setAccountStatusConfirmOpen] = useState(false);
@@ -426,6 +454,87 @@ export function CrmAccountDetailClient({
       router.push("/crm/accounts");
     } catch {
       toast.error("No se pudo eliminar");
+    }
+  };
+
+  /**
+   * Lookup SII por RUT vía SimpleAPI. NO escribe en la cuenta — sólo
+   * trae los datos oficiales y abre un modal donde el operador elige
+   * qué campos aplicar (con preview del diff vs. estado actual).
+   *
+   * El SII puede tardar hasta ~2 minutos por RUT (cola del SII), por
+   * eso el endpoint backend tiene `maxDuration: 120` y acá mostramos
+   * spinner persistente mientras esperamos.
+   */
+  const lookupRutFromSii = async () => {
+    if (!account.rut) {
+      toast.error("Necesitás cargar el RUT antes de consultar al SII.");
+      return;
+    }
+    setSiiLookup({ loading: true, data: null });
+    try {
+      const res = await fetch(
+        `/api/crm/accounts/${account.id}/lookup-rut`,
+      );
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error ?? "Error al consultar al SII");
+      }
+      const initialApply: Record<string, boolean> = {};
+      for (const [k, v] of Object.entries(
+        json.data.diff as Record<string, { changes: boolean; sii: string | null }>,
+      )) {
+        // Por default activamos los campos donde el SII trae info y hay
+        // cambio respecto al actual. El operador puede destildar.
+        initialApply[k] = v.changes;
+      }
+      setSiiLookup({
+        loading: false,
+        data: { ...json.data, apply: initialApply },
+      });
+    } catch (err) {
+      toast.error((err as Error).message);
+      setSiiLookup({ loading: false, data: null });
+    }
+  };
+
+  /**
+   * Aplica los campos seleccionados del lookup SII al CrmAccount vía
+   * PATCH. Mapea las keys del diff a las del schema (son las mismas).
+   */
+  const applySiiData = async () => {
+    if (!siiLookup.data) return;
+    const { sii, apply } = siiLookup.data;
+    const payload: Record<string, string | null> = {};
+    if (apply.legalName && sii.razonSocial) payload.legalName = sii.razonSocial;
+    if (apply.giro && sii.giro) payload.giro = sii.giro;
+    if (apply.address && sii.direccion) payload.address = sii.direccion;
+    if (apply.commune && sii.comuna) payload.commune = sii.comuna;
+    if (apply.city && sii.ciudad) payload.city = sii.ciudad;
+
+    if (Object.keys(payload).length === 0) {
+      toast.error("No seleccionaste ningún campo para aplicar.");
+      return;
+    }
+
+    setApplyingSii(true);
+    try {
+      const res = await fetch(`/api/crm/accounts/${account.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error ?? "No se pudo actualizar");
+      setAccount((prev) => ({ ...prev, ...payload }));
+      toast.success(
+        `Cuenta actualizada con ${Object.keys(payload).length} campo(s) del SII.`,
+      );
+      setSiiLookup({ loading: false, data: null });
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setApplyingSii(false);
     }
   };
 
@@ -1128,19 +1237,44 @@ export function CrmAccountDetailClient({
       {/* Bloque "Datos para facturación SII" — siempre visible para que el
           operador vea de un vistazo qué datos del receptor se autocompletarán
           al emitir un DTE para esta cuenta. Si algún campo está vacío,
-          muestra "Sin cargar" con un hint para editar. */}
+          muestra "Sin cargar" con un hint para editar.
+
+          Incluye un botón "Consultar SII" que pega al endpoint oficial de
+          SimpleAPI (rut.simpleapi.cl/v2/{rut}) y trae los datos públicos
+          del contribuyente: razón social, giros, domicilios, email DTE.
+          El operador ve un preview con diff y elige qué campos aplicar. */}
       <div className="rounded-xl border border-border bg-card">
         <div className="flex items-center justify-between gap-2 border-b border-border/50 px-4 py-2">
           <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
             Datos para facturación SII
           </p>
-          <button
-            type="button"
-            onClick={openAccountEdit}
-            className="text-[11px] font-medium text-primary hover:underline"
-          >
-            Editar
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={lookupRutFromSii}
+              disabled={!account.rut || siiLookup.loading}
+              className="inline-flex items-center gap-1 rounded-md border border-primary/30 bg-primary/10 px-2 py-1 text-[11px] font-medium text-primary hover:bg-primary/20 disabled:opacity-50 disabled:cursor-not-allowed"
+              title={
+                account.rut
+                  ? "Consultar datos oficiales del contribuyente al SII"
+                  : "Necesitás cargar el RUT primero"
+              }
+            >
+              {siiLookup.loading ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Sparkles className="h-3 w-3" />
+              )}
+              {siiLookup.loading ? "Consultando SII…" : "Consultar SII"}
+            </button>
+            <button
+              type="button"
+              onClick={openAccountEdit}
+              className="text-[11px] font-medium text-primary hover:underline"
+            >
+              Editar
+            </button>
+          </div>
         </div>
         <div className="grid grid-cols-1 gap-x-4 gap-y-2 p-4 sm:grid-cols-2">
           <div className="min-w-0">
@@ -1639,6 +1773,184 @@ export function CrmAccountDetailClient({
             <Button onClick={saveAccount} disabled={savingAccount}>
               {savingAccount && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Guardar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── SII Lookup Preview Modal ──
+          Se abre cuando el lookup vía /api/crm/accounts/[id]/lookup-rut
+          retorna OK. Muestra una tabla con 5 campos clave (razón social,
+          giro, dirección, comuna, ciudad) comparando lo que tiene OPAI
+          vs. lo que devolvió el SII, con un checkbox por campo para
+          aplicar selectivamente. Operaciones idempotentes: el operador
+          puede volver a consultar después de aplicar y el diff queda
+          vacío si todo coincide. */}
+      <Dialog
+        open={!!siiLookup.data}
+        onOpenChange={(v) => !v && setSiiLookup({ loading: false, data: null })}
+      >
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary" />
+              Datos oficiales del SII para {siiLookup.data?.rut}
+            </DialogTitle>
+          </DialogHeader>
+
+          {siiLookup.data && (
+            <div className="space-y-4 py-2">
+              <p className="text-xs text-muted-foreground">
+                Estos datos vienen del Servicio de Impuestos Internos vía
+                SimpleAPI. Tildá los campos que querés aplicar a la cuenta.
+                Los que no se tildan quedan como están.
+              </p>
+
+              {(["legalName", "giro", "address", "commune", "city"] as const).map((field) => {
+                const labels: Record<typeof field, string> = {
+                  legalName: "Razón social",
+                  giro: "Giro / Actividad económica",
+                  address: "Dirección",
+                  commune: "Comuna",
+                  city: "Ciudad",
+                };
+                const d = siiLookup.data!.diff[field];
+                if (!d) return null;
+                const hasChange = d.changes;
+                return (
+                  <div
+                    key={field}
+                    className={cn(
+                      "rounded-md border p-3",
+                      hasChange
+                        ? "border-status-warn-border bg-status-warn-soft/40"
+                        : "border-ds-border-default bg-ds-surface-2",
+                    )}
+                  >
+                    <div className="flex items-start gap-3">
+                      <input
+                        type="checkbox"
+                        id={`apply-${field}`}
+                        checked={!!siiLookup.data!.apply[field]}
+                        disabled={!d.sii || applyingSii}
+                        onChange={(e) =>
+                          setSiiLookup((prev) =>
+                            prev.data
+                              ? {
+                                  ...prev,
+                                  data: {
+                                    ...prev.data,
+                                    apply: {
+                                      ...prev.data.apply,
+                                      [field]: e.target.checked,
+                                    },
+                                  },
+                                }
+                              : prev,
+                          )
+                        }
+                        className="mt-1 h-4 w-4 rounded border-input cursor-pointer"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <label
+                          htmlFor={`apply-${field}`}
+                          className="text-sm font-medium cursor-pointer"
+                        >
+                          {labels[field]}{" "}
+                          {hasChange ? (
+                            <span className="text-[11px] font-normal text-status-warn-fg">
+                              · cambia
+                            </span>
+                          ) : d.sii ? (
+                            <span className="text-[11px] font-normal text-muted-foreground">
+                              · igual
+                            </span>
+                          ) : (
+                            <span className="text-[11px] font-normal text-muted-foreground">
+                              · sin dato en SII
+                            </span>
+                          )}
+                        </label>
+                        <div className="mt-1 grid grid-cols-1 gap-1 text-xs sm:grid-cols-2">
+                          <div className="min-w-0">
+                            <span className="text-muted-foreground">Actual: </span>
+                            <span className="break-words">
+                              {d.current || (
+                                <span className="italic text-muted-foreground/70">vacío</span>
+                              )}
+                            </span>
+                          </div>
+                          <div className="min-w-0">
+                            <span className="text-muted-foreground">SII: </span>
+                            <span className="break-words font-medium">
+                              {d.sii || (
+                                <span className="italic text-muted-foreground/70">vacío</span>
+                              )}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Domicilios y actividades alternativas — solo informativo
+                  (el SII publica más de uno cuando aplica). */}
+              {siiLookup.data.rawSii.actividadesEconomicas.length > 1 && (
+                <div className="rounded-md border border-ds-border-default bg-ds-surface-2 p-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80 mb-1.5">
+                    Otras actividades económicas registradas
+                  </p>
+                  <ul className="space-y-1 text-xs">
+                    {siiLookup.data.rawSii.actividadesEconomicas.slice(1).map((a) => (
+                      <li key={a.codigo} className="flex gap-2">
+                        <span className="font-mono text-muted-foreground shrink-0">
+                          {a.codigo}
+                        </span>
+                        <span>{a.descripcion}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {siiLookup.data.rawSii.domicilios.length > 1 && (
+                <div className="rounded-md border border-ds-border-default bg-ds-surface-2 p-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80 mb-1.5">
+                    Otros domicilios registrados
+                  </p>
+                  <ul className="space-y-1 text-xs">
+                    {siiLookup.data.rawSii.domicilios.slice(1).map((d, i) => (
+                      <li key={i}>
+                        {d.direccion}
+                        {d.comuna && ` — ${d.comuna}`}
+                        {d.ciudad && `, ${d.ciudad}`}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setSiiLookup({ loading: false, data: null })}
+              disabled={applyingSii}
+            >
+              Cerrar
+            </Button>
+            <Button
+              onClick={applySiiData}
+              disabled={
+                applyingSii ||
+                !siiLookup.data ||
+                !Object.values(siiLookup.data.apply).some((v) => v)
+              }
+            >
+              {applyingSii && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Aplicar a la cuenta
             </Button>
           </DialogFooter>
         </DialogContent>
