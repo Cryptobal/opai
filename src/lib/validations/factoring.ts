@@ -8,6 +8,14 @@ const yyyyMmDd = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha en formato YYYY-MM-DD requerida");
 
+const pctField = (label: string) =>
+  z
+    .number()
+    .min(0, `${label} no puede ser negativo`)
+    .max(100, `${label} debe ser un porcentaje entre 0 y 100`)
+    .nullable()
+    .optional();
+
 /** Schema para crear/actualizar empresas de factoring (catálogo). */
 export const factoringCompanyInputSchema = z.object({
   rut: z.string().min(2, "RUT requerido"),
@@ -24,9 +32,9 @@ export const factoringCompanyInputSchema = z.object({
     .optional()
     .or(z.literal("")),
   contactPhone: z.string().nullable().optional(),
-  defaultAdvanceRate: z.number().min(0).max(100).nullable().optional(),
-  defaultInterestRate: z.number().min(0).max(100).nullable().optional(),
-  defaultCommissionPct: z.number().min(0).max(100).nullable().optional(),
+  defaultAdvanceRate: pctField("Anticipo default"),
+  defaultInterestRate: pctField("Interés mensual default"),
+  defaultCommissionPct: pctField("Comisión default"),
   notes: z.string().nullable().optional(),
 });
 

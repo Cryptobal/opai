@@ -18,6 +18,7 @@ import {
 } from "@/modules/finance/factoring/operations.service";
 import { listFactoringCompanies } from "@/modules/finance/factoring/factoring-companies.service";
 import { FactoringOperationsClient } from "@/components/finance/factoring/FactoringOperationsClient";
+import { CesionesTabs } from "@/components/finance/factoring/CesionesTabs";
 
 export default async function FactoringOperationsPage() {
   const session = await auth();
@@ -72,6 +73,7 @@ export default async function FactoringOperationsPage() {
         subtitle="Factoring electrónico"
         description="Operaciones de cesión a empresas de factoring, con anticipos, intereses, comisiones y trazabilidad SII."
       />
+      <CesionesTabs />
       <FactoringOperationsClient
         initialOperations={initialOperations}
         initialKpis={kpis}

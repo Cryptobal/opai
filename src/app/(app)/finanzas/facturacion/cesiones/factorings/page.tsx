@@ -1,10 +1,14 @@
 /**
  * Catálogo per-tenant de empresas de factoring (cesionarios).
  * Bloque 5 factoring v3 — UI con CRUD básico vía DataTable + Dialog.
+ *
+ * Renderiza el mismo PageHero "Cesiones de facturas" + CesionesTabs que
+ * /finanzas/facturacion/cesiones, para que se vea como una sub-sección
+ * del mismo módulo.
  */
 
 import { redirect } from "next/navigation";
-import { Building2 } from "lucide-react";
+import { Coins } from "lucide-react";
 import { auth } from "@/lib/auth";
 import {
   hasFacturacionCapability,
@@ -14,6 +18,7 @@ import {
 import { PageHero } from "@/components/opai-ds";
 import { listFactoringCompanies } from "@/modules/finance/factoring/factoring-companies.service";
 import { FactoringCompaniesClient } from "@/components/finance/factoring/FactoringCompaniesClient";
+import { CesionesTabs } from "@/components/finance/factoring/CesionesTabs";
 
 export default async function FactoringCompaniesPage() {
   const session = await auth();
@@ -57,13 +62,14 @@ export default async function FactoringCompaniesPage() {
   return (
     <div className="space-y-6 min-w-0">
       <PageHero
-        icon={<Building2 />}
+        icon={<Coins />}
         iconTone="teal"
-        eyebrow={["Finanzas", "Facturación", "Cesiones"]}
-        title="Empresas de factoring"
-        subtitle="Catálogo de cesionarios"
-        description="Mantén el listado de empresas de factoring con las que cedés tus facturas y sus tasas habituales."
+        eyebrow={["Finanzas", "Facturación"]}
+        title="Cesiones de facturas"
+        subtitle="Factoring electrónico"
+        description="Administra el catálogo de empresas de factoring (cesionarios) y sus tasas habituales."
       />
+      <CesionesTabs />
       <FactoringCompaniesClient
         initialCompanies={initialCompanies}
         canManage={canManage}
