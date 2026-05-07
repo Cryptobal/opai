@@ -181,14 +181,15 @@ interface Props {
 // Orden optimizado para flujo real:
 // 1. DTEs Emitidos (default) — es la vista que más se abre.
 // 2. DTEs Recibidos — segunda más usada (compras).
-// 3. Borradores — facturas guardadas sin emitir + plantillas
-//    recurrentes (en Fase 4 se renombra a "Programación").
+// 3. Programación — borradores libres + plantillas recurrentes que
+//    generan borradores automáticamente. Conserva el id "borradores"
+//    para no romper deeplinks ni bookmarks existentes.
 // 4. Libro IVA — solo lectura mensual, baja frecuencia.
 // 5. Folios — solo cuando hay alerta de stock bajo.
 const TABS = [
   { id: "dtes", label: "DTEs Emitidos", icon: FileText },
   { id: "recibidos", label: "DTEs Recibidos", icon: FileInput },
-  { id: "borradores", label: "Borradores", icon: FileEdit },
+  { id: "borradores", label: "Programación", icon: FileEdit },
   { id: "libro", label: "Libro IVA", icon: BookOpen },
   { id: "folios", label: "Folios", icon: Hash },
 ] as const;

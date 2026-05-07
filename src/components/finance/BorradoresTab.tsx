@@ -160,11 +160,11 @@ export function BorradoresTab({ canManage }: { canManage: boolean }) {
           <div>
             <h2 className="text-lg font-semibold flex items-center gap-2">
               <Repeat className="h-5 w-5 text-tint-violet-fg" />
-              Facturación recurrente
+              Programación recurrente
             </h2>
             <p className="text-sm text-muted-foreground">
-              Plantillas que generan borradores automáticamente. El cron NO emite directo al SII —
-              siempre revisas el borrador antes de emitir.
+              Plantillas que generan borradores automáticamente (mensual, quincenal, etc).
+              El cron NO emite directo al SII — siempre revisas el borrador antes de emitir.
             </p>
           </div>
           {canManage && (

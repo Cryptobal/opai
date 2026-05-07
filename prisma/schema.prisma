@@ -6439,7 +6439,7 @@ model FinanceDteRecurringTemplate {
   lines                Json
   notes                String?
   /// Referencias adicionales como JSON, mismo shape que additionalReferences en FinanceDte.
-  additionalReferences Json?
+  additionalReferences Json?    @map("additional_references")
 
   // ── Frecuencia ──
   // frequency: "monthly" | "biweekly" | "weekly" | "yearly"
