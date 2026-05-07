@@ -106,6 +106,17 @@ interface DteRow {
   dueDate?: string | null;
   /** Estado de pago (UNPAID / PARTIAL / PAID / OVERDUE / WRITTEN_OFF). */
   paymentStatus?: string | null;
+  /**
+   * NCs vivas que referencian a este DTE. Si hay al menos una, la lista
+   * pinta un badge "Con NC" (rojo si es anulación total, ámbar si es
+   * corrección parcial). Null = no tiene NCs asociadas.
+   */
+  linkedCreditNote?: {
+    count: number;
+    hasFullAnnulment: boolean;
+    creditedNet: number;
+    primaryFolio: number;
+  } | null;
 }
 
 interface FolioStatus {
@@ -619,6 +630,14 @@ function DtesTab({
               date: typeof d.date === "string" ? d.date : String(d.date ?? ""),
               dueDate: (d.dueDate as string | null) ?? null,
               paymentStatus: (d.paymentStatus as string | null) ?? null,
+              linkedCreditNote: (d.linkedCreditNote as
+                | {
+                    count: number;
+                    hasFullAnnulment: boolean;
+                    creditedNet: number;
+                    primaryFolio: number;
+                  }
+                | null) ?? null,
             }))
           : [];
         setDtes(list);
@@ -962,6 +981,28 @@ function DtesTab({
                           Ref: {row.referenceType}-{row.referenceFolio}
                         </div>
                       )}
+                      {row.linkedCreditNote && (
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "text-[10px] mt-1",
+                            row.linkedCreditNote.hasFullAnnulment
+                              ? "bg-status-danger-soft text-status-danger-fg border-status-danger-border"
+                              : "bg-status-warn-soft text-status-warn-fg border-status-warn-border",
+                          )}
+                          title={
+                            row.linkedCreditNote.hasFullAnnulment
+                              ? `Anulada por NC ${row.linkedCreditNote.primaryFolio}`
+                              : `Con NC ${row.linkedCreditNote.primaryFolio} · acreditado $${row.linkedCreditNote.creditedNet.toLocaleString("es-CL")}`
+                          }
+                        >
+                          {row.linkedCreditNote.hasFullAnnulment
+                            ? `Anulada · NC ${row.linkedCreditNote.primaryFolio}`
+                            : row.linkedCreditNote.count > 1
+                              ? `${row.linkedCreditNote.count} NCs`
+                              : `Con NC ${row.linkedCreditNote.primaryFolio}`}
+                        </Badge>
+                      )}
                     </div>
                   ),
                 },
@@ -1148,6 +1189,23 @@ function DtesTab({
                           <p className="text-[12px] text-ds-text-3 font-mono mb-1">
                             Ref: {d.referenceType}-{d.referenceFolio}
                           </p>
+                        )}
+                        {d.linkedCreditNote && (
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "text-[10px] mb-1",
+                              d.linkedCreditNote.hasFullAnnulment
+                                ? "bg-status-danger-soft text-status-danger-fg border-status-danger-border"
+                                : "bg-status-warn-soft text-status-warn-fg border-status-warn-border",
+                            )}
+                          >
+                            {d.linkedCreditNote.hasFullAnnulment
+                              ? `Anulada · NC ${d.linkedCreditNote.primaryFolio}`
+                              : d.linkedCreditNote.count > 1
+                                ? `${d.linkedCreditNote.count} NCs`
+                                : `Con NC ${d.linkedCreditNote.primaryFolio}`}
+                          </Badge>
                         )}
                         <p className="font-medium text-sm">{d.receiverName}</p>
                         <p className="text-xs text-muted-foreground font-mono">{d.receiverRut}</p>

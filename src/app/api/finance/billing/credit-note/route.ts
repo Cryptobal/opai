@@ -52,29 +52,40 @@ export async function POST(request: NextRequest) {
     // default histórico del CreditNoteForm.
     const code = (body.referenceType ?? 1) as 1 | 2 | 3;
 
+    // Una sola query trae todas las NCs vivas de la factura. Reusada por
+    // los guards 1 (anulación previa) y 3 (saldo agotado por NCs parciales).
+    const existingActiveNcs = await prisma.financeDte.findMany({
+      where: {
+        tenantId: ctx.tenantId,
+        dteType: 61,
+        referenceDteId: originalDte.id,
+        siiStatus: { in: ["ACCEPTED", "PENDING", "SENT", "WITH_OBJECTIONS"] },
+      },
+      select: { id: true, folio: true, netAmount: true, referenceCode: true },
+    });
+
+    const existingFullAnnulment = existingActiveNcs.find(
+      (n) => n.referenceCode === 1,
+    );
+    const creditedNetSoFar = existingActiveNcs.reduce(
+      (acc, n) => acc + Number(n.netAmount ?? 0),
+      0,
+    );
+    const originalNet = originalDte.netAmount.toNumber();
+
     // Guard 1: bloquear segunda anulación. Si ya hay una NC con CodRef=1
-    // ACCEPTED sobre este DTE, emitir otra es un error contable que el
-    // SII puede aceptar pero deja la contabilidad inconsistente.
-    if (code === 1) {
-      const existingAnnulation = await prisma.financeDte.findFirst({
-        where: {
-          tenantId: ctx.tenantId,
-          dteType: 61,
-          referenceDteId: originalDte.id,
-          referenceCode: 1,
-          siiStatus: { in: ["ACCEPTED", "PENDING", "SENT"] },
+    // ACCEPTED/PENDING/SENT sobre este DTE, emitir otra es un error contable
+    // que el SII puede aceptar pero deja la contabilidad inconsistente.
+    // Aplica a TODOS los códigos: si la factura ya está anulada, no se le
+    // puede aplicar ni siquiera una corrección de texto.
+    if (existingFullAnnulment) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Este DTE ya tiene una NC de anulación emitida (folio ${existingFullAnnulment.folio}). No se pueden emitir más notas sobre una factura anulada.`,
         },
-        select: { id: true, folio: true },
-      });
-      if (existingAnnulation) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: `Este DTE ya tiene una NC de anulación emitida (folio ${existingAnnulation.folio}). No se puede anular dos veces.`,
-          },
-          { status: 409 },
-        );
-      }
+        { status: 409 },
+      );
     }
 
     // Guard 2: NC con CodRef=1 (anula) debe tener monto = original.
@@ -86,13 +97,45 @@ export async function POST(request: NextRequest) {
         0,
       );
       const ncTotalNet = Math.round(ncTotal);
-      const originalNet = originalDte.netAmount.toNumber();
       // Tolerancia $1 para redondeos del frontend.
       if (Math.abs(ncTotalNet - originalNet) > 1) {
         return NextResponse.json(
           {
             success: false,
             error: `Para anular (CodRef=1), el monto neto de la NC debe coincidir con el original. NC: $${ncTotalNet.toLocaleString("es-CL")}, original: $${originalNet.toLocaleString("es-CL")}. Usá CodRef=3 si querés corregir solo una parte.`,
+          },
+          { status: 400 },
+        );
+      }
+    }
+
+    // Guard 3 (NUEVO): NC parcial (CodRef=3) no puede exceder el saldo
+    // disponible. Si ya hay NCs anteriores que acreditaron $X del neto
+    // original, esta NC no puede pasarse de $original - $X.
+    if (code === 3) {
+      const ncTotal = body.lines.reduce(
+        (acc: number, l: { quantity?: number; unitPrice?: number }) =>
+          acc + (l.quantity ?? 0) * (l.unitPrice ?? 0),
+        0,
+      );
+      const ncTotalNet = Math.round(ncTotal);
+      const remaining = Math.max(0, originalNet - creditedNetSoFar);
+
+      if (creditedNetSoFar > 0 && remaining <= 1) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Este DTE ya está totalmente acreditado (NCs previas suman $${creditedNetSoFar.toLocaleString("es-CL")} del neto original $${originalNet.toLocaleString("es-CL")}). No queda saldo para una nueva NC parcial.`,
+          },
+          { status: 409 },
+        );
+      }
+
+      if (ncTotalNet - remaining > 1) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `El monto de la NC ($${ncTotalNet.toLocaleString("es-CL")}) excede el saldo disponible ($${remaining.toLocaleString("es-CL")}). Ya hay $${creditedNetSoFar.toLocaleString("es-CL")} acreditados sobre el neto original $${originalNet.toLocaleString("es-CL")}. Si querés anular el total, usá CodRef=1.`,
           },
           { status: 400 },
         );

@@ -59,6 +59,19 @@ export interface DteActionsRow {
   hasXml?: boolean;
   canBeCeded?: boolean;
   activeCession?: { id: string; code: string; status: string } | null;
+  /**
+   * Resumen de NCs vivas que referencian este DTE. Si tiene anulación
+   * total (CodRef=1) o saldo agotado, el item "Nota de Crédito" se
+   * muestra deshabilitado con tooltip explicando por qué.
+   */
+  linkedCreditNote?: {
+    count: number;
+    hasFullAnnulment: boolean;
+    creditedNet: number;
+    primaryFolio: number;
+  } | null;
+  /** Neto original — para detectar saldo agotado en NCs parciales. */
+  netAmount?: number;
 }
 
 interface Props {
@@ -174,8 +187,28 @@ export function DteActionsMenu({
   }
 
   const canAnular = row.siiStatus === "PENDING" || row.siiStatus === "SENT";
-  const canCreditNote =
-    [33, 34, 39, 41, 56].includes(row.dteType) && row.siiStatus !== "ANNULLED";
+  const isCreditableType = [33, 34, 39, 41, 56].includes(row.dteType);
+  // Razón por la que el botón "Nota de Crédito" debe quedar bloqueado
+  // (deshabilitado con tooltip). Misma lógica que el backend.
+  const remainingNet =
+    row.netAmount != null && row.linkedCreditNote
+      ? Math.max(0, row.netAmount - row.linkedCreditNote.creditedNet)
+      : null;
+  const isFullyCredited =
+    row.linkedCreditNote != null &&
+    row.linkedCreditNote.creditedNet > 0 &&
+    remainingNet != null &&
+    remainingNet <= 1;
+  const creditNoteBlockedReason: string | null = !isCreditableType
+    ? null
+    : row.siiStatus === "ANNULLED"
+      ? null
+      : row.linkedCreditNote?.hasFullAnnulment
+        ? `Ya anulada con NC ${row.linkedCreditNote.primaryFolio}`
+        : isFullyCredited
+          ? `Saldo agotado por NCs previas ($${row.linkedCreditNote!.creditedNet.toLocaleString("es-CL")} acreditados)`
+          : null;
+  const canCreditNote = isCreditableType && row.siiStatus !== "ANNULLED";
   const canDebitNote = row.dteType === 61 && row.siiStatus !== "ANNULLED";
   const hasXml = row.hasXml !== false;
   const canBeCeded = row.canBeCeded === true && !row.activeCession;
@@ -286,9 +319,21 @@ export function DteActionsMenu({
           {/* Acciones financieras */}
           {showFinancialSep && <DropdownMenuSeparator />}
           {canManage && canCreditNote && (
-            <DropdownMenuItem onClick={onCreditNote}>
+            <DropdownMenuItem
+              onClick={onCreditNote}
+              disabled={Boolean(creditNoteBlockedReason)}
+              title={creditNoteBlockedReason ?? undefined}
+              className={
+                creditNoteBlockedReason ? "opacity-60 cursor-not-allowed" : undefined
+              }
+            >
               <FileMinus className="h-4 w-4 mr-2" />
-              Nota de Crédito
+              <span className="flex-1">Nota de Crédito</span>
+              {creditNoteBlockedReason && (
+                <span className="text-[10px] text-muted-foreground ml-2 truncate max-w-[140px]">
+                  {creditNoteBlockedReason}
+                </span>
+              )}
             </DropdownMenuItem>
           )}
           {canManage && canDebitNote && (

@@ -149,6 +149,37 @@ export async function GET(request: NextRequest) {
       : [];
     const cessionByDte = new Map(activeCessions.map((c) => [c.dteId, c]));
 
+    // NCs asociadas: para cada DTE de la lista, buscar las NCs que lo
+    // referencian (lado INCOMING). Una sola query batch por dteIds para
+    // no hacer N+1. Solo nos interesan NCs (61) no anuladas — si una NC
+    // se anuló con ND, no cuenta como "ya tiene NC".
+    const linkedCreditNotes = dteIds.length > 0
+      ? await prisma.financeDte.findMany({
+          where: {
+            tenantId: ctx.tenantId,
+            dteType: 61,
+            referenceDteId: { in: dteIds },
+            siiStatus: { not: "ANNULLED" },
+          },
+          select: {
+            id: true,
+            folio: true,
+            netAmount: true,
+            siiStatus: true,
+            referenceCode: true,
+            referenceDteId: true,
+          },
+        })
+      : [];
+    // Agrupar por dte original. Reduce la pasada a O(1) durante el map.
+    const ncsByDte = new Map<string, typeof linkedCreditNotes>();
+    for (const nc of linkedCreditNotes) {
+      if (!nc.referenceDteId) continue;
+      const arr = ncsByDte.get(nc.referenceDteId) ?? [];
+      arr.push(nc);
+      ncsByDte.set(nc.referenceDteId, arr);
+    }
+
     const dtesEnriched = dtes.map((d) => {
       const activeCession = cessionByDte.get(d.id) ?? null;
       const hasXml = d.dteXml !== null && d.dteXml.length > 0;
@@ -157,6 +188,28 @@ export async function GET(request: NextRequest) {
         d.siiStatus === "ACCEPTED" &&
         hasXml &&
         activeCession === null;
+
+      // NC asociada (sólo aplica a tipos que pueden recibirla: 33/34/39/41/56).
+      const ncs = ncsByDte.get(d.id) ?? [];
+      const activeNcs = ncs.filter((n) =>
+        ["ACCEPTED", "PENDING", "SENT", "WITH_OBJECTIONS"].includes(n.siiStatus),
+      );
+      const hasFullAnnulment = activeNcs.some((n) => n.referenceCode === 1);
+      const creditedNet = activeNcs.reduce(
+        (acc, n) => acc + Number(n.netAmount ?? 0),
+        0,
+      );
+      const linkedCreditNote = activeNcs.length > 0
+        ? {
+            count: activeNcs.length,
+            hasFullAnnulment,
+            creditedNet,
+            primaryFolio:
+              activeNcs.find((n) => n.referenceCode === 1)?.folio ??
+              activeNcs[0].folio,
+          }
+        : null;
+
       // Excluir el buffer XML del payload (queda en el server). El cliente
       // sólo necesita saber si existe vía `hasXml`.
       const { dteXml: _dteXml, ...rest } = d;
@@ -176,6 +229,7 @@ export async function GET(request: NextRequest) {
               status: activeCession.status,
             }
           : null,
+        linkedCreditNote,
       };
     });
 
