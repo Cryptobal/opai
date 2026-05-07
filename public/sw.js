@@ -1,4 +1,10 @@
-const CACHE_NAME = 'opai-v5';
+// v6 (2026-05-07): bumped to flush stale precached HTML que en clientes
+// viejos quedó apuntando a chunks `/_next/static/chunks/*.js` ya borrados
+// por Vercel. La combinación HTML viejo + chunk 404 producía
+// ChunkLoadError → global-error.tsx ("Algo salió mal") en el portal del
+// guardia (y resto de portales) sin que refrescar lo arreglara, porque
+// el navigate handler nunca refrescaba la cache (ver fix abajo).
+const CACHE_NAME = 'opai-v6';
 const OFFLINE_URL = '/offline.html';
 
 const PRECACHE_URLS = [
@@ -65,14 +71,53 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Static assets: cache-first
+  // Static assets: cache-first.
+  // Safety net: si un chunk de `/_next/static/chunks/*` viene 404 (Vercel
+  // ya borró los chunks de un deploy viejo), invalidamos toda la cache de
+  // navigation para que el próximo refresh sirva HTML fresco con los
+  // chunks correctos. Sin esto el usuario queda atrapado en
+  // "Algo salió mal" porque el shell precacheado siempre apunta al
+  // mismo chunk 404.
   if (
     url.pathname.startsWith('/_next/static/') ||
     url.pathname.startsWith('/icons/') ||
     url.pathname.match(/\.(png|jpg|jpeg|svg|gif|webp|woff2?)$/)
   ) {
     event.respondWith(
-      caches.match(request).then((cached) => cached || fetch(request))
+      caches.match(request).then(
+        (cached) =>
+          cached ||
+          fetch(request).then((response) => {
+            if (
+              !response.ok &&
+              response.status === 404 &&
+              url.pathname.startsWith('/_next/static/chunks/')
+            ) {
+              caches.open(CACHE_NAME).then((cache) =>
+                cache.keys().then((reqs) =>
+                  Promise.all(
+                    reqs
+                      .filter((r) => {
+                        try {
+                          const u = new URL(r.url);
+                          return (
+                            u.origin === self.location.origin &&
+                            (u.pathname === '/' ||
+                              u.pathname.startsWith('/portal/') ||
+                              u.pathname === '/opai/login')
+                          );
+                        } catch {
+                          return false;
+                        }
+                      })
+                      .map((r) => cache.delete(r))
+                  )
+                )
+              ).catch(() => {});
+            }
+            return response;
+          })
+      )
     );
     return;
   }
@@ -80,6 +125,12 @@ self.addEventListener('fetch', (event) => {
   // Navigation: network-first with a 3s timeout fallback.
   // iOS PWA can bail out of standalone mode if a navigation hangs, so we
   // proactively fall back to cache rather than letting the request stall.
+  //
+  // IMPORTANTE: cuando la red responde OK refrescamos la copia cacheada,
+  // si no, la HTML del primer install queda congelada en CACHE_NAME y
+  // termina sirviendo a usuarios viejos un shell con chunks
+  // `/_next/static/chunks/*.js` que Vercel ya eliminó tras varios deploys
+  // → ChunkLoadError → "Algo salió mal" sin recuperación al refrescar.
   if (request.mode === 'navigate') {
     event.respondWith((async () => {
       const cacheFallback = () =>
@@ -94,6 +145,10 @@ self.addEventListener('fetch', (event) => {
         const timeoutId = setTimeout(() => controller.abort(), 3000);
         const response = await fetch(request, { signal: controller.signal });
         clearTimeout(timeoutId);
+        if (response && response.ok && response.type === 'basic') {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone)).catch(() => {});
+        }
         return response;
       } catch (_) {
         return cacheFallback();
