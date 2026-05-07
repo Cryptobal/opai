@@ -39,5 +39,6 @@ export { AutoBreadcrumbs, type AutoBreadcrumbsProps } from "./AutoBreadcrumbs";
 export { SubNav, type SubNavItem } from "./SubNav";
 export { SwipeTabs, type SwipeTabsProps, type SwipeTabItem } from "./SwipeTabs";
 export { ModuleSubNav, type ModuleSubNavProps } from "./ModuleSubNav";
+export { PageShell, type PageShellProps } from "./PageShell";
 export { ConfigShell, type ConfigShellProps } from "./ConfigShell";
 export { thresholdFromScore, type Threshold } from "./tokens";
