@@ -152,6 +152,15 @@ export interface NavNode extends NavVisibility {
   /** When true, this node is rendered in the bottom nav but does NOT appear as a row in the
    *  N3 SubNav arriba del contenido. Útil cuando una vista no tiene página propia (ej. accesos rápidos). */
   hideInSubNav?: boolean;
+  /** When set, groups this node under a category in the sub-sidebar (used by ConfigShell
+   *  to organize many sub-pages — Slack/Notion settings pattern). */
+  category?: string;
+}
+
+/** Order + label for sub-sidebar categories. */
+export interface NavCategory {
+  key: string;
+  label: string;
 }
 
 /* ────────────────────────────────────────────────────────────
@@ -189,6 +198,16 @@ export function filterChildren(node: NavNode, ctx: VisibilityContext): NavNode[]
 /* ────────────────────────────────────────────────────────────
  * REGISTRY — the only source of truth
  * ──────────────────────────────────────────────────────────── */
+
+/** Categorías ordenadas para el sub-sidebar de Configuración. */
+export const CONFIG_CATEGORIES: NavCategory[] = [
+  { key: "general", label: "General" },
+  { key: "permisos", label: "Permisos" },
+  { key: "comunicacion", label: "Comunicación" },
+  { key: "plantillas", label: "Plantillas" },
+  { key: "modulos", label: "Módulos" },
+  { key: "ia", label: "Inteligencia Artificial" },
+];
 
 export const NAV_MODULES: NavNode[] = [
   // ═════════════════════════════════════════════════════════
@@ -574,37 +593,38 @@ export const NAV_MODULES: NavNode[] = [
     module: "config",
     children: [
       // ── General ──
-      { key: "config-empresa", href: "/opai/configuracion/empresa", label: "Empresa", icon: Building2, module: "config", submodule: "empresa" },
-      { key: "config-mi-plan", href: "/opai/configuracion/mi-plan", label: "Mi Plan", icon: Sparkles, module: "config", submodule: "mi_plan" },
-      { key: "config-cumplimiento", href: "/opai/configuracion/cumplimiento", label: "Cumplimiento", icon: Shield, module: "config", submodule: "cumplimiento" },
+      { key: "config-empresa", href: "/opai/configuracion/empresa", label: "Empresa", icon: Building2, module: "config", submodule: "empresa", category: "general" },
+      { key: "config-mi-plan", href: "/opai/configuracion/mi-plan", label: "Mi Plan", icon: Sparkles, module: "config", submodule: "mi_plan", category: "general" },
+      { key: "config-cumplimiento", href: "/opai/configuracion/cumplimiento", label: "Cumplimiento", icon: Shield, module: "config", submodule: "cumplimiento", category: "general" },
+      { key: "config-auditoria", href: "/opai/configuracion/auditoria", label: "Auditoría", icon: FileBarChart, module: "config", submodule: "auditoria", category: "general" },
       // ── Permisos ──
-      { key: "config-usuarios", href: "/opai/configuracion/usuarios", label: "Usuarios", icon: Users, module: "config", submodule: "usuarios" },
-      { key: "config-roles", href: "/opai/configuracion/roles", label: "Roles y Permisos", shortLabel: "Roles", icon: KeyRound, module: "config", submodule: "roles" },
-      { key: "config-grupos", href: "/opai/configuracion/grupos", label: "Grupos", icon: Users, module: "config", submodule: "grupos" },
-      { key: "config-auditoria", href: "/opai/configuracion/auditoria", label: "Auditoría", icon: FileBarChart, module: "config", submodule: "auditoria" },
+      { key: "config-usuarios", href: "/opai/configuracion/usuarios", label: "Usuarios", icon: Users, module: "config", submodule: "usuarios", category: "permisos" },
+      { key: "config-roles", href: "/opai/configuracion/roles", label: "Roles y Permisos", shortLabel: "Roles", icon: KeyRound, module: "config", submodule: "roles", category: "permisos" },
+      { key: "config-grupos", href: "/opai/configuracion/grupos", label: "Grupos", icon: Users, module: "config", submodule: "grupos", category: "permisos" },
+      // ── Comunicación ──
+      { key: "config-integraciones", href: "/opai/configuracion/integraciones", label: "Integraciones", icon: Plug, module: "config", submodule: "integraciones", category: "comunicacion" },
+      { key: "config-notificaciones", href: "/opai/configuracion/notificaciones", label: "Notificaciones", shortLabel: "Notif.", icon: Bell, module: "config", submodule: "notificaciones", category: "comunicacion" },
+      { key: "config-firmas", href: "/opai/configuracion/firmas", label: "Firmas", icon: PenLine, module: "config", submodule: "firmas", category: "comunicacion" },
+      { key: "config-email-templates", href: "/opai/configuracion/email-templates", label: "Plantillas Email", shortLabel: "Emails", icon: Mail, category: "comunicacion" },
       // ── Plantillas ──
-      { key: "config-firmas", href: "/opai/configuracion/firmas", label: "Firmas", icon: PenLine, module: "config", submodule: "firmas" },
-      { key: "config-categorias", href: "/opai/configuracion/categorias-plantillas", label: "Categorías Plantillas", shortLabel: "Categorías", icon: FolderTree, module: "config", submodule: "categorias" },
-      { key: "config-email-templates", href: "/opai/configuracion/email-templates", label: "Plantillas Email", shortLabel: "Emails", icon: Mail },
-      { key: "config-documentos-operacionales", href: "/opai/configuracion/documentos-operacionales", label: "Documentos Operacionales", shortLabel: "Docs Op.", icon: ClipboardCheck, module: "config", submodule: "documentos_operacionales" },
-      // ── Módulos ──
-      { key: "config-crm", href: "/opai/configuracion/crm", label: "CRM", icon: TrendingUp, module: "config", submodule: "crm" },
-      { key: "config-cpq", href: "/opai/configuracion/cpq", label: "CPQ", icon: DollarSign, module: "config", submodule: "cpq" },
-      { key: "config-payroll", href: "/opai/configuracion/payroll", label: "Payroll", icon: Calculator, module: "config", submodule: "payroll" },
-      { key: "config-ops", href: "/opai/configuracion/ops", label: "Operaciones", shortLabel: "Ops", icon: ClipboardList, module: "config", submodule: "ops" },
-      { key: "config-tipos-ticket", href: "/opai/configuracion/tipos-ticket", label: "Tipos de ticket", shortLabel: "Tickets", icon: Ticket, module: "config", submodule: "tipos_ticket" },
-      { key: "config-finanzas", href: "/opai/configuracion/finanzas", label: "Finanzas", icon: Landmark, module: "config", submodule: "finanzas" },
-      { key: "config-alertas-cobertura", href: "/opai/configuracion/alertas-cobertura", label: "Alertas Cobertura", shortLabel: "Alertas", icon: Siren, module: "config", submodule: "alertas_cobertura" },
-      { key: "config-ats", href: "/opai/configuracion/ats", label: "ATS", icon: Briefcase, module: "config", submodule: "ats" },
-      { key: "config-gamificacion", href: "/opai/configuracion/gamificacion", label: "Gamificación", icon: Trophy, module: "config", submodule: "gamificacion" },
-      { key: "config-psicolaboral", href: "/opai/configuracion/psicolaboral", label: "Psicolaboral", icon: Brain, module: "config", submodule: "psicolaboral" },
-      { key: "config-conocimiento", href: "/opai/configuracion/conocimiento", label: "Conocimiento", icon: GraduationCap, module: "config", submodule: "conocimiento" },
-      { key: "config-informes-vulnerabilidad", href: "/opai/configuracion/informes-vulnerabilidad", label: "Informes Vulnerabilidad", shortLabel: "Vulnerab.", icon: ShieldAlert, module: "config", submodule: "informes_vulnerabilidad" },
+      { key: "config-categorias", href: "/opai/configuracion/categorias-plantillas", label: "Categorías Plantillas", shortLabel: "Categorías", icon: FolderTree, module: "config", submodule: "categorias", category: "plantillas" },
+      { key: "config-documentos-operacionales", href: "/opai/configuracion/documentos-operacionales", label: "Documentos Operacionales", shortLabel: "Docs Op.", icon: ClipboardCheck, module: "config", submodule: "documentos_operacionales", category: "plantillas" },
+      // ── Configuración de módulos ──
+      { key: "config-crm", href: "/opai/configuracion/crm", label: "CRM", icon: TrendingUp, module: "config", submodule: "crm", category: "modulos" },
+      { key: "config-cpq", href: "/opai/configuracion/cpq", label: "CPQ", icon: DollarSign, module: "config", submodule: "cpq", category: "modulos" },
+      { key: "config-payroll", href: "/opai/configuracion/payroll", label: "Payroll", icon: Calculator, module: "config", submodule: "payroll", category: "modulos" },
+      { key: "config-ops", href: "/opai/configuracion/ops", label: "Operaciones", shortLabel: "Ops", icon: ClipboardList, module: "config", submodule: "ops", category: "modulos" },
+      { key: "config-tipos-ticket", href: "/opai/configuracion/tipos-ticket", label: "Tipos de ticket", shortLabel: "Tickets", icon: Ticket, module: "config", submodule: "tipos_ticket", category: "modulos" },
+      { key: "config-finanzas", href: "/opai/configuracion/finanzas", label: "Finanzas", icon: Landmark, module: "config", submodule: "finanzas", category: "modulos" },
+      { key: "config-alertas-cobertura", href: "/opai/configuracion/alertas-cobertura", label: "Alertas Cobertura", shortLabel: "Alertas", icon: Siren, module: "config", submodule: "alertas_cobertura", category: "modulos" },
+      { key: "config-ats", href: "/opai/configuracion/ats", label: "ATS", icon: Briefcase, module: "config", submodule: "ats", category: "modulos" },
+      { key: "config-gamificacion", href: "/opai/configuracion/gamificacion", label: "Gamificación", icon: Trophy, module: "config", submodule: "gamificacion", category: "modulos" },
+      { key: "config-psicolaboral", href: "/opai/configuracion/psicolaboral", label: "Psicolaboral", icon: Brain, module: "config", submodule: "psicolaboral", category: "modulos" },
+      { key: "config-conocimiento", href: "/opai/configuracion/conocimiento", label: "Conocimiento", icon: GraduationCap, module: "config", submodule: "conocimiento", category: "modulos" },
+      { key: "config-informes-vulnerabilidad", href: "/opai/configuracion/informes-vulnerabilidad", label: "Informes Vulnerabilidad", shortLabel: "Vulnerab.", icon: ShieldAlert, module: "config", submodule: "informes_vulnerabilidad", category: "modulos" },
       // ── Inteligencia ──
-      { key: "config-asistente-ia", href: "/opai/configuracion/asistente-ia", label: "Asistente IA", icon: Brain, module: "config", submodule: "asistente_ia" },
-      { key: "config-ia", href: "/opai/configuracion/inteligencia-artificial", label: "Proveedores de IA", shortLabel: "IA", icon: KeyRound, module: "config", submodule: "inteligencia_artificial" },
-      { key: "config-integraciones", href: "/opai/configuracion/integraciones", label: "Integraciones", icon: Plug, module: "config", submodule: "integraciones" },
-      { key: "config-notificaciones", href: "/opai/configuracion/notificaciones", label: "Notificaciones", shortLabel: "Notif.", icon: Bell, module: "config", submodule: "notificaciones" },
+      { key: "config-asistente-ia", href: "/opai/configuracion/asistente-ia", label: "Asistente IA", icon: Brain, module: "config", submodule: "asistente_ia", category: "ia" },
+      { key: "config-ia", href: "/opai/configuracion/inteligencia-artificial", label: "Proveedores de IA", shortLabel: "IA", icon: KeyRound, module: "config", submodule: "inteligencia_artificial", category: "ia" },
     ],
   },
 
