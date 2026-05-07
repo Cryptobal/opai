@@ -6079,6 +6079,11 @@ enum FinancePaymentStatus {
   PAID
   OVERDUE
   WRITTEN_OFF
+  /// Cedida 100% a una empresa de factoring. El cobro lo gestiona el
+  /// factoring, no nosotros. KPIs "Por cobrar" y aging excluyen este
+  /// estado. Si se cede solo parcial (advanceRate < 100), se queda en
+  /// UNPAID/PARTIAL hasta que pase la fecha de vencimiento.
+  CEDED
 
   @@schema("finance")
 }
@@ -6503,6 +6508,10 @@ model FinanceDteEmailLog {
   kind        String
   to          String[]
   cc          String[] @default([])
+  /// BCC para envíos manuales: el usuario puede agregar destinatarios
+  /// ocultos al reenviar. Auto-envío (al emitir) NO usa bcc — solo CC
+  /// que es lo que el receptor "ve" en su email.
+  bcc         String[] @default([]) @map("bcc")
   subject     String
   /// "pdf_xml" | "xml_only" | "pdf_only"
   attachments String

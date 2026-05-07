@@ -90,6 +90,14 @@ export function CreditNoteForm({ noteType, referenceDte, onSuccess, onCancel }: 
   const [lines, setLines] = useState<NoteLine[]>([{ ...EMPTY_LINE }]);
   const [saving, setSaving] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  // Tracking: cuando el CodRef cambia y auto-cargamos las líneas del
+  // original, recordamos que vinieron de auto-fill para mostrar el
+  // banner correcto y permitir desbloquear si el usuario lo pide.
+  const [autoFilled, setAutoFilled] = useState(false);
+  // Si true, los montos están bloqueados (CodRef=1 o 2). El usuario
+  // puede desbloquear con un botón (caso edge: necesita anular pero
+  // ajustar algún campo).
+  const [linesLocked, setLinesLocked] = useState(false);
   const [tenantBackoffice, setTenantBackoffice] = useState<{ emails: string[]; alwaysSend: boolean }>({
     emails: [],
     alwaysSend: false,
@@ -140,8 +148,58 @@ export function CreditNoteForm({ noteType, referenceDte, onSuccess, onCancel }: 
         unitPrice: String(l.unitPrice),
       }))
     );
+    setAutoFilled(true);
     toast.success("Líneas copiadas del DTE original");
   }, [referenceDte]);
+
+  // Auto-copy + lock cuando cambia CodRef. Esta es la regla operativa
+  // del SII para que las NCs anulen/corrijan limpio:
+  //   - CodRef 1 (anula): la NC debe replicar el original y bloquear
+  //     edición (de lo contrario queda saldo pendiente que el contador
+  //     no entiende).
+  //   - CodRef 2 (corrige texto): copia líneas pero solo permite editar
+  //     itemName/description (no montos).
+  //   - CodRef 3 (corrige montos): copia líneas y permite editar montos
+  //     (pero NO el itemName, que debe coincidir con el original).
+  // El usuario puede desbloquear con un botón si tiene caso edge.
+  useEffect(() => {
+    if (!referenceDte?.lines.length) return;
+    if (referenceType === "1" || referenceType === "2") {
+      // Anula y corrige texto → líneas idénticas al original.
+      setLines(
+        referenceDte.lines.map((l) => ({
+          itemName: l.itemName,
+          description: l.description ?? "",
+          quantity: String(l.quantity),
+          unitPrice: String(l.unitPrice),
+        })),
+      );
+      setAutoFilled(true);
+      setLinesLocked(true);
+    } else if (referenceType === "3") {
+      // Corrige montos → copia líneas pero permite editar.
+      // Solo auto-fill si las líneas están vacías (no pisar trabajo).
+      const hasContent = lines.some(
+        (l) => l.itemName.trim() || l.unitPrice.trim(),
+      );
+      if (!hasContent) {
+        setLines(
+          referenceDte.lines.map((l) => ({
+            itemName: l.itemName,
+            description: l.description ?? "",
+            quantity: String(l.quantity),
+            unitPrice: String(l.unitPrice),
+          })),
+        );
+        setAutoFilled(true);
+      }
+      setLinesLocked(false);
+    }
+    // No agregamos `lines` a deps: solo reaccionamos a cambios de CodRef
+    // y carga inicial del referenceDte. Si lo agregamos, infinitamos el
+    // loop al setear las líneas.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [referenceType, referenceDte]);
 
   const total = useMemo(() => {
     return lines.reduce((sum, l) => {
@@ -315,21 +373,69 @@ export function CreditNoteForm({ noteType, referenceDte, onSuccess, onCancel }: 
 
       {/* Lines */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-2">
           <h3 className="text-sm font-medium">Detalle</h3>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            {linesLocked && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setLinesLocked(false);
+                  toast.info(
+                    "Edición desbloqueada. Asegúrate de que la NC siga reflejando lo que querés anular/corregir.",
+                  );
+                }}
+              >
+                Desbloquear edición
+              </Button>
+            )}
             {referenceDte && referenceDte.lines.length > 0 && (
               <Button variant="outline" size="sm" onClick={copyFromReference}>
                 <Copy className="h-3.5 w-3.5 mr-1" />
                 Copiar del original
               </Button>
             )}
-            <Button variant="outline" size="sm" onClick={addLine}>
-              <Plus className="h-3.5 w-3.5 mr-1" />
-              Agregar línea
-            </Button>
+            {!linesLocked && (
+              <Button variant="outline" size="sm" onClick={addLine}>
+                <Plus className="h-3.5 w-3.5 mr-1" />
+                Agregar línea
+              </Button>
+            )}
           </div>
         </div>
+
+        {/* Banner contextual según CodRef */}
+        {autoFilled && referenceType === "1" && (
+          <div className="rounded-md border border-status-warn-border bg-status-warn-soft p-3 text-[13px] text-status-warn-fg">
+            <p className="font-medium">Anulación: líneas copiadas del original</p>
+            <p className="mt-0.5">
+              La NC debe replicar EXACTAMENTE el monto del documento
+              original ({fmtCLP.format(referenceDte?.totalAmount ?? 0)})
+              para anular limpio. Si modificás los montos puede quedar
+              saldo pendiente que el contador no entiende.
+            </p>
+          </div>
+        )}
+        {autoFilled && referenceType === "2" && (
+          <div className="rounded-md border border-status-info-border bg-status-info-soft p-3 text-[13px] text-status-info-fg">
+            <p className="font-medium">Corrección de texto</p>
+            <p className="mt-0.5">
+              Editá nombre o descripción si querés. Los montos quedan
+              fijos (CodRef=2 no corrige montos según SII).
+            </p>
+          </div>
+        )}
+        {autoFilled && referenceType === "3" && (
+          <div className="rounded-md border border-status-info-border bg-status-info-soft p-3 text-[13px] text-status-info-fg">
+            <p className="font-medium">Corrección de montos</p>
+            <p className="mt-0.5">
+              Las líneas se cargaron del original. Ajustá las cantidades
+              o precios que querés corregir. La diferencia (NC - original)
+              será el ajuste contable.
+            </p>
+          </div>
+        )}
 
         {/* Desktop lines */}
         <div className="hidden md:block">
@@ -351,6 +457,11 @@ export function CreditNoteForm({ noteType, referenceDte, onSuccess, onCancel }: 
                     const qty = parseFloat(line.quantity) || 0;
                     const price = parseFloat(line.unitPrice) || 0;
                     const subtotal = qty * price;
+                    // Anula (1) bloquea TODO: el SII espera replica exacta.
+                    // Corrige texto (2) bloquea montos pero deja itemName/desc.
+                    // Corrige montos (3) deja todo editable.
+                    const lockAll = linesLocked && referenceType === "1";
+                    const lockMoney = linesLocked; // 1 y 2 ambos bloquean montos
                     return (
                       <tr key={i} className="border-b border-border/60 last:border-0">
                         <td className="px-3 py-2">
@@ -359,6 +470,7 @@ export function CreditNoteForm({ noteType, referenceDte, onSuccess, onCancel }: 
                             onChange={(e) => updateLine(i, "itemName", e.target.value)}
                             className="h-8 text-xs"
                             placeholder="Nombre"
+                            readOnly={lockAll}
                           />
                         </td>
                         <td className="px-3 py-2">
@@ -367,6 +479,7 @@ export function CreditNoteForm({ noteType, referenceDte, onSuccess, onCancel }: 
                             onChange={(e) => updateLine(i, "description", e.target.value)}
                             className="h-8 text-xs"
                             placeholder="Descripción"
+                            readOnly={lockAll}
                           />
                         </td>
                         <td className="px-3 py-2">
@@ -375,6 +488,7 @@ export function CreditNoteForm({ noteType, referenceDte, onSuccess, onCancel }: 
                             value={line.quantity}
                             onChange={(e) => updateLine(i, "quantity", e.target.value)}
                             className="h-8 text-xs text-right"
+                            readOnly={lockMoney}
                           />
                         </td>
                         <td className="px-3 py-2">
@@ -384,13 +498,20 @@ export function CreditNoteForm({ noteType, referenceDte, onSuccess, onCancel }: 
                             onChange={(e) => updateLine(i, "unitPrice", e.target.value)}
                             className="h-8 text-xs text-right"
                             placeholder="0"
+                            readOnly={lockMoney}
                           />
                         </td>
                         <td className="px-3 py-2 text-right font-mono text-xs">
                           {fmtCLP.format(Math.round(subtotal))}
                         </td>
                         <td className="px-3 py-2">
-                          <Button variant="ghost" size="sm" onClick={() => removeLine(i)} className="h-8 w-8 p-0">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeLine(i)}
+                            className="h-8 w-8 p-0"
+                            disabled={linesLocked}
+                          >
                             <Trash2 className="h-3.5 w-3.5 text-destructive" />
                           </Button>
                         </td>

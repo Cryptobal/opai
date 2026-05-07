@@ -34,6 +34,7 @@ async function logEmail(
     kind: DteEmailKind;
     to: string[];
     cc: string[];
+    bcc?: string[];
     subject: string;
     attachments: "pdf_xml" | "xml_only" | "pdf_only";
     status: "sent" | "failed";
@@ -50,6 +51,7 @@ async function logEmail(
         kind: data.kind,
         to: data.to,
         cc: data.cc,
+        bcc: data.bcc ?? [],
         subject: data.subject,
         attachments: data.attachments,
         status: data.status,
@@ -65,7 +67,9 @@ async function logEmail(
 
 /**
  * Envía email al receptor con PDF + XML. Si la lista de CC trae emails,
- * se mandan en el campo `cc` de Resend (no en `to`).
+ * se mandan en el campo `cc` de Resend (no en `to`). BCC sigue la misma
+ * lógica pero queda invisible para el receptor (útil cuando el usuario
+ * quiere que el contador interno reciba copia sin que el cliente lo vea).
  */
 export async function sendDteEmail(
   tenantId: string,
@@ -74,6 +78,7 @@ export async function sendDteEmail(
   ccOverride?: string[],
   kind: DteEmailKind = "manual_resend",
   triggeredBy?: string,
+  bccOverride?: string[],
 ): Promise<SendDteEmailResult> {
   const dte = await prisma.financeDte.findFirst({
     where: { id: dteId, tenantId, direction: "ISSUED" },
@@ -89,6 +94,16 @@ export async function sendDteEmail(
   // CC real: filtrar duplicados con el primario y emails inválidos.
   const ccList = (ccOverride ?? dte.receiverEmailCc ?? []).filter(
     (e) => typeof e === "string" && e.trim() && e !== primary,
+  );
+
+  // BCC: solo viene de override (auto-envío no tiene BCC). Filtramos
+  // contra primary y CC para evitar duplicados (si está en CC ya recibe).
+  const bccList = (bccOverride ?? []).filter(
+    (e) =>
+      typeof e === "string" &&
+      e.trim() &&
+      e !== primary &&
+      !ccList.includes(e),
   );
 
   const tenantConfig = await prisma.tenantDteConfig.findUnique({ where: { tenantId } });
@@ -127,6 +142,7 @@ export async function sendDteEmail(
       replyTo: emailCfg.replyTo || undefined,
       to: [primary],
       cc: ccList.length > 0 ? ccList : undefined,
+      bcc: bccList.length > 0 ? bccList : undefined,
       subject,
       html,
       attachments: [
@@ -144,6 +160,7 @@ export async function sendDteEmail(
         kind,
         to: [primary],
         cc: ccList,
+        bcc: bccList,
         subject,
         attachments: "pdf_xml",
         status: "failed",
@@ -161,6 +178,7 @@ export async function sendDteEmail(
       kind,
       to: [primary],
       cc: ccList,
+      bcc: bccList,
       subject,
       attachments: "pdf_xml",
       status: "sent",
@@ -178,6 +196,7 @@ export async function sendDteEmail(
       kind,
       to: [primary],
       cc: ccList,
+      bcc: bccList,
       subject,
       attachments: "pdf_xml",
       status: "failed",

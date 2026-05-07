@@ -60,6 +60,7 @@ import { BorradoresTab } from "./BorradoresTab";
 import { CostCenterEditor } from "./CostCenterEditor";
 import { CreditNoteModal } from "./CreditNoteModal";
 import { IssuedDteDetailDialog } from "./IssuedDteDetailDialog";
+import { SendEmailDialog } from "./SendEmailDialog";
 import { Building, MapPin } from "lucide-react";
 
 /* ── Types ── */
@@ -445,6 +446,8 @@ function DtesTab({
   const [cedeModalDteId, setCedeModalDteId] = useState<string | null>(null);
   /** Modal de vista previa PDF. */
   const [previewDteId, setPreviewDteId] = useState<string | null>(null);
+  /** Modal de envío de email con TO/CC/BCC. Reemplaza el envío directo. */
+  const [emailDteId, setEmailDteId] = useState<string | null>(null);
   // Paginación server-side. La SC pre-carga la primera página (50);
   // si el usuario cambia page o pageSize, refetch al endpoint paginado.
   const [page, setPage] = useState(1);
@@ -644,26 +647,11 @@ function DtesTab({
     }
   };
 
-  const handleResendEmail = async (id: string) => {
-    setSendingEmail(id);
-    try {
-      const res = await fetch(`/api/finance/billing/issued/${id}/send-email`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
-      const body = await res.json();
-      if (res.ok && body.success) {
-        toast.success("Email enviado");
-        router.refresh();
-      } else {
-        toast.error(body.error ?? "Error enviando email");
-      }
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Error inesperado");
-    } finally {
-      setSendingEmail(null);
-    }
+  // Reenviar email ahora SIEMPRE abre el SendEmailDialog para que el
+  // usuario confirme TO/CC/BCC. Antes mandaba inmediato sin elegir
+  // destinatarios y eso causó envíos accidentales.
+  const handleResendEmail = (id: string) => {
+    setEmailDteId(id);
   };
 
   const handleVoid = async (id: string) => {
@@ -1114,6 +1102,25 @@ function DtesTab({
             folio={previewDte.folio}
             dteType={previewDte.dteType}
             onDownload={() => handleDownloadPdf(previewDte.id, previewDte.folio)}
+          />
+        );
+      })()}
+
+      {/* Modal de envío de email con TO/CC/BCC editables. Reemplaza el
+          envío directo "manda al receptor por default" sin opciones. */}
+      {(() => {
+        const emailDte = dtes.find((d) => d.id === emailDteId);
+        if (!emailDte) return null;
+        return (
+          <SendEmailDialog
+            open={emailDteId !== null}
+            onOpenChange={(o) => !o && setEmailDteId(null)}
+            dteId={emailDte.id}
+            folio={emailDte.folio}
+            dteType={emailDte.dteType}
+            defaultRecipient={emailDte.receiverEmail}
+            defaultCc={[]}
+            onSent={() => router.refresh()}
           />
         );
       })()}

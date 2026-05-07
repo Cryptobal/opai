@@ -13,6 +13,9 @@ const sendSchema = z.object({
   recipientEmail: z.string().email().optional(),
   // Override de los CC al reenviar manualmente (sin tocar receiverEmailCc).
   ccOverride: z.array(z.string().email()).max(10).optional(),
+  // BCC oculto: el receptor NO ve estos destinatarios. Útil para
+  // mandar copia al contador interno sin que el cliente lo sepa.
+  bccOverride: z.array(z.string().email()).max(10).optional(),
 });
 
 export async function POST(
@@ -48,6 +51,7 @@ export async function POST(
     parsed.data.ccOverride,
     kind,
     ctx.userId,
+    parsed.data.bccOverride,
   );
   if (!result.success) {
     return NextResponse.json(

@@ -210,9 +210,32 @@ export async function cedeDte(
     throw new Error("Tenant sin certificado digital — subí un .pfx en la config DTE.");
   }
 
-  // 4. Calcular términos económicos.
+  // 4. Calcular términos económicos sobre el SALDO NETO, no el total
+  // bruto. Si el DTE original tiene NCs aceptadas (parciales o totales),
+  // el monto cedible es total - NCs. Antes mandábamos el total bruto al
+  // RPETC y el factoring reclamaba al deudor un monto mayor al que en
+  // realidad le debía → lío legal.
+  const totalBruto = Number(dte.totalAmount);
+  const ncAggregate = await prisma.financeDte.aggregate({
+    where: {
+      tenantId: ctx.tenantId,
+      direction: "ISSUED",
+      dteType: 61,
+      referenceDteId: dte.id,
+      siiStatus: { in: ["ACCEPTED", "PENDING", "SENT"] },
+    },
+    _sum: { totalAmount: true },
+  });
+  const ncAplicadas = ncAggregate._sum.totalAmount?.toNumber() ?? 0;
+  const saldoCedible = totalBruto - ncAplicadas;
+  if (saldoCedible <= 0) {
+    throw new Error(
+      `El DTE no tiene saldo cedible (total $${totalBruto.toLocaleString("es-CL")} − NCs $${ncAplicadas.toLocaleString("es-CL")} = $${saldoCedible.toLocaleString("es-CL")}). Está totalmente anulado por NC.`,
+    );
+  }
+
   const terms = calculateEconomicTerms(
-    Number(dte.totalAmount),
+    saldoCedible,
     input.fechaCesion,
     input.fechaVencimiento,
     input.advanceRate,
@@ -290,6 +313,17 @@ export async function cedeDte(
     },
     select: { id: true, code: true, aecTrackId: true },
   });
+
+  // Si la cesión es 100% (advanceRate === 100), el cobro pasa íntegro al
+  // factoring → marcamos el DTE como CEDED para que los KPIs "Por cobrar"
+  // y aging lo excluyan. Si es parcial (< 100), el DTE se queda en su
+  // estado actual: aún tenemos que cobrar la retención al deudor.
+  if (input.advanceRate >= 100) {
+    await prisma.financeDte.update({
+      where: { id: dte.id },
+      data: { paymentStatus: "CEDED" },
+    });
+  }
 
   return {
     operationId: op.id,

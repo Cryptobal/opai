@@ -12,6 +12,7 @@ type EmailLog = {
   kind: string;
   to: string[];
   cc: string[];
+  bcc?: string[];
   subject: string;
   attachments: string;
   status: "sent" | "failed" | string;
@@ -94,14 +95,22 @@ export function DteEmailTimeline({ dteId }: { dteId: string }) {
                   </span>
                 </div>
                 <div className="text-xs text-muted-foreground mt-0.5 break-all">
-                  <span className="inline-flex items-center gap-1">
+                  <span className="inline-flex items-start gap-1">
                     {log.attachments === "xml_only" ? (
-                      <FileCode className="size-3" />
+                      <FileCode className="size-3 mt-0.5 shrink-0" />
                     ) : (
-                      <Mail className="size-3" />
+                      <Mail className="size-3 mt-0.5 shrink-0" />
                     )}
-                    To: {log.to.join(", ")}
-                    {log.cc.length > 0 && ` · CC: ${log.cc.join(", ")}`}
+                    <span>
+                      To: {log.to.join(", ")}
+                      {log.cc.length > 0 && ` · CC: ${log.cc.join(", ")}`}
+                      {log.bcc && log.bcc.length > 0 && (
+                        <span className="text-ds-text-4">
+                          {" "}
+                          · BCC: {log.bcc.join(", ")}
+                        </span>
+                      )}
+                    </span>
                   </span>
                 </div>
                 {!isOk && log.errorMessage && (

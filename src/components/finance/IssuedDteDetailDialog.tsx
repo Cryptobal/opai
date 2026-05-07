@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import { CederDteDialog } from "./factoring/CederDteDialog";
 import { PdfPreviewDialog } from "./PdfPreviewDialog";
+import { SendEmailDialog } from "./SendEmailDialog";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { CostCenterEditor } from "./CostCenterEditor";
@@ -152,8 +153,8 @@ export function IssuedDteDetailDialog({
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [showCederDialog, setShowCederDialog] = useState(false);
   const [showPdfPreview, setShowPdfPreview] = useState(false);
+  const [showSendEmail, setShowSendEmail] = useState(false);
   const [downloadingXml, setDownloadingXml] = useState(false);
-  const [sendingEmail, setSendingEmail] = useState(false);
   const [checkingStatus, setCheckingStatus] = useState(false);
 
   useEffect(() => {
@@ -277,24 +278,11 @@ export function IssuedDteDetailDialog({
     }
   }
 
-  async function handleResendEmail() {
-    if (!dte) return;
-    setSendingEmail(true);
-    try {
-      const res = await fetch(`/api/finance/billing/issued/${dte.id}/send-email`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
-      const body = await res.json();
-      if (!res.ok || !body.success) throw new Error(body.error ?? "Error");
-      toast.success("Email enviado");
-      router.refresh();
-    } catch (err) {
-      toast.error((err as Error).message);
-    } finally {
-      setSendingEmail(false);
-    }
+  // Reenviar email: ahora abre SendEmailDialog (controlado por el padre)
+  // para que el usuario edite TO/CC/BCC antes de mandar. No más envíos
+  // directos sin confirmación.
+  function handleOpenSendEmail() {
+    setShowSendEmail(true);
   }
 
   async function handleDuplicateAsDraft() {
@@ -590,10 +578,10 @@ export function IssuedDteDetailDialog({
                 Importado del SII (sin XML local)
               </span>
             )}
-            {canManage && dte.receiverEmail && dte.hasXml && dte.siiStatus !== "ANNULLED" && (
-              <Button variant="outline" size="sm" onClick={handleResendEmail} disabled={sendingEmail}>
-                {sendingEmail ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Mail className="h-3.5 w-3.5 mr-1.5" />}
-                {dte.emailSentAt ? "Reenviar email" : "Enviar email"}
+            {canManage && dte.hasXml && dte.siiStatus !== "ANNULLED" && (
+              <Button variant="outline" size="sm" onClick={handleOpenSendEmail}>
+                <Mail className="h-3.5 w-3.5 mr-1.5" />
+                {dte.emailSentAt ? "Reenviar email…" : "Enviar email…"}
               </Button>
             )}
             {canManage && (dte.siiStatus === "PENDING" || dte.siiStatus === "SENT") && (
@@ -632,19 +620,33 @@ export function IssuedDteDetailDialog({
                 </a>
               </Button>
             )}
-            {canManage &&
-            dte.hasXml &&
-            dte.siiStatus === "ACCEPTED" &&
-            [33, 34, 43, 46].includes(dte.dteType) ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowCederDialog(true)}
-              >
-                <Coins className="h-3.5 w-3.5 mr-1.5" />
-                Ceder a factoring
-              </Button>
-            ) : null}
+            {canManage && (() => {
+              // Visible SIEMPRE para tipos cedibles (33/34/43/46), pero
+              // disabled con tooltip explicativo cuando hay alguna razón
+              // que lo bloquea. Antes lo escondíamos sin explicar y los
+              // usuarios pensaban que el botón "no estaba".
+              const isCedibleType = [33, 34, 43, 46].includes(dte.dteType);
+              if (!isCedibleType) return null;
+              const noXml = !dte.hasXml;
+              const notAccepted = dte.siiStatus !== "ACCEPTED";
+              const blockedReason = noXml
+                ? "Sin XML local — solo se pueden ceder DTEs emitidos desde OPAI (no importados del SII)."
+                : notAccepted
+                  ? "El DTE debe estar ACEPTADO por el SII antes de cederse."
+                  : null;
+              return (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowCederDialog(true)}
+                  disabled={!!blockedReason}
+                  title={blockedReason ?? "Ceder a factoring"}
+                >
+                  <Coins className="h-3.5 w-3.5 mr-1.5" />
+                  Ceder a factoring
+                </Button>
+              );
+            })()}
             <Button variant="outline" onClick={onClose}>Cerrar</Button>
           </DialogFooter>
         )}
@@ -670,6 +672,27 @@ export function IssuedDteDetailDialog({
           folio={dte.folio}
           dteType={dte.dteType}
           onDownload={handleDownloadPdf}
+        />
+      ) : null}
+      {dte ? (
+        <SendEmailDialog
+          open={showSendEmail}
+          onOpenChange={setShowSendEmail}
+          dteId={dte.id}
+          folio={dte.folio}
+          dteType={dte.dteType}
+          defaultRecipient={dte.receiverEmail}
+          defaultCc={dte.receiverEmailCc}
+          onSent={() => {
+            router.refresh();
+            // Actualizamos el local state para reflejar emailSentAt al instante
+            // sin esperar a que router.refresh re-fetchee.
+            setDte((prev) =>
+              prev
+                ? { ...prev, emailSentAt: new Date().toISOString(), emailStatus: "SENT" }
+                : prev,
+            );
+          }}
         />
       ) : null}
     </Dialog>
