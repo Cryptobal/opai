@@ -78,7 +78,6 @@ export default async function CrmInstallationsPage() {
       <PageHero
         icon={<MapPin />}
         iconTone="violet"
-        eyebrow={["Comercial", "Instalaciones"]}
         title="Instalaciones"
         subtitle="sedes y ubicaciones de clientes"
         description="Listado global de instalaciones con su cuenta asociada, dotación de guardias y puestos por cubrir."

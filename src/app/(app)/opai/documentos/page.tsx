@@ -22,7 +22,6 @@ export default async function DocumentosPage() {
       <PageHero
         icon={<FileText />}
         iconTone="rose"
-        eyebrow={["Documentos"]}
         title="Documentos"
         subtitle="gestión documental"
         description="Documentos comerciales, contratos y archivos compartidos."

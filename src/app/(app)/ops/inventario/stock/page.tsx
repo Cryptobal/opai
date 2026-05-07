@@ -24,7 +24,6 @@ export default async function InventarioStockPage() {
         <PageHero
           icon={<Layers />}
           iconTone="emerald"
-          eyebrow={["Operaciones", "Inventario", "Stock"]}
           title="Stock por bodega"
           subtitle="niveles y alertas"
           description="Vista consolidada del inventario con costo promedio. Alertas automáticas cuando un ítem cae bajo el mínimo."

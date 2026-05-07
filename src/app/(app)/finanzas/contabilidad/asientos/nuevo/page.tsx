@@ -45,7 +45,6 @@ export default async function NuevoAsientoPage() {
       <PageHero
         icon={<FilePlus />}
         iconTone="teal"
-        eyebrow={["Finanzas", "Contabilidad", "Asientos", "Nuevo"]}
         title="Nuevo asiento contable"
         subtitle="registro manual"
         description="Registre un asiento contable manual."

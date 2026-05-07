@@ -42,7 +42,6 @@ export default async function TeAprobacionesPage() {
       <PageHero
         icon={<CheckCircle2 />}
         iconTone="amber"
-        eyebrow={["Turnos Extras", "Aprobaciones"]}
         title="Aprobaciones RRHH"
         subtitle="validación final"
         description="Aprueba o rechaza turnos extra pendientes."

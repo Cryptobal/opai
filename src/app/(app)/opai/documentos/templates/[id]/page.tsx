@@ -27,7 +27,6 @@ export default async function EditDocTemplatePage({
       <PageHero
         icon={<FileText />}
         iconTone="rose"
-        eyebrow={["Documentos", "Plantillas", "Editar"]}
         title="Editor de plantilla"
         subtitle="diseño, tokens y cláusulas"
       />

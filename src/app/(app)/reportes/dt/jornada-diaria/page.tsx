@@ -19,7 +19,6 @@ export default async function JornadaDiariaPage() {
       <PageHero
         icon={<Clock />}
         iconTone="teal"
-        eyebrow={["Reportes", "DT", "Jornada Diaria"]}
         title="Jornada Diaria"
         subtitle="Res. N°38 Art. 6 — horas normales y extras"
         description="Res. Exenta N°38 Art. 6 — Horas normales y extraordinarias por trabajador"

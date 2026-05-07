@@ -82,7 +82,6 @@ export default async function AprobacionesPage() {
       <PageHero
         icon={<CheckCircle2 />}
         iconTone="teal"
-        eyebrow={["Finanzas", "Aprobaciones"]}
         title="Aprobaciones"
         subtitle="rendiciones por aprobar"
         description="Rendiciones pendientes de tu aprobación."

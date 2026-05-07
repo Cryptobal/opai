@@ -13,7 +13,6 @@ export default async function SueldosRutPage() {
       <PageHero
         icon={<Wallet />}
         iconTone="sky"
-        eyebrow={["Personas", "Guardias", "Sueldos por RUT"]}
         title="Sueldos por RUT"
         subtitle="estructuras directas por guardia"
         description="Estructuras de sueldo asignadas directamente a guardias (tienen prioridad sobre el sueldo de la instalación)"

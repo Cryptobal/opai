@@ -15,7 +15,6 @@ export default function ReportesDtPage() {
       <PageHero
         icon={<FileBarChart />}
         iconTone="teal"
-        eyebrow={["Reportes", "DT"]}
         title="Reportes DT"
         subtitle="Dirección del Trabajo · Res. N°38"
         description="Reportes obligatorios — Dirección del Trabajo — Res. Exenta N°38."

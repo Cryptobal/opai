@@ -63,7 +63,6 @@ export default async function OpsAsistenciaDiariaPage() {
       <PageHero
         icon={<ClipboardCheck />}
         iconTone="emerald"
-        eyebrow={["Operaciones", "Asistencia diaria"]}
         title="Asistencia diaria"
         subtitle="control diario y reemplazos"
         description="Control diario de asistencia, reemplazos y generación de turnos extra. Registra incidencias y aprobaciones del día."

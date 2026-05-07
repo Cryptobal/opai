@@ -21,7 +21,6 @@ export default async function InventarioActivosPage() {
         <PageHero
           icon={<Smartphone />}
           iconTone="emerald"
-          eyebrow={["Operaciones", "Inventario", "Activos"]}
           title="Activos y equipos"
           subtitle="celulares, radios y trazabilidad por instalación"
           description="Asigna activos físicos a instalaciones, controla su estado (disponible, asignado, en mantención) y registra historial."

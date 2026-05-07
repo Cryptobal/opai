@@ -31,7 +31,6 @@ export default async function ComprasPage() {
       <PageHero
         icon={<Receipt />}
         iconTone="rose"
-        eyebrow={["Finanzas", "Reportes"]}
         title="Compras por centro de costo"
         subtitle="heatmap mensual"
         description="Compras (DTEs RECEIVED) por cliente y mes. Espejo libro IVA compras."

@@ -6,9 +6,11 @@
  * Reemplaza a OpaiPageHero. Diferencias:
  *  - Sin grain overlay ni blob (eran ruido visual).
  *  - Tipografía display más fuerte (Outfit Variable funcionando real).
- *  - Eyebrow en monospace con separador "/" sutil.
  *  - Title con subtitle como continuación (segunda línea atenuada).
  *  - Opcional: IconTile xl a la izquierda (icon + iconVariant | iconTone).
+ *
+ * Nota: la prop `eyebrow` fue eliminada — los breadcrumbs (AutoBreadcrumbs)
+ * la reemplazan completamente y son clickeables.
  */
 
 import { ReactNode, type ReactElement } from "react";
@@ -18,8 +20,6 @@ import { cn } from "@/lib/utils";
 import { IconTile, type IconBubbleVariant, type IconBubbleTone } from "./IconBubble";
 
 export interface PageHeroProps {
-  /** Breadcrumb opcional, ej. ["Operaciones", "Inventario"]. */
-  eyebrow?: string[] | string;
   title: string;
   /** Segunda línea del título, atenuada. */
   subtitle?: string;
@@ -38,7 +38,7 @@ export interface PageHeroProps {
   iconVariant?: IconBubbleVariant;
   /** Tono categórico del IconTile (ej: "emerald" para Inventario). */
   iconTone?: IconBubbleTone;
-  /** Link back, ej. "/opai/perfil". Si está, se renderiza arriba del eyebrow. */
+  /** Link back, ej. "/opai/perfil". Si está, se renderiza arriba del título. */
   backHref?: string;
   /** Texto del back link. Default: "Volver". */
   backLabel?: string;
@@ -46,7 +46,6 @@ export interface PageHeroProps {
 }
 
 export function PageHero({
-  eyebrow,
   title,
   subtitle,
   description,
@@ -58,8 +57,6 @@ export function PageHero({
   backLabel = "Volver",
   className,
 }: PageHeroProps) {
-  const eyebrowParts = Array.isArray(eyebrow) ? eyebrow : eyebrow ? [eyebrow] : [];
-
   return (
     <header className={cn("relative w-full", className)}>
       {backHref && (
@@ -70,24 +67,6 @@ export function PageHero({
           <ChevronLeft className="h-4 w-4" />
           <span>{backLabel}</span>
         </Link>
-      )}
-
-      {eyebrowParts.length > 0 && (
-        <nav
-          aria-label="breadcrumb"
-          className="mb-3 flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4"
-        >
-          {eyebrowParts.map((part, i) => (
-            <span key={`${part}-${i}`} className="flex items-center gap-1.5">
-              {i > 0 && <span aria-hidden className="text-ds-text-4/60">/</span>}
-              <span
-                className={i === eyebrowParts.length - 1 ? "text-ds-text-2" : ""}
-              >
-                {part}
-              </span>
-            </span>
-          ))}
-        </nav>
       )}
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">

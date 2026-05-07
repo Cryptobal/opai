@@ -44,7 +44,6 @@ export default async function OpsTurnosExtraPage() {
       <PageHero
         icon={<PlusCircle />}
         iconTone="emerald"
-        eyebrow={["Operaciones", "Turnos extra"]}
         title="Turnos extra"
         subtitle="horas adicionales"
         description="Gestión de turnos extra y horas extra generadas desde asistencia diaria. Lotes de pago y consolidación mensual."

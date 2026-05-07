@@ -52,7 +52,6 @@ export default function PayrollDashboard() {
       <PageHero
         icon={<Banknote />}
         iconTone="amber"
-        eyebrow={["Payroll", "Dashboard"]}
         title="Payroll"
         subtitle="liquidaciones y costeo"
         description="Sistema de liquidaciones y costeo para Chile."

@@ -57,7 +57,6 @@ export default async function BancosPage() {
       <PageHero
         icon={<Building2 />}
         iconTone="teal"
-        eyebrow={["Finanzas", "Bancos"]}
         title="Bancos"
         subtitle="cuentas y movimientos"
         description="Gestión de cuentas bancarias, movimientos e importación de cartolas."

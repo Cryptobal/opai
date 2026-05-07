@@ -40,7 +40,6 @@ export default async function PsychDetailPage({ params }: PageProps) {
       <PageHero
         icon={<Brain />}
         iconTone="sky"
-        eyebrow={["Personas", "Psicolaboral"]}
         title={assessment.targetName}
         subtitle="detalle de evaluación"
         description={`Test: ${assessment.version.name} · Estado: ${assessment.status}`}

@@ -42,7 +42,6 @@ export default async function OpsMarcacionesPage() {
       <PageHero
         icon={<Fingerprint />}
         iconTone="emerald"
-        eyebrow={["Operaciones", "Marcaciones"]}
         title="Marcaciones"
         subtitle="asistencia digital"
         description="Registro de marcaciones de asistencia digital. Conforme a Res. Exenta N°38 — DT Chile."

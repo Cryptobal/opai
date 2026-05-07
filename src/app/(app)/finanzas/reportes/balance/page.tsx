@@ -35,7 +35,6 @@ export default async function BalancePage() {
       <PageHero
         icon={<Scale />}
         iconTone="emerald"
-        eyebrow={["Finanzas", "Reportes"]}
         title="Balance General"
         subtitle="situación patrimonial"
         description="Activo, pasivo y patrimonio a la fecha de corte. Solo asientos POSTED."

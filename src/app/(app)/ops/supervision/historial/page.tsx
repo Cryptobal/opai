@@ -241,7 +241,6 @@ export default async function HistorialPage() {
       <PageHero
         icon={<History />}
         iconTone="emerald"
-        eyebrow={["Operaciones", "Supervisión", "Historial"]}
         title="Historial de visitas"
         subtitle="visitas registradas y KPIs"
         description={canViewAll ? "Todas las visitas registradas, KPIs y sugerencias de ruta." : "Tu historial, KPIs personales y sugerencias de ruta."}

@@ -134,7 +134,6 @@ export function InventarioOverviewClient({ canEdit }: Props) {
       <PageHero
         icon={Package}
         iconTone="emerald"
-        eyebrow={["Operaciones", "Inventario"]}
         title="Tu operación"
         subtitle="en una sola vista"
         description="Stock, movimientos y costo asignado de uniformes y activos. Toca cualquier acceso arriba o desde el menú inferior para entrar al detalle."

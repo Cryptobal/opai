@@ -209,7 +209,6 @@ export default async function CrmDealsPage({
       <PageHero
         icon={<TrendingUp />}
         iconTone="violet"
-        eyebrow={["Comercial", "Negocios"]}
         title="Negocios"
         subtitle="pipeline y oportunidades"
         description={getDealsFocusText(focus) ?? "Vista de oportunidades comerciales en kanban o lista. Filtra por etapa, foco temporal o seguimientos pendientes."}

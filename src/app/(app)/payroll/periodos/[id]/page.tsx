@@ -18,7 +18,6 @@ export default async function PayrollPeriodDetailPage({ params }: Props) {
       <PageHero
         icon={<CalendarDays />}
         iconTone="amber"
-        eyebrow={["Payroll", "Períodos", "Detalle"]}
         title="Detalle del Período"
         subtitle="liquidaciones, asistencias y archivos"
         description="Detalle completo del período de pago."

@@ -21,7 +21,6 @@ export default async function OpsTicketsPage() {
       <PageHero
         icon={<TicketCheck />}
         iconTone="emerald"
-        eyebrow={["Operaciones", "Tickets"]}
         title="Tickets"
         subtitle="incidencias y requerimientos"
         description="Seguimiento de solicitudes, incidentes y requerimientos internos con SLA, prioridades y workflow de aprobación."

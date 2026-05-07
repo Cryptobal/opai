@@ -14,7 +14,6 @@ export default async function PayrollPeriodosPage() {
       <PageHero
         icon={<CalendarDays />}
         iconTone="amber"
-        eyebrow={["Payroll", "Períodos"]}
         title="Períodos de Pago"
         subtitle="liquidaciones mensuales"
         description="Gestión de liquidaciones mensuales."

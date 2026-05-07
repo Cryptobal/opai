@@ -17,7 +17,6 @@ export default async function RondasCentroIaPage() {
       <PageHero
         icon={<Sparkles />}
         iconTone="emerald"
-        eyebrow={["Operaciones", "Centro IA"]}
         title="Centro de Inteligencia Artificial"
         subtitle="anomalías y predicciones"
         description="Detección automática de patrones anómalos, recomendaciones operativas y configuración de umbrales para el sistema de IA."

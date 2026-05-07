@@ -26,7 +26,6 @@ export default function ComunicacionesPageClient({ tenantId }: ComunicacionesPag
       <PageHero
         icon={<MessageSquare />}
         iconTone="violet"
-        eyebrow={["Comunicaciones"]}
         title="Comunicaciones"
         subtitle="campañas SMS, email y push"
         description="Gestión de plantillas de email y envío de comunicaciones."

@@ -19,7 +19,6 @@ export default async function DomingosFestivosPage() {
       <PageHero
         icon={<CalendarRange />}
         iconTone="teal"
-        eyebrow={["Reportes", "DT", "Domingos y Festivos"]}
         title="Domingos y Festivos"
         subtitle="Art. 38 Código del Trabajo"
         description="Art. 38 Código del Trabajo — trabajadores que laboraron en domingo o festivo"

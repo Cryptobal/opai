@@ -23,7 +23,6 @@ export default async function InventarioConfiguracionPage() {
         <PageHero
           icon={<Settings2 />}
           iconTone="emerald"
-          eyebrow={["Operaciones", "Inventario", "Configuración"]}
           title="Configuración"
           subtitle="bodegas y auditoría del módulo"
           description="Gestiona bodegas y revisa el historial de cambios. Toda acción del módulo queda registrada con autor, IP y detalle."

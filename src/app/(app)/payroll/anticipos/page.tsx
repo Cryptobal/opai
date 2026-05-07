@@ -14,7 +14,6 @@ export default async function PayrollAnticiposPage() {
       <PageHero
         icon={<Wallet />}
         iconTone="amber"
-        eyebrow={["Payroll", "Anticipos"]}
         title="Anticipos"
         subtitle="pagos mensuales"
         description="Procesos de pago de anticipos mensuales."

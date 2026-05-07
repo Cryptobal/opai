@@ -41,7 +41,6 @@ export default async function AtsNuevoPage() {
       <PageHero
         icon={<BriefcaseBusiness />}
         iconTone="emerald"
-        eyebrow={["Operaciones", "ATS", "Nuevo"]}
         title="Nueva oferta"
         subtitle="crear job posting"
         description="Crea un aviso y publícalo en portales de empleo."

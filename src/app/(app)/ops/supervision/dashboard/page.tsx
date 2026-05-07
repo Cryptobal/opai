@@ -32,7 +32,6 @@ export default async function SupervisionDashboardPage({
       <PageHero
         icon={<BarChart3 />}
         iconTone="emerald"
-        eyebrow={["Operaciones", "Supervisión", "Dashboard"]}
         title="Dashboard"
         subtitle="KPIs y tendencias"
         description="Indicadores consolidados, tendencias temporales y reportes de visitas de supervisión."

@@ -9,7 +9,6 @@ export default function PayrollAsistenciaPage() {
       <PageHero
         icon={<ClipboardCheck />}
         iconTone="amber"
-        eyebrow={["Payroll", "Cierre de Asistencia"]}
         title="Cierre de Asistencia"
         subtitle="verificación previa a nómina"
         description="Verifica y cierra el período de asistencia antes de procesar nómina."

@@ -39,7 +39,6 @@ export default async function CrmContactsPage() {
       <PageHero
         icon={<UserCircle />}
         iconTone="violet"
-        eyebrow={["Comercial", "Contactos"]}
         title="Contactos"
         subtitle="personas clave por cliente"
         description="Directorio de contactos vinculados a cuentas. Cada contacto tiene su historial de comunicación, notas y deals asociados."

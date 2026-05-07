@@ -36,7 +36,6 @@ export default async function CrmAccountsPage() {
       <PageHero
         icon={<Building2 />}
         iconTone="violet"
-        eyebrow={["Comercial", "Cuentas"]}
         title="Cuentas"
         subtitle="prospectos y clientes"
         description="Listado de empresas en el portafolio. Cada cuenta agrupa sus contactos, instalaciones, negocios, cotizaciones y contratos."

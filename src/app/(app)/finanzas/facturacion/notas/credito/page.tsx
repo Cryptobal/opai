@@ -63,7 +63,6 @@ export default async function NotaCreditoPage({ searchParams }: PageProps) {
       <PageHero
         icon={<FileMinus />}
         iconTone="teal"
-        eyebrow={["Finanzas", "Facturación", "Notas", "Crédito"]}
         title="Emitir Nota de Crédito"
         subtitle="ajuste a la baja"
         description="Emitir nota de crédito electrónica referenciando un DTE."

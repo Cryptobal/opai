@@ -34,7 +34,6 @@ export default async function ConciliacionPage() {
       <PageHero
         icon={<GitMerge />}
         iconTone="teal"
-        eyebrow={["Finanzas", "Bancos", "Conciliación"]}
         title="Conciliación Bancaria"
         subtitle="matching de movimientos"
         description="Conciliación de movimientos bancarios con registros contables."

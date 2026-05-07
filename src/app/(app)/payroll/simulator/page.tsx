@@ -163,7 +163,6 @@ export default function PayrollSimulator() {
       <PageHero
         icon={<Calculator />}
         iconTone="amber"
-        eyebrow={["Payroll", "Simulador"]}
         title="Simulador de Liquidación"
         subtitle="cálculo según ley chilena"
         description="Simulación completa con descuentos legales y costo empleador."

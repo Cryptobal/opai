@@ -62,7 +62,6 @@ export default async function AtsEditarPage({
       <PageHero
         icon={<BriefcaseBusiness />}
         iconTone="emerald"
-        eyebrow={["Operaciones", "ATS", "Editar"]}
         title="Editar oferta"
         subtitle="modificar job posting"
         description="Modifica los datos del aviso publicado."

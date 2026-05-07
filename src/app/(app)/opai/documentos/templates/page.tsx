@@ -22,7 +22,6 @@ export default async function DocTemplatesPage() {
       <PageHero
         icon={<FileText />}
         iconTone="rose"
-        eyebrow={["Documentos", "Plantillas"]}
         title="Plantillas"
         subtitle="contratos, anexos y cláusulas"
       />

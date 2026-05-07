@@ -33,7 +33,6 @@ export default async function EerrPage() {
       <PageHero
         icon={<FileBarChart />}
         iconTone="violet"
-        eyebrow={["Finanzas", "Reportes"]}
         title="Estado de Resultado"
         subtitle="EE.RR."
         description="Ingresos, costos y utilidad neta del período. Solo asientos POSTED."

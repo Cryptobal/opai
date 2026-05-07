@@ -172,7 +172,6 @@ export default async function FinanzasDashboardPage() {
       <PageHero
         icon={<Landmark />}
         iconTone="teal"
-        eyebrow={["Finanzas"]}
         title="Finanzas"
         subtitle="rendiciones, aprobaciones y pagos"
         description="Rendiciones de gastos, aprobaciones, pagos y reportes."

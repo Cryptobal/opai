@@ -107,7 +107,6 @@ export default function PortalRankingPage() {
         <PageHero
           icon={<Trophy />}
           iconTone="sky"
-          eyebrow={["Portales", portalLabel, "Ranking"]}
           title={`Ranking — ${portalLabel}`}
           subtitle={`últimos ${days} días`}
           description={descriptionMap[portalId]}

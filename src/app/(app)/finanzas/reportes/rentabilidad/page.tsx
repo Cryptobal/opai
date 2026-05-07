@@ -31,7 +31,6 @@ export default async function RentabilidadPage() {
       <PageHero
         icon={<TrendingUp />}
         iconTone="amber"
-        eyebrow={["Finanzas", "Reportes"]}
         title="Rentabilidad por cliente"
         subtitle="ranking margen"
         description="Margen unitario por centro de costo, con prorrateo de gastos generales."

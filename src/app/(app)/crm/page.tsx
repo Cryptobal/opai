@@ -182,7 +182,6 @@ export default async function CRMPage() {
       <PageHero
         icon={<BarChart3 />}
         iconTone="violet"
-        eyebrow={["Comercial"]}
         title="Pipeline comercial"
         subtitle="y gestión de clientes"
         description="Resumen ejecutivo de leads, cuentas activas, pipeline abierto y conversión."

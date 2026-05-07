@@ -21,7 +21,6 @@ export default async function InventarioComprasPage() {
         <PageHero
           icon={<ShoppingCart />}
           iconTone="emerald"
-          eyebrow={["Operaciones", "Inventario", "Compras"]}
           title="Ingresos de inventario"
           subtitle="compras y abastecimiento"
           description="Registra cada ingreso a bodega. El stock se actualiza con costo promedio ponderado y queda asociable a futuras facturas."

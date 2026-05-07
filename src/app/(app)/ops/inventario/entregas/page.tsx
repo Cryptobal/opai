@@ -23,7 +23,6 @@ export default async function InventarioEntregasPage() {
         <PageHero
           icon={<Truck />}
           iconTone="emerald"
-          eyebrow={["Operaciones", "Inventario", "Entregas"]}
           title="Entregas a guardias"
           subtitle="trazabilidad y firma de recepción"
           description="Cada entrega descuenta stock de la bodega y queda asociada al guardia y la instalación. El portal del guardia recibe push para confirmar."

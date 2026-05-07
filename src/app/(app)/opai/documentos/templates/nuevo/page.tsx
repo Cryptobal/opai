@@ -22,7 +22,6 @@ export default async function NewDocTemplatePage() {
       <PageHero
         icon={<FilePlus />}
         iconTone="rose"
-        eyebrow={["Documentos", "Plantillas", "Nueva"]}
         title="Nueva plantilla"
         subtitle="crear plantilla de documento"
       />

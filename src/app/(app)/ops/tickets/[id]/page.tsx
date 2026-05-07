@@ -32,7 +32,6 @@ export default async function TicketDetailPage({
       <PageHero
         icon={<TicketCheck />}
         iconTone="emerald"
-        eyebrow={["Operaciones", "Tickets"]}
         title="Detalle de ticket"
         subtitle="seguimiento y comentarios"
         description="Detalle completo del ticket con timeline de aprobación, comentarios, cambios de estado y trazabilidad."

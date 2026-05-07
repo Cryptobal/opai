@@ -18,7 +18,6 @@ export default async function ActividadPage() {
       <PageHero
         icon={<Activity />}
         iconTone="primary"
-        eyebrow={["Mi Perfil", "Actividad"]}
         title="Actividad"
         subtitle="historial reciente"
         description="Notas y menciones de las entidades que sigues"

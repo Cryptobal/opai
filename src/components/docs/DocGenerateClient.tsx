@@ -207,7 +207,6 @@ export function DocGenerateClient() {
       <PageHero
         icon={<FileTextIcon />}
         iconTone="rose"
-        eyebrow={["Documentos", "Generar"]}
         backHref="/opai/documentos"
         backLabel="Documentos"
         title="Nuevo Documento"

@@ -44,7 +44,6 @@ export default async function CrmLeadsPage({
       <PageHero
         icon={<Inbox />}
         iconTone="violet"
-        eyebrow={["Comercial", "Leads"]}
         title="Prospectos"
         subtitle="solicitudes entrantes y aprobación manual"
         description="Revisa, aprueba o rechaza leads recibidos por el cotizador web, email o entrada manual."

@@ -60,7 +60,6 @@ export default async function ProveedoresPage() {
       <PageHero
         icon={<Truck />}
         iconTone="teal"
-        eyebrow={["Finanzas", "Proveedores"]}
         title="Proveedores"
         subtitle="ficha y condiciones"
         description="Gestión de proveedores y sus datos bancarios."

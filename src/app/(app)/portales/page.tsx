@@ -77,7 +77,6 @@ export default function PortalesPage() {
             <PageHero
                 icon={<LayoutGrid />}
                 iconTone="sky"
-                eyebrow={["Portales"]}
                 title="Portales"
                 subtitle="apps externas de OPAI"
                 description="Accede y gestiona los portales externos de OPAI."

@@ -42,7 +42,6 @@ export default async function TePagosPage() {
       <PageHero
         icon={<Banknote />}
         iconTone="amber"
-        eyebrow={["Turnos Extras", "Pagos"]}
         title="Pagos TE"
         subtitle="liquidación al equipo"
         description="Historial de lotes pagados y exportables."

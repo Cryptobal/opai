@@ -28,7 +28,6 @@ export function GamificacionAdminClient() {
       <PageHero
         icon={<Trophy />}
         iconTone="sky"
-        eyebrow={["Personas", "Gamificación"]}
         title="Gamificación"
         subtitle="Trust Score, badges y desafíos"
         description="Trust Score, puntos, badges, desafíos, fondos y beneficios."

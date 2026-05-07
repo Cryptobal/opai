@@ -22,7 +22,6 @@ export default async function ApolloProspectingPage() {
       <PageHero
         icon={<Sparkles />}
         iconTone="violet"
-        eyebrow={["Comercial", "Prospección"]}
         title="Prospección Apollo"
         subtitle="contactos y empresas globales"
         description="Busca contactos y empresas en la base de 220M+ de Apollo. La búsqueda de personas no consume créditos."

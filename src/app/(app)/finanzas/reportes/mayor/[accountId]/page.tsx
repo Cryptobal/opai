@@ -43,7 +43,6 @@ export default async function AccountLedgerPage({
       <PageHero
         icon={<BookOpen />}
         iconTone="sky"
-        eyebrow={["Finanzas", "Reportes", "Libro Mayor"]}
         title={`${account.code} · ${account.name}`}
         subtitle={account.type.toLowerCase()}
         description="Movimientos detallados con saldo acumulado."

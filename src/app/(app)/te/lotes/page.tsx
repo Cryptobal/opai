@@ -39,7 +39,6 @@ export default async function TeLotesPage() {
       <PageHero
         icon={<Package />}
         iconTone="amber"
-        eyebrow={["Turnos Extras", "Lotes"]}
         title="Lotes de TE"
         subtitle="agrupación para pago"
         description="Agrupa turnos aprobados para pago semanal."

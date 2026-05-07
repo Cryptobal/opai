@@ -174,7 +174,6 @@ export default async function RendicionesPage() {
       <PageHero
         icon={<Receipt />}
         iconTone="teal"
-        eyebrow={["Finanzas", "Rendiciones"]}
         title="Rendiciones"
         subtitle="gastos y kilometraje"
         description="Listado de rendiciones de gastos y kilometraje."

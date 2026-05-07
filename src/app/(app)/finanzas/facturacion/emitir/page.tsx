@@ -49,7 +49,6 @@ export default async function EmitirDtePage() {
       <PageHero
         icon={<FileText />}
         iconTone="teal"
-        eyebrow={["Finanzas", "Facturación", "Emitir"]}
         title="Emitir DTE"
         subtitle="factura, boleta o guía"
         description="Emisión de factura electrónica o factura exenta."

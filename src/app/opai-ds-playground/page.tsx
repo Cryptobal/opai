@@ -66,7 +66,6 @@ export default function PlaygroundPage() {
         {/* Header playground */}
         <div className="flex items-center justify-between">
           <PageHero
-            eyebrow={["OPAI", "Design System v3"]}
             title="Playground"
             subtitle="catálogo visual oficial"
             description="Cada componente del DS rendereado en light + dark. Esta es la fuente de verdad: si quieres usar un primitive, búscalo aquí primero."

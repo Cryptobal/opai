@@ -258,7 +258,6 @@ export default async function FacturacionPage() {
       <PageHero
         icon={<FileText />}
         iconTone="teal"
-        eyebrow={["Finanzas", "Facturación"]}
         title="Facturación electrónica"
         subtitle="DTE Chile"
         description="Emisión y gestión de documentos tributarios electrónicos (DTE)."

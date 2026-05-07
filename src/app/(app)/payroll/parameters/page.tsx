@@ -60,7 +60,6 @@ export default function PayrollParameters() {
         <PageHero
           icon={<FileText />}
           iconTone="amber"
-          eyebrow={["Payroll", "Parámetros"]}
           title="Parámetros Legales"
           subtitle="versiones legales vigentes"
         />
@@ -91,7 +90,6 @@ export default function PayrollParameters() {
       <PageHero
         icon={<FileText />}
         iconTone="amber"
-        eyebrow={["Payroll", "Parámetros"]}
         title="Parámetros Legales Chile"
         subtitle="versiones vigentes"
         description={`Vigencia desde ${parameters.effective_from}`}

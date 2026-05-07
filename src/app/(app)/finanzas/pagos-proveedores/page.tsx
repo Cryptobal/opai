@@ -40,7 +40,6 @@ export default async function PagosProveedoresPage() {
       <PageHero
         icon={<Send />}
         iconTone="teal"
-        eyebrow={["Finanzas", "Pagos a Proveedores"]}
         title="Pagos a Proveedores"
         subtitle="transferencias y abonos"
         description="Registro y gestion de pagos a proveedores con asignacion a documentos."

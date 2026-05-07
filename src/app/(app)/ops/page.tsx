@@ -145,7 +145,6 @@ export default async function OpsDashboardPage() {
       <PageHero
         icon={<LayoutGrid />}
         iconTone="emerald"
-        eyebrow={["Operaciones"]}
         title="Operaciones"
         subtitle="centro de operaciones"
         description="Operación diaria: pauta, cobertura, asistencia y control."

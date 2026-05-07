@@ -39,7 +39,6 @@ export default async function TeRegistroPage() {
       <PageHero
         icon={<ClipboardClock />}
         iconTone="amber"
-        eyebrow={["Turnos Extras", "Registro"]}
         title="Registro de TE"
         subtitle="captura desde planilla"
         description="Listado de turnos extra con estado y monto."

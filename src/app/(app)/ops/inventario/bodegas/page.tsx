@@ -23,7 +23,6 @@ export default async function InventarioBodegasPage() {
         <PageHero
           icon={<Warehouse />}
           iconTone="emerald"
-          eyebrow={["Operaciones", "Inventario", "Bodegas"]}
           title="Bodegas virtuales"
           subtitle="central, supervisores e instalaciones"
           description="Cada bodega almacena stock independiente. Mueve unidades entre ellas con auditoría completa."

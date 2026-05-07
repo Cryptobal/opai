@@ -21,7 +21,6 @@ export default async function InventarioProductosPage() {
         <PageHero
           icon={<Package />}
           iconTone="emerald"
-          eyebrow={["Operaciones", "Inventario", "Productos"]}
           title="Catálogo de productos"
           subtitle="uniformes, activos y tallas"
           description="Define los productos disponibles para entregas y compras. Cada producto puede tener múltiples tallas y variantes."

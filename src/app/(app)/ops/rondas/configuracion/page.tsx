@@ -48,7 +48,6 @@ export default async function RondasConfiguracionPage() {
       <PageHero
         icon={<Settings />}
         iconTone="emerald"
-        eyebrow={["Operaciones", "Rondas", "Configuración"]}
         title="Configuración de rondas"
         subtitle="checkpoints, plantillas y programación"
         description="Define los puntos de control, agrúpalos en plantillas reutilizables y programa cuándo se ejecutan."

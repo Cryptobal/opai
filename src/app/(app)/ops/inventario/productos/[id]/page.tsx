@@ -41,7 +41,6 @@ export default async function InventarioProductoPage({
         <PageHero
           icon={<Package />}
           iconTone="emerald"
-          eyebrow={["Operaciones", "Inventario", "Productos"]}
           title={product.name}
           description={
             product.category === "uniform"

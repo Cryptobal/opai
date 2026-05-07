@@ -38,7 +38,6 @@ export default async function PerfilPage() {
       <PageHero
         icon={<UserCircle2 />}
         iconTone="primary"
-        eyebrow={["Mi Perfil"]}
         title="Mi Perfil"
         subtitle="cuenta y configuración"
         description="Gestiona tu cuenta y configuración."
