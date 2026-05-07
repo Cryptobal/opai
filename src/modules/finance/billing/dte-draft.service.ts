@@ -36,6 +36,7 @@ export async function createDraftDte(
   tenantId: string,
   createdBy: string,
   input: DraftDteInput,
+  opts?: { ufOverride?: number },
 ) {
   if (!isDteTypeValid(input.dteType)) {
     throw new Error(`Tipo de DTE ${input.dteType} no es valido`);
@@ -45,7 +46,12 @@ export async function createDraftDte(
   // romper drafts existentes generados con la lógica vieja. La validación
   // estricta corre al emitir (issuer) — si el draft tiene drift, el
   // usuario lo verá al pasar por el preview antes de emitir.
-  const calc = await computeDteAmounts(input, { strict: false });
+  // ufOverride: si se pasa, se usa esa UF (en vez de la del día). Lo
+  // usa la facturación recurrente con UF policy distinta de RUN_DAY.
+  const calc = await computeDteAmounts(input, {
+    strict: false,
+    ufOverride: opts?.ufOverride,
+  });
 
   return prisma.financeDte.create({
     data: {

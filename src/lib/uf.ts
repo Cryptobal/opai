@@ -46,4 +46,29 @@ export async function getUfValue(): Promise<number> {
   return 38000;
 }
 
+/**
+ * Obtiene la UF para una fecha específica (UTC date YYYY-MM-DD).
+ * Busca en FxUfRate por esa fecha exacta. Si no existe (ej: feriado),
+ * devuelve la última UF anterior. Si no hay nada, llama a getUfValue()
+ * (que cae en CMF API o el default 38000).
+ *
+ * Usado por facturación recurrente con UF policy: permite "fijar" la
+ * UF a la del último día del mes anterior, primer día del mes, etc.
+ */
+export async function getUfValueForDate(date: Date): Promise<number> {
+  try {
+    const exact = await prisma.fxUfRate.findUnique({ where: { date } });
+    if (exact) return Number(exact.value);
+
+    const before = await prisma.fxUfRate.findFirst({
+      where: { date: { lte: date } },
+      orderBy: { date: "desc" },
+    });
+    if (before) return Number(before.value);
+  } catch {
+    // fall through to default
+  }
+  return getUfValue();
+}
+
 export { clpToUf, ufToClp };

@@ -108,6 +108,11 @@ export async function PATCH(
         endDate,
         nextRunAt,
         autoSendEmail: body.autoSendEmail,
+        ufFixingPolicy: body.ufFixingPolicy,
+        ufFixingDay:
+          body.ufFixingPolicy === "CUSTOM_DAY"
+            ? (body.ufFixingDay ?? null)
+            : null,
       },
     });
     return NextResponse.json({ success: true, data: updated });

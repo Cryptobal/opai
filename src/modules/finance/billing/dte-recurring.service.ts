@@ -12,6 +12,57 @@ import { createDraftDte, type DraftDteInput } from "./dte-draft.service";
 
 export type Frequency = "monthly" | "biweekly" | "weekly" | "yearly";
 
+/**
+ * Política de fijación de UF cuando currency=UF.
+ *   - RUN_DAY: UF del día en que se ejecuta el cron.
+ *   - LAST_DAY_PREV_MONTH: UF del último día del mes anterior.
+ *   - FIRST_DAY_MONTH: UF del primer día del mes en curso.
+ *   - LAST_DAY_MONTH: UF del último día del mes en curso.
+ *   - CUSTOM_DAY: UF del día N del mes (campo `ufFixingDay`).
+ */
+export type UfFixingPolicy =
+  | "RUN_DAY"
+  | "LAST_DAY_PREV_MONTH"
+  | "FIRST_DAY_MONTH"
+  | "LAST_DAY_MONTH"
+  | "CUSTOM_DAY";
+
+/**
+ * Resuelve la fecha de UF a usar según la policy. Para todas las
+ * policies excepto RUN_DAY, devuelve una fecha específica que el
+ * caller pasa a `getUfValueForDate`. Para RUN_DAY devuelve null
+ * (caller usa `getUfValue()` del día actual).
+ */
+export function resolveUfDateForPolicy(
+  policy: UfFixingPolicy,
+  ufFixingDay: number | null,
+  now: Date = new Date(),
+): Date | null {
+  const y = now.getUTCFullYear();
+  const m = now.getUTCMonth(); // 0-indexed
+  switch (policy) {
+    case "RUN_DAY":
+      return null;
+    case "LAST_DAY_PREV_MONTH":
+      // Día 0 del mes en curso = último día del mes anterior.
+      return new Date(Date.UTC(y, m, 0));
+    case "FIRST_DAY_MONTH":
+      return new Date(Date.UTC(y, m, 1));
+    case "LAST_DAY_MONTH":
+      // Día 0 del mes siguiente = último día del mes en curso.
+      return new Date(Date.UTC(y, m + 1, 0));
+    case "CUSTOM_DAY": {
+      const d = ufFixingDay ?? 1;
+      // Clampear al último día disponible si el mes es más corto
+      // (ej: 31 en febrero → 28/29).
+      const lastDay = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+      return new Date(Date.UTC(y, m, Math.min(d, lastDay)));
+    }
+    default:
+      return null;
+  }
+}
+
 type ComputeInput = Pick<
   FinanceDteRecurringTemplate,
   "frequency" | "dayOfMonth" | "dayOfWeek" | "monthOfYear" | "startDate" | "endDate" | "lastRunAt"
@@ -135,7 +186,29 @@ export async function runTemplate(tenantId: string, templateId: string) {
   }
 
   try {
-    const draft = await createDraftDte(tenantId, template.createdBy, templateToDraftInput(template));
+    // Si la plantilla es UF, resolvemos la UF según la policy ANTES
+    // de crear el draft. Esto "fija" la UF que verá el borrador (queda
+    // congelada en `ufValueAtIssue` y no cambia aunque el usuario emita
+    // días después).
+    let ufOverride: number | undefined = undefined;
+    if (template.currency === "UF") {
+      const policy = (template.ufFixingPolicy as UfFixingPolicy) ?? "RUN_DAY";
+      const ufDate = resolveUfDateForPolicy(policy, template.ufFixingDay);
+      if (ufDate) {
+        const { getUfValueForDate } = await import("@/lib/uf");
+        ufOverride = await getUfValueForDate(ufDate);
+      }
+      // Si policy es RUN_DAY, ufOverride queda undefined → el helper
+      // computeDteAmounts dentro de createDraftDte llamará a
+      // getUfValue() (UF del día), que es el comportamiento previo.
+    }
+
+    const draft = await createDraftDte(
+      tenantId,
+      template.createdBy,
+      templateToDraftInput(template),
+      { ufOverride },
+    );
     const next = computeNextRunAt(template);
     await prisma.financeDteRecurringTemplate.update({
       where: { id: templateId },

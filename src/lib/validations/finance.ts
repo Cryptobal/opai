@@ -253,6 +253,19 @@ export const recurringTemplateSchema = z.object({
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha YYYY-MM-DD"),
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   autoSendEmail: z.boolean().default(true),
+  // Política de fijación de UF (solo aplica si currency=UF). Default
+  // RUN_DAY = comportamiento previo. Ver dte-recurring.service para
+  // la semántica de cada policy.
+  ufFixingPolicy: z
+    .enum([
+      "RUN_DAY",
+      "LAST_DAY_PREV_MONTH",
+      "FIRST_DAY_MONTH",
+      "LAST_DAY_MONTH",
+      "CUSTOM_DAY",
+    ])
+    .default("RUN_DAY"),
+  ufFixingDay: z.number().int().min(1).max(31).nullable().optional(),
 });
 
 // Schema para crear/actualizar borradores. Es el mismo que issueDteSchema

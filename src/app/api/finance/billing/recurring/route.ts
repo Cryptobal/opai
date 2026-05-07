@@ -86,6 +86,11 @@ export async function POST(request: NextRequest) {
         endDate,
         nextRunAt,
         autoSendEmail: body.autoSendEmail,
+        ufFixingPolicy: body.ufFixingPolicy,
+        ufFixingDay:
+          body.ufFixingPolicy === "CUSTOM_DAY"
+            ? (body.ufFixingDay ?? null)
+            : null,
         createdBy: ctx.userId,
       },
     });

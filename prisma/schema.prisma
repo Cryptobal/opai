@@ -6463,6 +6463,22 @@ model FinanceDteRecurringTemplate {
   /// generado por esta plantilla.
   autoSendEmail Boolean @default(true) @map("auto_send_email")
 
+  /// Política de fijación de UF cuando currency=UF. Define qué UF se
+  /// usa para convertir a CLP al momento de generar el borrador. La
+  /// UF queda congelada en el borrador (`ufValueAtIssue`).
+  ///   - RUN_DAY (default): UF del día en que el cron genera el borrador.
+  ///   - LAST_DAY_PREV_MONTH: UF del último día del mes anterior. Útil
+  ///     en contratos chilenos que indexan a fin de mes (ej: factura
+  ///     del 1-may con UF del 30-abr).
+  ///   - FIRST_DAY_MONTH: UF del primer día del mes en curso.
+  ///   - LAST_DAY_MONTH: UF del último día del mes en curso. Útil
+  ///     cuando facturas a fin de mes pero generás el draft antes.
+  ///   - CUSTOM_DAY: UF del día N del mes (campo `ufFixingDay`).
+  /// Para currency=CLP el campo se ignora.
+  ufFixingPolicy String @default("RUN_DAY") @map("uf_fixing_policy")
+  /// Día del mes (1-31) para CUSTOM_DAY. NULL si la policy es otra.
+  ufFixingDay    Int?   @map("uf_fixing_day")
+
   createdBy String   @map("created_by")
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
