@@ -1,18 +1,16 @@
 "use client";
 
-import { useState, useTransition, useMemo } from "react";
+import { useState, useTransition, useMemo, Fragment } from "react";
+import { ChevronRight, TrendingUp, Sparkles, Wallet, DollarSign } from "lucide-react";
 import type {
   FinanceReportPeriod,
   IncomeStatementResult,
+  IncomeStatementSection,
 } from "@/modules/finance/reports/shared/types";
+import { KPICard, KPIGrid, Surface, SectionHeader } from "@/components/opai-ds";
+import { cn } from "@/lib/utils";
 import { ReportsPeriodPicker } from "./ReportsPeriodPicker";
 import { ExportMenu } from "./ExportMenu";
-import { KPICard } from "./shared/KPICard";
-import {
-  HierarchicalTable,
-  type HierarchicalSection,
-} from "./shared/HierarchicalTable";
-import { TrendingUp, Sparkles, Wallet, DollarSign } from "lucide-react";
 
 interface Props {
   initialPeriod: FinanceReportPeriod;
@@ -21,24 +19,155 @@ interface Props {
 }
 
 const fmtCLP = (n: number): string =>
-  new Intl.NumberFormat("es-CL", {
-    style: "currency",
-    currency: "CLP",
-    maximumFractionDigits: 0,
-  }).format(n);
+  "$" + new Intl.NumberFormat("es-CL").format(Math.round(n));
 
-const fmtCompact = (n: number): string => {
-  const a = Math.abs(n);
-  if (a >= 1e9) return `$${(n / 1e9).toFixed(2)}B`;
-  if (a >= 1e6) return `$${(n / 1e6).toFixed(1)}M`;
-  if (a >= 1e3) return `$${(n / 1e3).toFixed(0)}K`;
-  return fmtCLP(n);
+const fmtCLPShort = (n: number): string => {
+  const abs = Math.abs(n);
+  const sign = n < 0 ? "-" : "";
+  if (abs >= 1_000_000_000) return `${sign}$${(abs / 1_000_000_000).toFixed(1).replace(/\.0$/, "")}MM`;
+  if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
+  if (abs >= 1_000) return `${sign}$${(abs / 1_000).toFixed(0)}K`;
+  return `${sign}$${abs}`;
 };
 
-const safePct = (num: number, denom: number): string => {
+const safePctLabel = (num: number, denom: number): string => {
   if (!denom) return "0%";
   return `${((num / denom) * 100).toFixed(1)}%`;
 };
+
+const fmtDelta = (curr: number, prev: number): string => {
+  if (!prev) return curr ? "+100%" : "0%";
+  const v = ((curr - prev) / Math.abs(prev)) * 100;
+  return `${v >= 0 ? "+" : ""}${v.toFixed(1)}%`;
+};
+
+interface SectionRowProps {
+  section: IncomeStatementSection;
+  showComparison: boolean;
+  accent: "ok" | "warn" | "danger" | "brand" | "info";
+  defaultOpen?: boolean;
+}
+
+const ACCENT_TEXT = {
+  ok: "text-status-ok-fg",
+  warn: "text-status-warn-fg",
+  danger: "text-status-danger-fg",
+  brand: "text-primary",
+  info: "text-status-info-fg",
+};
+
+function SectionRows({ section, showComparison, accent, defaultOpen = true }: SectionRowProps) {
+  const [open, setOpen] = useState(defaultOpen);
+  const accentClass = ACCENT_TEXT[accent];
+  return (
+    <Fragment>
+      <tr
+        className="border-t border-ds-border-subtle cursor-pointer hover:bg-ds-surface-2/50"
+        onClick={() => setOpen((o) => !o)}
+      >
+        <td className="px-3 py-2.5">
+          <div className={cn("flex items-center gap-2 font-semibold", accentClass)}>
+            <ChevronRight
+              className="w-3.5 h-3.5 transition-transform"
+              style={{ transform: open ? "rotate(90deg)" : "rotate(0deg)" }}
+            />
+            {section.label}
+          </div>
+        </td>
+        {showComparison && (
+          <td className={cn("px-3 py-2.5 text-right ds-num font-semibold", accentClass)}>
+            {section.prevTotal !== undefined ? fmtCLP(section.prevTotal) : ""}
+          </td>
+        )}
+        <td className={cn("px-3 py-2.5 text-right ds-num font-semibold", accentClass)}>
+          {fmtCLP(section.total)}
+        </td>
+        {showComparison && (
+          <td className={cn("px-3 py-2.5 text-right ds-num font-semibold text-xs", accentClass)}>
+            {section.prevTotal !== undefined ? fmtDelta(section.total, section.prevTotal) : "—"}
+          </td>
+        )}
+      </tr>
+      {open &&
+        section.items.map((it) => (
+          <tr key={it.accountId} className="border-t border-ds-border-subtle">
+            <td className="px-3 py-2 pl-10">
+              <p className="text-ds-text-1 text-sm">{it.accountName}</p>
+              <p className="text-[10.5px] text-ds-text-4 font-mono">{it.accountCode}</p>
+            </td>
+            {showComparison && (
+              <td className="px-3 py-2 text-right ds-num text-ds-text-2 text-sm">
+                {it.prevAmount !== undefined ? fmtCLP(it.prevAmount) : ""}
+              </td>
+            )}
+            <td className="px-3 py-2 text-right ds-num text-ds-text-1 text-sm">
+              {fmtCLP(it.amount)}
+            </td>
+            {showComparison && (
+              <td className="px-3 py-2 text-right ds-num text-ds-text-3 text-xs">
+                {it.prevAmount !== undefined ? fmtDelta(it.amount, it.prevAmount) : "—"}
+              </td>
+            )}
+          </tr>
+        ))}
+    </Fragment>
+  );
+}
+
+interface SummaryProps {
+  label: string;
+  value: number;
+  prev?: number;
+  variant: "ok" | "brand" | "info";
+  big?: boolean;
+  showComparison: boolean;
+}
+
+const SUMMARY_BG = {
+  ok: "bg-status-ok-soft/50",
+  brand: "bg-primary/10",
+  info: "bg-status-info-soft/50",
+};
+const SUMMARY_FG = {
+  ok: "text-status-ok-fg",
+  brand: "text-primary",
+  info: "text-status-info-fg",
+};
+
+function SummaryRow({ label, value, prev, variant, big, showComparison }: SummaryProps) {
+  return (
+    <tr className={cn("border-t border-ds-border-default", SUMMARY_BG[variant])}>
+      <td
+        className={cn(
+          "px-3 py-2 font-semibold uppercase tracking-wider",
+          big ? "text-base" : "text-xs",
+          SUMMARY_FG[variant]
+        )}
+      >
+        {label}
+      </td>
+      {showComparison && (
+        <td className={cn("px-3 py-2 text-right ds-num font-semibold", SUMMARY_FG[variant])}>
+          {prev !== undefined ? fmtCLP(prev) : ""}
+        </td>
+      )}
+      <td
+        className={cn(
+          "px-3 py-2 text-right ds-num font-bold",
+          big ? "text-base" : "text-sm",
+          SUMMARY_FG[variant]
+        )}
+      >
+        {fmtCLP(value)}
+      </td>
+      {showComparison && (
+        <td className={cn("px-3 py-2 text-right ds-num font-semibold text-xs", SUMMARY_FG[variant])}>
+          {prev !== undefined ? fmtDelta(value, prev) : "—"}
+        </td>
+      )}
+    </tr>
+  );
+}
 
 export function IncomeStatementClient({
   initialPeriod,
@@ -66,118 +195,21 @@ export function IncomeStatementClient({
     });
   };
 
-  const sections: HierarchicalSection[] = useMemo(
+  const sections = useMemo(
     () => [
-      {
-        id: "revenue",
-        label: data.revenue.label,
-        total: data.revenue.total,
-        prevTotal: data.revenue.prevTotal,
-        accent: "var(--ds-tint-emerald)",
-        items: data.revenue.items.map((it) => ({
-          id: it.accountId,
-          label: it.accountName,
-          sublabel: it.accountCode,
-          amount: it.amount,
-          prevAmount: it.prevAmount,
-        })),
-      },
-      {
-        id: "cogs",
-        label: data.cogs.label,
-        total: data.cogs.total,
-        prevTotal: data.cogs.prevTotal,
-        accent: "var(--ds-tint-rose)",
-        items: data.cogs.items.map((it) => ({
-          id: it.accountId,
-          label: it.accountName,
-          sublabel: it.accountCode,
-          amount: it.amount,
-          prevAmount: it.prevAmount,
-        })),
-      },
-      {
-        id: "opex",
-        label: data.opex.label,
-        total: data.opex.total,
-        prevTotal: data.opex.prevTotal,
-        accent: "var(--ds-tint-amber)",
-        items: data.opex.items.map((it) => ({
-          id: it.accountId,
-          label: it.accountName,
-          sublabel: it.accountCode,
-          amount: it.amount,
-          prevAmount: it.prevAmount,
-        })),
-      },
-      {
-        id: "financialResult",
-        label: data.financialResult.label,
-        total: data.financialResult.total,
-        prevTotal: data.financialResult.prevTotal,
-        accent: "var(--ds-tint-violet)",
-        collapsedByDefault: true,
-        items: data.financialResult.items.map((it) => ({
-          id: it.accountId,
-          label: it.accountName,
-          sublabel: it.accountCode,
-          amount: it.amount,
-          prevAmount: it.prevAmount,
-        })),
-      },
-      {
-        id: "taxes",
-        label: data.taxes.label,
-        total: data.taxes.total,
-        prevTotal: data.taxes.prevTotal,
-        accent: "var(--ds-tint-sky)",
-        collapsedByDefault: true,
-        items: data.taxes.items.map((it) => ({
-          id: it.accountId,
-          label: it.accountName,
-          sublabel: it.accountCode,
-          amount: it.amount,
-          prevAmount: it.prevAmount,
-        })),
-      },
+      { section: data.revenue, accent: "ok" as const },
+      { section: data.cogs, accent: "danger" as const },
     ],
     [data]
   );
-
-  const summaryRows = useMemo(
+  const opex = useMemo(
+    () => [{ section: data.opex, accent: "warn" as const }],
+    [data]
+  );
+  const finResultAndTax = useMemo(
     () => [
-      {
-        id: "gross",
-        label: "MARGEN BRUTO",
-        value: data.grossProfit,
-        prev: data.prevGrossProfit,
-        accent: "#10B981",
-        big: false,
-      },
-      {
-        id: "ebitda",
-        label: "EBITDA",
-        value: data.ebitda,
-        prev: data.prevEbitda,
-        accent: "#0066FF",
-        big: true,
-      },
-      {
-        id: "beforeTax",
-        label: "ANTES DE IMPUESTOS",
-        value: data.beforeTax,
-        prev: data.prevBeforeTax,
-        accent: "#8B5CF6",
-        big: false,
-      },
-      {
-        id: "net",
-        label: "UTILIDAD NETA",
-        value: data.netIncome,
-        prev: data.prevNetIncome,
-        accent: "#10B981",
-        big: true,
-      },
+      { section: data.financialResult, accent: "info" as const, defaultOpen: false },
+      { section: data.taxes, accent: "info" as const, defaultOpen: false },
     ],
     [data]
   );
@@ -199,42 +231,116 @@ export function IncomeStatementClient({
         />
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <KPIGrid>
         <KPICard
           label="Ingresos"
-          value={fmtCompact(data.revenue.total)}
+          value={<span title={fmtCLP(data.revenue.total)}>{fmtCLPShort(data.revenue.total)}</span>}
           icon={DollarSign}
-          tone="emerald"
+          iconTone="emerald"
+          variant="brand"
         />
         <KPICard
           label="Margen bruto"
-          value={fmtCompact(data.grossProfit)}
+          value={<span title={fmtCLP(data.grossProfit)}>{fmtCLPShort(data.grossProfit)}</span>}
+          hint={safePctLabel(data.grossProfit, data.revenue.total)}
           icon={TrendingUp}
-          tone="emerald"
-          sub={safePct(data.grossProfit, data.revenue.total)}
+          iconTone="emerald"
+          variant={data.grossProfit >= 0 ? "ok" : "danger"}
         />
         <KPICard
           label="EBITDA"
-          value={fmtCompact(data.ebitda)}
+          value={<span title={fmtCLP(data.ebitda)}>{fmtCLPShort(data.ebitda)}</span>}
+          hint={safePctLabel(data.ebitda, data.revenue.total)}
           icon={Sparkles}
-          tone="sky"
-          sub={safePct(data.ebitda, data.revenue.total)}
+          iconTone="sky"
+          variant={data.ebitda >= 0 ? "ok" : "danger"}
         />
         <KPICard
           label="Utilidad neta"
-          value={fmtCompact(data.netIncome)}
+          value={<span title={fmtCLP(data.netIncome)}>{fmtCLPShort(data.netIncome)}</span>}
+          hint={safePctLabel(data.netIncome, data.revenue.total)}
           icon={Wallet}
-          tone={data.netIncome >= 0 ? "emerald" : "rose"}
-          sub={safePct(data.netIncome, data.revenue.total)}
+          iconTone={data.netIncome >= 0 ? "emerald" : "rose"}
+          variant={data.netIncome >= 0 ? "ok" : "danger"}
         />
-      </div>
+      </KPIGrid>
 
-      <HierarchicalTable
-        sections={sections}
-        showComparison={compare}
-        fmt={fmtCLP}
-        summaryRows={summaryRows}
-      />
+      <Surface padding="none" elevation={1} className="overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-ds-surface-2">
+              <tr>
+                <th className="px-3 py-2 text-left text-[10px] font-mono uppercase tracking-wider text-ds-text-3">
+                  Cuenta
+                </th>
+                {compare && (
+                  <th className="px-3 py-2 text-right text-[10px] font-mono uppercase tracking-wider text-ds-text-3">
+                    Per. anterior
+                  </th>
+                )}
+                <th className="px-3 py-2 text-right text-[10px] font-mono uppercase tracking-wider text-ds-text-3">
+                  {period.label}
+                </th>
+                {compare && (
+                  <th className="px-3 py-2 text-right text-[10px] font-mono uppercase tracking-wider text-ds-text-3">
+                    Δ%
+                  </th>
+                )}
+              </tr>
+            </thead>
+            <tbody>
+              {sections.map((s) => (
+                <SectionRows
+                  key={s.section.label}
+                  section={s.section}
+                  showComparison={compare}
+                  accent={s.accent}
+                />
+              ))}
+              <SummaryRow
+                label="Margen bruto"
+                value={data.grossProfit}
+                prev={data.prevGrossProfit}
+                variant="ok"
+                showComparison={compare}
+              />
+              {opex.map((s) => (
+                <SectionRows
+                  key={s.section.label}
+                  section={s.section}
+                  showComparison={compare}
+                  accent={s.accent}
+                />
+              ))}
+              <SummaryRow
+                label="EBITDA"
+                value={data.ebitda}
+                prev={data.prevEbitda}
+                variant="brand"
+                big
+                showComparison={compare}
+              />
+              {finResultAndTax.map((s) => (
+                <SectionRows
+                  key={s.section.label}
+                  section={s.section}
+                  showComparison={compare}
+                  accent={s.accent}
+                  defaultOpen={s.defaultOpen}
+                />
+              ))}
+              <SummaryRow
+                label="Utilidad neta"
+                value={data.netIncome}
+                prev={data.prevNetIncome}
+                variant="ok"
+                big
+                showComparison={compare}
+              />
+            </tbody>
+          </table>
+        </div>
+      </Surface>
     </div>
   );
 }

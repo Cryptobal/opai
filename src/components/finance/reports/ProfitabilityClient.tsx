@@ -2,16 +2,29 @@
 
 import { useState, useTransition, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, DollarSign, TrendingUp, Receipt, Wallet } from "lucide-react";
+import {
+  AlertTriangle,
+  DollarSign,
+  TrendingUp,
+  Receipt,
+  Wallet,
+} from "lucide-react";
 import type {
   FinanceReportPeriod,
   ProfitabilityResult,
+  ProfitabilityRow,
 } from "@/modules/finance/reports/shared/types";
+import {
+  KPICard,
+  KPIGrid,
+  Surface,
+  EmptyState,
+  DataTable,
+  type DataTableColumn,
+} from "@/components/opai-ds";
+import { cn } from "@/lib/utils";
 import { ReportsPeriodPicker } from "./ReportsPeriodPicker";
 import { ExportMenu } from "./ExportMenu";
-import { KPICard } from "./shared/KPICard";
-import { RankBar } from "./shared/RankBar";
-import { EmptyReport } from "./shared/EmptyReport";
 
 interface Props {
   initialPeriod: FinanceReportPeriod;
@@ -19,18 +32,15 @@ interface Props {
 }
 
 const fmtCLP = (n: number): string =>
-  new Intl.NumberFormat("es-CL", {
-    style: "currency",
-    currency: "CLP",
-    maximumFractionDigits: 0,
-  }).format(n);
+  "$" + new Intl.NumberFormat("es-CL").format(Math.round(n));
 
-const fmtCompact = (n: number): string => {
-  const a = Math.abs(n);
-  if (a >= 1e9) return `$${(n / 1e9).toFixed(2)}B`;
-  if (a >= 1e6) return `$${(n / 1e6).toFixed(1)}M`;
-  if (a >= 1e3) return `$${(n / 1e3).toFixed(0)}K`;
-  return fmtCLP(n);
+const fmtCLPShort = (n: number): string => {
+  const abs = Math.abs(n);
+  const sign = n < 0 ? "-" : "";
+  if (abs >= 1_000_000_000) return `${sign}$${(abs / 1_000_000_000).toFixed(1).replace(/\.0$/, "")}MM`;
+  if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
+  if (abs >= 1_000) return `${sign}$${(abs / 1_000).toFixed(0)}K`;
+  return `${sign}$${abs}`;
 };
 
 const METHODS = [
@@ -39,12 +49,17 @@ const METHODS = [
   { id: "none" as const, label: "Sin opex" },
 ];
 
+interface IndexedRow extends ProfitabilityRow {
+  index: number;
+  maxAbsMargin: number;
+}
+
 export function ProfitabilityClient({ initialPeriod, initialData }: Props) {
   const router = useRouter();
   const [period, setPeriod] = useState(initialPeriod);
   const [data, setData] = useState(initialData);
   const [method, setMethod] = useState(initialData.opexAllocationMethod);
-  const [, startTransition] = useTransition();
+  const [isPending, startTransition] = useTransition();
 
   const refetch = (
     p: FinanceReportPeriod,
@@ -74,24 +89,107 @@ export function ProfitabilityClient({ initialPeriod, initialData }: Props) {
     [data.rows]
   );
 
+  const indexedRows: IndexedRow[] = useMemo(
+    () => data.rows.map((r, i) => ({ ...r, index: i, maxAbsMargin })),
+    [data.rows, maxAbsMargin]
+  );
+
+  const columns: DataTableColumn<IndexedRow>[] = useMemo(
+    () => [
+      {
+        id: "rank",
+        header: "#",
+        align: "left",
+        width: "w-12",
+        cell: (r) => <span className="text-ds-text-3">{r.index + 1}</span>,
+      },
+      {
+        id: "client",
+        header: "Cliente",
+        align: "left",
+        cell: (r) => (
+          <div>
+            <p className="text-ds-text-1">{r.clientName}</p>
+            {r.sector && <p className="text-[10.5px] text-ds-text-4">{r.sector}</p>}
+          </div>
+        ),
+      },
+      {
+        id: "revenue",
+        header: "Ventas",
+        align: "right",
+        cell: (r) => <span title={fmtCLP(r.revenue)}>{fmtCLPShort(r.revenue)}</span>,
+      },
+      {
+        id: "cost",
+        header: "Costo",
+        align: "right",
+        cell: (r) => <span title={fmtCLP(r.directCost)}>{fmtCLPShort(r.directCost)}</span>,
+      },
+      {
+        id: "opex",
+        header: "Opex",
+        align: "right",
+        hideOnMobile: true,
+        cell: (r) => <span title={fmtCLP(r.allocatedOpex)}>{fmtCLPShort(r.allocatedOpex)}</span>,
+      },
+      {
+        id: "margin",
+        header: "Margen",
+        align: "right",
+        cell: (r) => (
+          <span
+            title={fmtCLP(r.margin)}
+            className={cn(
+              "font-semibold",
+              r.margin >= 0 ? "text-status-ok-fg" : "text-status-danger-fg"
+            )}
+          >
+            {fmtCLPShort(r.margin)}
+          </span>
+        ),
+      },
+      {
+        id: "marginPct",
+        header: "%",
+        align: "left",
+        width: "w-40",
+        cell: (r) => {
+          const pct = (Math.abs(r.margin) / r.maxAbsMargin) * 100;
+          const tone = r.margin >= 0 ? "bg-status-ok" : "bg-status-danger";
+          const fg = r.margin >= 0 ? "text-status-ok-fg" : "text-status-danger-fg";
+          return (
+            <div className="flex items-center gap-2">
+              <span className={cn("text-xs ds-num w-14 shrink-0", fg)}>
+                {r.marginPct.toFixed(1)}%
+              </span>
+              <div className="h-1.5 flex-1 rounded-full overflow-hidden bg-ds-surface-3">
+                <div className={cn("h-full rounded-full", tone)} style={{ width: `${pct}%` }} />
+              </div>
+            </div>
+          );
+        },
+      },
+    ],
+    []
+  );
+
   return (
-    <div className="space-y-5">
+    <div className={cn("space-y-5", isPending && "opacity-70")}>
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2 flex-wrap">
           <ReportsPeriodPicker value={period} onChange={(p) => refetch(p, method)} />
-          <div className="inline-flex rounded-lg border overflow-hidden" style={{ borderColor: "var(--ds-border)" }}>
+          <div className="inline-flex rounded-ds-md border border-ds-border-default overflow-hidden">
             {METHODS.map((m) => (
               <button
                 key={m.id}
                 onClick={() => refetch(period, m.id)}
-                className="h-9 px-3 text-[12.5px]"
-                style={{
-                  background:
-                    method === m.id
-                      ? "color-mix(in oklab, var(--ds-tint-amber) 15%, transparent)"
-                      : "var(--ds-surface)",
-                  color: method === m.id ? "var(--ds-tint-amber)" : "var(--ds-text-2)",
-                }}
+                className={cn(
+                  "h-9 px-3 text-sm transition-colors",
+                  method === m.id
+                    ? "bg-tint-amber/15 text-tint-amber-fg"
+                    : "bg-ds-surface text-ds-text-2 hover:bg-ds-surface-2"
+                )}
               >
                 {m.label}
               </button>
@@ -105,169 +203,77 @@ export function ProfitabilityClient({ initialPeriod, initialData }: Props) {
         />
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <KPIGrid>
         <KPICard
           label="Ingresos totales"
-          value={fmtCompact(data.totals.revenue)}
+          value={
+            <span title={fmtCLP(data.totals.revenue)}>{fmtCLPShort(data.totals.revenue)}</span>
+          }
           icon={DollarSign}
-          tone="emerald"
+          iconTone="emerald"
+          variant="brand"
         />
         <KPICard
           label="Costo directo"
-          value={fmtCompact(data.totals.directCost)}
+          value={
+            <span title={fmtCLP(data.totals.directCost)}>
+              {fmtCLPShort(data.totals.directCost)}
+            </span>
+          }
           icon={Receipt}
-          tone="rose"
+          iconTone="rose"
         />
         <KPICard
           label="Opex prorrateado"
-          value={fmtCompact(data.totals.allocatedOpex)}
+          value={
+            <span title={fmtCLP(data.totals.allocatedOpex)}>
+              {fmtCLPShort(data.totals.allocatedOpex)}
+            </span>
+          }
           icon={Wallet}
-          tone="amber"
+          iconTone="amber"
         />
         <KPICard
           label="Margen total"
-          value={fmtCompact(data.totals.margin)}
+          value={
+            <span title={fmtCLP(data.totals.margin)}>{fmtCLPShort(data.totals.margin)}</span>
+          }
+          hint={`${data.totals.marginPct.toFixed(1)}%`}
           icon={TrendingUp}
-          tone={data.totals.margin >= 0 ? "emerald" : "rose"}
-          sub={`${data.totals.marginPct.toFixed(1)}%`}
+          iconTone={data.totals.margin >= 0 ? "emerald" : "rose"}
+          variant={data.totals.margin >= 0 ? "ok" : "danger"}
         />
-      </div>
+      </KPIGrid>
 
       {negativeCount >= 3 && (
-        <div
-          className="flex items-center gap-2.5 rounded-lg border p-3 text-[12.5px]"
-          style={{
-            borderColor: "var(--ds-tint-amber)",
-            background: "color-mix(in oklab, var(--ds-tint-amber) 10%, transparent)",
-          }}
-        >
-          <AlertTriangle className="w-4 h-4 text-amber-500" />
-          <span>
+        <Surface accent="warn" padding="md" className="flex items-center gap-2.5">
+          <AlertTriangle className="w-4 h-4 text-status-warn-fg shrink-0" />
+          <span className="text-sm">
             <strong>{negativeCount} clientes</strong> con margen negativo en este período. Revisar
             pricing o costos directos.
           </span>
-        </div>
+        </Surface>
       )}
 
       {data.rows.length === 0 ? (
-        <EmptyReport
-          icon={TrendingUp}
-          title="Sin datos para el período"
-          description="No hay ventas/compras suficientes para calcular rentabilidad."
-        />
+        <Surface padding="lg">
+          <EmptyState
+            icon={TrendingUp}
+            title="Sin datos para el período"
+            description="No hay ventas/compras suficientes para calcular rentabilidad."
+          />
+        </Surface>
       ) : (
-        <div
-          className="rounded-xl border bg-ds-surface overflow-hidden"
-          style={{ borderColor: "var(--ds-border)" }}
-        >
-          <div className="overflow-x-auto">
-            <table className="w-full text-[12.5px] tabular-nums" style={{ minWidth: 900 }}>
-              <thead>
-                <tr style={{ background: "var(--ds-bg-2)" }}>
-                  <th className="px-3 py-2 text-left font-mono uppercase tracking-wider text-[10px] text-ds-text-3 w-12">
-                    #
-                  </th>
-                  <th className="px-3 py-2 text-left font-mono uppercase tracking-wider text-[10px] text-ds-text-3">
-                    Cliente
-                  </th>
-                  <th className="px-3 py-2 text-right font-mono uppercase tracking-wider text-[10px] text-ds-text-3">
-                    Ventas
-                  </th>
-                  <th className="px-3 py-2 text-right font-mono uppercase tracking-wider text-[10px] text-ds-text-3">
-                    Costo
-                  </th>
-                  <th className="px-3 py-2 text-right font-mono uppercase tracking-wider text-[10px] text-ds-text-3">
-                    Opex
-                  </th>
-                  <th className="px-3 py-2 text-right font-mono uppercase tracking-wider text-[10px] text-ds-text-3">
-                    Margen
-                  </th>
-                  <th className="px-3 py-2 text-left font-mono uppercase tracking-wider text-[10px] text-ds-text-3 w-32">
-                    %
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.rows.map((row, i) => {
-                  const tone = row.margin >= 0 ? "emerald" : "rose";
-                  return (
-                    <tr
-                      key={row.crmAccountId}
-                      className="border-t cursor-pointer hover:bg-ds-bg-2/40"
-                      style={{ borderColor: "var(--ds-border-soft)" }}
-                      onClick={() => router.push(`/finanzas/reportes/ventas/${row.crmAccountId}`)}
-                    >
-                      <td className="px-3 py-2 text-ds-text-3">{i + 1}</td>
-                      <td className="px-3 py-2">
-                        <p className="text-ds-text-1">{row.clientName}</p>
-                        {row.sector && (
-                          <p className="text-[10.5px] text-ds-text-4">{row.sector}</p>
-                        )}
-                      </td>
-                      <td className="px-3 py-2 text-right text-ds-text-1">
-                        {fmtCompact(row.revenue)}
-                      </td>
-                      <td className="px-3 py-2 text-right text-ds-text-1">
-                        {fmtCompact(row.directCost)}
-                      </td>
-                      <td className="px-3 py-2 text-right text-ds-text-1">
-                        {fmtCompact(row.allocatedOpex)}
-                      </td>
-                      <td
-                        className="px-3 py-2 text-right font-semibold"
-                        style={{
-                          color:
-                            tone === "emerald"
-                              ? "var(--ds-tint-emerald)"
-                              : "var(--ds-tint-rose)",
-                        }}
-                      >
-                        {fmtCompact(row.margin)}
-                      </td>
-                      <td className="px-3 py-2">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className="text-[11px] font-mono w-12 shrink-0"
-                            style={{
-                              color:
-                                tone === "emerald"
-                                  ? "var(--ds-tint-emerald)"
-                                  : "var(--ds-tint-rose)",
-                            }}
-                          >
-                            {row.marginPct.toFixed(1)}%
-                          </span>
-                          <RankBar value={row.margin} max={maxAbsMargin} tone={tone} />
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-              <tfoot>
-                <tr style={{ background: "var(--ds-bg-2)" }} className="border-t">
-                  <td className="px-3 py-2"></td>
-                  <td className="px-3 py-2 font-semibold text-ds-text-1">Total</td>
-                  <td className="px-3 py-2 text-right font-semibold text-ds-text-1">
-                    {fmtCompact(data.totals.revenue)}
-                  </td>
-                  <td className="px-3 py-2 text-right font-semibold text-ds-text-1">
-                    {fmtCompact(data.totals.directCost)}
-                  </td>
-                  <td className="px-3 py-2 text-right font-semibold text-ds-text-1">
-                    {fmtCompact(data.totals.allocatedOpex)}
-                  </td>
-                  <td className="px-3 py-2 text-right font-semibold text-ds-text-1">
-                    {fmtCompact(data.totals.margin)}
-                  </td>
-                  <td className="px-3 py-2 font-semibold text-ds-text-1">
-                    {data.totals.marginPct.toFixed(1)}%
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        </div>
+        <DataTable
+          columns={columns}
+          rows={indexedRows}
+          rowKey={(r) => r.crmAccountId}
+          rowVariant={(r) => (r.margin < 0 ? "danger" : "default")}
+          onRowClick={(r) => {
+            if (r.crmAccountId.startsWith("__") || r.crmAccountId.startsWith("rut:")) return;
+            router.push(`/finanzas/reportes/ventas/${r.crmAccountId}`);
+          }}
+        />
       )}
     </div>
   );

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Filter, X } from "lucide-react";
 import type { FinanceReportFilters } from "@/modules/finance/reports/shared/types";
+import { cn } from "@/lib/utils";
 
 interface Props {
   value: FinanceReportFilters;
@@ -39,16 +40,12 @@ export function ReportsFiltersDrawer({ value, onChange, sectorOptions = [] }: Pr
           setDraft(value);
           setOpen(true);
         }}
-        className="inline-flex items-center gap-1.5 px-3 h-9 rounded-lg text-[12.5px] font-medium border bg-ds-surface text-ds-text-2"
-        style={{ borderColor: "var(--ds-border)" }}
+        className="inline-flex items-center gap-1.5 px-3 h-9 rounded-ds-md text-sm font-medium border border-ds-border-default bg-ds-surface text-ds-text-2 hover:bg-ds-surface-2 transition-colors"
       >
         <Filter className="w-3.5 h-3.5" />
         Filtros
         {activeCount > 0 && (
-          <span
-            className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold"
-            style={{ background: "var(--ds-tint-violet)", color: "white" }}
-          >
+          <span className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold bg-primary text-primary-foreground">
             {activeCount}
           </span>
         )}
@@ -63,15 +60,13 @@ export function ReportsFiltersDrawer({ value, onChange, sectorOptions = [] }: Pr
             className="absolute inset-0 bg-black/40"
             onClick={() => setOpen(false)}
           />
-          <div
-            className="relative w-full lg:w-96 lg:h-full lg:max-h-screen rounded-t-2xl lg:rounded-l-2xl lg:rounded-tr-none border bg-ds-surface p-4 shadow-2xl overflow-y-auto"
-            style={{ borderColor: "var(--ds-border)" }}
-          >
+          <div className="relative w-full lg:w-96 lg:h-full lg:max-h-screen rounded-t-2xl lg:rounded-l-2xl lg:rounded-tr-none border border-ds-border-default bg-ds-surface p-4 shadow-2xl overflow-y-auto">
             <header className="flex items-center justify-between mb-3">
-              <h3 className="text-[14px] font-semibold" style={{ fontFamily: "var(--font-display)" }}>
-                Filtros
-              </h3>
-              <button onClick={() => setOpen(false)} className="text-ds-text-3">
+              <h3 className="text-base font-semibold font-display">Filtros</h3>
+              <button
+                onClick={() => setOpen(false)}
+                className="text-ds-text-3 hover:text-ds-text-1 transition-colors"
+              >
                 <X className="w-4 h-4" />
               </button>
             </header>
@@ -96,14 +91,12 @@ export function ReportsFiltersDrawer({ value, onChange, sectorOptions = [] }: Pr
                                 : [...(d.sectors ?? []), s],
                             }))
                           }
-                          className="px-2.5 py-1 rounded-md border text-[11.5px]"
-                          style={{
-                            background: checked
-                              ? "color-mix(in oklab, var(--ds-tint-sky) 20%, transparent)"
-                              : "var(--ds-surface)",
-                            borderColor: checked ? "var(--ds-tint-sky)" : "var(--ds-border)",
-                            color: checked ? "var(--ds-tint-sky)" : "var(--ds-text-2)",
-                          }}
+                          className={cn(
+                            "px-2.5 py-1 rounded-ds-sm border text-xs transition-colors",
+                            checked
+                              ? "bg-primary/15 border-primary/40 text-primary"
+                              : "bg-ds-surface border-ds-border-default text-ds-text-2 hover:bg-ds-surface-2"
+                          )}
                         >
                           {s}
                         </button>
@@ -113,10 +106,9 @@ export function ReportsFiltersDrawer({ value, onChange, sectorOptions = [] }: Pr
                 </div>
               )}
 
-              <div className="flex items-center justify-between rounded-lg border p-2.5"
-                style={{ borderColor: "var(--ds-border)" }}>
+              <div className="flex items-center justify-between rounded-ds-md border border-ds-border-default p-2.5">
                 <div>
-                  <p className="text-[12.5px] text-ds-text-1">Solo clientes activos</p>
+                  <p className="text-sm text-ds-text-1">Solo clientes activos</p>
                   <p className="text-[10.5px] text-ds-text-3">
                     Excluye CRM con status `client_inactive`.
                   </p>
@@ -134,15 +126,13 @@ export function ReportsFiltersDrawer({ value, onChange, sectorOptions = [] }: Pr
             <footer className="flex gap-2 mt-5">
               <button
                 onClick={reset}
-                className="flex-1 h-9 rounded-lg border text-[12.5px] text-ds-text-2"
-                style={{ borderColor: "var(--ds-border)" }}
+                className="flex-1 h-9 rounded-ds-md border border-ds-border-default text-sm text-ds-text-2 hover:bg-ds-surface-2 transition-colors"
               >
                 Limpiar
               </button>
               <button
                 onClick={apply}
-                className="flex-1 h-9 rounded-lg text-[12.5px] font-medium text-white"
-                style={{ background: "var(--ds-tint-sky)" }}
+                className="flex-1 h-9 rounded-ds-md text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
               >
                 Aplicar
               </button>

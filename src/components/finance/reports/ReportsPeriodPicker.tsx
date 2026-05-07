@@ -7,6 +7,7 @@ import type {
   FinanceReportPeriodType,
 } from "@/modules/finance/reports/shared/types";
 import { buildPeriod } from "@/modules/finance/reports/shared/period.helper";
+import { cn } from "@/lib/utils";
 
 interface Props {
   value: FinanceReportPeriod;
@@ -49,8 +50,7 @@ export function ReportsPeriodPicker({
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="inline-flex items-center gap-1.5 px-3 h-9 rounded-lg text-[12.5px] font-medium border bg-ds-surface text-ds-text-1"
-        style={{ borderColor: "var(--ds-border)" }}
+        className="inline-flex items-center gap-1.5 px-3 h-9 rounded-ds-md text-sm font-medium border border-ds-border-default bg-ds-surface text-ds-text-1 hover:bg-ds-surface-2 transition-colors"
       >
         <Calendar className="w-3.5 h-3.5" />
         <span>{value.label}</span>
@@ -60,61 +60,64 @@ export function ReportsPeriodPicker({
         <button
           type="button"
           onClick={() => onCompareToggle?.(!compareEnabled)}
-          className="inline-flex items-center gap-1.5 px-3 h-9 rounded-lg text-[12.5px] font-medium border"
-          style={{
-            borderColor: compareEnabled ? "var(--ds-tint-violet)" : "var(--ds-border)",
-            background: compareEnabled
-              ? "color-mix(in oklab, var(--ds-tint-violet) 15%, transparent)"
-              : "var(--ds-surface)",
-            color: compareEnabled ? "var(--ds-tint-violet)" : "var(--ds-text-2)",
-          }}
+          className={cn(
+            "inline-flex items-center gap-1.5 px-3 h-9 rounded-ds-md text-sm font-medium border transition-colors",
+            compareEnabled
+              ? "border-primary/50 bg-primary/10 text-primary"
+              : "border-ds-border-default bg-ds-surface text-ds-text-2 hover:bg-ds-surface-2"
+          )}
         >
           vs. período anterior
         </button>
       )}
       {open && (
-        <div
-          className="absolute top-full left-0 mt-1 z-20 w-72 rounded-lg border p-3 shadow-2xl"
-          style={{ background: "var(--ds-surface-2)", borderColor: "var(--ds-border)" }}
-        >
-          <div className="grid grid-cols-3 gap-1.5 mb-3">
-            {TYPES.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => handleType(t.id)}
-                className="px-2 py-1.5 rounded text-[12px] border text-ds-text-2"
-                style={{ borderColor: "var(--ds-border)", background: "var(--ds-surface)" }}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
-          {value.type === "custom" && (
-            <div className="space-y-2">
-              <input
-                type="date"
-                value={customFrom}
-                onChange={(e) => setCustomFrom(e.target.value)}
-                className="w-full h-8 rounded border px-2 text-[12px] bg-ds-surface"
-                style={{ borderColor: "var(--ds-border)" }}
-              />
-              <input
-                type="date"
-                value={customTo}
-                onChange={(e) => setCustomTo(e.target.value)}
-                className="w-full h-8 rounded border px-2 text-[12px] bg-ds-surface"
-                style={{ borderColor: "var(--ds-border)" }}
-              />
-              <button
-                onClick={() => handleType("custom")}
-                className="w-full h-8 rounded text-[12px] font-medium text-white"
-                style={{ background: "var(--ds-tint-sky)" }}
-              >
-                Aplicar
-              </button>
+        <>
+          <div
+            className="fixed inset-0 z-10"
+            onClick={() => setOpen(false)}
+            aria-hidden
+          />
+          <div className="absolute top-full left-0 mt-1 z-20 w-72 rounded-ds-lg border border-ds-border-default bg-ds-surface-2 p-3 shadow-2xl">
+            <div className="grid grid-cols-3 gap-1.5 mb-3">
+              {TYPES.map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => handleType(t.id)}
+                  className={cn(
+                    "px-2 py-1.5 rounded-ds-sm text-xs border transition-colors",
+                    value.type === t.id
+                      ? "border-primary/50 bg-primary/10 text-primary"
+                      : "border-ds-border-default bg-ds-surface text-ds-text-2 hover:bg-ds-surface-2"
+                  )}
+                >
+                  {t.label}
+                </button>
+              ))}
             </div>
-          )}
-        </div>
+            {value.type === "custom" && (
+              <div className="space-y-2">
+                <input
+                  type="date"
+                  value={customFrom}
+                  onChange={(e) => setCustomFrom(e.target.value)}
+                  className="w-full h-8 rounded-ds-sm border border-ds-border-default px-2 text-xs bg-ds-surface text-ds-text-1"
+                />
+                <input
+                  type="date"
+                  value={customTo}
+                  onChange={(e) => setCustomTo(e.target.value)}
+                  className="w-full h-8 rounded-ds-sm border border-ds-border-default px-2 text-xs bg-ds-surface text-ds-text-1"
+                />
+                <button
+                  onClick={() => handleType("custom")}
+                  className="w-full h-8 rounded-ds-sm text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                >
+                  Aplicar
+                </button>
+              </div>
+            )}
+          </div>
+        </>
       )}
     </div>
   );

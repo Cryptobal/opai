@@ -25,7 +25,16 @@ const TONE_PALETTE = [
 ];
 const toneFor = (i: number): string => TONE_PALETTE[i % TONE_PALETTE.length];
 
-const NO_CLIENT_ID = "__no_client__";
+const NO_SUPPLIER_ID = "__no_supplier__";
+const RUT_PREFIX = "rut:";
+
+interface RowAgg {
+  total: number;
+  monthly: number[];
+  count: number;
+  rut?: string;
+  name?: string;
+}
 
 export async function getPurchasesMatrix(
   tenantId: string,
@@ -36,15 +45,14 @@ export async function getPurchasesMatrix(
   const fromDate = parseISODate(period.from);
   const toDate = parseISODate(period.to);
 
+  // Excluir solo CLAIMED (rechazo total) y EXPIRED (sin acuse en plazo).
+  // Incluir NULL, ACCEPTED, PENDING_REVIEW, PARTIAL_CLAIM como gasto efectivo.
   const dtes = await prisma.financeDte.findMany({
     where: {
       tenantId,
       direction: "RECEIVED",
       date: { gte: fromDate, lte: toDate },
-      OR: [
-        { receptionStatus: null },
-        { receptionStatus: { in: ["ACCEPTED"] } },
-      ],
+      NOT: { receptionStatus: { in: ["CLAIMED", "EXPIRED"] } },
       ...(filters.crmAccountIds?.length ? { crmAccountId: { in: filters.crmAccountIds } } : {}),
       ...(filters.installationIds?.length
         ? { installationId: { in: filters.installationIds } }
@@ -58,28 +66,25 @@ export async function getPurchasesMatrix(
       crmAccountId: true,
       installationId: true,
       supplierId: true,
+      issuerRut: true,
+      issuerName: true,
     },
     orderBy: { date: "asc" },
   });
 
-  const accountIds = Array.from(
-    new Set(dtes.map((d) => d.crmAccountId).filter((v): v is string => Boolean(v)))
+  // Las compras se agrupan por proveedor (issuer). Cargamos suppliers con su RUT.
+  const supplierIds = Array.from(
+    new Set(dtes.map((d) => d.supplierId).filter((v): v is string => Boolean(v)))
   );
-  const accounts = accountIds.length
-    ? await prisma.crmAccount.findMany({
-        where: { tenantId, id: { in: accountIds } },
-        select: {
-          id: true,
-          name: true,
-          industry: true,
-          status: true,
-          installations: { select: { id: true } },
-        },
+  const suppliers = supplierIds.length
+    ? await prisma.financeSupplier.findMany({
+        where: { tenantId, id: { in: supplierIds } },
+        select: { id: true, name: true, rut: true },
       })
     : [];
-  const accMap = new Map(accounts.map((a) => [a.id, a]));
+  const supplierMap = new Map(suppliers.map((s) => [s.id, s]));
 
-  const byClient = new Map<string, { total: number; monthly: number[]; count: number }>();
+  const byRow = new Map<string, RowAgg>();
   const totalsByMonth = months.map(() => 0);
   let documentsCount = 0;
   let grandTotal = 0;
@@ -97,11 +102,37 @@ export async function getPurchasesMatrix(
       (m) => dt.getFullYear() === m.year && dt.getMonth() + 1 === m.month
     );
     if (monthIdx < 0) continue;
-    const key = d.crmAccountId ?? NO_CLIENT_ID;
-    if (!byClient.has(key)) {
-      byClient.set(key, { total: 0, monthly: months.map(() => 0), count: 0 });
+
+    // Key priority:
+    //  1. supplierId (proveedor catalogado)
+    //  2. issuerRut (mismo RUT = mismo proveedor)
+    //  3. NO_SUPPLIER_ID
+    let key: string;
+    let name: string | undefined;
+    let rut: string | undefined;
+    if (d.supplierId) {
+      key = d.supplierId;
+      const s = supplierMap.get(d.supplierId);
+      name = s?.name ?? d.issuerName ?? undefined;
+      rut = s?.rut ?? d.issuerRut ?? undefined;
+    } else if (d.issuerRut) {
+      key = `${RUT_PREFIX}${d.issuerRut}`;
+      name = d.issuerName ?? undefined;
+      rut = d.issuerRut;
+    } else {
+      key = NO_SUPPLIER_ID;
     }
-    const slot = byClient.get(key)!;
+
+    if (!byRow.has(key)) {
+      byRow.set(key, {
+        total: 0,
+        monthly: months.map(() => 0),
+        count: 0,
+        rut,
+        name,
+      });
+    }
+    const slot = byRow.get(key)!;
     slot.total += amount;
     slot.monthly[monthIdx] += amount;
     slot.count += 1;
@@ -110,16 +141,16 @@ export async function getPurchasesMatrix(
     documentsCount += 1;
   }
 
-  const rawRows = Array.from(byClient.entries()).map(([id, agg]) => ({ id, ...agg }));
+  const rawRows = Array.from(byRow.entries()).map(([id, agg]) => ({ id, ...agg }));
   rawRows.sort((a, b) => b.total - a.total);
 
   const rows: FinanceMatrixRow[] = [];
   rawRows.forEach((r, idx) => {
-    if (r.id === NO_CLIENT_ID) {
+    if (r.id === NO_SUPPLIER_ID) {
       rows.push({
-        id: NO_CLIENT_ID,
-        label: "(Sin cliente asignado)",
-        sublabel: `${r.count} DTEs · gasto general`,
+        id: NO_SUPPLIER_ID,
+        label: "(Sin RUT proveedor)",
+        sublabel: `${r.count} DTE${r.count === 1 ? "" : "s"}`,
         color: "#6B7585",
         monthly: r.monthly,
         total: r.total,
@@ -127,18 +158,26 @@ export async function getPurchasesMatrix(
       });
       return;
     }
-    const acc = accMap.get(r.id);
-    if (!acc) return;
-    if (filters.sectors?.length && (!acc.industry || !filters.sectors.includes(acc.industry))) return;
-    if (filters.onlyActiveClients !== false && acc.status === "client_inactive") return;
+    if (r.id.startsWith(RUT_PREFIX)) {
+      rows.push({
+        id: r.id,
+        label: r.name ?? r.rut ?? "Proveedor sin nombre",
+        sublabel: `RUT ${r.rut} · sin ficha proveedor`,
+        color: toneFor(idx),
+        monthly: r.monthly,
+        total: r.total,
+        meta: { uncatalogued: true, rut: r.rut },
+      });
+      return;
+    }
     rows.push({
       id: r.id,
-      label: acc.name,
-      sublabel: `${acc.industry ?? "Sin sector"} · ${acc.installations.length} inst.`,
+      label: r.name ?? "Proveedor",
+      sublabel: r.rut ? `RUT ${r.rut}` : undefined,
       color: toneFor(idx),
       monthly: r.monthly,
       total: r.total,
-      meta: { sector: acc.industry, installationsCount: acc.installations.length },
+      meta: { rut: r.rut },
     });
   });
 

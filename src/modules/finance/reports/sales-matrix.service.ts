@@ -28,6 +28,16 @@ const TONE_PALETTE = [
 const toneFor = (idx: number): string => TONE_PALETTE[idx % TONE_PALETTE.length];
 
 const NO_CLIENT_ID = "__no_client__";
+const RUT_PREFIX = "rut:";
+
+interface RowAgg {
+  total: number;
+  monthly: number[];
+  count: number;
+  /** Datos cuando el row viene de un RUT (no de un CrmAccount). */
+  rut?: string;
+  name?: string;
+}
 
 export async function getSalesMatrix(
   tenantId: string,
@@ -57,6 +67,8 @@ export async function getSalesMatrix(
       netAmount: true,
       crmAccountId: true,
       installationId: true,
+      receiverRut: true,
+      receiverName: true,
     },
     orderBy: { date: "asc" },
   });
@@ -78,7 +90,7 @@ export async function getSalesMatrix(
     : [];
   const accMap = new Map(accounts.map((a) => [a.id, a]));
 
-  const byClient = new Map<string, { total: number; monthly: number[]; count: number }>();
+  const byClient = new Map<string, RowAgg>();
   const totalsByMonth = months.map(() => 0);
   let documentsCount = 0;
   let grandTotal = 0;
@@ -92,9 +104,24 @@ export async function getSalesMatrix(
       (m) => dt.getFullYear() === m.year && dt.getMonth() + 1 === m.month
     );
     if (monthIdx < 0) continue;
-    const key = d.crmAccountId ?? NO_CLIENT_ID;
+
+    // Key resolution priority:
+    //  1. crmAccountId (cliente CRM matched)
+    //  2. receiverRut (mismo RUT = mismo cliente real, aún sin CRM)
+    //  3. NO_CLIENT_ID
+    let key: string;
+    if (d.crmAccountId) key = d.crmAccountId;
+    else if (d.receiverRut) key = `${RUT_PREFIX}${d.receiverRut}`;
+    else key = NO_CLIENT_ID;
+
     if (!byClient.has(key)) {
-      byClient.set(key, { total: 0, monthly: months.map(() => 0), count: 0 });
+      byClient.set(key, {
+        total: 0,
+        monthly: months.map(() => 0),
+        count: 0,
+        rut: d.receiverRut ?? undefined,
+        name: d.receiverName ?? undefined,
+      });
     }
     const slot = byClient.get(key)!;
     slot.total += amount;
@@ -119,12 +146,25 @@ export async function getSalesMatrix(
     if (r.id === NO_CLIENT_ID) {
       rows.push({
         id: NO_CLIENT_ID,
-        label: "(Sin cliente asignado)",
-        sublabel: `${r.count} DTEs · pendiente catalogar`,
+        label: "(Sin RUT receptor)",
+        sublabel: `${r.count} DTE${r.count === 1 ? "" : "s"}`,
         color: "#6B7585",
         monthly: r.monthly,
         total: r.total,
         meta: { unassigned: true },
+      });
+      return;
+    }
+    if (r.id.startsWith(RUT_PREFIX)) {
+      // Cliente sin CRM, agrupado por RUT
+      rows.push({
+        id: r.id,
+        label: r.name ?? r.rut ?? "Cliente sin nombre",
+        sublabel: `RUT ${r.rut} · sin ficha CRM`,
+        color: toneFor(idx),
+        monthly: r.monthly,
+        total: r.total,
+        meta: { uncatalogued: true, rut: r.rut },
       });
       return;
     }

@@ -6,8 +6,9 @@ import type {
   BalanceSheetResult,
   BalanceSheetSection,
 } from "@/modules/finance/reports/shared/types";
+import { KPICard, KPIGrid, Surface, SectionHeader } from "@/components/opai-ds";
+import { cn } from "@/lib/utils";
 import { ExportMenu } from "./ExportMenu";
-import { KPICard } from "./shared/KPICard";
 
 interface Props {
   initialAsOf: string;
@@ -16,35 +17,29 @@ interface Props {
 }
 
 const fmtCLP = (n: number): string =>
-  new Intl.NumberFormat("es-CL", {
-    style: "currency",
-    currency: "CLP",
-    maximumFractionDigits: 0,
-  }).format(n);
+  "$" + new Intl.NumberFormat("es-CL").format(Math.round(n));
 
-const fmtCompact = (n: number): string => {
-  const a = Math.abs(n);
-  if (a >= 1e9) return `$${(n / 1e9).toFixed(2)}B`;
-  if (a >= 1e6) return `$${(n / 1e6).toFixed(1)}M`;
-  if (a >= 1e3) return `$${(n / 1e3).toFixed(0)}K`;
-  return fmtCLP(n);
+const fmtCLPShort = (n: number): string => {
+  const abs = Math.abs(n);
+  const sign = n < 0 ? "-" : "";
+  if (abs >= 1_000_000_000) return `${sign}$${(abs / 1_000_000_000).toFixed(1).replace(/\.0$/, "")}MM`;
+  if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
+  if (abs >= 1_000) return `${sign}$${(abs / 1_000).toFixed(0)}K`;
+  return `${sign}$${abs}`;
 };
 
-function SectionCard({
+function SubSection({
   section,
   showPrev,
-  accent,
+  accentClass,
 }: {
   section: BalanceSheetSection;
   showPrev: boolean;
-  accent: string;
+  accentClass: string;
 }) {
   return (
-    <div className="rounded-lg border p-3" style={{ borderColor: "var(--ds-border-soft)" }}>
-      <div
-        className="text-[11px] font-mono uppercase tracking-wider mb-2"
-        style={{ color: accent }}
-      >
+    <div>
+      <div className={cn("text-[11px] font-mono uppercase tracking-wider mb-2", accentClass)}>
         {section.label}
       </div>
       {section.items.length === 0 ? (
@@ -54,13 +49,13 @@ function SectionCard({
           {section.items.map((it) => (
             <div
               key={it.accountId}
-              className="flex items-center justify-between text-[12px] py-1"
+              className="flex items-center justify-between text-sm py-1"
             >
               <div className="min-w-0 mr-2">
                 <p className="text-ds-text-1 truncate">{it.accountName}</p>
                 <p className="text-[10px] text-ds-text-4 font-mono">{it.accountCode}</p>
               </div>
-              <div className="text-right tabular-nums">
+              <div className="text-right ds-num shrink-0">
                 {showPrev && (
                   <p className="text-[10.5px] text-ds-text-4">
                     {fmtCLP(it.prevAmount ?? 0)}
@@ -73,11 +68,13 @@ function SectionCard({
         </div>
       )}
       <div
-        className="flex items-center justify-between pt-2 mt-2 border-t text-[12.5px] font-semibold"
-        style={{ borderColor: "var(--ds-border-soft)", color: accent }}
+        className={cn(
+          "flex items-center justify-between pt-2 mt-2 border-t border-ds-border-subtle text-sm font-semibold",
+          accentClass
+        )}
       >
         <span>Total {section.label}</span>
-        <span className="tabular-nums">{fmtCLP(section.total)}</span>
+        <span className="ds-num">{fmtCLP(section.total)}</span>
       </div>
     </div>
   );
@@ -87,7 +84,7 @@ export function BalanceSheetClient({ initialAsOf, initialData, initialCompare = 
   const [asOf, setAsOf] = useState(initialAsOf);
   const [data, setData] = useState(initialData);
   const [compare, setCompare] = useState(initialCompare);
-  const [, startTransition] = useTransition();
+  const [isPending, startTransition] = useTransition();
 
   const refetch = (newAsOf: string, withPriorMonth: boolean) => {
     setAsOf(newAsOf);
@@ -117,7 +114,7 @@ export function BalanceSheetClient({ initialAsOf, initialData, initialCompare = 
   }, [data]);
 
   return (
-    <div className="space-y-5">
+    <div className={cn("space-y-5", isPending && "opacity-70")}>
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2 flex-wrap">
           <label className="text-[11px] font-mono uppercase tracking-wider text-ds-text-3">
@@ -127,19 +124,16 @@ export function BalanceSheetClient({ initialAsOf, initialData, initialCompare = 
             type="date"
             value={asOf}
             onChange={(e) => refetch(e.target.value, compare)}
-            className="h-9 px-2 rounded-lg border text-[12.5px] bg-ds-surface"
-            style={{ borderColor: "var(--ds-border)" }}
+            className="h-9 px-2 rounded-ds-md border border-ds-border-default text-sm bg-ds-surface"
           />
           <button
             onClick={() => refetch(asOf, !compare)}
-            className="h-9 px-3 rounded-lg border text-[12.5px] font-medium"
-            style={{
-              borderColor: compare ? "var(--ds-tint-violet)" : "var(--ds-border)",
-              background: compare
-                ? "color-mix(in oklab, var(--ds-tint-violet) 15%, transparent)"
-                : "var(--ds-surface)",
-              color: compare ? "var(--ds-tint-violet)" : "var(--ds-text-2)",
-            }}
+            className={cn(
+              "h-9 px-3 rounded-ds-md border text-sm font-medium transition-colors",
+              compare
+                ? "border-primary/50 bg-primary/10 text-primary"
+                : "border-ds-border-default bg-ds-surface text-ds-text-2 hover:bg-ds-surface-2"
+            )}
           >
             vs. cierre mes anterior
           </button>
@@ -151,122 +145,128 @@ export function BalanceSheetClient({ initialAsOf, initialData, initialCompare = 
         />
       </div>
 
-      <div
-        className={`flex items-center gap-2.5 rounded-lg border p-3 text-[12.5px]`}
-        style={{
-          borderColor: data.isBalanced ? "var(--ds-tint-emerald)" : "var(--ds-tint-amber)",
-          background: data.isBalanced
-            ? "color-mix(in oklab, var(--ds-tint-emerald) 10%, transparent)"
-            : "color-mix(in oklab, var(--ds-tint-amber) 10%, transparent)",
-        }}
+      <Surface
+        padding="md"
+        elevation={1}
+        accent={data.isBalanced ? "ok" : "warn"}
+        className="flex items-center gap-2.5"
       >
         {data.isBalanced ? (
-          <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+          <CheckCircle2 className="w-4 h-4 text-status-ok-fg shrink-0" />
         ) : (
-          <AlertTriangle className="w-4 h-4 text-amber-500" />
+          <AlertTriangle className="w-4 h-4 text-status-warn-fg shrink-0" />
         )}
-        <span>
+        <span className="text-sm">
           {data.isBalanced
             ? "Balance cuadrado: Activo = Pasivo + Patrimonio."
             : `Diferencia detectada: ${fmtCLP(data.imbalance)} entre Activo y Pasivo + Patrimonio.`}
         </span>
-      </div>
+      </Surface>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <KPIGrid>
         <KPICard
           label="Total Activo"
-          value={fmtCompact(data.asset.total)}
+          value={<span title={fmtCLP(data.asset.total)}>{fmtCLPShort(data.asset.total)}</span>}
           icon={Scale}
-          tone="emerald"
+          iconTone="emerald"
+          variant="ok"
         />
         <KPICard
           label="Total Pasivo"
-          value={fmtCompact(data.liability.total)}
-          tone="amber"
+          value={<span title={fmtCLP(data.liability.total)}>{fmtCLPShort(data.liability.total)}</span>}
+          iconTone="amber"
+          variant="warn"
         />
         <KPICard
           label="Patrimonio"
-          value={fmtCompact(data.equity.total)}
-          tone="violet"
+          value={<span title={fmtCLP(data.equity.total)}>{fmtCLPShort(data.equity.total)}</span>}
+          iconTone="violet"
+          variant="brand"
         />
         <KPICard
           label="Liquidez corriente"
           value={ratios.liquidity.toFixed(2)}
-          tone={ratios.liquidity >= 1 ? "emerald" : "rose"}
-          sub={ratios.liquidity >= 1 ? "saludable" : "riesgo"}
+          hint={ratios.liquidity >= 1 ? "saludable" : "riesgo"}
+          variant={ratios.liquidity >= 1 ? "ok" : "danger"}
         />
-      </div>
+      </KPIGrid>
 
       <div className="grid lg:grid-cols-2 gap-4">
-        <section
-          className="rounded-xl border bg-ds-surface p-4 space-y-3"
-          style={{ borderColor: "var(--ds-border)" }}
-        >
-          <h3
-            className="text-[13px] font-semibold"
-            style={{ fontFamily: "var(--font-display)", color: "var(--ds-tint-emerald)" }}
-          >
-            ACTIVO · {fmtCLP(data.asset.total)}
-          </h3>
-          <SectionCard
-            section={data.asset.current}
-            showPrev={!!data.prevAsOf}
-            accent="var(--ds-tint-sky)"
+        <Surface padding="lg" elevation={1}>
+          <SectionHeader
+            eyebrow={fmtCLPShort(data.asset.total)}
+            title="Activo"
+            size="md"
           />
-          <SectionCard
-            section={data.asset.nonCurrent}
-            showPrev={!!data.prevAsOf}
-            accent="var(--ds-tint-violet)"
-          />
-        </section>
+          <div className="space-y-4 mt-3">
+            <SubSection
+              section={data.asset.current}
+              showPrev={!!data.prevAsOf}
+              accentClass="text-status-info-fg"
+            />
+            <SubSection
+              section={data.asset.nonCurrent}
+              showPrev={!!data.prevAsOf}
+              accentClass="text-tint-violet-fg"
+            />
+          </div>
+        </Surface>
 
-        <section
-          className="rounded-xl border bg-ds-surface p-4 space-y-3"
-          style={{ borderColor: "var(--ds-border)" }}
-        >
-          <h3
-            className="text-[13px] font-semibold"
-            style={{ fontFamily: "var(--font-display)", color: "var(--ds-tint-amber)" }}
-          >
-            PASIVO + PATRIMONIO · {fmtCLP(data.liability.total + data.equity.total)}
-          </h3>
-          <SectionCard
-            section={data.liability.current}
-            showPrev={!!data.prevAsOf}
-            accent="var(--ds-tint-rose)"
+        <Surface padding="lg" elevation={1}>
+          <SectionHeader
+            eyebrow={fmtCLPShort(data.liability.total + data.equity.total)}
+            title="Pasivo + Patrimonio"
+            size="md"
           />
-          <SectionCard
-            section={data.liability.nonCurrent}
-            showPrev={!!data.prevAsOf}
-            accent="var(--ds-tint-amber)"
-          />
-          <SectionCard
-            section={data.equity}
-            showPrev={!!data.prevAsOf}
-            accent="var(--ds-tint-violet)"
-          />
-        </section>
+          <div className="space-y-4 mt-3">
+            <SubSection
+              section={data.liability.current}
+              showPrev={!!data.prevAsOf}
+              accentClass="text-status-danger-fg"
+            />
+            <SubSection
+              section={data.liability.nonCurrent}
+              showPrev={!!data.prevAsOf}
+              accentClass="text-status-warn-fg"
+            />
+            <SubSection
+              section={data.equity}
+              showPrev={!!data.prevAsOf}
+              accentClass="text-tint-violet-fg"
+            />
+          </div>
+        </Surface>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+      <KPIGrid lgCols={3}>
         <KPICard
           label="Ratio de endeudamiento"
           value={`${(ratios.debtRatio * 100).toFixed(1)}%`}
-          tone={ratios.debtRatio < 0.6 ? "emerald" : "amber"}
+          variant={ratios.debtRatio < 0.6 ? "ok" : "warn"}
         />
         <KPICard
           label="Capital de trabajo"
-          value={fmtCompact(ratios.workingCapital)}
-          tone={ratios.workingCapital >= 0 ? "emerald" : "rose"}
+          value={
+            <span title={fmtCLP(ratios.workingCapital)}>
+              {fmtCLPShort(ratios.workingCapital)}
+            </span>
+          }
+          variant={ratios.workingCapital >= 0 ? "ok" : "danger"}
         />
         {data.prevAsOf && (
           <KPICard
             label={`Δ Activo desde ${data.prevAsOf}`}
-            value={fmtCompact(data.asset.total - (data.asset.prevTotal ?? 0))}
-            tone={data.asset.total >= (data.asset.prevTotal ?? 0) ? "emerald" : "rose"}
+            value={
+              <span
+                title={fmtCLP(data.asset.total - (data.asset.prevTotal ?? 0))}
+              >
+                {fmtCLPShort(data.asset.total - (data.asset.prevTotal ?? 0))}
+              </span>
+            }
+            variant={data.asset.total >= (data.asset.prevTotal ?? 0) ? "ok" : "danger"}
           />
         )}
-      </div>
+      </KPIGrid>
     </div>
   );
 }

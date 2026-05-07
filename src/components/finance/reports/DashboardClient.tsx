@@ -24,33 +24,31 @@ import type {
   DashboardKpis,
   FinanceReportPeriod,
 } from "@/modules/finance/reports/shared/types";
+import { KPICard, KPIGrid, Surface, SectionHeader } from "@/components/opai-ds";
 import { ReportsPeriodPicker } from "./ReportsPeriodPicker";
 import { ExportMenu } from "./ExportMenu";
-import { KPICard } from "./shared/KPICard";
 
 interface Props {
   initialPeriod: FinanceReportPeriod;
   initialKpis: DashboardKpis;
 }
 
-const fmt = (n: number, compact = false): string => {
-  if (compact) {
-    const a = Math.abs(n);
-    if (a >= 1e9) return `$${(n / 1e9).toFixed(2)}B`;
-    if (a >= 1e6) return `$${(n / 1e6).toFixed(1)}M`;
-    if (a >= 1e3) return `$${(n / 1e3).toFixed(0)}K`;
-  }
-  return new Intl.NumberFormat("es-CL", {
-    style: "currency",
-    currency: "CLP",
-    maximumFractionDigits: 0,
-  }).format(n);
+const fmtCLP = (n: number): string =>
+  "$" + new Intl.NumberFormat("es-CL").format(Math.round(n));
+
+const fmtCLPShort = (n: number): string => {
+  const abs = Math.abs(n);
+  const sign = n < 0 ? "-" : "";
+  if (abs >= 1_000_000_000) return `${sign}$${(abs / 1_000_000_000).toFixed(1).replace(/\.0$/, "")}MM`;
+  if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
+  if (abs >= 1_000) return `${sign}$${(abs / 1_000).toFixed(0)}K`;
+  return `${sign}$${abs}`;
 };
 
 export function DashboardClient({ initialPeriod, initialKpis }: Props) {
   const [period, setPeriod] = useState(initialPeriod);
   const [kpis, setKpis] = useState(initialKpis);
-  const [, startTransition] = useTransition();
+  const [isPending, startTransition] = useTransition();
 
   const refetch = (p: FinanceReportPeriod) => {
     setPeriod(p);
@@ -78,95 +76,99 @@ export function DashboardClient({ initialPeriod, initialKpis }: Props) {
         />
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <KPIGrid>
         <KPICard
           label="Ingresos"
-          value={fmt(kpis.revenue.value, true)}
-          delta={kpis.revenue.deltaPct}
+          value={
+            <span title={fmtCLP(kpis.revenue.value)}>{fmtCLPShort(kpis.revenue.value)}</span>
+          }
+          trend={kpis.revenue.deltaPct}
           icon={DollarSign}
-          tone="emerald"
+          iconTone="emerald"
+          variant="brand"
         />
         <KPICard
           label="EBITDA"
-          value={fmt(kpis.ebitda.value, true)}
-          delta={kpis.ebitda.deltaPct}
+          value={
+            <span title={fmtCLP(kpis.ebitda.value)}>{fmtCLPShort(kpis.ebitda.value)}</span>
+          }
+          hint={`Margen ${kpis.ebitda.marginPct}%`}
+          trend={kpis.ebitda.deltaPct}
           icon={Sparkles}
-          tone="sky"
-          sub={`margen ${kpis.ebitda.marginPct}%`}
+          iconTone="sky"
+          variant={kpis.ebitda.value >= 0 ? "ok" : "danger"}
         />
         <KPICard
           label="DSO"
           value={`${kpis.dso.value} días`}
+          hint="Days Sales Outstanding"
           icon={Wallet}
-          tone="amber"
+          iconTone="amber"
+          variant={kpis.dso.value <= 60 ? "ok" : kpis.dso.value <= 90 ? "warn" : "danger"}
         />
         <KPICard
           label="Cuentas por cobrar"
-          value={fmt(kpis.accountsReceivable.value, true)}
+          value={
+            <span title={fmtCLP(kpis.accountsReceivable.value)}>
+              {fmtCLPShort(kpis.accountsReceivable.value)}
+            </span>
+          }
+          hint={`${kpis.accountsReceivable.activeInvoices} facturas abiertas`}
           icon={Receipt}
-          tone="violet"
-          sub={`${kpis.accountsReceivable.activeInvoices} facturas`}
+          iconTone="violet"
         />
-      </div>
+      </KPIGrid>
 
-      <section
-        className="rounded-xl border bg-ds-surface p-4 md:p-5"
-        style={{ borderColor: "var(--ds-border)" }}
-      >
-        <header className="flex items-center justify-between mb-3">
-          <h3
-            className="text-[13px] font-semibold"
-            style={{ fontFamily: "var(--font-display)" }}
-          >
-            Ingresos vs gastos · 12 meses
-          </h3>
-          <span className="text-[10px] font-mono uppercase tracking-wider text-ds-text-3">
-            CLP
-          </span>
-        </header>
-        <div className="h-56 md:h-72 -ml-2">
+      <Surface padding="lg" elevation={1}>
+        <SectionHeader
+          eyebrow="CLP"
+          title="Ingresos vs gastos · 12 meses"
+          hint="Tendencia mensual con DTEs aceptados y journal posted."
+        />
+        <div className={`h-56 md:h-72 -ml-2 ${isPending ? "opacity-60" : ""}`}>
           <ResponsiveContainer>
             <AreaChart data={kpis.trendMonthly}>
               <defs>
                 <linearGradient id="gV" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#3B82F6" stopOpacity={0.4} />
-                  <stop offset="100%" stopColor="#3B82F6" stopOpacity={0} />
+                  <stop offset="0%" stopColor="hsl(var(--ds-ok-fg))" stopOpacity={0.35} />
+                  <stop offset="100%" stopColor="hsl(var(--ds-ok-fg))" stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="gC" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#F43F5E" stopOpacity={0.3} />
-                  <stop offset="100%" stopColor="#F43F5E" stopOpacity={0} />
+                  <stop offset="0%" stopColor="hsl(var(--ds-danger-fg))" stopOpacity={0.3} />
+                  <stop offset="100%" stopColor="hsl(var(--ds-danger-fg))" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid
                 strokeDasharray="2 4"
-                stroke="var(--ds-border-soft)"
+                stroke="hsl(var(--ds-border-subtle))"
                 vertical={false}
               />
               <XAxis
                 dataKey="month"
-                tick={{ fontSize: 11, fill: "var(--ds-text-3)" }}
+                tick={{ fontSize: 11, fill: "hsl(var(--ds-text-3))" }}
                 axisLine={false}
                 tickLine={false}
               />
               <YAxis
-                tick={{ fontSize: 11, fill: "var(--ds-text-3)" }}
+                tick={{ fontSize: 11, fill: "hsl(var(--ds-text-3))" }}
                 axisLine={false}
                 tickLine={false}
-                tickFormatter={(v) => fmt(Number(v), true)}
+                tickFormatter={(v) => fmtCLPShort(Number(v))}
                 width={50}
               />
               <RTooltip
                 contentStyle={{
-                  background: "var(--ds-surface-2)",
-                  border: "1px solid var(--ds-border)",
+                  background: "hsl(var(--ds-surface-2))",
+                  border: "1px solid hsl(var(--ds-border-default))",
                   borderRadius: 10,
+                  fontSize: 12,
                 }}
-                formatter={(v) => fmt(Number(v))}
+                formatter={(v) => fmtCLP(Number(v))}
               />
               <Area
                 type="monotone"
                 dataKey="revenue"
-                stroke="#3B82F6"
+                stroke="hsl(var(--ds-ok-fg))"
                 strokeWidth={2}
                 fill="url(#gV)"
                 name="Ingresos"
@@ -174,7 +176,7 @@ export function DashboardClient({ initialPeriod, initialKpis }: Props) {
               <Area
                 type="monotone"
                 dataKey="expense"
-                stroke="#F43F5E"
+                stroke="hsl(var(--ds-danger-fg))"
                 strokeWidth={2}
                 fill="url(#gC)"
                 name="Gastos"
@@ -182,43 +184,32 @@ export function DashboardClient({ initialPeriod, initialKpis }: Props) {
             </AreaChart>
           </ResponsiveContainer>
         </div>
-      </section>
+      </Surface>
 
       <div className="grid lg:grid-cols-2 gap-4">
-        <section
-          className="rounded-xl border bg-ds-surface p-4 md:p-5"
-          style={{ borderColor: "var(--ds-border)" }}
-        >
-          <h3
-            className="text-[13px] font-semibold mb-3"
-            style={{ fontFamily: "var(--font-display)" }}
-          >
-            Top 5 clientes
-          </h3>
+        <Surface padding="lg" elevation={1}>
+          <SectionHeader title="Top 5 clientes" size="sm" />
           {kpis.topClients.length === 0 ? (
-            <p className="text-[12px] text-ds-text-3">Sin datos para este período.</p>
+            <p className="text-sm text-ds-text-3 mt-3">Sin datos para este período.</p>
           ) : (
-            <div className="space-y-2.5">
+            <div className="space-y-2.5 mt-3">
               {kpis.topClients.map((c, i) => (
                 <div key={c.id}>
                   <div className="flex items-center justify-between text-[12.5px] mb-1">
                     <div className="flex items-center gap-2 min-w-0">
                       <span
-                        className="w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-mono font-bold"
+                        className="w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-mono font-bold shrink-0"
                         style={{ background: `${c.color}20`, color: c.color }}
                       >
                         {i + 1}
                       </span>
                       <span className="truncate text-ds-text-1">{c.name}</span>
                     </div>
-                    <span className="font-mono text-ds-text-2 shrink-0">
-                      {fmt(c.total, true)}
+                    <span className="ds-num text-ds-text-2 shrink-0">
+                      {fmtCLPShort(c.total)}
                     </span>
                   </div>
-                  <div
-                    className="h-1.5 rounded-full overflow-hidden"
-                    style={{ background: "var(--ds-bg-2)" }}
-                  >
+                  <div className="h-1.5 rounded-full overflow-hidden bg-ds-surface-3">
                     <div
                       className="h-full rounded-full"
                       style={{ width: `${c.pct}%`, background: c.color }}
@@ -228,19 +219,11 @@ export function DashboardClient({ initialPeriod, initialKpis }: Props) {
               ))}
             </div>
           )}
-        </section>
+        </Surface>
 
-        <section
-          className="rounded-xl border bg-ds-surface p-4 md:p-5"
-          style={{ borderColor: "var(--ds-border)" }}
-        >
-          <h3
-            className="text-[13px] font-semibold mb-3"
-            style={{ fontFamily: "var(--font-display)" }}
-          >
-            Concentración de ingresos
-          </h3>
-          <div className="flex items-center gap-4">
+        <Surface padding="lg" elevation={1}>
+          <SectionHeader title="Concentración de ingresos" size="sm" />
+          <div className="flex items-center gap-4 mt-3">
             <div className="w-32 h-32 shrink-0">
               {kpis.topClients.length > 0 ? (
                 <ResponsiveContainer>
@@ -259,8 +242,7 @@ export function DashboardClient({ initialPeriod, initialKpis }: Props) {
                   </PieChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="w-full h-full rounded-full border border-dashed flex items-center justify-center text-[10px] text-ds-text-4"
-                  style={{ borderColor: "var(--ds-border)" }}>
+                <div className="w-full h-full rounded-full border border-dashed flex items-center justify-center text-[10px] text-ds-text-4 border-ds-border-default">
                   Sin datos
                 </div>
               )}
@@ -268,42 +250,48 @@ export function DashboardClient({ initialPeriod, initialKpis }: Props) {
             <div className="space-y-2 flex-1 text-[12px]">
               <div className="flex justify-between">
                 <span className="text-ds-text-3">Top 5</span>
-                <span className="font-mono text-emerald-500">
+                <span className="ds-num text-status-ok-fg">
                   {kpis.topClientsConcentration.pct}%
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-ds-text-3">HHI</span>
-                <span className="font-mono text-amber-500">
+                <span className="ds-num text-status-warn-fg">
                   {kpis.topClientsConcentration.hhi}
                 </span>
               </div>
               <p className="pt-1 text-[11px] text-ds-text-4">
-                Diversificación de cartera; un HHI &gt; 0.25 indica alta
-                concentración.
+                Diversificación de cartera; un HHI &gt; 0.25 indica alta concentración.
               </p>
             </div>
           </div>
-        </section>
+        </Surface>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <KPIGrid>
         <KPICard
           label="Utilidad neta"
-          value={fmt(kpis.netIncome.value, true)}
-          delta={kpis.netIncome.deltaPct}
+          value={
+            <span title={fmtCLP(kpis.netIncome.value)}>{fmtCLPShort(kpis.netIncome.value)}</span>
+          }
+          hint={`Margen ${kpis.netIncome.marginPct}%`}
+          trend={kpis.netIncome.deltaPct}
           icon={TrendingUp}
-          tone="emerald"
-          sub={`margen ${kpis.netIncome.marginPct}%`}
+          iconTone="emerald"
+          variant={kpis.netIncome.value >= 0 ? "ok" : "danger"}
         />
         <KPICard
           label="Cuentas por pagar"
-          value={fmt(kpis.accountsPayable.value, true)}
+          value={
+            <span title={fmtCLP(kpis.accountsPayable.value)}>
+              {fmtCLPShort(kpis.accountsPayable.value)}
+            </span>
+          }
+          hint={`${kpis.accountsPayable.activeInvoices} facturas abiertas`}
           icon={Receipt}
-          tone="rose"
-          sub={`${kpis.accountsPayable.activeInvoices} facturas`}
+          iconTone="rose"
         />
-      </div>
+      </KPIGrid>
     </div>
   );
 }

@@ -44,17 +44,32 @@ describe("getSalesMatrix", () => {
     expect(result.rows[0].monthly[1]).toBe(-25); // feb = -25 NC
   });
 
-  it("groups DTEs without crmAccountId into __no_client__ pseudo-row", async () => {
+  it("groups DTEs by receiverRut when crmAccountId missing", async () => {
     const period = buildPeriod("month", new Date(2026, 4, 1));
     dteMock.mockResolvedValue([
-      { id: "1", dteType: 33, date: new Date(2026, 4, 5), totalAmount: dec(119), netAmount: dec(100), crmAccountId: null, installationId: null },
+      { id: "1", dteType: 33, date: new Date(2026, 4, 5), totalAmount: dec(119), netAmount: dec(100), crmAccountId: null, installationId: null, receiverRut: "76.123.456-7", receiverName: "Empresa Demo SpA" },
+      { id: "2", dteType: 33, date: new Date(2026, 4, 7), totalAmount: dec(238), netAmount: dec(200), crmAccountId: null, installationId: null, receiverRut: "76.123.456-7", receiverName: "Empresa Demo SpA" },
+    ]);
+    accMock.mockResolvedValue([]);
+
+    const result = await getSalesMatrix("t1", period);
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0].id).toBe("rut:76.123.456-7");
+    expect(result.rows[0].label).toBe("Empresa Demo SpA");
+    expect(result.rows[0].total).toBe(300);
+  });
+
+  it("falls back to (Sin RUT receptor) bucket only when both crmAccountId and receiverRut are missing", async () => {
+    const period = buildPeriod("month", new Date(2026, 4, 1));
+    dteMock.mockResolvedValue([
+      { id: "1", dteType: 33, date: new Date(2026, 4, 5), totalAmount: dec(119), netAmount: dec(100), crmAccountId: null, installationId: null, receiverRut: null, receiverName: null },
     ]);
     accMock.mockResolvedValue([]);
 
     const result = await getSalesMatrix("t1", period);
     expect(result.rows).toHaveLength(1);
     expect(result.rows[0].id).toBe("__no_client__");
-    expect(result.rows[0].label).toBe("(Sin cliente asignado)");
+    expect(result.rows[0].label).toBe("(Sin RUT receptor)");
   });
 
   it("filters out inactive clients when onlyActiveClients is true (default)", async () => {
