@@ -8,7 +8,6 @@ import {
   hasCapability,
 } from "@/lib/permissions-server";
 import { ReportsTabs } from "@/components/finance/reports/ReportsTabs";
-import { FinanceSubnav } from "@/components/finance/FinanceSubnav";
 
 export default async function ReportsLayout({ children }: { children: ReactNode }) {
   const session = await auth();
@@ -20,7 +19,6 @@ export default async function ReportsLayout({ children }: { children: ReactNode 
   }
   return (
     <div className="space-y-3 min-w-0">
-      <FinanceSubnav />
       <ReportsTabs />
       <div className="min-w-0">{children}</div>
     </div>
