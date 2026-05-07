@@ -23,8 +23,10 @@ describe("buildNavItems — sidebar back-compat", () => {
     expect(labels).toContain("Payroll");
     expect(labels).toContain("Finanzas");
     expect(labels).toContain("Documentos");
-    expect(labels).toContain("Configuración");
     expect(labels).toContain("Cumplimiento");
+    // Configuración and Chat are NOT in the sidebar — they live in the topbar.
+    expect(labels).not.toContain("Configuración");
+    expect(labels).not.toContain("Chat");
   });
 
   it("CRM has expected children", () => {
@@ -96,7 +98,7 @@ describe("buildNavItems — sidebar back-compat", () => {
     expect(crm?.show).toBe(false);
   });
 
-  it("Hub appears at the top, then Chat, then modules", () => {
+  it("Hub appears at the top, then modules (Chat lives in the topbar, not the sidebar)", () => {
     const items = buildNavItems({
       permissions: getDefaultPermissions("owner"),
       isAdmin: true,
@@ -104,7 +106,8 @@ describe("buildNavItems — sidebar back-compat", () => {
       isModuleEnabled: allEnabled,
     });
     expect(items[0].label).toBe("Inicio");
-    expect(items[1].label).toBe("Chat");
+    expect(items.map((i) => i.label)).not.toContain("Chat");
+    expect(items.map((i) => i.label)).not.toContain("Configuración");
   });
 
   it("Portal admin module appears for admin only", () => {

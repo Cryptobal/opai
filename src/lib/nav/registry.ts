@@ -119,8 +119,9 @@ export interface NavVisibility {
   tenantModule?: string;
   /** Admin only */
   adminOnly?: boolean;
-  /** Custom predicate (combined with the above with AND) */
-  show?: (perms: RolePermissions) => boolean;
+  /** Custom predicate (combined with the above with AND). Receives the full
+   *  VisibilityContext so it can check role-derived flags (e.g. isComplianceVisible). */
+  show?: (perms: RolePermissions, ctx?: VisibilityContext) => boolean;
 }
 
 export interface NavBadge {
@@ -155,6 +156,11 @@ export interface NavNode extends NavVisibility {
   /** When set, groups this node under a category in the sub-sidebar (used by ConfigShell
    *  to organize many sub-pages — Slack/Notion settings pattern). */
   category?: string;
+  /** When true, this module/node is excluded from the sidebar tree but still appears in the
+   *  registry (so AutoBreadcrumbs and routing helpers can still find it). Use for items that
+   *  have a dedicated UI surface elsewhere — e.g. Configuración (TopbarActions) or Chat
+   *  (ChatSidePanel). Default: false. */
+  hideInSidebar?: boolean;
 }
 
 /** Order + label for sub-sidebar categories. */
@@ -171,6 +177,8 @@ export interface VisibilityContext {
   perms: RolePermissions;
   isAdmin: boolean;
   isModuleEnabled: (mod: string) => boolean;
+  /** True when the user role matches owner/admin/rrhh — used by compliance module. */
+  isComplianceVisible?: boolean;
 }
 
 export function isNodeVisible(node: NavVisibility, ctx: VisibilityContext): boolean {
@@ -186,7 +194,7 @@ export function isNodeVisible(node: NavVisibility, ctx: VisibilityContext): bool
   if (node.capability && !hasCapability(ctx.perms, node.capability)) return false;
   if (node.tenantModule && !ctx.isModuleEnabled(node.tenantModule)) return false;
   if (node.adminOnly && !ctx.isAdmin) return false;
-  if (node.show && !node.show(ctx.perms)) return false;
+  if (node.show && !node.show(ctx.perms, ctx)) return false;
   return true;
 }
 
@@ -591,6 +599,7 @@ export const NAV_MODULES: NavNode[] = [
     label: "Configuración",
     icon: Settings,
     module: "config",
+    hideInSidebar: true,
     children: [
       // ── General ──
       { key: "config-empresa", href: "/opai/configuracion/empresa", label: "Empresa", icon: Building2, module: "config", submodule: "empresa", category: "general" },
@@ -647,9 +656,23 @@ export const NAV_MODULES: NavNode[] = [
   },
 
   // ═════════════════════════════════════════════════════════
-  // CUMPLIMIENTO (compliance) — sólo cuando aplica
+  // CUMPLIMIENTO (compliance) — sólo cuando aplica (owner/admin/rrhh)
   // ═════════════════════════════════════════════════════════
-  // Renderizado externamente en buildSidebar usando isComplianceVisible.
+  {
+    key: "compliance",
+    href: "/opai/compliance/arco",
+    label: "Cumplimiento",
+    icon: Shield,
+    show: (_perms, ctx) => Boolean(ctx?.isComplianceVisible),
+    children: [
+      {
+        key: "compliance-arco",
+        href: "/opai/compliance/arco",
+        label: "Solicitudes ARCO",
+        icon: Shield,
+      },
+    ],
+  },
 ];
 
 /* ────────────────────────────────────────────────────────────

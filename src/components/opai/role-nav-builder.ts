@@ -14,7 +14,6 @@
  *  - `RolePreview`     (mock del sidebar para previsualizar permisos)
  */
 
-import { Shield, MessageCircle } from 'lucide-react';
 import type { NavItem, NavSubItem } from '@/components/opai/AppSidebar';
 import {
   type RolePermissions,
@@ -139,6 +138,7 @@ export function buildNavItems({
     perms: permissions,
     isAdmin,
     isModuleEnabled,
+    isComplianceVisible,
   };
 
   const items: NavItem[] = [];
@@ -149,17 +149,10 @@ export function buildNavItems({
     items.push({ href: hub.href, label: hub.label, icon: hub.icon, show: true });
   }
 
-  // Chat (legacy: not in registry — keep here)
-  items.push({
-    href: '/chat',
-    label: 'Chat',
-    icon: MessageCircle,
-    show: true,
-  });
-
   // Iterate the rest of the modules in registry order
   for (const module of NAV_MODULES) {
     if (module.key === 'hub') continue; // already added
+    if (module.hideInSidebar) continue; // dedicated UI surface elsewhere (e.g. Configuración in topbar)
     if (!isNodeVisible(module, ctx)) {
       // Hidden but keep show:false to support RolePreview "hidden items" panel
       items.push({
@@ -171,27 +164,6 @@ export function buildNavItems({
       continue;
     }
     items.push(moduleNodeToNavItem(module, ctx, notes, moduleBadges, unreadMentionNotesCount));
-  }
-
-  // Compliance (special case — not in registry)
-  if (isComplianceVisible) {
-    items.push({
-      href: '/opai/compliance/arco',
-      label: 'Cumplimiento',
-      icon: Shield,
-      show: true,
-      children: [
-        { href: '/opai/compliance/arco', label: 'Solicitudes ARCO', icon: Shield },
-      ],
-    });
-  } else {
-    // Hidden — show:false so it appears in RolePreview's hidden items list
-    items.push({
-      href: '/opai/compliance/arco',
-      label: 'Cumplimiento',
-      icon: Shield,
-      show: false,
-    });
   }
 
   return items;
