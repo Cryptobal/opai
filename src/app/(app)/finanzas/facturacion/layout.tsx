@@ -5,21 +5,20 @@ import {
   resolvePagePerms,
   hasModuleAccess,
   canView,
-  hasCapability,
 } from "@/lib/permissions-server";
 import { ModuleSubNav } from "@/components/opai-ds";
 
-export default async function ReportsLayout({ children }: { children: ReactNode }) {
+export default async function FacturacionLayout({ children }: { children: ReactNode }) {
   const session = await auth();
-  if (!session?.user) redirect("/opai/login?callbackUrl=/finanzas/reportes");
+  if (!session?.user) redirect("/opai/login?callbackUrl=/finanzas/facturacion");
   const perms = await resolvePagePerms(session.user);
   if (!hasModuleAccess(perms, "finance")) redirect("/hub");
-  if (!canView(perms, "finance", "reportes") && !hasCapability(perms, "finance_reports_view")) {
+  if (!canView(perms, "finance", "facturacion")) {
     redirect("/finanzas");
   }
   return (
     <div className="space-y-3 min-w-0">
-      <ModuleSubNav moduleKey="finance-informes" />
+      <ModuleSubNav moduleKey="finance-ventas" />
       <div className="min-w-0">{children}</div>
     </div>
   );
