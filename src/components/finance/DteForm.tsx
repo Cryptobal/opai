@@ -27,6 +27,17 @@ import {
 import { toast } from "sonner";
 import { EmisionConfirmDialog } from "./EmisionConfirmDialog";
 import { PdfPreviewDialog } from "./PdfPreviewDialog";
+import {
+  LineDetailSurface,
+  computeLineSubtotal,
+  lineDiscountToPct,
+  type LineDetailValue,
+  type DiscountKind,
+} from "./_LineDetailSurface";
+import {
+  buildContext,
+  type PlaceholderContext,
+} from "@/modules/finance/billing/placeholders";
 
 /* ── Types ── */
 
@@ -41,15 +52,10 @@ interface Props {
   accounts: AccountOption[];
 }
 
-interface DteLine {
-  itemName: string;
-  description: string;
-  quantity: string;
-  unit: string;
-  unitPrice: string;
-  discountPct: string;
-  isExempt: boolean;
+interface DteLine extends LineDetailValue {
+  /** ID de la cuenta contable (mapeo opcional al plan de cuentas). */
   accountId: string;
+  /** ID de la solicitud de refuerzo si la línea proviene de una. */
   refuerzoSolicitudId?: string;
 }
 
@@ -79,7 +85,8 @@ const EMPTY_LINE: DteLine = {
   quantity: "1",
   unit: "UN",
   unitPrice: "",
-  discountPct: "0",
+  discountKind: "PCT",
+  discountValue: "0",
   isExempt: false,
   accountId: "",
 };
@@ -237,21 +244,27 @@ export function DteForm({ availableTypes, accounts }: Props) {
         setCcEmailsRaw((d.receiverEmailCc ?? []).join(", "));
         setNotes(d.notes ?? "");
         if (d.currency === "UF" || d.currency === "CLP") setCurrency(d.currency);
-        const draftLines = (d.lines ?? []).map((l: Record<string, unknown>) => ({
-          itemName: String(l.itemName ?? ""),
-          description: String(l.description ?? ""),
-          quantity: String(l.quantity ?? "1"),
-          unit: String(l.unit ?? "UN"),
-          // Si el draft estaba en UF, mostramos unitPriceUf; si CLP, unitPrice.
-          unitPrice: String(
-            d.currency === "UF" && l.unitPriceUf != null
-              ? l.unitPriceUf
-              : (l.unitPrice ?? ""),
-          ),
-          discountPct: String(l.discountPct ?? "0"),
-          isExempt: !!l.isExempt,
-          accountId: String(l.accountId ?? ""),
-        }));
+        const draftLines: DteLine[] = (d.lines ?? []).map(
+          (l: Record<string, unknown>) => ({
+            itemName: String(l.itemName ?? ""),
+            description: String(l.description ?? ""),
+            quantity: String(l.quantity ?? "1"),
+            unit: String(l.unit ?? "UN"),
+            // Si el draft estaba en UF, mostramos unitPriceUf; si CLP, unitPrice.
+            unitPrice: String(
+              d.currency === "UF" && l.unitPriceUf != null
+                ? l.unitPriceUf
+                : (l.unitPrice ?? ""),
+            ),
+            // FinanceDteLine solo guarda discountPct (no kind/amount). Al
+            // reabrir un draft volvemos a tratar el descuento como % —
+            // la "intención $" se pierde tras cerrar (aceptable en one-shot).
+            discountKind: "PCT" as DiscountKind,
+            discountValue: String(l.discountPct ?? "0"),
+            isExempt: !!l.isExempt,
+            accountId: String(l.accountId ?? ""),
+          }),
+        );
         if (draftLines.length > 0) setLines(draftLines);
       })
       .catch(() => {
@@ -325,10 +338,10 @@ export function DteForm({ availableTypes, accounts }: Props) {
 
   const isExenta = dteType === "34";
 
-  const updateLine = useCallback((index: number, field: keyof DteLine, value: string | boolean) => {
+  const updateLine = useCallback((index: number, partial: Partial<DteLine>) => {
     setLines((prev) => {
       const updated = [...prev];
-      updated[index] = { ...updated[index], [field]: value };
+      updated[index] = { ...updated[index], ...partial };
       return updated;
     });
   }, []);
@@ -388,7 +401,7 @@ export function DteForm({ availableTypes, accounts }: Props) {
             unitPrice: parseFloat(l.unitPrice) || 0,
             unitPriceUf:
               currency === "UF" ? parseFloat(l.unitPrice) || 0 : undefined,
-            discountPct: parseFloat(l.discountPct) || 0,
+            discountPct: lineDiscountToPct(l),
             isExempt: l.isExempt,
           })),
           // En UF: pasamos ufOverride si lo tenemos cacheado para que
@@ -438,6 +451,48 @@ export function DteForm({ availableTypes, accounts }: Props) {
     }),
     [serverTotals],
   );
+
+  /**
+   * Contexto para el resolver de placeholders en DTE one-shot. Se
+   * actualiza cuando cambia receptor / instalación / moneda / UF.
+   * Para el modo "resolved" del picker, los valores se insertan ya
+   * resueltos contra este contexto (texto plano en el draft, sin
+   * `{{...}}` literales).
+   */
+  const placeholderCtx: PlaceholderContext = useMemo(() => {
+    const installationName =
+      installations.find((i) => i.id === installationId)?.name ?? null;
+    const today = new Date();
+    return {
+      ...buildContext({
+        periodPolicy: "CURRENT_MONTH",
+        runDate: today,
+        uf:
+          currency === "UF" && ufValue != null
+            ? {
+                value: ufValue,
+                date: new Date(
+                  Date.UTC(
+                    today.getUTCFullYear(),
+                    today.getUTCMonth(),
+                    today.getUTCDate(),
+                  ),
+                ),
+              }
+            : null,
+        cliente: (customer?.name || receiverName || "").trim(),
+        instalacion: installationName,
+        currency: currency === "UF" ? "UF" : "CLP",
+      }),
+    };
+  }, [
+    installations,
+    installationId,
+    currency,
+    ufValue,
+    customer?.name,
+    receiverName,
+  ]);
 
   const handleSubmit = async () => {
     // Datos efectivos del receptor: prioriza customer del CRM si existe;
@@ -501,14 +556,12 @@ export function DteForm({ availableTypes, accounts }: Props) {
       return;
     }
 
-    // Validar referencias completas (descartar las vacías).
+    // Validar referencias completas (descartar las vacías). La razón /
+    // glosa dejó de exigirse — el SII la acepta vacía.
     const validRefs = additionalRefs.filter(
-      (r) =>
-        r.tipoDocRef.trim() &&
-        r.folioRef.trim() &&
-        r.fchRef &&
-        r.razonRef.trim(),
+      (r) => r.tipoDocRef.trim() && r.folioRef.trim() && r.fchRef,
     );
+    void validRefs;
 
     // Validación pasada — abrir modal de confirmación. La emisión real
     // se dispara desde EmisionConfirmDialog.onConfirm → submitToServer.
@@ -537,11 +590,7 @@ export function DteForm({ availableTypes, accounts }: Props) {
       new Set(ccCandidates.filter((e) => e !== effEmail)),
     );
     const validRefs = additionalRefs.filter(
-      (r) =>
-        r.tipoDocRef.trim() &&
-        r.folioRef.trim() &&
-        r.fchRef &&
-        r.razonRef.trim(),
+      (r) => r.tipoDocRef.trim() && r.folioRef.trim() && r.fchRef,
     );
     return {
       dteType: parseInt(dteType),
@@ -564,15 +613,17 @@ export function DteForm({ availableTypes, accounts }: Props) {
         const priceNum = parseFloat(l.unitPrice) || 0;
         return {
           itemName: l.itemName.trim(),
-          description: l.description.trim() || null,
+          // Description NO se trimea para preservar saltos de línea
+          // (el SII permite hasta 1000 chars con \n en <DscItem>).
+          description: l.description.length > 0 ? l.description : null,
           quantity: parseFloat(l.quantity) || 1,
           unit: l.unit.trim() || null,
           // Si moneda=UF, el precio del input se manda como unitPriceUf.
           // El backend lo convierte a CLP usando getUfValue() del día.
           unitPrice: currency === "UF" ? 0 : priceNum,
           unitPriceUf: currency === "UF" ? priceNum : undefined,
-          discountPct: parseFloat(l.discountPct) || 0,
-          isExempt: isExenta || l.isExempt,
+          discountPct: lineDiscountToPct(l),
+          isExempt: isExenta || (l.isExempt ?? false),
           accountId: l.accountId || null,
           refuerzoSolicitudId: l.refuerzoSolicitudId || null,
         };
@@ -670,14 +721,14 @@ export function DteForm({ availableTypes, accounts }: Props) {
         },
         lines: validLines.map((l) => ({
           itemName: l.itemName.trim(),
-          description: l.description?.trim() || null,
+          description: l.description.length > 0 ? l.description : null,
           quantity: parseFloat(l.quantity) || 1,
           unit: l.unit || null,
           unitPrice: parseFloat(l.unitPrice) || 0,
           unitPriceUf:
             currency === "UF" ? parseFloat(l.unitPrice) || 0 : undefined,
-          discountPct: parseFloat(l.discountPct) || 0,
-          isExempt: l.isExempt,
+          discountPct: lineDiscountToPct(l),
+          isExempt: l.isExempt ?? false,
         })),
         references: additionalRefs
           .filter(
@@ -797,7 +848,8 @@ export function DteForm({ availableTypes, accounts }: Props) {
       quantity: String(parseFloat(item.quantity) || 1),
       unit: item.unit || "UN",
       unitPrice: String(parseFloat(item.unitPrice) || 0),
-      discountPct: "0",
+      discountKind: "PCT" as DiscountKind,
+      discountValue: "0",
       isExempt: false,
       accountId: item.accountId,
       refuerzoSolicitudId: item.sourceType === "refuerzo" ? item.sourceId : undefined,
@@ -1104,9 +1156,10 @@ export function DteForm({ availableTypes, accounts }: Props) {
         </CardContent>
       </Card>
 
-      {/* Lines */}
+      {/* Lines — Surface por línea (desktop + mobile, mismo layout)
+          con descripción multi-línea opcional y placeholders. */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
           <h3 className="text-sm font-medium">Detalle</h3>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={handleImportOpen}>
@@ -1120,176 +1173,27 @@ export function DteForm({ availableTypes, accounts }: Props) {
           </div>
         </div>
 
-        {/* Desktop lines */}
-        <div className="hidden md:block">
-          <Card>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/30">
-                  <tr>
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Nombre *</th>
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground w-20">Cant.</th>
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground w-16">Unidad</th>
-                    <th className="px-3 py-2 text-right font-medium text-muted-foreground w-28">Precio *</th>
-                    <th className="px-3 py-2 text-right font-medium text-muted-foreground w-20">Desc.%</th>
-                    <th className="px-3 py-2 text-right font-medium text-muted-foreground w-28">Subtotal</th>
-                    <th className="px-3 py-2 w-10" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {lines.map((line, i) => {
-                    const qty = parseFloat(line.quantity) || 0;
-                    const price = parseFloat(line.unitPrice) || 0;
-                    const disc = parseFloat(line.discountPct) || 0;
-                    const subtotal = qty * price * (1 - disc / 100);
-                    return (
-                      <tr key={i} className="border-b border-border/60 last:border-0">
-                        <td className="px-3 py-2">
-                          <Input
-                            value={line.itemName}
-                            onChange={(e) => updateLine(i, "itemName", e.target.value)}
-                            className="h-9 text-sm"
-                            placeholder="Nombre del ítem"
-                            autoComplete="off"
-                          />
-                        </td>
-                        <td className="px-3 py-2">
-                          <Input
-                            type="number"
-                            min={1}
-                            inputMode="decimal"
-                            value={line.quantity}
-                            onChange={(e) => updateLine(i, "quantity", e.target.value)}
-                            className="h-9 text-sm text-right tabular-nums"
-                            autoComplete="off"
-                          />
-                        </td>
-                        <td className="px-3 py-2">
-                          <Input
-                            value={line.unit}
-                            onChange={(e) => updateLine(i, "unit", e.target.value)}
-                            className="h-9 text-sm"
-                            placeholder="UN"
-                            autoComplete="off"
-                          />
-                        </td>
-                        <td className="px-3 py-2">
-                          <Input
-                            type="number"
-                            min={0}
-                            inputMode="decimal"
-                            value={line.unitPrice}
-                            onChange={(e) => updateLine(i, "unitPrice", e.target.value)}
-                            className="h-9 text-sm text-right tabular-nums"
-                            placeholder="0"
-                            autoComplete="off"
-                          />
-                        </td>
-                        <td className="px-3 py-2">
-                          <Input
-                            type="number"
-                            min={0}
-                            max={100}
-                            inputMode="decimal"
-                            value={line.discountPct}
-                            onChange={(e) => updateLine(i, "discountPct", e.target.value)}
-                            className="h-9 text-sm text-right tabular-nums"
-                            autoComplete="off"
-                          />
-                        </td>
-                        <td className="px-3 py-2 text-right font-mono text-xs">
-                          {fmtCLP.format(Math.round(subtotal))}
-                        </td>
-                        <td className="px-3 py-2">
-                          <Button variant="ghost" size="sm" onClick={() => removeLine(i)} className="h-8 w-8 p-0">
-                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                          </Button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </Card>
-        </div>
-
-        {/* Mobile lines: tap-friendly cards (≥44px), tipografía legible
-            (≥12px), autoComplete=off para evitar barra "Autorrellenar
-            contacto" en iOS, inputMode=decimal en numéricos para
-            mostrar el teclado correcto. */}
-        <div className="md:hidden space-y-3">
+        <div className="space-y-3">
           {lines.map((line, i) => {
-            const qty = parseFloat(line.quantity) || 0;
-            const price = parseFloat(line.unitPrice) || 0;
-            const disc = parseFloat(line.discountPct) || 0;
-            const subtotal = qty * price * (1 - disc / 100);
+            const subtotal = computeLineSubtotal(line);
+            const subtotalFormatted =
+              currency === "UF"
+                ? `${subtotal.toLocaleString("es-CL", { maximumFractionDigits: 4 })} UF`
+                : fmtCLP.format(Math.round(subtotal));
             return (
-              <Card key={i}>
-                <CardContent className="p-3 space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[12px] font-medium text-muted-foreground">Línea {i + 1}</span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeLine(i)}
-                      className="h-10 w-10 p-0 sm:h-7 sm:w-7"
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </div>
-                  <Input
-                    value={line.itemName}
-                    onChange={(e) => updateLine(i, "itemName", e.target.value)}
-                    className="h-10 sm:h-9 text-sm"
-                    placeholder="Nombre del ítem *"
-                    autoComplete="off"
-                    autoCorrect="off"
-                  />
-                  <div className="grid grid-cols-3 gap-2 min-w-0">
-                    <div className="space-y-1">
-                      <Label className="text-[12px] uppercase tracking-wide text-muted-foreground">Cant.</Label>
-                      <Input
-                        type="number"
-                        min={1}
-                        inputMode="decimal"
-                        value={line.quantity}
-                        onChange={(e) => updateLine(i, "quantity", e.target.value)}
-                        className="h-10 sm:h-9 text-sm text-right tabular-nums"
-                        autoComplete="off"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[12px] uppercase tracking-wide text-muted-foreground">Precio *</Label>
-                      <Input
-                        type="number"
-                        min={0}
-                        inputMode="decimal"
-                        value={line.unitPrice}
-                        onChange={(e) => updateLine(i, "unitPrice", e.target.value)}
-                        className="h-10 sm:h-9 text-sm text-right tabular-nums"
-                        autoComplete="off"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[12px] uppercase tracking-wide text-muted-foreground">Desc.%</Label>
-                      <Input
-                        type="number"
-                        min={0}
-                        max={100}
-                        inputMode="decimal"
-                        value={line.discountPct}
-                        onChange={(e) => updateLine(i, "discountPct", e.target.value)}
-                        className="h-10 sm:h-9 text-sm text-right tabular-nums"
-                        autoComplete="off"
-                      />
-                    </div>
-                  </div>
-                  <div className="text-right text-[13px] font-mono tabular-nums">
-                    Subtotal: <span className="font-medium">{fmtCLP.format(Math.round(subtotal))}</span>
-                  </div>
-                </CardContent>
-              </Card>
+              <LineDetailSurface
+                key={i}
+                index={i}
+                value={line}
+                onChange={(partial) => updateLine(i, partial)}
+                onRemove={() => removeLine(i)}
+                canRemove={lines.length > 1}
+                currency={currency}
+                placeholderMode="resolved"
+                placeholderContext={placeholderCtx}
+                showExempt={!isExenta}
+                subtotalFormatted={subtotalFormatted}
+              />
             );
           })}
         </div>
@@ -1333,7 +1237,7 @@ export function DteForm({ availableTypes, accounts }: Props) {
                   key={i}
                   className="grid grid-cols-1 md:grid-cols-12 gap-2 items-start p-2 rounded-md bg-muted/30 border border-border"
                 >
-                  <div className="md:col-span-2">
+                  <div className="md:col-span-3">
                     <Label className="text-xs">Tipo *</Label>
                     <Select
                       value={ref.tipoDocRef}
@@ -1355,7 +1259,7 @@ export function DteForm({ availableTypes, accounts }: Props) {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="md:col-span-3">
+                  <div className="md:col-span-5">
                     <Label className="text-xs">Folio / N° *</Label>
                     <Input
                       value={ref.folioRef}
@@ -1369,7 +1273,7 @@ export function DteForm({ availableTypes, accounts }: Props) {
                       autoComplete="off"
                     />
                   </div>
-                  <div className="md:col-span-2">
+                  <div className="md:col-span-3">
                     <Label className="text-xs">Fecha *</Label>
                     <Input
                       type="date"
@@ -1380,21 +1284,6 @@ export function DteForm({ availableTypes, accounts }: Props) {
                         )
                       }
                       className="h-10 sm:h-9 text-sm"
-                    />
-                  </div>
-                  <div className="md:col-span-4">
-                    <Label className="text-xs">Razón / glosa *</Label>
-                    <Input
-                      value={ref.razonRef}
-                      onChange={(e) =>
-                        setAdditionalRefs((prev) =>
-                          prev.map((r, idx) => (idx === i ? { ...r, razonRef: e.target.value } : r)),
-                        )
-                      }
-                      placeholder="Orden de Compra del cliente"
-                      maxLength={90}
-                      className="h-10 sm:h-9 text-sm"
-                      autoComplete="off"
                     />
                   </div>
                   <div className="md:col-span-1 flex items-end justify-end h-full">

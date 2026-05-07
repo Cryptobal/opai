@@ -39,6 +39,17 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { CustomerCombobox, type CustomerOption } from "./CustomerCombobox";
+import {
+  LineDetailSurface,
+  computeLineSubtotal,
+  lineDiscountToPct,
+  type LineDetailValue,
+  type DiscountKind,
+} from "./_LineDetailSurface";
+import {
+  buildContext,
+  type PlaceholderContext,
+} from "@/modules/finance/billing/placeholders";
 
 const fmtCLP = new Intl.NumberFormat("es-CL", {
   style: "currency",
@@ -46,15 +57,7 @@ const fmtCLP = new Intl.NumberFormat("es-CL", {
   minimumFractionDigits: 0,
 });
 
-interface TemplateLine {
-  itemName: string;
-  description: string;
-  quantity: string;
-  unit: string;
-  unitPrice: string;
-  discountPct: string;
-  isExempt: boolean;
-}
+type TemplateLine = LineDetailValue;
 
 interface AdditionalRef {
   tipoDocRef: string;
@@ -69,7 +72,8 @@ const EMPTY_LINE: TemplateLine = {
   quantity: "1",
   unit: "UN",
   unitPrice: "",
-  discountPct: "0",
+  discountKind: "PCT",
+  discountValue: "0",
   isExempt: false,
 };
 
@@ -143,6 +147,31 @@ export function RecurringTemplateForm({
   >("LAST_DAY_PREV_MONTH");
   const [ufFixingDay, setUfFixingDay] = React.useState("1");
 
+  // ── Period policy: cómo se resuelve {{periodo}} en cada run del cron.
+  // Default CURRENT_MONTH = factura por adelantado (común en CL).
+  const [periodPolicy, setPeriodPolicy] = React.useState<
+    "CURRENT_MONTH" | "PREVIOUS_MONTH" | "NEXT_MONTH"
+  >("CURRENT_MONTH");
+
+  // UF actual (informativa) — solo para mostrar la previsualización de
+  // {{uf_valor}} en el picker. La UF real al run la define ufFixingPolicy.
+  const [ufNow, setUfNow] = React.useState<number | null>(null);
+  React.useEffect(() => {
+    if (currency !== "UF") {
+      setUfNow(null);
+      return;
+    }
+    const ctrl = new AbortController();
+    fetch("/api/fx/uf", { signal: ctrl.signal })
+      .then((r) => r.json())
+      .then((j) => {
+        const v = j?.data?.value ?? j?.value;
+        if (typeof v === "number") setUfNow(v);
+      })
+      .catch(() => {});
+    return () => ctrl.abort();
+  }, [currency]);
+
   const [submitting, setSubmitting] = React.useState(false);
 
   // Reset al abrir/cerrar (para que una segunda apertura no muestre datos viejos)
@@ -175,6 +204,7 @@ export function RecurringTemplateForm({
     setAutoSendEmail(true);
     setUfFixingPolicy("LAST_DAY_PREV_MONTH");
     setUfFixingDay("1");
+    setPeriodPolicy("CURRENT_MONTH");
   }, [open, templateId]);
 
   // Cargar plantilla existente cuando editamos
@@ -204,19 +234,31 @@ export function RecurringTemplateForm({
         setCcEmailsRaw((t.receiverEmailCc ?? []).join(", "));
         setNotes(t.notes ?? "");
         const linesData: TemplateLine[] = Array.isArray(t.lines) && t.lines.length > 0
-          ? (t.lines as Array<Record<string, unknown>>).map((l) => ({
-              itemName: String(l.itemName ?? ""),
-              description: String(l.description ?? ""),
-              quantity: String(l.quantity ?? "1"),
-              unit: String(l.unit ?? "UN"),
-              unitPrice: String(
-                t.currency === "UF" && l.unitPriceUf != null
-                  ? l.unitPriceUf
-                  : (l.unitPrice ?? ""),
-              ),
-              discountPct: String(l.discountPct ?? "0"),
-              isExempt: !!l.isExempt,
-            }))
+          ? (t.lines as Array<Record<string, unknown>>).map((l) => {
+              // Si la plantilla guardó kind=AMOUNT (intención `$`), lo
+              // restauramos exactamente como lo tipeó el usuario. Si no,
+              // caemos al discountPct (PCT por default).
+              const kind: DiscountKind =
+                l.discountKind === "AMOUNT" ? "AMOUNT" : "PCT";
+              const value =
+                kind === "AMOUNT"
+                  ? String(l.discountAmount ?? "0")
+                  : String(l.discountPct ?? "0");
+              return {
+                itemName: String(l.itemName ?? ""),
+                description: String(l.description ?? ""),
+                quantity: String(l.quantity ?? "1"),
+                unit: String(l.unit ?? "UN"),
+                unitPrice: String(
+                  t.currency === "UF" && l.unitPriceUf != null
+                    ? l.unitPriceUf
+                    : (l.unitPrice ?? ""),
+                ),
+                discountKind: kind,
+                discountValue: value,
+                isExempt: !!l.isExempt,
+              };
+            })
           : [{ ...EMPTY_LINE }];
         setLines(linesData);
         setAdditionalRefs(
@@ -236,6 +278,7 @@ export function RecurringTemplateForm({
         setAutoSendEmail(t.autoSendEmail ?? true);
         setUfFixingPolicy(t.ufFixingPolicy ?? "LAST_DAY_PREV_MONTH");
         setUfFixingDay(t.ufFixingDay != null ? String(t.ufFixingDay) : "1");
+        setPeriodPolicy(t.periodPolicy ?? "CURRENT_MONTH");
       })
       .catch(() => {
         toast.error("Error al cargar la plantilla");
@@ -302,9 +345,9 @@ export function RecurringTemplateForm({
 
   // ── Handlers de líneas ──
   const updateLine = React.useCallback(
-    (index: number, field: keyof TemplateLine, value: string | boolean) => {
+    (index: number, partial: Partial<TemplateLine>) => {
       setLines((prev) =>
-        prev.map((l, i) => (i === index ? { ...l, [field]: value } : l)),
+        prev.map((l, i) => (i === index ? { ...l, ...partial } : l)),
       );
     },
     [],
@@ -318,13 +361,58 @@ export function RecurringTemplateForm({
 
   // ── Total estimado (informativo) ──
   const totalNet = React.useMemo(() => {
-    return lines.reduce((sum, l) => {
-      const qty = parseFloat(l.quantity) || 0;
-      const price = parseFloat(l.unitPrice) || 0;
-      const disc = parseFloat(l.discountPct) || 0;
-      return sum + qty * price * (1 - disc / 100);
-    }, 0);
+    return lines.reduce((sum, l) => sum + computeLineSubtotal(l), 0);
   }, [lines]);
+
+  /**
+   * Contexto del resolver de placeholders para previsualización en el
+   * picker y para la "Vista previa" debajo de los textareas. Refleja
+   * cómo se resolverían los tokens si el cron corriera HOY:
+   *   - Período según `periodPolicy` aplicada al día actual.
+   *   - UF: la del día (valor informativo). En runs reales la UF la
+   *     elige `ufFixingPolicy`.
+   *   - Cliente: receptor manual o del CRM.
+   *   - Instalación: nombre de la elegida.
+   *
+   * En modo "literal" del picker (plantillas), se inserta `{{token}}`
+   * y este ctx solo se usa para mostrar el valor de ejemplo a la
+   * derecha de cada item del menú.
+   */
+  const placeholderCtx: PlaceholderContext = React.useMemo(() => {
+    const installationName =
+      installations.find((i) => i.id === installationId)?.name ?? null;
+    const today = new Date();
+    return {
+      ...buildContext({
+        periodPolicy,
+        runDate: today,
+        uf:
+          currency === "UF" && ufNow != null
+            ? {
+                value: ufNow,
+                date: new Date(
+                  Date.UTC(
+                    today.getUTCFullYear(),
+                    today.getUTCMonth(),
+                    today.getUTCDate(),
+                  ),
+                ),
+              }
+            : null,
+        cliente: (customer?.name || receiverName || "").trim(),
+        instalacion: installationName,
+        currency: currency === "UF" ? "UF" : "CLP",
+      }),
+    };
+  }, [
+    installations,
+    installationId,
+    currency,
+    ufNow,
+    customer?.name,
+    receiverName,
+    periodPolicy,
+  ]);
 
   // ── Submit ──
   const handleSubmit = async () => {
@@ -367,12 +455,9 @@ export function RecurringTemplateForm({
       return;
     }
 
+    // Razón / glosa dejó de ser obligatoria (la UI ya no la expone).
     const validRefs = additionalRefs.filter(
-      (r) =>
-        r.tipoDocRef.trim() &&
-        r.folioRef.trim() &&
-        r.fchRef &&
-        r.razonRef.trim(),
+      (r) => r.tipoDocRef.trim() && r.folioRef.trim() && r.fchRef,
     );
 
     const payload: Record<string, unknown> = {
@@ -392,14 +477,27 @@ export function RecurringTemplateForm({
       currency,
       lines: validLines.map((l) => {
         const priceNum = parseFloat(l.unitPrice) || 0;
+        // Persistencia híbrida del descuento (opción C):
+        //   - Para kind=AMOUNT, guardamos kind+amount en el JSON para
+        //     preservar la intención del usuario entre runs.
+        //   - El `discountPct` que viaja al schema y BD es el efectivo
+        //     calculado contra el bruto del momento — el cron lo recalcula
+        //     en cada run según el monto vigente.
+        const kind = l.discountKind;
+        const discountAmountNum =
+          kind === "AMOUNT" ? parseFloat(l.discountValue) || 0 : undefined;
         return {
           itemName: l.itemName.trim(),
-          description: l.description.trim() || null,
+          // Description: NO trim para preservar saltos de línea SII permite
+          // hasta 1000 caracteres en <DscItem> con \n.
+          description: l.description.length > 0 ? l.description : null,
           quantity: parseFloat(l.quantity) || 1,
           unit: l.unit.trim() || null,
           unitPrice: currency === "UF" ? 0 : priceNum,
           unitPriceUf: currency === "UF" ? priceNum : undefined,
-          discountPct: parseFloat(l.discountPct) || 0,
+          discountPct: lineDiscountToPct(l),
+          discountKind: kind,
+          discountAmount: discountAmountNum,
           isExempt: !!l.isExempt,
         };
       }),
@@ -423,6 +521,7 @@ export function RecurringTemplateForm({
         currency === "UF" && ufFixingPolicy === "CUSTOM_DAY"
           ? parseInt(ufFixingDay, 10)
           : null,
+      periodPolicy,
     };
 
     setSubmitting(true);
@@ -451,7 +550,7 @@ export function RecurringTemplateForm({
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && !submitting && onClose()}>
-      <DialogContent className="sm:max-w-3xl max-h-[92vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-4xl max-h-[92vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {isEditing ? "Editar plantilla recurrente" : "Nueva plantilla recurrente"}
@@ -535,6 +634,30 @@ export function RecurringTemplateForm({
                     else if (field === "email") setReceiverEmail(value);
                   }}
                 />
+
+                {/* Banner: el SII exige Giro/Ciudad en el bloque
+                    <Receptor> de facturas 33/34. Si el customer está
+                    seleccionado pero le faltan datos, lo avisamos para
+                    que el usuario lo complete antes de que el cron
+                    genere borradores con datos por defecto. */}
+                {customer && (() => {
+                  const missing: string[] = [];
+                  if (!customer.giro) missing.push("Giro");
+                  if (!customer.city) missing.push("Ciudad");
+                  if (missing.length === 0) return null;
+                  return (
+                    <div className="rounded-md border border-status-warn-border bg-status-warn-soft p-3 text-xs">
+                      <p className="font-semibold text-status-warn-fg">
+                        Faltan datos del cliente para SII: {missing.join(" y ")}
+                      </p>
+                      <p className="text-status-warn-fg/80 mt-1">
+                        El SII los exige en facturas 33/34. Completalos
+                        manualmente abajo o, mejor, en la ficha CRM del
+                        cliente para que se sincronicen en cada run del cron.
+                      </p>
+                    </div>
+                  );
+                })()}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 border-t">
                   <div className="space-y-1.5">
@@ -696,250 +819,35 @@ export function RecurringTemplateForm({
                 </Button>
               </div>
 
-              {/* Desktop table */}
-              <div className="hidden md:block">
-                <Card>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead className="bg-muted/30">
-                        <tr>
-                          <th className="px-3 py-2 text-left font-medium text-muted-foreground">Nombre *</th>
-                          <th className="px-3 py-2 text-right font-medium text-muted-foreground w-20">Cant.</th>
-                          <th className="px-3 py-2 text-right font-medium text-muted-foreground w-28">
-                            Precio {currency === "UF" ? "(UF)" : "(CLP)"} *
-                          </th>
-                          <th className="px-3 py-2 text-right font-medium text-muted-foreground w-20">Desc.%</th>
-                          <th className="px-3 py-2 text-center font-medium text-muted-foreground w-16">Exenta</th>
-                          <th className="px-3 py-2 text-right font-medium text-muted-foreground w-28">Subtotal</th>
-                          <th className="px-3 py-2 w-10" />
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {lines.map((line, i) => {
-                          const qty = parseFloat(line.quantity) || 0;
-                          const price = parseFloat(line.unitPrice) || 0;
-                          const disc = parseFloat(line.discountPct) || 0;
-                          const subtotal = qty * price * (1 - disc / 100);
-                          return (
-                            <tr key={i} className="border-b border-border/60 last:border-0">
-                              <td className="px-3 py-2">
-                                <Input
-                                  value={line.itemName}
-                                  onChange={(e) => updateLine(i, "itemName", e.target.value)}
-                                  className="h-9 text-sm"
-                                  placeholder="Servicio mensual"
-                                  autoComplete="off"
-                                />
-                                {line.description !== "" && (
-                                  <Input
-                                    value={line.description}
-                                    onChange={(e) => updateLine(i, "description", e.target.value)}
-                                    className="h-8 text-xs mt-1"
-                                    placeholder="Descripción opcional"
-                                    autoComplete="off"
-                                  />
-                                )}
-                                {line.description === "" && (
-                                  <button
-                                    type="button"
-                                    onClick={() => updateLine(i, "description", " ")}
-                                    className="mt-1 text-[12px] text-primary hover:underline"
-                                  >
-                                    + Agregar descripción
-                                  </button>
-                                )}
-                              </td>
-                              <td className="px-3 py-2">
-                                <Input
-                                  type="number"
-                                  min={0.01}
-                                  step="0.01"
-                                  inputMode="decimal"
-                                  value={line.quantity}
-                                  onChange={(e) => updateLine(i, "quantity", e.target.value)}
-                                  className="h-9 text-sm text-right tabular-nums"
-                                  autoComplete="off"
-                                />
-                              </td>
-                              <td className="px-3 py-2">
-                                <Input
-                                  type="number"
-                                  min={0}
-                                  step={currency === "UF" ? "0.0001" : "1"}
-                                  inputMode="decimal"
-                                  value={line.unitPrice}
-                                  onChange={(e) => updateLine(i, "unitPrice", e.target.value)}
-                                  className="h-9 text-sm text-right tabular-nums"
-                                  placeholder="0"
-                                  autoComplete="off"
-                                />
-                              </td>
-                              <td className="px-3 py-2">
-                                <Input
-                                  type="number"
-                                  min={0}
-                                  max={100}
-                                  inputMode="decimal"
-                                  value={line.discountPct}
-                                  onChange={(e) => updateLine(i, "discountPct", e.target.value)}
-                                  className="h-9 text-sm text-right tabular-nums"
-                                  autoComplete="off"
-                                />
-                              </td>
-                              <td className="px-3 py-2 text-center">
-                                <input
-                                  type="checkbox"
-                                  checked={line.isExempt}
-                                  onChange={(e) => updateLine(i, "isExempt", e.target.checked)}
-                                  className="size-4"
-                                />
-                              </td>
-                              <td className="px-3 py-2 text-right font-mono text-xs tabular-nums">
-                                {currency === "UF"
-                                  ? `${(qty * price * (1 - disc / 100)).toLocaleString("es-CL", { maximumFractionDigits: 4 })} UF`
-                                  : fmtCLP.format(Math.round(subtotal))}
-                              </td>
-                              <td className="px-3 py-2">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => removeLine(i)}
-                                  className="h-8 w-8 p-0"
-                                  disabled={lines.length <= 1}
-                                >
-                                  <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                                </Button>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                        <tr className="bg-accent/30 font-medium">
-                          <td className="px-3 py-2" colSpan={5}>
-                            <span className="text-xs">TOTAL NETO ESTIMADO</span>
-                          </td>
-                          <td className="px-3 py-2 text-right font-mono text-xs tabular-nums">
-                            {currency === "UF"
-                              ? `${totalNet.toLocaleString("es-CL", { maximumFractionDigits: 4 })} UF`
-                              : fmtCLP.format(Math.round(totalNet))}
-                          </td>
-                          <td />
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </Card>
-              </div>
-
-              {/* Mobile cards */}
-              <div className="md:hidden space-y-3">
+              {/* Surface por línea (desktop + mobile, mismo layout). En
+                  modo "literal" el picker de placeholders inserta
+                  `{{token}}` y el cron resuelve en cada run. */}
+              <div className="space-y-3">
                 {lines.map((line, i) => {
-                  const qty = parseFloat(line.quantity) || 0;
-                  const price = parseFloat(line.unitPrice) || 0;
-                  const disc = parseFloat(line.discountPct) || 0;
-                  const subtotal = qty * price * (1 - disc / 100);
+                  const subtotal = computeLineSubtotal(line);
+                  const subtotalFormatted =
+                    currency === "UF"
+                      ? `${subtotal.toLocaleString("es-CL", { maximumFractionDigits: 4 })} UF`
+                      : fmtCLP.format(Math.round(subtotal));
                   return (
-                    <Card key={i}>
-                      <CardContent className="p-3 space-y-2.5">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[12px] font-medium text-muted-foreground">
-                            Línea {i + 1}
-                          </span>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeLine(i)}
-                            className="h-10 w-10 p-0 sm:h-7 sm:w-7"
-                            disabled={lines.length <= 1}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </div>
-                        <Input
-                          value={line.itemName}
-                          onChange={(e) => updateLine(i, "itemName", e.target.value)}
-                          className="h-10 sm:h-9 text-sm"
-                          placeholder="Nombre del ítem *"
-                          autoComplete="off"
-                          autoCorrect="off"
-                        />
-                        <Input
-                          value={line.description}
-                          onChange={(e) => updateLine(i, "description", e.target.value)}
-                          className="h-10 sm:h-9 text-sm"
-                          placeholder="Descripción (opcional)"
-                          autoComplete="off"
-                        />
-                        <div className="grid grid-cols-3 gap-2 min-w-0">
-                          <div className="space-y-1">
-                            <Label className="text-[12px] uppercase tracking-wide text-muted-foreground">
-                              Cant.
-                            </Label>
-                            <Input
-                              type="number"
-                              min={0.01}
-                              step="0.01"
-                              inputMode="decimal"
-                              value={line.quantity}
-                              onChange={(e) => updateLine(i, "quantity", e.target.value)}
-                              className="h-10 sm:h-9 text-sm text-right tabular-nums"
-                              autoComplete="off"
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-[12px] uppercase tracking-wide text-muted-foreground">
-                              {currency === "UF" ? "Pr.UF *" : "Precio *"}
-                            </Label>
-                            <Input
-                              type="number"
-                              min={0}
-                              step={currency === "UF" ? "0.0001" : "1"}
-                              inputMode="decimal"
-                              value={line.unitPrice}
-                              onChange={(e) => updateLine(i, "unitPrice", e.target.value)}
-                              className="h-10 sm:h-9 text-sm text-right tabular-nums"
-                              autoComplete="off"
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-[12px] uppercase tracking-wide text-muted-foreground">
-                              Desc.%
-                            </Label>
-                            <Input
-                              type="number"
-                              min={0}
-                              max={100}
-                              inputMode="decimal"
-                              value={line.discountPct}
-                              onChange={(e) => updateLine(i, "discountPct", e.target.value)}
-                              className="h-10 sm:h-9 text-sm text-right tabular-nums"
-                              autoComplete="off"
-                            />
-                          </div>
-                        </div>
-                        <label className="flex items-center gap-2 text-[13px]">
-                          <input
-                            type="checkbox"
-                            checked={line.isExempt}
-                            onChange={(e) => updateLine(i, "isExempt", e.target.checked)}
-                            className="size-4"
-                          />
-                          <span>Línea exenta de IVA</span>
-                        </label>
-                        <div className="text-right text-[13px] font-mono tabular-nums">
-                          Subtotal:{" "}
-                          <span className="font-medium">
-                            {currency === "UF"
-                              ? `${subtotal.toLocaleString("es-CL", { maximumFractionDigits: 4 })} UF`
-                              : fmtCLP.format(Math.round(subtotal))}
-                          </span>
-                        </div>
-                      </CardContent>
-                    </Card>
+                    <LineDetailSurface
+                      key={i}
+                      index={i}
+                      value={line}
+                      onChange={(partial) => updateLine(i, partial)}
+                      onRemove={() => removeLine(i)}
+                      canRemove={lines.length > 1}
+                      currency={currency}
+                      placeholderMode="literal"
+                      placeholderContext={placeholderCtx}
+                      showExempt
+                      subtotalFormatted={subtotalFormatted}
+                    />
                   );
                 })}
                 <Card>
                   <CardContent className="p-3 text-right font-mono text-sm font-medium tabular-nums">
-                    Total neto:{" "}
+                    Total neto estimado:{" "}
                     {currency === "UF"
                       ? `${totalNet.toLocaleString("es-CL", { maximumFractionDigits: 4 })} UF`
                       : fmtCLP.format(Math.round(totalNet))}
@@ -948,52 +856,67 @@ export function RecurringTemplateForm({
               </div>
             </div>
 
-            {/* ── Observaciones / Referencias ── */}
+            {/* ── Observaciones ── */}
+            <Card>
+              <CardContent className="pt-4 space-y-1.5">
+                <Label htmlFor="t-notes">Observaciones (opcional)</Label>
+                <Textarea
+                  id="t-notes"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Ej: Servicio según contrato firmado el 01/01/2026."
+                  rows={2}
+                  maxLength={1000}
+                />
+                <p className="text-[12px] text-muted-foreground">
+                  Soporta los mismos placeholders de las líneas
+                  (<code>{`{{periodo}}`}</code>, <code>{`{{uf_valor}}`}</code>,
+                  etc.). Se resuelven en cada run del cron.
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* ── Referencias adicionales (OC, HES, Contrato, etc) ── */}
             <Card>
               <CardContent className="pt-4 space-y-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="t-notes">Observaciones (opcional)</Label>
-                  <Textarea
-                    id="t-notes"
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    placeholder="Ej: Servicio según contrato firmado el 01/01/2026."
-                    rows={2}
-                    maxLength={1000}
-                  />
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div>
+                    <h3 className="text-sm font-medium">Referencias (opcional)</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Asocia cada borrador generado a documentos del cliente:
+                      Orden de Compra, HES, Contrato, etc. Se imprimen en el
+                      PDF y van al SII.
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      setAdditionalRefs((prev) => [
+                        ...prev,
+                        { tipoDocRef: "801", folioRef: "", fchRef: "", razonRef: "" },
+                      ])
+                    }
+                    disabled={additionalRefs.length >= 30}
+                  >
+                    <Plus className="h-3.5 w-3.5 mr-1" />
+                    Agregar referencia
+                  </Button>
                 </div>
 
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label>Referencias adicionales (opcional)</Label>
-                      <p className="text-[12px] text-muted-foreground">
-                        OC, HES, contrato, etc. Aparecen en cada borrador.
-                      </p>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        setAdditionalRefs((prev) => [
-                          ...prev,
-                          { tipoDocRef: "801", folioRef: "", fchRef: "", razonRef: "" },
-                        ])
-                      }
-                      disabled={additionalRefs.length >= 30}
-                    >
-                      <Plus className="h-3.5 w-3.5 mr-1" />
-                      Agregar
-                    </Button>
-                  </div>
-                  {additionalRefs.length > 0 && (
-                    <div className="space-y-2">
-                      {additionalRefs.map((ref, i) => (
-                        <div
-                          key={i}
-                          className="grid grid-cols-1 md:grid-cols-12 gap-2 items-start p-2 rounded-md bg-muted/30 border border-border"
-                        >
-                          <div className="md:col-span-2">
+                {additionalRefs.length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic">
+                    Sin referencias. Click en &quot;Agregar referencia&quot; para
+                    vincular OC, HES, etc.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {additionalRefs.map((ref, i) => (
+                      <div
+                        key={i}
+                        className="grid grid-cols-1 md:grid-cols-12 gap-2 items-start p-2 rounded-md bg-muted/30 border border-border"
+                      >
+                          <div className="md:col-span-3">
                             <Label className="text-xs">Tipo</Label>
                             <Select
                               value={ref.tipoDocRef}
@@ -1015,7 +938,7 @@ export function RecurringTemplateForm({
                               </SelectContent>
                             </Select>
                           </div>
-                          <div className="md:col-span-3">
+                          <div className="md:col-span-5">
                             <Label className="text-xs">Folio / N°</Label>
                             <Input
                               value={ref.folioRef}
@@ -1029,7 +952,7 @@ export function RecurringTemplateForm({
                               autoComplete="off"
                             />
                           </div>
-                          <div className="md:col-span-2">
+                          <div className="md:col-span-3">
                             <Label className="text-xs">Fecha</Label>
                             <Input
                               type="date"
@@ -1040,21 +963,6 @@ export function RecurringTemplateForm({
                                 )
                               }
                               className="h-10 sm:h-9 text-sm"
-                            />
-                          </div>
-                          <div className="md:col-span-4">
-                            <Label className="text-xs">Razón / glosa</Label>
-                            <Input
-                              value={ref.razonRef}
-                              onChange={(e) =>
-                                setAdditionalRefs((prev) =>
-                                  prev.map((r, idx) => (idx === i ? { ...r, razonRef: e.target.value } : r)),
-                                )
-                              }
-                              placeholder="Orden de Compra del cliente"
-                              maxLength={90}
-                              className="h-10 sm:h-9 text-sm"
-                              autoComplete="off"
                             />
                           </div>
                           <div className="md:col-span-1 flex items-end justify-end h-full">
@@ -1069,11 +977,10 @@ export function RecurringTemplateForm({
                               <Trash2 className="h-3.5 w-3.5 text-destructive" />
                             </Button>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -1266,6 +1173,44 @@ export function RecurringTemplateForm({
                     )}
                   </div>
                 )}
+
+                {/* Política de período: cómo resolver `{{periodo}}` y
+                    derivados al generar el borrador. Default
+                    CURRENT_MONTH = factura por adelantado (común en CL). */}
+                <div className="rounded-md border border-status-info-border bg-status-info-soft p-3 space-y-2">
+                  <p className="text-[13px] font-medium text-status-info-fg">
+                    Política de período (placeholder {`{{periodo}}`})
+                  </p>
+                  <p className="text-[12px] text-status-info-fg/80">
+                    Define qué mes mostrarán los placeholders <code>{`{{periodo}}`}</code>,{" "}
+                    <code>{`{{periodo_mes}}`}</code> y derivados cuando el cron
+                    genere cada borrador. Solo aplica si tus líneas usan estos
+                    placeholders.
+                  </p>
+                  <Select
+                    value={periodPolicy}
+                    onValueChange={(v) =>
+                      setPeriodPolicy(
+                        v as "CURRENT_MONTH" | "PREVIOUS_MONTH" | "NEXT_MONTH",
+                      )
+                    }
+                  >
+                    <SelectTrigger className="h-10 sm:h-9 bg-background">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="CURRENT_MONTH">
+                        Mes en curso (factura por adelantado, recomendado)
+                      </SelectItem>
+                      <SelectItem value="PREVIOUS_MONTH">
+                        Mes anterior (factura vencida)
+                      </SelectItem>
+                      <SelectItem value="NEXT_MONTH">
+                        Mes siguiente (casos especiales)
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
                 <label className="flex items-start gap-2 text-[13px]">
                   <input
