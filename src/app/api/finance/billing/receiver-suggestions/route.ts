@@ -53,6 +53,10 @@ export async function GET(request: NextRequest) {
       rut: true,
       address: true,
       commune: true,
+      // city y giro se agregaron al CrmAccount para autocompletar el
+      // bloque <Receptor> del DTE (SII exige ambos en facturas 33/34).
+      city: true,
+      giro: true,
     },
   });
 
@@ -86,6 +90,8 @@ export async function GET(request: NextRequest) {
         rut: account.rut,
         address: account.address,
         commune: account.commune,
+        city: account.city,
+        giro: account.giro,
       },
       contacts: contacts
         .filter((c) => c.email && c.email.includes("@"))

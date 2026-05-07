@@ -158,10 +158,14 @@ type AccountDetail = {
   legalRepresentativeName?: string | null;
   legalRepresentativeRut?: string | null;
   industry?: string | null;
+  /** Giro / actividad económica formal SII (autocompleta receptor en DTE). */
+  giro?: string | null;
   segment?: string | null;
   website?: string | null;
   address?: string | null;
   commune?: string | null;
+  /** Ciudad (distinta a comuna). El SII pide ambas en facturas. */
+  city?: string | null;
   notaryName?: string | null;
   notaryDate?: string | null;
   startDate?: string | null;
@@ -272,10 +276,12 @@ export function CrmAccountDetailClient({
     legalRepresentativeRut:
       account.legalRepresentativeRut || firstRepForForm?.rut || "",
     industry: account.industry || "",
+    giro: account.giro || "",
     segment: account.segment || "",
     website: account.website || "",
     address: account.address || "",
     commune: account.commune || "",
+    city: account.city || "",
     notaryName: account.notaryName || personeriaForForm?.notaria || "",
     notaryDate:
       account.notaryDate ||
@@ -367,10 +373,12 @@ export function CrmAccountDetailClient({
       legalRepresentativeRut:
         account.legalRepresentativeRut || firstRep?.rut || "",
       industry: account.industry || "",
+      giro: account.giro || "",
       segment: account.segment || "",
       website: account.website || "",
       address: account.address || "",
       commune: account.commune || "",
+      city: account.city || "",
       notaryName: account.notaryName || pers?.notaria || "",
       notaryDate:
         account.notaryDate ||
@@ -1107,7 +1115,26 @@ export function CrmAccountDetailClient({
             <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
             <div className="min-w-0">
               <p className="break-words text-[14px] leading-snug text-foreground">{account.address}</p>
-              {account.commune && <p className="mt-0.5 text-xs text-muted-foreground">{account.commune}</p>}
+              {(account.commune || account.city) && (
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {[account.commune, account.city].filter(Boolean).join(", ")}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+        {account.giro && (
+          <div className="flex items-start gap-3 rounded-xl border border-border bg-card p-4">
+            <span className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border border-muted-foreground/40 text-[10px] font-bold text-muted-foreground">
+              ₡
+            </span>
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
+                Giro / Actividad económica
+              </p>
+              <p className="break-words text-[14px] leading-snug text-foreground">
+                {account.giro}
+              </p>
             </div>
           </div>
         )}
@@ -1492,6 +1519,25 @@ export function CrmAccountDetailClient({
               <Label>Industria</Label>
               <Input value={accountForm.industry} onChange={(e) => setAccountForm((p) => ({ ...p, industry: e.target.value }))} className={inputCn} />
             </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label>
+                Giro / Actividad económica{" "}
+                <span className="text-[11px] font-normal text-muted-foreground ml-1">
+                  (texto formal SII)
+                </span>
+              </Label>
+              <Input
+                value={accountForm.giro}
+                onChange={(e) =>
+                  setAccountForm((p) => ({ ...p, giro: e.target.value }))
+                }
+                className={inputCn}
+                placeholder="Ej: Servicios de seguridad y vigilancia"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Se autocompleta como receptor cuando facturas a este cliente.
+              </p>
+            </div>
             <div className="space-y-1.5">
               <Label>Segmento</Label>
               <Input value={accountForm.segment} onChange={(e) => setAccountForm((p) => ({ ...p, segment: e.target.value }))} className={inputCn} placeholder="Corporativo, PYME..." />
@@ -1507,6 +1553,22 @@ export function CrmAccountDetailClient({
             <div className="space-y-1.5">
               <Label>Comuna</Label>
               <Input value={accountForm.commune} onChange={(e) => setAccountForm((p) => ({ ...p, commune: e.target.value }))} className={inputCn} placeholder="Lo Barnechea, Providencia..." />
+            </div>
+            <div className="space-y-1.5">
+              <Label>
+                Ciudad{" "}
+                <span className="text-[11px] font-normal text-muted-foreground ml-1">
+                  (SII pide ambas)
+                </span>
+              </Label>
+              <Input
+                value={accountForm.city}
+                onChange={(e) =>
+                  setAccountForm((p) => ({ ...p, city: e.target.value }))
+                }
+                className={inputCn}
+                placeholder="Santiago, Concepción..."
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Fecha inicio</Label>

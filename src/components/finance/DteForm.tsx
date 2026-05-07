@@ -134,7 +134,16 @@ export function DteForm({ availableTypes, accounts }: Props) {
    * matchea un account existente.
    */
   const [crmSuggestions, setCrmSuggestions] = useState<{
-    account: { id: string; name: string; commercialName: string; rut: string; address: string | null; commune: string | null } | null;
+    account: {
+      id: string;
+      name: string;
+      commercialName: string;
+      rut: string;
+      address: string | null;
+      commune: string | null;
+      city: string | null;
+      giro: string | null;
+    } | null;
     contacts: { id: string; fullName: string; email: string; roleTitle: string | null; isPrimary: boolean }[];
   } | null>(null);
   /** Referencias adicionales del DTE: OC, HES, Contrato, etc. */
@@ -251,17 +260,15 @@ export function DteForm({ availableTypes, accounts }: Props) {
   }, [draftIdParam]);
 
   // Cuando se selecciona un customer del CRM, autocompletar los datos del
-  // receptor con lo que tenga el CRM (dirección, comuna). Si el campo del
-  // CRM está vacío, dejamos en blanco (el usuario puede escribir o el
-  // provider usa defaults).
+  // receptor con lo que tenga el CRM (dirección, comuna, ciudad, giro).
+  // Si el campo del CRM está vacío, dejamos en blanco (el usuario puede
+  // escribir o el provider usa defaults seguros para el SII).
   useEffect(() => {
     if (!customer) return;
     setReceiverDireccion(customer.address ?? "");
     setReceiverComuna(customer.commune ?? "");
     setReceiverCiudad(customer.city ?? "");
-    // Giro NO viene del CRM (CrmAccount usa "industry" para otra cosa).
-    // Si el usuario tiene CrmAccount.legalName con el giro, podríamos parsear,
-    // pero por simplicidad lo dejamos al usuario.
+    setReceiverGiro(customer.giro ?? "");
   }, [customer]);
 
   // Cargar instalaciones del cliente cuando cambia el customer.

@@ -1959,6 +1959,15 @@ model CrmAccount {
   website                 String?
   address                 String?
   commune                 String?
+  // Ciudad: distinto a comuna. SII exige ambos en facturas (Comuna +
+  // Ciudad). Se autocompleta al receptor al crear un DTE para esta cuenta.
+  city                    String?
+  // Giro / Actividad económica formal del cliente (texto libre, ej:
+  // "Servicios de seguridad y vigilancia"). El SII lo exige en el bloque
+  // <Receptor> de facturas (33/34). Distinto a `industry` (que es un
+  // segmento comercial interno usado en CRM/reportes). Se autocompleta
+  // al receptor al crear un DTE para esta cuenta.
+  giro                    String?
   logoUrl                 String?   @map("logo_url")
   notes                   String?
   startDate               DateTime? @map("start_date") @db.Date

@@ -370,6 +370,14 @@ export const updateReceivedDteSchema = z.object({
  * Zod schema para `POST /api/finance/billing/received/[id]/acuse`.
  * `action` es la intención de alto nivel del usuario; el service la
  * traduce internamente a las llamadas SimpleAPI ACD/RCD/ERM/RFP/RFT.
+ *
+ * `notifySii` controla si la decisión se comunica oficialmente al SII:
+ *   - `true`  → llama a SimpleAPI (acción IRREVERSIBLE en SII).
+ *   - `false` → solo cambia el estado en OPAI (clasificación interna,
+ *               sin efecto legal). Útil para marcar facturas que el
+ *               operador validó internamente pero que ya fueron
+ *               aceptadas/reclamadas por otro canal o que no quiere
+ *               escalar al SII todavía.
  */
 export const acuseReceivedDteSchema = z.object({
   action: z.enum([
@@ -379,6 +387,7 @@ export const acuseReceivedDteSchema = z.object({
     "CLAIM_PARTIAL", // RFP (faltante parcial mercaderías)
     "CLAIM_TOTAL", // RFT (faltante total mercaderías)
   ]),
+  notifySii: z.boolean().default(true),
   reason: optNull(z.string().trim().max(500)),
 });
 
