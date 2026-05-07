@@ -45,6 +45,162 @@ OPAI Suite is a multi-tenant SaaS platform for security companies (Next.js 15 Ap
 
 ---
 
+## NAVIGATION ARCHITECTURE — Cluster Nav v4
+
+> **Esta sección es ley para CUALQUIER cambio de navegación. Si vas a tocar
+> sidebar, bottom nav, sub-nav o agregar una página, lee primero esto.**
+
+### Source of truth única: `src/lib/nav/registry.ts`
+
+Toda la jerarquía de navegación de la app vive en un solo archivo. NO se
+pueden definir items de nav hardcoded en componentes.
+
+```ts
+import { NAV_MODULES, getModule, findActiveModule } from "@/lib/nav/registry";
+```
+
+El registry tiene 4 niveles:
+
+- **N1** (módulos): Hub, CRM, Operaciones, Personas, Payroll, Finanzas,
+  Documentos, Configuración, Portales, Reportes DT, Te.
+- **N2** (sub-módulos): hijos directos de un módulo. Ej. CRM → [Leads,
+  Cuentas, Contactos, Negocios, Cotizaciones, Prospección, Instalaciones].
+- **N3** (sub-secciones): hijos de un N2. Ej. Finanzas → Reportes →
+  [Dashboard, EERR, Balance, Ventas, Compras, Rentabilidad, Mayor].
+- **N4** (drill-down detalle): páginas `[id]` con `EntityDetailLayout` y
+  `ChipTabs` (CRM, plan futuro para resto).
+
+### Reglas de visibilidad (cada nodo del registry)
+
+```ts
+{
+  module?: ModuleKey;           // requires hasModuleAccess
+  submodule?: string;           // requires canView(module, submodule)
+  capability?: CapabilityKey;   // requires hasCapability
+  tenantModule?: string;        // requires isModuleEnabled (tenant)
+  adminOnly?: boolean;
+  show?: (perms) => boolean;    // custom AND-combined predicate
+}
+```
+
+### Cómo se renderiza cada nivel
+
+| Nivel | Mobile | Desktop |
+|---|---|---|
+| **N1** | Bottom bar items principales (4 + Más) | Sidebar (`AppSidebar`) |
+| **N2** | Bottom bar contextual (cuando estás en módulo) | Sidebar children |
+| **N3** | Bottom bar contextual (al entrar en sub-módulo con N3) | `<ModuleSubNav />` arriba del PageHero |
+| **N4** | `EntityDetailLayout` con `ChipTabs` | `EntityDetailLayout` con `ChipTabs` |
+
+**Importante**: en mobile el SubNav N3 NO se renderiza (oculto con
+`hidden lg:block` por default en `<ModuleSubNav>`). El bottom nav cubre
+ese rol gracias a `getContextualBottomNavNodes`.
+
+### Patrón estándar para una page
+
+```tsx
+import { ModuleSubNav, PageHero } from "@/components/opai-ds";
+
+return (
+  <div className="space-y-6 min-w-0">
+    <ModuleSubNav moduleKey="ops-rondas" />  {/* arriba del hero */}
+    <PageHero
+      icon={<ShieldCheck />}
+      iconTone="emerald"
+      eyebrow={["Operaciones", "Rondas"]}
+      title="Rondas de seguridad"
+      subtitle="dashboard ejecutivo"
+      description="..."
+    />
+    <Content />
+  </div>
+);
+```
+
+Para módulos con varias páginas que comparten el mismo SubNav, mejor
+crear un `layout.tsx` con `<ModuleSubNav moduleKey="..." />` y dejar
+las pages hijas sin nav local. Ejemplos:
+- `src/app/(app)/ops/rondas/layout.tsx`
+- `src/app/(app)/ops/inventario/layout.tsx`
+- `src/app/(app)/finanzas/reportes/layout.tsx`
+- `src/app/(app)/finanzas/facturacion/layout.tsx`
+
+### Configuración (`/opai/configuracion`) — sub-sidebar
+
+Configuración tiene 29+ sub-páginas, demasiadas para un SubNav horizontal.
+Usa `<ConfigShell>` con sub-sidebar interno (Slack/Notion settings):
+
+- Desktop: sidebar persistente 240px a la izquierda, content a la derecha.
+- Mobile: trigger button con drawer.
+- En la home `/opai/configuracion` (root) NO se renderiza el sidebar
+  — el grid de tarjetas existente hace de navegador.
+
+Las categorías están en `CONFIG_CATEGORIES` del registry: General,
+Permisos, Comunicación, Plantillas, Módulos, Inteligencia Artificial.
+
+Cada nodo hijo de `config` tiene `category: "general" | "permisos" | …`.
+
+### Páginas detalle (`[id]` y `[id]/sub`)
+
+Patrón **canónico** (ya implementado en CRM): `<EntityDetailLayout>`
+en `src/components/crm/EntityDetailLayout.tsx`. Provee:
+- Breadcrumb compacto en mobile (back link al padre) + completo en desktop.
+- Header sticky con avatar, título, status, acciones.
+- `ChipTabs` integrado para sub-secciones internas (info, contactos, etc.).
+- Slot opcional para sub-tabs anidados, pipeline bar, right panel.
+
+**Pendiente**: migrar a este patrón las pages detalle de Personas,
+Payroll, Ops/ATS, Ops/Tickets, Ops/Supervision, Inventario/productos,
+Finanzas/Rendiciones, Finanzas/Cesiones, Documentos. Cuando alguien
+toque una de esas páginas, debe usar `EntityDetailLayout` (no inventar
+otro patrón).
+
+### Primitives nuevos (`@/components/opai-ds`)
+
+```ts
+import { ModuleSubNav, SwipeTabs, ConfigShell } from "@/components/opai-ds";
+```
+
+- `<SwipeTabs items={...} trailingAction={...}>`: tab bar swipeable con
+  underline animado. Mobile-first (snap horizontal scroll, momentum iOS).
+- `<ModuleSubNav moduleKey="..." visibility="desktop-only" trailingAction={...}>`:
+  consume el registry, renderiza un SwipeTabs con los hijos N3 del
+  módulo activo. `visibility="always"` para mostrar también en mobile
+  (raro, solo cuando bottom nav no cubre la sección).
+- `<ConfigShell>`: layout 2-column para Configuración con sub-sidebar.
+
+### Sidebar default behavior
+
+- **Desktop xl+ (1280px+)**: expandido por default si el usuario no tiene
+  preferencia guardada en localStorage `opai-sidebar-open`.
+- **Desktop lg (1024-1279)**: colapsado por default.
+- **Tablet/mobile (<1024)**: el sidebar no se renderiza, lo cubre el
+  bottom nav.
+
+### Cuándo crear un layout vs editar cada page
+
+- **Crear layout** (recomendado) cuando todas las pages bajo un prefijo
+  comparten el mismo SubNav. Ejemplos: `/ops/rondas/*`, `/ops/inventario/*`,
+  `/finanzas/reportes/*`, `/finanzas/facturacion/*`.
+- **Editar cada page** cuando las pages no caen bajo un prefijo común.
+  Ejemplos: Pautas (`/ops/pauta-mensual`, `/ops/pauta-diaria`,
+  `/ops/turnos-extra`, etc.) — cada page importa `<ModuleSubNav moduleKey="ops-pautas" />`.
+
+### Tests
+
+- `src/lib/nav/__tests__/registry.test.ts` — estructura, visibilidad,
+  lookups, contextual bottom nav (24 tests).
+- `src/lib/__tests__/module-nav-bottom-items.test.ts` — back-compat
+  de `getBottomNavItems` para todos los paths críticos (15 tests).
+- `src/components/opai/__tests__/role-nav-builder.test.ts` — back-compat
+  del sidebar (9 tests).
+- `src/components/opai-ds/__tests__/SwipeTabs.test.tsx` — primitive
+  básico (6 tests).
+
+Total: 54 tests verdes que protegen el patrón.
+
+---
+
 ## DESIGN SYSTEM RULES — DO NOT BREAK
 
 > **Esta sección es ley para Cursor / Claude Code / cualquier agente.**

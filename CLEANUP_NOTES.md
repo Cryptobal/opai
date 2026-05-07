@@ -53,6 +53,18 @@ Notas de la limpieza quirúrgica ejecutada sobre el repo Opai en 2026-04-16.
 - **3d Portal/Chat (10):** `ChatGuardSection`, `PortalEmptyState`, `PwaRegistrar`, `AdditionalServicesPortal`, `CostBreakdownPortal`, `GardServiceIncludes`, `ChatRondasSection`, `InstallBanner`, `SupervisorChat`, `ChatPage`
 - **3e Ops/ATS/Finance/Admin (18):** ops (10) + `AccessControlDevicesSection`, `DashboardContent`, `DashboardHeader`, `ExternalJobSearch`, `FinanceSubnav`, `SupervisionDashboardClient`, `SupervisionNewVisitFlow`, `SupervisionReportesClient`
 
+### Cluster Nav v4 — SubNav legacy eliminados
+
+Tras la migración del cluster Nav v4 (registry único + ModuleSubNav primitive),
+los siguientes SubNav locales se eliminaron porque ya no se usan:
+
+- `ConfigSubnav`, `DocumentosSubnav`, `OpsSubnav`, `PautasSubnav`, `PayrollSubnav`,
+  `PersonasSubnav`, `ReportsTabs`, `RondasSubnav`, `SupervisionSubnav`,
+  `TeSubnav`, `TicketsSubnav`, `InventarioSubnav` (12 archivos, ~1.000 LOC).
+
+Toda la nav N3 vive ahora en `src/lib/nav/registry.ts` (single source of
+truth). Ver `AGENTS.md` sección "NAVIGATION ARCHITECTURE — Cluster Nav v4".
+
 `npx tsc --noEmit` pasó después de cada sub-batch.
 
 ### BLOQUE 4 — API routes muertas
