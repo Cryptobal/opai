@@ -581,3 +581,18 @@ Casos edge que NO se automatizaron (hover, focus, gradientes, props de charts, c
 - PanicAlertBanner preservado con marker @ds-allow-legacy (alarma operativa).
 
 Próximo cluster: 5B.3 (Tickets) — ~3-4 h.
+
+## Navegación — Reglas para AI agents
+
+Cuando creas una página nueva en `/src/app/(app)/...`:
+
+1. **Breadcrumbs son automáticos** — `<AutoBreadcrumbs />` está montado en `AppShell`. NO hace falta agregarlo en cada página.
+2. **N3 (sub-secciones) van en `layout.tsx`** del módulo padre, NUNCA en `page.tsx`. Usar `<ModuleSubNav moduleKey="...">`.
+3. **NUNCA usar la prop `eyebrow`** del `PageHero` — fue eliminada (los breadcrumbs la reemplazan).
+4. **Para detail pages con nombre dinámico** (ej: `/crm/accounts/[id]`): usar `<PageShell trailingBreadcrumb={entidad.name} hero={{...}}>`.
+5. **Si el módulo no tiene `layout.tsx`**, crearlo con el patrón estándar (auth + ModuleSubNav).
+6. **Si la nueva ruta debe aparecer en el N3**, agregarla al registry `src/lib/nav/registry.ts` como child del módulo o sub-módulo correspondiente.
+7. **Tabs entre vistas → rutas reales, NUNCA `useState<TabId>`.** El sistema rechaza ese anti-patrón en code review.
+8. **Configuración y Chat** viven en el topbar — no agregar al sidebar (en el registry, `config` tiene `hideInSidebar: true`).
+
+Ver `docs/NAVIGATION_GUIDE.md` para ejemplos completos y la anatomía de cada página.
