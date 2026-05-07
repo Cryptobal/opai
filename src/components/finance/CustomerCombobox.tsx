@@ -39,6 +39,21 @@ export function CustomerCombobox({
   const [loading, setLoading] = useState(false);
   const [showManual, setShowManual] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Si el usuario alterna explícitamente entre manual y búsqueda, dejamos
+  // de auto-abrir la vista manual aunque haya datos manuales precargados.
+  const userToggledRef = useRef(false);
+
+  // Auto-mostrar la vista de ingreso manual cuando se hidratan datos del
+  // receptor sin un cliente CRM asociado (típico al abrir un borrador con
+  // RUT ingresado manualmente). Sin esto, el componente quedaba en la
+  // vista vacía "Buscar cliente del CRM…" ocultando la data del borrador.
+  useEffect(() => {
+    if (userToggledRef.current) return;
+    if (value) return;
+    if (manualRut || manualName || manualEmail) {
+      setShowManual(true);
+    }
+  }, [value, manualRut, manualName, manualEmail]);
 
   const search = useCallback(async (q: string) => {
     setLoading(true);
@@ -122,7 +137,10 @@ export function CustomerCombobox({
           <span className="text-ds-text-3">Ingreso manual</span>
           <button
             type="button"
-            onClick={() => setShowManual(false)}
+            onClick={() => {
+              userToggledRef.current = true;
+              setShowManual(false);
+            }}
             className="text-status-ok-fg hover:opacity-80 font-medium"
           >
             Buscar en CRM
@@ -233,6 +251,7 @@ export function CustomerCombobox({
                   <button
                     type="button"
                     onClick={() => {
+                      userToggledRef.current = true;
                       setOpen(false);
                       setShowManual(true);
                       setQuery("");
@@ -279,6 +298,7 @@ export function CustomerCombobox({
               <button
                 type="button"
                 onClick={() => {
+                  userToggledRef.current = true;
                   setOpen(false);
                   setShowManual(true);
                   setQuery("");
