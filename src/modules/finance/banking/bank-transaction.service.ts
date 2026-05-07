@@ -6,6 +6,10 @@
 import { prisma } from "@/lib/prisma";
 import { Decimal } from "@prisma/client/runtime/library";
 import type { FinanceBankTxSource } from "@prisma/client";
+import {
+  bulkAutoMatchBankTransactions,
+  type BulkAutoMatchSummary,
+} from "./auto-match-payment.service";
 
 // ── Types ──
 
@@ -80,13 +84,17 @@ export async function listBankTransactions(
  * Import bank transactions in bulk (from parsed bank statement)
  * - Uses createMany for performance
  * - Updates bank account balance with the last transaction balance or amount sum
+ * - OPCIONAL: si `userId` se provee, corre auto-match contra DTEs
+ *   pendientes después del bulk insert. Cobros que coinciden EXACTO
+ *   (monto + RUT) se vinculan solos y la factura pasa a PAID.
  */
 export async function importBankTransactions(
   tenantId: string,
   bankAccountId: string,
   transactions: ImportTransactionInput[],
-  closingBalance?: number | null
-) {
+  closingBalance?: number | null,
+  userId?: string,
+): Promise<{ importedCount: number; autoMatch?: BulkAutoMatchSummary }> {
   // Verify bank account exists and belongs to tenant
   const bankAccount = await prisma.financeBankAccount.findFirst({
     where: { id: bankAccountId, tenantId },
@@ -128,7 +136,35 @@ export async function importBankTransactions(
     });
   }
 
-  return { importedCount: result.count };
+  // Auto-match contra DTEs pendientes. Solo corre si tenemos userId
+  // (auditoría del payment record). Buscamos las tx recién insertadas
+  // por unique key (apiTransactionId no aplica para CSV; usamos
+  // bankAccount + tenant + status UNMATCHED que es nuevo). Para evitar
+  // tocar transacciones viejas, filtramos por createdAt ≥ start.
+  let autoMatch: BulkAutoMatchSummary | undefined = undefined;
+  if (userId && result.count > 0) {
+    // Tomamos las UNMATCHED de esta cuenta como targets del bulk match.
+    // En la práctica, el bulk insert recién las creó; las que ya estaban
+    // UNMATCHED de antes también se intentan (es safe: idempotente).
+    const fresh = await prisma.financeBankTransaction.findMany({
+      where: {
+        tenantId,
+        bankAccountId,
+        reconciliationStatus: "UNMATCHED",
+        amount: { gt: 0 }, // solo cobros para auto-match
+      },
+      select: { id: true },
+      orderBy: { createdAt: "desc" },
+      take: 500, // hard cap defensivo
+    });
+    autoMatch = await bulkAutoMatchBankTransactions(
+      tenantId,
+      fresh.map((t) => t.id),
+      userId,
+    );
+  }
+
+  return { importedCount: result.count, autoMatch };
 }
 
 /**

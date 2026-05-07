@@ -62,6 +62,7 @@ import { CostCenterEditor } from "./CostCenterEditor";
 import { CreditNoteModal } from "./CreditNoteModal";
 import { IssuedDteDetailDialog } from "./IssuedDteDetailDialog";
 import { SendEmailDialog } from "./SendEmailDialog";
+import { SaludFinancieraHero } from "./SaludFinancieraHero";
 import { Building, MapPin } from "lucide-react";
 
 /* ── Types ── */
@@ -369,6 +370,21 @@ export function FacturacionClient({
 
   return (
     <div className="space-y-4">
+      {/* Hero "Salud financiera del mes": panel arriba de los KPIs.
+          Cobrado vs facturado, aging buckets, IVA neto, margen, mini
+          chart de cobro vs facturación últimos 6 meses. Es lo PRIMERO
+          que el usuario ve al entrar al módulo. */}
+      <SaludFinancieraHero
+        periodo={periodoFilter}
+        onClickVencidas={() => {
+          setActiveTab("dtes");
+          // Filtro por OVERDUE (Tabla emitidos lo soporta vía
+          // statusFilter normal de SII, pero "vencidas" es payment, no
+          // SII status — por ahora solo cambia tab y deja al usuario
+          // filtrar manualmente. Mejora futura: filtro propio de pago).
+        }}
+      />
+
       {/* Dashboard widgets */}
       <KPIRow
         kpis={kpis}

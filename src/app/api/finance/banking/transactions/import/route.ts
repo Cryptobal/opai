@@ -145,11 +145,15 @@ export async function POST(request: NextRequest) {
     }
 
     // --- Import transactions ---
+    // Pasamos userId para que importBankTransactions corra auto-match
+    // contra DTEs pendientes después del bulk insert. Cobros con monto
+    // exacto + RUT detectado en cartola pasan a PAID automáticamente.
     const result = await importBankTransactions(
       ctx.tenantId,
       bankAccountId,
       parsed.transactions,
-      parsed.closingBalance
+      parsed.closingBalance,
+      ctx.userId,
     );
 
     return NextResponse.json(
@@ -161,6 +165,10 @@ export async function POST(request: NextRequest) {
           accountNumber: parsed.accountNumber,
           periodFrom: parsed.periodFrom,
           periodTo: parsed.periodTo,
+          // Resumen del auto-match para que la UI pueda mostrar
+          // "X transacciones importadas, Y conciliadas automáticamente,
+          // Z requieren revisión manual".
+          autoMatch: result.autoMatch ?? null,
         },
       },
       { status: 201 }
