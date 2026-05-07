@@ -6,7 +6,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { DataTable, EmptyState, ModuleSubNav, PageHero, type DataTableColumn } from "@/components/opai-ds";
+import { DataTable, EmptyState, PageHero, type DataTableColumn } from "@/components/opai-ds";
 import { FileText } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -85,8 +85,7 @@ export default function PayrollParameters() {
 
   return (
     <div className="space-y-6 min-w-0">
-      <ModuleSubNav moduleKey="payroll" />
-      {/* Header */}
+{/* Header */}
       <PageHero
         icon={<FileText />}
         iconTone="amber"

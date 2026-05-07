@@ -3,7 +3,7 @@
  */
 
 import Link from "next/link";
-import { ModuleSubNav, PageHero, Surface } from "@/components/opai-ds";
+import { PageHero, Surface } from "@/components/opai-ds";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calculator, FileText, Settings, CalendarDays, Wallet, ClipboardCheck, Banknote } from "lucide-react";
 
@@ -48,8 +48,7 @@ export default function PayrollDashboard() {
 
   return (
     <div className="space-y-6 min-w-0">
-      <ModuleSubNav moduleKey="payroll" />
-      <PageHero
+<PageHero
         icon={<Banknote />}
         iconTone="amber"
         title="Payroll"

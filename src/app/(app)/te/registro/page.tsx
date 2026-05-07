@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { ModuleSubNav, PageHero } from "@/components/opai-ds";
+import { PageHero } from "@/components/opai-ds";
 import { ClipboardClock } from "lucide-react";
 import { TeTurnosClient } from "@/components/ops";
 
@@ -35,8 +35,7 @@ export default async function TeRegistroPage() {
 
   return (
     <div className="space-y-6 min-w-0">
-      <ModuleSubNav moduleKey="te" />
-      <PageHero
+<PageHero
         icon={<ClipboardClock />}
         iconTone="amber"
         title="Registro de TE"

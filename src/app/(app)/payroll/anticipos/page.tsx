@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { ModuleSubNav, PageHero } from "@/components/opai-ds";
+import { PageHero } from "@/components/opai-ds";
 import { Wallet } from "lucide-react";
 import { AnticipoProcessClient } from "@/components/payroll/AnticipoProcessClient";
 
@@ -10,8 +10,7 @@ export default async function PayrollAnticiposPage() {
 
   return (
     <div className="space-y-6 min-w-0">
-      <ModuleSubNav moduleKey="payroll" />
-      <PageHero
+<PageHero
         icon={<Wallet />}
         iconTone="amber"
         title="Anticipos"

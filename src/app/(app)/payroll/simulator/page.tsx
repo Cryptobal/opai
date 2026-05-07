@@ -6,7 +6,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { ModuleSubNav, PageHero, Stat } from "@/components/opai-ds";
+import { PageHero, Stat } from "@/components/opai-ds";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -158,8 +158,7 @@ export default function PayrollSimulator() {
 
   return (
     <div className="space-y-6">
-      <ModuleSubNav moduleKey="payroll" />
-      {/* ── Header ── */}
+{/* ── Header ── */}
       <PageHero
         icon={<Calculator />}
         iconTone="amber"

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { ModuleSubNav, PageHero } from "@/components/opai-ds";
+import { PageHero } from "@/components/opai-ds";
 import { CalendarDays } from "lucide-react";
 import { PayrollPeriodDetailClient } from "@/components/payroll/PayrollPeriodDetailClient";
 interface Props {
@@ -14,8 +14,7 @@ export default async function PayrollPeriodDetailPage({ params }: Props) {
 
   return (
     <div className="space-y-6 min-w-0">
-      <ModuleSubNav moduleKey="payroll" />
-      <PageHero
+<PageHero
         icon={<CalendarDays />}
         iconTone="amber"
         title="Detalle del Período"
