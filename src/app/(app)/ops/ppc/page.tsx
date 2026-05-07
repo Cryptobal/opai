@@ -42,7 +42,6 @@ export default async function OpsPpcPage() {
       <PageHero
         icon={<ShieldAlert />}
         iconTone="emerald"
-        eyebrow={["Operaciones", "PPC"]}
         title="Puestos por cubrir"
         subtitle="brechas de cobertura"
         description="Visualización de puestos sin guardia asignado o con vacaciones, licencia o permiso. Prioriza coberturas por instalación."

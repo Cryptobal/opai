@@ -68,7 +68,6 @@ export default async function FactoringOperationsPage() {
       <PageHero
         icon={<Coins />}
         iconTone="teal"
-        eyebrow={["Finanzas", "Facturación"]}
         title="Cesiones de facturas"
         subtitle="Factoring electrónico"
         description="Operaciones de cesión a empresas de factoring, con anticipos, intereses, comisiones y trazabilidad SII."

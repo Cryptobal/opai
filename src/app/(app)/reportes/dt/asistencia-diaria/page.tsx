@@ -19,7 +19,6 @@ export default async function AsistenciaDiariaPage() {
       <PageHero
         icon={<ClipboardCheck />}
         iconTone="teal"
-        eyebrow={["Reportes", "DT", "Asistencia Diaria"]}
         title="Asistencia Diaria"
         subtitle="Res. N°38 Art. 4"
         description="Res. Exenta N°38 Art. 4 — DT Chile"

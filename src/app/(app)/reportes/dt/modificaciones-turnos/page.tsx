@@ -19,7 +19,6 @@ export default async function ModificacionesTurnosPage() {
       <PageHero
         icon={<History />}
         iconTone="teal"
-        eyebrow={["Reportes", "DT", "Modificaciones"]}
         title="Modificaciones de Turnos"
         subtitle="Res. N°38 Art. 19"
         description="Res. Exenta N°38 Art. 19 — DT Chile"

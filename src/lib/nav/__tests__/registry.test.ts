@@ -33,6 +33,45 @@ describe("nav registry", () => {
       expect(keys).toContain("finance");
       expect(keys).toContain("docs");
       expect(keys).toContain("config");
+      expect(keys).toContain("compliance");
+    });
+
+    it("config is hideInSidebar (lives in topbar, not sidebar tree)", () => {
+      const config = NAV_MODULES.find((m) => m.key === "config")!;
+      expect(config.hideInSidebar).toBe(true);
+    });
+
+    it("finance-ventas children are real routes (no legacy emitir/notas/recurrentes tabs)", () => {
+      const finance = NAV_MODULES.find((m) => m.key === "finance")!;
+      const ventas = finance.children?.find((c) => c.key === "finance-ventas");
+      const childKeys = (ventas?.children ?? []).map((c) => c.key);
+      expect(childKeys).toContain("ventas-resumen");
+      expect(childKeys).toContain("ventas-dtes");
+      expect(childKeys).toContain("ventas-recibidos");
+      expect(childKeys).toContain("ventas-programacion");
+      expect(childKeys).toContain("ventas-libro-iva");
+      expect(childKeys).toContain("ventas-folios");
+      // Acciones (Emitir DTE, Notas Crédito/Débito) ya no son tabs N3.
+      expect(childKeys).not.toContain("ventas-emitir");
+      expect(childKeys).not.toContain("ventas-recurrentes");
+      expect(childKeys).not.toContain("ventas-nc");
+      expect(childKeys).not.toContain("ventas-nd");
+    });
+
+    it("findN3Parent for /finanzas/facturacion/dtes returns finance-ventas", () => {
+      expect(findN3Parent("/finanzas/facturacion/dtes")?.key).toBe(
+        "finance-ventas",
+      );
+    });
+
+    it("compliance is visible only when isComplianceVisible is true", () => {
+      const compliance = NAV_MODULES.find((m) => m.key === "compliance")!;
+      expect(isNodeVisible(compliance, ownerCtx)).toBe(false);
+      const cmpVisibleCtx: VisibilityContext = {
+        ...ownerCtx,
+        isComplianceVisible: true,
+      };
+      expect(isNodeVisible(compliance, cmpVisibleCtx)).toBe(true);
     });
 
     it("module keys are unique", () => {

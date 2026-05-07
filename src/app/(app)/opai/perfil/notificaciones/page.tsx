@@ -27,7 +27,6 @@ export default async function MisNotificacionesPage({ searchParams }: Props) {
       <PageHero
         icon={<Bell />}
         iconTone="primary"
-        eyebrow={["Mi Perfil", "Notificaciones"]}
         title="Mis Notificaciones"
         subtitle="campana, email y push (escritorio + móvil)"
         description="Activa o desactiva cada tipo, módulo a módulo. Los cambios aplican solo a ti."

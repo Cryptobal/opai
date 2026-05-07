@@ -202,7 +202,6 @@ export default async function RondasReportesPage() {
       <PageHero
         icon={<BarChart3 />}
         iconTone="emerald"
-        eyebrow={["Operaciones", "Rondas", "Reportes"]}
         title="Reportes de rondas"
         subtitle="análisis y compliance"
         description="Análisis de cumplimiento, trust score, alertas, performance por instalación y por guardia."

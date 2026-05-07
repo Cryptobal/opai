@@ -162,7 +162,6 @@ export default async function RendicionDetailPage({ params }: PageProps) {
       <PageHero
         icon={<Receipt />}
         iconTone="teal"
-        eyebrow={["Finanzas", "Rendiciones", rendicion.code]}
         title={`Rendición ${rendicion.code}`}
         subtitle="detalle de rendición"
         description="Detalle de la rendición de gasto."

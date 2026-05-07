@@ -138,7 +138,7 @@ export default async function FinanzasDashboardPage() {
       highlighted: true,
     },
     {
-      href: "/finanzas/facturacion?tab=recibidos",
+      href: "/finanzas/facturacion/recibidos",
       title: "Compras",
       description: "DTE recibidos, sync RCV, control de pagos",
       icon: FileInput,
@@ -172,7 +172,6 @@ export default async function FinanzasDashboardPage() {
       <PageHero
         icon={<Landmark />}
         iconTone="teal"
-        eyebrow={["Finanzas"]}
         title="Finanzas"
         subtitle="rendiciones, aprobaciones y pagos"
         description="Rendiciones de gastos, aprobaciones, pagos y reportes."

@@ -365,7 +365,7 @@ export function CreditNoteForm({ noteType, referenceDte, onSuccess, onCancel }: 
       toast.success("Borrador creado");
       if (onSuccess) onSuccess();
       else {
-        router.push("/finanzas/facturacion?tab=dtes");
+        router.push("/finanzas/facturacion/dtes");
         router.refresh();
       }
     } catch (error) {

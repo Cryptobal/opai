@@ -17,7 +17,6 @@ export default async function OpsRondasPage() {
       <PageHero
         icon={<ShieldCheck />}
         iconTone="emerald"
-        eyebrow={["Operaciones", "Rondas"]}
         title="Rondas de seguridad"
         subtitle="dashboard ejecutivo"
         description="Vista global de rondas e instalaciones con cumplimiento, alertas e incidentes consolidados."

@@ -54,7 +54,6 @@ export default async function ClienteDrillPage({
       <PageHero
         icon={<Building2 />}
         iconTone="emerald"
-        eyebrow={["Finanzas", "Reportes", "Ventas"]}
         title={account.name}
         subtitle={account.industry ?? "Sin sector"}
         description={`Ficha financiera del cliente · ${account.installations.length} instalación(es)`}

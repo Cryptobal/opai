@@ -52,7 +52,6 @@ export default async function RondasAlertasPage() {
       <PageHero
         icon={<BellRing />}
         iconTone="emerald"
-        eyebrow={["Operaciones", "Rondas", "Alertas"]}
         title="Alertas de rondas"
         subtitle="incidencias activas"
         description="Gestión de alertas activas, resueltas e históricas: pánico, batería baja, velocidad anómala, rondas no realizadas."

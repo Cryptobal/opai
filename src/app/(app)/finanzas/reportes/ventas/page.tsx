@@ -31,7 +31,6 @@ export default async function VentasPage() {
       <PageHero
         icon={<Grid3x3 />}
         iconTone="emerald"
-        eyebrow={["Finanzas", "Reportes"]}
         title="Ventas por cliente"
         subtitle="heatmap mensual"
         description="Facturación por centro de costo (CrmAccount) por mes. Espejo F29."

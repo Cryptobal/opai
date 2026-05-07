@@ -29,7 +29,6 @@ export default async function LedgerListPage() {
       <PageHero
         icon={<BookOpen />}
         iconTone="sky"
-        eyebrow={["Finanzas", "Reportes"]}
         title="Libro Mayor"
         subtitle="por cuenta"
         description="Movimientos posteados con saldo running y filtro por centro de costo."

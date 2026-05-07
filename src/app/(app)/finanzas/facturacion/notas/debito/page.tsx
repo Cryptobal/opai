@@ -63,7 +63,6 @@ export default async function NotaDebitoPage({ searchParams }: PageProps) {
       <PageHero
         icon={<FilePlus />}
         iconTone="teal"
-        eyebrow={["Finanzas", "Facturación", "Notas", "Débito"]}
         title="Emitir Nota de Débito"
         subtitle="ajuste al alza"
         description="Emitir nota de débito electrónica referenciando un DTE."

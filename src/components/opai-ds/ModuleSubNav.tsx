@@ -99,13 +99,33 @@ export function ModuleSubNav({
     return findN3Parent(pathname);
   }, [moduleKey, pathname]);
 
+  // Auto-suppression: when a moduleKey is forced AND a more-specific child
+  // subnav matches the current path, hide this one — the child layout
+  // (with a more specific moduleKey) will render its own subnav.
+  // Example: /finanzas/facturacion lives under /finanzas. The /finanzas
+  // layout passes moduleKey="finance" but the active path actually owns
+  // a deeper N3 (finance-ventas). We let the deeper one win.
+  const shouldSuppress = useMemo(() => {
+    if (!moduleKey) return false;
+    const auto = findN3Parent(pathname);
+    if (!auto) return false;
+    const forced = getModule(moduleKey) ?? findChildByKey(moduleKey);
+    if (!forced) return false;
+    // Same node — no conflict.
+    if (auto.key === forced.key) return false;
+    // Auto-detected is a descendant of forced (more specific) → suppress.
+    return auto.href.length > forced.href.length &&
+      auto.href.startsWith(forced.href === "/" ? "/" : forced.href + "/");
+  }, [moduleKey, pathname]);
+
   const items = useMemo<SwipeTabItem[]>(() => {
+    if (shouldSuppress) return [];
     if (!n3Parent || !n3Parent.children) return [];
     return n3Parent.children
       .filter((c) => !c.hideInSubNav)
       .filter((c) => isNodeVisible(c, ctx))
       .map(nodeToTabItem);
-  }, [n3Parent, ctx]);
+  }, [n3Parent, ctx, shouldSuppress]);
 
   if (items.length === 0) return null;
 

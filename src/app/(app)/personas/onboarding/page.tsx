@@ -22,7 +22,6 @@ export default async function OnboardingPage() {
       <PageHero
         icon={<Sparkles />}
         iconTone="sky"
-        eyebrow={["Personas", "Onboarding"]}
         title="Onboarding"
         subtitle="estado y progreso de guardias"
         description="Estado de onboarding de guardias — emails enviados, acceso a portales y progreso."

@@ -39,7 +39,6 @@ export default async function OpsControlNocturnoDetailPage({ params }: Props) {
       <PageHero
         icon={<Moon />}
         iconTone="emerald"
-        eyebrow={["Operaciones", "Control Nocturno", "Reporte"]}
         title="Reporte nocturno"
         subtitle="histórico de control de guardia"
         description="Detalle del control de guardia nocturna. Este módulo fue integrado al Monitor de Rondas."

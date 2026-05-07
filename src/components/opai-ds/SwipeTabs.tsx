@@ -25,7 +25,7 @@
  *  - Filtros, tags, secciones decorativas → SubNav o ChipTabs.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -61,6 +61,7 @@ export function SwipeTabs({
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showLeftFade, setShowLeftFade] = useState(false);
   const [showRightFade, setShowRightFade] = useState(false);
+  const [indicator, setIndicator] = useState<{ left: number; width: number } | null>(null);
 
   // Longest-prefix-wins so /finanzas/reportes/eerr highlights "Estado de Resultado"
   // not the parent /finanzas/reportes (Dashboard).
@@ -86,6 +87,44 @@ export function SwipeTabs({
       inline: "center",
     });
   }, [activeHref]);
+
+  // Measure active tab and update sliding indicator
+  const updateIndicator = useCallback(() => {
+    const container = scrollRef.current;
+    if (!container || !activeHref) {
+      setIndicator(null);
+      return;
+    }
+    const activeEl = container.querySelector(
+      `[data-href="${activeHref}"]`,
+    ) as HTMLElement | null;
+    if (!activeEl) {
+      setIndicator(null);
+      return;
+    }
+    const cRect = container.getBoundingClientRect();
+    const aRect = activeEl.getBoundingClientRect();
+    setIndicator({
+      left: aRect.left - cRect.left + container.scrollLeft,
+      width: aRect.width,
+    });
+  }, [activeHref]);
+
+  useLayoutEffect(() => {
+    updateIndicator();
+  }, [updateIndicator, items.length]);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.addEventListener("scroll", updateIndicator, { passive: true });
+    const ro = new ResizeObserver(updateIndicator);
+    ro.observe(el);
+    return () => {
+      el.removeEventListener("scroll", updateIndicator);
+      ro.disconnect();
+    };
+  }, [updateIndicator]);
 
   // Track edge fades for overflow hint
   const updateFades = useCallback(() => {
@@ -143,16 +182,18 @@ export function SwipeTabs({
               key={item.href}
               href={item.href}
               data-href={item.href}
+              data-active={isActive ? "true" : "false"}
               role="tab"
               aria-selected={isActive}
               className={cn(
                 "group relative inline-flex shrink-0 snap-center items-center gap-1.5 px-3 sm:px-4",
                 variant === "compact" ? "h-11" : "h-12",
-                "text-[13px] sm:text-sm transition-colors",
+                "text-[13px] sm:text-sm",
+                "transition-all duration-200 ease-out",
                 "whitespace-nowrap",
                 isActive
                   ? "text-foreground font-semibold"
-                  : "text-ds-text-3 hover:text-ds-text-1",
+                  : "text-ds-text-3 hover:text-ds-text-1 hover:-translate-y-0.5",
               )}
             >
               {Icon && (
@@ -176,19 +217,25 @@ export function SwipeTabs({
                   {typeof item.badge === "number" && item.badge > 99 ? "99+" : item.badge}
                 </span>
               )}
-              {/* Underline — animated using a span at the bottom */}
-              <span
-                aria-hidden
-                className={cn(
-                  "absolute inset-x-2 sm:inset-x-3 -bottom-px h-[2px] rounded-full transition-all duration-200",
-                  isActive
-                    ? "bg-primary"
-                    : "bg-transparent group-hover:bg-ds-border-default",
-                )}
-              />
+              {/* Hover-only underline (active state uses the shared sliding indicator) */}
+              {!isActive && (
+                <span
+                  aria-hidden
+                  className="absolute inset-x-2 sm:inset-x-3 -bottom-px h-[2px] rounded-full bg-transparent group-hover:bg-ds-border-default transition-colors duration-200"
+                />
+              )}
             </Link>
           );
         })}
+
+        {/* Sliding active indicator (Linear/Vercel style) */}
+        {indicator && (
+          <span
+            aria-hidden
+            className="pointer-events-none absolute -bottom-px h-[2px] rounded-full bg-primary transition-all duration-300 ease-out"
+            style={{ left: indicator.left, width: indicator.width }}
+          />
+        )}
       </div>
 
       {/* Trailing action (optional, e.g. "+ Nueva") */}

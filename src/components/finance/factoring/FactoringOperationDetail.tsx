@@ -177,7 +177,6 @@ export function FactoringOperationDetail({ operation: op, canIssue }: Props) {
       <PageHero
         icon={<Coins />}
         iconTone="teal"
-        eyebrow={["Finanzas", "Facturación", "Cesiones"]}
         title={op.code}
         subtitle={`Cesión a ${op.factoringCompany}`}
         description={

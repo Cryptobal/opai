@@ -21,7 +21,6 @@ export default async function AlertasCoberturaPage() {
       <PageHero
         icon={<Megaphone />}
         iconTone="emerald"
-        eyebrow={["Operaciones", "Alertas Cobertura"]}
         title="Alertas de Cobertura"
         subtitle="oleadas geográficas y notificación masiva"
         description="Gestión de alertas de cobertura — oleadas geográficas, notificación multi-canal (push/SMS/email) y asignación de guardias en cadena."

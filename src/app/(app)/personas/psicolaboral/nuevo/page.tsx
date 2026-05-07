@@ -28,7 +28,6 @@ export default async function PsychCreatePage() {
       <PageHero
         icon={<Brain />}
         iconTone="sky"
-        eyebrow={["Personas", "Psicolaboral", "Nueva"]}
         title="Nueva evaluación"
         subtitle="asignar test"
         description="Envía un link al candidato para que responda el test desde su celular."

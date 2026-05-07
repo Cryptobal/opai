@@ -119,8 +119,9 @@ export interface NavVisibility {
   tenantModule?: string;
   /** Admin only */
   adminOnly?: boolean;
-  /** Custom predicate (combined with the above with AND) */
-  show?: (perms: RolePermissions) => boolean;
+  /** Custom predicate (combined with the above with AND). Receives the full
+   *  VisibilityContext so it can check role-derived flags (e.g. isComplianceVisible). */
+  show?: (perms: RolePermissions, ctx?: VisibilityContext) => boolean;
 }
 
 export interface NavBadge {
@@ -155,6 +156,11 @@ export interface NavNode extends NavVisibility {
   /** When set, groups this node under a category in the sub-sidebar (used by ConfigShell
    *  to organize many sub-pages — Slack/Notion settings pattern). */
   category?: string;
+  /** When true, this module/node is excluded from the sidebar tree but still appears in the
+   *  registry (so AutoBreadcrumbs and routing helpers can still find it). Use for items that
+   *  have a dedicated UI surface elsewhere — e.g. Configuración (TopbarActions) or Chat
+   *  (ChatSidePanel). Default: false. */
+  hideInSidebar?: boolean;
 }
 
 /** Order + label for sub-sidebar categories. */
@@ -171,6 +177,8 @@ export interface VisibilityContext {
   perms: RolePermissions;
   isAdmin: boolean;
   isModuleEnabled: (mod: string) => boolean;
+  /** True when the user role matches owner/admin/rrhh — used by compliance module. */
+  isComplianceVisible?: boolean;
 }
 
 export function isNodeVisible(node: NavVisibility, ctx: VisibilityContext): boolean {
@@ -186,7 +194,7 @@ export function isNodeVisible(node: NavVisibility, ctx: VisibilityContext): bool
   if (node.capability && !hasCapability(ctx.perms, node.capability)) return false;
   if (node.tenantModule && !ctx.isModuleEnabled(node.tenantModule)) return false;
   if (node.adminOnly && !ctx.isAdmin) return false;
-  if (node.show && !node.show(ctx.perms)) return false;
+  if (node.show && !node.show(ctx.perms, ctx)) return false;
   return true;
 }
 
@@ -465,7 +473,10 @@ export const NAV_MODULES: NavNode[] = [
         icon: Wallet,
         capability: "rendicion_pay",
       },
-      // Ventas (Facturación) — con N3
+      // Ventas (Facturación) — con N3.
+      // El N3 contiene SOLO vistas (Resumen + tabs). Las acciones
+      // (Emitir DTE, Notas Crédito/Débito) son páginas accesibles desde
+      // botones contextuales — no aparecen como tab.
       {
         key: "finance-ventas",
         href: "/finanzas/facturacion",
@@ -475,10 +486,11 @@ export const NAV_MODULES: NavNode[] = [
         submodule: "facturacion",
         children: [
           { key: "ventas-resumen", href: "/finanzas/facturacion", label: "Resumen", icon: Grid3x3, exactMatch: true, module: "finance", submodule: "facturacion" },
-          { key: "ventas-emitir", href: "/finanzas/facturacion/emitir", label: "Emitir DTE", icon: FileText, module: "finance", submodule: "facturacion" },
-          { key: "ventas-recurrentes", href: "/finanzas/facturacion/recurrentes", label: "Recurrentes", icon: CalendarDays, module: "finance", submodule: "facturacion" },
-          { key: "ventas-nc", href: "/finanzas/facturacion/notas/credito", label: "Notas Crédito", icon: FileText, module: "finance", submodule: "facturacion" },
-          { key: "ventas-nd", href: "/finanzas/facturacion/notas/debito", label: "Notas Débito", icon: FileText, module: "finance", submodule: "facturacion" },
+          { key: "ventas-dtes", href: "/finanzas/facturacion/dtes", label: "DTEs Emitidos", icon: FileText, module: "finance", submodule: "facturacion" },
+          { key: "ventas-recibidos", href: "/finanzas/facturacion/recibidos", label: "DTEs Recibidos", icon: FileInput, module: "finance", submodule: "facturacion" },
+          { key: "ventas-programacion", href: "/finanzas/facturacion/programacion", label: "Programación", icon: CalendarDays, module: "finance", submodule: "facturacion" },
+          { key: "ventas-libro-iva", href: "/finanzas/facturacion/libro-iva", label: "Libro IVA", icon: BookText, module: "finance", submodule: "facturacion" },
+          { key: "ventas-folios", href: "/finanzas/facturacion/folios", label: "Folios", icon: FileText, module: "finance", submodule: "facturacion" },
           { key: "ventas-cesiones", href: "/finanzas/facturacion/cesiones", label: "Cesiones", icon: DollarSign, module: "finance", submodule: "facturacion" },
         ],
       },
@@ -591,6 +603,7 @@ export const NAV_MODULES: NavNode[] = [
     label: "Configuración",
     icon: Settings,
     module: "config",
+    hideInSidebar: true,
     children: [
       // ── General ──
       { key: "config-empresa", href: "/opai/configuracion/empresa", label: "Empresa", icon: Building2, module: "config", submodule: "empresa", category: "general" },
@@ -647,9 +660,23 @@ export const NAV_MODULES: NavNode[] = [
   },
 
   // ═════════════════════════════════════════════════════════
-  // CUMPLIMIENTO (compliance) — sólo cuando aplica
+  // CUMPLIMIENTO (compliance) — sólo cuando aplica (owner/admin/rrhh)
   // ═════════════════════════════════════════════════════════
-  // Renderizado externamente en buildSidebar usando isComplianceVisible.
+  {
+    key: "compliance",
+    href: "/opai/compliance/arco",
+    label: "Cumplimiento",
+    icon: Shield,
+    show: (_perms, ctx) => Boolean(ctx?.isComplianceVisible),
+    children: [
+      {
+        key: "compliance-arco",
+        href: "/opai/compliance/arco",
+        label: "Solicitudes ARCO",
+        icon: Shield,
+      },
+    ],
+  },
 ];
 
 /* ────────────────────────────────────────────────────────────

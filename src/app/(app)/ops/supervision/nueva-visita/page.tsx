@@ -21,7 +21,6 @@ export default async function NuevaVisitaSupervisionPage() {
       <PageHero
         icon={<PlusCircle />}
         iconTone="emerald"
-        eyebrow={["Operaciones", "Supervisión", "Nueva visita"]}
         title="Nueva visita de supervisión"
         subtitle="wizard de 5 pasos"
         description="Wizard de 5 pasos: Check-in geolocalizado, Evaluación, Verificación con checklist, Evidencia fotográfica y Cierre con firma."

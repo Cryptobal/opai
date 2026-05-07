@@ -59,10 +59,16 @@ export function Breadcrumbs({
                   showInMobile ? "" : "hidden md:flex",
                 )}
               >
-                {item.href && !isLast ? (
+                {item.href ? (
                   <Link
                     href={item.href}
-                    className="text-ds-text-3 hover:text-ds-text-1 transition-colors duration-150"
+                    aria-current={isLast ? "page" : undefined}
+                    className={cn(
+                      "transition-colors duration-150 hover:underline underline-offset-4 decoration-2",
+                      isLast
+                        ? "text-primary font-semibold hover:text-primary/80"
+                        : "text-ds-text-3 hover:text-ds-text-1",
+                    )}
                   >
                     {item.label}
                   </Link>
@@ -70,7 +76,7 @@ export function Breadcrumbs({
                   <span
                     aria-current={isLast ? "page" : undefined}
                     className={cn(
-                      isLast ? "text-ds-text-1 font-medium" : "text-ds-text-3",
+                      isLast ? "text-primary font-semibold" : "text-ds-text-3",
                     )}
                   >
                     {item.label}

@@ -153,7 +153,6 @@ export default async function VisitaSupervisionDetailPage({
       <PageHero
         icon={<ClipboardList />}
         iconTone="emerald"
-        eyebrow={["Operaciones", "Supervisión"]}
         title={`Visita ${visit.installation.name}`}
         subtitle="detalle de visita"
         description={`Check-in: ${formatDateTime(visit.checkInAt)}`}

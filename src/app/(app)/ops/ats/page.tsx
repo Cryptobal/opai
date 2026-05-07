@@ -48,7 +48,6 @@ export default async function OpsAtsPage() {
       <PageHero
         icon={<Briefcase />}
         iconTone="emerald"
-        eyebrow={["Operaciones", "ATS"]}
         title="Reclutamiento"
         subtitle="pipeline de postulantes"
         description="Gestión de avisos de empleo y pipeline de candidatos."

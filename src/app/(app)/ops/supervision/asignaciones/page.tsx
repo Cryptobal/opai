@@ -43,7 +43,6 @@ export default async function SupervisionAsignacionesPage() {
       <PageHero
         icon={<UserCheck />}
         iconTone="emerald"
-        eyebrow={["Operaciones", "Supervisión", "Asignaciones"]}
         title="Asignaciones de instalaciones"
         subtitle="supervisores y áreas"
         description="Asigna instalaciones a supervisores para habilitar check-in y visitas de supervisión por área."

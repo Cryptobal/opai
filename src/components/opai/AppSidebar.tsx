@@ -230,7 +230,8 @@ export function AppSidebar({
             // Simple item (no children) - e.g. "Inicio", "Chat"
             if (!hasChildren) {
               const itemClassName = cn(
-                "group relative flex items-center rounded-md transition-colors w-full",
+                "group relative flex items-center rounded-md w-full overflow-hidden",
+                "transition-all duration-200 ease-out",
                 showCloseButton ? "text-[15px]" : "text-sm",
                 collapsed
                   ? "justify-center px-0 py-2.5"
@@ -238,17 +239,32 @@ export function AppSidebar({
                   ? "gap-3 px-3 py-2.5"
                   : "gap-3 px-3 py-2",
                 isModuleActive
-                  ? "bg-primary/15 text-primary font-medium shadow-sm"
-                  : "text-muted-foreground hover:bg-accent/80 hover:text-foreground"
+                  ? "bg-primary/15 text-primary font-medium shadow-sm ring-1 ring-primary/20"
+                  : "text-muted-foreground hover:text-foreground"
               );
 
               const itemContent = (
                 <>
+                  {/* Hover overlay — slide-in desde la izquierda */}
+                  {!isModuleActive && (
+                    <span
+                      aria-hidden
+                      className="absolute inset-0 bg-accent/80 -translate-x-full group-hover:translate-x-0 transition-transform duration-200 ease-out -z-10"
+                    />
+                  )}
                   {isModuleActive && (
-                    <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-gradient-to-b from-primary to-primary/60" />
+                    <span
+                      aria-hidden
+                      className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-[3px] rounded-r-full bg-gradient-to-b from-primary via-primary to-primary/40"
+                    />
                   )}
                   <span className="relative shrink-0">
-                    <Icon className={cn("shrink-0", showCloseButton ? "h-5 w-5" : "h-[18px] w-[18px]")} />
+                    <Icon
+                      className={cn(
+                        "shrink-0 transition-transform duration-200 ease-out group-hover:scale-110",
+                        showCloseButton ? "h-5 w-5" : "h-[18px] w-[18px]"
+                      )}
+                    />
                     {item.badge != null && item.badge > 0 && (
                       <span
                         className={cn(
@@ -308,7 +324,8 @@ export function AppSidebar({
                 {/* Module header: nombre navega al módulo, flecha expande/contrae */}
                 <div
                   className={cn(
-                    "group relative flex items-center rounded-md transition-colors",
+                    "group relative flex items-center rounded-md overflow-hidden",
+                    "transition-all duration-200 ease-out",
                     showCloseButton ? "text-[15px]" : "text-sm",
                     collapsed
                       ? "justify-center px-0 py-2.5"
@@ -316,8 +333,8 @@ export function AppSidebar({
                       ? "gap-3 px-3 py-2.5"
                       : "gap-3 px-3 py-2",
                     isModuleActive
-                      ? "bg-primary/15 text-primary font-medium shadow-sm"
-                      : "text-muted-foreground hover:bg-accent/80 hover:text-foreground"
+                      ? "bg-primary/15 text-primary font-medium shadow-sm ring-1 ring-primary/20"
+                      : "text-muted-foreground hover:text-foreground"
                   )}
                   onMouseEnter={(e) => {
                     if (!showFlyout) return;
@@ -325,8 +342,18 @@ export function AppSidebar({
                   }}
                   onMouseLeave={() => showFlyout && scheduleFlyoutClose()}
                 >
+                  {/* Hover overlay — slide-in desde la izquierda */}
+                  {!isModuleActive && (
+                    <span
+                      aria-hidden
+                      className="absolute inset-0 bg-accent/80 -translate-x-full group-hover:translate-x-0 transition-transform duration-200 ease-out -z-10"
+                    />
+                  )}
                   {isModuleActive && (
-                    <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-gradient-to-b from-primary to-primary/60" />
+                    <span
+                      aria-hidden
+                      className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-[3px] rounded-r-full bg-gradient-to-b from-primary via-primary to-primary/40"
+                    />
                   )}
                   <Link
                     href={item.href}
@@ -337,7 +364,12 @@ export function AppSidebar({
                     )}
                   >
                     <span className="relative shrink-0">
-                      <Icon className={cn("shrink-0", showCloseButton ? "h-5 w-5" : "h-[18px] w-[18px]")} />
+                      <Icon
+                        className={cn(
+                          "shrink-0 transition-transform duration-200 ease-out group-hover:scale-110",
+                          showCloseButton ? "h-5 w-5" : "h-[18px] w-[18px]"
+                        )}
+                      />
                       {item.badge != null && item.badge > 0 && (
                         <span
                           className={cn(
@@ -361,12 +393,13 @@ export function AppSidebar({
                         e.stopPropagation();
                         toggleSection(item.href);
                       }}
-                      className="shrink-0 -mr-1 p-1 rounded hover:bg-accent/80 transition-colors"
+                      className="shrink-0 -mr-1 p-1 rounded hover:bg-accent/80 transition-colors relative"
                       aria-label={isExpanded ? "Contraer menú" : "Expandir menú"}
                     >
                       <ChevronRight
                         className={cn(
-                          "h-3.5 w-3.5 text-muted-foreground/60 transition-transform duration-200",
+                          "h-3.5 w-3.5 text-muted-foreground/60",
+                          "transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)]",
                           isExpanded && "rotate-90"
                         )}
                       />
@@ -374,9 +407,14 @@ export function AppSidebar({
                   )}
                 </div>
 
-                {/* Children (solo cuando la sección está expandida, para evitar espacio extra) */}
-                {!collapsed && isExpanded && (
-                  <div className="overflow-hidden">
+                {/* Children (animated accordion) */}
+                {!collapsed && (
+                  <div
+                    className={cn(
+                      "overflow-hidden transition-[max-height,opacity] duration-300 ease-out",
+                      isExpanded ? "max-h-[1000px] opacity-100" : "max-h-0 opacity-0"
+                    )}
+                  >
                     <div className="ml-3 border-l border-border/60 pl-0 space-y-px py-0.5">
                       {item.children!.map((child) => {
                         const isChildActive = isItemActive(child.href);
@@ -476,11 +514,11 @@ export function AppSidebar({
                             href={child.href}
                             onClick={onNavigate}
                             className={cn(
-                              "group relative flex items-center rounded-md transition-colors",
+                              "group/sub relative flex items-center rounded-md transition-all duration-200 ease-out overflow-hidden",
                               showCloseButton ? "text-[13px] gap-2.5 px-3 py-2" : "text-[13px] gap-2.5 px-3 py-[6px]",
                               isChildActive
                                 ? "bg-accent text-foreground font-medium"
-                                : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                                : "text-muted-foreground hover:bg-accent/50 hover:text-foreground hover:translate-x-0.5"
                             )}
                           >
                             {isChildActive && (

@@ -85,7 +85,6 @@ export function CpqDashboard({ initialQuotes }: CpqDashboardProps) {
         <PageHero
           icon={<LayoutDashboard />}
           iconTone="violet"
-          eyebrow={["Comercial", "CPQ"]}
           title="CPQ"
           subtitle="Configure, Price, Quote"
           description="Cotizador de servicios de seguridad"

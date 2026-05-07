@@ -31,7 +31,6 @@ export default async function ReportsPage() {
       <PageHero
         icon={<LayoutDashboard />}
         iconTone="sky"
-        eyebrow={["Finanzas", "Reportes"]}
         title="Dashboard ejecutivo"
         subtitle="visión 360°"
         description="KPIs clave, tendencias y rankings en tiempo real."

@@ -91,7 +91,6 @@ export default async function AtsPipelinePage({
       <PageHero
         icon={<Briefcase />}
         iconTone="emerald"
-        eyebrow={["Operaciones", "ATS", job.titulo]}
         title={job.titulo}
         subtitle="detalle y pipeline"
         description={`${job.turno} · ${job.region} · ${job.applications.length} postulantes`}

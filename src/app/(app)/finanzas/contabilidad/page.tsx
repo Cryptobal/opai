@@ -84,7 +84,6 @@ export default async function ContabilidadPage() {
       <PageHero
         icon={<BookOpen />}
         iconTone="teal"
-        eyebrow={["Finanzas", "Contabilidad"]}
         title="Contabilidad"
         subtitle="plan de cuentas y asientos"
         description="Plan de cuentas, asientos contables, libro mayor y períodos."

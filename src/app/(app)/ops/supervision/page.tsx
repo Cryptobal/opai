@@ -29,7 +29,6 @@ export default async function OpsSupervisionPage({
       <PageHero
         icon={<LayoutGrid />}
         iconTone="emerald"
-        eyebrow={["Operaciones", "Supervisión"]}
         title="Grilla de supervisión"
         subtitle="visitas por instalación y día"
         description="Vista calendario de visitas de supervisión por instalación, con filtros mensuales y atajos para crear nuevas visitas."

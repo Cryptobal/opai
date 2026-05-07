@@ -109,7 +109,6 @@ export default async function AuditPautasPage({ searchParams }: AuditPautasPageP
       <PageHero
         icon={<ShieldCheck />}
         iconTone="emerald"
-        eyebrow={["Operaciones", "Auditoría", "Pautas"]}
         title="Auditoría de Pautas"
         subtitle="control y trazabilidad"
         description="Historial de acciones en pauta mensual, refuerzos y exportaciones"

@@ -43,7 +43,6 @@ export default async function OpsPautaMensualPage() {
       <PageHero
         icon={<CalendarDays />}
         iconTone="emerald"
-        eyebrow={["Operaciones", "Pauta mensual"]}
         title="Pauta mensual"
         subtitle="plan operativo del mes"
         description="Genera el plan del mes y asigna guardias por puesto y día. Controla las horas planificadas, los turnos extra y las brechas de cobertura."

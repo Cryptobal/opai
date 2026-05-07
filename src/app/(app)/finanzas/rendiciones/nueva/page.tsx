@@ -62,7 +62,6 @@ export default async function NuevaRendicionPage() {
       <PageHero
         icon={<Receipt />}
         iconTone="teal"
-        eyebrow={["Finanzas", "Rendiciones", "Nueva"]}
         title="Nueva rendición"
         subtitle="registro de gastos"
         description="Crea una nueva rendición de gastos o kilometraje."

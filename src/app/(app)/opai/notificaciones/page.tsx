@@ -20,7 +20,6 @@ export default async function NotificacionesPage() {
       <PageHero
         icon={<Bell />}
         iconTone="primary"
-        eyebrow={["Notificaciones"]}
         title="Notificaciones"
         subtitle="todas tus notificaciones recientes"
         description="Filtra por módulo, marca como leídas o silencia tipos que no quieras recibir."

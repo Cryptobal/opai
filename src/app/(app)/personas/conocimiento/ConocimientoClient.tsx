@@ -141,7 +141,6 @@ export function ConocimientoClient() {
   return (
     <section className="relative max-w-md mx-auto md:max-w-3xl lg:max-w-5xl px-4 pt-5 pb-32 ds-page-enter">
       <PageHero
-        eyebrow={["Personas", "Conocimiento"]}
         title="El protocolo"
         subtitle="a través de tu operación"
         description="Estado de protocolos y conocimiento de tus guardias en cada instalación. Toca cualquier tarjeta para entrar al detalle."

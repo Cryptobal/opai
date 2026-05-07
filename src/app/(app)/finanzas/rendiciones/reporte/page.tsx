@@ -74,7 +74,6 @@ export default async function RendicionesReportePage() {
       <PageHero
         icon={<BarChart3 />}
         iconTone="teal"
-        eyebrow={["Finanzas", "Rendiciones", "Reporte"]}
         title="Reporte de rendiciones"
         subtitle="resumen y análisis"
         description="Resumen y análisis de rendiciones de gastos."

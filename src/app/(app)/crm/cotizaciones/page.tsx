@@ -173,7 +173,6 @@ export default async function CrmCotizacionesPage() {
       <PageHero
         icon={<FileText />}
         iconTone="violet"
-        eyebrow={["Comercial", "Cotizaciones"]}
         title="Cotizaciones"
         subtitle="CPQ vinculadas al CRM"
         description="Cotizaciones generadas por el motor CPQ. Cada cotización está vinculada a una cuenta, deal y contacto del pipeline comercial."

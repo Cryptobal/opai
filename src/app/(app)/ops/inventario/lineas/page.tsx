@@ -21,7 +21,6 @@ export default async function InventarioLineasPage() {
         <PageHero
           icon={<Phone />}
           iconTone="emerald"
-          eyebrow={["Operaciones", "Inventario", "Líneas"]}
           title="Líneas telefónicas"
           subtitle="SIM cards y números corporativos"
           description="Gestiona los números asignados a guardias, supervisores e instalaciones. Historial completo de movimientos."

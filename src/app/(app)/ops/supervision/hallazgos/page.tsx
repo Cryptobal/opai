@@ -20,7 +20,6 @@ export default async function HallazgosPage() {
       <PageHero
         icon={<AlertCircle />}
         iconTone="emerald"
-        eyebrow={["Operaciones", "Supervisión", "Hallazgos"]}
         title="Hallazgos"
         subtitle="gestión de incidencias"
         description="Lista de hallazgos detectados durante visitas de supervisión, con seguimiento, asignación a tickets y resolución."

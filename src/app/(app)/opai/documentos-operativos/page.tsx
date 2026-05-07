@@ -24,7 +24,6 @@ export default async function DocsOperativosPage() {
       <PageHero
         icon={<ClipboardList />}
         iconTone="rose"
-        eyebrow={["Documentos", "Operativos"]}
         title="Documentos Operativos"
         subtitle="cumplimiento documental"
         description="Control de cumplimiento documental digital y físico por instalación."

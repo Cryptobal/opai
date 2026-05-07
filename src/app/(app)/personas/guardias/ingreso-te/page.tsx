@@ -25,7 +25,6 @@ export default async function GuardiaTeIngresoPage() {
       <PageHero
         icon={<UserPlus />}
         iconTone="sky"
-        eyebrow={["Personas", "Guardias", "Ingreso TE"]}
         title="Ingreso rápido · Guardia Turno Extra"
         subtitle="registro express para cubrir ausencias"
         description="Registra un guardia TE para cubrir ausencias. Los datos se guardan en la misma base de guardias con estado Turno Extra."

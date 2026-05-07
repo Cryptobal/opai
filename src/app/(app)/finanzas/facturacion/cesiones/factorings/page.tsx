@@ -64,7 +64,6 @@ export default async function FactoringCompaniesPage() {
       <PageHero
         icon={<Coins />}
         iconTone="teal"
-        eyebrow={["Finanzas", "Facturación"]}
         title="Cesiones de facturas"
         subtitle="Factoring electrónico"
         description="Administra el catálogo de empresas de factoring (cesionarios) y sus tasas habituales."

@@ -354,7 +354,6 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
       <PageHero
         icon={<FileText />}
         iconTone="rose"
-        eyebrow={["Documentos"]}
         backHref="/opai/documentos"
         backLabel="Documentos"
         title={doc.title}

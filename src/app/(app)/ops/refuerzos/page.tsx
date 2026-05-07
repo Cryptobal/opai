@@ -79,7 +79,6 @@ export default async function OpsRefuerzosPage() {
       <PageHero
         icon={<UserPlus />}
         iconTone="emerald"
-        eyebrow={["Operaciones", "Refuerzos"]}
         title="Turnos de refuerzo"
         subtitle="solicitudes y facturación"
         description="Solicitudes de refuerzo por instalación con seguimiento de aprobación, asignación y facturación."

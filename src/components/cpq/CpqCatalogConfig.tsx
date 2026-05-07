@@ -283,7 +283,6 @@ export function CpqCatalogConfig({ showHeader = true }: { showHeader?: boolean }
           <PageHero
             icon={<SettingsIcon />}
             iconTone="violet"
-            eyebrow={["Comercial", "CPQ", "Catálogo"]}
             title="Configuración CPQ"
             subtitle="items, tiers y reglas"
             description="Catálogo maestro global para todas las cotizaciones"

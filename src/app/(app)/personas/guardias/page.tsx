@@ -99,7 +99,6 @@ export default async function GuardiasPage() {
       <PageHero
         icon={<Users />}
         iconTone="sky"
-        eyebrow={["Personas", "Guardias"]}
         title="Personas"
         subtitle="alta y control de elegibilidad"
         description="Alta de personas y control de elegibilidad operativa."
