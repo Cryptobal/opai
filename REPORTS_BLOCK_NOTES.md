@@ -17,6 +17,10 @@ Notes from the overnight execution of `feat/finance-reports-v1` on branch `claud
 - `FinanceReceptionStatus` enum: PENDING_REVIEW, ACCEPTED, CLAIMED, PARTIAL_CLAIM, EXPIRED. There is no `RECEIVED_OK` value — purchases-matrix uses `[ACCEPTED]` + null.
 - `CrmAccount.status` text: prospect, client_active, client_inactive — matches plan.
 
+## Pre-existing tooling drift
+
+`npm run lint` (= `next lint`) is broken on this branch because eslint@10 expects `eslint.config.js` while the repo only has `.eslintrc.json`. Not in scope to fix here. Pre-existing on `main`.
+
 ## Sandbox build limitations (B8 / B14 / B19)
 
 `npm run build` requires:
