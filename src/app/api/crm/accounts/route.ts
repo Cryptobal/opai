@@ -111,6 +111,7 @@ export async function POST(request: NextRequest) {
         legalRepresentativeName: body.legalRepresentativeName || null,
         legalRepresentativeRut: body.legalRepresentativeRut || null,
         industry: body.industry || null,
+        giro: body.giro || null,
         segment: body.segment || null,
         ownerId: ctx.userId,
         type: legacy.type,
@@ -118,6 +119,8 @@ export async function POST(request: NextRequest) {
         isActive: legacy.isActive,
         website: body.website || null,
         address: body.address || null,
+        commune: body.commune || null,
+        city: body.city || null,
         notes: body.notes || null,
       },
     });

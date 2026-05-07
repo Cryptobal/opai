@@ -85,6 +85,14 @@ export interface AcuseServiceInput {
   dteId: string;
   /** Acción solicitada por el usuario (alto nivel). */
   action: AcuseUserAction;
+  /**
+   * Si true (default), la decisión se notifica oficialmente al SII vía
+   * SimpleAPI (operación IRREVERSIBLE).
+   * Si false, solo se actualiza el estado en OPAI (clasificación
+   * interna, sin efecto legal). Útil cuando el operador valida una
+   * factura por otro canal o quiere marcar internamente sin escalar.
+   */
+  notifySii?: boolean;
   /** Texto opcional explicando el reclamo (solo para CLAIM_*). */
   reason?: string;
 }
@@ -113,6 +121,8 @@ export async function applyAcuse(
   userId: string,
   input: AcuseServiceInput,
 ): Promise<AcuseServiceResult> {
+  const notifySii = input.notifySii !== false; // default true
+
   // ─── 1. Validar DTE ───
   const dte = await prisma.financeDte.findFirst({
     where: { id: input.dteId, tenantId, direction: "RECEIVED" },
@@ -154,7 +164,48 @@ export async function applyAcuse(
   const deadlineExpired =
     dte.receptionDeadline && dte.receptionDeadline < today;
 
-  // ─── 2. Cargar config + cert del tenant ───
+  // ─── 2. Resolver acción primaria (ACD/RCD/ERM/RFP/RFT) y mensajes ───
+  const acuseAction: AcuseAccion =
+    input.action === "ACCEPT"
+      ? "ACD"
+      : input.action === "ACCEPT_CONTENT_ONLY"
+        ? "ACD"
+        : input.action === "CLAIM_CONTENT"
+          ? "RCD"
+          : input.action === "CLAIM_PARTIAL"
+            ? "RFP"
+            : /* CLAIM_TOTAL */ "RFT";
+  const newStatus = RECEPTION_STATUS_BY_ACTION[input.action];
+
+  // ─── 3a. Modo "solo OPAI" (sin notificar al SII) ───
+  // Útil cuando el operador clasifica internamente (factura ya aceptada
+  // por otro canal, o reclasificación administrativa) sin escalar al SII.
+  if (!notifySii) {
+    const decidedAt = new Date();
+    const auditLine =
+      `[${decidedAt.toISOString()}] LOCAL-ONLY ${acuseAction} por ${userId} (sin notificar al SII)` +
+      (input.reason ? ` — ${input.reason}` : "");
+    const newNotes = dte.notes ? `${dte.notes}\n${auditLine}` : auditLine;
+
+    await prisma.financeDte.update({
+      where: { id: dte.id },
+      data: {
+        receptionStatus: newStatus,
+        receptionDecidedAt: decidedAt,
+        receptionDecidedBy: userId,
+        claimType: CLAIM_TYPE_BY_ACTION[acuseAction],
+        notes: newNotes,
+      },
+    });
+    return {
+      success: true,
+      message:
+        `Estado actualizado solo en OPAI (${newStatus}). NO se notificó al SII.`,
+      newReceptionStatus: newStatus,
+    };
+  }
+
+  // ─── 3b. Cargar config + cert del tenant (modo "notificar al SII") ───
   const [config, cert] = await Promise.all([
     prisma.tenantDteConfig.findUnique({ where: { tenantId } }),
     prisma.tenantDteCertificate.findUnique({ where: { tenantId } }),
@@ -213,15 +264,13 @@ export async function applyAcuse(
     rutEmpresa: dte.issuerRut,
   };
 
-  // ─── 3. Disparar acción contra SimpleAPI ───
+  // ─── 4. Disparar acción contra SimpleAPI ───
   let success = false;
   let message = "";
   let trackId: string | undefined;
   let raw: unknown;
-  let acuseAction: AcuseAccion; // acción "primaria" para `claimType`
 
   if (input.action === "ACCEPT") {
-    acuseAction = "ACD";
     const result = await acceptAndAcknowledge(
       { dteType: dte.dteType, folio: dte.folio },
       ctx,
@@ -233,33 +282,23 @@ export async function applyAcuse(
     trackId = result.ermResult?.trackId ?? result.acdResult.trackId;
     raw = { acdResult: result.acdResult, ermResult: result.ermResult };
   } else {
-    const accion: AcuseAccion =
-      input.action === "ACCEPT_CONTENT_ONLY"
-        ? "ACD"
-        : input.action === "CLAIM_CONTENT"
-          ? "RCD"
-          : input.action === "CLAIM_PARTIAL"
-            ? "RFP"
-            : /* CLAIM_TOTAL */ "RFT";
-    acuseAction = accion;
     const result = await acuseRecibidoSimpleApi(
-      { dteType: dte.dteType, folio: dte.folio, accion },
+      { dteType: dte.dteType, folio: dte.folio, accion: acuseAction },
       ctx,
     );
     success = result.success;
     message = result.success
-      ? `Acción ${accion} notificada al SII correctamente.`
-      : result.error ?? `Error desconocido al notificar ${accion} al SII.`;
+      ? `Acción ${acuseAction} notificada al SII correctamente.`
+      : result.error ?? `Error desconocido al notificar ${acuseAction} al SII.`;
     trackId = result.trackId;
     raw = result;
   }
 
-  // ─── 4. Persistir resultado en DB (solo si SimpleAPI confirmó) ───
+  // ─── 5. Persistir resultado en DB (solo si SimpleAPI confirmó) ───
   if (!success) {
     return { success: false, message, raw };
   }
 
-  const newStatus = RECEPTION_STATUS_BY_ACTION[input.action];
   const decidedAt = new Date();
   // Append a `notes` con metadata del acuse para auditoría. Mantenemos
   // las notas previas concatenadas con un separador.

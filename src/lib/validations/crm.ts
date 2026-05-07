@@ -83,6 +83,10 @@ export const createAccountSchema = z.object({
   legalRepresentativeName: z.string().trim().max(200).optional().nullable(),
   legalRepresentativeRut: z.string().trim().max(20).optional().nullable(),
   industry: z.string().trim().max(100).optional().nullable(),
+  // Giro / actividad económica formal SII (ej: "Servicios de seguridad
+  // y vigilancia"). Distinto a `industry` (segmento comercial interno).
+  // Se usa al autocompletar el receptor de un DTE.
+  giro: z.string().trim().max(200).optional().nullable(),
   segment: z.string().trim().max(100).optional().nullable(),
   status: z
     .enum(["prospect", "client_active", "client_inactive", "active", "inactive"])
@@ -105,6 +109,8 @@ export const createAccountSchema = z.object({
     .refine((v) => v == null || v === "" || /^https?:\/\/[^\s]+$/i.test(v), "URL inválida"),
   address: z.string().trim().max(500).optional().nullable(),
   commune: z.string().trim().max(200).optional().nullable(),
+  // City: ciudad (distinto a comuna). El SII pide ambos en facturas.
+  city: z.string().trim().max(200).optional().nullable(),
   notaryName: z.string().trim().max(500).optional().nullable(),
   notaryDate: z.string().trim().max(50).optional().nullable(),
   notes: z.string().trim().max(20000).optional().nullable(),
@@ -119,12 +125,16 @@ export const updateAccountSchema = z.object({
   legalRepresentativeName: z.string().trim().max(200).optional().nullable(),
   legalRepresentativeRut: z.string().trim().max(20).optional().nullable(),
   industry: z.string().trim().max(100).optional().nullable(),
+  // Giro / actividad económica formal SII (autocompleta receptor en DTE).
+  giro: z.string().trim().max(200).optional().nullable(),
   segment: z.string().trim().max(100).optional().nullable(),
   status: z.enum(["prospect", "client_active", "client_inactive", "active", "inactive"]).optional(),
   isActive: z.boolean().optional(),
   website: z.string().trim().max(500).optional().nullable(),
   address: z.string().trim().max(500).optional().nullable(),
   commune: z.string().trim().max(200).optional().nullable(),
+  // Ciudad (distinto a comuna; SII pide ambos en facturas).
+  city: z.string().trim().max(200).optional().nullable(),
   notaryName: z.string().trim().max(500).optional().nullable(),
   notaryDate: z.string().trim().max(50).optional().nullable(),
   notes: z.string().trim().max(20000).optional().nullable(),

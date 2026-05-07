@@ -64,6 +64,10 @@ export async function GET(request: NextRequest) {
       rut: true,
       address: true,
       commune: true,
+      // city y giro: se autocompletan al receptor del DTE para cumplir con
+      // el bloque <Receptor> del SII (Comuna + Ciudad + Giro).
+      city: true,
+      giro: true,
     },
     orderBy: { name: "asc" },
     take: limit,
@@ -103,7 +107,8 @@ export async function GET(request: NextRequest) {
       email: emailByAccount.get(a.id) ?? null,
       address: a.address ?? null,
       commune: a.commune ?? null,
-      city: null as string | null,
+      city: a.city ?? null,
+      giro: a.giro ?? null,
     })),
   });
 }

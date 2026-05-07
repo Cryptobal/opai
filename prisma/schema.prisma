@@ -1959,6 +1959,15 @@ model CrmAccount {
   website                 String?
   address                 String?
   commune                 String?
+  // Ciudad: distinto a comuna. SII exige ambos en facturas (Comuna +
+  // Ciudad). Se autocompleta al receptor al crear un DTE para esta cuenta.
+  city                    String?
+  // Giro / Actividad económica formal del cliente (texto libre, ej:
+  // "Servicios de seguridad y vigilancia"). El SII lo exige en el bloque
+  // <Receptor> de facturas (33/34). Distinto a `industry` (que es un
+  // segmento comercial interno usado en CRM/reportes). Se autocompleta
+  // al receptor al crear un DTE para esta cuenta.
+  giro                    String?
   logoUrl                 String?   @map("logo_url")
   notes                   String?
   startDate               DateTime? @map("start_date") @db.Date
@@ -6439,7 +6448,7 @@ model FinanceDteRecurringTemplate {
   lines                Json
   notes                String?
   /// Referencias adicionales como JSON, mismo shape que additionalReferences en FinanceDte.
-  additionalReferences Json?    @map("additional_references")
+  additionalReferences Json?   @map("additional_references")
 
   // ── Frecuencia ──
   // frequency: "monthly" | "biweekly" | "weekly" | "yearly"
@@ -6478,6 +6487,17 @@ model FinanceDteRecurringTemplate {
   ufFixingPolicy String @default("RUN_DAY") @map("uf_fixing_policy")
   /// Día del mes (1-31) para CUSTOM_DAY. NULL si la policy es otra.
   ufFixingDay    Int?   @map("uf_fixing_day")
+
+  /// Política para resolver el placeholder {{periodo}} y derivados al
+  /// generar el borrador desde esta plantilla. Solo se usa si alguna
+  /// línea de la plantilla contiene `{{periodo*}}` en itemName,
+  /// description o notes. Valores:
+  ///   - CURRENT_MONTH (default): mes del run del cron. Caso de uso
+  ///     típico: facturas cobradas por adelantado (1-may-2026 → "Mayo 2026").
+  ///   - PREVIOUS_MONTH: mes anterior al run. Para facturas vencidas
+  ///     (1-jun-2026 → "Mayo 2026").
+  ///   - NEXT_MONTH: mes siguiente al run. Casos especiales.
+  periodPolicy String @default("CURRENT_MONTH") @map("period_policy")
 
   createdBy String   @map("created_by")
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)

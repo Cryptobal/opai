@@ -58,6 +58,15 @@ function defaultApiBaseUrl(): string {
 const SCRAPER_BASE_URL =
   process.env.SIMPLEAPI_SCRAPER_BASE_URL ?? "https://servicios.simpleapi.cl/api/";
 
+/**
+ * Base URL de la API de RUT (consulta de datos del contribuyente al SII).
+ * Es un host independiente — confirmado en la doc Postman oficial:
+ *   https://rut.simpleapi.cl/v2/{rut}
+ * Usado por el adapter `simpleapi-rut.ts`.
+ */
+const RUT_BASE_URL =
+  process.env.SIMPLEAPI_RUT_BASE_URL ?? "https://rut.simpleapi.cl/";
+
 /** apiKey efectiva: override > env var > "" (vacío → throw en getSimpleApiKeyOrThrow). */
 function resolveApiKey(auth?: SimpleApiAuth): string {
   return auth?.apiKey ?? process.env.SIMPLEAPI_KEY ?? "";
@@ -69,7 +78,7 @@ function resolveApiBase(auth?: SimpleApiAuth): string {
   return defaultApiBaseUrl();
 }
 
-export type SimpleApiBaseTarget = "api" | "scraper";
+export type SimpleApiBaseTarget = "api" | "scraper" | "rut";
 
 function authHeader(apiKey: string): string {
   // Basic base64("api:" + apikey) — formato del SDK oficial.
@@ -96,7 +105,12 @@ export function buildSimpleApiUrl(
   path: string,
   auth?: SimpleApiAuth,
 ): string {
-  const base = target === "api" ? resolveApiBase(auth) : SCRAPER_BASE_URL;
+  const base =
+    target === "api"
+      ? resolveApiBase(auth)
+      : target === "rut"
+        ? RUT_BASE_URL
+        : SCRAPER_BASE_URL;
   // Garantiza un único slash entre base y path.
   const trimmed = path.replace(/^\//, "");
   return base.endsWith("/") ? `${base}${trimmed}` : `${base}/${trimmed}`;

@@ -70,6 +70,7 @@ export async function POST(
       dteId: id,
       action: body.action,
       reason: body.reason,
+      notifySii: body.notifySii,
     });
 
     if (!result.success) {

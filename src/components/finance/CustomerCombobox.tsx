@@ -13,6 +13,13 @@ export interface CustomerOption {
   address: string | null;
   commune: string | null;
   city: string | null;
+  /**
+   * Giro / actividad económica formal del cliente (ej. "Servicios de
+   * seguridad y vigilancia"). El SII lo exige en <Receptor> de facturas
+   * 33/34. Si el CRM lo tiene cargado, se autocompleta al receptor del
+   * DTE; si está vacío, el usuario puede tipear o queda con default.
+   */
+  giro: string | null;
 }
 
 interface Props {

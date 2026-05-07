@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import {
   FileText,
   FileInput,
@@ -2061,6 +2062,25 @@ function ReceivedDteDetailDialog({
   const [acuseLoading, setAcuseLoading] = useState<
     null | "ACCEPT" | "CLAIM_CONTENT" | "CLAIM_PARTIAL" | "CLAIM_TOTAL"
   >(null);
+  /**
+   * Estado del modal "¿Notificar al SII?". Cuando el usuario clickea
+   * Aceptar / Reclamar, en vez de disparar la llamada directo, abrimos
+   * este modal donde puede:
+   *   1. Confirmar la acción.
+   *   2. Elegir si notificar al SII (default sí) o solo guardar en
+   *      OPAI como clasificación interna.
+   *   3. Agregar un motivo (para reclamos).
+   *
+   * IMPORTANTE: este `useState` debe ir junto con los otros hooks
+   * ANTES del `if (!dte) return null` para no violar las reglas de
+   * hooks (la cantidad debe ser estable entre renders, sino React
+   * lanza error #310).
+   */
+  const [acusePending, setAcusePending] = useState<{
+    action: "ACCEPT" | "CLAIM_CONTENT" | "CLAIM_PARTIAL" | "CLAIM_TOTAL";
+    notifySii: boolean;
+    reason: string;
+  } | null>(null);
 
   // Cargar adjuntos al abrir el modal.
   useEffect(() => {
@@ -2130,42 +2150,21 @@ function ReceivedDteDetailDialog({
     }
   }
 
-  /**
-   * Notifica al SII (vía SimpleAPI) la aceptación o reclamo del DTE
-   * recibido. Cada acción es IRREVERSIBLE legalmente — pedimos
-   * confirmación textual antes de disparar la llamada.
-   *
-   * En éxito: cierra el modal y dispara `onDecided` para refrescar la
-   * lista. En error: muestra toast con el mensaje del backend (que viene
-   * mapeado del provider, así que el usuario ve causa-raíz: cert vencido,
-   * apikey bloqueada, fuera de plazo, etc.).
-   */
-  async function handleAcuse(
+  /** Dispara el modal de confirmación de acuse. */
+  function openAcuseConfirm(
     action: "ACCEPT" | "CLAIM_CONTENT" | "CLAIM_PARTIAL" | "CLAIM_TOTAL",
   ) {
-    if (!dte) return;
-    const labels: Record<typeof action, string> = {
-      ACCEPT:
-        "ACEPTAR el DTE y entregar acuse de recibo de mercaderías al SII (habilita uso del crédito IVA)",
-      CLAIM_CONTENT: "RECLAMAR EL CONTENIDO del DTE en el SII (RCD)",
-      CLAIM_PARTIAL:
-        "Reportar al SII FALTA PARCIAL DE MERCADERÍAS (RFP)",
-      CLAIM_TOTAL: "Reportar al SII FALTA TOTAL DE MERCADERÍAS (RFT)",
-    };
-    const ok = window.confirm(
-      `Vas a ${labels[action]}.\n\n` +
-        `Esta acción es IRREVERSIBLE en el SII. ¿Continuar?`,
-    );
-    if (!ok) return;
+    setAcusePending({ action, notifySii: true, reason: "" });
+  }
 
-    let reason: string | undefined;
-    if (action !== "ACCEPT") {
-      const r = window.prompt(
-        "Motivo del reclamo (opcional, se guarda en notas para auditoría):",
-        "",
-      );
-      reason = r?.trim() || undefined;
-    }
+  /**
+   * Ejecuta la acción confirmada en el modal. Manda `notifySii` al
+   * backend; si es false, solo se actualiza el estado local en OPAI.
+   * Si es true, se llama a SimpleAPI → SII (irreversible).
+   */
+  async function confirmAcuse() {
+    if (!dte || !acusePending) return;
+    const { action, notifySii, reason } = acusePending;
 
     setAcuseLoading(action);
     try {
@@ -2174,16 +2173,19 @@ function ReceivedDteDetailDialog({
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action, reason }),
+          body: JSON.stringify({
+            action,
+            notifySii,
+            reason: reason.trim() || undefined,
+          }),
         },
       );
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json.error ?? "Error al notificar al SII");
+        throw new Error(json.error ?? "Error al procesar la acción");
       }
-      toast.success(
-        json.data?.message ?? "Acción notificada al SII correctamente",
-      );
+      toast.success(json.data?.message ?? "Acción registrada correctamente");
+      setAcusePending(null);
       onDecided?.();
       onClose();
     } catch (err) {
@@ -2245,50 +2247,38 @@ function ReceivedDteDetailDialog({
                 <Button
                   size="sm"
                   variant="default"
-                  onClick={() => handleAcuse("ACCEPT")}
+                  onClick={() => openAcuseConfirm("ACCEPT")}
                   disabled={acuseLoading !== null}
                   className="h-9"
                 >
-                  {acuseLoading === "ACCEPT" ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
-                  ) : null}
-                  Aceptar (ACD + ERM)
+                  Aceptar
                 </Button>
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => handleAcuse("CLAIM_CONTENT")}
+                  onClick={() => openAcuseConfirm("CLAIM_CONTENT")}
                   disabled={acuseLoading !== null}
                   className="h-9 border-status-danger-border text-status-danger-fg hover:bg-status-danger-soft"
                 >
-                  {acuseLoading === "CLAIM_CONTENT" ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
-                  ) : null}
-                  Reclamar contenido (RCD)
+                  Reclamar contenido
                 </Button>
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => handleAcuse("CLAIM_PARTIAL")}
+                  onClick={() => openAcuseConfirm("CLAIM_PARTIAL")}
                   disabled={acuseLoading !== null}
                   className="h-9 border-status-warn-border text-status-warn-fg hover:bg-status-warn-soft"
                 >
-                  {acuseLoading === "CLAIM_PARTIAL" ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
-                  ) : null}
-                  Falta parcial (RFP)
+                  Falta parcial
                 </Button>
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => handleAcuse("CLAIM_TOTAL")}
+                  onClick={() => openAcuseConfirm("CLAIM_TOTAL")}
                   disabled={acuseLoading !== null}
                   className="h-9 border-status-danger-border text-status-danger-fg hover:bg-status-danger-soft"
                 >
-                  {acuseLoading === "CLAIM_TOTAL" ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
-                  ) : null}
-                  Falta total (RFT)
+                  Falta total
                 </Button>
               </div>
             </div>
@@ -2502,6 +2492,200 @@ function ReceivedDteDetailDialog({
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
             Cerrar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+
+      {/* Modal de confirmación de Acuse SII.
+          Permite al usuario decidir si la decisión se notifica al SII
+          (irreversible legalmente) o solo se guarda en OPAI como
+          clasificación interna. Esto es clave para que el operador
+          marque facturas que ya validó por otro canal sin escalarlas. */}
+      <AcuseConfirmDialog
+        pending={acusePending}
+        loading={acuseLoading !== null}
+        dteFolio={dte.folio}
+        dteIssuer={dte.issuerName}
+        onChange={(p) => setAcusePending(p)}
+        onConfirm={confirmAcuse}
+        onCancel={() => setAcusePending(null)}
+      />
+    </Dialog>
+  );
+}
+
+/**
+ * Modal de confirmación de Acuse al SII para DTEs recibidos.
+ *
+ * Diseño UX: por default `notifySii=true` (lo que el usuario espera al
+ * clickear "Aceptar"). Si destildea, la operación queda solo registrada
+ * localmente en OPAI sin tocar el SII — útil para validaciones internas
+ * o para marcar facturas legítimas que ya fueron aceptadas por otro
+ * canal (ej: el contador acepta directamente desde el portal SII y solo
+ * quiere clasificar en OPAI).
+ *
+ * El switch grande con descripción contextual ayuda a no confundir esta
+ * decisión, que es la diferencia entre una acción irreversible legal y
+ * un cambio cosmético interno.
+ */
+function AcuseConfirmDialog({
+  pending,
+  loading,
+  dteFolio,
+  dteIssuer,
+  onChange,
+  onConfirm,
+  onCancel,
+}: {
+  pending: {
+    action: "ACCEPT" | "CLAIM_CONTENT" | "CLAIM_PARTIAL" | "CLAIM_TOTAL";
+    notifySii: boolean;
+    reason: string;
+  } | null;
+  loading: boolean;
+  dteFolio: number;
+  dteIssuer: string;
+  onChange: (
+    p: {
+      action: "ACCEPT" | "CLAIM_CONTENT" | "CLAIM_PARTIAL" | "CLAIM_TOTAL";
+      notifySii: boolean;
+      reason: string;
+    } | null,
+  ) => void;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  if (!pending) return null;
+
+  const actionMeta: Record<
+    typeof pending.action,
+    { title: string; verb: string; tone: "ok" | "warn" | "danger" }
+  > = {
+    ACCEPT: {
+      title: "Aceptar factura recibida",
+      verb: "ACEPTAR",
+      tone: "ok",
+    },
+    CLAIM_CONTENT: {
+      title: "Reclamar contenido del DTE",
+      verb: "RECLAMAR el contenido (RCD)",
+      tone: "danger",
+    },
+    CLAIM_PARTIAL: {
+      title: "Reportar falta parcial de mercaderías",
+      verb: "reportar FALTA PARCIAL (RFP)",
+      tone: "warn",
+    },
+    CLAIM_TOTAL: {
+      title: "Reportar falta total de mercaderías",
+      verb: "reportar FALTA TOTAL (RFT)",
+      tone: "danger",
+    },
+  };
+  const meta = actionMeta[pending.action];
+  const showReason = pending.action !== "ACCEPT";
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onCancel()}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{meta.title}</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 py-2">
+          <p className="text-sm text-muted-foreground">
+            Estás por <span className="font-semibold text-foreground">{meta.verb}</span>{" "}
+            la factura folio{" "}
+            <span className="font-mono text-foreground">{dteFolio}</span> de{" "}
+            <span className="font-medium text-foreground">{dteIssuer}</span>.
+          </p>
+
+          {/* Toggle Notificar al SII */}
+          <div
+            className={cn(
+              "rounded-md border p-3",
+              pending.notifySii
+                ? "border-status-info-border bg-status-info-soft"
+                : "border-ds-border-default bg-ds-surface-2",
+            )}
+          >
+            <div className="flex items-start gap-3">
+              <Switch
+                checked={pending.notifySii}
+                onCheckedChange={(v) =>
+                  onChange({ ...pending, notifySii: v })
+                }
+                disabled={loading}
+                className="mt-0.5"
+                aria-label="Notificar al SII"
+              />
+              <div className="flex-1 min-w-0">
+                <Label className="text-sm font-medium cursor-pointer">
+                  Notificar al SII (Servicio de Impuestos Internos)
+                </Label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {pending.notifySii ? (
+                    <>
+                      Se enviará la decisión al SII vía SimpleAPI.{" "}
+                      <span className="font-medium text-status-danger-fg">
+                        Esta acción es IRREVERSIBLE legalmente.
+                      </span>{" "}
+                      {pending.action === "ACCEPT" &&
+                        "Aceptar habilita el uso del crédito IVA."}
+                    </>
+                  ) : (
+                    <>
+                      Solo se cambiará el estado en OPAI como clasificación
+                      interna. <span className="font-medium">No se tocará el SII</span>.
+                      Útil para marcar facturas que ya fueron acusadas por
+                      otro canal o para clasificación administrativa interna.
+                    </>
+                  )}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {showReason && (
+            <div className="space-y-1.5">
+              <Label className="text-sm">
+                Motivo del reclamo{" "}
+                <span className="text-xs font-normal text-muted-foreground">
+                  (opcional, se guarda en notas)
+                </span>
+              </Label>
+              <Textarea
+                value={pending.reason}
+                onChange={(e) =>
+                  onChange({ ...pending, reason: e.target.value })
+                }
+                disabled={loading}
+                rows={3}
+                placeholder="Ej: Productos no recibidos en bodega, montos no coinciden con OC..."
+              />
+            </div>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onCancel} disabled={loading}>
+            Cancelar
+          </Button>
+          <Button
+            onClick={onConfirm}
+            disabled={loading}
+            className={cn(
+              meta.tone === "ok" && "bg-status-ok-fg hover:bg-status-ok-fg/90",
+              meta.tone === "danger" &&
+                "bg-status-danger-fg hover:bg-status-danger-fg/90 text-white",
+              meta.tone === "warn" &&
+                "bg-status-warn-fg hover:bg-status-warn-fg/90",
+            )}
+          >
+            {loading && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />}
+            {pending.notifySii
+              ? "Confirmar y notificar al SII"
+              : "Confirmar (solo OPAI)"}
           </Button>
         </DialogFooter>
       </DialogContent>
