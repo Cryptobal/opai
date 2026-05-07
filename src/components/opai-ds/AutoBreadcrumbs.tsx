@@ -66,17 +66,31 @@ export function AutoBreadcrumbs({
       (n, i) => !(n.key === "hub" && i === 0 && trail.length > 1),
     );
 
+    // Hide when the trail collapses to a single segment AND we're at a
+    // top-level module root (e.g. /crm, /finanzas) — the sidebar already
+    // shows where we are. Breadcrumbs add no value here. Detail pages
+    // use `trailing` to add a deeper segment, so this still renders.
+    if (filtered.length <= 1 && !trailing) return [];
+
     const built = filtered.map<BreadcrumbItem>((node) => ({
       label: node.label,
       href: node.href,
     }));
 
     if (trailing && built.length > 0) {
-      // Replace last label with override but keep href so it stays clickable.
-      built[built.length - 1] = {
-        label: trailing,
-        href: built[built.length - 1].href,
-      };
+      // If the trail only has the module root, we still want the trailing
+      // segment to read like "Module › Detail". Append rather than
+      // replace in that case.
+      const last = built[built.length - 1];
+      if (filtered.length === 1) {
+        built.push({ label: trailing, href: last.href });
+      } else {
+        // Replace last label with override but keep href so it stays clickable.
+        built[built.length - 1] = {
+          label: trailing,
+          href: last.href,
+        };
+      }
     }
     return built;
   }, [pathname, trailing]);
