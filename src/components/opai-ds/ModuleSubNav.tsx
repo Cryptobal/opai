@@ -19,10 +19,17 @@
  *   <ModuleSubNav />              ← auto-detect del path
  *   <ModuleSubNav moduleKey="..."/>  ← forzar un módulo específico
  *
- * Visibilidad responsive:
- *   default → SIEMPRE visible (mobile + desktop). Es un nav primary.
- *   "desktop-only" → solo en lg+ (raro, pero útil cuando el bottom nav ya
- *                     muestra los mismos items en mobile).
+ * ## Visibilidad responsive — IMPORTANTE
+ *
+ * Default: `desktop-only`. Por qué: en mobile el `BottomNav` (`ModuleSubNav`
+ * interno) ya muestra los mismos N3 cuando estás en una sub-sección con
+ * children. Renderizar SubNav arriba duplica el control y agrega ruido. En
+ * desktop el sidebar puede estar colapsado, así que SubNav arriba es la
+ * forma más rápida de saltar entre N3.
+ *
+ * Si querés mostrar el SubNav también en mobile (caso raro: cuando la
+ * página activa NO tiene equivalencia en bottom nav, ej. una vista temporal
+ * o un layout especial), pasá `visibility="always"`.
  */
 
 import { useMemo } from "react";
@@ -44,10 +51,11 @@ export interface ModuleSubNavProps {
    *  If omitted, the active N3 parent is detected from the URL. */
   moduleKey?: string;
   /** Override visibility:
-   *   - default: visible everywhere
-   *   - "desktop-only": hidden on mobile (use when the bottom nav already shows the same items)
+   *   - "desktop-only" (default): hidden on mobile — bottom nav cubre N3 en mobile.
+   *   - "always": visible en mobile + desktop. Usar solo cuando la ruta NO
+   *     tiene equivalencia en bottom nav (raro).
    */
-  visibility?: "default" | "desktop-only";
+  visibility?: "desktop-only" | "always";
   /** Additional class on the wrapper. */
   className?: string;
   /** Trailing action shown after the tabs (e.g. "Nueva visita"). */
@@ -67,7 +75,7 @@ function nodeToTabItem(node: NavNode): SwipeTabItem {
 
 export function ModuleSubNav({
   moduleKey,
-  visibility = "default",
+  visibility = "desktop-only",
   className,
   trailingAction,
   activeHref: _activeHref,

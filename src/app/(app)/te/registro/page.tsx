@@ -2,9 +2,9 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHero } from "@/components/opai-ds";
+import { ModuleSubNav, PageHero } from "@/components/opai-ds";
 import { ClipboardClock } from "lucide-react";
-import { TeSubnav, TeTurnosClient } from "@/components/ops";
+import { TeTurnosClient } from "@/components/ops";
 
 export default async function TeRegistroPage() {
   const session = await auth();
@@ -35,6 +35,7 @@ export default async function TeRegistroPage() {
 
   return (
     <div className="space-y-6 min-w-0">
+      <ModuleSubNav moduleKey="te" />
       <PageHero
         icon={<ClipboardClock />}
         iconTone="amber"
@@ -43,7 +44,6 @@ export default async function TeRegistroPage() {
         subtitle="captura desde planilla"
         description="Listado de turnos extra con estado y monto."
       />
-      <TeSubnav />
       <TeTurnosClient initialItems={JSON.parse(JSON.stringify(turnos))} />
     </div>
   );

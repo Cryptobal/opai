@@ -4,7 +4,6 @@ import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { PageHero } from "@/components/opai-ds";
 import { TicketCheck } from "lucide-react";
 import { TicketDetailClient } from "@/components/ops/tickets";
-import { TicketsSubnav } from "@/components/ops/TicketsSubnav";
 import { prisma } from "@/lib/prisma";
 
 export default async function TicketDetailPage({
@@ -38,7 +37,6 @@ export default async function TicketDetailPage({
         subtitle="seguimiento y comentarios"
         description="Detalle completo del ticket con timeline de aprobación, comentarios, cambios de estado y trazabilidad."
       />
-      <TicketsSubnav />
       <TicketDetailClient
         ticketId={id}
         userRole={session.user.role}

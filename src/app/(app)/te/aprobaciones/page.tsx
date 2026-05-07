@@ -2,9 +2,9 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHero } from "@/components/opai-ds";
+import { ModuleSubNav, PageHero } from "@/components/opai-ds";
 import { CheckCircle2 } from "lucide-react";
-import { TeSubnav, TeTurnosClient } from "@/components/ops";
+import { TeTurnosClient } from "@/components/ops";
 
 export default async function TeAprobacionesPage() {
   const session = await auth();
@@ -38,6 +38,7 @@ export default async function TeAprobacionesPage() {
 
   return (
     <div className="space-y-6 min-w-0">
+      <ModuleSubNav moduleKey="te" />
       <PageHero
         icon={<CheckCircle2 />}
         iconTone="amber"
@@ -46,7 +47,6 @@ export default async function TeAprobacionesPage() {
         subtitle="validación final"
         description="Aprueba o rechaza turnos extra pendientes."
       />
-      <TeSubnav />
       <TeTurnosClient
         initialItems={JSON.parse(JSON.stringify(turnos))}
         defaultStatusFilter="pending"
