@@ -18,4 +18,3 @@ export * from "./OpsControlNocturnoListClient";
 export * from "./OpsControlNocturnoDetailClient";
 export * from "./OpsGlobalSearch";
 export * from "./rondas";
-export * from "./InventarioSubnav";

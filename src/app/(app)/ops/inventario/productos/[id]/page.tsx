@@ -7,7 +7,6 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Package } from "lucide-react";
 import { InventarioProductoSizesClient } from "@/components/inventario/InventarioProductoSizesClient";
-import { InventarioSubnav } from "@/components/ops/InventarioSubnav";
 
 export default async function InventarioProductoPage({
   params,
@@ -38,7 +37,6 @@ export default async function InventarioProductoPage({
 
   return (
     <div className="space-y-6 min-w-0">
-      <InventarioSubnav />
       <section className="relative w-full pb-32 space-y-6">
         <PageHero
           icon={<Package />}

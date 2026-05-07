@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView, canEdit } from "@/lib/permissions-server";
-import { InventarioSubnav } from "@/components/ops/InventarioSubnav";
 import { InventarioOverviewClient } from "@/components/inventario/InventarioOverviewClient";
 
 export default async function InventarioPage() {
@@ -18,7 +17,6 @@ export default async function InventarioPage() {
 
   return (
     <div className="min-w-0">
-      <InventarioSubnav />
       <InventarioOverviewClient canEdit={allowEdit} />
     </div>
   );

@@ -5,7 +5,6 @@ import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView, canEdit } from "@/lib/permissions-server";
 import { PageHero, Spinner } from "@/components/opai-ds";
 import { InventarioStockClient } from "@/components/inventario/InventarioStockClient";
-import { InventarioSubnav } from "@/components/ops/InventarioSubnav";
 
 export default async function InventarioStockPage() {
   const session = await auth();
@@ -21,7 +20,6 @@ export default async function InventarioStockPage() {
 
   return (
     <div className="min-w-0">
-      <InventarioSubnav />
       <section className="relative w-full pb-32 space-y-6">
         <PageHero
           icon={<Layers />}

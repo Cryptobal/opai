@@ -4,7 +4,6 @@ import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { PageHero } from "@/components/opai-ds";
 import { InventarioComprasClient } from "@/components/inventario/InventarioComprasClient";
-import { InventarioSubnav } from "@/components/ops/InventarioSubnav";
 
 export default async function InventarioComprasPage() {
   const session = await auth();
@@ -18,7 +17,6 @@ export default async function InventarioComprasPage() {
 
   return (
     <div className="min-w-0">
-      <InventarioSubnav />
       <section className="relative w-full pb-32 space-y-6">
         <PageHero
           icon={<ShoppingCart />}

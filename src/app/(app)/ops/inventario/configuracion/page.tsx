@@ -3,7 +3,6 @@ import { Settings2 } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { canDelete, canView, resolvePagePerms } from "@/lib/permissions-server";
 import { PageHero } from "@/components/opai-ds";
-import { InventarioSubnav } from "@/components/ops/InventarioSubnav";
 import { InventarioConfigClient } from "@/components/inventario/InventarioConfigClient";
 
 export default async function InventarioConfiguracionPage() {
@@ -20,7 +19,6 @@ export default async function InventarioConfiguracionPage() {
 
   return (
     <div className="min-w-0">
-      <InventarioSubnav />
       <section className="relative w-full pb-32 space-y-6">
         <PageHero
           icon={<Settings2 />}

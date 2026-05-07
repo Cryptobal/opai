@@ -4,7 +4,6 @@ import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { PageHero } from "@/components/opai-ds";
 import { InventarioLineasClient } from "@/components/inventario/InventarioLineasClient";
-import { InventarioSubnav } from "@/components/ops/InventarioSubnav";
 
 export default async function InventarioLineasPage() {
   const session = await auth();
@@ -18,7 +17,6 @@ export default async function InventarioLineasPage() {
 
   return (
     <div className="min-w-0">
-      <InventarioSubnav />
       <section className="relative w-full pb-32 space-y-6">
         <PageHero
           icon={<Phone />}
