@@ -369,3 +369,96 @@ export function detectApiKeyBlocked(res: SimpleApiResponse): {
 export function isApiKeyAuthenticated(res: SimpleApiResponse): boolean {
   return res.rateLimit.remaining !== null;
 }
+
+/**
+ * Convierte una respuesta HTTP no-OK de SimpleAPI en un mensaje
+ * legible y accionable.
+ *
+ * Decisión clave (descubierta empíricamente probando contra
+ * api.simpleapi.cl): SimpleAPI usa **HTTP 401 con body vacío** para
+ * dos casos completamente distintos —
+ *
+ *   1. Apikey inválida / ausente
+ *   2. Apikey OK pero el payload (cert, CAF, JSON) fue rechazado
+ *
+ * Para distinguirlos miramos los headers `x-rate-limit-*`. SimpleAPI
+ * los devuelve SOLO cuando autenticó la apikey y le aplicó el contador
+ * de cuota. Si están presentes en un 401, el problema NO es la apikey:
+ * casi siempre es certificado .pfx con password mal o vencido, o CAF
+ * inválido para el folio reservado.
+ *
+ * Para 404 el diagnóstico es distinto: no es un problema de auth ni
+ * payload, sino de path. Las dos causas que vimos en producción son
+ * (a) `SIMPLEAPI_BASE_URL` apuntando al host de scraper (`servicios.`)
+ * en vez de `api.`, y (b) el plan de SimpleAPI no incluye el endpoint
+ * (frecuente con cesión electrónica). Damos pistas para ambos.
+ *
+ * `endpoint` se incluye para distinguir cuál de los pasos del flow
+ * falló (`dte/generar`, `envio/generar`, `envio/enviar`,
+ * `consulta/envio`, `dte/cesion/generar`, `cesion/enviar`,
+ * `impresion/pdf/...`).
+ */
+export function describeSimpleApiError(
+  endpoint: string,
+  res: SimpleApiResponse,
+): string {
+  const blocked = detectApiKeyBlocked(res);
+  if (blocked.blocked && blocked.message) {
+    return `SimpleAPI [${endpoint}]: ${blocked.message}`;
+  }
+
+  const trimmedBody = res.bodyText.trim();
+  const apiKeyOk = isApiKeyAuthenticated(res);
+
+  // Caso A: apikey reconocida (rate-limit headers presentes) pero el
+  // request fue rechazado. El problema está en el payload, no en auth.
+  // Es el caso más común en producción y antes se reportaba como "401:"
+  // sin pistas. Damos un diagnóstico orientado a cert/CAF.
+  if (apiKeyOk && (res.status === 401 || res.status === 400 || res.status === 422)) {
+    const detail = trimmedBody
+      ? ` Detalle del provider: ${trimmedBody.slice(0, 400)}.`
+      : "";
+    return (
+      `SimpleAPI [${endpoint}] HTTP ${res.status} con apikey reconocida — ` +
+      `el provider rechazó el payload, NO es problema de SIMPLEAPI_KEY. ` +
+      `Causas más comunes: certificado digital con contraseña incorrecta o vencido, ` +
+      `CAF inválido o agotado para el tipo de DTE, o datos del emisor/receptor mal ` +
+      `formados. Revisá el cert y los CAFs en /opai/configuracion/finanzas/dte.${detail}`
+    );
+  }
+
+  // Caso B: 401/403 sin rate-limit headers Y body vacío → apikey no
+  // reconocida realmente.
+  if (
+    !trimmedBody &&
+    (res.status === 401 || res.status === 403)
+  ) {
+    return (
+      `SimpleAPI [${endpoint}] HTTP ${res.status} sin cuerpo y sin rate-limit headers. ` +
+      `Apikey no reconocida por SimpleAPI: verificá SIMPLEAPI_KEY en Vercel ` +
+      `(sin espacios ni saltos de línea) y el estado en https://panel.simpleapi.cl/.`
+    );
+  }
+
+  // Caso C: 404 — endpoint no existe en la base URL configurada o el
+  // plan del cliente no lo expone. Para los pasos de cesión (Bloque
+  // factoring) lo más común es que el plan no incluya cesión electrónica.
+  // Para el resto, suele ser SIMPLEAPI_BASE_URL apuntando al host de
+  // scraper o a un /api/v2 que no existe.
+  if (res.status === 404) {
+    const isCesion = endpoint.includes("cesion");
+    const planHint = isCesion
+      ? "Lo más común es que el plan de SimpleAPI contratado no incluya cesión electrónica (Ley 19.983). Verificá en https://panel.simpleapi.cl/ que el plan habilite el endpoint, o contactá a soporte de SimpleAPI."
+      : "Lo más común es que SIMPLEAPI_BASE_URL esté apuntando al host equivocado (debe ser https://api.simpleapi.cl, no https://servicios.simpleapi.cl), o que el plan contratado no exponga el endpoint.";
+    const detail = trimmedBody
+      ? ` Detalle del provider: ${trimmedBody.slice(0, 300)}.`
+      : "";
+    return (
+      `SimpleAPI [${endpoint}] HTTP 404 — el endpoint no existe en la URL ` +
+      `configurada${apiKeyOk ? " (apikey reconocida, no es problema de auth)" : ""}. ` +
+      `${planHint}${detail}`
+    );
+  }
+
+  return `SimpleAPI [${endpoint}] HTTP ${res.status}: ${trimmedBody.slice(0, 500)}`;
+}

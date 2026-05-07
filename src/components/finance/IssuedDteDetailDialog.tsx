@@ -22,6 +22,7 @@ import { es } from "date-fns/locale";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -454,6 +455,11 @@ export function IssuedDteDetailDialog({
               </Badge>
             )}
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            Detalle del DTE emitido: estado SII, datos del receptor, líneas de
+            facturación, archivos adjuntos y acciones disponibles (descargar
+            PDF/XML, reenviar por email, ceder a factoring, anular).
+          </DialogDescription>
         </DialogHeader>
 
         {loading && (
@@ -1011,6 +1017,10 @@ export function IssuedDteDetailDialog({
           <DialogContent className="sm:max-w-lg">
             <DialogHeader>
               <DialogTitle>Subir XML firmado original</DialogTitle>
+              <DialogDescription>
+                Adjuntá el XML firmado de este DTE para poder generar PDFs,
+                ceder a factoring y reauditar sin re-emitir contra el SII.
+              </DialogDescription>
             </DialogHeader>
             <div className="space-y-3 py-2 text-sm">
               <div className="rounded-md bg-status-info-soft border border-status-info-border p-3 text-[13px] text-status-info-fg">

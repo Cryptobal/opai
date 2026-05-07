@@ -39,11 +39,9 @@ import {
 } from "@/modules/finance/billing/dte-preflight";
 import {
   callSimpleApi,
-  detectApiKeyBlocked,
+  describeSimpleApiError,
   getSimpleApiKeyOrThrow,
-  isApiKeyAuthenticated,
   type SimpleApiAuth,
-  type SimpleApiResponse,
 } from "./simpleapi-http";
 import type {
   DteProviderAdapter,
@@ -135,72 +133,6 @@ function stripDataUrlPrefix(b64: string | null | undefined): string {
   return trimmed;
 }
 
-
-/**
- * Convierte una respuesta HTTP no-OK de SimpleAPI en un mensaje
- * legible y accionable.
- *
- * Decisión clave (descubierta empíricamente probando contra
- * api.simpleapi.cl): SimpleAPI usa **HTTP 401 con body vacío** para
- * dos casos completamente distintos —
- *
- *   1. Apikey inválida / ausente
- *   2. Apikey OK pero el payload (cert, CAF, JSON) fue rechazado
- *
- * Para distinguirlos miramos los headers `x-rate-limit-*`. SimpleAPI
- * los devuelve SOLO cuando autenticó la apikey y le aplicó el contador
- * de cuota. Si están presentes en un 401, el problema NO es la apikey:
- * casi siempre es certificado .pfx con password mal o vencido, o CAF
- * inválido para el folio reservado.
- *
- * `endpoint` se incluye para distinguir cuál de los pasos del flow
- * falló (`dte/generar`, `envio/generar`, `envio/enviar`,
- * `consulta/envio`, `impresion/pdf/...`).
- */
-function describeSimpleApiError(
-  endpoint: string,
-  res: SimpleApiResponse,
-): string {
-  const blocked = detectApiKeyBlocked(res);
-  if (blocked.blocked && blocked.message) {
-    return `SimpleAPI [${endpoint}]: ${blocked.message}`;
-  }
-
-  const trimmedBody = res.bodyText.trim();
-  const apiKeyOk = isApiKeyAuthenticated(res);
-
-  // Caso A: apikey reconocida (rate-limit headers presentes) pero el
-  // request fue rechazado. El problema está en el payload, no en auth.
-  // Es el caso más común en producción y antes se reportaba como "401:"
-  // sin pistas. Damos un diagnóstico orientado a cert/CAF.
-  if (apiKeyOk && (res.status === 401 || res.status === 400 || res.status === 422)) {
-    const detail = trimmedBody
-      ? ` Detalle del provider: ${trimmedBody.slice(0, 400)}.`
-      : "";
-    return (
-      `SimpleAPI [${endpoint}] HTTP ${res.status} con apikey reconocida — ` +
-      `el provider rechazó el payload, NO es problema de SIMPLEAPI_KEY. ` +
-      `Causas más comunes: certificado digital con contraseña incorrecta o vencido, ` +
-      `CAF inválido o agotado para el tipo de DTE, o datos del emisor/receptor mal ` +
-      `formados. Revisá el cert y los CAFs en /opai/configuracion/finanzas/dte.${detail}`
-    );
-  }
-
-  // Caso B: 401/403 sin rate-limit headers Y body vacío → apikey no
-  // reconocida realmente.
-  if (
-    !trimmedBody &&
-    (res.status === 401 || res.status === 403)
-  ) {
-    return (
-      `SimpleAPI [${endpoint}] HTTP ${res.status} sin cuerpo y sin rate-limit headers. ` +
-      `Apikey no reconocida por SimpleAPI: verificá SIMPLEAPI_KEY en Vercel ` +
-      `(sin espacios ni saltos de línea) y el estado en https://panel.simpleapi.cl/.`
-    );
-  }
-
-  return `SimpleAPI [${endpoint}] HTTP ${res.status}: ${trimmedBody.slice(0, 500)}`;
-}
 
 /**
  * Cache en memoria de XMLs generados durante un emit. Se usa como fallback

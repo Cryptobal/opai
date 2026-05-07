@@ -28,6 +28,7 @@
 
 import {
   callSimpleApi,
+  describeSimpleApiError,
   type SimpleApiAuth,
 } from "./simpleapi-http";
 import type {
@@ -139,7 +140,7 @@ async function generarAec(
   if (!result.ok) {
     return {
       ok: false,
-      error: `dte/cesion/generar HTTP ${result.status}: ${result.bodyText.slice(0, 500)}`,
+      error: describeSimpleApiError("dte/cesion/generar", result),
     };
   }
 
@@ -225,7 +226,7 @@ async function enviarAec(
   if (!result.ok) {
     return {
       ok: false,
-      error: `cesion/enviar HTTP ${result.status}: ${result.bodyText.slice(0, 500)}`,
+      error: describeSimpleApiError("cesion/enviar", result),
     };
   }
 
