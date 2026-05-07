@@ -243,6 +243,72 @@ export function parseDteXml(xmlBuffer: Buffer): DteParsed {
   };
 }
 
+/**
+ * Extracción mínima de identidad del DTE — sin requerir <TED> ni signature.
+ *
+ * Útil para flujos que SOLO necesitan validar que un XML corresponde a
+ * un DTE específico (ej: subir el XML original de una factura histórica
+ * para poder cederla, donde validamos que tipo+folio+RUTs+total coincidan
+ * con la factura en BD).
+ *
+ * Para renderizar el PDF / generar PDF417 sigue usándose `parseDteXml()`
+ * que SÍ exige el TED.
+ */
+export interface DteIdentity {
+  tipoDte: number;
+  folio: number;
+  rutEmisor: string;
+  rutReceptor: string;
+  /** Monto total en CLP. */
+  total: number;
+}
+
+export function extractDteIdentity(xmlBuffer: Buffer): DteIdentity {
+  const xml = xmlBuffer.toString("utf-8");
+  const parser = new XMLParser({
+    ignoreAttributes: false,
+    parseAttributeValue: false,
+    parseTagValue: false,
+    trimValues: true,
+  });
+
+  let parsed: any;
+  try {
+    parsed = parser.parse(xml);
+  } catch (err) {
+    throw new Error(
+      `XML inválido: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+
+  const documento = parsed?.DTE?.Documento;
+  if (!documento) {
+    throw new Error("XML no contiene <DTE><Documento>.");
+  }
+  const enc = documento.Encabezado;
+  if (!enc) throw new Error("XML no contiene <Encabezado>.");
+
+  const idDoc = enc.IdDoc ?? {};
+  const tipoDte = parseInt(String(idDoc.TipoDTE ?? "0"), 10);
+  const folio = parseInt(String(idDoc.Folio ?? "0"), 10);
+  if (!tipoDte) throw new Error("XML sin TipoDTE.");
+  if (!folio) throw new Error("XML sin Folio.");
+
+  const emisor = enc.Emisor ?? {};
+  const receptor = enc.Receptor ?? {};
+  const totales = enc.Totales ?? {};
+
+  const rutEmisor = String(emisor.RUTEmisor ?? "").trim();
+  const rutReceptor = String(receptor.RUTRecep ?? "").trim();
+  if (!rutEmisor) throw new Error("XML sin RUTEmisor.");
+  if (!rutReceptor) throw new Error("XML sin RUTRecep.");
+
+  const totalRaw = totales.MntTotal ?? totales.MntPeriodo ?? "0";
+  const total = parseFloat(String(totalRaw).replace(/[^\d.-]/g, "")) || 0;
+
+  return { tipoDte, folio, rutEmisor, rutReceptor, total };
+}
+
 function extractCodigoItem(d: any): string | null {
   if (!d.CdgItem) return null;
   const c = Array.isArray(d.CdgItem) ? d.CdgItem[0] : d.CdgItem;

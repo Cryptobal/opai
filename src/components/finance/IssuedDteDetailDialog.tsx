@@ -30,7 +30,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   FileText, Download, FileCode, Mail, RefreshCw, Loader2,
-  FileMinus, FilePlus, ExternalLink, Copy, Coins, FileSearch,
+  FileMinus, FilePlus, ExternalLink, Copy, Coins, FileSearch, Upload,
 } from "lucide-react";
 import { CederDteDialog } from "./factoring/CederDteDialog";
 import { PdfPreviewDialog } from "./PdfPreviewDialog";
@@ -156,6 +156,9 @@ export function IssuedDteDetailDialog({
   const [showSendEmail, setShowSendEmail] = useState(false);
   const [downloadingXml, setDownloadingXml] = useState(false);
   const [checkingStatus, setCheckingStatus] = useState(false);
+  const [showAttachXml, setShowAttachXml] = useState(false);
+  const [attachingXml, setAttachingXml] = useState(false);
+  const [xmlPaste, setXmlPaste] = useState("");
 
   useEffect(() => {
     if (!open || !dteId) {
@@ -574,9 +577,25 @@ export function IssuedDteDetailDialog({
               </>
             )}
             {!dte.hasXml && (
-              <span className="text-xs text-muted-foreground italic px-2 py-1.5">
-                Importado del SII (sin XML local)
-              </span>
+              <>
+                <span className="text-xs text-muted-foreground italic px-2 py-1.5">
+                  Sin XML local
+                </span>
+                {canManage && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setXmlPaste("");
+                      setShowAttachXml(true);
+                    }}
+                    title="Subir el XML firmado original (necesario para ceder a factoring)"
+                  >
+                    <Upload className="h-3.5 w-3.5 mr-1.5" />
+                    Subir XML
+                  </Button>
+                )}
+              </>
             )}
             {canManage && dte.hasXml && dte.siiStatus !== "ANNULLED" && (
               <Button variant="outline" size="sm" onClick={handleOpenSendEmail}>
@@ -621,21 +640,29 @@ export function IssuedDteDetailDialog({
               </Button>
             )}
             {canManage && (() => {
-              // Botón siempre habilitado para cualquier DTE emitido. La
-              // única restricción técnica real es tener XML local: sin
-              // él no se puede construir el AEC. Para todo lo demás
-              // (tipo, status SII, ya cedido) dejamos que el backend +
-              // SII devuelvan el error si no aplica.
+              // Botón siempre presente. La única restricción técnica real
+              // es tener XML local: sin él no se puede construir el AEC.
+              // Si el botón está bloqueado, lo dejamos clickeable y al
+              // tap mostramos un toast con la razón clara (los `title`
+              // de HTML no funcionan en mobile, hay que dar feedback
+              // explícito). Para todo lo demás (tipo, status SII, ya
+              // cedido) dejamos que el backend + SII devuelvan el error.
               const noXml = !dte.hasXml;
               const blockedReason = noXml
-                ? "Sin XML local — solo se pueden ceder DTEs emitidos desde OPAI (no importados del SII)."
+                ? "Esta factura no tiene XML local (típicamente porque fue emitida antes del refactor que persiste el XML automáticamente). Tocá \"Subir XML\" para adjuntar el XML firmado original — lo conseguís descargándolo desde el portal SII (Servicios online → Factura electrónica → Consultar mis documentos emitidos). Una vez subido podrás ceder."
                 : null;
               return (
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setShowCederDialog(true)}
-                  disabled={!!blockedReason}
+                  onClick={() => {
+                    if (blockedReason) {
+                      toast.error(blockedReason, { duration: 9000 });
+                      return;
+                    }
+                    setShowCederDialog(true);
+                  }}
+                  className={blockedReason ? "opacity-60" : undefined}
                   title={blockedReason ?? "Ceder a factoring"}
                 >
                   <Coins className="h-3.5 w-3.5 mr-1.5" />
@@ -691,6 +718,143 @@ export function IssuedDteDetailDialog({
           }}
         />
       ) : null}
+
+      {/* Modal: subir el XML firmado original (para DTEs históricos sin
+          dteXml persistido en BD). Acepta drag & drop, file picker, o
+          paste directo del XML. El backend valida que el XML coincida
+          exactamente con este DTE (folio, tipo, RUTs, total). */}
+      {dte && (
+        <Dialog
+          open={showAttachXml}
+          onOpenChange={(o) => !o && !attachingXml && setShowAttachXml(false)}
+        >
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Subir XML firmado original</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 py-2 text-sm">
+              <div className="rounded-md bg-status-info-soft border border-status-info-border p-3 text-[13px] text-status-info-fg">
+                <p className="font-medium mb-1">
+                  ¿De dónde sacar el XML?
+                </p>
+                <ol className="list-decimal pl-5 space-y-0.5">
+                  <li>Entrá al portal SII con la clave de la empresa.</li>
+                  <li>
+                    Servicios online → Factura electrónica →
+                    <span className="font-medium"> Consultar mis documentos emitidos</span>.
+                  </li>
+                  <li>
+                    Filtrá por folio <span className="font-mono">{dte.folio}</span>{" "}
+                    y descargá el XML.
+                  </li>
+                </ol>
+                <p className="mt-2 text-[12px] opacity-80">
+                  El XML debe coincidir exactamente con esta factura (tipo{" "}
+                  {dte.dteType}, folio {dte.folio}). Validamos antes de
+                  guardarlo.
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[12px] uppercase tracking-wide text-muted-foreground">
+                  Subir archivo .xml
+                </label>
+                <input
+                  type="file"
+                  accept=".xml,application/xml,text/xml"
+                  className="block w-full text-sm text-muted-foreground file:mr-3 file:py-2 file:px-3 file:rounded-md file:border file:border-input file:text-sm file:font-medium file:bg-background hover:file:bg-muted"
+                  disabled={attachingXml}
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    const text = await file.text();
+                    setXmlPaste(text);
+                  }}
+                />
+              </div>
+
+              <div className="text-[12px] text-muted-foreground text-center">
+                — o pegá el contenido XML acá —
+              </div>
+
+              <textarea
+                value={xmlPaste}
+                onChange={(e) => setXmlPaste(e.target.value)}
+                placeholder='<?xml version="1.0" encoding="ISO-8859-1"?>...'
+                rows={8}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-[12px] font-mono"
+                disabled={attachingXml}
+                spellCheck={false}
+                autoComplete="off"
+              />
+
+              {xmlPaste && (
+                <p className="text-[12px] text-muted-foreground">
+                  {xmlPaste.length.toLocaleString("es-CL")} caracteres listos
+                  para subir.
+                </p>
+              )}
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setShowAttachXml(false)}
+                disabled={attachingXml}
+              >
+                Cancelar
+              </Button>
+              <Button
+                disabled={attachingXml || !xmlPaste.trim()}
+                onClick={async () => {
+                  if (!dte) return;
+                  setAttachingXml(true);
+                  try {
+                    const res = await fetch(
+                      `/api/finance/billing/issued/${dte.id}/attach-xml`,
+                      {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ xml: xmlPaste }),
+                      },
+                    );
+                    const json = await res.json();
+                    if (!res.ok || !json.success) {
+                      throw new Error(json.error ?? "Error al adjuntar XML");
+                    }
+                    toast.success(
+                      json.data?.message ?? "XML adjuntado correctamente",
+                      { duration: 7000 },
+                    );
+                    setShowAttachXml(false);
+                    setXmlPaste("");
+                    // Reflejar localmente que ahora SÍ tiene XML, así el
+                    // botón "Ceder a factoring" se desbloquea sin esperar
+                    // refetch.
+                    setDte((prev) => (prev ? { ...prev, hasXml: true } : prev));
+                    router.refresh();
+                  } catch (err) {
+                    toast.error(
+                      err instanceof Error
+                        ? err.message
+                        : "Error al adjuntar XML",
+                      { duration: 9000 },
+                    );
+                  } finally {
+                    setAttachingXml(false);
+                  }
+                }}
+              >
+                {attachingXml ? (
+                  <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                ) : (
+                  <Upload className="h-4 w-4 mr-1.5" />
+                )}
+                Subir y validar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </Dialog>
   );
 }
