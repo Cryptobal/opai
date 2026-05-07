@@ -157,6 +157,8 @@ interface FacturacionKpis {
   foliosDisponibles: number;
   foliosLowCount: number;
   comparison: { vs: string; pct: number };
+  /** Etiqueta del período en curso ("Mayo 2026", "Últimos 12 meses"). */
+  periodLabel?: string;
 }
 
 interface Props {
@@ -1913,11 +1915,19 @@ function ReceivedDteDetailDialog({
             )}
           </div>
 
-          {/* Centro de costo: cliente CRM al que se imputa este gasto */}
-          <div className="rounded-md border border-border p-4 space-y-2">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground mb-1">
-              Centro de costo
-            </p>
+          {/* Centro de costo: cliente CRM al que se imputa este gasto.
+              Mismo tratamiento visual que el bloque "Emisor" (bg-muted/30)
+              para mantener contraste en dark mode cuando "Sin asignar" no
+              tiene datos — el border-only se desvanecía. */}
+          <div className="rounded-md border border-border bg-muted/30 p-4 space-y-2">
+            <div className="flex items-center justify-between gap-2 mb-1">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                Centro de costo
+              </p>
+              <span className="text-[12px] text-muted-foreground italic">
+                Click para editar
+              </span>
+            </div>
             <p className="text-xs text-muted-foreground mb-2">
               Cliente e instalación a los que se imputa este gasto. Útil
               para reportes de P&L por instalación.

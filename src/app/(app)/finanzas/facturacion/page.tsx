@@ -10,6 +10,12 @@ import { PageHero } from "@/components/opai-ds";
 import { FileText } from "lucide-react";
 import { FacturacionClient } from "@/components/finance/FacturacionClient";
 import { getFolioStatus } from "@/modules/finance/billing/folio.service";
+import {
+  buildMonthRange,
+  computeNetSales,
+  prevRangeOf,
+  pctChange,
+} from "@/modules/finance/billing/sales-aggregator";
 
 export default async function FacturacionPage() {
   const session = await auth();
@@ -38,20 +44,19 @@ export default async function FacturacionPage() {
   // Default: primera página de 50 DTEs para la lista (igual que el endpoint
   // paginado). El cliente puede cambiar pageSize y page con re-fetch al
   // endpoint /api/finance/billing/issued — el SSR sólo precarga la primera
-  // vista. Además se hacen las agregaciones para KPIs del dashboard.
+  // vista. Además se hacen las agregaciones para KPIs del dashboard usando
+  // el helper compartido `computeNetSales` para que coincidan 1:1 con el
+  // dashboard de Finanzas y con el endpoint /api/finance/billing/kpis.
   const INITIAL_PAGE_SIZE = 50;
-  const startOfMonth = new Date();
-  startOfMonth.setDate(1);
-  startOfMonth.setHours(0, 0, 0, 0);
-  const startOfPrevMonth = new Date(startOfMonth);
-  startOfPrevMonth.setMonth(startOfPrevMonth.getMonth() - 1);
+  const monthRange = buildMonthRange(null);
+  const prevRange = prevRangeOf(monthRange);
 
   const [
     dtes,
     issuedTotal,
     suppliers,
-    ventasMesAgg,
-    ventasPrevAgg,
+    salesAgg,
+    prevSalesAgg,
     pendientesSiiCount,
     folioStatuses,
   ] = await Promise.all([
@@ -69,27 +74,11 @@ export default async function FacturacionPage() {
       select: { id: true, rut: true, name: true },
       orderBy: { name: "asc" },
     }),
-    prisma.financeDte.aggregate({
-      where: {
-        tenantId,
-        direction: "ISSUED",
-        siiStatus: { in: ["ACCEPTED", "PENDING", "SENT"] },
-        date: { gte: startOfMonth },
-        dteType: { not: 61 },
-      },
-      _sum: { totalAmount: true, taxAmount: true },
-      _count: { _all: true },
-    }),
-    prisma.financeDte.aggregate({
-      where: {
-        tenantId,
-        direction: "ISSUED",
-        siiStatus: "ACCEPTED",
-        date: { gte: startOfPrevMonth, lt: startOfMonth },
-        dteType: { not: 61 },
-      },
-      _sum: { totalAmount: true },
-    }),
+    computeNetSales(tenantId, monthRange),
+    // Para el comparativo "vs mes anterior" usamos el MISMO statusInclude
+    // que el actual — si comparamos ACCEPTED+PENDING vs solo ACCEPTED, los
+    // % salen sesgados artificialmente.
+    computeNetSales(tenantId, prevRange),
     prisma.financeDte.count({
       where: {
         tenantId,
@@ -186,12 +175,10 @@ export default async function FacturacionPage() {
     };
   });
 
-  const ventasMes = ventasMesAgg._sum.totalAmount?.toNumber() ?? 0;
-  const ventasPrev = ventasPrevAgg._sum.totalAmount?.toNumber() ?? 0;
-  const pctVsPrev =
-    ventasPrev > 0 ? ((ventasMes - ventasPrev) / ventasPrev) * 100 : 0;
-  const ivaDebitoMes = ventasMesAgg._sum.taxAmount?.toNumber() ?? 0;
-  const facturasMes = ventasMesAgg._count._all;
+  const ventasMes = salesAgg.ventasNetas;
+  const ivaDebitoMes = salesAgg.ivaDebito;
+  const facturasMes = salesAgg.facturasMes;
+  const pctVsPrev = pctChange(salesAgg.ventasNetas, prevSalesAgg.ventasNetas);
 
   // Folios disponibles = suma de `disponibles` por tipo (folioHasta - nextFolio + 1).
   // foliosLowCount = cantidad de tipos con stock bajo el threshold (50).
@@ -203,7 +190,8 @@ export default async function FacturacionPage() {
 
   // KPIs calculados en SSR para el mes actual: sirven de hidratación
   // inicial. El cliente refetchea /api/finance/billing/kpis cuando
-  // cambia el filtro de período (Bug 1.1).
+  // cambia el filtro de período. `periodLabel` permite que el KPIRow
+  // diga "Ventas Mayo 2026" en vez de "ventas mes" genérico.
   const initialKpis = {
     ventasMes,
     ivaDebitoMes,
@@ -212,6 +200,7 @@ export default async function FacturacionPage() {
     foliosDisponibles,
     foliosLowCount,
     comparison: { vs: "vs mes anterior", pct: pctVsPrev },
+    periodLabel: monthRange.label,
   };
 
   return (

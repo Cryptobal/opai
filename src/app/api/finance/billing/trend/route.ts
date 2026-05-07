@@ -2,8 +2,13 @@
  * API Route: /api/finance/billing/trend
  *
  * Tendencia ventas vs compras agregada por mes. Usa `FinanceDte.date`
- * (fecha tributaria). Excluye notas de crédito (61) de "ventas" para
- * que el área refleje el flujo neto de facturación.
+ * (fecha tributaria). Aplica la fórmula F29 por mes:
+ *   - Ventas netas = Σ(33+34+39+41) + Σ(56) − Σ(61) [ISSUED]
+ *   - Compras netas = Σ(33+34+39+41) + Σ(56) − Σ(61) [RECEIVED]
+ *
+ * Esto garantiza que cada punto del gráfico coincide con el KPI del
+ * período si el usuario filtra solo ese mes (no hay drift entre el
+ * número del KPI y el área del chart).
  *
  * Query params (todos opcionales):
  *   - periodo=YYYY-MM   → mes específico → muestra ese mes solo (1 punto).
@@ -15,6 +20,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { canView } from "@/lib/permissions";
+import {
+  POSITIVE_TYPES,
+  ND_TYPES,
+  NC_TYPES,
+  DEFAULT_INCLUDED_STATUS,
+} from "@/modules/finance/billing/sales-aggregator";
 
 interface MonthSlot {
   year: number;
@@ -106,14 +117,26 @@ export async function GET(request: NextRequest) {
   const last = months[months.length - 1];
   const end = new Date(Date.UTC(last.year, last.month, 1));
 
+  // Una sola query trae todos los DTEs del rango (ventas + compras).
+  // Para ventas filtramos por siiStatus (default included); para compras
+  // no filtramos por siiStatus porque RECEIVED no usa ese campo.
   const dtes = await prisma.financeDte.findMany({
     where: {
       tenantId: ctx.tenantId,
       date: { gte: start, lt: end },
-      siiStatus: { in: ["ACCEPTED", "PENDING", "SENT"] },
     },
-    select: { direction: true, dteType: true, totalAmount: true, date: true },
+    select: {
+      direction: true,
+      dteType: true,
+      totalAmount: true,
+      date: true,
+      siiStatus: true,
+    },
   });
+
+  const POS = new Set<number>(POSITIVE_TYPES);
+  const NDS = new Set<number>(ND_TYPES);
+  const NCS = new Set<number>(NC_TYPES);
 
   const data = months.map((m) => {
     const monthDtes = dtes.filter(
@@ -121,12 +144,38 @@ export async function GET(request: NextRequest) {
         d.date.getUTCFullYear() === m.year &&
         d.date.getUTCMonth() + 1 === m.month,
     );
-    const ventas = monthDtes
-      .filter((d) => d.direction === "ISSUED" && d.dteType !== 61)
-      .reduce((acc, d) => acc + d.totalAmount.toNumber(), 0);
-    const compras = monthDtes
-      .filter((d) => d.direction === "RECEIVED")
-      .reduce((acc, d) => acc + d.totalAmount.toNumber(), 0);
+
+    // Ventas: ISSUED con siiStatus incluido. Aplicamos fórmula F29
+    // (positivos + ND − NC) para que coincida con el KPI del KPIRow.
+    const ventasIssued = monthDtes.filter(
+      (d) =>
+        d.direction === "ISSUED" &&
+        DEFAULT_INCLUDED_STATUS.includes(d.siiStatus),
+    );
+    const ventasPos = ventasIssued
+      .filter((d) => POS.has(d.dteType))
+      .reduce((a, d) => a + d.totalAmount.toNumber(), 0);
+    const ventasNd = ventasIssued
+      .filter((d) => NDS.has(d.dteType))
+      .reduce((a, d) => a + d.totalAmount.toNumber(), 0);
+    const ventasNc = ventasIssued
+      .filter((d) => NCS.has(d.dteType))
+      .reduce((a, d) => a + d.totalAmount.toNumber(), 0);
+    const ventas = ventasPos + ventasNd - ventasNc;
+
+    // Compras: RECEIVED — misma fórmula NC/ND.
+    const comprasRecv = monthDtes.filter((d) => d.direction === "RECEIVED");
+    const comprasPos = comprasRecv
+      .filter((d) => POS.has(d.dteType))
+      .reduce((a, d) => a + d.totalAmount.toNumber(), 0);
+    const comprasNd = comprasRecv
+      .filter((d) => NDS.has(d.dteType))
+      .reduce((a, d) => a + d.totalAmount.toNumber(), 0);
+    const comprasNc = comprasRecv
+      .filter((d) => NCS.has(d.dteType))
+      .reduce((a, d) => a + d.totalAmount.toNumber(), 0);
+    const compras = comprasPos + comprasNd - comprasNc;
+
     return {
       mes: m.label,
       ventas,

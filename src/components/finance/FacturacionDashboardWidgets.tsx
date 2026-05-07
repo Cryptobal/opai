@@ -22,10 +22,24 @@ import {
 const fmtCLP = (n: number) =>
   "$" + new Intl.NumberFormat("es-CL").format(Math.round(n));
 
-const fmtCLPShort = (n: number) => {
-  if (n >= 1_000_000) return "$" + (n / 1_000_000).toFixed(1) + "M";
-  if (n >= 1_000) return "$" + (n / 1_000).toFixed(0) + "K";
-  return "$" + n;
+/**
+ * Formato compacto: $1,2M / $850K / $42 (sin decimales si es entero).
+ * Soporta negativos (mes con NCs > ventas) y cero. Usado en mobile para
+ * no romper el layout cuando los montos pasan los 9 dígitos.
+ */
+const fmtCLPShort = (n: number): string => {
+  const abs = Math.abs(n);
+  const sign = n < 0 ? "-" : "";
+  if (abs >= 1_000_000_000) {
+    return `${sign}$${(abs / 1_000_000_000).toFixed(1).replace(/\.0$/, "")}MM`;
+  }
+  if (abs >= 1_000_000) {
+    return `${sign}$${(abs / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
+  }
+  if (abs >= 1_000) {
+    return `${sign}$${(abs / 1_000).toFixed(0)}K`;
+  }
+  return `${sign}$${abs}`;
 };
 
 interface KPIs {
@@ -36,6 +50,8 @@ interface KPIs {
   foliosDisponibles: number;
   foliosLowCount: number;
   comparison: { vs: string; pct: number };
+  /** "Mayo 2026" / "Últimos 12 meses" / undefined → fallback "Mes en curso". */
+  periodLabel?: string;
 }
 
 interface Trend {
@@ -47,9 +63,35 @@ interface Trend {
 const EYEBROW =
   "text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-3 mb-1 flex items-center gap-1.5";
 
+/**
+ * KpiAmount — número grande con formato compacto en mobile y completo
+ * en desktop. El title del span muestra siempre el monto exacto para
+ * que el usuario pueda hover y verificar.
+ *
+ * Con `tabular-nums` (vía `ds-num`) los dígitos quedan alineados aunque
+ * cambie el ancho, y con `whitespace-nowrap` evitamos que se rompan en
+ * dos líneas (el bug visible en el screenshot del usuario).
+ */
+function KpiAmount({ value }: { value: number }) {
+  const exact = fmtCLP(value);
+  const compact = fmtCLPShort(value);
+  return (
+    <div className="flex items-baseline gap-1.5 min-w-0" title={exact}>
+      {/* Compacto en mobile (siempre, evita corte de 9+ dígitos). */}
+      <span className="font-display text-2xl font-bold tracking-tight text-ds-text-1 ds-num whitespace-nowrap sm:hidden">
+        {compact}
+      </span>
+      {/* Completo en sm+ donde hay ancho suficiente. */}
+      <span className="font-display text-2xl font-bold tracking-tight text-ds-text-1 ds-num whitespace-nowrap hidden sm:inline">
+        {exact}
+      </span>
+    </div>
+  );
+}
+
 function KPISkeleton() {
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 min-w-0">
       {Array.from({ length: 4 }).map((_, i) => (
         <Card key={i} className="p-4 relative overflow-hidden">
           <div className="space-y-2">
@@ -66,31 +108,30 @@ function KPISkeleton() {
 export function KPIRow({ kpis, loading }: { kpis: KPIs; loading?: boolean }) {
   if (loading) return <KPISkeleton />;
   const trendUp = kpis.comparison.pct >= 0;
+  const period = kpis.periodLabel ?? "Mes en curso";
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-      <Card className="p-4 relative overflow-hidden">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 min-w-0">
+      <Card className="p-4 relative overflow-hidden min-w-0">
         <div className="absolute top-0 right-0 w-24 h-24 bg-status-ok-soft rounded-full -mr-8 -mt-8 opacity-60" />
-        <div className="relative">
+        <div className="relative min-w-0">
           <div className={EYEBROW}>
-            <DollarSign className="h-3 w-3" />
-            <span>Ventas mes</span>
+            <DollarSign className="h-3 w-3 shrink-0" />
+            <span className="truncate">Ventas netas · {period}</span>
           </div>
-          <div className="font-display text-2xl font-bold tracking-tight text-ds-text-1 ds-num">
-            {fmtCLP(kpis.ventasMes)}
-          </div>
-          <div className="flex items-center gap-1 mt-1.5">
+          <KpiAmount value={kpis.ventasMes} />
+          <div className="flex items-center gap-1 mt-1.5 min-w-0">
             <TrendingUp
               className={
                 trendUp
-                  ? "h-3 w-3 text-status-ok-fg"
-                  : "h-3 w-3 text-status-danger-fg rotate-180"
+                  ? "h-3 w-3 text-status-ok-fg shrink-0"
+                  : "h-3 w-3 text-status-danger-fg rotate-180 shrink-0"
               }
             />
             <span
               className={
                 trendUp
-                  ? "text-[12px] font-medium text-status-ok-fg"
-                  : "text-[12px] font-medium text-status-danger-fg"
+                  ? "text-[12px] font-medium text-status-ok-fg truncate"
+                  : "text-[12px] font-medium text-status-danger-fg truncate"
               }
             >
               {trendUp ? "+" : ""}
@@ -100,28 +141,27 @@ export function KPIRow({ kpis, loading }: { kpis: KPIs; loading?: boolean }) {
         </div>
       </Card>
 
-      <Card className="p-4 relative overflow-hidden">
+      <Card className="p-4 relative overflow-hidden min-w-0">
         <div className="absolute top-0 right-0 w-24 h-24 bg-status-info-soft rounded-full -mr-8 -mt-8 opacity-60" />
-        <div className="relative">
+        <div className="relative min-w-0">
           <div className={EYEBROW}>
-            <PieChartIcon className="h-3 w-3" />
-            <span>IVA débito mes</span>
+            <PieChartIcon className="h-3 w-3 shrink-0" />
+            <span className="truncate">IVA débito · {period}</span>
           </div>
-          <div className="font-display text-2xl font-bold tracking-tight text-ds-text-1 ds-num">
-            {fmtCLP(kpis.ivaDebitoMes)}
-          </div>
-          <div className="text-[12px] text-ds-text-3 mt-1.5">
-            {kpis.facturasMes} factura{kpis.facturasMes === 1 ? "" : "s"} emitida{kpis.facturasMes === 1 ? "" : "s"}
+          <KpiAmount value={kpis.ivaDebitoMes} />
+          <div className="text-[12px] text-ds-text-3 mt-1.5 truncate">
+            {kpis.facturasMes} factura{kpis.facturasMes === 1 ? "" : "s"}{" "}
+            emitida{kpis.facturasMes === 1 ? "" : "s"}
           </div>
         </div>
       </Card>
 
-      <Card className="p-4 relative overflow-hidden">
+      <Card className="p-4 relative overflow-hidden min-w-0">
         <div className="absolute top-0 right-0 w-24 h-24 bg-status-warn-soft rounded-full -mr-8 -mt-8 opacity-60" />
-        <div className="relative">
+        <div className="relative min-w-0">
           <div className={EYEBROW}>
-            <AlertCircle className="h-3 w-3" />
-            <span>Pendientes SII</span>
+            <AlertCircle className="h-3 w-3 shrink-0" />
+            <span className="truncate">Pendientes SII</span>
           </div>
           <div className="font-display text-2xl font-bold tracking-tight text-ds-text-1 ds-num">
             {kpis.pendientesSii}
@@ -133,19 +173,17 @@ export function KPIRow({ kpis, loading }: { kpis: KPIs; loading?: boolean }) {
                 : "text-[12px] text-status-ok-fg mt-1.5"
             }
           >
-            {kpis.pendientesSii > 0
-              ? "Esperando aceptación"
-              : "Todo aceptado"}
+            {kpis.pendientesSii > 0 ? "Esperando aceptación" : "Todo aceptado"}
           </div>
         </div>
       </Card>
 
-      <Card className="p-4 relative overflow-hidden">
+      <Card className="p-4 relative overflow-hidden min-w-0">
         <div className="absolute top-0 right-0 w-24 h-24 bg-tint-violet rounded-full -mr-8 -mt-8 opacity-60" />
-        <div className="relative">
+        <div className="relative min-w-0">
           <div className={EYEBROW}>
-            <Hash className="h-3 w-3" />
-            <span>Folios disp.</span>
+            <Hash className="h-3 w-3 shrink-0" />
+            <span className="truncate">Folios disp.</span>
           </div>
           <div className="font-display text-2xl font-bold tracking-tight text-ds-text-1 ds-num">
             {kpis.foliosDisponibles}

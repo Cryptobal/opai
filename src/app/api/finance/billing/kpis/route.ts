@@ -8,11 +8,19 @@
  *
  * Devuelve el mismo shape que el SSR inicial:
  *   { ventasMes, ivaDebitoMes, pendientesSii, facturasMes,
- *     foliosDisponibles, foliosLowCount, comparison: { vs, pct } }
+ *     foliosDisponibles, foliosLowCount, comparison: { vs, pct },
+ *     periodLabel }
  *
  * El comparison "vs" depende del período:
  *   - mes actual o YYYY-MM → "vs mes anterior".
- *   - ALL → "vs últimos 12 meses previos".
+ *   - ALL → "vs 12 meses previos".
+ *
+ * Fórmula de ventas: aplicada por `computeNetSales`, espejo del F29:
+ *   ventasNetas = Σ(33+34+39+41) + Σ(56) − Σ(61)
+ *
+ * Esto garantiza que el dashboard `/finanzas` y el módulo
+ * `/finanzas/facturacion` muestren EXACTAMENTE el mismo número (antes
+ * había drift porque el dashboard usaba `createdAt` y no excluía NC).
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -20,47 +28,12 @@ import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { hasFacturacionCapability } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { getFolioStatus } from "@/modules/finance/billing/folio.service";
-
-const PERIOD_REGEX = /^\d{4}-\d{2}$/;
-
-interface DateRange {
-  from: Date;
-  to: Date;
-  prevFrom: Date;
-  prevTo: Date;
-  label: string;
-}
-
-function buildRange(periodo: string | null): DateRange {
-  const now = new Date();
-  if (periodo === "ALL") {
-    // Últimos 12 meses (incluyendo el actual): start = primer día del mes
-    // hace 11 meses; end = primer día del mes siguiente al actual.
-    const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 11, 1));
-    const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
-    // Comparativo: 12 meses inmediatamente anteriores.
-    const prevStart = new Date(Date.UTC(now.getUTCFullYear() - 1, now.getUTCMonth() - 11, 1));
-    return {
-      from: start,
-      to: end,
-      prevFrom: prevStart,
-      prevTo: start,
-      label: "vs últimos 12 meses previos",
-    };
-  }
-  if (periodo && PERIOD_REGEX.test(periodo)) {
-    const [y, m] = periodo.split("-").map((s) => parseInt(s, 10));
-    const from = new Date(Date.UTC(y, m - 1, 1));
-    const to = new Date(Date.UTC(y, m, 1));
-    const prevFrom = new Date(Date.UTC(y, m - 2, 1));
-    return { from, to, prevFrom, prevTo: from, label: "vs mes anterior" };
-  }
-  // Default: mes actual.
-  const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-  const to = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
-  const prevFrom = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
-  return { from, to, prevFrom, prevTo: from, label: "vs mes anterior" };
-}
+import {
+  buildMonthRange,
+  computeNetSales,
+  prevRangeOf,
+  pctChange,
+} from "@/modules/finance/billing/sales-aggregator";
 
 export async function GET(request: NextRequest) {
   try {
@@ -76,62 +49,47 @@ export async function GET(request: NextRequest) {
 
     const url = new URL(request.url);
     const periodoRaw = url.searchParams.get("periodo");
-    const range = buildRange(periodoRaw);
+    const range = buildMonthRange(periodoRaw);
+    const prev = prevRangeOf(range);
 
     const tenantId = ctx.tenantId;
-    const [actualAgg, prevAgg, pendientesSiiCount, folioStatuses] = await Promise.all([
-      prisma.financeDte.aggregate({
-        where: {
-          tenantId,
-          direction: "ISSUED",
-          siiStatus: { in: ["ACCEPTED", "PENDING", "SENT"] },
-          date: { gte: range.from, lt: range.to },
-          dteType: { not: 61 },
-        },
-        _sum: { totalAmount: true, taxAmount: true },
-        _count: { _all: true },
-      }),
-      prisma.financeDte.aggregate({
-        where: {
-          tenantId,
-          direction: "ISSUED",
-          siiStatus: "ACCEPTED",
-          date: { gte: range.prevFrom, lt: range.prevTo },
-          dteType: { not: 61 },
-        },
-        _sum: { totalAmount: true },
-      }),
-      // Pendientes SII no depende del período: refleja el estado actual.
-      prisma.financeDte.count({
-        where: {
-          tenantId,
-          direction: "ISSUED",
-          siiStatus: { in: ["PENDING", "SENT"] },
-        },
-      }),
-      // Folios tampoco dependen del período.
-      getFolioStatus(tenantId),
-    ]);
+    const [actualAgg, prevAgg, pendientesSiiCount, folioStatuses] =
+      await Promise.all([
+        computeNetSales(tenantId, range),
+        // Mismo statusInclude que el actual: comparar like-for-like.
+        computeNetSales(tenantId, prev),
+        // Pendientes SII no depende del período: refleja el estado actual.
+        prisma.financeDte.count({
+          where: {
+            tenantId,
+            direction: "ISSUED",
+            siiStatus: { in: ["PENDING", "SENT"] },
+          },
+        }),
+        // Folios tampoco dependen del período.
+        getFolioStatus(tenantId),
+      ]);
 
-    const ventasMes = actualAgg._sum.totalAmount?.toNumber() ?? 0;
-    const ivaDebitoMes = actualAgg._sum.taxAmount?.toNumber() ?? 0;
-    const facturasMes = actualAgg._count._all;
-    const ventasPrev = prevAgg._sum.totalAmount?.toNumber() ?? 0;
-    const pctVsPrev =
-      ventasPrev > 0 ? ((ventasMes - ventasPrev) / ventasPrev) * 100 : 0;
-    const foliosDisponibles = folioStatuses.reduce((acc, f) => acc + f.disponibles, 0);
+    const foliosDisponibles = folioStatuses.reduce(
+      (acc, f) => acc + f.disponibles,
+      0,
+    );
     const foliosLowCount = folioStatuses.filter((f) => f.lowStock).length;
 
     return NextResponse.json({
       success: true,
       data: {
-        ventasMes,
-        ivaDebitoMes,
+        ventasMes: actualAgg.ventasNetas,
+        ivaDebitoMes: actualAgg.ivaDebito,
         pendientesSii: pendientesSiiCount,
-        facturasMes,
+        facturasMes: actualAgg.facturasMes,
         foliosDisponibles,
         foliosLowCount,
-        comparison: { vs: range.label, pct: pctVsPrev },
+        comparison: {
+          vs: prev.label,
+          pct: pctChange(actualAgg.ventasNetas, prevAgg.ventasNetas),
+        },
+        periodLabel: range.label,
       },
     });
   } catch (error) {

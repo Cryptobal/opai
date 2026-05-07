@@ -15,6 +15,11 @@ import {
   FileText,
   FileInput,
 } from "lucide-react";
+import {
+  buildMonthRange,
+  computeNetSales,
+  computeNetPurchases,
+} from "@/modules/finance/billing/sales-aggregator";
 
 export default async function FinanzasDashboardPage() {
   const session = await auth();
@@ -39,18 +44,19 @@ export default async function FinanzasDashboardPage() {
 
   const tenantId = session.user.tenantId;
 
-  const startOfMonth = new Date();
-  startOfMonth.setDate(1);
-  startOfMonth.setHours(0, 0, 0, 0);
+  // Período: mes en curso (fecha tributaria, NO createdAt). El helper
+  // computeNetSales aplica la fórmula F29 ((33+34+39+41) + 56 − 61),
+  // que es la única que coincide con lo que ve el contador.
+  const monthRange = buildMonthRange(null);
 
   const [
     pendingRendiciones,
     pendingApprovals,
     pendingPaymentAmount,
-    ventasMesAggregate,
+    salesAgg,
     pendientesSiiCount,
     comprasPorRevisarCount,
-    comprasMesAggregate,
+    purchasesAgg,
   ] = await Promise.all([
     prisma.financeRendicion.count({
       where: { tenantId, status: { in: ["DRAFT", "SUBMITTED"] } },
@@ -62,34 +68,20 @@ export default async function FinanzasDashboardPage() {
       where: { tenantId, status: "APPROVED" },
       _sum: { amount: true },
     }),
-    prisma.financeDte.aggregate({
-      where: {
-        tenantId,
-        direction: "ISSUED",
-        siiStatus: { in: ["ACCEPTED", "PENDING", "SENT"] },
-        createdAt: { gte: startOfMonth },
-      },
-      _sum: { totalAmount: true },
-    }),
+    computeNetSales(tenantId, monthRange),
     prisma.financeDte.count({
       where: { tenantId, direction: "ISSUED", siiStatus: { in: ["PENDING", "SENT"] } },
     }),
     prisma.financeDte.count({
       where: { tenantId, direction: "RECEIVED", receptionStatus: "PENDING_REVIEW" },
     }),
-    prisma.financeDte.aggregate({
-      where: {
-        tenantId,
-        direction: "RECEIVED",
-        date: { gte: startOfMonth },
-      },
-      _sum: { totalAmount: true },
-    }),
+    computeNetPurchases(tenantId, monthRange),
   ]);
 
   const amountPending = pendingPaymentAmount._sum.amount ?? 0;
-  const ventasMes = ventasMesAggregate._sum.totalAmount?.toNumber() ?? 0;
-  const comprasMes = comprasMesAggregate._sum.totalAmount?.toNumber() ?? 0;
+  const ventasMes = salesAgg.ventasNetas;
+  const comprasMes = purchasesAgg.comprasNetas;
+  const periodoLabel = monthRange.label;
 
   const fmtCLP = new Intl.NumberFormat("es-CL", {
     style: "currency",
@@ -136,11 +128,11 @@ export default async function FinanzasDashboardPage() {
       title: "Facturación",
       description: "Emite DTE: facturas, NC, ND, libro IVA",
       icon: FileText,
-      count: ventasMes > 0 ? fmtCLP.format(ventasMes) : null,
+      count: ventasMes !== 0 ? fmtCLP.format(ventasMes) : null,
       countLabel:
         pendientesSiiCount > 0
-          ? `ventas mes · ${pendientesSiiCount} pend. SII`
-          : "ventas mes",
+          ? `${periodoLabel} · ${pendientesSiiCount} pend. SII`
+          : `${periodoLabel} · ventas netas`,
       color: "text-status-ok-fg bg-status-ok-soft",
       show: canView(perms, "finance", "facturacion"),
       highlighted: true,
@@ -156,7 +148,10 @@ export default async function FinanzasDashboardPage() {
           : comprasMes > 0
             ? fmtCLP.format(comprasMes)
             : null,
-      countLabel: comprasPorRevisarCount > 0 ? "por revisar" : "compras mes",
+      countLabel:
+        comprasPorRevisarCount > 0
+          ? "por revisar"
+          : `${periodoLabel} · compras netas`,
       color: "text-status-warn-fg bg-status-warn-soft",
       show: canView(perms, "finance", "facturacion"),
     },

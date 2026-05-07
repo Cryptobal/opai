@@ -399,11 +399,19 @@ export function IssuedDteDetailDialog({
               </div>
             </div>
 
-            {/* Centro de costo - editable */}
-            <div className="rounded-md border border-border p-4 space-y-2">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground mb-1">
-                Centro de costo
-              </p>
+            {/* Centro de costo - editable. Mismo tratamiento visual que el
+                bloque "Receptor" (bg-muted/30) para que NO desaparezca en
+                dark mode cuando "Sin asignar" está vacío — el contraste
+                pelado del border-only era invisible. */}
+            <div className="rounded-md border border-border bg-muted/30 p-4 space-y-2">
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Centro de costo
+                </p>
+                <span className="text-[12px] text-muted-foreground italic">
+                  Click para editar
+                </span>
+              </div>
               <CostCenterEditor
                 dteId={dte.id}
                 currentAccountId={dte.crmAccountId}

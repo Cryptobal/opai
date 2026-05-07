@@ -15,7 +15,7 @@
  */
 
 import { useState, useEffect } from "react";
-import { Search, Building, MapPin, X, Loader2, Check } from "lucide-react";
+import { Search, Building, MapPin, X, Loader2, Check, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -215,36 +215,60 @@ export function CostCenterEditor({
   }
 
   // Visualización del badge actual (con o sin asignación).
+  // Con asignación: chip relleno con icono (Building) + instalación (MapPin).
+  // Sin asignación: chip "+ Asignar" con borde dasheado para que sea visible
+  // incluso en dark mode (antes era italic transparente y desaparecía).
   const display = currentAccountName ? (
     <div className="flex items-center gap-1.5 min-w-0">
-      <Building className="h-3 w-3 shrink-0 text-muted-foreground" />
-      <span className="truncate text-xs">{currentAccountName}</span>
+      <Building className="h-3.5 w-3.5 shrink-0 text-status-info-fg" />
+      <span className="truncate text-[13px] font-medium text-ds-text-1">
+        {currentAccountName}
+      </span>
       {currentInstallationName && (
         <>
-          <span className="text-muted-foreground">·</span>
-          <MapPin className="h-3 w-3 shrink-0 text-muted-foreground" />
-          <span className="truncate text-xs text-muted-foreground">
+          <span className="text-ds-text-3 shrink-0">·</span>
+          <MapPin className="h-3.5 w-3.5 shrink-0 text-ds-text-3" />
+          <span className="truncate text-[13px] text-ds-text-2">
             {currentInstallationName}
           </span>
         </>
       )}
     </div>
   ) : (
-    <span className="text-xs text-muted-foreground italic">Sin asignar</span>
+    <span className="inline-flex items-center gap-1 text-[12px] font-medium text-ds-text-3">
+      <Plus className="h-3 w-3" />
+      Asignar centro de costo
+    </span>
   );
 
   if (!canEdit) {
-    return <div className="px-2 py-1">{display}</div>;
+    // Read-only: si no hay asignación, mostrar "Sin asignar" en estado neutral
+    // (sin CTA porque el usuario no puede editar).
+    if (!currentAccountName) {
+      return (
+        <div className="px-2 py-1.5 text-[12px] text-ds-text-3">Sin asignar</div>
+      );
+    }
+    return <div className="px-2 py-1.5">{display}</div>;
   }
+
+  // Editable: el botón cambia visualmente según haya asignación o no.
+  // Sin asignación: borde dasheado + hover suave → señaliza CTA.
+  // Con asignación: chip lleno con hover sutil → señaliza editable.
+  const triggerClass = currentAccountName
+    ? "flex items-center gap-1 text-left rounded-md px-2.5 py-1.5 hover:bg-muted/50 transition-colors max-w-full w-full border border-transparent"
+    : "flex items-center gap-1 text-left rounded-md px-2.5 py-1.5 hover:bg-status-info-soft/40 hover:text-status-info-fg transition-colors max-w-full w-full border border-dashed border-ds-border-default";
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="flex items-center gap-1 text-left rounded px-2 py-1 hover:bg-muted/50 max-w-[260px] w-full"
+          className={triggerClass}
           onClick={(e) => e.stopPropagation()}
-          aria-label="Editar centro de costo"
+          aria-label={
+            currentAccountName ? "Editar centro de costo" : "Asignar centro de costo"
+          }
         >
           {display}
         </button>
