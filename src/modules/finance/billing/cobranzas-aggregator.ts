@@ -317,8 +317,11 @@ async function computeBankBalanceForTenant(
     where: { tenantId, isActive: true },
     select: { currentBalance: true },
   });
+  // currentBalance es Decimal? en el schema (cuentas que aún no
+  // sincronizaron saldo desde el banco quedan en null). Tratamos null
+  // como 0 para no romper la suma.
   const saldo = accounts.reduce(
-    (acc, a) => acc + a.currentBalance.toNumber(),
+    (acc, a) => acc + (a.currentBalance?.toNumber() ?? 0),
     0,
   );
   return { saldoBancario: saldo, bankAccountsCount: accounts.length };
