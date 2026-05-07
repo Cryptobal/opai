@@ -6,7 +6,7 @@
 
 import { render } from "@react-email/render";
 import { prisma } from "@/lib/prisma";
-import { resend, EMAIL_CONFIG } from "@/lib/resend";
+import { resend, EMAIL_CONFIG, buildDeliverabilityHeaders } from "@/lib/resend";
 import { computeCpqQuoteCosts } from "@/modules/cpq/costing/compute-quote-costs";
 import { mapCpqDataToPresentation } from "@/lib/cpq-mapper";
 import { getUfValue } from "@/lib/uf";
@@ -382,19 +382,24 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
           tenantBrand,
         });
 
-  const emailHtml = await render(
-    PortalProspectoInviteEmail({
-      contactName,
-      companyName: account.name,
-      email: contact.email,
-      pin,
-      portalUrl,
-      ejecutivoName,
-      quoteName: quoteNameForEmail,
-      quoteCode: quote.code,
-      whatsappUrl,
-    })
-  );
+  // Render del email: HTML + versión texto plano. La presencia de `text` mejora
+  // el score anti-spam (Gmail/Outlook prefieren multipart/alternative) y permite
+  // a clientes que no renderizan HTML (filtros corporativos, screen readers) ver
+  // el contenido. La versión plain se genera del mismo componente con
+  // `{ plainText: true }` — react-email se encarga de extraer el texto.
+  const portalInviteEmailComponent = PortalProspectoInviteEmail({
+    contactName,
+    companyName: account.name,
+    email: contact.email,
+    pin,
+    portalUrl,
+    ejecutivoName,
+    quoteName: quoteNameForEmail,
+    quoteCode: quote.code,
+    whatsappUrl,
+  });
+  const emailHtml = await render(portalInviteEmailComponent);
+  const emailText = await render(portalInviteEmailComponent, { plainText: true });
 
   const attachments: { filename: string; content: Buffer; contentType: string }[] = [];
   if (includeProposalPdf) {
@@ -455,6 +460,8 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
     replyTo: tenantConfig.emailReplyTo || EMAIL_CONFIG.replyTo,
     subject: emailSubject,
     html: emailHtml,
+    text: emailText,
+    headers: buildDeliverabilityHeaders(tenantConfig.emailReplyTo || EMAIL_CONFIG.replyTo),
     ...(attachments.length > 0 && { attachments }),
     tags: [{ name: "type", value: "portal-prospecto-invite" }, { name: "quote", value: quote.code }],
   });

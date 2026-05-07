@@ -13,6 +13,29 @@ if (!process.env.RESEND_API_KEY) {
 
 export const resend = new Resend(process.env.RESEND_API_KEY);
 
+/**
+ * Headers anti-spam recomendados por Gmail/Yahoo (RFC 8058) para todos los
+ * envíos transaccionales y de marketing. La presencia de `List-Unsubscribe`
+ * + `List-Unsubscribe-Post` reduce el riesgo de que un correo legítimo caiga
+ * en spam. El mailto debería apuntar a una casilla monitoreada del tenant.
+ *
+ * Uso:
+ *   import { buildDeliverabilityHeaders } from "@/lib/resend";
+ *   const headers = buildDeliverabilityHeaders(tenantConfig.emailReplyTo);
+ *   await resend.emails.send({ ..., headers });
+ */
+export function buildDeliverabilityHeaders(unsubscribeMailto?: string | null): {
+  'List-Unsubscribe': string;
+  'List-Unsubscribe-Post': string;
+} {
+  const trimmed = (unsubscribeMailto ?? '').trim();
+  const target = trimmed.length > 0 ? trimmed : 'unsubscribe@opai.cl';
+  return {
+    'List-Unsubscribe': `<mailto:${target}?subject=unsubscribe>`,
+    'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+  };
+}
+
 /** @deprecated — Usar getTenantCompanyConfig(tenantId) de @/lib/tenant-config */
 export const EMAIL_CONFIG = {
   from: process.env.EMAIL_FROM || 'OPAI <noreply@opai.cl>',
