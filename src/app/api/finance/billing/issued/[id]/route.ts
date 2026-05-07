@@ -73,10 +73,22 @@ export async function GET(
       0,
     );
 
+    // Precalcular `hasXml` antes de serializar a JSON. El campo
+    // `dteXml` es Prisma `Bytes` (Buffer): cuando Next.js lo serializa,
+    // queda como objeto JSON (`{ type: "Buffer", data: [...] }`) y el
+    // cliente NO puede medir `.length` sobre eso → calcula `hasXml` mal
+    // y muestra falso "Sin XML local" aunque la BD lo tenga (causa raíz
+    // del bug "no puedo ceder a factoring después de emitir"). Excluimos
+    // el buffer del payload (queda en el server) y mandamos boolean.
+    const hasXml = dte.dteXml !== null && dte.dteXml.length > 0;
+    const { dteXml: _dteXml, ...dteRest } = dte;
+    void _dteXml;
+
     return NextResponse.json({
       success: true,
       data: {
-        ...dte,
+        ...dteRest,
+        hasXml,
         creditNotes: ncs,
         hasFullAnnulment,
         creditedNet,

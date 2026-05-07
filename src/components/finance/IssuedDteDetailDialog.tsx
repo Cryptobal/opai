@@ -279,7 +279,13 @@ export function IssuedDteDetailDialog({
             ? d.additionalReferences
             : null,
           notes: d.notes ?? null,
-          hasXml: d.dteXml !== null && (d.dteXml?.length ?? 0) > 0,
+          // El backend ahora precalcula `hasXml` (boolean) y excluye el
+          // buffer crudo. Fallback al cálculo viejo solo por compat con
+          // respuestas legacy: si vino el buffer es porque algún proxy
+          // lo dejó pasar — medimos largo del array `data` si existe.
+          hasXml: typeof d.hasXml === "boolean"
+            ? d.hasXml
+            : d.dteXml != null,
           crmAccountId: d.crmAccountId ?? null,
           installationId: d.installationId ?? null,
           crmAccount: d.crmAccount ?? null,
