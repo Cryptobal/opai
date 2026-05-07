@@ -635,7 +635,7 @@ export function DteForm({ availableTypes, accounts }: Props) {
         throw new Error(err.error || "Error al guardar borrador");
       }
       toast.success(draftIdParam ? "Borrador actualizado" : "Borrador creado");
-      router.push("/finanzas/facturacion?tab=borradores");
+      router.push("/finanzas/facturacion?tab=dtes");
       router.refresh();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Error inesperado");

@@ -28,6 +28,7 @@ import {
   ExternalLink,
   Eye,
   FileCode,
+  FileEdit,
   FileMinus,
   FilePlus,
   FileSearch,
@@ -35,6 +36,8 @@ import {
   Mail,
   MoreHorizontal,
   RefreshCw,
+  Send,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -64,6 +67,8 @@ interface Props {
   sendingEmail: string | null;
   checkingStatus: string | null;
   voiding: string | null;
+  /** Si el borrador está siendo eliminado, deshabilita la acción. */
+  deletingDraft?: string | null;
   onViewDetail: () => void;
   onPreviewPdf: () => void;
   onDownloadPdf: () => void;
@@ -74,6 +79,12 @@ interface Props {
   onCede: () => void;
   onCreditNote: () => void;
   onDebitNote: () => void;
+  /** Editar borrador (siiStatus=DRAFT). */
+  onEditDraft?: () => void;
+  /** Emitir borrador al SII (siiStatus=DRAFT). */
+  onIssueDraft?: () => void;
+  /** Eliminar borrador (siiStatus=DRAFT). */
+  onDeleteDraft?: () => void;
   /** Oculta el botón "Ver detalle" (cuando se renderiza fuera, ej. mobile cards). */
   hideViewDetail?: boolean;
   triggerVariant?: "ghost" | "outline";
@@ -88,6 +99,7 @@ export function DteActionsMenu({
   sendingEmail,
   checkingStatus,
   voiding,
+  deletingDraft,
   onViewDetail,
   onPreviewPdf,
   onDownloadPdf,
@@ -98,9 +110,69 @@ export function DteActionsMenu({
   onCede,
   onCreditNote,
   onDebitNote,
+  onEditDraft,
+  onIssueDraft,
+  onDeleteDraft,
   hideViewDetail,
   triggerVariant = "ghost",
 }: Props) {
+  const isDraft = row.siiStatus === "DRAFT";
+
+  // Borrador: solo Editar / Emitir / Eliminar. Las acciones SII estándar
+  // (PDF/XML/Email/Anular/NC/ND/Ceder) no aplican porque el borrador no
+  // existe aún en SII.
+  if (isDraft) {
+    return (
+      <div className="flex items-center gap-1">
+        {canManage && onEditDraft && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              onEditDraft();
+            }}
+            title="Editar borrador"
+          >
+            <FileEdit className="h-3.5 w-3.5" />
+          </Button>
+        )}
+        {canManage && onIssueDraft && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              onIssueDraft();
+            }}
+            title="Emitir al SII"
+          >
+            <Send className="h-3.5 w-3.5" />
+          </Button>
+        )}
+        {canManage && onDeleteDraft && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDeleteDraft();
+            }}
+            disabled={deletingDraft === row.id}
+            title="Eliminar borrador"
+            className="text-destructive hover:text-destructive"
+          >
+            {deletingDraft === row.id ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Trash2 className="h-3.5 w-3.5" />
+            )}
+          </Button>
+        )}
+      </div>
+    );
+  }
+
   const canAnular = row.siiStatus === "PENDING" || row.siiStatus === "SENT";
   const canCreditNote =
     [33, 34, 39, 41, 56].includes(row.dteType) && row.siiStatus !== "ANNULLED";

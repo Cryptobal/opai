@@ -246,6 +246,16 @@ export async function issueDte(
         );
       }
 
+      // Garantía multi-tenant: el XML firmado SIEMPRE debe persistirse
+      // en BD del tenant para poder regenerar PDF, ceder a factoring o
+      // reauditar. Si falta, abortamos para mantener el invariante "todo
+      // DTE emitido tiene su XML almacenado".
+      if (!providerResult.signedXml || providerResult.signedXml.length === 0) {
+        throw new Error(
+          "Provider devolvió éxito pero sin XML firmado — no se puede persistir el DTE. Revisar logs del provider.",
+        );
+      }
+
       const created = await tx.financeDte.create({
         data: {
           tenantId,
@@ -307,12 +317,10 @@ export async function issueDte(
               ? (input.additionalReferences as any)
               : undefined,
           // XML firmado del DTE (devuelto por el provider). Se persiste
-          // para poder regenerar el PDF sin re-emitir contra el SII.
-          // Buffer es Uint8Array en runtime; el cast es solo para satisfacer
-          // el tipo estricto de Prisma (Bytes? = Uint8Array | null).
-          dteXml: providerResult.signedXml
-            ? new Uint8Array(providerResult.signedXml)
-            : null,
+          // SIEMPRE — el guard previo aborta si viene vacío, así que acá
+          // confiamos en que existe. Permite regenerar PDF, ceder a
+          // factoring y reauditar sin re-emitir contra el SII.
+          dteXml: new Uint8Array(providerResult.signedXml),
           lines: {
             create: calculatedLines.map((l, i) => ({
               lineNumber: i + 1,

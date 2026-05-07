@@ -48,6 +48,7 @@ import {
 import { CederDteDialog } from "./factoring/CederDteDialog";
 import { PdfPreviewDialog } from "./PdfPreviewDialog";
 import { DteActionsMenu } from "./DteActionsMenu";
+import { EmisionConfirmDialog } from "./EmisionConfirmDialog";
 import { FoliosKpiCards } from "./FoliosKpiCards";
 import { FoliosDetailTable } from "./FoliosDetailTable";
 import { DteAgingBadge } from "./DteAgingBadge";
@@ -230,6 +231,7 @@ const DTE_TYPE_BADGE_CLASS: Record<number, string> = {
 };
 
 const SII_STATUS_CONFIG: Record<string, { label: string; className: string }> = {
+  DRAFT: { label: "Borrador", className: "bg-violet-500/15 text-violet-400 border-violet-500/30" },
   PENDING: { label: "Pendiente", className: "bg-status-warn-soft text-status-warn-fg border-status-warn-border" },
   ACCEPTED: { label: "Aceptado", className: "bg-status-ok-soft text-status-ok-fg border-status-ok-border" },
   REJECTED: { label: "Rechazado", className: "bg-status-danger-soft text-status-danger-fg border-status-danger-border" },
@@ -489,6 +491,32 @@ function DtesTab({
   const [previewDteId, setPreviewDteId] = useState<string | null>(null);
   /** Modal de envío de email con TO/CC/BCC. Reemplaza el envío directo. */
   const [emailDteId, setEmailDteId] = useState<string | null>(null);
+  /** Modal de confirmación de emisión SII para un borrador. Cuando hay
+   *  data, está abierto. */
+  const [issuingDraft, setIssuingDraft] = useState<{
+    id: string;
+    dteType: number;
+    receiverName: string;
+    receiverRut: string;
+    receiverEmail: string | null;
+    netAmount: number;
+    taxAmount: number;
+    totalAmount: number;
+    currency: string;
+    ufValueAtIssue: number | null;
+    lines: Array<{
+      itemName: string;
+      quantity: number;
+      unitPrice: number;
+      unitPriceUf: number | null;
+    }>;
+  } | null>(null);
+  const [issuingDraftLoading, setIssuingDraftLoading] = useState(false);
+  const [tenantBackoffice, setTenantBackoffice] = useState<{
+    emails: string[];
+    alwaysSend: boolean;
+  }>({ emails: [], alwaysSend: false });
+  const [deletingDraftId, setDeletingDraftId] = useState<string | null>(null);
   // Paginación server-side. La SC pre-carga la primera página (50);
   // si el usuario cambia page o pageSize, refetch al endpoint paginado.
   const [page, setPage] = useState(1);
@@ -503,6 +531,23 @@ function DtesTab({
     const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
     return () => clearTimeout(t);
   }, [search]);
+
+  // Cargar config del backoffice del tenant — la usa el dialog de
+  // emisión cuando el usuario emite un borrador desde la fila.
+  useEffect(() => {
+    fetch("/api/finance/config/dte-provider")
+      .then((r) => r.json())
+      .then((j) => {
+        const cfg = j?.data?.config;
+        if (cfg) {
+          setTenantBackoffice({
+            emails: cfg.defaultXmlRecipientEmails ?? [],
+            alwaysSend: !!cfg.defaultXmlRecipientAlwaysSend,
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Cargar lista de cuentas CRM con DTEs emitidos para el selector de filtro.
   useEffect(() => {
@@ -695,6 +740,98 @@ function DtesTab({
     setEmailDteId(id);
   };
 
+  /** Editar un borrador: redirige al form con `?draftId=`. */
+  const handleEditDraft = (id: string) => {
+    router.push(`/finanzas/facturacion/emitir?draftId=${id}`);
+  };
+
+  /** Abre el dialog de emisión SII para un borrador. Carga el detalle
+   *  completo del draft (lines + totales) para alimentar el dialog. */
+  const handleIssueDraft = async (id: string) => {
+    try {
+      const res = await fetch(`/api/finance/billing/drafts/${id}`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Error al cargar borrador");
+      }
+      const json = await res.json();
+      const d = json.data;
+      if (!d) throw new Error("Borrador no encontrado");
+      setIssuingDraft({
+        id: d.id,
+        dteType: Number(d.dteType),
+        receiverName: String(d.receiverName ?? ""),
+        receiverRut: String(d.receiverRut ?? ""),
+        receiverEmail: (d.receiverEmail as string | null) ?? null,
+        netAmount: Number(d.netAmount),
+        taxAmount: Number(d.taxAmount),
+        totalAmount: Number(d.totalAmount),
+        currency: String(d.currency ?? "CLP"),
+        ufValueAtIssue: d.ufValueAtIssue != null ? Number(d.ufValueAtIssue) : null,
+        lines: Array.isArray(d.lines)
+          ? d.lines.map((l: Record<string, unknown>) => ({
+              itemName: String(l.itemName ?? ""),
+              quantity: Number(l.quantity ?? 1),
+              unitPrice: Number(l.unitPrice ?? 0),
+              unitPriceUf:
+                l.unitPriceUf != null ? Number(l.unitPriceUf) : null,
+            }))
+          : [],
+      });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error inesperado");
+    }
+  };
+
+  const submitIssueDraft = async (opts: {
+    autoSendEmail: boolean;
+    sendXmlToBackoffice: boolean;
+  }) => {
+    if (!issuingDraft) return;
+    setIssuingDraftLoading(true);
+    try {
+      const res = await fetch(
+        `/api/finance/billing/drafts/${issuingDraft.id}/issue`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(opts),
+        },
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Error al emitir borrador");
+      }
+      toast.success("Borrador emitido al SII");
+      setIssuingDraft(null);
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error inesperado");
+    } finally {
+      setIssuingDraftLoading(false);
+    }
+  };
+
+  const handleDeleteDraft = async (id: string) => {
+    if (!confirm("¿Eliminar este borrador? Esta acción no es reversible.")) return;
+    setDeletingDraftId(id);
+    try {
+      const res = await fetch(`/api/finance/billing/drafts/${id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Error al eliminar borrador");
+      }
+      toast.success("Borrador eliminado");
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error inesperado");
+    } finally {
+      setDeletingDraftId(null);
+    }
+  };
+
   const handleVoid = async (id: string) => {
     if (!confirm("¿Anular este DTE? Esta acción no se puede deshacer.")) return;
     setVoiding(id);
@@ -830,7 +967,9 @@ function DtesTab({
                   header: "Folio",
                   cell: (row) => (
                     <div>
-                      <div className="font-mono text-xs">{row.folio}</div>
+                      <div className="font-mono text-xs">
+                        {row.siiStatus === "DRAFT" ? "—" : row.folio}
+                      </div>
                       {row.referenceFolio != null && row.referenceType != null && (
                         <div className="text-[12px] text-ds-text-3 font-mono mt-0.5">
                           Ref: {row.referenceType}-{row.referenceFolio}
@@ -956,6 +1095,7 @@ function DtesTab({
                       sendingEmail={sendingEmail}
                       checkingStatus={checkingStatus}
                       voiding={voiding}
+                      deletingDraft={deletingDraftId}
                       onViewDetail={() => setDetailDteId(row.id)}
                       onPreviewPdf={() => setPreviewDteId(row.id)}
                       onDownloadPdf={() => handleDownloadPdf(row.id, row.folio)}
@@ -966,6 +1106,9 @@ function DtesTab({
                       onCede={() => setCedeModalDteId(row.id)}
                       onCreditNote={() => setNoteModal({ dteId: row.id, noteType: "credit" })}
                       onDebitNote={() => setNoteModal({ dteId: row.id, noteType: "debit" })}
+                      onEditDraft={() => handleEditDraft(row.id)}
+                      onIssueDraft={() => handleIssueDraft(row.id)}
+                      onDeleteDraft={() => handleDeleteDraft(row.id)}
                     />
                   ),
                 },
@@ -980,11 +1123,14 @@ function DtesTab({
           <div className="md:hidden space-y-2">
             {filtered.map((d) => {
               const stCfg = SII_STATUS_CONFIG[d.siiStatus] ?? { label: d.siiStatus, className: "bg-muted" };
+              const isDraftRow = d.siiStatus === "DRAFT";
               return (
                 <Card
                   key={d.id}
                   className="cursor-pointer hover:bg-muted/30 transition-colors"
-                  onClick={() => setDetailDteId(d.id)}
+                  onClick={() =>
+                    isDraftRow ? handleEditDraft(d.id) : setDetailDteId(d.id)
+                  }
                 >
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between gap-2">
@@ -996,7 +1142,9 @@ function DtesTab({
                           >
                             {DTE_TYPE_SHORT_LABELS[d.dteType] ?? `Tipo ${d.dteType}`}
                           </Badge>
-                          <span className="font-mono text-xs">#{d.folio}</span>
+                          {!isDraftRow && (
+                            <span className="font-mono text-xs">#{d.folio}</span>
+                          )}
                           <Badge variant="outline" className={cn("text-xs", stCfg.className)}>
                             {stCfg.label}
                           </Badge>
@@ -1041,21 +1189,34 @@ function DtesTab({
                       className="flex gap-1 mt-3 pt-3 border-t border-border"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setDetailDteId(d.id)}
-                        className="flex-1 justify-center"
-                      >
-                        <Eye className="h-3.5 w-3.5 mr-1.5" />
-                        Detalle
-                      </Button>
+                      {isDraftRow ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEditDraft(d.id)}
+                          className="flex-1 justify-center"
+                        >
+                          <FileEdit className="h-3.5 w-3.5 mr-1.5" />
+                          Editar
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setDetailDteId(d.id)}
+                          className="flex-1 justify-center"
+                        >
+                          <Eye className="h-3.5 w-3.5 mr-1.5" />
+                          Detalle
+                        </Button>
+                      )}
                       <DteActionsMenu
                         row={d}
                         canManage={canManage}
                         sendingEmail={sendingEmail}
                         checkingStatus={checkingStatus}
                         voiding={voiding}
+                        deletingDraft={deletingDraftId}
                         onViewDetail={() => setDetailDteId(d.id)}
                         onPreviewPdf={() => setPreviewDteId(d.id)}
                         onDownloadPdf={() => handleDownloadPdf(d.id, d.folio)}
@@ -1070,6 +1231,9 @@ function DtesTab({
                         onDebitNote={() =>
                           setNoteModal({ dteId: d.id, noteType: "debit" })
                         }
+                        onEditDraft={() => handleEditDraft(d.id)}
+                        onIssueDraft={() => handleIssueDraft(d.id)}
+                        onDeleteDraft={() => handleDeleteDraft(d.id)}
                         triggerVariant="ghost"
                         hideViewDetail
                       />
@@ -1165,6 +1329,32 @@ function DtesTab({
           />
         );
       })()}
+
+      {/* Modal de emisión SII para un borrador (desde la fila). */}
+      {issuingDraft && (
+        <EmisionConfirmDialog
+          open={issuingDraft !== null}
+          onClose={() => setIssuingDraft(null)}
+          onConfirm={submitIssueDraft}
+          loading={issuingDraftLoading}
+          dteType={issuingDraft.dteType}
+          receiver={{
+            name: issuingDraft.receiverName,
+            rut: issuingDraft.receiverRut,
+            email: issuingDraft.receiverEmail,
+          }}
+          totals={{
+            netAmount: issuingDraft.netAmount,
+            taxAmount: issuingDraft.taxAmount,
+            totalAmount: issuingDraft.totalAmount,
+            currency: issuingDraft.currency as "CLP" | "UF",
+            ufValue: issuingDraft.ufValueAtIssue ?? undefined,
+          }}
+          lines={issuingDraft.lines}
+          defaultBackofficeEmails={tenantBackoffice.emails}
+          defaultBackofficeAlwaysSend={tenantBackoffice.alwaysSend}
+        />
+      )}
     </div>
   );
 }

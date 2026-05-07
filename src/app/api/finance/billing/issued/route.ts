@@ -47,9 +47,13 @@ export async function GET(request: NextRequest) {
     } else if (accountId && accountId !== "ALL") {
       where.crmAccountId = accountId;
     }
+    // Drafts viven en la misma lista que los emitidos (UX 2026-05): el
+     // usuario los ve marcados con badge "Borrador" en DTEs Emitidos. Si
+     // se necesita la vista clásica que excluye drafts pasar
+     // ?status=issued; ?status=draft trae solo borradores.
     if (statusFilter === "draft") {
       where.siiStatus = "DRAFT";
-    } else if (statusFilter !== "all") {
+    } else if (statusFilter === "issued") {
       where.siiStatus = { not: "DRAFT" };
     }
     if (search) {
