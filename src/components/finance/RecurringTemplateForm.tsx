@@ -287,12 +287,19 @@ export function RecurringTemplateForm({
     return () => ctrl.abort();
   }, [open, templateId]);
 
-  // Auto-fill direccion/comuna/ciudad desde el customer seleccionado
+  // Auto-fill direccion/comuna/ciudad/giro desde el customer seleccionado.
+  // Para el giro caemos al `industry` del CRM cuando `giro` está vacío
+  // — eso al menos llena algo razonable hasta que actualicen la ficha.
   React.useEffect(() => {
     if (!customer) return;
     if (!receiverDireccion) setReceiverDireccion(customer.address ?? "");
     if (!receiverComuna) setReceiverComuna(customer.commune ?? "");
     if (!receiverCiudad) setReceiverCiudad(customer.city ?? "");
+    if (!receiverGiro) {
+      const giroFromCrm = (customer.giro ?? "").trim();
+      const industryFromCrm = (customer.industry ?? "").trim();
+      setReceiverGiro(giroFromCrm || industryFromCrm);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [customer]);
 
@@ -642,7 +649,10 @@ export function RecurringTemplateForm({
                     genere borradores con datos por defecto. */}
                 {customer && (() => {
                   const missing: string[] = [];
-                  if (!customer.giro) missing.push("Giro");
+                  // Giro estricto: industry NO califica para SII (es un
+                  // sector comercial interno). Solo silenciamos el banner
+                  // si el usuario ya editó el campo manualmente.
+                  if (!customer.giro && !receiverGiro.trim()) missing.push("Giro");
                   if (!customer.city) missing.push("Ciudad");
                   if (missing.length === 0) return null;
                   return (

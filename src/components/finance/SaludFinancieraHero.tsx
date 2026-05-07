@@ -35,6 +35,8 @@ import {
   Clock3,
   Users,
   Building2,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -184,20 +186,56 @@ function buildSpecificMonthOptions(monthsBack = 24): { value: string; label: str
   return out;
 }
 
+/**
+ * Persistencia del estado collapsed en localStorage. Se carga lazy en
+ * un useEffect post-mount para evitar mismatches SSR/CSR.
+ */
+const SALUD_COLLAPSED_KEY = "opai.facturacion.saludFinanciera.collapsed";
+
 export function SaludFinancieraHero({
   onClickVencidas,
   onClickPendientesSii,
   onClickFolios,
 }: Props) {
   // Período del hero — INDEPENDIENTE del filtro de la tabla. Default
-  // ALL (últimos 12 meses) por consistencia con el comportamiento previo.
-  const [periodo, setPeriodo] = useState<string>("ALL");
+  // "current" (mes en curso): es lo que más mira el dueño al entrar al
+  // módulo. Si necesita el comparativo histórico, usa los presets o el
+  // dropdown "Otro mes".
+  const [periodo, setPeriodo] = useState<string>("current");
   const specificMonthOpts = useMemo(() => buildSpecificMonthOptions(36), []);
 
   const [summary, setSummary] = useState<CobranzasSummary | null>(null);
   const [trend, setTrend] = useState<TrendPoint[] | null>(null);
   const [trendRange, setTrendRange] = useState<TrendRangeKey>("ytd");
   const [loading, setLoading] = useState(true);
+  // Collapse: permite al usuario plegar todo el bloque para enfocarse
+  // en la tabla de DTEs emitidos sin scroll. Persiste en localStorage
+  // por usuario/dispositivo.
+  const [collapsed, setCollapsed] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const stored = window.localStorage.getItem(SALUD_COLLAPSED_KEY);
+      if (stored === "1") setCollapsed(true);
+    } catch {
+      // localStorage puede fallar en private mode/iframes — no bloquear.
+    }
+  }, []);
+
+  const toggleCollapsed = () => {
+    setCollapsed((prev) => {
+      const next = !prev;
+      try {
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem(SALUD_COLLAPSED_KEY, next ? "1" : "0");
+        }
+      } catch {
+        // best-effort
+      }
+      return next;
+    });
+  };
 
   // Fetch summary cuando cambia el período
   useEffect(() => {
@@ -245,6 +283,75 @@ export function SaludFinancieraHero({
     return () => ctrl.abort();
   }, [trendRange]);
 
+  // Si está colapsado: render compacto con header + banner vencidas +
+  // mini-resumen (facturado / cobrado) si ya hay summary cargado. NO
+  // mostramos skeleton mientras carga si está colapsado: el bloque se
+  // queda en su versión minimal y el fetch sigue corriendo en bg.
+  if (collapsed) {
+    return (
+      <Card className="p-3 sm:p-4 min-w-0">
+        <div className="flex items-center justify-between gap-3 min-w-0">
+          <div className="min-w-0 flex items-center gap-3 flex-wrap">
+            <button
+              type="button"
+              onClick={toggleCollapsed}
+              className="inline-flex items-center gap-2 rounded-md px-2 py-1 -ml-2 hover:bg-ds-surface-2 transition-colors text-left"
+              title="Expandir bloque de salud financiera"
+              aria-expanded={false}
+              aria-controls="salud-financiera-body"
+            >
+              <ChevronDown className="h-4 w-4 text-ds-text-3" />
+              <div className="min-w-0">
+                <h2 className="font-display text-base sm:text-lg font-semibold text-ds-text-1">
+                  Salud financiera
+                </h2>
+                <p className="text-[12px] text-ds-text-3">
+                  {summary?.periodLabel ?? "Mes en curso"} · click para expandir
+                </p>
+              </div>
+            </button>
+            {summary && (
+              <div className="hidden md:flex items-center gap-3 text-[12px] text-ds-text-2">
+                <span>
+                  Facturado:{" "}
+                  <span className="font-mono text-ds-text-1">
+                    {fmtCLPShort(summary.facturadoNeto)}
+                  </span>
+                </span>
+                <span className="text-ds-text-4">·</span>
+                <span>
+                  Cobrado:{" "}
+                  <span className="font-mono text-ds-text-1">
+                    {fmtCLPShort(summary.cobrado)}
+                  </span>
+                </span>
+                <span className="text-ds-text-4">·</span>
+                <span>
+                  Por cobrar:{" "}
+                  <span className="font-mono text-ds-text-1">
+                    {fmtCLPShort(summary.porCobrar)}
+                  </span>
+                </span>
+              </div>
+            )}
+          </div>
+          {summary && summary.vencidasCount > 0 && (
+            <button
+              type="button"
+              onClick={onClickVencidas}
+              className="inline-flex items-center gap-1.5 rounded-md border border-status-danger-border bg-status-danger-soft px-2.5 py-1.5 text-[12px] font-medium text-status-danger-fg hover:opacity-90 transition-opacity shrink-0"
+              title="Filtrar tabla por DTEs vencidos"
+            >
+              <AlertCircle className="h-3.5 w-3.5" />
+              {summary.vencidasCount} vencida
+              {summary.vencidasCount === 1 ? "" : "s"}
+            </button>
+          )}
+        </div>
+      </Card>
+    );
+  }
+
   if (loading && !summary) {
     return (
       <Card className="p-4 animate-pulse">
@@ -291,17 +398,27 @@ export function SaludFinancieraHero({
   );
 
   return (
-    <Card className="p-4 sm:p-5 space-y-4 min-w-0">
-      {/* Header con selector de período + banner vencidas */}
+    <Card className="p-4 sm:p-5 space-y-4 min-w-0" id="salud-financiera-body">
+      {/* Header con selector de período + banner vencidas + collapse */}
       <div className="flex items-start justify-between flex-wrap gap-3 min-w-0">
-        <div>
-          <h2 className="font-display text-base sm:text-lg font-semibold text-ds-text-1">
-            Salud financiera
-          </h2>
-          <p className="text-[12px] text-ds-text-3">
-            {period} · Facturado neto vs cobranza · Aging y margen
-          </p>
-        </div>
+        <button
+          type="button"
+          onClick={toggleCollapsed}
+          className="flex items-start gap-2 min-w-0 -ml-1 px-1 py-0.5 rounded-md hover:bg-ds-surface-2 transition-colors text-left"
+          title="Contraer bloque de salud financiera"
+          aria-expanded
+          aria-controls="salud-financiera-body"
+        >
+          <ChevronUp className="h-4 w-4 text-ds-text-3 mt-1 shrink-0" />
+          <div className="min-w-0">
+            <h2 className="font-display text-base sm:text-lg font-semibold text-ds-text-1">
+              Salud financiera
+            </h2>
+            <p className="text-[12px] text-ds-text-3">
+              {period} · Facturado neto vs cobranza · Aging y margen
+            </p>
+          </div>
+        </button>
         <div className="flex items-center gap-2 flex-wrap">
           {summary.vencidasCount > 0 && (
             <button

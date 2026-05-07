@@ -22,7 +22,55 @@ export async function GET(_request: NextRequest) {
       where: { tenantId: ctx.tenantId },
       orderBy: [{ isActive: "desc" }, { nextRunAt: "asc" }, { createdAt: "desc" }],
     });
-    return NextResponse.json({ success: true, data: { templates } });
+
+    // Enriquecemos cada plantilla con el nombre del cliente CRM y de la
+    // instalación asociada (si existen). Lo hacemos con dos queries
+    // batch para evitar N+1 y porque FinanceDteRecurringTemplate no
+    // tiene relations directas en el schema (solo IDs sueltos).
+    const accountIds = Array.from(
+      new Set(
+        templates
+          .map((t) => t.crmAccountId)
+          .filter((v): v is string => !!v),
+      ),
+    );
+    const installationIds = Array.from(
+      new Set(
+        templates
+          .map((t) => t.installationId)
+          .filter((v): v is string => !!v),
+      ),
+    );
+
+    const [accounts, installations] = await Promise.all([
+      accountIds.length > 0
+        ? prisma.crmAccount.findMany({
+            where: { id: { in: accountIds }, tenantId: ctx.tenantId },
+            select: { id: true, name: true, legalName: true, rut: true },
+          })
+        : Promise.resolve([]),
+      installationIds.length > 0
+        ? prisma.crmInstallation.findMany({
+            where: { id: { in: installationIds }, tenantId: ctx.tenantId },
+            select: { id: true, name: true, commune: true },
+          })
+        : Promise.resolve([]),
+    ]);
+
+    const accountById = new Map(accounts.map((a) => [a.id, a]));
+    const installationById = new Map(installations.map((i) => [i.id, i]));
+
+    const enriched = templates.map((t) => ({
+      ...t,
+      crmAccount: t.crmAccountId
+        ? accountById.get(t.crmAccountId) ?? null
+        : null,
+      installation: t.installationId
+        ? installationById.get(t.installationId) ?? null
+        : null,
+    }));
+
+    return NextResponse.json({ success: true, data: { templates: enriched } });
   } catch (error) {
     console.error("[Finance/Recurring] List error:", error);
     return NextResponse.json({ success: false, error: "Error al listar plantillas" }, { status: 500 });

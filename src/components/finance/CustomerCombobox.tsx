@@ -20,6 +20,13 @@ export interface CustomerOption {
    * DTE; si está vacío, el usuario puede tipear o queda con default.
    */
   giro: string | null;
+  /**
+   * Sector / actividad comercial interna del CRM (ej. "Retail", "Salud",
+   * "Construcción"). NO va al SII directamente — sirve como fallback para
+   * autocompletar el campo "Giro / Actividad" del receptor cuando el
+   * cliente todavía no tiene `giro` cargado en la ficha CRM.
+   */
+  industry: string | null;
 }
 
 interface Props {

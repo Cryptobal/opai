@@ -68,6 +68,10 @@ export async function GET(request: NextRequest) {
       // el bloque <Receptor> del SII (Comuna + Ciudad + Giro).
       city: true,
       giro: true,
+      // industry: actividad/sector comercial interno del CRM. Sirve de
+      // fallback para autocompletar el campo "Giro / Actividad" del
+      // receptor cuando `giro` está vacío.
+      industry: true,
     },
     orderBy: { name: "asc" },
     take: limit,
@@ -109,6 +113,7 @@ export async function GET(request: NextRequest) {
       commune: a.commune ?? null,
       city: a.city ?? null,
       giro: a.giro ?? null,
+      industry: a.industry ?? null,
     })),
   });
 }

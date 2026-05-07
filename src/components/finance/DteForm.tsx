@@ -282,7 +282,12 @@ export function DteForm({ availableTypes, accounts }: Props) {
     setReceiverDireccion(customer.address ?? "");
     setReceiverComuna(customer.commune ?? "");
     setReceiverCiudad(customer.city ?? "");
-    setReceiverGiro(customer.giro ?? "");
+    // Giro estricto del CRM; si está vacío, fallback al `industry`
+    // (sector comercial interno) — al menos llena algo razonable
+    // hasta que actualicen la ficha CRM con el giro formal.
+    const giroFromCrm = (customer.giro ?? "").trim();
+    const industryFromCrm = (customer.industry ?? "").trim();
+    setReceiverGiro(giroFromCrm || industryFromCrm);
   }, [customer]);
 
   // Cargar instalaciones del cliente cuando cambia el customer.

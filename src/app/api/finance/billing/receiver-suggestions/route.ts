@@ -57,6 +57,8 @@ export async function GET(request: NextRequest) {
       // bloque <Receptor> del DTE (SII exige ambos en facturas 33/34).
       city: true,
       giro: true,
+      // industry: fallback para "Giro / Actividad" cuando giro está vacío.
+      industry: true,
     },
   });
 
@@ -92,6 +94,7 @@ export async function GET(request: NextRequest) {
         commune: account.commune,
         city: account.city,
         giro: account.giro,
+        industry: account.industry,
       },
       contacts: contacts
         .filter((c) => c.email && c.email.includes("@"))
