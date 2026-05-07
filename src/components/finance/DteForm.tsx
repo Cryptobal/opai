@@ -138,7 +138,7 @@ export function DteForm({ availableTypes, accounts }: Props) {
   } | null>(null);
   /** Referencias adicionales del DTE: OC, HES, Contrato, etc. */
   const [additionalRefs, setAdditionalRefs] = useState<
-    { tipoDocRef: string; folioRef: string; fchRef: string; razonRef: string }[]
+    { tipoDocRef: string; folioRef: string; fchRef: string }[]
   >([]);
   const [notes, setNotes] = useState("");
   // Default true: tras emitir, OPAI envía automáticamente el PDF + XML
@@ -220,6 +220,15 @@ export function DteForm({ availableTypes, accounts }: Props) {
         setCcEmailsRaw((d.receiverEmailCc ?? []).join(", "));
         setNotes(d.notes ?? "");
         if (d.currency === "UF" || d.currency === "CLP") setCurrency(d.currency);
+        if (Array.isArray(d.additionalReferences)) {
+          setAdditionalRefs(
+            d.additionalReferences.map((r: Record<string, unknown>) => ({
+              tipoDocRef: String(r.tipoDocRef ?? "801"),
+              folioRef: String(r.folioRef ?? ""),
+              fchRef: String(r.fchRef ?? ""),
+            })),
+          );
+        }
         const draftLines = (d.lines ?? []).map((l: Record<string, unknown>) => ({
           itemName: String(l.itemName ?? ""),
           description: String(l.description ?? ""),
@@ -488,11 +497,7 @@ export function DteForm({ availableTypes, accounts }: Props) {
 
     // Validar referencias completas (descartar las vacías).
     const validRefs = additionalRefs.filter(
-      (r) =>
-        r.tipoDocRef.trim() &&
-        r.folioRef.trim() &&
-        r.fchRef &&
-        r.razonRef.trim(),
+      (r) => r.tipoDocRef.trim() && r.folioRef.trim() && r.fchRef,
     );
 
     // Validación pasada — abrir modal de confirmación. La emisión real
@@ -522,11 +527,7 @@ export function DteForm({ availableTypes, accounts }: Props) {
       new Set(ccCandidates.filter((e) => e !== effEmail)),
     );
     const validRefs = additionalRefs.filter(
-      (r) =>
-        r.tipoDocRef.trim() &&
-        r.folioRef.trim() &&
-        r.fchRef &&
-        r.razonRef.trim(),
+      (r) => r.tipoDocRef.trim() && r.folioRef.trim() && r.fchRef,
     );
     return {
       dteType: parseInt(dteType),
@@ -1173,7 +1174,7 @@ export function DteForm({ availableTypes, accounts }: Props) {
               onClick={() =>
                 setAdditionalRefs((prev) => [
                   ...prev,
-                  { tipoDocRef: "801", folioRef: "", fchRef: "", razonRef: "" },
+                  { tipoDocRef: "801", folioRef: "", fchRef: "" },
                 ])
               }
               disabled={additionalRefs.length >= 30}
@@ -1194,7 +1195,7 @@ export function DteForm({ availableTypes, accounts }: Props) {
                   key={i}
                   className="grid grid-cols-1 md:grid-cols-12 gap-2 items-start p-2 rounded-md bg-muted/30 border border-border"
                 >
-                  <div className="md:col-span-2">
+                  <div className="md:col-span-4">
                     <Label className="text-xs">Tipo *</Label>
                     <Select
                       value={ref.tipoDocRef}
@@ -1216,7 +1217,7 @@ export function DteForm({ availableTypes, accounts }: Props) {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="md:col-span-3">
+                  <div className="md:col-span-4">
                     <Label className="text-xs">Folio / N° *</Label>
                     <Input
                       value={ref.folioRef}
@@ -1230,7 +1231,7 @@ export function DteForm({ availableTypes, accounts }: Props) {
                       autoComplete="off"
                     />
                   </div>
-                  <div className="md:col-span-2">
+                  <div className="md:col-span-3">
                     <Label className="text-xs">Fecha *</Label>
                     <Input
                       type="date"
@@ -1241,21 +1242,6 @@ export function DteForm({ availableTypes, accounts }: Props) {
                         )
                       }
                       className="h-10 sm:h-9 text-sm"
-                    />
-                  </div>
-                  <div className="md:col-span-4">
-                    <Label className="text-xs">Razón / glosa *</Label>
-                    <Input
-                      value={ref.razonRef}
-                      onChange={(e) =>
-                        setAdditionalRefs((prev) =>
-                          prev.map((r, idx) => (idx === i ? { ...r, razonRef: e.target.value } : r)),
-                        )
-                      }
-                      placeholder="Orden de Compra del cliente"
-                      maxLength={90}
-                      className="h-10 sm:h-9 text-sm"
-                      autoComplete="off"
                     />
                   </div>
                   <div className="md:col-span-1 flex items-end justify-end h-full">

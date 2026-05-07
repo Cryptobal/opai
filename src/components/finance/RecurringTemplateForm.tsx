@@ -60,7 +60,6 @@ interface AdditionalRef {
   tipoDocRef: string;
   folioRef: string;
   fchRef: string;
-  razonRef: string;
 }
 
 const EMPTY_LINE: TemplateLine = {
@@ -368,11 +367,7 @@ export function RecurringTemplateForm({
     }
 
     const validRefs = additionalRefs.filter(
-      (r) =>
-        r.tipoDocRef.trim() &&
-        r.folioRef.trim() &&
-        r.fchRef &&
-        r.razonRef.trim(),
+      (r) => r.tipoDocRef.trim() && r.folioRef.trim() && r.fchRef,
     );
 
     const payload: Record<string, unknown> = {
@@ -977,7 +972,7 @@ export function RecurringTemplateForm({
                       onClick={() =>
                         setAdditionalRefs((prev) => [
                           ...prev,
-                          { tipoDocRef: "801", folioRef: "", fchRef: "", razonRef: "" },
+                          { tipoDocRef: "801", folioRef: "", fchRef: "" },
                         ])
                       }
                       disabled={additionalRefs.length >= 30}
@@ -993,7 +988,7 @@ export function RecurringTemplateForm({
                           key={i}
                           className="grid grid-cols-1 md:grid-cols-12 gap-2 items-start p-2 rounded-md bg-muted/30 border border-border"
                         >
-                          <div className="md:col-span-2">
+                          <div className="md:col-span-4">
                             <Label className="text-xs">Tipo</Label>
                             <Select
                               value={ref.tipoDocRef}
@@ -1015,7 +1010,7 @@ export function RecurringTemplateForm({
                               </SelectContent>
                             </Select>
                           </div>
-                          <div className="md:col-span-3">
+                          <div className="md:col-span-4">
                             <Label className="text-xs">Folio / N°</Label>
                             <Input
                               value={ref.folioRef}
@@ -1029,7 +1024,7 @@ export function RecurringTemplateForm({
                               autoComplete="off"
                             />
                           </div>
-                          <div className="md:col-span-2">
+                          <div className="md:col-span-3">
                             <Label className="text-xs">Fecha</Label>
                             <Input
                               type="date"
@@ -1040,21 +1035,6 @@ export function RecurringTemplateForm({
                                 )
                               }
                               className="h-10 sm:h-9 text-sm"
-                            />
-                          </div>
-                          <div className="md:col-span-4">
-                            <Label className="text-xs">Razón / glosa</Label>
-                            <Input
-                              value={ref.razonRef}
-                              onChange={(e) =>
-                                setAdditionalRefs((prev) =>
-                                  prev.map((r, idx) => (idx === i ? { ...r, razonRef: e.target.value } : r)),
-                                )
-                              }
-                              placeholder="Orden de Compra del cliente"
-                              maxLength={90}
-                              className="h-10 sm:h-9 text-sm"
-                              autoComplete="off"
                             />
                           </div>
                           <div className="md:col-span-1 flex items-end justify-end h-full">

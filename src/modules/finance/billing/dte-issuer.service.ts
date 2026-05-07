@@ -101,7 +101,7 @@ export type IssueDteInput = {
     tipoDocRef: string;
     folioRef: string;
     fchRef: string;
-    razonRef: string;
+    razonRef?: string;
   }>;
 };
 

@@ -80,7 +80,7 @@ interface DteFull {
   referenceFolio: number | null;
   referenceCode: number | null;
   referenceReason: string | null;
-  additionalReferences: { tipoDocRef: string; folioRef: string; fchRef: string; razonRef: string }[] | null;
+  additionalReferences: { tipoDocRef: string; folioRef: string; fchRef: string; razonRef?: string | null }[] | null;
   notes: string | null;
   hasXml: boolean;
   crmAccountId: string | null;
@@ -519,7 +519,7 @@ export function IssuedDteDetailDialog({
                       {REF_TYPE_LABELS[r.tipoDocRef] ?? r.tipoDocRef}
                     </Badge>
                     <span className="font-mono">{r.folioRef}</span>
-                    <span className="text-xs text-muted-foreground">· {r.fchRef} · {r.razonRef}</span>
+                    <span className="text-xs text-muted-foreground">· {r.fchRef}{r.razonRef ? ` · ${r.razonRef}` : ""}</span>
                   </div>
                 ))}
               </div>

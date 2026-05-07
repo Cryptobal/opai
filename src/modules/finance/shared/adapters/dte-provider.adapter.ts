@@ -69,8 +69,8 @@ export type DteIssueRequest = {
     folioRef: string;
     /** FchRef: fecha del documento referenciado YYYY-MM-DD. */
     fchRef: string;
-    /** RazonRef: descripción libre. */
-    razonRef: string;
+    /** RazonRef: descripción libre (opcional según SII). */
+    razonRef?: string;
   }>;
   /**
    * CAF XML (raw bytes) para providers que firman el DTE localmente

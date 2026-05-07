@@ -527,13 +527,16 @@ export class SimpleApiProvider implements DteProviderAdapter {
     if (request.additionalReferences && request.additionalReferences.length > 0) {
       for (const r of request.additionalReferences) {
         if (refs.length >= 40) break; // tope SII
-        refs.push({
+        const ref: Record<string, unknown> = {
           Numero: refs.length + 1,
           TipoDocumento: r.tipoDocRef,
           FolioReferencia: r.folioRef,
           FechaDocumentoReferenciaString: r.fchRef,
-          RazonReferencia: r.razonRef,
-        });
+        };
+        if (r.razonRef && r.razonRef.trim()) {
+          ref.RazonReferencia = r.razonRef;
+        }
+        refs.push(ref);
       }
     }
     if (refs.length > 0) {

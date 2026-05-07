@@ -191,7 +191,7 @@ export const issueDteSchema = z.object({
         tipoDocRef: z.string().trim().min(1).max(10),
         folioRef: z.string().trim().min(1).max(40),
         fchRef: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha YYYY-MM-DD"),
-        razonRef: z.string().trim().min(1).max(90),
+        razonRef: z.string().trim().max(90).optional(),
       }),
     )
     .max(30, "Máximo 30 referencias adicionales")
@@ -238,7 +238,7 @@ export const recurringTemplateSchema = z.object({
         tipoDocRef: z.string().trim().min(1).max(10),
         folioRef: z.string().trim().min(1).max(40),
         fchRef: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha YYYY-MM-DD"),
-        razonRef: z.string().trim().min(1).max(90),
+        razonRef: z.string().trim().max(90).optional(),
       }),
     )
     .max(30)
