@@ -174,16 +174,20 @@ export async function POST(
     });
 
     // Audit log: documenta quién subió el XML y para qué DTE. Útil si
-    // después hay disputa con el receptor sobre la autenticidad.
+    // después hay disputa con el receptor sobre la autenticidad. Usamos
+    // 'UPDATE' porque AuditAction es un enum cerrado y no queremos
+    // expandirlo para un caso puntual; el detalle del subkind va en
+    // `details.kind`.
     try {
       const { logAudit } = await import("@/lib/audit");
       await logAudit({
         tenantId: ctx.tenantId,
         userId: ctx.userId,
-        action: "DTE_XML_ATTACHED",
+        action: "UPDATE",
         entity: "FinanceDte",
         entityId: dte.id,
         details: {
+          kind: "DTE_XML_ATTACHED",
           dteType: dte.dteType,
           folio: dte.folio,
           xmlBytes: xmlText.length,
