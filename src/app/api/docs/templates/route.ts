@@ -10,6 +10,11 @@ import { requireAuth, unauthorized, parseBody } from "@/lib/api-auth";
 import { requireDocsViewAny, requireDocsEdit } from "@/lib/api-auth-docs";
 import { createDocTemplateSchema } from "@/lib/validations/docs";
 import { extractTokenKeys } from "@/lib/docs/token-resolver";
+import { seedWaTemplatesForTenant } from "@/lib/docs/seed-wa-templates";
+import {
+  LEGACY_WA_PLACEHOLDER_MAP,
+  migrateLegacyPlaceholdersInTiptap,
+} from "@/lib/docs/wa-template-migrations";
 
 /** Convierte texto plano a Tiptap JSON (un párrafo por línea) */
 function plainTextToTiptap(text: string): any {
@@ -20,58 +25,6 @@ function plainTextToTiptap(text: string): any {
   }));
   return { type: "doc", content };
 }
-
-/** Seeds iniciales de WhatsApp que se crean automáticamente por tenant */
-const WA_SEEDS: {
-  slug: string;
-  name: string;
-  category: string;
-  description: string;
-  body: string;
-}[] = [
-  {
-    slug: "lead_commercial",
-    name: "WhatsApp — Nuevo lead (comercial al cliente)",
-    category: "lead_commercial",
-    description: "Mensaje prellenado al hacer clic en WhatsApp del email de nuevo lead (enviado al comercial).",
-    body: `Hola {nombre}, ¿cómo estás?\n\nRecibimos tu solicitud de cotización para {empresa}, ubicada en {direccion}.\n\nEstamos preparando una propuesta personalizada para ti. Si tienes alguna duda en el proceso, responde este mensaje y te ayudamos de inmediato.\n\nServicio: {servicio} | Dotación: {dotacion}\n\n{website}`,
-  },
-  {
-    slug: "lead_client",
-    name: "WhatsApp — Nuevo lead (cliente a empresa)",
-    category: "lead_client",
-    description: "Mensaje prellenado que el cliente ve al hacer clic en WhatsApp del email de confirmación.",
-    body: `Hola, soy {nombre} {apellido} de la empresa {empresa}, les solicité una cotización por la página.\n\n{maps_link}`,
-  },
-  {
-    slug: "proposal_sent",
-    name: "WhatsApp — Propuesta enviada",
-    category: "proposal_sent",
-    description: "Mensaje al compartir la propuesta por WhatsApp después de enviarla por email.",
-    body: `Hola {contactName}, te envío la propuesta para {companyName}:\n\n{proposalUrl}`,
-  },
-  {
-    slug: "followup_first",
-    name: "WhatsApp — 1er seguimiento",
-    category: "followup_first",
-    description: "Mensaje de WhatsApp en la notificación del 1er seguimiento automático.",
-    body: `Hola {contactName}, ¿cómo estás?\n\nTe hago seguimiento a la propuesta de {dealTitle} enviada el {proposalSentDate}. Puedes revisarla en el Portal del Cliente:\n\n{proposalLink}\n\nCualquier duda quedo atento. Saludos!`,
-  },
-  {
-    slug: "followup_second",
-    name: "WhatsApp — 2do seguimiento",
-    category: "followup_second",
-    description: "Mensaje de WhatsApp en la notificación del 2do seguimiento automático.",
-    body: `Hola {contactName}, ¿cómo estás?\n\nTe escribo nuevamente respecto a la propuesta de {dealTitle} que te enviamos el {proposalSentDate}.\n\n¿Has tenido oportunidad de revisarla? Si necesitas que ajustemos algo, estoy disponible. Te dejo el acceso al Portal del Cliente:\n\n{proposalLink}\n\nSaludos!`,
-  },
-  {
-    slug: "followup_third",
-    name: "WhatsApp — 3er seguimiento",
-    category: "followup_third",
-    description: "Mensaje de WhatsApp en la notificación del 3er seguimiento automático.",
-    body: `Hola {contactName}, ¿cómo estás?\n\nEste es nuestro último seguimiento sobre la propuesta de {dealTitle} enviada el {proposalSentDate}. Te dejo nuevamente el acceso al Portal del Cliente:\n\n{proposalLink}\n\nSi te interesa continuar, te leo y avanzamos de inmediato.`,
-  },
-];
 
 /** Seeds de email de seguimiento automático */
 const MAIL_FOLLOWUP_SEEDS: {
@@ -86,14 +39,14 @@ const MAIL_FOLLOWUP_SEEDS: {
     name: "1er Seguimiento automático",
     category: "followup",
     description: "Email del primer seguimiento automático tras enviar propuesta. Se envía según los días configurados en Configuración CRM.",
-    body: `Estimado/a {contact.firstName},
+    body: `Estimado/a {{contact.firstName}},
 
-Espero que se encuentre bien. Me permito hacer un breve seguimiento respecto a la propuesta que le enviamos el {deal.proposalSentDate} para {deal.title}.
+Espero que se encuentre bien. Me permito hacer un breve seguimiento respecto a la propuesta que le enviamos el {{deal.proposalSentDate}} para {{deal.title}}.
 
 Entendemos que este tipo de decisiones requieren análisis, y quedamos a su completa disposición para resolver cualquier consulta, ajustar la propuesta a sus requerimientos específicos, o coordinar una reunión para revisar los detalles en conjunto.
 
 Puede acceder a la propuesta en el Portal del Cliente, donde podrá revisarla en detalle, descargar los documentos y mantener la comunicación con nuestro equipo:
-{deal.proposalLink}
+{{deal.proposalLink}}
 
 Quedo atento a sus comentarios.
 
@@ -104,14 +57,14 @@ Saludos cordiales`,
     name: "2do Seguimiento automático",
     category: "followup",
     description: "Email del segundo seguimiento automático tras enviar propuesta. Se envía según los días configurados en Configuración CRM.",
-    body: `Hola {contact.firstName},
+    body: `Hola {{contact.firstName}},
 
-Le escribo nuevamente respecto a la propuesta que le compartimos el {deal.proposalSentDate} para {deal.title} de {account.name}.
+Le escribo nuevamente respecto a la propuesta que le compartimos el {{deal.proposalSentDate}} para {{deal.title}} de {{account.name}}.
 
 Nos gustaría saber si ha tenido oportunidad de revisarla y si hay algún aspecto que le gustaría que profundicemos o ajustemos. Estamos abiertos a adaptar nuestra propuesta para que se ajuste mejor a las necesidades de su operación.
 
 Le recuerdo que puede acceder a la propuesta en todo momento desde el Portal del Cliente:
-{deal.proposalLink}
+{{deal.proposalLink}}
 
 Si lo prefiere, podemos coordinar una breve llamada o reunión para revisar los puntos clave juntos. Estaré encantado de agendar en el horario que mejor le acomode.
 
@@ -122,14 +75,14 @@ Saludos cordiales`,
     name: "3er Seguimiento automático",
     category: "followup",
     description: "Email del tercer seguimiento automático. Tras enviarse, el negocio se cierra como perdido automáticamente.",
-    body: `Hola {contact.firstName},
+    body: `Hola {{contact.firstName}},
 
-Este es nuestro último seguimiento respecto a la propuesta enviada el {deal.proposalSentDate} para {deal.title} de {account.name}.
+Este es nuestro último seguimiento respecto a la propuesta enviada el {{deal.proposalSentDate}} para {{deal.title}} de {{account.name}}.
 
 Si te interesa continuar, podemos retomar de inmediato con los ajustes que necesites para avanzar.
 
 Te dejo nuevamente el acceso al Portal del Cliente para revisar la propuesta:
-{deal.proposalLink}
+{{deal.proposalLink}}
 
 Si no recibimos respuesta, cerraremos esta oportunidad por ahora.
 
@@ -165,30 +118,48 @@ async function ensureFollowUpMailSeeds(tenantId: string, userId: string) {
   }
 }
 
-/** Crea los templates WA del sistema si no existen para este tenant */
-async function ensureWhatsAppSeeds(tenantId: string, userId: string) {
-  for (const seed of WA_SEEDS) {
-    const existing = await prisma.docTemplate.findFirst({
-      where: { tenantId, module: "whatsapp", usageSlug: seed.slug },
-    });
-    if (existing) continue;
+/**
+ * Migra in-place plantillas existentes que aún usen placeholders del formato
+ * legacy:
+ *  - `{nombre}` / `{empresa}` / … (single-word, mapeo por slug WA).
+ *  - `{module.field}` (sin doble llave, presente en seeds viejos de email).
+ * Reemplaza por `{{module.field}}` y persiste. Idempotente.
+ */
+async function upgradeLegacyTemplates(
+  tenantId: string,
+  module: "whatsapp" | "mail",
+) {
+  const existing = await prisma.docTemplate.findMany({
+    where: {
+      tenantId,
+      module,
+      ...(module === "whatsapp"
+        ? { usageSlug: { in: Object.keys(LEGACY_WA_PLACEHOLDER_MAP) } }
+        : {}),
+    },
+    select: { id: true, usageSlug: true, content: true },
+  });
 
-    const content = plainTextToTiptap(seed.body);
-    await prisma.docTemplate.create({
-      data: {
-        tenantId,
-        name: seed.name,
-        description: seed.description,
-        content,
-        module: "whatsapp",
-        category: seed.category,
-        tokensUsed: [],
-        isActive: true,
-        isDefault: false,
-        usageSlug: seed.slug,
-        createdBy: userId,
-      },
-    });
+  for (const tpl of existing) {
+    const { migrated, changed } = migrateLegacyPlaceholdersInTiptap(
+      tpl.content,
+      tpl.usageSlug ?? undefined,
+    );
+    if (!changed) continue;
+    try {
+      await prisma.docTemplate.update({
+        where: { id: tpl.id },
+        data: {
+          content: migrated as object,
+          tokensUsed: extractTokenKeys(migrated),
+        },
+      });
+    } catch (err) {
+      console.warn(
+        `[docs] Falló migración legacy en docTemplate ${tpl.id} (module=${module}, slug=${tpl.usageSlug}):`,
+        err,
+      );
+    }
   }
 }
 
@@ -206,13 +177,15 @@ export async function GET(request: NextRequest) {
     const category = searchParams.get("category");
     const activeOnly = searchParams.get("active") !== "false";
 
-    // Auto-seed WhatsApp del sistema si aún no existen
+    // Auto-seed WhatsApp del sistema si aún no existen + upgrade de legacy
     if (!module || module === "whatsapp") {
-      await ensureWhatsAppSeeds(ctx.tenantId, ctx.userId);
+      await seedWaTemplatesForTenant(ctx.tenantId, ctx.userId);
+      await upgradeLegacyTemplates(ctx.tenantId, "whatsapp");
     }
-    // Auto-seed email follow-up templates
+    // Auto-seed email follow-up templates + upgrade de legacy
     if (!module || module === "mail") {
       await ensureFollowUpMailSeeds(ctx.tenantId, ctx.userId);
+      await upgradeLegacyTemplates(ctx.tenantId, "mail");
     }
 
     const templates = await prisma.docTemplate.findMany({

@@ -15,7 +15,15 @@
  */
 
 import { prisma } from "@/lib/prisma";
-import { resolveDocument, tiptapToPlainText, type EntityData } from "@/lib/docs/token-resolver";
+import {
+  extractTokenKeys,
+  resolveDocument,
+  tiptapToPlainText,
+  type EntityData,
+} from "@/lib/docs/token-resolver";
+import {
+  migrateLegacyPlaceholdersInTiptap,
+} from "@/lib/docs/wa-template-migrations";
 
 export type GetWaTemplateContext = {
   /** Entidades para resolver tokens DocTemplate (account, contact, deal, lead, actor, tenant, system, blocks, ...) */
@@ -24,6 +32,11 @@ export type GetWaTemplateContext = {
 
 /**
  * Obtiene el cuerpo resuelto de una plantilla WhatsApp por slug.
+ *
+ * Self-healing: si el DocTemplate del tenant contiene placeholders del formato
+ * legacy single-brace (p. ej. `{nombre}`, `{empresa}`) — restos del seed viejo
+ * que el resolver no procesa — los migramos al formato `{{module.field}}` y
+ * persistimos el contenido de vuelta. Es idempotente.
  */
 export async function getWaTemplate(
   tenantId: string,
@@ -32,7 +45,7 @@ export async function getWaTemplate(
 ): Promise<string> {
   const docTpl = await prisma.docTemplate.findFirst({
     where: { tenantId, module: "whatsapp", usageSlug: slug, isActive: true },
-    select: { content: true },
+    select: { id: true, content: true },
   });
 
   if (!docTpl?.content) {
@@ -43,11 +56,32 @@ export async function getWaTemplate(
     return "";
   }
 
-  if (!context?.entities) {
-    return tiptapToPlainText(docTpl.content as never).trim();
+  let content = docTpl.content as unknown;
+
+  const { migrated, changed } = migrateLegacyPlaceholdersInTiptap(content, slug);
+  if (changed) {
+    content = migrated;
+    try {
+      await prisma.docTemplate.update({
+        where: { id: docTpl.id },
+        data: {
+          content: migrated as object,
+          tokensUsed: extractTokenKeys(migrated),
+        },
+      });
+    } catch (err) {
+      console.warn(
+        `[whatsapp] No se pudo persistir migración legacy para tenant ${tenantId}, slug "${slug}":`,
+        err,
+      );
+    }
   }
 
-  const { resolvedContent } = resolveDocument(docTpl.content as never, context.entities);
+  if (!context?.entities) {
+    return tiptapToPlainText(content as never).trim();
+  }
+
+  const { resolvedContent } = resolveDocument(content as never, context.entities);
   return tiptapToPlainText(resolvedContent).trim();
 }
 
