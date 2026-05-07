@@ -47,6 +47,15 @@ interface CpqQuoteCostsProps {
   onSaved?: () => void;
   displayCurrency?: string;
   ufValue?: number | null;
+  /**
+   * Resumen de costos provisto desde el padre (CpqQuoteDetail). Cuando el
+   * padre actualiza sus totales (por ejemplo al crear/editar/eliminar
+   * posiciones) este prop fuerza a este componente a recalcular uniforms,
+   * examenes, alimentación y ajuste de feriados con el `totalGuards` y el
+   * `monthlyHolidayAdjustment` correctos sin esperar al próximo `loadData`.
+   * Si no se pasa, se usa el summary interno que se obtiene del API.
+   */
+  externalSummary?: CpqQuoteCostSummary | null;
 }
 
 /* ── Constants ── */
@@ -164,6 +173,7 @@ export function CpqQuoteCosts({
   onSaved,
   displayCurrency = "CLP",
   ufValue = null,
+  externalSummary = null,
 }: CpqQuoteCostsProps) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -184,7 +194,12 @@ export function CpqQuoteCosts({
   });
   const [decimalDrafts, setDecimalDrafts] = useState<Record<string, string>>({});
   const [catalog, setCatalog] = useState<CpqCatalogItem[]>([]);
-  const [summary, setSummary] = useState<CpqQuoteCostSummary | null>(null);
+  const [internalSummary, setInternalSummary] = useState<CpqQuoteCostSummary | null>(null);
+  // Preferimos el summary del padre (CpqQuoteDetail) cuando esté disponible
+  // porque se actualiza inmediatamente tras crear/editar/eliminar posiciones.
+  // Caemos al summary interno (cargado por loadData) para preservar el flujo
+  // standalone (modal, otros usos).
+  const summary = externalSummary ?? internalSummary;
   const [parameters, setParameters] = useState<CpqQuoteParameters>(DEFAULT_PARAMS);
   const [uniforms, setUniforms] = useState<CpqQuoteUniformItem[]>([]);
   const [exams, setExams] = useState<CpqQuoteExamItem[]>([]);
@@ -240,7 +255,7 @@ export function CpqQuoteCosts({
       }
       if (costsData?.success) {
         const payload = costsData.data || {};
-        setSummary(payload.summary || null);
+        setInternalSummary(payload.summary || null);
         setSkipDefaultCosts(Boolean(payload.skipDefaultCosts));
         const globalDefaults = settingsData?.success ? settingsData.data : {};
         const mergedParams = {
@@ -384,7 +399,7 @@ export function CpqQuoteCosts({
       });
       const data = await res.json();
       if (data?.success) {
-        setSummary(data.data);
+        setInternalSummary(data.data);
         onAdditionalLinesChange?.(additionalLines);
         if (options?.close !== false) setOpen(false);
         if (!options?.silent) toast.success("Costos guardados");

@@ -2309,6 +2309,7 @@ export function CpqQuoteDetail({
               onSaved={refresh}
               displayCurrency={crmContext.currency || "CLP"}
               ufValue={ufValue}
+              externalSummary={costSummary}
             />
           </div>
         )}
