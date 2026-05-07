@@ -1,83 +1,34 @@
 /**
- * Module Navigation — Configuración centralizada para bottom nav contextual.
+ * module-nav — bottom-nav items por contexto.
  *
- * Define los sub-items de cada módulo con iconos, labels y hrefs.
- * Usado por BottomNav para mostrar navegación contextual cuando el usuario
- * está dentro de un módulo específico.
+ * Thin wrapper sobre `@/lib/nav/registry` que decide qué items mostrar en el
+ * bottom nav (mobile) según la ruta actual, los permisos del usuario y los
+ * módulos habilitados del tenant.
  *
- * Patrón mobile-first nivel Salesforce/HubSpot: al entrar en un módulo,
- * el bottom nav muestra las subcategorías del módulo en lugar del menú principal.
+ * El registro de items vive en `src/lib/nav/registry.ts`. Este archivo solo
+ * traduce nodos del registry al shape `BottomNavItem` y aplica filtros.
+ *
+ * Pattern HubSpot/Salesforce: cuando entras en un módulo, el bottom nav muestra
+ * las sub-secciones contextuales de ese módulo (N2 o N3) en lugar del menú
+ * principal. CRM detail pages (leads/[id], etc.) NO devuelven items: el header
+ * de detalle (EntityDetailLayout) maneja la nav interna.
  */
 
 import type { LucideIcon } from "lucide-react";
 import {
-  // Main nav
-  Grid3x3,
-  FileText,
-  Building2,
-  Calculator,
-  ClipboardList,
-  Settings,
-  Receipt,
-  BarChart3,
-  Landmark,
-  BookText,
-  MessageCircle,
-  // CRM — unified with sidebar
-  Users,
-  MapPin,
-  TrendingUp,
-  Contact,
-  DollarSign,
-  // Ops — unified with sidebar
-  CalendarDays,
-  Clock3,
-  UserRoundCheck,
-  ShieldAlert,
-  Fingerprint,
-  Route,
-  Radio,
-  Ticket,
-  ClipboardCheck,
-  Package,
-  Shirt,
-  Warehouse,
-  ShoppingCart,
-  Smartphone,
-  Phone,
-  Brain,
-  KeyRound,
-  Siren,
-  Briefcase,
-  // TE
-  CheckCircle2,
-  Layers,
-  Banknote,
-  // Personas — unified with sidebar
-  Shield,
-  User,
-  Bell,
-  Trophy,
-  // Docs
-  FolderOpen,
-  LayoutTemplate,
-  // Payroll — unified with sidebar
-  Wallet,
-  // Config
-  Plug,
-  Sparkles,
-  // Reportes DT
-  FileBarChart,
-} from "lucide-react";
-import {
   type RolePermissions,
+  type ModuleKey,
   getDefaultPermissions,
-  hasModuleAccess,
-  canView,
-  canViewInstallations,
 } from "./permissions";
+import {
+  NAV_MODULES,
+  isNodeVisible,
+  type NavNode,
+  type VisibilityContext,
+  getContextualBottomNavNodes,
+} from "./nav/registry";
 
-/* ── Types ── */
+/* ── Public types (back-compat) ── */
 
 export interface BottomNavItem {
   key: string;
@@ -86,266 +37,16 @@ export interface BottomNavItem {
   icon: LucideIcon;
 }
 
-/* ── Main nav items ── */
+/* ── Helpers ── */
 
-const MAIN_ITEMS: (BottomNavItem & { app: string })[] = [
-  { key: "hub", href: "/hub", label: "Inicio", icon: Grid3x3, app: "hub" },
-  { key: "chat", href: "/chat", label: "Chat", icon: MessageCircle, app: "chat" },
-  { key: "docs", href: "/opai/documentos", label: "Docs", icon: FileText, app: "docs" },
-  { key: "crm", href: "/crm", label: "CRM", icon: Building2, app: "crm" },
-  { key: "payroll", href: "/payroll", label: "Payroll", icon: Calculator, app: "payroll" },
-  { key: "ops", href: "/ops", label: "Ops", icon: ClipboardList, app: "ops" },
-  { key: "finance", href: "/finanzas", label: "Finanzas", icon: Receipt, app: "finance" },
-  { key: "config", href: "/opai/configuracion", label: "Config", icon: Settings, app: "admin" },
-];
-
-/* ── CRM sub-items ── */
-
-const CRM_ITEMS: (BottomNavItem & { subKey: string })[] = [
-  { key: "crm-leads", href: "/crm/leads", label: "Leads", icon: Users, subKey: "leads" },
-  { key: "crm-accounts", href: "/crm/accounts", label: "Cuentas", icon: Building2, subKey: "accounts" },
-  { key: "crm-deals", href: "/crm/deals", label: "Negocios", icon: TrendingUp, subKey: "deals" },
-  { key: "crm-contacts", href: "/crm/contacts", label: "Contactos", icon: Contact, subKey: "contacts" },
-  { key: "crm-quotes", href: "/crm/cotizaciones", label: "Cotizaciones", icon: DollarSign, subKey: "quotes" },
-  { key: "crm-prospecting", href: "/crm/prospecting", label: "Prospección", icon: Sparkles, subKey: "leads" },
-];
-
-/* ── Ops sub-items ── */
-
-/** ATS primero: en móvil solo caben 4 ítems visibles; si no, ATS quedaba en «Más» y parecía inaccesible. */
-const OPS_ITEMS: (BottomNavItem & { subKey: string })[] = [
-  { key: "ops-ats", href: "/ops/ats", label: "ATS", icon: Briefcase, subKey: "ats" },
-  { key: "ops-pautas", href: "/ops/pauta-mensual", label: "Pautas", icon: CalendarDays, subKey: "pauta_mensual" },
-  { key: "ops-installations", href: "/crm/installations", label: "Instalaciones", icon: MapPin, subKey: "installations" },
-  { key: "ops-supervision", href: "/ops/supervision", label: "Supervisión", icon: ClipboardCheck, subKey: "supervision" },
-  { key: "ops-tickets", href: "/ops/tickets", label: "Tickets", icon: Ticket, subKey: "tickets" },
-  { key: "ops-rondas", href: "/ops/rondas", label: "Rondas", icon: Route, subKey: "rondas" },
-  { key: "ops-alertas-cobertura", href: "/ops/alertas-cobertura", label: "Alertas", icon: Siren, subKey: "alertas_cobertura" },
-  { key: "ops-inventario", href: "/ops/inventario", label: "Inventario", icon: Package, subKey: "inventario" },
-];
-
-/* ── Pautas sub-items (shown in bottom nav when inside any pautas page) ── */
-
-const PAUTAS_ROUTES = [
-  "/ops/pauta-mensual",
-  "/ops/pauta-diaria",
-  "/ops/turnos-extra",
-  "/ops/ppc",
-  "/ops/refuerzos",
-  "/ops/marcaciones",
-  "/ops/audit-pautas",
-];
-
-const PAUTAS_ITEMS: (BottomNavItem & { subKey: string })[] = [
-  { key: "pautas-mensual", href: "/ops/pauta-mensual", label: "Mensual", icon: CalendarDays, subKey: "pauta_mensual" },
-  { key: "pautas-diaria", href: "/ops/pauta-diaria", label: "Diaria", icon: UserRoundCheck, subKey: "pauta_diaria" },
-  { key: "pautas-te", href: "/ops/turnos-extra", label: "Turnos Extra", icon: Clock3, subKey: "turnos_extra" },
-  { key: "pautas-ppc", href: "/ops/ppc", label: "PPC", icon: ShieldAlert, subKey: "ppc" },
-  { key: "pautas-refuerzos", href: "/ops/refuerzos", label: "Refuerzos", icon: Shield, subKey: "turnos_extra" },
-  { key: "pautas-marcaciones", href: "/ops/marcaciones", label: "Marcaciones", icon: Fingerprint, subKey: "marcaciones" },
-  { key: "pautas-auditoria", href: "/ops/audit-pautas", label: "Auditoría", icon: ClipboardList, subKey: "pauta_mensual" },
-];
-
-const RONDAS_ITEMS: BottomNavItem[] = [
-  { key: "rondas-monitoreo", href: "/ops/rondas/monitoreo", label: "Monitor", icon: Radio },
-  { key: "rondas-alertas", href: "/ops/rondas/alertas", label: "Alertas", icon: Bell },
-  { key: "rondas-dashboard", href: "/ops/rondas", label: "Dashboard", icon: ClipboardList },
-  { key: "rondas-reportes", href: "/ops/rondas/reportes", label: "Reportes", icon: BarChart3 },
-  { key: "rondas-centro-ia", href: "/ops/rondas/centro-ia", label: "Centro IA", icon: Brain },
-  { key: "rondas-config", href: "/ops/rondas/configuracion", label: "Config", icon: Settings },
-];
-
-/* ── Inventario sub-items (Inicio, Productos, Bodegas, etc.) ── */
-
-const INVENTARIO_ITEMS: BottomNavItem[] = [
-  { key: "inv-inicio", href: "/ops/inventario", label: "Inicio", icon: Package },
-  { key: "inv-productos", href: "/ops/inventario/productos", label: "Productos", icon: Shirt },
-  { key: "inv-bodegas", href: "/ops/inventario/bodegas", label: "Bodegas", icon: Warehouse },
-  { key: "inv-compras", href: "/ops/inventario/compras", label: "Compras", icon: ShoppingCart },
-  { key: "inv-entregas", href: "/ops/inventario/entregas", label: "Entregas", icon: UserRoundCheck },
-  { key: "inv-stock", href: "/ops/inventario/stock", label: "Stock", icon: Layers },
-  { key: "inv-activos", href: "/ops/inventario/activos", label: "Activos", icon: Smartphone },
-  { key: "inv-lineas", href: "/ops/inventario/lineas", label: "Líneas", icon: Phone },
-];
-
-/* ── TE sub-items ── */
-
-const TE_ITEMS: BottomNavItem[] = [
-  { key: "te-registro", href: "/te/registro", label: "Registro", icon: ClipboardList },
-  { key: "te-aprobaciones", href: "/te/aprobaciones", label: "Aprobaciones", icon: CheckCircle2 },
-  { key: "te-lotes", href: "/te/lotes", label: "Lotes", icon: Layers },
-  { key: "te-pagos", href: "/te/pagos", label: "Pagos", icon: Banknote },
-];
-
-/* ── Personas sub-items ── */
-
-const PERSONAS_ITEMS: BottomNavItem[] = [
-  { key: "personas-listado", href: "/personas/guardias", label: "Listado", icon: User },
-  { key: "personas-onboarding", href: "/personas/onboarding", label: "Onboarding", icon: UserRoundCheck },
-  { key: "personas-comunicaciones", href: "/personas/comunicaciones", label: "Comunicaciones", icon: Bell },
-  { key: "personas-sueldos-rut", href: "/personas/guardias/sueldos-rut", label: "Sueldos RUT", icon: DollarSign },
-  { key: "personas-gamificacion", href: "/personas/gamificacion", label: "Gamificación", icon: Trophy },
-  { key: "personas-psicolaboral", href: "/personas/psicolaboral", label: "Psicolab.", icon: Brain },
-];
-
-/* ── Payroll sub-items ── */
-
-const PAYROLL_ITEMS: BottomNavItem[] = [
-  { key: "payroll-periodos", href: "/payroll/periodos", label: "Períodos", icon: CalendarDays },
-  { key: "payroll-anticipos", href: "/payroll/anticipos", label: "Anticipos", icon: Wallet },
-  { key: "payroll-simulator", href: "/payroll/simulator", label: "Simulador", icon: Calculator },
-  { key: "payroll-parameters", href: "/payroll/parameters", label: "Parámetros", icon: FileText },
-];
-
-/* ── Docs sub-items ── */
-
-const DOCS_ITEMS: (BottomNavItem & { subKey: "gestion" | "operativos" | "plantillas" })[] = [
-  { key: "docs-gestion", href: "/opai/documentos", label: "Gestión", icon: FolderOpen, subKey: "gestion" },
-  { key: "docs-operativos", href: "/opai/documentos-operativos", label: "Operativos", icon: ClipboardCheck, subKey: "operativos" },
-  { key: "docs-templates", href: "/opai/documentos/templates", label: "Templates", icon: LayoutTemplate, subKey: "plantillas" },
-];
-
-/* ── Finance sub-items ── */
-
-const FINANCE_ITEMS: (BottomNavItem & {
-  subKey: "rendiciones" | "facturacion" | "proveedores" | "contabilidad" | "reportes";
-})[] = [
-  { key: "finance-rendiciones", href: "/finanzas/rendiciones", label: "Rendic.", icon: Receipt, subKey: "rendiciones" },
-  { key: "finance-ventas", href: "/finanzas/facturacion", label: "Ventas", icon: FileText, subKey: "facturacion" },
-  { key: "finance-compras", href: "/finanzas/proveedores", label: "Compras", icon: Building2, subKey: "proveedores" },
-  { key: "finance-banca", href: "/finanzas/bancos", label: "Banca", icon: Landmark, subKey: "contabilidad" },
-  { key: "finance-contabilidad", href: "/finanzas/contabilidad", label: "Contab.", icon: BookText, subKey: "contabilidad" },
-  { key: "finance-informes", href: "/finanzas/reportes", label: "Informes", icon: BarChart3, subKey: "reportes" },
-];
-
-/* ── Reportes DT sub-items ── */
-
-const REPORTES_DT_ITEMS: BottomNavItem[] = [
-  { key: "dt-asistencia", href: "/reportes/dt/asistencia-diaria", label: "Asistencia", icon: FileBarChart },
-  { key: "dt-jornada", href: "/reportes/dt/jornada-diaria", label: "Jornada", icon: FileBarChart },
-  { key: "dt-festivos", href: "/reportes/dt/domingos-festivos", label: "Festivos", icon: FileBarChart },
-  { key: "dt-modificaciones", href: "/reportes/dt/modificaciones-turnos", label: "Modific.", icon: FileBarChart },
-];
-
-/* ── Config sub-items (top 5 for bottom nav) ── */
-
-const CONFIG_ITEMS: (BottomNavItem & { subKey: string })[] = [
-  { key: "config-users", href: "/opai/configuracion/usuarios", label: "Usuarios", icon: Users, subKey: "usuarios" },
-  { key: "config-groups", href: "/opai/configuracion/grupos", label: "Grupos", icon: Users, subKey: "grupos" },
-  { key: "config-integrations", href: "/opai/configuracion/integraciones", label: "Integraciones", icon: Plug, subKey: "integraciones" },
-  { key: "config-notifications", href: "/opai/configuracion/notificaciones", label: "Alertas", icon: Bell, subKey: "notificaciones" },
-  { key: "config-crm", href: "/opai/configuracion/crm", label: "CRM", icon: TrendingUp, subKey: "crm" },
-  { key: "config-cpq", href: "/opai/configuracion/cpq", label: "CPQ", icon: DollarSign, subKey: "cpq" },
-  { key: "config-ops", href: "/opai/configuracion/ops", label: "Ops", icon: ClipboardList, subKey: "ops" },
-  { key: "config-ticket-types", href: "/opai/configuracion/tipos-ticket", label: "Tickets", icon: Ticket, subKey: "tipos_ticket" },
-  { key: "config-alertas-cobertura", href: "/opai/configuracion/alertas-cobertura", label: "Alertas", icon: Siren, subKey: "alertas_cobertura" },
-  { key: "config-ia", href: "/opai/configuracion/asistente-ia", label: "Asistente IA", icon: Brain, subKey: "asistente_ia" },
-  { key: "config-ia-providers", href: "/opai/configuracion/inteligencia-artificial", label: "Proveedores de IA", icon: KeyRound, subKey: "inteligencia_artificial" },
-];
-
-/* ── Module detection ── */
-
-interface ModuleDetection {
-  test: (path: string) => boolean;
-  getItems: (perms: RolePermissions, isModEnabled: (mod: string) => boolean) => BottomNavItem[];
+function nodeToBottomNavItem(node: NavNode): BottomNavItem {
+  return {
+    key: node.key,
+    href: node.href,
+    label: node.shortLabel ?? node.label,
+    icon: node.icon,
+  };
 }
-
-/** Map of OPS bottom nav keys to their required tenant module */
-const OPS_MODULE_MAP: Record<string, string> = {
-  "ops-rondas": "ops_rondas",
-  "ops-supervision": "ops_supervision",
-  "ops-alertas-cobertura": "alertas_cobertura",
-  "ops-ats": "ats",
-  "ops-inventario": "ops_inventario",
-};
-
-/** Map of Personas bottom nav keys to their required tenant module */
-const PERSONAS_MODULE_MAP: Record<string, string> = {
-  "personas-gamificacion": "gamificacion",
-  "personas-onboarding": "ops_onboarding",
-  "personas-psicolaboral": "psych",
-};
-
-const MODULE_DETECTIONS: ModuleDetection[] = [
-  {
-    test: (p) => PAUTAS_ROUTES.some((r) => p === r || p.startsWith(r + "/")),
-    getItems: (perms) =>
-      PAUTAS_ITEMS.filter((item) => canView(perms, "ops", item.subKey)),
-  },
-  {
-    test: (p) => p.startsWith("/ops/rondas"),
-    getItems: (_perms, isModEnabled) => isModEnabled("ops_rondas") ? RONDAS_ITEMS : [],
-  },
-  {
-    test: (p) => p === "/ops/inventario" || p.startsWith("/ops/inventario/"),
-    getItems: (perms, isModEnabled) =>
-      canView(perms, "ops", "inventario") && isModEnabled("ops_inventario") ? INVENTARIO_ITEMS : [],
-  },
-  {
-    test: (p) => p === "/crm" || p.startsWith("/crm/"),
-    getItems: (perms) =>
-      CRM_ITEMS.filter((item) =>
-        item.subKey === "installations"
-          ? canViewInstallations(perms)
-          : canView(perms, "crm", item.subKey)
-      ),
-  },
-  {
-    test: (p) => p === "/ops" || p.startsWith("/ops/"),
-    getItems: (perms, isModEnabled) =>
-      OPS_ITEMS.filter((item) => {
-        const roleCheck = item.subKey === "installations"
-          ? canViewInstallations(perms)
-          : canView(perms, "ops", item.subKey);
-        if (!roleCheck) return false;
-        const requiredModule = OPS_MODULE_MAP[item.key];
-        if (requiredModule && !isModEnabled(requiredModule)) return false;
-        return true;
-      }),
-  },
-  {
-    test: (p) => p === "/te" || p.startsWith("/te/"),
-    getItems: () => TE_ITEMS,
-  },
-  {
-    test: (p) => p === "/personas" || p.startsWith("/personas/"),
-    getItems: (_perms, isModEnabled) =>
-      PERSONAS_ITEMS.filter((item) => {
-        const requiredModule = PERSONAS_MODULE_MAP[item.key];
-        if (requiredModule && !isModEnabled(requiredModule)) return false;
-        return true;
-      }),
-  },
-  {
-    test: (p) => p === "/payroll" || p.startsWith("/payroll/"),
-    getItems: (_perms, isModEnabled) => isModEnabled("payroll") ? PAYROLL_ITEMS : [],
-  },
-  {
-    test: (p) =>
-      p.startsWith("/opai/documentos-operativos") ||
-      p.startsWith("/opai/documentos"),
-    getItems: (perms, isModEnabled) =>
-      isModEnabled("documentos")
-        ? DOCS_ITEMS.filter((item) => canView(perms, "docs", item.subKey))
-        : [],
-  },
-  {
-    test: (p) => p === "/finanzas" || p.startsWith("/finanzas/"),
-    getItems: (perms, isModEnabled) =>
-      isModEnabled("finanzas") ? FINANCE_ITEMS.filter((item) => canView(perms, "finance", item.subKey)) : [],
-  },
-  {
-    test: (p) => p.startsWith("/opai/configuracion"),
-    getItems: (perms) =>
-      CONFIG_ITEMS.filter((item) =>
-        canView(perms, "config", item.subKey)
-      ),
-  },
-  {
-    test: (p) => p.startsWith("/reportes/dt"),
-    getItems: (_perms, isModEnabled) => isModEnabled("reportes_dt") ? REPORTES_DT_ITEMS : [],
-  },
-];
 
 /**
  * Devuelve los items del bottom nav según la ruta actual y el rol del usuario.
@@ -367,23 +68,19 @@ export function getBottomNavItems(
       ? getDefaultPermissions(roleOrPerms)
       : roleOrPerms;
 
-  const isModEnabled = (mod: string) => !enabledModules || enabledModules.has(mod);
+  const ctx: VisibilityContext = {
+    perms,
+    isAdmin: false, // bottom nav is contextual; admin-only nodes are filtered separately
+    isModuleEnabled: (mod: string) => !enabledModules || enabledModules.has(mod),
+  };
 
-  for (const detection of MODULE_DETECTIONS) {
-    if (detection.test(pathname)) {
-      const items = detection.getItems(perms, isModEnabled);
-      if (items.length > 0) return items;
-    }
-  }
-
-  // Default: empty array — BottomNav uses its own MainNav component
-  return [];
+  const candidates = getContextualBottomNavNodes(pathname);
+  return candidates
+    .filter((n) => !n.hideInBottomNav)
+    .filter((n) => isNodeVisible(n, ctx))
+    .map(nodeToBottomNavItem);
 }
 
-/* ── Exports para SubNav components ── */
-
-export const OPS_SUBNAV_ITEMS = OPS_ITEMS;
-export const TE_SUBNAV_ITEMS = TE_ITEMS;
-export const PERSONAS_SUBNAV_ITEMS = PERSONAS_ITEMS;
-export const PAYROLL_SUBNAV_ITEMS = PAYROLL_ITEMS;
-export const DOCS_SUBNAV_ITEMS = DOCS_ITEMS;
+/** Re-export del registry para casos avanzados (ej. RolePreview muestra un preview por módulo). */
+export type { ModuleKey };
+export { NAV_MODULES };
