@@ -49,41 +49,44 @@ export function ExportMenu({ endpoint, payload, filenameBase }: Props) {
     <div className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="inline-flex items-center gap-1.5 px-3 h-9 rounded-lg text-[12.5px] font-medium border bg-ds-surface text-ds-text-2"
-        style={{ borderColor: "var(--ds-border)" }}
+        className="inline-flex items-center gap-1.5 px-3 h-9 rounded-ds-md text-sm font-medium border border-ds-border-default bg-ds-surface text-ds-text-2 hover:bg-ds-surface-2 transition-colors"
       >
         <Download className="w-3.5 h-3.5" /> Exportar
       </button>
       {open && (
-        <div
-          className="absolute right-0 top-full mt-1 z-20 w-44 rounded-lg border overflow-hidden shadow-2xl"
-          style={{ background: "var(--ds-surface-2)", borderColor: "var(--ds-border)" }}
-        >
-          <button
-            onClick={() => handle("xlsx")}
-            disabled={!!busy}
-            className="w-full flex items-center gap-2.5 px-3 py-2.5 text-[12.5px] hover:bg-ds-surface text-ds-text-1 disabled:opacity-50"
-          >
-            {busy === "xlsx" ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-500" />
-            )}
-            Excel (.xlsx)
-          </button>
-          <button
-            onClick={() => handle("pdf")}
-            disabled={!!busy}
-            className="w-full flex items-center gap-2.5 px-3 py-2.5 text-[12.5px] hover:bg-ds-surface text-ds-text-1 disabled:opacity-50"
-          >
-            {busy === "pdf" ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <FileText className="w-3.5 h-3.5 text-rose-500" />
-            )}
-            PDF
-          </button>
-        </div>
+        <>
+          <div
+            className="fixed inset-0 z-10"
+            onClick={() => setOpen(false)}
+            aria-hidden
+          />
+          <div className="absolute right-0 top-full mt-1 z-20 w-44 rounded-ds-md border border-ds-border-default bg-ds-surface-2 overflow-hidden shadow-2xl">
+            <button
+              onClick={() => handle("xlsx")}
+              disabled={!!busy}
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm hover:bg-ds-surface-3 text-ds-text-1 disabled:opacity-50 transition-colors"
+            >
+              {busy === "xlsx" ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <FileSpreadsheet className="w-3.5 h-3.5 text-status-ok-fg" />
+              )}
+              Excel (.xlsx)
+            </button>
+            <button
+              onClick={() => handle("pdf")}
+              disabled={!!busy}
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm hover:bg-ds-surface-3 text-ds-text-1 disabled:opacity-50 transition-colors"
+            >
+              {busy === "pdf" ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <FileText className="w-3.5 h-3.5 text-status-danger-fg" />
+              )}
+              PDF
+            </button>
+          </div>
+        </>
       )}
     </div>
   );

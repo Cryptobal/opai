@@ -3,11 +3,21 @@
 import { useState, useTransition } from "react";
 import type {
   FinanceReportPeriod,
+  LedgerEntry,
   LedgerResult,
 } from "@/modules/finance/reports/shared/types";
+import {
+  KPICard,
+  KPIGrid,
+  Surface,
+  DataTable,
+  type DataTableColumn,
+  EmptyState,
+} from "@/components/opai-ds";
+import { BookOpen } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { ReportsPeriodPicker } from "./ReportsPeriodPicker";
 import { ExportMenu } from "./ExportMenu";
-import { KPICard } from "./shared/KPICard";
 
 interface Props {
   accountId: string;
@@ -16,24 +26,21 @@ interface Props {
 }
 
 const fmtCLP = (n: number): string =>
-  new Intl.NumberFormat("es-CL", {
-    style: "currency",
-    currency: "CLP",
-    maximumFractionDigits: 0,
-  }).format(n);
+  "$" + new Intl.NumberFormat("es-CL").format(Math.round(n));
 
-const fmtCompact = (n: number): string => {
-  const a = Math.abs(n);
-  if (a >= 1e9) return `$${(n / 1e9).toFixed(2)}B`;
-  if (a >= 1e6) return `$${(n / 1e6).toFixed(1)}M`;
-  if (a >= 1e3) return `$${(n / 1e3).toFixed(0)}K`;
-  return fmtCLP(n);
+const fmtCLPShort = (n: number): string => {
+  const abs = Math.abs(n);
+  const sign = n < 0 ? "-" : "";
+  if (abs >= 1_000_000_000) return `${sign}$${(abs / 1_000_000_000).toFixed(1).replace(/\.0$/, "")}MM`;
+  if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
+  if (abs >= 1_000) return `${sign}$${(abs / 1_000).toFixed(0)}K`;
+  return `${sign}$${abs}`;
 };
 
 export function AccountDrillClient({ accountId, initialPeriod, initialData }: Props) {
   const [period, setPeriod] = useState(initialPeriod);
   const [data, setData] = useState(initialData);
-  const [, startTransition] = useTransition();
+  const [isPending, startTransition] = useTransition();
 
   const refetch = (p: FinanceReportPeriod) => {
     setPeriod(p);
@@ -50,8 +57,80 @@ export function AccountDrillClient({ accountId, initialPeriod, initialData }: Pr
     });
   };
 
+  const columns: DataTableColumn<LedgerEntry>[] = [
+    {
+      id: "date",
+      header: "Fecha",
+      align: "left",
+      width: "w-24",
+      cell: (e) => <span className="text-ds-text-2 ds-num">{e.date}</span>,
+    },
+    {
+      id: "num",
+      header: "N°",
+      align: "right",
+      width: "w-12",
+      cell: (e) => <span className="text-ds-text-3 font-mono">{e.entryNumber}</span>,
+    },
+    {
+      id: "desc",
+      header: "Descripción",
+      align: "left",
+      cell: (e) => <span className="text-ds-text-1">{e.description}</span>,
+    },
+    {
+      id: "ref",
+      header: "Ref",
+      align: "left",
+      width: "w-24",
+      hideOnMobile: true,
+      cell: (e) => (
+        <span className="text-ds-text-3 font-mono text-xs">{e.reference ?? "—"}</span>
+      ),
+    },
+    {
+      id: "cc",
+      header: "CC",
+      align: "left",
+      hideOnMobile: true,
+      cell: (e) => (
+        <span className="text-ds-text-3 truncate">{e.costCenterName ?? "—"}</span>
+      ),
+    },
+    {
+      id: "debit",
+      header: "Debe",
+      align: "right",
+      cell: (e) => (
+        <span className="text-status-ok-fg" title={e.debit ? fmtCLP(e.debit) : ""}>
+          {e.debit ? fmtCLPShort(e.debit) : ""}
+        </span>
+      ),
+    },
+    {
+      id: "credit",
+      header: "Haber",
+      align: "right",
+      cell: (e) => (
+        <span className="text-status-danger-fg" title={e.credit ? fmtCLP(e.credit) : ""}>
+          {e.credit ? fmtCLPShort(e.credit) : ""}
+        </span>
+      ),
+    },
+    {
+      id: "balance",
+      header: "Saldo",
+      align: "right",
+      cell: (e) => (
+        <span className="text-ds-text-1 font-semibold" title={fmtCLP(e.runningBalance)}>
+          {fmtCLPShort(e.runningBalance)}
+        </span>
+      ),
+    },
+  ];
+
   return (
-    <div className="space-y-5">
+    <div className={cn("space-y-5", isPending && "opacity-70")}>
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <ReportsPeriodPicker value={period} onChange={refetch} />
         <ExportMenu
@@ -61,123 +140,55 @@ export function AccountDrillClient({ accountId, initialPeriod, initialData }: Pr
         />
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <KPIGrid>
         <KPICard
           label="Saldo inicial"
-          value={fmtCompact(data.openingBalance)}
-          tone="violet"
+          value={
+            <span title={fmtCLP(data.openingBalance)}>{fmtCLPShort(data.openingBalance)}</span>
+          }
+          variant="brand"
         />
-        <KPICard label="Total débitos" value={fmtCompact(data.totalDebit)} tone="emerald" />
-        <KPICard label="Total créditos" value={fmtCompact(data.totalCredit)} tone="rose" />
+        <KPICard
+          label="Total débitos"
+          value={
+            <span title={fmtCLP(data.totalDebit)}>{fmtCLPShort(data.totalDebit)}</span>
+          }
+          iconTone="emerald"
+          variant="ok"
+        />
+        <KPICard
+          label="Total créditos"
+          value={
+            <span title={fmtCLP(data.totalCredit)}>{fmtCLPShort(data.totalCredit)}</span>
+          }
+          iconTone="rose"
+          variant="danger"
+        />
         <KPICard
           label="Saldo final"
-          value={fmtCompact(data.closingBalance)}
-          tone={data.closingBalance >= 0 ? "emerald" : "rose"}
-          sub={`${data.entries.length} mov.`}
+          value={
+            <span title={fmtCLP(data.closingBalance)}>{fmtCLPShort(data.closingBalance)}</span>
+          }
+          hint={`${data.entries.length} mov.`}
+          variant={data.closingBalance >= 0 ? "ok" : "danger"}
         />
-      </div>
+      </KPIGrid>
 
-      <div
-        className="rounded-xl border bg-ds-surface overflow-hidden"
-        style={{ borderColor: "var(--ds-border)" }}
-      >
-        <div className="overflow-x-auto">
-          <table className="w-full text-[12px] tabular-nums" style={{ minWidth: 900 }}>
-            <thead className="sticky top-0" style={{ background: "var(--ds-bg-2)" }}>
-              <tr>
-                <th className="px-3 py-2 text-left font-mono uppercase tracking-wider text-[10px] text-ds-text-3 w-24">
-                  Fecha
-                </th>
-                <th className="px-3 py-2 text-right font-mono uppercase tracking-wider text-[10px] text-ds-text-3 w-12">
-                  N°
-                </th>
-                <th className="px-3 py-2 text-left font-mono uppercase tracking-wider text-[10px] text-ds-text-3">
-                  Descripción
-                </th>
-                <th className="px-3 py-2 text-left font-mono uppercase tracking-wider text-[10px] text-ds-text-3 w-24">
-                  Ref
-                </th>
-                <th className="px-3 py-2 text-left font-mono uppercase tracking-wider text-[10px] text-ds-text-3 w-32">
-                  CC
-                </th>
-                <th className="px-3 py-2 text-right font-mono uppercase tracking-wider text-[10px] text-ds-text-3 w-28">
-                  Debe
-                </th>
-                <th className="px-3 py-2 text-right font-mono uppercase tracking-wider text-[10px] text-ds-text-3 w-28">
-                  Haber
-                </th>
-                <th className="px-3 py-2 text-right font-mono uppercase tracking-wider text-[10px] text-ds-text-3 w-32">
-                  Saldo
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr className="border-t italic text-ds-text-3"
-                style={{ borderColor: "var(--ds-border-soft)" }}>
-                <td colSpan={7} className="px-3 py-2 text-right">
-                  Saldo inicial
-                </td>
-                <td className="px-3 py-2 text-right">{fmtCLP(data.openingBalance)}</td>
-              </tr>
-              {data.entries.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={8}
-                    className="px-3 py-6 text-center text-ds-text-3"
-                  >
-                    Sin movimientos en el período.
-                  </td>
-                </tr>
-              ) : (
-                data.entries.map((e, i) => (
-                  <tr
-                    key={i}
-                    className="border-t"
-                    style={{ borderColor: "var(--ds-border-soft)" }}
-                  >
-                    <td className="px-3 py-2 text-ds-text-2">{e.date}</td>
-                    <td className="px-3 py-2 text-right text-ds-text-3 font-mono">
-                      {e.entryNumber}
-                    </td>
-                    <td className="px-3 py-2 text-ds-text-1">{e.description}</td>
-                    <td className="px-3 py-2 text-ds-text-3 font-mono text-[11px]">
-                      {e.reference ?? "—"}
-                    </td>
-                    <td className="px-3 py-2 text-ds-text-3 truncate">
-                      {e.costCenterName ?? "—"}
-                    </td>
-                    <td className="px-3 py-2 text-right text-emerald-500">
-                      {e.debit ? fmtCLP(e.debit) : ""}
-                    </td>
-                    <td className="px-3 py-2 text-right text-rose-500">
-                      {e.credit ? fmtCLP(e.credit) : ""}
-                    </td>
-                    <td className="px-3 py-2 text-right text-ds-text-1">
-                      {fmtCLP(e.runningBalance)}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-            <tfoot>
-              <tr style={{ background: "var(--ds-bg-2)" }} className="border-t font-semibold">
-                <td colSpan={5} className="px-3 py-2 text-ds-text-1">
-                  Total
-                </td>
-                <td className="px-3 py-2 text-right text-emerald-500">
-                  {fmtCLP(data.totalDebit)}
-                </td>
-                <td className="px-3 py-2 text-right text-rose-500">
-                  {fmtCLP(data.totalCredit)}
-                </td>
-                <td className="px-3 py-2 text-right text-ds-text-1">
-                  {fmtCLP(data.closingBalance)}
-                </td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-      </div>
+      {data.entries.length === 0 ? (
+        <Surface padding="lg">
+          <EmptyState
+            icon={BookOpen}
+            title="Sin movimientos en el período"
+            description="No hay asientos posted para esta cuenta dentro del rango seleccionado."
+          />
+        </Surface>
+      ) : (
+        <DataTable
+          columns={columns}
+          rows={data.entries}
+          rowKey={(_, i) => `entry-${i}`}
+        />
+      )}
     </div>
   );
 }

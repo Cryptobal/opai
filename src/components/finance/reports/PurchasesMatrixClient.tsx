@@ -18,7 +18,7 @@ export function PurchasesMatrixClient({ initialPeriod, initialData }: Props) {
       initialData={initialData}
       endpoint="/api/finance/reports/purchases-matrix"
       exportEndpoint="/api/finance/reports/purchases-matrix/export"
-      accent="#F43F5E"
+      tone="rose"
       drilldownBase="/finanzas/reportes/ventas"
       filenameBase="compras"
     />

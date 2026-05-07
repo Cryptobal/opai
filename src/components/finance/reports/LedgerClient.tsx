@@ -2,10 +2,10 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { Search, ChevronRight } from "lucide-react";
-import type {
-  LedgerAccountListItem,
-} from "@/modules/finance/reports/shared/types";
+import { ChevronRight } from "lucide-react";
+import type { LedgerAccountListItem } from "@/modules/finance/reports/shared/types";
+import { Surface, Toolbar, Tag, type TagVariant } from "@/components/opai-ds";
+import { cn } from "@/lib/utils";
 
 const TYPE_LABEL: Record<string, string> = {
   ASSET: "Activo",
@@ -16,13 +16,13 @@ const TYPE_LABEL: Record<string, string> = {
   EXPENSE: "Gasto",
 };
 
-const TYPE_TONE: Record<string, string> = {
-  ASSET: "var(--ds-tint-emerald)",
-  LIABILITY: "var(--ds-tint-amber)",
-  EQUITY: "var(--ds-tint-violet)",
-  REVENUE: "var(--ds-tint-emerald)",
-  COST: "var(--ds-tint-rose)",
-  EXPENSE: "var(--ds-tint-amber)",
+const TYPE_VARIANT: Record<string, TagVariant> = {
+  ASSET: "ok",
+  LIABILITY: "warn",
+  EQUITY: "info",
+  REVENUE: "ok",
+  COST: "danger",
+  EXPENSE: "warn",
 };
 
 const TYPES = ["ASSET", "LIABILITY", "EQUITY", "REVENUE", "COST", "EXPENSE"] as const;
@@ -44,29 +44,31 @@ export function LedgerClient({ accounts }: { accounts: LedgerAccountListItem[] }
 
   return (
     <div className="space-y-4">
-      <div
-        className="flex items-center gap-2 rounded-lg border bg-ds-surface px-3 h-10"
-        style={{ borderColor: "var(--ds-border)" }}
-      >
-        <Search className="w-3.5 h-3.5 text-ds-text-3" />
-        <input
-          type="text"
-          placeholder="Buscar cuenta por código o nombre..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="flex-1 bg-transparent text-[12.5px] text-ds-text-1 placeholder:text-ds-text-4 focus:outline-none"
-        />
-      </div>
+      <Toolbar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Buscar cuenta por código o nombre..."
+        controls={
+          <label className="inline-flex items-center gap-2 text-xs text-ds-text-3 whitespace-nowrap">
+            <input
+              type="checkbox"
+              checked={hideEmpty}
+              onChange={(e) => setHideEmpty(e.target.checked)}
+            />
+            Ocultar sin movimientos
+          </label>
+        }
+      />
 
       <div className="flex items-center gap-2 flex-wrap">
         <button
           onClick={() => setTypeFilter(null)}
-          className="h-8 px-3 rounded-md text-[11.5px] border"
-          style={{
-            background: !typeFilter ? "var(--ds-bg-2)" : "var(--ds-surface)",
-            borderColor: "var(--ds-border)",
-            color: !typeFilter ? "var(--ds-text-1)" : "var(--ds-text-3)",
-          }}
+          className={cn(
+            "h-8 px-3 rounded-ds-md text-xs border transition-colors",
+            !typeFilter
+              ? "bg-ds-surface-2 text-ds-text-1 border-ds-border-strong"
+              : "bg-ds-surface text-ds-text-3 border-ds-border-default hover:bg-ds-surface-2"
+          )}
         >
           Todas
         </button>
@@ -74,72 +76,50 @@ export function LedgerClient({ accounts }: { accounts: LedgerAccountListItem[] }
           <button
             key={t}
             onClick={() => setTypeFilter(typeFilter === t ? null : t)}
-            className="h-8 px-3 rounded-md text-[11.5px] border"
-            style={{
-              background:
-                typeFilter === t
-                  ? `color-mix(in oklab, ${TYPE_TONE[t]} 15%, transparent)`
-                  : "var(--ds-surface)",
-              borderColor: typeFilter === t ? TYPE_TONE[t] : "var(--ds-border)",
-              color: typeFilter === t ? TYPE_TONE[t] : "var(--ds-text-3)",
-            }}
+            className={cn(
+              "h-8 px-3 rounded-ds-md text-xs border transition-colors",
+              typeFilter === t
+                ? "bg-primary/15 text-primary border-primary/40"
+                : "bg-ds-surface text-ds-text-3 border-ds-border-default hover:bg-ds-surface-2"
+            )}
           >
             {TYPE_LABEL[t]}
           </button>
         ))}
-        <label className="ml-auto inline-flex items-center gap-2 text-[11.5px] text-ds-text-3">
-          <input
-            type="checkbox"
-            checked={hideEmpty}
-            onChange={(e) => setHideEmpty(e.target.checked)}
-          />
-          Ocultar cuentas sin movimientos
-        </label>
       </div>
 
-      <div
-        className="rounded-xl border bg-ds-surface overflow-hidden"
-        style={{ borderColor: "var(--ds-border)" }}
-      >
+      <Surface padding="none" elevation={1} className="overflow-hidden">
         {filtered.length === 0 ? (
-          <p className="p-6 text-center text-[12.5px] text-ds-text-3">
+          <p className="p-6 text-center text-sm text-ds-text-3">
             Sin cuentas que coincidan con los filtros.
           </p>
         ) : (
-          <ul className="divide-y" style={{ borderColor: "var(--ds-border-soft)" }}>
+          <ul className="divide-y divide-ds-border-subtle">
             {filtered.map((a) => (
               <li key={a.id}>
                 <Link
                   href={`/finanzas/reportes/mayor/${a.id}`}
-                  className="flex items-center gap-3 px-4 py-2.5 hover:bg-ds-bg-2/40 transition-colors"
+                  className="flex items-center gap-3 px-4 py-2.5 hover:bg-ds-surface-2/50 transition-colors"
                 >
-                  <span
-                    className="font-mono text-[11px] text-ds-text-3 w-20 shrink-0"
-                  >
+                  <span className="font-mono text-xs text-ds-text-3 w-20 shrink-0">
                     {a.code}
                   </span>
-                  <span className="text-[12.5px] text-ds-text-1 flex-1 min-w-0 truncate">
+                  <span className="text-sm text-ds-text-1 flex-1 min-w-0 truncate">
                     {a.name}
                   </span>
-                  <span
-                    className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded shrink-0"
-                    style={{
-                      color: TYPE_TONE[a.type],
-                      background: `color-mix(in oklab, ${TYPE_TONE[a.type]} 12%, transparent)`,
-                    }}
-                  >
+                  <Tag variant={TYPE_VARIANT[a.type] ?? "neutral"} className="shrink-0">
                     {TYPE_LABEL[a.type]}
+                  </Tag>
+                  <span className="text-xs text-ds-text-3 ds-num w-16 text-right shrink-0">
+                    {a.movementsCount} mov.
                   </span>
-                  <span className="text-[11.5px] text-ds-text-3 tabular-nums w-16 text-right shrink-0">
-                    {a.movementsCount}
-                  </span>
-                  <ChevronRight className="w-3.5 h-3.5 text-ds-text-4" />
+                  <ChevronRight className="w-3.5 h-3.5 text-ds-text-4 shrink-0" />
                 </Link>
               </li>
             ))}
           </ul>
         )}
-      </div>
+      </Surface>
     </div>
   );
 }

@@ -7,7 +7,7 @@ import {
   canView,
   hasCapability,
 } from "@/lib/permissions-server";
-import { ReportsSidebar } from "@/components/finance/reports/ReportsSidebar";
+import { ReportsTabs } from "@/components/finance/reports/ReportsTabs";
 import { FinanceSubnav } from "@/components/finance/FinanceSubnav";
 
 export default async function ReportsLayout({ children }: { children: ReactNode }) {
@@ -19,12 +19,10 @@ export default async function ReportsLayout({ children }: { children: ReactNode 
     redirect("/finanzas");
   }
   return (
-    <div className="space-y-4 min-w-0 pb-16 lg:pb-0">
+    <div className="space-y-3 min-w-0">
       <FinanceSubnav />
-      <div className="flex gap-4 min-w-0">
-        <ReportsSidebar />
-        <div className="flex-1 min-w-0">{children}</div>
-      </div>
+      <ReportsTabs />
+      <div className="min-w-0">{children}</div>
     </div>
   );
 }
