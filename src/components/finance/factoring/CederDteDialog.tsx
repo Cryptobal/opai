@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Coins, Loader2 } from "lucide-react";
+import { Coins, ExternalLink, Loader2, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,6 +30,8 @@ interface FactoringCompanyOpt {
   rut: string;
   rutFormatted: string;
   razonSocial: string;
+  direccion: string | null;
+  email: string | null;
   defaultAdvanceRate: number | null;
   defaultInterestRate: number | null;
   defaultCommissionPct: number | null;
@@ -87,14 +90,21 @@ export function CederDteDialog({ open, onOpenChange, dte }: Props) {
       .finally(() => setLoadingCompanies(false));
   }, [open]);
 
+  const selectedCompany = useMemo(
+    () => companies.find((c) => c.id === factoringId) ?? null,
+    [factoringId, companies],
+  );
+
   // Auto-rellenar tasas al elegir factoring del catálogo.
   useEffect(() => {
-    const f = companies.find((c) => c.id === factoringId);
-    if (!f) return;
-    if (f.defaultAdvanceRate !== null) setAdvanceRate(String(f.defaultAdvanceRate));
-    if (f.defaultInterestRate !== null) setInterestRate(String(f.defaultInterestRate));
-    if (f.defaultCommissionPct !== null) setCommissionPct(String(f.defaultCommissionPct));
-  }, [factoringId, companies]);
+    if (!selectedCompany) return;
+    if (selectedCompany.defaultAdvanceRate !== null)
+      setAdvanceRate(String(selectedCompany.defaultAdvanceRate));
+    if (selectedCompany.defaultInterestRate !== null)
+      setInterestRate(String(selectedCompany.defaultInterestRate));
+    if (selectedCompany.defaultCommissionPct !== null)
+      setCommissionPct(String(selectedCompany.defaultCommissionPct));
+  }, [selectedCompany]);
 
   // Cálculos en vivo.
   const calc = useMemo(() => {
@@ -180,6 +190,43 @@ export function CederDteDialog({ open, onOpenChange, dte }: Props) {
                 ))}
               </SelectContent>
             </Select>
+            {selectedCompany ? (
+              <div className="mt-2 rounded-lg border border-ds-border-subtle bg-ds-surface-2 p-3 text-sm">
+                <div className="flex items-center justify-between gap-2 mb-1.5">
+                  <span className="text-[11px] uppercase tracking-wide text-ds-text-3 inline-flex items-center gap-1">
+                    <Lock className="h-3 w-3" /> Datos del cesionario (desde catálogo)
+                  </span>
+                  <Link
+                    href="/finanzas/facturacion/cesiones/factorings"
+                    target="_blank"
+                    rel="noopener"
+                    className="text-[11px] text-primary hover:underline inline-flex items-center gap-0.5"
+                  >
+                    Editar en catálogo <ExternalLink className="h-3 w-3" />
+                  </Link>
+                </div>
+                <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-0.5 text-xs">
+                  <div className="flex justify-between gap-2">
+                    <dt className="text-ds-text-3">RUT</dt>
+                    <dd className="text-ds-text-1 font-mono">
+                      {selectedCompany.rutFormatted}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-2 sm:col-span-1">
+                    <dt className="text-ds-text-3">Email</dt>
+                    <dd className="text-ds-text-1 truncate">
+                      {selectedCompany.email ?? "—"}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-2 sm:col-span-2">
+                    <dt className="text-ds-text-3">Dirección</dt>
+                    <dd className="text-ds-text-1 truncate">
+                      {selectedCompany.direccion ?? "—"}
+                    </dd>
+                  </div>
+                </dl>
+              </div>
+            ) : null}
           </div>
           <div>
             <Label htmlFor="fechaCesion">Fecha cesión</Label>

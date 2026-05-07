@@ -46,6 +46,23 @@ export function FactoringCompanyForm({ mode, company, onClose, onSuccess }: Prop
   };
 
   const handleSubmit = async () => {
+    const advance = form.defaultAdvanceRate === "" ? null : Number(form.defaultAdvanceRate);
+    const interest = form.defaultInterestRate === "" ? null : Number(form.defaultInterestRate);
+    const commission =
+      form.defaultCommissionPct === "" ? null : Number(form.defaultCommissionPct);
+
+    const pctChecks: Array<[string, number | null]> = [
+      ["Anticipo default", advance],
+      ["Interés mensual default", interest],
+      ["Comisión default", commission],
+    ];
+    for (const [label, value] of pctChecks) {
+      if (value !== null && (Number.isNaN(value) || value < 0 || value > 100)) {
+        toast.error(`${label}: debe ser un porcentaje entre 0 y 100.`);
+        return;
+      }
+    }
+
     setSubmitting(true);
     try {
       const payload = {
@@ -58,12 +75,9 @@ export function FactoringCompanyForm({ mode, company, onClose, onSuccess }: Prop
         contactName: form.contactName.trim() || null,
         contactEmail: form.contactEmail.trim() || null,
         contactPhone: form.contactPhone.trim() || null,
-        defaultAdvanceRate:
-          form.defaultAdvanceRate === "" ? null : Number(form.defaultAdvanceRate),
-        defaultInterestRate:
-          form.defaultInterestRate === "" ? null : Number(form.defaultInterestRate),
-        defaultCommissionPct:
-          form.defaultCommissionPct === "" ? null : Number(form.defaultCommissionPct),
+        defaultAdvanceRate: advance,
+        defaultInterestRate: interest,
+        defaultCommissionPct: commission,
         notes: form.notes.trim() || null,
       };
 
@@ -194,6 +208,7 @@ export function FactoringCompanyForm({ mode, company, onClose, onSuccess }: Prop
               min="0"
               max="100"
               step="0.01"
+              placeholder="Ej: 90"
               value={form.defaultAdvanceRate}
               onChange={(e) => setField("defaultAdvanceRate", e.target.value)}
               className="h-10 sm:h-9"
@@ -207,6 +222,7 @@ export function FactoringCompanyForm({ mode, company, onClose, onSuccess }: Prop
               min="0"
               max="100"
               step="0.01"
+              placeholder="Ej: 1.5"
               value={form.defaultInterestRate}
               onChange={(e) => setField("defaultInterestRate", e.target.value)}
               className="h-10 sm:h-9"
@@ -220,10 +236,15 @@ export function FactoringCompanyForm({ mode, company, onClose, onSuccess }: Prop
               min="0"
               max="100"
               step="0.01"
+              placeholder="Ej: 0.5"
               value={form.defaultCommissionPct}
               onChange={(e) => setField("defaultCommissionPct", e.target.value)}
               className="h-10 sm:h-9"
             />
+            <p className="text-[11px] text-ds-text-3 mt-1">
+              Porcentaje (0–100). Si tu factoring cobra un monto fijo, déjalo
+              vacío y registralo por cesión.
+            </p>
           </div>
           <div className="sm:col-span-2">
             <Label htmlFor="notes">Notas</Label>
