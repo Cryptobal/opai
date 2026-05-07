@@ -2062,6 +2062,25 @@ function ReceivedDteDetailDialog({
   const [acuseLoading, setAcuseLoading] = useState<
     null | "ACCEPT" | "CLAIM_CONTENT" | "CLAIM_PARTIAL" | "CLAIM_TOTAL"
   >(null);
+  /**
+   * Estado del modal "¿Notificar al SII?". Cuando el usuario clickea
+   * Aceptar / Reclamar, en vez de disparar la llamada directo, abrimos
+   * este modal donde puede:
+   *   1. Confirmar la acción.
+   *   2. Elegir si notificar al SII (default sí) o solo guardar en
+   *      OPAI como clasificación interna.
+   *   3. Agregar un motivo (para reclamos).
+   *
+   * IMPORTANTE: este `useState` debe ir junto con los otros hooks
+   * ANTES del `if (!dte) return null` para no violar las reglas de
+   * hooks (la cantidad debe ser estable entre renders, sino React
+   * lanza error #310).
+   */
+  const [acusePending, setAcusePending] = useState<{
+    action: "ACCEPT" | "CLAIM_CONTENT" | "CLAIM_PARTIAL" | "CLAIM_TOTAL";
+    notifySii: boolean;
+    reason: string;
+  } | null>(null);
 
   // Cargar adjuntos al abrir el modal.
   useEffect(() => {
@@ -2130,21 +2149,6 @@ function ReceivedDteDetailDialog({
       setDeleting(null);
     }
   }
-
-  /**
-   * Estado del modal "¿Notificar al SII?". Cuando el usuario clickea
-   * Aceptar / Reclamar, en vez de disparar la llamada directo, abrimos
-   * este modal donde puede:
-   *   1. Confirmar la acción.
-   *   2. Elegir si notificar al SII (default sí) o solo guardar en
-   *      OPAI como clasificación interna.
-   *   3. Agregar un motivo (para reclamos).
-   */
-  const [acusePending, setAcusePending] = useState<{
-    action: "ACCEPT" | "CLAIM_CONTENT" | "CLAIM_PARTIAL" | "CLAIM_TOTAL";
-    notifySii: boolean;
-    reason: string;
-  } | null>(null);
 
   /** Dispara el modal de confirmación de acuse. */
   function openAcuseConfirm(

@@ -1123,21 +1123,67 @@ export function CrmAccountDetailClient({
             </div>
           </div>
         )}
-        {account.giro && (
-          <div className="flex items-start gap-3 rounded-xl border border-border bg-card p-4">
-            <span className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border border-muted-foreground/40 text-[10px] font-bold text-muted-foreground">
-              ₡
-            </span>
-            <div className="min-w-0">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
-                Giro / Actividad económica
-              </p>
-              <p className="break-words text-[14px] leading-snug text-foreground">
-                {account.giro}
-              </p>
+      </div>
+
+      {/* Bloque "Datos para facturación SII" — siempre visible para que el
+          operador vea de un vistazo qué datos del receptor se autocompletarán
+          al emitir un DTE para esta cuenta. Si algún campo está vacío,
+          muestra "Sin cargar" con un hint para editar. */}
+      <div className="rounded-xl border border-border bg-card">
+        <div className="flex items-center justify-between gap-2 border-b border-border/50 px-4 py-2">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
+            Datos para facturación SII
+          </p>
+          <button
+            type="button"
+            onClick={openAccountEdit}
+            className="text-[11px] font-medium text-primary hover:underline"
+          >
+            Editar
+          </button>
+        </div>
+        <div className="grid grid-cols-1 gap-x-4 gap-y-2 p-4 sm:grid-cols-2">
+          <div className="min-w-0">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
+              Giro / Actividad económica
+            </div>
+            <div className="break-words text-[13px] leading-snug text-foreground">
+              {account.giro || (
+                <span className="italic text-muted-foreground/70">
+                  Sin cargar — requerido por SII al facturar
+                </span>
+              )}
             </div>
           </div>
-        )}
+          <div className="min-w-0">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
+              Dirección
+            </div>
+            <div className="break-words text-[13px] leading-snug text-foreground">
+              {account.address || <span className="italic text-muted-foreground/70">Sin cargar</span>}
+            </div>
+          </div>
+          <div className="min-w-0">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
+              Comuna
+            </div>
+            <div className="break-words text-[13px] leading-snug text-foreground">
+              {account.commune || <span className="italic text-muted-foreground/70">Sin cargar</span>}
+            </div>
+          </div>
+          <div className="min-w-0">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
+              Ciudad
+            </div>
+            <div className="break-words text-[13px] leading-snug text-foreground">
+              {account.city || (
+                <span className="italic text-muted-foreground/70">
+                  Sin cargar — SII pide ambas (comuna + ciudad)
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* ── Stats strip: datos clave (2 col mobile, 4 desktop) ── */}
