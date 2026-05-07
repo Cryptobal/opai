@@ -318,7 +318,7 @@ async function computeBankBalanceForTenant(
     select: { currentBalance: true },
   });
   const saldo = accounts.reduce(
-    (acc, a) => acc + a.currentBalance.toNumber(),
+    (acc, a) => acc + (a.currentBalance?.toNumber() ?? 0),
     0,
   );
   return { saldoBancario: saldo, bankAccountsCount: accounts.length };
