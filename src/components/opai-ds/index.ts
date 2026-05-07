@@ -36,4 +36,6 @@ export { HeatGrid, type HeatGridProps, type HeatGridRow, type HeatGridColumn } f
 export { Avatar, type AvatarProps, type AvatarVariant } from "./Avatar";
 export { Breadcrumbs, type BreadcrumbsProps, type BreadcrumbItem } from "./Breadcrumbs";
 export { SubNav, type SubNavItem } from "./SubNav";
+export { SwipeTabs, type SwipeTabsProps, type SwipeTabItem } from "./SwipeTabs";
+export { ModuleSubNav, type ModuleSubNavProps } from "./ModuleSubNav";
 export { thresholdFromScore, type Threshold } from "./tokens";
