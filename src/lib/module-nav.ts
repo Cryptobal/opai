@@ -35,6 +35,8 @@ export interface BottomNavItem {
   href: string;
   label: string;
   icon: LucideIcon;
+  /** When true, only matches when pathname === href exactly. */
+  exactMatch?: boolean;
 }
 
 /* ── Helpers ── */
@@ -45,6 +47,7 @@ function nodeToBottomNavItem(node: NavNode): BottomNavItem {
     href: node.href,
     label: node.shortLabel ?? node.label,
     icon: node.icon,
+    exactMatch: node.exactMatch,
   };
 }
 

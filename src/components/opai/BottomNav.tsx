@@ -639,6 +639,17 @@ function ModuleSubNav({ items, activeModule, pathname, onBack }: { items: Bottom
   const overflowItems = orderedItems.slice(MAX_VISIBLE);
   const hasOverflow = overflowItems.length > 0 || items.length > MAX_VISIBLE;
 
+  // Longest-prefix-wins matching across the items in this module so a deep
+  // route like /finanzas/reportes/eerr resaltea "EERR" en vez de "Dashboard"
+  // (que tiene exactMatch:true sobre /finanzas/reportes).
+  const activeHref = orderedItems
+    .filter((i) =>
+      i.exactMatch
+        ? pathname === i.href
+        : pathname === i.href || pathname.startsWith(i.href + '/'),
+    )
+    .sort((a, b) => b.href.length - a.href.length)[0]?.href;
+
   return (
     <>
       {/* Back button */}
@@ -657,7 +668,7 @@ function ModuleSubNav({ items, activeModule, pathname, onBack }: { items: Bottom
         const isChatToggle = item.key === 'chat';
         const isActive = isChatToggle
           ? !!chatCtx?.isPanelOpen
-          : (pathname === item.href || pathname.startsWith(item.href + '/'));
+          : item.href === activeHref;
         const Icon = item.icon;
 
         const content = (
@@ -716,7 +727,7 @@ function ModuleSubNav({ items, activeModule, pathname, onBack }: { items: Bottom
             <div className="space-y-1 mb-4">
               {overflowItems.map((item: BottomNavItem) => {
                 const Icon = item.icon;
-                const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+                const isActive = item.href === activeHref;
                 return (
                   <Link
                     key={item.key}

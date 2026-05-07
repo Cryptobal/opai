@@ -77,11 +77,18 @@ function AppShellInner({
   }, [chatCtx, notifCtx]);
 
   const anyPanelOpen = chatCtx.isPanelOpen || notifCtx.isPanelOpen;
+  // Sidebar default: si el usuario no eligió antes, abrimos en viewports ≥ xl
+  // (1280px) para que en pantallas grandes la nav N2 sea visible sin hover.
+  // En lg (1024–1279) queda colapsado para no comer ancho.
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
     if (typeof window === 'undefined') return false;
     try {
       const stored = localStorage.getItem('opai-sidebar-open');
-      return stored !== null ? stored === 'true' : false;
+      if (stored !== null) return stored === 'true';
+      // Sin preferencia guardada → expandido en xl+, colapsado en lg.
+      return typeof window.matchMedia === 'function'
+        ? window.matchMedia('(min-width: 1280px)').matches
+        : false;
     } catch { return false; }
   });
 
