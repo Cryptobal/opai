@@ -200,13 +200,17 @@ export async function applyAcuse(
   // dejamos NULL para que `simpleapi-http` use las env vars (modo legacy
   // que ya está funcionando con el cron RCV).
   const auth: SimpleApiAuth = { apiKey: null, baseUrl: null };
+  // CRÍTICO: rutEmpresa = RUT del PROVEEDOR que emitió el DTE
+  // (`dte.issuerRut`), NO del receptor. Doc oficial Postman de SimpleAPI:
+  // "Rut de la empresa proveedora que emitió el documento a
+  // aceptar/rechazar." El cert ya identifica al receptor que firma.
   const ctx = {
     auth,
     environment: config.environment as "CERTIFICATION" | "PRODUCTION",
     pfxBuffer,
     pfxPassword,
     rutTitular: cert.rutTitular,
-    rutEmpresa: config.emisorRut,
+    rutEmpresa: dte.issuerRut,
   };
 
   // ─── 3. Disparar acción contra SimpleAPI ───

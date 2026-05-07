@@ -37,10 +37,13 @@
  *     "Ambiente": 1
  *   }
  *
- * `RutEmpresa` es el RUT del **receptor** del DTE (= la empresa del
- * tenant OPAI que está acusando), NO el del proveedor que lo emitió.
- * El SII usa el cert para autenticar, y `RutEmpresa` para identificar
- * sobre qué libro de compras se aplica el acuse.
+ * `RutEmpresa` es el RUT del **proveedor que EMITIÓ el DTE** (NO el del
+ * receptor que está acusando). Esto es contraintuitivo pero está
+ * documentado literal en el Postman oficial de SimpleAPI:
+ *   "RutEmpresa: Rut de la empresa proveedora que emitió el documento
+ *    a aceptar/rechazar."
+ * El cert del receptor se usa para autenticar; `RutEmpresa` indica
+ * sobre qué emisor se aplica el acuse.
  */
 
 import { callSimpleApi, type SimpleApiAuth } from "./simpleapi-http";
@@ -54,7 +57,11 @@ export interface AcuseContext {
   pfxBuffer: Buffer;
   pfxPassword: string;
   rutTitular: string;
-  /** RUT de la empresa receptora del DTE (= tenant OPAI que acusa). */
+  /**
+   * RUT del PROVEEDOR (= emisor del DTE recibido), NO del receptor.
+   * Doc Postman SimpleAPI: "Rut de la empresa proveedora que emitió
+   * el documento a aceptar/rechazar." Pasarlo como `dte.issuerRut`.
+   */
   rutEmpresa: string;
 }
 
