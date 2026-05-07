@@ -84,6 +84,30 @@ describe("sales-aggregator — buildMonthRange", () => {
     expect(buildMonthRange("invalid", now).label).toBe("Mayo 2026");
     expect(buildMonthRange("2026-13", now).label).toBe("Mayo 2026");
   });
+
+  it("YTD devuelve año en curso (enero a fin del mes en curso)", () => {
+    const now = new Date(Date.UTC(2026, 4, 15)); // mayo 2026
+    const r = buildMonthRange("YTD", now);
+    expect(r.from.toISOString()).toBe("2026-01-01T00:00:00.000Z");
+    expect(r.to.toISOString()).toBe("2026-06-01T00:00:00.000Z");
+    expect(r.label).toBe("Año 2026");
+  });
+
+  it("PREV devuelve mes anterior completo", () => {
+    const now = new Date(Date.UTC(2026, 4, 15)); // mayo 2026
+    const r = buildMonthRange("PREV", now);
+    expect(r.from.toISOString()).toBe("2026-04-01T00:00:00.000Z");
+    expect(r.to.toISOString()).toBe("2026-05-01T00:00:00.000Z");
+    expect(r.label).toBe("Abril 2026");
+  });
+
+  it("PREV en enero devuelve diciembre del año anterior", () => {
+    const now = new Date(Date.UTC(2026, 0, 15)); // enero 2026
+    const r = buildMonthRange("PREV", now);
+    expect(r.from.toISOString()).toBe("2025-12-01T00:00:00.000Z");
+    expect(r.to.toISOString()).toBe("2026-01-01T00:00:00.000Z");
+    expect(r.label).toBe("Diciembre 2025");
+  });
 });
 
 describe("sales-aggregator — prevRangeOf", () => {

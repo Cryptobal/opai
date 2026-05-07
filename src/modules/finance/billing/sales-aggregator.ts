@@ -118,9 +118,15 @@ export function formatMonthLabel(year: number, monthOneIdx: number): string {
 
 /**
  * Construye el rango UTC para un período. Acepta:
- *   - "ALL" → últimos 12 meses (incluyendo el actual).
- *   - "YYYY-MM" → ese mes específico.
+ *   - "ALL"      → últimos 12 meses (incluyendo el actual).
+ *   - "YTD"      → año en curso, desde 1° de enero hasta hoy (mes en curso).
+ *   - "PREV"     → mes anterior completo.
+ *   - "YYYY-MM"  → ese mes específico.
  *   - null/undefined/"" → mes actual.
+ *
+ * Los presets "YTD" y "PREV" se agregaron en Fase 7 para el selector
+ * del hero "Salud financiera". El caller solo pasa la string y el
+ * helper resuelve el rango y la etiqueta humana correspondiente.
  */
 export function buildMonthRange(
   periodo: string | null | undefined,
@@ -134,6 +140,26 @@ export function buildMonthRange(
       Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1),
     );
     return { from: start, to: end, label: "Últimos 12 meses" };
+  }
+  if (periodo === "YTD") {
+    // Año en curso = 1° enero hasta inicio del mes siguiente al actual.
+    // No incluye días futuros del mes en curso (no tiene sentido para
+    // "ventas del año": las facturas futuras todavía no existen).
+    const start = new Date(Date.UTC(now.getUTCFullYear(), 0, 1));
+    const end = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1),
+    );
+    return { from: start, to: end, label: `Año ${now.getUTCFullYear()}` };
+  }
+  if (periodo === "PREV") {
+    // Mes anterior completo. Si hoy es 7 may → 1 abr a 1 may.
+    const start = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1),
+    );
+    const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+    const prevY = start.getUTCFullYear();
+    const prevM = start.getUTCMonth() + 1;
+    return { from: start, to: end, label: formatMonthLabel(prevY, prevM) };
   }
   if (periodo && /^\d{4}-\d{2}$/.test(periodo)) {
     const [y, m] = periodo.split("-").map((s) => parseInt(s, 10));

@@ -55,7 +55,7 @@ import { DteAgingBadge } from "./DteAgingBadge";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { PaginationControls } from "./PaginationControls";
-import { KPIRow, TrendChart } from "./FacturacionDashboardWidgets";
+import { TrendChart } from "./FacturacionDashboardWidgets";
 import { LibroIvaTab } from "./LibroIvaTab";
 import { BorradoresTab } from "./BorradoresTab";
 import { CostCenterEditor } from "./CostCenterEditor";
@@ -317,65 +317,35 @@ export function FacturacionClient({
     return "dtes";
   })();
   const [activeTab, setActiveTab] = useState<TabId>(initialTab);
-  // Filtro de período compartido entre KPIs, TrendChart y DtesTab.
-  // "ALL" = últimos 12 meses agregados; "YYYY-MM" = mes específico.
-  // Default "ALL" coincide con el comportamiento previo de la tabla.
+  // Filtro de período de la TABLA DTEs Emitidos (toolbar interno) y del
+  // TrendChart de abajo. El hero "Salud financiera" tiene su PROPIO
+  // selector independiente (decisión consciente: hero muestra el período
+  // estratégico, tabla muestra el período transaccional). Default ALL
+  // coincide con el comportamiento previo.
   const [periodoFilter, setPeriodoFilter] = useState("ALL");
-  // KPIs como state: SSR provee hidratación para el mes actual; el cliente
-  // refetchea al endpoint /api/finance/billing/kpis cuando cambia el período.
-  const [kpis, setKpis] = useState<FacturacionKpis>(initialKpis);
-  const [kpisLoading, setKpisLoading] = useState(false);
-  // Skip el primer fetch si el filtro coincide con el default del SSR (mes
-  // actual). Cuando el usuario cambia a otro período, refetch.
-  const [hasFetchedKpis, setHasFetchedKpis] = useState(false);
-
-  useEffect(() => {
-    // El SSR calcula el mes actual; "ALL" agrega últimos 12 meses, así que
-    // SIEMPRE difiere del SSR y requiere fetch. Aplicamos fetch en cada
-    // cambio.
-    const ctrl = new AbortController();
-    setKpisLoading(true);
-    (async () => {
-      try {
-        const params = new URLSearchParams();
-        params.set("periodo", periodoFilter);
-        const res = await fetch(
-          `/api/finance/billing/kpis?${params.toString()}`,
-          { signal: ctrl.signal },
-        );
-        if (!res.ok) throw new Error();
-        const json = await res.json();
-        if (json?.success && json.data) {
-          setKpis(json.data as FacturacionKpis);
-        }
-      } catch (err) {
-        if ((err as Error).name !== "AbortError") {
-          // Silencioso: mantenemos los KPIs previos en pantalla.
-          console.error("[FacturacionClient] KPIs refetch failed:", err);
-        }
-      } finally {
-        setKpisLoading(false);
-        setHasFetchedKpis(true);
-      }
-    })();
-    return () => ctrl.abort();
-  }, [periodoFilter]);
 
   // Estado intermedio: cuando el usuario hace click en "Pendientes SII"
-  // del KPI, queremos cambiar al tab Emitidos Y aplicar el filtro de
-  // estado. Comunicamos a DtesTab vía prop forcedStatusFilter.
+  // del KPI/hero, queremos cambiar al tab Emitidos Y aplicar el filtro
+  // de estado. Comunicamos a DtesTab vía prop forcedStatusFilter.
   const [forcedStatusFilter, setForcedStatusFilter] = useState<string | null>(
     null,
   );
 
+  // Compatibilidad: `initialKpis` ya no se renderiza en KPIRow (eliminado
+  // en Fase 7) pero el SC lo sigue calculando para los reportes y para
+  // que el hero pueda recibir un fallback inicial si falla el fetch.
+  // Si en el futuro no lo necesitamos lo limpiamos del SC.
+  void initialKpis;
+
   return (
     <div className="space-y-4">
-      {/* Hero "Salud financiera del mes": panel arriba de los KPIs.
-          Cobrado vs facturado, aging buckets, IVA neto, margen, mini
-          chart de cobro vs facturación últimos 6 meses. Es lo PRIMERO
-          que el usuario ve al entrar al módulo. */}
+      {/* Hero "Salud financiera": panel principal con stats financieros,
+          aging, IVA neto, mini-chart 6 meses Y tiles operativos
+          (Pendientes SII + Folios). Reemplazó al KPIRow legacy que
+          duplicaba Facturado e IVA. Tiene su propio selector de período
+          interno (Mes actual / Mes anterior / Año en curso / 12 meses /
+          Otro mes). */}
       <SaludFinancieraHero
-        periodo={periodoFilter}
         onClickVencidas={() => {
           setActiveTab("dtes");
           // Filtro por OVERDUE (Tabla emitidos lo soporta vía
@@ -383,21 +353,18 @@ export function FacturacionClient({
           // SII status — por ahora solo cambia tab y deja al usuario
           // filtrar manualmente. Mejora futura: filtro propio de pago).
         }}
+        onClickPendientesSii={() => {
+          setActiveTab("dtes");
+          setForcedStatusFilter("PENDING");
+        }}
+        onClickFolios={() => setActiveTab("folios")}
       />
 
-      {/* Dashboard widgets */}
-      <KPIRow
-        kpis={kpis}
-        loading={kpisLoading && !hasFetchedKpis}
-        actions={{
-          onClickPendientesSii: () => {
-            setActiveTab("dtes");
-            setForcedStatusFilter("PENDING");
-          },
-          onClickFolios: () => setActiveTab("folios"),
-          onClickIva: () => setActiveTab("libro"),
-        }}
-      />
+      {/* TrendChart ventas vs compras 6 meses. Es info distinta al
+          mini-chart del hero (que muestra cobrado vs facturado). El
+          KPIRow legacy fue removido en Fase 7 — sus métricas
+          (Facturado/IVA débito) están duplicadas con el hero, y las
+          operativas (Pendientes SII + Folios) ahora son tiles del hero. */}
       <TrendChart periodo={periodoFilter} />
 
       {/* Tab navigation */}

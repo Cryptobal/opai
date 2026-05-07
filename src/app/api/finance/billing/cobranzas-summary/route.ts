@@ -14,8 +14,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { hasFacturacionCapability } from "@/lib/permissions";
+import { prisma } from "@/lib/prisma";
 import { buildMonthRange } from "@/modules/finance/billing/sales-aggregator";
 import { computeCobranzasSummary } from "@/modules/finance/billing/cobranzas-aggregator";
+import { getFolioStatus } from "@/modules/finance/billing/folio.service";
 
 export async function GET(request: NextRequest) {
   try {
@@ -33,11 +35,39 @@ export async function GET(request: NextRequest) {
     const periodo = url.searchParams.get("periodo");
     const range = buildMonthRange(periodo);
 
-    const summary = await computeCobranzasSummary(ctx.tenantId, range);
+    // Estos KPIs operativos (Pendientes SII, Folios) NO dependen del
+    // período: reflejan el estado actual del módulo. Los servimos en
+    // el mismo endpoint para que el hero "Salud financiera" pueda
+    // mostrarlos sin un round trip extra.
+    const [summary, pendientesSii, folioStatuses] = await Promise.all([
+      computeCobranzasSummary(ctx.tenantId, range),
+      prisma.financeDte.count({
+        where: {
+          tenantId: ctx.tenantId,
+          direction: "ISSUED",
+          siiStatus: { in: ["PENDING", "SENT"] },
+        },
+      }),
+      getFolioStatus(ctx.tenantId),
+    ]);
+
+    const foliosDisponibles = folioStatuses.reduce(
+      (acc, f) => acc + f.disponibles,
+      0,
+    );
+    const foliosLowCount = folioStatuses.filter((f) => f.lowStock).length;
 
     return NextResponse.json({
       success: true,
-      data: { ...summary, periodLabel: range.label },
+      data: {
+        ...summary,
+        periodLabel: range.label,
+        operational: {
+          pendientesSii,
+          foliosDisponibles,
+          foliosLowCount,
+        },
+      },
     });
   } catch (error) {
     console.error("[Finance/Cobranzas/Summary] Error:", error);

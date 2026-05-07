@@ -1,27 +1,28 @@
 "use client";
 
 /**
- * SaludFinancieraHero — panel "salud financiera del mes" arriba del
- * KPIRow del módulo Facturación. Es lo PRIMERO que ve un dueño/CEO al
- * entrar: facturado, cobrado, por cobrar, aging, margen, IVA neto y
- * un mini-chart de cobrado vs facturado de los últimos 6 meses.
+ * SaludFinancieraHero — panel "salud financiera" arriba del módulo
+ * Facturación. Es lo PRIMERO que ve un dueño/CEO al entrar.
  *
- * Diseño:
- * - Surface elevation 2 con padding cómodo en desktop, compacto en
- *   mobile (mismo patrón que Inventario migrado).
- * - 4 stats principales en grilla (1 col mobile, 2 cols sm, 4 cols lg).
- * - Aging breakdown: 3 barras visuales (0-30 / 31-60 / 60+) con
- *   StatusDot por color (info/warn/danger) y conteo + monto.
- * - Mini-chart 6 meses (Recharts AreaChart, idéntico al TrendChart
- *   del KPIRow pero con cobrado en lugar de compras).
- * - Banner alerta vencidas si hay X > 0.
+ * Contenido (todo en un solo bloque para evitar duplicación con KPIs
+ * inferiores):
+ *   - Selector de período propio (Mes actual / Mes anterior / Año en
+ *     curso / Últimos 12 meses + dropdown "Otro mes"). Independiente
+ *     del filtro de la tabla DTEs.
+ *   - 4 tiles principales: Facturado neto · Cobrado · Por cobrar · Margen
+ *     bruto.
+ *   - Aging breakdown (3 buckets: 0-30 / 31-60 / 60+).
+ *   - IVA neto del período (con débito y crédito desglosado).
+ *   - Mini-chart 6 meses Facturado vs Cobrado.
+ *   - Tiles operativos compactos: Pendientes SII y Folios disponibles
+ *     (no dependen del período seleccionado).
+ *   - Banner de vencidas con click-through al filtro de pago overdue.
  *
- * Source of truth: GET /api/finance/billing/cobranzas-summary (período
- * sincronizado con el filtro global) y GET /cobranzas-trend (6 meses
- * fijos, no cambia con el filtro porque es contexto histórico).
+ * Source of truth: GET /api/finance/billing/cobranzas-summary (con
+ * período variable) y GET /cobranzas-trend (6 meses fijos).
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   TrendingUp,
   Banknote,
@@ -30,8 +31,17 @@ import {
   PieChart,
   Receipt,
   ArrowDownToLine,
+  Hash,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   AreaChart,
   Area,
@@ -62,6 +72,11 @@ interface CobranzasSummary {
   ivaCredito: number;
   cobradoPct: number;
   periodLabel: string;
+  operational?: {
+    pendientesSii: number;
+    foliosDisponibles: number;
+    foliosLowCount: number;
+  };
 }
 
 interface TrendPoint {
@@ -89,17 +104,70 @@ const fmtCLPShort = (n: number): string => {
 };
 
 interface Props {
-  /** Filtro de período del módulo (sincronizado con KPIRow). */
-  periodo: string;
-  /** Si true, click en "Vencidas" filtra la tabla (delegado al padre). */
+  /** Click en banner "vencidas" del header. */
   onClickVencidas?: () => void;
+  /** Click en tile "Pendientes SII" (cambia tab + filtra). */
+  onClickPendientesSii?: () => void;
+  /** Click en tile "Folios disp." (cambia al tab Folios). */
+  onClickFolios?: () => void;
 }
 
 const STAT_TILE = "rounded-md border border-ds-border-subtle bg-ds-surface-2 p-3 min-w-0";
+const STAT_TILE_TAPPABLE =
+  "rounded-md border border-ds-border-subtle bg-ds-surface-2 p-3 min-w-0 cursor-pointer hover:bg-ds-surface-3 hover:border-ds-border-default transition-colors text-left w-full";
 const STAT_LABEL =
   "text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-3 mb-1 flex items-center gap-1.5";
 
-export function SaludFinancieraHero({ periodo, onClickVencidas }: Props) {
+/** Presets del selector de período. Sincronizados con buildMonthRange. */
+const PERIOD_PRESETS = [
+  { value: "current", label: "Mes en curso" },
+  { value: "PREV", label: "Mes anterior" },
+  { value: "YTD", label: "Año en curso" },
+  { value: "ALL", label: "Últimos 12 meses" },
+] as const;
+
+const MES_NAMES = [
+  "Enero",
+  "Febrero",
+  "Marzo",
+  "Abril",
+  "Mayo",
+  "Junio",
+  "Julio",
+  "Agosto",
+  "Septiembre",
+  "Octubre",
+  "Noviembre",
+  "Diciembre",
+];
+
+/** Genera opciones de mes específico para el dropdown "Otro mes". */
+function buildSpecificMonthOptions(monthsBack = 24): { value: string; label: string }[] {
+  const out: { value: string; label: string }[] = [];
+  const now = new Date();
+  // Saltamos el mes actual y el anterior porque ya están en los presets.
+  for (let i = 2; i < monthsBack; i++) {
+    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
+    const y = d.getUTCFullYear();
+    const m = d.getUTCMonth() + 1;
+    out.push({
+      value: `${y}-${String(m).padStart(2, "0")}`,
+      label: `${MES_NAMES[m - 1]} ${y}`,
+    });
+  }
+  return out;
+}
+
+export function SaludFinancieraHero({
+  onClickVencidas,
+  onClickPendientesSii,
+  onClickFolios,
+}: Props) {
+  // Período del hero — INDEPENDIENTE del filtro de la tabla. Default
+  // ALL (últimos 12 meses) por consistencia con el comportamiento previo.
+  const [periodo, setPeriodo] = useState<string>("ALL");
+  const specificMonthOpts = useMemo(() => buildSpecificMonthOptions(36), []);
+
   const [summary, setSummary] = useState<CobranzasSummary | null>(null);
   const [trend, setTrend] = useState<TrendPoint[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -107,8 +175,12 @@ export function SaludFinancieraHero({ periodo, onClickVencidas }: Props) {
   useEffect(() => {
     const ctrl = new AbortController();
     setLoading(true);
+    // El backend acepta directamente "current" como string vacío para
+    // "mes en curso", "PREV" para mes anterior, "YTD" para año en curso,
+    // "ALL" para últimos 12 meses, o "YYYY-MM" para mes específico.
+    const periodParam = periodo === "current" ? "" : periodo;
     const params = new URLSearchParams();
-    params.set("periodo", periodo);
+    if (periodParam) params.set("periodo", periodParam);
     Promise.all([
       fetch(`/api/finance/billing/cobranzas-summary?${params.toString()}`, {
         signal: ctrl.signal,
@@ -170,10 +242,15 @@ export function SaludFinancieraHero({ periodo, onClickVencidas }: Props) {
   const tooltipBorder = "hsl(var(--ds-border-default))";
   const tooltipFg = "hsl(var(--ds-text-1))";
 
+  const op = summary.operational;
+  const isPresetSelected = (PERIOD_PRESETS as readonly { value: string }[]).some(
+    (p) => p.value === periodo,
+  );
+
   return (
     <Card className="p-4 sm:p-5 space-y-4 min-w-0">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-2 min-w-0">
+      {/* Header con selector de período + banner vencidas */}
+      <div className="flex items-start justify-between flex-wrap gap-3 min-w-0">
         <div>
           <h2 className="font-display text-base sm:text-lg font-semibold text-ds-text-1">
             Salud financiera
@@ -182,18 +259,60 @@ export function SaludFinancieraHero({ periodo, onClickVencidas }: Props) {
             {period} · Facturado neto vs cobranza · Aging y margen
           </p>
         </div>
-        {summary.vencidasCount > 0 && (
-          <button
-            type="button"
-            onClick={onClickVencidas}
-            className="inline-flex items-center gap-1.5 rounded-md border border-status-danger-border bg-status-danger-soft px-2.5 py-1.5 text-[12px] font-medium text-status-danger-fg hover:opacity-90 transition-opacity"
-            title="Filtrar tabla por DTEs vencidos"
-          >
-            <AlertCircle className="h-3.5 w-3.5" />
-            {summary.vencidasCount} vencida
-            {summary.vencidasCount === 1 ? "" : "s"} · {fmtCLPShort(summary.vencidasMonto)}
-          </button>
-        )}
+        <div className="flex items-center gap-2 flex-wrap">
+          {summary.vencidasCount > 0 && (
+            <button
+              type="button"
+              onClick={onClickVencidas}
+              className="inline-flex items-center gap-1.5 rounded-md border border-status-danger-border bg-status-danger-soft px-2.5 py-1.5 text-[12px] font-medium text-status-danger-fg hover:opacity-90 transition-opacity"
+              title="Filtrar tabla por DTEs vencidos"
+            >
+              <AlertCircle className="h-3.5 w-3.5" />
+              {summary.vencidasCount} vencida
+              {summary.vencidasCount === 1 ? "" : "s"} ·{" "}
+              {fmtCLPShort(summary.vencidasMonto)}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Selector de período: presets segmentados + dropdown "Otro mes" */}
+      <div className="flex items-center gap-2 flex-wrap min-w-0">
+        <div className="inline-flex items-center rounded-md border border-ds-border-subtle bg-ds-surface-2 p-0.5 gap-0.5 min-w-0 overflow-x-auto">
+          {PERIOD_PRESETS.map((p) => {
+            const active = periodo === p.value;
+            return (
+              <Button
+                key={p.value}
+                variant="ghost"
+                size="sm"
+                className={`h-8 px-3 text-[12px] whitespace-nowrap transition-colors ${
+                  active
+                    ? "bg-primary/15 text-primary hover:bg-primary/15"
+                    : "text-ds-text-2 hover:bg-ds-surface-3"
+                }`}
+                onClick={() => setPeriodo(p.value)}
+              >
+                {p.label}
+              </Button>
+            );
+          })}
+        </div>
+        <Select
+          value={isPresetSelected ? "" : periodo}
+          onValueChange={(v) => v && setPeriodo(v)}
+        >
+          <SelectTrigger className="h-9 sm:h-8 w-[160px] text-[12px]">
+            <SelectValue placeholder="Otro mes…" />
+          </SelectTrigger>
+          <SelectContent className="max-h-[400px]">
+            {specificMonthOpts.map((o) => (
+              <SelectItem key={o.value} value={o.value}>
+                {o.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Stats principales */}
@@ -398,6 +517,76 @@ export function SaludFinancieraHero({ periodo, onClickVencidas }: Props) {
           </ResponsiveContainer>
         </div>
       )}
+
+      {/* Tiles operativos: Pendientes SII + Folios. NO dependen del
+          período (reflejan estado actual). Reemplazan al KPIRow legacy
+          que duplicaba Facturado/IVA con el hero. */}
+      {op && (
+        <div className="grid grid-cols-2 gap-3 min-w-0">
+          <button
+            type="button"
+            onClick={
+              op.pendientesSii > 0 && onClickPendientesSii
+                ? onClickPendientesSii
+                : undefined
+            }
+            disabled={op.pendientesSii === 0 || !onClickPendientesSii}
+            className={
+              op.pendientesSii > 0 && onClickPendientesSii
+                ? STAT_TILE_TAPPABLE
+                : STAT_TILE
+            }
+            title={
+              op.pendientesSii > 0
+                ? "Filtrar tabla por DTEs pendientes en SII"
+                : undefined
+            }
+          >
+            <div className={STAT_LABEL}>
+              <AlertCircle className="h-3 w-3 shrink-0" />
+              <span className="truncate">Pendientes SII</span>
+            </div>
+            <div className="font-display text-xl sm:text-2xl font-bold tracking-tight text-ds-text-1 ds-num">
+              {op.pendientesSii}
+            </div>
+            <div
+              className={`text-[12px] mt-1 truncate ${
+                op.pendientesSii > 0
+                  ? "text-status-warn-fg"
+                  : "text-status-ok-fg"
+              }`}
+            >
+              {op.pendientesSii > 0 ? "Esperando aceptación" : "Todo aceptado"}
+            </div>
+          </button>
+          <button
+            type="button"
+            onClick={onClickFolios}
+            disabled={!onClickFolios}
+            className={onClickFolios ? STAT_TILE_TAPPABLE : STAT_TILE}
+            title={onClickFolios ? "Ver folios CAF disponibles" : undefined}
+          >
+            <div className={STAT_LABEL}>
+              <Hash className="h-3 w-3 shrink-0" />
+              <span className="truncate">Folios disp.</span>
+            </div>
+            <div className="font-display text-xl sm:text-2xl font-bold tracking-tight text-ds-text-1 ds-num">
+              {op.foliosDisponibles}
+            </div>
+            <div
+              className={`text-[12px] mt-1 truncate ${
+                op.foliosLowCount > 0
+                  ? "text-status-warn-fg"
+                  : "text-ds-text-3"
+              }`}
+            >
+              {op.foliosLowCount > 0
+                ? `${op.foliosLowCount} con stock bajo`
+                : "Stock OK"}
+            </div>
+          </button>
+        </div>
+      )}
     </Card>
   );
 }
@@ -420,4 +609,3 @@ function KpiAmount({ value }: { value: number }) {
     </div>
   );
 }
-
