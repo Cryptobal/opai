@@ -138,7 +138,7 @@ export default async function FinanzasDashboardPage() {
       highlighted: true,
     },
     {
-      href: "/finanzas/facturacion?tab=recibidos",
+      href: "/finanzas/facturacion/recibidos",
       title: "Compras",
       description: "DTE recibidos, sync RCV, control de pagos",
       icon: FileInput,

@@ -112,6 +112,49 @@ const nextConfig = {
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
   },
+  async redirects() {
+    return [
+      // Facturación N3 refactor — `recurrentes` se unificó dentro de
+      // `programacion` (junto con borradores libres).
+      {
+        source: '/finanzas/facturacion/recurrentes',
+        destination: '/finanzas/facturacion/programacion',
+        permanent: true,
+      },
+      // Compatibilidad con deeplinks legacy `?tab=...` que apuntaban a
+      // los tabs internos antes del refactor a rutas reales.
+      {
+        source: '/finanzas/facturacion',
+        has: [{ type: 'query', key: 'tab', value: 'borradores' }],
+        destination: '/finanzas/facturacion/programacion',
+        permanent: true,
+      },
+      {
+        source: '/finanzas/facturacion',
+        has: [{ type: 'query', key: 'tab', value: 'recibidos' }],
+        destination: '/finanzas/facturacion/recibidos',
+        permanent: true,
+      },
+      {
+        source: '/finanzas/facturacion',
+        has: [{ type: 'query', key: 'tab', value: 'libro' }],
+        destination: '/finanzas/facturacion/libro-iva',
+        permanent: true,
+      },
+      {
+        source: '/finanzas/facturacion',
+        has: [{ type: 'query', key: 'tab', value: 'folios' }],
+        destination: '/finanzas/facturacion/folios',
+        permanent: true,
+      },
+      {
+        source: '/finanzas/facturacion',
+        has: [{ type: 'query', key: 'tab', value: 'dtes' }],
+        destination: '/finanzas/facturacion/dtes',
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
       {

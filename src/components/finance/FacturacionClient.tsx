@@ -30,7 +30,6 @@ import { Switch } from "@/components/ui/switch";
 import {
   FileText,
   FileInput,
-  Hash,
   Plus,
   Search,
   Download,
@@ -43,7 +42,6 @@ import {
   FileCode,
   Eye,
   ExternalLink,
-  BookOpen,
   FileEdit,
 } from "lucide-react";
 import { CederDteDialog } from "./factoring/CederDteDialog";
@@ -179,6 +177,29 @@ interface FacturacionKpis {
   periodLabel?: string;
 }
 
+/**
+ * Vistas disponibles del módulo Facturación.
+ *
+ * Cada vista corresponde a una ruta real bajo `/finanzas/facturacion`:
+ *   - "resumen"      → /finanzas/facturacion           (dashboard de KPIs + salud financiera)
+ *   - "dtes"         → /finanzas/facturacion/dtes      (DTEs Emitidos)
+ *   - "recibidos"    → /finanzas/facturacion/recibidos (DTEs Recibidos)
+ *   - "programacion" → /finanzas/facturacion/programacion (borradores + recurrentes)
+ *   - "libro-iva"    → /finanzas/facturacion/libro-iva
+ *   - "folios"       → /finanzas/facturacion/folios
+ *
+ * Las acciones — "Emitir DTE", "Nota Crédito", "Nota Débito" — siguen siendo
+ * páginas (`/emitir`, `/notas/credito`, `/notas/debito`) pero NO son vistas
+ * del N3: se acceden contextualmente desde botones del Resumen / DTEs.
+ */
+export type FacturacionView =
+  | "resumen"
+  | "dtes"
+  | "recibidos"
+  | "programacion"
+  | "libro-iva"
+  | "folios";
+
 interface Props {
   dtes: DteRow[];
   /**
@@ -191,27 +212,20 @@ interface Props {
   suppliers?: SupplierOption[];
   /** KPIs calculados en SSR para el mes actual — sirven de hidratación inicial. */
   initialKpis: FacturacionKpis;
+  /**
+   * Vista activa. Default `"resumen"` — el dashboard. Cada subvista vive
+   * en una ruta propia y debe pasar este prop explícitamente desde su
+   * server page.
+   */
+  view?: FacturacionView;
+  /**
+   * Filtro forzado de estado SII para el listado de DTEs Emitidos
+   * (deeplink desde KPIs del resumen). Solo aplica cuando view==="dtes".
+   */
+  forcedSiiStatus?: string | null;
 }
 
 /* ── Constants ── */
-
-// Orden optimizado para flujo real:
-// 1. DTEs Emitidos (default) — es la vista que más se abre.
-// 2. DTEs Recibidos — segunda más usada (compras).
-// 3. Programación — borradores libres + plantillas recurrentes que
-//    generan borradores automáticamente. Conserva el id "borradores"
-//    para no romper deeplinks ni bookmarks existentes.
-// 4. Libro IVA — solo lectura mensual, baja frecuencia.
-// 5. Folios — solo cuando hay alerta de stock bajo.
-const TABS = [
-  { id: "dtes", label: "DTEs Emitidos", icon: FileText },
-  { id: "recibidos", label: "DTEs Recibidos", icon: FileInput },
-  { id: "borradores", label: "Programación", icon: FileEdit },
-  { id: "libro", label: "Libro IVA", icon: BookOpen },
-  { id: "folios", label: "Folios", icon: Hash },
-] as const;
-
-type TabId = (typeof TABS)[number]["id"];
 
 const DTE_TYPE_LABELS: Record<number, string> = {
   33: "Factura Electrónica",
@@ -320,110 +334,78 @@ export function FacturacionClient({
   canManage,
   suppliers = [],
   initialKpis,
+  view = "resumen",
+  forcedSiiStatus = null,
 }: Props) {
-  // Tab inicial: ?tab=borradores en URL para abrir directo en borradores
-  // (lo usa el "Guardar como borrador" del DteForm tras crear).
-  const initialTab: TabId = (() => {
-    if (typeof window === "undefined") return "dtes";
-    const t = new URLSearchParams(window.location.search).get("tab");
-    if (t && (TABS as readonly { id: string }[]).some((tab) => tab.id === t)) {
-      return t as TabId;
-    }
-    return "dtes";
-  })();
-  const [activeTab, setActiveTab] = useState<TabId>(initialTab);
+  const router = useRouter();
   // Filtro de período de la TABLA DTEs Emitidos (toolbar interno) y del
   // TrendChart de abajo. El hero "Salud financiera" tiene su PROPIO
   // selector independiente (decisión consciente: hero muestra el período
   // estratégico, tabla muestra el período transaccional). Default ALL
   // coincide con el comportamiento previo.
   const [periodoFilter, setPeriodoFilter] = useState("ALL");
-
-  // Estado intermedio: cuando el usuario hace click en "Pendientes SII"
-  // del KPI/hero, queremos cambiar al tab Emitidos Y aplicar el filtro
-  // de estado. Comunicamos a DtesTab vía prop forcedStatusFilter.
+  // Mantenemos un state local consumible por DtesTab; el server page lo
+  // hidrata vía `forcedSiiStatus` (deeplink desde el KPI "Pendientes SII"
+  // del Resumen, o cuando alguien comparte el link con ?siiStatus=PENDING).
   const [forcedStatusFilter, setForcedStatusFilter] = useState<string | null>(
-    null,
+    forcedSiiStatus,
   );
 
   // Compatibilidad: `initialKpis` ya no se renderiza en KPIRow (eliminado
   // en Fase 7) pero el SC lo sigue calculando para los reportes y para
   // que el hero pueda recibir un fallback inicial si falla el fetch.
-  // Si en el futuro no lo necesitamos lo limpiamos del SC.
   void initialKpis;
 
-  return (
-    <div className="space-y-4">
-      {/* Hero "Salud financiera": panel principal con stats financieros,
-          aging, IVA neto, mini-chart 6 meses Y tiles operativos
-          (Pendientes SII + Folios). Reemplazó al KPIRow legacy que
-          duplicaba Facturado e IVA. Tiene su propio selector de período
-          interno (Mes actual / Mes anterior / Año en curso / 12 meses /
-          Otro mes). */}
-      <SaludFinancieraHero
-        onClickVencidas={() => {
-          setActiveTab("dtes");
-          // Filtro por OVERDUE (Tabla emitidos lo soporta vía
-          // statusFilter normal de SII, pero "vencidas" es payment, no
-          // SII status — por ahora solo cambia tab y deja al usuario
-          // filtrar manualmente. Mejora futura: filtro propio de pago).
-        }}
-        onClickPendientesSii={() => {
-          setActiveTab("dtes");
-          setForcedStatusFilter("PENDING");
-        }}
-        onClickFolios={() => setActiveTab("folios")}
-      />
-
-      {/* TrendChart legacy (ventas vs compras 6 meses) eliminado en
-          Fase 8: la tendencia cobro vs facturación ahora vive dentro
-          del SaludFinancieraHero con selector propio de rango (3M / 6M
-          / Año en curso / 12M). Si en el futuro queremos volver a
-          mostrar ventas vs compras como vista separada, agregar un
-          tab al chart del hero. */}
-
-      {/* Tab navigation */}
-      <nav className="-mx-4 px-4 sm:mx-0 sm:px-0">
-        <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">
-          {TABS.map((tab) => {
-            const isActive = activeTab === tab.id;
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={cn(
-                  "whitespace-nowrap rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors shrink-0 flex items-center gap-1.5",
-                  isActive
-                    ? "bg-primary/15 text-primary border border-primary/30"
-                    : "text-muted-foreground hover:bg-accent/50 hover:text-foreground border border-transparent"
-                )}
-              >
-                <Icon className="h-3.5 w-3.5" />
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
-      </nav>
-
-      {activeTab === "borradores" && <BorradoresTab canManage={canManage} />}
-      {activeTab === "dtes" && (
-        <DtesTab
-          dtes={dtes}
-          issuedTotal={issuedTotal ?? dtes.length}
-          canManage={canManage}
-          periodoFilter={periodoFilter}
-          onPeriodoFilterChange={setPeriodoFilter}
-          forcedStatusFilter={forcedStatusFilter}
-          onForcedStatusFilterConsumed={() => setForcedStatusFilter(null)}
+  // ── Resumen: dashboard sin tabs ──
+  // Las CTAs del hero ahora navegan a las rutas reales (deeplinks).
+  if (view === "resumen") {
+    return (
+      <div className="space-y-4">
+        <SaludFinancieraHero
+          onClickVencidas={() => {
+            // Vencidas usa payment status; lo dejamos sin filtro forzado
+            // (mejora futura: ?paymentStatus=overdue).
+            router.push("/finanzas/facturacion/dtes");
+          }}
+          onClickPendientesSii={() => {
+            router.push("/finanzas/facturacion/dtes?siiStatus=PENDING");
+          }}
+          onClickFolios={() => {
+            router.push("/finanzas/facturacion/folios");
+          }}
         />
-      )}
-      {activeTab === "recibidos" && <RecibidosTab suppliers={suppliers} canManage={canManage} />}
-      {activeTab === "libro" && <LibroIvaTab />}
-      {activeTab === "folios" && <FoliosTab canManage={canManage} />}
-    </div>
-  );
+      </div>
+    );
+  }
+
+  // ── Vistas individuales (sin tab nav interno; la N3 vive en el layout). ──
+  if (view === "dtes") {
+    return (
+      <DtesTab
+        dtes={dtes}
+        issuedTotal={issuedTotal ?? dtes.length}
+        canManage={canManage}
+        periodoFilter={periodoFilter}
+        onPeriodoFilterChange={setPeriodoFilter}
+        forcedStatusFilter={forcedStatusFilter}
+        onForcedStatusFilterConsumed={() => setForcedStatusFilter(null)}
+      />
+    );
+  }
+  if (view === "recibidos") {
+    return <RecibidosTab suppliers={suppliers} canManage={canManage} />;
+  }
+  if (view === "programacion") {
+    return <BorradoresTab canManage={canManage} />;
+  }
+  if (view === "libro-iva") {
+    return <LibroIvaTab />;
+  }
+  if (view === "folios") {
+    return <FoliosTab canManage={canManage} />;
+  }
+
+  return null;
 }
 
 /* ═══════════════════════════════════════════════

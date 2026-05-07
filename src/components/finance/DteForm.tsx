@@ -678,7 +678,7 @@ export function DteForm({ availableTypes, accounts }: Props) {
       }
       toast.success("DTE emitido exitosamente");
       setConfirmOpen(false);
-      router.push("/finanzas/facturacion");
+      router.push("/finanzas/facturacion/dtes");
       router.refresh();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Error inesperado");
@@ -790,7 +790,7 @@ export function DteForm({ availableTypes, accounts }: Props) {
         throw new Error(err.error || "Error al guardar borrador");
       }
       toast.success(draftIdParam ? "Borrador actualizado" : "Borrador creado");
-      router.push("/finanzas/facturacion?tab=dtes");
+      router.push("/finanzas/facturacion/programacion");
       router.refresh();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Error inesperado");

@@ -10,5 +10,5 @@ import { redirect } from "next/navigation";
  * mismo. Redirigimos siempre.
  */
 export default function RecurrentesPageRedirect() {
-  redirect("/finanzas/facturacion?tab=borradores");
+  redirect("/finanzas/facturacion/programacion");
 }

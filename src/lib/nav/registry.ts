@@ -473,7 +473,10 @@ export const NAV_MODULES: NavNode[] = [
         icon: Wallet,
         capability: "rendicion_pay",
       },
-      // Ventas (Facturación) — con N3
+      // Ventas (Facturación) — con N3.
+      // El N3 contiene SOLO vistas (Resumen + tabs). Las acciones
+      // (Emitir DTE, Notas Crédito/Débito) son páginas accesibles desde
+      // botones contextuales — no aparecen como tab.
       {
         key: "finance-ventas",
         href: "/finanzas/facturacion",
@@ -483,10 +486,11 @@ export const NAV_MODULES: NavNode[] = [
         submodule: "facturacion",
         children: [
           { key: "ventas-resumen", href: "/finanzas/facturacion", label: "Resumen", icon: Grid3x3, exactMatch: true, module: "finance", submodule: "facturacion" },
-          { key: "ventas-emitir", href: "/finanzas/facturacion/emitir", label: "Emitir DTE", icon: FileText, module: "finance", submodule: "facturacion" },
-          { key: "ventas-recurrentes", href: "/finanzas/facturacion/recurrentes", label: "Recurrentes", icon: CalendarDays, module: "finance", submodule: "facturacion" },
-          { key: "ventas-nc", href: "/finanzas/facturacion/notas/credito", label: "Notas Crédito", icon: FileText, module: "finance", submodule: "facturacion" },
-          { key: "ventas-nd", href: "/finanzas/facturacion/notas/debito", label: "Notas Débito", icon: FileText, module: "finance", submodule: "facturacion" },
+          { key: "ventas-dtes", href: "/finanzas/facturacion/dtes", label: "DTEs Emitidos", icon: FileText, module: "finance", submodule: "facturacion" },
+          { key: "ventas-recibidos", href: "/finanzas/facturacion/recibidos", label: "DTEs Recibidos", icon: FileInput, module: "finance", submodule: "facturacion" },
+          { key: "ventas-programacion", href: "/finanzas/facturacion/programacion", label: "Programación", icon: CalendarDays, module: "finance", submodule: "facturacion" },
+          { key: "ventas-libro-iva", href: "/finanzas/facturacion/libro-iva", label: "Libro IVA", icon: BookText, module: "finance", submodule: "facturacion" },
+          { key: "ventas-folios", href: "/finanzas/facturacion/folios", label: "Folios", icon: FileText, module: "finance", submodule: "facturacion" },
           { key: "ventas-cesiones", href: "/finanzas/facturacion/cesiones", label: "Cesiones", icon: DollarSign, module: "finance", submodule: "facturacion" },
         ],
       },
