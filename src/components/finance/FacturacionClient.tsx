@@ -16,7 +16,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { DataTable, EmptyState, type DataTableColumn } from "@/components/opai-ds";
+import { DataTable, EmptyState, Tag, type DataTableColumn, type TagVariant } from "@/components/opai-ds";
+import { DocumentTag, fmtCLPSmart } from "@/components/finance/dtes";
 import {
   Dialog,
   DialogContent,
@@ -34,20 +35,15 @@ import {
   Search,
   Download,
   Ban,
-  FileMinus,
   FilePlus,
   Loader2,
   RefreshCw,
-  Mail,
   FileCode,
   Eye,
   ExternalLink,
-  FileEdit,
+  Building,
+  MapPin,
 } from "lucide-react";
-import { CederDteDialog } from "./factoring/CederDteDialog";
-import { PdfPreviewDialog } from "./PdfPreviewDialog";
-import { DteActionsMenu } from "./DteActionsMenu";
-import { EmisionConfirmDialog } from "./EmisionConfirmDialog";
 import { FoliosKpiCards } from "./FoliosKpiCards";
 import { FoliosDetailTable } from "./FoliosDetailTable";
 import { DteAgingBadge } from "./DteAgingBadge";
@@ -61,11 +57,7 @@ import { PaginationControls } from "./PaginationControls";
 import { LibroIvaTab } from "./LibroIvaTab";
 import { BorradoresTab } from "./BorradoresTab";
 import { CostCenterEditor } from "./CostCenterEditor";
-import { CreditNoteModal } from "./CreditNoteModal";
-import { IssuedDteDetailDialog } from "./IssuedDteDetailDialog";
-import { SendEmailDialog } from "./SendEmailDialog";
 import { SaludFinancieraHero } from "./SaludFinancieraHero";
-import { Building, MapPin } from "lucide-react";
 
 /* ── Types ── */
 
@@ -467,20 +459,19 @@ export function FacturacionClient({
   }
 
   // ── Vistas individuales (sin tab nav interno; la N3 vive en el layout). ──
+  // NOTA: la vista "dtes" se renderiza ahora directamente desde la página
+  // /finanzas/facturacion/dtes con `<DtesEmitidosClient />`. Refactor 2026-05.
   if (view === "dtes") {
-    return (
-      <DtesTab
-        dtes={dtes}
-        issuedTotal={issuedTotal ?? dtes.length}
-        canManage={canManage}
-        periodoFilter={periodoFilter}
-        onPeriodoFilterChange={setPeriodoFilter}
-        forcedStatusFilter={forcedStatusFilter}
-        onForcedStatusFilterConsumed={() => setForcedStatusFilter(null)}
-        forcedPaymentStatus={forcedPaymentStatusFilter}
-        onForcedPaymentStatusConsumed={() => setForcedPaymentStatusFilter(null)}
-      />
-    );
+    // Guard de compat: aún se mantiene por si algún consumidor antiguo del
+    // FacturacionClient pasa view="dtes". El flujo principal ya no entra acá.
+    void issuedTotal;
+    void periodoFilter;
+    void setPeriodoFilter;
+    void forcedStatusFilter;
+    void setForcedStatusFilter;
+    void forcedPaymentStatusFilter;
+    void setForcedPaymentStatusFilter;
+    return null;
   }
   if (view === "recibidos") {
     return <RecibidosTab suppliers={suppliers} canManage={canManage} />;
@@ -498,1038 +489,6 @@ export function FacturacionClient({
   return null;
 }
 
-/* ═══════════════════════════════════════════════
-   Tab 1: DTEs Emitidos
-   ═══════════════════════════════════════════════ */
-
-function DtesTab({
-  dtes: initialDtes,
-  issuedTotal,
-  canManage,
-  periodoFilter,
-  onPeriodoFilterChange,
-  forcedStatusFilter,
-  onForcedStatusFilterConsumed,
-  forcedPaymentStatus,
-  onForcedPaymentStatusConsumed,
-}: {
-  dtes: DteRow[];
-  issuedTotal: number;
-  canManage: boolean;
-  /** Filtro de período compartido (KPIs + TrendChart + tabla). */
-  periodoFilter: string;
-  onPeriodoFilterChange: (v: string) => void;
-  /**
-   * Si viene "PENDING" o "ACCEPTED", el tab aplica ese filtro al cargar
-   * y luego limpia el estado para no quedarse pegado. Lo usa el KPI
-   * "Pendientes SII" del KPIRow para hacer click-through.
-   */
-  forcedStatusFilter?: string | null;
-  onForcedStatusFilterConsumed?: () => void;
-  /**
-   * Deeplink desde "Por cobrar" / Aging / banner Vencidas:
-   * UNPAID | OVERDUE | PARTIAL | PAID.
-   */
-  forcedPaymentStatus?: string | null;
-  onForcedPaymentStatusConsumed?: () => void;
-}) {
-  const router = useRouter();
-  const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState("ALL");
-  const [statusFilter, setStatusFilter] = useState("ALL");
-  const [paymentStatusFilter, setPaymentStatusFilter] = useState("ALL");
-  const [sort, setSort] = useState<DteSortKey>("date_desc");
-
-  useEffect(() => {
-    if (forcedStatusFilter && forcedStatusFilter !== statusFilter) {
-      setStatusFilter(forcedStatusFilter);
-      onForcedStatusFilterConsumed?.();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [forcedStatusFilter]);
-
-  useEffect(() => {
-    if (forcedPaymentStatus && forcedPaymentStatus !== paymentStatusFilter) {
-      setPaymentStatusFilter(forcedPaymentStatus);
-      onForcedPaymentStatusConsumed?.();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [forcedPaymentStatus]);
-  /** Filtro por centro de costo: "ALL" | "NONE" | uuid de cuenta. */
-  const [accountFilter, setAccountFilter] = useState("ALL");
-  const [installationFilter, setInstallationFilter] = useState("ALL");
-  const [accountOptions, setAccountOptions] = useState<CostCenterOption[]>([]);
-  const [installationOptions, setInstallationOptions] = useState<InstallationOption[]>([]);
-  const periodOptions = useMemo(() => buildPeriodOptions(36), []);
-  const [voiding, setVoiding] = useState<string | null>(null);
-  const [sendingEmail, setSendingEmail] = useState<string | null>(null);
-  /** Modal de NC/ND. Cuando hay un dteId + noteType, está abierto. */
-  const [noteModal, setNoteModal] = useState<{
-    dteId: string;
-    noteType: "credit" | "debit";
-  } | null>(null);
-  /** Modal de detalle de DTE emitido. */
-  const [detailDteId, setDetailDteId] = useState<string | null>(null);
-  /** Modal de cesión a factoring desde la fila. */
-  const [cedeModalDteId, setCedeModalDteId] = useState<string | null>(null);
-  /** Modal de vista previa PDF. */
-  const [previewDteId, setPreviewDteId] = useState<string | null>(null);
-  /** Modal de envío de email con TO/CC/BCC. Reemplaza el envío directo. */
-  const [emailDteId, setEmailDteId] = useState<string | null>(null);
-  /** Modal de confirmación de emisión SII para un borrador. Cuando hay
-   *  data, está abierto. */
-  const [issuingDraft, setIssuingDraft] = useState<{
-    id: string;
-    dteType: number;
-    receiverName: string;
-    receiverRut: string;
-    receiverEmail: string | null;
-    netAmount: number;
-    taxAmount: number;
-    totalAmount: number;
-    currency: string;
-    ufValueAtIssue: number | null;
-    lines: Array<{
-      itemName: string;
-      quantity: number;
-      unitPrice: number;
-      unitPriceUf: number | null;
-    }>;
-  } | null>(null);
-  const [issuingDraftLoading, setIssuingDraftLoading] = useState(false);
-  const [tenantBackoffice, setTenantBackoffice] = useState<{
-    emails: string[];
-    alwaysSend: boolean;
-  }>({ emails: [], alwaysSend: false });
-  const [deletingDraftId, setDeletingDraftId] = useState<string | null>(null);
-  // Paginación server-side. La SC pre-carga la primera página (50);
-  // si el usuario cambia page o pageSize, refetch al endpoint paginado.
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(50);
-  const [dtes, setDtes] = useState<DteRow[]>(initialDtes);
-  const [total, setTotal] = useState(issuedTotal);
-  const [loading, setLoading] = useState(false);
-
-  // Búsqueda con debounce: trim + 300ms para reducir requests al server.
-  const [debouncedSearch, setDebouncedSearch] = useState("");
-  useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
-    return () => clearTimeout(t);
-  }, [search]);
-
-  // Cargar config del backoffice del tenant — la usa el dialog de
-  // emisión cuando el usuario emite un borrador desde la fila.
-  useEffect(() => {
-    fetch("/api/finance/config/dte-provider")
-      .then((r) => r.json())
-      .then((j) => {
-        const cfg = j?.data?.config;
-        if (cfg) {
-          setTenantBackoffice({
-            emails: cfg.defaultXmlRecipientEmails ?? [],
-            alwaysSend: !!cfg.defaultXmlRecipientAlwaysSend,
-          });
-        }
-      })
-      .catch(() => {});
-  }, []);
-
-  // Cargar centros de costo e instalaciones con DTEs emitidos para filtros.
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/api/finance/billing/accounts-with-dtes?direction=ISSUED&include=installations")
-      .then((r) => r.json())
-      .then((body) => {
-        if (cancelled) return;
-        if (body.success) {
-          if (Array.isArray(body.data?.accounts)) setAccountOptions(body.data.accounts);
-          if (Array.isArray(body.data?.installations)) {
-            setInstallationOptions(body.data.installations);
-          }
-        }
-      })
-      .catch(() => {
-        // silencioso: los filtros quedan con sólo Todos / Sin asignar
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    // Si NO hay filtros (paginación default + sin búsqueda + sin cuenta),
-    // usar SSR data para evitar un request innecesario.
-    if (
-      page === 1 &&
-      pageSize === 50 &&
-      periodoFilter === "ALL" &&
-      accountFilter === "ALL" &&
-      installationFilter === "ALL" &&
-      sort === "date_desc" &&
-      debouncedSearch === ""
-    ) {
-      setDtes(initialDtes);
-      setTotal(issuedTotal);
-      return;
-    }
-    const ctrl = new AbortController();
-    setLoading(true);
-    (async () => {
-      try {
-        const params = new URLSearchParams();
-        params.set("page", String(page));
-        params.set("pageSize", String(pageSize));
-        if (periodoFilter !== "ALL") params.set("periodo", periodoFilter);
-        if (debouncedSearch) params.set("search", debouncedSearch);
-        if (accountFilter !== "ALL") params.set("accountId", accountFilter);
-        if (installationFilter !== "ALL") params.set("installationId", installationFilter);
-        params.set("sort", sort);
-        const res = await fetch(`/api/finance/billing/issued?${params.toString()}`, {
-          signal: ctrl.signal,
-        });
-        if (!res.ok) throw new Error();
-        const json = await res.json();
-        const list: DteRow[] = Array.isArray(json?.data?.dtes)
-          ? json.data.dtes.map((d: Record<string, unknown>) => ({
-              id: String(d.id),
-              dteType: Number(d.dteType),
-              folio: Number(d.folio),
-              receiverRut: String(d.receiverRut ?? ""),
-              receiverName: String(d.receiverName ?? ""),
-              receiverEmail: (d.receiverEmail as string | null) ?? null,
-              netAmount: Number(d.netAmount),
-              taxAmount: Number(d.taxAmount),
-              totalAmount: Number(d.totalAmount),
-              siiStatus: String(d.siiStatus ?? ""),
-              currency: String(d.currency ?? "CLP"),
-              linesCount: Array.isArray(d.lines) ? (d.lines as unknown[]).length : 0,
-              createdAt: String(d.createdAt ?? ""),
-              emailSentAt: (d.emailSentAt as string | null) ?? null,
-              emailStatus: (d.emailStatus as string | null) ?? null,
-              referenceType: (d.referenceType as number | null) ?? null,
-              referenceFolio: (d.referenceFolio as number | null) ?? null,
-              hasXml: Boolean(d.hasXml),
-              crmAccountId: (d.crmAccountId as string | null) ?? null,
-              installationId: (d.installationId as string | null) ?? null,
-              crmAccount: (d.crmAccount as
-                | { id: string; name: string; legalName: string | null }
-                | null) ?? null,
-              installation: (d.installation as
-                | { id: string; name: string; commune: string | null }
-                | null) ?? null,
-              canBeCeded: Boolean(d.canBeCeded),
-              activeCession: (d.activeCession as
-                | { id: string; code: string; status: string }
-                | null) ?? null,
-              date: typeof d.date === "string" ? d.date : String(d.date ?? ""),
-              dueDate: (d.dueDate as string | null) ?? null,
-              paymentStatus: (d.paymentStatus as string | null) ?? null,
-              linkedCreditNote: (d.linkedCreditNote as
-                | {
-                    count: number;
-                    hasFullAnnulment: boolean;
-                    creditedNet: number;
-                    primaryFolio: number;
-                  }
-                | null) ?? null,
-            }))
-          : [];
-        setDtes(list);
-        if (typeof json?.data?.pagination?.total === "number") {
-          setTotal(json.data.pagination.total);
-        }
-      } catch (err) {
-        if ((err as Error).name !== "AbortError") {
-          toast.error("Error al cargar DTEs emitidos");
-        }
-      } finally {
-        setLoading(false);
-      }
-    })();
-    return () => ctrl.abort();
-  }, [page, pageSize, periodoFilter, accountFilter, installationFilter, sort, debouncedSearch, initialDtes, issuedTotal]);
-
-  // Reset page=1 cuando cambia el período, la búsqueda o el centro de costo.
-  useEffect(() => {
-    setPage(1);
-  }, [debouncedSearch]);
-
-  useEffect(() => {
-    setPage(1);
-  }, [periodoFilter]);
-
-  useEffect(() => {
-    setPage(1);
-  }, [accountFilter]);
-
-  useEffect(() => {
-    setPage(1);
-  }, [installationFilter, sort]);
-
-  const filtered = useMemo(() => {
-    // Búsqueda por nombre/RUT/folio se hace server-side (ver useEffect arriba).
-    // Acá solo filtros de tipo y estado SII (operan sobre la página cargada).
-    let list = dtes;
-    if (typeFilter !== "ALL") list = list.filter((d) => String(d.dteType) === typeFilter);
-    if (statusFilter !== "ALL") list = list.filter((d) => d.siiStatus === statusFilter);
-    if (paymentStatusFilter !== "ALL") {
-      list = list.filter((d) => d.paymentStatus === paymentStatusFilter);
-    }
-    return sortDteRows(list, sort);
-  }, [dtes, typeFilter, statusFilter, paymentStatusFilter, sort]);
-
-  const handleDownloadPdf = async (id: string, folio: number) => {
-    try {
-      const res = await fetch(`/api/finance/billing/issued/${id}/pdf`);
-      if (!res.ok) {
-        // El backend retorna JSON con { success:false, error:"..." }.
-        // Ej: "DTE importado del SII no tiene XML local — solo emisiones
-        // hechas desde OPAI tienen el XML guardado para regenerar PDF."
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || `HTTP ${res.status}`);
-      }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `DTE-${folio}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Error inesperado");
-    }
-  };
-
-  // Estado para tracking de "Actualizar estado SII" por fila.
-  const [checkingStatus, setCheckingStatus] = useState<string | null>(null);
-  const handleCheckStatus = async (id: string, folio: number) => {
-    setCheckingStatus(id);
-    try {
-      const res = await fetch(`/api/finance/billing/issued/${id}/status`);
-      const body = await res.json();
-      if (!res.ok || !body.success) {
-        throw new Error(body.error || `HTTP ${res.status}`);
-      }
-      const newStatus = body.data?.status ?? "PENDING";
-      const msg = body.data?.message ? ` (${body.data.message})` : "";
-      toast.success(`DTE ${folio}: estado SII actualizado → ${newStatus}${msg}`);
-      router.refresh();
-    } catch (err) {
-      toast.error(`DTE ${folio}: ${(err as Error).message}`);
-    } finally {
-      setCheckingStatus(null);
-    }
-  };
-
-  const handleDownloadXml = async (id: string, folio: number) => {
-    try {
-      const res = await fetch(`/api/finance/billing/issued/${id}/xml`);
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || `HTTP ${res.status}`);
-      }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `DTE-${folio}.xml`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Error inesperado");
-    }
-  };
-
-  // Reenviar email ahora SIEMPRE abre el SendEmailDialog para que el
-  // usuario confirme TO/CC/BCC. Antes mandaba inmediato sin elegir
-  // destinatarios y eso causó envíos accidentales.
-  const handleResendEmail = (id: string) => {
-    setEmailDteId(id);
-  };
-
-  /** Editar un borrador: redirige al form con `?draftId=`. */
-  const handleEditDraft = (id: string) => {
-    router.push(`/finanzas/facturacion/emitir?draftId=${id}`);
-  };
-
-  /** Abre el dialog de emisión SII para un borrador. Carga el detalle
-   *  completo del draft (lines + totales) para alimentar el dialog. */
-  const handleIssueDraft = async (id: string) => {
-    try {
-      const res = await fetch(`/api/finance/billing/drafts/${id}`);
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Error al cargar borrador");
-      }
-      const json = await res.json();
-      const d = json.data;
-      if (!d) throw new Error("Borrador no encontrado");
-      setIssuingDraft({
-        id: d.id,
-        dteType: Number(d.dteType),
-        receiverName: String(d.receiverName ?? ""),
-        receiverRut: String(d.receiverRut ?? ""),
-        receiverEmail: (d.receiverEmail as string | null) ?? null,
-        netAmount: Number(d.netAmount),
-        taxAmount: Number(d.taxAmount),
-        totalAmount: Number(d.totalAmount),
-        currency: String(d.currency ?? "CLP"),
-        ufValueAtIssue: d.ufValueAtIssue != null ? Number(d.ufValueAtIssue) : null,
-        lines: Array.isArray(d.lines)
-          ? d.lines.map((l: Record<string, unknown>) => ({
-              itemName: String(l.itemName ?? ""),
-              quantity: Number(l.quantity ?? 1),
-              unitPrice: Number(l.unitPrice ?? 0),
-              unitPriceUf:
-                l.unitPriceUf != null ? Number(l.unitPriceUf) : null,
-            }))
-          : [],
-      });
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Error inesperado");
-    }
-  };
-
-  const submitIssueDraft = async (opts: {
-    autoSendEmail: boolean;
-    sendXmlToBackoffice: boolean;
-  }) => {
-    if (!issuingDraft) return;
-    setIssuingDraftLoading(true);
-    try {
-      const res = await fetch(
-        `/api/finance/billing/drafts/${issuingDraft.id}/issue`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(opts),
-        },
-      );
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Error al emitir borrador");
-      }
-      toast.success("Borrador emitido al SII");
-      setIssuingDraft(null);
-      router.refresh();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Error inesperado");
-    } finally {
-      setIssuingDraftLoading(false);
-    }
-  };
-
-  const handleDeleteDraft = async (id: string) => {
-    if (!confirm("¿Eliminar este borrador? Esta acción no es reversible.")) return;
-    setDeletingDraftId(id);
-    try {
-      const res = await fetch(`/api/finance/billing/drafts/${id}`, {
-        method: "DELETE",
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Error al eliminar borrador");
-      }
-      toast.success("Borrador eliminado");
-      router.refresh();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Error inesperado");
-    } finally {
-      setDeletingDraftId(null);
-    }
-  };
-
-  const handleVoid = async (id: string) => {
-    if (!confirm("¿Anular este DTE? Esta acción no se puede deshacer.")) return;
-    setVoiding(id);
-    try {
-      const res = await fetch(`/api/finance/billing/issued/${id}/void`, {
-        method: "POST",
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Error al anular DTE");
-      }
-      toast.success("DTE anulado");
-      router.refresh();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Error inesperado");
-    } finally {
-      setVoiding(null);
-    }
-  };
-
-  return (
-    <div className="space-y-3">
-      {/* Barra de búsqueda fuzzy global, prominente */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative flex-1 min-w-0">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar por folio, RUT, cliente o monto…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-10 h-10"
-          />
-        </div>
-        {canManage && (
-          <Link href="/finanzas/facturacion/emitir">
-            <Button size="sm" className="h-10">
-              <Plus className="h-4 w-4 mr-1.5" />
-              Emitir DTE
-            </Button>
-          </Link>
-        )}
-      </div>
-
-      {/* Toolbar secundaria con filtros granulares */}
-      <div className="flex flex-wrap items-center gap-2">
-        <Select value={typeFilter} onValueChange={setTypeFilter}>
-          <SelectTrigger className="w-full sm:w-40 h-9">
-            <SelectValue placeholder="Tipo" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="ALL">Todos los tipos</SelectItem>
-            {Object.entries(DTE_TYPE_LABELS).map(([k, v]) => (
-              <SelectItem key={k} value={k}>{v}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-full sm:w-36 h-9">
-            <SelectValue placeholder="Estado" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="ALL">Todos</SelectItem>
-            {Object.entries(SII_STATUS_CONFIG).map(([k, v]) => (
-              <SelectItem key={k} value={k}>{v.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={periodoFilter} onValueChange={onPeriodoFilterChange}>
-          <SelectTrigger className="w-full sm:w-44 h-9">
-            <SelectValue placeholder="Período" />
-          </SelectTrigger>
-          <SelectContent className="max-h-[400px]">
-            <SelectItem value="ALL">Todos los períodos</SelectItem>
-            {periodOptions.map((p) => (
-              <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={accountFilter} onValueChange={setAccountFilter}>
-          <SelectTrigger className="w-full sm:w-56 h-9">
-            <SelectValue placeholder="Centro de costo" />
-          </SelectTrigger>
-          <SelectContent className="max-h-[400px]">
-            <SelectItem value="ALL">Todos los centros</SelectItem>
-            <SelectItem value="NONE">Sin asignar</SelectItem>
-            {accountOptions.map((a) => (
-              <SelectItem key={a.id} value={a.id}>
-                {a.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={installationFilter} onValueChange={setInstallationFilter}>
-          <SelectTrigger className="w-full sm:w-56 h-9">
-            <SelectValue placeholder="Instalación" />
-          </SelectTrigger>
-          <SelectContent className="max-h-[400px]">
-            <SelectItem value="ALL">Todas las instalaciones</SelectItem>
-            <SelectItem value="NONE">Sin instalación</SelectItem>
-            {installationOptions.map((i) => (
-              <SelectItem key={i.id} value={i.id}>
-                {i.name}{i.commune ? ` · ${i.commune}` : ""}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={sort} onValueChange={(v) => setSort(v as DteSortKey)}>
-          <SelectTrigger className="w-full sm:w-56 h-9">
-            <SelectValue placeholder="Ordenar por" />
-          </SelectTrigger>
-          <SelectContent>
-            {DTE_SORT_OPTIONS.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <p className="text-xs text-muted-foreground">{filtered.length} documento(s)</p>
-
-      {filtered.length === 0 ? (
-        <EmptyState
-          icon={FileText}
-          title="Sin documentos"
-          description="No hay DTEs emitidos en este período. Podés emitir uno desde cero o programar facturas recurrentes (mensuales, quincenales, etc) que generen borradores automáticamente."
-          action={
-            canManage ? (
-              <Link href="/finanzas/facturacion/emitir">
-                <Button size="sm">
-                  <Plus className="h-4 w-4 mr-1.5" />
-                  Emitir DTE
-                </Button>
-              </Link>
-            ) : undefined
-          }
-        />
-      ) : (
-        <>
-          {/* Desktop table */}
-          <div className="hidden md:block">
-            <DataTable<DteRow>
-              columns={[
-                {
-                  id: "dteType",
-                  header: "Tipo",
-                  cell: (row) => {
-                    const typeClass = DTE_TYPE_BADGE_CLASS[row.dteType];
-                    return (
-                      <Badge variant="outline" className={cn("text-xs", typeClass)}>
-                        {DTE_TYPE_SHORT_LABELS[row.dteType] ?? `Tipo ${row.dteType}`}
-                      </Badge>
-                    );
-                  },
-                },
-                {
-                  id: "folio",
-                  header: "Folio",
-                  cell: (row) => (
-                    <div>
-                      <div className="font-mono text-xs">
-                        {row.siiStatus === "DRAFT" ? "—" : row.folio}
-                      </div>
-                      {row.referenceFolio != null && row.referenceType != null && (
-                        <div className="text-[12px] text-ds-text-3 font-mono mt-0.5">
-                          Ref: {row.referenceType}-{row.referenceFolio}
-                        </div>
-                      )}
-                      {row.linkedCreditNote && (
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            "text-[10px] mt-1",
-                            row.linkedCreditNote.hasFullAnnulment
-                              ? "bg-status-danger-soft text-status-danger-fg border-status-danger-border"
-                              : "bg-status-warn-soft text-status-warn-fg border-status-warn-border",
-                          )}
-                          title={
-                            row.linkedCreditNote.hasFullAnnulment
-                              ? `Anulada por NC ${row.linkedCreditNote.primaryFolio}`
-                              : `Con NC ${row.linkedCreditNote.primaryFolio} · acreditado $${row.linkedCreditNote.creditedNet.toLocaleString("es-CL")}`
-                          }
-                        >
-                          {row.linkedCreditNote.hasFullAnnulment
-                            ? `Anulada · NC ${row.linkedCreditNote.primaryFolio}`
-                            : row.linkedCreditNote.count > 1
-                              ? `${row.linkedCreditNote.count} NCs`
-                              : `Con NC ${row.linkedCreditNote.primaryFolio}`}
-                        </Badge>
-                      )}
-                    </div>
-                  ),
-                },
-                {
-                  id: "receiverName",
-                  header: "Receptor",
-                  cell: (row) => (
-                    <div>
-                      <div>{row.receiverName}</div>
-                      <div className="text-xs text-muted-foreground font-mono">{row.receiverRut}</div>
-                    </div>
-                  ),
-                },
-                {
-                  id: "netAmount",
-                  header: "Neto",
-                  align: "right",
-                  cell: (row) => fmtCLP.format(row.netAmount),
-                },
-                {
-                  id: "taxAmount",
-                  header: "IVA",
-                  align: "right",
-                  cell: (row) => fmtCLP.format(row.taxAmount),
-                },
-                {
-                  id: "totalAmount",
-                  header: "Total",
-                  align: "right",
-                  cell: (row) => <span className="font-medium">{fmtCLP.format(row.totalAmount)}</span>,
-                },
-                {
-                  id: "siiStatus",
-                  header: "Estado SII",
-                  cell: (row) => {
-                    const stCfg = SII_STATUS_CONFIG[row.siiStatus] ?? { label: row.siiStatus, className: "bg-muted" };
-                    return (
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <Badge variant="outline" className={cn("text-xs", stCfg.className)}>
-                          {stCfg.label}
-                        </Badge>
-                        {row.date && (
-                          <DteAgingBadge
-                            date={row.date}
-                            dueDate={row.dueDate}
-                            paymentStatus={row.paymentStatus}
-                            siiStatus={row.siiStatus}
-                          />
-                        )}
-                      </div>
-                    );
-                  },
-                },
-                {
-                  id: "date",
-                  header: "Fecha",
-                  cell: (row) => (
-                    <span className="text-muted-foreground text-xs">
-                      {format(new Date(row.date ?? row.createdAt), "dd MMM yyyy", { locale: es })}
-                    </span>
-                  ),
-                },
-                {
-                  id: "emailStatus",
-                  header: "Email",
-                  cell: (row) => {
-                    if (row.emailSentAt) {
-                      return (
-                        <Badge variant="outline" className="text-xs bg-status-ok-soft text-status-ok-fg border-status-ok-border">
-                          Enviado {format(new Date(row.emailSentAt), "dd MMM", { locale: es })}
-                        </Badge>
-                      );
-                    }
-                    if (row.emailStatus === "FAILED") {
-                      return (
-                        <Badge variant="outline" className="text-xs bg-status-danger-soft text-status-danger-fg border-status-danger-border">
-                          Falló
-                        </Badge>
-                      );
-                    }
-                    return (
-                      <Badge variant="outline" className="text-xs">
-                        Pendiente
-                      </Badge>
-                    );
-                  },
-                },
-                {
-                  id: "centroCosto",
-                  header: "Centro de costo",
-                  cell: (row) => {
-                    if (!row.crmAccount) {
-                      return <span className="text-xs text-muted-foreground italic">Sin asignar</span>;
-                    }
-                    return (
-                      <div className="text-xs space-y-0.5">
-                        <div className="flex items-center gap-1 truncate" title={row.crmAccount.name}>
-                          <Building className="h-3 w-3 shrink-0 text-muted-foreground" />
-                          <span className="truncate font-medium">{row.crmAccount.name}</span>
-                        </div>
-                        {row.installation && (
-                          <div className="flex items-center gap-1 truncate text-muted-foreground" title={row.installation.name}>
-                            <MapPin className="h-3 w-3 shrink-0" />
-                            <span className="truncate">{row.installation.name}</span>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  },
-                },
-                {
-                  id: "_actions",
-                  header: "",
-                  cell: (row) => (
-                    <DteActionsMenu
-                      row={row}
-                      canManage={canManage}
-                      sendingEmail={sendingEmail}
-                      checkingStatus={checkingStatus}
-                      voiding={voiding}
-                      deletingDraft={deletingDraftId}
-                      onViewDetail={() => setDetailDteId(row.id)}
-                      onPreviewPdf={() => setPreviewDteId(row.id)}
-                      onDownloadPdf={() => handleDownloadPdf(row.id, row.folio)}
-                      onDownloadXml={() => handleDownloadXml(row.id, row.folio)}
-                      onResendEmail={() => handleResendEmail(row.id)}
-                      onCheckStatus={() => handleCheckStatus(row.id, row.folio)}
-                      onVoid={() => handleVoid(row.id)}
-                      onCede={() => setCedeModalDteId(row.id)}
-                      onCreditNote={() => setNoteModal({ dteId: row.id, noteType: "credit" })}
-                      onDebitNote={() => setNoteModal({ dteId: row.id, noteType: "debit" })}
-                      onEditDraft={() => handleEditDraft(row.id)}
-                      onIssueDraft={() => handleIssueDraft(row.id)}
-                      onDeleteDraft={() => handleDeleteDraft(row.id)}
-                    />
-                  ),
-                },
-              ] satisfies DataTableColumn<DteRow>[]}
-              rows={filtered}
-              rowKey={(row) => row.id}
-              empty={<EmptyState icon={FileText} title="Sin documentos" compact />}
-            />
-          </div>
-
-          {/* Mobile cards */}
-          <div className="md:hidden space-y-2">
-            {filtered.map((d) => {
-              const stCfg = SII_STATUS_CONFIG[d.siiStatus] ?? { label: d.siiStatus, className: "bg-muted" };
-              const isDraftRow = d.siiStatus === "DRAFT";
-              return (
-                <Card
-                  key={d.id}
-                  className="cursor-pointer hover:bg-muted/30 transition-colors"
-                  onClick={() =>
-                    isDraftRow ? handleEditDraft(d.id) : setDetailDteId(d.id)
-                  }
-                >
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          <Badge
-                            variant="outline"
-                            className={cn("text-xs", DTE_TYPE_BADGE_CLASS[d.dteType])}
-                          >
-                            {DTE_TYPE_SHORT_LABELS[d.dteType] ?? `Tipo ${d.dteType}`}
-                          </Badge>
-                          {!isDraftRow && (
-                            <span className="font-mono text-xs">#{d.folio}</span>
-                          )}
-                          <Badge variant="outline" className={cn("text-xs", stCfg.className)}>
-                            {stCfg.label}
-                          </Badge>
-                          {d.date && (
-                            <DteAgingBadge
-                              date={d.date}
-                              dueDate={d.dueDate}
-                              paymentStatus={d.paymentStatus}
-                              siiStatus={d.siiStatus}
-                            />
-                          )}
-                        </div>
-                        {d.referenceFolio != null && d.referenceType != null && (
-                          <p className="text-[12px] text-ds-text-3 font-mono mb-1">
-                            Ref: {d.referenceType}-{d.referenceFolio}
-                          </p>
-                        )}
-                        {d.linkedCreditNote && (
-                          <Badge
-                            variant="outline"
-                            className={cn(
-                              "text-[10px] mb-1",
-                              d.linkedCreditNote.hasFullAnnulment
-                                ? "bg-status-danger-soft text-status-danger-fg border-status-danger-border"
-                                : "bg-status-warn-soft text-status-warn-fg border-status-warn-border",
-                            )}
-                          >
-                            {d.linkedCreditNote.hasFullAnnulment
-                              ? `Anulada · NC ${d.linkedCreditNote.primaryFolio}`
-                              : d.linkedCreditNote.count > 1
-                                ? `${d.linkedCreditNote.count} NCs`
-                                : `Con NC ${d.linkedCreditNote.primaryFolio}`}
-                          </Badge>
-                        )}
-                        <p className="font-medium text-sm">{d.receiverName}</p>
-                        <p className="text-xs text-muted-foreground font-mono">{d.receiverRut}</p>
-                        <div className="flex items-center justify-between mt-2">
-                          <span className="font-mono text-sm font-medium">{fmtCLP.format(d.totalAmount)}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {format(new Date(d.date ?? d.createdAt), "dd MMM yyyy", { locale: es })}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                    {(d.emailSentAt || d.emailStatus === "FAILED") && (
-                      <div className="mt-2">
-                        {d.emailSentAt ? (
-                          <Badge variant="outline" className="text-xs bg-status-ok-soft text-status-ok-fg border-status-ok-border">
-                            Email enviado {format(new Date(d.emailSentAt), "dd MMM", { locale: es })}
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-xs bg-status-danger-soft text-status-danger-fg border-status-danger-border">
-                            Email falló
-                          </Badge>
-                        )}
-                      </div>
-                    )}
-                    <div
-                      className="flex gap-1 mt-3 pt-3 border-t border-border"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {isDraftRow ? (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEditDraft(d.id)}
-                          className="flex-1 justify-center"
-                        >
-                          <FileEdit className="h-3.5 w-3.5 mr-1.5" />
-                          Editar
-                        </Button>
-                      ) : (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setDetailDteId(d.id)}
-                          className="flex-1 justify-center"
-                        >
-                          <Eye className="h-3.5 w-3.5 mr-1.5" />
-                          Detalle
-                        </Button>
-                      )}
-                      <DteActionsMenu
-                        row={d}
-                        canManage={canManage}
-                        sendingEmail={sendingEmail}
-                        checkingStatus={checkingStatus}
-                        voiding={voiding}
-                        deletingDraft={deletingDraftId}
-                        onViewDetail={() => setDetailDteId(d.id)}
-                        onPreviewPdf={() => setPreviewDteId(d.id)}
-                        onDownloadPdf={() => handleDownloadPdf(d.id, d.folio)}
-                        onDownloadXml={() => handleDownloadXml(d.id, d.folio)}
-                        onResendEmail={() => handleResendEmail(d.id)}
-                        onCheckStatus={() => handleCheckStatus(d.id, d.folio)}
-                        onVoid={() => handleVoid(d.id)}
-                        onCede={() => setCedeModalDteId(d.id)}
-                        onCreditNote={() =>
-                          setNoteModal({ dteId: d.id, noteType: "credit" })
-                        }
-                        onDebitNote={() =>
-                          setNoteModal({ dteId: d.id, noteType: "debit" })
-                        }
-                        onEditDraft={() => handleEditDraft(d.id)}
-                        onIssueDraft={() => handleIssueDraft(d.id)}
-                        onDeleteDraft={() => handleDeleteDraft(d.id)}
-                        triggerVariant="ghost"
-                        hideViewDetail
-                      />
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-
-          <PaginationControls
-            page={page}
-            pageSize={pageSize}
-            total={total}
-            onPageChange={setPage}
-            onPageSizeChange={(s) => {
-              setPageSize(s);
-              setPage(1);
-            }}
-            loading={loading}
-          />
-        </>
-      )}
-
-      {/* Modal NC/ND */}
-      <CreditNoteModal
-        open={noteModal !== null}
-        onClose={() => setNoteModal(null)}
-        referenceDteId={noteModal?.dteId ?? null}
-        noteType={noteModal?.noteType ?? "credit"}
-      />
-
-      {/* Modal de detalle DTE emitido */}
-      <IssuedDteDetailDialog
-        open={detailDteId !== null}
-        onClose={() => setDetailDteId(null)}
-        dteId={detailDteId}
-        canManage={canManage}
-        onEmitCreditNote={(id) => setNoteModal({ dteId: id, noteType: "credit" })}
-        onEmitDebitNote={(id) => setNoteModal({ dteId: id, noteType: "debit" })}
-      />
-
-      {/* Modal de cesión a factoring desde la fila */}
-      {(() => {
-        const cedeDte = dtes.find((d) => d.id === cedeModalDteId);
-        if (!cedeDte) return null;
-        return (
-          <CederDteDialog
-            open={cedeModalDteId !== null}
-            onOpenChange={(o) => !o && setCedeModalDteId(null)}
-            dte={{
-              id: cedeDte.id,
-              dteType: cedeDte.dteType,
-              folio: cedeDte.folio,
-              receiverName: cedeDte.receiverName,
-              totalAmount: cedeDte.totalAmount,
-            }}
-          />
-        );
-      })()}
-
-      {/* Modal de vista previa PDF */}
-      {(() => {
-        const previewDte = dtes.find((d) => d.id === previewDteId);
-        if (!previewDte) return null;
-        return (
-          <PdfPreviewDialog
-            open={previewDteId !== null}
-            onOpenChange={(o) => !o && setPreviewDteId(null)}
-            dteId={previewDte.id}
-            folio={previewDte.folio}
-            dteType={previewDte.dteType}
-            onDownload={() => handleDownloadPdf(previewDte.id, previewDte.folio)}
-          />
-        );
-      })()}
-
-      {/* Modal de envío de email con TO/CC/BCC editables. Reemplaza el
-          envío directo "manda al receptor por default" sin opciones. */}
-      {(() => {
-        const emailDte = dtes.find((d) => d.id === emailDteId);
-        if (!emailDte) return null;
-        return (
-          <SendEmailDialog
-            open={emailDteId !== null}
-            onOpenChange={(o) => !o && setEmailDteId(null)}
-            dteId={emailDte.id}
-            folio={emailDte.folio}
-            dteType={emailDte.dteType}
-            defaultRecipient={emailDte.receiverEmail}
-            defaultCc={[]}
-            onSent={() => router.refresh()}
-          />
-        );
-      })()}
-
-      {/* Modal de emisión SII para un borrador (desde la fila). */}
-      {issuingDraft && (
-        <EmisionConfirmDialog
-          open={issuingDraft !== null}
-          onClose={() => setIssuingDraft(null)}
-          onConfirm={submitIssueDraft}
-          loading={issuingDraftLoading}
-          dteType={issuingDraft.dteType}
-          receiver={{
-            name: issuingDraft.receiverName,
-            rut: issuingDraft.receiverRut,
-            email: issuingDraft.receiverEmail,
-          }}
-          totals={{
-            netAmount: issuingDraft.netAmount,
-            taxAmount: issuingDraft.taxAmount,
-            totalAmount: issuingDraft.totalAmount,
-            currency: issuingDraft.currency as "CLP" | "UF",
-            ufValue: issuingDraft.ufValueAtIssue ?? undefined,
-          }}
-          lines={issuingDraft.lines}
-          defaultBackofficeEmails={tenantBackoffice.emails}
-          defaultBackofficeAlwaysSend={tenantBackoffice.alwaysSend}
-        />
-      )}
-    </div>
-  );
-}
 
 /* ═══════════════════════════════════════════════
    Tab 2: Folios
@@ -2033,47 +992,16 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
             />
           </div>
 
-          {/* Mobile cards */}
+          {/* Mobile cards — mismo layout que IssuedDtesMobileList (DTEs Emitidos)
+              para mantener consistencia visual entre los dos listados. */}
           <div className="md:hidden space-y-2">
-            {(Array.isArray(filtered) ? filtered : []).map((d) => {
-              const recCfg = RECEPTION_STATUS_CONFIG[d.receptionStatus] ?? { label: d.receptionStatus, className: "bg-muted" };
-              const payCfg = PAYMENT_STATUS_CONFIG[d.paymentStatus] ?? { label: d.paymentStatus, className: "bg-muted" };
-              return (
-                <Card
-                  key={d.id}
-                  className="cursor-pointer hover:bg-muted/30 transition-colors"
-                  onClick={() => setDetailDte(d)}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          <span className="text-xs text-muted-foreground">
-                            {DTE_TYPE_LABELS[d.dteType] ?? `Tipo ${d.dteType}`}
-                          </span>
-                          <span className="font-mono text-xs">#{d.folio}</span>
-                          <Badge variant="outline" className={cn("text-[10px]", recCfg.className)}>
-                            {recCfg.label}
-                          </Badge>
-                          <Badge variant="outline" className={cn("text-[10px]", payCfg.className)}>
-                            {payCfg.label}
-                          </Badge>
-                        </div>
-                        <p className="font-medium text-sm">{d.issuerName}</p>
-                        <p className="text-xs text-muted-foreground font-mono">{d.issuerRut}</p>
-                        <div className="flex items-center justify-between mt-2">
-                          <span className="font-mono text-sm font-medium">{fmtCLP.format(d.totalAmount)}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {format(new Date(d.date), "dd MMM yyyy", { locale: es })}
-                          </span>
-                        </div>
-                      </div>
-                      <Eye className="h-4 w-4 text-muted-foreground shrink-0" />
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
+            {(Array.isArray(filtered) ? filtered : []).map((d) => (
+              <ReceivedDteMobileCard
+                key={d.id}
+                dte={d}
+                onClick={() => setDetailDte(d)}
+              />
+            ))}
           </div>
 
           <PaginationControls
@@ -2272,6 +1200,103 @@ interface DteAttachment {
   size: number;
   uploadedAt: string;
   uploadedBy: string;
+}
+
+/**
+ * Card mobile para un DTE Recibido. Mismo layout que IssuedDtesMobileList
+ * (DTEs Emitidos) para mantener paridad visual entre ambas vistas:
+ *   [DocumentTag] #folio  [recepción]  [pago]  [aging]
+ *   Emisor
+ *   RUT
+ *   $monto (compact)         dd MMM yyyy
+ *   ─────────────────────────────────────
+ *   [ Detalle ]
+ */
+function ReceivedDteMobileCard({
+  dte,
+  onClick,
+}: {
+  dte: ReceivedDteRow;
+  onClick: () => void;
+}) {
+  const recVariant: TagVariant =
+    dte.receptionStatus === "ACCEPTED"
+      ? "ok"
+      : dte.receptionStatus === "CLAIMED"
+        ? "danger"
+        : "warn";
+  const recLabel =
+    RECEPTION_STATUS_CONFIG[dte.receptionStatus]?.label ?? dte.receptionStatus;
+  const payVariant: TagVariant =
+    dte.paymentStatus === "PAID"
+      ? "ok"
+      : dte.paymentStatus === "PARTIAL"
+        ? "warn"
+        : "danger";
+  const payLabel =
+    PAYMENT_STATUS_CONFIG[dte.paymentStatus]?.label ?? dte.paymentStatus;
+  return (
+    <Card
+      className="cursor-pointer hover:bg-ds-surface-2 transition-colors border-l-[3px] border-l-transparent"
+      onClick={onClick}
+    >
+      <CardContent className="p-4">
+        <div className="flex items-start gap-2.5">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+              <DocumentTag dteType={dte.dteType} />
+              <span className="font-mono text-xs text-ds-text-2">
+                #{dte.folio}
+              </span>
+              <Tag variant={recVariant} size="sm" dot>
+                {recLabel}
+              </Tag>
+              <Tag variant={payVariant} size="sm" dot>
+                {payLabel}
+              </Tag>
+              {dte.date && dte.paymentStatus !== "PAID" && (
+                <DteAgingBadge
+                  date={dte.date}
+                  dueDate={dte.dueDate}
+                  paymentStatus={dte.paymentStatus}
+                  siiStatus="ACCEPTED"
+                />
+              )}
+            </div>
+            <p className="font-medium text-sm text-ds-text-1 truncate">
+              {dte.issuerName}
+            </p>
+            <p className="text-xs text-ds-text-3 font-mono">{dte.issuerRut}</p>
+            <div className="flex items-center justify-between gap-2 mt-2">
+              <span
+                className="font-mono text-sm font-semibold tabular-nums truncate"
+                title={dte.totalAmount.toLocaleString("es-CL")}
+              >
+                {fmtCLPSmart(dte.totalAmount)}
+              </span>
+              <span className="text-xs text-ds-text-3 shrink-0">
+                {format(new Date(dte.date), "dd MMM yyyy", { locale: es })}
+              </span>
+            </div>
+          </div>
+        </div>
+        <div className="flex gap-1 mt-3 pt-3 border-t border-ds-border-subtle">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              onClick();
+            }}
+            className="flex-1 justify-center"
+          >
+            <Eye className="h-3.5 w-3.5 mr-1.5" />
+            Detalle
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 /**

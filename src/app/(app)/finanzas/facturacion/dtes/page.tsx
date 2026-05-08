@@ -10,7 +10,7 @@ import { prisma } from "@/lib/prisma";
 import { PageHero } from "@/components/opai-ds";
 import { Button } from "@/components/ui/button";
 import { FileText, Plus } from "lucide-react";
-import { FacturacionClient } from "@/components/finance/FacturacionClient";
+import { DtesEmitidosClient } from "@/components/finance/dtes/DtesEmitidosClient";
 
 interface SearchParams {
   siiStatus?: string;
@@ -180,16 +180,8 @@ export default async function DtesEmitidosPage({
     };
   });
 
-  const initialKpis = {
-    ventasMes: 0,
-    ivaDebitoMes: 0,
-    pendientesSii: 0,
-    facturasMes: 0,
-    foliosDisponibles: 0,
-    foliosLowCount: 0,
-    comparison: { vs: "vs mes anterior", pct: 0 },
-    periodLabel: "",
-  };
+  // suppliers ya no se usa en DtesEmitidosClient (solo lo usaba RecibidosTab).
+  void suppliers;
 
   return (
     <div className="space-y-6 min-w-0">
@@ -209,13 +201,10 @@ export default async function DtesEmitidosPage({
           ) : undefined
         }
       />
-      <FacturacionClient
+      <DtesEmitidosClient
         dtes={dtesData}
         issuedTotal={issuedTotal}
         canManage={canManage}
-        suppliers={suppliers}
-        initialKpis={initialKpis}
-        view="dtes"
         forcedSiiStatus={sp.siiStatus ?? null}
         forcedPaymentStatus={sp.paymentStatus ?? null}
       />

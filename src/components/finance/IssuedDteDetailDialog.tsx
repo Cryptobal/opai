@@ -27,6 +27,14 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { useIsMobileViewport } from "@/hooks/useIsMobileViewport";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -201,6 +209,15 @@ interface Props {
    */
   onEmitCreditNote?: (dteId: string) => void;
   onEmitDebitNote?: (dteId: string) => void;
+  /**
+   * Modo de presentación del shell:
+   *   - "dialog" (default): modal centrado tradicional (legacy).
+   *   - "sheet" : slide-over derecha (desktop) / abajo (mobile).
+   *
+   * Refactor 2026-05: el módulo DTEs Emitidos pasa a usar "sheet" via
+   * `IssuedDteSlideOver`, que es un wrapper sobre este componente.
+   */
+  presentation?: "dialog" | "sheet";
 }
 
 export function IssuedDteDetailDialog({
@@ -210,7 +227,9 @@ export function IssuedDteDetailDialog({
   canManage,
   onEmitCreditNote,
   onEmitDebitNote,
+  presentation = "dialog",
 }: Props) {
+  const isMobileViewport = useIsMobileViewport();
   const router = useRouter();
   const [dte, setDte] = useState<DteFull | null>(null);
   const [loading, setLoading] = useState(false);
@@ -441,11 +460,41 @@ export function IssuedDteDetailDialog({
   const siiGlosa = dte ? pickSiiGlosa(dte.siiResponse) : null;
   const siiCodigo = dte ? pickSiiCodigo(dte.siiResponse) : null;
 
+  // Modo de shell: Dialog vs Sheet. Las primitivas de Title/Description
+  // requieren Root context propio, así que cada rama renderiza las suyas.
+  const isSheet = presentation === "sheet";
+  const ShellRoot = isSheet ? Sheet : Dialog;
+  const ShellContent = isSheet ? SheetContent : DialogContent;
+  const ShellHeader = isSheet ? SheetHeader : DialogHeader;
+  const ShellTitle = isSheet ? SheetTitle : DialogTitle;
+  const ShellDescription = isSheet ? SheetDescription : DialogDescription;
+  const shellContentProps: Record<string, unknown> = isSheet
+    ? {
+        side: isMobileViewport ? "bottom" : "right",
+        className: cn(
+          "!p-0 flex flex-col w-full",
+          isMobileViewport ? "max-h-[92vh] rounded-t-2xl" : "sm:max-w-xl",
+        ),
+      }
+    : { className: "sm:max-w-3xl max-h-[90vh] overflow-y-auto" };
+
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+    <ShellRoot open={open} onOpenChange={(o: boolean) => !o && onClose()}>
+      <ShellContent {...shellContentProps}>
+        {isSheet && isMobileViewport && (
+          <div className="flex justify-center pt-3 pb-1 shrink-0">
+            <div className="w-10 h-1.5 rounded-full bg-ds-border-default/60" />
+          </div>
+        )}
+        <div
+          className={cn(
+            isSheet
+              ? "flex-1 overflow-y-auto px-6 py-4 space-y-3"
+              : undefined,
+          )}
+        >
+        <ShellHeader>
+          <ShellTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5 text-primary" />
             {tipoLabel}
             {dte && <span className="font-mono">N° {dte.folio}</span>}
@@ -454,13 +503,13 @@ export function IssuedDteDetailDialog({
                 {stCfg.label}
               </Badge>
             )}
-          </DialogTitle>
-          <DialogDescription className="sr-only">
+          </ShellTitle>
+          <ShellDescription className="sr-only">
             Detalle del DTE emitido: estado SII, datos del receptor, líneas de
             facturación, archivos adjuntos y acciones disponibles (descargar
             PDF/XML, reenviar por email, ceder a factoring, anular).
-          </DialogDescription>
-        </DialogHeader>
+          </ShellDescription>
+        </ShellHeader>
 
         {loading && (
           <div className="flex items-center justify-center py-12">
@@ -959,7 +1008,8 @@ export function IssuedDteDetailDialog({
             <Button variant="outline" onClick={onClose}>Cerrar</Button>
           </DialogFooter>
         )}
-      </DialogContent>
+        </div>
+      </ShellContent>
       {dte ? (
         <CederDteDialog
           open={showCederDialog}
@@ -1145,6 +1195,6 @@ export function IssuedDteDetailDialog({
           </DialogContent>
         </Dialog>
       )}
-    </Dialog>
+    </ShellRoot>
   );
 }
