@@ -223,6 +223,11 @@ interface Props {
    * (deeplink desde KPIs del resumen). Solo aplica cuando view==="dtes".
    */
   forcedSiiStatus?: string | null;
+  /**
+   * Filtro forzado de estado de pago para el listado de DTEs Emitidos
+   * (deeplink desde KPIs del Salud Financiera: Por cobrar / Aging / Vencidas).
+   */
+  forcedPaymentStatus?: string | null;
 }
 
 /* ── Constants ── */
@@ -336,6 +341,7 @@ export function FacturacionClient({
   initialKpis,
   view = "resumen",
   forcedSiiStatus = null,
+  forcedPaymentStatus = null,
 }: Props) {
   const router = useRouter();
   // Filtro de período de la TABLA DTEs Emitidos (toolbar interno) y del
@@ -350,6 +356,9 @@ export function FacturacionClient({
   const [forcedStatusFilter, setForcedStatusFilter] = useState<string | null>(
     forcedSiiStatus,
   );
+  const [forcedPaymentStatusFilter, setForcedPaymentStatusFilter] = useState<
+    string | null
+  >(forcedPaymentStatus);
 
   // Compatibilidad: `initialKpis` ya no se renderiza en KPIRow (eliminado
   // en Fase 7) pero el SC lo sigue calculando para los reportes y para
@@ -363,15 +372,47 @@ export function FacturacionClient({
       <div className="space-y-4">
         <SaludFinancieraHero
           onClickVencidas={() => {
-            // Vencidas usa payment status; lo dejamos sin filtro forzado
-            // (mejora futura: ?paymentStatus=overdue).
-            router.push("/finanzas/facturacion/dtes");
+            router.push("/finanzas/facturacion/dtes?paymentStatus=OVERDUE");
           }}
           onClickPendientesSii={() => {
             router.push("/finanzas/facturacion/dtes?siiStatus=PENDING");
           }}
           onClickFolios={() => {
             router.push("/finanzas/facturacion/folios");
+          }}
+          onClickFacturado={() => {
+            router.push("/finanzas/reportes/ventas");
+          }}
+          onClickCobrado={() => {
+            router.push("/finanzas/reportes/ventas");
+          }}
+          onClickPorCobrar={() => {
+            router.push("/finanzas/facturacion/dtes?paymentStatus=UNPAID");
+          }}
+          onClickMargen={() => {
+            router.push("/finanzas/reportes/rentabilidad");
+          }}
+          onClickCompras={() => {
+            router.push("/finanzas/reportes/compras");
+          }}
+          onClickIva={() => {
+            router.push("/finanzas/facturacion/libro-iva");
+          }}
+          onClickDso={() => {
+            router.push("/finanzas/reportes/ventas");
+          }}
+          onClickSaldoBanco={() => {
+            router.push("/finanzas/bancos");
+          }}
+          onClickLiquidez={() => {
+            router.push("/finanzas/bancos");
+          }}
+          onClickAging={() => {
+            router.push("/finanzas/facturacion/dtes?paymentStatus=UNPAID");
+          }}
+          onClickDeudor={(accountId) => {
+            if (accountId)
+              router.push(`/finanzas/reportes/ventas/${accountId}`);
           }}
         />
       </div>
@@ -389,6 +430,8 @@ export function FacturacionClient({
         onPeriodoFilterChange={setPeriodoFilter}
         forcedStatusFilter={forcedStatusFilter}
         onForcedStatusFilterConsumed={() => setForcedStatusFilter(null)}
+        forcedPaymentStatus={forcedPaymentStatusFilter}
+        onForcedPaymentStatusConsumed={() => setForcedPaymentStatusFilter(null)}
       />
     );
   }
@@ -420,6 +463,8 @@ function DtesTab({
   onPeriodoFilterChange,
   forcedStatusFilter,
   onForcedStatusFilterConsumed,
+  forcedPaymentStatus,
+  onForcedPaymentStatusConsumed,
 }: {
   dtes: DteRow[];
   issuedTotal: number;
@@ -434,15 +479,19 @@ function DtesTab({
    */
   forcedStatusFilter?: string | null;
   onForcedStatusFilterConsumed?: () => void;
+  /**
+   * Deeplink desde "Por cobrar" / Aging / banner Vencidas:
+   * UNPAID | OVERDUE | PARTIAL | PAID.
+   */
+  forcedPaymentStatus?: string | null;
+  onForcedPaymentStatusConsumed?: () => void;
 }) {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState("ALL");
 
-  // Click-through desde el KPI: si el padre pide forzar un filtro, lo
-  // aplicamos y avisamos para que limpie el estado. Esto permite que el
-  // usuario pueda cambiarlo libremente después.
   useEffect(() => {
     if (forcedStatusFilter && forcedStatusFilter !== statusFilter) {
       setStatusFilter(forcedStatusFilter);
@@ -450,6 +499,14 @@ function DtesTab({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [forcedStatusFilter]);
+
+  useEffect(() => {
+    if (forcedPaymentStatus && forcedPaymentStatus !== paymentStatusFilter) {
+      setPaymentStatusFilter(forcedPaymentStatus);
+      onForcedPaymentStatusConsumed?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [forcedPaymentStatus]);
   /** Filtro por centro de costo: "ALL" | "NONE" | uuid de cuenta. */
   const [accountFilter, setAccountFilter] = useState("ALL");
   const [accountOptions, setAccountOptions] = useState<
@@ -656,8 +713,11 @@ function DtesTab({
     let list = dtes;
     if (typeFilter !== "ALL") list = list.filter((d) => String(d.dteType) === typeFilter);
     if (statusFilter !== "ALL") list = list.filter((d) => d.siiStatus === statusFilter);
+    if (paymentStatusFilter !== "ALL") {
+      list = list.filter((d) => d.paymentStatus === paymentStatusFilter);
+    }
     return list;
-  }, [dtes, typeFilter, statusFilter]);
+  }, [dtes, typeFilter, statusFilter, paymentStatusFilter]);
 
   const handleDownloadPdf = async (id: string, folio: number) => {
     try {

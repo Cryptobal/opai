@@ -138,6 +138,18 @@ interface Props {
   onClickPendientesSii?: () => void;
   /** Click en tile "Folios disp." (cambia al tab Folios). */
   onClickFolios?: () => void;
+  /** ── Deeplinks a informes ── */
+  onClickFacturado?: () => void;
+  onClickCobrado?: () => void;
+  onClickPorCobrar?: () => void;
+  onClickMargen?: () => void;
+  onClickCompras?: () => void;
+  onClickIva?: () => void;
+  onClickDso?: () => void;
+  onClickSaldoBanco?: () => void;
+  onClickLiquidez?: () => void;
+  onClickAging?: () => void;
+  onClickDeudor?: (accountId: string | null) => void;
 }
 
 const STAT_TILE = "rounded-md border border-ds-border-subtle bg-ds-surface-2 p-3 min-w-0";
@@ -196,6 +208,17 @@ export function SaludFinancieraHero({
   onClickVencidas,
   onClickPendientesSii,
   onClickFolios,
+  onClickFacturado,
+  onClickCobrado,
+  onClickPorCobrar,
+  onClickMargen,
+  onClickCompras,
+  onClickIva,
+  onClickDso,
+  onClickSaldoBanco,
+  onClickLiquidez,
+  onClickAging,
+  onClickDeudor,
 }: Props) {
   // Período del hero — INDEPENDIENTE del filtro de la tabla. Default
   // "current" (mes en curso): es lo que más mira el dueño al entrar al
@@ -477,14 +500,26 @@ export function SaludFinancieraHero({
 
       {/* Stats principales */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 min-w-0">
-        <div className={STAT_TILE}>
+        <button
+          type="button"
+          onClick={onClickFacturado}
+          disabled={!onClickFacturado}
+          className={onClickFacturado ? STAT_TILE_TAPPABLE : STAT_TILE}
+          title={onClickFacturado ? "Ver reporte de ventas" : undefined}
+        >
           <div className={STAT_LABEL}>
             <Receipt className="h-3 w-3 shrink-0" />
             <span className="truncate">Facturado neto</span>
           </div>
           <KpiAmount value={summary.facturadoNeto} />
-        </div>
-        <div className={STAT_TILE}>
+        </button>
+        <button
+          type="button"
+          onClick={onClickCobrado}
+          disabled={!onClickCobrado}
+          className={onClickCobrado ? STAT_TILE_TAPPABLE : STAT_TILE}
+          title={onClickCobrado ? "Ver reporte de ventas" : undefined}
+        >
           <div className={STAT_LABEL}>
             <ArrowDownToLine className="h-3 w-3 shrink-0" />
             <span className="truncate">Cobrado</span>
@@ -501,8 +536,14 @@ export function SaludFinancieraHero({
           >
             {summary.cobradoPct.toFixed(0)}% del facturado
           </div>
-        </div>
-        <div className={STAT_TILE}>
+        </button>
+        <button
+          type="button"
+          onClick={onClickPorCobrar}
+          disabled={!onClickPorCobrar}
+          className={onClickPorCobrar ? STAT_TILE_TAPPABLE : STAT_TILE}
+          title={onClickPorCobrar ? "Ver DTEs por cobrar" : undefined}
+        >
           <div className={STAT_LABEL}>
             <Hourglass className="h-3 w-3 shrink-0" />
             <span className="truncate">Por cobrar</span>
@@ -512,22 +553,72 @@ export function SaludFinancieraHero({
             {summary.agingBuckets.reduce((a, b) => a + b.count, 0)} factura
             {summary.agingBuckets.reduce((a, b) => a + b.count, 0) === 1 ? "" : "s"}
           </div>
-        </div>
-        <div className={STAT_TILE}>
+        </button>
+        <div
+          role={onClickMargen ? "button" : undefined}
+          tabIndex={onClickMargen ? 0 : undefined}
+          onClick={onClickMargen}
+          onKeyDown={
+            onClickMargen
+              ? (e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onClickMargen();
+                  }
+                }
+              : undefined
+          }
+          className={onClickMargen ? STAT_TILE_TAPPABLE : STAT_TILE}
+          title={onClickMargen ? "Ver reporte de rentabilidad" : undefined}
+        >
           <div className={STAT_LABEL}>
             <TrendingUp className="h-3 w-3 shrink-0" />
             <span className="truncate">Margen bruto</span>
           </div>
           <KpiAmount value={summary.margenBruto} />
-          <div className="text-[12px] text-ds-text-3 mt-1 truncate">
-            Compras: {fmtCLPShort(summary.comprasNetas)}
-          </div>
+          {onClickCompras ? (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onClickCompras();
+              }}
+              className="text-[12px] text-ds-text-3 mt-1 truncate hover:text-primary hover:underline cursor-pointer text-left"
+              title="Ver reporte de compras"
+            >
+              Compras: {fmtCLPShort(summary.comprasNetas)}
+            </button>
+          ) : (
+            <div className="text-[12px] text-ds-text-3 mt-1 truncate">
+              Compras: {fmtCLPShort(summary.comprasNetas)}
+            </div>
+          )}
         </div>
       </div>
 
       {/* Aging breakdown + IVA */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 min-w-0">
-        <div className="lg:col-span-2 rounded-md border border-ds-border-subtle bg-ds-surface-2 p-3 min-w-0">
+        <div
+          role={onClickAging ? "button" : undefined}
+          tabIndex={onClickAging ? 0 : undefined}
+          onClick={onClickAging}
+          onKeyDown={
+            onClickAging
+              ? (e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onClickAging();
+                  }
+                }
+              : undefined
+          }
+          className={`lg:col-span-2 rounded-md border border-ds-border-subtle bg-ds-surface-2 p-3 min-w-0 ${
+            onClickAging
+              ? "cursor-pointer hover:bg-ds-surface-3 hover:border-ds-border-default transition-colors"
+              : ""
+          }`}
+          title={onClickAging ? "Ver DTEs por cobrar" : undefined}
+        >
           <div className={STAT_LABEL}>
             <Hourglass className="h-3 w-3 shrink-0" />
             <span className="truncate">Aging del por cobrar</span>
@@ -575,7 +666,17 @@ export function SaludFinancieraHero({
             </div>
           )}
         </div>
-        <div className="rounded-md border border-ds-border-subtle bg-ds-surface-2 p-3 min-w-0">
+        <button
+          type="button"
+          onClick={onClickIva}
+          disabled={!onClickIva}
+          className={
+            onClickIva
+              ? "rounded-md border border-ds-border-subtle bg-ds-surface-2 p-3 min-w-0 cursor-pointer hover:bg-ds-surface-3 hover:border-ds-border-default transition-colors text-left w-full"
+              : "rounded-md border border-ds-border-subtle bg-ds-surface-2 p-3 min-w-0"
+          }
+          title={onClickIva ? "Ver libro IVA" : undefined}
+        >
           <div className={STAT_LABEL}>
             <PieChart className="h-3 w-3 shrink-0" />
             <span className="truncate">IVA neto del período</span>
@@ -591,13 +692,19 @@ export function SaludFinancieraHero({
               <span className="font-mono">{fmtCLPShort(summary.ivaCredito)}</span>
             </div>
           </div>
-        </div>
+        </button>
       </div>
 
       {/* DSO + Saldo bancario + Top deudores */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 min-w-0">
         {/* DSO con comparativo */}
-        <div className={STAT_TILE}>
+        <button
+          type="button"
+          onClick={onClickDso}
+          disabled={!onClickDso}
+          className={onClickDso ? STAT_TILE_TAPPABLE : STAT_TILE}
+          title={onClickDso ? "Ver reporte de ventas" : undefined}
+        >
           <div className={STAT_LABEL}>
             <Clock3 className="h-3 w-3 shrink-0" />
             <span className="truncate">DSO · días en cobrar</span>
@@ -639,9 +746,15 @@ export function SaludFinancieraHero({
                 })()}
             </>
           )}
-        </div>
+        </button>
         {/* Saldo bancario */}
-        <div className={STAT_TILE}>
+        <button
+          type="button"
+          onClick={onClickSaldoBanco}
+          disabled={!onClickSaldoBanco}
+          className={onClickSaldoBanco ? STAT_TILE_TAPPABLE : STAT_TILE}
+          title={onClickSaldoBanco ? "Ver bancos" : undefined}
+        >
           <div className={STAT_LABEL}>
             <Building2 className="h-3 w-3 shrink-0" />
             <span className="truncate">Saldo bancario</span>
@@ -652,9 +765,15 @@ export function SaludFinancieraHero({
             {summary.bankAccountsCount === 1 ? "" : "s"} activa
             {summary.bankAccountsCount === 1 ? "" : "s"}
           </div>
-        </div>
-        {/* Spacer para alinear en lg (top deudores ocupa abajo) */}
-        <div className={STAT_TILE}>
+        </button>
+        {/* Liquidez vs por cobrar */}
+        <button
+          type="button"
+          onClick={onClickLiquidez}
+          disabled={!onClickLiquidez}
+          className={onClickLiquidez ? STAT_TILE_TAPPABLE : STAT_TILE}
+          title={onClickLiquidez ? "Ver bancos" : undefined}
+        >
           <div className={STAT_LABEL}>
             <ArrowDownToLine className="h-3 w-3 shrink-0" />
             <span className="truncate">Liquidez vs por cobrar</span>
@@ -663,7 +782,7 @@ export function SaludFinancieraHero({
           <div className="text-[12px] text-ds-text-3 mt-1 truncate">
             Saldo banco − por cobrar
           </div>
-        </div>
+        </button>
       </div>
 
       {/* Top 5 deudores */}
@@ -673,7 +792,7 @@ export function SaludFinancieraHero({
             <Users className="h-3 w-3 shrink-0" />
             <span className="truncate">Top deudores</span>
           </div>
-          <ul className="space-y-1.5 mt-1">
+          <div className="space-y-1.5 mt-1">
             {summary.topDeudores.map((d, i) => {
               const max = summary.topDeudores[0]?.monto ?? 1;
               const pct = max > 0 ? (d.monto / max) * 100 : 0;
@@ -683,10 +802,23 @@ export function SaludFinancieraHero({
                   : d.diasMasAntigua > 30
                     ? "text-status-warn-fg"
                     : "text-status-ok-fg";
+              const isDrillable = !!d.accountId && !!onClickDeudor;
               return (
-                <li
+                <button
+                  type="button"
                   key={`${d.accountId ?? d.rut}-${i}`}
-                  className="flex items-center gap-2 min-w-0"
+                  onClick={
+                    isDrillable
+                      ? () => onClickDeudor!(d.accountId)
+                      : undefined
+                  }
+                  disabled={!isDrillable}
+                  className="w-full text-left flex items-center gap-2 min-w-0 rounded-md p-1 -mx-1 hover:bg-ds-surface-3 transition-colors cursor-pointer disabled:cursor-default disabled:hover:bg-transparent"
+                  title={
+                    isDrillable
+                      ? `Ver ficha financiera de ${d.name}`
+                      : undefined
+                  }
                 >
                   <div className="text-[11px] font-mono text-ds-text-3 w-4 shrink-0 text-right">
                     {i + 1}
@@ -714,10 +846,10 @@ export function SaludFinancieraHero({
                   >
                     {d.diasMasAntigua}d
                   </div>
-                </li>
+                </button>
               );
             })}
-          </ul>
+          </div>
         </div>
       )}
 

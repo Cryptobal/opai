@@ -14,6 +14,8 @@ import { FacturacionClient } from "@/components/finance/FacturacionClient";
 
 interface SearchParams {
   siiStatus?: string;
+  /** UNPAID | PARTIAL | OVERDUE | PAID — proviene de deeplinks de Salud Financiera. */
+  paymentStatus?: string;
 }
 
 export default async function DtesEmitidosPage({
@@ -215,6 +217,7 @@ export default async function DtesEmitidosPage({
         initialKpis={initialKpis}
         view="dtes"
         forcedSiiStatus={sp.siiStatus ?? null}
+        forcedPaymentStatus={sp.paymentStatus ?? null}
       />
     </div>
   );

@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useCallback, useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -24,8 +24,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { DateRangePicker, type DateRange } from "@/components/ui/date-range-picker";
-import { PagosTab } from "@/components/finance/PagosTab";
-import type { Payment, PendingRendicion } from "@/components/finance/PagosTab";
 import { DataTable, EmptyState, type DataTableColumn } from "@/components/opai-ds";
 import {
   Plus,
@@ -72,8 +70,6 @@ interface RendicionesClientProps {
   canApprove: boolean;
   canPay: boolean;
   currentUserId: string;
-  payments: Payment[];
-  pendingRendiciones: PendingRendicion[];
 }
 
 /* ── Constants ── */
@@ -149,16 +145,8 @@ function RendicionesClientInner({
   canApprove,
   canPay,
   currentUserId,
-  payments,
-  pendingRendiciones,
 }: RendicionesClientProps) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-
-  // Tab state
-  const [activeTab, setActiveTab] = useState<"rendiciones" | "pagos">(
-    searchParams.get("tab") === "pagos" ? "pagos" : "rendiciones"
-  );
 
   // Filter state
   const [search, setSearch] = useState("");
@@ -567,45 +555,7 @@ function RendicionesClientInner({
 
   return (
     <div className={cn("space-y-4", selectedIds.size > 0 && "pb-20")}>
-      {/* ── Tabs: Rendiciones | Pagos ── */}
-      <div className="flex gap-1 border-b border-border pb-2">
-        {([
-          { value: "rendiciones" as const, label: "Rendiciones", count: rendiciones.length },
-          { value: "pagos" as const, label: "Pagos", count: payments.length },
-        ]).map((tab) => (
-          <button
-            key={tab.value}
-            type="button"
-            onClick={() => setActiveTab(tab.value)}
-            className={cn(
-              "px-4 py-2 text-sm font-medium transition-colors relative",
-              activeTab === tab.value
-                ? "text-primary"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            {tab.label}
-            <span
-              className={cn(
-                "ml-1.5 text-[10px] rounded-full px-1.5 py-0.5 min-w-[18px] text-center",
-                activeTab === tab.value
-                  ? "bg-primary/20 text-primary"
-                  : "bg-muted text-muted-foreground"
-              )}
-            >
-              {tab.count}
-            </span>
-            {activeTab === tab.value && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary -mb-2" />
-            )}
-          </button>
-        ))}
-      </div>
-
-      {/* ── Tab: Rendiciones ── */}
-      {activeTab === "rendiciones" && (
-        <>
-          {/* Filters row */}
+      {/* Filters row */}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <div className="relative flex-1 min-w-0">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
@@ -828,13 +778,6 @@ function RendicionesClientInner({
               </div>
             </>
           )}
-        </>
-      )}
-
-      {/* ── Tab: Pagos ── */}
-      {activeTab === "pagos" && (
-        <PagosTab payments={payments} pendingRendiciones={pendingRendiciones} />
-      )}
 
       {/* ── Sticky bottom action bar ── */}
       {selectedIds.size > 0 && (
