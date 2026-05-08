@@ -227,6 +227,21 @@ describe("nav registry", () => {
       expect(keys).toContain("rend-pagos");
     });
 
+    it("returns Ventas N4 children for /finanzas/facturacion", () => {
+      const nodes = getContextualBottomNavNodes("/finanzas/facturacion");
+      const keys = nodes.map((n) => n.key);
+      expect(keys).toContain("ventas-resumen");
+      expect(keys).toContain("ventas-dtes");
+      expect(keys).toContain("ventas-folios");
+    });
+
+    it("returns Ventas N4 children for /finanzas/facturacion/dtes", () => {
+      const nodes = getContextualBottomNavNodes("/finanzas/facturacion/dtes");
+      const keys = nodes.map((n) => n.key);
+      expect(keys).toContain("ventas-resumen");
+      expect(keys).toContain("ventas-dtes");
+    });
+
     it("returns [] for an unknown path", () => {
       expect(getContextualBottomNavNodes("/totally/unknown")).toEqual([]);
     });

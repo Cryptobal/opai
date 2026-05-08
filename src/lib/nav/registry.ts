@@ -799,6 +799,16 @@ export function getContextualBottomNavNodes(pathname: string): NavNode[] {
     if (rendNode?.children) return rendNode.children;
   }
 
+  // Ventas / Facturación (incluye DTEs, programación, libro IVA, folios, cesiones)
+  if (
+    pathname === "/finanzas/facturacion" ||
+    pathname.startsWith("/finanzas/facturacion/")
+  ) {
+    const fin = getModule("finance");
+    const ventasNode = fin?.children?.find((c) => c.key === "finance-ventas");
+    if (ventasNode?.children) return ventasNode.children;
+  }
+
   // Supervisión
   if (pathname === "/ops/supervision" || pathname.startsWith("/ops/supervision/")) {
     const ops = getModule("ops");
