@@ -209,11 +209,22 @@ describe("nav registry", () => {
       expect(keys).toContain("ops-rondas");
     });
 
-    it("returns Finanzas top-level children for /finanzas/rendiciones", () => {
+    it("returns Rendiciones N4 children for /finanzas/rendiciones", () => {
       const nodes = getContextualBottomNavNodes("/finanzas/rendiciones");
       const keys = nodes.map((n) => n.key);
-      expect(keys).toContain("finance-rendiciones");
-      expect(keys).toContain("finance-ventas");
+      expect(keys).toContain("rend-resumen");
+      expect(keys).toContain("rend-aprobaciones");
+      expect(keys).toContain("rend-pagos");
+    });
+
+    it("returns Rendiciones N4 children for /finanzas/rendiciones/aprobaciones", () => {
+      const nodes = getContextualBottomNavNodes(
+        "/finanzas/rendiciones/aprobaciones"
+      );
+      const keys = nodes.map((n) => n.key);
+      expect(keys).toContain("rend-resumen");
+      expect(keys).toContain("rend-aprobaciones");
+      expect(keys).toContain("rend-pagos");
     });
 
     it("returns [] for an unknown path", () => {

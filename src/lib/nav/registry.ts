@@ -446,7 +446,7 @@ export const NAV_MODULES: NavNode[] = [
         show: (perms) =>
           canView(perms, "finance", "reportes") || hasCapability(perms, "rendicion_view_all"),
       },
-      // Rendiciones
+      // Rendiciones — con N3 (Resumen + Aprobaciones + Pagos)
       {
         key: "finance-rendiciones",
         href: "/finanzas/rendiciones",
@@ -456,22 +456,36 @@ export const NAV_MODULES: NavNode[] = [
         module: "finance",
         submodule: "rendiciones",
         badge: { notesKey: "rendicion" },
-      },
-      // Aprobaciones
-      {
-        key: "finance-aprobaciones",
-        href: "/finanzas/aprobaciones",
-        label: "Aprobaciones",
-        icon: CheckCircle2,
-        capability: "rendicion_approve",
-      },
-      // Pagos
-      {
-        key: "finance-pagos",
-        href: "/finanzas/pagos",
-        label: "Pagos",
-        icon: Wallet,
-        capability: "rendicion_pay",
+        children: [
+          {
+            key: "rend-resumen",
+            href: "/finanzas/rendiciones",
+            label: "Rendiciones",
+            shortLabel: "Lista",
+            icon: Receipt,
+            exactMatch: true,
+            module: "finance",
+            submodule: "rendiciones",
+          },
+          {
+            key: "rend-aprobaciones",
+            href: "/finanzas/rendiciones/aprobaciones",
+            label: "Aprobaciones",
+            icon: CheckCircle2,
+            capability: "rendicion_approve",
+            module: "finance",
+            submodule: "rendiciones",
+          },
+          {
+            key: "rend-pagos",
+            href: "/finanzas/rendiciones/pagos",
+            label: "Pagos",
+            icon: Wallet,
+            capability: "rendicion_pay",
+            module: "finance",
+            submodule: "rendiciones",
+          },
+        ],
       },
       // Ventas (Facturación) — con N3.
       // El N3 contiene SOLO vistas (Resumen + tabs). Las acciones
@@ -773,6 +787,16 @@ export function getContextualBottomNavNodes(pathname: string): NavNode[] {
     const fin = getModule("finance");
     const informes = fin?.children?.find((c) => c.key === "finance-informes");
     if (informes?.children) return informes.children;
+  }
+
+  // Rendiciones (incluye aprobaciones y pagos)
+  if (
+    pathname === "/finanzas/rendiciones" ||
+    pathname.startsWith("/finanzas/rendiciones/")
+  ) {
+    const fin = getModule("finance");
+    const rendNode = fin?.children?.find((c) => c.key === "finance-rendiciones");
+    if (rendNode?.children) return rendNode.children;
   }
 
   // Supervisión

@@ -104,7 +104,7 @@ export default async function FinanzasDashboardPage() {
       show: true,
     },
     {
-      href: "/finanzas/aprobaciones",
+      href: "/finanzas/rendiciones/aprobaciones",
       title: "Aprobaciones",
       description: "Revisa y aprueba rendiciones enviadas por tu equipo.",
       icon: CheckCircle2,
@@ -114,7 +114,7 @@ export default async function FinanzasDashboardPage() {
       show: canApprove,
     },
     {
-      href: "/finanzas/pagos",
+      href: "/finanzas/rendiciones/pagos",
       title: "Pagos",
       description: "Procesa pagos manuales o genera archivos bancarios.",
       icon: Wallet,
