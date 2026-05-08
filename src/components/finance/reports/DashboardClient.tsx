@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
   DollarSign,
   Wallet,
@@ -46,6 +47,7 @@ const fmtCLPShort = (n: number): string => {
 };
 
 export function DashboardClient({ initialPeriod, initialKpis }: Props) {
+  const router = useRouter();
   const [period, setPeriod] = useState(initialPeriod);
   const [kpis, setKpis] = useState(initialKpis);
   const [isPending, startTransition] = useTransition();
@@ -86,6 +88,7 @@ export function DashboardClient({ initialPeriod, initialKpis }: Props) {
           icon={DollarSign}
           iconTone="emerald"
           variant="brand"
+          onClick={() => router.push("/finanzas/reportes/ventas")}
         />
         <KPICard
           label="EBITDA"
@@ -97,6 +100,7 @@ export function DashboardClient({ initialPeriod, initialKpis }: Props) {
           icon={Sparkles}
           iconTone="sky"
           variant={kpis.ebitda.value >= 0 ? "ok" : "danger"}
+          onClick={() => router.push("/finanzas/reportes/eerr")}
         />
         <KPICard
           label="DSO"
@@ -105,6 +109,7 @@ export function DashboardClient({ initialPeriod, initialKpis }: Props) {
           icon={Wallet}
           iconTone="amber"
           variant={kpis.dso.value <= 60 ? "ok" : kpis.dso.value <= 90 ? "warn" : "danger"}
+          onClick={() => router.push("/finanzas/reportes/ventas")}
         />
         <KPICard
           label="Cuentas por cobrar"
@@ -116,10 +121,17 @@ export function DashboardClient({ initialPeriod, initialKpis }: Props) {
           hint={`${kpis.accountsReceivable.activeInvoices} facturas abiertas`}
           icon={Receipt}
           iconTone="violet"
+          onClick={() => router.push("/finanzas/facturacion/dtes?paymentStatus=UNPAID")}
         />
       </KPIGrid>
 
-      <Surface padding="lg" elevation={1}>
+      <Surface
+        padding="lg"
+        elevation={1}
+        hoverable
+        tappable
+        onClick={() => router.push("/finanzas/reportes/eerr")}
+      >
         <SectionHeader
           eyebrow="CLP"
           title="Ingresos vs gastos · 12 meses"
@@ -193,35 +205,60 @@ export function DashboardClient({ initialPeriod, initialKpis }: Props) {
             <p className="text-sm text-ds-text-3 mt-3">Sin datos para este período.</p>
           ) : (
             <div className="space-y-2.5 mt-3">
-              {kpis.topClients.map((c, i) => (
-                <div key={c.id}>
-                  <div className="flex items-center justify-between text-[12.5px] mb-1">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span
-                        className="w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-mono font-bold shrink-0"
-                        style={{ background: `${c.color}20`, color: c.color }}
-                      >
-                        {i + 1}
+              {kpis.topClients.map((c, i) => {
+                const isDrillable = !c.id.startsWith("__") && !c.id.startsWith("rut:");
+                const inner = (
+                  <>
+                    <div className="flex items-center justify-between text-[12.5px] mb-1">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span
+                          className="w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-mono font-bold shrink-0"
+                          style={{ background: `${c.color}20`, color: c.color }}
+                        >
+                          {i + 1}
+                        </span>
+                        <span className="truncate text-ds-text-1">{c.name}</span>
+                      </div>
+                      <span className="ds-num text-ds-text-2 shrink-0">
+                        {fmtCLPShort(c.total)}
                       </span>
-                      <span className="truncate text-ds-text-1">{c.name}</span>
                     </div>
-                    <span className="ds-num text-ds-text-2 shrink-0">
-                      {fmtCLPShort(c.total)}
-                    </span>
-                  </div>
-                  <div className="h-1.5 rounded-full overflow-hidden bg-ds-surface-3">
-                    <div
-                      className="h-full rounded-full"
-                      style={{ width: `${c.pct}%`, background: c.color }}
-                    />
-                  </div>
-                </div>
-              ))}
+                    <div className="h-1.5 rounded-full overflow-hidden bg-ds-surface-3">
+                      <div
+                        className="h-full rounded-full"
+                        style={{ width: `${c.pct}%`, background: c.color }}
+                      />
+                    </div>
+                  </>
+                );
+                if (!isDrillable) {
+                  return <div key={c.id}>{inner}</div>;
+                }
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() =>
+                      router.push(`/finanzas/reportes/ventas/${c.id}`)
+                    }
+                    className="w-full text-left rounded-md p-1 -mx-1 hover:bg-ds-surface-2 transition-colors cursor-pointer"
+                    title={`Ver ficha financiera de ${c.name}`}
+                  >
+                    {inner}
+                  </button>
+                );
+              })}
             </div>
           )}
         </Surface>
 
-        <Surface padding="lg" elevation={1}>
+        <Surface
+          padding="lg"
+          elevation={1}
+          hoverable
+          tappable
+          onClick={() => router.push("/finanzas/reportes/ventas")}
+        >
           <SectionHeader title="Concentración de ingresos" size="sm" />
           <div className="flex items-center gap-4 mt-3">
             <div className="w-32 h-32 shrink-0">
@@ -279,6 +316,7 @@ export function DashboardClient({ initialPeriod, initialKpis }: Props) {
           icon={TrendingUp}
           iconTone="emerald"
           variant={kpis.netIncome.value >= 0 ? "ok" : "danger"}
+          onClick={() => router.push("/finanzas/reportes/eerr")}
         />
         <KPICard
           label="Cuentas por pagar"
@@ -290,6 +328,7 @@ export function DashboardClient({ initialPeriod, initialKpis }: Props) {
           hint={`${kpis.accountsPayable.activeInvoices} facturas abiertas`}
           icon={Receipt}
           iconTone="rose"
+          onClick={() => router.push("/finanzas/facturacion/recibidos")}
         />
       </KPIGrid>
     </div>
