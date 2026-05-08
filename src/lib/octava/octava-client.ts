@@ -327,8 +327,8 @@ export function consultaEstadoAec(
 
 /**
  * Hace polling de ConsultaEstadoAEC hasta que el estado sea "final"
- * (EOK o cualquier rechazo Rxx). El SII tarda entre 30s y 5min en
- * procesar un AEC.
+ * (EOK o cualquier rechazo Rxx). El SII tarda entre ~1 y 10+ min; Octava a
+ * menudo devuelve CodigoCesion vacío mientras RPETC procesa (equivalente a PEN).
  */
 export async function pollConsultaEstadoAec(
   body: ConsultaEstadoAecRequest,
@@ -338,16 +338,18 @@ export async function pollConsultaEstadoAec(
     signal?: AbortSignal;
   } = {},
 ): Promise<ConsultaEstadoAecResponse> {
-  const maxAttempts = opts.maxAttempts ?? 12; // 12*15s = 3 min
+  const maxAttempts = opts.maxAttempts ?? 28; // ~7 min @ 15s (SII a vecho tarda >3 min)
   const intervalMs = opts.intervalMs ?? 15_000;
 
   let last: ConsultaEstadoAecResponse | null = null;
   for (let i = 0; i < maxAttempts; i++) {
     if (opts.signal?.aborted) throw new Error("Polling abortado");
     last = await consultaEstadoAec(body, opts.signal);
-    const code = last.CodigoCesion;
-    // Códigos finales: EOK o cualquier rechazo
-    if (code && code !== "PEN") {
+    const codeRaw = last.CodigoCesion;
+    const code =
+      typeof codeRaw === "string" ? codeRaw.trim() : String(codeRaw ?? "").trim();
+    const pending = !code || code === "PEN";
+    if (!pending) {
       return last;
     }
     await new Promise((r) => setTimeout(r, intervalMs));

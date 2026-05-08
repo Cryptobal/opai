@@ -80,6 +80,22 @@ function envToAmbiente(env: "PRODUCTION" | "CERTIFICATION"): OctavaAmbiente {
   return env === "PRODUCTION" ? "1" : "0";
 }
 
+/** Octava suele responder Token/Url `"NULL"` (string); ignora igual que vacío. */
+function normalizeOctavaToken(raw: string | undefined | null): string | null {
+  if (raw == null) return null;
+  const t = String(raw).trim();
+  if (!t || t === "NULL" || t.toLowerCase() === "null") return null;
+  return t;
+}
+
+/** URL S3 del AEC; Octava puede devolver el string `"NULL"`. */
+function normalizeOctavaUrl(raw: string | undefined | null): string | null {
+  const u = normalizeOctavaToken(raw);
+  if (!u) return null;
+  if (!/^https?:\/\//i.test(u)) return null;
+  return u;
+}
+
 /**
  * Asegura que el tenant tenga `octavaPassAccesoApiEnc` en TenantDteConfig.
  * Si no, llama a RegistraCedente y persiste la password de acceso devuelta.
@@ -127,7 +143,11 @@ async function ensureCedenteRegistered(
     res.IdResultadoFE === "3" ||
     /ya existe RUT/i.test(res.ResultadoFE ?? "");
 
-  if (cedenteYaExiste && !res.PassAccesoApi) {
+  const passOctava = typeof res.PassAccesoApi === "string"
+    ? res.PassAccesoApi.trim()
+    : "";
+
+  if (cedenteYaExiste && !passOctava) {
     const bootstrap = process.env.OCTAVA_PASS_ACCESO_API?.trim();
     if (bootstrap) {
       await prisma.tenantDteConfig.update({
@@ -148,7 +168,7 @@ async function ensureCedenteRegistered(
     );
   }
 
-  if (res.IdResultadoFE !== "0" || !res.PassAccesoApi) {
+  if (res.IdResultadoFE !== "0" || !passOctava) {
     throw new Error(
       `Octava RegistraCedente falló (${res.IdResultadoFE}): ${res.ResultadoFE}`,
     );
@@ -157,11 +177,11 @@ async function ensureCedenteRegistered(
   await prisma.tenantDteConfig.update({
     where: { tenantId: ctx.tenantId },
     data: {
-      octavaPassAccesoApiEnc: encryptBuffer(Buffer.from(res.PassAccesoApi, "utf8")),
+      octavaPassAccesoApiEnc: encryptBuffer(Buffer.from(passOctava, "utf8")),
       octavaRegisteredAt: new Date(),
     },
   });
-  return res.PassAccesoApi;
+  return passOctava;
 }
 
 /**
@@ -190,18 +210,23 @@ async function ensureToken(
     { RUTACCESOAPI: cedenteRut, PASSWORDACCESOAPI: passAccesoApi },
     signal,
   );
-  if (res.DescripcionResultado === "TOK" && res.Token) {
+  const tokenFromApi = normalizeOctavaToken(res.Token);
+  // TOK: token nuevo. TDUP: a veces igual devuelven el token activo (no solo desde cache BD).
+  if (
+    tokenFromApi &&
+    (res.DescripcionResultado === "TOK" ||
+      res.DescripcionResultado === "TDUP")
+  ) {
     await prisma.tenantDteConfig.update({
       where: { tenantId: ctx.tenantId },
       data: {
-        octavaToken: res.Token,
+        octavaToken: tokenFromApi,
         octavaTokenExpiresAt: new Date(now + TOKEN_TTL_MS),
       },
     });
-    return res.Token;
+    return tokenFromApi;
   }
   if (res.DescripcionResultado === "TDUP" && cfg?.octavaToken) {
-    // Octava ya tiene un token activo y no nos lo devuelve. Reusamos el cache.
     return cfg.octavaToken;
   }
   throw new Error(
@@ -290,7 +315,11 @@ export async function cedeDteOctava(
       },
       opts.signal,
     );
-    if (cedeRes.IdResultadoFE !== "0") {
+    // 0 = nueva cesión ejecutada.
+    // 3 = DTE ya cedido. 4 = no es tenedor vigente para re‑ceder; igual puede existir cesión RPETC.
+    const proceedToConsultaEstado =
+      cedeRes.IdResultadoFE === "3" || cedeRes.IdResultadoFE === "4";
+    if (cedeRes.IdResultadoFE !== "0" && !proceedToConsultaEstado) {
       return {
         success: false,
         error: `Octava CedeDte falló (${cedeRes.IdResultadoFE}): ${cedeRes.ResultadoFE}`,
@@ -304,7 +333,8 @@ export async function cedeDteOctava(
     if (opts.pollFinal === false) {
       return {
         success: true,
-        status: "SUBMITTED",
+        status:
+          proceedToConsultaEstado ? "SKIP_CEDE_USE_ESTADO" : "SUBMITTED",
         rawResponse: { carga: cargaRes, cede: cedeRes },
       };
     }
@@ -320,23 +350,28 @@ export async function cedeDteOctava(
       { signal: opts.signal },
     );
 
+    const codigo = (final.CodigoCesion ?? "").trim();
+    const urlAecNorm = normalizeOctavaUrl(final.UrlAec);
+
     let aecXml: Buffer | undefined;
-    if (final.CodigoCesion === "EOK" && final.UrlAec) {
-      const downloaded = await downloadAecXml(final.UrlAec, opts.signal);
+    if (codigo === "EOK" && urlAecNorm) {
+      const downloaded = await downloadAecXml(urlAecNorm, opts.signal);
       if (downloaded) aecXml = downloaded;
     }
 
     return {
-      success: final.CodigoCesion === "EOK",
+      success: codigo === "EOK",
       // Octava no expone el TrackId del SII en su API (queda en su BD).
       // Usamos la URL del AEC como identificador estable cuando es EOK.
-      trackId: final.UrlAec ?? undefined,
+      trackId: urlAecNorm ?? undefined,
       aecXml,
-      status: final.CodigoCesion ?? final.ResultadoFE,
+      status: codigo || final.ResultadoFE,
       error:
-        final.CodigoCesion === "EOK"
+        codigo === "EOK"
           ? undefined
-          : `Octava cesión rechazada (${final.CodigoCesion}): ${final.ResultadoFE}`,
+          : codigo
+            ? `Octava cesión rechazada (${codigo}): ${final.ResultadoFE}`
+            : `Octava ConsultaEstadoAEC sin código tras polling: ${final.ResultadoFE || "SII pendiente/reintenta"}`,
       rawResponse: { carga: cargaRes, cede: cedeRes, estado: final },
     };
   } catch (err) {
