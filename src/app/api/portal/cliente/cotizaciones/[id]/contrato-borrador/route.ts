@@ -123,6 +123,8 @@ export async function GET(
   // Enrich account with data from related tables when crmAccount fields are empty
   const accountData = account ? { ...account } as Record<string, any> : null;
   if (accountData && account) {
+    // Single-rep canonical: matches token resolution. Multi-rep listing
+    // happens in the CRM detail UI; here we only fill flat legacy columns.
     const firstRep = account.representantesLegales?.[0];
     if (!accountData.legalRepresentativeName && firstRep?.nombre) {
       accountData.legalRepresentativeName = firstRep.nombre;
