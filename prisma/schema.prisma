@@ -32,6 +32,7 @@ model Tenant {
   admins                         Admin[]
   auditLogs                      AuditLog[]
   presentations                  Presentation[]
+  webhookSessions                WebhookSession[]
   settings                       Setting[]
   templates                      Template[]
   roleTemplates                  RoleTemplate[]
@@ -378,6 +379,24 @@ model PresentationView {
   @@index([presentationId])
   @@index([viewedAt])
   @@index([sessionId])
+  @@schema("public")
+}
+
+/// Sesiones de preview (webhook Zoho / datos CPQ) para envío de presentaciones.
+model WebhookSession {
+  id        String   @id @default(cuid())
+  sessionId String   @unique @map("session_id")
+  tenantId  String?  @map("tenant_id")
+  tenant    Tenant?  @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  status    String   @default("active")
+  zohoData  Json     @map("zoho_data")
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([tenantId])
+  @@index([expiresAt])
+  @@map("webhook_sessions")
   @@schema("public")
 }
 

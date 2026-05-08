@@ -9,7 +9,12 @@
  * accionable pero deja la operación en SUBMITTED.
  */
 
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import {
+  isProviderAecReferenceUrl,
+  mergeCessionRpetcRaw,
+} from "./cession-trace.util";
 import { checkAecStatus } from "./sii-soap.service";
 
 const MAX_AGE_DAYS_BEFORE_FLAG = 14;
@@ -55,23 +60,31 @@ export async function pollCessionsForTenant(tenantId: string): Promise<PollResul
       code: true,
       aecTrackId: true,
       submittedAt: true,
+      cessionRpetcRaw: true,
     },
   });
-  result.candidates = candidates.length;
-  if (candidates.length === 0) return result;
+  const soapCandidates = candidates.filter(
+    (op) => op.aecTrackId && !isProviderAecReferenceUrl(op.aecTrackId),
+  );
+  result.candidates = soapCandidates.length;
+  if (soapCandidates.length === 0) return result;
 
-  for (const op of candidates) {
+  for (const op of soapCandidates) {
     if (!op.aecTrackId) continue;
     try {
       const status = await checkAecStatus(tenantId, op.aecTrackId);
-      const update: Record<string, unknown> = {
-        cessionLastCheckedAt: now,
-        cessionSiiStatus: status.estadoEnvio,
-        cessionRpetcRaw: {
+      const soapPayload: Record<string, unknown> = {
+        lastSoapConsulta: {
           estadoEnvio: status.estadoEnvio,
           descEstado: status.descEstado,
           checkedAt: now.toISOString(),
+          rawXml: jsonSafeXmlForTrace(status.rawXml),
         },
+      };
+      const update: Prisma.FinanceFactoringOperationUpdateInput = {
+        cessionLastCheckedAt: now,
+        cessionSiiStatus: status.estadoEnvio,
+        cessionRpetcRaw: mergeCessionRpetcRaw(op.cessionRpetcRaw, soapPayload),
       };
 
       if (status.isAccepted) {
@@ -107,4 +120,12 @@ export async function pollCessionsForTenant(tenantId: string): Promise<PollResul
     }
   }
   return result;
+}
+
+const MAX_TRACE_XML = 120_000;
+
+function jsonSafeXmlForTrace(rawXml: string | undefined): string | null {
+  if (rawXml == null || rawXml.length === 0) return null;
+  if (rawXml.length <= MAX_TRACE_XML) return rawXml;
+  return rawXml.slice(0, MAX_TRACE_XML) + "\n<!-- TRUNCATED -->";
 }

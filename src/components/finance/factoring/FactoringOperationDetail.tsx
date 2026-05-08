@@ -67,6 +67,9 @@ interface OperationDetail {
   cessionLastCheckedAt: string | null;
   cessionStatusError: string | null;
   hasAecXml: boolean;
+  hasDteXml: boolean;
+  /** Snapshot JSON (`cession_rpetc_raw`): proveedor + consultas SOAP. */
+  cessionRpetcRaw: unknown | null;
   emailDeudor: string | null;
   otrasCondiciones: string | null;
   dte: {
@@ -110,8 +113,18 @@ function formatCLP(n: number): string {
   return `$${Math.round(n).toLocaleString("es-CL")}`;
 }
 
-function minutesAgo(iso: string): number {
-  return Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+function formatTraceJson(raw: unknown | null): string {
+  if (raw === null || raw === undefined) return "";
+  try {
+    return JSON.stringify(raw, null, 2);
+  } catch {
+    return String(raw);
+  }
+}
+
+function trackOrRefLabel(ref: string | null): string {
+  if (!ref) return "TrackId RPETC";
+  return /^\s*https?:\/\//i.test(ref) ? "URL de descarga AEC" : "TrackId RPETC";
 }
 
 export function FactoringOperationDetail({ operation: op, canIssue }: Props) {
@@ -322,7 +335,7 @@ export function FactoringOperationDetail({ operation: op, canIssue }: Props) {
         <Surface elevation={1} padding="md">
           <SectionHeader title="Trazabilidad SII" />
           <div className="space-y-2 text-sm">
-            <Row label="TrackId RPETC" value={op.aecTrackId} mono />
+            <Row label={trackOrRefLabel(op.aecTrackId)} value={op.aecTrackId} mono />
             <Row label="Estado SII" value={op.cessionSiiStatus ?? "—"} mono />
             <Row
               label="Última consulta"
@@ -336,14 +349,41 @@ export function FactoringOperationDetail({ operation: op, canIssue }: Props) {
         </Surface>
       ) : null}
 
+      {op.cessionRpetcRaw != null ? (
+        <Surface elevation={1} padding="md">
+          <SectionHeader
+            title="Traza técnica (auditoría)"
+            hint="Respuestas del proveedor de cesión y, si aplica, consultas SOAP al SII. Persistido en la base del tenant."
+          />
+          <details className="mt-3 group">
+            <summary className="cursor-pointer text-xs text-primary hover:underline ds-tap py-2">
+              Ver JSON completo
+            </summary>
+            <pre className="mt-2 max-h-[min(420px,50vh)] overflow-auto rounded-md border border-ds-border-subtle bg-ds-surface-2 p-3 text-[12px] font-mono text-ds-text-2 whitespace-pre-wrap break-words">
+              {formatTraceJson(op.cessionRpetcRaw)}
+            </pre>
+          </details>
+        </Surface>
+      ) : null}
+
       <div className="flex flex-wrap gap-2 justify-end">
+        {op.hasDteXml ? (
+          <Button variant="outline" size="sm" asChild>
+            <a
+              href={`/api/finance/factoring/operations/${op.id}/dte-xml`}
+              download
+            >
+              <Download className="h-4 w-4 mr-1.5" /> XML DTE original
+            </a>
+          </Button>
+        ) : null}
         {op.hasAecXml ? (
           <Button variant="outline" size="sm" asChild>
             <a
               href={`/api/finance/factoring/operations/${op.id}/aec`}
               download
             >
-              <Download className="h-4 w-4 mr-1.5" /> Descargar AEC
+              <Download className="h-4 w-4 mr-1.5" /> AEC firmado
             </a>
           </Button>
         ) : null}

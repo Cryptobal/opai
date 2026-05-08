@@ -6,7 +6,9 @@
  *   2. Resolver tenant context (DTE, FactoringCompany del catálogo, cert via provider)
  *   3. Calcular términos económicos
  *   4. Llamar al adapter `cede()` (genera AEC + envía a RPETC)
- *   5. Persistir FinanceFactoringOperation en estado SUBMITTED
+ *   5. Persistir FinanceFactoringOperation (SUBMITTED o APPROVED si el
+ *      proveedor ya devolvió EOK/EPR, p. ej. Octava) y traza JSON en
+ *      `cession_rpetc_raw`.
  *
  * Multi-tenant: TODAS las queries filtran por tenantId.
  *
@@ -17,11 +19,12 @@
 import { prisma } from "@/lib/prisma";
 import { decryptBuffer, decryptString } from "@/lib/dte-encryption";
 import { getDteProvider } from "../shared/adapters/dte-provider.adapter";
-import type {
-  DteCedeRequest,
-  DteCedeResponse,
-} from "../shared/adapters/dte-provider.adapter";
+import type { DteCedeRequest } from "../shared/adapters/dte-provider.adapter";
 import { getFactoringCompany } from "./factoring-companies.service";
+import {
+  buildInitialCessionRpetcSnapshot,
+  isTerminalRpetcAcceptedCode,
+} from "./cession-trace.util";
 
 /** Tipos de DTE que la Ley 19.983 declara cedibles (referencia informativa). */
 const CEDIBLE_DTE_TYPES = new Set<number>([33, 34, 43, 46]);
@@ -336,7 +339,13 @@ export async function cedeDte(
     throw new Error(cedeResult.error ?? "Error desconocido al ceder el DTE.");
   }
 
-  // 6. Persistir operación.
+  // Si el proveedor ya devolvió aceptación terminal (p. ej. Octava EOK tras
+  // ConsultaEstadoAEC), aprobamos de inmediato. El cron SOAP solo aplica a
+  // trackId numérico RPETC — no a URLs de descarga del proveedor.
+  const terminalOk = isTerminalRpetcAcceptedCode(cedeResult.status);
+  const submittedAt = new Date();
+
+  // 6. Persistir operación (+ traza JSON para auditoría / soporte).
   const code = await generateOperationCode(ctx.tenantId, new Date());
   const op = await prisma.financeFactoringOperation.create({
     data: {
@@ -368,8 +377,10 @@ export async function cedeDte(
       aecXml: cedeResult.aecXml ? Buffer.from(cedeResult.aecXml) : null,
       aecTrackId: cedeResult.trackId ?? null,
       cessionSiiStatus: cedeResult.status ?? null,
-      status: "SUBMITTED",
-      submittedAt: new Date(),
+      cessionRpetcRaw: buildInitialCessionRpetcSnapshot(cedeResult),
+      status: terminalOk ? "APPROVED" : "SUBMITTED",
+      submittedAt,
+      approvedAt: terminalOk ? submittedAt : null,
       notes: input.notes ?? null,
       createdBy: ctx.userId,
     },
@@ -387,9 +398,93 @@ export async function cedeDte(
     });
   }
 
+  // Notificar al cesionario por email. Fire-and-forget: si falla el correo
+  // no se aborta la operación ya persistida; el error queda en consola.
+  sendCesionNotificacionEmail({
+    tenantId: ctx.tenantId,
+    operationCode: op.code,
+    cesionarioRazonSocial: company.razonSocial,
+    cesionarioEmail: company.email ?? null,
+    cedenteRazonSocial: dteCfg.emisorRazonSocial ?? "",
+    dteType: dte.dteType,
+    dteFolio: dte.folio,
+    montoCesion: terms.montoCesion,
+    fechaCesion: input.fechaCesion,
+    fechaVencimiento: input.fechaVencimiento,
+    trackId: op.aecTrackId ?? cedeResult.trackId,
+    estadoSii: cedeResult.status ?? null,
+  }).catch((err: unknown) => {
+    console.error("[cession] Error enviando email al cesionario:", err);
+  });
+
   return {
     operationId: op.id,
     code: op.code,
     trackId: op.aecTrackId ?? cedeResult.trackId ?? "",
   };
+}
+
+// ── Email al cesionario ───────────────────────────────────────────────────────
+
+interface CesionEmailPayload {
+  tenantId: string;
+  operationCode: string;
+  cesionarioRazonSocial: string;
+  cesionarioEmail: string | null;
+  cedenteRazonSocial: string;
+  dteType: number;
+  dteFolio: number;
+  montoCesion: number;
+  fechaCesion: string;
+  fechaVencimiento: string;
+  trackId?: string | null;
+  estadoSii?: string | null;
+}
+
+async function sendCesionNotificacionEmail(p: CesionEmailPayload): Promise<void> {
+  if (!p.cesionarioEmail) return;
+
+  const { resend, getTenantEmailConfig } = await import("@/lib/resend");
+  const { render } = await import("@react-email/render");
+  const { CesionNotificacionEmail } = await import(
+    "@/emails/CesionNotificacionEmail"
+  );
+
+  const emailCfg = await getTenantEmailConfig(p.tenantId);
+
+  const montoCesionFmt = `$${Math.round(p.montoCesion).toLocaleString("es-CL")}`;
+  const dteDesc = `Factura tipo ${p.dteType} / Folio ${p.dteFolio}`;
+  const fechaCesionFmt = new Date(`${p.fechaCesion}T12:00:00Z`).toLocaleDateString(
+    "es-CL",
+    { day: "2-digit", month: "2-digit", year: "numeric" },
+  );
+  const fechaVencFmt = new Date(`${p.fechaVencimiento}T12:00:00Z`).toLocaleDateString(
+    "es-CL",
+    { day: "2-digit", month: "2-digit", year: "numeric" },
+  );
+
+  const html = await render(
+    CesionNotificacionEmail({
+      cesionarioRazonSocial: p.cesionarioRazonSocial,
+      operationCode: p.operationCode,
+      montoCesion: montoCesionFmt,
+      fechaCesion: fechaCesionFmt,
+      fechaVencimiento: fechaVencFmt,
+      dteDescripcion: dteDesc,
+      cedenteRazonSocial: p.cedenteRazonSocial,
+      trackId: p.trackId ?? undefined,
+      estadoSii: p.estadoSii ?? undefined,
+      brandName: emailCfg.companyName,
+      logoUrl: emailCfg.logoUrl,
+      emailContacto: emailCfg.replyTo || emailCfg.from,
+    }),
+  );
+
+  await resend.emails.send({
+    from: emailCfg.from,
+    replyTo: emailCfg.replyTo || undefined,
+    to: [p.cesionarioEmail],
+    subject: `Cesión electrónica ${p.operationCode} — ${montoCesionFmt} registrada en SII`,
+    html,
+  });
 }

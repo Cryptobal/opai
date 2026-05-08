@@ -84,10 +84,40 @@ export async function listFactoringOperations(
 }
 
 /**
- * Detalle completo de una operación (incluye AEC y datos del DTE).
+ * `true` si el DTE tiene bytes en `dte_xml` sin cargar el BLOB completo.
+ */
+export async function issuedDteHasStoredXmlBytes(
+  tenantId: string,
+  dteId: string,
+): Promise<boolean> {
+  const rows = await prisma.$queryRaw<{ ok: boolean }[]>`
+    SELECT (
+      d."dte_xml" IS NOT NULL AND octet_length(d."dte_xml") > 0
+    ) AS ok
+    FROM finance.finance_dtes d
+    WHERE d.id = ${dteId}::uuid
+      AND d.tenant_id = ${tenantId}
+      AND d.direction = 'ISSUED'::finance."FinanceDteDirection"
+    LIMIT 1
+  `;
+  return rows[0]?.ok === true;
+}
+
+export type GetFactoringOperationDetailOptions = {
+  /** Solo para descarga del XML guardado; por defecto no se trae el BLOB. */
+  includeDteXml?: boolean;
+};
+
+/**
+ * Detalle completo de una operación (sin AEC bytes en el objeto; usar endpoint /aec).
  * Validamos tenant para evitar cross-tenant leak.
  */
-export async function getFactoringOperationDetail(tenantId: string, id: string) {
+export async function getFactoringOperationDetail(
+  tenantId: string,
+  id: string,
+  opts: GetFactoringOperationDetailOptions = {},
+) {
+  const { includeDteXml = false } = opts;
   const op = await prisma.financeFactoringOperation.findFirst({
     where: { id, tenantId },
     include: {
@@ -102,6 +132,7 @@ export async function getFactoringOperationDetail(tenantId: string, id: string) 
           receiverName: true,
           totalAmount: true,
           siiStatus: true,
+          ...(includeDteXml ? { dteXml: true } : {}),
         },
       },
       factoringCompanyRel: true,

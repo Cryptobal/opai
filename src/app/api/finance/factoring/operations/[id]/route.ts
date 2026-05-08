@@ -9,7 +9,10 @@ import {
   unauthorized,
 } from "@/lib/api-auth";
 import { hasFacturacionCapability } from "@/lib/permissions";
-import { getFactoringOperationDetail } from "@/modules/finance/factoring/operations.service";
+import {
+  getFactoringOperationDetail,
+  issuedDteHasStoredXmlBytes,
+} from "@/modules/finance/factoring/operations.service";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -33,10 +36,16 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       { status: 404 },
     );
   }
-  // Quitar el AEC bytes del JSON (es pesado y se baja por endpoint dedicado).
+  const hasDteXml = await issuedDteHasStoredXmlBytes(ctx.tenantId, op.dte.id);
+
+  // Quitar bytes pesados del JSON (AEC por /aec; XML DTE por /dte-xml o billing).
   const { aecXml, ...rest } = op;
   return NextResponse.json({
     success: true,
-    operation: { ...rest, hasAecXml: !!aecXml && aecXml.length > 0 },
+    operation: {
+      ...rest,
+      hasAecXml: !!aecXml && aecXml.length > 0,
+      hasDteXml,
+    },
   });
 }

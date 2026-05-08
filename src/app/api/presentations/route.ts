@@ -1,0 +1,157 @@
+/**
+ * @deprecated DESDE: 2026-04-16
+ *
+ * Este módulo forma parte del Sistema de Presentación Comercial de 29 secciones,
+ * que NO se muestra al cliente final. El flujo activo de envío al cliente usa
+ * el Portal del Cliente (ver `sendQuoteToPortal()` en
+ * `src/modules/cpq/send/send-quote-to-portal.ts`).
+ *
+ * NO USAR EN CÓDIGO NUEVO. Este archivo será eliminado después de
+ * 2026-06-15 una vez confirmada estabilidad.
+ *
+ * Ver: src/lib/_deprecated/README.md
+ */
+
+/**
+ * API Route: /api/presentations
+ * 
+ * GET  - Listar presentaciones del tenant
+ * POST - Crear presentación (tenant de sesión)
+ */
+
+import { NextRequest, NextResponse } from 'next/server';
+import { requireAuth, unauthorized, ensureModuleAccess } from '@/lib/api-auth';
+import { prisma } from '@/lib/prisma';
+import { nanoid } from 'nanoid';
+
+// GET /api/presentations
+export async function GET(request: NextRequest) {
+  try {
+    const ctx = await requireAuth();
+    if (!ctx) return unauthorized();
+    const forbiddenMod = await ensureModuleAccess(ctx, 'docs');
+    if (forbiddenMod) return forbiddenMod;
+    const tenantId = ctx.tenantId;
+
+    const { searchParams } = new URL(request.url);
+    const status = searchParams.get('status');
+    const includeArchived = searchParams.get('includeArchived') === 'true';
+    const limit = parseInt(searchParams.get('limit') || '50');
+    const offset = parseInt(searchParams.get('offset') || '0');
+
+    const where: Record<string, unknown> = { tenantId };
+    if (status) where.status = status;
+    if (!includeArchived) where.archivedAt = null;
+
+    const [presentations, total] = await Promise.all([
+      prisma.presentation.findMany({
+        where,
+        include: {
+          template: true,
+          _count: { select: { views: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+        skip: offset,
+      }),
+      prisma.presentation.count({ where }),
+    ]);
+
+    return NextResponse.json({
+      success: true,
+      data: presentations,
+      pagination: {
+        total,
+        limit,
+        offset,
+        hasMore: offset + limit < total,
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching presentations:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to fetch presentations' },
+      { status: 500 }
+    );
+  }
+}
+
+// POST /api/presentations
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    
+    const {
+      templateId,
+      clientData,
+      recipientEmail,
+      recipientName,
+      expiresAt,
+      notes,
+      tags,
+    } = body;
+
+    // Validar campos requeridos
+    if (!templateId || !clientData) {
+      return NextResponse.json(
+        { success: false, error: 'templateId and clientData are required' },
+        { status: 400 }
+      );
+    }
+
+    const ctx = await requireAuth();
+    if (!ctx) return unauthorized();
+    const forbiddenMod = await ensureModuleAccess(ctx, 'docs');
+    if (forbiddenMod) return forbiddenMod;
+    const tenantId = ctx.tenantId;
+
+    const template = await prisma.template.findFirst({
+      where: { id: templateId, tenantId },
+    });
+    if (!template) {
+      return NextResponse.json(
+        { success: false, error: 'Template not found' },
+        { status: 404 }
+      );
+    }
+
+    const uniqueId = `opai-${nanoid(12)}`;
+
+    // Crear presentación (con tenant)
+    const presentation = await prisma.presentation.create({
+      data: {
+        uniqueId,
+        templateId,
+        tenantId,
+        clientData,
+        recipientEmail,
+        recipientName,
+        expiresAt: expiresAt ? new Date(expiresAt) : null,
+        notes,
+        tags: tags || [],
+        status: 'draft',
+      },
+      include: {
+        template: true,
+      },
+    });
+
+    // Incrementar usage count del template (scoped by tenantId)
+    await prisma.template.updateMany({
+      where: { id: templateId, tenantId },
+      data: { usageCount: { increment: 1 } },
+    });
+
+    return NextResponse.json({
+      success: true,
+      data: presentation,
+      url: `${process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || ''}/p/${uniqueId}`,
+    }, { status: 201 });
+  } catch (error) {
+    console.error('Error creating presentation:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to create presentation' },
+      { status: 500 }
+    );
+  }
+}

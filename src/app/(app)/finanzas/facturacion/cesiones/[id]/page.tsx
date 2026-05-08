@@ -9,7 +9,10 @@ import {
   hasModuleAccess,
   resolvePagePerms,
 } from "@/lib/permissions-server";
-import { getFactoringOperationDetail } from "@/modules/finance/factoring/operations.service";
+import {
+  getFactoringOperationDetail,
+  issuedDteHasStoredXmlBytes,
+} from "@/modules/finance/factoring/operations.service";
 import { FactoringOperationDetail } from "@/components/finance/factoring/FactoringOperationDetail";
 
 interface PageParams {
@@ -31,6 +34,11 @@ export default async function FactoringOperationDetailPage({ params }: PageParam
   const { id } = await params;
   const op = await getFactoringOperationDetail(session.user.tenantId, id);
   if (!op) notFound();
+
+  const hasDteXml = await issuedDteHasStoredXmlBytes(
+    session.user.tenantId,
+    op.dte.id,
+  );
 
   // Decimals → number, Dates → ISO strings.
   const operation = {
@@ -73,6 +81,11 @@ export default async function FactoringOperationDetailPage({ params }: PageParam
       : null,
     cessionStatusError: op.cessionStatusError,
     hasAecXml: !!op.aecXml && op.aecXml.length > 0,
+    hasDteXml,
+    cessionRpetcRaw:
+      op.cessionRpetcRaw === null || op.cessionRpetcRaw === undefined
+        ? null
+        : JSON.parse(JSON.stringify(op.cessionRpetcRaw)),
     emailDeudor: op.emailDeudor,
     otrasCondiciones: op.otrasCondiciones,
     dte: {
