@@ -9476,6 +9476,15 @@ model TenantDteConfig {
   id          String  @id @default(cuid())
   tenantId    String  @unique @map("tenant_id")
   provider    String  @default("SIMPLEAPI") // SIMPLEAPI | SIMPLEFACTURA | STUB
+  /// Provider para CESIÓN electrónica (AEC). Independiente del campo
+  /// `provider` (que controla emisión de DTE).
+  ///   - "SII_DIRECT" (default): builder/signer/sender propio → directo al SII RTC.
+  ///   - "SIMPLEAPI": legacy via SimpleAPI (requiere plan que incluya el módulo de cesión).
+  ///   - "STUB": dev/test.
+  /// Default SII_DIRECT porque el plan SimpleAPI básico (que tiene la mayoría de
+  /// tenants, incluyendo Gard) NO incluye cesión electrónica — el endpoint
+  /// `/api/v1/dte/cesion/generar` devuelve HTTP 404 con esas apikeys.
+  cessionProvider String  @default("SII_DIRECT") @map("cession_provider")
   environment String  @default("CERTIFICATION") // CERTIFICATION | PRODUCTION
   isActive    Boolean @default(false) @map("is_active")
 
