@@ -311,6 +311,22 @@ export async function cedeDte(
       rutTitular: cert.rutTitular,
       emailNotif: dteCfg.emisorEmail ?? "noreply@opai.cl",
     });
+  } else if (cessionProvider === "OCTAVA") {
+    // App Octava (cesión-as-a-service): firma y envía AEC al SII por nosotros
+    // usando nuestro cert. Requiere OCTAVA_INTEGRADOR_RUT/PASSWORD en env.
+    const pfxBuffer = decryptBuffer(Buffer.from(cert.pfxDataEnc));
+    const pfxPassword = decryptString(cert.passwordEnc);
+    const env = dteCfg.environment === "PRODUCTION" ? "PRODUCTION" : "CERTIFICATION";
+    const { cedeDteOctava } = await import("../shared/adapters/octava-cesion");
+    cedeResult = await cedeDteOctava(cedeRequest, {
+      tenantId: ctx.tenantId,
+      environment: env,
+      pfxBuffer,
+      pfxPassword,
+      rutTitular: cert.rutTitular,
+      nombreTitular: cert.nombreTitular ?? "Representante Legal",
+      razonSocialEmisor: dteCfg.emisorRazonSocial ?? "Sin Razón Social",
+    });
   } else {
     const provider = await getDteProvider(ctx.tenantId);
     cedeResult = await provider.cede(cedeRequest);
