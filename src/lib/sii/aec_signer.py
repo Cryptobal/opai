@@ -120,54 +120,77 @@ def inject_rsa_key_value(sig_node: etree._Element, private_key) -> None:
     exp_el.text = exponent_b64
 
 
-def sign_element(doc: etree._Element, xpath: str, xkey: xmlsec.Key, private_key) -> None:
+def sign_element(
+    doc_root: etree._Element,
+    parent_tag: str,
+    doc_tag: str,
+    xkey: xmlsec.Key,
+    private_key,
+) -> None:
     """
-    Firma el elemento identificado por xpath y agrega la Signature al final del elemento.
+    Firma el elemento <DocumentoXxx> usando Reference URI="#ID" (no URI="").
 
-    Usa Reference URI="" con enveloped-signature transform (igual que EOK).
-    La Signature se genera sin prefijo (xmlns="xmldsig") para coincidir con el EOK.
-    Después de firmar inyecta manualmente RSAKeyValue en el KeyInfo (xmlsec no
-    lo llena automáticamente para claves cargadas desde PEM).
+    URI="" (todo el documento) hace que el DigestValue cambie cuando se agregan
+    las firmas posteriores. Con URI="#ID" el DigestValue solo cubre el subtree
+    del DocumentoXxx firmado, que es estable independientemente de las demás
+    firmas. Esto es lo que el SII verifica (código 400 / error 05 con URI="").
+
+    parent_tag  : nombre local del elemento que CONTIENE la Signature
+                  (ej. "DTECedido", "Cesion", "AEC")
+    doc_tag     : nombre local del DocumentoXxx a firmar; debe tener atributo ID
+                  (ej. "DocumentoDTECedido", "DocumentoCesion", "DocumentoAEC")
     """
-    # Encontrar el elemento a firmar
-    targets = doc.xpath(xpath)
-    if not targets:
-        raise ValueError(f"Elemento no encontrado: {xpath}")
-    target = targets[0]
+    # Encontrar DocumentoXxx y obtener su ID
+    doc_els = doc_root.xpath(f"//*[local-name()='{doc_tag}']")
+    if not doc_els:
+        raise ValueError(f"Elemento <{doc_tag}> no encontrado")
+    doc_el = doc_els[0]
+    elem_id = doc_el.get("ID")
+    if not elem_id:
+        raise ValueError(f"<{doc_tag}> no tiene atributo ID")
 
-    # Crear template de Signature (sin prefijo ns → <Signature xmlns="xmldsig">)
+    # Registrar el atributo 'ID' como XML ID para que xmlsec pueda resolver URI="#id"
+    # xmlsec.tree.add_ids(node, [attr_name]) llama a xmlSecAddIDs en libxmlsec1.
+    xmlsec.tree.add_ids(doc_root, ["ID"])
+
+    # Encontrar el elemento padre donde insertar la Signature
+    parents = doc_root.xpath(f"//*[local-name()='{parent_tag}']")
+    if not parents:
+        raise ValueError(f"Elemento padre <{parent_tag}> no encontrado")
+    target = parents[0]
+
+    # Crear template Signature (sin prefijo → <Signature xmlns="xmldsig">)
     sig_node = xmlsec.template.create(
-        doc,
+        doc_root,
         c14n_method=xmlsec.constants.TransformInclC14N,
         sign_method=xmlsec.constants.TransformRsaSha1,
         ns=None,
     )
 
-    # Reference URI="" + transform enveloped-signature
+    # Reference URI="#ID" — cubre solo el subtree de DocumentoXxx.
+    # Con URI="#ID" la Signature es sibling del elemento firmado (no está dentro
+    # del subtree), por lo que NO se necesita enveloped-signature transform.
     ref = xmlsec.template.add_reference(
         sig_node,
         xmlsec.constants.TransformSha1,
-        uri="",
+        uri=f"#{elem_id}",
     )
     xmlsec.template.add_transform(ref, xmlsec.constants.TransformEnveloped)
 
     # KeyInfo: KeyValue (vacío — se rellena abajo) + X509Data
-    # El XSD del SII (xmldsignature_v10.xsd) requiere KeyValue ANTES de X509Data.
     ki = xmlsec.template.ensure_key_info(sig_node)
     xmlsec.template.add_key_value(ki)
     xmlsec.template.add_x509_data(ki)
 
-    # Insertar Signature al final del elemento objetivo
+    # Insertar Signature al final del elemento padre
     target.append(sig_node)
 
-    # Firmar (llena X509Data con el certificado; KeyValue queda vacío)
+    # Firmar
     ctx = xmlsec.SignatureContext()
     ctx.key = xkey
     ctx.sign(sig_node)
 
-    # Inyectar RSAKeyValue DESPUÉS de firmar (no afecta la firma actual porque
-    # enveloped-signature excluye <Signature> del DigestValue) y ANTES de firmar
-    # el siguiente elemento (para que su DigestValue incluya el KeyValue correcto).
+    # Inyectar RSAKeyValue después de firmar (no invalida la firma ya calculada)
     inject_rsa_key_value(sig_node, private_key)
 
 
@@ -200,18 +223,19 @@ def main():
         print(f"ERROR: no se pudo cargar el PFX: {e}", file=sys.stderr)
         sys.exit(1)
 
-    # Aplicar las 3 firmas en orden
-    xpaths = [
-        "//*[local-name()='DTECedido']",
-        "//*[local-name()='Cesion']",
-        "//*[local-name()='AEC']",
+    # Aplicar las 3 firmas en orden: cada Signature usa URI="#ID" del DocumentoXxx.
+    # (parent_tag, doc_tag) — la Signature va en parent, referencia doc por ID.
+    sign_targets = [
+        ("DTECedido",  "DocumentoDTECedido"),
+        ("Cesion",     "DocumentoCesion"),
+        ("AEC",        "DocumentoAEC"),
     ]
-    for i, xpath in enumerate(xpaths, 1):
+    for parent_tag, doc_tag in sign_targets:
         try:
-            print(f"[aec_signer] Firmando {xpath}...", file=sys.stderr)
-            sign_element(doc, xpath, xkey, private_key)
+            print(f"[aec_signer] Firmando <{doc_tag}> (Signature en <{parent_tag}>)...", file=sys.stderr)
+            sign_element(doc, parent_tag, doc_tag, xkey, private_key)
         except Exception as e:
-            print(f"ERROR: fallo al firmar {xpath}: {e}", file=sys.stderr)
+            print(f"ERROR: fallo al firmar <{doc_tag}>: {e}", file=sys.stderr)
             import traceback
             traceback.print_exc(file=sys.stderr)
             sys.exit(1)
