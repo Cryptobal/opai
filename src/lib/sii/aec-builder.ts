@@ -228,7 +228,11 @@ function extractDteRoot(dteXml: Buffer): string {
   // con que DTE_v10.xsd declara <xs:element ref="ds:Signature"/> — requiere
   // el prefijo ds:. lxml es más permisivo y acepta <Signature xmlns="...">
   // como equivalente, pero el SII no.
-  return normalizeDteSignature(withoutXmlns);
+  // normalizeDteSignature: temporalmente deshabilitado para probar si el SII acepta
+  // <Signature xmlns="..."> sin el prefijo ds:. Si el RPETC rechaza con RSC,
+  // volver a habilitar; si acepta o da RDC, mantener deshabilitado para preservar
+  // la firma interna original del DTE.
+  return withoutXmlns;
 }
 
 /**

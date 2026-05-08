@@ -39,6 +39,15 @@ export interface SignAecInput {
   pfxBuffer: Buffer;
   /** Password del .pfx descifrado. */
   pfxPassword: string;
+  /**
+   * Si es `true`, NO se re-firma la firma interna del DTE (preserva la firma
+   * original del SII tal como vino). Útil cuando el DTE ya viene con firma
+   * válida y se quiere evitar reemplazarla por una nueva.
+   *
+   * Default: `false` (se re-firma para que sea válida en el contexto del AEC,
+   * que tiene xmlns + xmlns:xsi heredados que el DTE original no tenía).
+   */
+  noRefixDteSig?: boolean;
 }
 
 /**
@@ -60,21 +69,20 @@ export function signAec(input: SignAecInput): string {
   // Convertir XML a Buffer ISO-8859-1 para pasar a Python por stdin
   const xmlBuffer = Buffer.from(input.unsignedXml, "latin1");
 
-  const result = spawnSync(
-    "python3",
-    [
-      scriptPath,
-      "--pfx",
-      pfxB64,
-      "--password",
-      input.pfxPassword,
-    ],
-    {
-      input: xmlBuffer,
-      maxBuffer: 10 * 1024 * 1024, // 10 MB
-      timeout: 30_000,
-    },
-  );
+  const pythonArgs = [
+    scriptPath,
+    "--pfx",
+    pfxB64,
+    "--password",
+    input.pfxPassword,
+  ];
+  if (input.noRefixDteSig) pythonArgs.push("--no-refix-dte-sig");
+
+  const result = spawnSync("python3", pythonArgs, {
+    input: xmlBuffer,
+    maxBuffer: 10 * 1024 * 1024, // 10 MB
+    timeout: 30_000,
+  });
 
   if (result.error) {
     throw new Error(
