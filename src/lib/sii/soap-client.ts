@@ -17,6 +17,8 @@
  */
 
 import { createSign } from "node:crypto";
+import { spawnSync } from "child_process";
+import path from "path";
 import { XMLParser } from "fast-xml-parser";
 import * as forge from "node-forge";
 
@@ -85,6 +87,49 @@ export function extractCertFromPfx(
     .replace(/\s/g, "");
   const publicKey = certificate.publicKey as forge.pki.rsa.PublicKey;
   return { privateKeyPem, certificatePem, certBase64, publicKey };
+}
+
+/**
+ * Versión de extractCertFromPfx con fallback a Python/cryptography para
+ * PFX legacy (RC2/3DES) comunes en certificados SII chilenos que node-forge
+ * no puede leer.
+ */
+export function extractCertFromPfxWithFallback(
+  pfxBuffer: Buffer,
+  password: string,
+): CertMaterial {
+  try {
+    return extractCertFromPfx(pfxBuffer, password);
+  } catch {
+    // node-forge no puede leer el PFX (probablemente legacy RC2/3DES).
+    // Usar pfx_extract.py que usa cryptography de Python.
+    const scriptPath = path.join(__dirname, "pfx_extract.py");
+    const pfxB64 = pfxBuffer.toString("base64");
+    const result = spawnSync(
+      "python3",
+      [scriptPath, "--pfx", pfxB64, "--password", password],
+      { maxBuffer: 2 * 1024 * 1024, timeout: 15_000 },
+    );
+    if (result.status !== 0) {
+      const stderr = result.stderr?.toString("utf8") ?? "";
+      throw new Error(
+        `pfx_extract.py falló (code ${result.status}): ${stderr.slice(0, 300)}`,
+      );
+    }
+    const { privateKeyPem, certificatePem } = JSON.parse(
+      result.stdout.toString("utf8"),
+    ) as { privateKeyPem: string; certificatePem: string };
+
+    const certBase64 = certificatePem
+      .replace(/-----BEGIN CERTIFICATE-----/, "")
+      .replace(/-----END CERTIFICATE-----/, "")
+      .replace(/\s/g, "");
+
+    // Necesitamos el publicKey para signSeedXml — cargar desde PEM con forge
+    const forgeCert = forge.pki.certificateFromPem(certificatePem);
+    const publicKey = forgeCert.publicKey as forge.pki.rsa.PublicKey;
+    return { privateKeyPem, certificatePem, certBase64, publicKey };
+  }
 }
 
 /** Paso 1: pedir semilla al SII. */

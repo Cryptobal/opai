@@ -1,0 +1,159 @@
+<!--
+  AEC fixture — estructura anonimizada para tests de paridad.
+
+  Esta es una COPIA estructural de un AEC real que el SII aceptó
+  EOK en producción. Los RUTs y nombres están anonimizados con
+  placeholders permitidos por scripts/check-pii.mjs (77777777-7,
+  88888888-8, etc.). Las firmas (SignatureValue, DigestValue,
+  X509Certificate, Modulus) y el TED del DTE original están como
+  REDACTED — solo importa la jerarquía de nodos y atributos.
+
+  Para el smoke test E2E contra el SII real usamos datos verdaderos
+  inyectados en runtime, NUNCA hardcodeados en el repo.
+-->
+<AEC xmlns="http://www.sii.cl/SiiDte" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sii.cl/SiiDte AEC_v10.xsd" version="1.0">
+<DocumentoAEC ID="ID21743">
+<Caratula version="1.0">
+<RutCedente>77777777-7</RutCedente>
+<RutCesionario>88888888-8</RutCesionario>
+<NmbContacto>CONTACTO DEMO</NmbContacto>
+<MailContacto>contacto@example.com</MailContacto>
+<TmstFirmaEnvio>2026-05-05T12:54:23</TmstFirmaEnvio>
+</Caratula>
+<Cesiones>
+<DTECedido version="1.0">
+<DocumentoDTECedido ID="ID3662">
+<DTE version="1.0">
+<Documento ID="F1627T33">
+<Encabezado>
+<IdDoc>
+<TipoDTE>33</TipoDTE>
+<Folio>1627</Folio>
+<FchEmis>2026-04-20</FchEmis>
+<FmaPago>2</FmaPago>
+<FchVenc>2026-04-20</FchVenc>
+</IdDoc>
+<Emisor>
+<RUTEmisor>77777777-7</RUTEmisor>
+<RznSoc>EMPRESA CEDENTE DEMO SPA</RznSoc>
+<GiroEmis>SERVICIOS DE SEGURIDAD PRIVADA PRESTADOS</GiroEmis>
+<Acteco>801001</Acteco>
+<DirOrigen>Direccion Demo 100</DirOrigen>
+<CmnaOrigen>Comuna Demo</CmnaOrigen>
+<CiudadOrigen>Santiago</CiudadOrigen>
+</Emisor>
+<Receptor>
+<RUTRecep>99999999-9</RUTRecep>
+<RznSocRecep>EMPRESA DEUDORA DEMO</RznSocRecep>
+<GiroRecep>RECOGIDA DE DESECHOS NO PELIGROSOS</GiroRecep>
+<DirRecep>Direccion Receptor 200</DirRecep>
+<CmnaRecep>Comuna Receptor</CmnaRecep>
+<CiudadRecep>Ciudad Receptor</CiudadRecep>
+</Receptor>
+<Transporte/>
+<Totales>
+<MntNeto>7750000</MntNeto>
+<TasaIVA>19</TasaIVA>
+<IVA>1472500</IVA>
+<MntTotal>9222500</MntTotal>
+</Totales>
+</Encabezado>
+<Detalle>
+<NroLinDet>1</NroLinDet>
+<NmbItem>Servicio de Seguridad</NmbItem>
+<DscItem>Abril 2026</DscItem>
+<QtyItem>1</QtyItem>
+<PrcItem>7750000</PrcItem>
+<MontoItem>7750000</MontoItem>
+</Detalle>
+<Referencia>
+<NroLinRef>1</NroLinRef>
+<TpoDocRef>801</TpoDocRef>
+<FolioRef>4420006506</FolioRef>
+<FchRef>2026-05-04</FchRef>
+</Referencia>
+<Referencia>
+<NroLinRef>2</NroLinRef>
+<TpoDocRef>HES</TpoDocRef>
+<FolioRef>1001204178</FolioRef>
+<FchRef>2026-05-04</FchRef>
+</Referencia>
+<TED version="1.0">
+<DD>
+<RE>77777777-7</RE>
+<TD>33</TD>
+<F>1627</F>
+<FE>2026-04-20</FE>
+<RR>99999999-9</RR>
+<RSR>EMPRESA DEUDORA DEMO</RSR>
+<MNT>9222500</MNT>
+<IT1>Servicio de Seguridad</IT1>
+<CAF version="1.0">
+<DA>
+<RE>77777777-7</RE>
+<RS>EMPRESA CEDENTE DEMO SPA</RS>
+<TD>33</TD>
+<RNG>
+<D>1538</D>
+<H>1687</H>
+</RNG>
+<FA>2026-01-21</FA>
+<RSAPK>
+<M>REDACTED</M>
+<E>Aw==</E>
+</RSAPK>
+<IDK>300</IDK>
+</DA>
+<FRMA algoritmo="SHA1withRSA">REDACTED</FRMA>
+</CAF>
+<TSTED>2026-05-04T13:35:16</TSTED>
+</DD>
+<FRMT algoritmo="SHA1withRSA">REDACTED</FRMT>
+</TED>
+<TmstFirma>2026-05-04T13:35:16</TmstFirma>
+</Documento>
+<ds:Signature xmlns:ds="http://www.w3.org/2000/09/xmldsig#"><ds:SignedInfo><ds:CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/><ds:SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1"/><ds:Reference URI="#F1627T33"><ds:Transforms><ds:Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/></ds:Transforms><ds:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"/><ds:DigestValue>REDACTED</ds:DigestValue></ds:Reference></ds:SignedInfo><ds:SignatureValue>REDACTED</ds:SignatureValue><ds:KeyInfo><ds:KeyValue><ds:RSAKeyValue><ds:Modulus>REDACTED</ds:Modulus><ds:Exponent>AQAB</ds:Exponent></ds:RSAKeyValue></ds:KeyValue><ds:X509Data><ds:X509Certificate>REDACTED</ds:X509Certificate></ds:X509Data></ds:KeyInfo></ds:Signature>
+</DTE>
+<TmstFirma>2026-05-05T12:54:23</TmstFirma>
+</DocumentoDTECedido>
+<Signature xmlns="http://www.w3.org/2000/09/xmldsig#"><SignedInfo><CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/><SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1"/><Reference URI=""><Transforms><Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/></Transforms><DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"/><DigestValue>REDACTED</DigestValue></Reference></SignedInfo><SignatureValue>REDACTED</SignatureValue><KeyInfo><KeyValue><RSAKeyValue><Modulus>REDACTED</Modulus><Exponent>AQAB</Exponent></RSAKeyValue></KeyValue><X509Data><X509Certificate>REDACTED</X509Certificate></X509Data></KeyInfo></Signature>
+</DTECedido>
+<Cesion version="1.0">
+<DocumentoCesion ID="ID822">
+<SeqCesion>1</SeqCesion>
+<IdDTE>
+<TipoDTE>33</TipoDTE>
+<RUTEmisor>77777777-7</RUTEmisor>
+<RUTReceptor>99999999-9</RUTReceptor>
+<Folio>1627</Folio>
+<FchEmis>2026-04-20</FchEmis>
+<MntTotal>9222500</MntTotal>
+</IdDTE>
+<Cedente>
+<RUT>77777777-7</RUT>
+<RazonSocial>EMPRESA CEDENTE DEMO SPA</RazonSocial>
+<Direccion>Direccion Demo 100</Direccion>
+<eMail>contacto@example.com</eMail>
+<RUTAutorizado>
+<RUT>11111111-1</RUT>
+<Nombre>PERSONA AUTORIZADA DEMO</Nombre>
+</RUTAutorizado>
+<DeclaracionJurada>Se declara bajo juramento que EMPRESA CEDENTE DEMO SPA, RUT 77777777-7 ha puesto a disposicion del cesionario FACTORING DEMO S.A. , RUT 88888888-8, el o los documentos donde constan los recibos de las mercaderias entregadas o servicios prestados, entregados por parte del deudor de la factura EMPRESA DEUDORA DEMO, RUT 99999999-9, de acuerdo a lo establecido en la Ley Nro 19.983.</DeclaracionJurada>
+</Cedente>
+<Cesionario>
+<RUT>88888888-8</RUT>
+<RazonSocial>FACTORING DEMO S.A.</RazonSocial>
+<Direccion>Direccion Cesionario 300</Direccion>
+<eMail>contacto@example.com</eMail>
+</Cesionario>
+<MontoCesion>9222500</MontoCesion>
+<UltimoVencimiento>2026-04-20</UltimoVencimiento>
+<eMailDeudor>deudor@example.com</eMailDeudor>
+<TmstCesion>2026-05-05T12:54:23</TmstCesion>
+</DocumentoCesion>
+<Signature xmlns="http://www.w3.org/2000/09/xmldsig#"><SignedInfo><CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/><SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1"/><Reference URI=""><Transforms><Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/></Transforms><DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"/><DigestValue>REDACTED</DigestValue></Reference></SignedInfo><SignatureValue>REDACTED</SignatureValue><KeyInfo><KeyValue><RSAKeyValue><Modulus>REDACTED</Modulus><Exponent>AQAB</Exponent></RSAKeyValue></KeyValue><X509Data><X509Certificate>REDACTED</X509Certificate></X509Data></KeyInfo></Signature>
+</Cesion>
+</Cesiones>
+</DocumentoAEC>
+<Signature xmlns="http://www.w3.org/2000/09/xmldsig#"><SignedInfo><CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/><SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1"/><Reference URI=""><Transforms><Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/></Transforms><DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"/><DigestValue>REDACTED</DigestValue></Reference></SignedInfo><SignatureValue>REDACTED</SignatureValue><KeyInfo><KeyValue><RSAKeyValue><Modulus>REDACTED</Modulus><Exponent>AQAB</Exponent></RSAKeyValue></KeyValue><X509Data><X509Certificate>REDACTED</X509Certificate></X509Data></KeyInfo></Signature>
+</AEC>

@@ -15,7 +15,12 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { decryptBuffer, decryptString } from "@/lib/dte-encryption";
 import { getDteProvider } from "../shared/adapters/dte-provider.adapter";
+import type {
+  DteCedeRequest,
+  DteCedeResponse,
+} from "../shared/adapters/dte-provider.adapter";
 import { getFactoringCompany } from "./factoring-companies.service";
 
 /** Tipos de DTE que la Ley 19.983 declara cedibles (referencia informativa). */
@@ -191,12 +196,18 @@ export async function cedeDte(
   }
 
   // 3. Cargar config DTE del tenant para snapshot del cedente.
+  // Selección extendida: incluir cessionProvider + environment para
+  // poder bifurcar el adapter (SII_DIRECT vs SIMPLEAPI vs STUB) y
+  // pfxDataEnc/passwordEnc para descifrar el cert in-memory si vamos
+  // por el adapter directo.
   const dteCfg = await prisma.tenantDteConfig.findUnique({
     where: { tenantId: ctx.tenantId },
     select: {
       emisorRazonSocial: true,
       emisorDireccion: true,
       emisorEmail: true,
+      cessionProvider: true,
+      environment: true,
     },
   });
   if (!dteCfg) {
@@ -204,7 +215,12 @@ export async function cedeDte(
   }
   const cert = await prisma.tenantDteCertificate.findUnique({
     where: { tenantId: ctx.tenantId },
-    select: { rutTitular: true, nombreTitular: true },
+    select: {
+      rutTitular: true,
+      nombreTitular: true,
+      pfxDataEnc: true,
+      passwordEnc: true,
+    },
   });
   if (!cert) {
     throw new Error("Tenant sin certificado digital — subí un .pfx en la config DTE.");
@@ -243,13 +259,20 @@ export async function cedeDte(
     input.commissionPct,
   );
 
-  // 5. Llamar al adapter (genera AEC + envía a RPETC).
-  const provider = await getDteProvider(ctx.tenantId);
-  const cedeResult = await provider.cede({
+  // 5. Construir el request común y llamar al adapter correcto según
+  // `cessionProvider` (default SII_DIRECT — ver migration
+  // 20260808000000). El adapter directo construye/firma/envía el AEC
+  // sin pasar por SimpleAPI; el legacy SIMPLEAPI sigue disponible para
+  // tenants que tengan ese módulo en su plan.
+  const cedeRequest: DteCedeRequest = {
     dteType: dte.dteType,
     dteFolio: dte.folio,
     dteIssuerRut: dte.issuerRut,
     dteReceiverRut: dte.receiverRut,
+    // Razón social del deudor — necesaria para que el adapter directo
+    // arme la <DeclaracionJurada> Ley 19.983 con el nombre. SimpleAPI
+    // la ignora (la extrae del XML), no afecta su flow.
+    dteReceiverName: dte.receiverName ?? undefined,
     dteDate: dte.date.toISOString().slice(0, 10),
     dteTotalAmount: Number(dte.totalAmount),
     dteXml: Buffer.from(dte.dteXml as Buffer),
@@ -268,7 +291,46 @@ export async function cedeDte(
     contactNombre: input.contactNombre ?? cert.nombreTitular ?? "Contacto Cesión",
     contactFono: input.contactFono,
     contactEmail: input.contactEmail ?? dteCfg.emisorEmail ?? "noreply@opai.cl",
-  });
+  };
+
+  const cessionProvider = dteCfg.cessionProvider ?? "SII_DIRECT";
+  let cedeResult: DteCedeResponse;
+  if (cessionProvider === "SII_DIRECT") {
+    // Descifrar el cert in-memory para el adapter directo. NO se loguea
+    // ni se persiste — solo viaja por la stack hasta sendAecToSii.
+    const pfxBuffer = decryptBuffer(Buffer.from(cert.pfxDataEnc));
+    const pfxPassword = decryptString(cert.passwordEnc);
+    const env = dteCfg.environment === "PRODUCTION" ? "PRODUCTION" : "CERTIFICATION";
+    const { cedeDteSiiDirect } = await import(
+      "../shared/adapters/sii-direct-cesion"
+    );
+    cedeResult = await cedeDteSiiDirect(cedeRequest, {
+      environment: env,
+      pfxBuffer,
+      pfxPassword,
+      rutTitular: cert.rutTitular,
+      emailNotif: dteCfg.emisorEmail ?? "noreply@opai.cl",
+    });
+  } else if (cessionProvider === "OCTAVA") {
+    // App Octava (cesión-as-a-service): firma y envía AEC al SII por nosotros
+    // usando nuestro cert. Requiere OCTAVA_INTEGRADOR_RUT/PASSWORD en env.
+    const pfxBuffer = decryptBuffer(Buffer.from(cert.pfxDataEnc));
+    const pfxPassword = decryptString(cert.passwordEnc);
+    const env = dteCfg.environment === "PRODUCTION" ? "PRODUCTION" : "CERTIFICATION";
+    const { cedeDteOctava } = await import("../shared/adapters/octava-cesion");
+    cedeResult = await cedeDteOctava(cedeRequest, {
+      tenantId: ctx.tenantId,
+      environment: env,
+      pfxBuffer,
+      pfxPassword,
+      rutTitular: cert.rutTitular,
+      nombreTitular: cert.nombreTitular ?? "Representante Legal",
+      razonSocialEmisor: dteCfg.emisorRazonSocial ?? "Sin Razón Social",
+    });
+  } else {
+    const provider = await getDteProvider(ctx.tenantId);
+    cedeResult = await provider.cede(cedeRequest);
+  }
 
   if (!cedeResult.success) {
     throw new Error(cedeResult.error ?? "Error desconocido al ceder el DTE.");
