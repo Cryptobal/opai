@@ -188,10 +188,26 @@ function escapeXml(s: string): string {
 }
 
 /**
- * Extrae el contenido del nodo <DTE>...</DTE> del XML original.
- * El AEC embebe el DTE COMPLETO (con su <Signature> original) dentro de
- * <DocumentoDTECedido>. Usamos regex simple — el DTE ya viene firmado y
- * con shape conocido, no hay riesgo de sub-elementos <DTE> anidados.
+ * Extrae el contenido del nodo <DTE>...</DTE> del XML original y
+ * NORMALIZA su tag de apertura para embeber dentro del AEC.
+ *
+ * IMPORTANTE: cuando el DTE es standalone, lleva
+ * `<DTE version="1.0" xmlns="http://www.sii.cl/SiiDte">`. Pero al
+ * embeberse dentro de `<DTECedido xmlns="http://www.sii.cl/SiiDte">`,
+ * el xmlns en el `<DTE>` queda **redundante**. Si lo dejamos, xml-crypto
+ * rompe la C14N inclusive (verificado con .scratch/depth-test.mjs:
+ * "AEC + embedded DTE w/ xmlns" falla, sin xmlns pasa).
+ *
+ * El AEC real EOK (TrackId 11998878336) embebe el DTE SIN xmlns en su
+ * tag <DTE> (el namespace lo hereda del root <AEC>). Esto matchea la
+ * canonicalización inclusive correctamente.
+ *
+ * NO afecta la firma original del DTE: la firma interna referencia
+ * `<Documento ID="...">` por URI="#ID", y la canonicalización de ese
+ * subárbol no depende del atributo xmlns del nodo <DTE> padre.
+ *
+ * Usamos regex simple — el DTE ya viene firmado y con shape conocido,
+ * no hay riesgo de sub-elementos <DTE> anidados.
  */
 function extractDteRoot(dteXml: Buffer): string {
   const text = dteXml.toString("latin1");
@@ -199,7 +215,13 @@ function extractDteRoot(dteXml: Buffer): string {
   if (!match) {
     throw new Error("DTE XML no contiene un nodo <DTE>...</DTE> válido.");
   }
-  return match[0];
+  // Quitar xmlns="http://www.sii.cl/SiiDte" del tag de apertura <DTE ...>.
+  // Lo hacemos solo en la apertura del DTE root, no en sub-elementos.
+  // Acepta ambos formatos: xmlns="..." con comilla doble o simple.
+  return match[0].replace(
+    /(<DTE\b[^>]*?)\s+xmlns=("http:\/\/www\.sii\.cl\/SiiDte"|'http:\/\/www\.sii\.cl\/SiiDte')([^>]*>)/,
+    "$1$3",
+  );
 }
 
 /**
@@ -299,24 +321,35 @@ export function buildUnsignedAec(input: BuildAecInput): UnsignedAecXml {
     `</Caratula>`;
 
   // ── DocumentoAEC (firma #3 luego sobre <AEC>) ──
+  // IMPORTANTE: <DTECedido> y <Cesion> redeclarán xmlns="http://www.sii.cl/SiiDte"
+  // explícitamente (redundante con la del root). Esto es necesario para que
+  // xml-crypto canonicalice consistentemente con C14N inclusiva — sin esta
+  // redeclaración, su signer y verifier producen formas canónicas distintas
+  // cuando hay default-ns heredado del padre. Verificado con script
+  // .scratch/xml-crypto-smoke.mjs (Test 6 pasa, Tests 2-5 fallan sin ella).
+  // El SII acepta XML con declaraciones redundantes — son semánticamente
+  // idénticas. La firma sigue siendo válida en la canonicalización del SII.
   const documentoAec =
     `<DocumentoAEC ID="${idDocumentoAec}">` +
     caratula +
     `<Cesiones>` +
-    `<DTECedido version="1.0">${documentoDteCedido}<!--SIG_DTECEDIDO--></DTECedido>` +
-    `<Cesion version="1.0">${documentoCesion}<!--SIG_CESION--></Cesion>` +
+    `<DTECedido version="1.0" xmlns="http://www.sii.cl/SiiDte">${documentoDteCedido}<!--SIG_DTECEDIDO--></DTECedido>` +
+    `<Cesion version="1.0" xmlns="http://www.sii.cl/SiiDte">${documentoCesion}<!--SIG_CESION--></Cesion>` +
     `</Cesiones>` +
     `</DocumentoAEC>`;
 
   // ── Root <AEC> ──
-  // Atributos en orden canónico que matchea el AEC real EOK:
-  //   xmlns (default) → xmlns:xsi → xsi:schemaLocation → version.
+  // El AEC real EOK trae xmlns:xsi + xsi:schemaLocation pero son
+  // OPCIONALES para el SII (informativos, no validados). Los omitimos
+  // porque rompen la C14N inclusive de xml-crypto (las declaraciones
+  // de prefijos en el root no quedan visibles cuando un descendiente
+  // redeclara el default namespace — bug de xml-crypto verificado en
+  // .scratch/depth-test.mjs "AEC w/xsi+schemaLocation"). El SII no
+  // exige schemaLocation, valida contra su XSD interno por el
+  // namespace SiiDte que sí declaramos.
   const xml =
     `<?xml version="1.0" encoding="ISO-8859-1"?>` +
-    `<AEC xmlns="http://www.sii.cl/SiiDte" ` +
-    `xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" ` +
-    `xsi:schemaLocation="http://www.sii.cl/SiiDte AEC_v10.xsd" ` +
-    `version="1.0">` +
+    `<AEC xmlns="http://www.sii.cl/SiiDte" version="1.0">` +
     documentoAec +
     `<!--SIG_AEC-->` +
     `</AEC>`;

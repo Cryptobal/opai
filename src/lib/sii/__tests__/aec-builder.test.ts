@@ -82,18 +82,21 @@ describe("buildUnsignedAec — estructura general", () => {
     expect(out.xml).toContain("</AEC>");
   });
 
-  it("root <AEC> incluye xmlns + xmlns:xsi + xsi:schemaLocation + version (matched contra EOK)", () => {
+  it("root <AEC> incluye xmlns SiiDte + version", () => {
     const out = buildUnsignedAec(baseInput);
+    // Omitimos xmlns:xsi/schemaLocation a propósito (rompen C14N de
+    // xml-crypto cuando hay redeclaración de default ns en hijos firmados;
+    // el SII no los exige, son opcionales informativos).
     expect(out.xml).toContain('<AEC xmlns="http://www.sii.cl/SiiDte"');
-    expect(out.xml).toContain('xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"');
-    expect(out.xml).toContain('xsi:schemaLocation="http://www.sii.cl/SiiDte AEC_v10.xsd"');
     expect(out.xml).toContain('version="1.0">');
   });
 
   it("DTECedido y Cesion llevan version=\"1.0\" como wrappers", () => {
     const out = buildUnsignedAec(baseInput);
-    expect(out.xml).toContain('<DTECedido version="1.0">');
-    expect(out.xml).toContain('<Cesion version="1.0">');
+    // Matcher laxo: aceptan version + xmlns redeclarado redundantemente
+    // (necesario para C14N inclusive de xml-crypto, ver aec-builder.ts).
+    expect(out.xml).toMatch(/<DTECedido [^>]*version="1\.0"/);
+    expect(out.xml).toMatch(/<Cesion [^>]*version="1\.0"/);
   });
 
   it("asigna IDs únicos y predecibles a los 3 elementos firmables", () => {
@@ -231,10 +234,14 @@ describe("buildUnsignedAec — Cedente con DeclaracionJurada Ley 19.983", () => 
 });
 
 describe("buildUnsignedAec — DocumentoDTECedido embebe DTE original", () => {
-  it("incluye el nodo <DTE> original íntegro con su firma", () => {
+  it("incluye el nodo <DTE> original íntegro pero con xmlns redundante stripeado", () => {
     const out = buildUnsignedAec(baseInput);
-    expect(out.xml).toContain("<DTE version=\"1.0\" xmlns=\"http://www.sii.cl/SiiDte\">");
-    expect(out.xml).toContain("<Documento ID=\"DOC1\">");
+    // El DTE embebido tiene su xmlns="..." stripeado del tag de apertura
+    // (lo hereda del root <AEC>). Sin ese strip, xml-crypto rompe C14N.
+    expect(out.xml).toContain('<DTE version="1.0">');
+    expect(out.xml).not.toContain('<DTE version="1.0" xmlns="http://www.sii.cl/SiiDte">');
+    // Pero el contenido interno del DTE se preserva íntegro:
+    expect(out.xml).toContain('<Documento ID="DOC1">');
     expect(out.xml).toContain("<Folio>1689</Folio>");
     expect(out.xml).toContain("<RUTEmisor>77777777-7</RUTEmisor>");
     expect(out.xml).toContain("<SignatureValue>FAKE</SignatureValue>");
@@ -301,7 +308,8 @@ describe("buildUnsignedAec — paridad estructural con AEC real EOK (fixture)", 
   it("nuestro builder genera la misma jerarquía de nodos que el AEC real", () => {
     const out = buildUnsignedAec(baseInput);
     // Cada elemento que el AEC real tiene, nuestro builder también:
-    const must = [
+    // Los tags que deben aparecer literalmente.
+    const literalTags = [
       "<AEC ",
       "<DocumentoAEC ",
       "<Caratula version=\"1.0\">",
@@ -311,10 +319,8 @@ describe("buildUnsignedAec — paridad estructural con AEC real EOK (fixture)", 
       "<MailContacto>",
       "<TmstFirmaEnvio>",
       "<Cesiones>",
-      "<DTECedido version=\"1.0\">",
       "<DocumentoDTECedido ",
       "<TmstFirma>",
-      "<Cesion version=\"1.0\">",
       "<DocumentoCesion ",
       "<SeqCesion>",
       "<IdDTE>",
@@ -332,9 +338,12 @@ describe("buildUnsignedAec — paridad estructural con AEC real EOK (fixture)", 
       "<UltimoVencimiento>",
       "<TmstCesion>",
     ];
-    for (const tag of must) {
+    for (const tag of literalTags) {
       expect(out.xml).toContain(tag);
     }
+    // <DTECedido> y <Cesion> ahora redeclaran xmlns, matcher laxo.
+    expect(out.xml).toMatch(/<DTECedido [^>]*version="1\.0"/);
+    expect(out.xml).toMatch(/<Cesion [^>]*version="1\.0"/);
   });
 
   it("preserva el orden de bloques: Caratula → Cesiones → DTECedido → Cesion", () => {
