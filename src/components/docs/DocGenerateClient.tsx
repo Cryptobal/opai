@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
@@ -12,6 +12,7 @@ import {
   MapPin,
   Handshake,
   Calendar,
+  Info as InfoIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,9 +20,30 @@ import { PageHero } from "@/components/opai-ds";
 import { FileText as FileTextIcon } from "lucide-react";
 import { ContractEditor } from "./ContractEditor";
 import { DOC_CATEGORIES } from "@/lib/docs/token-registry";
+import { hasContractTokens } from "@/lib/docs/has-tokens";
 import { toast } from "sonner";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import type { DocTemplate } from "@/types/docs";
+
+const CATEGORY_HELP_TEXT: Record<string, string> = {
+  contrato_cliente: "Contrato marco con un cliente.",
+  contrato_servicio: "Contrato de prestación de servicios específico.",
+  contrato_confidencialidad: "NDA — acuerdo de no divulgación.",
+  acuerdo_nivel_servicio: "SLA — niveles y métricas de servicio comprometidos.",
+  adendum: "Modificación o anexo a un contrato existente.",
+  contrato_laboral: "Contrato de trabajo con un colaborador.",
+  anexo_contrato: "Anexo a un contrato laboral existente.",
+  finiquito: "Documento de término de relación laboral.",
+  carta_aviso_termino: "Aviso formal de término del contrato laboral.",
+  poder_notarial: "Poder otorgado ante notario.",
+  carta_compromiso: "Compromiso formal entre partes.",
+};
 
 const selectClass =
   "flex h-9 w-full appearance-none rounded-md border border-input bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
@@ -61,6 +83,12 @@ export function DocGenerateClient() {
   // Step 4: Content
   const [content, setContent] = useState<any>(null);
   const [resolved, setResolved] = useState(false);
+
+  // Validation state + refs for visual feedback / scroll-to-error.
+  const titleRef = useRef<HTMLInputElement>(null);
+  const categoryRef = useRef<HTMLSelectElement>(null);
+  const [titleError, setTitleError] = useState<string | null>(null);
+  const [categoryError, setCategoryError] = useState<string | null>(null);
 
   // Fetch templates
   useEffect(() => {
@@ -110,6 +138,25 @@ export function DocGenerateClient() {
     });
   }, [accountId]);
 
+  // Auto-suggest title when account + category change, but only if the user
+  // hasn't typed anything yet. Title is intentionally NOT in deps to avoid loop.
+  useEffect(() => {
+    if (title.trim()) return;
+    if (!accountId && !category) return;
+    const accountName = accounts.find((a) => a.id === accountId)?.name;
+    const categoryLabel = (DOC_CATEGORIES[module] || []).find(
+      (c) => c.key === category,
+    )?.label;
+    const dateStr = new Date().toLocaleDateString("es-CL", {
+      month: "short",
+      year: "numeric",
+    });
+    const parts = [categoryLabel, accountName, dateStr].filter(Boolean);
+    if (parts.length === 0) return;
+    setTitle(parts.join(" - "));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accountId, category, module, accounts]);
+
   // Resolve tokens
   const handleResolve = async () => {
     if (!content) {
@@ -148,13 +195,23 @@ export function DocGenerateClient() {
   // Save document
   const handleSave = async () => {
     if (!title.trim()) {
-      toast.error("El título es requerido");
+      setTitleError("El título es requerido");
+      titleRef.current?.focus();
+      titleRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      toast.error(
+        "Título requerido — usa un nombre interno (ej: 'Contrato Servicios - <Cliente> - May 2026')",
+      );
       return;
     }
+    setTitleError(null);
     if (!category) {
+      setCategoryError("Selecciona una categoría");
+      categoryRef.current?.focus();
+      categoryRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
       toast.error("Selecciona una categoría");
       return;
     }
+    setCategoryError(null);
 
     setSaving(true);
     try {
@@ -211,22 +268,31 @@ export function DocGenerateClient() {
         backLabel="Documentos"
         title="Nuevo Documento"
         actions={
-          <>
-            {content && !resolved && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1.5"
-                onClick={handleResolve}
-                disabled={resolving}
-              >
-                {resolving ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Eye className="h-3.5 w-3.5" />
-                )}
-                Resolver Tokens
-              </Button>
+          <TooltipProvider delayDuration={150}>
+            {content && !resolved && hasContractTokens(content) && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5"
+                    onClick={handleResolve}
+                    disabled={resolving}
+                  >
+                    {resolving ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Eye className="h-3.5 w-3.5" />
+                    )}
+                    Resolver Tokens
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Reemplaza placeholders como{" "}
+                  <code className="font-mono">{`{{cliente.razonSocial}}`}</code>{" "}
+                  con datos reales de las entidades asociadas.
+                </TooltipContent>
+              </Tooltip>
             )}
             <Button size="sm" className="gap-1.5" onClick={handleSave} disabled={saving}>
               {saving ? (
@@ -236,7 +302,7 @@ export function DocGenerateClient() {
               )}
               Guardar Documento
             </Button>
-          </>
+          </TooltipProvider>
         }
       />
 
@@ -268,14 +334,27 @@ export function DocGenerateClient() {
           <div>
             <label className="text-xs font-medium text-muted-foreground">
               Título del Documento *
+              <span className="text-muted-foreground/70 text-[10px] ml-1">
+                (uso interno)
+              </span>
             </label>
             <Input
+              ref={titleRef}
               type="text"
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Contrato de Servicios - Cliente XYZ"
-              className="mt-1"
+              onChange={(e) => {
+                setTitle(e.target.value);
+                if (titleError) setTitleError(null);
+              }}
+              placeholder="Nombre interno del documento (ej: Contrato Servicios - FT Foods - May 2026)"
+              className={`mt-1 ${
+                titleError ? "border-destructive ring-1 ring-destructive" : ""
+              }`}
+              aria-invalid={Boolean(titleError)}
             />
+            {titleError && (
+              <p className="text-xs text-destructive mt-1">{titleError}</p>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -301,9 +380,16 @@ export function DocGenerateClient() {
                 Categoría *
               </label>
               <select
+                ref={categoryRef}
                 value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className={`mt-1 ${selectClass}`}
+                onChange={(e) => {
+                  setCategory(e.target.value);
+                  if (categoryError) setCategoryError(null);
+                }}
+                className={`mt-1 ${selectClass} ${
+                  categoryError ? "border-destructive ring-1 ring-destructive" : ""
+                }`}
+                aria-invalid={Boolean(categoryError)}
               >
                 <option value="">Seleccionar...</option>
                 {categories.map((c) => (
@@ -312,6 +398,14 @@ export function DocGenerateClient() {
                   </option>
                 ))}
               </select>
+              {categoryError && (
+                <p className="text-xs text-destructive mt-1">{categoryError}</p>
+              )}
+              {!categoryError && category && CATEGORY_HELP_TEXT[category] && (
+                <p className="text-[12px] text-muted-foreground mt-1">
+                  {CATEGORY_HELP_TEXT[category]}
+                </p>
+              )}
             </div>
           </div>
 
@@ -436,6 +530,25 @@ export function DocGenerateClient() {
               />
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Editor banner — guidance for users pasting Word docs */}
+      <div className="rounded-lg border border-border bg-muted/30 p-3 flex items-start gap-2">
+        <InfoIcon className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+        <div className="text-xs text-muted-foreground space-y-1">
+          <p>
+            <strong className="text-foreground">¿Pegando un Word?</strong> Pega
+            tu contenido aquí y al final inserta el bloque de firmas con el
+            botón <strong className="text-foreground">"Insertar firmas"</strong>{" "}
+            de la toolbar.
+          </p>
+          <p>
+            Los <strong className="text-foreground">tokens</strong> (ej:{" "}
+            <code className="font-mono">{`{{cliente.razonSocial}}`}</code>) se
+            reemplazan por datos reales con el botón "Resolver Tokens" antes de
+            guardar.
+          </p>
         </div>
       </div>
 
