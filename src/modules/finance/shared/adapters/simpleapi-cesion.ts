@@ -35,6 +35,7 @@ import type {
   DteCedeRequest,
   DteCedeResponse,
 } from "./dte-provider.adapter";
+import { validateAecMeritoEjecutivo } from "@/lib/sii/aec-validator";
 
 /**
  * Contexto del tenant que el provider resuelve y le pasa al adapter
@@ -149,39 +150,11 @@ async function generarAec(
 }
 
 /**
- * Validación post-generación del AEC (Ley 19.983 — mérito ejecutivo).
- * Si no hay declaración jurada NI recibo electrónico, el AEC no sirve
- * para que el factoring cobre al deudor.
+ * NOTA: la validación post-generación del AEC (Ley 19.983 — mérito
+ * ejecutivo) vivía acá. Se movió a `@/lib/sii/aec-validator` porque
+ * también la consume el adapter directo SII (`sii-direct-cesion`).
+ * Misma lógica, sin cambio de comportamiento.
  */
-function validateAecMeritoEjecutivo(aecXml: Buffer): {
-  ok: true;
-} | {
-  ok: false;
-  error: string;
-} {
-  const aecText = aecXml.toString("latin1");
-  if (!aecText.includes("DocumentoAEC")) {
-    return { ok: false, error: "AEC sin <DocumentoAEC> (estructura inválida)" };
-  }
-  if (!aecText.includes("Signature")) {
-    return { ok: false, error: "AEC sin <Signature> (no firmado)" };
-  }
-  const hasReciboElec =
-    aecText.includes("<EnvioRecibos>") || aecText.includes("<MnsjRecibo>");
-  const hasDeclaracionJurada =
-    aecText.includes("DeclaracionJurada") || aecText.includes("<DeclJurada>");
-  if (!hasReciboElec && !hasDeclaracionJurada) {
-    return {
-      ok: false,
-      error:
-        "AEC generado SIN declaración jurada ni recibo electrónico. " +
-        "Esto invalida el mérito ejecutivo (Ley 19.983) — el factoring " +
-        "no podría cobrar al deudor. Verificar config SimpleAPI o " +
-        "agregar declaración jurada manualmente al payload.",
-    };
-  }
-  return { ok: true };
-}
 
 /**
  * PASO 2 — POST /api/v1/cesion/enviar.

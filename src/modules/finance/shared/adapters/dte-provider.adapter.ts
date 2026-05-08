@@ -133,6 +133,15 @@ export type DteCedeRequest = {
   dteFolio: number;
   dteIssuerRut: string;
   dteReceiverRut: string;
+  /**
+   * Razón social del receptor del DTE (deudor de la cesión). Opcional
+   * por compatibilidad: SimpleAPI lo extrae solo del XML, pero el
+   * adapter directo SII (`sii-direct-cesion`) lo necesita para armar
+   * la `<DeclaracionJurada>` Ley 19.983 con el nombre del deudor. Si
+   * viene undefined se usa `dteReceiverRut` como fallback (texto
+   * declaración pierde el nombre del deudor).
+   */
+  dteReceiverName?: string;
   dteDate: string; // YYYY-MM-DD (FchEmis del DTE)
   dteTotalAmount: number;
   /** XML completo del DTE original (firmado y aceptado por SII). */
