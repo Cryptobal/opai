@@ -376,7 +376,10 @@ export function buildUnsignedAec(input: BuildAecInput): UnsignedAecXml {
   // ── Caratula ──
   const caratula =
     `<Caratula version="1.0">` +
-    `<RutCedente>${cedente.rut}</RutCedente>` +
+    // El SII valida (error 300) que RutCedente = RUT del TOKEN (titular del cert).
+    // La empresa cedente aparece en DocumentoCesion/Cedente/RUT; aquí va el RUT
+    // del representante autorizado cuyo certificado firmó el envío.
+    `<RutCedente>${cedente.rutAutorizado}</RutCedente>` +
     `<RutCesionario>${cesionario.rut}</RutCesionario>` +
     `<NmbContacto>${escapeXml(contacto.nombre)}</NmbContacto>` +
     (contacto.fono ? `<FonoContacto>${escapeXml(contacto.fono)}</FonoContacto>` : "") +
