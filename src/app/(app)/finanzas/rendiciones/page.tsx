@@ -33,7 +33,7 @@ export default async function RendicionesPage() {
   const canApprove = hasCapability(perms, "rendicion_approve");
   const canPay = hasCapability(perms, "rendicion_pay");
 
-  const [rendiciones, items, payments, approvedRendiciones] = await Promise.all([
+  const [rendiciones, items] = await Promise.all([
     prisma.financeRendicion.findMany({
       where: whereClause,
       include: {
@@ -54,50 +54,14 @@ export default async function RendicionesPage() {
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),
-    prisma.financePayment.findMany({
-      where: { tenantId },
-      include: {
-        rendiciones: {
-          select: { id: true, code: true, amount: true, submitterId: true },
-        },
-      },
-      orderBy: { paidAt: "desc" },
-      take: 100,
-    }),
-    prisma.financeRendicion.findMany({
-      where: { tenantId, status: "APPROVED", paymentId: null },
-      include: {
-        item: { select: { name: true } },
-        costCenter: { select: { name: true } },
-        beneficiaryGuardia: {
-          select: {
-            id: true,
-            persona: { select: { firstName: true, lastName: true } },
-          },
-        },
-      },
-      orderBy: { createdAt: "asc" },
-    }),
   ]);
 
-  // Resolve submitter names + beneficiary admin names + payment payers
   const submitterIds = [...new Set(rendiciones.map((r) => r.submitterId))];
   const beneficiaryAdminIds = rendiciones
     .map((r) => r.beneficiaryAdminId)
     .filter((id): id is string => !!id);
-  const payerIds = payments.map((p) => p.paidById);
-  const paymentSubmitterIds = payments.flatMap((p) =>
-    p.rendiciones.map((r) => r.submitterId)
-  );
-  const pendingSubmitterIds = approvedRendiciones.map((r) => r.submitterId);
   const allAdminIds = [
-    ...new Set([
-      ...submitterIds,
-      ...beneficiaryAdminIds,
-      ...payerIds,
-      ...paymentSubmitterIds,
-      ...pendingSubmitterIds,
-    ]),
+    ...new Set([...submitterIds, ...beneficiaryAdminIds]),
   ];
 
   const admins = await prisma.admin.findMany({
@@ -132,43 +96,6 @@ export default async function RendicionesPage() {
     };
   });
 
-  const paymentsData = payments.map((p) => ({
-    id: p.id,
-    code: p.code,
-    type: p.type,
-    totalAmount: p.totalAmount,
-    rendicionCount: p.rendicionCount,
-    paidByName: adminMap[p.paidById] ?? "Desconocido",
-    paidAt: p.paidAt.toISOString(),
-    bankFileName: p.bankFileName,
-    bankFileUrl: p.bankFileUrl,
-    receiptFileName: p.receiptFileName,
-    receiptUrl: p.receiptUrl,
-    notes: p.notes,
-    rendiciones: p.rendiciones.map((r) => ({
-      id: r.id,
-      code: r.code,
-      amount: r.amount,
-      submitterName: adminMap[r.submitterId] ?? "Desconocido",
-    })),
-  }));
-
-  const pendingData = approvedRendiciones.map((r) => {
-    const benefName = r.beneficiaryGuardia
-      ? `${r.beneficiaryGuardia.persona?.firstName ?? ""} ${r.beneficiaryGuardia.persona?.lastName ?? ""}`.trim()
-      : null;
-    return {
-      id: r.id,
-      code: r.code,
-      amount: r.amount,
-      date: r.date.toISOString(),
-      submitterName: adminMap[r.submitterId] ?? "Desconocido",
-      beneficiaryName: benefName,
-      itemName: r.item?.name ?? null,
-      costCenterName: r.costCenter?.name ?? null,
-    };
-  });
-
   return (
     <div className="space-y-6 min-w-0">
       <PageHero
@@ -185,8 +112,6 @@ export default async function RendicionesPage() {
         canApprove={canApprove}
         canPay={canPay}
         currentUserId={session.user.id}
-        payments={paymentsData}
-        pendingRendiciones={pendingData}
       />
     </div>
   );

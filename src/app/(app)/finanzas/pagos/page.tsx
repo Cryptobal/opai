@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import { permanentRedirect } from "next/navigation";
 
-export default function PagosPage() {
-  redirect("/finanzas/rendiciones?tab=pagos");
+export default function LegacyPagosPage() {
+  permanentRedirect("/finanzas/rendiciones/pagos");
 }
