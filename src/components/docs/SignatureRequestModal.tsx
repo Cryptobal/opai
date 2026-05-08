@@ -33,14 +33,32 @@ type RecipientRow = {
   signingOrder: number;
 };
 
-function createRecipient(overrides?: Partial<RecipientRow>): RecipientRow {
+function getNextSigningOrder(rows: RecipientRow[]): number {
+  const signerOrders = rows
+    .filter((r) => r.role === "signer")
+    .map((r) => r.signingOrder);
+  if (signerOrders.length === 0) return 1;
+  return Math.max(...signerOrders) + 1;
+}
+
+function createRecipient(
+  overrides?: Partial<RecipientRow>,
+  existingRows?: RecipientRow[],
+): RecipientRow {
+  const role = overrides?.role ?? "signer";
+  const computedOrder =
+    role === "cc"
+      ? 1 // dummy for CC; backend ignores order on cc, schema needs >=1.
+      : existingRows
+        ? getNextSigningOrder(existingRows)
+        : 1;
   return {
     id: crypto.randomUUID(),
     name: "",
     email: "",
     rut: "",
-    role: "signer",
-    signingOrder: 1,
+    role,
+    signingOrder: computedOrder,
     ...overrides,
   };
 }
@@ -131,8 +149,7 @@ export function SignatureRequestModal({
   const signerCount = useMemo(() => rows.filter((r) => r.role === "signer").length, [rows]);
 
   const addRow = () => {
-    const maxOrder = rows.reduce((acc, r) => Math.max(acc, r.signingOrder), 1);
-    setRows((prev) => [...prev, createRecipient({ signingOrder: maxOrder })]);
+    setRows((prev) => [...prev, createRecipient(undefined, prev)]);
   };
 
   const removeRow = (id: string) => {
@@ -140,7 +157,23 @@ export function SignatureRequestModal({
   };
 
   const updateRow = (id: string, patch: Partial<RecipientRow>) => {
-    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+    setRows((prev) =>
+      prev.map((r) => {
+        if (r.id !== id) return r;
+        const merged = { ...r, ...patch };
+        // When role changes, recalculate signingOrder so signers stay
+        // sequential and CCs don't pollute the order.
+        if (patch.role && patch.role !== r.role) {
+          if (patch.role === "cc") {
+            merged.signingOrder = 1;
+          } else if (patch.role === "signer") {
+            const others = prev.filter((row) => row.id !== id);
+            merged.signingOrder = getNextSigningOrder(others);
+          }
+        }
+        return merged;
+      }),
+    );
   };
 
   const handleCreate = async () => {
@@ -172,7 +205,9 @@ export function SignatureRequestModal({
             email: r.email.trim(),
             rut: r.rut.trim() || null,
             role: r.role,
-            signingOrder: r.signingOrder,
+            // Backend orders signers only; CC's order is irrelevant.
+            // Send 1 as a no-op to satisfy the zod schema's min=1.
+            signingOrder: r.role === "signer" ? r.signingOrder : 1,
           })),
         }),
       });
@@ -281,15 +316,23 @@ export function SignatureRequestModal({
                     <option value="signer">Firmante</option>
                     <option value="cc">Copia</option>
                   </select>
-                  <div className="sm:col-span-1 space-y-1">
-                    <Label className="text-xs text-muted-foreground">Orden</Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      value={row.signingOrder}
-                      onChange={(e) => updateRow(row.id, { signingOrder: Math.max(1, Number(e.target.value || 1)) })}
-                    />
-                  </div>
+                  {row.role === "signer" ? (
+                    <div className="sm:col-span-1 space-y-1">
+                      <Label className="text-xs text-muted-foreground">Orden</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={row.signingOrder}
+                        onChange={(e) =>
+                          updateRow(row.id, {
+                            signingOrder: Math.max(1, Number(e.target.value || 1)),
+                          })
+                        }
+                      />
+                    </div>
+                  ) : (
+                    <div className="sm:col-span-1" aria-hidden="true" />
+                  )}
                   <Button
                     type="button"
                     variant="ghost"
