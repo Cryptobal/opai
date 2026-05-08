@@ -36,6 +36,9 @@ export type ListReceivedDtesOpts = {
   page?: number;
   pageSize?: number;
   supplierId?: string;
+  accountId?: string;
+  installationId?: string;
+  sort?: string;
   /** Filtro por período (mes-año) — formato "YYYY-MM". Filtra por FinanceDte.date. */
   periodo?: string;
 };
@@ -49,13 +52,31 @@ export async function listReceivedDtes(
   tenantId: string,
   opts: ListReceivedDtesOpts = {}
 ) {
-  const { page = 1, pageSize = 50, supplierId, periodo } = opts;
+  const {
+    page = 1,
+    pageSize = 50,
+    supplierId,
+    accountId,
+    installationId,
+    sort = "date_desc",
+    periodo,
+  } = opts;
 
   const where: Record<string, unknown> = {
     tenantId,
     direction: "RECEIVED",
   };
   if (supplierId) where.supplierId = supplierId;
+  if (accountId === "NONE") {
+    where.crmAccountId = null;
+  } else if (accountId && accountId !== "ALL") {
+    where.crmAccountId = accountId;
+  }
+  if (installationId === "NONE") {
+    where.installationId = null;
+  } else if (installationId && installationId !== "ALL") {
+    where.installationId = installationId;
+  }
   // Filtro por período "YYYY-MM": rango [primer día del mes, primer día del mes siguiente).
   if (periodo && /^\d{4}-\d{2}$/.test(periodo)) {
     const [y, m] = periodo.split("-").map((s) => parseInt(s, 10));
@@ -71,7 +92,7 @@ export async function listReceivedDtes(
         supplier: { select: { id: true, name: true, rut: true } },
         lines: true,
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: getDteOrderBy(sort),
       take: pageSize,
       skip: (page - 1) * pageSize,
     }),
@@ -121,6 +142,24 @@ export async function listReceivedDtes(
       totalPages: Math.ceil(total / pageSize),
     },
   };
+}
+
+function getDteOrderBy(sort: string): Record<string, "asc" | "desc">[] {
+  switch (sort) {
+    case "date_asc":
+      return [{ date: "asc" }, { folio: "asc" }];
+    case "created_desc":
+      return [{ createdAt: "desc" }];
+    case "created_asc":
+      return [{ createdAt: "asc" }];
+    case "total_desc":
+      return [{ totalAmount: "desc" }, { date: "desc" }];
+    case "total_asc":
+      return [{ totalAmount: "asc" }, { date: "desc" }];
+    case "date_desc":
+    default:
+      return [{ date: "desc" }, { folio: "desc" }];
+  }
 }
 
 /**

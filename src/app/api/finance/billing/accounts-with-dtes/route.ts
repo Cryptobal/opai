@@ -10,12 +10,12 @@
  * traemos las cuentas correspondientes.
  */
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { hasFacturacionCapability } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
@@ -27,11 +27,15 @@ export async function GET() {
       );
     }
 
-    // 1. IDs distintos de cuentas con DTEs emitidos.
+    const url = new URL(request.url);
+    const direction = url.searchParams.get("direction") === "RECEIVED" ? "RECEIVED" : "ISSUED";
+    const includeInstallations = url.searchParams.get("include") === "installations";
+
+    // 1. IDs distintos de cuentas con DTEs.
     const distinct = await prisma.financeDte.findMany({
       where: {
         tenantId: ctx.tenantId,
-        direction: "ISSUED",
+        direction,
         crmAccountId: { not: null },
       },
       select: { crmAccountId: true },
@@ -50,7 +54,34 @@ export async function GET() {
         })
       : [];
 
-    return NextResponse.json({ success: true, data: accounts });
+    if (!includeInstallations) {
+      return NextResponse.json({ success: true, data: accounts });
+    }
+
+    const distinctInstallations = await prisma.financeDte.findMany({
+      where: {
+        tenantId: ctx.tenantId,
+        direction,
+        installationId: { not: null },
+      },
+      select: { installationId: true },
+      distinct: ["installationId"],
+    });
+    const installationIds = distinctInstallations
+      .map((d) => d.installationId)
+      .filter((v): v is string => !!v);
+    const installations = installationIds.length > 0
+      ? await prisma.crmInstallation.findMany({
+          where: { id: { in: installationIds }, tenantId: ctx.tenantId },
+          select: { id: true, name: true, commune: true },
+          orderBy: { name: "asc" },
+        })
+      : [];
+
+    return NextResponse.json({
+      success: true,
+      data: { accounts, installations },
+    });
   } catch (error) {
     console.error("[Finance/Billing/AccountsWithDtes] Error:", error);
     return NextResponse.json(

@@ -46,7 +46,7 @@ export default async function DtesEmitidosPage({
     prisma.financeDte.findMany({
       where: { tenantId, direction: "ISSUED" },
       include: { lines: true },
-      orderBy: [{ siiStatus: "asc" }, { createdAt: "desc" }],
+      orderBy: [{ siiStatus: "asc" }, { date: "desc" }, { folio: "desc" }],
       take: INITIAL_PAGE_SIZE,
     }),
     prisma.financeDte.count({ where: { tenantId, direction: "ISSUED" } }),

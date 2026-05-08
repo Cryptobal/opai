@@ -29,11 +29,17 @@ export async function GET(request: NextRequest) {
     const pageSize = parseInt(url.searchParams.get("pageSize") || "50");
     const supplierId = url.searchParams.get("supplierId") || undefined;
     const periodo = url.searchParams.get("periodo") || undefined;
+    const accountId = url.searchParams.get("accountId") || undefined;
+    const installationId = url.searchParams.get("installationId") || undefined;
+    const sort = url.searchParams.get("sort") || undefined;
 
     const result = await listReceivedDtes(ctx.tenantId, {
       page,
       pageSize,
       supplierId,
+      accountId,
+      installationId,
+      sort,
       periodo,
     });
 

@@ -37,6 +37,8 @@ export async function GET(request: NextRequest) {
     //   - ?accountId=NONE   → DTEs sin centro de costo asignado.
     //   - sin param          → todos.
     const accountId = url.searchParams.get("accountId") || undefined;
+    const installationId = url.searchParams.get("installationId") || undefined;
+    const sort = url.searchParams.get("sort") || "date_desc";
 
     const where: Record<string, unknown> = {
       tenantId: ctx.tenantId,
@@ -46,6 +48,11 @@ export async function GET(request: NextRequest) {
       where.crmAccountId = null;
     } else if (accountId && accountId !== "ALL") {
       where.crmAccountId = accountId;
+    }
+    if (installationId === "NONE") {
+      where.installationId = null;
+    } else if (installationId && installationId !== "ALL") {
+      where.installationId = installationId;
     }
     // Drafts viven en la misma lista que los emitidos (UX 2026-05): el
      // usuario los ve marcados con badge "Borrador" en DTEs Emitidos. Si
@@ -101,7 +108,7 @@ export async function GET(request: NextRequest) {
 
     const dtes = await prisma.financeDte.findMany({
       where,
-      orderBy: { createdAt: "desc" },
+      orderBy: getDteOrderBy(sort),
       take: pageSize,
       skip: (page - 1) * pageSize,
       include: { lines: true },
@@ -251,6 +258,24 @@ export async function GET(request: NextRequest) {
       { success: false, error: "Error al listar DTEs" },
       { status: 500 }
     );
+  }
+}
+
+function getDteOrderBy(sort: string): Record<string, "asc" | "desc">[] {
+  switch (sort) {
+    case "date_asc":
+      return [{ date: "asc" }, { folio: "asc" }];
+    case "created_desc":
+      return [{ createdAt: "desc" }];
+    case "created_asc":
+      return [{ createdAt: "asc" }];
+    case "total_desc":
+      return [{ totalAmount: "desc" }, { date: "desc" }];
+    case "total_asc":
+      return [{ totalAmount: "asc" }, { date: "desc" }];
+    case "date_desc":
+    default:
+      return [{ date: "desc" }, { folio: "desc" }];
   }
 }
 

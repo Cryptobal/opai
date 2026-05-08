@@ -143,6 +143,7 @@ interface ReceivedDteRow {
   issuerRut: string;
   issuerName: string;
   date: string;
+  createdAt?: string;
   dueDate: string | null;
   netAmount: number;
   taxAmount: number;
@@ -163,6 +164,52 @@ interface SupplierOption {
   id: string;
   rut: string;
   name: string;
+}
+
+type CostCenterOption = { id: string; name: string; legalName: string | null };
+type InstallationOption = { id: string; name: string; commune: string | null };
+
+type DteSortKey =
+  | "date_desc"
+  | "date_asc"
+  | "created_desc"
+  | "created_asc"
+  | "total_desc"
+  | "total_asc";
+
+const DTE_SORT_OPTIONS: { value: DteSortKey; label: string }[] = [
+  { value: "date_desc", label: "Emisión: nuevo a antiguo" },
+  { value: "date_asc", label: "Emisión: antiguo a nuevo" },
+  { value: "created_desc", label: "Últimos ingresados" },
+  { value: "created_asc", label: "Primeros ingresados" },
+  { value: "total_desc", label: "Monto: mayor a menor" },
+  { value: "total_asc", label: "Monto: menor a mayor" },
+];
+
+function sortDteRows<T extends { date?: string; createdAt?: string; totalAmount: number; folio: number }>(
+  rows: T[],
+  sort: DteSortKey,
+): T[] {
+  const value = (row: T) => {
+    switch (sort) {
+      case "created_desc":
+      case "created_asc":
+        return row.createdAt ? new Date(row.createdAt).getTime() : 0;
+      case "total_desc":
+      case "total_asc":
+        return row.totalAmount;
+      case "date_asc":
+      case "date_desc":
+      default:
+        return row.date ? new Date(row.date).getTime() : 0;
+    }
+  };
+  const direction = sort.endsWith("_asc") ? 1 : -1;
+  return [...rows].sort((a, b) => {
+    const diff = value(a) - value(b);
+    if (diff !== 0) return diff * direction;
+    return (a.folio - b.folio) * direction;
+  });
 }
 
 interface FacturacionKpis {
@@ -491,6 +538,7 @@ function DtesTab({
   const [typeFilter, setTypeFilter] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [paymentStatusFilter, setPaymentStatusFilter] = useState("ALL");
+  const [sort, setSort] = useState<DteSortKey>("date_desc");
 
   useEffect(() => {
     if (forcedStatusFilter && forcedStatusFilter !== statusFilter) {
@@ -509,9 +557,9 @@ function DtesTab({
   }, [forcedPaymentStatus]);
   /** Filtro por centro de costo: "ALL" | "NONE" | uuid de cuenta. */
   const [accountFilter, setAccountFilter] = useState("ALL");
-  const [accountOptions, setAccountOptions] = useState<
-    { id: string; name: string; legalName: string | null }[]
-  >([]);
+  const [installationFilter, setInstallationFilter] = useState("ALL");
+  const [accountOptions, setAccountOptions] = useState<CostCenterOption[]>([]);
+  const [installationOptions, setInstallationOptions] = useState<InstallationOption[]>([]);
   const periodOptions = useMemo(() => buildPeriodOptions(36), []);
   const [voiding, setVoiding] = useState<string | null>(null);
   const [sendingEmail, setSendingEmail] = useState<string | null>(null);
@@ -586,19 +634,22 @@ function DtesTab({
       .catch(() => {});
   }, []);
 
-  // Cargar lista de cuentas CRM con DTEs emitidos para el selector de filtro.
+  // Cargar centros de costo e instalaciones con DTEs emitidos para filtros.
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/finance/billing/accounts-with-dtes")
+    fetch("/api/finance/billing/accounts-with-dtes?direction=ISSUED&include=installations")
       .then((r) => r.json())
       .then((body) => {
         if (cancelled) return;
-        if (body.success && Array.isArray(body.data)) {
-          setAccountOptions(body.data);
+        if (body.success) {
+          if (Array.isArray(body.data?.accounts)) setAccountOptions(body.data.accounts);
+          if (Array.isArray(body.data?.installations)) {
+            setInstallationOptions(body.data.installations);
+          }
         }
       })
       .catch(() => {
-        // silencioso: el filtro queda con sólo Todos / Sin asignar
+        // silencioso: los filtros quedan con sólo Todos / Sin asignar
       });
     return () => {
       cancelled = true;
@@ -613,6 +664,8 @@ function DtesTab({
       pageSize === 50 &&
       periodoFilter === "ALL" &&
       accountFilter === "ALL" &&
+      installationFilter === "ALL" &&
+      sort === "date_desc" &&
       debouncedSearch === ""
     ) {
       setDtes(initialDtes);
@@ -629,6 +682,8 @@ function DtesTab({
         if (periodoFilter !== "ALL") params.set("periodo", periodoFilter);
         if (debouncedSearch) params.set("search", debouncedSearch);
         if (accountFilter !== "ALL") params.set("accountId", accountFilter);
+        if (installationFilter !== "ALL") params.set("installationId", installationFilter);
+        params.set("sort", sort);
         const res = await fetch(`/api/finance/billing/issued?${params.toString()}`, {
           signal: ctrl.signal,
         });
@@ -692,7 +747,7 @@ function DtesTab({
       }
     })();
     return () => ctrl.abort();
-  }, [page, pageSize, periodoFilter, accountFilter, debouncedSearch, initialDtes, issuedTotal]);
+  }, [page, pageSize, periodoFilter, accountFilter, installationFilter, sort, debouncedSearch, initialDtes, issuedTotal]);
 
   // Reset page=1 cuando cambia el período, la búsqueda o el centro de costo.
   useEffect(() => {
@@ -707,6 +762,10 @@ function DtesTab({
     setPage(1);
   }, [accountFilter]);
 
+  useEffect(() => {
+    setPage(1);
+  }, [installationFilter, sort]);
+
   const filtered = useMemo(() => {
     // Búsqueda por nombre/RUT/folio se hace server-side (ver useEffect arriba).
     // Acá solo filtros de tipo y estado SII (operan sobre la página cargada).
@@ -716,8 +775,8 @@ function DtesTab({
     if (paymentStatusFilter !== "ALL") {
       list = list.filter((d) => d.paymentStatus === paymentStatusFilter);
     }
-    return list;
-  }, [dtes, typeFilter, statusFilter, paymentStatusFilter]);
+    return sortDteRows(list, sort);
+  }, [dtes, typeFilter, statusFilter, paymentStatusFilter, sort]);
 
   const handleDownloadPdf = async (id: string, folio: number) => {
     try {
@@ -972,6 +1031,32 @@ function DtesTab({
             ))}
           </SelectContent>
         </Select>
+        <Select value={installationFilter} onValueChange={setInstallationFilter}>
+          <SelectTrigger className="w-full sm:w-56 h-9">
+            <SelectValue placeholder="Instalación" />
+          </SelectTrigger>
+          <SelectContent className="max-h-[400px]">
+            <SelectItem value="ALL">Todas las instalaciones</SelectItem>
+            <SelectItem value="NONE">Sin instalación</SelectItem>
+            {installationOptions.map((i) => (
+              <SelectItem key={i.id} value={i.id}>
+                {i.name}{i.commune ? ` · ${i.commune}` : ""}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={sort} onValueChange={(v) => setSort(v as DteSortKey)}>
+          <SelectTrigger className="w-full sm:w-56 h-9">
+            <SelectValue placeholder="Ordenar por" />
+          </SelectTrigger>
+          <SelectContent>
+            {DTE_SORT_OPTIONS.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <p className="text-xs text-muted-foreground">{filtered.length} documento(s)</p>
@@ -1099,11 +1184,11 @@ function DtesTab({
                   },
                 },
                 {
-                  id: "createdAt",
+                  id: "date",
                   header: "Fecha",
                   cell: (row) => (
                     <span className="text-muted-foreground text-xs">
-                      {format(new Date(row.createdAt), "dd MMM yyyy", { locale: es })}
+                      {format(new Date(row.date ?? row.createdAt), "dd MMM yyyy", { locale: es })}
                     </span>
                   ),
                 },
@@ -1254,7 +1339,7 @@ function DtesTab({
                         <div className="flex items-center justify-between mt-2">
                           <span className="font-mono text-sm font-medium">{fmtCLP.format(d.totalAmount)}</span>
                           <span className="text-xs text-muted-foreground">
-                            {format(new Date(d.createdAt), "dd MMM yyyy", { locale: es })}
+                            {format(new Date(d.date ?? d.createdAt), "dd MMM yyyy", { locale: es })}
                           </span>
                         </div>
                       </div>
@@ -1526,6 +1611,11 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
   const [typeFilter, setTypeFilter] = useState("ALL");
   const [receptionFilter, setReceptionFilter] = useState("ALL");
   const [paymentFilter, setPaymentFilter] = useState("ALL");
+  const [sort, setSort] = useState<DteSortKey>("date_desc");
+  const [accountFilter, setAccountFilter] = useState("ALL");
+  const [installationFilter, setInstallationFilter] = useState("ALL");
+  const [accountOptions, setAccountOptions] = useState<CostCenterOption[]>([]);
+  const [installationOptions, setInstallationOptions] = useState<InstallationOption[]>([]);
   /** Filtro por período "YYYY-MM" o "ALL". Default ALL = sin filtro. */
   const [periodoFilter, setPeriodoFilter] = useState("ALL");
   const periodOptions = useMemo(() => buildPeriodOptions(36), []);
@@ -1535,11 +1625,33 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
   const [total, setTotal] = useState(0);
   const [detailDte, setDetailDte] = useState<ReceivedDteRow | null>(null);
 
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/finance/billing/accounts-with-dtes?direction=RECEIVED&include=installations")
+      .then((r) => r.json())
+      .then((body) => {
+        if (cancelled) return;
+        if (body.success) {
+          if (Array.isArray(body.data?.accounts)) setAccountOptions(body.data.accounts);
+          if (Array.isArray(body.data?.installations)) {
+            setInstallationOptions(body.data.installations);
+          }
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const loadReceivedDtes = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
       if (periodoFilter !== "ALL") params.set("periodo", periodoFilter);
+      if (accountFilter !== "ALL") params.set("accountId", accountFilter);
+      if (installationFilter !== "ALL") params.set("installationId", installationFilter);
+      params.set("sort", sort);
       params.set("page", String(page));
       params.set("pageSize", String(pageSize));
       const res = await fetch(`/api/finance/billing/received?${params.toString()}`);
@@ -1566,14 +1678,14 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, periodoFilter]);
+  }, [page, pageSize, periodoFilter, accountFilter, installationFilter, sort]);
 
   useEffect(() => { loadReceivedDtes(); }, [loadReceivedDtes]);
 
   // Reset page=1 cuando cambia el período (para no quedar en página vacía).
   useEffect(() => {
     setPage(1);
-  }, [periodoFilter]);
+  }, [periodoFilter, accountFilter, installationFilter, sort]);
 
   const filtered = useMemo(() => {
     // Defensa: si por alguna razón el state quedó corrupto, devolvemos [].
@@ -1591,8 +1703,8 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
           d.issuerName.toLowerCase().includes(q)
       );
     }
-    return list;
-  }, [receivedDtes, typeFilter, receptionFilter, paymentFilter, search]);
+    return sortDteRows(list, sort);
+  }, [receivedDtes, typeFilter, receptionFilter, paymentFilter, search, sort]);
 
   // Auto-calc total when net or tax changes
   const updateFormField = (field: string, value: string) => {
@@ -1711,6 +1823,46 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
               ))}
             </SelectContent>
           </Select>
+        <Select value={accountFilter} onValueChange={setAccountFilter}>
+          <SelectTrigger className="w-full sm:w-56 h-9">
+            <SelectValue placeholder="Centro de costo" />
+          </SelectTrigger>
+          <SelectContent className="max-h-[400px]">
+            <SelectItem value="ALL">Todos los centros</SelectItem>
+            <SelectItem value="NONE">Sin asignar</SelectItem>
+            {accountOptions.map((a) => (
+              <SelectItem key={a.id} value={a.id}>
+                {a.legalName || a.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={installationFilter} onValueChange={setInstallationFilter}>
+          <SelectTrigger className="w-full sm:w-56 h-9">
+            <SelectValue placeholder="Instalación" />
+          </SelectTrigger>
+          <SelectContent className="max-h-[400px]">
+            <SelectItem value="ALL">Todas las instalaciones</SelectItem>
+            <SelectItem value="NONE">Sin instalación</SelectItem>
+            {installationOptions.map((i) => (
+              <SelectItem key={i.id} value={i.id}>
+                {i.name}{i.commune ? ` · ${i.commune}` : ""}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={sort} onValueChange={(v) => setSort(v as DteSortKey)}>
+          <SelectTrigger className="w-full sm:w-56 h-9">
+            <SelectValue placeholder="Ordenar por" />
+          </SelectTrigger>
+          <SelectContent>
+            {DTE_SORT_OPTIONS.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         </div>
         {canManage && (
           <Button size="sm" onClick={() => setDialogOpen(true)}>
