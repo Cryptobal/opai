@@ -2,7 +2,7 @@ import { redirect, notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHero } from "@/components/opai-ds";
+import { PageHero, SetBreadcrumbTrailing } from "@/components/opai-ds";
 import { Briefcase } from "lucide-react";
 import { AtsPipelineClient } from "@/components/ats/AtsPipelineClient";
 import { getAtsConfig } from "@/lib/ats/config";
@@ -88,6 +88,7 @@ export default async function AtsPipelinePage({
 
   return (
     <div className="space-y-6 min-w-0 pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0">
+      <SetBreadcrumbTrailing value={job.titulo} />
       <PageHero
         icon={<Briefcase />}
         iconTone="emerald"

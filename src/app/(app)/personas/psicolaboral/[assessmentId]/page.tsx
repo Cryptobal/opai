@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { isTenantModuleEnabled } from "@/lib/tenant-modules";
 import { prisma } from "@/lib/prisma";
-import { PageHero } from "@/components/opai-ds";
+import { PageHero, SetBreadcrumbTrailing } from "@/components/opai-ds";
 import { Breadcrumbs } from "@/components/opai-ds";
 import { Brain } from "lucide-react";
 import PsychAssessmentDetail from "@/components/psych/dashboard/PsychAssessmentDetail";
@@ -37,6 +37,7 @@ export default async function PsychDetailPage({ params }: PageProps) {
         ]}
         className="mb-2"
       />
+      <SetBreadcrumbTrailing value={assessment.targetName} />
       <PageHero
         icon={<Brain />}
         iconTone="sky"
