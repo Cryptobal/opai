@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { resolvePagePerms, canView, canEdit, canDelete, hasCapability } from "@/lib/permissions-server";
-import { PageHero } from "@/components/opai-ds";
+import { PageHero, SetBreadcrumbTrailing } from "@/components/opai-ds";
 import { ClipboardList } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -150,6 +150,7 @@ export default async function VisitaSupervisionDetailPage({
 
   return (
     <div className="space-y-6 min-w-0">
+      <SetBreadcrumbTrailing value={`Visita ${visit.installation.name}`} />
       <PageHero
         icon={<ClipboardList />}
         iconTone="emerald"

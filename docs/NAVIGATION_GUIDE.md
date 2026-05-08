@@ -112,7 +112,38 @@ export default async function MiNuevoLayout({ children }: { children: ReactNode 
 
 Las páginas de detalle (`/crm/accounts/[id]`, `/finanzas/rendiciones/[id]`) suelen querer mostrar el nombre de la entidad como último segmento del breadcrumb (ej: "Comercial › Cuentas › Polpaico S.A.").
 
-`AutoBreadcrumbs` montado en `AppShell` muestra solo el path-derived breadcrumb por default ("Comercial › Cuentas"). Para inyectar un trailing personalizado, usá `<PageShell trailingBreadcrumb="Polpaico S.A.">`. PageShell renderiza su propia `<AutoBreadcrumbs trailing>` — la del shell global queda subordinada (TODO futuro: añadir context para evitar la del shell cuando PageShell está activo).
+El `<AutoBreadcrumbs />` global lee desde un context (`BreadcrumbTrailingProvider` montado en AppShell). Las detail pages "publican" el nombre de la entidad y AutoBreadcrumbs lo agrega como último crumb.
+
+**Server Component** (la mayoría de las detail pages):
+
+```tsx
+import { SetBreadcrumbTrailing } from "@/components/opai-ds";
+
+export default async function CuentaDetailPage({ params }) {
+  const cuenta = await loadCuenta(params.id);
+  return (
+    <>
+      <SetBreadcrumbTrailing value={cuenta.name} />
+      <PageHero title={cuenta.name} ... />
+      ...
+    </>
+  );
+}
+```
+
+**Client Component**:
+
+```tsx
+"use client";
+import { useSetBreadcrumbTrailing } from "@/components/opai-ds";
+
+export function CuentaDetailClient({ cuenta }) {
+  useSetBreadcrumbTrailing(cuenta.name);
+  return <EntityDetailLayout ... />;
+}
+```
+
+`EntityDetailLayout` (CRM/Personas) ya hace esto automáticamente — extrae el último segmento del prop `breadcrumb` y lo publica al context. No hace falta agregar nada extra a sus consumidores.
 
 ### Caso 4 — Página fuera de jerarquía
 

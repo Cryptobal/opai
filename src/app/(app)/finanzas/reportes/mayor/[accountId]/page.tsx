@@ -6,7 +6,7 @@ import {
   canView,
   hasCapability,
 } from "@/lib/permissions-server";
-import { PageHero } from "@/components/opai-ds";
+import { PageHero, SetBreadcrumbTrailing } from "@/components/opai-ds";
 import { BookOpen } from "lucide-react";
 import { AccountDrillClient } from "@/components/finance/reports/AccountDrillClient";
 import { buildPeriod } from "@/modules/finance/reports/shared/period.helper";
@@ -40,6 +40,7 @@ export default async function AccountLedgerPage({
 
   return (
     <div className="space-y-5">
+      <SetBreadcrumbTrailing value={`${account.code} · ${account.name}`} />
       <PageHero
         icon={<BookOpen />}
         iconTone="sky"

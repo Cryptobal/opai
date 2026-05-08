@@ -2,12 +2,12 @@
 
 import type { ReactNode } from "react";
 import { useState } from "react";
-import Link from "next/link";
-import { ChevronRight, type LucideIcon } from "lucide-react";
+import { type LucideIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { ChipTabs } from "@/components/ui/chip-tabs";
 import { RecordActions } from "./RecordActions";
+import { useSetBreadcrumbTrailing } from "@/components/opai-ds";
 
 /* ── Types ── */
 
@@ -108,7 +108,7 @@ export interface EntityDetailLayoutProps {
  */
 export function EntityDetailLayout({
   breadcrumb,
-  breadcrumbHrefs,
+  breadcrumbHrefs: _breadcrumbHrefs,
   header,
   tabs,
   activeTab,
@@ -121,6 +121,14 @@ export function EntityDetailLayout({
   onAvatarClick,
   className,
 }: EntityDetailLayoutProps) {
+  // Publica el último segmento del breadcrumb (nombre de la entidad) para
+  // que el `<AutoBreadcrumbs />` global del AppShell lo muestre como
+  // último crumb. El breadcrumb local in-place fue eliminado: la fuente
+  // de verdad ahora vive arriba (debajo del topbar). Caemos al título
+  // del header si no se pasó breadcrumb.
+  const trailingName = breadcrumb[breadcrumb.length - 1] ?? header.title;
+  useSetBreadcrumbTrailing(trailingName);
+
   const visibleTabs = tabs.filter((t) => !t.hidden);
 
   // Split actions into primary (visible buttons) and secondary (dropdown)
@@ -144,60 +152,9 @@ export function EntityDetailLayout({
       >
         {/* ── Header ── */}
         <div className="pt-2 sm:pt-4 lg:pt-3 pb-1.5 sm:pb-2">
-          {/* Breadcrumb compacto en mobile (sólo back link al padre); completo en ≥sm */}
-          {(() => {
-            const parentIdx = breadcrumb.length - 2;
-            const parentHref = parentIdx >= 0 ? breadcrumbHrefs?.[parentIdx] : undefined;
-            const parentLabel = parentIdx >= 0 ? breadcrumb[parentIdx] : undefined;
-            return (
-              <nav
-                aria-label="Breadcrumb"
-                className="flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4 mb-2 sm:mb-3"
-              >
-                {/* Mobile: sólo back link al padre — ahorra una fila completa */}
-                {parentHref && parentLabel ? (
-                  <Link
-                    href={parentHref}
-                    className="sm:hidden inline-flex items-center gap-1 text-ds-text-4 hover:text-ds-text-2 transition-colors truncate max-w-[60%]"
-                  >
-                    <ChevronRight className="h-3 w-3 rotate-180 shrink-0" />
-                    <span className="truncate">{parentLabel}</span>
-                  </Link>
-                ) : null}
-                {/* Desktop: breadcrumb completo, separador "/" */}
-                <span className="hidden sm:flex items-center gap-1.5 flex-wrap">
-                  {breadcrumb.map((segment, i) => {
-                    const isLast = i === breadcrumb.length - 1;
-                    const href = breadcrumbHrefs?.[i];
-                    return (
-                      <span key={i} className="flex items-center gap-1.5 min-w-0">
-                        {i > 0 && (
-                          <span aria-hidden className="text-ds-text-4/60">/</span>
-                        )}
-                        {isLast || !href ? (
-                          <span
-                            className={cn(
-                              "truncate max-w-[200px]",
-                              isLast ? "text-ds-text-2" : ""
-                            )}
-                          >
-                            {segment}
-                          </span>
-                        ) : (
-                          <Link
-                            href={href}
-                            className="hover:text-ds-text-2 transition-colors truncate max-w-[200px]"
-                          >
-                            {segment}
-                          </Link>
-                        )}
-                      </span>
-                    );
-                  })}
-                </span>
-              </nav>
-            );
-          })()}
+          {/* Breadcrumb in-place removido — vive arriba del contenido en
+              `<AutoBreadcrumbs />` (montado en AppShell). El nombre de la
+              entidad se publica vía useSetBreadcrumbTrailing arriba. */}
 
           {/* Title row + actions
            *
