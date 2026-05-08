@@ -94,11 +94,16 @@ function signOneElement(
     getKeyInfoContent: buildKeyInfoContent(cert.certBase64, cert.publicKey),
   });
 
+  // isEmptyUri:true es requerido: uri:"" es falsy en JS y xml-crypto
+  // lo ignoraría, cayendo en el path de auto-asignación de Id="_0"
+  // (lo que genera IDs duplicados cuando hay >1 firma). Con isEmptyUri,
+  // xml-crypto emite <Reference URI=""> sin tocar los atributos del nodo.
   sig.addReference({
     xpath: targetXpath,
     digestAlgorithm: DIGEST_ALGORITHM,
     transforms: [ENVELOPED_TRANSFORM],
     uri: "",
+    isEmptyUri: true,
   });
 
   sig.computeSignature(xml, {
