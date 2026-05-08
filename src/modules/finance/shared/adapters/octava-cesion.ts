@@ -40,6 +40,13 @@ import type {
 
 const TOKEN_TTL_MS = 5.5 * 60 * 60 * 1000; // 5h30 (margen vs los 6h reales de Octava)
 
+/** Campo Bytes de Prisma: typings esperan `Uint8Array<ArrayBuffer>` (no Node Buffer ni ArrayBufferLike). */
+function toPrismaBytes(buf: Buffer): Uint8Array<ArrayBuffer> {
+  const out = new Uint8Array(buf.length);
+  out.set(buf);
+  return out as Uint8Array<ArrayBuffer>;
+}
+
 /**
  * Contexto que el caller debe proveer junto con el DteCedeRequest:
  *   - tenantId: para persistir credenciales/token en TenantDteConfig
@@ -153,7 +160,7 @@ async function ensureCedenteRegistered(
       await prisma.tenantDteConfig.update({
         where: { tenantId: ctx.tenantId },
         data: {
-          octavaPassAccesoApiEnc: encryptBuffer(Buffer.from(bootstrap, "utf8")),
+          octavaPassAccesoApiEnc: toPrismaBytes(encryptBuffer(Buffer.from(bootstrap, "utf8"))),
           octavaRegisteredAt: new Date(),
         },
       });
@@ -177,7 +184,7 @@ async function ensureCedenteRegistered(
   await prisma.tenantDteConfig.update({
     where: { tenantId: ctx.tenantId },
     data: {
-      octavaPassAccesoApiEnc: encryptBuffer(Buffer.from(passOctava, "utf8")),
+      octavaPassAccesoApiEnc: toPrismaBytes(encryptBuffer(Buffer.from(passOctava, "utf8"))),
       octavaRegisteredAt: new Date(),
     },
   });

@@ -109,8 +109,10 @@ function extractTag(xml: string, tag: string): string | undefined {
  * En Node 20+, `Blob` y `FormData` son globals — no necesitamos `form-data`.
  */
 function aecBlob(aecXml: Buffer): Blob {
-  // `Blob` global acepta Uint8Array (Buffer es subclase de Uint8Array).
-  return new Blob([aecXml], { type: "text/xml" });
+  // Copia explícita a Uint8Array: el DOM BlobPart no acepta el tipo Buffer de Node con strict TS.
+  const bytes = new Uint8Array(aecXml.length);
+  bytes.set(aecXml);
+  return new Blob([bytes], { type: "text/xml" });
 }
 
 /**

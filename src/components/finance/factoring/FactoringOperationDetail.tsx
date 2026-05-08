@@ -113,6 +113,13 @@ function formatCLP(n: number): string {
   return `$${Math.round(n).toLocaleString("es-CL")}`;
 }
 
+/** Minutos desde un instante ISO (cliente vs ahora del navegador). */
+function minutesAgo(iso: string): number {
+  const t = new Date(iso).getTime();
+  if (!Number.isFinite(t)) return Number.POSITIVE_INFINITY;
+  return Math.floor((Date.now() - t) / 60_000);
+}
+
 function formatTraceJson(raw: unknown | null): string {
   if (raw === null || raw === undefined) return "";
   try {

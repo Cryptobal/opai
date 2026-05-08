@@ -19,7 +19,7 @@
 import { prisma } from "@/lib/prisma";
 import { decryptBuffer, decryptString } from "@/lib/dte-encryption";
 import { getDteProvider } from "../shared/adapters/dte-provider.adapter";
-import type { DteCedeRequest } from "../shared/adapters/dte-provider.adapter";
+import type { DteCedeRequest, DteCedeResponse } from "../shared/adapters/dte-provider.adapter";
 import { getFactoringCompany } from "./factoring-companies.service";
 import {
   buildInitialCessionRpetcSnapshot,
