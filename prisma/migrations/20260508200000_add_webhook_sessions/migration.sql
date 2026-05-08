@@ -19,4 +19,4 @@ CREATE INDEX "webhook_sessions_tenant_id_idx" ON "public"."webhook_sessions"("te
 
 CREATE INDEX "webhook_sessions_expires_at_idx" ON "public"."webhook_sessions"("expires_at");
 
-ALTER TABLE "public"."webhook_sessions" ADD CONSTRAINT "webhook_sessions_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "public"."webhook_sessions" ADD CONSTRAINT "webhook_sessions_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "public"."Tenant"("id") ON DELETE SET NULL ON UPDATE CASCADE;
