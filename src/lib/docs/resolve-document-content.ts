@@ -270,6 +270,8 @@ export async function resolveDocumentContentForDisplay(
         },
       });
       if (account) {
+        // Single-rep canonical: token resolution always uses the first rep
+        // (createdAt asc). Multi-rep editing/display lives elsewhere.
         const firstRep = account.representantesLegales?.[0];
         const pers = account.personeria;
         // Format personeria date to YYYY-MM-DD (plain date string) so the

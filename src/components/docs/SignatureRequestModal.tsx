@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { getSignerColor } from "@/lib/docs/signature-token-colors";
+import { CcContactPicker } from "./CcContactPicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,14 +34,32 @@ type RecipientRow = {
   signingOrder: number;
 };
 
-function createRecipient(overrides?: Partial<RecipientRow>): RecipientRow {
+function getNextSigningOrder(rows: RecipientRow[]): number {
+  const signerOrders = rows
+    .filter((r) => r.role === "signer")
+    .map((r) => r.signingOrder);
+  if (signerOrders.length === 0) return 1;
+  return Math.max(...signerOrders) + 1;
+}
+
+function createRecipient(
+  overrides?: Partial<RecipientRow>,
+  existingRows?: RecipientRow[],
+): RecipientRow {
+  const role = overrides?.role ?? "signer";
+  const computedOrder =
+    role === "cc"
+      ? 1 // dummy for CC; backend ignores order on cc, schema needs >=1.
+      : existingRows
+        ? getNextSigningOrder(existingRows)
+        : 1;
   return {
     id: crypto.randomUUID(),
     name: "",
     email: "",
     rut: "",
-    role: "signer",
-    signingOrder: 1,
+    role,
+    signingOrder: computedOrder,
     ...overrides,
   };
 }
@@ -69,6 +88,31 @@ export function SignatureRequestModal({
       : [createRecipient()]
   );
   const [error, setError] = useState<string | null>(null);
+  const [tenantRepLegal, setTenantRepLegal] = useState<{
+    name: string;
+    rut: string;
+    email: string;
+  } | null>(null);
+
+  // Cargar config liviana del rep legal del tenant para warnings y quick-fill.
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    fetch(`/api/docs/documents/${documentId}/tenant-rep-legal`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (cancelled) return;
+        if (d.success && d.data) setTenantRepLegal(d.data);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [open, documentId]);
+
+  const tenantRepConfigured = !!tenantRepLegal?.name && !!tenantRepLegal?.rut;
+  const tenantRepHasEmail = !!tenantRepLegal?.email;
+  const showRepEmailBanner = tenantRepConfigured && !tenantRepHasEmail;
 
   // Actualizar filas cuando cambian initialRecipients (ej. al abrir con otro guardia)
   useEffect(() => {
@@ -131,8 +175,7 @@ export function SignatureRequestModal({
   const signerCount = useMemo(() => rows.filter((r) => r.role === "signer").length, [rows]);
 
   const addRow = () => {
-    const maxOrder = rows.reduce((acc, r) => Math.max(acc, r.signingOrder), 1);
-    setRows((prev) => [...prev, createRecipient({ signingOrder: maxOrder })]);
+    setRows((prev) => [...prev, createRecipient(undefined, prev)]);
   };
 
   const removeRow = (id: string) => {
@@ -140,7 +183,23 @@ export function SignatureRequestModal({
   };
 
   const updateRow = (id: string, patch: Partial<RecipientRow>) => {
-    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+    setRows((prev) =>
+      prev.map((r) => {
+        if (r.id !== id) return r;
+        const merged = { ...r, ...patch };
+        // When role changes, recalculate signingOrder so signers stay
+        // sequential and CCs don't pollute the order.
+        if (patch.role && patch.role !== r.role) {
+          if (patch.role === "cc") {
+            merged.signingOrder = 1;
+          } else if (patch.role === "signer") {
+            const others = prev.filter((row) => row.id !== id);
+            merged.signingOrder = getNextSigningOrder(others);
+          }
+        }
+        return merged;
+      }),
+    );
   };
 
   const handleCreate = async () => {
@@ -172,7 +231,9 @@ export function SignatureRequestModal({
             email: r.email.trim(),
             rut: r.rut.trim() || null,
             role: r.role,
-            signingOrder: r.signingOrder,
+            // Backend orders signers only; CC's order is irrelevant.
+            // Send 1 as a no-op to satisfy the zod schema's min=1.
+            signingOrder: r.role === "signer" ? r.signingOrder : 1,
           })),
         }),
       });
@@ -205,6 +266,22 @@ export function SignatureRequestModal({
         </DialogHeader>
 
         <div className="space-y-4">
+          {showRepEmailBanner && (
+            <div className="rounded-md border border-status-warn-border bg-status-warn-soft p-3 text-sm text-status-warn-fg space-y-1">
+              <p>
+                <strong>Falta el email del representante legal de tu empresa.</strong>{" "}
+                Configúralo en{" "}
+                <a
+                  href="/opai/configuracion/empresa"
+                  className="underline font-medium"
+                >
+                  Configuración → Empresa
+                </a>{" "}
+                para que se autocomplete en futuras firmas.
+              </p>
+            </div>
+          )}
+
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="sigExpiresAt">Fecha límite</Label>
@@ -254,12 +331,40 @@ export function SignatureRequestModal({
                         {row.signingOrder}
                       </div>
                     ) : null}
-                    <Input
-                      className="min-w-0 flex-1"
-                      placeholder="Nombre"
-                      value={row.name}
-                      onChange={(e) => updateRow(row.id, { name: e.target.value })}
-                    />
+                    <div className="flex flex-col gap-1 min-w-0 flex-1">
+                      <Input
+                        className="min-w-0"
+                        placeholder="Nombre"
+                        value={row.name}
+                        onChange={(e) => updateRow(row.id, { name: e.target.value })}
+                      />
+                      {row.role === "signer" &&
+                        row.signingOrder === 1 &&
+                        tenantRepLegal?.name &&
+                        (!row.name || !row.email) && (
+                          <button
+                            type="button"
+                            className="text-[12px] text-primary hover:underline self-start"
+                            onClick={() =>
+                              updateRow(row.id, {
+                                name: tenantRepLegal.name,
+                                rut: tenantRepLegal.rut,
+                                email: tenantRepLegal.email,
+                              })
+                            }
+                          >
+                            Usar rep. legal de mi empresa ({tenantRepLegal.name})
+                          </button>
+                        )}
+                    </div>
+                    {row.role === "cc" && (
+                      <CcContactPicker
+                        documentId={documentId}
+                        onSelect={(c) =>
+                          updateRow(row.id, { name: c.name, email: c.email })
+                        }
+                      />
+                    )}
                   </div>
                   <Input
                     className="sm:col-span-3"
@@ -281,15 +386,23 @@ export function SignatureRequestModal({
                     <option value="signer">Firmante</option>
                     <option value="cc">Copia</option>
                   </select>
-                  <div className="sm:col-span-1 space-y-1">
-                    <Label className="text-xs text-muted-foreground">Orden</Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      value={row.signingOrder}
-                      onChange={(e) => updateRow(row.id, { signingOrder: Math.max(1, Number(e.target.value || 1)) })}
-                    />
-                  </div>
+                  {row.role === "signer" ? (
+                    <div className="sm:col-span-1 space-y-1">
+                      <Label className="text-xs text-muted-foreground">Orden</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={row.signingOrder}
+                        onChange={(e) =>
+                          updateRow(row.id, {
+                            signingOrder: Math.max(1, Number(e.target.value || 1)),
+                          })
+                        }
+                      />
+                    </div>
+                  ) : (
+                    <div className="sm:col-span-1" aria-hidden="true" />
+                  )}
                   <Button
                     type="button"
                     variant="ghost"

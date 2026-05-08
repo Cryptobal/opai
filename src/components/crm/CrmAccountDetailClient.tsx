@@ -293,6 +293,7 @@ export function CrmAccountDetailClient({
   const [accountTypeConfirmOpen, setAccountTypeConfirmOpen] = useState(false);
   const [accountTypeNextValue, setAccountTypeNextValue] = useState<"prospect" | "client">("client");
   // Relations pre-fill when flat columns lag (portal is the canonical editor).
+  // Single-rep contexts: legacy edit form. Multi-rep editing happens in Portal Cliente.
   const firstRepForForm = account.representantesLegales?.[0];
   const personeriaForForm = account.personeria;
   const [accountForm, setAccountForm] = useState({
@@ -390,6 +391,7 @@ export function CrmAccountDetailClient({
 
   // ── Account handlers ──
   const openAccountEdit = () => {
+    // Single-rep canonical (matches token resolution behavior).
     const firstRep = account.representantesLegales?.[0];
     const pers = account.personeria;
     setAccountForm({
@@ -1354,46 +1356,94 @@ export function CrmAccountDetailClient({
       </div>
 
       {/* ── Representación legal (colapsable) ── */}
-      {(account.legalRepresentativeName ||
-        account.representantesLegales?.[0]?.nombre ||
-        account.legalRepresentativeRut ||
-        account.representantesLegales?.[0]?.rut ||
-        account.notaryName ||
-        account.personeria?.notaria ||
-        account.notaryDate ||
-        account.personeria?.fechaEscritura) && (
-        <details className="group rounded-xl border border-border bg-card">
-          <summary className="flex cursor-pointer list-none select-none items-center justify-between px-4 py-3 transition-colors hover:bg-muted/20">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-              Representación legal
-            </span>
-            <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
-          </summary>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-3 px-4 pb-4 pt-1 sm:grid-cols-2 lg:grid-cols-4">
-            <DetailField
-              label="Representante legal"
-              value={account.legalRepresentativeName || account.representantesLegales?.[0]?.nombre || null}
-            />
-            <DetailField
-              label="RUT representante"
-              value={account.legalRepresentativeRut || account.representantesLegales?.[0]?.rut || null}
-              mono
-              copyable
-            />
-            <DetailField
-              label="Notaría"
-              value={account.notaryName || account.personeria?.notaria || null}
-            />
-            <DetailField
-              label="Fecha escritura"
-              value={
-                account.notaryDate ||
-                (account.personeria?.fechaEscritura ? account.personeria.fechaEscritura.slice(0, 10) : null)
+      {(() => {
+        // Build the canonical list of representatives. Prefer relational rows
+        // (edited in Portal Cliente). Fall back to legacy flat columns only if
+        // no relational rows exist (back-compat with old accounts).
+        const relationalReps = account.representantesLegales ?? [];
+        const legacyRep =
+          relationalReps.length === 0 &&
+          (account.legalRepresentativeName || account.legalRepresentativeRut)
+            ? {
+                id: "__legacy__",
+                nombre: account.legalRepresentativeName || "",
+                rut: account.legalRepresentativeRut || "",
+                email: null as string | null,
               }
-            />
-          </div>
-        </details>
-      )}
+            : null;
+        const legalReps = relationalReps.length > 0 ? relationalReps : legacyRep ? [legacyRep] : [];
+
+        const hasPersoneria = Boolean(
+          account.notaryName ||
+            account.personeria?.notaria ||
+            account.notaryDate ||
+            account.personeria?.fechaEscritura,
+        );
+
+        if (legalReps.length === 0 && !hasPersoneria) return null;
+
+        return (
+          <details className="group rounded-xl border border-border bg-card">
+            <summary className="flex cursor-pointer list-none select-none items-center justify-between px-4 py-3 transition-colors hover:bg-muted/20">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                Representación legal
+              </span>
+              <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
+            </summary>
+            <div className="space-y-4 px-4 pb-4 pt-1">
+              {hasPersoneria && (
+                <div className="space-y-2">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
+                    Personería
+                  </div>
+                  <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
+                    <DetailField
+                      label="Notaría"
+                      value={account.notaryName || account.personeria?.notaria || null}
+                    />
+                    <DetailField
+                      label="Fecha escritura"
+                      value={
+                        account.notaryDate ||
+                        (account.personeria?.fechaEscritura
+                          ? account.personeria.fechaEscritura.slice(0, 10)
+                          : null)
+                      }
+                    />
+                  </div>
+                </div>
+              )}
+
+              {legalReps.length > 0 && (
+                <div className="space-y-2">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
+                    {legalReps.length === 1 ? "Representante legal" : "Representantes legales"}
+                  </div>
+                  <div className="space-y-2">
+                    {legalReps.map((rep, idx) => (
+                      <div
+                        key={rep.id}
+                        className="rounded-lg border border-border/60 bg-muted/20 p-3 space-y-2"
+                      >
+                        {legalReps.length > 1 && (
+                          <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
+                            Representante {idx + 1}
+                          </div>
+                        )}
+                        <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
+                          <DetailField label="Nombre" value={rep.nombre || null} />
+                          <DetailField label="RUT" value={rep.rut || null} mono copyable />
+                          <DetailField label="Email" value={rep.email || null} mono copyable />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </details>
+        );
+      })()}
 
       {/* ── Metadata (colapsable) ── */}
       <details className="group rounded-xl border border-border bg-card">

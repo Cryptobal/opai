@@ -52,6 +52,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { TokenPicker } from "./TokenPicker";
+import { InsertSignatureBlockButton } from "./InsertSignatureBlockButton";
 import type { PageType } from "./DocPreviewDialog";
 
 interface EditorToolbarProps {
@@ -379,6 +380,9 @@ export function EditorToolbar({
       </ToolbarButton>
 
       <Separator />
+
+      {/* ── Grupo especial: Insertar bloque de firmas (UX shortcut) ── */}
+      <InsertSignatureBlockButton editor={editor} />
 
       {/* ── Grupo especial: Insertar Token (destacado en verde) ── */}
       <DropdownMenu open={tokenPickerOpen} onOpenChange={setTokenPickerOpen}>
