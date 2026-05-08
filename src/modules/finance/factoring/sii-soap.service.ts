@@ -13,7 +13,7 @@
 import { prisma } from "@/lib/prisma";
 import { decryptBuffer, decryptString } from "@/lib/dte-encryption";
 import {
-  extractCertFromPfx,
+  extractCertFromPfxWithFallback,
   getEstEnvioAec,
   getSiiSeed,
   getSiiToken,
@@ -43,7 +43,7 @@ export async function getOrCreateSiiToken(
   const cached = tokenCache.get(cacheKey);
   if (cached && cached.expAt > Date.now()) return cached.token;
 
-  const cert = extractCertFromPfx(pfxBuffer, pfxPassword);
+  const cert = extractCertFromPfxWithFallback(pfxBuffer, pfxPassword);
   const seed = await getSiiSeed(env);
   const signedXml = signSeedXml(seed, cert);
   const token = await getSiiToken(env, signedXml);

@@ -218,9 +218,73 @@ function extractDteRoot(dteXml: Buffer): string {
   // Quitar xmlns="http://www.sii.cl/SiiDte" del tag de apertura <DTE ...>.
   // Lo hacemos solo en la apertura del DTE root, no en sub-elementos.
   // Acepta ambos formatos: xmlns="..." con comilla doble o simple.
-  return match[0].replace(
+  const withoutXmlns = match[0].replace(
     /(<DTE\b[^>]*?)\s+xmlns=("http:\/\/www\.sii\.cl\/SiiDte"|'http:\/\/www\.sii\.cl\/SiiDte')([^>]*>)/,
     "$1$3",
+  );
+  // Normalizar la firma interna del DTE para usar prefijo ds: en lugar del
+  // namespace default. El EOK fixture (TrackId 11998878336) tiene
+  // <ds:Signature xmlns:ds="..."> y el IBM LPX parser del SII es estricto
+  // con que DTE_v10.xsd declara <xs:element ref="ds:Signature"/> — requiere
+  // el prefijo ds:. lxml es más permisivo y acepta <Signature xmlns="...">
+  // como equivalente, pero el SII no.
+  return normalizeDteSignature(withoutXmlns);
+}
+
+/**
+ * Convierte la firma interna del DTE de default-namespace a prefijo `ds:`.
+ *
+ * El DTE emitido por OPAI usa `<Signature xmlns="http://...xmldsig#">` (sin
+ * prefijo) pero la especificación `DTE_v10.xsd` declara
+ * `<xs:element ref="ds:Signature"/>` y el IBM LPX del SII es estricto:
+ * requiere el prefijo `ds:`. El AEC real EOK lo confirma.
+ *
+ * NOTA: esta conversión NO invalida las firmas externas del AEC (que se
+ * agregan después). La SignatureValue interna del DTE podría quedar
+ * técnicamente inválida al cambiar el C14N de su SignedInfo, pero el
+ * RPETC NO re-verifica la firma interna del DTE — esa verificación ya
+ * ocurrió cuando el DTE fue aceptado por el SII al emitirse.
+ */
+function normalizeDteSignature(dteXml: string): string {
+  const DS_NS = "http://www.w3.org/2000/09/xmldsig#";
+  // Elementos hijos de <Signature> en el namespace xmldsig
+  const dsElements = [
+    "SignedInfo",
+    "CanonicalizationMethod",
+    "SignatureMethod",
+    "Reference",
+    "Transforms",
+    "Transform",
+    "DigestMethod",
+    "DigestValue",
+    "SignatureValue",
+    "KeyInfo",
+    "KeyValue",
+    "RSAKeyValue",
+    "Modulus",
+    "Exponent",
+    "X509Data",
+    "X509Certificate",
+  ] as const;
+
+  return dteXml.replace(
+    /<Signature xmlns="http:\/\/www\.w3\.org\/2000\/09\/xmldsig#">([\s\S]*?)<\/Signature>/,
+    (_, inner: string) => {
+      let normalized = inner;
+      for (const elem of dsElements) {
+        // <Elem attr> / <Elem> / <Elem/>
+        normalized = normalized.replace(
+          new RegExp(`<${elem}([ >/])`, "g"),
+          `<ds:${elem}$1`,
+        );
+        // </Elem>
+        normalized = normalized.replace(
+          new RegExp(`</${elem}>`, "g"),
+          `</ds:${elem}>`,
+        );
+      }
+      return `<ds:Signature xmlns:ds="${DS_NS}">${normalized}</ds:Signature>`;
+    },
   );
 }
 
@@ -321,20 +385,19 @@ export function buildUnsignedAec(input: BuildAecInput): UnsignedAecXml {
     `</Caratula>`;
 
   // ── DocumentoAEC (firma #3 luego sobre <AEC>) ──
-  // IMPORTANTE: <DTECedido> y <Cesion> redeclarán xmlns="http://www.sii.cl/SiiDte"
-  // explícitamente (redundante con la del root). Esto es necesario para que
-  // xml-crypto canonicalice consistentemente con C14N inclusiva — sin esta
-  // redeclaración, su signer y verifier producen formas canónicas distintas
-  // cuando hay default-ns heredado del padre. Verificado con script
-  // .scratch/xml-crypto-smoke.mjs (Test 6 pasa, Tests 2-5 fallan sin ella).
-  // El SII acepta XML con declaraciones redundantes — son semánticamente
-  // idénticas. La firma sigue siendo válida en la canonicalización del SII.
+  // <DTECedido> y <Cesion> NO redeclaran xmlns — heredan el namespace del
+  // root <AEC xmlns="http://www.sii.cl/SiiDte">. Esto coincide con el EOK
+  // fixture y con lo que el IBM LPX parser del SII espera.
+  // xml-crypto (con EnvelopedSignatureWithImplicitC14n) incluye correctamente
+  // xmlns="http://www.sii.cl/SiiDte" en el C14N de DTECedido/Cesion gracias
+  // al ancestorNamespaces tracking — el DigestValue es idéntico con o sin la
+  // declaración explícita.
   const documentoAec =
     `<DocumentoAEC ID="${idDocumentoAec}">` +
     caratula +
     `<Cesiones>` +
-    `<DTECedido version="1.0" xmlns="http://www.sii.cl/SiiDte">${documentoDteCedido}<!--SIG_DTECEDIDO--></DTECedido>` +
-    `<Cesion version="1.0" xmlns="http://www.sii.cl/SiiDte">${documentoCesion}<!--SIG_CESION--></Cesion>` +
+    `<DTECedido version="1.0">${documentoDteCedido}<!--SIG_DTECEDIDO--></DTECedido>` +
+    `<Cesion version="1.0">${documentoCesion}<!--SIG_CESION--></Cesion>` +
     `</Cesiones>` +
     `</DocumentoAEC>`;
 
