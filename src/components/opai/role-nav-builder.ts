@@ -62,25 +62,26 @@ function computeModuleBadges(notes: Record<string, number>) {
   } as Record<string, number>;
 }
 
-/* ── NavNode → NavSubItem (recursive — supports N3 in sidebar) ── */
+/* ── NavNode → NavSubItem (sidebar limit: N1 + N2 únicamente) ──
+ *
+ * Por convención del refactor "gold standard", el sidebar sólo expone hasta
+ * N2 (módulo + sub-módulo). El N3 (sub-secciones) vive arriba del contenido
+ * en `<ModuleSubNav>` montado por el layout del módulo. Por eso aquí NO
+ * incluimos `children` — aunque el registry tenga descendientes, el sidebar
+ * los ignora. */
 
 function nodeToNavSubItem(
   node: NavNode,
-  ctx: VisibilityContext,
+  _ctx: VisibilityContext,
   notes: Record<string, number>,
 ): NavSubItem {
   const badge = node.badge?.notesKey ? notes[node.badge.notesKey] : undefined;
-  const visibleChildren = (node.children ?? [])
-    .filter((c) => !c.hideInBottomNav || true /* sidebar shows hidden-in-bottom-nav too */)
-    .filter((c) => isNodeVisible(c, ctx));
   return {
     href: node.href,
     label: node.label,
     icon: node.icon,
     badge,
-    children: visibleChildren.length > 0
-      ? visibleChildren.map((c) => nodeToNavSubItem(c, ctx, notes))
-      : undefined,
+    // children intencionalmente undefined — N3 vive en ModuleSubNav, no en sidebar.
   };
 }
 
