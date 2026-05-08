@@ -47,7 +47,7 @@ export async function notifyRendicionSubmitted(data: {
         text: [
           `${data.submitterName} ha enviado la rendición ${data.rendicionCode} por ${formattedAmount} para su aprobación.`,
           "",
-          `Revísala en: ${SITE_URL}/finanzas/aprobaciones`,
+          `Revísala en: ${SITE_URL}/finanzas/rendiciones/aprobaciones`,
           "",
           "---",
           `¿No quieres recibir este tipo de alertas? Administrar notificaciones: ${PREFS_URL}`,
