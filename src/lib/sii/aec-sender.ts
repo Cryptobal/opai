@@ -160,9 +160,47 @@ export async function sendAecToSii(input: SendAecInput): Promise<SendAecResult> 
     };
   }
 
-  // Parser laxo: buscamos los tags independientemente del wrapper.
-  // El SII puede devolver RECEPCIONAEC, RPETC_AEC u otra variante;
-  // capturar cada campo por nombre evita acoplarnos al wrapper.
+  // RTCAnotEnvio.cgi siempre responde con HTML (no XML).
+  // El "Identificador de envío" en el HTML ES el TrackId del RPETC.
+  // Ejemplo: <font face="Arial" size="2"><b> 12006780850</b></font>
+  // Lo buscamos cerca del texto "Identificador de env".
+  //
+  // Si en cambio la respuesta es XML (RECEPCIONAEC con STATUS/TRACKID),
+  // usamos el parser laxo original como fallback.
+  // El SII devuelve la tilde como HTML entity: "env&iacute;o"
+  const htmlTrackIdMatch = bodyText.match(
+    /Identificador\s+de\s+env(?:[íi]|&iacute;)o\s*:[\s\S]*?<b>\s*(\d+)\s*<\/b>/i,
+  );
+  const htmlTrackId = htmlTrackIdMatch?.[1];
+
+  // Si contiene el patrón HTML del comprobante SII → ok=true
+  const isHtmlComprobante =
+    htmlTrackId !== undefined &&
+    bodyText.includes("Registro P") &&
+    (bodyText.includes("Transferencias") || bodyText.includes("Cesión"));
+
+  if (isHtmlComprobante) {
+    // Extraer timestamp del HTML: "08-05-2026</b>, a las <b>00:55:56"
+    const tsMatch = bodyText.match(
+      /recibido con fecha\s*<b>([\d-]+)<\/b>,\s*a las\s*<b>([\d:]+)<\/b>/i,
+    );
+    const timestamp = tsMatch ? `${tsMatch[1]} ${tsMatch[2]}` : undefined;
+
+    return {
+      ok: true,
+      trackId: htmlTrackId,
+      status: "0",
+      glosa: undefined,
+      rutSender: undefined,
+      rutCompany: undefined,
+      fileName: fileName,
+      timestamp,
+      rawXml: bodyText,
+      httpStatus,
+    };
+  }
+
+  // Fallback: intentar parsear como XML (RECEPCIONAEC con STATUS/TRACKID).
   const status = extractTag(bodyText, "STATUS");
   const trackId = extractTag(bodyText, "TRACKID");
   const glosaTag = extractTag(bodyText, "GLOSA");
@@ -171,12 +209,8 @@ export async function sendAecToSii(input: SendAecInput): Promise<SendAecResult> 
   const fileEcho = extractTag(bodyText, "FILE");
   const timestamp = extractTag(bodyText, "TIMESTAMP");
 
-  // ok cuando STATUS=="0" Y vino TRACKID (defensa: STATUS=0 sin trackId
-  // es response degenerado, mejor flagearlo).
   const isOk = status === "0";
 
-  // Glosa: priorizamos GLOSA del XML; si HTTP fue no-OK y no hay GLOSA,
-  // usar "HTTP <n>" como fallback legible.
   let glosa = glosaTag;
   if (!glosa && httpStatus >= 400) {
     glosa = `HTTP ${httpStatus}`;

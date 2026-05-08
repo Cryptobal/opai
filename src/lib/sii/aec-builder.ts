@@ -339,17 +339,17 @@ export function buildUnsignedAec(input: BuildAecInput): UnsignedAecXml {
     `</DocumentoAEC>`;
 
   // ── Root <AEC> ──
-  // El AEC real EOK trae xmlns:xsi + xsi:schemaLocation pero son
-  // OPCIONALES para el SII (informativos, no validados). Los omitimos
-  // porque rompen la C14N inclusive de xml-crypto (las declaraciones
-  // de prefijos en el root no quedan visibles cuando un descendiente
-  // redeclara el default namespace — bug de xml-crypto verificado en
-  // .scratch/depth-test.mjs "AEC w/xsi+schemaLocation"). El SII no
-  // exige schemaLocation, valida contra su XSD interno por el
-  // namespace SiiDte que sí declaramos.
+  // El SII valida xsi:schemaLocation (SCH-00002 si falta) — es requerido.
+  // xml-crypto sign() no tiene problema con estos atributos; solo
+  // xml-crypto verify() presentaba problemas (ver test skipped en
+  // aec-signer.test.ts), pero la verificación la hace el SII con su
+  // propio validador Java, no con xml-crypto.
   const xml =
     `<?xml version="1.0" encoding="ISO-8859-1"?>` +
-    `<AEC xmlns="http://www.sii.cl/SiiDte" version="1.0">` +
+    `<AEC xmlns="http://www.sii.cl/SiiDte"` +
+    ` xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"` +
+    ` xsi:schemaLocation="http://www.sii.cl/SiiDte AEC_v10.xsd"` +
+    ` version="1.0">` +
     documentoAec +
     `<!--SIG_AEC-->` +
     `</AEC>`;
