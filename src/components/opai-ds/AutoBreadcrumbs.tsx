@@ -36,21 +36,49 @@ export interface AutoBreadcrumbsProps {
   className?: string;
 }
 
+/**
+ * Devuelve true si `pathname` cae dentro del subárbol del nodo, respetando
+ * `exactMatch`: cuando exactMatch=true, sólo iguala con `===`. Si no,
+ * acepta prefix `/...` (sub-rutas del nodo).
+ */
+function nodeMatches(pathname: string, node: NavNode): boolean {
+  if (node.exactMatch) return pathname === node.href;
+  return pathname === node.href || pathname.startsWith(node.href + "/");
+}
+
+/**
+ * Construye el trail de breadcrumb. En cada nivel elige el HIJO MÁS
+ * ESPECÍFICO (longest href que matchee), no el primero. Esto evita que
+ * "Inicio" (href=/finanzas, exactMatch=true) gane sobre "Ventas"
+ * (href=/finanzas/facturacion) cuando navegamos a /finanzas/facturacion/dtes.
+ */
 function findTrail(pathname: string): NavNode[] {
   const trail: NavNode[] = [];
-  const visit = (node: NavNode): boolean => {
-    if (pathname === node.href || pathname.startsWith(node.href + "/")) {
-      trail.push(node);
-      for (const child of node.children ?? []) {
-        if (visit(child)) return true;
-      }
-      return true;
-    }
-    return false;
-  };
+
+  // Pick the best matching top-level module by longest href.
+  let topMatch: NavNode | undefined;
   for (const m of NAV_MODULES) {
-    if (visit(m)) break;
+    if (nodeMatches(pathname, m)) {
+      if (!topMatch || m.href.length > topMatch.href.length) topMatch = m;
+    }
   }
+  if (!topMatch) return trail;
+  trail.push(topMatch);
+
+  // Walk children, always picking the longest matching sibling.
+  let cursor = topMatch;
+  while (cursor.children && cursor.children.length > 0) {
+    let best: NavNode | undefined;
+    for (const c of cursor.children) {
+      if (nodeMatches(pathname, c)) {
+        if (!best || c.href.length > best.href.length) best = c;
+      }
+    }
+    if (!best) break;
+    trail.push(best);
+    cursor = best;
+  }
+
   return trail;
 }
 
