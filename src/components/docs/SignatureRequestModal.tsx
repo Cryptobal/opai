@@ -88,6 +88,31 @@ export function SignatureRequestModal({
       : [createRecipient()]
   );
   const [error, setError] = useState<string | null>(null);
+  const [tenantRepLegal, setTenantRepLegal] = useState<{
+    name: string;
+    rut: string;
+    email: string;
+  } | null>(null);
+
+  // Cargar config liviana del rep legal del tenant para warnings y quick-fill.
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    fetch(`/api/docs/documents/${documentId}/tenant-rep-legal`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (cancelled) return;
+        if (d.success && d.data) setTenantRepLegal(d.data);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [open, documentId]);
+
+  const tenantRepConfigured = !!tenantRepLegal?.name && !!tenantRepLegal?.rut;
+  const tenantRepHasEmail = !!tenantRepLegal?.email;
+  const showRepEmailBanner = tenantRepConfigured && !tenantRepHasEmail;
 
   // Actualizar filas cuando cambian initialRecipients (ej. al abrir con otro guardia)
   useEffect(() => {
@@ -241,6 +266,22 @@ export function SignatureRequestModal({
         </DialogHeader>
 
         <div className="space-y-4">
+          {showRepEmailBanner && (
+            <div className="rounded-md border border-status-warn-border bg-status-warn-soft p-3 text-sm text-status-warn-fg space-y-1">
+              <p>
+                <strong>Falta el email del representante legal de tu empresa.</strong>{" "}
+                Configúralo en{" "}
+                <a
+                  href="/opai/configuracion/empresa"
+                  className="underline font-medium"
+                >
+                  Configuración → Empresa
+                </a>{" "}
+                para que se autocomplete en futuras firmas.
+              </p>
+            </div>
+          )}
+
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="sigExpiresAt">Fecha límite</Label>
@@ -290,12 +331,32 @@ export function SignatureRequestModal({
                         {row.signingOrder}
                       </div>
                     ) : null}
-                    <Input
-                      className="min-w-0 flex-1"
-                      placeholder="Nombre"
-                      value={row.name}
-                      onChange={(e) => updateRow(row.id, { name: e.target.value })}
-                    />
+                    <div className="flex flex-col gap-1 min-w-0 flex-1">
+                      <Input
+                        className="min-w-0"
+                        placeholder="Nombre"
+                        value={row.name}
+                        onChange={(e) => updateRow(row.id, { name: e.target.value })}
+                      />
+                      {row.role === "signer" &&
+                        row.signingOrder === 1 &&
+                        tenantRepLegal?.name &&
+                        (!row.name || !row.email) && (
+                          <button
+                            type="button"
+                            className="text-[12px] text-primary hover:underline self-start"
+                            onClick={() =>
+                              updateRow(row.id, {
+                                name: tenantRepLegal.name,
+                                rut: tenantRepLegal.rut,
+                                email: tenantRepLegal.email,
+                              })
+                            }
+                          >
+                            Usar rep. legal de mi empresa ({tenantRepLegal.name})
+                          </button>
+                        )}
+                    </div>
                     {row.role === "cc" && (
                       <CcContactPicker
                         documentId={documentId}
