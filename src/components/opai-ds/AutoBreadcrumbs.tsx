@@ -24,9 +24,12 @@ import { useMemo } from "react";
 import { usePathname } from "next/navigation";
 import { NAV_MODULES, type NavNode } from "@/lib/nav/registry";
 import { Breadcrumbs, type BreadcrumbItem } from "./Breadcrumbs";
+import { useBreadcrumbTrailing } from "./BreadcrumbTrailingContext";
 
 export interface AutoBreadcrumbsProps {
-  /** Override the last segment label (e.g. detail pages: "Polpaico S.A."). */
+  /** Override the last segment label (e.g. detail pages: "Polpaico S.A.").
+   *  If not provided, falls back to whatever the active page set via
+   *  `useSetBreadcrumbTrailing(name)`. */
   trailing?: string;
   /** Hide if no registry match is found instead of returning null silently. */
   hideIfEmpty?: boolean;
@@ -52,11 +55,15 @@ function findTrail(pathname: string): NavNode[] {
 }
 
 export function AutoBreadcrumbs({
-  trailing,
+  trailing: trailingProp,
   hideIfEmpty = true,
   className,
 }: AutoBreadcrumbsProps) {
   const pathname = usePathname() ?? "/";
+  const trailingFromCtx = useBreadcrumbTrailing();
+  // Prop wins over context; context wins over nothing.
+  const trailing = trailingProp ?? trailingFromCtx ?? null;
+
   const items = useMemo<BreadcrumbItem[]>(() => {
     const trail = findTrail(pathname);
     if (trail.length === 0) return [];
@@ -78,19 +85,11 @@ export function AutoBreadcrumbs({
     }));
 
     if (trailing && built.length > 0) {
-      // If the trail only has the module root, we still want the trailing
-      // segment to read like "Module › Detail". Append rather than
-      // replace in that case.
-      const last = built[built.length - 1];
-      if (filtered.length === 1) {
-        built.push({ label: trailing, href: last.href });
-      } else {
-        // Replace last label with override but keep href so it stays clickable.
-        built[built.length - 1] = {
-          label: trailing,
-          href: last.href,
-        };
-      }
+      // Detail pages always APPEND the entity name as a new segment so
+      // the parent (e.g. "Leads") stays clickable. The entity itself
+      // becomes the last (highlighted) crumb. We don't have a stable
+      // href for it (would just be the current path), so use pathname.
+      built.push({ label: trailing, href: pathname });
     }
     return built;
   }, [pathname, trailing]);

@@ -6,7 +6,7 @@ import {
   hasCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHero } from "@/components/opai-ds";
+import { PageHero, SetBreadcrumbTrailing } from "@/components/opai-ds";
 import { Receipt } from "lucide-react";
 import { RendicionDetail } from "@/components/finance/RendicionDetail";
 interface PageProps {
@@ -159,6 +159,7 @@ export default async function RendicionDetailPage({ params }: PageProps) {
 
   return (
     <div className="space-y-6 min-w-0">
+      <SetBreadcrumbTrailing value={`Rendición ${rendicion.code}`} />
       <PageHero
         icon={<Receipt />}
         iconTone="teal"

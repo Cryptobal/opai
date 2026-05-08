@@ -2,7 +2,7 @@ import { redirect, notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
-import { PageHero } from "@/components/opai-ds";
+import { PageHero, SetBreadcrumbTrailing } from "@/components/opai-ds";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Package } from "lucide-react";
@@ -38,7 +38,8 @@ export default async function InventarioProductoPage({
   return (
     <div className="space-y-6 min-w-0">
       <section className="relative w-full pb-32 space-y-6">
-        <PageHero
+        <SetBreadcrumbTrailing value={product.name} />
+      <PageHero
           icon={<Package />}
           iconTone="emerald"
           title={product.name}

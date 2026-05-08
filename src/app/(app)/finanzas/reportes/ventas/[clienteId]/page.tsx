@@ -6,7 +6,7 @@ import {
   canView,
   hasCapability,
 } from "@/lib/permissions-server";
-import { PageHero } from "@/components/opai-ds";
+import { PageHero, SetBreadcrumbTrailing } from "@/components/opai-ds";
 import { Building2 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { ClienteDrillClient } from "@/components/finance/reports/ClienteDrillClient";
@@ -51,6 +51,7 @@ export default async function ClienteDrillPage({
 
   return (
     <div className="space-y-5">
+      <SetBreadcrumbTrailing value={account.name} />
       <PageHero
         icon={<Building2 />}
         iconTone="emerald"

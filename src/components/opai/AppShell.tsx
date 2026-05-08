@@ -20,7 +20,7 @@ import { NotificationSidePanel } from '@/components/notifications/NotificationSi
 import { useNotifications } from '@/contexts/NotificationContext';
 import { PlatformDataAttribute } from '@/components/opai/portal-shell';
 import { useIsIOS } from '@/hooks/usePlatform';
-import { AutoBreadcrumbs } from '@/components/opai-ds';
+import { AutoBreadcrumbs, BreadcrumbTrailingProvider } from '@/components/opai-ds';
 
 export interface AppShellProps {
   sidebar?: ReactNode;
@@ -205,21 +205,23 @@ function AppShellInner({
                 {children}
               </div>
             ) : (
-              <div className="w-full max-w-full pt-4 pb-28 lg:pt-0 lg:pb-6 animate-in-page min-w-0 overflow-x-clip px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12" role="region">
-                {/*
-                  Gold-standard nav anatomy: top of every page renders an
-                  AutoBreadcrumbs derived from the registry. AutoBreadcrumbs
-                  hides itself when the path doesn't have a registered trail
-                  (e.g. /hub, /fiscalizacion) or when the trail is a single
-                  module root (redundant with the sidebar). Module layouts
-                  mount ModuleSubNav (N3) just below; pages render their
-                  own PageHero + content underneath.
-                */}
-                <div className="pt-1 lg:pt-3 mb-2 lg:mb-3">
-                  <AutoBreadcrumbs />
+              /*
+                Gold-standard nav anatomy: top of every page renders an
+                AutoBreadcrumbs derived from the registry. Detail pages
+                publish the entity name via `useSetBreadcrumbTrailing(name)`
+                and AutoBreadcrumbs reads it through BreadcrumbTrailingProvider
+                so the breadcrumb shows "Module › Submodule › <Entity>".
+                Module layouts mount ModuleSubNav (N3) just below; pages
+                render their own PageHero + content underneath.
+              */
+              <BreadcrumbTrailingProvider>
+                <div className="w-full max-w-full pt-4 pb-28 lg:pt-0 lg:pb-6 animate-in-page min-w-0 overflow-x-clip px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12" role="region">
+                  <div className="pt-1 lg:pt-3 mb-2 lg:mb-3">
+                    <AutoBreadcrumbs />
+                  </div>
+                  {children}
                 </div>
-                {children}
-              </div>
+              </BreadcrumbTrailingProvider>
             )}
           </main>
         </div>
