@@ -16,7 +16,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { DataTable, EmptyState, type DataTableColumn } from "@/components/opai-ds";
+import { DataTable, EmptyState, Tag, type DataTableColumn, type TagVariant } from "@/components/opai-ds";
+import { DocumentTag, fmtCLPSmart } from "@/components/finance/dtes";
 import {
   Dialog,
   DialogContent,
@@ -991,47 +992,16 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
             />
           </div>
 
-          {/* Mobile cards */}
+          {/* Mobile cards — mismo layout que IssuedDtesMobileList (DTEs Emitidos)
+              para mantener consistencia visual entre los dos listados. */}
           <div className="md:hidden space-y-2">
-            {(Array.isArray(filtered) ? filtered : []).map((d) => {
-              const recCfg = RECEPTION_STATUS_CONFIG[d.receptionStatus] ?? { label: d.receptionStatus, className: "bg-muted" };
-              const payCfg = PAYMENT_STATUS_CONFIG[d.paymentStatus] ?? { label: d.paymentStatus, className: "bg-muted" };
-              return (
-                <Card
-                  key={d.id}
-                  className="cursor-pointer hover:bg-muted/30 transition-colors"
-                  onClick={() => setDetailDte(d)}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          <span className="text-xs text-muted-foreground">
-                            {DTE_TYPE_LABELS[d.dteType] ?? `Tipo ${d.dteType}`}
-                          </span>
-                          <span className="font-mono text-xs">#{d.folio}</span>
-                          <Badge variant="outline" className={cn("text-[10px]", recCfg.className)}>
-                            {recCfg.label}
-                          </Badge>
-                          <Badge variant="outline" className={cn("text-[10px]", payCfg.className)}>
-                            {payCfg.label}
-                          </Badge>
-                        </div>
-                        <p className="font-medium text-sm">{d.issuerName}</p>
-                        <p className="text-xs text-muted-foreground font-mono">{d.issuerRut}</p>
-                        <div className="flex items-center justify-between mt-2">
-                          <span className="font-mono text-sm font-medium">{fmtCLP.format(d.totalAmount)}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {format(new Date(d.date), "dd MMM yyyy", { locale: es })}
-                          </span>
-                        </div>
-                      </div>
-                      <Eye className="h-4 w-4 text-muted-foreground shrink-0" />
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
+            {(Array.isArray(filtered) ? filtered : []).map((d) => (
+              <ReceivedDteMobileCard
+                key={d.id}
+                dte={d}
+                onClick={() => setDetailDte(d)}
+              />
+            ))}
           </div>
 
           <PaginationControls
@@ -1230,6 +1200,103 @@ interface DteAttachment {
   size: number;
   uploadedAt: string;
   uploadedBy: string;
+}
+
+/**
+ * Card mobile para un DTE Recibido. Mismo layout que IssuedDtesMobileList
+ * (DTEs Emitidos) para mantener paridad visual entre ambas vistas:
+ *   [DocumentTag] #folio  [recepción]  [pago]  [aging]
+ *   Emisor
+ *   RUT
+ *   $monto (compact)         dd MMM yyyy
+ *   ─────────────────────────────────────
+ *   [ Detalle ]
+ */
+function ReceivedDteMobileCard({
+  dte,
+  onClick,
+}: {
+  dte: ReceivedDteRow;
+  onClick: () => void;
+}) {
+  const recVariant: TagVariant =
+    dte.receptionStatus === "ACCEPTED"
+      ? "ok"
+      : dte.receptionStatus === "CLAIMED"
+        ? "danger"
+        : "warn";
+  const recLabel =
+    RECEPTION_STATUS_CONFIG[dte.receptionStatus]?.label ?? dte.receptionStatus;
+  const payVariant: TagVariant =
+    dte.paymentStatus === "PAID"
+      ? "ok"
+      : dte.paymentStatus === "PARTIAL"
+        ? "warn"
+        : "danger";
+  const payLabel =
+    PAYMENT_STATUS_CONFIG[dte.paymentStatus]?.label ?? dte.paymentStatus;
+  return (
+    <Card
+      className="cursor-pointer hover:bg-ds-surface-2 transition-colors border-l-[3px] border-l-transparent"
+      onClick={onClick}
+    >
+      <CardContent className="p-4">
+        <div className="flex items-start gap-2.5">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+              <DocumentTag dteType={dte.dteType} />
+              <span className="font-mono text-xs text-ds-text-2">
+                #{dte.folio}
+              </span>
+              <Tag variant={recVariant} size="sm" dot>
+                {recLabel}
+              </Tag>
+              <Tag variant={payVariant} size="sm" dot>
+                {payLabel}
+              </Tag>
+              {dte.date && dte.paymentStatus !== "PAID" && (
+                <DteAgingBadge
+                  date={dte.date}
+                  dueDate={dte.dueDate}
+                  paymentStatus={dte.paymentStatus}
+                  siiStatus="ACCEPTED"
+                />
+              )}
+            </div>
+            <p className="font-medium text-sm text-ds-text-1 truncate">
+              {dte.issuerName}
+            </p>
+            <p className="text-xs text-ds-text-3 font-mono">{dte.issuerRut}</p>
+            <div className="flex items-center justify-between gap-2 mt-2">
+              <span
+                className="font-mono text-sm font-semibold tabular-nums truncate"
+                title={dte.totalAmount.toLocaleString("es-CL")}
+              >
+                {fmtCLPSmart(dte.totalAmount)}
+              </span>
+              <span className="text-xs text-ds-text-3 shrink-0">
+                {format(new Date(dte.date), "dd MMM yyyy", { locale: es })}
+              </span>
+            </div>
+          </div>
+        </div>
+        <div className="flex gap-1 mt-3 pt-3 border-t border-ds-border-subtle">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              onClick();
+            }}
+            className="flex-1 justify-center"
+          >
+            <Eye className="h-3.5 w-3.5 mr-1.5" />
+            Detalle
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 /**

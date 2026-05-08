@@ -22,5 +22,7 @@ export {
   DTE_SORT_OPTIONS,
   sortDteRows,
   fmtCLP,
+  fmtCLPCompact,
+  fmtCLPSmart,
   buildPeriodOptions,
 } from "./shared/constants";

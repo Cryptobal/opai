@@ -13,7 +13,7 @@ import { SiiStatusPill } from "./SiiStatusPill";
 import { CessionBadge } from "./CessionBadge";
 import { LinkedNoteBadge } from "./LinkedNoteBadge";
 import { RelationRow } from "./RelationRow";
-import { fmtCLP } from "./shared/constants";
+import { fmtCLPSmart } from "./shared/constants";
 import type { DteRow } from "./shared/types";
 
 interface Props {
@@ -165,16 +165,17 @@ export function IssuedDtesMobileList({
                   <p className="text-xs text-ds-text-3 font-mono">
                     {d.receiverRut}
                   </p>
-                  <div className="flex items-center justify-between mt-2">
+                  <div className="flex items-center justify-between gap-2 mt-2">
                     <span
                       className={cn(
-                        "font-mono text-sm font-medium",
+                        "font-mono text-sm font-semibold tabular-nums truncate",
                         isAnnulled && "line-through text-ds-text-3",
                       )}
+                      title={d.totalAmount.toLocaleString("es-CL")}
                     >
-                      {fmtCLP.format(d.totalAmount)}
+                      {fmtCLPSmart(d.totalAmount)}
                     </span>
-                    <span className="text-xs text-ds-text-3">
+                    <span className="text-xs text-ds-text-3 shrink-0">
                       {format(new Date(d.date ?? d.createdAt), "dd MMM yyyy", {
                         locale: es,
                       })}

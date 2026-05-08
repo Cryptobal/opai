@@ -60,6 +60,29 @@ export const fmtCLP = new Intl.NumberFormat("es-CL", {
 });
 
 /**
+ * Formato compacto para montos grandes (mobile cards). Renderiza
+ * `$10,3 M` en vez de `$10.300.000` para que no se corte el texto en
+ * pantallas angostas. Usa la misma localización es-CL.
+ */
+export const fmtCLPCompact = new Intl.NumberFormat("es-CL", {
+  style: "currency",
+  currency: "CLP",
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
+
+/**
+ * Formatea CLP con compact si supera el threshold (default 1M),
+ * de lo contrario usa el formato completo. Sirve para mobile donde
+ * el ancho es escaso pero queremos preservar precisión en montos chicos.
+ */
+export function fmtCLPSmart(amount: number, threshold = 1_000_000): string {
+  return Math.abs(amount) >= threshold
+    ? fmtCLPCompact.format(amount)
+    : fmtCLP.format(amount);
+}
+
+/**
  * Lista de períodos para los selectores de mes (DTEs Emit/Recib).
  * Formato value: "YYYY-MM". Label: "Mes Año" (ej: "Mayo 2026").
  * Devuelve los últimos N meses incluyendo el corriente.
