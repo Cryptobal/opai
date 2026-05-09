@@ -260,7 +260,7 @@ export function ItemFormDialog({ open, item, categories, onClose, onSaved }: Pro
                 value={form.amount}
                 onChange={(e) => setAmount(e.target.value)}
               />
-              <p className="mt-1 text-[11px] text-ds-text-3">
+              <p className="mt-1 text-[12px] text-ds-text-3">
                 {form.currency === "CLP" ? "Pesos chilenos. Ej: 150.000" : "UF con 2 decimales. Ej: 12,50"}
               </p>
             </div>
@@ -358,7 +358,7 @@ export function ItemFormDialog({ open, item, categories, onClose, onSaved }: Pro
                   value={form.dayOfMonth}
                   onChange={(e) => set("dayOfMonth", e.target.value)}
                 />
-                <p className="mt-1 text-[11px] text-ds-text-3">
+                <p className="mt-1 text-[12px] text-ds-text-3">
                   Día en que cae el pago. Usa <code className="font-mono">-1</code> para el último día (útil para arriendos que vencen fin de mes).
                 </p>
               </div>

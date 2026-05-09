@@ -221,7 +221,7 @@ export function CashflowConfigClient({ initialConfig, initialCategories }: Props
               value={config.payrollPayDay}
               onChange={(e) => setField("payrollPayDay", Number(e.target.value))}
             />
-            <p className="mt-1 text-[11px] text-ds-text-3">
+            <p className="mt-1 text-[12px] text-ds-text-3">
               Día del mes en que se proyecta el pago. Usa <code className="font-mono">-1</code> para el último día del mes.
             </p>
           </div>
@@ -235,7 +235,7 @@ export function CashflowConfigClient({ initialConfig, initialCategories }: Props
               value={config.ivaPayDay}
               onChange={(e) => setField("ivaPayDay", Number(e.target.value))}
             />
-            <p className="mt-1 text-[11px] text-ds-text-3">
+            <p className="mt-1 text-[12px] text-ds-text-3">
               Plazo legal: día 12 (papel) o 20 (electrónico) del mes siguiente.
             </p>
           </div>
@@ -249,7 +249,7 @@ export function CashflowConfigClient({ initialConfig, initialCategories }: Props
               value={config.matchAmountToleranceClp}
               onChange={(e) => setField("matchAmountToleranceClp", Number(e.target.value))}
             />
-            <p className="mt-1 text-[11px] text-ds-text-3">
+            <p className="mt-1 text-[12px] text-ds-text-3">
               Diferencia máxima en pesos para que un movimiento bancario se considere coincidencia con un ítem proyectado.
             </p>
           </div>
@@ -263,7 +263,7 @@ export function CashflowConfigClient({ initialConfig, initialCategories }: Props
               value={config.matchDaysTolerance}
               onChange={(e) => setField("matchDaysTolerance", Number(e.target.value))}
             />
-            <p className="mt-1 text-[11px] text-ds-text-3">
+            <p className="mt-1 text-[12px] text-ds-text-3">
               Días de diferencia aceptados entre la fecha proyectada y la fecha real del banco.
             </p>
           </div>
@@ -364,7 +364,7 @@ export function CashflowConfigClient({ initialConfig, initialCategories }: Props
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
                   <div className="font-medium text-[13px] truncate">{c.name}</div>
-                  <div className="font-mono text-[11px] text-ds-text-3 truncate">{c.code}</div>
+                  <div className="font-mono text-[11px] uppercase tracking-[0.08em] text-ds-text-4 truncate">{c.code}</div>
                   <div className="text-[12px] text-ds-text-3 mt-0.5">
                     {c.kind === "INCOME" ? "↑ Ingreso" : "↓ Egreso"}
                     {c.isSystem && (
