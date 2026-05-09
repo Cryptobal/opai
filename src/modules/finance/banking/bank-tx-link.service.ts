@@ -40,7 +40,7 @@ export interface CandidateDte {
   id: string;
   direction: "ISSUED" | "RECEIVED";
   documentType: string;
-  folio: number | null;
+  folio: number;
   issuerName: string;
   receiverName: string;
   receiverRut: string | null;
@@ -108,8 +108,8 @@ export async function findDteCandidates(
   return dtes.map((d) => ({
     id: d.id,
     direction: d.direction as "ISSUED" | "RECEIVED",
-    documentType: d.documentType ?? "",
-    folio: d.folio ?? null,
+    documentType: d.code,
+    folio: d.folio,
     issuerName: d.issuerName ?? "",
     receiverName: d.receiverName ?? "",
     receiverRut: d.receiverRut ?? null,
