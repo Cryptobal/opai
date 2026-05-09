@@ -9,7 +9,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const perms = await resolveApiPerms(ctx);
-    if (!hasCapability(perms, "rendicion_configure")) {
+    if (!hasCapability(perms, "banking_manage")) {
       return NextResponse.json({ success: false, error: "Sin permisos" }, { status: 403 });
     }
     const { id } = await params;

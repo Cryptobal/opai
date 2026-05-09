@@ -5,7 +5,7 @@ import {
   resolveApiPerms,
   parseBody,
 } from "@/lib/api-auth";
-import { canView, hasCapability } from "@/lib/permissions";
+import { hasCapability } from "@/lib/permissions";
 import { updateBankAccountSchema } from "@/lib/validations/finance";
 import {
   getBankAccount,
@@ -21,7 +21,7 @@ export async function GET(
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const perms = await resolveApiPerms(ctx);
-    if (!canView(perms, "finance")) {
+    if (!hasCapability(perms, "banking_view")) {
       return NextResponse.json(
         { success: false, error: "Sin permisos" },
         { status: 403 }
@@ -57,7 +57,7 @@ export async function PUT(
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const perms = await resolveApiPerms(ctx);
-    if (!hasCapability(perms, "rendicion_configure")) {
+    if (!hasCapability(perms, "banking_manage")) {
       return NextResponse.json(
         { success: false, error: "Sin permisos" },
         { status: 403 }
@@ -90,7 +90,7 @@ export async function DELETE(
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const perms = await resolveApiPerms(ctx);
-    if (!hasCapability(perms, "rendicion_configure")) {
+    if (!hasCapability(perms, "banking_manage")) {
       return NextResponse.json(
         { success: false, error: "Sin permisos" },
         { status: 403 }

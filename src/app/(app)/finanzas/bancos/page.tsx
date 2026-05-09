@@ -3,7 +3,6 @@ import { auth } from "@/lib/auth";
 import {
   resolvePagePerms,
   hasModuleAccess,
-  canView,
   hasCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
@@ -20,10 +19,16 @@ export default async function BancosPage() {
   if (!hasModuleAccess(perms, "finance")) {
     redirect("/hub");
   }
-  if (!canView(perms, "finance", "contabilidad")) redirect("/finanzas/rendiciones");
+  // Banca queda restringida a propietarios/administradores. Las capabilities
+  // banking_view / banking_manage se asignan automáticamente en owner (vía
+  // fullPermissions) y admin (vía loop sobre CAPABILITY_KEYS). Otros roles no
+  // las reciben por defecto y quedan fuera de esta página.
+  if (!hasCapability(perms, "banking_view")) {
+    redirect("/finanzas/rendiciones");
+  }
 
   const tenantId = session.user.tenantId;
-  const canManage = hasCapability(perms, "rendicion_configure");
+  const canManage = hasCapability(perms, "banking_manage");
 
   const bankAccounts = await prisma.financeBankAccount.findMany({
     where: { tenantId },

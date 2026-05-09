@@ -38,6 +38,70 @@ function buildImportTxId(
   return `csv:${hash}`;
 }
 
+/** Inserta puntos cada 3 dígitos desde la derecha (formateo de RUT chileno). */
+function formatDigitsWithDots(digits: string): string {
+  const groups: string[] = [];
+  for (let i = digits.length; i > 0; i -= 3) {
+    groups.unshift(digits.slice(Math.max(0, i - 3), i));
+  }
+  return groups.join(".");
+}
+
+/**
+ * Construye el `OR` del where para búsqueda en `description` y `reference`.
+ *
+ * Caso especial RUT chileno: el banco a veces emite el RUT con puntos y a
+ * veces sin. Si el input parece un RUT (solo dígitos, opcional dígito
+ * verificador K, puntos o guion), generamos todas las variantes razonables
+ * (con/sin puntos, con/sin guion, con/sin DV) y matcheamos cualquiera. Así
+ * el usuario puede escribir solo los dígitos y encontrar descripciones que
+ * traen el RUT formateado con puntos y guion.
+ */
+function buildSearchOr(search: string) {
+  const trimmed = search.trim();
+  // Detección de RUT: solo dígitos, puntos, guion, y opcional K final.
+  const looksLikeRut = /^[\d.\-kK]+$/.test(trimmed) && /\d{4,9}/.test(trimmed);
+  if (!looksLikeRut) {
+    return [
+      { description: { contains: trimmed, mode: "insensitive" as const } },
+      { reference: { contains: trimmed, mode: "insensitive" as const } },
+    ];
+  }
+
+  const cleaned = trimmed.replace(/[.\-]/g, "");
+  const dvMatch = cleaned.match(/^(\d{4,9})([kK])?$/);
+  if (!dvMatch) {
+    return [
+      { description: { contains: trimmed, mode: "insensitive" as const } },
+      { reference: { contains: trimmed, mode: "insensitive" as const } },
+    ];
+  }
+  const digits = dvMatch[1];
+  const dv = dvMatch[2]?.toUpperCase() ?? null;
+  const dotted = formatDigitsWithDots(digits);
+
+  // Variantes generadas: dígitos planos, dígitos con puntos, y si hay
+  // DV: con guion (en ambos formatos) y DV pegado al final.
+  const variants = new Set<string>();
+  variants.add(digits);
+  variants.add(dotted);
+  if (dv) {
+    variants.add(`${digits}-${dv}`);
+    variants.add(`${dotted}-${dv}`);
+    variants.add(`${digits}${dv}`);
+  }
+
+  const or: Array<
+    | { description: { contains: string; mode: "insensitive" } }
+    | { reference: { contains: string; mode: "insensitive" } }
+  > = [];
+  for (const v of variants) {
+    or.push({ description: { contains: v, mode: "insensitive" as const } });
+    or.push({ reference: { contains: v, mode: "insensitive" as const } });
+  }
+  return or;
+}
+
 // ── Types ──
 
 type BankTxSortField = "transactionDate" | "description" | "amount";
@@ -97,10 +161,7 @@ export async function listBankTransactions(
 
   const search = opts?.search?.trim();
   if (search) {
-    where.OR = [
-      { description: { contains: search, mode: "insensitive" } },
-      { reference: { contains: search, mode: "insensitive" } },
-    ];
+    where.OR = buildSearchOr(search);
   }
 
   // Orden: por defecto fecha descendente, con id como tiebreaker estable.
@@ -120,6 +181,57 @@ export async function listBankTransactions(
     }),
     prisma.financeBankTransaction.count({ where }),
   ]);
+
+  // Running balance: el campo `balance` que entrega Santander viene casi siempre
+  // null. Lo calculamos a mano: balance_at_tx_i = currentBalance - Σ(amount de
+  // todas las tx más nuevas, cronológicamente, en TODA la cuenta — sin importar
+  // filtros del listado).
+  //
+  // Solo aplica cuando sortField=transactionDate (en otros sorts el balance
+  // running por fila no es interpretable). Si la cuenta no tiene currentBalance
+  // fijado, dejamos null y la UI muestra "—".
+  if (sortField === "transactionDate" && transactions.length > 0) {
+    const account = await prisma.financeBankAccount.findFirst({
+      where: { id: bankAccountId, tenantId },
+      select: { currentBalance: true },
+    });
+    const currentBalance = account?.currentBalance;
+    if (currentBalance != null) {
+      type RawRow = { id: string; running: string };
+      const ids = transactions.map((t) => t.id);
+      const rows = await prisma.$queryRaw<RawRow[]>`
+        WITH page_ids AS (
+          SELECT unnest(${ids}::uuid[]) AS id
+        ),
+        ranked AS (
+          SELECT
+            id,
+            COALESCE(
+              SUM(amount) OVER (
+                ORDER BY transaction_date DESC, id DESC
+                ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
+              ),
+              0
+            ) AS amounts_above
+          FROM finance_bank_transactions
+          WHERE tenant_id = ${tenantId}::uuid
+            AND bank_account_id = ${bankAccountId}::uuid
+        )
+        SELECT
+          ranked.id::text AS id,
+          (${currentBalance.toString()}::numeric - ranked.amounts_above)::text AS running
+        FROM ranked
+        INNER JOIN page_ids ON page_ids.id = ranked.id
+      `;
+      const balanceMap = new Map(rows.map((r) => [r.id, r.running]));
+      for (const tx of transactions) {
+        const running = balanceMap.get(tx.id);
+        if (running !== undefined) {
+          tx.balance = new Decimal(running);
+        }
+      }
+    }
+  }
 
   return {
     transactions,

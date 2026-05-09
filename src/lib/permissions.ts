@@ -171,6 +171,11 @@ export const CAPABILITY_KEYS = [
   "facturacion_resend_email",
   "facturacion_configure",
   "facturacion_manage", // DEPRECATED: legacy capability — se expande a las 7 granulares vía hasFacturacionCapability.
+  // Banca — restringido por defecto a owner/admin. Se chequea en /finanzas/bancos
+  // y endpoints /api/finance/banking/*. Otros roles no ven la pestaña ni pueden
+  // importar/conciliar movimientos.
+  "banking_view",
+  "banking_manage",
   "ticket_approve",
   "ticket_manage_types",
   "supervision_checkin",
@@ -357,6 +362,8 @@ export const CAPABILITY_META: CapabilityMeta[] = [
   { key: "facturacion_resend_email", label: "Reenviar emails de DTE", description: "Puede reenviar el email del DTE al receptor (no emite documentos nuevos).", moduleKey: "finance" },
   { key: "facturacion_configure", label: "Configurar emisor DTE", description: "Configura datos del emisor, certificado digital y archivos CAF.", moduleKey: "finance" },
   { key: "facturacion_manage", label: "Gestionar facturación (legacy)", description: "DEPRECATED: capability legacy que otorga todos los permisos de facturación. Use las capabilities granulares.", moduleKey: "finance" },
+  { key: "banking_view", label: "Ver banca", description: "Puede ver cuentas bancarias, movimientos y conciliación. Acceso restringido por defecto a propietarios y administradores.", moduleKey: "finance" },
+  { key: "banking_manage", label: "Gestionar banca", description: "Puede importar cartolas, conciliar movimientos, modificar saldos y configurar reglas. Acceso restringido por defecto a propietarios y administradores.", moduleKey: "finance" },
   { key: "ticket_approve", label: "Aprobar tickets", description: "Puede aprobar o rechazar tickets que le correspondan según su grupo", moduleKey: "ops", submoduleKey: "tickets" },
   { key: "ticket_manage_types", label: "Configurar tipos de ticket", description: "Puede crear/editar tipos de solicitud y cadenas de aprobación", moduleKey: "ops", submoduleKey: "tickets" },
   { key: "supervision_checkin", label: "Check-in de supervisión", description: "Puede iniciar y finalizar visitas con georreferencia", moduleKey: "ops", submoduleKey: "supervision" },

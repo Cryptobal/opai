@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized, resolveApiPerms, parseBody } from "@/lib/api-auth";
-import { canView, hasCapability } from "@/lib/permissions";
+import { hasCapability } from "@/lib/permissions";
 import { createReconciliationSchema } from "@/lib/validations/finance";
 import { listReconciliations, createReconciliation } from "@/modules/finance/banking/reconciliation.service";
 
@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const perms = await resolveApiPerms(ctx);
-    if (!canView(perms, "finance")) {
+    if (!hasCapability(perms, "banking_view")) {
       return NextResponse.json({ success: false, error: "Sin permisos" }, { status: 403 });
     }
     const bankAccountId = new URL(request.url).searchParams.get("bankAccountId") || undefined;
@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const perms = await resolveApiPerms(ctx);
-    if (!hasCapability(perms, "rendicion_configure")) {
+    if (!hasCapability(perms, "banking_manage")) {
       return NextResponse.json({ success: false, error: "Sin permisos" }, { status: 403 });
     }
     const parsed = await parseBody(request, createReconciliationSchema);
