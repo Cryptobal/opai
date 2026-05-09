@@ -14,16 +14,31 @@ export interface CreateTenantInput {
   // Empresa
   name: string; // "Securitas Chile SpA"
   slug: string; // "securitas-cl" (lowercase, solo letras, números, guiones)
-  companyRut?: string; // "76.111.222-3"
+  companyRut?: string; // RUT empresa formato chileno (con puntos y dígito verificador)
 
   // Admin owner
   ownerName: string; // "Juan Pérez"
   ownerEmail: string; // "juan@securitas.cl"
-  ownerPassword: string; // Se hashea con bcrypt
+  /** Password en texto plano. Se hashea con bcrypt. Si no se provee, debe pasarse `ownerPasswordHash`. */
+  ownerPassword?: string;
+  /** Password ya hasheado (signup verificado). Si se provee, se usa directamente. */
+  ownerPasswordHash?: string;
 
   // Plan
   plan: "free" | "starter" | "profesional" | "enterprise" | "trial" | "essential" | "professional";
   trialDays?: number; // Default: 30
+
+  // Datos enriquecidos del onboarding (opcionales — públicos signup)
+  ownerPhone?: string;
+  legalName?: string;
+  industry?: string;
+  estimatedGuards?: string;
+  address?: string;
+  commune?: string;
+  city?: string;
+  giro?: string;
+  signupSource?: string;
+  signupUtm?: Record<string, unknown>;
 }
 
 export interface CreateTenantResult {
@@ -62,6 +77,10 @@ export async function provisionTenant(
     );
   }
 
+  if (!ownerPassword && !input.ownerPasswordHash) {
+    throw new Error("Debe proveerse ownerPassword o ownerPasswordHash");
+  }
+
   const existingTenant = await prisma.tenant.findUnique({
     where: { slug },
   });
@@ -79,7 +98,8 @@ export async function provisionTenant(
   }
 
   // ── Hash password ──
-  const hashedPassword = await bcrypt.hash(ownerPassword, 12);
+  const hashedPassword =
+    input.ownerPasswordHash ?? (await bcrypt.hash(ownerPassword!, 12));
 
   // ── Read plan catalog (if available) ──
   const catalogPlan = await prisma.planCatalog.findUnique({
@@ -92,7 +112,18 @@ export async function provisionTenant(
 
     const tenant = await tx.tenant.create({
       // dpaVersion sin dpaAcceptedAt = pendiente de aceptación (Ley 21.719)
-      data: { name, slug, active: true, dpaVersion: "1.0" },
+      data: {
+        name,
+        slug,
+        active: true,
+        dpaVersion: "1.0",
+        legalName: input.legalName,
+        companyRut,
+        industry: input.industry,
+        estimatedGuards: input.estimatedGuards,
+        signupSource: input.signupSource,
+        signupUtm: (input.signupUtm ?? undefined) as never,
+      },
     });
 
     // 2. Admin (owner)
@@ -102,6 +133,7 @@ export async function provisionTenant(
         email: ownerEmail.toLowerCase(),
         name: ownerName,
         password: hashedPassword,
+        phone: input.ownerPhone,
         role: "owner",
         status: "active",
       },
@@ -156,15 +188,18 @@ export async function provisionTenant(
     // 5. Settings de empresa (key format: empresa:<tenantId>:<settingKey> for uniqueness)
     const settings: { key: string; value: string }[] = [
       { key: "empresa.companyName", value: name },
-      { key: "empresa.razonSocial", value: name },
+      { key: "empresa.razonSocial", value: input.legalName ?? name },
       { key: "empresa.branding.appName", value: "OPAI" },
       { key: "empresa.branding.primaryColor", value: "#0056E0" },
       { key: "empresa.branding.secondaryColor", value: "#1DB990" },
     ];
 
-    if (companyRut) {
-      settings.push({ key: "empresa.rut", value: companyRut });
-    }
+    if (companyRut) settings.push({ key: "empresa.rut", value: companyRut });
+    if (input.address) settings.push({ key: "empresa.direccion", value: input.address });
+    if (input.commune) settings.push({ key: "empresa.comuna", value: input.commune });
+    if (input.city) settings.push({ key: "empresa.ciudad", value: input.city });
+    if (input.giro) settings.push({ key: "empresa.giro", value: input.giro });
+    if (input.ownerPhone) settings.push({ key: "empresa.telefono", value: input.ownerPhone });
 
     for (const s of settings) {
       await tx.setting.create({
