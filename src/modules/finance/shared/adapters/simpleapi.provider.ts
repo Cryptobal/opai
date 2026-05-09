@@ -109,58 +109,6 @@ function envioTipoFromDte(dteType: number): 1 | 2 {
   return dteType === 39 || dteType === 41 ? 2 : 1;
 }
 
-export function buildEnvioEnviarPayload(input: {
-  dteType: number;
-  environment: "CERTIFICATION" | "PRODUCTION";
-  emisorRut: string;
-  rutTitular: string;
-  password: string;
-}): Record<string, unknown> {
-  const ambiente = input.environment === "PRODUCTION" ? 1 : 0;
-  return {
-    Tipo: envioTipoFromDte(input.dteType),
-    Ambiente: ambiente,
-    // El endpoint REST de SimpleAPI no siempre infiere estos RUTs desde
-    // Certificado/Caratula. Si faltan, el SII responde RUTSENDER/RUTCOMPANY 0-0.
-    RutEnvia: input.rutTitular,
-    // SimpleAPI/SII termina armando RUTCOMPANY con este RUT. Si se omite,
-    // algunos envíos vuelven desde SII como RUTCOMPANY 0-0.
-    RutEmpresa: input.emisorRut,
-    Certificado: {
-      Rut: input.rutTitular,
-      Password: input.password,
-    },
-  };
-}
-
-export function buildSobreEnvioPayload(input: {
-  dteType: number;
-  environment: "CERTIFICATION" | "PRODUCTION";
-  emisorRut: string;
-  rutEnvia: string;
-  fechaResolucion: Date;
-  numeroResolucion: number;
-}): Record<string, unknown> {
-  const ambiente = input.environment === "PRODUCTION" ? 1 : 0;
-  return {
-    Tipo: envioTipoFromDte(input.dteType),
-    Ambiente: ambiente,
-    Caratula: {
-      RutEmisor: input.emisorRut,
-      RutEnvia: input.rutEnvia,
-      RutReceptor: RUT_SII,
-      FechaResolucion: input.fechaResolucion.toISOString().split("T")[0],
-      NumeroResolucion: input.numeroResolucion,
-      SubTotalesDTE: [
-        {
-          TipoDTE: input.dteType,
-          NroDTE: 1,
-        },
-      ],
-    },
-  };
-}
-
 /**
  * Tipos DTE que requieren copia cedible (Ley 19.983 — Factoring).
  * Aplica a facturas afectas/exentas y notas de crédito/débito que se
@@ -589,6 +537,7 @@ export class SimpleApiProvider implements DteProviderAdapter {
     request: DteIssueRequest,
     ctx: TenantContext,
   ): Record<string, unknown> {
+    const ambiente = ctx.config.environment === "PRODUCTION" ? 1 : 0;
     // En cert el SII publica resol estándar. Si el tenant no la setea, usamos
     // default cert: NroResol=0, FchResol=2014-08-22 (set público del SII).
     const numeroResolucion = ctx.config.resolNumero ?? 0;
@@ -596,14 +545,14 @@ export class SimpleApiProvider implements DteProviderAdapter {
       ctx.config.resolFecha ?? new Date("2014-08-22T00:00:00Z");
 
     return {
-      ...buildSobreEnvioPayload({
-        dteType: request.dteType,
-        environment: ctx.config.environment,
-        emisorRut: ctx.config.emisorRut,
-        rutEnvia: ctx.certificate.rutTitular,
-        fechaResolucion,
-        numeroResolucion,
-      }),
+      Tipo: envioTipoFromDte(request.dteType),
+      Ambiente: ambiente,
+      Caratula: {
+        RutEmisor: ctx.config.emisorRut,
+        RutReceptor: RUT_SII,
+        FechaResolucion: fechaResolucion.toISOString().split("T")[0],
+        NumeroResolucion: numeroResolucion,
+      },
       Certificado: {
         Rut: ctx.certificate.rutTitular,
         Password: ctx.certificate.password,
@@ -661,13 +610,15 @@ export class SimpleApiProvider implements DteProviderAdapter {
   ): Promise<
     { ok: true; trackId: string } | { ok: false; error: string }
   > {
-    const payload = buildEnvioEnviarPayload({
-      dteType: request.dteType,
-      environment: ctx.config.environment,
-      emisorRut: ctx.config.emisorRut,
-      rutTitular: ctx.certificate.rutTitular,
-      password: ctx.certificate.password,
-    });
+    const ambiente = ctx.config.environment === "PRODUCTION" ? 1 : 0;
+    const payload = {
+      Tipo: envioTipoFromDte(request.dteType),
+      Ambiente: ambiente,
+      Certificado: {
+        Rut: ctx.certificate.rutTitular,
+        Password: ctx.certificate.password,
+      },
+    };
 
     const result = await callSimpleApi({
       auth: this.auth,
