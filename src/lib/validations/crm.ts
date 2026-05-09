@@ -202,12 +202,21 @@ export const createDealSchema = z.object({
   accountId: z.string().uuid("accountId inválido"),
   title: z.string().trim().max(200).optional(),
   stageId: z.string().uuid("stageId inválido").optional(),
+  // Alternativa fuzzy a stageId: la AI puede pasar el nombre de la etapa
+  // ("Negociación", "Propuesta") y el helper la resuelve a id.
+  stageName: z.string().trim().max(100).optional(),
   primaryContactId: z.string().uuid("primaryContactId inválido").optional().nullable(),
   amount: z.number().min(0).default(0),
   probability: z.number().min(0).max(100).default(0),
   expectedCloseDate: z.string().optional(),
   activeQuotationId: z.string().uuid("activeQuotationId inválido").optional().nullable(),
   proposalLink: z.string().trim().max(1000).optional().nullable(),
+  // Vincular o crear instalación junto con el deal. Si la instalación
+  // con ese nombre existe en el accountId, vincula; si no, la crea con
+  // status=prospect.
+  installationName: z.string().trim().max(200).optional(),
+  installationAddress: z.string().trim().max(500).optional(),
+  installationCommune: z.string().trim().max(100).optional(),
 });
 
 export const updateDealStageSchema = z.object({

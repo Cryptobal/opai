@@ -18,7 +18,12 @@ import {
   createAccountSchema,
   createContactSchema,
   createDealSchema,
+  createInstallationSchema,
 } from "@/lib/validations/crm";
+import {
+  resolveStageByName,
+  resolveOrCreateInstallation,
+} from "@/lib/ai/help-chat-resolvers";
 import { toSentenceCase } from "@/lib/text-format";
 import { canEdit, type RolePermissions } from "@/lib/permissions";
 
@@ -498,7 +503,7 @@ function writeToolDefinitions() {
       function: {
         name: "create_deal",
         description:
-          "Crea un nuevo deal/oportunidad de negocio asociado a una cuenta. Requiere accountId (UUID). Si el usuario solo dio el nombre de la cuenta, llama search_accounts primero. Sugiere title si el usuario no lo provee.",
+          "Crea un nuevo deal/oportunidad de negocio asociado a una cuenta. Requiere accountId (UUID). Si el usuario solo dio el nombre de la cuenta, llama search_accounts primero. Sugiere title si el usuario no lo provee. stageName: nombre de la etapa (ej 'Negociación', 'Propuesta') — la tool la resuelve a stageId. installationName: si lo das, vincula la instalación al deal; si no existe en este cliente, la crea automáticamente con status=prospect.",
         parameters: {
           type: "object",
           properties: {
@@ -507,8 +512,57 @@ function writeToolDefinitions() {
             amount: { type: "number", description: "Monto en CLP." },
             probability: { type: "number", description: "Probabilidad 0-100." },
             expectedCloseDate: { type: "string", description: "Fecha esperada de cierre (ISO YYYY-MM-DD)." },
+            stageName: { type: "string", description: "Nombre de la etapa (ej: 'Negociación', 'Propuesta'). Si no se da, usa la primera etapa activa." },
+            installationName: { type: "string", description: "Nombre de la instalación a vincular o crear. Si existe en este cliente, vincula; si no existe, la crea con status=prospect." },
+            installationAddress: { type: "string", description: "Dirección de la instalación (solo si installationName se va a crear)." },
+            installationCommune: { type: "string", description: "Comuna de la instalación (solo si installationName se va a crear)." },
           },
           required: ["accountId"],
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "create_quote",
+        description:
+          "Crea una cotización CPQ en estado borrador. Requiere accountId (busca con search_accounts si solo te dan nombre). Opcionalmente vincula a deal o instalación. La cotización se crea con sus 'includes' por defecto del catálogo CPQ. Genera código único CPQ-YYYY-NNN automáticamente.",
+        parameters: {
+          type: "object",
+          properties: {
+            accountId: { type: "string", description: "UUID de la cuenta. OBLIGATORIO." },
+            name: { type: "string", description: "Nombre descriptivo de la cotización." },
+            clientName: { type: "string", description: "Nombre del cliente para mostrar en el PDF (default: usa el nombre del account)." },
+            dealId: { type: "string", description: "UUID del deal a vincular (opcional)." },
+            installationId: { type: "string", description: "UUID de la instalación (opcional)." },
+            validUntil: { type: "string", description: "Fecha de vencimiento ISO YYYY-MM-DD (default: 90 días)." },
+            notes: { type: "string" },
+          },
+          required: ["accountId"],
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "create_installation",
+        description:
+          "Crea una nueva instalación CRM asociada a una cuenta. Requiere accountId (UUID) y name. Si el usuario solo dio el nombre del cliente, llama search_accounts/search_all primero. Status default 'prospect' (la activación viene cuando hay contrato firmado).",
+        parameters: {
+          type: "object",
+          properties: {
+            accountId: { type: "string", description: "UUID de la cuenta. OBTÉNLO con search_accounts si el usuario solo dio el nombre." },
+            name: { type: "string", description: "Nombre de la instalación. OBLIGATORIO." },
+            address: { type: "string" },
+            city: { type: "string" },
+            commune: { type: "string" },
+            status: { type: "string", enum: ["prospect", "active", "inactive"], description: "Default prospect." },
+            notes: { type: "string" },
+            teMontoClp: { type: "number", description: "Monto base de turnos extra en CLP." },
+          },
+          required: ["accountId", "name"],
           additionalProperties: false,
         },
       },
@@ -2124,20 +2178,68 @@ async function toolCreateDeal(
     await logAiAction({ tenantId, userId, toolName: "create_deal", args, status: "validation_error", errorMessage: "Cuenta no encontrada", startedAt: t0 });
     return { ok: false, error: "La cuenta indicada no existe o no pertenece a tu organización." };
   }
-  try {
-    let stageId = body.stageId;
-    if (!stageId) {
-      const firstStage = await prisma.crmPipelineStage.findFirst({
-        where: { tenantId, isActive: true },
-        orderBy: { order: "asc" },
-        select: { id: true },
-      });
-      if (!firstStage) {
-        await logAiAction({ tenantId, userId, toolName: "create_deal", args, status: "validation_error", errorMessage: "No hay pipeline configurado", startedAt: t0 });
-        return { ok: false, error: "No hay etapas de pipeline configuradas. Configura el pipeline antes de crear deals." };
+
+  let stageId = body.stageId;
+  let resolvedStageName: string | null = null;
+  if (!stageId && body.stageName) {
+    try {
+      const id = await resolveStageByName(tenantId, body.stageName);
+      if (!id) {
+        const stages = await prisma.crmPipelineStage.findMany({
+          where: { tenantId, isActive: true },
+          select: { name: true },
+          orderBy: { order: "asc" },
+          take: 10,
+        });
+        await logAiAction({ tenantId, userId, toolName: "create_deal", args, status: "validation_error", errorMessage: `Etapa "${body.stageName}" no existe`, startedAt: t0 });
+        return {
+          ok: false,
+          error: `Etapa "${body.stageName}" no existe. Etapas disponibles: ${stages.map(s => s.name).join(", ") || "(ninguna configurada)"}.`,
+        };
       }
-      stageId = firstStage.id;
+      stageId = id;
+      resolvedStageName = body.stageName;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Etapa ambigua";
+      await logAiAction({ tenantId, userId, toolName: "create_deal", args, status: "validation_error", errorMessage: msg, startedAt: t0 });
+      return { ok: false, error: msg };
     }
+  }
+  if (!stageId) {
+    const firstStage = await prisma.crmPipelineStage.findFirst({
+      where: { tenantId, isActive: true },
+      orderBy: { order: "asc" },
+      select: { id: true, name: true },
+    });
+    if (!firstStage) {
+      await logAiAction({ tenantId, userId, toolName: "create_deal", args, status: "validation_error", errorMessage: "No hay pipeline configurado", startedAt: t0 });
+      return { ok: false, error: "No hay etapas de pipeline configuradas. Configura el pipeline antes de crear deals." };
+    }
+    stageId = firstStage.id;
+    resolvedStageName = firstStage.name;
+  }
+
+  let installation: { id: string; name: string; created: boolean } | null = null;
+  if (body.installationName) {
+    try {
+      installation = await resolveOrCreateInstallation(
+        tenantId,
+        body.accountId,
+        body.installationName,
+        {
+          autoCreate: true,
+          address: body.installationAddress,
+          commune: body.installationCommune,
+        },
+      );
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Error al resolver instalación";
+      await logAiAction({ tenantId, userId, toolName: "create_deal", args, status: "validation_error", errorMessage: msg, startedAt: t0 });
+      return { ok: false, error: msg };
+    }
+  }
+
+  try {
     const deal = await prisma.crmDeal.create({
       data: {
         tenantId,
@@ -2163,12 +2265,304 @@ async function toolCreateDeal(
         probability: deal.probability,
         accountId: deal.accountId,
         accountName: account.name,
+        stageName: resolvedStageName,
+        installationId: installation?.id ?? null,
+        installationName: installation?.name ?? null,
+        installationCreated: installation?.created ?? false,
       },
     };
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Error desconocido";
     await logAiAction({ tenantId, userId, toolName: "create_deal", args, status: "internal_error", errorMessage: msg, startedAt: t0 });
     return { ok: false, error: `No se pudo crear el deal: ${msg}` };
+  }
+}
+
+async function toolCreateInstallation(
+  tenantId: string,
+  userId: string,
+  perms: RolePermissions,
+  args: Record<string, unknown>,
+): Promise<unknown> {
+  const t0 = Date.now();
+  if (!canEdit(perms, "crm", "installations")) {
+    await logAiAction({ tenantId, userId, toolName: "create_installation", args, status: "denied", errorMessage: "Sin permiso crm.installations.edit", startedAt: t0 });
+    return { ok: false, error: "No tienes permiso para crear instalaciones." };
+  }
+  const parsed = createInstallationSchema.safeParse(args);
+  if (!parsed.success) {
+    const msg = parsed.error.issues.map(i => `${i.path.join(".")}: ${i.message}`).join("; ");
+    await logAiAction({ tenantId, userId, toolName: "create_installation", args, status: "validation_error", errorMessage: msg, startedAt: t0 });
+    return { ok: false, error: `Datos inválidos: ${msg}` };
+  }
+  const body = parsed.data;
+
+  const account = await prisma.crmAccount.findFirst({
+    where: { id: body.accountId, tenantId },
+    select: { id: true, name: true, isActive: true },
+  });
+  if (!account) {
+    await logAiAction({ tenantId, userId, toolName: "create_installation", args, status: "validation_error", errorMessage: "Cuenta no encontrada", startedAt: t0 });
+    return { ok: false, error: "La cuenta indicada no existe o no pertenece a tu organización." };
+  }
+
+  const status = body.status ?? "prospect";
+  if (status === "active" && !account.isActive) {
+    await logAiAction({ tenantId, userId, toolName: "create_installation", args, status: "validation_error", errorMessage: "Cuenta inactiva", startedAt: t0 });
+    return { ok: false, error: "No puedes crear una instalación activa para una cuenta inactiva." };
+  }
+
+  const installationName = toSentenceCase(body.name) || body.name;
+  try {
+    const installation = await prisma.crmInstallation.create({
+      data: {
+        tenantId,
+        accountId: body.accountId,
+        name: installationName,
+        address: body.address ?? null,
+        city: body.city ?? null,
+        commune: body.commune ?? null,
+        lat: body.lat ?? null,
+        lng: body.lng ?? null,
+        status,
+        geoRadiusM: body.geoRadiusM ?? 1000,
+        teMontoClp: body.teMontoClp ?? 0,
+        notes: body.notes ?? null,
+        nocturnoEnabled: status === "active",
+        chatEnabled: status === "active",
+      },
+      select: {
+        id: true,
+        name: true,
+        address: true,
+        commune: true,
+        status: true,
+        accountId: true,
+      },
+    });
+
+    if (status === "active") {
+      await prisma.financeCostCenter.create({
+        data: {
+          tenantId,
+          name: installation.name,
+          installationId: installation.id,
+          accountId: installation.accountId ?? null,
+          active: true,
+        },
+      });
+    }
+
+    await logAiAction({
+      tenantId, userId, toolName: "create_installation", args,
+      status: "success",
+      resultEntityId: installation.id,
+      resultEntityType: "crm_installation",
+      startedAt: t0,
+    });
+
+    return {
+      ok: true,
+      data: {
+        id: installation.id,
+        entityType: "crm_installation",
+        name: installation.name,
+        url: `/crm/installations/${installation.id}`,
+        accountId: installation.accountId,
+        accountName: account.name,
+        commune: installation.commune,
+        address: installation.address,
+        status: installation.status,
+      },
+    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Error desconocido";
+    await logAiAction({ tenantId, userId, toolName: "create_installation", args, status: "internal_error", errorMessage: msg, startedAt: t0 });
+    return { ok: false, error: `No se pudo crear la instalación: ${msg}` };
+  }
+}
+
+async function toolCreateQuote(
+  tenantId: string,
+  userId: string,
+  perms: RolePermissions,
+  args: Record<string, unknown>,
+): Promise<unknown> {
+  const t0 = Date.now();
+  const canViaCrm = canEdit(perms, "crm", "quotes");
+  const canViaCpq = canEdit(perms, "cpq");
+  if (!canViaCrm && !canViaCpq) {
+    await logAiAction({ tenantId, userId, toolName: "create_quote", args, status: "denied", errorMessage: "Sin permiso crm.quotes/cpq", startedAt: t0 });
+    return { ok: false, error: "No tienes permiso para crear cotizaciones." };
+  }
+
+  const accountId = typeof args.accountId === "string" ? args.accountId.trim() : "";
+  if (!accountId) {
+    await logAiAction({ tenantId, userId, toolName: "create_quote", args, status: "validation_error", errorMessage: "Falta accountId", startedAt: t0 });
+    return { ok: false, error: "Falta accountId. Usa search_accounts para obtenerlo." };
+  }
+
+  const account = await prisma.crmAccount.findFirst({
+    where: { id: accountId, tenantId },
+    select: { id: true, name: true },
+  });
+  if (!account) {
+    await logAiAction({ tenantId, userId, toolName: "create_quote", args, status: "validation_error", errorMessage: "Cuenta no encontrada", startedAt: t0 });
+    return { ok: false, error: "La cuenta indicada no existe o no pertenece a tu organización." };
+  }
+
+  const dealId = typeof args.dealId === "string" && args.dealId.trim() ? args.dealId.trim() : null;
+  if (dealId) {
+    const dealExists = await prisma.crmDeal.findFirst({
+      where: { id: dealId, tenantId },
+      select: { id: true },
+    });
+    if (!dealExists) {
+      await logAiAction({ tenantId, userId, toolName: "create_quote", args, status: "validation_error", errorMessage: "Deal no encontrado", startedAt: t0 });
+      return { ok: false, error: "El deal indicado no existe o no pertenece a tu organización." };
+    }
+  }
+
+  const installationId =
+    typeof args.installationId === "string" && args.installationId.trim()
+      ? args.installationId.trim()
+      : null;
+  if (installationId) {
+    const inst = await prisma.crmInstallation.findFirst({
+      where: { id: installationId, tenantId },
+      select: { id: true },
+    });
+    if (!inst) {
+      await logAiAction({ tenantId, userId, toolName: "create_quote", args, status: "validation_error", errorMessage: "Instalación no encontrada", startedAt: t0 });
+      return { ok: false, error: "La instalación indicada no existe o no pertenece a tu organización." };
+    }
+  }
+
+  const name = typeof args.name === "string" && args.name.trim() ? args.name.trim() : null;
+  const clientName =
+    typeof args.clientName === "string" && args.clientName.trim()
+      ? args.clientName.trim()
+      : account.name;
+  const validUntil =
+    typeof args.validUntil === "string" && args.validUntil.trim()
+      ? new Date(args.validUntil)
+      : (() => {
+          const d = new Date();
+          d.setDate(d.getDate() + 90);
+          return d;
+        })();
+  const notes = typeof args.notes === "string" && args.notes.trim() ? args.notes.trim() : null;
+
+  try {
+    const year = new Date().getFullYear();
+    let quote: { id: string; code: string; name: string | null; validUntil: Date | null; status: string; accountId: string | null } | null = null;
+    let attempts = 0;
+    const maxAttempts = 10;
+
+    while (!quote && attempts < maxAttempts) {
+      attempts++;
+      const count = await prisma.cpqQuote.count({ where: { tenantId } });
+      const code = `CPQ-${year}-${String(count + attempts).padStart(3, "0")}`;
+      try {
+        quote = await prisma.cpqQuote.create({
+          data: {
+            tenantId,
+            code,
+            name,
+            status: "draft",
+            clientName,
+            validUntil,
+            notes,
+            insurancePolicyUF: 1500,
+            accountId,
+            ...(dealId ? { dealId } : {}),
+            ...(installationId ? { installationId } : {}),
+          },
+          select: { id: true, code: true, name: true, validUntil: true, status: true, accountId: true },
+        });
+      } catch (err: unknown) {
+        const code =
+          err && typeof err === "object" && "code" in err
+            ? (err as { code: string }).code
+            : "";
+        if (code === "P2002" && attempts < maxAttempts) continue;
+        throw err;
+      }
+    }
+
+    if (!quote) throw new Error("No se pudo generar código único");
+
+    try {
+      const { applyDefaultQuoteIncludes } = await import("@/lib/cpq/apply-default-quote-includes");
+      await applyDefaultQuoteIncludes(prisma, quote.id, tenantId);
+    } catch (err) {
+      console.error("[ai] applyDefaultQuoteIncludes failed:", err);
+    }
+
+    try {
+      const { createCrmHistoryLog } = await import("@/lib/crm-history");
+      await createCrmHistoryLog({
+        tenantId,
+        entityType: "quote",
+        entityId: quote.id,
+        action: "quote_created",
+        details: { code: quote.code, clientName },
+        createdBy: userId,
+      });
+    } catch (err) {
+      console.error("[ai] createCrmHistoryLog failed:", err);
+    }
+
+    if (dealId) {
+      try {
+        await prisma.crmDealQuote.create({
+          data: { tenantId, dealId, quoteId: quote.id },
+        });
+        const { computeCpqQuoteCosts } = await import("@/modules/cpq/costing/compute-quote-costs");
+        const costs = await computeCpqQuoteCosts(quote.id);
+        if (costs.monthlyTotal > 0) {
+          await prisma.crmDeal.update({
+            where: { id: dealId },
+            data: { amount: costs.monthlyTotal, totalPuestos: costs.totalGuards },
+          });
+        }
+      } catch (err: unknown) {
+        const code =
+          err && typeof err === "object" && "code" in err
+            ? (err as { code: string }).code
+            : "";
+        if (code !== "P2002") {
+          console.error("[ai] linkDealQuote failed:", err);
+        }
+      }
+    }
+
+    await logAiAction({
+      tenantId, userId, toolName: "create_quote", args,
+      status: "success",
+      resultEntityId: quote.id,
+      resultEntityType: "cpq_quote",
+      startedAt: t0,
+    });
+
+    return {
+      ok: true,
+      data: {
+        id: quote.id,
+        entityType: "cpq_quote",
+        code: quote.code,
+        name: quote.name ?? quote.code,
+        url: `/crm/cotizaciones/${quote.id}`,
+        accountId: quote.accountId,
+        accountName: account.name,
+        validUntil: quote.validUntil,
+        status: quote.status,
+      },
+    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Error desconocido";
+    await logAiAction({ tenantId, userId, toolName: "create_quote", args, status: "internal_error", errorMessage: msg, startedAt: t0 });
+    return { ok: false, error: `No se pudo crear la cotización: ${msg}` };
   }
 }
 
@@ -2187,6 +2581,8 @@ export async function executeToolCallV2(
   if (toolName === "create_account") return await toolCreateAccount(tenantId, userId, perms, args);
   if (toolName === "create_contact") return await toolCreateContact(tenantId, userId, perms, args);
   if (toolName === "create_deal") return await toolCreateDeal(tenantId, userId, perms, args);
+  if (toolName === "create_installation") return await toolCreateInstallation(tenantId, userId, perms, args);
+  if (toolName === "create_quote") return await toolCreateQuote(tenantId, userId, perms, args);
 
   try {
     switch (toolName) {
