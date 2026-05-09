@@ -354,7 +354,7 @@ REGLAS DE CONTEXTO DE MÓDULO:
     { role: "user", content: userMessage },
   ];
 
-  const allowWrites = cfg.allowDataQuestions;
+  const allowWrites = cfg.allowWrites;
   const tools = getToolDefinitionsV2(cfg.allowDataQuestions, allowWrites);
 
   /* SSE response */

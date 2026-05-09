@@ -54,6 +54,7 @@ export async function POST(request: NextRequest) {
       enabled?: unknown;
       allowedRoles?: unknown;
       allowDataQuestions?: unknown;
+      allowWrites?: unknown;
     };
 
     const updated = await saveAiHelpChatConfig(ctx.tenantId, {
@@ -63,6 +64,7 @@ export async function POST(request: NextRequest) {
         : undefined,
       allowDataQuestions:
         typeof body.allowDataQuestions === "boolean" ? body.allowDataQuestions : undefined,
+      allowWrites: typeof body.allowWrites === "boolean" ? body.allowWrites : undefined,
     });
 
     return NextResponse.json({ success: true, data: updated });
