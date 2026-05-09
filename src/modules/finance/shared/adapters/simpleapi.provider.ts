@@ -549,9 +549,17 @@ export class SimpleApiProvider implements DteProviderAdapter {
       Ambiente: ambiente,
       Caratula: {
         RutEmisor: ctx.config.emisorRut,
+        // RutEnvia es OBLIGATORIO en la carátula firmada del sobre.
+        // Sin él el SII rechaza el upload con RUTSENDER 0-0 STATUS=5.
+        RutEnvia: ctx.certificate.rutTitular,
         RutReceptor: RUT_SII,
         FechaResolucion: fechaResolucion.toISOString().split("T")[0],
         NumeroResolucion: numeroResolucion,
+        // Subtotal por tipo de DTE, requerido por el XSD EnvioDTE.
+        // Para emisión single-DTE siempre va un solo entry NroDTE=1.
+        SubTotalesDTE: [
+          { TipoDTE: request.dteType, NroDTE: 1 },
+        ],
       },
       Certificado: {
         Rut: ctx.certificate.rutTitular,
@@ -600,7 +608,17 @@ export class SimpleApiProvider implements DteProviderAdapter {
   }
 
   // ─────────────────────────────────────────────
-  // PASO 3: envio/enviar — manda sobre al SII
+  // PASO 3: upload del sobre al SII
+  //
+  // Históricamente esto pasaba por SimpleAPI `envio/enviar`, pero su
+  // cache interno de TOKEN SII se queda inactivo y empieza a devolver
+  // "no autenticado RUTSENDER 0-0 STATUS=5". Por defecto subimos el
+  // sobre directo a `cgi_dte/UPL/DTEUpload` con un token fresco que
+  // pedimos nosotros (CrSeed → signSeed → GetTokenFromSeed). Así no
+  // dependemos del estado interno de SimpleAPI.
+  //
+  // Para forzar el camino legacy (debug / fallback) setear env
+  // `SIMPLEAPI_ENVIO_ENVIAR=true`.
   // ─────────────────────────────────────────────
 
   private async enviarSobreSii(
@@ -610,6 +628,51 @@ export class SimpleApiProvider implements DteProviderAdapter {
   ): Promise<
     { ok: true; trackId: string } | { ok: false; error: string }
   > {
+    if (process.env.SIMPLEAPI_ENVIO_ENVIAR === "true") {
+      return this.enviarSobreViaSimpleApi(request, ctx, sobreXml);
+    }
+    return this.enviarSobreDirectoSii(request, ctx, sobreXml);
+  }
+
+  private async enviarSobreDirectoSii(
+    request: DteIssueRequest,
+    ctx: TenantContext,
+    sobreXml: Buffer,
+  ): Promise<{ ok: true; trackId: string } | { ok: false; error: string }> {
+    try {
+      const { uploadEnvioDteFromPfx } = await import("@/lib/sii/dte-upload");
+      const upload = await uploadEnvioDteFromPfx({
+        sobreXml,
+        pfxBuffer: ctx.certificate.pfxBuffer,
+        pfxPassword: ctx.certificate.password,
+        rutTitular: ctx.certificate.rutTitular,
+        rutEmisor: ctx.config.emisorRut,
+        environment: ctx.config.environment,
+      });
+      if (upload.trackId) {
+        return { ok: true, trackId: upload.trackId };
+      }
+      return {
+        ok: false,
+        error:
+          `SII rechazó el sobre (STATUS=${upload.status}: ${upload.statusDescription}). ` +
+          `Tipo ${request.dteType} folio ${request.folio}. Detalle: ${upload.rawXml.slice(0, 400)}`,
+      };
+    } catch (err) {
+      return {
+        ok: false,
+        error:
+          `Upload directo SII falló: ${err instanceof Error ? err.message : String(err)}. ` +
+          `Tipo ${request.dteType} folio ${request.folio}.`,
+      };
+    }
+  }
+
+  private async enviarSobreViaSimpleApi(
+    request: DteIssueRequest,
+    ctx: TenantContext,
+    sobreXml: Buffer,
+  ): Promise<{ ok: true; trackId: string } | { ok: false; error: string }> {
     const ambiente = ctx.config.environment === "PRODUCTION" ? 1 : 0;
     const payload = {
       Tipo: envioTipoFromDte(request.dteType),
@@ -649,8 +712,6 @@ export class SimpleApiProvider implements DteProviderAdapter {
       };
     }
 
-    // El response es JSON con shape EnvioResult. TrackId puede venir como
-    // número o string según versión de SimpleAPI.
     const json = result.bodyJson as
       | { TrackId?: number | string; trackId?: number | string; Estado?: string; ResponseXml?: string }
       | null;
