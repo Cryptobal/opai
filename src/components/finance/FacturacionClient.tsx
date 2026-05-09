@@ -648,11 +648,22 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
       // El endpoint devuelve { data: { dtes: [...], pagination: {...} } }.
       // Defensivo: aceptamos también la forma plana { data: [...] } por si
       // algún wrapper futuro lo cambia.
-      const list = Array.isArray(json?.data)
+      const rawList = Array.isArray(json?.data)
         ? json.data
         : Array.isArray(json?.data?.dtes)
           ? json.data.dtes
           : [];
+      // Prisma Decimal se serializa como string en JSON. Si no
+      // normalizamos, los reduces de totales hacen concatenación de
+      // strings ("109990" + "343029" = "109990343029") en vez de sumar.
+      const list: ReceivedDteRow[] = rawList.map((r: Record<string, unknown>) => ({
+        ...(r as object),
+        netAmount: Number(r.netAmount ?? 0),
+        taxAmount: Number(r.taxAmount ?? 0),
+        totalAmount: Number(r.totalAmount ?? 0),
+        amountPaid: Number(r.amountPaid ?? 0),
+        amountPending: Number(r.amountPending ?? 0),
+      })) as ReceivedDteRow[];
       setReceivedDtes(list);
       const t =
         typeof json?.data?.pagination?.total === "number"
@@ -943,17 +954,17 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
         </div>
       )}
 
-      <div className="flex items-center justify-between text-xs text-ds-text-3">
-        <span>
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-xs text-ds-text-3">
+        <span className="truncate min-w-0">
           {total > 0
             ? `${filtered.length.toLocaleString("es-CL")} de ${total.toLocaleString("es-CL")} documento(s)`
             : `${filtered.length} documento(s) recibido(s)`}
         </span>
         {filtered.length > 0 && (
-          <span>
+          <span className="truncate min-w-0">
             Total filtrado:{" "}
             <strong className="text-ds-text-1 font-mono">
-              {fmtCLP.format(filtered.reduce((acc, d) => acc + d.totalAmount, 0))}
+              {fmtCLP.format(filtered.reduce((acc, d) => acc + Number(d.totalAmount ?? 0), 0))}
             </strong>
           </span>
         )}
@@ -1110,6 +1121,7 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
               ] satisfies DataTableColumn<ReceivedDteRow>[]}
               rows={filtered}
               rowKey={(row) => row.id}
+              onRowClick={(row) => setDetailDte(row)}
               empty={<EmptyState icon={FileInput} title="Sin documentos recibidos" compact />}
             />
           </div>
