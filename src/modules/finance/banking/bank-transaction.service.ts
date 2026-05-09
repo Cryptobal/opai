@@ -199,29 +199,34 @@ export async function listBankTransactions(
     if (currentBalance != null) {
       type RawRow = { id: string; running: string };
       const ids = transactions.map((t) => t.id);
+      // Para cada tx de la página, balance = currentBalance - Σ(amount de
+      // las txs estrictamente más nuevas cronológicamente). El orden
+      // canónico es (transaction_date DESC, id DESC); "más nuevas" = mayor
+      // (transaction_date, id). Calculado con sub-query correlacionada.
+      // tenant_id es String (no uuid), bank_account_id sí es uuid.
       const rows = await prisma.$queryRaw<RawRow[]>`
-        WITH page_ids AS (
-          SELECT unnest(${ids}::uuid[]) AS id
-        ),
-        ranked AS (
-          SELECT
-            id,
-            COALESCE(
-              SUM(amount) OVER (
-                ORDER BY transaction_date DESC, id DESC
-                ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
+        SELECT
+          t.id::text AS id,
+          (
+            ${currentBalance.toString()}::numeric
+            - COALESCE(
+              (
+                SELECT SUM(t2.amount)
+                FROM finance.finance_bank_transactions t2
+                WHERE t2.tenant_id = ${tenantId}
+                  AND t2.bank_account_id = ${bankAccountId}::uuid
+                  AND (
+                    t2.transaction_date > t.transaction_date
+                    OR (t2.transaction_date = t.transaction_date AND t2.id > t.id)
+                  )
               ),
               0
-            ) AS amounts_above
-          FROM finance_bank_transactions
-          WHERE tenant_id = ${tenantId}::uuid
-            AND bank_account_id = ${bankAccountId}::uuid
-        )
-        SELECT
-          ranked.id::text AS id,
-          (${currentBalance.toString()}::numeric - ranked.amounts_above)::text AS running
-        FROM ranked
-        INNER JOIN page_ids ON page_ids.id = ranked.id
+            )
+          )::text AS running
+        FROM finance.finance_bank_transactions t
+        WHERE t.id = ANY(${ids}::uuid[])
+          AND t.tenant_id = ${tenantId}
+          AND t.bank_account_id = ${bankAccountId}::uuid
       `;
       const balanceMap = new Map(rows.map((r) => [r.id, r.running]));
       for (const tx of transactions) {
