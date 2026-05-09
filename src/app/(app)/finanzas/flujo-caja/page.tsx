@@ -1,13 +1,14 @@
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, hasCapability } from "@/lib/permissions-server";
 import { redirect } from "next/navigation";
-import { PageHero, Surface } from "@/components/opai-ds";
-import { Wallet, TrendingUp, TrendingDown, AlertTriangle, Settings } from "lucide-react";
+import { PageHero } from "@/components/opai-ds";
+import { Wallet, Settings } from "lucide-react";
 import Link from "next/link";
 import { getOrCreateCashflowConfig } from "@/modules/finance/cashflow/config.service";
 import { buildProjection } from "@/modules/finance/cashflow/projection.service";
 import { addWeeks } from "date-fns";
 import { CashflowTabs } from "@/components/finance/cashflow/CashflowTabs";
+import { CashflowKpis, type KpiData } from "@/components/finance/cashflow/CashflowKpis";
 
 export default async function FlujoCajaPage({
   searchParams,
@@ -45,18 +46,11 @@ export default async function FlujoCajaPage({
   const totalIncome = projection.totals.totalIncome;
   const totalExpense = projection.totals.totalExpense;
 
-  type ToneKey = "ok" | "info" | "warn";
-  const kpis: Array<{
-    label: string;
-    value: string;
-    tone: ToneKey;
-    icon: typeof Wallet;
-    sub: string;
-  }> = [
-    { label: "Saldo actual", value: fmtCLP.format(opening), tone: "info", icon: Wallet, sub: "consolidado bancos CLP" },
-    { label: "Saldo proyectado", value: fmtCLP.format(finalBalance), tone: finalBalance >= 0 ? "ok" : "warn", icon: TrendingUp, sub: `en ${weeks} semanas` },
-    { label: "Ingresos del horizonte", value: fmtCLP.format(totalIncome), tone: "ok", icon: TrendingUp, sub: `${weeks} sem` },
-    { label: "Egresos del horizonte", value: fmtCLP.format(totalExpense), tone: "warn", icon: TrendingDown, sub: `${weeks} sem` },
+  const kpis: KpiData[] = [
+    { label: "Saldo actual", value: fmtCLP.format(opening), tone: "info", icon: "wallet", sub: "consolidado bancos CLP" },
+    { label: "Saldo proyectado", value: fmtCLP.format(finalBalance), tone: finalBalance >= 0 ? "ok" : "warn", icon: "up", sub: `en ${weeks} semanas` },
+    { label: "Ingresos del horizonte", value: fmtCLP.format(totalIncome), tone: "ok", icon: "up", sub: `${weeks} sem` },
+    { label: "Egresos del horizonte", value: fmtCLP.format(totalExpense), tone: "warn", icon: "down", sub: `${weeks} sem` },
   ];
 
   if (firstNegative) {
@@ -64,19 +58,13 @@ export default async function FlujoCajaPage({
       label: "Próximo gap",
       value: fmtCLP.format(firstNegative.balanceClp),
       tone: "warn",
-      icon: AlertTriangle,
+      icon: "alert",
       sub: firstNegative.bucketKey,
     });
   }
 
-  const TONE: Record<ToneKey, { bg: string; fg: string }> = {
-    ok: { bg: "bg-status-ok-soft", fg: "text-status-ok-fg" },
-    info: { bg: "bg-status-info-soft", fg: "text-status-info-fg" },
-    warn: { bg: "bg-status-warn-soft", fg: "text-status-warn-fg" },
-  };
-
   return (
-    <div className="space-y-5 min-w-0">
+    <div className="space-y-4 sm:space-y-5 min-w-0">
       <PageHero
         icon={<Wallet />}
         iconTone="teal"
@@ -95,30 +83,7 @@ export default async function FlujoCajaPage({
         }
       />
 
-      <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
-        {kpis.map((k) => {
-          const Icon = k.icon;
-          const tone = TONE[k.tone];
-          return (
-            <Surface key={k.label} elevation={1} padding="md">
-              <div className="flex items-start gap-3">
-                <div className={`p-2 rounded-ds-md shrink-0 ${tone.bg} ${tone.fg}`}>
-                  <Icon className="h-5 w-5" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[11px] font-mono uppercase tracking-[0.08em] text-muted-foreground">
-                    {k.label}
-                  </p>
-                  <p className="font-display text-xl font-semibold text-ds-text-1 ds-num mt-1 truncate">
-                    {k.value}
-                  </p>
-                  <p className="text-[12px] text-ds-text-3 mt-0.5 truncate">{k.sub}</p>
-                </div>
-              </div>
-            </Surface>
-          );
-        })}
-      </div>
+      <CashflowKpis kpis={kpis} />
 
       <CashflowTabs
         initialProjection={JSON.parse(JSON.stringify(projection))}

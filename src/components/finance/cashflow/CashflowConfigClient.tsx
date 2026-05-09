@@ -160,6 +160,7 @@ export function CashflowConfigClient({ initialConfig, initialCategories }: Props
           <div>
             <Label>Horizonte semanal default</Label>
             <Input
+              className="h-10 sm:h-9"
               type="number"
               min={8}
               max={104}
@@ -170,6 +171,7 @@ export function CashflowConfigClient({ initialConfig, initialCategories }: Props
           <div>
             <Label>Horizonte mensual default</Label>
             <Input
+              className="h-10 sm:h-9"
               type="number"
               min={3}
               max={60}
@@ -183,7 +185,7 @@ export function CashflowConfigClient({ initialConfig, initialCategories }: Props
               value={String(config.weekStartsOn)}
               onValueChange={(v) => setField("weekStartsOn", Number(v))}
             >
-              <SelectTrigger>
+              <SelectTrigger className="h-10 sm:h-9">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -195,6 +197,7 @@ export function CashflowConfigClient({ initialConfig, initialCategories }: Props
           <div>
             <Label>Día pago sueldos (-1 = último)</Label>
             <Input
+              className="h-10 sm:h-9"
               type="number"
               min={-1}
               max={31}
@@ -205,6 +208,7 @@ export function CashflowConfigClient({ initialConfig, initialCategories }: Props
           <div>
             <Label>Día pago IVA F29</Label>
             <Input
+              className="h-10 sm:h-9"
               type="number"
               min={1}
               max={28}
@@ -215,6 +219,7 @@ export function CashflowConfigClient({ initialConfig, initialCategories }: Props
           <div>
             <Label>Tolerancia match (CLP)</Label>
             <Input
+              className="h-10 sm:h-9"
               type="number"
               min={0}
               max={1000000}
@@ -225,6 +230,7 @@ export function CashflowConfigClient({ initialConfig, initialCategories }: Props
           <div>
             <Label>Tolerancia match (días)</Label>
             <Input
+              className="h-10 sm:h-9"
               type="number"
               min={0}
               max={30}
@@ -233,8 +239,12 @@ export function CashflowConfigClient({ initialConfig, initialCategories }: Props
             />
           </div>
         </div>
-        <div className="mt-3 flex justify-end">
-          <Button onClick={saveConfig} disabled={savingConfig}>
+        <div className="mt-3 sm:flex sm:justify-end">
+          <Button
+            onClick={saveConfig}
+            disabled={savingConfig}
+            className="w-full sm:w-auto h-10 sm:h-9"
+          >
             {savingConfig ? "Guardando..." : "Guardar parámetros"}
           </Button>
         </div>
@@ -266,28 +276,29 @@ export function CashflowConfigClient({ initialConfig, initialCategories }: Props
       {/* Sección 3: Categorías */}
       <Surface elevation={1} padding="md">
         <h2 className="font-semibold mb-3">Categorías</h2>
-        <div className="flex items-end gap-2 mb-3 flex-wrap">
+        <div className="grid grid-cols-1 sm:grid-cols-[160px_1fr_140px_auto] sm:items-end gap-2 mb-4">
           <div>
             <Label>Código</Label>
             <Input
               placeholder="EGR_NUEVO"
               value={newCat.code}
               onChange={(e) => setNewCat((c) => ({ ...c, code: e.target.value.toUpperCase() }))}
-              className="w-[160px]"
+              className="h-10 sm:h-9"
             />
           </div>
-          <div className="flex-1 min-w-[200px]">
+          <div>
             <Label>Nombre</Label>
             <Input
               placeholder="Mi categoría"
               value={newCat.name}
               onChange={(e) => setNewCat((c) => ({ ...c, name: e.target.value }))}
+              className="h-10 sm:h-9"
             />
           </div>
           <div>
             <Label>Tipo</Label>
             <Select value={newCat.kind} onValueChange={(v) => setNewCat((c) => ({ ...c, kind: v as "INCOME" | "EXPENSE" }))}>
-              <SelectTrigger className="w-[120px]">
+              <SelectTrigger className="h-10 sm:h-9">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -296,12 +307,47 @@ export function CashflowConfigClient({ initialConfig, initialCategories }: Props
               </SelectContent>
             </Select>
           </div>
-          <Button size="sm" onClick={createCategory} disabled={creatingCat}>
+          <Button onClick={createCategory} disabled={creatingCat} className="w-full sm:w-auto h-10 sm:h-9">
             <Plus className="h-4 w-4 mr-1" /> Crear
           </Button>
         </div>
 
-        <div className="overflow-x-auto">
+        {/* Mobile: stacked card list */}
+        <ul className="sm:hidden space-y-2">
+          {categories.map((c) => (
+            <li key={c.id} className="rounded-ds-md border border-border bg-background p-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <div className="font-medium text-[13px] truncate">{c.name}</div>
+                  <div className="font-mono text-[11px] text-ds-text-3 truncate">{c.code}</div>
+                  <div className="text-[12px] text-ds-text-3 mt-0.5">
+                    {c.kind === "INCOME" ? "↑ Ingreso" : "↓ Egreso"}
+                    {c.isSystem && (
+                      <span className="ml-2 text-[11px] px-1.5 py-0.5 rounded-ds-sm bg-status-info-soft text-status-info-fg font-mono uppercase tracking-[0.08em]">
+                        Sistema
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex flex-col items-end gap-2 shrink-0">
+                  <Switch checked={c.isActive} onCheckedChange={() => toggleCategoryActive(c)} />
+                  {!c.isSystem && (
+                    <button
+                      onClick={() => deleteCategory(c)}
+                      className="p-1.5 hover:bg-status-warn-soft rounded text-status-warn-fg"
+                      aria-label="Eliminar"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+
+        {/* Tablet+: table */}
+        <div className="hidden sm:block overflow-x-auto">
           <table className="w-full text-[12px]">
             <thead>
               <tr className="border-b border-border text-ds-text-3">
@@ -321,7 +367,7 @@ export function CashflowConfigClient({ initialConfig, initialCategories }: Props
                   <td className="p-2">{c.kind === "INCOME" ? "↑ Ingreso" : "↓ Egreso"}</td>
                   <td className="p-2 text-center">
                     {c.isSystem ? (
-                      <span className="text-[11px] px-1.5 py-0.5 rounded-ds-sm bg-status-info-soft text-status-info-fg">
+                      <span className="text-[11px] px-1.5 py-0.5 rounded-ds-sm bg-status-info-soft text-status-info-fg font-mono uppercase tracking-[0.08em]">
                         Sistema
                       </span>
                     ) : (

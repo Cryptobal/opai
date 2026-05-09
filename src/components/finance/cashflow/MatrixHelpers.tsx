@@ -3,16 +3,30 @@ import type { ProjectionBucket, ProjectionRow } from "@/modules/finance/cashflow
 
 export const fmt = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 });
 
+/**
+ * Sticky positioning convention used across the matrix:
+ *   - Left column (categoría): sticky left-0, z-20 in tbody, z-30 in thead/tfoot.
+ *   - Right column (Total):    sticky right-0, z-20 in tbody, z-30 in thead/tfoot.
+ *   - Bottom rows (subtotals, neto, saldo acumulado): sticky bottom-0
+ *     with `bg-*` to cover content scrolled underneath.
+ *   - Their corner cells (left+bottom or right+bottom) bump z-40 so they
+ *     stay above adjacent sticky cells.
+ */
+
 export function MatrixRow({ row }: { row: ProjectionRow }) {
   return (
     <tr className="hover:bg-muted/20">
-      <td className="sticky left-0 z-10 bg-background p-2 truncate">{row.categoryName}</td>
+      <td className="sticky left-0 z-20 bg-background p-2 truncate min-w-[140px] max-w-[160px] sm:min-w-[180px] sm:max-w-none">
+        {row.categoryName}
+      </td>
       {row.values.map((v) => (
-        <td key={v.bucketKey} className="p-2 text-right font-mono text-ds-text-2">
+        <td key={v.bucketKey} className="p-2 text-right font-mono text-ds-text-2 whitespace-nowrap">
           {v.amount > 0 ? fmt.format(v.amount) : "—"}
         </td>
       ))}
-      <td className="p-2 text-right font-mono bg-muted/20">{fmt.format(row.total)}</td>
+      <td className="sticky right-0 z-20 p-2 text-right font-mono bg-muted/40 whitespace-nowrap">
+        {fmt.format(row.total)}
+      </td>
     </tr>
   );
 }
@@ -30,7 +44,7 @@ export function SectionHeader({
     tone === "ok" ? "bg-status-ok-soft text-status-ok-fg" : "bg-status-warn-soft text-status-warn-fg";
   return (
     <tr className={cls}>
-      <td colSpan={colSpan} className="p-1.5 text-[11px] font-mono uppercase tracking-wider sticky left-0 z-10">
+      <td colSpan={colSpan} className={`p-1.5 text-[11px] font-mono uppercase tracking-wider sticky left-0 z-30 ${cls}`}>
         {label}
       </td>
     </tr>
@@ -54,14 +68,16 @@ export function SubtotalRow({
   const grand = totals.reduce((s, x) => s + x, 0);
   const cls = tone === "ok" ? "text-status-ok-fg" : "text-status-warn-fg";
   return (
-    <tr className="border-t border-border font-medium">
-      <td className="sticky left-0 z-10 bg-background p-2">{label}</td>
+    <tr className="border-t border-border font-medium bg-background">
+      <td className="sticky left-0 z-20 bg-background p-2 whitespace-nowrap">{label}</td>
       {totals.map((t, i) => (
-        <td key={i} className={`p-2 text-right font-mono ${cls}`}>
+        <td key={i} className={`p-2 text-right font-mono whitespace-nowrap ${cls}`}>
           {fmt.format(t)}
         </td>
       ))}
-      <td className={`p-2 text-right font-mono bg-muted/20 ${cls}`}>{fmt.format(grand)}</td>
+      <td className={`sticky right-0 z-20 p-2 text-right font-mono bg-muted/40 whitespace-nowrap ${cls}`}>
+        {fmt.format(grand)}
+      </td>
     </tr>
   );
 }

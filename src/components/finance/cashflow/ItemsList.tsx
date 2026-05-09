@@ -89,16 +89,17 @@ export function ItemsList({ canManage }: { canManage: boolean }) {
 
   return (
     <Surface elevation={1} padding="md">
-      <div className="flex items-center justify-between gap-2 flex-wrap mb-3">
-        <div className="flex items-center gap-2 flex-wrap">
-          <Input
-            placeholder="Buscar..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="h-8 w-[180px] text-[12px]"
-          />
+      {/* Filters: full-width stacked on mobile, inline on tablet+. */}
+      <div className="flex flex-col sm:flex-row sm:items-end gap-2 mb-3">
+        <Input
+          placeholder="Buscar..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="h-10 sm:h-9 w-full sm:w-[200px] text-[13px]"
+        />
+        <div className="grid grid-cols-2 sm:flex gap-2">
           <Select value={filterKind} onValueChange={setFilterKind}>
-            <SelectTrigger className="h-8 w-[120px] text-[12px]">
+            <SelectTrigger className="h-10 sm:h-9 w-full sm:w-[140px] text-[13px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -108,7 +109,7 @@ export function ItemsList({ canManage }: { canManage: boolean }) {
             </SelectContent>
           </Select>
           <Select value={filterSource} onValueChange={setFilterSource}>
-            <SelectTrigger className="h-8 w-[140px] text-[12px]">
+            <SelectTrigger className="h-10 sm:h-9 w-full sm:w-[160px] text-[13px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -120,92 +121,146 @@ export function ItemsList({ canManage }: { canManage: boolean }) {
           </Select>
         </div>
         {canManage && (
-          <Button size="sm" onClick={() => setCreating(true)}>
+          <Button
+            size="sm"
+            onClick={() => setCreating(true)}
+            className="h-10 sm:h-9 w-full sm:w-auto sm:ml-auto"
+          >
             <Plus className="h-4 w-4 mr-1" /> Nuevo item
           </Button>
         )}
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="text-[12px] w-full">
-          <thead>
-            <tr className="border-b border-border text-ds-text-3">
-              <th className="text-left p-2">Nombre</th>
-              <th className="text-left p-2">Categoría</th>
-              <th className="text-left p-2">Recurrencia</th>
-              <th className="text-right p-2">Monto</th>
-              <th className="text-left p-2">Origen</th>
-              <th className="text-center p-2">Estado</th>
-              {canManage && <th className="p-2">Acciones</th>}
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr>
-                <td colSpan={7} className="p-4 text-center text-ds-text-3">
-                  Cargando...
-                </td>
-              </tr>
-            ) : filtered.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="p-4 text-center text-ds-text-3">
-                  Sin items
-                </td>
-              </tr>
-            ) : (
-              filtered.map((i) => (
-                <tr key={i.id} className="border-b border-border hover:bg-muted/20">
-                  <td className="p-2">
-                    <div className="font-medium">{i.name}</div>
+      {loading ? (
+        <p className="p-4 text-center text-ds-text-3 text-[13px]">Cargando...</p>
+      ) : filtered.length === 0 ? (
+        <p className="p-4 text-center text-ds-text-3 text-[13px]">Sin items</p>
+      ) : (
+        <>
+          {/* Mobile: card list */}
+          <ul className="sm:hidden space-y-2">
+            {filtered.map((i) => (
+              <li key={i.id} className="rounded-ds-md border border-border bg-background p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium text-[13px] truncate">{i.name}</div>
+                    <div className="text-[12px] text-ds-text-3 truncate">
+                      {i.category.name} · {humanReadableRecurrence(i)}
+                    </div>
                     {i.description && (
-                      <div className="text-[11px] text-ds-text-3 truncate max-w-[260px]">
+                      <div className="text-[12px] text-ds-text-3 mt-1 line-clamp-2">
                         {i.description}
                       </div>
                     )}
-                  </td>
-                  <td className="p-2 text-ds-text-2">{i.category.name}</td>
-                  <td className="p-2 text-ds-text-2">{humanReadableRecurrence(i)}</td>
-                  <td className="p-2 text-right font-mono">
-                    {i.currency} {fmt.format(Number(i.amount))}
-                  </td>
-                  <td className="p-2 text-[11px]">
-                    <span className="px-1.5 py-0.5 rounded-ds-sm bg-muted/40 text-ds-text-3">
-                      {i.source}
-                    </span>
-                  </td>
-                  <td className="p-2 text-center">
-                    {i.isActive ? (
-                      <span className="text-status-ok-fg">Activo</span>
-                    ) : (
-                      <span className="text-ds-text-3">Inactivo</span>
-                    )}
-                  </td>
-                  {canManage && (
-                    <td className="p-2">
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => setEditing(i)}
-                          className="p-1 hover:bg-muted/40 rounded"
-                          aria-label="Editar"
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(i.id)}
-                          className="p-1 hover:bg-status-warn-soft rounded text-status-warn-fg"
-                          aria-label="Eliminar"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  )}
+                  </div>
+                  <div className="text-right shrink-0">
+                    <div
+                      className={`font-mono text-[13px] font-semibold ${
+                        i.kind === "INCOME" ? "text-status-ok-fg" : "text-status-warn-fg"
+                      }`}
+                    >
+                      {i.kind === "INCOME" ? "+" : "−"}
+                      {i.currency} {fmt.format(Number(i.amount))}
+                    </div>
+                    <div className="flex items-center gap-1 mt-1 justify-end">
+                      <span className="text-[11px] px-1.5 py-0.5 rounded-ds-sm bg-muted/40 text-ds-text-3">
+                        {i.source}
+                      </span>
+                      {!i.isActive && (
+                        <span className="text-[11px] text-ds-text-3">Inactivo</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                {canManage && (
+                  <div className="flex gap-2 mt-2 pt-2 border-t border-border">
+                    <button
+                      onClick={() => setEditing(i)}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-ds-sm hover:bg-muted/40 text-[12px] text-ds-text-2"
+                    >
+                      <Pencil className="h-3.5 w-3.5" /> Editar
+                    </button>
+                    <button
+                      onClick={() => handleDelete(i.id)}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-ds-sm hover:bg-status-warn-soft text-[12px] text-status-warn-fg"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" /> Eliminar
+                    </button>
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+
+          {/* Tablet+: table */}
+          <div className="hidden sm:block overflow-x-auto">
+            <table className="text-[12px] w-full">
+              <thead>
+                <tr className="border-b border-border text-ds-text-3">
+                  <th className="text-left p-2">Nombre</th>
+                  <th className="text-left p-2">Categoría</th>
+                  <th className="text-left p-2">Recurrencia</th>
+                  <th className="text-right p-2">Monto</th>
+                  <th className="text-left p-2">Origen</th>
+                  <th className="text-center p-2">Estado</th>
+                  {canManage && <th className="p-2">Acciones</th>}
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+              </thead>
+              <tbody>
+                {filtered.map((i) => (
+                  <tr key={i.id} className="border-b border-border hover:bg-muted/20">
+                    <td className="p-2">
+                      <div className="font-medium">{i.name}</div>
+                      {i.description && (
+                        <div className="text-[12px] text-ds-text-3 truncate max-w-[260px]">
+                          {i.description}
+                        </div>
+                      )}
+                    </td>
+                    <td className="p-2 text-ds-text-2">{i.category.name}</td>
+                    <td className="p-2 text-ds-text-2">{humanReadableRecurrence(i)}</td>
+                    <td className="p-2 text-right font-mono">
+                      {i.currency} {fmt.format(Number(i.amount))}
+                    </td>
+                    <td className="p-2 text-[12px]">
+                      <span className="px-1.5 py-0.5 rounded-ds-sm bg-muted/40 text-ds-text-3">
+                        {i.source}
+                      </span>
+                    </td>
+                    <td className="p-2 text-center">
+                      {i.isActive ? (
+                        <span className="text-status-ok-fg">Activo</span>
+                      ) : (
+                        <span className="text-ds-text-3">Inactivo</span>
+                      )}
+                    </td>
+                    {canManage && (
+                      <td className="p-2">
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => setEditing(i)}
+                            className="p-1.5 hover:bg-muted/40 rounded"
+                            aria-label="Editar"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(i.id)}
+                            className="p-1.5 hover:bg-status-warn-soft rounded text-status-warn-fg"
+                            aria-label="Eliminar"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
 
       <ItemFormDialog
         open={creating || editing !== null}
