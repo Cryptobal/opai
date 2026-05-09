@@ -130,6 +130,34 @@ export function buildEnvioEnviarPayload(input: {
   };
 }
 
+export function buildSobreEnvioPayload(input: {
+  dteType: number;
+  environment: "CERTIFICATION" | "PRODUCTION";
+  emisorRut: string;
+  rutEnvia: string;
+  fechaResolucion: Date;
+  numeroResolucion: number;
+}): Record<string, unknown> {
+  const ambiente = input.environment === "PRODUCTION" ? 1 : 0;
+  return {
+    Tipo: envioTipoFromDte(input.dteType),
+    Ambiente: ambiente,
+    Caratula: {
+      RutEmisor: input.emisorRut,
+      RutEnvia: input.rutEnvia,
+      RutReceptor: RUT_SII,
+      FechaResolucion: input.fechaResolucion.toISOString().split("T")[0],
+      NumeroResolucion: input.numeroResolucion,
+      SubTotalesDTE: [
+        {
+          TipoDTE: input.dteType,
+          NroDTE: 1,
+        },
+      ],
+    },
+  };
+}
+
 /**
  * Tipos DTE que requieren copia cedible (Ley 19.983 — Factoring).
  * Aplica a facturas afectas/exentas y notas de crédito/débito que se
@@ -558,7 +586,6 @@ export class SimpleApiProvider implements DteProviderAdapter {
     request: DteIssueRequest,
     ctx: TenantContext,
   ): Record<string, unknown> {
-    const ambiente = ctx.config.environment === "PRODUCTION" ? 1 : 0;
     // En cert el SII publica resol estándar. Si el tenant no la setea, usamos
     // default cert: NroResol=0, FchResol=2014-08-22 (set público del SII).
     const numeroResolucion = ctx.config.resolNumero ?? 0;
@@ -566,14 +593,14 @@ export class SimpleApiProvider implements DteProviderAdapter {
       ctx.config.resolFecha ?? new Date("2014-08-22T00:00:00Z");
 
     return {
-      Tipo: envioTipoFromDte(request.dteType),
-      Ambiente: ambiente,
-      Caratula: {
-        RutEmisor: ctx.config.emisorRut,
-        RutReceptor: RUT_SII,
-        FechaResolucion: fechaResolucion.toISOString().split("T")[0],
-        NumeroResolucion: numeroResolucion,
-      },
+      ...buildSobreEnvioPayload({
+        dteType: request.dteType,
+        environment: ctx.config.environment,
+        emisorRut: ctx.config.emisorRut,
+        rutEnvia: ctx.certificate.rutTitular,
+        fechaResolucion,
+        numeroResolucion,
+      }),
       Certificado: {
         Rut: ctx.certificate.rutTitular,
         Password: ctx.certificate.password,
