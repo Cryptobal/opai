@@ -202,6 +202,7 @@ const EMPTY_RULE: Omit<Rule, "id" | "timesMatched" | "lastMatchedAt" | "createdA
 export function BankRulesClient({ canManage, accountPlans }: BankRulesClientProps) {
   const [rules, setRules] = useState<Rule[]>([]);
   const [loading, setLoading] = useState(true);
+  const [runningHistorical, setRunningHistorical] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<Rule | null>(null);
 
@@ -264,6 +265,38 @@ export function BankRulesClient({ canManage, accountPlans }: BankRulesClientProp
     setEditorOpen(true);
   };
 
+  const handleRunHistorical = async () => {
+    if (
+      !confirm(
+        "¿Aplicar todas las reglas activas a movimientos sin reconocer del histórico? Las que matcheen quedarán como Reconocidas pendientes de autorizar."
+      )
+    ) {
+      return;
+    }
+    setRunningHistorical(true);
+    try {
+      const res = await fetch(
+        "/api/finance/banking/automatch-rules/run-historical",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        }
+      );
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error);
+      const d = json.data ?? {};
+      toast.success(
+        `Procesados ${(d.scanned ?? 0).toLocaleString("es-CL")} mov: ` +
+          `${d.matched ?? 0} conciliados · ${d.ruleMatched ?? 0} reconocidos por regla`
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error en re-evaluación");
+    } finally {
+      setRunningHistorical(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -276,10 +309,25 @@ export function BankRulesClient({ canManage, accountPlans }: BankRulesClientProp
           </p>
         </div>
         {canManage && (
-          <Button size="sm" onClick={openCreate}>
-            <Plus className="h-4 w-4 mr-1.5" />
-            Nueva regla
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRunHistorical}
+              disabled={runningHistorical || rules.filter((r) => r.enabled).length === 0}
+            >
+              {runningHistorical ? (
+                <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+              ) : (
+                <PlayCircle className="h-4 w-4 mr-1.5" />
+              )}
+              Aplicar al histórico
+            </Button>
+            <Button size="sm" onClick={openCreate}>
+              <Plus className="h-4 w-4 mr-1.5" />
+              Nueva regla
+            </Button>
+          </div>
         )}
       </div>
 

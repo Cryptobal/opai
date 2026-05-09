@@ -37,8 +37,6 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  SelectGroup,
-  SelectLabel,
 } from "@/components/ui/select";
 import {
   Loader2,
@@ -178,11 +176,13 @@ export function BankTxReconcileSheet({
   const [links, setLinks] = useState<LocalLink[]>([]);
   const [saving, setSaving] = useState(false);
   // Form de "categorizar manual"
+  const [manualAccountType, setManualAccountType] = useState<string>("");
   const [manualAccountId, setManualAccountId] = useState<string>("");
   const [manualAmount, setManualAmount] = useState<string>("");
   const [manualNote, setManualNote] = useState("");
   const [manualDate, setManualDate] = useState<string>("");
   // Cuenta contable de "resto" cuando la suma de DTEs no cubre el total
+  const [restAccountType, setRestAccountType] = useState<string>("");
   const [restAccountId, setRestAccountId] = useState<string>("");
   const [restNote, setRestNote] = useState("");
 
@@ -214,10 +214,12 @@ export function BankTxReconcileSheet({
     if (open && tx) {
       setTab("compare");
       setLinks([]);
+      setManualAccountType("");
       setManualAccountId("");
       setManualAmount(String(Math.abs(tx.amount)));
       setManualNote("");
       setManualDate(tx.transactionDate.slice(0, 10));
+      setRestAccountType("");
       setRestAccountId("");
       setRestNote("");
       setFilterText("");
@@ -708,31 +710,57 @@ export function BankTxReconcileSheet({
                       Asigná el resto a una cuenta contable (ej. costos
                       factoring, comisión, gastos varios):
                     </p>
-                    <Select
-                      value={restAccountId}
-                      onValueChange={setRestAccountId}
-                    >
-                      <SelectTrigger className="h-10 sm:h-9">
-                        <SelectValue placeholder="Cuenta contable para el resto" />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-72">
-                        {groupAccounts(
-                          accountPlans,
-                          tx && tx.amount > 0 ? "income" : "expense"
-                        ).map((g) => (
-                          <SelectGroup key={g.type}>
-                            <SelectLabel className="text-[11px] font-mono uppercase tracking-[0.08em] text-muted-foreground">
-                              {g.label}
-                            </SelectLabel>
-                            {g.items.map((p) => (
-                              <SelectItem key={p.id} value={p.id}>
-                                {p.code} {p.name}
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Select
+                        value={restAccountType}
+                        onValueChange={(v) => {
+                          setRestAccountType(v);
+                          setRestAccountId("");
+                        }}
+                      >
+                        <SelectTrigger className="h-10 sm:h-9">
+                          <SelectValue placeholder="Tipo" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {groupAccounts(
+                            accountPlans,
+                            tx && tx.amount > 0 ? "income" : "expense"
+                          ).map((g) => (
+                            <SelectItem key={g.type} value={g.type}>
+                              {g.label}{" "}
+                              <span className="text-muted-foreground text-xs">
+                                ({g.items.length})
+                              </span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select
+                        value={restAccountId}
+                        onValueChange={setRestAccountId}
+                        disabled={!restAccountType}
+                      >
+                        <SelectTrigger className="h-10 sm:h-9">
+                          <SelectValue
+                            placeholder={
+                              restAccountType ? "Cuenta" : "Tipo primero"
+                            }
+                          />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-72">
+                          {(
+                            groupAccounts(
+                              accountPlans,
+                              tx && tx.amount > 0 ? "income" : "expense"
+                            ).find((g) => g.type === restAccountType)?.items ?? []
+                          ).map((p) => (
+                            <SelectItem key={p.id} value={p.id}>
+                              {p.code} {p.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                     <Input
                       placeholder="Nota (opcional)"
                       value={restNote}
@@ -752,33 +780,66 @@ export function BankTxReconcileSheet({
               Categorizá este movimiento sin vincular a una factura. Útil para
               comisiones, intereses, transferencias entre cuentas, etc.
             </p>
-            <div className="space-y-1.5">
-              <Label>Cuenta contable *</Label>
-              <Select
-                value={manualAccountId}
-                onValueChange={setManualAccountId}
-              >
-                <SelectTrigger className="h-10 sm:h-9">
-                  <SelectValue placeholder="Seleccionar" />
-                </SelectTrigger>
-                <SelectContent className="max-h-72">
-                  {groupAccounts(
-                    accountPlans,
-                    tx && tx.amount > 0 ? "income" : "expense"
-                  ).map((g) => (
-                    <SelectGroup key={g.type}>
-                      <SelectLabel className="text-[11px] font-mono uppercase tracking-[0.08em] text-muted-foreground">
-                        {g.label}
-                      </SelectLabel>
-                      {g.items.map((p) => (
-                        <SelectItem key={p.id} value={p.id}>
-                          {p.code} {p.name}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  ))}
-                </SelectContent>
-              </Select>
+            {/* Step 1: tipo contable. Step 2: cuenta filtrada por tipo.
+                Esto baja el ruido cuando el plan tiene muchas cuentas. */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Tipo *</Label>
+                <Select
+                  value={manualAccountType}
+                  onValueChange={(v) => {
+                    setManualAccountType(v);
+                    setManualAccountId(""); // reset al cambiar tipo
+                  }}
+                >
+                  <SelectTrigger className="h-10 sm:h-9">
+                    <SelectValue placeholder="Seleccionar" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {groupAccounts(
+                      accountPlans,
+                      tx && tx.amount > 0 ? "income" : "expense"
+                    ).map((g) => (
+                      <SelectItem key={g.type} value={g.type}>
+                        {g.label}{" "}
+                        <span className="text-muted-foreground text-xs">
+                          ({g.items.length})
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Cuenta contable *</Label>
+                <Select
+                  value={manualAccountId}
+                  onValueChange={setManualAccountId}
+                  disabled={!manualAccountType}
+                >
+                  <SelectTrigger className="h-10 sm:h-9">
+                    <SelectValue
+                      placeholder={
+                        manualAccountType
+                          ? "Seleccionar cuenta"
+                          : "Elige el tipo primero"
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-72">
+                    {(
+                      groupAccounts(
+                        accountPlans,
+                        tx && tx.amount > 0 ? "income" : "expense"
+                      ).find((g) => g.type === manualAccountType)?.items ?? []
+                    ).map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.code} {p.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
