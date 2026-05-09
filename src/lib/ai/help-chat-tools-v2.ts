@@ -4220,21 +4220,26 @@ async function toolSearchDtes(tenantId: string, args: Record<string, unknown>) {
     const orClauses: Prisma.FinanceDteWhereInput[] = [
       { receiverName: { contains: search, mode: "insensitive" } },
       { receiverRut: { contains: rutNeedle, mode: "insensitive" } },
-      // Match DTEs by linked CRM account name (fantasy/comercial) or legalName
-      // (razón social). Esto permite que el usuario escriba "Ametel" (nombre
-      // de fantasía en CRM) y encuentre facturas cuyo receiverName es la
-      // razón social ("ANDALUZA DE MONTAJES ELECTRICOS").
-      {
-        crmAccount: {
-          is: {
-            OR: [
-              { name: { contains: search, mode: "insensitive" } },
-              { legalName: { contains: search, mode: "insensitive" } },
-            ],
-          },
-        },
-      },
     ];
+    // Match DTEs por nombre/razón social de la cuenta CRM enlazada. No hay
+    // relación Prisma directa entre FinanceDte y CrmAccount (sólo el FK
+    // crmAccountId como String), así que pre-buscamos los IDs y filtramos
+    // por crmAccountId IN (...). Esto permite que "Ametel" (nombre de
+    // fantasía) matchee facturas cuyo receiverName es la razón social.
+    const matchingAccounts = await prisma.crmAccount.findMany({
+      where: {
+        tenantId,
+        OR: [
+          { name: { contains: search, mode: "insensitive" } },
+          { legalName: { contains: search, mode: "insensitive" } },
+        ],
+      },
+      select: { id: true },
+      take: 25,
+    });
+    if (matchingAccounts.length > 0) {
+      orClauses.push({ crmAccountId: { in: matchingAccounts.map((a) => a.id) } });
+    }
     if (/^\d+$/.test(search)) {
       const folioNum = parseInt(search, 10);
       if (!Number.isNaN(folioNum)) orClauses.push({ folio: folioNum });
@@ -4263,9 +4268,21 @@ async function toolSearchDtes(tenantId: string, args: Record<string, unknown>) {
       id: true, folio: true, dteType: true, date: true,
       receiverRut: true, receiverName: true, totalAmount: true,
       siiStatus: true, paymentStatus: true, currency: true,
-      crmAccount: { select: { id: true, name: true, legalName: true } },
+      crmAccountId: true,
     },
   });
+
+  // Resolver nombres de cuenta CRM en una sola consulta (no hay relation).
+  const accountIds = Array.from(
+    new Set(dtes.map((d) => d.crmAccountId).filter((x): x is string => Boolean(x))),
+  );
+  const accounts = accountIds.length > 0
+    ? await prisma.crmAccount.findMany({
+        where: { tenantId, id: { in: accountIds } },
+        select: { id: true, name: true },
+      })
+    : [];
+  const accountNameById = new Map(accounts.map((a) => [a.id, a.name]));
 
   return dtes.map((d) => ({
     id: d.id,
@@ -4275,7 +4292,7 @@ async function toolSearchDtes(tenantId: string, args: Record<string, unknown>) {
     date: d.date,
     receiverRut: d.receiverRut,
     receiverName: d.receiverName,
-    accountName: d.crmAccount?.name ?? null,
+    accountName: d.crmAccountId ? accountNameById.get(d.crmAccountId) ?? null : null,
     totalAmount: Number(d.totalAmount),
     currency: d.currency,
     siiStatus: d.siiStatus,
