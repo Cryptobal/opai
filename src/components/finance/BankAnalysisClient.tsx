@@ -28,8 +28,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, BarChart3, AlertTriangle } from "lucide-react";
+import {
+  Loader2,
+  BarChart3,
+  AlertTriangle,
+  SlidersHorizontal,
+  ChevronDown,
+  ChevronUp,
+  X,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useIsMobileViewport } from "@/hooks/useIsMobileViewport";
 
 interface BankAccountOption {
   id: string;
@@ -100,6 +109,17 @@ export function BankAnalysisClient({ accounts }: BankAnalysisClientProps) {
   const [search, setSearch] = useState("");
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [loading, setLoading] = useState(false);
+  const isMobile = useIsMobileViewport();
+  const [filtersOpenMobile, setFiltersOpenMobile] = useState(false);
+  const selectedAccountLabel = useMemo(() => {
+    if (bankAccountId === "__all__") return "Todas las cuentas";
+    const a = accounts.find((x) => x.id === bankAccountId);
+    return a ? `${a.bankName} · ${a.accountNumber}` : "Cuenta";
+  }, [accounts, bankAccountId]);
+  const groupByLabel = useMemo(
+    () => GROUPBY_OPTIONS.find((o) => o.value === groupBy)?.label ?? "",
+    [groupBy],
+  );
 
   // Default: este mes
   useEffect(() => {
@@ -172,8 +192,32 @@ export function BankAnalysisClient({ accounts }: BankAnalysisClientProps) {
 
   return (
     <div className="space-y-4">
-      {/* Barra de filtros */}
-      <Card>
+      {/* Barra de filtros — colapsable en mobile */}
+      {isMobile && (
+        <div className="rounded-lg border border-border bg-card/50 px-3 py-2 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setFiltersOpenMobile((v) => !v)}
+            className="flex items-center gap-2 flex-1 min-w-0 text-left"
+            aria-expanded={filtersOpenMobile}
+          >
+            <SlidersHorizontal className="h-4 w-4 text-muted-foreground shrink-0" />
+            <div className="min-w-0 flex-1">
+              <p className="text-[13px] font-medium truncate">{selectedAccountLabel}</p>
+              <p className="text-[11px] text-muted-foreground truncate">
+                {dateFrom || dateTo ? `${dateFrom || "…"} → ${dateTo || "…"}` : "Sin rango"}
+                {` · ${groupByLabel}`}
+              </p>
+            </div>
+            {filtersOpenMobile ? (
+              <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" />
+            ) : (
+              <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+            )}
+          </button>
+        </div>
+      )}
+      <Card className={cn(isMobile && !filtersOpenMobile && "hidden")}>
         <CardContent className="p-4 space-y-3">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div className="space-y-1.5">
@@ -276,6 +320,17 @@ export function BankAnalysisClient({ accounts }: BankAnalysisClientProps) {
               {loading && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
               Actualizar
             </Button>
+            {isMobile && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setFiltersOpenMobile(false)}
+                className="h-7 text-xs"
+              >
+                <X className="h-3.5 w-3.5 mr-1" />
+                Cerrar
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>

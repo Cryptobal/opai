@@ -23,6 +23,7 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
+import { useIsMobileViewport } from "@/hooks/useIsMobileViewport";
 import {
   TrendingUp,
   Banknote,
@@ -233,21 +234,26 @@ export function SaludFinancieraHero({
   const [loading, setLoading] = useState(true);
   // Collapse: permite al usuario plegar todo el bloque para enfocarse
   // en la tabla de DTEs emitidos sin scroll. Persiste en localStorage
-  // por usuario/dispositivo.
-  const [collapsed, setCollapsed] = useState(false);
+  // por usuario/dispositivo. En mobile siempre se muestra expandido:
+  // el resumen ES la vista principal del módulo en el celular.
+  const isMobile = useIsMobileViewport();
+  const [collapsedRaw, setCollapsedRaw] = useState(false);
+  const collapsed = isMobile ? false : collapsedRaw;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
       const stored = window.localStorage.getItem(SALUD_COLLAPSED_KEY);
-      if (stored === "1") setCollapsed(true);
+      if (stored === "1") setCollapsedRaw(true);
     } catch {
       // localStorage puede fallar en private mode/iframes — no bloquear.
     }
   }, []);
 
   const toggleCollapsed = () => {
-    setCollapsed((prev) => {
+    // En mobile el bloque está bloqueado en expandido; el toggle es no-op.
+    if (isMobile) return;
+    setCollapsedRaw((prev) => {
       const next = !prev;
       try {
         if (typeof window !== "undefined") {

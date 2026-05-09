@@ -636,16 +636,22 @@ function RuleEditorSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle>{rule ? "Editar regla" : "Nueva regla"}</SheetTitle>
+      <SheetContent
+        className="w-full sm:max-w-2xl p-0 flex flex-col"
+        style={{
+          paddingTop: "max(env(safe-area-inset-top, 0px), 0px)",
+          paddingBottom: "max(env(safe-area-inset-bottom, 0px), 0px)",
+        }}
+      >
+        <SheetHeader className="px-6 pt-5 pb-3 border-b border-border bg-background shrink-0">
+          <SheetTitle className="pr-12">{rule ? "Editar regla" : "Nueva regla"}</SheetTitle>
           <SheetDescription>
             Las reglas aplican al importar cartola y desde la conciliación
             manual. Categorizan automáticamente o sugieren para revisar.
           </SheetDescription>
         </SheetHeader>
 
-        <div className="mt-6 space-y-5">
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
           {/* Bloque 1: Datos básicos */}
           <div className="space-y-3">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -885,17 +891,23 @@ function RuleEditorSheet({
             )}
           </div>
 
-          {/* Footer */}
-          <div className="flex items-center gap-2 pt-2">
-            <Button onClick={handleSave} disabled={saving}>
-              {saving && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
-              <Layers className="h-4 w-4 mr-1.5" />
-              {rule ? "Guardar cambios" : "Crear regla"}
-            </Button>
-            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
-              Cancelar
-            </Button>
-          </div>
+        </div>
+
+        {/* Footer sticky en el bottom — accesible con el pulgar en mobile */}
+        <div className="border-t border-border bg-background px-6 py-3 flex items-center gap-2 flex-wrap">
+          <Button onClick={handleSave} disabled={saving} className="flex-1 sm:flex-initial">
+            {saving && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
+            <Layers className="h-4 w-4 mr-1.5" />
+            {rule ? "Guardar cambios" : "Crear regla"}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={saving}
+            className="flex-1 sm:flex-initial"
+          >
+            Cancelar
+          </Button>
         </div>
       </SheetContent>
     </Sheet>

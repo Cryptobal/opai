@@ -51,9 +51,14 @@ import {
   BarChart3,
   CheckCircle2,
   Mail,
+  SlidersHorizontal,
+  ChevronDown,
+  ChevronUp,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useIsMobileViewport } from "@/hooks/useIsMobileViewport";
 
 /* ── Types ── */
 
@@ -842,6 +847,16 @@ function TransactionsTab({
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
   const [total, setTotal] = useState(0);
+  // Mobile: filtros colapsados por defecto para dejar más espacio a la
+  // tabla de movimientos. En desktop siempre visibles inline.
+  const isMobile = useIsMobileViewport();
+  const [filtersOpenMobile, setFiltersOpenMobile] = useState(false);
+  const activeFiltersCount =
+    (dateFrom ? 1 : 0) + (dateTo ? 1 : 0) + (search.trim() ? 1 : 0);
+  const selectedAccountLabel = useMemo(() => {
+    const a = accounts.find((x) => x.id === selectedAccount);
+    return a ? `${a.bankName} · ${a.accountNumber}` : "Sin cuenta";
+  }, [accounts, selectedAccount]);
   // Diálogo "Ocultar movimiento"
   const [hideDialog, setHideDialog] = useState<TransactionRow | null>(null);
   const [hideReason, setHideReason] = useState("");
@@ -1219,9 +1234,40 @@ function TransactionsTab({
 
   return (
     <div className="space-y-4">
-      {/* Filters */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end flex-wrap">
-        <div className="space-y-1.5 min-w-[200px]">
+      {/* Filters — compactos en mobile (resumen + chevron), inline en desktop */}
+      {isMobile && (
+        <div className="rounded-lg border border-border bg-card/50 px-3 py-2 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setFiltersOpenMobile((v) => !v)}
+            className="flex items-center gap-2 flex-1 min-w-0 text-left"
+            aria-expanded={filtersOpenMobile}
+          >
+            <SlidersHorizontal className="h-4 w-4 text-muted-foreground shrink-0" />
+            <div className="min-w-0 flex-1">
+              <p className="text-[13px] font-medium truncate">{selectedAccountLabel}</p>
+              <p className="text-[11px] text-muted-foreground truncate">
+                {dateFrom || dateTo
+                  ? `${dateFrom || "…"} → ${dateTo || "…"}`
+                  : "Sin rango"}
+                {activeFiltersCount > 0 ? ` · ${activeFiltersCount} filtro${activeFiltersCount === 1 ? "" : "s"}` : ""}
+              </p>
+            </div>
+            {filtersOpenMobile ? (
+              <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" />
+            ) : (
+              <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+            )}
+          </button>
+        </div>
+      )}
+      <div
+        className={cn(
+          "flex flex-col gap-3 sm:flex-row sm:items-end flex-wrap",
+          isMobile && !filtersOpenMobile && "hidden",
+        )}
+      >
+        <div className="space-y-1.5 min-w-[200px] sm:flex-initial flex-1">
           <Label>Cuenta</Label>
           <SearchableSelect
             value={selectedAccount}
@@ -1234,22 +1280,22 @@ function TransactionsTab({
             onChange={setSelectedAccount}
           />
         </div>
-        <div className="space-y-1.5">
+        <div className="space-y-1.5 flex-1 sm:flex-initial">
           <Label htmlFor="tx-from">Desde</Label>
           <Input
             id="tx-from"
             type="date"
-            className="h-9 w-40"
+            className="h-9 sm:w-40 w-full"
             value={dateFrom}
             onChange={(e) => setDateFrom(e.target.value)}
           />
         </div>
-        <div className="space-y-1.5">
+        <div className="space-y-1.5 flex-1 sm:flex-initial">
           <Label htmlFor="tx-to">Hasta</Label>
           <Input
             id="tx-to"
             type="date"
-            className="h-9 w-40"
+            className="h-9 sm:w-40 w-full"
             value={dateTo}
             onChange={(e) => setDateTo(e.target.value)}
           />
@@ -1268,7 +1314,7 @@ function TransactionsTab({
             />
           </div>
         </div>
-        <div className="flex items-end">
+        <div className="flex items-end gap-2 flex-wrap">
           <Button
             type="button"
             variant={showHidden ? "default" : "outline"}
@@ -1288,6 +1334,18 @@ function TransactionsTab({
               </>
             )}
           </Button>
+          {isMobile && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-9"
+              onClick={() => setFiltersOpenMobile(false)}
+            >
+              <X className="h-3.5 w-3.5 mr-1.5" />
+              Cerrar
+            </Button>
+          )}
         </div>
       </div>
 
