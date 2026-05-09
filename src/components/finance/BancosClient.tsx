@@ -42,6 +42,8 @@ import {
   ArrowDown,
   ArrowUpDown,
   Wallet,
+  EyeOff,
+  RotateCcw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -83,6 +85,8 @@ interface TransactionRow {
   amount: number;
   balance: number | null;
   reconciliationStatus: string;
+  hiddenAt: string | null;
+  hiddenReason: string | null;
 }
 
 /* ── Constants ── */
@@ -187,7 +191,7 @@ export function BancosClient({ accounts, accountPlans, canManage }: Props) {
         />
       )}
       {activeTab === "transactions" && (
-        <TransactionsTab accounts={accounts} />
+        <TransactionsTab accounts={accounts} canManage={canManage} />
       )}
       {activeTab === "import" && (
         <ImportTab accounts={accounts} canManage={canManage} />
@@ -759,7 +763,13 @@ function AccountsTab({
 type TxSortField = "transactionDate" | "description" | "amount";
 type TxSortDir = "asc" | "desc";
 
-function TransactionsTab({ accounts }: { accounts: BankAccountRow[] }) {
+function TransactionsTab({
+  accounts,
+  canManage,
+}: {
+  accounts: BankAccountRow[];
+  canManage: boolean;
+}) {
   const [selectedAccount, setSelectedAccount] = useState(
     accounts.length > 0 ? accounts[0].id : ""
   );
@@ -770,11 +780,16 @@ function TransactionsTab({ accounts }: { accounts: BankAccountRow[] }) {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [sortField, setSortField] = useState<TxSortField>("transactionDate");
   const [sortDir, setSortDir] = useState<TxSortDir>("desc");
+  const [showHidden, setShowHidden] = useState(false);
   const [transactions, setTransactions] = useState<TransactionRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
   const [total, setTotal] = useState(0);
+  // Diálogo "Ocultar movimiento"
+  const [hideDialog, setHideDialog] = useState<TransactionRow | null>(null);
+  const [hideReason, setHideReason] = useState("");
+  const [hiding, setHiding] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search.trim()), 250);
@@ -804,6 +819,7 @@ function TransactionsTab({ accounts }: { accounts: BankAccountRow[] }) {
         pageSize: String(pageSize),
         sortBy: sortField,
         sortDir,
+        visibility: showHidden ? "hidden" : "visible",
       });
       if (dateFrom) params.set("dateFrom", dateFrom);
       if (dateTo) params.set("dateTo", dateTo);
@@ -820,16 +836,64 @@ function TransactionsTab({ accounts }: { accounts: BankAccountRow[] }) {
     } finally {
       setLoading(false);
     }
-  }, [selectedAccount, dateFrom, dateTo, debouncedSearch, sortField, sortDir, page, pageSize]);
+  }, [selectedAccount, dateFrom, dateTo, debouncedSearch, sortField, sortDir, showHidden, page, pageSize]);
 
-  // Resetea a la página 1 cuando cambian filtros (cuenta, fechas, búsqueda u orden)
+  // Resetea a la página 1 cuando cambian filtros (cuenta, fechas, búsqueda, orden o visibilidad)
   useEffect(() => {
     setPage(1);
-  }, [selectedAccount, dateFrom, dateTo, debouncedSearch, sortField, sortDir]);
+  }, [selectedAccount, dateFrom, dateTo, debouncedSearch, sortField, sortDir, showHidden]);
 
   useEffect(() => {
     loadTransactions();
   }, [loadTransactions]);
+
+  const submitHide = async () => {
+    if (!hideDialog || !hideReason.trim()) {
+      toast.error("Indicá el motivo");
+      return;
+    }
+    setHiding(true);
+    try {
+      const res = await fetch(
+        `/api/finance/banking/transactions/${hideDialog.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "hide", reason: hideReason.trim() }),
+        }
+      );
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || "Error al ocultar movimiento");
+      }
+      toast.success("Movimiento ocultado");
+      setHideDialog(null);
+      setHideReason("");
+      loadTransactions();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error inesperado");
+    } finally {
+      setHiding(false);
+    }
+  };
+
+  const restoreTransaction = async (txId: string) => {
+    try {
+      const res = await fetch(`/api/finance/banking/transactions/${txId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "unhide" }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || "Error al restaurar");
+      }
+      toast.success("Movimiento restaurado");
+      loadTransactions();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error inesperado");
+    }
+  };
 
   const sortableHeader = useCallback(
     (label: string, field: TxSortField, align: "left" | "right" = "left") => (
@@ -905,6 +969,17 @@ function TransactionsTab({ accounts }: { accounts: BankAccountRow[] }) {
         id: "reconciliationStatus",
         header: "Estado",
         cell: (row) => {
+          if (row.hiddenAt) {
+            return (
+              <Badge
+                variant="outline"
+                className="text-xs bg-zinc-500/15 text-zinc-400 border-zinc-500/30"
+                title={row.hiddenReason ?? undefined}
+              >
+                Oculto
+              </Badge>
+            );
+          }
           const rcCfg = RECONC_STATUS_CONFIG[row.reconciliationStatus] ?? {
             label: row.reconciliationStatus,
             className: "bg-muted",
@@ -919,8 +994,38 @@ function TransactionsTab({ accounts }: { accounts: BankAccountRow[] }) {
           );
         },
       },
+      {
+        id: "_actions",
+        header: "",
+        align: "right",
+        cell: (row) =>
+          canManage ? (
+            row.hiddenAt ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                title="Restaurar"
+                onClick={() => restoreTransaction(row.id)}
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+              </Button>
+            ) : (
+              <Button
+                variant="ghost"
+                size="sm"
+                title="Ocultar (no es caja)"
+                onClick={() => {
+                  setHideDialog(row);
+                  setHideReason("");
+                }}
+              >
+                <EyeOff className="h-3.5 w-3.5" />
+              </Button>
+            )
+          ) : null,
+      },
     ],
-    [sortableHeader]
+    [sortableHeader, canManage]
   );
 
   return (
@@ -974,6 +1079,27 @@ function TransactionsTab({ accounts }: { accounts: BankAccountRow[] }) {
             />
           </div>
         </div>
+        <div className="flex items-end">
+          <Button
+            type="button"
+            variant={showHidden ? "default" : "outline"}
+            size="sm"
+            className="h-9"
+            onClick={() => setShowHidden((v) => !v)}
+          >
+            {showHidden ? (
+              <>
+                <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+                Ver visibles
+              </>
+            ) : (
+              <>
+                <EyeOff className="h-3.5 w-3.5 mr-1.5" />
+                Ver ocultos
+              </>
+            )}
+          </Button>
+        </div>
       </div>
 
       {loading ? (
@@ -1012,7 +1138,7 @@ function TransactionsTab({ accounts }: { accounts: BankAccountRow[] }) {
                 className: "bg-muted",
               };
               return (
-                <Card key={tx.id}>
+                <Card key={tx.id} className={tx.hiddenAt ? "opacity-60" : undefined}>
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
@@ -1022,17 +1148,32 @@ function TransactionsTab({ accounts }: { accounts: BankAccountRow[] }) {
                               locale: es,
                             })}
                           </span>
-                          <Badge
-                            variant="outline"
-                            className={cn("text-[10px]", rcCfg.className)}
-                          >
-                            {rcCfg.label}
-                          </Badge>
+                          {tx.hiddenAt ? (
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] bg-zinc-500/15 text-zinc-400 border-zinc-500/30"
+                              title={tx.hiddenReason ?? undefined}
+                            >
+                              Oculto
+                            </Badge>
+                          ) : (
+                            <Badge
+                              variant="outline"
+                              className={cn("text-[10px]", rcCfg.className)}
+                            >
+                              {rcCfg.label}
+                            </Badge>
+                          )}
                         </div>
                         <p className="text-sm">{tx.description}</p>
                         {tx.reference && (
                           <p className="text-xs text-muted-foreground font-mono mt-0.5">
                             {tx.reference}
+                          </p>
+                        )}
+                        {tx.hiddenAt && tx.hiddenReason && (
+                          <p className="text-xs text-muted-foreground italic mt-1">
+                            Motivo: {tx.hiddenReason}
                           </p>
                         )}
                         <div className="flex items-center justify-between mt-2">
@@ -1051,6 +1192,32 @@ function TransactionsTab({ accounts }: { accounts: BankAccountRow[] }) {
                           )}
                         </div>
                       </div>
+                      {canManage && (
+                        <div className="shrink-0">
+                          {tx.hiddenAt ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              title="Restaurar"
+                              onClick={() => restoreTransaction(tx.id)}
+                            >
+                              <RotateCcw className="h-3.5 w-3.5" />
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              title="Ocultar (no es caja)"
+                              onClick={() => {
+                                setHideDialog(tx);
+                                setHideReason("");
+                              }}
+                            >
+                              <EyeOff className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -1071,6 +1238,65 @@ function TransactionsTab({ accounts }: { accounts: BankAccountRow[] }) {
           />
         </>
       )}
+
+      <Dialog
+        open={!!hideDialog}
+        onOpenChange={(open) => !open && setHideDialog(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Ocultar movimiento</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              El movimiento quedará oculto del listado y desconciliado. Podés
+              restaurarlo desde la vista &ldquo;Ver ocultos&rdquo;.
+            </p>
+            {hideDialog && (
+              <div className="rounded-md border border-border bg-muted/30 p-3 text-sm space-y-1">
+                <p className="font-medium">{hideDialog.description}</p>
+                <p className="text-xs text-muted-foreground">
+                  {format(new Date(hideDialog.transactionDate), "dd MMM yyyy", {
+                    locale: es,
+                  })}
+                  {" · "}
+                  <span className="font-mono">
+                    {fmtCLP.format(hideDialog.amount)}
+                  </span>
+                </p>
+              </div>
+            )}
+            <div className="space-y-1.5">
+              <Label htmlFor="hide-reason">Motivo *</Label>
+              <Input
+                id="hide-reason"
+                placeholder="Ej. duplicado, no corresponde a caja, error de cartola..."
+                value={hideReason}
+                onChange={(e) => setHideReason(e.target.value)}
+                maxLength={500}
+                autoFocus
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setHideDialog(null)}
+              disabled={hiding}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={submitHide}
+              disabled={hiding || !hideReason.trim()}
+            >
+              {hiding && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
+              Ocultar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -116,6 +116,12 @@ interface ListBankTransactionsOpts {
   search?: string;
   sortBy?: BankTxSortField;
   sortDir?: BankTxSortDir;
+  /**
+   * Por defecto el listado excluye movimientos ocultos (soft-deleted con
+   * motivo). Setear true para mostrar SOLO los ocultos; false (default)
+   * para los no-ocultos. "all" para ambos.
+   */
+  visibility?: "visible" | "hidden" | "all";
 }
 
 interface ImportTransactionInput {
@@ -163,6 +169,13 @@ export async function listBankTransactions(
   if (search) {
     where.OR = buildSearchOr(search);
   }
+
+  const visibility = opts?.visibility ?? "visible";
+  if (visibility === "visible") {
+    where.hiddenAt = null;
+  } else if (visibility === "hidden") {
+    where.hiddenAt = { not: null };
+  } // "all" no agrega filtro
 
   // Orden: por defecto fecha descendente, con id como tiebreaker estable.
   const sortField: BankTxSortField = opts?.sortBy ?? "transactionDate";
@@ -413,4 +426,54 @@ export async function createBankTransaction(
   }
 
   return transaction;
+}
+
+/**
+ * Soft-delete: marca un movimiento como oculto con un motivo. Queda fuera
+ * del listado por defecto pero auditable. La conciliación se desvincula
+ * (status vuelve a UNMATCHED) para no contaminar reportes.
+ */
+export async function hideTransaction(
+  tenantId: string,
+  txId: string,
+  userId: string | null,
+  reason: string
+): Promise<void> {
+  const tx = await prisma.financeBankTransaction.findFirst({
+    where: { id: txId, tenantId },
+    select: { id: true, hiddenAt: true },
+  });
+  if (!tx) throw new Error("Movimiento no encontrado");
+  if (tx.hiddenAt) return; // ya oculto, idempotente
+
+  await prisma.financeBankTransaction.update({
+    where: { id: txId },
+    data: {
+      hiddenAt: new Date(),
+      hiddenById: userId ?? null,
+      hiddenReason: reason.trim().slice(0, 500),
+      reconciliationStatus: "UNMATCHED",
+      reconciliationId: null,
+    },
+  });
+}
+
+/**
+ * Restaura un movimiento previamente oculto.
+ */
+export async function unhideTransaction(
+  tenantId: string,
+  txId: string
+): Promise<void> {
+  const tx = await prisma.financeBankTransaction.findFirst({
+    where: { id: txId, tenantId },
+    select: { id: true, hiddenAt: true },
+  });
+  if (!tx) throw new Error("Movimiento no encontrado");
+  if (!tx.hiddenAt) return;
+
+  await prisma.financeBankTransaction.update({
+    where: { id: txId },
+    data: { hiddenAt: null, hiddenById: null, hiddenReason: null },
+  });
 }

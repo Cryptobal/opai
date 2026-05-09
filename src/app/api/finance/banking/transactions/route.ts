@@ -49,12 +49,21 @@ export async function GET(request: NextRequest) {
     const sortDir: "asc" | "desc" | undefined =
       sortDirRaw === "asc" || sortDirRaw === "desc" ? sortDirRaw : undefined;
 
+    const visibilityRaw = searchParams.get("visibility");
+    const visibility: "visible" | "hidden" | "all" | undefined =
+      visibilityRaw === "visible" ||
+      visibilityRaw === "hidden" ||
+      visibilityRaw === "all"
+        ? visibilityRaw
+        : undefined;
+
     const opts = {
       dateFrom: searchParams.get("dateFrom") || undefined,
       dateTo: searchParams.get("dateTo") || undefined,
       search: searchParams.get("search") || undefined,
       sortBy,
       sortDir,
+      visibility,
       page: searchParams.get("page")
         ? parseInt(searchParams.get("page")!)
         : undefined,

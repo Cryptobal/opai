@@ -6849,6 +6849,13 @@ model FinanceBankTransaction {
   reconciliationStatus FinanceReconciliationStatus @default(UNMATCHED) @map("reconciliation_status")
   reconciliationId     String?                     @map("reconciliation_id") @db.Uuid
 
+  // Soft-delete: movimientos que NO corresponden a caja (cargos duplicados,
+  // movimientos de pago automático que no aplican, etc). Quedan ocultos del
+  // listado por defecto pero auditables vía toggle "Ver ocultos".
+  hiddenAt     DateTime? @map("hidden_at") @db.Timestamptz(6)
+  hiddenById   String?   @map("hidden_by") @db.Uuid
+  hiddenReason String?   @map("hidden_reason")
+
   reconcMatch FinanceReconciliationMatch?
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -6857,6 +6864,7 @@ model FinanceBankTransaction {
   @@unique([tenantId, bankAccountId, apiTransactionId], map: "uq_finance_bank_tx_api")
   @@index([tenantId, bankAccountId, transactionDate], map: "idx_finance_bank_tx_date")
   @@index([reconciliationStatus], map: "idx_finance_bank_tx_reconc")
+  @@index([hiddenAt], map: "idx_finance_bank_tx_hidden")
   @@map("finance_bank_transactions")
   @@schema("finance")
 }
