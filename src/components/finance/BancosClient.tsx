@@ -35,6 +35,7 @@ import {
   Trash2,
   Loader2,
   Star,
+  FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -734,7 +735,9 @@ function TransactionsTab({ accounts }: { accounts: BankAccountRow[] }) {
       const res = await fetch(`/api/finance/banking/transactions?${params}`);
       if (!res.ok) throw new Error();
       const json = await res.json();
-      setTransactions(json.data ?? []);
+      // El endpoint retorna { success, data: { transactions, total, page, ... } }
+      const list = Array.isArray(json.data) ? json.data : json.data?.transactions;
+      setTransactions(Array.isArray(list) ? list : []);
     } catch {
       toast.error("Error al cargar movimientos");
     } finally {
@@ -955,20 +958,25 @@ function ImportTab({
   canManage: boolean;
 }) {
   const router = useRouter();
-  const fileRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const [selectedAccount, setSelectedAccount] = useState(
     accounts.length > 0 ? accounts[0].id : ""
   );
   const [bankFormat, setBankFormat] = useState("SANTANDER");
   const [file, setFile] = useState<File | null>(null);
+  const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [result, setResult] = useState<{ imported: number; skipped: number } | null>(
-    null
-  );
+  const [result, setResult] = useState<{
+    imported: number;
+    total: number;
+    accountNumber: string | null;
+    periodFrom: string | null;
+    periodTo: string | null;
+  } | null>(null);
 
   const handleUpload = async () => {
     if (!file || !selectedAccount) {
-      toast.error("Seleccione una cuenta y un archivo");
+      toast.error("Selecciona una cuenta y un archivo");
       return;
     }
     setUploading(true);
@@ -983,18 +991,23 @@ function ImportTab({
         method: "POST",
         body: formData,
       });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Error al importar cartola");
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json?.success) {
+        throw new Error(json?.error || "Error al importar cartola");
       }
-      const json = await res.json();
+      const data = json.data ?? {};
       setResult({
-        imported: json.imported ?? 0,
-        skipped: json.skipped ?? 0,
+        imported: data.importedCount ?? 0,
+        total: data.totalInFile ?? 0,
+        accountNumber: data.accountNumber ?? null,
+        periodFrom: data.periodFrom ?? null,
+        periodTo: data.periodTo ?? null,
       });
-      toast.success(`Cartola importada: ${json.imported ?? 0} movimientos`);
+      toast.success(
+        `Cartola importada: ${data.importedCount ?? 0} de ${data.totalInFile ?? 0} movimientos`
+      );
       setFile(null);
-      if (fileRef.current) fileRef.current.value = "";
+      if (inputRef.current) inputRef.current.value = "";
       router.refresh();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Error inesperado");
@@ -1045,19 +1058,94 @@ function ImportTab({
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="import-file">Archivo de cartola (.xlsx, .xls)</Label>
-            <Input
-              ref={fileRef}
-              id="import-file"
+            <Label>Archivo de cartola</Label>
+            <input
+              ref={inputRef}
               type="file"
+              className="hidden"
               accept=".xlsx,.xls"
-              className="h-9"
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              onChange={(e) => {
+                const f = e.target.files?.[0] ?? null;
+                setFile(f);
+                e.target.value = "";
+              }}
             />
+            {file ? (
+              <div className="flex items-center gap-3 rounded-lg border border-status-ok-border bg-status-ok-soft p-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-background shrink-0">
+                  <FileText className="h-5 w-5 text-status-ok-fg" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{file.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {(file.size / 1024).toFixed(0)} KB
+                  </p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8"
+                  onClick={() => setFile(null)}
+                  disabled={uploading}
+                >
+                  Cambiar
+                </Button>
+              </div>
+            ) : (
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => inputRef.current?.click()}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") inputRef.current?.click();
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragOver(true);
+                }}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  setDragOver(false);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDragOver(false);
+                  const f = e.dataTransfer.files?.[0];
+                  if (f) setFile(f);
+                }}
+                className={cn(
+                  "cursor-pointer rounded-lg border-2 border-dashed p-6 text-center transition-colors",
+                  dragOver
+                    ? "border-primary bg-primary/5"
+                    : "border-muted-foreground/25 hover:border-muted-foreground/50"
+                )}
+              >
+                <div className="flex flex-col items-center gap-2">
+                  <Upload className="h-8 w-8 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">
+                    Arrastra el archivo aquí o haz clic para seleccionar
+                  </span>
+                  <div className="flex gap-1.5">
+                    <span className="text-[10px] text-muted-foreground/60 bg-muted/50 px-1.5 py-0.5 rounded">
+                      XLSX
+                    </span>
+                    <span className="text-[10px] text-muted-foreground/60 bg-muted/50 px-1.5 py-0.5 rounded">
+                      XLS
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground/70 mt-1">
+                    Excel descargado desde &ldquo;Historial de Cuenta&rdquo; en Santander
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-3">
-            <Button onClick={handleUpload} disabled={uploading || !file || !selectedAccount}>
+            <Button
+              onClick={handleUpload}
+              disabled={uploading || !file || !selectedAccount}
+            >
               {uploading ? (
                 <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
               ) : (
@@ -1068,15 +1156,20 @@ function ImportTab({
           </div>
 
           {result && (
-            <div className="rounded-md border border-border bg-muted/30 p-3 text-sm">
+            <div className="rounded-md border border-status-ok-border bg-status-ok-soft p-3 text-sm space-y-1">
               <p>
                 Movimientos importados:{" "}
                 <span className="font-medium">{result.imported}</span>
+                <span className="text-muted-foreground"> de {result.total}</span>
               </p>
-              {result.skipped > 0 && (
-                <p className="text-muted-foreground">
-                  Omitidos (duplicados):{" "}
-                  <span className="font-medium">{result.skipped}</span>
+              {result.imported < result.total && (
+                <p className="text-xs text-muted-foreground">
+                  Omitidos {result.total - result.imported} (duplicados ya cargados)
+                </p>
+              )}
+              {(result.periodFrom || result.periodTo) && (
+                <p className="text-xs text-muted-foreground">
+                  Período: {result.periodFrom ?? "?"} → {result.periodTo ?? "?"}
                 </p>
               )}
             </div>

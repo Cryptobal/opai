@@ -129,19 +129,44 @@ export function parseSantanderCartola(
     dataStartRow = 13;
   }
 
-  // --- Parse opening balance ---
-  // Look for "SALDO INICIAL" in the header area or first data rows
+  // --- Parse opening / closing balance desde el bloque "Saldos" ---
+  // Layout estándar Santander:
+  //   Fila L:   ["SALDO INICIAL","DEPÓSITOS","OTROS ABONOS","CHEQUES",
+  //              "OTROS CARGOS","IMPUESTOS","SALDO FINAL",""]
+  //   Fila L+1: [26752990, 0, 144099749, 0, -147515775, -906, 23336058, ""]
+  //
+  // Buscamos la fila con "SALDO INICIAL" Y "SALDO FINAL" en celdas distintas
+  // y leemos los valores numéricos en la fila siguiente.
   for (let i = 0; i < Math.min(rows.length, dataStartRow + 3); i++) {
-    for (const cell of rows[i]) {
-      const text = String(cell ?? "").toUpperCase();
-      if (text.includes("SALDO INICIAL")) {
-        // Balance value is typically in column 0 of the same row or next
-        const balVal = parseNumber(rows[i]?.[0]);
-        if (balVal !== null) {
-          result.openingBalance = balVal;
+    const row = rows[i];
+    if (!row) continue;
+    let openingCol = -1;
+    let closingCol = -1;
+    for (let c = 0; c < row.length; c++) {
+      const text = String(row[c] ?? "").toUpperCase();
+      if (text.includes("SALDO INICIAL") && openingCol === -1) openingCol = c;
+      if (text.includes("SALDO FINAL") && closingCol === -1) closingCol = c;
+    }
+    if (openingCol !== -1 || closingCol !== -1) {
+      const valuesRow = rows[i + 1];
+      if (valuesRow) {
+        if (openingCol !== -1) {
+          const v = parseNumber(valuesRow[openingCol]);
+          if (v !== null) result.openingBalance = v;
         }
-        break;
+        if (closingCol !== -1) {
+          const v = parseNumber(valuesRow[closingCol]);
+          if (v !== null) result.closingBalance = v;
+        }
       }
+      // Fallback: same-row layout (algunos archivos viejos lo traen así)
+      if (result.openingBalance === null && openingCol !== -1) {
+        const v = parseNumber(row[openingCol]);
+        if (v !== null && typeof row[openingCol] === "number") {
+          result.openingBalance = v;
+        }
+      }
+      break;
     }
   }
 

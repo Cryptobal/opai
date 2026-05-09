@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import ExcelJS from "exceljs";
 import {
   requireAuth,
   unauthorized,
@@ -7,6 +6,7 @@ import {
 } from "@/lib/api-auth";
 import { hasCapability } from "@/lib/permissions";
 import { parseSantanderCartola } from "@/modules/finance/banking/santander-parser";
+import { loadXlsxRows } from "@/modules/finance/banking/xlsx-loader";
 import { importBankTransactions } from "@/modules/finance/banking/bank-transaction.service";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
@@ -74,52 +74,32 @@ export async function POST(request: NextRequest) {
     }
 
     // --- Read Excel file ---
+    // Usamos un loader propio (JSZip + fast-xml-parser) en vez de exceljs porque
+    // Santander emite XLSX no-estándar (paths con `/` inicial, sheet.xml en vez
+    // de sheet1.xml, namespace `x:`) y exceljs revienta con
+    // "Cannot read properties of undefined (reading 'sheets')".
     const arrayBuffer = await file.arrayBuffer();
-
-    const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.load(arrayBuffer);
-    const sheet = workbook.worksheets[0];
-    if (!sheet) {
+    let rows: (string | number | null)[][];
+    try {
+      const loaded = await loadXlsxRows(new Uint8Array(arrayBuffer));
+      rows = loaded.rows;
+    } catch (err) {
+      console.error("[Finance BankTransactions Import] XLSX load error:", err);
       return NextResponse.json(
-        { success: false, error: "El archivo no contiene hojas de calculo" },
+        {
+          success: false,
+          error:
+            "No se pudo leer el archivo. Verifica que sea el Excel descargado desde Santander (Historial de Cuenta).",
+        },
         { status: 400 }
       );
     }
-
-    // Normalize an exceljs cell value into the shape the Santander parser expects
-    // (string | number | null). Dates are emitted as DD/MM/YYYY so the parser's
-    // existing regex matching keeps working.
-    const normalizeCell = (v: unknown): string | number | null => {
-      if (v === null || v === undefined || v === "") return null;
-      if (typeof v === "number" || typeof v === "string") return v;
-      if (v instanceof Date) {
-        const d = String(v.getUTCDate()).padStart(2, "0");
-        const m = String(v.getUTCMonth() + 1).padStart(2, "0");
-        const y = v.getUTCFullYear();
-        return `${d}/${m}/${y}`;
-      }
-      if (typeof v === "object" && "richText" in (v as object)) {
-        const rt = (v as { richText: { text: string }[] }).richText;
-        return rt.map((r) => r.text).join("");
-      }
-      if (typeof v === "object" && "result" in (v as object)) {
-        return normalizeCell((v as { result: unknown }).result);
-      }
-      if (typeof v === "object" && "text" in (v as object)) {
-        return String((v as { text: unknown }).text);
-      }
-      return String(v);
-    };
-
-    const rows: (string | number | null)[][] = [];
-    sheet.eachRow({ includeEmpty: true }, (row) => {
-      const values = row.values as unknown[];
-      const rowArr: (string | number | null)[] = [];
-      for (let i = 1; i < values.length; i++) {
-        rowArr.push(normalizeCell(values[i]));
-      }
-      rows.push(rowArr);
-    });
+    if (rows.length === 0) {
+      return NextResponse.json(
+        { success: false, error: "El archivo no contiene datos" },
+        { status: 400 }
+      );
+    }
 
     // --- Parse with the appropriate parser ---
     let parsed;
