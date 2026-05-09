@@ -3328,7 +3328,7 @@ async function toolCreateInvoiceDraft(
         taxAmount: Number(draft.taxAmount),
         totalAmount: Number(draft.totalAmount),
         currency: draft.currency,
-        url: `/finanzas/facturacion/borradores`,
+        url: `/finanzas/facturacion/emitir?draftId=${draft.id}`,
       },
     };
   } catch (e) {
@@ -3623,7 +3623,7 @@ async function toolCreateCreditNoteDraft(
         netAmount: Number(draft.netAmount),
         taxAmount: Number(draft.taxAmount),
         totalAmount: Number(draft.totalAmount),
-        url: `/finanzas/facturacion/borradores`,
+        url: `/finanzas/facturacion/emitir?draftId=${draft.id}`,
       },
     };
   } catch (e) {
@@ -3822,7 +3822,7 @@ async function toolCreateDebitNoteDraft(
         netAmount: Number(draft.netAmount),
         taxAmount: Number(draft.taxAmount),
         totalAmount: Number(draft.totalAmount),
-        url: `/finanzas/facturacion/borradores`,
+        url: `/finanzas/facturacion/emitir?draftId=${draft.id}`,
       },
     };
   } catch (e) {

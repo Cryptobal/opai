@@ -210,7 +210,7 @@ async function completeOpenAI(
    ═══════════════════════════════════════════════ */
 
 function convertMessagesForAnthropic(msgs: Array<Record<string, unknown>>): {
-  system: string;
+  system: Array<Record<string, unknown>>;
   messages: Array<Record<string, unknown>>;
 } {
   const systemParts: string[] = [];
@@ -272,20 +272,39 @@ function convertMessagesForAnthropic(msgs: Array<Record<string, unknown>>): {
     out.push({ role: String(msg.role), content: String(msg.content ?? "") });
   }
 
-  return { system: systemParts.join("\n\n"), messages: out };
+  // Devolvemos el system como array de bloques: el primero (todos los system
+  // mergeados) lleva cache_control:ephemeral. Anthropic cachea ese prefijo;
+  // los siguientes turnos pagan ~10% del costo en tokens de entrada para esa
+  // porción mientras esté caliente (TTL 5 min). Si no hay system, devolvemos [].
+  const systemText = systemParts.join("\n\n");
+  const system: Array<Record<string, unknown>> = systemText
+    ? [{ type: "text", text: systemText, cache_control: { type: "ephemeral" } }]
+    : [];
+  return { system, messages: out };
 }
 
 function convertToolsForAnthropic(
   tools: Array<Record<string, unknown>>,
 ): Array<Record<string, unknown>> {
-  return tools.map((tool) => {
+  const out = tools.map((tool) => {
     const fn = (tool as { function?: Record<string, unknown> }).function ?? tool;
     return {
       name: fn.name,
       description: fn.description ?? "",
       input_schema: fn.parameters ?? { type: "object", properties: {} },
-    };
+    } as Record<string, unknown>;
   });
+  // Marca el último tool con cache_control: {type:"ephemeral"} para que las
+  // definiciones de tools (decenas de KB) reutilicen el prompt cache de
+  // Anthropic (TTL 5 min). Esto reduce input tokens contra el rate limit
+  // 10x sobre cache hit y baja el costo, evitando 429 en flujos multi-turno.
+  if (out.length > 0) {
+    out[out.length - 1] = {
+      ...out[out.length - 1],
+      cache_control: { type: "ephemeral" },
+    };
+  }
+  return out;
 }
 
 async function* parseAnthropicSSE(
@@ -330,9 +349,9 @@ async function* streamAnthropic(
     max_tokens: params.maxTokens,
     temperature: params.temperature,
     stream: true,
-    system,
     messages,
   };
+  if (system.length > 0) body.system = system;
   if (anthropicTools) body.tools = anthropicTools;
 
   const base = config.baseUrl.replace(/\/+$/, "");
@@ -407,9 +426,9 @@ async function completeAnthropic(
     model: config.model,
     max_tokens: params.maxTokens,
     temperature: params.temperature,
-    system,
     messages,
   };
+  if (system.length > 0) body.system = system;
   if (anthropicTools) body.tools = anthropicTools;
 
   const base = config.baseUrl.replace(/\/+$/, "");

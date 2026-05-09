@@ -516,6 +516,19 @@ function VisualsRenderer({
   onCardAction: (a: VisualCardItem["action"] | undefined) => void;
   onSuggestionAction: (a: VisualSuggestionItem["action"]) => void;
 }) {
+  // Dedup: si una suggestion apunta a la misma URL que ya navega una card,
+  // ocultá la suggestion para evitar el doble CTA "ver detalle / ver borrador".
+  const cardNavigateUrls = new Set<string>();
+  for (const v of visuals) {
+    if (v.kind !== "cards") continue;
+    for (const it of v.items) {
+      if (it.action?.type === "navigate") cardNavigateUrls.add(it.action.url);
+    }
+  }
+  const filteredSuggestions = suggestions.filter((s) => {
+    if (s.action.type !== "navigate") return true;
+    return !cardNavigateUrls.has(s.action.url);
+  });
   return (
     <div className="mt-2 space-y-2">
       {visuals.map((v, i) => {
@@ -531,8 +544,8 @@ function VisualsRenderer({
         if (v.kind === "table") return <TableBlock key={`v-${i}`} table={v} />;
         return null;
       })}
-      {suggestions.length > 0 ? (
-        <SuggestionsBlock items={suggestions} onAction={onSuggestionAction} />
+      {filteredSuggestions.length > 0 ? (
+        <SuggestionsBlock items={filteredSuggestions} onAction={onSuggestionAction} />
       ) : null}
     </div>
   );
