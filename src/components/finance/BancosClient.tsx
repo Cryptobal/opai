@@ -25,6 +25,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { DataTable, EmptyState, type DataTableColumn } from "@/components/opai-ds";
+import { PaginationControls } from "./PaginationControls";
 import {
   Landmark,
   ArrowLeftRight,
@@ -724,12 +725,19 @@ function TransactionsTab({ accounts }: { accounts: BankAccountRow[] }) {
   const [dateTo, setDateTo] = useState("");
   const [transactions, setTransactions] = useState<TransactionRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+  const [total, setTotal] = useState(0);
 
   const loadTransactions = useCallback(async () => {
     if (!selectedAccount) return;
     setLoading(true);
     try {
-      const params = new URLSearchParams({ bankAccountId: selectedAccount });
+      const params = new URLSearchParams({
+        bankAccountId: selectedAccount,
+        page: String(page),
+        pageSize: String(pageSize),
+      });
       if (dateFrom) params.set("dateFrom", dateFrom);
       if (dateTo) params.set("dateTo", dateTo);
       const res = await fetch(`/api/finance/banking/transactions?${params}`);
@@ -738,11 +746,17 @@ function TransactionsTab({ accounts }: { accounts: BankAccountRow[] }) {
       // El endpoint retorna { success, data: { transactions, total, page, ... } }
       const list = Array.isArray(json.data) ? json.data : json.data?.transactions;
       setTransactions(Array.isArray(list) ? list : []);
+      setTotal(typeof json.data?.total === "number" ? json.data.total : 0);
     } catch {
       toast.error("Error al cargar movimientos");
     } finally {
       setLoading(false);
     }
+  }, [selectedAccount, dateFrom, dateTo, page, pageSize]);
+
+  // Resetea a la página 1 cuando cambian filtros (cuenta o fechas)
+  useEffect(() => {
+    setPage(1);
   }, [selectedAccount, dateFrom, dateTo]);
 
   useEffect(() => {
@@ -873,10 +887,6 @@ function TransactionsTab({ accounts }: { accounts: BankAccountRow[] }) {
         />
       ) : (
         <>
-          <p className="text-xs text-muted-foreground">
-            {transactions.length} movimiento(s)
-          </p>
-
           {/* Desktop table */}
           <div className="hidden md:block">
             <DataTable
@@ -940,6 +950,18 @@ function TransactionsTab({ accounts }: { accounts: BankAccountRow[] }) {
               );
             })}
           </div>
+
+          <PaginationControls
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            onPageChange={setPage}
+            onPageSizeChange={(s) => {
+              setPageSize(s);
+              setPage(1);
+            }}
+            loading={loading}
+          />
         </>
       )}
     </div>
