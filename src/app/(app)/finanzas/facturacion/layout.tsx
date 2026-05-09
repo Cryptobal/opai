@@ -18,7 +18,11 @@ export default async function FacturacionLayout({ children }: { children: ReactN
   }
   return (
     <div className="space-y-3 min-w-0">
-      <ModuleSubNav moduleKey="finance-compras-ventas" />
+      {/* visibility="always": en mobile la BottomNav no muestra de forma fiable
+          los 8 children de C/V (Resumen, Emitidos, Recibidos, Programación,
+          Libro IVA, Proveedores, Folios, Cesiones), así que mostramos las
+          SwipeTabs scrollables arriba — paridad con Banca. */}
+      <ModuleSubNav moduleKey="finance-compras-ventas" visibility="always" />
       <div className="min-w-0">{children}</div>
     </div>
   );
