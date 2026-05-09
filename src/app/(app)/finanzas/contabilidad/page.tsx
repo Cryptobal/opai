@@ -20,7 +20,15 @@ export default async function ContabilidadPage() {
   if (!hasModuleAccess(perms, "finance")) {
     redirect("/hub");
   }
-  if (!canView(perms, "finance", "contabilidad")) redirect("/finanzas/rendiciones");
+  // Contabilidad: solo owner/admin (accounting_view) o quien tenga
+  // contabilidad_manage explícitamente.
+  if (
+    !hasCapability(perms, "accounting_view") &&
+    !hasCapability(perms, "contabilidad_manage") &&
+    !canView(perms, "finance", "contabilidad")
+  ) {
+    redirect("/finanzas/rendiciones");
+  }
 
   const tenantId = session.user.tenantId;
   const canManage = hasCapability(perms, "contabilidad_manage");

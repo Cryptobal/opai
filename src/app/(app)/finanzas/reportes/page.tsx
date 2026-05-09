@@ -19,7 +19,13 @@ export default async function ReportsPage() {
   if (!session?.user) redirect("/opai/login?callbackUrl=/finanzas/reportes");
   const perms = await resolvePagePerms(session.user);
   if (!hasModuleAccess(perms, "finance")) redirect("/hub");
-  if (!canView(perms, "finance", "reportes") && !hasCapability(perms, "finance_reports_view")) {
+  // Informes financieros: solo owner/admin (reports_finance_view) o quien
+  // tenga finance_reports_view explícitamente.
+  if (
+    !hasCapability(perms, "reports_finance_view") &&
+    !hasCapability(perms, "finance_reports_view") &&
+    !canView(perms, "finance", "reportes")
+  ) {
     redirect("/finanzas");
   }
 

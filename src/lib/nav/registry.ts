@@ -78,6 +78,7 @@ import {
   FileBarChart,
   Scale,
   FileInput,
+  Truck,
   // Documentos
   FolderOpen,
   LayoutTemplate,
@@ -487,37 +488,37 @@ export const NAV_MODULES: NavNode[] = [
           },
         ],
       },
-      // Ventas (Facturación) — con N3.
-      // El N3 contiene SOLO vistas (Resumen + tabs). Las acciones
-      // (Emitir DTE, Notas Crédito/Débito) son páginas accesibles desde
-      // botones contextuales — no aparecen como tab.
+      // Compras y Ventas (Facturación + Proveedores) — con N3.
+      // Unifica DTEs Emitidos (ventas) + DTEs Recibidos (compras) +
+      // Proveedores en una sola entrada. La pestaña "Compras" antes era
+      // una entrada N2 separada que apuntaba a /finanzas/proveedores —
+      // ahora Proveedores vive como child después del Libro IVA.
+      // Restringido a owner/admin (purchases_view) o roles con
+      // facturacion explícita.
       {
-        key: "finance-ventas",
+        key: "finance-compras-ventas",
         href: "/finanzas/facturacion",
-        label: "Ventas",
+        label: "Compras y Ventas",
+        shortLabel: "C/V",
         icon: FileText,
         module: "finance",
         submodule: "facturacion",
+        show: (perms) =>
+          hasCapability(perms, "purchases_view") ||
+          canView(perms, "finance", "facturacion") ||
+          canView(perms, "finance", "proveedores"),
         children: [
-          { key: "ventas-resumen", href: "/finanzas/facturacion", label: "Resumen", icon: Grid3x3, exactMatch: true, module: "finance", submodule: "facturacion" },
-          { key: "ventas-dtes", href: "/finanzas/facturacion/dtes", label: "DTEs Emitidos", icon: FileText, module: "finance", submodule: "facturacion" },
-          { key: "ventas-recibidos", href: "/finanzas/facturacion/recibidos", label: "DTEs Recibidos", icon: FileInput, module: "finance", submodule: "facturacion" },
-          { key: "ventas-programacion", href: "/finanzas/facturacion/programacion", label: "Programación", icon: CalendarDays, module: "finance", submodule: "facturacion" },
-          { key: "ventas-libro-iva", href: "/finanzas/facturacion/libro-iva", label: "Libro IVA", icon: BookText, module: "finance", submodule: "facturacion" },
-          { key: "ventas-folios", href: "/finanzas/facturacion/folios", label: "Folios", icon: FileText, module: "finance", submodule: "facturacion" },
-          { key: "ventas-cesiones", href: "/finanzas/facturacion/cesiones", label: "Cesiones", icon: DollarSign, module: "finance", submodule: "facturacion" },
+          { key: "cv-resumen", href: "/finanzas/facturacion", label: "Resumen", icon: Grid3x3, exactMatch: true, module: "finance", submodule: "facturacion" },
+          { key: "cv-dtes", href: "/finanzas/facturacion/dtes", label: "DTEs Emitidos", icon: FileText, module: "finance", submodule: "facturacion" },
+          { key: "cv-recibidos", href: "/finanzas/facturacion/recibidos", label: "DTEs Recibidos", icon: FileInput, module: "finance", submodule: "facturacion" },
+          { key: "cv-programacion", href: "/finanzas/facturacion/programacion", label: "Programación", icon: CalendarDays, module: "finance", submodule: "facturacion" },
+          { key: "cv-libro-iva", href: "/finanzas/facturacion/libro-iva", label: "Libro IVA", icon: BookText, module: "finance", submodule: "facturacion" },
+          { key: "cv-proveedores", href: "/finanzas/proveedores", label: "Proveedores", icon: Truck, module: "finance", submodule: "proveedores" },
+          { key: "cv-folios", href: "/finanzas/facturacion/folios", label: "Folios", icon: FileText, module: "finance", submodule: "facturacion" },
+          { key: "cv-cesiones", href: "/finanzas/facturacion/cesiones", label: "Cesiones", icon: DollarSign, module: "finance", submodule: "facturacion" },
         ],
       },
-      // Compras
-      {
-        key: "finance-compras",
-        href: "/finanzas/proveedores",
-        label: "Compras",
-        icon: FileInput,
-        module: "finance",
-        submodule: "proveedores",
-      },
-      // Banca
+      // Banca — restringido a owner/admin (banking_view)
       {
         key: "finance-banca",
         href: "/finanzas/bancos",
@@ -525,8 +526,9 @@ export const NAV_MODULES: NavNode[] = [
         icon: Landmark,
         module: "finance",
         submodule: "contabilidad",
+        show: (perms) => hasCapability(perms, "banking_view"),
       },
-      // Contabilidad
+      // Contabilidad — restringido a owner/admin (accounting_view)
       {
         key: "finance-contabilidad",
         href: "/finanzas/contabilidad",
@@ -535,8 +537,11 @@ export const NAV_MODULES: NavNode[] = [
         icon: BookText,
         module: "finance",
         submodule: "contabilidad",
+        show: (perms) =>
+          hasCapability(perms, "accounting_view") ||
+          hasCapability(perms, "contabilidad_manage"),
       },
-      // Informes (Reportes) — con N3
+      // Informes (Reportes) — restringido a owner/admin (reports_finance_view)
       {
         key: "finance-informes",
         href: "/finanzas/reportes",
@@ -544,6 +549,9 @@ export const NAV_MODULES: NavNode[] = [
         icon: BarChart3,
         module: "finance",
         submodule: "reportes",
+        show: (perms) =>
+          hasCapability(perms, "reports_finance_view") ||
+          hasCapability(perms, "finance_reports_view"),
         children: [
           { key: "rep-dashboard", href: "/finanzas/reportes", label: "Dashboard", icon: Grid3x3, exactMatch: true, module: "finance", submodule: "reportes" },
           { key: "rep-eerr", href: "/finanzas/reportes/eerr", label: "Estado de Resultado", shortLabel: "EERR", icon: FileBarChart, module: "finance", submodule: "reportes" },

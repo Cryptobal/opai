@@ -5,6 +5,7 @@ import {
   resolvePagePerms,
   hasModuleAccess,
   hasFacturacionCapability,
+  hasCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { PageHero } from "@/components/opai-ds";
@@ -19,7 +20,10 @@ export default async function DtesRecibidosPage() {
   }
   const perms = await resolvePagePerms(session.user);
   if (!hasModuleAccess(perms, "finance")) redirect("/hub");
-  if (!hasFacturacionCapability(perms, "facturacion_view")) {
+  if (
+    !hasCapability(perms, "purchases_view") &&
+    !hasFacturacionCapability(perms, "facturacion_view")
+  ) {
     redirect("/finanzas/rendiciones");
   }
 

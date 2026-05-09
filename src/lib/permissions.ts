@@ -176,6 +176,16 @@ export const CAPABILITY_KEYS = [
   // importar/conciliar movimientos.
   "banking_view",
   "banking_manage",
+  // Compras y Ventas (facturación electrónica + proveedores) — restringido
+  // por defecto a owner/admin. Información sensible (montos, contrapartes,
+  // condiciones de pago) que no debe ver cualquier rol con `finance:view`.
+  "purchases_view",
+  // Contabilidad — restringido a owner/admin (ver plan de cuentas, asientos,
+  // libro mayor, períodos contables).
+  "accounting_view",
+  // Informes financieros — restringido a owner/admin (EERR, balance,
+  // ventas por cliente, rentabilidad).
+  "reports_finance_view",
   "ticket_approve",
   "ticket_manage_types",
   "supervision_checkin",
@@ -364,6 +374,9 @@ export const CAPABILITY_META: CapabilityMeta[] = [
   { key: "facturacion_manage", label: "Gestionar facturación (legacy)", description: "DEPRECATED: capability legacy que otorga todos los permisos de facturación. Use las capabilities granulares.", moduleKey: "finance" },
   { key: "banking_view", label: "Ver banca", description: "Puede ver cuentas bancarias, movimientos y conciliación. Acceso restringido por defecto a propietarios y administradores.", moduleKey: "finance" },
   { key: "banking_manage", label: "Gestionar banca", description: "Puede importar cartolas, conciliar movimientos, modificar saldos y configurar reglas. Acceso restringido por defecto a propietarios y administradores.", moduleKey: "finance" },
+  { key: "purchases_view", label: "Ver Compras y Ventas", description: "Acceso a Facturación Electrónica (DTEs emitidos y recibidos) y proveedores. Información sensible: montos, contrapartes, condiciones de pago. Restringido por defecto a propietarios y administradores.", moduleKey: "finance" },
+  { key: "accounting_view", label: "Ver Contabilidad", description: "Acceso al plan de cuentas, asientos, libro mayor y períodos contables. Restringido por defecto a propietarios y administradores.", moduleKey: "finance" },
+  { key: "reports_finance_view", label: "Ver Informes financieros", description: "Acceso a EERR, balance, ventas por cliente, compras y rentabilidad. Restringido por defecto a propietarios y administradores.", moduleKey: "finance" },
   { key: "ticket_approve", label: "Aprobar tickets", description: "Puede aprobar o rechazar tickets que le correspondan según su grupo", moduleKey: "ops", submoduleKey: "tickets" },
   { key: "ticket_manage_types", label: "Configurar tipos de ticket", description: "Puede crear/editar tipos de solicitud y cadenas de aprobación", moduleKey: "ops", submoduleKey: "tickets" },
   { key: "supervision_checkin", label: "Check-in de supervisión", description: "Puede iniciar y finalizar visitas con georreferencia", moduleKey: "ops", submoduleKey: "supervision" },

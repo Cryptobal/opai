@@ -4,6 +4,7 @@ import {
   resolvePagePerms,
   hasModuleAccess,
   hasFacturacionCapability,
+  hasCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { PageHero } from "@/components/opai-ds";
@@ -26,7 +27,13 @@ export default async function FacturacionPage() {
   if (!hasModuleAccess(perms, "finance")) {
     redirect("/hub");
   }
-  if (!hasFacturacionCapability(perms, "facturacion_view")) {
+  // Compras y Ventas: información sensible. Solo owner/admin (vía
+  // capability `purchases_view`) o roles con permiso explícito de
+  // facturación pueden acceder.
+  if (
+    !hasCapability(perms, "purchases_view") &&
+    !hasFacturacionCapability(perms, "facturacion_view")
+  ) {
     redirect("/finanzas/rendiciones");
   }
 

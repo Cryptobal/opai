@@ -5,6 +5,7 @@ import {
   hasModuleAccess,
   canView,
   canEdit,
+  hasCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { PageHero } from "@/components/opai-ds";
@@ -20,7 +21,14 @@ export default async function ProveedoresPage() {
   if (!hasModuleAccess(perms, "finance")) {
     redirect("/hub");
   }
-  if (!canView(perms, "finance", "proveedores")) redirect("/finanzas/rendiciones");
+  // Proveedores es parte de Compras y Ventas — info sensible. Solo
+  // owner/admin (purchases_view) o roles con permiso explícito de submodule.
+  if (
+    !hasCapability(perms, "purchases_view") &&
+    !canView(perms, "finance", "proveedores")
+  ) {
+    redirect("/finanzas/rendiciones");
+  }
 
   const tenantId = session.user.tenantId;
   const canManage = canEdit(perms, "finance", "proveedores");
