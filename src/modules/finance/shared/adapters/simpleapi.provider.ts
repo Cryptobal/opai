@@ -120,6 +120,9 @@ export function buildEnvioEnviarPayload(input: {
   return {
     Tipo: envioTipoFromDte(input.dteType),
     Ambiente: ambiente,
+    // El endpoint REST de SimpleAPI no siempre infiere estos RUTs desde
+    // Certificado/Caratula. Si faltan, el SII responde RUTSENDER/RUTCOMPANY 0-0.
+    RutEnvia: input.rutTitular,
     // SimpleAPI/SII termina armando RUTCOMPANY con este RUT. Si se omite,
     // algunos envíos vuelven desde SII como RUTCOMPANY 0-0.
     RutEmpresa: input.emisorRut,

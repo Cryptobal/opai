@@ -4217,10 +4217,6 @@ async function toolSearchDtes(tenantId: string, args: Record<string, unknown>) {
   }
   if (search) {
     const rutNeedle = search.replace(/[.\-\s]/g, "");
-    const orClauses: Prisma.FinanceDteWhereInput[] = [
-      { receiverName: { contains: search, mode: "insensitive" } },
-      { receiverRut: { contains: rutNeedle, mode: "insensitive" } },
-    ];
     // Match DTEs por nombre/razón social de la cuenta CRM enlazada. No hay
     // relación Prisma directa entre FinanceDte y CrmAccount (sólo el FK
     // crmAccountId como String), así que pre-buscamos los IDs y filtramos
@@ -4235,8 +4231,12 @@ async function toolSearchDtes(tenantId: string, args: Record<string, unknown>) {
         ],
       },
       select: { id: true },
-      take: 25,
+      take: 50,
     });
+    const orClauses: Prisma.FinanceDteWhereInput[] = [
+      { receiverName: { contains: search, mode: "insensitive" } },
+      { receiverRut: { contains: rutNeedle, mode: "insensitive" } },
+    ];
     if (matchingAccounts.length > 0) {
       orClauses.push({ crmAccountId: { in: matchingAccounts.map((a) => a.id) } });
     }
