@@ -17,7 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DataTable, EmptyState, Tag, type DataTableColumn, type TagVariant } from "@/components/opai-ds";
-import { DocumentTag, fmtCLPSmart } from "@/components/finance/dtes";
+import { DocumentTag, fmtCLPSmart, KpiStripReceived } from "@/components/finance/dtes";
 import {
   Dialog,
   DialogContent,
@@ -25,6 +25,14 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { useIsMobileViewport } from "@/hooks/useIsMobileViewport";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
@@ -43,6 +51,8 @@ import {
   ExternalLink,
   Building,
   MapPin,
+  SlidersHorizontal,
+  X,
 } from "lucide-react";
 import { FoliosKpiCards } from "./FoliosKpiCards";
 import { FoliosDetailTable } from "./FoliosDetailTable";
@@ -578,11 +588,30 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
   /** Filtro por período "YYYY-MM" o "ALL". Default ALL = sin filtro. */
   const [periodoFilter, setPeriodoFilter] = useState("ALL");
   const periodOptions = useMemo(() => buildPeriodOptions(36), []);
-  // Paginación server-side (selector 10/25/50/100/200) + modal detalle.
+  // Paginación server-side (selector 10/25/50/100/200) + slide-over de detalle.
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
   const [total, setTotal] = useState(0);
   const [detailDte, setDetailDte] = useState<ReceivedDteRow | null>(null);
+  /** Drawer de filtros estructurado (consistente con DTEs Emitidos). */
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
+  const activeFilterCount =
+    (typeFilter !== "ALL" ? 1 : 0) +
+    (receptionFilter !== "ALL" ? 1 : 0) +
+    (paymentFilter !== "ALL" ? 1 : 0) +
+    (periodoFilter !== "ALL" ? 1 : 0) +
+    (accountFilter !== "ALL" ? 1 : 0) +
+    (installationFilter !== "ALL" ? 1 : 0);
+
+  const resetFilters = () => {
+    setTypeFilter("ALL");
+    setReceptionFilter("ALL");
+    setPaymentFilter("ALL");
+    setPeriodoFilter("ALL");
+    setAccountFilter("ALL");
+    setInstallationFilter("ALL");
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -619,11 +648,22 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
       // El endpoint devuelve { data: { dtes: [...], pagination: {...} } }.
       // Defensivo: aceptamos también la forma plana { data: [...] } por si
       // algún wrapper futuro lo cambia.
-      const list = Array.isArray(json?.data)
+      const rawList = Array.isArray(json?.data)
         ? json.data
         : Array.isArray(json?.data?.dtes)
           ? json.data.dtes
           : [];
+      // Prisma Decimal se serializa como string en JSON. Si no
+      // normalizamos, los reduces de totales hacen concatenación de
+      // strings ("109990" + "343029" = "109990343029") en vez de sumar.
+      const list: ReceivedDteRow[] = rawList.map((r: Record<string, unknown>) => ({
+        ...(r as object),
+        netAmount: Number(r.netAmount ?? 0),
+        taxAmount: Number(r.taxAmount ?? 0),
+        totalAmount: Number(r.totalAmount ?? 0),
+        amountPaid: Number(r.amountPaid ?? 0),
+        amountPending: Number(r.amountPending ?? 0),
+      })) as ReceivedDteRow[];
       setReceivedDtes(list);
       const t =
         typeof json?.data?.pagination?.total === "number"
@@ -725,117 +765,210 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2 flex-1 min-w-0 flex-wrap">
-          <div className="relative flex-1 max-w-sm min-w-0">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar folio, RUT, emisor..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 h-9"
-            />
-          </div>
-          <Select value={typeFilter} onValueChange={setTypeFilter}>
-            <SelectTrigger className="w-full sm:w-40 h-9">
-              <SelectValue placeholder="Tipo" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">Todos los tipos</SelectItem>
-              <SelectItem value="33">Factura</SelectItem>
-              <SelectItem value="34">Factura Exenta</SelectItem>
-              <SelectItem value="56">Nota Débito</SelectItem>
-              <SelectItem value="61">Nota Crédito</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={receptionFilter} onValueChange={setReceptionFilter}>
-            <SelectTrigger className="w-full sm:w-36 h-9">
-              <SelectValue placeholder="Recepción" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">Todos</SelectItem>
-              {Object.entries(RECEPTION_STATUS_CONFIG).map(([k, v]) => (
-                <SelectItem key={k} value={k}>{v.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={paymentFilter} onValueChange={setPaymentFilter}>
-            <SelectTrigger className="w-full sm:w-36 h-9">
-              <SelectValue placeholder="Pago" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">Todos</SelectItem>
-              {Object.entries(PAYMENT_STATUS_CONFIG).map(([k, v]) => (
-                <SelectItem key={k} value={k}>{v.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={periodoFilter} onValueChange={setPeriodoFilter}>
-            <SelectTrigger className="w-full sm:w-44 h-9">
-              <SelectValue placeholder="Período" />
-            </SelectTrigger>
-            <SelectContent className="max-h-[400px]">
-              <SelectItem value="ALL">Todos los períodos</SelectItem>
-              {periodOptions.map((p) => (
-                <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        <Select value={accountFilter} onValueChange={setAccountFilter}>
-          <SelectTrigger className="w-full sm:w-56 h-9">
-            <SelectValue placeholder="Centro de costo" />
-          </SelectTrigger>
-          <SelectContent className="max-h-[400px]">
-            <SelectItem value="ALL">Todos los centros</SelectItem>
-            <SelectItem value="NONE">Sin asignar</SelectItem>
-            {accountOptions.map((a) => (
-              <SelectItem key={a.id} value={a.id}>
-                {a.legalName || a.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={installationFilter} onValueChange={setInstallationFilter}>
-          <SelectTrigger className="w-full sm:w-56 h-9">
-            <SelectValue placeholder="Instalación" />
-          </SelectTrigger>
-          <SelectContent className="max-h-[400px]">
-            <SelectItem value="ALL">Todas las instalaciones</SelectItem>
-            <SelectItem value="NONE">Sin instalación</SelectItem>
-            {installationOptions.map((i) => (
-              <SelectItem key={i.id} value={i.id}>
-                {i.name}{i.commune ? ` · ${i.commune}` : ""}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={sort} onValueChange={(v) => setSort(v as DteSortKey)}>
-          <SelectTrigger className="w-full sm:w-56 h-9">
-            <SelectValue placeholder="Ordenar por" />
-          </SelectTrigger>
-          <SelectContent>
-            {DTE_SORT_OPTIONS.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+    <div className="space-y-4 pb-4">
+      <KpiStripReceived
+        periodo={periodoFilter}
+        accountId={accountFilter}
+        installationId={installationFilter}
+        onClickAccepted={() => setReceptionFilter("ACCEPTED")}
+        onClickPending={() => setReceptionFilter("PENDING_REVIEW")}
+        onClickClaimed={() => setReceptionFilter("CLAIMED")}
+        onClickToPay={() => setPaymentFilter("UNPAID")}
+      />
+
+      <div className="flex flex-wrap items-center gap-2">
+        {/* Search */}
+        <div className="relative flex-1 min-w-[220px]">
+          <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ds-text-4" />
+          <Input
+            placeholder="Buscar por folio, RUT, emisor o monto…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-10 h-10"
+          />
         </div>
+
+        {/* Filtros (drawer estructurado) */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setFiltersOpen(true)}
+          className={cn(
+            "h-10 gap-2",
+            activeFilterCount > 0 && "border-primary/40 text-primary",
+          )}
+        >
+          <SlidersHorizontal className="h-4 w-4" />
+          <span className="hidden sm:inline">Filtros</span>
+          {activeFilterCount > 0 && (
+            <span className="inline-flex items-center justify-center min-w-[20px] h-5 rounded-full bg-primary/15 text-primary text-[11px] font-medium px-1.5">
+              {activeFilterCount}
+            </span>
+          )}
+        </Button>
+
+        {/* Sort (desktop) */}
+        <div className="hidden md:block">
+          <Select value={sort} onValueChange={(v) => setSort(v as DteSortKey)}>
+            <SelectTrigger className="w-48 h-10">
+              <SelectValue placeholder="Ordenar" />
+            </SelectTrigger>
+            <SelectContent>
+              {DTE_SORT_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Export placeholder (desktop) */}
+        <Button
+          variant="outline"
+          size="sm"
+          disabled
+          title="Exportar CSV (próximamente)"
+          className="hidden md:inline-flex h-10 w-10 p-0 justify-center"
+          aria-label="Exportar"
+        >
+          <Download className="h-4 w-4" />
+        </Button>
+
+        {/* Registrar DTE — primary action de recibidos. */}
         {canManage && (
-          <Button size="sm" onClick={() => setDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-1.5" />
+          <Button size="sm" className="h-10 gap-1.5" onClick={() => setDialogOpen(true)}>
+            <Plus className="h-4 w-4" />
             Registrar DTE
           </Button>
         )}
       </div>
 
-      <p className="text-xs text-muted-foreground">
-        {total > 0
-          ? `${filtered.length.toLocaleString("es-CL")} de ${total.toLocaleString("es-CL")} documento(s)`
-          : `${filtered.length} documento(s) recibido(s)`}
-      </p>
+      {/* Active filter chips */}
+      {activeFilterCount > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {typeFilter !== "ALL" && (
+            <Badge variant="outline" className="gap-1.5 pr-1 h-7">
+              <span className="text-[12px]">
+                Tipo: {DTE_TYPE_SHORT_LABELS[Number(typeFilter)] ?? typeFilter}
+              </span>
+              <button
+                type="button"
+                onClick={() => setTypeFilter("ALL")}
+                className="h-4 w-4 inline-flex items-center justify-center rounded-sm hover:bg-ds-surface-3"
+                aria-label="Quitar filtro tipo"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          )}
+          {receptionFilter !== "ALL" && (
+            <Badge variant="outline" className="gap-1.5 pr-1 h-7">
+              <span className="text-[12px]">
+                Recepción: {RECEPTION_STATUS_CONFIG[receptionFilter]?.label ?? receptionFilter}
+              </span>
+              <button
+                type="button"
+                onClick={() => setReceptionFilter("ALL")}
+                className="h-4 w-4 inline-flex items-center justify-center rounded-sm hover:bg-ds-surface-3"
+                aria-label="Quitar filtro recepción"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          )}
+          {paymentFilter !== "ALL" && (
+            <Badge variant="outline" className="gap-1.5 pr-1 h-7">
+              <span className="text-[12px]">
+                Pago: {PAYMENT_STATUS_CONFIG[paymentFilter]?.label ?? paymentFilter}
+              </span>
+              <button
+                type="button"
+                onClick={() => setPaymentFilter("ALL")}
+                className="h-4 w-4 inline-flex items-center justify-center rounded-sm hover:bg-ds-surface-3"
+                aria-label="Quitar filtro pago"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          )}
+          {periodoFilter !== "ALL" && (
+            <Badge variant="outline" className="gap-1.5 pr-1 h-7">
+              <span className="text-[12px]">
+                Período: {periodOptions.find((p) => p.value === periodoFilter)?.label ?? periodoFilter}
+              </span>
+              <button
+                type="button"
+                onClick={() => setPeriodoFilter("ALL")}
+                className="h-4 w-4 inline-flex items-center justify-center rounded-sm hover:bg-ds-surface-3"
+                aria-label="Quitar filtro período"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          )}
+          {accountFilter !== "ALL" && (
+            <Badge variant="outline" className="gap-1.5 pr-1 h-7">
+              <span className="text-[12px]">
+                Centro:{" "}
+                {accountFilter === "NONE"
+                  ? "Sin asignar"
+                  : accountOptions.find((a) => a.id === accountFilter)?.name ?? "—"}
+              </span>
+              <button
+                type="button"
+                onClick={() => setAccountFilter("ALL")}
+                className="h-4 w-4 inline-flex items-center justify-center rounded-sm hover:bg-ds-surface-3"
+                aria-label="Quitar filtro centro"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          )}
+          {installationFilter !== "ALL" && (
+            <Badge variant="outline" className="gap-1.5 pr-1 h-7">
+              <span className="text-[12px]">
+                Instalación:{" "}
+                {installationFilter === "NONE"
+                  ? "Sin instalación"
+                  : installationOptions.find((i) => i.id === installationFilter)?.name ?? "—"}
+              </span>
+              <button
+                type="button"
+                onClick={() => setInstallationFilter("ALL")}
+                className="h-4 w-4 inline-flex items-center justify-center rounded-sm hover:bg-ds-surface-3"
+                aria-label="Quitar filtro instalación"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={resetFilters}
+            className="h-7 px-2 text-[12px] text-ds-text-3 hover:text-ds-text-1"
+          >
+            Limpiar todo
+          </Button>
+        </div>
+      )}
+
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-xs text-ds-text-3">
+        <span className="truncate min-w-0">
+          {total > 0
+            ? `${filtered.length.toLocaleString("es-CL")} de ${total.toLocaleString("es-CL")} documento(s)`
+            : `${filtered.length} documento(s) recibido(s)`}
+        </span>
+        {filtered.length > 0 && (
+          <span className="truncate min-w-0">
+            Total filtrado:{" "}
+            <strong className="text-ds-text-1 font-mono">
+              {fmtCLP.format(filtered.reduce((acc, d) => acc + Number(d.totalAmount ?? 0), 0))}
+            </strong>
+          </span>
+        )}
+      </div>
 
       {filtered.length === 0 ? (
         <EmptyState
@@ -988,6 +1121,7 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
               ] satisfies DataTableColumn<ReceivedDteRow>[]}
               rows={filtered}
               rowKey={(row) => row.id}
+              onRowClick={(row) => setDetailDte(row)}
               empty={<EmptyState icon={FileInput} title="Sin documentos recibidos" compact />}
             />
           </div>
@@ -1029,6 +1163,148 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
           loadReceivedDtes();
         }}
       />
+
+      {/* Filtros estructurados (drawer) — consistente con DTEs Emitidos. */}
+      <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-md flex flex-col p-0">
+          <SheetHeader className="px-6 pt-6 pb-3 border-b border-ds-border-subtle">
+            <SheetTitle>Filtros</SheetTitle>
+            <SheetDescription className="text-xs text-ds-text-3">
+              Refiná la lista de DTEs recibidos por tipo, estado y centro de costo.
+            </SheetDescription>
+          </SheetHeader>
+          <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+            <div className="space-y-2">
+              <Label className="text-[12px] uppercase tracking-wide text-ds-text-3">
+                Tipo de DTE
+              </Label>
+              <Select value={typeFilter} onValueChange={setTypeFilter}>
+                <SelectTrigger className="h-10">
+                  <SelectValue placeholder="Tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">Todos los tipos</SelectItem>
+                  <SelectItem value="33">Factura</SelectItem>
+                  <SelectItem value="34">Factura Exenta</SelectItem>
+                  <SelectItem value="56">Nota Débito</SelectItem>
+                  <SelectItem value="61">Nota Crédito</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-[12px] uppercase tracking-wide text-ds-text-3">
+                Estado de recepción
+              </Label>
+              <Select value={receptionFilter} onValueChange={setReceptionFilter}>
+                <SelectTrigger className="h-10">
+                  <SelectValue placeholder="Recepción" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">Todos</SelectItem>
+                  {Object.entries(RECEPTION_STATUS_CONFIG).map(([k, v]) => (
+                    <SelectItem key={k} value={k}>
+                      {v.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-[12px] uppercase tracking-wide text-ds-text-3">
+                Estado de pago
+              </Label>
+              <Select value={paymentFilter} onValueChange={setPaymentFilter}>
+                <SelectTrigger className="h-10">
+                  <SelectValue placeholder="Pago" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">Todos</SelectItem>
+                  {Object.entries(PAYMENT_STATUS_CONFIG).map(([k, v]) => (
+                    <SelectItem key={k} value={k}>
+                      {v.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-[12px] uppercase tracking-wide text-ds-text-3">
+                Período
+              </Label>
+              <Select value={periodoFilter} onValueChange={setPeriodoFilter}>
+                <SelectTrigger className="h-10">
+                  <SelectValue placeholder="Período" />
+                </SelectTrigger>
+                <SelectContent className="max-h-[400px]">
+                  <SelectItem value="ALL">Todos los períodos</SelectItem>
+                  {periodOptions.map((p) => (
+                    <SelectItem key={p.value} value={p.value}>
+                      {p.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-[12px] uppercase tracking-wide text-ds-text-3">
+                Centro de costo
+              </Label>
+              <Select value={accountFilter} onValueChange={setAccountFilter}>
+                <SelectTrigger className="h-10">
+                  <SelectValue placeholder="Centro de costo" />
+                </SelectTrigger>
+                <SelectContent className="max-h-[400px]">
+                  <SelectItem value="ALL">Todos los centros</SelectItem>
+                  <SelectItem value="NONE">Sin asignar</SelectItem>
+                  {accountOptions.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.legalName || a.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-[12px] uppercase tracking-wide text-ds-text-3">
+                Instalación
+              </Label>
+              <Select value={installationFilter} onValueChange={setInstallationFilter}>
+                <SelectTrigger className="h-10">
+                  <SelectValue placeholder="Instalación" />
+                </SelectTrigger>
+                <SelectContent className="max-h-[400px]">
+                  <SelectItem value="ALL">Todas las instalaciones</SelectItem>
+                  <SelectItem value="NONE">Sin instalación</SelectItem>
+                  {installationOptions.map((i) => (
+                    <SelectItem key={i.id} value={i.id}>
+                      {i.name}
+                      {i.commune ? ` · ${i.commune}` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="flex items-center justify-between gap-2 border-t border-ds-border-subtle px-6 py-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={resetFilters}
+              disabled={activeFilterCount === 0}
+            >
+              Limpiar
+            </Button>
+            <Button size="sm" onClick={() => setFiltersOpen(false)}>
+              Aplicar
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
 
 
 
@@ -1328,6 +1604,7 @@ function ReceivedDteDetailDialog({
    */
   onDecided?: () => void;
 }) {
+  const isMobileViewport = useIsMobileViewport();
   const [attachments, setAttachments] = useState<DteAttachment[]>([]);
   const [loadingAtt, setLoadingAtt] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -1485,16 +1762,35 @@ function ReceivedDteDetailDialog({
     className: "bg-muted",
   };
   const siiViewerUrl = `https://www4.sii.cl/consdcvinternetui/#/index`;
+  // Forwarded as helper for shell layout below.
+  void recCfg;
+  void payCfg;
 
   return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+    <Sheet open onOpenChange={(o) => !o && onClose()}>
+      <SheetContent
+        side={isMobileViewport ? "bottom" : "right"}
+        className={cn(
+          "!p-0 flex flex-col w-full",
+          isMobileViewport ? "max-h-[92vh] rounded-t-2xl" : "sm:max-w-xl",
+        )}
+      >
+        {isMobileViewport && (
+          <div className="flex justify-center pt-3 pb-1 shrink-0">
+            <div className="w-10 h-1.5 rounded-full bg-ds-border-default/60" />
+          </div>
+        )}
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
+        <SheetHeader>
+          <SheetTitle className="flex items-center gap-2">
             <FileInput className="h-5 w-5 text-primary" />
             {DTE_TYPE_LABELS[dte.dteType] ?? `Tipo ${dte.dteType}`} N° {dte.folio}
-          </DialogTitle>
-        </DialogHeader>
+          </SheetTitle>
+          <SheetDescription className="sr-only">
+            Detalle del DTE recibido: estado de recepción, datos del emisor, montos,
+            adjuntos y acuse al SII.
+          </SheetDescription>
+        </SheetHeader>
 
         <div className="space-y-4 py-2">
           <div className="flex flex-wrap gap-2">
@@ -1766,12 +2062,19 @@ function ReceivedDteDetailDialog({
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
+        </div>
+        <div className="border-t border-ds-border-subtle px-6 py-3 flex items-center justify-between gap-2 shrink-0">
+          <Button variant="outline" size="sm" asChild className="gap-1.5">
+            <a href={siiViewerUrl} target="_blank" rel="noopener noreferrer">
+              <ExternalLink className="h-3.5 w-3.5" />
+              Ver en SII
+            </a>
+          </Button>
+          <Button variant="outline" size="sm" onClick={onClose}>
             Cerrar
           </Button>
-        </DialogFooter>
-      </DialogContent>
+        </div>
+      </SheetContent>
 
       {/* Modal de confirmación de Acuse SII.
           Permite al usuario decidir si la decisión se notifica al SII
@@ -1787,7 +2090,7 @@ function ReceivedDteDetailDialog({
         onConfirm={confirmAcuse}
         onCancel={() => setAcusePending(null)}
       />
-    </Dialog>
+    </Sheet>
   );
 }
 

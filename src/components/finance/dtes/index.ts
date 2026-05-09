@@ -5,6 +5,7 @@ export { SiiStatusPill } from "./SiiStatusPill";
 export { CessionBadge } from "./CessionBadge";
 export { LinkedNoteBadge } from "./LinkedNoteBadge";
 export { RelationRow } from "./RelationRow";
+export { KpiStripReceived } from "./KpiStripReceived";
 
 export type {
   DteRow,
