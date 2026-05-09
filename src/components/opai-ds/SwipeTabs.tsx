@@ -158,7 +158,10 @@ export function SwipeTabs({
     <nav
       aria-label="Sub-secciones"
       className={cn(
-        "relative flex items-center gap-2 border-b border-ds-border-subtle",
+        // overflow-x-clip + min-w-0 evita que el ancho intrínseco de los tabs
+        // empuje el ancho del padre y haga scrollar la página completa cuando
+        // el usuario hace swipe horizontal sobre las pestañas.
+        "relative flex items-center gap-2 border-b border-ds-border-subtle min-w-0 overflow-x-clip",
         variant === "compact" ? "min-h-[44px]" : "min-h-[48px]",
         className,
       )}
@@ -167,11 +170,16 @@ export function SwipeTabs({
         ref={scrollRef}
         role="tablist"
         className={cn(
-          "flex flex-1 items-stretch gap-1 overflow-x-auto",
+          "flex flex-1 items-stretch gap-1 min-w-0 overflow-x-auto",
           // Hide scrollbar but keep scroll behavior (iOS momentum)
           "[scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden",
           // Snap the tabs to start so swipes feel deliberate
           "snap-x snap-mandatory sm:snap-none",
+          // touch-action: pan-x captura el gesto horizontal en mobile para
+          // que el scroll quede dentro de los tabs y no arrastre la página.
+          // overscroll-x-contain corta el scroll-chaining cuando se llega al
+          // final/comienzo de la fila.
+          "touch-pan-x overscroll-x-contain",
         )}
       >
         {items.map((item) => {

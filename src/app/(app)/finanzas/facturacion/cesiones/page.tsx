@@ -11,7 +11,7 @@ import {
   hasModuleAccess,
   resolvePagePerms,
 } from "@/lib/permissions-server";
-import { PageHero } from "@/components/opai-ds";
+import { PageHero, ModuleSubNav } from "@/components/opai-ds";
 import {
   getFactoringKpis,
   listFactoringOperations,
@@ -72,6 +72,7 @@ export default async function FactoringOperationsPage() {
         subtitle="Factoring electrónico"
         description="Operaciones de cesión a empresas de factoring, con anticipos, intereses, comisiones y trazabilidad SII."
       />
+      <ModuleSubNav moduleKey="finance-compras-ventas" visibility="always" />
       <CesionesTabs />
       <FactoringOperationsClient
         initialOperations={initialOperations}

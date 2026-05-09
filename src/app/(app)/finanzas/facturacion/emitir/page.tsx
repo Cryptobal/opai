@@ -6,7 +6,7 @@ import {
   hasFacturacionCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHero } from "@/components/opai-ds";
+import { PageHero, ModuleSubNav } from "@/components/opai-ds";
 import { FileText } from "lucide-react";
 import { DteForm } from "@/components/finance/DteForm";
 
@@ -53,6 +53,7 @@ export default async function EmitirDtePage() {
         subtitle="factura, boleta o guía"
         description="Emisión de factura electrónica o factura exenta."
       />
+      <ModuleSubNav moduleKey="finance-compras-ventas" visibility="always" />
       <DteForm
         availableTypes={availableTypes}
         accounts={accounts}

@@ -5,7 +5,7 @@ import {
   hasModuleAccess,
   hasFacturacionCapability,
 } from "@/lib/permissions-server";
-import { PageHero } from "@/components/opai-ds";
+import { PageHero, ModuleSubNav } from "@/components/opai-ds";
 import { CalendarDays } from "lucide-react";
 import { FacturacionClient } from "@/components/finance/FacturacionClient";
 
@@ -46,6 +46,7 @@ export default async function ProgramacionPage() {
         title="Programación"
         description="Borradores y plantillas recurrentes que generan DTEs automáticos."
       />
+      <ModuleSubNav moduleKey="finance-compras-ventas" visibility="always" />
       <FacturacionClient
         dtes={[]}
         issuedTotal={0}

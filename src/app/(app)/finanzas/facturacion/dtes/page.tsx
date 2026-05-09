@@ -7,7 +7,7 @@ import {
   hasFacturacionCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHero } from "@/components/opai-ds";
+import { PageHero, ModuleSubNav } from "@/components/opai-ds";
 import { Button } from "@/components/ui/button";
 import { FileText, Plus } from "lucide-react";
 import { DtesEmitidosClient } from "@/components/finance/dtes/DtesEmitidosClient";
@@ -240,6 +240,7 @@ export default async function DtesEmitidosPage({
           ) : undefined
         }
       />
+      <ModuleSubNav moduleKey="finance-compras-ventas" visibility="always" />
       <DtesEmitidosClient
         dtes={dtesData}
         issuedTotal={issuedTotal}

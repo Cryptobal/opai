@@ -44,8 +44,14 @@ export function Breadcrumbs({
   const middle = items.slice(middleStart, middleEnd);
 
   return (
-    <nav aria-label="Breadcrumb" className={cn("flex items-center text-sm", className)}>
-      <ol className="flex flex-wrap items-center gap-1">
+    <nav
+      aria-label="Breadcrumb"
+      // leading-none + ítems con flex items-center alinea el chevron exactamente
+      // al centro de la cap-height del texto en mobile (sin el padding fantasma
+      // del line-height por defecto que dejaba la flecha visualmente más abajo).
+      className={cn("flex items-center text-sm leading-none", className)}
+    >
+      <ol className="flex flex-wrap items-center gap-x-1 gap-y-1.5">
         {items.map((item, index) => {
           const isLast = index === total - 1;
           const isInMiddle = index >= middleStart && index < middleEnd;
@@ -55,8 +61,8 @@ export function Breadcrumbs({
             <Fragment key={`${item.label}-${index}`}>
               <li
                 className={cn(
-                  "flex items-center gap-1",
-                  showInMobile ? "" : "hidden md:flex",
+                  "inline-flex items-center gap-1",
+                  showInMobile ? "" : "hidden md:inline-flex",
                 )}
               >
                 {item.href ? (
@@ -64,7 +70,7 @@ export function Breadcrumbs({
                     href={item.href}
                     aria-current={isLast ? "page" : undefined}
                     className={cn(
-                      "transition-colors duration-150 hover:underline underline-offset-4 decoration-2",
+                      "inline-flex items-center transition-colors duration-150 hover:underline underline-offset-4 decoration-2",
                       isLast
                         ? "text-primary font-semibold hover:text-primary/80"
                         : "text-ds-text-3 hover:text-ds-text-1",
@@ -76,6 +82,7 @@ export function Breadcrumbs({
                   <span
                     aria-current={isLast ? "page" : undefined}
                     className={cn(
+                      "inline-flex items-center",
                       isLast ? "text-primary font-semibold" : "text-ds-text-3",
                     )}
                   >
@@ -85,7 +92,7 @@ export function Breadcrumbs({
                 {!isLast && (
                   <ChevronRight
                     aria-hidden
-                    className="h-3.5 w-3.5 text-ds-text-4 shrink-0"
+                    className="h-3.5 w-3.5 self-center text-ds-text-4 shrink-0"
                   />
                 )}
               </li>
@@ -95,7 +102,7 @@ export function Breadcrumbs({
                 !expanded &&
                 index === middleStart - 1 &&
                 middle.length > 0 && (
-                  <li className="md:hidden flex items-center gap-1">
+                  <li className="md:hidden inline-flex items-center gap-1">
                     <button
                       type="button"
                       onClick={() => setExpanded(true)}
@@ -107,7 +114,7 @@ export function Breadcrumbs({
                     </button>
                     <ChevronRight
                       aria-hidden
-                      className="h-3.5 w-3.5 text-ds-text-4 shrink-0"
+                      className="h-3.5 w-3.5 self-center text-ds-text-4 shrink-0"
                     />
                   </li>
                 )}
