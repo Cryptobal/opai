@@ -363,12 +363,15 @@ export async function importBankTransactions(
     // Tomamos las UNMATCHED de esta cuenta como targets del bulk match.
     // En la práctica, el bulk insert recién las creó; las que ya estaban
     // UNMATCHED de antes también se intentan (es safe: idempotente).
+    // Incluimos cobros y pagos: el matcher distingue por signo y busca
+    // DTEs ISSUED para ingresos / RECEIVED para egresos. Las que no
+    // matchean por DTE pasan al motor de reglas configurables.
     const fresh = await prisma.financeBankTransaction.findMany({
       where: {
         tenantId,
         bankAccountId,
         reconciliationStatus: "UNMATCHED",
-        amount: { gt: 0 }, // solo cobros para auto-match
+        hiddenAt: null,
       },
       select: { id: true },
       orderBy: { createdAt: "desc" },

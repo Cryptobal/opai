@@ -33,6 +33,7 @@
  */
 import { prisma } from "@/lib/prisma";
 import { Decimal } from "@prisma/client/runtime/library";
+import { findMatchingRule } from "./automatch-rule.service";
 
 export interface AutoMatchResult {
   matched: boolean;
@@ -173,21 +174,19 @@ export async function tryAutoMatchBankTransactionToDte(
       return { matched: false, reason: "skipped_test_amount" as const };
     }
 
-    // Solo entradas de plata: si el monto es negativo, es un egreso (pago
-    // a proveedor / comisión / cargo). El auto-match es solo para cobros.
-    if (bankTx.amount.toNumber() <= 0) {
-      return { matched: false, reason: "negative_amount" as const };
-    }
+    // Determina si es ingreso (positivo) o egreso (negativo) y busca el
+    // tipo correcto de DTE: ISSUED para cobros, RECEIVED para pagos a
+    // proveedor.
+    const isIncome = bankTx.amount.toNumber() > 0;
+    const dteDirection = isIncome ? "ISSUED" : "RECEIVED";
 
     // Buscar DTEs candidatos con monto exacto. Filtros:
-    //   - direction=ISSUED (es nuestra factura)
-    //   - paymentStatus IN [UNPAID, PARTIAL, OVERDUE] (pendiente de cobro)
+    //   - direction según signo (cobros vs pagos)
+    //   - paymentStatus IN [UNPAID, PARTIAL, OVERDUE] (pendiente)
     //   - siiStatus=ACCEPTED (no anulada)
     //   - totalAmount === amountAbs
     //   - tenantId
-    //   - tx date dentro de ±90 días desde emisión (defensa contra
-    //     coincidencias antiguas; ajustar si hay clientes que pagan más
-    //     tarde habitualmente)
+    //   - tx date dentro de ±90 días desde emisión
     const minDate = new Date(bankTx.transactionDate);
     minDate.setDate(minDate.getDate() - 90);
     const maxDate = new Date(bankTx.transactionDate);
@@ -196,7 +195,7 @@ export async function tryAutoMatchBankTransactionToDte(
     const candidates = await tx.financeDte.findMany({
       where: {
         tenantId,
-        direction: "ISSUED",
+        direction: dteDirection,
         siiStatus: "ACCEPTED",
         paymentStatus: { in: ["UNPAID", "PARTIAL", "OVERDUE"] },
         totalAmount: new Decimal(amountAbs),
@@ -206,6 +205,8 @@ export async function tryAutoMatchBankTransactionToDte(
         id: true,
         receiverRut: true,
         receiverName: true,
+        issuerRut: true,
+        issuerName: true,
         folio: true,
         date: true,
         totalAmount: true,
@@ -224,9 +225,14 @@ export async function tryAutoMatchBankTransactionToDte(
     let chosen = candidates[0];
     let matchType: "STRICT" | "AMOUNT_ONLY" = "AMOUNT_ONLY";
 
+    // RUT a buscar en la cartola: para cobros es el receptor (cliente que
+    // nos pagó); para egresos es el emisor (proveedor al que pagamos).
+    const counterpartyRut = (c: { receiverRut: string | null; issuerRut: string | null }) =>
+      isIncome ? c.receiverRut : c.issuerRut;
+
     if (candidates.length > 1) {
       const withRut = candidates.filter((c) =>
-        rutAppearsInText(c.receiverRut, bankTx.description, bankTx.reference),
+        rutAppearsInText(counterpartyRut(c), bankTx.description, bankTx.reference),
       );
       if (withRut.length === 1) {
         chosen = withRut[0];
@@ -242,24 +248,24 @@ export async function tryAutoMatchBankTransactionToDte(
       // 1 solo candidato: si además el RUT está en el texto, confidence
       // máxima. Si no, igual matcheamos pero con AMOUNT_ONLY.
       if (
-        rutAppearsInText(chosen.receiverRut, bankTx.description, bankTx.reference)
+        rutAppearsInText(counterpartyRut(chosen), bankTx.description, bankTx.reference)
       ) {
         matchType = "STRICT";
       }
     }
 
-    // Crear FinancePaymentRecord. El code se autogenera con el patrón
-    // "COB-AUTO-N" para distinguirlo de los manuales (código COB-NNNNNN
-    // del payment-record service).
+    // Crear FinancePaymentRecord. Cobros: COB-AUTO-N (type=COLLECTION).
+    // Pagos a proveedor: PAG-AUTO-N (type=DISBURSEMENT).
+    const codePrefix = isIncome ? "COB-AUTO-" : "PAG-AUTO-";
     const countAuto = await tx.financePaymentRecord.count({
-      where: { tenantId, code: { startsWith: "COB-AUTO-" } },
+      where: { tenantId, code: { startsWith: codePrefix } },
     });
-    const code = `COB-AUTO-${String(countAuto + 1).padStart(6, "0")}`;
+    const code = `${codePrefix}${String(countAuto + 1).padStart(6, "0")}`;
     const paymentRecord = await tx.financePaymentRecord.create({
       data: {
         tenantId,
         code,
-        type: "COLLECTION",
+        type: isIncome ? "COLLECTION" : "DISBURSEMENT",
         date: bankTx.transactionDate,
         amount: new Decimal(amountAbs),
         currency: "CLP",
@@ -268,8 +274,8 @@ export async function tryAutoMatchBankTransactionToDte(
         transferReference: bankTx.reference ?? null,
         notes:
           matchType === "STRICT"
-            ? `Auto-match exacto (RUT detectado en cartola): ${bankTx.description}`
-            : `Auto-match por monto único: ${bankTx.description}`,
+            ? `Auto-match ${isIncome ? "cobro" : "pago"} exacto (RUT detectado en cartola): ${bankTx.description}`
+            : `Auto-match ${isIncome ? "cobro" : "pago"} por monto único: ${bankTx.description}`,
         createdBy: userId,
         status: "CONFIRMED",
       },
@@ -336,6 +342,8 @@ export interface BulkAutoMatchSummary {
   ambiguous: number;
   noCandidate: number;
   skipped: number;
+  /** Tx categorizadas por una regla auto-match (no DTE). */
+  ruleMatched: number;
   errors: { bankTransactionId: string; message: string }[];
 }
 
@@ -350,14 +358,30 @@ export async function bulkAutoMatchBankTransactions(
     ambiguous: 0,
     noCandidate: 0,
     skipped: 0,
+    ruleMatched: 0,
     errors: [],
   };
 
   for (const id of bankTransactionIds) {
     try {
       const r = await tryAutoMatchBankTransactionToDte(tenantId, id, userId);
-      if (r.matched) summary.matched += 1;
-      else if (r.reason === "ambiguous") summary.ambiguous += 1;
+      if (r.matched) {
+        summary.matched += 1;
+        continue;
+      }
+
+      // Fallback: si no hubo match contra DTE, evaluar reglas custom.
+      // Si una regla matchea con requiresReview=false, creamos un link
+      // EXPENSE/INCOME con la cuenta contable y marcamos MATCHED.
+      if (r.reason === "no_candidate" || r.reason === "ambiguous") {
+        const applied = await tryApplyRule(tenantId, id, userId);
+        if (applied) {
+          summary.ruleMatched += 1;
+          continue;
+        }
+      }
+
+      if (r.reason === "ambiguous") summary.ambiguous += 1;
       else if (r.reason === "no_candidate") summary.noCandidate += 1;
       else summary.skipped += 1;
     } catch (err) {
@@ -369,4 +393,78 @@ export async function bulkAutoMatchBankTransactions(
   }
 
   return summary;
+}
+
+/**
+ * Aplica la primera regla auto-match que coincida con la tx. Solo aplica
+ * si la regla tiene requiresReview=false. Crea un link EXPENSE/INCOME
+ * con la cuenta contable y marca MATCHED.
+ *
+ * Devuelve true si se aplicó una regla.
+ */
+async function tryApplyRule(
+  tenantId: string,
+  bankTransactionId: string,
+  userId: string,
+): Promise<boolean> {
+  const tx = await prisma.financeBankTransaction.findFirst({
+    where: { id: bankTransactionId, tenantId },
+    select: {
+      id: true,
+      amount: true,
+      description: true,
+      reference: true,
+      reconciliationStatus: true,
+    },
+  });
+  if (!tx || tx.reconciliationStatus !== "UNMATCHED") return false;
+
+  const evaluation = await findMatchingRule(tenantId, {
+    amount: tx.amount.toNumber(),
+    description: tx.description,
+    reference: tx.reference,
+  });
+  if (!evaluation) return false;
+  if (evaluation.action.requiresReview) {
+    // La regla aplica pero pide revisión humana — no auto-conciliamos.
+    // Sin embargo, podríamos guardar la sugerencia. Por ahora,
+    // simplemente no avanzamos y queda UNMATCHED para que el usuario
+    // la vea en el drawer.
+    return false;
+  }
+  if (!evaluation.action.accountPlanId) {
+    // Regla sin cuenta contable destino → no podemos crear el link.
+    return false;
+  }
+
+  const isIncome = tx.amount.toNumber() > 0;
+  const amountAbs = Math.abs(tx.amount.toNumber());
+
+  await prisma.$transaction([
+    prisma.financeBankTransactionLink.create({
+      data: {
+        tenantId,
+        bankTransactionId,
+        targetType: isIncome ? "INCOME" : "EXPENSE",
+        targetId: null,
+        amount: new Decimal(amountAbs),
+        accountPlanId: evaluation.action.accountPlanId,
+        note: `Auto-match por regla: ${evaluation.ruleName}`,
+        createdById: userId,
+      },
+    }),
+    prisma.financeBankTransaction.update({
+      where: { id: bankTransactionId },
+      data: { reconciliationStatus: "MATCHED" },
+    }),
+    prisma.financeAutoMatchRule.update({
+      where: { id: evaluation.ruleId },
+      data: {
+        timesMatched: { increment: 1 },
+        lastMatchedAt: new Date(),
+      },
+    }),
+  ]);
+
+  return true;
 }
