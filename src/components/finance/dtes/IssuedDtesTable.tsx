@@ -160,14 +160,33 @@ export function IssuedDtesTable({
     {
       id: "receiverName",
       header: "Receptor",
-      cell: (row) => (
-        <div>
-          <div className="text-sm">{row.receiverName}</div>
-          <div className="text-xs text-ds-text-3 font-mono">
-            {row.receiverRut}
+      cell: (row) => {
+        // Mostrar también el nombre de la cuenta CRM (nombre de fantasía)
+        // si difiere de la razón social emitida en el DTE. Permite que la
+        // búsqueda y el reconocimiento visual funcione tanto con
+        // "ANDALUZA DE MONTAJES..." como con "Ametel".
+        const accountName = row.crmAccount?.name;
+        const showFantasy =
+          accountName &&
+          accountName.trim().toLowerCase() !==
+            row.receiverName.trim().toLowerCase();
+        return (
+          <div>
+            <div className="text-sm">{row.receiverName}</div>
+            {showFantasy ? (
+              <div
+                className="text-xs text-ds-text-3 truncate"
+                title={accountName}
+              >
+                {accountName}
+              </div>
+            ) : null}
+            <div className="text-xs text-ds-text-4 font-mono">
+              {row.receiverRut}
+            </div>
           </div>
-        </div>
-      ),
+        );
+      },
     },
     {
       id: "totalAmount",

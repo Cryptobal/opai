@@ -435,7 +435,7 @@ function v2ToolDefinitions() {
       function: {
         name: "search_dtes",
         description:
-          "Busca DTEs emitidos (facturas/boletas/NC/ND) por folio, RUT, nombre del cliente, monto exacto, rango de monto 'min-max', o período YYYY-MM. Devuelve lista paginada con datos clave (folio, fecha, receptor, monto, estado SII, estado de pago).",
+          "Busca DTEs emitidos (facturas/boletas/NC/ND) por folio, RUT, nombre del receptor (razón social), nombre de la cuenta CRM (nombre de fantasía), monto exacto, rango de monto 'min-max', o período YYYY-MM. Devuelve lista paginada con datos clave (folio, fecha, receptor, accountName, monto, estado SII, estado de pago).",
         parameters: {
           type: "object",
           properties: {
@@ -750,13 +750,35 @@ function writeToolDefinitions() {
       function: {
         name: "create_invoice_draft",
         description:
-          "PASO 2 (después de preview_invoice_draft Y confirmación del usuario). Crea el borrador de factura usando los datos del previewToken. La tool valida que el token exista y no haya expirado.",
+          "PASO 2 (después de preview_invoice_draft Y confirmación del usuario). Crea el borrador de factura. IMPORTANTE: SIEMPRE pasa los MISMOS args que usaste en preview_invoice_draft (dteType, receiverNameOrRut/Rut/Name, lines, etc.). Si tienes el previewToken a mano, pásalo también — la tool intentará usar el cache; si expiró o se reinició, recomputa desde los args. Esto hace el flujo robusto a serverless cold starts.",
         parameters: {
           type: "object",
           properties: {
-            previewToken: { type: "string", description: "Token devuelto por preview_invoice_draft. OBLIGATORIO." },
+            previewToken: { type: "string", description: "Token devuelto por preview_invoice_draft (opcional, best-effort). Si está vencido o el cache se reinició, los args completos hacen el trabajo." },
+            dteType: { type: "number", enum: [33, 34, 39], description: "33=Factura afecta, 34=Factura exenta, 39=Boleta." },
+            receiverNameOrRut: { type: "string", description: "Nombre del cliente o RUT para resolver desde CRM." },
+            receiverRut: { type: "string", description: "RUT explícito del receptor (si no está en CRM)." },
+            receiverName: { type: "string", description: "Razón social explícita del receptor (si no está en CRM)." },
+            receiverEmail: { type: "string" },
+            installationId: { type: "string", description: "UUID instalación (cost center)." },
+            currency: { type: "string", enum: ["CLP", "UF"], description: "Default CLP." },
+            lines: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  itemName: { type: "string" },
+                  quantity: { type: "number" },
+                  unitPrice: { type: "number" },
+                  isExempt: { type: "boolean" },
+                  discountPct: { type: "number" },
+                },
+                required: ["itemName", "quantity", "unitPrice"],
+              },
+              minItems: 1,
+            },
+            notes: { type: "string" },
           },
-          required: ["previewToken"],
           additionalProperties: false,
         },
       },
@@ -800,13 +822,30 @@ function writeToolDefinitions() {
       function: {
         name: "create_credit_note_draft",
         description:
-          "PASO 2 (después de preview_credit_note_draft Y confirmación). Crea el borrador de NC usando el previewToken.",
+          "PASO 2 (después de preview_credit_note_draft Y confirmación). Crea el borrador de NC. SIEMPRE pasa los MISMOS args usados en el preview (referenceFolio, reason, lines, referenceCode); el previewToken es opcional y se usa como fast-path.",
         parameters: {
           type: "object",
           properties: {
-            previewToken: { type: "string", description: "Token devuelto por preview_credit_note_draft." },
+            previewToken: { type: "string", description: "Opcional. Token devuelto por preview_credit_note_draft." },
+            referenceFolio: { type: "number" },
+            referenceDteId: { type: "string" },
+            referenceCode: { type: "number", enum: [1, 2, 3] },
+            reason: { type: "string" },
+            lines: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  itemName: { type: "string" },
+                  quantity: { type: "number" },
+                  unitPrice: { type: "number" },
+                  isExempt: { type: "boolean" },
+                },
+                required: ["itemName", "quantity", "unitPrice"],
+              },
+              minItems: 1,
+            },
           },
-          required: ["previewToken"],
           additionalProperties: false,
         },
       },
@@ -848,13 +887,29 @@ function writeToolDefinitions() {
       function: {
         name: "create_debit_note_draft",
         description:
-          "PASO 2 (después de preview_debit_note_draft Y confirmación). Crea el borrador de ND usando el previewToken.",
+          "PASO 2 (después de preview_debit_note_draft Y confirmación). Crea el borrador de ND. SIEMPRE pasa los MISMOS args usados en el preview (referenceFolio, reason, lines); el previewToken es opcional y se usa como fast-path.",
         parameters: {
           type: "object",
           properties: {
-            previewToken: { type: "string" },
+            previewToken: { type: "string", description: "Opcional. Token devuelto por preview_debit_note_draft." },
+            referenceFolio: { type: "number" },
+            referenceDteId: { type: "string" },
+            reason: { type: "string" },
+            lines: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  itemName: { type: "string" },
+                  quantity: { type: "number" },
+                  unitPrice: { type: "number" },
+                  isExempt: { type: "boolean" },
+                },
+                required: ["itemName", "quantity", "unitPrice"],
+              },
+              minItems: 1,
+            },
           },
-          required: ["previewToken"],
           additionalProperties: false,
         },
       },
@@ -3166,6 +3221,48 @@ async function toolPreviewInvoiceDraft(
   };
 }
 
+/**
+ * Resuelve el receptor + calcula montos a partir de args sueltos (mismo
+ * shape que preview_invoice_draft). Se usa como fallback en create_* cuando
+ * el previewToken expiró o el cache en memoria se reinició (Vercel
+ * serverless). Falla con Error si los args no son válidos.
+ */
+async function buildInvoiceDraftInputFromArgs(
+  tenantId: string,
+  args: Record<string, unknown>,
+): Promise<DraftDteInput> {
+  const dteType = Number(args.dteType);
+  if (![33, 34, 39].includes(dteType)) {
+    throw new Error("dteType debe ser 33, 34 o 39.");
+  }
+  const lines = Array.isArray(args.lines) ? (args.lines as DteLineInput[]) : [];
+  if (lines.length === 0) {
+    throw new Error("Necesito al menos una línea con item, cantidad y precio.");
+  }
+  const receiver = await resolveDteReceiver(
+    tenantId,
+    typeof args.receiverNameOrRut === "string" ? args.receiverNameOrRut : undefined,
+    typeof args.receiverRut === "string" ? args.receiverRut : undefined,
+    typeof args.receiverName === "string" ? args.receiverName : undefined,
+  );
+  const currency: "CLP" | "UF" = (args.currency as "CLP" | "UF") ?? "CLP";
+  return {
+    dteType,
+    receiverRut: receiver.rut,
+    receiverName: receiver.name,
+    receiverEmail: typeof args.receiverEmail === "string" ? args.receiverEmail : null,
+    receiverGiro: receiver.giro ?? null,
+    receiverDireccion: receiver.address ?? null,
+    receiverComuna: receiver.commune ?? null,
+    receiverCiudad: receiver.ciudad ?? null,
+    crmAccountId: receiver.accountId ?? null,
+    installationId: typeof args.installationId === "string" ? args.installationId : null,
+    currency,
+    lines,
+    notes: typeof args.notes === "string" ? args.notes : null,
+  } as unknown as DraftDteInput;
+}
+
 async function toolCreateInvoiceDraft(
   tenantId: string,
   userId: string,
@@ -3179,20 +3276,31 @@ async function toolCreateInvoiceDraft(
   ) {
     return { ok: false, error: "No tienes permiso para crear borradores de factura." };
   }
+
+  // Estrategia: aceptar previewToken (path feliz) O fallback a args
+  // completos. El cache en memoria no sobrevive entre invocaciones de
+  // funciones serverless (Vercel) ni HMR de Next dev, así que confiar
+  // exclusivamente en el token rompe el flujo. El sistema prompt instruye
+  // al LLM a pasar SIEMPRE los mismos args usados en preview, y el token
+  // si lo tiene a mano.
   const token = typeof args.previewToken === "string" ? args.previewToken : "";
-  if (!token) {
-    return { ok: false, error: "Falta previewToken. Llama primero preview_invoice_draft." };
+  let draftInput: DraftDteInput | null = null;
+  if (token) {
+    const payload = consumePreview(token, tenantId, userId, "create_invoice_draft");
+    if (payload) draftInput = payload.args as unknown as DraftDteInput;
   }
-  const payload = consumePreview(token, tenantId, userId, "create_invoice_draft");
-  if (!payload) {
-    return {
-      ok: false,
-      error: "El previewToken no existe o expiró (TTL 5 min). Vuelve a llamar preview_invoice_draft.",
-    };
+  if (!draftInput) {
+    try {
+      draftInput = await buildInvoiceDraftInputFromArgs(tenantId, args);
+    } catch (e) {
+      return {
+        ok: false,
+        error: e instanceof Error ? e.message : "Faltan datos para crear el borrador.",
+      };
+    }
   }
 
   try {
-    const draftInput = payload.args as unknown as DraftDteInput;
     const draft = await createDraftDte(tenantId, userId, draftInput);
 
     await logAiAction({
@@ -3409,6 +3517,52 @@ async function toolPreviewCreditNoteDraft(
   };
 }
 
+async function buildNcNdDraftInputFromArgs(
+  tenantId: string,
+  args: Record<string, unknown>,
+  noteType: 56 | 61,
+): Promise<{ input: DraftDteInput; referenceFolio: number; reason: string }> {
+  const reason = typeof args.reason === "string" ? args.reason.trim() : "";
+  if (!reason) throw new Error("Necesito una razón para la nota.");
+  const lines = Array.isArray(args.lines) ? (args.lines as DteLineInput[]) : [];
+  if (lines.length === 0) throw new Error("Necesito al menos una línea.");
+  const referenceCode = ([1, 2, 3] as const).includes(args.referenceCode as 1 | 2 | 3)
+    ? (args.referenceCode as 1 | 2 | 3)
+    : 1;
+  const ref = await resolveDteReferenceForNcNd(tenantId, args);
+  if (!ref.ok) throw new Error(ref.error);
+  const original = ref.original;
+  const accountFull = await prisma.crmAccount.findFirst({
+    where: { tenantId, rut: original.receiverRut },
+    select: { id: true, address: true, commune: true, city: true, giro: true },
+  });
+  return {
+    referenceFolio: original.folio,
+    reason,
+    input: {
+      dteType: noteType,
+      receiverRut: original.receiverRut,
+      receiverName: original.receiverName,
+      receiverGiro: accountFull?.giro ?? null,
+      receiverDireccion: accountFull?.address ?? null,
+      receiverComuna: accountFull?.commune ?? null,
+      receiverCiudad: accountFull?.city ?? null,
+      crmAccountId: accountFull?.id ?? null,
+      currency: "CLP",
+      lines,
+      notes: null,
+      reference: {
+        docId: original.id,
+        type: original.dteType,
+        folio: original.folio,
+        date: original.date.toISOString().slice(0, 10),
+        code: noteType === 61 ? referenceCode : (1 as 1),
+        reason,
+      },
+    } as unknown as DraftDteInput,
+  };
+}
+
 async function toolCreateCreditNoteDraft(
   tenantId: string,
   userId: string,
@@ -3424,13 +3578,29 @@ async function toolCreateCreditNoteDraft(
     return { ok: false, error: "No tienes permiso para crear notas de crédito." };
   }
   const token = typeof args.previewToken === "string" ? args.previewToken : "";
-  if (!token) return { ok: false, error: "Falta previewToken. Llama primero preview_credit_note_draft." };
-  const payload = consumePreview(token, tenantId, userId, "create_credit_note_draft");
-  if (!payload) {
-    return { ok: false, error: "El previewToken no existe o expiró. Vuelve a llamar preview_credit_note_draft." };
+  let draftInput: DraftDteInput | null = null;
+  let referenceFolio: number | null = null;
+  let reason = "";
+  if (token) {
+    const payload = consumePreview(token, tenantId, userId, "create_credit_note_draft");
+    if (payload) {
+      draftInput = payload.args as unknown as DraftDteInput;
+      referenceFolio = (payload.computed.referenceFolio as number) ?? null;
+      reason = (payload.computed.reason as string) ?? "";
+    }
+  }
+  if (!draftInput) {
+    try {
+      const built = await buildNcNdDraftInputFromArgs(tenantId, args, 61);
+      draftInput = built.input;
+      referenceFolio = built.referenceFolio;
+      reason = built.reason;
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : "Faltan datos para crear la NC." };
+    }
   }
   try {
-    const draft = await createDraftDte(tenantId, userId, payload.args as unknown as DraftDteInput);
+    const draft = await createDraftDte(tenantId, userId, draftInput);
     await logAiAction({
       tenantId, userId, toolName: "create_credit_note_draft", args,
       status: "success", resultEntityId: draft.id, resultEntityType: "finance_dte_credit_note",
@@ -3441,14 +3611,15 @@ async function toolCreateCreditNoteDraft(
       data: {
         id: draft.id,
         entityType: "finance_dte_credit_note",
-        name: `NC borrador para Factura #${payload.computed.referenceFolio}`,
+        name: `NC borrador para Factura #${referenceFolio}`,
         dteType: 61,
         dteTypeLabel: "Nota de crédito",
         folio: draft.folio,
+        code: draft.code,
         receiverRut: draft.receiverRut,
         receiverName: draft.receiverName,
-        referenceFolio: payload.computed.referenceFolio,
-        reason: payload.computed.reason,
+        referenceFolio,
+        reason,
         netAmount: Number(draft.netAmount),
         taxAmount: Number(draft.taxAmount),
         totalAmount: Number(draft.totalAmount),
@@ -3606,13 +3777,29 @@ async function toolCreateDebitNoteDraft(
     return { ok: false, error: "No tienes permiso para crear notas de débito." };
   }
   const token = typeof args.previewToken === "string" ? args.previewToken : "";
-  if (!token) return { ok: false, error: "Falta previewToken. Llama primero preview_debit_note_draft." };
-  const payload = consumePreview(token, tenantId, userId, "create_debit_note_draft");
-  if (!payload) {
-    return { ok: false, error: "El previewToken no existe o expiró. Vuelve a llamar preview_debit_note_draft." };
+  let draftInput: DraftDteInput | null = null;
+  let referenceFolio: number | null = null;
+  let reason = "";
+  if (token) {
+    const payload = consumePreview(token, tenantId, userId, "create_debit_note_draft");
+    if (payload) {
+      draftInput = payload.args as unknown as DraftDteInput;
+      referenceFolio = (payload.computed.referenceFolio as number) ?? null;
+      reason = (payload.computed.reason as string) ?? "";
+    }
+  }
+  if (!draftInput) {
+    try {
+      const built = await buildNcNdDraftInputFromArgs(tenantId, args, 56);
+      draftInput = built.input;
+      referenceFolio = built.referenceFolio;
+      reason = built.reason;
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : "Faltan datos para crear la ND." };
+    }
   }
   try {
-    const draft = await createDraftDte(tenantId, userId, payload.args as unknown as DraftDteInput);
+    const draft = await createDraftDte(tenantId, userId, draftInput);
     await logAiAction({
       tenantId, userId, toolName: "create_debit_note_draft", args,
       status: "success", resultEntityId: draft.id, resultEntityType: "finance_dte_debit_note",
@@ -3623,14 +3810,15 @@ async function toolCreateDebitNoteDraft(
       data: {
         id: draft.id,
         entityType: "finance_dte_debit_note",
-        name: `ND borrador para Factura #${payload.computed.referenceFolio}`,
+        name: `ND borrador para Factura #${referenceFolio}`,
         dteType: 56,
         dteTypeLabel: "Nota de débito",
         folio: draft.folio,
+        code: draft.code,
         receiverRut: draft.receiverRut,
         receiverName: draft.receiverName,
-        referenceFolio: payload.computed.referenceFolio,
-        reason: payload.computed.reason,
+        referenceFolio,
+        reason,
         netAmount: Number(draft.netAmount),
         taxAmount: Number(draft.taxAmount),
         totalAmount: Number(draft.totalAmount),
@@ -4032,6 +4220,20 @@ async function toolSearchDtes(tenantId: string, args: Record<string, unknown>) {
     const orClauses: Prisma.FinanceDteWhereInput[] = [
       { receiverName: { contains: search, mode: "insensitive" } },
       { receiverRut: { contains: rutNeedle, mode: "insensitive" } },
+      // Match DTEs by linked CRM account name (fantasy/comercial) or legalName
+      // (razón social). Esto permite que el usuario escriba "Ametel" (nombre
+      // de fantasía en CRM) y encuentre facturas cuyo receiverName es la
+      // razón social ("ANDALUZA DE MONTAJES ELECTRICOS").
+      {
+        crmAccount: {
+          is: {
+            OR: [
+              { name: { contains: search, mode: "insensitive" } },
+              { legalName: { contains: search, mode: "insensitive" } },
+            ],
+          },
+        },
+      },
     ];
     if (/^\d+$/.test(search)) {
       const folioNum = parseInt(search, 10);
@@ -4061,6 +4263,7 @@ async function toolSearchDtes(tenantId: string, args: Record<string, unknown>) {
       id: true, folio: true, dteType: true, date: true,
       receiverRut: true, receiverName: true, totalAmount: true,
       siiStatus: true, paymentStatus: true, currency: true,
+      crmAccount: { select: { id: true, name: true, legalName: true } },
     },
   });
 
@@ -4072,6 +4275,7 @@ async function toolSearchDtes(tenantId: string, args: Record<string, unknown>) {
     date: d.date,
     receiverRut: d.receiverRut,
     receiverName: d.receiverName,
+    accountName: d.crmAccount?.name ?? null,
     totalAmount: Number(d.totalAmount),
     currency: d.currency,
     siiStatus: d.siiStatus,
