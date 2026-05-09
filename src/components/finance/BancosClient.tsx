@@ -29,6 +29,7 @@ import { PaginationControls } from "./PaginationControls";
 import { BankBalanceSheet } from "./BankBalanceSheet";
 import { BankRulesClient } from "./BankRulesClient";
 import { BankTxReconcileSheet } from "./BankTxReconcileSheet";
+import { BankAnalysisClient } from "./BankAnalysisClient";
 import {
   Landmark,
   ArrowLeftRight,
@@ -47,6 +48,7 @@ import {
   EyeOff,
   RotateCcw,
   Settings2,
+  BarChart3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -97,6 +99,7 @@ interface TransactionRow {
 const TABS = [
   { id: "accounts", label: "Cuentas Bancarias", icon: Landmark },
   { id: "transactions", label: "Movimientos", icon: ArrowLeftRight },
+  { id: "analysis", label: "Análisis", icon: BarChart3 },
   { id: "rules", label: "Reglas", icon: Settings2 },
   { id: "import", label: "Importar Cartola", icon: Upload },
 ] as const;
@@ -199,6 +202,15 @@ export function BancosClient({ accounts, accountPlans, canManage }: Props) {
           accounts={accounts}
           canManage={canManage}
           accountPlans={accountPlans}
+        />
+      )}
+      {activeTab === "analysis" && (
+        <BankAnalysisClient
+          accounts={accounts.map((a) => ({
+            id: a.id,
+            bankName: a.bankName,
+            accountNumber: a.accountNumber,
+          }))}
         />
       )}
       {activeTab === "rules" && (
