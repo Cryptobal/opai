@@ -92,15 +92,15 @@ export async function findDteCandidates(
       tenantId,
       direction,
       paymentStatus: { in: ["UNPAID", "PARTIAL", "OVERDUE"] },
-      issuedAt: { gte: minDate, lte: maxDate },
+      date: { gte: minDate, lte: maxDate },
       amountPending: { gt: 0 },
       // Filtro amplio por monto pendiente cercano
       OR: [
         { amountPending: { gte: minAmount, lte: maxAmount } },
-        { total: { gte: minAmount, lte: maxAmount } },
+        { totalAmount: { gte: minAmount, lte: maxAmount } },
       ],
     },
-    orderBy: { issuedAt: "desc" },
+    orderBy: { date: "desc" },
     take: 50,
   });
 
@@ -113,10 +113,10 @@ export async function findDteCandidates(
     receiverName: d.receiverName ?? "",
     receiverRut: d.receiverRut ?? null,
     issuerRut: d.issuerRut ?? null,
-    total: d.total.toNumber(),
+    total: d.totalAmount.toNumber(),
     amountPaid: d.amountPaid.toNumber(),
     amountPending: d.amountPending.toNumber(),
-    issuedAt: d.issuedAt.toISOString(),
+    issuedAt: d.date.toISOString(),
     paymentStatus: d.paymentStatus,
   }));
 }

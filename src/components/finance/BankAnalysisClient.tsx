@@ -352,7 +352,7 @@ export function BankAnalysisClient({ accounts }: BankAnalysisClientProps) {
                         <span className="text-sm">{g.label}</span>
                       </td>
                       <td className="px-3 py-2.5 text-right font-mono text-xs text-muted-foreground">
-                        {g.count}
+                        {g.count.toLocaleString("es-CL")}
                       </td>
                       <td className="px-3 py-2.5 text-right font-mono text-xs text-status-ok-fg hidden md:table-cell">
                         {g.totalIncome > 0 ? fmtCLP.format(g.totalIncome) : "—"}

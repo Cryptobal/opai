@@ -38,7 +38,7 @@ export default async function BancosPage() {
 
   const accountPlans = await prisma.financeAccountPlan.findMany({
     where: { tenantId, isActive: true, acceptsEntries: true },
-    select: { id: true, code: true, name: true },
+    select: { id: true, code: true, name: true, type: true },
     orderBy: { code: "asc" },
   });
 

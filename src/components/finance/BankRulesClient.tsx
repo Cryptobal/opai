@@ -9,7 +9,7 @@
  * desde el endpoint manual de auto-match.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { toast } from "sonner";
@@ -25,6 +25,8 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  SelectGroup,
+  SelectLabel,
 } from "@/components/ui/select";
 import {
   Sheet,
@@ -96,6 +98,47 @@ interface AccountPlanOption {
   id: string;
   code: string;
   name: string;
+  /** Tipo contable: ASSET, LIABILITY, EQUITY, REVENUE, COST, EXPENSE. */
+  type?: string;
+}
+
+const ACCOUNT_TYPE_LABEL: Record<string, string> = {
+  EXPENSE: "Gastos",
+  COST: "Costos",
+  REVENUE: "Ingresos",
+  ASSET: "Activos",
+  LIABILITY: "Pasivos",
+  EQUITY: "Patrimonio",
+};
+
+function groupAccounts(
+  plans: AccountPlanOption[]
+): { type: string; label: string; items: AccountPlanOption[] }[] {
+  const buckets = new Map<string, AccountPlanOption[]>();
+  for (const p of plans) {
+    const t = p.type ?? "OTHER";
+    if (!buckets.has(t)) buckets.set(t, []);
+    buckets.get(t)!.push(p);
+  }
+  const order = [
+    "EXPENSE",
+    "COST",
+    "REVENUE",
+    "ASSET",
+    "LIABILITY",
+    "EQUITY",
+    "OTHER",
+  ];
+  return order
+    .filter((t) => buckets.has(t))
+    .map((t) => ({
+      type: t,
+      label: ACCOUNT_TYPE_LABEL[t] ?? "Otros",
+      items: buckets
+        .get(t)!
+        .slice()
+        .sort((a, b) => a.code.localeCompare(b.code)),
+    }));
 }
 
 interface BankRulesClientProps {
@@ -542,10 +585,6 @@ function RuleEditorSheet({
     }
   };
 
-  const accountPlanOptions = useMemo(
-    () => accountPlans.map((a) => ({ id: a.id, label: `${a.code} ${a.name}` })),
-    [accountPlans]
-  );
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -705,14 +744,21 @@ function RuleEditorSheet({
                   }))
                 }
               >
-                <SelectTrigger className="h-9">
+                <SelectTrigger className="h-10 sm:h-9">
                   <SelectValue placeholder="Seleccionar cuenta" />
                 </SelectTrigger>
                 <SelectContent className="max-h-72">
-                  {accountPlanOptions.map((o) => (
-                    <SelectItem key={o.id} value={o.id}>
-                      {o.label}
-                    </SelectItem>
+                  {groupAccounts(accountPlans).map((g) => (
+                    <SelectGroup key={g.type}>
+                      <SelectLabel className="text-[11px] font-mono uppercase tracking-[0.08em] text-muted-foreground">
+                        {g.label}
+                      </SelectLabel>
+                      {g.items.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.code} {p.name}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
                   ))}
                 </SelectContent>
               </Select>
@@ -772,7 +818,7 @@ function RuleEditorSheet({
                   <span className="font-medium text-status-ok-fg">
                     {previewResult.wouldMatch}
                   </span>{" "}
-                  de {previewResult.totalScanned} mov.
+                  de {previewResult.totalScanned.toLocaleString("es-CL")} mov.
                 </p>
                 {previewResult.sample.length > 0 && (
                   <ul className="text-xs text-muted-foreground space-y-0.5 mt-2">
@@ -833,11 +879,23 @@ function ConditionEditor({
     (condition.operator === "EQUALS" && condition.field === "AMOUNT");
 
   return (
-    <div className="grid grid-cols-12 gap-2 items-start">
-      <span className="col-span-1 pt-2 text-xs text-muted-foreground font-mono">
-        {index + 1}
-      </span>
-      <div className="col-span-3">
+    <div className="rounded-md border border-border bg-card p-2.5 sm:p-0 sm:bg-transparent sm:border-0 sm:grid sm:grid-cols-12 sm:gap-2 sm:items-start space-y-2 sm:space-y-0">
+      <div className="flex items-center justify-between sm:col-span-1 sm:pt-2">
+        <span className="text-xs text-muted-foreground font-mono">
+          Criterio {index + 1}
+        </span>
+        {onRemove && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="sm:hidden h-7 w-7 p-0"
+            onClick={onRemove}
+          >
+            <Trash2 className="h-3.5 w-3.5 text-destructive" />
+          </Button>
+        )}
+      </div>
+      <div className="sm:col-span-3">
         <Select
           value={condition.field}
           onValueChange={(v) => {
@@ -850,7 +908,7 @@ function ConditionEditor({
             onChange({ field: newField, operator: newOp, value: "" });
           }}
         >
-          <SelectTrigger className="h-9 text-sm">
+          <SelectTrigger className="h-10 sm:h-9 text-sm">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -862,12 +920,12 @@ function ConditionEditor({
           </SelectContent>
         </Select>
       </div>
-      <div className="col-span-3">
+      <div className="sm:col-span-3">
         <Select
           value={condition.operator}
           onValueChange={(v) => onChange({ operator: v as RuleOperator })}
         >
-          <SelectTrigger className="h-9 text-sm">
+          <SelectTrigger className="h-10 sm:h-9 text-sm">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -879,10 +937,10 @@ function ConditionEditor({
           </SelectContent>
         </Select>
       </div>
-      <div className="col-span-4">
+      <div className="sm:col-span-4">
         {needsValue && (
           <Input
-            className="h-9 text-sm"
+            className="h-10 sm:h-9 text-sm"
             type={isAmount ? "number" : "text"}
             value={
               typeof condition.value === "string" ||
@@ -905,7 +963,7 @@ function ConditionEditor({
         {isAmountBetween && (
           <div className="flex items-center gap-1">
             <Input
-              className="h-9 text-sm"
+              className="h-10 sm:h-9 text-sm"
               type="number"
               placeholder="min"
               value={
@@ -923,7 +981,7 @@ function ConditionEditor({
             />
             <span className="text-xs text-muted-foreground">y</span>
             <Input
-              className="h-9 text-sm"
+              className="h-10 sm:h-9 text-sm"
               type="number"
               placeholder="max"
               value={
@@ -942,7 +1000,7 @@ function ConditionEditor({
           </div>
         )}
       </div>
-      <div className="col-span-1 flex justify-end pt-1">
+      <div className="hidden sm:flex sm:col-span-1 sm:justify-end sm:pt-1">
         {onRemove && (
           <Button variant="ghost" size="sm" onClick={onRemove}>
             <Trash2 className="h-3.5 w-3.5 text-destructive" />

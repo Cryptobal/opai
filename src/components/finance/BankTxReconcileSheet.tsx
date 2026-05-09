@@ -37,6 +37,8 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  SelectGroup,
+  SelectLabel,
 } from "@/components/ui/select";
 import {
   Loader2,
@@ -45,6 +47,8 @@ import {
   Trash2,
   Layers,
   Receipt,
+  Search,
+  Filter,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -96,6 +100,47 @@ interface AccountPlanOption {
   id: string;
   code: string;
   name: string;
+  /** Tipo contable. */
+  type?: string;
+}
+
+const ACCOUNT_TYPE_LABEL: Record<string, string> = {
+  EXPENSE: "Gastos",
+  COST: "Costos",
+  REVENUE: "Ingresos",
+  ASSET: "Activos",
+  LIABILITY: "Pasivos",
+  EQUITY: "Patrimonio",
+};
+
+/**
+ * Para egresos priorizamos gastos/costos arriba; para ingresos los ingresos.
+ * El resto se ordena alfabéticamente.
+ */
+function groupAccounts(
+  plans: AccountPlanOption[],
+  amountSign: "income" | "expense"
+): { type: string; label: string; items: AccountPlanOption[] }[] {
+  const buckets = new Map<string, AccountPlanOption[]>();
+  for (const p of plans) {
+    const t = p.type ?? "OTHER";
+    if (!buckets.has(t)) buckets.set(t, []);
+    buckets.get(t)!.push(p);
+  }
+  const order: string[] =
+    amountSign === "income"
+      ? ["REVENUE", "ASSET", "LIABILITY", "EQUITY", "COST", "EXPENSE", "OTHER"]
+      : ["EXPENSE", "COST", "ASSET", "LIABILITY", "EQUITY", "REVENUE", "OTHER"];
+  return order
+    .filter((t) => buckets.has(t))
+    .map((t) => ({
+      type: t,
+      label: ACCOUNT_TYPE_LABEL[t] ?? "Otros",
+      items: buckets
+        .get(t)!
+        .slice()
+        .sort((a, b) => a.code.localeCompare(b.code)),
+    }));
 }
 
 interface BankTxReconcileSheetProps {
@@ -122,12 +167,21 @@ export function BankTxReconcileSheet({
   const [tab, setTab] = useState<"compare" | "manual">("compare");
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [loadingCandidates, setLoadingCandidates] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  // Filtros del tab "Comparar transacciones" (estilo Zoho)
+  const [filterText, setFilterText] = useState("");
+  const [filterMinAmount, setFilterMinAmount] = useState("");
+  const [filterMaxAmount, setFilterMaxAmount] = useState("");
+  const [filterDateFrom, setFilterDateFrom] = useState("");
+  const [filterDateTo, setFilterDateTo] = useState("");
+  const [filterDirection, setFilterDirection] = useState<"all" | "ISSUED" | "RECEIVED">("all");
   const [links, setLinks] = useState<LocalLink[]>([]);
   const [saving, setSaving] = useState(false);
   // Form de "categorizar manual"
   const [manualAccountId, setManualAccountId] = useState<string>("");
   const [manualAmount, setManualAmount] = useState<string>("");
   const [manualNote, setManualNote] = useState("");
+  const [manualDate, setManualDate] = useState<string>("");
   // Cuenta contable de "resto" cuando la suma de DTEs no cubre el total
   const [restAccountId, setRestAccountId] = useState<string>("");
   const [restNote, setRestNote] = useState("");
@@ -163,11 +217,66 @@ export function BankTxReconcileSheet({
       setManualAccountId("");
       setManualAmount(String(Math.abs(tx.amount)));
       setManualNote("");
+      setManualDate(tx.transactionDate.slice(0, 10));
       setRestAccountId("");
       setRestNote("");
+      setFilterText("");
+      setFilterMinAmount("");
+      setFilterMaxAmount("");
+      setFilterDateFrom("");
+      setFilterDateTo("");
+      setFilterDirection("all");
+      setShowFilters(false);
       loadCandidates();
     }
   }, [open, tx, loadCandidates]);
+
+  // Filtrado client-side de los candidatos según los filtros del usuario.
+  // El endpoint trae sugerencias por monto cercano + fecha; los filtros
+  // permiten al usuario afinar (ej. ver solo emitidos, expandir el rango).
+  const filteredCandidates = useMemo(() => {
+    return candidates.filter((c) => {
+      if (filterDirection !== "all" && c.direction !== filterDirection)
+        return false;
+      if (filterText.trim()) {
+        const q = filterText.trim().toLowerCase();
+        const txt = [
+          c.documentType,
+          String(c.folio ?? ""),
+          c.issuerName,
+          c.receiverName,
+          c.issuerRut ?? "",
+          c.receiverRut ?? "",
+        ]
+          .join(" ")
+          .toLowerCase();
+        if (!txt.includes(q)) return false;
+      }
+      if (filterMinAmount) {
+        const min = Number(filterMinAmount);
+        if (Number.isFinite(min) && c.amountPending < min) return false;
+      }
+      if (filterMaxAmount) {
+        const max = Number(filterMaxAmount);
+        if (Number.isFinite(max) && c.amountPending > max) return false;
+      }
+      if (filterDateFrom) {
+        if (c.issuedAt.slice(0, 10) < filterDateFrom) return false;
+      }
+      if (filterDateTo) {
+        if (c.issuedAt.slice(0, 10) > filterDateTo) return false;
+      }
+      return true;
+    });
+  }, [
+    candidates,
+    filterText,
+    filterMinAmount,
+    filterMaxAmount,
+    filterDateFrom,
+    filterDateTo,
+    filterDirection,
+  ]);
 
   const toggleCandidate = (c: Candidate) => {
     const isLinked = links.some((l) => l.key === c.id);
@@ -216,6 +325,10 @@ export function BankTxReconcileSheet({
     if (!tx) return;
     const isIncome = tx.amount > 0;
     const account = accountPlans.find((a) => a.id === manualAccountId);
+    const noteWithDate =
+      manualDate && manualDate !== tx.transactionDate.slice(0, 10)
+        ? `${manualNote.trim() ? manualNote.trim() + " · " : ""}Fecha: ${manualDate}`
+        : manualNote.trim() || null;
     setLinks((prev) => [
       ...prev,
       {
@@ -224,7 +337,7 @@ export function BankTxReconcileSheet({
         targetId: null,
         amount: amt,
         accountPlanId: manualAccountId,
-        note: manualNote.trim() || null,
+        note: noteWithDate,
         label: `${isIncome ? "Ingreso manual" : "Gasto manual"}: ${account?.code ?? ""} ${account?.name ?? ""}`,
       },
     ]);
@@ -298,37 +411,36 @@ export function BankTxReconcileSheet({
       <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
         <SheetHeader>
           <SheetTitle>Conciliar movimiento</SheetTitle>
-          <SheetDescription>
-            <div className="mt-2 rounded-lg border border-border bg-muted/30 p-3 text-sm space-y-1">
-              <div className="flex items-center justify-between gap-2 flex-wrap">
-                <span className="text-foreground font-medium">
-                  {tx.description}
-                </span>
-                <span
-                  className={cn(
-                    "font-mono font-semibold",
-                    tx.amount >= 0
-                      ? "text-status-ok-fg"
-                      : "text-status-danger-fg"
-                  )}
-                >
-                  {fmtCLP.format(tx.amount)}
-                </span>
-              </div>
-              <div className="text-xs text-muted-foreground">
-                {format(new Date(tx.transactionDate), "dd MMM yyyy", {
-                  locale: es,
-                })}
-                {tx.reference && (
-                  <>
-                    {" · "}
-                    <span className="font-mono">{tx.reference}</span>
-                  </>
-                )}
-              </div>
-            </div>
-          </SheetDescription>
         </SheetHeader>
+        {/* Preview de la tx — fuera de SheetDescription para no romper la
+            regla de DOM (DialogDescription es <p>; los <div> internos
+            disparaban hydration warning). */}
+        <div className="mt-3 rounded-lg border border-border bg-muted/30 p-3 text-sm space-y-1">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <span className="text-foreground font-medium">{tx.description}</span>
+            <span
+              className={cn(
+                "font-mono font-semibold",
+                tx.amount >= 0
+                  ? "text-status-ok-fg"
+                  : "text-status-danger-fg"
+              )}
+            >
+              {fmtCLP.format(tx.amount)}
+            </span>
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {format(new Date(tx.transactionDate), "dd MMM yyyy", {
+              locale: es,
+            })}
+            {tx.reference && (
+              <>
+                {" · "}
+                <span className="font-mono">{tx.reference}</span>
+              </>
+            )}
+          </div>
+        </div>
 
         {/* Tabs */}
         <div className="mt-4 border-b border-border">
@@ -366,21 +478,96 @@ export function BankTxReconcileSheet({
         {tab === "compare" && (
           <div className="mt-4 space-y-4">
             <div>
-              <p className="text-xs font-mono uppercase tracking-[0.08em] text-muted-foreground mb-2">
-                Coincidencias posibles
-              </p>
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <p className="text-xs font-mono uppercase tracking-[0.08em] text-muted-foreground">
+                  Coincidencias posibles
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => setShowFilters((v) => !v)}
+                >
+                  <Filter className="h-3 w-3 mr-1" />
+                  {showFilters ? "Ocultar filtros" : "Filtrar"}
+                </Button>
+              </div>
+
+              {showFilters && (
+                <div className="rounded-lg border border-border bg-muted/30 p-3 mb-3 space-y-2.5">
+                  <div className="relative">
+                    <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      placeholder="Buscar por contraparte, RUT, folio…"
+                      value={filterText}
+                      onChange={(e) => setFilterText(e.target.value)}
+                      className="h-9 pl-8 text-sm"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      type="number"
+                      placeholder="Monto desde"
+                      value={filterMinAmount}
+                      onChange={(e) => setFilterMinAmount(e.target.value)}
+                      className="h-9 text-sm"
+                    />
+                    <Input
+                      type="number"
+                      placeholder="Monto hasta"
+                      value={filterMaxAmount}
+                      onChange={(e) => setFilterMaxAmount(e.target.value)}
+                      className="h-9 text-sm"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      type="date"
+                      value={filterDateFrom}
+                      onChange={(e) => setFilterDateFrom(e.target.value)}
+                      className="h-9 text-sm"
+                    />
+                    <Input
+                      type="date"
+                      value={filterDateTo}
+                      onChange={(e) => setFilterDateTo(e.target.value)}
+                      className="h-9 text-sm"
+                    />
+                  </div>
+                  <Select
+                    value={filterDirection}
+                    onValueChange={(v) =>
+                      setFilterDirection(v as "all" | "ISSUED" | "RECEIVED")
+                    }
+                  >
+                    <SelectTrigger className="h-9 text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos los tipos</SelectItem>
+                      <SelectItem value="ISSUED">Solo ventas</SelectItem>
+                      <SelectItem value="RECEIVED">Solo compras</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {filteredCandidates.length} de {candidates.length} candidatos
+                  </p>
+                </div>
+              )}
+
               {loadingCandidates ? (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                 </div>
-              ) : candidates.length === 0 ? (
+              ) : filteredCandidates.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-4">
-                  No se encontraron facturas candidatas. Probá con
-                  &ldquo;Categorizar manual&rdquo; o ajustá la fecha.
+                  {candidates.length === 0
+                    ? "No se encontraron facturas candidatas. Probá con “Categorizar manual” o ajustá la fecha."
+                    : "Ninguno de los candidatos coincide con tus filtros. Limpiá los filtros para ver todos."}
                 </p>
               ) : (
                 <ul className="space-y-2">
-                  {candidates.map((c) => {
+                  {filteredCandidates.map((c) => {
                     const selected = links.some((l) => l.key === c.id);
                     return (
                       <li
@@ -525,14 +712,24 @@ export function BankTxReconcileSheet({
                       value={restAccountId}
                       onValueChange={setRestAccountId}
                     >
-                      <SelectTrigger className="h-9">
+                      <SelectTrigger className="h-10 sm:h-9">
                         <SelectValue placeholder="Cuenta contable para el resto" />
                       </SelectTrigger>
-                      <SelectContent className="max-h-64">
-                        {accountPlans.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>
-                            {p.code} {p.name}
-                          </SelectItem>
+                      <SelectContent className="max-h-72">
+                        {groupAccounts(
+                          accountPlans,
+                          tx && tx.amount > 0 ? "income" : "expense"
+                        ).map((g) => (
+                          <SelectGroup key={g.type}>
+                            <SelectLabel className="text-[11px] font-mono uppercase tracking-[0.08em] text-muted-foreground">
+                              {g.label}
+                            </SelectLabel>
+                            {g.items.map((p) => (
+                              <SelectItem key={p.id} value={p.id}>
+                                {p.code} {p.name}
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
                         ))}
                       </SelectContent>
                     </Select>
@@ -561,27 +758,49 @@ export function BankTxReconcileSheet({
                 value={manualAccountId}
                 onValueChange={setManualAccountId}
               >
-                <SelectTrigger className="h-9">
+                <SelectTrigger className="h-10 sm:h-9">
                   <SelectValue placeholder="Seleccionar" />
                 </SelectTrigger>
-                <SelectContent className="max-h-64">
-                  {accountPlans.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.code} {p.name}
-                    </SelectItem>
+                <SelectContent className="max-h-72">
+                  {groupAccounts(
+                    accountPlans,
+                    tx && tx.amount > 0 ? "income" : "expense"
+                  ).map((g) => (
+                    <SelectGroup key={g.type}>
+                      <SelectLabel className="text-[11px] font-mono uppercase tracking-[0.08em] text-muted-foreground">
+                        {g.label}
+                      </SelectLabel>
+                      {g.items.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.code} {p.name}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="manual-amount">Monto *</Label>
-              <Input
-                id="manual-amount"
-                type="number"
-                value={manualAmount}
-                onChange={(e) => setManualAmount(e.target.value)}
-                className="font-mono"
-              />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="manual-date">Fecha *</Label>
+                <Input
+                  id="manual-date"
+                  type="date"
+                  value={manualDate}
+                  onChange={(e) => setManualDate(e.target.value)}
+                  className="h-10 sm:h-9"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="manual-amount">Monto *</Label>
+                <Input
+                  id="manual-amount"
+                  type="number"
+                  value={manualAmount}
+                  onChange={(e) => setManualAmount(e.target.value)}
+                  className="font-mono h-10 sm:h-9"
+                />
+              </div>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="manual-note">Nota</Label>
@@ -591,6 +810,7 @@ export function BankTxReconcileSheet({
                 onChange={(e) => setManualNote(e.target.value)}
                 placeholder="Ej. Comisión bancaria mensual"
                 maxLength={300}
+                className="h-10 sm:h-9"
               />
             </div>
             <Button onClick={handleAddManualLine} size="sm">

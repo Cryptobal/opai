@@ -74,6 +74,8 @@ interface AccountOption {
   id: string;
   code: string;
   name: string;
+  /** Tipo contable: ASSET, LIABILITY, EQUITY, REVENUE, COST, EXPENSE. */
+  type?: string;
 }
 
 interface Props {
@@ -97,10 +99,10 @@ interface TransactionRow {
 /* ── Constants ── */
 
 const TABS = [
-  { id: "accounts", label: "Cuentas Bancarias", icon: Landmark },
   { id: "transactions", label: "Movimientos", icon: ArrowLeftRight },
   { id: "analysis", label: "Análisis", icon: BarChart3 },
   { id: "rules", label: "Reglas", icon: Settings2 },
+  { id: "accounts", label: "Cuentas Bancarias", icon: Landmark },
   { id: "import", label: "Importar Cartola", icon: Upload },
 ] as const;
 
@@ -161,7 +163,7 @@ const EMPTY_FORM = {
 /* ── Component ── */
 
 export function BancosClient({ accounts, accountPlans, canManage }: Props) {
-  const [activeTab, setActiveTab] = useState<TabId>("accounts");
+  const [activeTab, setActiveTab] = useState<TabId>("transactions");
 
   return (
     <div className="space-y-4">
@@ -1578,12 +1580,18 @@ function ImportTab({
             <div className="rounded-md border border-status-ok-border bg-status-ok-soft p-3 text-sm space-y-1">
               <p>
                 Movimientos importados:{" "}
-                <span className="font-medium">{result.imported}</span>
-                <span className="text-muted-foreground"> de {result.total}</span>
+                <span className="font-medium">
+                  {result.imported.toLocaleString("es-CL")}
+                </span>
+                <span className="text-muted-foreground">
+                  {" "}
+                  de {result.total.toLocaleString("es-CL")}
+                </span>
               </p>
               {result.imported < result.total && (
                 <p className="text-xs text-muted-foreground">
-                  Omitidos {result.total - result.imported} (duplicados ya cargados)
+                  Omitidos {(result.total - result.imported).toLocaleString("es-CL")}{" "}
+                  (duplicados ya cargados)
                 </p>
               )}
               {(result.periodFrom || result.periodTo) && (
