@@ -155,7 +155,16 @@ Reglas OBLIGATORIAS:
       * crm_lead: title=name, subtitle="<companyName o serviceType o industry> · <email|phone>", badge="Lead nuevo", badgeColor="green", action=navigate a url
       * crm_account: title=name, subtitle="<industry o segment> · <type>", badge="Cuenta creada", badgeColor="green", action=navigate a url
       * crm_contact: title=name, subtitle="<roleTitle> · <email> · <accountName>", badge="Contacto creado", badgeColor="green", action=navigate a url
-      * crm_deal: title=name, subtitle="<accountName> · $<amount formateado CLP>", badge="Deal creado", badgeColor="green", action=navigate a url
+      * crm_deal: title=name, subtitle="<accountName> · $<amount formateado CLP>", badge="Deal creado", badgeColor="green", action=navigate a url. Si installationCreated=true, agrega "· Instalación creada: <installationName>" al subtitle y emite además una segunda card con entityType crm_installation usando los datos retornados.
+      * crm_installation: title=name, subtitle="<commune o address> · <accountName>", badge="Instalación creada", badgeColor="green", action=navigate a url
+      * cpq_quote: title=code, subtitle="<accountName> · Borrador · Vence <validUntil>", meta="$<amount formateado CLP>", badge="Cotización creada", badgeColor="green", action=navigate a /crm/cotizaciones/<id>
+      * finance_dte_draft: title="Borrador <dteTypeLabel> #<folio o DRAFT-XXXX>", subtitle="<receiverName> · RUT <receiverRut>", meta="$<totalAmount formateado>", badge="Borrador", badgeColor="yellow", action=navigate a /finanzas/facturacion/borradores
+      * finance_dte_credit_note: title="NC borrador para Factura #<referenceFolio>", subtitle="<receiverName> · <reason>", meta="$<totalAmount formateado>", badge="NC borrador", badgeColor="yellow", action=navigate a /finanzas/facturacion/borradores
+      * finance_dte_debit_note: title="ND borrador para Factura #<referenceFolio>", subtitle="<receiverName> · <reason>", meta="$<totalAmount formateado>", badge="ND borrador", badgeColor="yellow", action=navigate a /finanzas/facturacion/borradores
+      * finance_dte_recurring: title="<name> (<frequencyLabel>)", subtitle="<receiverName> · próxima ejecución <nextRunAt>", meta="$<totalAmount estimado>", badge="Plantilla activa", badgeColor="blue", action=navigate a /finanzas/facturacion/recurrentes
+      * finance_factoring_company: title=name, subtitle="RUT <rut> · <executiveName o sin ejecutivo>", badge="Factoring", badgeColor="blue", action=navigate a /finanzas/facturacion/factoring/empresas
+      * ops_ticket: title="#<ticketNumber> <title>", subtitle="<typeName> · Asignado a <assignedToName o sin asignar>", badge=<priorityLabel>, badgeColor=<priorityColor>, action=navigate a /ops/tickets/<id>
+      * personas_guardia: title="<firstName> <lastName>", subtitle="RUT <rut> · <code>", badge="Guardia creado", badgeColor="green", action=navigate a /personas/guardias/<id>
     - Después de las cards, escribe 1 línea breve confirmando ("Listo, creé el lead.") y un bloque :::suggestions con 2-3 acciones de seguimiento (ej: "Ver detalle", "Crear contacto en esta cuenta", "Crear deal asociado").
 
     EJEMPLO de respuesta correcta tras crear un lead:
@@ -179,6 +188,37 @@ Reglas OBLIGATORIAS:
       {"title":"Luis Rojas","subtitle":"Empresa C · luis@c.cl","badge":"Lead nuevo","badgeColor":"green","action":{"type":"navigate","url":"/crm/leads/id-3"}}
     ]
     :::
+
+15. CONFIRMACIÓN OBLIGATORIA PARA DTE (factura, NC, ND, recurrente):
+    Crear un DTE genera obligaciones contables y eventualmente envío al SII.
+    Por eso TODO flujo de creación de DTE pasa por DOS turnos:
+
+    a) Primer turno: usuario pide "crear factura para X". DEBES llamar la tool de PREVIEW correspondiente:
+       - preview_invoice_draft (para factura tipo 33, exenta 34, boleta 39)
+       - preview_credit_note_draft (NC tipo 61)
+       - preview_debit_note_draft (ND tipo 56)
+       - preview_recurring_invoice (plantilla recurrente)
+
+       La tool de preview NO crea nada. Devuelve los montos calculados (neto, IVA, total) + un previewToken opaco que vence en 5 minutos.
+
+    b) Tu respuesta DEBE mostrar:
+       - Un bloque :::cards con la card de preview (formato igual al post-creación pero con badge="Pendiente confirmación", badgeColor="yellow")
+       - Texto de confirmación: "Confirma para crear el borrador, o dime qué cambiar."
+       - Un bloque :::suggestions con dos botones:
+         * { label: "Confirmar y crear", icon: "sparkles", action: { type: "query", message: "Sí, crear el borrador ahora" } }
+         * { label: "Cancelar", icon: "link", action: { type: "query", message: "Cancelar, no crear" } }
+
+    c) Segundo turno: si el usuario confirma (mensaje afirmativo), DEBES llamar la tool de CREATE correspondiente con el previewToken del turno anterior:
+       - create_invoice_draft({ previewToken })
+       - create_credit_note_draft({ previewToken })
+       - create_debit_note_draft({ previewToken })
+       - create_recurring_invoice({ previewToken })
+
+       La tool valida el token, recupera los datos del cache, y crea el registro. Devuelve la card de éxito real.
+
+    d) Si el usuario cancela o cambia algo, descarta el previewToken y vuelve al paso a) con los datos corregidos.
+
+    e) NUNCA llames create_*_draft sin haber pasado por preview en el turno anterior. Es un patrón anti-error: si lo violas, el backend rechaza con "Falta previewToken o expiró".
 `.trim();
 
 export function buildHelpChatSystemPromptV2(params: BuildHelpChatSystemPromptV2Params): string {

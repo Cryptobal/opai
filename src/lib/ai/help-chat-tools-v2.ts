@@ -18,7 +18,23 @@ import {
   createAccountSchema,
   createContactSchema,
   createDealSchema,
+  createInstallationSchema,
 } from "@/lib/validations/crm";
+import {
+  resolveStageByName,
+  resolveOrCreateInstallation,
+  resolveAccountByRutOrName,
+  resolveDteByFolio,
+} from "@/lib/ai/help-chat-resolvers";
+import { storePreview, consumePreview } from "@/lib/ai/dte-preview-cache";
+import { computeDteAmounts } from "@/modules/finance/billing/dte-amounts.helper";
+import {
+  createDraftDte,
+  type DraftDteInput,
+} from "@/modules/finance/billing/dte-draft.service";
+import { hasFacturacionCapability, hasCapability, canView } from "@/lib/permissions";
+import { factoringCompanyInputSchema } from "@/lib/validations/factoring";
+import { createFactoringCompany } from "@/modules/finance/factoring/factoring-companies.service";
 import { toSentenceCase } from "@/lib/text-format";
 import { canEdit, type RolePermissions } from "@/lib/permissions";
 
@@ -414,6 +430,135 @@ function v2ToolDefinitions() {
         },
       },
     },
+    {
+      type: "function" as const,
+      function: {
+        name: "search_dtes",
+        description:
+          "Busca DTEs emitidos (facturas/boletas/NC/ND) por folio, RUT, nombre del cliente, monto exacto, rango de monto 'min-max', o período YYYY-MM. Devuelve lista paginada con datos clave (folio, fecha, receptor, monto, estado SII, estado de pago).",
+        parameters: {
+          type: "object",
+          properties: {
+            search: { type: "string", description: "Búsqueda fuzzy: folio, RUT, nombre o monto." },
+            periodo: { type: "string", description: "Formato YYYY-MM para filtrar por mes." },
+            status: { type: "string", enum: ["all", "draft", "issued"], description: "Default issued." },
+            accountId: { type: "string" },
+            installationId: { type: "string" },
+            limit: { type: "number", description: "Máximo 50, default 15." },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "get_dte_detail",
+        description:
+          "Obtiene el detalle completo de un DTE por folio o por id. Incluye sus notas de crédito y notas de débito asociadas (vía referencedBy). Útil para preguntas como '¿la factura 1234 tiene NC?', '¿cuándo se emitió la factura X?', '¿está pagada?'.",
+        parameters: {
+          type: "object",
+          properties: {
+            folio: { type: "number" },
+            dteId: { type: "string", description: "UUID alternativo a folio." },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "get_sales_report",
+        description:
+          "Reporte de ventas por cliente en un período. Retorna matriz mes×cliente con totales y subtotales. Útil para 'ventas por cliente en Q1', 'top clientes del año', 'ventas de Bauwerk en 2026'.",
+        parameters: {
+          type: "object",
+          properties: {
+            from: { type: "string", description: "Fecha inicio YYYY-MM-DD." },
+            to: { type: "string", description: "Fecha fin YYYY-MM-DD." },
+            periodLabel: { type: "string", description: "Etiqueta legible (ej: 'Q1 2026', 'Año 2026')." },
+            crmAccountIds: { type: "array", items: { type: "string" }, description: "Filtrar por accounts." },
+            installationIds: { type: "array", items: { type: "string" } },
+          },
+          required: ["from", "to"],
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "get_income_statement",
+        description:
+          "Estado de resultados (P&L) del período. Ingresos, costos, gastos, EBITDA, utilidad neta. Si withComparison=true, incluye comparación contra el período anterior.",
+        parameters: {
+          type: "object",
+          properties: {
+            from: { type: "string" },
+            to: { type: "string" },
+            withComparison: { type: "boolean" },
+          },
+          required: ["from", "to"],
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "get_balance_sheet",
+        description:
+          "Balance general a una fecha de corte. Activos, pasivos, patrimonio. Si withPriorMonth=true, incluye saldos del mes anterior para comparación.",
+        parameters: {
+          type: "object",
+          properties: {
+            asOf: { type: "string", description: "Fecha de corte YYYY-MM-DD." },
+            withPriorMonth: { type: "boolean" },
+          },
+          required: ["asOf"],
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "get_finance_dashboard_kpis",
+        description:
+          "KPIs financieros del período: ventas totales, IVA débito/crédito, % cobranza, días promedio de pago, margen.",
+        parameters: {
+          type: "object",
+          properties: {
+            from: { type: "string" },
+            to: { type: "string" },
+          },
+          required: ["from", "to"],
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "get_profitability",
+        description:
+          "Rentabilidad por cliente/instalación: ingresos − costos directos − gastos asignados = margen. opexAllocationMethod controla cómo se asignan los OpEx a cada cliente (default by_revenue).",
+        parameters: {
+          type: "object",
+          properties: {
+            from: { type: "string" },
+            to: { type: "string" },
+            opexAllocationMethod: {
+              type: "string",
+              enum: ["by_revenue", "by_invoices_count", "none"],
+            },
+          },
+          required: ["from", "to"],
+          additionalProperties: false,
+        },
+      },
+    },
   ];
 }
 
@@ -498,7 +643,7 @@ function writeToolDefinitions() {
       function: {
         name: "create_deal",
         description:
-          "Crea un nuevo deal/oportunidad de negocio asociado a una cuenta. Requiere accountId (UUID). Si el usuario solo dio el nombre de la cuenta, llama search_accounts primero. Sugiere title si el usuario no lo provee.",
+          "Crea un nuevo deal/oportunidad de negocio asociado a una cuenta. Requiere accountId (UUID). Si el usuario solo dio el nombre de la cuenta, llama search_accounts primero. Sugiere title si el usuario no lo provee. stageName: nombre de la etapa (ej 'Negociación', 'Propuesta') — la tool la resuelve a stageId. installationName: si lo das, vincula la instalación al deal; si no existe en este cliente, la crea automáticamente con status=prospect.",
         parameters: {
           type: "object",
           properties: {
@@ -507,8 +652,306 @@ function writeToolDefinitions() {
             amount: { type: "number", description: "Monto en CLP." },
             probability: { type: "number", description: "Probabilidad 0-100." },
             expectedCloseDate: { type: "string", description: "Fecha esperada de cierre (ISO YYYY-MM-DD)." },
+            stageName: { type: "string", description: "Nombre de la etapa (ej: 'Negociación', 'Propuesta'). Si no se da, usa la primera etapa activa." },
+            installationName: { type: "string", description: "Nombre de la instalación a vincular o crear. Si existe en este cliente, vincula; si no existe, la crea con status=prospect." },
+            installationAddress: { type: "string", description: "Dirección de la instalación (solo si installationName se va a crear)." },
+            installationCommune: { type: "string", description: "Comuna de la instalación (solo si installationName se va a crear)." },
           },
           required: ["accountId"],
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "create_quote",
+        description:
+          "Crea una cotización CPQ en estado borrador. Requiere accountId (busca con search_accounts si solo te dan nombre). Opcionalmente vincula a deal o instalación. La cotización se crea con sus 'includes' por defecto del catálogo CPQ. Genera código único CPQ-YYYY-NNN automáticamente.",
+        parameters: {
+          type: "object",
+          properties: {
+            accountId: { type: "string", description: "UUID de la cuenta. OBLIGATORIO." },
+            name: { type: "string", description: "Nombre descriptivo de la cotización." },
+            clientName: { type: "string", description: "Nombre del cliente para mostrar en el PDF (default: usa el nombre del account)." },
+            dealId: { type: "string", description: "UUID del deal a vincular (opcional)." },
+            installationId: { type: "string", description: "UUID de la instalación (opcional)." },
+            validUntil: { type: "string", description: "Fecha de vencimiento ISO YYYY-MM-DD (default: 90 días)." },
+            notes: { type: "string" },
+          },
+          required: ["accountId"],
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "create_installation",
+        description:
+          "Crea una nueva instalación CRM asociada a una cuenta. Requiere accountId (UUID) y name. Si el usuario solo dio el nombre del cliente, llama search_accounts/search_all primero. Status default 'prospect' (la activación viene cuando hay contrato firmado).",
+        parameters: {
+          type: "object",
+          properties: {
+            accountId: { type: "string", description: "UUID de la cuenta. OBTÉNLO con search_accounts si el usuario solo dio el nombre." },
+            name: { type: "string", description: "Nombre de la instalación. OBLIGATORIO." },
+            address: { type: "string" },
+            city: { type: "string" },
+            commune: { type: "string" },
+            status: { type: "string", enum: ["prospect", "active", "inactive"], description: "Default prospect." },
+            notes: { type: "string" },
+            teMontoClp: { type: "number", description: "Monto base de turnos extra en CLP." },
+          },
+          required: ["accountId", "name"],
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "preview_invoice_draft",
+        description:
+          "PASO 1 (obligatorio antes de crear). Calcula los montos de un borrador de factura SIN persistir nada. Devuelve neto, IVA, total + previewToken (vence en 5 min). Soporta factura tipo 33 (afecta), 34 (exenta) y boleta 39. Líneas con cantidad y precio unitario en CLP. El receptor se identifica por RUT, por nombre del cliente CRM (lo busca con resolveAccount) o por RUT+nombre explícitos.",
+        parameters: {
+          type: "object",
+          properties: {
+            dteType: { type: "number", enum: [33, 34, 39], description: "33=Factura afecta, 34=Factura exenta, 39=Boleta." },
+            receiverNameOrRut: { type: "string", description: "Nombre del cliente o RUT para resolver desde CRM." },
+            receiverRut: { type: "string", description: "RUT explícito del receptor (si no está en CRM)." },
+            receiverName: { type: "string", description: "Razón social explícita del receptor (si no está en CRM)." },
+            receiverEmail: { type: "string" },
+            installationId: { type: "string", description: "UUID instalación (cost center)." },
+            currency: { type: "string", enum: ["CLP", "UF"], description: "Default CLP." },
+            lines: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  itemName: { type: "string" },
+                  quantity: { type: "number" },
+                  unitPrice: { type: "number", description: "Precio unitario CLP (sin IVA si afecta, total si exento)." },
+                  isExempt: { type: "boolean" },
+                  discountPct: { type: "number" },
+                },
+                required: ["itemName", "quantity", "unitPrice"],
+              },
+              minItems: 1,
+            },
+            notes: { type: "string" },
+          },
+          required: ["dteType", "lines"],
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "create_invoice_draft",
+        description:
+          "PASO 2 (después de preview_invoice_draft Y confirmación del usuario). Crea el borrador de factura usando los datos del previewToken. La tool valida que el token exista y no haya expirado.",
+        parameters: {
+          type: "object",
+          properties: {
+            previewToken: { type: "string", description: "Token devuelto por preview_invoice_draft. OBLIGATORIO." },
+          },
+          required: ["previewToken"],
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "preview_credit_note_draft",
+        description:
+          "PASO 1 (obligatorio). Calcula montos de una NC borrador SIN persistir. La NC debe referenciar un DTE original (factura/boleta emitida). El usuario puede dar el folio de la factura (recomendado) o el ID. referenceCode: 1=anula totalmente, 2=corrige texto, 3=corrige montos.",
+        parameters: {
+          type: "object",
+          properties: {
+            referenceFolio: { type: "number", description: "Folio del DTE original. Si lo das, la tool lo resuelve." },
+            referenceDteId: { type: "string", description: "UUID del DTE original (alternativa a referenceFolio)." },
+            referenceCode: { type: "number", enum: [1, 2, 3], description: "1=anula, 2=corrige texto, 3=corrige montos. Default 1." },
+            reason: { type: "string", description: "Razón de la NC. OBLIGATORIA." },
+            lines: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  itemName: { type: "string" },
+                  quantity: { type: "number" },
+                  unitPrice: { type: "number" },
+                  isExempt: { type: "boolean" },
+                },
+                required: ["itemName", "quantity", "unitPrice"],
+              },
+              minItems: 1,
+              description: "Líneas de la NC. Si referenceCode=1 (anula), suelen ser idénticas a las del DTE original.",
+            },
+          },
+          required: ["reason", "lines"],
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "create_credit_note_draft",
+        description:
+          "PASO 2 (después de preview_credit_note_draft Y confirmación). Crea el borrador de NC usando el previewToken.",
+        parameters: {
+          type: "object",
+          properties: {
+            previewToken: { type: "string", description: "Token devuelto por preview_credit_note_draft." },
+          },
+          required: ["previewToken"],
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "preview_debit_note_draft",
+        description:
+          "PASO 1. Calcula montos de una ND (tipo 56) SIN persistir. Requiere referencia a DTE original (folio o ID) y razón. Útil para cobrar intereses por mora, recargos, o ampliación de monto.",
+        parameters: {
+          type: "object",
+          properties: {
+            referenceFolio: { type: "number" },
+            referenceDteId: { type: "string" },
+            reason: { type: "string", description: "Razón de la ND. OBLIGATORIA." },
+            lines: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  itemName: { type: "string" },
+                  quantity: { type: "number" },
+                  unitPrice: { type: "number" },
+                  isExempt: { type: "boolean" },
+                },
+                required: ["itemName", "quantity", "unitPrice"],
+              },
+              minItems: 1,
+            },
+          },
+          required: ["reason", "lines"],
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "create_debit_note_draft",
+        description:
+          "PASO 2 (después de preview_debit_note_draft Y confirmación). Crea el borrador de ND usando el previewToken.",
+        parameters: {
+          type: "object",
+          properties: {
+            previewToken: { type: "string" },
+          },
+          required: ["previewToken"],
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "preview_recurring_invoice",
+        description:
+          "PASO 1. Crea un PREVIEW (sin persistir) de plantilla de facturación recurrente. Calcula la primera fecha de ejecución y montos estimados. Solo soporta tipo 33 (afecta) y 34 (exenta). Frequency: 'monthly' (con dayOfMonth 1-31 o -1 para último), 'weekly'/'biweekly' (con dayOfWeek 0=Domingo..6=Sábado), 'yearly' (con monthOfYear 1-12 + dayOfMonth).",
+        parameters: {
+          type: "object",
+          properties: {
+            name: { type: "string", description: "Nombre interno de la plantilla. OBLIGATORIO." },
+            dteType: { type: "number", enum: [33, 34] },
+            receiverNameOrRut: { type: "string" },
+            receiverRut: { type: "string" },
+            receiverName: { type: "string" },
+            installationId: { type: "string" },
+            currency: { type: "string", enum: ["CLP", "UF"] },
+            frequency: { type: "string", enum: ["monthly", "biweekly", "weekly", "yearly"] },
+            dayOfMonth: { type: "number", description: "1-31 o -1 para último día (monthly/yearly)." },
+            dayOfWeek: { type: "number", description: "0=Domingo .. 6=Sábado (weekly/biweekly)." },
+            monthOfYear: { type: "number", description: "1-12 (yearly)." },
+            startDate: { type: "string", description: "YYYY-MM-DD. OBLIGATORIO." },
+            endDate: { type: "string", description: "YYYY-MM-DD opcional." },
+            ufFixingPolicy: {
+              type: "string",
+              enum: ["RUN_DAY", "LAST_DAY_PREV_MONTH", "FIRST_DAY_MONTH", "LAST_DAY_MONTH", "CUSTOM_DAY"],
+              description: "Solo si currency=UF. Default RUN_DAY.",
+            },
+            ufFixingDay: { type: "number", description: "Día 1-31 si ufFixingPolicy=CUSTOM_DAY." },
+            periodPolicy: {
+              type: "string",
+              enum: ["CURRENT_MONTH", "PREVIOUS_MONTH", "NEXT_MONTH"],
+              description: "Resolución del placeholder {{periodo}}. Default CURRENT_MONTH.",
+            },
+            lines: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  itemName: { type: "string" },
+                  quantity: { type: "number" },
+                  unitPrice: { type: "number" },
+                  unitPriceUf: { type: "number" },
+                  isExempt: { type: "boolean" },
+                  discountPct: { type: "number" },
+                },
+                required: ["itemName", "quantity"],
+              },
+              minItems: 1,
+            },
+            notes: { type: "string" },
+            autoSendEmail: { type: "boolean", description: "Default true." },
+          },
+          required: ["name", "dteType", "frequency", "startDate", "lines"],
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "create_recurring_invoice",
+        description:
+          "PASO 2 (después de preview_recurring_invoice Y confirmación). Crea la plantilla recurrente persistente usando el previewToken.",
+        parameters: {
+          type: "object",
+          properties: {
+            previewToken: { type: "string" },
+          },
+          required: ["previewToken"],
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "create_factoring_company",
+        description:
+          "Crea una empresa de factoring en el catálogo (sin preview, no genera DTEs). Requiere name (razón social) y rut. Falla con mensaje claro si ya existe una empresa con el mismo RUT.",
+        parameters: {
+          type: "object",
+          properties: {
+            name: { type: "string" },
+            rut: { type: "string" },
+            executiveName: { type: "string" },
+            executiveEmail: { type: "string" },
+            executivePhone: { type: "string" },
+            defaultAdvanceRate: { type: "number", description: "Tasa de anticipo % default (0-100)." },
+            defaultInterestRate: { type: "number", description: "Tasa de interés mensual % default (0-100)." },
+            defaultCommissionPct: { type: "number", description: "Comisión % default (0-100)." },
+            notes: { type: "string" },
+          },
+          required: ["name", "rut"],
           additionalProperties: false,
         },
       },
@@ -2124,20 +2567,68 @@ async function toolCreateDeal(
     await logAiAction({ tenantId, userId, toolName: "create_deal", args, status: "validation_error", errorMessage: "Cuenta no encontrada", startedAt: t0 });
     return { ok: false, error: "La cuenta indicada no existe o no pertenece a tu organización." };
   }
-  try {
-    let stageId = body.stageId;
-    if (!stageId) {
-      const firstStage = await prisma.crmPipelineStage.findFirst({
-        where: { tenantId, isActive: true },
-        orderBy: { order: "asc" },
-        select: { id: true },
-      });
-      if (!firstStage) {
-        await logAiAction({ tenantId, userId, toolName: "create_deal", args, status: "validation_error", errorMessage: "No hay pipeline configurado", startedAt: t0 });
-        return { ok: false, error: "No hay etapas de pipeline configuradas. Configura el pipeline antes de crear deals." };
+
+  let stageId = body.stageId;
+  let resolvedStageName: string | null = null;
+  if (!stageId && body.stageName) {
+    try {
+      const id = await resolveStageByName(tenantId, body.stageName);
+      if (!id) {
+        const stages = await prisma.crmPipelineStage.findMany({
+          where: { tenantId, isActive: true },
+          select: { name: true },
+          orderBy: { order: "asc" },
+          take: 10,
+        });
+        await logAiAction({ tenantId, userId, toolName: "create_deal", args, status: "validation_error", errorMessage: `Etapa "${body.stageName}" no existe`, startedAt: t0 });
+        return {
+          ok: false,
+          error: `Etapa "${body.stageName}" no existe. Etapas disponibles: ${stages.map(s => s.name).join(", ") || "(ninguna configurada)"}.`,
+        };
       }
-      stageId = firstStage.id;
+      stageId = id;
+      resolvedStageName = body.stageName;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Etapa ambigua";
+      await logAiAction({ tenantId, userId, toolName: "create_deal", args, status: "validation_error", errorMessage: msg, startedAt: t0 });
+      return { ok: false, error: msg };
     }
+  }
+  if (!stageId) {
+    const firstStage = await prisma.crmPipelineStage.findFirst({
+      where: { tenantId, isActive: true },
+      orderBy: { order: "asc" },
+      select: { id: true, name: true },
+    });
+    if (!firstStage) {
+      await logAiAction({ tenantId, userId, toolName: "create_deal", args, status: "validation_error", errorMessage: "No hay pipeline configurado", startedAt: t0 });
+      return { ok: false, error: "No hay etapas de pipeline configuradas. Configura el pipeline antes de crear deals." };
+    }
+    stageId = firstStage.id;
+    resolvedStageName = firstStage.name;
+  }
+
+  let installation: { id: string; name: string; created: boolean } | null = null;
+  if (body.installationName) {
+    try {
+      installation = await resolveOrCreateInstallation(
+        tenantId,
+        body.accountId,
+        body.installationName,
+        {
+          autoCreate: true,
+          address: body.installationAddress,
+          commune: body.installationCommune,
+        },
+      );
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Error al resolver instalación";
+      await logAiAction({ tenantId, userId, toolName: "create_deal", args, status: "validation_error", errorMessage: msg, startedAt: t0 });
+      return { ok: false, error: msg };
+    }
+  }
+
+  try {
     const deal = await prisma.crmDeal.create({
       data: {
         tenantId,
@@ -2163,6 +2654,10 @@ async function toolCreateDeal(
         probability: deal.probability,
         accountId: deal.accountId,
         accountName: account.name,
+        stageName: resolvedStageName,
+        installationId: installation?.id ?? null,
+        installationName: installation?.name ?? null,
+        installationCreated: installation?.created ?? false,
       },
     };
   } catch (e) {
@@ -2170,6 +2665,1658 @@ async function toolCreateDeal(
     await logAiAction({ tenantId, userId, toolName: "create_deal", args, status: "internal_error", errorMessage: msg, startedAt: t0 });
     return { ok: false, error: `No se pudo crear el deal: ${msg}` };
   }
+}
+
+async function toolCreateInstallation(
+  tenantId: string,
+  userId: string,
+  perms: RolePermissions,
+  args: Record<string, unknown>,
+): Promise<unknown> {
+  const t0 = Date.now();
+  if (!canEdit(perms, "crm", "installations")) {
+    await logAiAction({ tenantId, userId, toolName: "create_installation", args, status: "denied", errorMessage: "Sin permiso crm.installations.edit", startedAt: t0 });
+    return { ok: false, error: "No tienes permiso para crear instalaciones." };
+  }
+  const parsed = createInstallationSchema.safeParse(args);
+  if (!parsed.success) {
+    const msg = parsed.error.issues.map(i => `${i.path.join(".")}: ${i.message}`).join("; ");
+    await logAiAction({ tenantId, userId, toolName: "create_installation", args, status: "validation_error", errorMessage: msg, startedAt: t0 });
+    return { ok: false, error: `Datos inválidos: ${msg}` };
+  }
+  const body = parsed.data;
+
+  const account = await prisma.crmAccount.findFirst({
+    where: { id: body.accountId, tenantId },
+    select: { id: true, name: true, isActive: true },
+  });
+  if (!account) {
+    await logAiAction({ tenantId, userId, toolName: "create_installation", args, status: "validation_error", errorMessage: "Cuenta no encontrada", startedAt: t0 });
+    return { ok: false, error: "La cuenta indicada no existe o no pertenece a tu organización." };
+  }
+
+  const status = body.status ?? "prospect";
+  if (status === "active" && !account.isActive) {
+    await logAiAction({ tenantId, userId, toolName: "create_installation", args, status: "validation_error", errorMessage: "Cuenta inactiva", startedAt: t0 });
+    return { ok: false, error: "No puedes crear una instalación activa para una cuenta inactiva." };
+  }
+
+  const installationName = toSentenceCase(body.name) || body.name;
+  try {
+    const installation = await prisma.crmInstallation.create({
+      data: {
+        tenantId,
+        accountId: body.accountId,
+        name: installationName,
+        address: body.address ?? null,
+        city: body.city ?? null,
+        commune: body.commune ?? null,
+        lat: body.lat ?? null,
+        lng: body.lng ?? null,
+        status,
+        geoRadiusM: body.geoRadiusM ?? 1000,
+        teMontoClp: body.teMontoClp ?? 0,
+        notes: body.notes ?? null,
+        nocturnoEnabled: status === "active",
+        chatEnabled: status === "active",
+      },
+      select: {
+        id: true,
+        name: true,
+        address: true,
+        commune: true,
+        status: true,
+        accountId: true,
+      },
+    });
+
+    if (status === "active") {
+      await prisma.financeCostCenter.create({
+        data: {
+          tenantId,
+          name: installation.name,
+          installationId: installation.id,
+          accountId: installation.accountId ?? null,
+          active: true,
+        },
+      });
+    }
+
+    await logAiAction({
+      tenantId, userId, toolName: "create_installation", args,
+      status: "success",
+      resultEntityId: installation.id,
+      resultEntityType: "crm_installation",
+      startedAt: t0,
+    });
+
+    return {
+      ok: true,
+      data: {
+        id: installation.id,
+        entityType: "crm_installation",
+        name: installation.name,
+        url: `/crm/installations/${installation.id}`,
+        accountId: installation.accountId,
+        accountName: account.name,
+        commune: installation.commune,
+        address: installation.address,
+        status: installation.status,
+      },
+    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Error desconocido";
+    await logAiAction({ tenantId, userId, toolName: "create_installation", args, status: "internal_error", errorMessage: msg, startedAt: t0 });
+    return { ok: false, error: `No se pudo crear la instalación: ${msg}` };
+  }
+}
+
+async function toolCreateQuote(
+  tenantId: string,
+  userId: string,
+  perms: RolePermissions,
+  args: Record<string, unknown>,
+): Promise<unknown> {
+  const t0 = Date.now();
+  const canViaCrm = canEdit(perms, "crm", "quotes");
+  const canViaCpq = canEdit(perms, "cpq");
+  if (!canViaCrm && !canViaCpq) {
+    await logAiAction({ tenantId, userId, toolName: "create_quote", args, status: "denied", errorMessage: "Sin permiso crm.quotes/cpq", startedAt: t0 });
+    return { ok: false, error: "No tienes permiso para crear cotizaciones." };
+  }
+
+  const accountId = typeof args.accountId === "string" ? args.accountId.trim() : "";
+  if (!accountId) {
+    await logAiAction({ tenantId, userId, toolName: "create_quote", args, status: "validation_error", errorMessage: "Falta accountId", startedAt: t0 });
+    return { ok: false, error: "Falta accountId. Usa search_accounts para obtenerlo." };
+  }
+
+  const account = await prisma.crmAccount.findFirst({
+    where: { id: accountId, tenantId },
+    select: { id: true, name: true },
+  });
+  if (!account) {
+    await logAiAction({ tenantId, userId, toolName: "create_quote", args, status: "validation_error", errorMessage: "Cuenta no encontrada", startedAt: t0 });
+    return { ok: false, error: "La cuenta indicada no existe o no pertenece a tu organización." };
+  }
+
+  const dealId = typeof args.dealId === "string" && args.dealId.trim() ? args.dealId.trim() : null;
+  if (dealId) {
+    const dealExists = await prisma.crmDeal.findFirst({
+      where: { id: dealId, tenantId },
+      select: { id: true },
+    });
+    if (!dealExists) {
+      await logAiAction({ tenantId, userId, toolName: "create_quote", args, status: "validation_error", errorMessage: "Deal no encontrado", startedAt: t0 });
+      return { ok: false, error: "El deal indicado no existe o no pertenece a tu organización." };
+    }
+  }
+
+  const installationId =
+    typeof args.installationId === "string" && args.installationId.trim()
+      ? args.installationId.trim()
+      : null;
+  if (installationId) {
+    const inst = await prisma.crmInstallation.findFirst({
+      where: { id: installationId, tenantId },
+      select: { id: true },
+    });
+    if (!inst) {
+      await logAiAction({ tenantId, userId, toolName: "create_quote", args, status: "validation_error", errorMessage: "Instalación no encontrada", startedAt: t0 });
+      return { ok: false, error: "La instalación indicada no existe o no pertenece a tu organización." };
+    }
+  }
+
+  const name = typeof args.name === "string" && args.name.trim() ? args.name.trim() : null;
+  const clientName =
+    typeof args.clientName === "string" && args.clientName.trim()
+      ? args.clientName.trim()
+      : account.name;
+  const validUntil =
+    typeof args.validUntil === "string" && args.validUntil.trim()
+      ? new Date(args.validUntil)
+      : (() => {
+          const d = new Date();
+          d.setDate(d.getDate() + 90);
+          return d;
+        })();
+  const notes = typeof args.notes === "string" && args.notes.trim() ? args.notes.trim() : null;
+
+  try {
+    const year = new Date().getFullYear();
+    let quote: { id: string; code: string; name: string | null; validUntil: Date | null; status: string; accountId: string | null } | null = null;
+    let attempts = 0;
+    const maxAttempts = 10;
+
+    while (!quote && attempts < maxAttempts) {
+      attempts++;
+      const count = await prisma.cpqQuote.count({ where: { tenantId } });
+      const code = `CPQ-${year}-${String(count + attempts).padStart(3, "0")}`;
+      try {
+        quote = await prisma.cpqQuote.create({
+          data: {
+            tenantId,
+            code,
+            name,
+            status: "draft",
+            clientName,
+            validUntil,
+            notes,
+            insurancePolicyUF: 1500,
+            accountId,
+            ...(dealId ? { dealId } : {}),
+            ...(installationId ? { installationId } : {}),
+          },
+          select: { id: true, code: true, name: true, validUntil: true, status: true, accountId: true },
+        });
+      } catch (err: unknown) {
+        const code =
+          err && typeof err === "object" && "code" in err
+            ? (err as { code: string }).code
+            : "";
+        if (code === "P2002" && attempts < maxAttempts) continue;
+        throw err;
+      }
+    }
+
+    if (!quote) throw new Error("No se pudo generar código único");
+
+    try {
+      const { applyDefaultQuoteIncludes } = await import("@/lib/cpq/apply-default-quote-includes");
+      await applyDefaultQuoteIncludes(prisma, quote.id, tenantId);
+    } catch (err) {
+      console.error("[ai] applyDefaultQuoteIncludes failed:", err);
+    }
+
+    try {
+      const { createCrmHistoryLog } = await import("@/lib/crm-history");
+      await createCrmHistoryLog({
+        tenantId,
+        entityType: "quote",
+        entityId: quote.id,
+        action: "quote_created",
+        details: { code: quote.code, clientName },
+        createdBy: userId,
+      });
+    } catch (err) {
+      console.error("[ai] createCrmHistoryLog failed:", err);
+    }
+
+    if (dealId) {
+      try {
+        await prisma.crmDealQuote.create({
+          data: { tenantId, dealId, quoteId: quote.id },
+        });
+        const { computeCpqQuoteCosts } = await import("@/modules/cpq/costing/compute-quote-costs");
+        const costs = await computeCpqQuoteCosts(quote.id);
+        if (costs.monthlyTotal > 0) {
+          await prisma.crmDeal.update({
+            where: { id: dealId },
+            data: { amount: costs.monthlyTotal, totalPuestos: costs.totalGuards },
+          });
+        }
+      } catch (err: unknown) {
+        const code =
+          err && typeof err === "object" && "code" in err
+            ? (err as { code: string }).code
+            : "";
+        if (code !== "P2002") {
+          console.error("[ai] linkDealQuote failed:", err);
+        }
+      }
+    }
+
+    await logAiAction({
+      tenantId, userId, toolName: "create_quote", args,
+      status: "success",
+      resultEntityId: quote.id,
+      resultEntityType: "cpq_quote",
+      startedAt: t0,
+    });
+
+    return {
+      ok: true,
+      data: {
+        id: quote.id,
+        entityType: "cpq_quote",
+        code: quote.code,
+        name: quote.name ?? quote.code,
+        url: `/crm/cotizaciones/${quote.id}`,
+        accountId: quote.accountId,
+        accountName: account.name,
+        validUntil: quote.validUntil,
+        status: quote.status,
+      },
+    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Error desconocido";
+    await logAiAction({ tenantId, userId, toolName: "create_quote", args, status: "internal_error", errorMessage: msg, startedAt: t0 });
+    return { ok: false, error: `No se pudo crear la cotización: ${msg}` };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// FINANZAS: helpers compartidos por preview/create de DTEs
+// ─────────────────────────────────────────────────────────────────────────
+
+type DteLineInput = {
+  itemName: string;
+  quantity: number;
+  unitPrice: number;
+  unitPriceUf?: number;
+  discountPct?: number;
+  isExempt?: boolean;
+};
+
+async function resolveDteReceiver(
+  tenantId: string,
+  rutOrName?: string,
+  explicitRut?: string,
+  explicitName?: string,
+): Promise<{
+  rut: string;
+  name: string;
+  accountId: string | null;
+  email: string | null;
+  giro: string | null;
+  address: string | null;
+  commune: string | null;
+  ciudad: string | null;
+}> {
+  if (explicitRut && explicitName) {
+    return {
+      rut: explicitRut,
+      name: explicitName,
+      accountId: null,
+      email: null,
+      giro: null,
+      address: null,
+      commune: null,
+      ciudad: null,
+    };
+  }
+  if (rutOrName) {
+    const acc = await resolveAccountByRutOrName(tenantId, rutOrName);
+    if (acc) {
+      const full = await prisma.crmAccount.findFirst({
+        where: { id: acc.id, tenantId },
+        select: {
+          id: true, name: true, legalName: true, rut: true, address: true,
+          commune: true, city: true, giro: true,
+        },
+      });
+      if (full) {
+        return {
+          rut: full.rut ?? "",
+          name: full.legalName ?? full.name,
+          accountId: full.id,
+          email: null,
+          giro: full.giro,
+          address: full.address,
+          commune: full.commune,
+          ciudad: full.city,
+        };
+      }
+    }
+  }
+  throw new Error(
+    "No pude identificar el receptor del DTE. Dame RUT y razón social, o el nombre del cliente para buscarlo en el CRM.",
+  );
+}
+
+function dteTypeLabel(dteType: number): string {
+  switch (dteType) {
+    case 33: return "Factura afecta";
+    case 34: return "Factura exenta";
+    case 39: return "Boleta";
+    case 41: return "Boleta exenta";
+    case 56: return "Nota de débito";
+    case 61: return "Nota de crédito";
+    default: return `DTE tipo ${dteType}`;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// preview_invoice_draft + create_invoice_draft
+// ─────────────────────────────────────────────────────────────────────────
+
+async function toolPreviewInvoiceDraft(
+  tenantId: string,
+  userId: string,
+  perms: RolePermissions,
+  args: Record<string, unknown>,
+): Promise<unknown> {
+  const t0 = Date.now();
+  if (
+    !hasFacturacionCapability(perms, "facturacion_create_draft") &&
+    !hasFacturacionCapability(perms, "facturacion_issue")
+  ) {
+    await logAiAction({ tenantId, userId, toolName: "preview_invoice_draft", args, status: "denied", errorMessage: "Sin permiso facturacion_create_draft", startedAt: t0 });
+    return { ok: false, error: "No tienes permiso para crear borradores de factura." };
+  }
+
+  const dteType = Number(args.dteType);
+  if (![33, 34, 39].includes(dteType)) {
+    return { ok: false, error: "dteType debe ser 33, 34 o 39." };
+  }
+  const lines = Array.isArray(args.lines) ? (args.lines as DteLineInput[]) : [];
+  if (lines.length === 0) {
+    return { ok: false, error: "Necesito al menos una línea con item, cantidad y precio." };
+  }
+
+  let receiver: Awaited<ReturnType<typeof resolveDteReceiver>>;
+  try {
+    receiver = await resolveDteReceiver(
+      tenantId,
+      typeof args.receiverNameOrRut === "string" ? args.receiverNameOrRut : undefined,
+      typeof args.receiverRut === "string" ? args.receiverRut : undefined,
+      typeof args.receiverName === "string" ? args.receiverName : undefined,
+    );
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Error al resolver receptor" };
+  }
+
+  const currency: "CLP" | "UF" = (args.currency as "CLP" | "UF") ?? "CLP";
+
+  let computed: Awaited<ReturnType<typeof computeDteAmounts>>;
+  try {
+    computed = await computeDteAmounts(
+      {
+        dteType,
+        currency,
+        lines: lines.map((l) => ({
+          itemName: l.itemName,
+          quantity: l.quantity,
+          unitPrice: l.unitPrice,
+          unitPriceUf: l.unitPriceUf,
+          discountPct: l.discountPct ?? 0,
+          isExempt: l.isExempt ?? (dteType === 34),
+        })),
+      } as never,
+      { strict: false },
+    );
+  } catch (e) {
+    return {
+      ok: false,
+      error: `No pude calcular los montos: ${e instanceof Error ? e.message : "error desconocido"}`,
+    };
+  }
+
+  const token = storePreview({
+    tenantId,
+    userId,
+    toolName: "create_invoice_draft",
+    args: {
+      dteType,
+      receiverRut: receiver.rut,
+      receiverName: receiver.name,
+      receiverEmail: typeof args.receiverEmail === "string" ? args.receiverEmail : null,
+      receiverGiro: receiver.giro,
+      receiverDireccion: receiver.address,
+      receiverComuna: receiver.commune,
+      receiverCiudad: receiver.ciudad,
+      crmAccountId: receiver.accountId,
+      installationId: typeof args.installationId === "string" ? args.installationId : null,
+      currency,
+      lines,
+      notes: typeof args.notes === "string" ? args.notes : null,
+    },
+    computed: {
+      netAmount: computed.totalNet,
+      exemptAmount: computed.totalExempt,
+      taxAmount: computed.taxAmount,
+      totalAmount: computed.totalAmount,
+      currency,
+      receiverRut: receiver.rut,
+      receiverName: receiver.name,
+    },
+  });
+
+  await logAiAction({
+    tenantId, userId, toolName: "preview_invoice_draft", args,
+    status: "success",
+    resultEntityType: "dte_preview",
+    startedAt: t0,
+  });
+
+  return {
+    ok: true,
+    data: {
+      previewToken: token,
+      entityType: "dte_preview",
+      requiresConfirmation: true,
+      dteType,
+      dteTypeLabel: dteTypeLabel(dteType),
+      receiverRut: receiver.rut,
+      receiverName: receiver.name,
+      lines: computed.lines.map((l) => ({
+        itemName: l.itemName,
+        quantity: l.quantity,
+        unitPrice: l.unitPrice,
+        netAmount: l.netAmount,
+        isExempt: l.isExempt,
+      })),
+      netAmount: computed.totalNet,
+      exemptAmount: computed.totalExempt,
+      taxAmount: computed.taxAmount,
+      totalAmount: computed.totalAmount,
+      currency,
+      validUntil: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+    },
+  };
+}
+
+async function toolCreateInvoiceDraft(
+  tenantId: string,
+  userId: string,
+  perms: RolePermissions,
+  args: Record<string, unknown>,
+): Promise<unknown> {
+  const t0 = Date.now();
+  if (
+    !hasFacturacionCapability(perms, "facturacion_create_draft") &&
+    !hasFacturacionCapability(perms, "facturacion_issue")
+  ) {
+    return { ok: false, error: "No tienes permiso para crear borradores de factura." };
+  }
+  const token = typeof args.previewToken === "string" ? args.previewToken : "";
+  if (!token) {
+    return { ok: false, error: "Falta previewToken. Llama primero preview_invoice_draft." };
+  }
+  const payload = consumePreview(token, tenantId, userId, "create_invoice_draft");
+  if (!payload) {
+    return {
+      ok: false,
+      error: "El previewToken no existe o expiró (TTL 5 min). Vuelve a llamar preview_invoice_draft.",
+    };
+  }
+
+  try {
+    const draftInput = payload.args as unknown as DraftDteInput;
+    const draft = await createDraftDte(tenantId, userId, draftInput);
+
+    await logAiAction({
+      tenantId, userId, toolName: "create_invoice_draft", args,
+      status: "success",
+      resultEntityId: draft.id,
+      resultEntityType: "finance_dte_draft",
+      startedAt: t0,
+    });
+
+    const label = dteTypeLabel(draft.dteType);
+    return {
+      ok: true,
+      data: {
+        id: draft.id,
+        entityType: "finance_dte_draft",
+        name: `${label} borrador`,
+        dteType: draft.dteType,
+        dteTypeLabel: label,
+        folio: draft.folio,
+        code: draft.code,
+        receiverRut: draft.receiverRut,
+        receiverName: draft.receiverName,
+        netAmount: Number(draft.netAmount),
+        taxAmount: Number(draft.taxAmount),
+        totalAmount: Number(draft.totalAmount),
+        currency: draft.currency,
+        url: `/finanzas/facturacion/borradores`,
+      },
+    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "error desconocido";
+    await logAiAction({
+      tenantId, userId, toolName: "create_invoice_draft", args,
+      status: "internal_error", errorMessage: msg, startedAt: t0,
+    });
+    return { ok: false, error: `No pude crear el borrador: ${msg}` };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// preview/create credit note (NC tipo 61)
+// ─────────────────────────────────────────────────────────────────────────
+
+async function resolveDteReferenceForNcNd(
+  tenantId: string,
+  args: Record<string, unknown>,
+): Promise<
+  | {
+      ok: true;
+      original: {
+        id: string;
+        folio: number;
+        dteType: number;
+        date: Date;
+        receiverRut: string;
+        receiverName: string;
+      };
+    }
+  | { ok: false; error: string }
+> {
+  const refFolio = typeof args.referenceFolio === "number" ? args.referenceFolio : null;
+  const refId = typeof args.referenceDteId === "string" ? args.referenceDteId : null;
+  if (!refFolio && !refId) {
+    return { ok: false, error: "Falta referenceFolio o referenceDteId del DTE original." };
+  }
+  let dte;
+  if (refId) {
+    dte = await prisma.financeDte.findFirst({
+      where: { id: refId, tenantId, direction: "ISSUED", siiStatus: { not: "DRAFT" } },
+      select: {
+        id: true, folio: true, dteType: true, date: true,
+        receiverRut: true, receiverName: true,
+      },
+    });
+  } else if (refFolio) {
+    const found = await resolveDteByFolio(tenantId, refFolio);
+    if (found) {
+      dte = {
+        id: found.id, folio: found.folio, dteType: found.dteType, date: found.date,
+        receiverRut: found.receiverRut, receiverName: found.receiverName,
+      };
+    }
+  }
+  if (!dte) {
+    return { ok: false, error: `No encontré el DTE referenciado (folio ${refFolio ?? "?"}).` };
+  }
+  return { ok: true, original: dte };
+}
+
+async function toolPreviewCreditNoteDraft(
+  tenantId: string,
+  userId: string,
+  perms: RolePermissions,
+  args: Record<string, unknown>,
+): Promise<unknown> {
+  const t0 = Date.now();
+  if (
+    !hasFacturacionCapability(perms, "facturacion_credit_note") &&
+    !hasFacturacionCapability(perms, "facturacion_create_draft") &&
+    !hasFacturacionCapability(perms, "facturacion_issue")
+  ) {
+    await logAiAction({ tenantId, userId, toolName: "preview_credit_note_draft", args, status: "denied", errorMessage: "Sin permiso", startedAt: t0 });
+    return { ok: false, error: "No tienes permiso para crear notas de crédito." };
+  }
+  const reason = typeof args.reason === "string" ? args.reason.trim() : "";
+  if (!reason) return { ok: false, error: "Necesito una razón para la NC (campo reason)." };
+  const lines = Array.isArray(args.lines) ? (args.lines as DteLineInput[]) : [];
+  if (lines.length === 0) return { ok: false, error: "Necesito al menos una línea." };
+  const referenceCode = ([1, 2, 3] as const).includes(args.referenceCode as 1 | 2 | 3)
+    ? (args.referenceCode as 1 | 2 | 3)
+    : 1;
+
+  const ref = await resolveDteReferenceForNcNd(tenantId, args);
+  if (!ref.ok) return { ok: false, error: ref.error };
+  const original = ref.original;
+
+  // Receptor de la NC = receptor del DTE original (siempre).
+  const accountFull = await prisma.crmAccount.findFirst({
+    where: { tenantId, rut: original.receiverRut },
+    select: { id: true, address: true, commune: true, city: true, giro: true },
+  });
+
+  let computed: Awaited<ReturnType<typeof computeDteAmounts>>;
+  try {
+    computed = await computeDteAmounts(
+      {
+        dteType: 61,
+        currency: "CLP",
+        lines: lines.map((l) => ({
+          itemName: l.itemName,
+          quantity: l.quantity,
+          unitPrice: l.unitPrice,
+          discountPct: 0,
+          isExempt: l.isExempt ?? false,
+        })),
+      } as never,
+      { strict: false },
+    );
+  } catch (e) {
+    return { ok: false, error: `No pude calcular los montos: ${e instanceof Error ? e.message : "?"}` };
+  }
+
+  const token = storePreview({
+    tenantId,
+    userId,
+    toolName: "create_credit_note_draft",
+    args: {
+      dteType: 61,
+      receiverRut: original.receiverRut,
+      receiverName: original.receiverName,
+      receiverGiro: accountFull?.giro ?? null,
+      receiverDireccion: accountFull?.address ?? null,
+      receiverComuna: accountFull?.commune ?? null,
+      receiverCiudad: accountFull?.city ?? null,
+      crmAccountId: accountFull?.id ?? null,
+      currency: "CLP",
+      lines,
+      notes: null,
+      reference: {
+        docId: original.id,
+        type: original.dteType,
+        folio: original.folio,
+        date: original.date.toISOString().slice(0, 10),
+        code: referenceCode,
+        reason,
+      },
+    },
+    computed: {
+      netAmount: computed.totalNet,
+      exemptAmount: computed.totalExempt,
+      taxAmount: computed.taxAmount,
+      totalAmount: computed.totalAmount,
+      currency: "CLP",
+      receiverRut: original.receiverRut,
+      receiverName: original.receiverName,
+      referenceFolio: original.folio,
+      reason,
+    },
+  });
+
+  await logAiAction({
+    tenantId, userId, toolName: "preview_credit_note_draft", args,
+    status: "success", resultEntityType: "dte_preview", startedAt: t0,
+  });
+
+  return {
+    ok: true,
+    data: {
+      previewToken: token,
+      entityType: "dte_preview",
+      requiresConfirmation: true,
+      dteType: 61,
+      dteTypeLabel: "Nota de crédito",
+      receiverRut: original.receiverRut,
+      receiverName: original.receiverName,
+      referenceFolio: original.folio,
+      referenceCode,
+      reason,
+      lines: computed.lines.map((l) => ({
+        itemName: l.itemName,
+        quantity: l.quantity,
+        unitPrice: l.unitPrice,
+        netAmount: l.netAmount,
+        isExempt: l.isExempt,
+      })),
+      netAmount: computed.totalNet,
+      exemptAmount: computed.totalExempt,
+      taxAmount: computed.taxAmount,
+      totalAmount: computed.totalAmount,
+      currency: "CLP",
+      validUntil: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+    },
+  };
+}
+
+async function toolCreateCreditNoteDraft(
+  tenantId: string,
+  userId: string,
+  perms: RolePermissions,
+  args: Record<string, unknown>,
+): Promise<unknown> {
+  const t0 = Date.now();
+  if (
+    !hasFacturacionCapability(perms, "facturacion_credit_note") &&
+    !hasFacturacionCapability(perms, "facturacion_create_draft") &&
+    !hasFacturacionCapability(perms, "facturacion_issue")
+  ) {
+    return { ok: false, error: "No tienes permiso para crear notas de crédito." };
+  }
+  const token = typeof args.previewToken === "string" ? args.previewToken : "";
+  if (!token) return { ok: false, error: "Falta previewToken. Llama primero preview_credit_note_draft." };
+  const payload = consumePreview(token, tenantId, userId, "create_credit_note_draft");
+  if (!payload) {
+    return { ok: false, error: "El previewToken no existe o expiró. Vuelve a llamar preview_credit_note_draft." };
+  }
+  try {
+    const draft = await createDraftDte(tenantId, userId, payload.args as unknown as DraftDteInput);
+    await logAiAction({
+      tenantId, userId, toolName: "create_credit_note_draft", args,
+      status: "success", resultEntityId: draft.id, resultEntityType: "finance_dte_credit_note",
+      startedAt: t0,
+    });
+    return {
+      ok: true,
+      data: {
+        id: draft.id,
+        entityType: "finance_dte_credit_note",
+        name: `NC borrador para Factura #${payload.computed.referenceFolio}`,
+        dteType: 61,
+        dteTypeLabel: "Nota de crédito",
+        folio: draft.folio,
+        receiverRut: draft.receiverRut,
+        receiverName: draft.receiverName,
+        referenceFolio: payload.computed.referenceFolio,
+        reason: payload.computed.reason,
+        netAmount: Number(draft.netAmount),
+        taxAmount: Number(draft.taxAmount),
+        totalAmount: Number(draft.totalAmount),
+        url: `/finanzas/facturacion/borradores`,
+      },
+    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "?";
+    await logAiAction({
+      tenantId, userId, toolName: "create_credit_note_draft", args,
+      status: "internal_error", errorMessage: msg, startedAt: t0,
+    });
+    return { ok: false, error: `No pude crear la NC: ${msg}` };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// preview/create debit note (ND tipo 56)
+// ─────────────────────────────────────────────────────────────────────────
+
+async function toolPreviewDebitNoteDraft(
+  tenantId: string,
+  userId: string,
+  perms: RolePermissions,
+  args: Record<string, unknown>,
+): Promise<unknown> {
+  const t0 = Date.now();
+  if (
+    !hasFacturacionCapability(perms, "facturacion_credit_note") &&
+    !hasFacturacionCapability(perms, "facturacion_create_draft") &&
+    !hasFacturacionCapability(perms, "facturacion_issue")
+  ) {
+    await logAiAction({ tenantId, userId, toolName: "preview_debit_note_draft", args, status: "denied", errorMessage: "Sin permiso", startedAt: t0 });
+    return { ok: false, error: "No tienes permiso para crear notas de débito." };
+  }
+  const reason = typeof args.reason === "string" ? args.reason.trim() : "";
+  if (!reason) return { ok: false, error: "Necesito una razón para la ND (campo reason)." };
+  const lines = Array.isArray(args.lines) ? (args.lines as DteLineInput[]) : [];
+  if (lines.length === 0) return { ok: false, error: "Necesito al menos una línea." };
+
+  const ref = await resolveDteReferenceForNcNd(tenantId, args);
+  if (!ref.ok) return { ok: false, error: ref.error };
+  const original = ref.original;
+
+  const accountFull = await prisma.crmAccount.findFirst({
+    where: { tenantId, rut: original.receiverRut },
+    select: { id: true, address: true, commune: true, city: true, giro: true },
+  });
+
+  let computed: Awaited<ReturnType<typeof computeDteAmounts>>;
+  try {
+    computed = await computeDteAmounts(
+      {
+        dteType: 56,
+        currency: "CLP",
+        lines: lines.map((l) => ({
+          itemName: l.itemName,
+          quantity: l.quantity,
+          unitPrice: l.unitPrice,
+          discountPct: 0,
+          isExempt: l.isExempt ?? false,
+        })),
+      } as never,
+      { strict: false },
+    );
+  } catch (e) {
+    return { ok: false, error: `No pude calcular los montos: ${e instanceof Error ? e.message : "?"}` };
+  }
+
+  const token = storePreview({
+    tenantId,
+    userId,
+    toolName: "create_debit_note_draft",
+    args: {
+      dteType: 56,
+      receiverRut: original.receiverRut,
+      receiverName: original.receiverName,
+      receiverGiro: accountFull?.giro ?? null,
+      receiverDireccion: accountFull?.address ?? null,
+      receiverComuna: accountFull?.commune ?? null,
+      receiverCiudad: accountFull?.city ?? null,
+      crmAccountId: accountFull?.id ?? null,
+      currency: "CLP",
+      lines,
+      notes: null,
+      reference: {
+        docId: original.id,
+        type: original.dteType,
+        folio: original.folio,
+        date: original.date.toISOString().slice(0, 10),
+        // ND no usa CodRef en sentido estricto; SII acepta 1.
+        code: 1 as 1,
+        reason,
+      },
+    },
+    computed: {
+      netAmount: computed.totalNet,
+      exemptAmount: computed.totalExempt,
+      taxAmount: computed.taxAmount,
+      totalAmount: computed.totalAmount,
+      currency: "CLP",
+      receiverRut: original.receiverRut,
+      receiverName: original.receiverName,
+      referenceFolio: original.folio,
+      reason,
+    },
+  });
+
+  await logAiAction({
+    tenantId, userId, toolName: "preview_debit_note_draft", args,
+    status: "success", resultEntityType: "dte_preview", startedAt: t0,
+  });
+
+  return {
+    ok: true,
+    data: {
+      previewToken: token,
+      entityType: "dte_preview",
+      requiresConfirmation: true,
+      dteType: 56,
+      dteTypeLabel: "Nota de débito",
+      receiverRut: original.receiverRut,
+      receiverName: original.receiverName,
+      referenceFolio: original.folio,
+      reason,
+      lines: computed.lines.map((l) => ({
+        itemName: l.itemName,
+        quantity: l.quantity,
+        unitPrice: l.unitPrice,
+        netAmount: l.netAmount,
+        isExempt: l.isExempt,
+      })),
+      netAmount: computed.totalNet,
+      exemptAmount: computed.totalExempt,
+      taxAmount: computed.taxAmount,
+      totalAmount: computed.totalAmount,
+      currency: "CLP",
+      validUntil: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+    },
+  };
+}
+
+async function toolCreateDebitNoteDraft(
+  tenantId: string,
+  userId: string,
+  perms: RolePermissions,
+  args: Record<string, unknown>,
+): Promise<unknown> {
+  const t0 = Date.now();
+  if (
+    !hasFacturacionCapability(perms, "facturacion_credit_note") &&
+    !hasFacturacionCapability(perms, "facturacion_create_draft") &&
+    !hasFacturacionCapability(perms, "facturacion_issue")
+  ) {
+    return { ok: false, error: "No tienes permiso para crear notas de débito." };
+  }
+  const token = typeof args.previewToken === "string" ? args.previewToken : "";
+  if (!token) return { ok: false, error: "Falta previewToken. Llama primero preview_debit_note_draft." };
+  const payload = consumePreview(token, tenantId, userId, "create_debit_note_draft");
+  if (!payload) {
+    return { ok: false, error: "El previewToken no existe o expiró. Vuelve a llamar preview_debit_note_draft." };
+  }
+  try {
+    const draft = await createDraftDte(tenantId, userId, payload.args as unknown as DraftDteInput);
+    await logAiAction({
+      tenantId, userId, toolName: "create_debit_note_draft", args,
+      status: "success", resultEntityId: draft.id, resultEntityType: "finance_dte_debit_note",
+      startedAt: t0,
+    });
+    return {
+      ok: true,
+      data: {
+        id: draft.id,
+        entityType: "finance_dte_debit_note",
+        name: `ND borrador para Factura #${payload.computed.referenceFolio}`,
+        dteType: 56,
+        dteTypeLabel: "Nota de débito",
+        folio: draft.folio,
+        receiverRut: draft.receiverRut,
+        receiverName: draft.receiverName,
+        referenceFolio: payload.computed.referenceFolio,
+        reason: payload.computed.reason,
+        netAmount: Number(draft.netAmount),
+        taxAmount: Number(draft.taxAmount),
+        totalAmount: Number(draft.totalAmount),
+        url: `/finanzas/facturacion/borradores`,
+      },
+    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "?";
+    await logAiAction({
+      tenantId, userId, toolName: "create_debit_note_draft", args,
+      status: "internal_error", errorMessage: msg, startedAt: t0,
+    });
+    return { ok: false, error: `No pude crear la ND: ${msg}` };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// preview/create recurring invoice template
+// ─────────────────────────────────────────────────────────────────────────
+
+async function toolPreviewRecurringInvoice(
+  tenantId: string,
+  userId: string,
+  perms: RolePermissions,
+  args: Record<string, unknown>,
+): Promise<unknown> {
+  const t0 = Date.now();
+  if (
+    !hasFacturacionCapability(perms, "facturacion_create_draft") &&
+    !hasFacturacionCapability(perms, "facturacion_issue") &&
+    !hasFacturacionCapability(perms, "facturacion_configure")
+  ) {
+    await logAiAction({ tenantId, userId, toolName: "preview_recurring_invoice", args, status: "denied", errorMessage: "Sin permiso", startedAt: t0 });
+    return { ok: false, error: "No tienes permiso para crear plantillas recurrentes." };
+  }
+
+  const name = typeof args.name === "string" ? args.name.trim() : "";
+  if (!name) return { ok: false, error: "Necesito un nombre para la plantilla." };
+  const dteType = Number(args.dteType);
+  if (![33, 34].includes(dteType)) return { ok: false, error: "dteType debe ser 33 o 34 para recurrentes." };
+  const frequency = typeof args.frequency === "string" ? args.frequency : "";
+  if (!["monthly", "biweekly", "weekly", "yearly"].includes(frequency)) {
+    return { ok: false, error: "frequency debe ser monthly, biweekly, weekly o yearly." };
+  }
+  const startDate = typeof args.startDate === "string" ? args.startDate : "";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate)) {
+    return { ok: false, error: "startDate debe estar en formato YYYY-MM-DD." };
+  }
+  const lines = Array.isArray(args.lines) ? (args.lines as DteLineInput[]) : [];
+  if (lines.length === 0) return { ok: false, error: "Necesito al menos una línea." };
+
+  let receiver: Awaited<ReturnType<typeof resolveDteReceiver>>;
+  try {
+    receiver = await resolveDteReceiver(
+      tenantId,
+      typeof args.receiverNameOrRut === "string" ? args.receiverNameOrRut : undefined,
+      typeof args.receiverRut === "string" ? args.receiverRut : undefined,
+      typeof args.receiverName === "string" ? args.receiverName : undefined,
+    );
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Error al resolver receptor" };
+  }
+
+  const currency: "CLP" | "UF" = (args.currency as "CLP" | "UF") ?? "CLP";
+
+  let computed: Awaited<ReturnType<typeof computeDteAmounts>>;
+  try {
+    computed = await computeDteAmounts(
+      {
+        dteType,
+        currency,
+        lines: lines.map((l) => ({
+          itemName: l.itemName,
+          quantity: l.quantity,
+          unitPrice: l.unitPrice ?? 0,
+          unitPriceUf: l.unitPriceUf,
+          discountPct: l.discountPct ?? 0,
+          isExempt: l.isExempt ?? (dteType === 34),
+        })),
+      } as never,
+      { strict: false },
+    );
+  } catch (e) {
+    return { ok: false, error: `No pude calcular los montos: ${e instanceof Error ? e.message : "?"}` };
+  }
+
+  const dayOfMonth = typeof args.dayOfMonth === "number" ? args.dayOfMonth : null;
+  const dayOfWeek = typeof args.dayOfWeek === "number" ? args.dayOfWeek : null;
+  const monthOfYear = typeof args.monthOfYear === "number" ? args.monthOfYear : null;
+  const endDate = typeof args.endDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(args.endDate) ? args.endDate : null;
+
+  const { computeNextRunAt } = await import("@/modules/finance/billing/dte-recurring.service");
+  const nextRunAt = computeNextRunAt({
+    frequency,
+    dayOfMonth,
+    dayOfWeek,
+    monthOfYear,
+    startDate: new Date(startDate),
+    endDate: endDate ? new Date(endDate) : null,
+    lastRunAt: null,
+  } as never);
+
+  const token = storePreview({
+    tenantId,
+    userId,
+    toolName: "create_recurring_invoice",
+    args: {
+      name,
+      dteType,
+      receiverRut: receiver.rut,
+      receiverName: receiver.name,
+      receiverEmail: typeof args.receiverEmail === "string" ? args.receiverEmail : null,
+      receiverGiro: receiver.giro,
+      receiverDireccion: receiver.address,
+      receiverComuna: receiver.commune,
+      receiverCiudad: receiver.ciudad,
+      crmAccountId: receiver.accountId,
+      installationId: typeof args.installationId === "string" ? args.installationId : null,
+      currency,
+      frequency,
+      dayOfMonth,
+      dayOfWeek,
+      monthOfYear,
+      startDate,
+      endDate,
+      lines,
+      notes: typeof args.notes === "string" ? args.notes : null,
+      autoSendEmail: typeof args.autoSendEmail === "boolean" ? args.autoSendEmail : true,
+      ufFixingPolicy: typeof args.ufFixingPolicy === "string" ? args.ufFixingPolicy : "RUN_DAY",
+      ufFixingDay: typeof args.ufFixingDay === "number" ? args.ufFixingDay : null,
+      periodPolicy: typeof args.periodPolicy === "string" ? args.periodPolicy : "CURRENT_MONTH",
+    },
+    computed: {
+      netAmount: computed.totalNet,
+      exemptAmount: computed.totalExempt,
+      taxAmount: computed.taxAmount,
+      totalAmount: computed.totalAmount,
+      currency,
+      receiverRut: receiver.rut,
+      receiverName: receiver.name,
+      nextRunAt: nextRunAt ? nextRunAt.toISOString().slice(0, 10) : null,
+    },
+  });
+
+  await logAiAction({
+    tenantId, userId, toolName: "preview_recurring_invoice", args,
+    status: "success", resultEntityType: "dte_preview", startedAt: t0,
+  });
+
+  return {
+    ok: true,
+    data: {
+      previewToken: token,
+      entityType: "dte_preview",
+      requiresConfirmation: true,
+      name,
+      dteType,
+      dteTypeLabel: dteTypeLabel(dteType),
+      frequency,
+      dayOfMonth,
+      dayOfWeek,
+      monthOfYear,
+      startDate,
+      endDate,
+      receiverRut: receiver.rut,
+      receiverName: receiver.name,
+      currency,
+      netAmount: computed.totalNet,
+      exemptAmount: computed.totalExempt,
+      taxAmount: computed.taxAmount,
+      totalAmount: computed.totalAmount,
+      nextRunAt: nextRunAt ? nextRunAt.toISOString().slice(0, 10) : null,
+      validUntil: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+    },
+  };
+}
+
+async function toolCreateRecurringInvoice(
+  tenantId: string,
+  userId: string,
+  perms: RolePermissions,
+  args: Record<string, unknown>,
+): Promise<unknown> {
+  const t0 = Date.now();
+  if (
+    !hasFacturacionCapability(perms, "facturacion_create_draft") &&
+    !hasFacturacionCapability(perms, "facturacion_issue") &&
+    !hasFacturacionCapability(perms, "facturacion_configure")
+  ) {
+    return { ok: false, error: "No tienes permiso para crear plantillas recurrentes." };
+  }
+  const token = typeof args.previewToken === "string" ? args.previewToken : "";
+  if (!token) return { ok: false, error: "Falta previewToken. Llama primero preview_recurring_invoice." };
+  const payload = consumePreview(token, tenantId, userId, "create_recurring_invoice");
+  if (!payload) {
+    return { ok: false, error: "El previewToken no existe o expiró. Vuelve a llamar preview_recurring_invoice." };
+  }
+
+  const p = payload.args as {
+    name: string;
+    dteType: number;
+    receiverRut: string;
+    receiverName: string;
+    receiverEmail: string | null;
+    receiverGiro: string | null;
+    receiverDireccion: string | null;
+    receiverComuna: string | null;
+    receiverCiudad: string | null;
+    crmAccountId: string | null;
+    installationId: string | null;
+    currency: string;
+    frequency: string;
+    dayOfMonth: number | null;
+    dayOfWeek: number | null;
+    monthOfYear: number | null;
+    startDate: string;
+    endDate: string | null;
+    lines: DteLineInput[];
+    notes: string | null;
+    autoSendEmail: boolean;
+    ufFixingPolicy: string;
+    ufFixingDay: number | null;
+    periodPolicy: string;
+  };
+
+  try {
+    const startDate = new Date(p.startDate);
+    const endDate = p.endDate ? new Date(p.endDate) : null;
+    const { computeNextRunAt } = await import("@/modules/finance/billing/dte-recurring.service");
+    const nextRunAt = computeNextRunAt({
+      frequency: p.frequency,
+      dayOfMonth: p.dayOfMonth,
+      dayOfWeek: p.dayOfWeek,
+      monthOfYear: p.monthOfYear,
+      startDate,
+      endDate,
+      lastRunAt: null,
+    } as never);
+
+    const template = await prisma.financeDteRecurringTemplate.create({
+      data: {
+        tenantId,
+        name: p.name,
+        dteType: p.dteType,
+        receiverRut: p.receiverRut,
+        receiverName: p.receiverName,
+        receiverEmail: p.receiverEmail,
+        receiverGiro: p.receiverGiro,
+        receiverDireccion: p.receiverDireccion,
+        receiverComuna: p.receiverComuna,
+        receiverCiudad: p.receiverCiudad,
+        crmAccountId: p.crmAccountId,
+        installationId: p.installationId,
+        currency: p.currency,
+        lines: p.lines as unknown as Prisma.InputJsonValue,
+        notes: p.notes,
+        frequency: p.frequency,
+        dayOfMonth: p.dayOfMonth,
+        dayOfWeek: p.dayOfWeek,
+        monthOfYear: p.monthOfYear,
+        startDate,
+        endDate,
+        nextRunAt,
+        autoSendEmail: p.autoSendEmail,
+        ufFixingPolicy: p.ufFixingPolicy,
+        ufFixingDay: p.ufFixingDay,
+        periodPolicy: p.periodPolicy,
+        createdBy: userId,
+      },
+      select: {
+        id: true, name: true, dteType: true, frequency: true,
+        receiverName: true, nextRunAt: true,
+      },
+    });
+
+    await logAiAction({
+      tenantId, userId, toolName: "create_recurring_invoice", args,
+      status: "success", resultEntityId: template.id, resultEntityType: "finance_dte_recurring",
+      startedAt: t0,
+    });
+
+    const freqLabel: Record<string, string> = {
+      monthly: "Mensual",
+      biweekly: "Quincenal",
+      weekly: "Semanal",
+      yearly: "Anual",
+    };
+    return {
+      ok: true,
+      data: {
+        id: template.id,
+        entityType: "finance_dte_recurring",
+        name: template.name,
+        frequencyLabel: freqLabel[template.frequency] ?? template.frequency,
+        receiverName: template.receiverName,
+        nextRunAt: template.nextRunAt,
+        totalAmount: payload.computed.totalAmount,
+        currency: payload.computed.currency,
+        url: `/finanzas/facturacion/recurrentes`,
+      },
+    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "?";
+    await logAiAction({
+      tenantId, userId, toolName: "create_recurring_invoice", args,
+      status: "internal_error", errorMessage: msg, startedAt: t0,
+    });
+    return { ok: false, error: `No pude crear la plantilla recurrente: ${msg}` };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// create_factoring_company
+// ─────────────────────────────────────────────────────────────────────────
+
+async function toolCreateFactoringCompany(
+  tenantId: string,
+  userId: string,
+  perms: RolePermissions,
+  args: Record<string, unknown>,
+): Promise<unknown> {
+  const t0 = Date.now();
+  if (!hasFacturacionCapability(perms, "facturacion_configure")) {
+    await logAiAction({ tenantId, userId, toolName: "create_factoring_company", args, status: "denied", errorMessage: "Sin permiso facturacion_configure", startedAt: t0 });
+    return { ok: false, error: "No tienes permiso para crear empresas de factoring." };
+  }
+  const input = {
+    rut: typeof args.rut === "string" ? args.rut : "",
+    razonSocial: typeof args.name === "string" ? args.name : "",
+    contactName: typeof args.executiveName === "string" ? args.executiveName : null,
+    contactEmail: typeof args.executiveEmail === "string" ? args.executiveEmail : null,
+    contactPhone: typeof args.executivePhone === "string" ? args.executivePhone : null,
+    defaultAdvanceRate: typeof args.defaultAdvanceRate === "number" ? args.defaultAdvanceRate : null,
+    defaultInterestRate: typeof args.defaultInterestRate === "number" ? args.defaultInterestRate : null,
+    defaultCommissionPct: typeof args.defaultCommissionPct === "number" ? args.defaultCommissionPct : null,
+    notes: typeof args.notes === "string" ? args.notes : null,
+  };
+  const parsed = factoringCompanyInputSchema.safeParse(input);
+  if (!parsed.success) {
+    const msg = parsed.error.issues.map(i => `${i.path.join(".")}: ${i.message}`).join("; ");
+    await logAiAction({ tenantId, userId, toolName: "create_factoring_company", args, status: "validation_error", errorMessage: msg, startedAt: t0 });
+    return { ok: false, error: `Datos inválidos: ${msg}` };
+  }
+  try {
+    const created = await createFactoringCompany(tenantId, parsed.data);
+    await logAiAction({
+      tenantId, userId, toolName: "create_factoring_company", args,
+      status: "success", resultEntityId: created.id,
+      resultEntityType: "finance_factoring_company", startedAt: t0,
+    });
+    return {
+      ok: true,
+      data: {
+        id: created.id,
+        entityType: "finance_factoring_company",
+        name: created.razonSocial,
+        rut: created.rutFormatted,
+        executiveName: created.contactName,
+        url: `/finanzas/facturacion/factoring/empresas`,
+      },
+    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "?";
+    await logAiAction({
+      tenantId, userId, toolName: "create_factoring_company", args,
+      status: "internal_error", errorMessage: msg, startedAt: t0,
+    });
+    return { ok: false, error: `No pude crear la empresa de factoring: ${msg}` };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// search_dtes + get_dte_detail
+// ─────────────────────────────────────────────────────────────────────────
+
+async function toolSearchDtes(tenantId: string, args: Record<string, unknown>) {
+  const search = typeof args.search === "string" ? args.search.trim() : "";
+  const periodo = typeof args.periodo === "string" ? args.periodo : "";
+  const status = typeof args.status === "string" ? args.status : "issued";
+  const accountId = typeof args.accountId === "string" ? args.accountId : "";
+  const installationId = typeof args.installationId === "string" ? args.installationId : "";
+  const limitRaw = typeof args.limit === "number" ? args.limit : 15;
+  const limit = Math.min(Math.max(1, limitRaw), 50);
+
+  const where: Prisma.FinanceDteWhereInput = {
+    tenantId,
+    direction: "ISSUED",
+  };
+  if (status === "draft") where.siiStatus = "DRAFT";
+  else if (status === "issued") where.siiStatus = { not: "DRAFT" };
+  if (accountId) where.crmAccountId = accountId;
+  if (installationId) where.installationId = installationId;
+  if (periodo && /^\d{4}-\d{2}$/.test(periodo)) {
+    const [y, m] = periodo.split("-").map((s) => parseInt(s, 10));
+    where.date = { gte: new Date(Date.UTC(y, m - 1, 1)), lt: new Date(Date.UTC(y, m, 1)) };
+  }
+  if (search) {
+    const rutNeedle = search.replace(/[.\-\s]/g, "");
+    const orClauses: Prisma.FinanceDteWhereInput[] = [
+      { receiverName: { contains: search, mode: "insensitive" } },
+      { receiverRut: { contains: rutNeedle, mode: "insensitive" } },
+    ];
+    if (/^\d+$/.test(search)) {
+      const folioNum = parseInt(search, 10);
+      if (!Number.isNaN(folioNum)) orClauses.push({ folio: folioNum });
+    }
+    const amountStr = search.replace(/[.\s]/g, "").replace(",", ".");
+    if (/^\d+(\.\d+)?$/.test(amountStr)) {
+      const amountNum = parseFloat(amountStr);
+      if (amountNum > 0) orClauses.push({ totalAmount: amountNum });
+    }
+    const rangeMatch = search.match(/^([\d.]+)\s*-\s*([\d.]+)$/);
+    if (rangeMatch) {
+      const min = parseFloat(rangeMatch[1].replace(/\./g, ""));
+      const max = parseFloat(rangeMatch[2].replace(/\./g, ""));
+      if (!Number.isNaN(min) && !Number.isNaN(max) && min <= max) {
+        orClauses.push({ totalAmount: { gte: min, lte: max } });
+      }
+    }
+    where.OR = orClauses;
+  }
+
+  const dtes = await prisma.financeDte.findMany({
+    where,
+    orderBy: [{ date: "desc" }, { folio: "desc" }],
+    take: limit,
+    select: {
+      id: true, folio: true, dteType: true, date: true,
+      receiverRut: true, receiverName: true, totalAmount: true,
+      siiStatus: true, paymentStatus: true, currency: true,
+    },
+  });
+
+  return dtes.map((d) => ({
+    id: d.id,
+    folio: d.folio,
+    dteType: d.dteType,
+    dteTypeLabel: dteTypeLabel(d.dteType),
+    date: d.date,
+    receiverRut: d.receiverRut,
+    receiverName: d.receiverName,
+    totalAmount: Number(d.totalAmount),
+    currency: d.currency,
+    siiStatus: d.siiStatus,
+    paymentStatus: d.paymentStatus,
+    url: `/finanzas/facturacion/emitidos`,
+  }));
+}
+
+async function toolGetDteDetail(tenantId: string, args: Record<string, unknown>) {
+  const folio = typeof args.folio === "number" ? args.folio : null;
+  const dteId = typeof args.dteId === "string" ? args.dteId : null;
+  if (!folio && !dteId) return { ok: false, error: "Dame folio o dteId." };
+
+  const dte = await prisma.financeDte.findFirst({
+    where: {
+      tenantId,
+      direction: "ISSUED",
+      ...(folio ? { folio, siiStatus: { not: "DRAFT" } } : { id: dteId! }),
+    },
+    include: {
+      lines: { orderBy: { lineNumber: "asc" } },
+      referencedBy: {
+        where: { dteType: { in: [56, 61] } },
+        select: {
+          id: true, folio: true, dteType: true, totalAmount: true,
+          siiStatus: true, date: true, referenceReason: true, referenceCode: true,
+        },
+        orderBy: { date: "desc" },
+      },
+      paymentAllocations: {
+        select: {
+          id: true, amount: true,
+          payment: { select: { id: true, amount: true, date: true } },
+        },
+      },
+      factoringOps: {
+        select: {
+          id: true, code: true, status: true, advanceAmount: true,
+          factoringCompany: true,
+          factoringCompanyRel: { select: { id: true, razonSocial: true } },
+        },
+      },
+    },
+  });
+  if (!dte) return { ok: false, error: "DTE no encontrado." };
+
+  const account = dte.crmAccountId
+    ? await prisma.crmAccount.findFirst({
+        where: { id: dte.crmAccountId, tenantId },
+        select: { id: true, name: true },
+      })
+    : null;
+  const installation = dte.installationId
+    ? await prisma.crmInstallation.findFirst({
+        where: { id: dte.installationId, tenantId },
+        select: { id: true, name: true, commune: true },
+      })
+    : null;
+
+  const creditNotes = dte.referencedBy.filter((r) => r.dteType === 61);
+  const debitNotes = dte.referencedBy.filter((r) => r.dteType === 56);
+
+  return {
+    ok: true,
+    data: {
+      id: dte.id,
+      folio: dte.folio,
+      dteType: dte.dteType,
+      dteTypeLabel: dteTypeLabel(dte.dteType),
+      date: dte.date,
+      dueDate: dte.dueDate,
+      receiverRut: dte.receiverRut,
+      receiverName: dte.receiverName,
+      totalAmount: Number(dte.totalAmount),
+      netAmount: Number(dte.netAmount),
+      taxAmount: Number(dte.taxAmount),
+      exemptAmount: Number(dte.exemptAmount),
+      currency: dte.currency,
+      siiStatus: dte.siiStatus,
+      paymentStatus: dte.paymentStatus,
+      amountPaid: Number(dte.amountPaid),
+      amountPending: Number(dte.amountPending),
+      account,
+      installation,
+      lines: dte.lines.map((l) => ({
+        lineNumber: l.lineNumber,
+        itemName: l.itemName,
+        quantity: Number(l.quantity),
+        unitPrice: Number(l.unitPrice),
+        netAmount: Number(l.netAmount),
+        isExempt: l.isExempt,
+      })),
+      creditNotes: creditNotes.map((nc) => ({
+        id: nc.id,
+        folio: nc.folio,
+        date: nc.date,
+        totalAmount: Number(nc.totalAmount),
+        siiStatus: nc.siiStatus,
+        referenceCode: nc.referenceCode,
+        reason: nc.referenceReason,
+      })),
+      debitNotes: debitNotes.map((nd) => ({
+        id: nd.id,
+        folio: nd.folio,
+        date: nd.date,
+        totalAmount: Number(nd.totalAmount),
+        siiStatus: nd.siiStatus,
+        reason: nd.referenceReason,
+      })),
+      hasCreditNote: creditNotes.length > 0,
+      hasDebitNote: debitNotes.length > 0,
+      payments: dte.paymentAllocations.map((pa) => ({
+        id: pa.payment.id,
+        amount: Number(pa.amount),
+        paymentDate: pa.payment.date,
+      })),
+      factoring: dte.factoringOps.map((f) => ({
+        id: f.id,
+        code: f.code,
+        status: f.status,
+        advanceAmount: f.advanceAmount ? Number(f.advanceAmount) : null,
+        factoringCompany: f.factoringCompanyRel?.razonSocial ?? f.factoringCompany,
+      })),
+      url: `/finanzas/facturacion/emitidos`,
+    },
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Reports: ventas / income statement / balance / dashboard / profitability
+// ─────────────────────────────────────────────────────────────────────────
+
+function buildReportPeriod(from: string, to: string, label?: string) {
+  return {
+    type: "custom" as const,
+    from,
+    to,
+    label: label ?? `${from} a ${to}`,
+  };
+}
+
+function ensureCanViewFinanceReports(perms: RolePermissions) {
+  return (
+    canView(perms, "finance", "reportes") ||
+    hasCapability(perms, "finance_reports_view") ||
+    hasFacturacionCapability(perms, "facturacion_view")
+  );
+}
+
+async function toolGetSalesReport(
+  tenantId: string,
+  perms: RolePermissions,
+  args: Record<string, unknown>,
+) {
+  if (!ensureCanViewFinanceReports(perms)) {
+    return { ok: false, error: "No tienes permiso para ver reportes financieros." };
+  }
+  const from = typeof args.from === "string" ? args.from : "";
+  const to = typeof args.to === "string" ? args.to : "";
+  if (!from || !to) return { ok: false, error: "from y to (YYYY-MM-DD) son obligatorios." };
+  const period = buildReportPeriod(from, to, typeof args.periodLabel === "string" ? args.periodLabel : undefined);
+  const filters = {
+    crmAccountIds: Array.isArray(args.crmAccountIds) ? (args.crmAccountIds as string[]) : undefined,
+    installationIds: Array.isArray(args.installationIds) ? (args.installationIds as string[]) : undefined,
+  };
+  const { getSalesMatrix } = await import("@/modules/finance/reports/sales-matrix.service");
+  const data = await getSalesMatrix(tenantId, period, filters);
+  const top5 = [...data.rows]
+    .filter((r) => r.id !== "__no_client__")
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 5)
+    .map((r) => ({ id: r.id, label: r.label, total: r.total }));
+  return { ok: true, data: { ...data, top5 } };
+}
+
+async function toolGetIncomeStatement(
+  tenantId: string,
+  perms: RolePermissions,
+  args: Record<string, unknown>,
+) {
+  if (!ensureCanViewFinanceReports(perms)) {
+    return { ok: false, error: "No tienes permiso para ver reportes financieros." };
+  }
+  const from = typeof args.from === "string" ? args.from : "";
+  const to = typeof args.to === "string" ? args.to : "";
+  if (!from || !to) return { ok: false, error: "from y to (YYYY-MM-DD) son obligatorios." };
+  const period = buildReportPeriod(from, to);
+  const { getIncomeStatement } = await import("@/modules/finance/reports/income-statement.service");
+  const withComparison = args.withComparison === true;
+  const data = await getIncomeStatement(tenantId, period, {}, { withComparison });
+  return { ok: true, data };
+}
+
+async function toolGetBalanceSheet(
+  tenantId: string,
+  perms: RolePermissions,
+  args: Record<string, unknown>,
+) {
+  if (!ensureCanViewFinanceReports(perms)) {
+    return { ok: false, error: "No tienes permiso para ver reportes financieros." };
+  }
+  const asOf = typeof args.asOf === "string" ? args.asOf : "";
+  if (!asOf) return { ok: false, error: "asOf (YYYY-MM-DD) es obligatorio." };
+  const { getBalanceSheet } = await import("@/modules/finance/reports/balance-sheet.service");
+  const data = await getBalanceSheet(tenantId, asOf, {}, { withPriorMonth: args.withPriorMonth === true });
+  return { ok: true, data };
+}
+
+async function toolGetFinanceDashboardKpis(
+  tenantId: string,
+  perms: RolePermissions,
+  args: Record<string, unknown>,
+) {
+  if (!ensureCanViewFinanceReports(perms)) {
+    return { ok: false, error: "No tienes permiso para ver reportes financieros." };
+  }
+  const from = typeof args.from === "string" ? args.from : "";
+  const to = typeof args.to === "string" ? args.to : "";
+  if (!from || !to) return { ok: false, error: "from y to (YYYY-MM-DD) son obligatorios." };
+  const period = buildReportPeriod(from, to);
+  const { getDashboardKpis } = await import("@/modules/finance/reports/dashboard.service");
+  const data = await getDashboardKpis(tenantId, period, {});
+  return { ok: true, data };
+}
+
+async function toolGetProfitability(
+  tenantId: string,
+  perms: RolePermissions,
+  args: Record<string, unknown>,
+) {
+  if (!ensureCanViewFinanceReports(perms)) {
+    return { ok: false, error: "No tienes permiso para ver reportes financieros." };
+  }
+  const from = typeof args.from === "string" ? args.from : "";
+  const to = typeof args.to === "string" ? args.to : "";
+  if (!from || !to) return { ok: false, error: "from y to (YYYY-MM-DD) son obligatorios." };
+  const period = buildReportPeriod(from, to);
+  const opexAllocationMethod =
+    typeof args.opexAllocationMethod === "string" &&
+    ["by_revenue", "by_invoices_count", "none"].includes(args.opexAllocationMethod)
+      ? (args.opexAllocationMethod as "by_revenue" | "by_invoices_count" | "none")
+      : "by_revenue";
+  const { getProfitability } = await import("@/modules/finance/reports/profitability.service");
+  const data = await getProfitability(tenantId, period, {}, { opexAllocationMethod });
+  return { ok: true, data };
 }
 
 export async function executeToolCallV2(
@@ -2187,6 +4334,24 @@ export async function executeToolCallV2(
   if (toolName === "create_account") return await toolCreateAccount(tenantId, userId, perms, args);
   if (toolName === "create_contact") return await toolCreateContact(tenantId, userId, perms, args);
   if (toolName === "create_deal") return await toolCreateDeal(tenantId, userId, perms, args);
+  if (toolName === "create_installation") return await toolCreateInstallation(tenantId, userId, perms, args);
+  if (toolName === "create_quote") return await toolCreateQuote(tenantId, userId, perms, args);
+  if (toolName === "preview_invoice_draft") return await toolPreviewInvoiceDraft(tenantId, userId, perms, args);
+  if (toolName === "create_invoice_draft") return await toolCreateInvoiceDraft(tenantId, userId, perms, args);
+  if (toolName === "preview_credit_note_draft") return await toolPreviewCreditNoteDraft(tenantId, userId, perms, args);
+  if (toolName === "create_credit_note_draft") return await toolCreateCreditNoteDraft(tenantId, userId, perms, args);
+  if (toolName === "preview_debit_note_draft") return await toolPreviewDebitNoteDraft(tenantId, userId, perms, args);
+  if (toolName === "create_debit_note_draft") return await toolCreateDebitNoteDraft(tenantId, userId, perms, args);
+  if (toolName === "preview_recurring_invoice") return await toolPreviewRecurringInvoice(tenantId, userId, perms, args);
+  if (toolName === "create_recurring_invoice") return await toolCreateRecurringInvoice(tenantId, userId, perms, args);
+  if (toolName === "create_factoring_company") return await toolCreateFactoringCompany(tenantId, userId, perms, args);
+  if (toolName === "search_dtes") return { ok: true, data: await toolSearchDtes(tenantId, args) };
+  if (toolName === "get_dte_detail") return await toolGetDteDetail(tenantId, args);
+  if (toolName === "get_sales_report") return await toolGetSalesReport(tenantId, perms, args);
+  if (toolName === "get_income_statement") return await toolGetIncomeStatement(tenantId, perms, args);
+  if (toolName === "get_balance_sheet") return await toolGetBalanceSheet(tenantId, perms, args);
+  if (toolName === "get_finance_dashboard_kpis") return await toolGetFinanceDashboardKpis(tenantId, perms, args);
+  if (toolName === "get_profitability") return await toolGetProfitability(tenantId, perms, args);
 
   try {
     switch (toolName) {

@@ -10,6 +10,7 @@ type ConfigResponse = {
   enabled: boolean;
   allowedRoles: string[];
   allowDataQuestions: boolean;
+  allowWrites: boolean;
 };
 
 const ROLE_LABELS: Record<string, string> = {
@@ -35,6 +36,7 @@ export function AiHelpChatConfigClient() {
     enabled: true,
     allowedRoles: ["owner", "admin", "editor"],
     allowDataQuestions: true,
+    allowWrites: true,
   });
 
   const roleSet = useMemo(() => new Set(config.allowedRoles), [config.allowedRoles]);
@@ -51,6 +53,10 @@ export function AiHelpChatConfigClient() {
             ? json.data.allowedRoles
             : ["owner", "admin", "editor"],
           allowDataQuestions: Boolean(json.data.allowDataQuestions),
+          allowWrites:
+            typeof json.data.allowWrites === "boolean"
+              ? json.data.allowWrites
+              : Boolean(json.data.allowDataQuestions),
         });
       }
     } catch {
@@ -91,6 +97,10 @@ export function AiHelpChatConfigClient() {
           enabled: Boolean(json.data.enabled),
           allowedRoles: Array.isArray(json.data.allowedRoles) ? json.data.allowedRoles : [],
           allowDataQuestions: Boolean(json.data.allowDataQuestions),
+          allowWrites:
+            typeof json.data.allowWrites === "boolean"
+              ? json.data.allowWrites
+              : Boolean(json.data.allowDataQuestions),
         });
       }
     } catch (error) {
@@ -144,6 +154,25 @@ export function AiHelpChatConfigClient() {
           />
           Permitir preguntas de datos operativos (guardias y métricas)
         </label>
+
+        <div className="space-y-1">
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              className="accent-primary"
+              checked={config.allowWrites}
+              onChange={(e) =>
+                setConfig((prev) => ({ ...prev, allowWrites: e.target.checked }))
+              }
+            />
+            Permitir creación de registros (escritura)
+          </label>
+          <p className="pl-6 text-xs text-muted-foreground">
+            Cuando está activo, la AI puede crear leads, cuentas, deals, instalaciones,
+            cotizaciones, facturas borrador, NC, ND y plantillas recurrentes. La escritura
+            está auditada en AiActionLog y respeta los permisos por rol.
+          </p>
+        </div>
       </section>
 
       <section className="rounded-xl border border-border bg-card p-5 space-y-3 min-w-0 overflow-hidden">

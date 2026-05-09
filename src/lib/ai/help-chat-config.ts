@@ -6,12 +6,14 @@ export type AiHelpChatConfig = {
   enabled: boolean;
   allowedRoles: string[];
   allowDataQuestions: boolean;
+  allowWrites: boolean;
 };
 
 const DEFAULT_CONFIG: AiHelpChatConfig = {
   enabled: true,
   allowedRoles: [...AI_HELP_CHAT_DEFAULT_ROLES],
   allowDataQuestions: true,
+  allowWrites: true,
 };
 
 function configKey(tenantId: string): string {
@@ -36,13 +38,16 @@ export function sanitizeAiHelpChatConfig(raw: unknown): AiHelpChatConfig {
   }
 
   const obj = raw as Record<string, unknown>;
+  const allowDataQuestions =
+    typeof obj.allowDataQuestions === "boolean"
+      ? obj.allowDataQuestions
+      : DEFAULT_CONFIG.allowDataQuestions;
   return {
     enabled: typeof obj.enabled === "boolean" ? obj.enabled : DEFAULT_CONFIG.enabled,
     allowedRoles: normalizeRoles(obj.allowedRoles),
-    allowDataQuestions:
-      typeof obj.allowDataQuestions === "boolean"
-        ? obj.allowDataQuestions
-        : DEFAULT_CONFIG.allowDataQuestions,
+    allowDataQuestions,
+    allowWrites:
+      typeof obj.allowWrites === "boolean" ? obj.allowWrites : allowDataQuestions,
   };
 }
 
