@@ -38,9 +38,23 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const sortByRaw = searchParams.get("sortBy");
+    const sortDirRaw = searchParams.get("sortDir");
+    const sortBy: "transactionDate" | "description" | "amount" | undefined =
+      sortByRaw === "transactionDate" ||
+      sortByRaw === "description" ||
+      sortByRaw === "amount"
+        ? sortByRaw
+        : undefined;
+    const sortDir: "asc" | "desc" | undefined =
+      sortDirRaw === "asc" || sortDirRaw === "desc" ? sortDirRaw : undefined;
+
     const opts = {
       dateFrom: searchParams.get("dateFrom") || undefined,
       dateTo: searchParams.get("dateTo") || undefined,
+      search: searchParams.get("search") || undefined,
+      sortBy,
+      sortDir,
       page: searchParams.get("page")
         ? parseInt(searchParams.get("page")!)
         : undefined,

@@ -37,6 +37,9 @@ import {
   Loader2,
   Star,
   FileText,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -717,17 +720,43 @@ function AccountsTab({
    Tab 2: Movimientos
    ═══════════════════════════════════════════════ */
 
+type TxSortField = "transactionDate" | "description" | "amount";
+type TxSortDir = "asc" | "desc";
+
 function TransactionsTab({ accounts }: { accounts: BankAccountRow[] }) {
   const [selectedAccount, setSelectedAccount] = useState(
     accounts.length > 0 ? accounts[0].id : ""
   );
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [search, setSearch] = useState("");
+  // Búsqueda con debounce 250ms para no atacar el endpoint en cada tecla.
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [sortField, setSortField] = useState<TxSortField>("transactionDate");
+  const [sortDir, setSortDir] = useState<TxSortDir>("desc");
   const [transactions, setTransactions] = useState<TransactionRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
   const [total, setTotal] = useState(0);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 250);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  const toggleSort = useCallback((field: TxSortField) => {
+    setSortField((prevField) => {
+      if (prevField === field) {
+        // Misma columna: invierte dirección
+        setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
+        return field;
+      }
+      // Nueva columna: defaults razonables (fecha/monto desc, descripción asc)
+      setSortDir(field === "description" ? "asc" : "desc");
+      return field;
+    });
+  }, []);
 
   const loadTransactions = useCallback(async () => {
     if (!selectedAccount) return;
@@ -737,9 +766,12 @@ function TransactionsTab({ accounts }: { accounts: BankAccountRow[] }) {
         bankAccountId: selectedAccount,
         page: String(page),
         pageSize: String(pageSize),
+        sortBy: sortField,
+        sortDir,
       });
       if (dateFrom) params.set("dateFrom", dateFrom);
       if (dateTo) params.set("dateTo", dateTo);
+      if (debouncedSearch) params.set("search", debouncedSearch);
       const res = await fetch(`/api/finance/banking/transactions?${params}`);
       if (!res.ok) throw new Error();
       const json = await res.json();
@@ -752,22 +784,47 @@ function TransactionsTab({ accounts }: { accounts: BankAccountRow[] }) {
     } finally {
       setLoading(false);
     }
-  }, [selectedAccount, dateFrom, dateTo, page, pageSize]);
+  }, [selectedAccount, dateFrom, dateTo, debouncedSearch, sortField, sortDir, page, pageSize]);
 
-  // Resetea a la página 1 cuando cambian filtros (cuenta o fechas)
+  // Resetea a la página 1 cuando cambian filtros (cuenta, fechas, búsqueda u orden)
   useEffect(() => {
     setPage(1);
-  }, [selectedAccount, dateFrom, dateTo]);
+  }, [selectedAccount, dateFrom, dateTo, debouncedSearch, sortField, sortDir]);
 
   useEffect(() => {
     loadTransactions();
   }, [loadTransactions]);
 
+  const sortableHeader = useCallback(
+    (label: string, field: TxSortField, align: "left" | "right" = "left") => (
+      <button
+        type="button"
+        onClick={() => toggleSort(field)}
+        className={cn(
+          "inline-flex items-center gap-1 hover:text-foreground transition-colors",
+          align === "right" && "flex-row-reverse"
+        )}
+      >
+        <span>{label}</span>
+        {sortField === field ? (
+          sortDir === "asc" ? (
+            <ArrowUp className="h-3 w-3" />
+          ) : (
+            <ArrowDown className="h-3 w-3" />
+          )
+        ) : (
+          <ArrowUpDown className="h-3 w-3 opacity-40" />
+        )}
+      </button>
+    ),
+    [sortField, sortDir, toggleSort]
+  );
+
   const transactionColumns = useMemo<DataTableColumn<TransactionRow>[]>(
     () => [
       {
         id: "transactionDate",
-        header: "Fecha",
+        header: sortableHeader("Fecha", "transactionDate"),
         cell: (row) => (
           <span className="text-xs text-muted-foreground">
             {format(new Date(row.transactionDate), "dd MMM yyyy", { locale: es })}
@@ -776,7 +833,7 @@ function TransactionsTab({ accounts }: { accounts: BankAccountRow[] }) {
       },
       {
         id: "description",
-        header: "Descripción",
+        header: sortableHeader("Descripción", "description"),
         cell: (row) => row.description,
       },
       {
@@ -790,7 +847,7 @@ function TransactionsTab({ accounts }: { accounts: BankAccountRow[] }) {
       },
       {
         id: "amount",
-        header: "Monto",
+        header: sortableHeader("Monto", "amount", "right"),
         align: "right",
         cell: (row) => (
           <span
@@ -827,7 +884,7 @@ function TransactionsTab({ accounts }: { accounts: BankAccountRow[] }) {
         },
       },
     ],
-    []
+    [sortableHeader]
   );
 
   return (
@@ -866,6 +923,20 @@ function TransactionsTab({ accounts }: { accounts: BankAccountRow[] }) {
             value={dateTo}
             onChange={(e) => setDateTo(e.target.value)}
           />
+        </div>
+        <div className="space-y-1.5 flex-1 min-w-[220px]">
+          <Label htmlFor="tx-search">Buscar</Label>
+          <div className="relative">
+            <Search className="h-4 w-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              id="tx-search"
+              type="text"
+              placeholder="Descripción o referencia…"
+              className="h-9 pl-8"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
         </div>
       </div>
 

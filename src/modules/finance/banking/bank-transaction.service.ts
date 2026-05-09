@@ -3,6 +3,7 @@
  * CRUD and bulk import for bank transactions (movimientos bancarios)
  */
 
+import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { Decimal } from "@prisma/client/runtime/library";
 import type { FinanceBankTxSource } from "@prisma/client";
@@ -11,13 +12,46 @@ import {
   type BulkAutoMatchSummary,
 } from "./auto-match-payment.service";
 
+/**
+ * Genera un `apiTransactionId` determinístico para una transacción importada
+ * desde cartola CSV/XLSX. Permite que el unique constraint
+ *   (tenantId, bankAccountId, apiTransactionId)
+ * bloquee re-importaciones de la misma cartola: el mismo movimiento, en el
+ * mismo orden, produce el mismo hash → `createMany({ skipDuplicates })` lo
+ * salta silenciosamente.
+ *
+ * Incluye `occurrenceIdx` para permitir movimientos legítimamente duplicados
+ * dentro del mismo archivo (ej. dos transferencias idénticas el mismo día).
+ */
+function buildImportTxId(
+  tx: ImportTransactionInput,
+  occurrenceIdx: number
+): string {
+  const key = [
+    tx.transactionDate,
+    tx.amount.toString(),
+    (tx.description ?? "").trim(),
+    tx.reference ?? "",
+    occurrenceIdx,
+  ].join("|");
+  const hash = crypto.createHash("sha1").update(key).digest("hex");
+  return `csv:${hash}`;
+}
+
 // ── Types ──
+
+type BankTxSortField = "transactionDate" | "description" | "amount";
+type BankTxSortDir = "asc" | "desc";
 
 interface ListBankTransactionsOpts {
   dateFrom?: string;
   dateTo?: string;
   page?: number;
   pageSize?: number;
+  /** Búsqueda case-insensitive sobre description y reference. */
+  search?: string;
+  sortBy?: BankTxSortField;
+  sortDir?: BankTxSortDir;
 }
 
 interface ImportTransactionInput {
@@ -61,10 +95,26 @@ export async function listBankTransactions(
     if (opts.dateTo) where.transactionDate.lte = new Date(opts.dateTo);
   }
 
+  const search = opts?.search?.trim();
+  if (search) {
+    where.OR = [
+      { description: { contains: search, mode: "insensitive" } },
+      { reference: { contains: search, mode: "insensitive" } },
+    ];
+  }
+
+  // Orden: por defecto fecha descendente, con id como tiebreaker estable.
+  const sortField: BankTxSortField = opts?.sortBy ?? "transactionDate";
+  const sortDir: BankTxSortDir = opts?.sortDir ?? "desc";
+  const orderBy = [
+    { [sortField]: sortDir } as Record<string, BankTxSortDir>,
+    { id: sortDir } as Record<string, BankTxSortDir>,
+  ];
+
   const [transactions, total] = await Promise.all([
     prisma.financeBankTransaction.findMany({
       where,
-      orderBy: { transactionDate: "desc" },
+      orderBy,
       skip,
       take: pageSize,
     }),
@@ -107,19 +157,36 @@ export async function importBankTransactions(
     return { importedCount: 0 };
   }
 
-  // Build data for createMany
-  const data = transactions.map((tx) => ({
-    tenantId,
-    bankAccountId,
-    transactionDate: new Date(tx.transactionDate),
-    description: tx.description,
-    reference: tx.reference ?? null,
-    amount: new Decimal(tx.amount),
-    source: "CSV_IMPORT" as FinanceBankTxSource,
-    reconciliationStatus: "UNMATCHED" as const,
-  }));
+  // Build data for createMany — incluye apiTransactionId determinístico para
+  // que el unique key (tenantId, bankAccountId, apiTransactionId) bloquee
+  // duplicados al re-importar la misma cartola. occurrenceCounts maneja el
+  // caso de movimientos legítimamente duplicados dentro del mismo archivo.
+  const occurrenceCounts = new Map<string, number>();
+  const data = transactions.map((tx) => {
+    const baseKey = [
+      tx.transactionDate,
+      tx.amount.toString(),
+      (tx.description ?? "").trim(),
+      tx.reference ?? "",
+    ].join("|");
+    const occ = occurrenceCounts.get(baseKey) ?? 0;
+    occurrenceCounts.set(baseKey, occ + 1);
+    return {
+      tenantId,
+      bankAccountId,
+      transactionDate: new Date(tx.transactionDate),
+      description: tx.description,
+      reference: tx.reference ?? null,
+      amount: new Decimal(tx.amount),
+      source: "CSV_IMPORT" as FinanceBankTxSource,
+      reconciliationStatus: "UNMATCHED" as const,
+      apiTransactionId: buildImportTxId(tx, occ),
+    };
+  });
 
-  // Bulk insert — skipDuplicates avoids errors on re-import
+  // Bulk insert — skipDuplicates omite filas que rompan el unique constraint
+  // (tenantId, bankAccountId, apiTransactionId), garantizando que reimportar
+  // la misma cartola no agregue movimientos duplicados.
   const result = await prisma.financeBankTransaction.createMany({
     data,
     skipDuplicates: true,
