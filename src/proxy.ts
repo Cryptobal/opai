@@ -75,6 +75,7 @@ function isPublicPath(pathname: string): boolean {
   // API (rutas reales en /api/)
   if (pathname.startsWith('/api/auth')) return true;
   if (pathname.startsWith('/api/webhook')) return true;
+  if (pathname.startsWith('/api/inbound')) return true; // Inbound mail webhooks (auth Svix in-route)
   if (pathname.startsWith('/api/test')) return true;
   if (/^\/api\/presentations\/[^/]+\/track$/.test(pathname)) return true;
   if (pathname.startsWith('/api/debug')) return true;
