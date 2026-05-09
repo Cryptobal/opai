@@ -193,6 +193,26 @@ export function AccessControlConfigTab({ installationId }: Props) {
     }
   };
 
+  const updateScheduleAndPersist = async (next: AutoReportSchedule | null) => {
+    const previous = config.autoReportSchedule;
+    setConfig((p) => ({ ...p, autoReportSchedule: next }));
+    try {
+      const res = await fetch(`/api/access-control/config/${installationId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ autoReportSchedule: next }),
+      });
+      const json = await res.json();
+      if (!json.success) {
+        setConfig((p) => ({ ...p, autoReportSchedule: previous }));
+        toast.error(json.error || "Error al guardar frecuencia de reporte");
+      }
+    } catch {
+      setConfig((p) => ({ ...p, autoReportSchedule: previous }));
+      toast.error("Error al guardar frecuencia de reporte");
+    }
+  };
+
   const toggleRecordType = (type: AccessRecordType) => {
     setConfig((prev) => {
       const types = prev.enabledRecordTypes.includes(type)
@@ -352,10 +372,9 @@ export function AccessControlConfigTab({ installationId }: Props) {
             <select
               value={config.autoReportSchedule || ""}
               onChange={(e) =>
-                setConfig((p) => ({
-                  ...p,
-                  autoReportSchedule: (e.target.value || null) as AutoReportSchedule | null,
-                }))
+                updateScheduleAndPersist(
+                  (e.target.value || null) as AutoReportSchedule | null
+                )
               }
               className="rounded-md border border-zinc-600 bg-zinc-800 px-3 py-1.5 text-sm text-zinc-200"
             >
