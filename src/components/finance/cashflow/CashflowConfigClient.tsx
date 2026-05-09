@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Pencil, Trash2, Plus } from "lucide-react";
+import { CategoryAccountsEditor } from "./CategoryAccountsEditor";
 
 interface CashflowConfig {
   horizonWeeksDefault: number;
@@ -43,6 +44,7 @@ interface Category {
 interface Props {
   initialConfig: CashflowConfig;
   initialCategories: Category[];
+  accountOptions: { id: string; code: string; name: string }[];
 }
 
 const GENERATORS: Array<{
@@ -85,7 +87,7 @@ const GENERATORS: Array<{
   },
 ];
 
-export function CashflowConfigClient({ initialConfig, initialCategories }: Props) {
+export function CashflowConfigClient({ initialConfig, initialCategories, accountOptions }: Props) {
   const [config, setConfig] = useState<CashflowConfig>(initialConfig);
   const [categories, setCategories] = useState<Category[]>(initialCategories);
   const [savingConfig, setSavingConfig] = useState(false);
@@ -373,6 +375,13 @@ export function CashflowConfigClient({ initialConfig, initialCategories }: Props
                       </span>
                     )}
                   </div>
+                  <div className="mt-2">
+                    <CategoryAccountsEditor
+                      categoryId={c.id}
+                      accountOptions={accountOptions}
+                      canEdit={true}
+                    />
+                  </div>
                 </div>
                 <div className="flex flex-col items-end gap-2 shrink-0">
                   <Switch checked={c.isActive} onCheckedChange={() => toggleCategoryActive(c)} />
@@ -399,6 +408,7 @@ export function CashflowConfigClient({ initialConfig, initialCategories }: Props
                 <th className="text-left p-2">Código</th>
                 <th className="text-left p-2">Nombre</th>
                 <th className="text-left p-2">Tipo</th>
+                <th className="text-left p-2">Cuentas contables</th>
                 <th className="text-center p-2">Sistema</th>
                 <th className="text-center p-2">Activa</th>
                 <th className="p-2">Acciones</th>
@@ -410,6 +420,13 @@ export function CashflowConfigClient({ initialConfig, initialCategories }: Props
                   <td className="p-2 font-mono text-ds-text-3">{c.code}</td>
                   <td className="p-2">{c.name}</td>
                   <td className="p-2">{c.kind === "INCOME" ? "↑ Ingreso" : "↓ Egreso"}</td>
+                  <td className="p-2">
+                    <CategoryAccountsEditor
+                      categoryId={c.id}
+                      accountOptions={accountOptions}
+                      canEdit={true}
+                    />
+                  </td>
                   <td className="p-2 text-center">
                     {c.isSystem ? (
                       <span className="text-[11px] px-1.5 py-0.5 rounded-ds-sm bg-status-info-soft text-status-info-fg font-mono uppercase tracking-[0.08em]">
