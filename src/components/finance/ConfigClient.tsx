@@ -40,7 +40,6 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Surface, IconBubble } from "@/components/opai-ds";
 
 /* ── Types ── */
 
@@ -93,17 +92,31 @@ interface ConfigClientProps {
   approverOptions: ApproverOption[];
 }
 
-/* ── Tab definition ── */
+/* ── Tab definition ──
+   Estructura nueva:
+   - "Rendiciones" agrupa Items, Parámetros Km, Aprobadores y Reglas
+     (todo lo que es flujo de gastos rendidos por usuarios). Usa
+     sub-pills internos.
+   - "Centros de Costo" como tab independiente.
+   - "Facturación Electrónica" linkea a su propia página de configuración
+     (datos del emisor, certificado, CAFs).
+*/
 
-const TABS = [
+const RENDICIONES_SUBTABS = [
   { id: "items", label: "Ítems", icon: Tag },
   { id: "km", label: "Parámetros Km", icon: Settings2 },
   { id: "approvers", label: "Aprobadores", icon: UserCheck },
   { id: "rules", label: "Reglas", icon: ShieldCheck },
-  { id: "costcenters", label: "Centros de Costo", icon: Building2 },
 ] as const;
 
-type TabId = (typeof TABS)[number]["id"];
+const TOP_TABS = [
+  { id: "rendiciones", label: "Rendiciones", icon: Tag },
+  { id: "costcenters", label: "Centros de Costo", icon: Building2 },
+  { id: "dte", label: "Facturación Electrónica", icon: FileText, href: "/opai/configuracion/finanzas/dte" },
+] as const;
+
+type TopTabId = (typeof TOP_TABS)[number]["id"];
+type RendicionesSubTabId = (typeof RENDICIONES_SUBTABS)[number]["id"];
 
 const fmtCLP = new Intl.NumberFormat("es-CL", {
   style: "currency",
@@ -121,47 +134,40 @@ export function ConfigClient({
   costCenters: initialCostCenters,
   approverOptions,
 }: ConfigClientProps) {
-  const [activeTab, setActiveTab] = useState<TabId>("items");
+  const [topTab, setTopTab] = useState<TopTabId>("rendiciones");
+  const [rendSubTab, setRendSubTab] = useState<RendicionesSubTabId>("items");
 
   return (
     <div className="space-y-4">
-      {/* Acceso a sub-módulos de configuración que viven en su propia ruta */}
-      <Link
-        href="/opai/configuracion/finanzas/dte"
-        className="block rounded-ds-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-      >
-        <Surface elevation={1} padding="md" hoverable>
-          <div className="flex items-center gap-3">
-            <IconBubble icon={FileText} variant="brand" size="md" />
-            <div className="min-w-0 flex-1">
-              <p className="font-display text-[14px] font-semibold text-ds-text-1">
-                DTE — Facturación Electrónica
-              </p>
-              <p className="text-[12px] text-ds-text-3 mt-0.5">
-                Datos del emisor, certificado digital y archivos CAF para emitir facturas al SII
-              </p>
-            </div>
-            <ChevronRight className="h-4 w-4 text-ds-text-4 shrink-0" aria-hidden />
-          </div>
-        </Surface>
-      </Link>
-
-      {/* Tab navigation */}
+      {/* Top-level tabs: Rendiciones · Centros de Costo · Facturación Electrónica */}
       <nav className="-mx-4 px-4 sm:mx-0 sm:px-0">
         <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">
-          {TABS.map((tab) => {
-            const isActive = activeTab === tab.id;
+          {TOP_TABS.map((tab) => {
+            const isActive = topTab === tab.id;
             const Icon = tab.icon;
+            const className = cn(
+              "whitespace-nowrap rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors shrink-0 flex items-center gap-1.5",
+              isActive
+                ? "bg-primary/15 text-primary border border-primary/30"
+                : "text-muted-foreground hover:bg-accent/50 hover:text-foreground border border-transparent"
+            );
+            // Tab "Facturación Electrónica" navega a /opai/configuracion/finanzas/dte
+            // (no se renderiza inline acá; mantiene su flujo separado de
+            // certificado digital + CAFs en su propia página).
+            if ("href" in tab && tab.href) {
+              return (
+                <Link key={tab.id} href={tab.href} className={className}>
+                  <Icon className="h-3.5 w-3.5" />
+                  {tab.label}
+                  <ChevronRight className="h-3 w-3 opacity-60" aria-hidden />
+                </Link>
+              );
+            }
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={cn(
-                  "whitespace-nowrap rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors shrink-0 flex items-center gap-1.5",
-                  isActive
-                    ? "bg-primary/15 text-primary border border-primary/30"
-                    : "text-muted-foreground hover:bg-accent/50 hover:text-foreground border border-transparent"
-                )}
+                onClick={() => setTopTab(tab.id as TopTabId)}
+                className={className}
               >
                 <Icon className="h-3.5 w-3.5" />
                 {tab.label}
@@ -171,21 +177,49 @@ export function ConfigClient({
         </div>
       </nav>
 
-      {/* Tab content */}
-      <div>
-        {activeTab === "items" && <ItemsTab initialItems={initialItems} />}
-        {activeTab === "km" && <KmParamsTab initialConfig={initialConfig} />}
-        {activeTab === "approvers" && (
-          <ApproversTab
-            initialConfig={initialConfig}
-            approverOptions={approverOptions}
-          />
-        )}
-        {activeTab === "rules" && <RulesTab initialConfig={initialConfig} />}
-        {activeTab === "costcenters" && (
-          <CostCentersTab initialCostCenters={initialCostCenters} />
-        )}
-      </div>
+      {/* Contenido del top tab */}
+      {topTab === "rendiciones" && (
+        <div className="space-y-4">
+          {/* Sub-pills de Rendiciones */}
+          <nav className="-mx-4 px-4 sm:mx-0 sm:px-0">
+            <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">
+              {RENDICIONES_SUBTABS.map((sub) => {
+                const isActive = rendSubTab === sub.id;
+                const Icon = sub.icon;
+                return (
+                  <button
+                    key={sub.id}
+                    onClick={() => setRendSubTab(sub.id)}
+                    className={cn(
+                      "whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium transition-colors shrink-0 flex items-center gap-1.5",
+                      isActive
+                        ? "bg-foreground/10 text-foreground border border-border"
+                        : "text-muted-foreground hover:bg-accent/40 hover:text-foreground border border-transparent"
+                    )}
+                  >
+                    <Icon className="h-3 w-3" />
+                    {sub.label}
+                  </button>
+                );
+              })}
+            </div>
+          </nav>
+
+          {rendSubTab === "items" && <ItemsTab initialItems={initialItems} />}
+          {rendSubTab === "km" && <KmParamsTab initialConfig={initialConfig} />}
+          {rendSubTab === "approvers" && (
+            <ApproversTab
+              initialConfig={initialConfig}
+              approverOptions={approverOptions}
+            />
+          )}
+          {rendSubTab === "rules" && <RulesTab initialConfig={initialConfig} />}
+        </div>
+      )}
+
+      {topTab === "costcenters" && (
+        <CostCentersTab initialCostCenters={initialCostCenters} />
+      )}
     </div>
   );
 }
