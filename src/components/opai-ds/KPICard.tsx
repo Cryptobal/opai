@@ -129,6 +129,10 @@ export function KPICard({
           ? "text-status-danger-fg"
           : "text-ds-text-3";
 
+  const valueTitle = typeof value === "string" || typeof value === "number"
+    ? String(displayed)
+    : undefined;
+
   return (
     <Surface
       elevation={1}
@@ -136,7 +140,7 @@ export function KPICard({
       hoverable={!!onClick}
       tappable={!!onClick}
       onClick={onClick}
-      className={cn("p-4 sm:p-5", className)}
+      className={cn("min-w-0 p-4 sm:p-5", className)}
     >
       {icon && (
         <IconTile
@@ -148,15 +152,17 @@ export function KPICard({
         />
       )}
 
-      <p className="text-xs font-mono uppercase tracking-[0.08em] text-ds-text-4">
+      <p className="text-xs font-mono uppercase tracking-[0.08em] text-ds-text-4 truncate">
         {label}
       </p>
 
-      <div className="mt-1 flex items-baseline gap-2 flex-wrap">
+      <div className="mt-1 flex items-baseline gap-2 flex-wrap min-w-0">
         <span
+          title={valueTitle}
           className={cn(
-            "font-mono font-semibold tabular-nums tracking-tight leading-none",
-            "text-2xl sm:text-3xl",
+            "font-mono font-semibold tabular-nums tracking-tight leading-tight min-w-0 max-w-full",
+            "text-xl sm:text-2xl xl:text-3xl",
+            "[overflow-wrap:anywhere] [word-break:break-word]",
             VARIANT_VALUE_COLOR[variant],
           )}
         >
@@ -171,9 +177,9 @@ export function KPICard({
       </div>
 
       {hint && (
-        <p className="mt-1.5 text-xs text-ds-text-3 leading-snug">
+        <div className="mt-1.5 text-xs text-ds-text-3 leading-snug min-w-0 [overflow-wrap:anywhere]">
           {hint}
-        </p>
+        </div>
       )}
     </Surface>
   );

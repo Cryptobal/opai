@@ -34,13 +34,21 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useIsMobileViewport } from "@/hooks/useIsMobileViewport";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   FileText, Download, FileCode, Mail, RefreshCw, Loader2,
   FileMinus, FilePlus, ExternalLink, Copy, Coins, FileSearch, Upload,
-  AlertTriangle, ChevronDown, ChevronRight,
+  AlertTriangle, ChevronDown, ChevronRight, MoreHorizontal,
 } from "lucide-react";
 import { CederDteDialog } from "./factoring/CederDteDialog";
 import { PdfPreviewDialog } from "./PdfPreviewDialog";
@@ -876,138 +884,245 @@ export function IssuedDteDetailDialog({
           </div>
         )}
 
-        {/* Footer con acciones */}
-        {!loading && !error && dte && (
-          <DialogFooter className="flex flex-wrap gap-2">
-            {dte.hasXml && (
-              <>
-                <Button variant="outline" size="sm" onClick={() => setShowPdfPreview(true)}>
-                  <FileSearch className="h-3.5 w-3.5 mr-1.5" />
-                  Vista previa
-                </Button>
-                <Button variant="outline" size="sm" onClick={handleDownloadPdf} disabled={downloadingPdf}>
-                  {downloadingPdf ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Download className="h-3.5 w-3.5 mr-1.5" />}
-                  PDF
-                </Button>
-                <Button variant="outline" size="sm" onClick={handleDownloadXml} disabled={downloadingXml}>
-                  {downloadingXml ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <FileCode className="h-3.5 w-3.5 mr-1.5" />}
-                  XML
-                </Button>
-              </>
-            )}
-            {!dte.hasXml && (
-              <>
-                <span className="text-xs text-muted-foreground italic px-2 py-1.5">
-                  Sin XML local
-                </span>
-                {canManage && (
+        {/* Footer con acciones — rediseñado:
+            Acciones primarias siempre visibles (Vista previa, PDF, XML)
+            + dropdown "Más acciones" con todo lo secundario para no saturar
+            el footer con ~10 botones que rebalsan en 2 filas. */}
+        {!loading && !error && dte && (() => {
+          const noXmlBlockedReason = !dte.hasXml
+            ? "Esta factura no tiene XML local (típicamente porque fue emitida antes del refactor que persiste el XML automáticamente). Tocá \"Subir XML\" para adjuntar el XML firmado original — lo conseguís descargándolo desde el portal SII (Servicios online → Factura electrónica → Consultar mis documentos emitidos). Una vez subido podrás ceder."
+            : null;
+          const showSendEmail =
+            canManage && dte.hasXml && dte.siiStatus !== "ANNULLED";
+          const showCheckStatus =
+            canManage && (dte.siiStatus === "PENDING" || dte.siiStatus === "SENT");
+          const showCreditNote =
+            canManage &&
+            [33, 34, 39, 41, 56].includes(dte.dteType) &&
+            dte.siiStatus !== "ANNULLED" &&
+            !!onEmitCreditNote;
+          const showDebitNote = canManage && !!canDebitNote && !!onEmitDebitNote;
+          const showCede = canManage;
+          const showSiiLink = !!dte.siiTrackId;
+          const hasAnySecondary =
+            showSendEmail ||
+            showCheckStatus ||
+            canManage ||
+            showCreditNote ||
+            showDebitNote ||
+            showCede ||
+            showSiiLink;
+          return (
+            <DialogFooter className="flex items-center justify-between gap-2 sm:flex-row flex-row-reverse flex-wrap">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {dte.hasXml ? (
+                  <>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={() => setShowPdfPreview(true)}
+                      className="gap-1.5"
+                    >
+                      <FileSearch className="h-3.5 w-3.5" />
+                      Vista previa
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleDownloadPdf}
+                      disabled={downloadingPdf}
+                      className="gap-1.5"
+                    >
+                      {downloadingPdf ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Download className="h-3.5 w-3.5" />
+                      )}
+                      PDF
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleDownloadXml}
+                      disabled={downloadingXml}
+                      className="gap-1.5 hidden sm:inline-flex"
+                    >
+                      {downloadingXml ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <FileCode className="h-3.5 w-3.5" />
+                      )}
+                      XML
+                    </Button>
+                  </>
+                ) : canManage ? (
                   <Button
-                    variant="outline"
+                    variant="default"
                     size="sm"
                     onClick={() => {
                       setXmlPaste("");
                       setShowAttachXml(true);
                     }}
                     title="Subir el XML firmado original (necesario para ceder a factoring)"
+                    className="gap-1.5"
                   >
-                    <Upload className="h-3.5 w-3.5 mr-1.5" />
+                    <Upload className="h-3.5 w-3.5" />
                     Subir XML
                   </Button>
+                ) : (
+                  <span className="text-xs text-muted-foreground italic px-2 py-1.5">
+                    Sin XML local
+                  </span>
                 )}
-              </>
-            )}
-            {canManage && dte.hasXml && dte.siiStatus !== "ANNULLED" && (
-              <Button variant="outline" size="sm" onClick={handleOpenSendEmail}>
-                <Mail className="h-3.5 w-3.5 mr-1.5" />
-                {dte.emailSentAt ? "Reenviar email…" : "Enviar email…"}
+
+                {hasAnySecondary && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5"
+                        aria-label="Más acciones"
+                      >
+                        <MoreHorizontal className="h-3.5 w-3.5" />
+                        <span className="hidden sm:inline">Más</span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-60">
+                      <DropdownMenuLabel className="text-[11px] uppercase tracking-wide text-ds-text-3">
+                        Acciones
+                      </DropdownMenuLabel>
+                      {!dte.hasXml && (
+                        <DropdownMenuItem
+                          disabled
+                          className="text-xs italic text-muted-foreground"
+                        >
+                          XML no disponible
+                        </DropdownMenuItem>
+                      )}
+                      {dte.hasXml && (
+                        <DropdownMenuItem
+                          onSelect={(e) => {
+                            e.preventDefault();
+                            handleDownloadXml();
+                          }}
+                          className="sm:hidden"
+                        >
+                          <FileCode className="h-4 w-4 mr-2" />
+                          Descargar XML
+                        </DropdownMenuItem>
+                      )}
+                      {showSendEmail && (
+                        <DropdownMenuItem
+                          onSelect={(e) => {
+                            e.preventDefault();
+                            handleOpenSendEmail();
+                          }}
+                        >
+                          <Mail className="h-4 w-4 mr-2" />
+                          {dte.emailSentAt ? "Reenviar email…" : "Enviar email…"}
+                        </DropdownMenuItem>
+                      )}
+                      {showCheckStatus && (
+                        <DropdownMenuItem
+                          onSelect={(e) => {
+                            e.preventDefault();
+                            handleCheckStatus();
+                          }}
+                          disabled={checkingStatus}
+                        >
+                          {checkingStatus ? (
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          ) : (
+                            <RefreshCw className="h-4 w-4 mr-2" />
+                          )}
+                          Consultar estado SII
+                        </DropdownMenuItem>
+                      )}
+                      {canManage && (
+                        <DropdownMenuItem
+                          onSelect={(e) => {
+                            e.preventDefault();
+                            handleDuplicateAsDraft();
+                          }}
+                        >
+                          <Copy className="h-4 w-4 mr-2" />
+                          Duplicar como borrador
+                        </DropdownMenuItem>
+                      )}
+                      {(showCreditNote || showDebitNote) && <DropdownMenuSeparator />}
+                      {showCreditNote && (
+                        <DropdownMenuItem
+                          onSelect={(e) => {
+                            e.preventDefault();
+                            if (creditNoteBlockedReason) {
+                              toast.error(creditNoteBlockedReason, { duration: 8000 });
+                              return;
+                            }
+                            onClose();
+                            onEmitCreditNote!(dte.id);
+                          }}
+                          className={creditNoteBlockedReason ? "opacity-60" : undefined}
+                        >
+                          <FileMinus className="h-4 w-4 mr-2" />
+                          Nota de Crédito
+                        </DropdownMenuItem>
+                      )}
+                      {showDebitNote && (
+                        <DropdownMenuItem
+                          onSelect={(e) => {
+                            e.preventDefault();
+                            onClose();
+                            onEmitDebitNote!(dte.id);
+                          }}
+                        >
+                          <FilePlus className="h-4 w-4 mr-2" />
+                          Nota de Débito
+                        </DropdownMenuItem>
+                      )}
+                      {(showCede || showSiiLink) && <DropdownMenuSeparator />}
+                      {showCede && (
+                        <DropdownMenuItem
+                          onSelect={(e) => {
+                            e.preventDefault();
+                            if (noXmlBlockedReason) {
+                              toast.error(noXmlBlockedReason, { duration: 9000 });
+                              return;
+                            }
+                            setShowCederDialog(true);
+                          }}
+                          className={noXmlBlockedReason ? "opacity-60" : undefined}
+                        >
+                          <Coins className="h-4 w-4 mr-2" />
+                          Ceder a factoring
+                        </DropdownMenuItem>
+                      )}
+                      {showSiiLink && (
+                        <DropdownMenuItem
+                          onSelect={(e) => {
+                            e.preventDefault();
+                            window.open(
+                              "https://www4.sii.cl/consdcvinternetui/#/index",
+                              "_blank",
+                              "noopener,noreferrer",
+                            );
+                          }}
+                        >
+                          <ExternalLink className="h-4 w-4 mr-2" />
+                          Ver en portal SII
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+              </div>
+
+              <Button variant="ghost" size="sm" onClick={onClose}>
+                Cerrar
               </Button>
-            )}
-            {canManage && (dte.siiStatus === "PENDING" || dte.siiStatus === "SENT") && (
-              <Button variant="outline" size="sm" onClick={handleCheckStatus} disabled={checkingStatus}>
-                {checkingStatus ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5 mr-1.5" />}
-                Estado SII
-              </Button>
-            )}
-            {canManage && (
-              <Button variant="outline" size="sm" onClick={handleDuplicateAsDraft}>
-                <Copy className="h-3.5 w-3.5 mr-1.5" />
-                Duplicar como borrador
-              </Button>
-            )}
-            {canManage &&
-              [33, 34, 39, 41, 56].includes(dte.dteType) &&
-              dte.siiStatus !== "ANNULLED" &&
-              onEmitCreditNote && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    if (creditNoteBlockedReason) {
-                      toast.error(creditNoteBlockedReason, { duration: 8000 });
-                      return;
-                    }
-                    onClose();
-                    onEmitCreditNote(dte.id);
-                  }}
-                  className={creditNoteBlockedReason ? "opacity-60" : undefined}
-                  title={creditNoteBlockedReason ?? "Emitir nota de crédito"}
-                >
-                  <FileMinus className="h-3.5 w-3.5 mr-1.5" />
-                  Nota de Crédito
-                </Button>
-              )}
-            {canManage && canDebitNote && onEmitDebitNote && (
-              <Button variant="outline" size="sm" onClick={() => { onClose(); onEmitDebitNote(dte.id); }}>
-                <FilePlus className="h-3.5 w-3.5 mr-1.5" />
-                Nota de Débito
-              </Button>
-            )}
-            {dte.siiTrackId && (
-              <Button variant="outline" size="sm" asChild>
-                <a
-                  href="https://www4.sii.cl/consdcvinternetui/#/index"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
-                  Ver en SII
-                </a>
-              </Button>
-            )}
-            {canManage && (() => {
-              // Botón siempre presente. La única restricción técnica real
-              // es tener XML local: sin él no se puede construir el AEC.
-              // Si el botón está bloqueado, lo dejamos clickeable y al
-              // tap mostramos un toast con la razón clara (los `title`
-              // de HTML no funcionan en mobile, hay que dar feedback
-              // explícito). Para todo lo demás (tipo, status SII, ya
-              // cedido) dejamos que el backend + SII devuelvan el error.
-              const noXml = !dte.hasXml;
-              const blockedReason = noXml
-                ? "Esta factura no tiene XML local (típicamente porque fue emitida antes del refactor que persiste el XML automáticamente). Tocá \"Subir XML\" para adjuntar el XML firmado original — lo conseguís descargándolo desde el portal SII (Servicios online → Factura electrónica → Consultar mis documentos emitidos). Una vez subido podrás ceder."
-                : null;
-              return (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    if (blockedReason) {
-                      toast.error(blockedReason, { duration: 9000 });
-                      return;
-                    }
-                    setShowCederDialog(true);
-                  }}
-                  className={blockedReason ? "opacity-60" : undefined}
-                  title={blockedReason ?? "Ceder a factoring"}
-                >
-                  <Coins className="h-3.5 w-3.5 mr-1.5" />
-                  Ceder a factoring
-                </Button>
-              );
-            })()}
-            <Button variant="outline" onClick={onClose}>Cerrar</Button>
-          </DialogFooter>
-        )}
+            </DialogFooter>
+          );
+        })()}
         </div>
       </ShellContent>
       {dte ? (
