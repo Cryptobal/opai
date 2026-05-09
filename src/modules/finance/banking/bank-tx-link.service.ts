@@ -230,6 +230,107 @@ export async function setTransactionLinks(
   });
 }
 
+/**
+ * Confirma una sugerencia generada por una regla auto-match: convierte la
+ * propuesta guardada en `suggestedRuleId` + `suggestedAccountPlanId` en un
+ * link real y deja la tx MATCHED. Idempotente: si ya está MATCHED o no hay
+ * sugerencia, no hace nada.
+ */
+export async function confirmSuggestion(
+  tenantId: string,
+  bankTxId: string,
+  userId: string | null
+): Promise<{ confirmed: boolean }> {
+  const tx = await prisma.financeBankTransaction.findFirst({
+    where: { id: bankTxId, tenantId },
+    select: {
+      id: true,
+      amount: true,
+      reconciliationStatus: true,
+      suggestedRuleId: true,
+      suggestedAccountPlanId: true,
+    },
+  });
+  if (!tx) throw new Error("Movimiento no encontrado");
+  if (tx.reconciliationStatus !== "UNMATCHED") return { confirmed: false };
+  if (!tx.suggestedAccountPlanId) return { confirmed: false };
+
+  const isIncome = tx.amount.toNumber() > 0;
+  const amountAbs = Math.abs(tx.amount.toNumber());
+
+  await prisma.$transaction(async (tx2: Prisma.TransactionClient) => {
+    await tx2.financeBankTransactionLink.create({
+      data: {
+        tenantId,
+        bankTransactionId: bankTxId,
+        targetType: isIncome ? "INCOME" : "EXPENSE",
+        targetId: null,
+        amount: new Decimal(amountAbs),
+        accountPlanId: tx.suggestedAccountPlanId!,
+        note: "Auto-match autorizado por regla",
+        createdById: userId ?? null,
+      },
+    });
+    await tx2.financeBankTransaction.update({
+      where: { id: bankTxId },
+      data: {
+        reconciliationStatus: "MATCHED",
+        suggestedRuleId: null,
+        suggestedAccountPlanId: null,
+      },
+    });
+    if (tx.suggestedRuleId) {
+      await tx2.financeAutoMatchRule.update({
+        where: { id: tx.suggestedRuleId },
+        data: {
+          timesMatched: { increment: 1 },
+          lastMatchedAt: new Date(),
+        },
+      });
+    }
+  });
+
+  return { confirmed: true };
+}
+
+/**
+ * Confirma TODAS las sugerencias pendientes de una cuenta (o de todas) en
+ * un sólo barrido. Devuelve cuántas se autorizaron.
+ *
+ * Filtros opcionales para restringir el alcance:
+ *   - bankAccountId: solo de una cuenta.
+ *   - txIds: solo estos ids específicos (selección manual del usuario).
+ */
+export async function confirmAllSuggestions(
+  tenantId: string,
+  userId: string | null,
+  filters: { bankAccountId?: string; txIds?: string[] } = {}
+): Promise<{ confirmed: number }> {
+  const where: Prisma.FinanceBankTransactionWhereInput = {
+    tenantId,
+    reconciliationStatus: "UNMATCHED",
+    hiddenAt: null,
+    suggestedAccountPlanId: { not: null },
+  };
+  if (filters.bankAccountId) where.bankAccountId = filters.bankAccountId;
+  if (filters.txIds && filters.txIds.length > 0) {
+    where.id = { in: filters.txIds };
+  }
+
+  const candidates = await prisma.financeBankTransaction.findMany({
+    where,
+    select: { id: true },
+    take: 1000, // hard cap por seguridad
+  });
+
+  let confirmed = 0;
+  for (const c of candidates) {
+    const r = await confirmSuggestion(tenantId, c.id, userId);
+    if (r.confirmed) confirmed += 1;
+  }
+  return { confirmed };
+}
+
 /** Elimina todos los links de una tx y la deja UNMATCHED. */
 export async function clearTransactionLinks(
   tenantId: string,

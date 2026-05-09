@@ -49,6 +49,7 @@ import {
   RotateCcw,
   Settings2,
   BarChart3,
+  CheckCircle2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -94,7 +95,20 @@ interface TransactionRow {
   reconciliationStatus: string;
   hiddenAt: string | null;
   hiddenReason: string | null;
+  suggestedRuleId: string | null;
+  suggestedRuleName: string | null;
+  suggestedAccountPlanId: string | null;
+  suggestedAccountLabel: string | null;
 }
+
+type TxSubTab = "all" | "recognized" | "unrecognized" | "matched";
+
+const TX_SUB_TABS: { id: TxSubTab; label: string }[] = [
+  { id: "all", label: "Todos" },
+  { id: "recognized", label: "Reconocidos" },
+  { id: "unrecognized", label: "Sin reconocer" },
+  { id: "matched", label: "Conciliados" },
+];
 
 /* ── Constants ── */
 
@@ -808,6 +822,9 @@ function TransactionsTab({
   const [sortField, setSortField] = useState<TxSortField>("transactionDate");
   const [sortDir, setSortDir] = useState<TxSortDir>("desc");
   const [showHidden, setShowHidden] = useState(false);
+  const [subTab, setSubTab] = useState<TxSubTab>("all");
+  const [authorizing, setAuthorizing] = useState<string | null>(null);
+  const [bulkAuthorizing, setBulkAuthorizing] = useState(false);
   const [transactions, setTransactions] = useState<TransactionRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
@@ -849,6 +866,7 @@ function TransactionsTab({
         sortBy: sortField,
         sortDir,
         visibility: showHidden ? "hidden" : "visible",
+        tab: subTab,
       });
       if (dateFrom) params.set("dateFrom", dateFrom);
       if (dateTo) params.set("dateTo", dateTo);
@@ -865,12 +883,12 @@ function TransactionsTab({
     } finally {
       setLoading(false);
     }
-  }, [selectedAccount, dateFrom, dateTo, debouncedSearch, sortField, sortDir, showHidden, page, pageSize]);
+  }, [selectedAccount, dateFrom, dateTo, debouncedSearch, sortField, sortDir, showHidden, subTab, page, pageSize]);
 
-  // Resetea a la página 1 cuando cambian filtros (cuenta, fechas, búsqueda, orden o visibilidad)
+  // Resetea a la página 1 cuando cambian filtros (cuenta, fechas, búsqueda, orden, visibilidad o sub-tab)
   useEffect(() => {
     setPage(1);
-  }, [selectedAccount, dateFrom, dateTo, debouncedSearch, sortField, sortDir, showHidden]);
+  }, [selectedAccount, dateFrom, dateTo, debouncedSearch, sortField, sortDir, showHidden, subTab]);
 
   useEffect(() => {
     loadTransactions();
@@ -903,6 +921,78 @@ function TransactionsTab({
       toast.error(err instanceof Error ? err.message : "Error inesperado");
     } finally {
       setHiding(false);
+    }
+  };
+
+  const authorizeSuggestion = async (txId: string) => {
+    setAuthorizing(txId);
+    try {
+      const res = await fetch(
+        `/api/finance/banking/transactions/${txId}/confirm-suggestion`,
+        { method: "POST" }
+      );
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error);
+      toast.success("Movimiento autorizado");
+      loadTransactions();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al autorizar");
+    } finally {
+      setAuthorizing(null);
+    }
+  };
+
+  const undoReconciliation = async (txId: string) => {
+    if (
+      !confirm(
+        "¿Deshacer la conciliación de este movimiento? Se eliminan los vínculos contables y vuelve a estado UNMATCHED."
+      )
+    ) {
+      return;
+    }
+    try {
+      const res = await fetch(
+        `/api/finance/banking/transactions/${txId}/links`,
+        { method: "DELETE" }
+      );
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error);
+      toast.success("Conciliación deshecha");
+      loadTransactions();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al deshacer");
+    }
+  };
+
+  const authorizeAll = async () => {
+    if (!selectedAccount) return;
+    if (
+      !confirm(
+        "¿Autorizar todos los movimientos reconocidos visibles? Crearán los vínculos contables sugeridos por las reglas."
+      )
+    ) {
+      return;
+    }
+    setBulkAuthorizing(true);
+    try {
+      const res = await fetch(
+        "/api/finance/banking/transactions/confirm-suggestions",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ bankAccountId: selectedAccount }),
+        }
+      );
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error);
+      toast.success(
+        `${(json.data?.confirmed ?? 0).toLocaleString("es-CL")} movimientos autorizados`
+      );
+      loadTransactions();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error en autorización masiva");
+    } finally {
+      setBulkAuthorizing(false);
     }
   };
 
@@ -1009,6 +1099,24 @@ function TransactionsTab({
               </Badge>
             );
           }
+          if (row.suggestedRuleId && row.reconciliationStatus === "UNMATCHED") {
+            return (
+              <div className="flex flex-col gap-0.5">
+                <Badge
+                  variant="outline"
+                  className="text-xs bg-status-info-soft text-status-info-fg border-status-info-border"
+                  title={`Sugerido por: ${row.suggestedRuleName ?? "regla"}`}
+                >
+                  Reconocido
+                </Badge>
+                {row.suggestedAccountLabel && (
+                  <span className="text-[11px] text-muted-foreground truncate max-w-[180px]">
+                    → {row.suggestedAccountLabel}
+                  </span>
+                )}
+              </div>
+            );
+          }
           const rcCfg = RECONC_STATUS_CONFIG[row.reconciliationStatus] ?? {
             label: row.reconciliationStatus,
             className: "bg-muted",
@@ -1042,23 +1150,59 @@ function TransactionsTab({
                 <RotateCcw className="h-3.5 w-3.5" />
               </Button>
             ) : (
-              <Button
-                variant="ghost"
-                size="sm"
-                title="Ocultar (no es caja)"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setHideDialog(row);
-                  setHideReason("");
-                }}
-              >
-                <EyeOff className="h-3.5 w-3.5" />
-              </Button>
+              <div className="flex items-center justify-end gap-1">
+                {row.suggestedRuleId && row.reconciliationStatus === "UNMATCHED" && (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="h-7 text-xs"
+                    title={`Autorizar: ${row.suggestedAccountLabel ?? ""}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      authorizeSuggestion(row.id);
+                    }}
+                    disabled={authorizing === row.id}
+                  >
+                    {authorizing === row.id ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <CheckCircle2 className="h-3 w-3 mr-1" />
+                    )}
+                    Autorizar
+                  </Button>
+                )}
+                {(row.reconciliationStatus === "MATCHED" ||
+                  row.reconciliationStatus === "RECONCILED") && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    title="Deshacer conciliación"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      undoReconciliation(row.id);
+                    }}
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                  </Button>
+                )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  title="Ocultar (no es caja)"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setHideDialog(row);
+                    setHideReason("");
+                  }}
+                >
+                  <EyeOff className="h-3.5 w-3.5" />
+                </Button>
+              </div>
             )
           ) : null,
       },
     ],
-    [sortableHeader, canManage]
+    [sortableHeader, canManage, authorizing]
   );
 
   return (
@@ -1135,6 +1279,47 @@ function TransactionsTab({
         </div>
       </div>
 
+      {/* Sub-pills + bulk action */}
+      {!showHidden && (
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide flex-1 min-w-0">
+            {TX_SUB_TABS.map((t) => {
+              const isActive = subTab === t.id;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setSubTab(t.id)}
+                  className={cn(
+                    "whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium transition-colors shrink-0",
+                    isActive
+                      ? "bg-primary/15 text-primary border border-primary/30"
+                      : "text-muted-foreground hover:bg-accent/50 hover:text-foreground border border-transparent"
+                  )}
+                >
+                  {t.label}
+                </button>
+              );
+            })}
+          </div>
+          {subTab === "recognized" && canManage && transactions.length > 0 && (
+            <Button
+              size="sm"
+              onClick={authorizeAll}
+              disabled={bulkAuthorizing}
+              className="h-8 shrink-0"
+            >
+              {bulkAuthorizing ? (
+                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+              ) : (
+                <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
+              )}
+              Autorizar todos
+            </Button>
+          )}
+        </div>
+      )}
+
       {loading ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -1207,6 +1392,14 @@ function TransactionsTab({
                             >
                               Oculto
                             </Badge>
+                          ) : tx.suggestedRuleId &&
+                            tx.reconciliationStatus === "UNMATCHED" ? (
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] bg-status-info-soft text-status-info-fg border-status-info-border"
+                            >
+                              Reconocido
+                            </Badge>
                           ) : (
                             <Badge
                               variant="outline"
@@ -1227,6 +1420,15 @@ function TransactionsTab({
                             Motivo: {tx.hiddenReason}
                           </p>
                         )}
+                        {tx.suggestedAccountLabel &&
+                          tx.reconciliationStatus === "UNMATCHED" && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              <span className="font-medium">
+                                {tx.suggestedRuleName ?? "Regla"}:
+                              </span>{" "}
+                              → {tx.suggestedAccountLabel}
+                            </p>
+                          )}
                         <div className="flex items-center justify-between mt-2">
                           <span
                             className={cn(
@@ -1244,7 +1446,7 @@ function TransactionsTab({
                         </div>
                       </div>
                       {canManage && (
-                        <div className="shrink-0">
+                        <div className="shrink-0 flex items-center gap-1">
                           {tx.hiddenAt ? (
                             <Button
                               variant="ghost"
@@ -1258,18 +1460,53 @@ function TransactionsTab({
                               <RotateCcw className="h-3.5 w-3.5" />
                             </Button>
                           ) : (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              title="Ocultar (no es caja)"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setHideDialog(tx);
-                                setHideReason("");
-                              }}
-                            >
-                              <EyeOff className="h-3.5 w-3.5" />
-                            </Button>
+                            <>
+                              {tx.suggestedRuleId &&
+                                tx.reconciliationStatus === "UNMATCHED" && (
+                                  <Button
+                                    variant="default"
+                                    size="sm"
+                                    className="h-8 text-xs"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      authorizeSuggestion(tx.id);
+                                    }}
+                                    disabled={authorizing === tx.id}
+                                  >
+                                    {authorizing === tx.id ? (
+                                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                    ) : (
+                                      <CheckCircle2 className="h-3.5 w-3.5" />
+                                    )}
+                                  </Button>
+                                )}
+                              {(tx.reconciliationStatus === "MATCHED" ||
+                                tx.reconciliationStatus === "RECONCILED") && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  title="Deshacer conciliación"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    undoReconciliation(tx.id);
+                                  }}
+                                >
+                                  <RotateCcw className="h-3.5 w-3.5" />
+                                </Button>
+                              )}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                title="Ocultar (no es caja)"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setHideDialog(tx);
+                                  setHideReason("");
+                                }}
+                              >
+                                <EyeOff className="h-3.5 w-3.5" />
+                              </Button>
+                            </>
                           )}
                         </div>
                       )}

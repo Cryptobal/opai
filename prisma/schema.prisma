@@ -6969,6 +6969,13 @@ model FinanceBankTransaction {
   hiddenById   String?   @map("hidden_by") @db.Uuid
   hiddenReason String?   @map("hidden_reason")
 
+  // Sugerencia automática del motor de reglas. Cuando una regla matchea
+  // con `requiresReview=true`, en vez de crear el link directamente
+  // guardamos la propuesta acá. La UI muestra un sub-tab "Reconocidos"
+  // donde el usuario autoriza una a una o en masa.
+  suggestedRuleId        String? @map("suggested_rule_id") @db.Uuid
+  suggestedAccountPlanId String? @map("suggested_account_plan_id") @db.Uuid
+
   reconcMatch FinanceReconciliationMatch?
   links       FinanceBankTransactionLink[]
 
@@ -6979,6 +6986,7 @@ model FinanceBankTransaction {
   @@index([tenantId, bankAccountId, transactionDate], map: "idx_finance_bank_tx_date")
   @@index([reconciliationStatus], map: "idx_finance_bank_tx_reconc")
   @@index([hiddenAt], map: "idx_finance_bank_tx_hidden")
+  @@index([suggestedRuleId], map: "idx_finance_bank_tx_suggestion")
   @@map("finance_bank_transactions")
   @@schema("finance")
 }

@@ -122,6 +122,14 @@ interface ListBankTransactionsOpts {
    * para los no-ocultos. "all" para ambos.
    */
   visibility?: "visible" | "hidden" | "all";
+  /**
+   * Sub-tab de Movimientos:
+   *   - "all" (default): todas las visibles
+   *   - "recognized": tx UNMATCHED con sugerencia de regla pendiente
+   *   - "unrecognized": tx UNMATCHED sin sugerencia
+   *   - "matched": tx ya conciliadas (MATCHED/RECONCILED)
+   */
+  tab?: "all" | "recognized" | "unrecognized" | "matched";
 }
 
 interface ImportTransactionInput {
@@ -176,6 +184,17 @@ export async function listBankTransactions(
   } else if (visibility === "hidden") {
     where.hiddenAt = { not: null };
   } // "all" no agrega filtro
+
+  const tab = opts?.tab ?? "all";
+  if (tab === "recognized") {
+    where.reconciliationStatus = "UNMATCHED";
+    where.suggestedAccountPlanId = { not: null };
+  } else if (tab === "unrecognized") {
+    where.reconciliationStatus = "UNMATCHED";
+    where.suggestedAccountPlanId = null;
+  } else if (tab === "matched") {
+    where.reconciliationStatus = { in: ["MATCHED", "RECONCILED"] };
+  }
 
   // Orden: por defecto fecha descendente, con id como tiebreaker estable.
   const sortField: BankTxSortField = opts?.sortBy ?? "transactionDate";
@@ -251,8 +270,52 @@ export async function listBankTransactions(
     }
   }
 
+  // Enrichment: para tx con sugerencia, traer nombre de la regla y de la
+  // cuenta contable sugerida en una sola query batch (evita N+1).
+  const ruleIds = Array.from(
+    new Set(
+      transactions
+        .map((t) => t.suggestedRuleId)
+        .filter((v): v is string => typeof v === "string")
+    )
+  );
+  const accountIds = Array.from(
+    new Set(
+      transactions
+        .map((t) => t.suggestedAccountPlanId)
+        .filter((v): v is string => typeof v === "string")
+    )
+  );
+  const [rules, accounts] = await Promise.all([
+    ruleIds.length > 0
+      ? prisma.financeAutoMatchRule.findMany({
+          where: { tenantId, id: { in: ruleIds } },
+          select: { id: true, name: true },
+        })
+      : Promise.resolve([] as { id: string; name: string }[]),
+    accountIds.length > 0
+      ? prisma.financeAccountPlan.findMany({
+          where: { tenantId, id: { in: accountIds } },
+          select: { id: true, code: true, name: true },
+        })
+      : Promise.resolve([] as { id: string; code: string; name: string }[]),
+  ]);
+  const ruleMap = new Map(rules.map((r) => [r.id, r.name]));
+  const accountMap = new Map(
+    accounts.map((a) => [a.id, `${a.code} ${a.name}`])
+  );
+  const enriched = transactions.map((t) => ({
+    ...t,
+    suggestedRuleName: t.suggestedRuleId
+      ? ruleMap.get(t.suggestedRuleId) ?? null
+      : null,
+    suggestedAccountLabel: t.suggestedAccountPlanId
+      ? accountMap.get(t.suggestedAccountPlanId) ?? null
+      : null,
+  }));
+
   return {
-    transactions,
+    transactions: enriched,
     total,
     page,
     pageSize,

@@ -426,10 +426,19 @@ async function tryApplyRule(
   });
   if (!evaluation) return false;
   if (evaluation.action.requiresReview) {
-    // La regla aplica pero pide revisión humana — no auto-conciliamos.
-    // Sin embargo, podríamos guardar la sugerencia. Por ahora,
-    // simplemente no avanzamos y queda UNMATCHED para que el usuario
-    // la vea en el drawer.
+    // La regla aplica pero pide revisión humana — guardamos la sugerencia
+    // en la propia tx para que aparezca en el sub-tab "Reconocidos" y
+    // pueda autorizarse 1-clic o en bulk. La tx sigue UNMATCHED hasta que
+    // el usuario confirme.
+    if (evaluation.action.accountPlanId) {
+      await prisma.financeBankTransaction.update({
+        where: { id: bankTransactionId },
+        data: {
+          suggestedRuleId: evaluation.ruleId,
+          suggestedAccountPlanId: evaluation.action.accountPlanId,
+        },
+      });
+    }
     return false;
   }
   if (!evaluation.action.accountPlanId) {

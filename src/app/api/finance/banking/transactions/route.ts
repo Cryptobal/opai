@@ -57,6 +57,20 @@ export async function GET(request: NextRequest) {
         ? visibilityRaw
         : undefined;
 
+    const tabRaw = searchParams.get("tab");
+    const tab:
+      | "all"
+      | "recognized"
+      | "unrecognized"
+      | "matched"
+      | undefined =
+      tabRaw === "all" ||
+      tabRaw === "recognized" ||
+      tabRaw === "unrecognized" ||
+      tabRaw === "matched"
+        ? tabRaw
+        : undefined;
+
     const opts = {
       dateFrom: searchParams.get("dateFrom") || undefined,
       dateTo: searchParams.get("dateTo") || undefined,
@@ -64,6 +78,7 @@ export async function GET(request: NextRequest) {
       sortBy,
       sortDir,
       visibility,
+      tab,
       page: searchParams.get("page")
         ? parseInt(searchParams.get("page")!)
         : undefined,
