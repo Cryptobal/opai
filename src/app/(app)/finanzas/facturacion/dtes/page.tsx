@@ -42,14 +42,29 @@ export default async function DtesEmitidosPage({
 
   const INITIAL_PAGE_SIZE = 50;
 
+  // Server-side default: solo el mes en curso. El cliente puede cambiar
+  // a otro período (incluido "ALL" = últimos 12 meses) y se hace fetch.
+  const now = new Date();
+  const monthFrom = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
+  );
+  const monthTo = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1),
+  );
+  const initialWhere = {
+    tenantId,
+    direction: "ISSUED" as const,
+    date: { gte: monthFrom, lt: monthTo },
+  };
+
   const [dtes, issuedTotal, suppliers] = await Promise.all([
     prisma.financeDte.findMany({
-      where: { tenantId, direction: "ISSUED" },
+      where: initialWhere,
       include: { lines: true },
       orderBy: [{ siiStatus: "asc" }, { date: "desc" }, { folio: "desc" }],
       take: INITIAL_PAGE_SIZE,
     }),
-    prisma.financeDte.count({ where: { tenantId, direction: "ISSUED" } }),
+    prisma.financeDte.count({ where: initialWhere }),
     prisma.financeSupplier.findMany({
       where: { tenantId },
       select: { id: true, rut: true, name: true },

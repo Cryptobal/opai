@@ -47,6 +47,9 @@ interface Props {
   onClickPending?: () => void;
   onClickAnnulled?: () => void;
   onClickCeded?: () => void;
+  /** Click handler para el KPI principal "Total emitido" — típicamente
+   *  navega al módulo de informes (ej: `/finanzas/reportes/ventas`). */
+  onClickTotal?: () => void;
 }
 
 /**
@@ -96,6 +99,7 @@ export function KpiStrip({
   onClickPending,
   onClickAnnulled,
   onClickCeded,
+  onClickTotal,
 }: Props) {
   const [data, setData] = useState<KpisIssuedData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -134,6 +138,7 @@ export function KpiStrip({
   const totalEmittedAmount = data?.totalEmitted.amount ?? 0;
   const totalEmittedCount = data?.totalEmitted.count ?? 0;
   const sparkValues = data?.totalEmitted.sparkline ?? [];
+  const periodLabel = data?.periodLabel ?? "Mes en curso";
   const acceptedCount = data?.accepted.count ?? 0;
   const acceptedPct = data?.accepted.pctOfTotal ?? 0;
   const pendingCount = data?.pending.count ?? 0;
@@ -150,7 +155,7 @@ export function KpiStrip({
   return (
     <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
       <KPICard
-        label="Total emitido"
+        label={`Total emitido · ${periodLabel}`}
         value={fmtCLP.format(totalEmittedAmount)}
         hint={
           <span className="flex items-center gap-2">
@@ -160,6 +165,7 @@ export function KpiStrip({
         }
         icon={TrendingUp}
         iconVariant="brand"
+        onClick={onClickTotal}
       />
 
       <KPICard

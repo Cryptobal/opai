@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -571,9 +571,20 @@ function FoliosTab({ canManage }: { canManage: boolean }) {
 
 function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; canManage: boolean }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [receivedDtes, setReceivedDtes] = useState<ReceivedDteRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+
+  // El botón "Registrar DTE" del PageHero navega con ?registrar=1.
+  // Cuando llega ese param, abrimos el modal y limpiamos la URL para que
+  // refrescos posteriores no lo vuelvan a abrir.
+  useEffect(() => {
+    if (searchParams.get("registrar") === "1") {
+      setDialogOpen(true);
+      router.replace("/finanzas/facturacion/recibidos");
+    }
+  }, [searchParams, router]);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(EMPTY_RECEIVED_FORM);
   const [search, setSearch] = useState("");
@@ -585,8 +596,8 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
   const [installationFilter, setInstallationFilter] = useState("ALL");
   const [accountOptions, setAccountOptions] = useState<CostCenterOption[]>([]);
   const [installationOptions, setInstallationOptions] = useState<InstallationOption[]>([]);
-  /** Filtro por período "YYYY-MM" o "ALL". Default ALL = sin filtro. */
-  const [periodoFilter, setPeriodoFilter] = useState("ALL");
+  /** Filtro por período. Default CURRENT_MONTH = mes en curso. "ALL" = todos los períodos. */
+  const [periodoFilter, setPeriodoFilter] = useState("CURRENT_MONTH");
   const periodOptions = useMemo(() => buildPeriodOptions(36), []);
   // Paginación server-side (selector 10/25/50/100/200) + slide-over de detalle.
   const [page, setPage] = useState(1);
@@ -600,7 +611,8 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
     (typeFilter !== "ALL" ? 1 : 0) +
     (receptionFilter !== "ALL" ? 1 : 0) +
     (paymentFilter !== "ALL" ? 1 : 0) +
-    (periodoFilter !== "ALL" ? 1 : 0) +
+    // Default es CURRENT_MONTH; solo es "filtro activo" si el usuario eligió otra cosa.
+    (periodoFilter !== "CURRENT_MONTH" ? 1 : 0) +
     (accountFilter !== "ALL" ? 1 : 0) +
     (installationFilter !== "ALL" ? 1 : 0);
 
@@ -608,7 +620,7 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
     setTypeFilter("ALL");
     setReceptionFilter("ALL");
     setPaymentFilter("ALL");
-    setPeriodoFilter("ALL");
+    setPeriodoFilter("CURRENT_MONTH");
     setAccountFilter("ALL");
     setInstallationFilter("ALL");
   };
@@ -636,6 +648,8 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
     setLoading(true);
     try {
       const params = new URLSearchParams();
+      // periodoFilter === "ALL" significa "todos los períodos": no se manda.
+      // Cualquier otro valor (CURRENT_MONTH | YYYY-MM) se envía y el endpoint lo interpreta.
       if (periodoFilter !== "ALL") params.set("periodo", periodoFilter);
       if (accountFilter !== "ALL") params.set("accountId", accountFilter);
       if (installationFilter !== "ALL") params.set("installationId", installationFilter);
@@ -705,6 +719,49 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
     return sortDteRows(list, sort);
   }, [receivedDtes, typeFilter, receptionFilter, paymentFilter, search, sort]);
 
+  const handleExportCsv = () => {
+    if (filtered.length === 0) return;
+    const header = [
+      "Tipo",
+      "Folio",
+      "Fecha",
+      "Vencimiento",
+      "Emisor",
+      "RUT",
+      "Neto",
+      "IVA",
+      "Total",
+      "Pagado",
+      "Pendiente",
+      "Estado recepción",
+      "Estado pago",
+    ];
+    const rows = filtered.map((r) => [
+      String(r.dteType),
+      String(r.folio),
+      r.date ? format(new Date(r.date), "yyyy-MM-dd", { locale: es }) : "",
+      r.dueDate ? format(new Date(r.dueDate), "yyyy-MM-dd", { locale: es }) : "",
+      JSON.stringify(r.issuerName ?? ""),
+      r.issuerRut,
+      String(r.netAmount),
+      String(r.taxAmount),
+      String(r.totalAmount),
+      String(r.amountPaid ?? 0),
+      String(r.amountPending ?? 0),
+      r.receptionStatus ?? "",
+      r.paymentStatus ?? "",
+    ]);
+    const csv = [header, ...rows].map((cols) => cols.join(",")).join("\n");
+    const blob = new Blob([`﻿${csv}`], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `dtes-recibidos-${format(new Date(), "yyyyMMdd-HHmm")}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`${filtered.length} DTE(s) exportados.`);
+  };
+
   // Auto-calc total when net or tax changes
   const updateFormField = (field: string, value: string) => {
     setForm((prev) => {
@@ -770,6 +827,7 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
         periodo={periodoFilter}
         accountId={accountFilter}
         installationId={installationFilter}
+        onClickTotal={() => router.push("/finanzas/reportes/compras")}
         onClickAccepted={() => setReceptionFilter("ACCEPTED")}
         onClickPending={() => setReceptionFilter("PENDING_REVIEW")}
         onClickClaimed={() => setReceptionFilter("CLAIMED")}
@@ -823,25 +881,18 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
           </Select>
         </div>
 
-        {/* Export placeholder (desktop) */}
+        {/* Export CSV — descarga lo filtrado actualmente. */}
         <Button
           variant="outline"
           size="sm"
-          disabled
-          title="Exportar CSV (próximamente)"
+          onClick={handleExportCsv}
+          disabled={filtered.length === 0}
+          title={filtered.length === 0 ? "No hay datos para exportar" : "Exportar CSV"}
           className="hidden md:inline-flex h-10 w-10 p-0 justify-center"
           aria-label="Exportar"
         >
           <Download className="h-4 w-4" />
         </Button>
-
-        {/* Registrar DTE — primary action de recibidos. */}
-        {canManage && (
-          <Button size="sm" className="h-10 gap-1.5" onClick={() => setDialogOpen(true)}>
-            <Plus className="h-4 w-4" />
-            Registrar DTE
-          </Button>
-        )}
       </div>
 
       {/* Active filter chips */}

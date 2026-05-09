@@ -121,6 +121,7 @@ export function formatMonthLabel(year: number, monthOneIdx: number): string {
  *   - "ALL"      → últimos 12 meses (incluyendo el actual).
  *   - "YTD"      → año en curso, desde 1° de enero hasta hoy (mes en curso).
  *   - "PREV"     → mes anterior completo.
+ *   - "CURRENT_MONTH" → mes en curso (sinónimo explícito del default).
  *   - "YYYY-MM"  → ese mes específico.
  *   - null/undefined/"" → mes actual.
  *
@@ -140,6 +141,13 @@ export function buildMonthRange(
       Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1),
     );
     return { from: start, to: end, label: "Últimos 12 meses" };
+  }
+  if (periodo === "CURRENT_MONTH") {
+    const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+    const to = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1),
+    );
+    return { from, to, label: "Mes en curso" };
   }
   if (periodo === "YTD") {
     // Año en curso = 1° enero hasta inicio del mes siguiente al actual.

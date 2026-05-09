@@ -208,7 +208,7 @@ export function DtesEmitidosClient({
     if (
       page === 1 &&
       pageSize === 50 &&
-      filters.periodo === "ALL" &&
+      filters.periodo === "CURRENT_MONTH" &&
       filters.accountId === "ALL" &&
       filters.installationId === "ALL" &&
       filters.sort === "date_desc" &&
@@ -631,9 +631,7 @@ export function DtesEmitidosClient({
     }
   };
 
-  const handleBulkExportCsv = () => {
-    if (selectedIds.size === 0) return;
-    const selectedRows = filtered.filter((d) => selectedIds.has(d.id));
+  const buildCsvFromRows = (rows: typeof filtered) => {
     const header = [
       "Tipo",
       "Folio",
@@ -649,7 +647,7 @@ export function DtesEmitidosClient({
       "Instalación",
       "Cesión",
     ];
-    const rows = selectedRows.map((r) => [
+    const csvRows = rows.map((r) => [
       String(r.dteType),
       r.siiStatus === "DRAFT" ? "" : String(r.folio),
       r.date ? format(new Date(r.date), "yyyy-MM-dd", { locale: es }) : "",
@@ -664,10 +662,27 @@ export function DtesEmitidosClient({
       JSON.stringify(r.installation?.name ?? ""),
       r.activeCession?.code ?? "",
     ]);
-    const csv = [header, ...rows].map((cols) => cols.join(",")).join("\n");
-    const blob = new Blob([`﻿${csv}`], {
-      type: "text/csv;charset=utf-8;",
-    });
+    return [header, ...csvRows].map((cols) => cols.join(",")).join("\n");
+  };
+
+  const handleExportCsv = () => {
+    if (filtered.length === 0) return;
+    const csv = buildCsvFromRows(filtered);
+    const blob = new Blob([`﻿${csv}`], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `dtes-emitidos-${format(new Date(), "yyyyMMdd-HHmm")}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`${filtered.length} DTE(s) exportados.`);
+  };
+
+  const handleBulkExportCsv = () => {
+    if (selectedIds.size === 0) return;
+    const selectedRows = filtered.filter((d) => selectedIds.has(d.id));
+    const csv = buildCsvFromRows(selectedRows);
+    const blob = new Blob([`﻿${csv}`], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -692,6 +707,7 @@ export function DtesEmitidosClient({
         periodo={filters.periodo}
         accountId={filters.accountId}
         installationId={filters.installationId}
+        onClickTotal={() => router.push("/finanzas/reportes/ventas")}
         onClickAccepted={() => update("siiStatuses", ["ACCEPTED"])}
         onClickPending={() => update("siiStatuses", ["PENDING"])}
         onClickAnnulled={() => update("siiStatuses", ["ANNULLED"])}
@@ -704,6 +720,8 @@ export function DtesEmitidosClient({
         activeCount={activeCount}
         onOpenFilters={() => setFiltersOpen(true)}
         canManage={canManage}
+        onExport={handleExportCsv}
+        exportDisabled={filtered.length === 0}
       />
 
       <ActiveFilterChips

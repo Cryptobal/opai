@@ -71,7 +71,7 @@ export interface DteFilters {
   types: number[];                // multi-select por dteType
   siiStatuses: string[];          // multi-select por siiStatus
   paymentStatuses: string[];      // UNPAID | PARTIAL | OVERDUE | PAID
-  periodo: string;                // "ALL" | "YYYY-MM"
+  periodo: string;                // "ALL" | "CURRENT_MONTH" | "YYYY-MM"
   accountId: string;              // "ALL" | "NONE" | uuid
   installationId: string;         // "ALL" | "NONE" | uuid
   amountMin: number | null;
@@ -88,7 +88,7 @@ export const EMPTY_DTE_FILTERS: DteFilters = {
   types: [],
   siiStatuses: [],
   paymentStatuses: [],
-  periodo: "ALL",
+  periodo: "CURRENT_MONTH",
   accountId: "ALL",
   installationId: "ALL",
   amountMin: null,

@@ -77,8 +77,15 @@ export async function listReceivedDtes(
   } else if (installationId && installationId !== "ALL") {
     where.installationId = installationId;
   }
-  // Filtro por período "YYYY-MM": rango [primer día del mes, primer día del mes siguiente).
-  if (periodo && /^\d{4}-\d{2}$/.test(periodo)) {
+  // Filtro por período: "CURRENT_MONTH" o "YYYY-MM" (rango [primer día del mes, primer día del mes siguiente)).
+  if (periodo === "CURRENT_MONTH") {
+    const now = new Date();
+    const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+    const to = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1),
+    );
+    where.date = { gte: from, lt: to };
+  } else if (periodo && /^\d{4}-\d{2}$/.test(periodo)) {
     const [y, m] = periodo.split("-").map((s) => parseInt(s, 10));
     const from = new Date(Date.UTC(y, m - 1, 1));
     const to = new Date(Date.UTC(y, m, 1));

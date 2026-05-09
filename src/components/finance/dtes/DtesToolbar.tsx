@@ -20,8 +20,10 @@ interface Props {
   activeCount: number;
   onOpenFilters: () => void;
   canManage: boolean;
-  /** Slot opcional para acción "Exportar" — por ahora ignorado (deshabilitado). */
+  /** Acción "Exportar CSV". Si se omite, el botón aparece deshabilitado. */
   onExport?: () => void;
+  /** Si el botón "Exportar" está deshabilitado por contexto (ej: sin filas). */
+  exportDisabled?: boolean;
 }
 
 /**
@@ -40,8 +42,11 @@ export function DtesToolbar({
   activeCount,
   onOpenFilters,
   canManage,
+  onExport,
+  exportDisabled = false,
 }: Props) {
   void canManage;
+  const exportEnabled = !!onExport && !exportDisabled;
   return (
     <div className="flex flex-wrap items-center gap-2">
       {/* Search */}
@@ -93,12 +98,13 @@ export function DtesToolbar({
         </Select>
       </div>
 
-      {/* Export placeholder (desktop) */}
+      {/* Export CSV — descarga lo filtrado actualmente. */}
       <Button
         variant="outline"
         size="sm"
-        disabled
-        title="Exportar CSV (próximamente)"
+        onClick={onExport}
+        disabled={!exportEnabled}
+        title={exportEnabled ? "Exportar CSV" : "No hay datos para exportar"}
         className="hidden md:inline-flex h-10 w-10 p-0 justify-center"
         aria-label="Exportar"
       >

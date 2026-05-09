@@ -64,13 +64,33 @@ export async function GET(request: NextRequest) {
       where.siiStatus = { not: "DRAFT" };
     }
     if (search) {
-      // Búsqueda fuzzy global: folio, RUT (con/sin guión), nombre, monto
-      // exacto, o rango "1000-5000".
+      // Búsqueda fuzzy global: folio, RUT (con/sin guión), razón social,
+      // nombre de fantasía del CRM, monto exacto, o rango "1000-5000".
       const rutNeedle = search.replace(/[.\-\s]/g, "");
       const orClauses: Record<string, unknown>[] = [
         { receiverName: { contains: search, mode: "insensitive" } },
         { receiverRut: { contains: rutNeedle, mode: "insensitive" } },
       ];
+
+      // Búsqueda por nombre de fantasía / razón social en CRM accounts.
+      // crmAccountId es FK lógica (sin @relation), por eso resolvemos
+      // los matching IDs en una sub-query y los inyectamos al OR.
+      const matchingAccounts = await prisma.crmAccount.findMany({
+        where: {
+          tenantId: ctx.tenantId,
+          OR: [
+            { name: { contains: search, mode: "insensitive" } },
+            { legalName: { contains: search, mode: "insensitive" } },
+          ],
+        },
+        select: { id: true },
+        take: 500,
+      });
+      if (matchingAccounts.length > 0) {
+        orClauses.push({
+          crmAccountId: { in: matchingAccounts.map((a) => a.id) },
+        });
+      }
 
       // Folio exacto si el input es íntegro (sin punto, sin guión, sin comas).
       if (/^\d+$/.test(search.trim())) {
@@ -99,7 +119,14 @@ export async function GET(request: NextRequest) {
 
       where.OR = orClauses;
     }
-    if (periodo && /^\d{4}-\d{2}$/.test(periodo)) {
+    if (periodo === "CURRENT_MONTH") {
+      const now = new Date();
+      const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+      const to = new Date(
+        Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1),
+      );
+      where.date = { gte: from, lt: to };
+    } else if (periodo && /^\d{4}-\d{2}$/.test(periodo)) {
       const [y, m] = periodo.split("-").map((s) => parseInt(s, 10));
       const from = new Date(Date.UTC(y, m - 1, 1));
       const to = new Date(Date.UTC(y, m, 1));

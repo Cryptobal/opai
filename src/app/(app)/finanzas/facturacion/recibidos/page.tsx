@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { auth } from "@/lib/auth";
 import {
   resolvePagePerms,
@@ -7,7 +8,8 @@ import {
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { PageHero } from "@/components/opai-ds";
-import { FileInput } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { FileInput, Plus } from "lucide-react";
 import { FacturacionClient } from "@/components/finance/FacturacionClient";
 
 export default async function DtesRecibidosPage() {
@@ -53,6 +55,16 @@ export default async function DtesRecibidosPage() {
         iconTone="teal"
         title="DTEs Recibidos"
         description="Documentos tributarios recibidos de proveedores."
+        actions={
+          canManage ? (
+            <Button asChild size="sm">
+              <Link href="/finanzas/facturacion/recibidos?registrar=1">
+                <Plus className="h-4 w-4 mr-1.5" />
+                Registrar DTE
+              </Link>
+            </Button>
+          ) : undefined
+        }
       />
       <FacturacionClient
         dtes={[]}

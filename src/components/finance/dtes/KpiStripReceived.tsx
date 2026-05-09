@@ -28,6 +28,7 @@ interface KpisReceivedData {
   };
   claimed: { count: number; amount: number };
   toPay: { count: number; amount: number };
+  periodLabel?: string;
 }
 
 interface Props {
@@ -38,6 +39,9 @@ interface Props {
   onClickPending?: () => void;
   onClickClaimed?: () => void;
   onClickToPay?: () => void;
+  /** Click handler para el KPI principal "Total recibido" — típicamente
+   *  navega al módulo de informes (ej: `/finanzas/reportes/compras`). */
+  onClickTotal?: () => void;
 }
 
 function Sparkline({ values }: { values: number[] }) {
@@ -83,6 +87,7 @@ export function KpiStripReceived({
   onClickPending,
   onClickClaimed,
   onClickToPay,
+  onClickTotal,
 }: Props) {
   const [data, setData] = useState<KpisReceivedData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -119,6 +124,7 @@ export function KpiStripReceived({
   const totalAmount = data?.totalReceived.amount ?? 0;
   const totalCount = data?.totalReceived.count ?? 0;
   const sparkValues = data?.totalReceived.sparkline ?? [];
+  const periodLabel = data?.periodLabel ?? "Mes en curso";
   const acceptedCount = data?.accepted.count ?? 0;
   const acceptedPct = data?.accepted.pctOfTotal ?? 0;
   const pendingCount = data?.pendingReview.count ?? 0;
@@ -135,7 +141,7 @@ export function KpiStripReceived({
   return (
     <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
       <KPICard
-        label="Total recibido"
+        label={`Total recibido · ${periodLabel}`}
         value={fmtCLP.format(totalAmount)}
         hint={
           <span className="flex items-center gap-2">
@@ -145,6 +151,7 @@ export function KpiStripReceived({
         }
         icon={TrendingDown}
         iconVariant="brand"
+        onClick={onClickTotal}
       />
 
       <KPICard

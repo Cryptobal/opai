@@ -38,7 +38,8 @@ export function useDteFilters(args: Args = {}) {
     if (filters.types.length) n++;
     if (filters.siiStatuses.length) n++;
     if (filters.paymentStatuses.length) n++;
-    if (filters.periodo !== "ALL") n++;
+    // Default es CURRENT_MONTH; solo es "filtro activo" si el usuario eligió otra cosa.
+    if (filters.periodo !== "CURRENT_MONTH") n++;
     if (filters.accountId !== "ALL") n++;
     if (filters.installationId !== "ALL") n++;
     if (filters.amountMin != null || filters.amountMax != null) n++;
@@ -70,7 +71,7 @@ export function useDteFilters(args: Args = {}) {
       } else if (field === "paymentStatuses" && value) {
         next.paymentStatuses = prev.paymentStatuses.filter((s) => s !== value);
       } else if (field === "periodo") {
-        next.periodo = "ALL";
+        next.periodo = "CURRENT_MONTH";
       } else if (field === "accountId") {
         next.accountId = "ALL";
       } else if (field === "installationId") {
