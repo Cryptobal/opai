@@ -93,6 +93,7 @@ export function CashflowConfigClient({ initialConfig, initialCategories }: Props
     { code: "", name: "", kind: "EXPENSE" },
   );
   const [creatingCat, setCreatingCat] = useState(false);
+  const [catError, setCatError] = useState<string | null>(null);
 
   function setField<K extends keyof CashflowConfig>(key: K, value: CashflowConfig[K]) {
     setConfig((c) => ({ ...c, [key]: value }));
@@ -117,7 +118,23 @@ export function CashflowConfigClient({ initialConfig, initialCategories }: Props
   }
 
   async function createCategory() {
-    if (!newCat.code || !newCat.name) return;
+    setCatError(null);
+    if (!newCat.code.trim()) {
+      setCatError("Ingresa un código (ej: EGR_INTERNET)");
+      return;
+    }
+    if (!/^[A-Z0-9_]+$/.test(newCat.code)) {
+      setCatError("Código solo acepta MAYÚSCULAS, números y guion bajo (_)");
+      return;
+    }
+    if (newCat.code.length < 2) {
+      setCatError("El código debe tener al menos 2 caracteres");
+      return;
+    }
+    if (!newCat.name.trim()) {
+      setCatError("Ingresa un nombre visible (ej: Internet fibra)");
+      return;
+    }
     setCreatingCat(true);
     const r = await fetch("/api/finance/cashflow/categorias", {
       method: "POST",
@@ -130,7 +147,7 @@ export function CashflowConfigClient({ initialConfig, initialCategories }: Props
       setNewCat({ code: "", name: "", kind: "EXPENSE" });
       reloadCategories();
     } else {
-      alert(j?.error ?? "Error al crear");
+      setCatError(j?.error ?? "Error al crear");
     }
   }
 
@@ -195,7 +212,7 @@ export function CashflowConfigClient({ initialConfig, initialCategories }: Props
             </Select>
           </div>
           <div>
-            <Label>Día pago sueldos (-1 = último)</Label>
+            <Label>Día pago de sueldos</Label>
             <Input
               className="h-10 sm:h-9"
               type="number"
@@ -204,6 +221,9 @@ export function CashflowConfigClient({ initialConfig, initialCategories }: Props
               value={config.payrollPayDay}
               onChange={(e) => setField("payrollPayDay", Number(e.target.value))}
             />
+            <p className="mt-1 text-[11px] text-ds-text-3">
+              Día del mes en que se proyecta el pago. Usa <code className="font-mono">-1</code> para el último día del mes.
+            </p>
           </div>
           <div>
             <Label>Día pago IVA F29</Label>
@@ -215,9 +235,12 @@ export function CashflowConfigClient({ initialConfig, initialCategories }: Props
               value={config.ivaPayDay}
               onChange={(e) => setField("ivaPayDay", Number(e.target.value))}
             />
+            <p className="mt-1 text-[11px] text-ds-text-3">
+              Plazo legal: día 12 (papel) o 20 (electrónico) del mes siguiente.
+            </p>
           </div>
           <div>
-            <Label>Tolerancia match (CLP)</Label>
+            <Label>Tolerancia de monto al conciliar (CLP)</Label>
             <Input
               className="h-10 sm:h-9"
               type="number"
@@ -226,9 +249,12 @@ export function CashflowConfigClient({ initialConfig, initialCategories }: Props
               value={config.matchAmountToleranceClp}
               onChange={(e) => setField("matchAmountToleranceClp", Number(e.target.value))}
             />
+            <p className="mt-1 text-[11px] text-ds-text-3">
+              Diferencia máxima en pesos para que un movimiento bancario se considere coincidencia con un ítem proyectado.
+            </p>
           </div>
           <div>
-            <Label>Tolerancia match (días)</Label>
+            <Label>Tolerancia de fecha al conciliar (días)</Label>
             <Input
               className="h-10 sm:h-9"
               type="number"
@@ -237,6 +263,9 @@ export function CashflowConfigClient({ initialConfig, initialCategories }: Props
               value={config.matchDaysTolerance}
               onChange={(e) => setField("matchDaysTolerance", Number(e.target.value))}
             />
+            <p className="mt-1 text-[11px] text-ds-text-3">
+              Días de diferencia aceptados entre la fecha proyectada y la fecha real del banco.
+            </p>
           </div>
         </div>
         <div className="mt-3 sm:flex sm:justify-end">
@@ -275,14 +304,20 @@ export function CashflowConfigClient({ initialConfig, initialCategories }: Props
 
       {/* Sección 3: Categorías */}
       <Surface elevation={1} padding="md">
-        <h2 className="font-semibold mb-3">Categorías</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-[160px_1fr_140px_auto] sm:items-end gap-2 mb-4">
+        <h2 className="font-semibold mb-1">Categorías</h2>
+        <p className="text-[12px] text-ds-text-3 mb-3">
+          Las flechas <span className="text-status-ok-fg">↑</span> indican <strong>ingresos</strong> y <span className="text-status-warn-fg">↓</span> indican <strong>egresos</strong>.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-[160px_1fr_140px_auto] sm:items-end gap-2 mb-2">
           <div>
             <Label>Código</Label>
             <Input
               placeholder="EGR_NUEVO"
               value={newCat.code}
-              onChange={(e) => setNewCat((c) => ({ ...c, code: e.target.value.toUpperCase() }))}
+              onChange={(e) => {
+                setCatError(null);
+                setNewCat((c) => ({ ...c, code: e.target.value.toUpperCase() }));
+              }}
               className="h-10 sm:h-9"
             />
           </div>
@@ -291,7 +326,10 @@ export function CashflowConfigClient({ initialConfig, initialCategories }: Props
             <Input
               placeholder="Mi categoría"
               value={newCat.name}
-              onChange={(e) => setNewCat((c) => ({ ...c, name: e.target.value }))}
+              onChange={(e) => {
+                setCatError(null);
+                setNewCat((c) => ({ ...c, name: e.target.value }));
+              }}
               className="h-10 sm:h-9"
             />
           </div>
@@ -307,10 +345,17 @@ export function CashflowConfigClient({ initialConfig, initialCategories }: Props
               </SelectContent>
             </Select>
           </div>
-          <Button onClick={createCategory} disabled={creatingCat} className="w-full sm:w-auto h-10 sm:h-9">
-            <Plus className="h-4 w-4 mr-1" /> Crear
+          <Button
+            onClick={createCategory}
+            disabled={creatingCat || !newCat.code.trim() || !newCat.name.trim()}
+            className="w-full sm:w-auto h-10 sm:h-9"
+          >
+            <Plus className="h-4 w-4 mr-1" /> {creatingCat ? "Creando..." : "Crear"}
           </Button>
         </div>
+        {catError && (
+          <p className="mb-3 text-[12px] text-status-warn-fg">{catError}</p>
+        )}
 
         {/* Mobile: stacked card list */}
         <ul className="sm:hidden space-y-2">

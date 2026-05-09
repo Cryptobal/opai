@@ -70,6 +70,24 @@ interface FormState {
   notes: string;
 }
 
+const clpFmt = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 });
+const ufFmt = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 2 });
+
+function formatAmountDisplay(raw: string, currency: "CLP" | "UF"): string {
+  if (!raw) return "";
+  const cleaned = raw.replace(/[^\d,.-]/g, "");
+  const normalized = cleaned.replace(/\./g, "").replace(",", ".");
+  const n = Number(normalized);
+  if (!Number.isFinite(n)) return raw;
+  return currency === "UF" ? ufFmt.format(n) : clpFmt.format(n);
+}
+
+function parseAmount(raw: string): number {
+  if (!raw) return NaN;
+  const cleaned = raw.replace(/\./g, "").replace(",", ".");
+  return Number(cleaned);
+}
+
 const blank: FormState = {
   categoryId: "",
   kind: "EXPENSE",
@@ -97,13 +115,14 @@ export function ItemFormDialog({ open, item, categories, onClose, onSaved }: Pro
   useEffect(() => {
     if (item) {
       const cat = categories.find((c) => c.code === item.category.code);
+      const itemCurrency = (item.currency as "CLP" | "UF") ?? "CLP";
       setForm({
         categoryId: cat?.id ?? "",
         kind: item.kind,
         name: item.name,
         description: item.description ?? "",
-        amount: String(item.amount),
-        currency: (item.currency as "CLP" | "UF") ?? "CLP",
+        amount: formatAmountDisplay(String(item.amount), itemCurrency),
+        currency: itemCurrency,
         ufFixingPolicy: item.ufFixingPolicy ?? "RUN_DAY",
         ufFixingDay: item.ufFixingDay ? String(item.ufFixingDay) : "",
         recurrence: item.recurrence,
@@ -124,6 +143,14 @@ export function ItemFormDialog({ open, item, categories, onClose, onSaved }: Pro
     setForm((f) => ({ ...f, [key]: value }));
   }
 
+  function setAmount(raw: string) {
+    setForm((f) => ({ ...f, amount: formatAmountDisplay(raw, f.currency) }));
+  }
+
+  function setCurrency(c: "CLP" | "UF") {
+    setForm((f) => ({ ...f, currency: c, amount: formatAmountDisplay(f.amount, c) }));
+  }
+
   function categoryChanged(id: string) {
     const cat = categories.find((c) => c.id === id);
     setForm((f) => ({ ...f, categoryId: id, kind: cat?.kind ?? f.kind }));
@@ -131,13 +158,18 @@ export function ItemFormDialog({ open, item, categories, onClose, onSaved }: Pro
 
   async function save() {
     setError(null);
+    const amountValue = parseAmount(form.amount);
+    if (!Number.isFinite(amountValue) || amountValue <= 0) {
+      setError("Monto inválido. Ingresa un número mayor a 0.");
+      return;
+    }
     setSaving(true);
     const body: Record<string, unknown> = {
       categoryId: form.categoryId,
       kind: form.kind,
       name: form.name,
       description: form.description || undefined,
-      amount: Number(form.amount),
+      amount: amountValue,
       currency: form.currency,
       recurrence: form.recurrence,
       startDate: form.startDate,
@@ -222,16 +254,19 @@ export function ItemFormDialog({ open, item, categories, onClose, onSaved }: Pro
             <div>
               <Label>Monto</Label>
               <Input
-                className="h-10 sm:h-9"
-                type="number"
-                step="0.01"
+                className="h-10 sm:h-9 font-mono text-right"
+                inputMode="decimal"
+                placeholder={form.currency === "UF" ? "0,00" : "0"}
                 value={form.amount}
-                onChange={(e) => set("amount", e.target.value)}
+                onChange={(e) => setAmount(e.target.value)}
               />
+              <p className="mt-1 text-[11px] text-ds-text-3">
+                {form.currency === "CLP" ? "Pesos chilenos. Ej: 150.000" : "UF con 2 decimales. Ej: 12,50"}
+              </p>
             </div>
             <div>
               <Label>Moneda</Label>
-              <Select value={form.currency} onValueChange={(v) => set("currency", v as "CLP" | "UF")}>
+              <Select value={form.currency} onValueChange={(v) => setCurrency(v as "CLP" | "UF")}>
                 <SelectTrigger className="h-10 sm:h-9">
                   <SelectValue />
                 </SelectTrigger>
@@ -314,7 +349,7 @@ export function ItemFormDialog({ open, item, categories, onClose, onSaved }: Pro
             )}
             {["MONTHLY", "QUARTERLY", "YEARLY"].includes(form.recurrence) && (
               <div>
-                <Label>Día del mes (-1 = último)</Label>
+                <Label>Día del mes</Label>
                 <Input
                   className="h-10 sm:h-9"
                   type="number"
@@ -323,6 +358,9 @@ export function ItemFormDialog({ open, item, categories, onClose, onSaved }: Pro
                   value={form.dayOfMonth}
                   onChange={(e) => set("dayOfMonth", e.target.value)}
                 />
+                <p className="mt-1 text-[11px] text-ds-text-3">
+                  Día en que cae el pago. Usa <code className="font-mono">-1</code> para el último día (útil para arriendos que vencen fin de mes).
+                </p>
               </div>
             )}
             {form.recurrence === "YEARLY" && (
@@ -383,7 +421,7 @@ export function ItemFormDialog({ open, item, categories, onClose, onSaved }: Pro
           </Button>
           <Button
             onClick={save}
-            disabled={saving || !form.categoryId || !form.name || !form.amount}
+            disabled={saving || !form.categoryId || !form.name || !form.amount.trim()}
             className="w-full sm:w-auto h-10 sm:h-9"
           >
             {saving ? "Guardando..." : "Guardar"}

@@ -7353,7 +7353,7 @@ model FinanceCashflowItem {
   isActive      Boolean                      @default(true) @map("is_active")
   notes         String?
 
-  createdBy     String?                      @map("created_by") @db.Uuid
+  createdBy     String?                      @map("created_by")
   createdAt     DateTime                     @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime                     @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -7381,7 +7381,7 @@ model FinanceCashflowOccurrence {
   status            FinanceCashflowOccurrenceStatus @default(PROJECTED)
   bankTransactionId String?                         @map("bank_transaction_id") @db.Uuid
   matchedAt         DateTime?                       @map("matched_at") @db.Timestamptz(6)
-  matchedBy         String?                         @map("matched_by") @db.Uuid
+  matchedBy         String?                         @map("matched_by")
   notes             String?
   createdAt         DateTime                        @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt         DateTime                        @updatedAt @map("updated_at") @db.Timestamptz(6)
