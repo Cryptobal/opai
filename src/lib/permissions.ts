@@ -125,6 +125,7 @@ export const SUBMODULE_KEYS = {
     "contabilidad",
     "facturacion",
     "proveedores",
+    "cashflow",
   ] as const,
   reportes_dt: [] as readonly string[],
   fiscalizacion: [
@@ -186,6 +187,11 @@ export const CAPABILITY_KEYS = [
   // Informes financieros — restringido a owner/admin (EERR, balance,
   // ventas por cliente, rentabilidad).
   "reports_finance_view",
+  // Flujo de caja — proyección y análisis. Restringido por defecto a
+  // owner/admin (mismo patrón que banking_*).
+  "cashflow_view",
+  "cashflow_manage",
+  "cashflow_configure",
   "ticket_approve",
   "ticket_manage_types",
   "supervision_checkin",
@@ -377,6 +383,9 @@ export const CAPABILITY_META: CapabilityMeta[] = [
   { key: "purchases_view", label: "Ver Compras y Ventas", description: "Acceso a Facturación Electrónica (DTEs emitidos y recibidos) y proveedores. Información sensible: montos, contrapartes, condiciones de pago. Restringido por defecto a propietarios y administradores.", moduleKey: "finance" },
   { key: "accounting_view", label: "Ver Contabilidad", description: "Acceso al plan de cuentas, asientos, libro mayor y períodos contables. Restringido por defecto a propietarios y administradores.", moduleKey: "finance" },
   { key: "reports_finance_view", label: "Ver Informes financieros", description: "Acceso a EERR, balance, ventas por cliente, compras y rentabilidad. Restringido por defecto a propietarios y administradores.", moduleKey: "finance" },
+  { key: "cashflow_view", label: "Ver flujo de caja", description: "Acceso al muro de flujo de caja proyectado y real. Restringido por defecto a propietarios y administradores.", moduleKey: "finance", submoduleKey: "cashflow" },
+  { key: "cashflow_manage", label: "Gestionar items de flujo de caja", description: "Puede crear, editar y eliminar items proyectados y marcar ocurrencias como pagadas o canceladas.", moduleKey: "finance", submoduleKey: "cashflow" },
+  { key: "cashflow_configure", label: "Configurar flujo de caja", description: "Puede crear/editar categorías, modificar parámetros (horizonte, día de pago, tolerancias) y activar/desactivar generadores automáticos.", moduleKey: "finance", submoduleKey: "cashflow" },
   { key: "ticket_approve", label: "Aprobar tickets", description: "Puede aprobar o rechazar tickets que le correspondan según su grupo", moduleKey: "ops", submoduleKey: "tickets" },
   { key: "ticket_manage_types", label: "Configurar tipos de ticket", description: "Puede crear/editar tipos de solicitud y cadenas de aprobación", moduleKey: "ops", submoduleKey: "tickets" },
   { key: "supervision_checkin", label: "Check-in de supervisión", description: "Puede iniciar y finalizar visitas con georreferencia", moduleKey: "ops", submoduleKey: "supervision" },

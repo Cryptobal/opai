@@ -528,6 +528,17 @@ export const NAV_MODULES: NavNode[] = [
         submodule: "contabilidad",
         show: (perms) => hasCapability(perms, "banking_view"),
       },
+      // Flujo de Caja — restringido a owner/admin (cashflow_view)
+      {
+        key: "finance-flujo-caja",
+        href: "/finanzas/flujo-caja",
+        label: "Flujo de Caja",
+        shortLabel: "Flujo",
+        icon: Wallet,
+        module: "finance",
+        submodule: "cashflow",
+        show: (perms) => hasCapability(perms, "cashflow_view"),
+      },
       // Contabilidad — restringido a owner/admin (accounting_view)
       {
         key: "finance-contabilidad",

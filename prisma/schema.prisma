@@ -6062,6 +6062,7 @@ model FinanceAccountPlan {
   supplierExpense FinanceSupplier[]     @relation("SupplierExpenseAccount")
   cashRegisters   FinanceCashRegister[]
   bankTxLinks     FinanceBankTransactionLink[] @relation("BankTxLinkAccountPlan")
+  cashflowCategories FinanceCashflowCategory[]
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -7213,6 +7214,183 @@ model FinanceFactoringOperation {
   @@index([tenantId, factoringCompanyId], map: "idx_factoring_op_company")
   @@index([tenantId, fechaCesion], map: "idx_factoring_op_fecha_cesion")
   @@map("finance_factoring_operations")
+  @@schema("finance")
+}
+
+// ════════════════════════════════════════════════════════════════
+//  CASHFLOW — Flujo de caja proyectado (forecast)
+// ════════════════════════════════════════════════════════════════
+//
+// Patrón: una regla maestra (FinanceCashflowItem) define la frecuencia
+// y monto. Las ocurrencias individuales se computan on-the-fly desde
+// la regla, salvo cuando el usuario edita una específica o la vincula
+// con un movimiento bancario real — entonces se materializa una fila
+// en FinanceCashflowOccurrence.
+
+enum FinanceCashflowItemKind {
+  INCOME
+  EXPENSE
+
+  @@schema("finance")
+}
+
+enum FinanceCashflowRecurrence {
+  ONCE
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+
+  @@schema("finance")
+}
+
+/// Origen del item. MANUAL = creado por usuario. CONTRACT = derivado
+/// de un CpqQuote activo. PAYROLL = derivado de dotación + salary
+/// structure. RECURRING_DTE = mirror de FinanceDteRecurringTemplate.
+/// SUPPLIER = recurrente proveedor (electricidad, telefonía).
+/// IVA = F29 derivado de DTEs. Las virtuales (CONTRACT/PAYROLL/IVA)
+/// nunca se insertan en DB; solo se computan al generar la proyección.
+enum FinanceCashflowItemSource {
+  MANUAL
+  CONTRACT
+  PAYROLL
+  RECURRING_DTE
+  SUPPLIER
+  IVA
+  TURNOS_EXTRA
+  OTHER
+
+  @@schema("finance")
+}
+
+enum FinanceCashflowOccurrenceStatus {
+  PROJECTED
+  CONFIRMED
+  PAID
+  CANCELLED
+
+  @@schema("finance")
+}
+
+/// Configuración por tenant del módulo flujo de caja. Una fila por tenant.
+model FinanceCashflowConfig {
+  id                      String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId                String   @unique @map("tenant_id")
+  horizonWeeksDefault     Int      @default(52) @map("horizon_weeks_default")
+  horizonMonthsDefault    Int      @default(12) @map("horizon_months_default")
+  weekStartsOn            Int      @default(1) @map("week_starts_on")
+  autoSales               Boolean  @default(true) @map("auto_sales")
+  autoPayroll             Boolean  @default(true) @map("auto_payroll")
+  autoTurnosExtra         Boolean  @default(true) @map("auto_turnos_extra")
+  autoIva                 Boolean  @default(true) @map("auto_iva")
+  autoRecurringDte        Boolean  @default(true) @map("auto_recurring_dte")
+  payrollPayDay           Int      @default(5) @map("payroll_pay_day")
+  ivaPayDay               Int      @default(12) @map("iva_pay_day")
+  matchAmountToleranceClp Int      @default(5000) @map("match_amount_tolerance_clp")
+  matchDaysTolerance      Int      @default(3) @map("match_days_tolerance")
+  createdAt               DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("finance_cashflow_config")
+  @@schema("finance")
+}
+
+/// Catálogo de categorías de flujo de caja por tenant.
+model FinanceCashflowCategory {
+  id            String                 @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId      String                 @map("tenant_id")
+  code          String
+  name          String
+  kind          FinanceCashflowItemKind
+  sortOrder     Int                    @default(100) @map("sort_order")
+  color         String?
+  accountPlanId String?                @map("account_plan_id") @db.Uuid
+  accountPlan   FinanceAccountPlan?    @relation(fields: [accountPlanId], references: [id])
+  isActive      Boolean                @default(true) @map("is_active")
+  isSystem      Boolean                @default(false) @map("is_system")
+  createdAt     DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  items FinanceCashflowItem[]
+
+  @@unique([tenantId, code], map: "uq_cashflow_category_code")
+  @@index([tenantId, isActive], map: "idx_cashflow_category_tenant")
+  @@map("finance_cashflow_categories")
+  @@schema("finance")
+}
+
+/// Regla maestra de un movimiento proyectado.
+model FinanceCashflowItem {
+  id            String                       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId      String                       @map("tenant_id")
+  categoryId    String                       @map("category_id") @db.Uuid
+  category      FinanceCashflowCategory      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  kind          FinanceCashflowItemKind
+  source        FinanceCashflowItemSource    @default(MANUAL)
+  sourceRefId   String?                      @map("source_ref_id") @db.Uuid
+
+  name          String
+  description   String?
+
+  amount        Decimal                      @db.Decimal(14, 2)
+  currency      String                       @default("CLP")
+  ufFixingPolicy String?                     @map("uf_fixing_policy")
+  ufFixingDay   Int?                         @map("uf_fixing_day")
+
+  recurrence    FinanceCashflowRecurrence
+  dayOfMonth    Int?                         @map("day_of_month")
+  dayOfWeek     Int?                         @map("day_of_week")
+  monthOfYear   Int?                         @map("month_of_year")
+
+  startDate     DateTime                     @map("start_date") @db.Date
+  endDate       DateTime?                    @map("end_date") @db.Date
+
+  installationId String?                     @map("installation_id") @db.Uuid
+  crmAccountId   String?                     @map("crm_account_id") @db.Uuid
+  supplierId     String?                     @map("supplier_id") @db.Uuid
+
+  isActive      Boolean                      @default(true) @map("is_active")
+  notes         String?
+
+  createdBy     String?                      @map("created_by") @db.Uuid
+  createdAt     DateTime                     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime                     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  occurrences   FinanceCashflowOccurrence[]
+
+  @@index([tenantId, isActive, kind], map: "idx_cashflow_item_tenant_active")
+  @@index([categoryId], map: "idx_cashflow_item_category")
+  @@index([source, sourceRefId], map: "idx_cashflow_item_source")
+  @@index([installationId], map: "idx_cashflow_item_installation")
+  @@map("finance_cashflow_items")
+  @@schema("finance")
+}
+
+/// Ocurrencia individual materializada.
+model FinanceCashflowOccurrence {
+  id                String                          @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId          String                          @map("tenant_id")
+  itemId            String                          @map("item_id") @db.Uuid
+  item              FinanceCashflowItem             @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  scheduledDate     DateTime                        @map("scheduled_date") @db.Date
+  effectiveDate     DateTime?                       @map("effective_date") @db.Date
+  amountOverride    Decimal?                        @map("amount_override") @db.Decimal(14, 2)
+  ufValueUsed       Decimal?                        @map("uf_value_used") @db.Decimal(10, 2)
+  amountClp         Decimal                         @map("amount_clp") @db.Decimal(14, 2)
+  status            FinanceCashflowOccurrenceStatus @default(PROJECTED)
+  bankTransactionId String?                         @map("bank_transaction_id") @db.Uuid
+  matchedAt         DateTime?                       @map("matched_at") @db.Timestamptz(6)
+  matchedBy         String?                         @map("matched_by") @db.Uuid
+  notes             String?
+  createdAt         DateTime                        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime                        @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([itemId, scheduledDate], map: "uq_cashflow_occ_item_date")
+  @@index([tenantId, scheduledDate], map: "idx_cashflow_occ_tenant_date")
+  @@index([tenantId, status], map: "idx_cashflow_occ_tenant_status")
+  @@index([bankTransactionId], map: "idx_cashflow_occ_bank_tx")
+  @@map("finance_cashflow_occurrences")
   @@schema("finance")
 }
 

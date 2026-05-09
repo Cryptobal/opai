@@ -1,0 +1,88 @@
+import { z } from "zod";
+
+export const updateCashflowConfigSchema = z.object({
+  horizonWeeksDefault: z.number().int().min(8).max(104).optional(),
+  horizonMonthsDefault: z.number().int().min(3).max(60).optional(),
+  weekStartsOn: z.number().int().min(0).max(6).optional(),
+  autoSales: z.boolean().optional(),
+  autoPayroll: z.boolean().optional(),
+  autoTurnosExtra: z.boolean().optional(),
+  autoIva: z.boolean().optional(),
+  autoRecurringDte: z.boolean().optional(),
+  payrollPayDay: z.number().int().min(-1).max(31).optional(),
+  ivaPayDay: z.number().int().min(1).max(28).optional(),
+  matchAmountToleranceClp: z.number().int().min(0).max(1000000).optional(),
+  matchDaysTolerance: z.number().int().min(0).max(30).optional(),
+});
+
+export const createCashflowCategorySchema = z.object({
+  code: z.string().min(2).max(50).regex(/^[A-Z0-9_]+$/, "Solo MAYÚSCULAS, números y _"),
+  name: z.string().min(2).max(120),
+  kind: z.enum(["INCOME", "EXPENSE"]),
+  color: z.string().regex(/^#[0-9A-F]{6}$/i).optional(),
+  accountPlanId: z.string().uuid().optional(),
+  sortOrder: z.number().int().min(0).max(9999).optional(),
+});
+
+export const updateCashflowCategorySchema = z.object({
+  name: z.string().min(2).max(120).optional(),
+  color: z.string().regex(/^#[0-9A-F]{6}$/i).optional(),
+  sortOrder: z.number().int().min(0).max(9999).optional(),
+  accountPlanId: z.string().uuid().nullable().optional(),
+  isActive: z.boolean().optional(),
+});
+
+const recurrenceSchema = z.enum(["ONCE", "WEEKLY", "BIWEEKLY", "MONTHLY", "QUARTERLY", "YEARLY"]);
+
+export const createCashflowItemSchema = z.object({
+  categoryId: z.string().uuid(),
+  kind: z.enum(["INCOME", "EXPENSE"]),
+  source: z.enum(["MANUAL", "SUPPLIER", "OTHER"]).optional(),
+  name: z.string().min(2).max(120),
+  description: z.string().max(500).optional(),
+  amount: z.number().positive(),
+  currency: z.enum(["CLP", "UF"]).optional(),
+  ufFixingPolicy: z.enum(["RUN_DAY", "LAST_DAY_PREV_MONTH", "FIRST_DAY_MONTH", "LAST_DAY_MONTH", "CUSTOM_DAY"]).optional(),
+  ufFixingDay: z.number().int().min(1).max(31).optional(),
+  recurrence: recurrenceSchema,
+  dayOfMonth: z.number().int().min(-1).max(31).optional(),
+  dayOfWeek: z.number().int().min(0).max(6).optional(),
+  monthOfYear: z.number().int().min(1).max(12).optional(),
+  startDate: z.coerce.date(),
+  endDate: z.coerce.date().optional(),
+  installationId: z.string().uuid().optional(),
+  crmAccountId: z.string().uuid().optional(),
+  supplierId: z.string().uuid().optional(),
+  notes: z.string().max(2000).optional(),
+});
+
+export const updateCashflowItemSchema = createCashflowItemSchema.partial().extend({
+  isActive: z.boolean().optional(),
+});
+
+export const projectionQuerySchema = z.object({
+  from: z.coerce.date(),
+  to: z.coerce.date(),
+  granularity: z.enum(["weekly", "monthly"]).default("weekly"),
+});
+
+export const upsertOccurrenceSchema = z.object({
+  amountOverride: z.number().positive().optional(),
+  effectiveDate: z.coerce.date().optional(),
+  status: z.enum(["PROJECTED", "CONFIRMED", "PAID", "CANCELLED"]).optional(),
+  notes: z.string().max(500).optional(),
+});
+
+export const changeOccurrenceStatusSchema = z.object({
+  status: z.enum(["PROJECTED", "CONFIRMED", "PAID", "CANCELLED"]),
+  effectiveDate: z.coerce.date().optional(),
+});
+
+export const linkBankTxSchema = z.object({
+  bankTransactionId: z.string().uuid(),
+});
+
+export const autoMatchSchema = z.object({
+  from: z.coerce.date(),
+  to: z.coerce.date(),
+});
