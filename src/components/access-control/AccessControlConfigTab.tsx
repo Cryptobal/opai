@@ -4,16 +4,26 @@ import React, { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 import {
   Settings, UserPlus, Truck, Car, BadgeCheck, Package,
-  Save, Loader2, GripVertical, Plus, Trash2, ChevronDown, ChevronUp,
+  Save, Loader2, GripVertical, Plus, Trash2, ChevronDown, ChevronUp, Mail, Send,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
 import type {
   AccessRecordType, AccessControlFormConfig, FormFieldConfig, AutoReportSchedule,
 } from "@/lib/access-control/types";
 import { RECORD_TYPE_CONFIG, DEFAULT_FORM_FIELDS } from "@/lib/access-control/types";
+
+interface ReportRecipient {
+  contactId: string;
+  name: string;
+  email: string;
+  roleTitle: string | null;
+  isPrimary: boolean;
+  isRecipient: boolean;
+}
 
 // ═══════════════════════════════════════════════════════════════
 
@@ -45,6 +55,10 @@ export function AccessControlConfigTab({ installationId }: Props) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [expandedType, setExpandedType] = useState<AccessRecordType | null>(null);
+
+  const [recipients, setRecipients] = useState<ReportRecipient[]>([]);
+  const [recipientsLoading, setRecipientsLoading] = useState(false);
+  const [sendingTest, setSendingTest] = useState(false);
 
   const [config, setConfig] = useState<ConfigState>({
     enabledRecordTypes: [],
@@ -85,6 +99,78 @@ export function AccessControlConfigTab({ installationId }: Props) {
   useEffect(() => {
     fetchConfig();
   }, [fetchConfig]);
+
+  const fetchRecipients = useCallback(async () => {
+    setRecipientsLoading(true);
+    try {
+      const res = await fetch(
+        `/api/access-control/config/${installationId}/recipients`
+      );
+      const json = await res.json();
+      if (json.success) setRecipients(json.data);
+    } catch {
+      // silent
+    } finally {
+      setRecipientsLoading(false);
+    }
+  }, [installationId]);
+
+  useEffect(() => {
+    if (config.autoReportSchedule) {
+      fetchRecipients();
+    }
+  }, [config.autoReportSchedule, fetchRecipients]);
+
+  const toggleRecipient = async (r: ReportRecipient) => {
+    const newValue = !r.isRecipient;
+    setRecipients((prev) =>
+      prev.map((x) =>
+        x.contactId === r.contactId ? { ...x, isRecipient: newValue } : x
+      )
+    );
+    try {
+      const res = await fetch(
+        `/api/access-control/config/${installationId}/recipients`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contactId: r.contactId, isRecipient: newValue }),
+        }
+      );
+      const json = await res.json();
+      if (!json.success) {
+        toast.error(json.error || "Error al actualizar destinatario");
+        fetchRecipients();
+      }
+    } catch {
+      toast.error("Error al actualizar destinatario");
+      fetchRecipients();
+    }
+  };
+
+  const handleSendTest = async () => {
+    setSendingTest(true);
+    try {
+      const res = await fetch(
+        `/api/access-control/config/${installationId}/test-report`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        }
+      );
+      const json = await res.json();
+      if (json.success) {
+        toast.success(`Reporte enviado a ${json.sentTo.length} destinatario(s)`);
+      } else {
+        toast.error(json.error || "Error al enviar reporte de prueba");
+      }
+    } catch {
+      toast.error("Error al enviar reporte de prueba");
+    } finally {
+      setSendingTest(false);
+    }
+  };
 
   const saveConfig = async () => {
     setSaving(true);
@@ -279,6 +365,76 @@ export function AccessControlConfigTab({ installationId }: Props) {
               <option value="monthly">Mensual</option>
             </select>
           </div>
+
+          {config.autoReportSchedule && (
+            <div className="rounded-lg border border-zinc-700 bg-zinc-800/50 p-3">
+              <div className="flex items-center justify-between mb-2">
+                <Label className="text-zinc-300 text-sm font-medium flex items-center gap-1.5">
+                  <Mail className="h-4 w-4" />
+                  Destinatarios del reporte (
+                  {recipients.filter((r) => r.isRecipient).length} seleccionados)
+                </Label>
+              </div>
+              {recipientsLoading ? (
+                <div className="flex items-center gap-2 text-xs text-zinc-500 py-2">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Cargando contactos...
+                </div>
+              ) : recipients.length === 0 ? (
+                <p className="text-xs text-zinc-500">
+                  No hay contactos con email en la cuenta del cliente.
+                </p>
+              ) : (
+                <div className="space-y-1.5 max-h-60 overflow-y-auto">
+                  {recipients.map((r) => (
+                    <label
+                      key={r.contactId}
+                      className="flex items-center gap-2 text-sm cursor-pointer hover:bg-zinc-800 rounded px-2 py-1"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={r.isRecipient}
+                        onChange={() => toggleRecipient(r)}
+                        className="rounded border-zinc-600"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-zinc-200 truncate flex items-center gap-2">
+                          {r.name}
+                          {r.isPrimary && (
+                            <Badge
+                              variant="outline"
+                              className="text-xs border-status-info-border text-status-info-fg"
+                            >
+                              Principal
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="text-xs text-zinc-500 truncate">
+                          {r.email}
+                          {r.roleTitle && ` · ${r.roleTitle}`}
+                        </div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              )}
+              <button
+                onClick={handleSendTest}
+                disabled={
+                  sendingTest ||
+                  recipients.filter((r) => r.isRecipient).length === 0
+                }
+                className="mt-3 inline-flex items-center gap-1 text-xs text-status-info-fg hover:underline disabled:opacity-50 disabled:no-underline"
+              >
+                {sendingTest ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Send className="h-3 w-3" />
+                )}
+                Enviar reporte de prueba ahora
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

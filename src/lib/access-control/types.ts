@@ -75,6 +75,9 @@ export interface AccessControlListEntry {
   allowedTimeFrom?: string | null;
   allowedTimeTo?: string | null;
   isActive: boolean;
+  recordType?: AccessRecordType | null;
+  singleUse?: boolean;
+  usedAt?: string | null;
   createdBy?: string | null;
   createdAt: string;
 }
@@ -161,6 +164,7 @@ export interface RutValidationResult {
   valid: boolean;
   listMatch: ListMatch | null;
   personData: {
+    id?: string;
     fullName?: string;
     company?: string;
     blockReason?: string;

@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import type { AccessControlListEntry, ListType } from "@/lib/access-control/types";
 import { formatRut, validateRut } from "@/lib/access-control/utils";
+import { ListImport } from "./ListImport";
 
 interface Props {
   installationId: string;
@@ -318,11 +319,12 @@ export function AccessControlListsManager({ installationId }: Props) {
         </div>
       )}
 
-      {/* Import Modal Placeholder */}
+      {/* Import */}
       {showImport && (
-        <AccessControlListImport
+        <ListImport
           installationId={installationId}
           listType={activeTab}
+          mode="admin"
           onClose={() => setShowImport(false)}
           onImported={fetchList}
         />
@@ -391,168 +393,3 @@ export function AccessControlListsManager({ installationId }: Props) {
   );
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  IMPORT COMPONENT
-// ═══════════════════════════════════════════════════════════════
-
-function AccessControlListImport({
-  installationId,
-  listType,
-  onClose,
-  onImported,
-}: {
-  installationId: string;
-  listType: ListType;
-  onClose: () => void;
-  onImported: () => void;
-}) {
-  const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<Array<Record<string, string>>>([]);
-  const [importing, setImporting] = useState(false);
-  const [result, setResult] = useState<{ imported: number; errors: Array<{ row: number; rut: string; error: string }> } | null>(null);
-
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    setFile(f);
-
-    // Parse CSV
-    const text = await f.text();
-    const lines = text.split("\n").filter((l) => l.trim());
-    if (lines.length < 2) return;
-
-    const headers = lines[0].split(",").map((h) => h.trim().toLowerCase());
-    const rows = lines.slice(1).map((line) => {
-      const values = line.split(",");
-      const row: Record<string, string> = {};
-      headers.forEach((h, i) => {
-        row[h] = values[i]?.trim() || "";
-      });
-      return row;
-    });
-
-    setPreview(rows.slice(0, 10));
-  };
-
-  const handleImport = async () => {
-    if (!file) return;
-    setImporting(true);
-
-    try {
-      const text = await file.text();
-      const lines = text.split("\n").filter((l) => l.trim());
-      const headers = lines[0].split(",").map((h) => h.trim().toLowerCase());
-      const rows = lines.slice(1).map((line) => {
-        const values = line.split(",");
-        const row: Record<string, string> = {};
-        headers.forEach((h, i) => {
-          row[h] = values[i]?.trim() || "";
-        });
-        return {
-          rut: row.rut || row.run || "",
-          fullName: row.nombre || row.full_name || row.fullname || "",
-          company: row.empresa || row.company || "",
-          blockReason: row.motivo || row.block_reason || row.razon || "",
-          validFrom: row.vigencia_desde || row.valid_from || "",
-          validUntil: row.vigencia_hasta || row.valid_until || "",
-        };
-      });
-
-      const res = await fetch(`/api/access-control/lists/${installationId}/import`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rows, listType }),
-      });
-
-      const json = await res.json();
-      if (json.success) {
-        setResult(json.data);
-        toast.success(`${json.data.imported} entradas importadas`);
-        onImported();
-      } else {
-        toast.error(json.error);
-      }
-    } catch {
-      toast.error("Error al importar");
-    } finally {
-      setImporting(false);
-    }
-  };
-
-  return (
-    <div className="rounded-lg border border-zinc-600 bg-zinc-800 p-4 space-y-3">
-      <div className="flex items-center justify-between">
-        <h4 className="text-sm font-medium text-zinc-200">
-          Importar {listType === "whitelist" ? "Lista Blanca" : "Lista Negra"}
-        </h4>
-        <button onClick={onClose} className="text-zinc-500 hover:text-zinc-300">
-          <X className="h-4 w-4" />
-        </button>
-      </div>
-
-      <p className="text-xs text-zinc-500">
-        Sube un archivo CSV con columnas: RUT, Nombre, Empresa
-        {listType === "blacklist" ? ", Motivo" : ", Vigencia Desde, Vigencia Hasta"}
-      </p>
-
-      <input
-        type="file"
-        accept=".csv,.txt"
-        onChange={handleFileChange}
-        className="text-sm text-zinc-400"
-      />
-
-      {preview.length > 0 && (
-        <div className="max-h-40 overflow-auto rounded border border-zinc-700 text-xs">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-zinc-700">
-                {Object.keys(preview[0]).map((h) => (
-                  <th key={h} className="px-2 py-1 text-left text-zinc-300">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {preview.map((row, i) => (
-                <tr key={i} className="border-t border-zinc-700">
-                  {Object.values(row).map((v, j) => (
-                    <td key={j} className="px-2 py-1 text-zinc-400">{v}</td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {result && (
-        <div className="space-y-1">
-          <p className="text-sm text-status-ok-fg">
-            {result.imported} entradas importadas exitosamente
-          </p>
-          {result.errors.length > 0 && (
-            <div className="max-h-20 overflow-auto text-xs text-status-danger-fg">
-              {result.errors.map((e, i) => (
-                <p key={i}>Fila {e.row}: {e.rut} — {e.error}</p>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      <div className="flex justify-end gap-2">
-        <Button variant="outline" size="sm" onClick={onClose}>
-          Cerrar
-        </Button>
-        <Button
-          size="sm"
-          onClick={handleImport}
-          disabled={!file || importing}
-        >
-          {importing ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Upload className="mr-1 h-4 w-4" />}
-          Importar
-        </Button>
-      </div>
-    </div>
-  );
-}

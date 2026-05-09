@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { PREREGISTRATION_STATUS_CONFIG } from "@/lib/access-control/types";
 import { formatRut, validateRut } from "@/lib/access-control/utils";
-import type { PreregistrationStatus } from "@/lib/access-control/types";
+import type { PreregistrationStatus, AccessRecordType } from "@/lib/access-control/types";
 
 interface Prereg {
   id: string;
@@ -20,8 +20,11 @@ interface Prereg {
   visitorCompany: string | null;
   hostName: string | null;
   expectedDate: string;
+  expectedEndDate?: string | null;
   expectedTimeFrom: string | null;
   expectedTimeTo: string | null;
+  vehiclePlate?: string | null;
+  recordType?: string | null;
   purpose: string | null;
   status: PreregistrationStatus;
   createdAt: string;
@@ -43,7 +46,10 @@ export function ClientPreregistration({ installationId, createdBy }: Props) {
   const [fName, setFName] = useState("");
   const [fCompany, setFCompany] = useState("");
   const [fHost, setFHost] = useState("");
+  const [fRecordType, setFRecordType] = useState<AccessRecordType>("visit");
+  const [fVehiclePlate, setFVehiclePlate] = useState("");
   const [fDate, setFDate] = useState("");
+  const [fEndDate, setFEndDate] = useState("");
   const [fTimeFrom, setFTimeFrom] = useState("");
   const [fTimeTo, setFTimeTo] = useState("");
   const [fPurpose, setFPurpose] = useState("");
@@ -68,7 +74,9 @@ export function ClientPreregistration({ installationId, createdBy }: Props) {
 
   const resetForm = () => {
     setFRut(""); setFName(""); setFCompany(""); setFHost("");
-    setFDate(""); setFTimeFrom(""); setFTimeTo(""); setFPurpose("");
+    setFRecordType("visit"); setFVehiclePlate("");
+    setFDate(""); setFEndDate("");
+    setFTimeFrom(""); setFTimeTo(""); setFPurpose("");
     setShowForm(false);
   };
 
@@ -89,7 +97,10 @@ export function ClientPreregistration({ installationId, createdBy }: Props) {
             visitorName: fName,
             visitorCompany: fCompany || null,
             hostName: fHost || null,
+            recordType: fRecordType,
+            vehiclePlate: fRecordType === "vehicle" ? fVehiclePlate || null : null,
             expectedDate: fDate,
+            expectedEndDate: fEndDate || null,
             expectedTimeFrom: fTimeFrom || null,
             expectedTimeTo: fTimeTo || null,
             purpose: fPurpose || null,
@@ -168,8 +179,43 @@ export function ClientPreregistration({ installationId, createdBy }: Props) {
               <Input value={fHost} onChange={(e) => setFHost(e.target.value)} className="bg-zinc-700 border-zinc-600" />
             </div>
             <div>
-              <Label className="text-zinc-400">Fecha esperada *</Label>
+              <Label className="text-zinc-400">Tipo de registro</Label>
+              <select
+                value={fRecordType}
+                onChange={(e) => setFRecordType(e.target.value as AccessRecordType)}
+                className="w-full rounded-md border border-zinc-600 bg-zinc-700 px-3 py-2 text-sm text-zinc-200"
+              >
+                <option value="visit">Visita</option>
+                <option value="provider">Proveedor</option>
+                <option value="vehicle">Vehículo</option>
+                <option value="staff">Personal</option>
+                <option value="delivery">Despacho</option>
+              </select>
+            </div>
+            {fRecordType === "vehicle" && (
+              <div>
+                <Label className="text-zinc-400">Patente</Label>
+                <Input
+                  value={fVehiclePlate}
+                  onChange={(e) => setFVehiclePlate(e.target.value.toUpperCase())}
+                  placeholder="BBCC-12"
+                  className="bg-zinc-700 border-zinc-600 uppercase"
+                />
+              </div>
+            )}
+            <div>
+              <Label className="text-zinc-400">Fecha desde *</Label>
               <Input type="date" value={fDate} onChange={(e) => setFDate(e.target.value)} className="bg-zinc-700 border-zinc-600" />
+            </div>
+            <div>
+              <Label className="text-zinc-400">Fecha hasta (opcional)</Label>
+              <Input
+                type="date"
+                value={fEndDate}
+                onChange={(e) => setFEndDate(e.target.value)}
+                min={fDate || undefined}
+                className="bg-zinc-700 border-zinc-600"
+              />
             </div>
             <div className="flex gap-2">
               <div className="flex-1">
@@ -220,9 +266,17 @@ export function ClientPreregistration({ installationId, createdBy }: Props) {
                   </div>
                   <div className="mt-1 text-xs text-zinc-400">
                     {new Date(item.expectedDate).toLocaleDateString("es-CL")}
+                    {item.expectedEndDate && (
+                      <> – {new Date(item.expectedEndDate).toLocaleDateString("es-CL")}</>
+                    )}
                     {item.expectedTimeFrom && ` ${item.expectedTimeFrom}`}
                     {item.expectedTimeTo && ` - ${item.expectedTimeTo}`}
                   </div>
+                  {item.vehiclePlate && (
+                    <div className="text-xs text-zinc-500 mt-0.5">
+                      Patente: <span className="font-mono">{item.vehiclePlate}</span>
+                    </div>
+                  )}
                   {item.hostName && (
                     <div className="text-xs text-zinc-500 mt-0.5">Visita a: {item.hostName}</div>
                   )}

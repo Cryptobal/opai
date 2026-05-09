@@ -46,6 +46,7 @@ export async function POST(request: NextRequest) {
         valid: true,
         listMatch: "blacklist",
         personData: {
+          id: blacklistEntry.id,
           fullName: blacklistEntry.fullName,
           company: blacklistEntry.company || undefined,
           blockReason: blacklistEntry.blockReason || undefined,
@@ -56,10 +57,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, data: result });
     }
 
-    // Check whitelist
+    // Check whitelist (excluyendo entradas de uso único ya consumidas)
     const whitelistEntry = await safeAccessControlQuery(
       () => prisma.accessControlList.findFirst({
-        where: { rut: cleaned, installationId, listType: "whitelist", isActive: true },
+        where: {
+          rut: cleaned,
+          installationId,
+          listType: "whitelist",
+          isActive: true,
+          // Excluir uso único ya consumido: válido si NO es uso único, o si lo es pero aún no se ha usado
+          OR: [{ singleUse: { not: true } }, { usedAt: null }],
+        },
       }),
       null,
     );
@@ -79,6 +87,7 @@ export async function POST(request: NextRequest) {
         valid: true,
         listMatch: "whitelist",
         personData: {
+          id: whitelistEntry.id,
           fullName: whitelistEntry.fullName,
           company: whitelistEntry.company || undefined,
           validFrom: whitelistEntry.validFrom?.toISOString() || null,
@@ -100,7 +109,8 @@ export async function POST(request: NextRequest) {
       null,
     );
 
-    // Check pre-registration for today
+    // Check pre-registration: hoy o dentro de un rango (multi-día)
+    const now = new Date();
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
@@ -112,7 +122,12 @@ export async function POST(request: NextRequest) {
           visitorRut: cleaned,
           installationId,
           status: "pending",
-          expectedDate: { gte: today, lt: tomorrow },
+          OR: [
+            // Rango multi-día: expectedDate <= now <= expectedEndDate
+            { expectedDate: { lte: now }, expectedEndDate: { gte: today } },
+            // Single-day: hoy y sin endDate
+            { expectedDate: { gte: today, lt: tomorrow }, expectedEndDate: null },
+          ],
         },
       }),
       null,

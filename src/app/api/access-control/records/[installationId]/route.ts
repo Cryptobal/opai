@@ -20,6 +20,9 @@ export async function GET(
     const to = searchParams.get("to");
     const type = searchParams.get("type");
     const search = searchParams.get("search");
+    const listMatch = searchParams.get("listMatch"); // "whitelist" | "blacklist" | "none"
+    const qrSource = searchParams.get("qrSource");
+    const guardId = searchParams.get("guardId");
     const page = parseInt(searchParams.get("page") || "1", 10);
     const limit = Math.min(parseInt(searchParams.get("limit") || "50", 10), 200);
     const offset = (page - 1) * limit;
@@ -48,6 +51,18 @@ export async function GET(
         { company: { contains: search, mode: "insensitive" } },
         { vehiclePlate: { contains: search, mode: "insensitive" } },
       ];
+    }
+
+    if (listMatch === "none") {
+      where.listMatch = null;
+    } else if (listMatch === "whitelist" || listMatch === "blacklist") {
+      where.listMatch = listMatch;
+    }
+    if (qrSource) {
+      where.qrSource = qrSource;
+    }
+    if (guardId) {
+      where.entryGuardId = guardId;
     }
 
     const result = await safeAccessControlQuery(

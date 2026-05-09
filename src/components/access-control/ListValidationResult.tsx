@@ -14,11 +14,21 @@ interface Props {
   result: RutValidationResult;
   rut: string;
   fullName?: string;
+  config?: { useWhitelist: boolean; useBlacklist: boolean };
   onContinue: () => void;
   onBack: () => void;
+  onDeniedAttempt?: () => void;
 }
 
-export function ListValidationResult({ result, rut, fullName, onContinue, onBack }: Props) {
+export function ListValidationResult({
+  result,
+  rut,
+  fullName,
+  config,
+  onContinue,
+  onBack,
+  onDeniedAttempt,
+}: Props) {
   // ── BLACKLIST: Full red screen ──
   if (result.listMatch === "blacklist") {
     return (
@@ -51,6 +61,23 @@ export function ListValidationResult({ result, rut, fullName, onContinue, onBack
           </Button>
         </div>
       </div>
+    );
+  }
+
+  // ── WHITELIST ACTIVA y persona NO está en whitelist (y no es preregistro) ──
+  if (
+    config?.useWhitelist &&
+    result.listMatch !== "whitelist" &&
+    result.listMatch !== "blacklist" &&
+    !result.preregistration
+  ) {
+    return (
+      <NotInWhitelistScreen
+        rut={rut}
+        fullName={fullName || result.frequentData?.fullName}
+        onBack={onBack}
+        onDeniedAttempt={onDeniedAttempt}
+      />
     );
   }
 
@@ -174,6 +201,51 @@ export function ListValidationResult({ result, rut, fullName, onContinue, onBack
       <Button onClick={onContinue} className="w-full h-12">
         Continuar <ChevronRight className="ml-1 h-4 w-4" />
       </Button>
+    </div>
+  );
+}
+
+function NotInWhitelistScreen({
+  rut,
+  fullName,
+  onBack,
+  onDeniedAttempt,
+}: {
+  rut: string;
+  fullName?: string;
+  onBack: () => void;
+  onDeniedAttempt?: () => void;
+}) {
+  React.useEffect(() => {
+    onDeniedAttempt?.();
+    navigator.vibrate?.([200, 100, 200]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-amber-700 p-6">
+      <div className="text-center space-y-4 max-w-md">
+        <ShieldAlert className="mx-auto h-20 w-20 text-white" />
+        <h2 className="text-3xl font-bold text-white">ACCESO NO AUTORIZADO</h2>
+        <div className="rounded-lg bg-amber-800/50 p-4 space-y-2">
+          {fullName && (
+            <p className="text-xl font-semibold text-amber-100">{fullName}</p>
+          )}
+          <p className="text-lg text-amber-200">{formatRut(rut)}</p>
+          <p className="text-amber-100/90 text-sm mt-2">
+            Esta persona no se encuentra en la lista de autorizados de la instalación.
+          </p>
+          <p className="text-amber-200/80 text-xs mt-1">
+            Si necesita ingresar, debe ser pre-registrado por el cliente o agregado a la lista de autorizados.
+          </p>
+        </div>
+        <Button
+          onClick={onBack}
+          className="mt-6 bg-white text-amber-700 hover:bg-amber-50 text-lg px-8 py-3 h-auto"
+        >
+          Entendido
+        </Button>
+      </div>
     </div>
   );
 }
