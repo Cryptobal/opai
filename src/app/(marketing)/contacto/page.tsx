@@ -19,8 +19,8 @@ const contactInfo = [
   },
   {
     label: 'Email',
-    value: 'carlos.irigoyen@lx3.ai',
-    href: 'mailto:carlos.irigoyen@lx3.ai',
+    value: 'carlos.irigoyen@opai.cl',
+    href: 'mailto:carlos.irigoyen@opai.cl',
     icon: '📧',
   },
   {
