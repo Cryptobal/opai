@@ -27,6 +27,7 @@ import {
 import { DataTable, EmptyState, type DataTableColumn } from "@/components/opai-ds";
 import { PaginationControls } from "./PaginationControls";
 import { BankBalanceSheet } from "./BankBalanceSheet";
+import { BankRulesClient } from "./BankRulesClient";
 import {
   Landmark,
   ArrowLeftRight,
@@ -44,6 +45,7 @@ import {
   Wallet,
   EyeOff,
   RotateCcw,
+  Settings2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -94,6 +96,7 @@ interface TransactionRow {
 const TABS = [
   { id: "accounts", label: "Cuentas Bancarias", icon: Landmark },
   { id: "transactions", label: "Movimientos", icon: ArrowLeftRight },
+  { id: "rules", label: "Reglas", icon: Settings2 },
   { id: "import", label: "Importar Cartola", icon: Upload },
 ] as const;
 
@@ -192,6 +195,9 @@ export function BancosClient({ accounts, accountPlans, canManage }: Props) {
       )}
       {activeTab === "transactions" && (
         <TransactionsTab accounts={accounts} canManage={canManage} />
+      )}
+      {activeTab === "rules" && (
+        <BankRulesClient canManage={canManage} accountPlans={accountPlans} />
       )}
       {activeTab === "import" && (
         <ImportTab accounts={accounts} canManage={canManage} />

@@ -6832,6 +6832,69 @@ enum FinanceBalanceSource {
   @@schema("finance")
 }
 
+/// Reglas de auto-match / categorización de movimientos bancarios. Inspirado
+/// en Buk / Zoho Books: cada regla aplica a depósitos, retiros o ambos, define
+/// criterios sobre los campos de la tx y una acción (categorizar a una cuenta
+/// contable, vincular a una entidad, etc).
+///
+/// `conditions` es un JSON con shape:
+///   {
+///     mode: "ALL" | "ANY",
+///     items: [
+///       { field, operator, value }, ...
+///     ]
+///   }
+/// donde:
+///   field    = "DESCRIPTION" | "REFERENCE" | "AMOUNT" | "BENEFICIARY_RUT"
+///   operator = "CONTAINS" | "STARTS_WITH" | "EQUALS" | "IS_EMPTY"
+///            | "AMOUNT_BETWEEN" | "AMOUNT_GTE" | "AMOUNT_LTE"
+///            | "RUT_MATCHES"
+///   value    = string | number | { min, max }
+///
+/// `action` es un JSON con shape:
+///   {
+///     handlingMode: "RECOGNIZED" | "CATEGORIZED",
+///     accountPlanId: string | null,
+///     supplierId: string | null,
+///     counterpartyRut: string | null,
+///     requiresReview: boolean
+///   }
+model FinanceAutoMatchRule {
+  id           String                 @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId     String                 @map("tenant_id")
+  name         String
+  enabled      Boolean                @default(true)
+  /// Menor número = mayor prioridad. Si dos reglas matchean, gana la de
+  /// menor priority. Default 100.
+  priority     Int                    @default(100)
+  appliesTo    FinanceAutoMatchScope  @default(BOTH) @map("applies_to")
+  conditions   Json
+  action       Json
+
+  /// Stats running para mostrar en la UI lista de reglas.
+  timesMatched  Int       @default(0) @map("times_matched")
+  lastMatchedAt DateTime? @map("last_matched_at") @db.Timestamptz(6)
+
+  createdById String?  @map("created_by") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([tenantId, enabled, priority], map: "idx_finance_automatch_lookup")
+  @@map("finance_automatch_rules")
+  @@schema("finance")
+}
+
+enum FinanceAutoMatchScope {
+  /// La regla aplica solo a depósitos (amount > 0).
+  DEPOSITS
+  /// La regla aplica solo a retiros / cargos (amount < 0).
+  WITHDRAWALS
+  /// La regla aplica a ambos.
+  BOTH
+
+  @@schema("finance")
+}
+
 model FinanceBankTransaction {
   id                   String                      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   tenantId             String                      @map("tenant_id")
