@@ -18,7 +18,7 @@ export default async function FacturacionLayout({ children }: { children: ReactN
   }
   return (
     <div className="space-y-3 min-w-0">
-      <ModuleSubNav moduleKey="finance-ventas" />
+      <ModuleSubNav moduleKey="finance-compras-ventas" />
       <div className="min-w-0">{children}</div>
     </div>
   );

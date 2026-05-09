@@ -813,7 +813,9 @@ export function getContextualBottomNavNodes(pathname: string): NavNode[] {
     pathname.startsWith("/finanzas/facturacion/")
   ) {
     const fin = getModule("finance");
-    const ventasNode = fin?.children?.find((c) => c.key === "finance-ventas");
+    const ventasNode = fin?.children?.find(
+      (c) => c.key === "finance-compras-ventas" || c.key === "finance-ventas",
+    );
     if (ventasNode?.children) return ventasNode.children;
   }
 
