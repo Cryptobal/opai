@@ -50,6 +50,7 @@ import {
   Settings2,
   BarChart3,
   CheckCircle2,
+  Mail,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -83,6 +84,8 @@ interface Props {
   accounts: BankAccountRow[];
   accountPlans: AccountOption[];
   canManage: boolean;
+  /** Email único del tenant para suscripción automática de cartolas. */
+  cartolaInboxEmail: string;
 }
 
 interface TransactionRow {
@@ -176,7 +179,12 @@ const EMPTY_FORM = {
 
 /* ── Component ── */
 
-export function BancosClient({ accounts, accountPlans, canManage }: Props) {
+export function BancosClient({
+  accounts,
+  accountPlans,
+  canManage,
+  cartolaInboxEmail,
+}: Props) {
   const [activeTab, setActiveTab] = useState<TabId>("transactions");
 
   return (
@@ -233,7 +241,11 @@ export function BancosClient({ accounts, accountPlans, canManage }: Props) {
         <BankRulesClient canManage={canManage} accountPlans={accountPlans} />
       )}
       {activeTab === "import" && (
-        <ImportTab accounts={accounts} canManage={canManage} />
+        <ImportTab
+          accounts={accounts}
+          canManage={canManage}
+          cartolaInboxEmail={cartolaInboxEmail}
+        />
       )}
     </div>
   );
@@ -1611,9 +1623,11 @@ function TransactionsTab({
 function ImportTab({
   accounts,
   canManage,
+  cartolaInboxEmail,
 }: {
   accounts: BankAccountRow[];
   canManage: boolean;
+  cartolaInboxEmail: string;
 }) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -1686,6 +1700,49 @@ function ImportTab({
 
   return (
     <div className="space-y-6">
+      {/* Cartola automática por email — el banco envía la cartola al
+          email único del tenant y el sistema la importa solo. */}
+      <Card className="border-status-info-border bg-status-info-soft/30">
+        <CardContent className="p-4 sm:p-5 space-y-3">
+          <div className="flex items-start gap-3">
+            <div className="p-2 rounded-md bg-status-info-soft text-status-info-fg shrink-0">
+              <Mail className="h-4 w-4" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium">
+                Cartola automática por email
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Configurá este email en Santander Office Banking → Suscripción
+                Cartola vía email. El sistema procesará el Excel
+                automáticamente cuando llegue.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2">
+            <code className="text-xs sm:text-sm font-mono flex-1 truncate select-all">
+              {cartolaInboxEmail}
+            </code>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 shrink-0"
+              onClick={() => {
+                navigator.clipboard.writeText(cartolaInboxEmail);
+                toast.success("Email copiado al portapapeles");
+              }}
+            >
+              Copiar
+            </Button>
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            Tildá el formato <span className="font-medium">Planilla</span>{" "}
+            (Excel) en la suscripción de Santander. Ese es el archivo que el
+            sistema sabe leer.
+          </p>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardContent className="p-6 space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">

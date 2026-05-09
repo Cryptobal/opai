@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { PageHero } from "@/components/opai-ds";
 import { Building2 } from "lucide-react";
 import { BancosClient } from "@/components/finance/BancosClient";
+import { tenantInboxEmail } from "@/modules/finance/banking/cartola-inbox";
 
 export default async function BancosPage() {
   const session = await auth();
@@ -70,6 +71,7 @@ export default async function BancosPage() {
         accounts={data}
         accountPlans={accountPlans}
         canManage={canManage}
+        cartolaInboxEmail={tenantInboxEmail(tenantId)}
       />
     </div>
   );
