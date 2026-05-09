@@ -2244,6 +2244,7 @@ model CrmInstallation {
   accessControlPreregistrations   AccessControlPreregistration[]
   accessControlPairingCodes       AccessControlPairingCode[]
   accessControlDevices            AccessControlDevice[]
+  accessControlReportRecipients   AccessControlReportRecipient[]
   gamificacionScores              GamificacionScoreGuardia[]      @relation("gamificacion_score_installation")
   gamificacionEventos             GamificacionEvento[]            @relation("gamificacion_evento_installation")
   gamificacionReconocimientos     GamificacionReconocimiento[]    @relation("gamificacion_reconocimiento_installation")
@@ -2290,10 +2291,11 @@ model CrmContact {
   createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt              DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  account              CrmAccount               @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  deals                CrmDeal[]                @relation("crm_deal_primary_contact")
-  dealContacts         CrmDealContact[]
-  companyPresentations CrmCompanyPresentation[]
+  account                       CrmAccount                     @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  deals                         CrmDeal[]                      @relation("crm_deal_primary_contact")
+  dealContacts                  CrmDealContact[]
+  companyPresentations          CrmCompanyPresentation[]
+  accessControlReportRecipients AccessControlReportRecipient[]
 
   @@index([tenantId], map: "idx_crm_contacts_tenant")
   @@index([accountId], map: "idx_crm_contacts_account")
@@ -8074,15 +8076,35 @@ model AccessControlConfig {
   requirePhoto        Boolean  @default(false) @map("require_photo")
   requireSignature    Boolean  @default(false) @map("require_signature")
   maxStayHours        Int?     @map("max_stay_hours")
-  autoReportSchedule  String?  @map("auto_report_schedule") // 'daily','weekly','monthly'
-  formConfig          Json     @default("{}") @map("form_config") @db.JsonB
-  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  autoReportSchedule    String?   @map("auto_report_schedule") // 'daily','weekly','monthly'
+  autoReportLastSentAt  DateTime? @map("auto_report_last_sent_at") @db.Timestamptz(6)
+  formConfig            Json      @default("{}") @map("form_config") @db.JsonB
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   installation CrmInstallation @relation(fields: [installationId], references: [id], onDelete: Cascade)
 
   @@index([tenantId], map: "idx_ac_configs_tenant")
   @@map("access_control_configs")
+  @@schema("access_control")
+}
+
+model AccessControlReportRecipient {
+  id             String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId       String   @map("tenant_id")
+  installationId String   @map("installation_id") @db.Uuid
+  contactId      String?  @map("contact_id") @db.Uuid
+  email          String
+  name           String?
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  installation CrmInstallation @relation(fields: [installationId], references: [id], onDelete: Cascade)
+  contact      CrmContact?     @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([installationId], map: "idx_ac_report_recipients_installation")
+  @@index([tenantId], map: "idx_ac_report_recipients_tenant")
+  @@map("access_control_report_recipients")
   @@schema("access_control")
 }
 
@@ -8102,6 +8124,9 @@ model AccessControlList {
   allowedTimeFrom String?   @map("allowed_time_from")
   allowedTimeTo   String?   @map("allowed_time_to")
   isActive        Boolean   @default(true) @map("is_active")
+  recordType      String?   @default("visit") @map("record_type")
+  singleUse       Boolean   @default(false) @map("single_use")
+  usedAt          DateTime? @map("used_at") @db.Timestamptz(6)
   createdBy       String?   @map("created_by")
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -8199,11 +8224,13 @@ model AccessControlPreregistration {
   visitorCompany   String?  @map("visitor_company")
   hostName         String?  @map("host_name")
   hostContact      String?  @map("host_contact")
-  expectedDate     DateTime @map("expected_date") @db.Date
-  expectedTimeFrom String?  @map("expected_time_from")
-  expectedTimeTo   String?  @map("expected_time_to")
+  expectedDate     DateTime  @map("expected_date") @db.Date
+  expectedEndDate  DateTime? @map("expected_end_date") @db.Date
+  expectedTimeFrom String?   @map("expected_time_from")
+  expectedTimeTo   String?   @map("expected_time_to")
+  vehiclePlate     String?   @map("vehicle_plate")
   purpose          String?
-  recordType       String   @default("visit") @map("record_type")
+  recordType       String    @default("visit") @map("record_type")
   status           String   @default("pending") // 'pending','checked_in','checked_out','no_show','cancelled'
   createdBy        String?  @map("created_by")
   createdByClient  Boolean  @default(false) @map("created_by_client")

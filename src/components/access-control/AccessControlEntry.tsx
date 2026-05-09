@@ -401,8 +401,30 @@ export function AccessControlEntry({
             result={validationResult}
             rut={rut}
             fullName={formData.full_name as string | undefined}
+            config={{ useWhitelist: config.useWhitelist, useBlacklist: config.useBlacklist }}
             onContinue={handleContinueFromValidation}
             onBack={onClose}
+            onDeniedAttempt={() => {
+              fetch(`/api/access-control/denied-attempts/${installationId}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  rut: cleanRut(rut),
+                  fullName: (formData.full_name as string | undefined) || null,
+                  guardId,
+                  blockReason:
+                    validationResult.listMatch === "blacklist"
+                      ? validationResult.personData?.blockReason || "blacklist_match"
+                      : "no_in_whitelist",
+                  blacklistEntryId:
+                    validationResult.listMatch === "blacklist"
+                      ? validationResult.personData?.id
+                      : undefined,
+                  gpsLat: gps?.lat,
+                  gpsLng: gps?.lng,
+                }),
+              }).catch(() => {});
+            }}
           />
         )}
 

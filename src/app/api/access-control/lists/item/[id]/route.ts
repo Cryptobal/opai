@@ -36,6 +36,8 @@ export async function PUT(
         allowedDays: body.allowedDays,
         allowedTimeFrom: body.allowedTimeFrom,
         allowedTimeTo: body.allowedTimeTo,
+        recordType: body.recordType ?? undefined,
+        singleUse: typeof body.singleUse === "boolean" ? body.singleUse : undefined,
         isActive: body.isActive,
       },
     });

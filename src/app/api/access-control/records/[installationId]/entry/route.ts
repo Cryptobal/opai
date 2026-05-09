@@ -34,6 +34,110 @@ export async function POST(
 
     const cleaned = body.rut ? cleanRut(body.rut) : null;
 
+    // ── Defense in depth: revalidar listas server-side ──
+    if (cleaned) {
+      const config = await prisma.accessControlConfig.findUnique({
+        where: { installationId },
+        select: { useWhitelist: true, useBlacklist: true },
+      });
+
+      if (config?.useBlacklist) {
+        const onBlacklist = await prisma.accessControlList.findFirst({
+          where: {
+            rut: cleaned,
+            listType: "blacklist",
+            isActive: true,
+            OR: [{ installationId }, { scope: "global" }],
+          },
+          select: { id: true, blockReason: true },
+        });
+        if (onBlacklist) {
+          if (body.entryGuardId) {
+            await prisma.accessControlDeniedAttempt
+              .create({
+                data: {
+                  tenantId: installation.tenantId,
+                  installationId,
+                  guardId: body.entryGuardId,
+                  rut: cleaned,
+                  fullName: body.fullName || null,
+                  blacklistEntryId: onBlacklist.id,
+                  blockReason: onBlacklist.blockReason || "blacklist_match",
+                  gpsLat: body.gpsLat ?? null,
+                  gpsLng: body.gpsLng ?? null,
+                },
+              })
+              .catch((e) => {
+                console.error("[AccessControl] denied attempt log failed:", e);
+              });
+          }
+          return NextResponse.json(
+            {
+              success: false,
+              error: "Persona en lista negra. Acceso denegado.",
+              code: "BLACKLIST_MATCH",
+            },
+            { status: 403 }
+          );
+        }
+      }
+
+      if (config?.useWhitelist) {
+        const onWhitelist = await prisma.accessControlList.findFirst({
+          where: {
+            rut: cleaned,
+            installationId,
+            listType: "whitelist",
+            isActive: true,
+          },
+          select: { id: true },
+        });
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const prereg = await prisma.accessControlPreregistration.findFirst({
+          where: {
+            visitorRut: cleaned,
+            installationId,
+            status: "pending",
+            expectedDate: { gte: today, lt: tomorrow },
+          },
+          select: { id: true },
+        });
+
+        if (!onWhitelist && !prereg) {
+          if (body.entryGuardId) {
+            await prisma.accessControlDeniedAttempt
+              .create({
+                data: {
+                  tenantId: installation.tenantId,
+                  installationId,
+                  guardId: body.entryGuardId,
+                  rut: cleaned,
+                  fullName: body.fullName || null,
+                  blockReason: "no_in_whitelist",
+                  gpsLat: body.gpsLat ?? null,
+                  gpsLng: body.gpsLng ?? null,
+                },
+              })
+              .catch((e) => {
+                console.error("[AccessControl] denied attempt log failed:", e);
+              });
+          }
+          return NextResponse.json(
+            {
+              success: false,
+              error: "Persona no autorizada. No está en lista blanca ni pre-registrada.",
+              code: "NOT_IN_WHITELIST",
+            },
+            { status: 403 }
+          );
+        }
+      }
+    }
+
     // Create the access record
     const record = await prisma.accessControlRecord.create({
       data: {
@@ -98,6 +202,25 @@ export async function POST(
         where: { id: body.preregistrationId },
         data: { status: "checked_in" },
       });
+    }
+
+    // Si la entrada vino de un whitelist con uso único, marcar usedAt
+    if (cleaned && body.listMatch === "whitelist") {
+      await prisma.accessControlList
+        .updateMany({
+          where: {
+            rut: cleaned,
+            installationId,
+            listType: "whitelist",
+            isActive: true,
+            singleUse: true,
+            usedAt: null,
+          },
+          data: { usedAt: new Date(), isActive: false },
+        })
+        .catch((e) => {
+          console.error("[AccessControl] singleUse update failed:", e);
+        });
     }
 
     return NextResponse.json({ success: true, data: record }, { status: 201 });

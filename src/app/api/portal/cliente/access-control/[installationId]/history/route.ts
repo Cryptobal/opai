@@ -31,6 +31,8 @@ export async function GET(
       installationId,
     };
 
+    const status = searchParams.get("status");
+    if (status === "in_site") where.exitAt = null;
     if (from) where.entryAt = { ...(where.entryAt as object || {}), gte: new Date(from) };
     if (to) where.entryAt = { ...(where.entryAt as object || {}), lte: new Date(to) };
     if (type) where.recordType = type;
