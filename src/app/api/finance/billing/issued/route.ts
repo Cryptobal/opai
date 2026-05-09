@@ -75,6 +75,9 @@ export async function GET(request: NextRequest) {
       // Búsqueda por nombre de fantasía / razón social en CRM accounts.
       // crmAccountId es FK lógica (sin @relation), por eso resolvemos
       // los matching IDs en una sub-query y los inyectamos al OR.
+      // Además matcheamos por receiverRut == account.rut para cubrir
+      // DTEs sin crmAccountId poblado (importados o emitidos antes de
+      // la integración con CRM).
       const matchingAccounts = await prisma.crmAccount.findMany({
         where: {
           tenantId: ctx.tenantId,
@@ -83,13 +86,19 @@ export async function GET(request: NextRequest) {
             { legalName: { contains: search, mode: "insensitive" } },
           ],
         },
-        select: { id: true },
+        select: { id: true, rut: true },
         take: 500,
       });
       if (matchingAccounts.length > 0) {
         orClauses.push({
           crmAccountId: { in: matchingAccounts.map((a) => a.id) },
         });
+        const matchingRuts = matchingAccounts
+          .map((a) => a.rut)
+          .filter((r): r is string => !!r);
+        if (matchingRuts.length > 0) {
+          orClauses.push({ receiverRut: { in: matchingRuts } });
+        }
       }
 
       // Folio exacto si el input es íntegro (sin punto, sin guión, sin comas).
@@ -144,17 +153,30 @@ export async function GET(request: NextRequest) {
     const total = await prisma.financeDte.count({ where });
 
     // Enriquecer con cliente CRM + instalación (centro de costo).
+    // Fallback por RUT: muchos DTEs históricos no tienen `crmAccountId`
+    // poblado (importados del SII o emitidos antes de la integración con
+    // CRM). Si encontramos un CrmAccount con el mismo `receiverRut`,
+    // usamos ese para tener el nombre de fantasía visible.
     const accountIds = Array.from(
       new Set(dtes.map((d) => d.crmAccountId).filter((v): v is string => !!v)),
+    );
+    const receiverRuts = Array.from(
+      new Set(dtes.map((d) => d.receiverRut).filter((v): v is string => !!v)),
     );
     const installationIds = Array.from(
       new Set(dtes.map((d) => d.installationId).filter((v): v is string => !!v)),
     );
-    const [accounts, installations] = await Promise.all([
+    const [accountsById, accountsByRut, installations] = await Promise.all([
       accountIds.length > 0
         ? prisma.crmAccount.findMany({
             where: { id: { in: accountIds }, tenantId: ctx.tenantId },
-            select: { id: true, name: true, legalName: true },
+            select: { id: true, name: true, legalName: true, rut: true },
+          })
+        : Promise.resolve([]),
+      receiverRuts.length > 0
+        ? prisma.crmAccount.findMany({
+            where: { rut: { in: receiverRuts }, tenantId: ctx.tenantId },
+            select: { id: true, name: true, legalName: true, rut: true },
           })
         : Promise.resolve([]),
       installationIds.length > 0
@@ -164,7 +186,10 @@ export async function GET(request: NextRequest) {
           })
         : Promise.resolve([]),
     ]);
-    const accountMap = new Map(accounts.map((a) => [a.id, a]));
+    const accountById = new Map(accountsById.map((a) => [a.id, a]));
+    const accountByRut = new Map(
+      accountsByRut.filter((a) => !!a.rut).map((a) => [a.rut as string, a]),
+    );
     const installationMap = new Map(installations.map((i) => [i.id, i]));
 
     // Factoring: marcar cuáles son cedibles + adjuntar cesión activa si existe.
@@ -248,10 +273,19 @@ export async function GET(request: NextRequest) {
       // sólo necesita saber si existe vía `hasXml`.
       const { dteXml: _dteXml, ...rest } = d;
       void _dteXml;
+      const enrichedAccount =
+        (d.crmAccountId ? accountById.get(d.crmAccountId) ?? null : null) ??
+        (d.receiverRut ? accountByRut.get(d.receiverRut) ?? null : null);
       return {
         ...rest,
         hasXml,
-        crmAccount: d.crmAccountId ? accountMap.get(d.crmAccountId) ?? null : null,
+        crmAccount: enrichedAccount
+          ? {
+              id: enrichedAccount.id,
+              name: enrichedAccount.name,
+              legalName: enrichedAccount.legalName,
+            }
+          : null,
         installation: d.installationId
           ? installationMap.get(d.installationId) ?? null
           : null,

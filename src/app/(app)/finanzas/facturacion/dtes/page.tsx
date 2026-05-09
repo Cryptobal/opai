@@ -75,16 +75,28 @@ export default async function DtesEmitidosPage({
   const accountIds = Array.from(
     new Set(dtes.map((d) => d.crmAccountId).filter((v): v is string => !!v)),
   );
+  // Fallback por RUT: para DTEs sin crmAccountId poblado, intentamos
+  // matchear por receiverRut == account.rut, así igualmente mostramos el
+  // nombre de fantasía y la razón social oficial del CRM.
+  const receiverRuts = Array.from(
+    new Set(dtes.map((d) => d.receiverRut).filter((v): v is string => !!v)),
+  );
   const installationIds = Array.from(
     new Set(dtes.map((d) => d.installationId).filter((v): v is string => !!v)),
   );
   const CEDIBLE_TYPES = new Set([33, 34, 43, 46]);
   const dteIds = dtes.map((d: typeof dtes[number]) => d.id);
-  const [accountsCC, installationsCC, activeCessions, linkedCreditNotes] = await Promise.all([
+  const [accountsCC, accountsByRut, installationsCC, activeCessions, linkedCreditNotes] = await Promise.all([
     accountIds.length > 0
       ? prisma.crmAccount.findMany({
           where: { id: { in: accountIds }, tenantId },
-          select: { id: true, name: true, legalName: true },
+          select: { id: true, name: true, legalName: true, rut: true },
+        })
+      : Promise.resolve([]),
+    receiverRuts.length > 0
+      ? prisma.crmAccount.findMany({
+          where: { rut: { in: receiverRuts }, tenantId },
+          select: { id: true, name: true, legalName: true, rut: true },
         })
       : Promise.resolve([]),
     installationIds.length > 0
@@ -122,6 +134,9 @@ export default async function DtesEmitidosPage({
       : Promise.resolve([]),
   ]);
   const accountMapCC = new Map(accountsCC.map((a) => [a.id, a]));
+  const accountByRutMap = new Map(
+    accountsByRut.filter((a) => !!a.rut).map((a) => [a.rut as string, a]),
+  );
   const installationMapCC = new Map(installationsCC.map((i) => [i.id, i]));
   const cessionByDte = new Map(activeCessions.map((c) => [c.dteId, c]));
   const ncsByDte = new Map<string, typeof linkedCreditNotes>();
@@ -135,6 +150,9 @@ export default async function DtesEmitidosPage({
   const dtesData = dtes.map((d: typeof dtes[number]) => {
     const hasXml = d.dteXml !== null && d.dteXml.length > 0;
     const cession = cessionByDte.get(d.id);
+    const enrichedAccount =
+      (d.crmAccountId ? accountMapCC.get(d.crmAccountId) ?? null : null) ??
+      (d.receiverRut ? accountByRutMap.get(d.receiverRut) ?? null : null);
     const canBeCeded =
       CEDIBLE_TYPES.has(d.dteType) &&
       d.siiStatus === "ACCEPTED" &&
@@ -180,7 +198,13 @@ export default async function DtesEmitidosPage({
       hasXml,
       crmAccountId: d.crmAccountId,
       installationId: d.installationId,
-      crmAccount: d.crmAccountId ? accountMapCC.get(d.crmAccountId) ?? null : null,
+      crmAccount: enrichedAccount
+        ? {
+            id: enrichedAccount.id,
+            name: enrichedAccount.name,
+            legalName: enrichedAccount.legalName,
+          }
+        : null,
       installation: d.installationId
         ? installationMapCC.get(d.installationId) ?? null
         : null,
