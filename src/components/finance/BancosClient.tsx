@@ -28,6 +28,7 @@ import { DataTable, EmptyState, type DataTableColumn } from "@/components/opai-d
 import { PaginationControls } from "./PaginationControls";
 import { BankBalanceSheet } from "./BankBalanceSheet";
 import { BankRulesClient } from "./BankRulesClient";
+import { BankTxReconcileSheet } from "./BankTxReconcileSheet";
 import {
   Landmark,
   ArrowLeftRight,
@@ -194,7 +195,11 @@ export function BancosClient({ accounts, accountPlans, canManage }: Props) {
         />
       )}
       {activeTab === "transactions" && (
-        <TransactionsTab accounts={accounts} canManage={canManage} />
+        <TransactionsTab
+          accounts={accounts}
+          canManage={canManage}
+          accountPlans={accountPlans}
+        />
       )}
       {activeTab === "rules" && (
         <BankRulesClient canManage={canManage} accountPlans={accountPlans} />
@@ -772,9 +777,11 @@ type TxSortDir = "asc" | "desc";
 function TransactionsTab({
   accounts,
   canManage,
+  accountPlans,
 }: {
   accounts: BankAccountRow[];
   canManage: boolean;
+  accountPlans: AccountOption[];
 }) {
   const [selectedAccount, setSelectedAccount] = useState(
     accounts.length > 0 ? accounts[0].id : ""
@@ -796,6 +803,8 @@ function TransactionsTab({
   const [hideDialog, setHideDialog] = useState<TransactionRow | null>(null);
   const [hideReason, setHideReason] = useState("");
   const [hiding, setHiding] = useState(false);
+  // Drawer de conciliación
+  const [reconcileTx, setReconcileTx] = useState<TransactionRow | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search.trim()), 250);
@@ -1011,7 +1020,10 @@ function TransactionsTab({
                 variant="ghost"
                 size="sm"
                 title="Restaurar"
-                onClick={() => restoreTransaction(row.id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  restoreTransaction(row.id);
+                }}
               >
                 <RotateCcw className="h-3.5 w-3.5" />
               </Button>
@@ -1020,7 +1032,8 @@ function TransactionsTab({
                 variant="ghost"
                 size="sm"
                 title="Ocultar (no es caja)"
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation();
                   setHideDialog(row);
                   setHideReason("");
                 }}
@@ -1132,6 +1145,13 @@ function TransactionsTab({
               columns={transactionColumns}
               rows={transactions}
               rowKey={(row) => row.id}
+              onRowClick={
+                canManage
+                  ? (row) => {
+                      if (!row.hiddenAt) setReconcileTx(row);
+                    }
+                  : undefined
+              }
               empty={<EmptyState icon={ArrowLeftRight} title="Sin movimientos" compact />}
             />
           </div>
@@ -1144,7 +1164,18 @@ function TransactionsTab({
                 className: "bg-muted",
               };
               return (
-                <Card key={tx.id} className={tx.hiddenAt ? "opacity-60" : undefined}>
+                <Card
+                  key={tx.id}
+                  className={cn(
+                    tx.hiddenAt ? "opacity-60" : undefined,
+                    canManage && !tx.hiddenAt && "cursor-pointer hover:bg-muted/30"
+                  )}
+                  onClick={
+                    canManage && !tx.hiddenAt
+                      ? () => setReconcileTx(tx)
+                      : undefined
+                  }
+                >
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
@@ -1205,7 +1236,10 @@ function TransactionsTab({
                               variant="ghost"
                               size="sm"
                               title="Restaurar"
-                              onClick={() => restoreTransaction(tx.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                restoreTransaction(tx.id);
+                              }}
                             >
                               <RotateCcw className="h-3.5 w-3.5" />
                             </Button>
@@ -1214,7 +1248,8 @@ function TransactionsTab({
                               variant="ghost"
                               size="sm"
                               title="Ocultar (no es caja)"
-                              onClick={() => {
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 setHideDialog(tx);
                                 setHideReason("");
                               }}
@@ -1303,6 +1338,17 @@ function TransactionsTab({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <BankTxReconcileSheet
+        open={!!reconcileTx}
+        onOpenChange={(open) => !open && setReconcileTx(null)}
+        tx={reconcileTx}
+        accountPlans={accountPlans}
+        onSaved={() => {
+          setReconcileTx(null);
+          loadTransactions();
+        }}
+      />
     </div>
   );
 }

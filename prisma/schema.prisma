@@ -6059,6 +6059,7 @@ model FinanceAccountPlan {
   supplierPayable FinanceSupplier[]     @relation("SupplierPayableAccount")
   supplierExpense FinanceSupplier[]     @relation("SupplierExpenseAccount")
   cashRegisters   FinanceCashRegister[]
+  bankTxLinks     FinanceBankTransactionLink[] @relation("BankTxLinkAccountPlan")
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -6895,6 +6896,55 @@ enum FinanceAutoMatchScope {
   @@schema("finance")
 }
 
+/// Vínculo polymorphic entre un movimiento bancario y una entidad
+/// (DTE, gasto manual, lote de remuneración, etc). Permite split N:N:
+///   - 1 movimiento → varios links a distintas entidades (ej. depósito
+///     factoring que paga 3 facturas + cuenta contable de costos factoring)
+///   - 1 entidad → varios links desde distintos movimientos (ej. factura
+///     pagada en 3 cuotas)
+/// El `amount` por link permite parcializar el monto del movimiento.
+/// Si `targetType=EXPENSE` (sin entidad), `accountPlanId` es la cuenta
+/// contable directa (categorización manual sin DTE).
+model FinanceBankTransactionLink {
+  id                String                 @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId          String                 @map("tenant_id")
+  bankTransactionId String                 @map("bank_transaction_id") @db.Uuid
+  bankTransaction   FinanceBankTransaction @relation(fields: [bankTransactionId], references: [id], onDelete: Cascade)
+  targetType        FinanceLinkTarget      @map("target_type")
+  /// ID de la entidad target (DTE, lote, etc.). NULL si targetType=EXPENSE.
+  targetId          String?                @map("target_id") @db.Uuid
+  amount            Decimal                @db.Decimal(14, 2)
+  accountPlanId     String?                @map("account_plan_id") @db.Uuid
+  accountPlan       FinanceAccountPlan?    @relation("BankTxLinkAccountPlan", fields: [accountPlanId], references: [id])
+  note              String?
+  createdById       String?                @map("created_by") @db.Uuid
+  createdAt         DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([tenantId, bankTransactionId], map: "idx_finance_bank_link_tx")
+  @@index([targetType, targetId], map: "idx_finance_bank_link_target")
+  @@map("finance_bank_transaction_links")
+  @@schema("finance")
+}
+
+enum FinanceLinkTarget {
+  /// DTE emitido (factura de venta).
+  DTE_ISSUED
+  /// DTE recibido (factura de proveedor).
+  DTE_RECEIVED
+  /// Pago de remuneración (PayrollLiquidacion).
+  PAYROLL_LIQUIDACION
+  /// Anticipo de remuneración (PayrollAnticipoItem).
+  PAYROLL_ANTICIPO
+  /// Lote de turnos extras pagado (TeLote).
+  TE_LOTE
+  /// Gasto manual sin entidad (solo cuenta contable).
+  EXPENSE
+  /// Ingreso manual sin entidad (solo cuenta contable).
+  INCOME
+
+  @@schema("finance")
+}
+
 model FinanceBankTransaction {
   id                   String                      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   tenantId             String                      @map("tenant_id")
@@ -6920,6 +6970,7 @@ model FinanceBankTransaction {
   hiddenReason String?   @map("hidden_reason")
 
   reconcMatch FinanceReconciliationMatch?
+  links       FinanceBankTransactionLink[]
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
