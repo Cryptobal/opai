@@ -6789,6 +6789,7 @@ model FinanceBankAccount {
   transactions    FinanceBankTransaction[]
   reconciliations FinanceReconciliation[]
   paymentsFrom    FinancePaymentRecord[]
+  balanceHistory  FinanceBankAccountBalance[]
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -6796,6 +6797,38 @@ model FinanceBankAccount {
   @@unique([tenantId, bankCode, accountNumber], map: "uq_finance_bank_account")
   @@index([tenantId], map: "idx_finance_bank_account_tenant")
   @@map("finance_bank_accounts")
+  @@schema("finance")
+}
+
+/// Snapshots de saldo de una cuenta bancaria a una fecha. Permite "fijar"
+/// el saldo real informado por el banco (manual), registrar el saldo de
+/// cierre de una cartola importada, y derivar saldos calculados a otras
+/// fechas. Cada cambio queda como fila nueva (historial completo).
+model FinanceBankAccountBalance {
+  id            String                       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId      String                       @map("tenant_id")
+  bankAccountId String                       @map("bank_account_id") @db.Uuid
+  bankAccount   FinanceBankAccount           @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+  asOfDate      DateTime                     @map("as_of_date") @db.Date
+  balance       Decimal                      @db.Decimal(14, 2)
+  source        FinanceBalanceSource         @default(MANUAL)
+  note          String?
+  createdById   String?                      @map("created_by") @db.Uuid
+  createdAt     DateTime                     @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([tenantId, bankAccountId, asOfDate], map: "idx_finance_bank_balance_date")
+  @@map("finance_bank_account_balances")
+  @@schema("finance")
+}
+
+enum FinanceBalanceSource {
+  /// Fijado manualmente por un administrador.
+  MANUAL
+  /// Registrado al importar una cartola (saldo final del extracto).
+  IMPORT
+  /// Calculado por el sistema a partir de transacciones.
+  CALCULATED
+
   @@schema("finance")
 }
 

@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/dialog";
 import { DataTable, EmptyState, type DataTableColumn } from "@/components/opai-ds";
 import { PaginationControls } from "./PaginationControls";
+import { BankBalanceSheet } from "./BankBalanceSheet";
 import {
   Landmark,
   ArrowLeftRight,
@@ -40,6 +41,7 @@ import {
   ArrowUp,
   ArrowDown,
   ArrowUpDown,
+  Wallet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -216,6 +218,7 @@ function AccountsTab({
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [balanceSheet, setBalanceSheet] = useState<BankAccountRow | null>(null);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return accounts;
@@ -405,35 +408,47 @@ function AccountsTab({
         ),
       },
     ];
-    if (canManage) {
-      cols.push({
-        id: "_actions",
-        header: "",
-        cell: (row) => (
-          <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => openEdit(row)}
-            >
-              <Pencil className="h-3.5 w-3.5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleDelete(row.id)}
-              disabled={deleting === row.id}
-            >
-              {deleting === row.id ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Trash2 className="h-3.5 w-3.5 text-destructive" />
-              )}
-            </Button>
-          </div>
-        ),
-      });
-    }
+    cols.push({
+      id: "_actions",
+      header: "",
+      cell: (row) => (
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            title="Saldo a fecha"
+            onClick={() => setBalanceSheet(row)}
+          >
+            <Wallet className="h-3.5 w-3.5" />
+          </Button>
+          {canManage && (
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                title="Editar"
+                onClick={() => openEdit(row)}
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                title="Eliminar"
+                onClick={() => handleDelete(row.id)}
+                disabled={deleting === row.id}
+              >
+                {deleting === row.id ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                )}
+              </Button>
+            </>
+          )}
+        </div>
+      ),
+    });
     return cols;
   }, [canManage, openEdit, handleDelete, deleting]);
 
@@ -544,25 +559,35 @@ function AccountsTab({
                           <span className="text-xs text-muted-foreground">{a.currency}</span>
                         </div>
                       </div>
-                      {canManage && (
-                        <div className="flex items-center gap-1 shrink-0">
-                          <Button variant="ghost" size="sm" onClick={() => openEdit(a)}>
-                            <Pencil className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDelete(a.id)}
-                            disabled={deleting === a.id}
-                          >
-                            {deleting === a.id ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            ) : (
-                              <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                            )}
-                          </Button>
-                        </div>
-                      )}
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          title="Saldo a fecha"
+                          onClick={() => setBalanceSheet(a)}
+                        >
+                          <Wallet className="h-3.5 w-3.5" />
+                        </Button>
+                        {canManage && (
+                          <>
+                            <Button variant="ghost" size="sm" onClick={() => openEdit(a)}>
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDelete(a.id)}
+                              disabled={deleting === a.id}
+                            >
+                              {deleting === a.id ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                              )}
+                            </Button>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -712,6 +737,17 @@ function AccountsTab({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {balanceSheet && (
+        <BankBalanceSheet
+          open={!!balanceSheet}
+          onOpenChange={(open) => !open && setBalanceSheet(null)}
+          bankAccountId={balanceSheet.id}
+          bankAccountLabel={`${balanceSheet.bankName} - ${balanceSheet.accountNumber}`}
+          canManage={canManage}
+          onChanged={() => router.refresh()}
+        />
+      )}
     </div>
   );
 }

@@ -309,7 +309,10 @@ export async function importBankTransactions(
     skipDuplicates: true,
   });
 
-  // Update bank account balance if closing balance was provided
+  // Update bank account balance if closing balance was provided.
+  // Además registra un snapshot IMPORT en el historial para que quede trazable
+  // qué cartola fijó qué saldo (la fecha del snapshot es la fecha de la última
+  // transacción de la cartola, que aproxima el "Fecha hasta" del extracto).
   if (closingBalance !== null && closingBalance !== undefined) {
     await prisma.financeBankAccount.update({
       where: { id: bankAccountId },
@@ -318,6 +321,23 @@ export async function importBankTransactions(
         balanceUpdatedAt: new Date(),
       },
     });
+    const lastTxDate = transactions.reduce<string | null>((acc, tx) => {
+      if (!acc || tx.transactionDate > acc) return tx.transactionDate;
+      return acc;
+    }, null);
+    if (lastTxDate) {
+      await prisma.financeBankAccountBalance.create({
+        data: {
+          tenantId,
+          bankAccountId,
+          asOfDate: new Date(lastTxDate),
+          balance: new Decimal(closingBalance),
+          source: "IMPORT",
+          note: `Saldo de cierre de cartola importada (${transactions.length} mov.)`,
+          createdById: userId ?? null,
+        },
+      });
+    }
   }
 
   // Auto-match contra DTEs pendientes. Solo corre si tenemos userId
