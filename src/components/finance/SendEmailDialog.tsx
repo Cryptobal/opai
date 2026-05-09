@@ -16,7 +16,7 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, Mail, X, Plus } from "lucide-react";
+import { Loader2, Mail, X, Plus, Paperclip, FileText, ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -29,6 +29,25 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+
+type UserAttachment = {
+  id: string;
+  filename: string;
+  mimeType: string;
+  size: number;
+};
+
+function fmtBytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function attachIcon(mime: string) {
+  if (mime.startsWith("image/")) return <ImageIcon className="h-3.5 w-3.5 text-blue-500" />;
+  if (mime === "application/pdf") return <FileText className="h-3.5 w-3.5 text-red-500" />;
+  return <Paperclip className="h-3.5 w-3.5 text-gray-500" />;
+}
 
 interface Props {
   open: boolean;
@@ -71,6 +90,11 @@ export function SendEmailDialog({
   const [ccInput, setCcInput] = useState("");
   const [bccInput, setBccInput] = useState("");
   const [sending, setSending] = useState(false);
+  // Adjuntos del usuario (USER_UPLOAD) asociados al DTE. Por defecto se
+  // incluyen TODOS en el correo; el usuario puede excluir alguno destildando.
+  const [attachments, setAttachments] = useState<UserAttachment[]>([]);
+  const [excludedIds, setExcludedIds] = useState<Set<string>>(new Set());
+  const [loadingAttachments, setLoadingAttachments] = useState(false);
 
   // Reset cuando se abre/cierra el modal o cambia el DTE.
   useEffect(() => {
@@ -80,7 +104,32 @@ export function SendEmailDialog({
     setBcc([]);
     setCcInput("");
     setBccInput("");
-  }, [open, defaultRecipient, defaultCc]);
+    setExcludedIds(new Set());
+  }, [open, defaultRecipient, defaultCc, dteId]);
+
+  // Cargar attachments cuando se abre.
+  useEffect(() => {
+    if (!open) return;
+    const ctrl = new AbortController();
+    setLoadingAttachments(true);
+    fetch(`/api/finance/billing/dtes/${dteId}/attachments`, { signal: ctrl.signal })
+      .then((r) => r.json())
+      .then((j) => {
+        if (j?.success) setAttachments(j.data ?? []);
+      })
+      .catch(() => {})
+      .finally(() => setLoadingAttachments(false));
+    return () => ctrl.abort();
+  }, [open, dteId]);
+
+  const toggleExclude = (id: string) => {
+    setExcludedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const isRecipientValid = useMemo(
     () => recipient.trim() === "" || EMAIL_RE.test(recipient.trim()),
@@ -146,12 +195,14 @@ export function SendEmailDialog({
         recipientEmail?: string;
         ccOverride?: string[];
         bccOverride?: string[];
+        excludeAttachmentIds?: string[];
       } = {};
       if (recipient.trim() !== (defaultRecipient ?? "")) {
         body.recipientEmail = recipient.trim();
       }
       if (cc.length > 0) body.ccOverride = cc;
       if (bcc.length > 0) body.bccOverride = bcc;
+      if (excludedIds.size > 0) body.excludeAttachmentIds = Array.from(excludedIds);
 
       const res = await fetch(
         `/api/finance/billing/issued/${dteId}/send-email`,
@@ -313,12 +364,50 @@ export function SendEmailDialog({
             </div>
           </div>
 
-          <div className="rounded-md border border-ds-border-subtle bg-ds-surface-2 p-3 text-[12px] text-ds-text-3">
+          <div className="rounded-md border border-ds-border-subtle bg-ds-surface-2 p-3 text-[12px] text-ds-text-3 space-y-2">
             <p>
               Adjuntos: <strong className="text-ds-text-2">PDF + XML</strong>{" "}
               del DTE. El subject usa el template del tenant configurado en
               <code className="mx-1">/opai/configuracion/finanzas/dte</code>.
             </p>
+            {loadingAttachments ? (
+              <p className="flex items-center gap-1.5 text-ds-text-3">
+                <Loader2 className="h-3 w-3 animate-spin" /> Cargando archivos adjuntos…
+              </p>
+            ) : attachments.length > 0 ? (
+              <div className="space-y-1">
+                <p className="text-ds-text-2 font-medium">
+                  Archivos adjuntos del DTE ({attachments.length}):
+                </p>
+                <ul className="space-y-0.5">
+                  {attachments.map((a) => {
+                    const included = !excludedIds.has(a.id);
+                    return (
+                      <li key={a.id}>
+                        <label className="flex items-center gap-2 cursor-pointer hover:bg-ds-surface-3 rounded px-1 py-0.5">
+                          <input
+                            type="checkbox"
+                            checked={included}
+                            onChange={() => toggleExclude(a.id)}
+                            className="rounded border-border"
+                          />
+                          {attachIcon(a.mimeType)}
+                          <span
+                            className={`flex-1 truncate ${included ? "text-ds-text-2" : "text-ds-text-3 line-through"}`}
+                          >
+                            {a.filename}
+                          </span>
+                          <span className="text-ds-text-3 shrink-0">{fmtBytes(a.size)}</span>
+                        </label>
+                      </li>
+                    );
+                  })}
+                </ul>
+                <p className="text-ds-text-3 italic">
+                  Destilda los que no quieras enviar en este correo.
+                </p>
+              </div>
+            ) : null}
           </div>
         </div>
 

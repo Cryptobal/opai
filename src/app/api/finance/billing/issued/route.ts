@@ -359,7 +359,13 @@ export async function POST(request: NextRequest) {
     if (parsed.error) return parsed.error;
     const body = parsed.data;
 
-    const result = await issueDte(ctx.tenantId, ctx.userId, body);
+    // ufOverride viaja en el body pero NO es parte del input del issuer:
+    // se pasa como opción para que el cálculo use ese valor en vez del UF
+    // del día. El emisor lo lee aparte para no contaminar el shape del DTE.
+    const { ufOverride, ...issueInput } = body;
+    const result = await issueDte(ctx.tenantId, ctx.userId, issueInput, {
+      ufOverride: ufOverride ?? undefined,
+    });
 
     return NextResponse.json({ success: true, data: result }, { status: 201 });
   } catch (error) {

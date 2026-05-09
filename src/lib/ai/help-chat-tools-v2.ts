@@ -2,7 +2,7 @@
  * Herramientas del asistente IA — V2 (incluye CRM, Ops, Finanzas, sistema).
  */
 
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { todayChileStr } from "@/lib/fx-date";
 import {
@@ -739,6 +739,33 @@ function writeToolDefinitions() {
               minItems: 1,
             },
             notes: { type: "string" },
+            additionalReferences: {
+              type: "array",
+              description: "Referencias adicionales del DTE (NO la referencia principal SII de NC/ND): orden de compra, HES, contrato, resolución, guía, etc. El usuario suele decir 'según OC 1234', 'contrato CT-9', 'HES 555'. Si menciona una, agrégala acá.",
+              items: {
+                type: "object",
+                properties: {
+                  tipoDocRef: {
+                    type: "string",
+                    description: "Tipo de documento referenciado: 'OC' (orden de compra), 'HES', 'Contrato', 'Resolución', 'Guía', 'OT' (orden de trabajo), o el código SII numérico si lo conoces (33, 34, 52, 56, 61, 801=OC, 802=HES, etc.).",
+                  },
+                  folioRef: {
+                    type: "string",
+                    description: "Número/folio/código del documento referenciado (ej: '1234', 'CT-9', 'HES-555').",
+                  },
+                  fchRef: {
+                    type: "string",
+                    description: "Fecha del documento referenciado en YYYY-MM-DD. Si el usuario no la menciona, usa la fecha de hoy.",
+                  },
+                  razonRef: {
+                    type: "string",
+                    description: "Texto libre describiendo la referencia (opcional). Ej: 'Servicios mes octubre', 'Trabajo terminado'.",
+                  },
+                },
+                required: ["tipoDocRef", "folioRef", "fchRef"],
+              },
+              maxItems: 40,
+            },
           },
           required: ["dteType", "lines"],
           additionalProperties: false,
@@ -778,6 +805,21 @@ function writeToolDefinitions() {
               minItems: 1,
             },
             notes: { type: "string" },
+            additionalReferences: {
+              type: "array",
+              description: "Igual al campo de preview_invoice_draft. Pasa los MISMOS valores que usaste en el preview.",
+              items: {
+                type: "object",
+                properties: {
+                  tipoDocRef: { type: "string" },
+                  folioRef: { type: "string" },
+                  fchRef: { type: "string" },
+                  razonRef: { type: "string" },
+                },
+                required: ["tipoDocRef", "folioRef", "fchRef"],
+              },
+              maxItems: 40,
+            },
           },
           additionalProperties: false,
         },
@@ -965,6 +1007,21 @@ function writeToolDefinitions() {
             },
             notes: { type: "string" },
             autoSendEmail: { type: "boolean", description: "Default true." },
+            additionalReferences: {
+              type: "array",
+              description: "Referencias adicionales del DTE (OC, HES, contrato, resolución, etc.). Se aplicarán a CADA borrador que genere la plantilla. Soporta placeholders en folioRef y razonRef como {{periodo}} (mes-año del run).",
+              items: {
+                type: "object",
+                properties: {
+                  tipoDocRef: { type: "string" },
+                  folioRef: { type: "string" },
+                  fchRef: { type: "string", description: "YYYY-MM-DD. Si quieres que sea la fecha del run, usa el placeholder o déjalo en blanco." },
+                  razonRef: { type: "string" },
+                },
+                required: ["tipoDocRef", "folioRef", "fchRef"],
+              },
+              maxItems: 40,
+            },
           },
           required: ["name", "dteType", "frequency", "startDate", "lines"],
           additionalProperties: false,
@@ -3157,6 +3214,8 @@ async function toolPreviewInvoiceDraft(
     };
   }
 
+  const additionalReferences = sanitizeAdditionalReferences(args.additionalReferences);
+
   const token = storePreview({
     tenantId,
     userId,
@@ -3175,6 +3234,7 @@ async function toolPreviewInvoiceDraft(
       currency,
       lines,
       notes: typeof args.notes === "string" ? args.notes : null,
+      additionalReferences,
     },
     computed: {
       netAmount: computed.totalNet,
@@ -3246,6 +3306,7 @@ async function buildInvoiceDraftInputFromArgs(
     typeof args.receiverName === "string" ? args.receiverName : undefined,
   );
   const currency: "CLP" | "UF" = (args.currency as "CLP" | "UF") ?? "CLP";
+  const additionalReferences = sanitizeAdditionalReferences(args.additionalReferences);
   return {
     dteType,
     receiverRut: receiver.rut,
@@ -3260,7 +3321,34 @@ async function buildInvoiceDraftInputFromArgs(
     currency,
     lines,
     notes: typeof args.notes === "string" ? args.notes : null,
+    additionalReferences,
   } as unknown as DraftDteInput;
+}
+
+/**
+ * Normaliza el array additionalReferences que llega desde el LLM. Filtra
+ * entradas inválidas (sin tipoDocRef o folioRef), corta a 40 (límite SII),
+ * y rellena fchRef con hoy si viene vacía.
+ */
+function sanitizeAdditionalReferences(raw: unknown): Array<{
+  tipoDocRef: string;
+  folioRef: string;
+  fchRef: string;
+  razonRef: string;
+}> | undefined {
+  if (!Array.isArray(raw) || raw.length === 0) return undefined;
+  const today = new Date().toISOString().split("T")[0];
+  const cleaned = raw
+    .filter((r): r is Record<string, unknown> => typeof r === "object" && r !== null)
+    .map((r) => ({
+      tipoDocRef: typeof r.tipoDocRef === "string" ? r.tipoDocRef.trim() : "",
+      folioRef: typeof r.folioRef === "string" ? r.folioRef.trim() : "",
+      fchRef: typeof r.fchRef === "string" && r.fchRef.trim() ? r.fchRef.trim() : today,
+      razonRef: typeof r.razonRef === "string" ? r.razonRef.trim() : "",
+    }))
+    .filter((r) => r.tipoDocRef && r.folioRef)
+    .slice(0, 40);
+  return cleaned.length > 0 ? cleaned : undefined;
 }
 
 async function toolCreateInvoiceDraft(
@@ -3950,6 +4038,7 @@ async function toolPreviewRecurringInvoice(
       ufFixingPolicy: typeof args.ufFixingPolicy === "string" ? args.ufFixingPolicy : "RUN_DAY",
       ufFixingDay: typeof args.ufFixingDay === "number" ? args.ufFixingDay : null,
       periodPolicy: typeof args.periodPolicy === "string" ? args.periodPolicy : "CURRENT_MONTH",
+      additionalReferences: sanitizeAdditionalReferences(args.additionalReferences),
     },
     computed: {
       netAmount: computed.totalNet,
@@ -4042,6 +4131,12 @@ async function toolCreateRecurringInvoice(
     ufFixingPolicy: string;
     ufFixingDay: number | null;
     periodPolicy: string;
+    additionalReferences?: Array<{
+      tipoDocRef: string;
+      folioRef: string;
+      fchRef: string;
+      razonRef: string;
+    }>;
   };
 
   try {
@@ -4086,6 +4181,10 @@ async function toolCreateRecurringInvoice(
         ufFixingPolicy: p.ufFixingPolicy,
         ufFixingDay: p.ufFixingDay,
         periodPolicy: p.periodPolicy,
+        additionalReferences:
+          p.additionalReferences && p.additionalReferences.length > 0
+            ? (p.additionalReferences as unknown as Prisma.InputJsonValue)
+            : Prisma.DbNull,
         createdBy: userId,
       },
       select: {

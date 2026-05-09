@@ -13,6 +13,7 @@ import { resend, getTenantEmailConfig } from "@/lib/resend";
 import { getDteProvider } from "../shared/adapters/dte-provider.adapter";
 import { getDteTypeName as dteTypeName } from "../shared/constants/dte-types";
 import { renderDteEmailHtml, renderDteEmailSubject } from "./dte-email-template";
+import { getFileBuffer } from "@/lib/storage";
 
 export interface SendDteEmailResult {
   success: boolean;
@@ -70,6 +71,10 @@ async function logEmail(
  * se mandan en el campo `cc` de Resend (no en `to`). BCC sigue la misma
  * lógica pero queda invisible para el receptor (útil cuando el usuario
  * quiere que el contador interno reciba copia sin que el cliente lo vea).
+ *
+ * Si el DTE tiene FinanceDteAttachment con kind="USER_UPLOAD", se incluyen
+ * por defecto en el correo, salvo que vengan en `excludeAttachmentIds`
+ * (típicamente desde el modal de envío manual).
  */
 export async function sendDteEmail(
   tenantId: string,
@@ -79,6 +84,7 @@ export async function sendDteEmail(
   kind: DteEmailKind = "manual_resend",
   triggeredBy?: string,
   bccOverride?: string[],
+  excludeAttachmentIds?: string[],
 ): Promise<SendDteEmailResult> {
   const dte = await prisma.financeDte.findFirst({
     where: { id: dteId, tenantId, direction: "ISSUED" },
@@ -122,6 +128,39 @@ export async function sendDteEmail(
     return { success: false, error: errorMsg };
   }
 
+  // Cargar adjuntos USER_UPLOAD (subidos por el usuario) que viajen junto
+  // al PDF y XML. Excluimos los que el usuario marcó para excluir desde el
+  // modal de envío. Si la descarga de un adjunto falla, lo omitimos del
+  // correo (no rompemos el envío entero).
+  const excludeSet = new Set(excludeAttachmentIds ?? []);
+  const userAttachments = await prisma.financeDteAttachment.findMany({
+    where: { dteId, tenantId, kind: "USER_UPLOAD" },
+    select: { id: true, filename: true, mimeType: true, storageKey: true, data: true },
+  });
+  const userAttachmentPayloads: Array<{ filename: string; content: string }> = [];
+  for (const att of userAttachments) {
+    if (excludeSet.has(att.id)) continue;
+    try {
+      let buf: Buffer | null = null;
+      if (att.storageKey) {
+        buf = await getFileBuffer(att.storageKey, 10 * 1024 * 1024);
+      } else if (att.data) {
+        buf = Buffer.from(att.data);
+      }
+      if (buf) {
+        userAttachmentPayloads.push({
+          filename: att.filename,
+          content: buf.toString("base64"),
+        });
+      }
+    } catch (err) {
+      console.error(
+        `[finance/email] failed loading attachment ${att.id} for DTE ${dteId}:`,
+        err,
+      );
+    }
+  }
+
   const emailCfg = await getTenantEmailConfig(tenantId);
   const razonSocial = tenantConfig.emisorRazonSocial ?? emailCfg.companyName;
   const tipoNombre = dteTypeName(dte.dteType);
@@ -148,6 +187,7 @@ export async function sendDteEmail(
       attachments: [
         { filename: `${dte.code}.xml`, content: xmlBuffer.toString("base64") },
         { filename: `${dte.code}.pdf`, content: pdfBuffer.toString("base64") },
+        ...userAttachmentPayloads,
       ],
     });
 

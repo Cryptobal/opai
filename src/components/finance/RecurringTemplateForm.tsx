@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { CustomerCombobox, type CustomerOption } from "./CustomerCombobox";
+import { DteAttachmentsCard } from "./DteAttachmentsCard";
 import {
   LineDetailSurface,
   computeLineSubtotal,
@@ -50,6 +51,7 @@ import {
   buildContext,
   type PlaceholderContext,
 } from "@/modules/finance/billing/placeholders";
+import { formatCLP, formatUFSuffix } from "@/lib/utils";
 
 const fmtCLP = new Intl.NumberFormat("es-CL", {
   style: "currency",
@@ -837,8 +839,8 @@ export function RecurringTemplateForm({
                   const subtotal = computeLineSubtotal(line);
                   const subtotalFormatted =
                     currency === "UF"
-                      ? `${subtotal.toLocaleString("es-CL", { maximumFractionDigits: 4 })} UF`
-                      : fmtCLP.format(Math.round(subtotal));
+                      ? formatUFSuffix(subtotal)
+                      : formatCLP(Math.round(subtotal));
                   return (
                     <LineDetailSurface
                       key={i}
@@ -859,8 +861,8 @@ export function RecurringTemplateForm({
                   <CardContent className="p-3 text-right font-mono text-sm font-medium tabular-nums">
                     Total neto estimado:{" "}
                     {currency === "UF"
-                      ? `${totalNet.toLocaleString("es-CL", { maximumFractionDigits: 4 })} UF`
-                      : fmtCLP.format(Math.round(totalNet))}
+                      ? formatUFSuffix(totalNet)
+                      : formatCLP(Math.round(totalNet))}
                   </CardContent>
                 </Card>
               </div>
@@ -1249,6 +1251,21 @@ export function RecurringTemplateForm({
                 </label>
               </CardContent>
             </Card>
+
+            {/* Adjuntos de la plantilla: solo disponibles al editar (necesita id).
+                Se copian a cada borrador generado y viajan en el correo de envío. */}
+            {isEditing && templateId ? (
+              <DteAttachmentsCard
+                baseUrl={`/api/finance/billing/recurring/${templateId}/attachments`}
+                helpText="Estos archivos se copiarán a cada borrador que genere la plantilla y viajarán en el correo cuando se emita. PDF, JPG, PNG, WebP, GIF · máx 10 MB."
+              />
+            ) : (
+              <Card className="border-dashed">
+                <CardContent className="p-4 text-xs text-muted-foreground">
+                  Para adjuntar archivos a la plantilla, créala primero. Después podrás subir archivos editándola.
+                </CardContent>
+              </Card>
+            )}
           </div>
         )}
 

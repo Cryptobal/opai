@@ -21,6 +21,7 @@
  */
 
 import Link from "next/link";
+import { formatCLP } from "@/lib/utils";
 import {
   Ban,
   Coins,
@@ -206,7 +207,7 @@ export function DteActionsMenu({
       : row.linkedCreditNote?.hasFullAnnulment
         ? `Ya anulada con NC ${row.linkedCreditNote.primaryFolio}`
         : isFullyCredited
-          ? `Saldo agotado por NCs previas ($${row.linkedCreditNote!.creditedNet.toLocaleString("es-CL")} acreditados)`
+          ? `Saldo agotado por NCs previas (${formatCLP(row.linkedCreditNote!.creditedNet)} acreditados)`
           : null;
   const canCreditNote = isCreditableType && row.siiStatus !== "ANNULLED";
   const canDebitNote = row.dteType === 61 && row.siiStatus !== "ANNULLED";

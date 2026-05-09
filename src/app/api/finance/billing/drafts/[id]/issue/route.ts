@@ -13,6 +13,8 @@ const issueDraftSchema = z.object({
   autoSendEmail: z.boolean().optional(),
   sendXmlToBackoffice: z.boolean().optional(),
   backofficeEmailsOverride: z.array(z.string().email()).max(5).optional(),
+  // Si el usuario quiere forzar una UF distinta a la del borrador / del día.
+  ufOverride: z.number().positive().optional(),
 });
 
 export async function POST(

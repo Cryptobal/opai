@@ -59,7 +59,10 @@ export async function PATCH(
     const parsed = await parseBody(request, draftDteSchema);
     if (parsed.error) return parsed.error;
 
-    const updated = await updateDraftDte(ctx.tenantId, id, parsed.data);
+    const { ufOverride, ...draftInput } = parsed.data;
+    const updated = await updateDraftDte(ctx.tenantId, id, draftInput, {
+      ufOverride: ufOverride ?? undefined,
+    });
     return NextResponse.json({ success: true, data: updated });
   } catch (error) {
     console.error("[Finance/Billing/Drafts] Update error:", error);

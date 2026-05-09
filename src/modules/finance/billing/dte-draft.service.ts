@@ -126,6 +126,7 @@ export async function updateDraftDte(
   tenantId: string,
   draftId: string,
   input: DraftDteInput,
+  opts?: { ufOverride?: number },
 ) {
   const existing = await prisma.financeDte.findFirst({
     where: { id: draftId, tenantId, siiStatus: "DRAFT" },
@@ -135,7 +136,10 @@ export async function updateDraftDte(
 
   // Mismo tratamiento que createDraftDte: tolerante en update para no
   // romper drafts viejos. Validación estricta corre al emitir.
-  const calc = await computeDteAmounts(input, { strict: false });
+  const calc = await computeDteAmounts(input, {
+    strict: false,
+    ufOverride: opts?.ufOverride,
+  });
 
   return prisma.$transaction(async (tx) => {
     await tx.financeDteLine.deleteMany({ where: { dteId: draftId } });
@@ -217,7 +221,16 @@ export async function issueDraftDte(
   tenantId: string,
   draftId: string,
   issuedBy: string,
-  overrides?: { autoSendEmail?: boolean; sendXmlToBackoffice?: boolean; backofficeEmailsOverride?: string[] },
+  overrides?: {
+    autoSendEmail?: boolean;
+    sendXmlToBackoffice?: boolean;
+    backofficeEmailsOverride?: string[];
+    /** UF a usar en lugar de la del día. Si no viene y el draft tiene
+     * `ufValueAtIssue`, se usa esa (asumimos que es la UF que el usuario
+     * dejó pactada). Para forzar la UF del día, pasar `ufOverride: undefined`
+     * y borrar `ufValueAtIssue` antes en el draft. */
+    ufOverride?: number;
+  },
 ) {
   const draft = await prisma.financeDte.findFirst({
     where: { id: draftId, tenantId, siiStatus: "DRAFT" },
@@ -278,7 +291,16 @@ export async function issueDraftDte(
     additionalReferences: (draft.additionalReferences as IssueDteInput["additionalReferences"]) ?? undefined,
   };
 
-  const issued = await issueDte(tenantId, issuedBy, input);
+  // ufOverride: priorizamos el override explícito; si no viene, usamos la
+  // UF que quedó persistida en el draft (`ufValueAtIssue`) — esa es la UF
+  // que el usuario "fijó" al guardar (sea por valor manual o por la UF del
+  // día en que se creó). Si tampoco hay, el issuer usa la UF del día actual.
+  const ufOverride = overrides?.ufOverride
+    ?? (draft.currency === "UF" && draft.ufValueAtIssue
+        ? Number(draft.ufValueAtIssue)
+        : undefined);
+
+  const issued = await issueDte(tenantId, issuedBy, input, { ufOverride });
   // Borrar el borrador solo tras éxito de issueDte. Si falla arriba, el
   // throw burbujea y el borrador queda intacto para corrección manual.
   await prisma.financeDte.delete({ where: { id: draftId } });

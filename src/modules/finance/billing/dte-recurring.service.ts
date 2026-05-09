@@ -15,6 +15,7 @@ import {
   type PeriodPolicy,
   type PlaceholderContext,
 } from "./placeholders";
+import { getFileBuffer, uploadFile } from "@/lib/storage";
 
 export type Frequency = "monthly" | "biweekly" | "weekly" | "yearly";
 
@@ -244,6 +245,63 @@ function templateToDraftInput(
 }
 
 /**
+ * Copia los adjuntos de una plantilla recurrente al borrador recién
+ * generado. Hace copia real (descarga + reupload a R2 con nuevo key)
+ * para que borrar el adjunto en la plantilla no rompa los borradores ya
+ * generados. Si una copia individual falla, se loggea y se continúa con
+ * los demás — no se cae el run del template por esto.
+ */
+async function copyTemplateAttachmentsToDraft(
+  tenantId: string,
+  templateId: string,
+  draftId: string,
+  uploadedBy: string,
+): Promise<void> {
+  const tplAttachments = await prisma.financeDteRecurringTemplateAttachment.findMany({
+    where: { templateId, tenantId },
+    select: {
+      id: true,
+      filename: true,
+      mimeType: true,
+      size: true,
+      storageKey: true,
+    },
+  });
+  if (tplAttachments.length === 0) return;
+
+  for (const att of tplAttachments) {
+    try {
+      const buffer = await getFileBuffer(att.storageKey, 10 * 1024 * 1024);
+      const uploaded = await uploadFile(
+        buffer,
+        att.filename,
+        att.mimeType,
+        "finance/dte",
+        tenantId,
+      );
+      await prisma.financeDteAttachment.create({
+        data: {
+          tenantId,
+          dteId: draftId,
+          kind: "USER_UPLOAD",
+          filename: uploaded.fileName,
+          mimeType: uploaded.mimeType,
+          size: uploaded.size,
+          storageKey: uploaded.storageKey,
+          publicUrl: uploaded.publicUrl,
+          uploadedBy,
+        },
+      });
+    } catch (err) {
+      console.error(
+        `[finance/recurring] copy attachment ${att.id} → draft ${draftId} failed`,
+        err,
+      );
+    }
+  }
+}
+
+/**
  * Ejecuta una corrida del template: crea un borrador (FinanceDte DRAFT)
  * y registra el run. Si el cliente CRM fue eliminado, el run queda
  * status=failed y NO se crea borrador.
@@ -354,6 +412,13 @@ export async function runTemplate(tenantId: string, templateId: string) {
       templateToDraftInput(template, ctx),
       { ufOverride },
     );
+
+    // Copiar adjuntos del template al borrador. Hacemos copy real en R2
+    // (no compartimos storageKey) para que borrar un adjunto del template
+    // no rompa los borradores ya generados. Si la copia falla por archivo
+    // individual, log y seguimos — el borrador no se cae por esto.
+    await copyTemplateAttachmentsToDraft(tenantId, template.id, draft.id, template.createdBy);
+
     const next = computeNextRunAt(template);
     await prisma.financeDteRecurringTemplate.update({
       where: { id: templateId },

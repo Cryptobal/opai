@@ -6510,7 +6510,8 @@ model FinanceDteLine {
 }
 
 /// Archivos adjuntos a un DTE (XML del proveedor, PDF, comprobante de pago,
-/// etc). Casos de uso:
+/// archivos del usuario que viajan en el correo de envío al receptor, etc).
+/// Casos de uso:
 ///
 ///   1. **DTE Recibido**: el SII no expone re-descarga del XML/PDF original;
 ///      el proveedor está obligado a mandarlo por email. El usuario sube
@@ -6520,25 +6521,41 @@ model FinanceDteLine {
 ///   2. **DTE Emitido**: para guardar comprobantes de envío externo
 ///      (acuse de recibo del cliente, intercambio comercial, etc).
 ///
-/// Storage: BYTEA en BD para MVP. Si crecen mucho los archivos podemos
-/// migrar a Vercel Blob / R2 con un campo url en vez de data.
+///   3. **USER_UPLOAD**: archivos cargados por el usuario en el formulario
+///      del DTE (orden de compra escaneada, contrato, fotos, etc). Se incluyen
+///      automáticamente en el correo de envío al receptor (a menos que el
+///      usuario los excluya en el modal de envío).
 ///
-/// Tope blando: 5MB por archivo (validado en el endpoint POST).
+/// Storage:
+///   - Filas legacy guardan los bytes en `data` (BYTEA).
+///   - Filas nuevas (post 2026-05-09) guardan en R2: `storageKey` + `publicUrl`,
+///     con `data` NULL.
+///   El consumer (sendDteEmail, descarga, etc.) debe preferir R2 si hay
+///   storageKey y caer a `data` si no.
+///
+/// Tope: 10 MB por archivo (validado en el endpoint POST).
 model FinanceDteAttachment {
   id       String     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   dteId    String     @map("dte_id") @db.Uuid
   dte      FinanceDte @relation(fields: [dteId], references: [id], onDelete: Cascade)
   tenantId String     @map("tenant_id")
 
-  /// Tipo lógico del adjunto (XML, PDF, EMAIL, OTHER).
-  /// El XML del SII viene con extensión .xml; el PDF impreso del proveedor
-  /// con .pdf. EMAIL es el .eml del correo que llegó. OTHER es escape hatch.
+  /// Tipo lógico del adjunto. Valores conocidos:
+  ///   - XML / PDF / EMAIL: archivos técnicos del DTE (XML SII, PDF impreso, .eml).
+  ///   - USER_UPLOAD: subido por el usuario en el formulario del DTE; se incluye
+  ///     en el correo al receptor por defecto.
+  ///   - OTHER: escape hatch.
   kind     String @default("OTHER")
   filename String
   mimeType String @map("mime_type")
   size     Int
-  /// Bytes del archivo. Para PDFs típicos < 500KB; XMLs SII < 50KB.
-  data     Bytes
+  /// Bytes del archivo (legacy / inline). NULL en filas nuevas que viven en R2.
+  data     Bytes?
+  /// Key del objeto en R2 (formato {tenantId}/finance/YYYY/MM/uuid.ext).
+  /// NULL en filas legacy con `data` inline.
+  storageKey String? @map("storage_key")
+  /// URL pública del objeto en R2 (si el bucket tiene custom domain).
+  publicUrl  String? @map("public_url")
 
   uploadedAt DateTime @default(now()) @map("uploaded_at") @db.Timestamptz(6)
   uploadedBy String   @map("uploaded_by")
@@ -6546,6 +6563,31 @@ model FinanceDteAttachment {
   @@index([dteId], map: "idx_finance_dte_attachments_dte")
   @@index([tenantId, dteId], map: "idx_finance_dte_attachments_tenant_dte")
   @@map("finance_dte_attachments")
+  @@schema("finance")
+}
+
+/// Adjuntos asociados a una plantilla de facturación recurrente. Se copian
+/// (como referencia: mismo storageKey) a cada borrador que la plantilla
+/// genera, para que viajen en el correo cuando se emita ese borrador.
+/// Storage: siempre R2 (storageKey requerido — no hay path legacy).
+model FinanceDteRecurringTemplateAttachment {
+  id         String                      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  templateId String                      @map("template_id") @db.Uuid
+  template   FinanceDteRecurringTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  tenantId   String                      @map("tenant_id")
+
+  filename   String
+  mimeType   String  @map("mime_type")
+  size       Int
+  storageKey String  @map("storage_key")
+  publicUrl  String? @map("public_url")
+
+  uploadedAt DateTime @default(now()) @map("uploaded_at") @db.Timestamptz(6)
+  uploadedBy String   @map("uploaded_by")
+
+  @@index([templateId], map: "idx_finance_dte_rec_attach_template")
+  @@index([tenantId, templateId], map: "idx_finance_dte_rec_attach_tenant_template")
+  @@map("finance_dte_recurring_template_attachments")
   @@schema("finance")
 }
 
@@ -6634,6 +6676,7 @@ model FinanceDteRecurringTemplate {
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   generatedDtes FinanceDteRecurringRun[]
+  attachments   FinanceDteRecurringTemplateAttachment[]
 
   @@index([tenantId, isActive], map: "idx_dte_recurring_tenant_active")
   @@index([nextRunAt], map: "idx_dte_recurring_next_run")

@@ -17,6 +17,7 @@ import {
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { Plus, Trash2, Loader2, Send, Download, FileEdit, Eye, ExternalLink } from "lucide-react";
 import { CustomerCombobox, type CustomerOption } from "./CustomerCombobox";
+import { DteAttachmentsCard } from "./DteAttachmentsCard";
 import {
   Dialog,
   DialogContent,
@@ -38,6 +39,7 @@ import {
   buildContext,
   type PlaceholderContext,
 } from "@/modules/finance/billing/placeholders";
+import { formatCLP, formatUFSuffix } from "@/lib/utils";
 
 /* ── Types ── */
 
@@ -170,6 +172,10 @@ export function DteForm({ availableTypes, accounts }: Props) {
   // como UF; el backend los convierte a CLP usando getUfValue() del día.
   const [currency, setCurrency] = useState<"CLP" | "UF">("CLP");
   const [ufValue, setUfValue] = useState<number | null>(null);
+  // UF manual: si el usuario quiere usar una UF distinta a la del día
+  // (ej: la UF que pactó con el cliente). Texto vacío → se usa la del día.
+  // Se valida >0 al enviar y se persiste en el draft (`ufValueAtIssue`).
+  const [manualUfStr, setManualUfStr] = useState<string>("");
   // Modal de confirmación pre-emisión.
   const [confirmOpen, setConfirmOpen] = useState(false);
   // Vista previa PDF (Fase 9): genera un PDF "como se vería al emitir"
@@ -243,7 +249,26 @@ export function DteForm({ availableTypes, accounts }: Props) {
         setReceiverCiudad(d.receiverCiudad ?? "");
         setCcEmailsRaw((d.receiverEmailCc ?? []).join(", "));
         setNotes(d.notes ?? "");
+        // Las referencias adicionales (OC, HES, Contrato, etc.) se persisten
+        // en additionalReferences (JSON). Si no las cargamos acá al reabrir,
+        // el siguiente Guardar las sobreescribe con [] en BD.
+        if (Array.isArray(d.additionalReferences)) {
+          setAdditionalRefs(
+            (d.additionalReferences as typeof additionalRefs).map((r) => ({
+              tipoDocRef: String(r.tipoDocRef ?? ""),
+              folioRef: String(r.folioRef ?? ""),
+              fchRef: String(r.fchRef ?? ""),
+              razonRef: String(r.razonRef ?? ""),
+            })),
+          );
+        }
         if (d.currency === "UF" || d.currency === "CLP") setCurrency(d.currency);
+        // UF manual: si el draft trae ufValueAtIssue, asumimos que ese fue
+        // el valor "fijado" por el usuario y lo cargamos al input. Si lo
+        // deja igual, se sigue usando esa UF al re-guardar / emitir.
+        if (d.currency === "UF" && d.ufValueAtIssue != null) {
+          setManualUfStr(String(d.ufValueAtIssue));
+        }
         const draftLines: DteLine[] = (d.lines ?? []).map(
           (l: Record<string, unknown>) => ({
             itemName: String(l.itemName ?? ""),
@@ -574,13 +599,32 @@ export function DteForm({ availableTypes, accounts }: Props) {
   };
 
   /**
+   * Parsea el valor manual de UF que viene del input. Acepta formato es-CL
+   * (puntos como miles, coma como decimal) y también el formato simple
+   * (sólo dígitos). Devuelve undefined si está vacío o inválido.
+   */
+  const parseManualUf = (raw: string): number | undefined => {
+    const cleaned = raw
+      .trim()
+      .replace(/\s/g, "")
+      .replace(/\./g, "")
+      .replace(/,/g, ".");
+    if (!cleaned) return undefined;
+    const n = Number(cleaned);
+    return Number.isFinite(n) && n > 0 ? n : undefined;
+  };
+
+  /**
    * Construye el payload (compartido entre emisión real y guardar borrador).
    * Aplica conversión UF: si currency=UF cada precio va como unitPriceUf
-   * y unitPrice queda 0 (el backend convierte usando getUfValue()).
+   * y unitPrice queda 0 (el backend convierte usando getUfValue() o el
+   * `ufOverride` si el usuario entró un valor manual).
    */
   const buildPayload = (
     overrides?: { autoSendEmail?: boolean; sendXmlToBackoffice?: boolean },
   ) => {
+    const ufOverride =
+      currency === "UF" ? parseManualUf(manualUfStr) : undefined;
     const effRut = (customer?.rut || receiverRut).trim();
     const effName = (customer?.name || receiverName).trim();
     const effEmail = (customer?.email || receiverEmail).trim();
@@ -614,6 +658,7 @@ export function DteForm({ availableTypes, accounts }: Props) {
       autoSendEmail: overrides?.autoSendEmail ?? autoSendEmail,
       sendXmlToBackoffice: overrides?.sendXmlToBackoffice,
       currency,
+      ufOverride,
       lines: validLines.map((l) => {
         const priceNum = parseFloat(l.unitPrice) || 0;
         return {
@@ -653,12 +698,15 @@ export function DteForm({ availableTypes, accounts }: Props) {
           const err = await patchRes.json();
           throw new Error(err.error || "Error al guardar borrador antes de emitir");
         }
+        const ufOverride =
+          currency === "UF" ? parseManualUf(manualUfStr) : undefined;
         const issueRes = await fetch(`/api/finance/billing/drafts/${draftIdParam}/issue`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             autoSendEmail: opts.autoSendEmail,
             sendXmlToBackoffice: opts.sendXmlToBackoffice,
+            ufOverride,
           }),
         });
         if (!issueRes.ok) {
@@ -746,7 +794,11 @@ export function DteForm({ availableTypes, accounts }: Props) {
             razonRef: r.razonRef?.trim() || null,
           })),
         notes: notes?.trim() || null,
-        ufOverride: currency === "UF" && ufValue ? ufValue : undefined,
+        // Prioridad: UF manual del usuario > UF del día.
+        ufOverride:
+          currency === "UF"
+            ? parseManualUf(manualUfStr) ?? ufValue ?? undefined
+            : undefined,
       };
 
       const res = await fetch("/api/finance/billing/preview-pdf", {
@@ -905,7 +957,7 @@ export function DteForm({ availableTypes, accounts }: Props) {
             </div>
             <div className="space-y-1.5">
               <Label>Moneda</Label>
-              <div className="flex gap-1">
+              <div className="flex gap-1 items-center flex-wrap">
                 <Button
                   type="button"
                   variant={currency === "CLP" ? "default" : "outline"}
@@ -923,11 +975,48 @@ export function DteForm({ availableTypes, accounts }: Props) {
                   UF
                 </Button>
                 {currency === "UF" && ufValue != null && (
-                  <span className="ml-2 self-center text-xs text-muted-foreground">
-                    UF hoy: ${ufValue.toLocaleString("es-CL")}
+                  <span className="ml-2 self-center text-xs text-muted-foreground whitespace-nowrap">
+                    UF hoy: {formatCLP(ufValue)}
                   </span>
                 )}
               </div>
+              {currency === "UF" && (
+                <div className="mt-2 flex items-center gap-2 flex-wrap">
+                  <Label htmlFor="manual-uf" className="text-xs whitespace-nowrap">
+                    UF a aplicar (opcional)
+                  </Label>
+                  <Input
+                    id="manual-uf"
+                    inputMode="decimal"
+                    placeholder={
+                      ufValue != null
+                        ? `${ufValue.toLocaleString("es-CL")} (UF del día)`
+                        : "Valor UF en pesos"
+                    }
+                    value={manualUfStr}
+                    onChange={(e) => setManualUfStr(e.target.value)}
+                    className="h-8 max-w-[180px] text-sm"
+                  />
+                  {manualUfStr.trim() && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setManualUfStr("")}
+                      className="h-8 text-xs"
+                      title="Volver a usar la UF del día"
+                    >
+                      Usar UF del día
+                    </Button>
+                  )}
+                </div>
+              )}
+              {currency === "UF" && (
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Si especificas un valor manual, se usará tanto en el cálculo
+                  del borrador como al emitir al SII.
+                </p>
+              )}
             </div>
           </div>
 
@@ -1183,8 +1272,8 @@ export function DteForm({ availableTypes, accounts }: Props) {
             const subtotal = computeLineSubtotal(line);
             const subtotalFormatted =
               currency === "UF"
-                ? `${subtotal.toLocaleString("es-CL", { maximumFractionDigits: 4 })} UF`
-                : fmtCLP.format(Math.round(subtotal));
+                ? formatUFSuffix(subtotal)
+                : formatCLP(Math.round(subtotal));
             return (
               <LineDetailSurface
                 key={i}
@@ -1372,6 +1461,21 @@ export function DteForm({ availableTypes, accounts }: Props) {
           </div>
         </CardContent>
       </Card>
+
+      {/* Adjuntos del DTE: solo disponibles cuando ya existe un draft (necesita id).
+          Para uno nuevo, mostramos hint instando a guardar primero. */}
+      {draftIdParam ? (
+        <DteAttachmentsCard
+          baseUrl={`/api/finance/billing/dtes/${draftIdParam}/attachments`}
+          helpText="Estos archivos viajan en el correo al receptor cuando se envíe la factura. PDF, JPG, PNG, WebP, GIF · máx 10 MB."
+        />
+      ) : (
+        <Card className="border-dashed">
+          <CardContent className="p-4 text-xs text-muted-foreground">
+            Para adjuntar archivos al documento, guárdalo primero como borrador.
+          </CardContent>
+        </Card>
+      )}
 
       {/* Actions */}
       <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">

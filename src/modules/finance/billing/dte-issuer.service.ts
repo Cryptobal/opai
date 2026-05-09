@@ -109,11 +109,17 @@ const DTE_TYPES_REQUIRING_REFERENCE = [56, 61] as const;
 
 /**
  * Issue a new DTE (factura, boleta, etc.)
+ *
+ * `opts.ufOverride` permite usar un valor de UF distinto al del día (lo
+ * propaga a `computeDteAmounts` y se persiste en `ufValueAtIssue`). Útil
+ * cuando el usuario emite con la UF que pactó con el cliente y no con la
+ * oficial del día.
  */
 export async function issueDte(
   tenantId: string,
   createdBy: string,
-  input: IssueDteInput
+  input: IssueDteInput,
+  opts?: { ufOverride?: number },
 ) {
   // 1. Validate DTE type
   if (!isDteTypeValid(input.dteType)) {
@@ -149,7 +155,10 @@ export async function issueDte(
   // strict=true: en emisión real rechazamos unitPrice CLP con decimales
   // (que provocaba el bug del "1.000.000 quedó en 999.998"). Si llega
   // un input con decimales, throw temprano con mensaje claro.
-  const calc = await computeDteAmounts(input, { strict: true });
+  const calc = await computeDteAmounts(input, {
+    strict: true,
+    ufOverride: opts?.ufOverride,
+  });
   const totalNet = calc.totalNet;
   const totalExempt = calc.totalExempt;
   const taxRate = calc.taxRate;

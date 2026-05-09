@@ -220,6 +220,11 @@ export const issueDteSchema = z.object({
   // del tenant (TenantDteConfig.defaultXmlRecipientAlwaysSend).
   sendXmlToBackoffice: z.boolean().optional(),
   backofficeEmailsOverride: z.array(z.string().email()).max(5).optional(),
+  // Si currency=UF y el usuario quiere usar un valor de UF distinto al
+  // del día (ej: la UF que pactó con el cliente en su contrato), puede
+  // pasar `ufOverride`. Se aplica tanto al cálculo del borrador como al
+  // emitir al SII. Si se omite, el sistema usa la UF oficial del día.
+  ufOverride: z.number().positive().optional(),
 });
 
 // Schema para plantillas de facturación recurrente. El cron diario crea

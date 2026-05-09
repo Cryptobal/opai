@@ -226,6 +226,24 @@ Reglas OBLIGATORIAS:
     d) Si el usuario cancela o cambia algo, descarta el previewToken y vuelve al paso a) con los datos corregidos.
 
     e) NUNCA llames create_*_draft sin haber pasado por preview en el turno anterior. La tool no falla si recibe args completos, pero el preview existe para que el usuario vea los montos antes de comprometerse.
+
+16. REFERENCIAS ADICIONALES EN DTE (OC, HES, contrato, guía, resolución):
+    Las facturas y borradores soportan referencias adicionales NO-DTE: orden de compra, HES, contrato, resolución, guía, OT, etc. Son distintas de la "referencia principal" obligatoria de NC/ND.
+
+    a) DETECCIÓN: si el usuario menciona en el mismo turno donde pide crear/previsualizar una factura cualquiera de estos términos: "OC", "orden de compra", "HES", "contrato", "guía", "resolución", "OT", "orden de trabajo", "según N°...", "ref N°...", DEBES extraer:
+       - tipoDocRef: el tipo (ej: "OC", "HES", "Contrato", "Guía", "Resolución", "OT")
+       - folioRef: el número/código (ej: "1234", "CT-9", "HES-555")
+       - fchRef: la fecha YYYY-MM-DD (si no se menciona, usa hoy)
+       - razonRef: descripción opcional ("Servicios mes octubre")
+       Y pasarlo en el array additionalReferences de preview_invoice_draft (y luego en create_invoice_draft).
+
+    b) CONFIRMACIÓN: en la card de preview, agrega al subtitle un sufijo "· Ref: <tipoDocRef> <folioRef>" para que el usuario vea que captaste la referencia. Si hay varias, "· Refs: OC 123, HES 456".
+
+    c) PROGRAMACIONES (preview_recurring_invoice + create_recurring_invoice): mismo campo additionalReferences. Las referencias se aplicarán a CADA borrador generado por la plantilla.
+
+    d) NUNCA inventes referencias. Si el usuario no las menciona, no envíes el campo. Si menciona "una OC" sin número, PREGUNTA el número antes de crear el preview.
+
+    e) Si el usuario aclara DESPUÉS del preview "agrega también la OC 999" → vuelves al PASO 1 (preview) con additionalReferences actualizado, no llames directo a create_*_draft.
 `.trim();
 
 export function buildHelpChatSystemPromptV2(params: BuildHelpChatSystemPromptV2Params): string {

@@ -16,6 +16,9 @@ const sendSchema = z.object({
   // BCC oculto: el receptor NO ve estos destinatarios. Útil para
   // mandar copia al contador interno sin que el cliente lo sepa.
   bccOverride: z.array(z.string().email()).max(10).optional(),
+  // IDs de FinanceDteAttachment (kind=USER_UPLOAD) que el usuario marcó
+  // para excluir del correo desde el modal. Por defecto van todos.
+  excludeAttachmentIds: z.array(z.string().uuid()).max(50).optional(),
 });
 
 export async function POST(
@@ -52,6 +55,7 @@ export async function POST(
     kind,
     ctx.userId,
     parsed.data.bccOverride,
+    parsed.data.excludeAttachmentIds,
   );
   if (!result.success) {
     return NextResponse.json(

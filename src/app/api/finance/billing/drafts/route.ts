@@ -59,7 +59,10 @@ export async function POST(request: NextRequest) {
     const parsed = await parseBody(request, draftDteSchema);
     if (parsed.error) return parsed.error;
 
-    const draft = await createDraftDte(ctx.tenantId, ctx.userId, parsed.data);
+    const { ufOverride, ...draftInput } = parsed.data;
+    const draft = await createDraftDte(ctx.tenantId, ctx.userId, draftInput, {
+      ufOverride: ufOverride ?? undefined,
+    });
     return NextResponse.json({ success: true, data: draft }, { status: 201 });
   } catch (error) {
     console.error("[Finance/Billing/Drafts] Create error:", error);
