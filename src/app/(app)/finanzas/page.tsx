@@ -44,6 +44,7 @@ export default async function FinanzasDashboardPage() {
     hasCapability(perms, "finance_reports_view") ||
     hasCapability(perms, "purchases_view") ||
     hasCapability(perms, "banking_view") ||
+    hasCapability(perms, "cashflow_view") ||
     hasCapability(perms, "accounting_view") ||
     canView(perms, "finance", "reportes") ||
     canView(perms, "finance", "contabilidad") ||
@@ -266,6 +267,15 @@ export default async function FinanzasDashboardPage() {
       count: bankAccounts.length > 0 ? fmtCLP.format(totalBankBalance) : null,
       countLabel: bankAccounts.length > 0 ? "saldo total CLP" : null,
       show: canSeeBanking,
+    },
+    {
+      href: "/finanzas/flujo-caja",
+      title: "Flujo de Caja",
+      description: "Forecast semanal y mensual de ingresos y egresos. Vincula con cartola.",
+      icon: Wallet,
+      count: null,
+      countLabel: null,
+      show: hasCapability(perms, "cashflow_view"),
     },
     {
       href: "/finanzas/contabilidad",
