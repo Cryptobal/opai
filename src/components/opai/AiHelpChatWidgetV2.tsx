@@ -351,7 +351,7 @@ function CardsBlock({
                   item.badgeColor === "green" && "bg-status-ok-soft text-status-ok-fg",
                   item.badgeColor === "red" && "bg-status-danger-soft text-status-danger-fg",
                   item.badgeColor === "blue" && "bg-status-info-soft text-status-info-fg",
-                  item.badgeColor === "purple" && "bg-tint-violet text-tint-violet-fg",
+                  (item.badgeColor === "purple" || item.badgeColor === "violet") && "bg-tint-violet text-tint-violet-fg",
                   (!item.badgeColor || item.badgeColor === "amber" || item.badgeColor === "yellow") && "bg-status-warn-soft text-status-warn-fg",
                 )}
               >

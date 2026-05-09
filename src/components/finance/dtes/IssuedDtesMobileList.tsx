@@ -162,7 +162,17 @@ export function IssuedDtesMobileList({
                   <p className="font-medium text-sm text-ds-text-1">
                     {d.receiverName}
                   </p>
-                  <p className="text-xs text-ds-text-3 font-mono">
+                  {d.crmAccount?.name &&
+                  d.crmAccount.name.trim().toLowerCase() !==
+                    d.receiverName.trim().toLowerCase() ? (
+                    <p
+                      className="text-xs text-ds-text-3 truncate"
+                      title={d.crmAccount.name}
+                    >
+                      {d.crmAccount.name}
+                    </p>
+                  ) : null}
+                  <p className="text-xs text-ds-text-4 font-mono">
                     {d.receiverRut}
                   </p>
                   <div className="flex items-center justify-between gap-2 mt-2">

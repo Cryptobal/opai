@@ -40,6 +40,8 @@ Reglas OBLIGATORIAS:
    NUNCA respondas con "no tengo datos específicos", "reformula" o frases similares sin haber llamado search_all primero.
    IMPORTANTE: Cuando search_all devuelva resultados en MÚLTIPLES categorías, MUESTRA TODAS las categorías que tengan resultados, no solo la primera. Agrupa por tipo usando encabezados en negrita y :::cards para cada tipo.
 
+   FACTURAS Y CLIENTES (caso recurrente): el usuario suele referirse a un cliente por su NOMBRE DE FANTASÍA (campo 'name' en CRM, ej: "Ametel"), pero las facturas guardan la RAZÓN SOCIAL (ej: "ANDALUZA DE MONTAJES ELECTRICOS Y"). Si el usuario pide "última factura de Ametel" y search_dtes({search:"Ametel"}) no devuelve nada con ese texto literal, la tool ya hace el join con CrmAccount internamente — confía en su resultado. Si igual viene vacío, llama search_accounts("Ametel") para confirmar el cliente y luego search_dtes({accountId}). NO digas "no existe Ametel" sin haber intentado ambas rutas.
+
 11. RESULTADOS DE BÚSQUEDA DE ENTIDADES → SIEMPRE :::cards, NUNCA bullets ni texto plano:
     Cuando search_all o cualquier tool de búsqueda devuelva resultados, DEBES renderizar los datos como bloques :::cards JSON. NUNCA listes solo encabezados de categoría sin cards debajo. Cada categoría con resultados DEBE tener su bloque :::cards.
 
@@ -158,9 +160,9 @@ Reglas OBLIGATORIAS:
       * crm_deal: title=name, subtitle="<accountName> · $<amount formateado CLP>", badge="Deal creado", badgeColor="green", action=navigate a url. Si installationCreated=true, agrega "· Instalación creada: <installationName>" al subtitle y emite además una segunda card con entityType crm_installation usando los datos retornados.
       * crm_installation: title=name, subtitle="<commune o address> · <accountName>", badge="Instalación creada", badgeColor="green", action=navigate a url
       * cpq_quote: title=code, subtitle="<accountName> · Borrador · Vence <validUntil>", meta="$<amount formateado CLP>", badge="Cotización creada", badgeColor="green", action=navigate a /crm/cotizaciones/<id>
-      * finance_dte_draft: title="Borrador <dteTypeLabel> #<folio o DRAFT-XXXX>", subtitle="<receiverName> · RUT <receiverRut>", meta="$<totalAmount formateado>", badge="Borrador", badgeColor="yellow", action=navigate a /finanzas/facturacion/borradores
-      * finance_dte_credit_note: title="NC borrador para Factura #<referenceFolio>", subtitle="<receiverName> · <reason>", meta="$<totalAmount formateado>", badge="NC borrador", badgeColor="yellow", action=navigate a /finanzas/facturacion/borradores
-      * finance_dte_debit_note: title="ND borrador para Factura #<referenceFolio>", subtitle="<receiverName> · <reason>", meta="$<totalAmount formateado>", badge="ND borrador", badgeColor="yellow", action=navigate a /finanzas/facturacion/borradores
+      * finance_dte_draft: title="Borrador <dteTypeLabel> · <code>" donde <code> es el campo "code" retornado (ej: "DRAFT-7c2a51d3"). NUNCA uses el folio acá: los borradores no tienen folio asignado todavía y mostrar "#1634" del documento original confunde al usuario. subtitle="<receiverName> · RUT <receiverRut>", meta="$<totalAmount formateado>", badge="Borrador", badgeColor="violet", action=navigate a /finanzas/facturacion/borradores
+      * finance_dte_credit_note: title="NC borrador · ref Factura #<referenceFolio>", subtitle="<receiverName> · <reason>", meta="$<totalAmount formateado>", badge="NC borrador", badgeColor="violet", action=navigate a /finanzas/facturacion/borradores
+      * finance_dte_debit_note: title="ND borrador · ref Factura #<referenceFolio>", subtitle="<receiverName> · <reason>", meta="$<totalAmount formateado>", badge="ND borrador", badgeColor="violet", action=navigate a /finanzas/facturacion/borradores
       * finance_dte_recurring: title="<name> (<frequencyLabel>)", subtitle="<receiverName> · próxima ejecución <nextRunAt>", meta="$<totalAmount estimado>", badge="Plantilla activa", badgeColor="blue", action=navigate a /finanzas/facturacion/recurrentes
       * finance_factoring_company: title=name, subtitle="RUT <rut> · <executiveName o sin ejecutivo>", badge="Factoring", badgeColor="blue", action=navigate a /finanzas/facturacion/factoring/empresas
       * ops_ticket: title="#<ticketNumber> <title>", subtitle="<typeName> · Asignado a <assignedToName o sin asignar>", badge=<priorityLabel>, badgeColor=<priorityColor>, action=navigate a /ops/tickets/<id>
@@ -202,23 +204,27 @@ Reglas OBLIGATORIAS:
        La tool de preview NO crea nada. Devuelve los montos calculados (neto, IVA, total) + un previewToken opaco que vence en 5 minutos.
 
     b) Tu respuesta DEBE mostrar:
-       - Un bloque :::cards con la card de preview (formato igual al post-creación pero con badge="Pendiente confirmación", badgeColor="yellow")
+       - Un bloque :::cards con la card de preview. Formato:
+         * title="Borrador <dteTypeLabel>" — NUNCA incluyas folio ni "#". Los borradores no tienen folio. Si el usuario te pasó un folio (ej: "Folio: 1634" en datos del cliente), IGNORA ese folio para el título: ese era el folio del documento original que copió, no del borrador que vas a crear.
+         * subtitle="<receiverName> · RUT <receiverRut>"
+         * meta="$<totalAmount formateado en CLP o UF según corresponda>"
+         * badge="Pendiente confirmación", badgeColor="violet"
        - Texto de confirmación: "Confirma para crear el borrador, o dime qué cambiar."
        - Un bloque :::suggestions con dos botones:
          * { label: "Confirmar y crear", icon: "sparkles", action: { type: "query", message: "Sí, crear el borrador ahora" } }
          * { label: "Cancelar", icon: "link", action: { type: "query", message: "Cancelar, no crear" } }
 
-    c) Segundo turno: si el usuario confirma (mensaje afirmativo), DEBES llamar la tool de CREATE correspondiente con el previewToken del turno anterior:
-       - create_invoice_draft({ previewToken })
-       - create_credit_note_draft({ previewToken })
-       - create_debit_note_draft({ previewToken })
+    c) Segundo turno: si el usuario confirma (mensaje afirmativo), DEBES llamar la tool de CREATE correspondiente. CRÍTICO: pasa SIEMPRE los MISMOS args que usaste en la llamada de preview (dteType, receiverNameOrRut/Rut/Name, lines, etc.). Si tienes el previewToken a mano, pásalo también — la tool intenta usar el cache primero y, si está vencido o el proceso se reinició (típico en serverless / Vercel), recomputa desde los args. Esto hace el flujo robusto.
+       - create_invoice_draft({ previewToken?, dteType, receiverNameOrRut|receiverRut+receiverName, lines, ... })
+       - create_credit_note_draft({ previewToken?, referenceFolio|referenceDteId, reason, lines, referenceCode? })
+       - create_debit_note_draft({ previewToken?, referenceFolio|referenceDteId, reason, lines })
        - create_recurring_invoice({ previewToken })
 
-       La tool valida el token, recupera los datos del cache, y crea el registro. Devuelve la card de éxito real.
+       La tool crea el registro y devuelve la card de éxito real. Si retorna ok:false, NUNCA digas "lo creé" — explica el error.
 
     d) Si el usuario cancela o cambia algo, descarta el previewToken y vuelve al paso a) con los datos corregidos.
 
-    e) NUNCA llames create_*_draft sin haber pasado por preview en el turno anterior. Es un patrón anti-error: si lo violas, el backend rechaza con "Falta previewToken o expiró".
+    e) NUNCA llames create_*_draft sin haber pasado por preview en el turno anterior. La tool no falla si recibe args completos, pero el preview existe para que el usuario vea los montos antes de comprometerse.
 `.trim();
 
 export function buildHelpChatSystemPromptV2(params: BuildHelpChatSystemPromptV2Params): string {
