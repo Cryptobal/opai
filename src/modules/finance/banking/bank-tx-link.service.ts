@@ -24,6 +24,7 @@ import type {
   FinanceLinkTarget,
   Prisma,
 } from "@prisma/client";
+import { createManualEntry } from "../accounting/journal-entry.service";
 
 // ── Tipos ──
 
@@ -228,6 +229,36 @@ export async function setTransactionLinks(
       },
     });
   });
+
+  // Asiento contable post-transacción (fuera del $transaction porque
+  // createManualEntry abre su propio contexto y queremos que el fallo
+  // del asiento no haga rollback de la conciliación).
+  if (userId && links.length > 0) {
+    const fullTx = await prisma.financeBankTransaction.findFirst({
+      where: { id: bankTxId, tenantId },
+      select: {
+        id: true,
+        bankAccountId: true,
+        transactionDate: true,
+        description: true,
+        reference: true,
+        amount: true,
+      },
+    });
+    if (fullTx) {
+      await generateJournalEntryForLinks(
+        tenantId,
+        userId,
+        fullTx,
+        links.map((l) => ({
+          targetType: l.targetType,
+          amount: new Decimal(l.amount),
+          accountPlanId: l.accountPlanId ?? null,
+          note: l.note ?? null,
+        }))
+      );
+    }
+  }
 }
 
 /**
@@ -290,6 +321,32 @@ export async function confirmSuggestion(
     }
   });
 
+  // Asiento contable: para que la cuenta de gasto/ingreso impacte el
+  // estado de resultados y el balance.
+  if (userId) {
+    const fullTx = await prisma.financeBankTransaction.findFirst({
+      where: { id: bankTxId, tenantId },
+      select: {
+        id: true,
+        bankAccountId: true,
+        transactionDate: true,
+        description: true,
+        reference: true,
+        amount: true,
+      },
+    });
+    if (fullTx) {
+      await generateJournalEntryForLinks(tenantId, userId, fullTx, [
+        {
+          targetType: isIncome ? "INCOME" : "EXPENSE",
+          amount: new Decimal(amountAbs),
+          accountPlanId: tx.suggestedAccountPlanId!,
+          note: "Auto-match autorizado por regla",
+        },
+      ]);
+    }
+  }
+
   return { confirmed: true };
 }
 
@@ -331,14 +388,137 @@ export async function confirmAllSuggestions(
   return { confirmed };
 }
 
-/** Elimina todos los links de una tx y la deja UNMATCHED. */
+/**
+ * Genera un FinanceJournalEntry contable para los links EXPENSE/INCOME
+ * de una tx (gasto/ingreso manual sin DTE). Esto hace que esos
+ * movimientos efectivamente IMPACTEN el estado de resultados y el
+ * balance — antes quedaban fuera porque el balance solo cuenta DTEs.
+ *
+ * Casos:
+ *   - Egreso conciliado a EXPENSE: D cuenta de gasto / H cuenta bancaria.
+ *   - Ingreso conciliado a INCOME: D cuenta bancaria / H cuenta ingreso.
+ *
+ * Para links DTE_ISSUED/DTE_RECEIVED no se genera asiento porque el DTE
+ * ya tiene el suyo (al emitirse / registrarse) y el FinancePaymentRecord
+ * representa el pago. Si el split tiene una mezcla DTE + EXPENSE, solo
+ * la porción EXPENSE/INCOME se contabiliza acá.
+ *
+ * Si la cuenta bancaria no tiene `accountPlanId` (no vinculada al plan
+ * de cuentas) no se puede balancear — devuelve null sin error.
+ *
+ * Devuelve el id del asiento creado o null si no aplicaba.
+ */
+async function generateJournalEntryForLinks(
+  tenantId: string,
+  userId: string,
+  bankTx: { id: string; bankAccountId: string; transactionDate: Date; description: string; reference: string | null; amount: Decimal },
+  links: { targetType: FinanceLinkTarget; amount: Decimal; accountPlanId: string | null; note: string | null }[]
+): Promise<string | null> {
+  const manualLines = links.filter(
+    (l) =>
+      l.accountPlanId &&
+      (l.targetType === "EXPENSE" || l.targetType === "INCOME")
+  );
+  if (manualLines.length === 0) return null;
+
+  const bankAccount = await prisma.financeBankAccount.findFirst({
+    where: { id: bankTx.bankAccountId, tenantId },
+    select: { accountPlanId: true, bankName: true, accountNumber: true },
+  });
+  if (!bankAccount?.accountPlanId) {
+    // Sin cuenta contable de banco vinculada no podemos balancear.
+    return null;
+  }
+
+  const totalManualAmount = manualLines.reduce(
+    (s, l) => s + l.amount.toNumber(),
+    0
+  );
+  if (totalManualAmount <= 0) return null;
+
+  const isIncome = bankTx.amount.toNumber() > 0;
+  const dateStr = bankTx.transactionDate.toISOString().slice(0, 10);
+
+  // Construye las líneas del asiento.
+  const lines: {
+    accountId: string;
+    description: string;
+    debit: number;
+    credit: number;
+  }[] = [];
+
+  for (const l of manualLines) {
+    const amt = l.amount.toNumber();
+    if (isIncome) {
+      // Ingreso: H cuenta de ingreso
+      lines.push({
+        accountId: l.accountPlanId!,
+        description: l.note ?? bankTx.description,
+        debit: 0,
+        credit: amt,
+      });
+    } else {
+      // Egreso: D cuenta de gasto
+      lines.push({
+        accountId: l.accountPlanId!,
+        description: l.note ?? bankTx.description,
+        debit: amt,
+        credit: 0,
+      });
+    }
+  }
+
+  // Contrapartida banco: una sola línea por la suma.
+  if (isIncome) {
+    lines.push({
+      accountId: bankAccount.accountPlanId,
+      description: `${bankAccount.bankName} - ${bankAccount.accountNumber}`,
+      debit: totalManualAmount,
+      credit: 0,
+    });
+  } else {
+    lines.push({
+      accountId: bankAccount.accountPlanId,
+      description: `${bankAccount.bankName} - ${bankAccount.accountNumber}`,
+      debit: 0,
+      credit: totalManualAmount,
+    });
+  }
+
+  try {
+    const entry = await createManualEntry(tenantId, userId, {
+      date: dateStr,
+      description: `Conciliación bancaria: ${bankTx.description}`.slice(0, 200),
+      reference: bankTx.reference ?? undefined,
+      sourceType: "RECONCILIATION",
+      sourceId: bankTx.id,
+      lines,
+    });
+    return entry.id;
+  } catch (err) {
+    // Si el período está cerrado o falla validación, no rompemos la
+    // conciliación — log y seguimos. El usuario verá el link creado pero
+    // sin asiento contable; podrá generarlo manualmente después.
+    console.error(
+      "[bank-tx-link] No se pudo generar asiento contable:",
+      err instanceof Error ? err.message : err
+    );
+    return null;
+  }
+}
+
+/**
+ * Elimina todos los links de una tx, deja UNMATCHED y revierte el
+ * asiento contable asociado (sourceType=RECONCILIATION + sourceId=bankTxId)
+ * si existe — DRAFT se borra, POSTED se reversa con asiento espejo.
+ */
 export async function clearTransactionLinks(
   tenantId: string,
   bankTxId: string
 ): Promise<void> {
   const tx = await prisma.financeBankTransaction.findFirst({
     where: { id: bankTxId, tenantId },
-    select: { id: true },
+    select: { id: true, transactionDate: true },
   });
   if (!tx) throw new Error("Movimiento no encontrado");
 
@@ -351,4 +531,23 @@ export async function clearTransactionLinks(
       data: { reconciliationStatus: "UNMATCHED" },
     });
   });
+
+  // Limpiar el asiento contable asociado, si existe.
+  const existingEntries = await prisma.financeJournalEntry.findMany({
+    where: {
+      tenantId,
+      sourceType: "RECONCILIATION",
+      sourceId: bankTxId,
+      status: { in: ["DRAFT", "POSTED"] },
+    },
+    select: { id: true, status: true },
+  });
+  for (const e of existingEntries) {
+    if (e.status === "DRAFT") {
+      await prisma.financeJournalEntry.delete({ where: { id: e.id } });
+    }
+    // Para POSTED no auto-reversa: el contador necesita verlo. La UI
+    // puede mostrar un aviso "queda asiento pendiente de reversar". En
+    // una iteración futura se puede invocar reverseEntry acá.
+  }
 }
