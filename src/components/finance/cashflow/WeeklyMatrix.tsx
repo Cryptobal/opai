@@ -70,15 +70,19 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
     }
   }
 
+  const colCount = projection.buckets.length + 2;
+
   return (
     <Surface elevation={1} padding="md" className="overflow-hidden">
-      <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
-        <p className="text-[13px] text-ds-text-2">
+      {/* Header: stack on mobile, inline on desktop. Selector + actions are
+          full-width on mobile to maximize tap area. */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
+        <p className="text-[12px] sm:text-[13px] text-ds-text-2">
           {projection.buckets.length} semanas · saldo inicial {fmt.format(projection.openingBalanceClp)}
         </p>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
           <Select value={String(weeks)} onValueChange={(v) => setWeeks(Number(v))}>
-            <SelectTrigger className="h-8 w-[120px] text-[12px]">
+            <SelectTrigger className="h-10 sm:h-9 w-full sm:w-[140px] text-[13px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -90,81 +94,93 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
             </SelectContent>
           </Select>
           {canManage && (
-            <Button size="sm" variant="outline" onClick={handleAutoMatch} disabled={matching}>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleAutoMatch}
+              disabled={matching}
+              className="h-10 sm:h-9 w-full sm:w-auto"
+            >
               {matching ? "Vinculando..." : "Auto-match con cartola"}
             </Button>
           )}
         </div>
       </div>
 
-      <div className="overflow-x-auto -mx-4 px-4">
-        <table className="text-[11px] w-full border-collapse">
-          <thead>
-            <tr>
-              <th className="sticky left-0 z-10 bg-background text-left p-2 min-w-[180px] border-b border-border">
-                Categoría
-              </th>
-              {projection.buckets.map((b) => (
-                <th
-                  key={b.key}
-                  className="p-2 text-right min-w-[80px] border-b border-border whitespace-nowrap text-ds-text-3 font-mono"
-                >
-                  {b.label}
+      {/* Scroll container: bleed full-width on mobile (-mx-4 px-4), max-h
+          for vertical scrolling so bottom totals can stay sticky.
+          relative + overflow-auto is what enables sticky positioning. */}
+      <div className="-mx-4 px-4 sm:mx-0 sm:px-0">
+        <div className="relative overflow-auto max-h-[70vh] rounded-ds-md border border-border">
+          <table className="text-[11px] sm:text-[12px] w-full border-collapse">
+            <thead className="sticky top-0 z-30 bg-background">
+              <tr>
+                <th className="sticky left-0 z-40 bg-background text-left p-2 min-w-[140px] sm:min-w-[180px] border-b border-border">
+                  Categoría
                 </th>
+                {projection.buckets.map((b) => (
+                  <th
+                    key={b.key}
+                    className="p-2 text-right min-w-[80px] border-b border-border whitespace-nowrap text-ds-text-3 font-mono bg-background"
+                  >
+                    {b.label}
+                  </th>
+                ))}
+                <th className="sticky right-0 z-40 p-2 text-right min-w-[100px] border-b border-border bg-muted/40 whitespace-nowrap">
+                  Total
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <SectionHeader label="Ingresos" colSpan={colCount} tone="ok" />
+              {incomeRows.map((r) => (
+                <MatrixRow key={r.categoryCode} row={r} />
               ))}
-              <th className="p-2 text-right min-w-[100px] border-b border-border bg-muted/20">
-                Total
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            <SectionHeader label="Ingresos" colSpan={projection.buckets.length + 2} tone="ok" />
-            {incomeRows.map((r) => (
-              <MatrixRow key={r.categoryCode} row={r} />
-            ))}
-            <SubtotalRow label="Total ingresos" rows={incomeRows} buckets={projection.buckets} tone="ok" />
+              <SubtotalRow label="Total ingresos" rows={incomeRows} buckets={projection.buckets} tone="ok" />
 
-            <SectionHeader label="Egresos" colSpan={projection.buckets.length + 2} tone="warn" />
-            {expenseRows.map((r) => (
-              <MatrixRow key={r.categoryCode} row={r} />
-            ))}
-            <SubtotalRow label="Total egresos" rows={expenseRows} buckets={projection.buckets} tone="warn" />
-
-            <tr className="border-t border-border font-semibold">
-              <td className="sticky left-0 z-10 bg-background p-2">Neto semanal</td>
-              {projection.buckets.map((b) => (
-                <td
-                  key={b.key}
-                  className={`p-2 text-right font-mono ${
-                    b.net >= 0 ? "text-status-ok-fg" : "text-status-warn-fg"
-                  }`}
-                >
-                  {fmt.format(b.net)}
+              <SectionHeader label="Egresos" colSpan={colCount} tone="warn" />
+              {expenseRows.map((r) => (
+                <MatrixRow key={r.categoryCode} row={r} />
+              ))}
+              <SubtotalRow label="Total egresos" rows={expenseRows} buckets={projection.buckets} tone="warn" />
+            </tbody>
+            <tfoot className="sticky bottom-0 z-30">
+              <tr className="border-t-2 border-border font-semibold bg-background">
+                <td className="sticky left-0 z-40 bg-background p-2 whitespace-nowrap">Neto semanal</td>
+                {projection.buckets.map((b) => (
+                  <td
+                    key={b.key}
+                    className={`p-2 text-right font-mono whitespace-nowrap bg-background ${
+                      b.net >= 0 ? "text-status-ok-fg" : "text-status-warn-fg"
+                    }`}
+                  >
+                    {fmt.format(b.net)}
+                  </td>
+                ))}
+                <td className="sticky right-0 z-40 p-2 text-right font-mono bg-muted/40 whitespace-nowrap">
+                  {fmt.format(projection.totals.totalNet)}
                 </td>
-              ))}
-              <td className="p-2 text-right font-mono bg-muted/20">
-                {fmt.format(projection.totals.totalNet)}
-              </td>
-            </tr>
+              </tr>
 
-            <tr className="bg-muted/40 font-semibold">
-              <td className="sticky left-0 z-10 bg-muted/40 p-2">Saldo acumulado</td>
-              {projection.cumulativeBalances.map((c) => (
-                <td
-                  key={c.bucketKey}
-                  className={`p-2 text-right font-mono ${
-                    c.balanceClp >= 0 ? "text-status-ok-fg" : "text-status-warn-fg"
-                  }`}
-                >
-                  {fmt.format(c.balanceClp)}
-                </td>
-              ))}
-              <td className="p-2 text-right font-mono bg-muted/40">—</td>
-            </tr>
-          </tbody>
-        </table>
+              <tr className="bg-muted/60 font-semibold">
+                <td className="sticky left-0 z-40 bg-muted/60 p-2 whitespace-nowrap">Saldo acumulado</td>
+                {projection.cumulativeBalances.map((c) => (
+                  <td
+                    key={c.bucketKey}
+                    className={`p-2 text-right font-mono whitespace-nowrap bg-muted/60 ${
+                      c.balanceClp >= 0 ? "text-status-ok-fg" : "text-status-warn-fg"
+                    }`}
+                  >
+                    {fmt.format(c.balanceClp)}
+                  </td>
+                ))}
+                <td className="sticky right-0 z-40 p-2 text-right font-mono bg-muted/60 whitespace-nowrap">—</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
       </div>
-      {loading && <p className="text-[11px] text-ds-text-3 mt-2">Recalculando...</p>}
+      {loading && <p className="text-[12px] text-ds-text-3 mt-2">Recalculando...</p>}
     </Surface>
   );
 }

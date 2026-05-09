@@ -178,16 +178,16 @@ export function ItemFormDialog({ open, item, categories, onClose, onSaved }: Pro
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl w-[calc(100vw-1.5rem)] sm:w-full max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Editar item" : "Nuevo item proyectado"}</DialogTitle>
         </DialogHeader>
         <div className="grid gap-3 py-2">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label>Categoría</Label>
               <Select value={form.categoryId} onValueChange={categoryChanged}>
-                <SelectTrigger>
+                <SelectTrigger className="h-10 sm:h-9">
                   <SelectValue placeholder="Selecciona..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -201,7 +201,11 @@ export function ItemFormDialog({ open, item, categories, onClose, onSaved }: Pro
             </div>
             <div>
               <Label>Nombre</Label>
-              <Input value={form.name} onChange={(e) => set("name", e.target.value)} />
+              <Input
+                className="h-10 sm:h-9"
+                value={form.name}
+                onChange={(e) => set("name", e.target.value)}
+              />
             </div>
           </div>
 
@@ -214,10 +218,11 @@ export function ItemFormDialog({ open, item, categories, onClose, onSaved }: Pro
             />
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <Label>Monto</Label>
               <Input
+                className="h-10 sm:h-9"
                 type="number"
                 step="0.01"
                 value={form.amount}
@@ -227,7 +232,7 @@ export function ItemFormDialog({ open, item, categories, onClose, onSaved }: Pro
             <div>
               <Label>Moneda</Label>
               <Select value={form.currency} onValueChange={(v) => set("currency", v as "CLP" | "UF")}>
-                <SelectTrigger>
+                <SelectTrigger className="h-10 sm:h-9">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -239,7 +244,7 @@ export function ItemFormDialog({ open, item, categories, onClose, onSaved }: Pro
             <div>
               <Label>Recurrencia</Label>
               <Select value={form.recurrence} onValueChange={(v) => set("recurrence", v)}>
-                <SelectTrigger>
+                <SelectTrigger className="h-10 sm:h-9">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -255,11 +260,11 @@ export function ItemFormDialog({ open, item, categories, onClose, onSaved }: Pro
           </div>
 
           {form.currency === "UF" && (
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label>Política UF</Label>
                 <Select value={form.ufFixingPolicy} onValueChange={(v) => set("ufFixingPolicy", v)}>
-                  <SelectTrigger>
+                  <SelectTrigger className="h-10 sm:h-9">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -275,6 +280,7 @@ export function ItemFormDialog({ open, item, categories, onClose, onSaved }: Pro
                 <div>
                   <Label>Día (1-31)</Label>
                   <Input
+                    className="h-10 sm:h-9"
                     type="number"
                     min={1}
                     max={31}
@@ -286,12 +292,12 @@ export function ItemFormDialog({ open, item, categories, onClose, onSaved }: Pro
             </div>
           )}
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {["WEEKLY", "BIWEEKLY"].includes(form.recurrence) && (
               <div>
                 <Label>Día de la semana</Label>
                 <Select value={form.dayOfWeek} onValueChange={(v) => set("dayOfWeek", v)}>
-                  <SelectTrigger>
+                  <SelectTrigger className="h-10 sm:h-9">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -310,6 +316,7 @@ export function ItemFormDialog({ open, item, categories, onClose, onSaved }: Pro
               <div>
                 <Label>Día del mes (-1 = último)</Label>
                 <Input
+                  className="h-10 sm:h-9"
                   type="number"
                   min={-1}
                   max={31}
@@ -322,6 +329,7 @@ export function ItemFormDialog({ open, item, categories, onClose, onSaved }: Pro
               <div>
                 <Label>Mes del año (1-12)</Label>
                 <Input
+                  className="h-10 sm:h-9"
                   type="number"
                   min={1}
                   max={12}
@@ -332,14 +340,24 @@ export function ItemFormDialog({ open, item, categories, onClose, onSaved }: Pro
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label>Inicio</Label>
-              <Input type="date" value={form.startDate} onChange={(e) => set("startDate", e.target.value)} />
+              <Input
+                className="h-10 sm:h-9"
+                type="date"
+                value={form.startDate}
+                onChange={(e) => set("startDate", e.target.value)}
+              />
             </div>
             <div>
               <Label>Fin (opcional)</Label>
-              <Input type="date" value={form.endDate} onChange={(e) => set("endDate", e.target.value)} />
+              <Input
+                className="h-10 sm:h-9"
+                type="date"
+                value={form.endDate}
+                onChange={(e) => set("endDate", e.target.value)}
+              />
             </div>
           </div>
 
@@ -354,11 +372,20 @@ export function ItemFormDialog({ open, item, categories, onClose, onSaved }: Pro
 
           {error && <p className="text-status-warn-fg text-[12px]">{error}</p>}
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={saving}>
+        <DialogFooter className="flex-col-reverse sm:flex-row gap-2 sm:gap-0">
+          <Button
+            variant="outline"
+            onClick={onClose}
+            disabled={saving}
+            className="w-full sm:w-auto h-10 sm:h-9"
+          >
             Cancelar
           </Button>
-          <Button onClick={save} disabled={saving || !form.categoryId || !form.name || !form.amount}>
+          <Button
+            onClick={save}
+            disabled={saving || !form.categoryId || !form.name || !form.amount}
+            className="w-full sm:w-auto h-10 sm:h-9"
+          >
             {saving ? "Guardando..." : "Guardar"}
           </Button>
         </DialogFooter>
