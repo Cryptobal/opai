@@ -196,11 +196,11 @@ export function ConfigShell({ children }: ConfigShellProps) {
     }
   }, [collapsed, hydrated]);
 
-  // Home (/opai/configuracion exact): el grid de tarjetas es el navegador.
-  // No renderizamos sidebar para no duplicar.
-  const isRoot = pathname === "/opai/configuracion";
-
-  if (isRoot || groups.length === 0) {
+  // El sidebar se muestra SIEMPRE (incluido en root /opai/configuracion).
+  // Antes en root no se mostraba para no duplicar con el grid de tarjetas
+  // del Home, pero el usuario prefiere ver siempre la lista a la izquierda
+  // como referencia de navegación, igual que en las subpáginas.
+  if (groups.length === 0) {
     return <div className="min-w-0">{children}</div>;
   }
 
