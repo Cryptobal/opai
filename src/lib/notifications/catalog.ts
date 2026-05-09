@@ -525,6 +525,12 @@ export const UNIFIED_NOTIFICATION_TYPES: UnifiedNotificationType[] = [
     audiences: ['admin'], defaults: { admin: adminBell() },
   },
   {
+    key: 'bank_cartola_received', label: 'Cartola bancaria recibida',
+    description: 'Cuando llega una cartola por email del banco y se procesan los movimientos',
+    module: 'finance', category: 'Finanzas - Bancos',
+    audiences: ['admin'], defaults: { admin: adminBell(true) },
+  },
+  {
     key: 'payroll_processed', label: 'Liquidación procesada',
     description: 'Cuando se procesan las liquidaciones de sueldo del período',
     module: 'payroll', category: 'Payroll',

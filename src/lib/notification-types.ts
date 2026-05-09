@@ -497,6 +497,18 @@ export const NOTIFICATION_TYPES: NotificationTypeDef[] = [
     defaultEmail: false,
   },
 
+  // ── Finanzas - Bancos ──
+  {
+    key: "bank_cartola_received",
+    label: "Cartola bancaria recibida",
+    description:
+      "Cuando llega una cartola por email del banco y se procesan los movimientos automáticamente",
+    module: "finance",
+    category: "Finanzas - Bancos",
+    defaultBell: true,
+    defaultEmail: true,
+  },
+
   // ── CRM - Portal Cliente ──
   {
     key: "portal_cliente_access_granted",

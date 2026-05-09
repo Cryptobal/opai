@@ -4,7 +4,7 @@
  * Office Banking.
  *
  * Formato del email:
- *   cartola+<KEY>@<DOMAIN>
+ *   cartola.<KEY>@<DOMAIN>
  *
  * - KEY es un hash SHA256 truncado a 12 caracteres del tenantId. No es
  *   adivinable a partir del nombre del tenant; sirve para que el receptor
@@ -14,6 +14,11 @@
  *   subdominio apuntando al provider de inbound (Postmark, Mailgun,
  *   Cloudflare Email Routing, etc.) que finalmente postea al webhook
  *   /api/inbound/cartola.
+ *
+ * Por qué punto y no `+`: Santander Office Banking (y varios otros bancos)
+ * rechazan el plus-addressing como "formato no válido" en su validador de
+ * suscripción. El punto es 100% compatible con cualquier validador de
+ * email estándar.
  */
 
 import crypto from "crypto";
@@ -41,27 +46,49 @@ export function inboxDomain(): string {
 
 /**
  * Email completo de inbox de un tenant.
- * Ejemplo: cartola+gard7a3b2c4d@cartola.opai.cl
+ * Ejemplo: cartola.7a3b2c4d8901@cartola.opai.cl
  */
 export function tenantInboxEmail(tenantId: string): string {
-  return `cartola+${tenantInboxKey(tenantId)}@${inboxDomain()}`;
+  return `cartola.${tenantInboxKey(tenantId)}@${inboxDomain()}`;
 }
 
 /**
- * Extrae la key de un email entrante. Acepta tanto el formato plus
- * (cartola+KEY@dominio) como un local-part dotado (cartola.KEY@dominio).
+ * Extrae la key de un email entrante. Acepta el formato canónico con punto
+ * (cartola.KEY@dominio), el legacy con plus (cartola+KEY@dominio) y el
+ * formato corto (KEY@dominio) por si algún provider strippea el local-part.
+ *
+ * Si `requiredDomain` se pasa, exige que el dominio del email termine en él
+ * (case-insensitive). Esto evita que un mail dirigido a otro inbox con
+ * local-part hex-12 calce por accidente y se procese como cartola.
  *
  * Devuelve null si el formato no calza.
  */
-export function extractInboxKey(toAddress: string): string | null {
+export function extractInboxKey(
+  toAddress: string,
+  requiredDomain?: string,
+): string | null {
   const lower = toAddress.toLowerCase().trim();
-  // cartola+KEY@anything
-  const plus = lower.match(/^cartola\+([a-f0-9]{12})@/);
-  if (plus) return plus[1];
-  // cartola.KEY@anything (algunos providers eliminan el +)
+  let key: string | null = null;
+  // cartola.KEY@anything (formato canónico actual)
   const dot = lower.match(/^cartola\.([a-f0-9]{12})@/);
-  if (dot) return dot[1];
-  return null;
+  if (dot) key = dot[1];
+  // cartola+KEY@anything (legacy, algunos bancos lo rechazan)
+  if (!key) {
+    const plus = lower.match(/^cartola\+([a-f0-9]{12})@/);
+    if (plus) key = plus[1];
+  }
+  // KEY@anything (fallback corto, si alguien usa un alias)
+  if (!key) {
+    const bare = lower.match(/^([a-f0-9]{12})@/);
+    if (bare) key = bare[1];
+  }
+  if (!key) return null;
+  if (requiredDomain) {
+    const at = lower.lastIndexOf("@");
+    const dom = at >= 0 ? lower.slice(at + 1) : "";
+    if (!dom.endsWith(requiredDomain.toLowerCase())) return null;
+  }
+  return key;
 }
 
 /**
