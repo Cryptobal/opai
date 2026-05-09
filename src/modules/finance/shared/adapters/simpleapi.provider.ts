@@ -109,6 +109,27 @@ function envioTipoFromDte(dteType: number): 1 | 2 {
   return dteType === 39 || dteType === 41 ? 2 : 1;
 }
 
+export function buildEnvioEnviarPayload(input: {
+  dteType: number;
+  environment: "CERTIFICATION" | "PRODUCTION";
+  emisorRut: string;
+  rutTitular: string;
+  password: string;
+}): Record<string, unknown> {
+  const ambiente = input.environment === "PRODUCTION" ? 1 : 0;
+  return {
+    Tipo: envioTipoFromDte(input.dteType),
+    Ambiente: ambiente,
+    // SimpleAPI/SII termina armando RUTCOMPANY con este RUT. Si se omite,
+    // algunos envíos vuelven desde SII como RUTCOMPANY 0-0.
+    RutEmpresa: input.emisorRut,
+    Certificado: {
+      Rut: input.rutTitular,
+      Password: input.password,
+    },
+  };
+}
+
 /**
  * Tipos DTE que requieren copia cedible (Ley 19.983 — Factoring).
  * Aplica a facturas afectas/exentas y notas de crédito/débito que se
@@ -610,15 +631,13 @@ export class SimpleApiProvider implements DteProviderAdapter {
   ): Promise<
     { ok: true; trackId: string } | { ok: false; error: string }
   > {
-    const ambiente = ctx.config.environment === "PRODUCTION" ? 1 : 0;
-    const payload = {
-      Tipo: envioTipoFromDte(request.dteType),
-      Ambiente: ambiente,
-      Certificado: {
-        Rut: ctx.certificate.rutTitular,
-        Password: ctx.certificate.password,
-      },
-    };
+    const payload = buildEnvioEnviarPayload({
+      dteType: request.dteType,
+      environment: ctx.config.environment,
+      emisorRut: ctx.config.emisorRut,
+      rutTitular: ctx.certificate.rutTitular,
+      password: ctx.certificate.password,
+    });
 
     const result = await callSimpleApi({
       auth: this.auth,
