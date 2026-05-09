@@ -6,7 +6,6 @@ import {
   hasModuleAccess,
   canView,
 } from "@/lib/permissions-server";
-import { ModuleSubNav } from "@/components/opai-ds";
 
 export default async function FacturacionLayout({ children }: { children: ReactNode }) {
   const session = await auth();
@@ -16,14 +15,8 @@ export default async function FacturacionLayout({ children }: { children: ReactN
   if (!canView(perms, "finance", "facturacion")) {
     redirect("/finanzas");
   }
-  return (
-    <div className="space-y-3 min-w-0">
-      {/* visibility="always": en mobile la BottomNav no muestra de forma fiable
-          los 8 children de C/V (Resumen, Emitidos, Recibidos, Programación,
-          Libro IVA, Proveedores, Folios, Cesiones), así que mostramos las
-          SwipeTabs scrollables arriba — paridad con Banca. */}
-      <ModuleSubNav moduleKey="finance-compras-ventas" visibility="always" />
-      <div className="min-w-0">{children}</div>
-    </div>
-  );
+  // SubNav (SwipeTabs de C/V) lo monta cada página DEBAJO del PageHero —
+  // así en mobile y desktop el orden queda breadcrumbs → hero → tabs →
+  // contenido, igual que el resto del sitio.
+  return <div className="min-w-0">{children}</div>;
 }

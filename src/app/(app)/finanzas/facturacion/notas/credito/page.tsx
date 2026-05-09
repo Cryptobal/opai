@@ -6,7 +6,7 @@ import {
   hasFacturacionCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHero } from "@/components/opai-ds";
+import { PageHero, ModuleSubNav } from "@/components/opai-ds";
 import { FileMinus } from "lucide-react";
 import { CreditNoteForm } from "@/components/finance/CreditNoteForm";
 
@@ -67,6 +67,7 @@ export default async function NotaCreditoPage({ searchParams }: PageProps) {
         subtitle="ajuste a la baja"
         description="Emitir nota de crédito electrónica referenciando un DTE."
       />
+      <ModuleSubNav moduleKey="finance-compras-ventas" visibility="always" />
       <CreditNoteForm
         noteType="credit"
         referenceDte={referenceDte}

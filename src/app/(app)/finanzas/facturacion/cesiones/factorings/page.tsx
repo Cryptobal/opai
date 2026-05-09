@@ -15,7 +15,7 @@ import {
   hasModuleAccess,
   resolvePagePerms,
 } from "@/lib/permissions-server";
-import { PageHero } from "@/components/opai-ds";
+import { PageHero, ModuleSubNav } from "@/components/opai-ds";
 import { listFactoringCompanies } from "@/modules/finance/factoring/factoring-companies.service";
 import { FactoringCompaniesClient } from "@/components/finance/factoring/FactoringCompaniesClient";
 import { CesionesTabs } from "@/components/finance/factoring/CesionesTabs";
@@ -68,6 +68,7 @@ export default async function FactoringCompaniesPage() {
         subtitle="Factoring electrónico"
         description="Administra el catálogo de empresas de factoring (cesionarios) y sus tasas habituales."
       />
+      <ModuleSubNav moduleKey="finance-compras-ventas" visibility="always" />
       <CesionesTabs />
       <FactoringCompaniesClient
         initialCompanies={initialCompanies}

@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import {
+  ModuleSubNav,
   PageHero,
   Surface,
   SectionHeader,
@@ -212,6 +213,7 @@ export function FactoringOperationDetail({ operation: op, canIssue }: Props) {
           </span>
         }
       />
+      <ModuleSubNav moduleKey="finance-compras-ventas" visibility="always" />
 
       {showSiiBanner ? (
         <Surface
