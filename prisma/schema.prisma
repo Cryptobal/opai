@@ -27,6 +27,17 @@ model Tenant {
   dpaVersion                     String?                         @map("dpa_version")
   // ── Ley 21.719 — Contacto del DPO (Data Protection Officer) del tenant ──
   dpoContactEmail                String?                         @map("dpo_contact_email")
+  // ── Datos comerciales y operativos top-level (vs Settings key-value) ──
+  legalName                      String?                         @map("legal_name")
+  companyRut                     String?                         @map("company_rut")
+  industry                       String?
+  estimatedGuards                String?                         @map("estimated_guards")
+  // ── Onboarding / signup tracking ──
+  signupSource                   String?                         @map("signup_source")
+  signupCompletedAt              DateTime?                       @map("signup_completed_at")
+  signupUtm                      Json?                           @map("signup_utm") @db.JsonB
+  // ── Custom domain (futuro: app.cliente.cl en lugar de slug.opai.cl) ──
+  customDomain                   String?                         @unique @map("custom_domain")
   createdAt                      DateTime                        @default(now())
   updatedAt                      DateTime                        @updatedAt
   admins                         Admin[]
@@ -85,9 +96,107 @@ model Tenant {
   vraSectionTemplates            VraSectionTemplate[]
   vraReports                     VraReport[]
   aiActionLogs                   AiActionLog[]
+  pendingSignups                 PendingSignup[]
 
   @@index([slug])
   @@index([active])
+  @@index([signupCompletedAt])
+  @@index([customDomain])
+  @@schema("public")
+}
+
+/// Registro pendiente de verificación de email. Se promueve a Tenant + Admin
+/// vía provisionTenant() cuando el owner hace clic en el magic link.
+model PendingSignup {
+  id                  String    @id @default(cuid())
+  email               String
+  passwordHash        String    @map("password_hash")
+  ownerName           String    @map("owner_name")
+  ownerPhone          String?   @map("owner_phone")
+  legalName           String?   @map("legal_name")
+  companyRut          String?   @map("company_rut")
+  commercialName      String    @map("commercial_name")
+  proposedSlug        String    @map("proposed_slug")
+  industry            String?
+  estimatedGuards     String?   @map("estimated_guards")
+  address             String?
+  commune             String?
+  city                String?
+  giro                String?
+  source              String?
+  utmSource           String?   @map("utm_source")
+  utmCampaign         String?   @map("utm_campaign")
+  utmMedium           String?   @map("utm_medium")
+  ip                  String?
+  userAgent           String?   @map("user_agent")
+  /// Datos crudos del SII (raw response de SimpleAPI) si la consulta tuvo éxito.
+  /// Se persisten para auditoría y para que provisionTenant pueda re-leerlos sin
+  /// volver a llamar al SII (que cobra por consulta y puede tardar minutos).
+  siiData             Json?     @map("sii_data") @db.JsonB
+  verificationToken   String    @unique @map("verification_token")
+  verificationSentAt  DateTime  @default(now()) @map("verification_sent_at")
+  verifiedAt          DateTime? @map("verified_at")
+  expiresAt           DateTime  @map("expires_at")
+  resentCount         Int       @default(0) @map("resent_count")
+  lastResendAt        DateTime? @map("last_resend_at")
+  /// Si requiere revisión manual (ej. RUT no validado por SII, email sospechoso).
+  requiresReview      Boolean   @default(false) @map("requires_review")
+  reviewReason        String?   @map("review_reason")
+  /// Tenant ID provisionado (cuando se completa la verificación).
+  provisionedTenantId String?   @map("provisioned_tenant_id")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  provisionedTenant Tenant? @relation(fields: [provisionedTenantId], references: [id], onDelete: SetNull)
+
+  @@index([email])
+  @@index([verificationToken])
+  @@index([expiresAt])
+  @@index([verifiedAt])
+  @@index([requiresReview])
+  @@map("pending_signups")
+  @@schema("public")
+}
+
+/// Estado del first-run wizard (Welcome) por admin. Se inicializa al provisionar
+/// un tenant nuevo para el owner. Frontend en Noche 2.
+model AdminOnboardingState {
+  id                  String    @id @default(cuid())
+  adminId             String    @unique @map("admin_id")
+  welcomeStartedAt    DateTime? @map("welcome_started_at")
+  welcomeCompletedAt  DateTime? @map("welcome_completed_at")
+  welcomeSkippedAt    DateTime? @map("welcome_skipped_at")
+  logoUploaded        Boolean   @default(false) @map("logo_uploaded")
+  firstInstallation   Boolean   @default(false) @map("first_installation")
+  firstGuard          Boolean   @default(false) @map("first_guard")
+  firstInvite         Boolean   @default(false) @map("first_invite")
+  /// Si el usuario eligió "empezar con datos demo" en el wizard.
+  demoDataLoaded      Boolean   @default(false) @map("demo_data_loaded")
+  checklistDismissed  Boolean   @default(false) @map("checklist_dismissed")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  admin Admin @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([adminId])
+  @@map("admin_onboarding_state")
+  @@schema("public")
+}
+
+/// Estado de tours guiados por módulo (frontend en Noche 3).
+model AdminTourState {
+  id          String    @id @default(cuid())
+  adminId     String    @map("admin_id")
+  tourKey     String    @map("tour_key")
+  completedAt DateTime? @map("completed_at")
+  skippedAt   DateTime? @map("skipped_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  admin Admin @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@unique([adminId, tourKey])
+  @@index([adminId])
+  @@map("admin_tour_state")
   @@schema("public")
 }
 
@@ -435,6 +544,8 @@ model Admin {
   googleId                      String?                        @unique @map("google_id") // Google OAuth sub
   verificacionesFisicas         DocVerificacionFisica[]
   aiActionLogs                  AiActionLog[]
+  onboardingState               AdminOnboardingState?
+  tourStates                    AdminTourState[]
 
   @@index([email])
   @@index([status])

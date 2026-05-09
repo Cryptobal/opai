@@ -15,7 +15,7 @@ export async function POST(request: Request) {
 
     await resend.emails.send({
       from: 'OPAI Contacto <noreply@opai.cl>',
-      to: 'carlos.irigoyen@lx3.ai',
+      to: process.env.PLATFORM_ALERTS_EMAIL || 'carlos.irigoyen@opai.cl',
       replyTo: email,
       subject: `[OPAI Web] Contacto de ${nombre} — ${empresa}`,
       html: `
