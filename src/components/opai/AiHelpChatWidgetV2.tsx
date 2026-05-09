@@ -6,6 +6,7 @@ import {
   ArrowDown,
   ArrowUp,
   Calendar,
+  Check,
   ChevronRight,
   Link2,
   Loader2,
@@ -18,7 +19,6 @@ import {
   BarChart3,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import type {
   VisualBlock,
@@ -332,35 +332,74 @@ function CardsBlock({
   if (visible.length <= 1) {
     return (
       <div className="mt-2 space-y-1.5">
-        {visible.map((item, i) => (
-          <button
-            key={`${item.title}-${i}`}
-            type="button"
-            onClick={() => item.action && onAction(item.action)}
-            className="flex w-full items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2.5 text-left transition hover:bg-white/[0.07]"
-          >
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-white truncate">{item.title}</p>
-              {item.subtitle ? <p className="text-xs text-white/50 truncate">{item.subtitle}</p> : null}
-              {item.meta ? <p className="text-xs text-white/70 truncate mt-0.5">{item.meta}</p> : null}
-            </div>
-            {item.badge ? (
-              <span
-                className={cn(
-                  "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium",
-                  item.badgeColor === "green" && "bg-status-ok-soft text-status-ok-fg",
-                  item.badgeColor === "red" && "bg-status-danger-soft text-status-danger-fg",
-                  item.badgeColor === "blue" && "bg-status-info-soft text-status-info-fg",
-                  (item.badgeColor === "purple" || item.badgeColor === "violet") && "bg-tint-violet text-tint-violet-fg",
-                  (!item.badgeColor || item.badgeColor === "amber" || item.badgeColor === "yellow") && "bg-status-warn-soft text-status-warn-fg",
-                )}
+        {visible.map((item, i) => {
+          const isPendingConfirm = item.badge === "Pendiente confirmación";
+          if (isPendingConfirm) {
+            return (
+              <div
+                key={`${item.title}-${i}`}
+                className="rounded-xl border border-tint-violet/40 bg-white/[0.04] px-3 py-2.5"
               >
-                {item.badge}
-              </span>
-            ) : null}
-            <ChevronRight className="h-4 w-4 shrink-0 text-white/30" />
-          </button>
-        ))}
+                <div className="flex items-center gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-white truncate">{item.title}</p>
+                    {item.subtitle ? <p className="text-xs text-white/50 truncate">{item.subtitle}</p> : null}
+                    {item.meta ? <p className="text-xs text-white/70 truncate mt-0.5">{item.meta}</p> : null}
+                  </div>
+                  <span className="shrink-0 rounded-full bg-tint-violet text-tint-violet-fg px-2 py-0.5 text-[10px] font-medium">
+                    {item.badge}
+                  </span>
+                </div>
+                <div className="mt-2.5 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onAction({ type: "query", message: "Sí, crear el borrador ahora" })}
+                    className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-br from-status-info to-status-ok px-3 py-1.5 text-xs font-medium text-white shadow-[0_4px_12px_rgba(16,185,129,0.25)] hover:brightness-110 transition"
+                  >
+                    <Check className="h-3.5 w-3.5" />
+                    Confirmar y crear
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onAction({ type: "query", message: "Cancelar, no crear" })}
+                    className="inline-flex items-center justify-center rounded-lg border border-white/15 bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-white/80 hover:bg-white/[0.08] transition"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            );
+          }
+          return (
+            <button
+              key={`${item.title}-${i}`}
+              type="button"
+              onClick={() => item.action && onAction(item.action)}
+              className="flex w-full items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2.5 text-left transition hover:bg-white/[0.07]"
+            >
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-white truncate">{item.title}</p>
+                {item.subtitle ? <p className="text-xs text-white/50 truncate">{item.subtitle}</p> : null}
+                {item.meta ? <p className="text-xs text-white/70 truncate mt-0.5">{item.meta}</p> : null}
+              </div>
+              {item.badge ? (
+                <span
+                  className={cn(
+                    "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium",
+                    item.badgeColor === "green" && "bg-status-ok-soft text-status-ok-fg",
+                    item.badgeColor === "red" && "bg-status-danger-soft text-status-danger-fg",
+                    item.badgeColor === "blue" && "bg-status-info-soft text-status-info-fg",
+                    (item.badgeColor === "purple" || item.badgeColor === "violet") && "bg-tint-violet text-tint-violet-fg",
+                    (!item.badgeColor || item.badgeColor === "amber" || item.badgeColor === "yellow") && "bg-status-warn-soft text-status-warn-fg",
+                  )}
+                >
+                  {item.badge}
+                </span>
+              ) : null}
+              <ChevronRight className="h-4 w-4 shrink-0 text-white/30" />
+            </button>
+          );
+        })}
       </div>
     );
   }
@@ -1067,6 +1106,8 @@ export function AiHelpChatWidgetV2() {
   const skipMessageFetchRef = useRef<string | null>(null);
   const scrollDesktopRef = useRef<HTMLDivElement | null>(null);
   const scrollMobileRef = useRef<HTMLDivElement | null>(null);
+  const textareaDesktopRef = useRef<HTMLTextAreaElement | null>(null);
+  const textareaMobileRef = useRef<HTMLTextAreaElement | null>(null);
   const handleAction = (action: VisualCardItem["action"] | VisualSuggestionItem["action"] | undefined) => {
     if (!action) return;
     if (action.type === "navigate") {
@@ -1172,6 +1213,14 @@ export function AiHelpChatWidgetV2() {
     if (!el) return;
     el.scrollTop = el.scrollHeight;
   }, [messages, sending]);
+
+  useEffect(() => {
+    for (const el of [textareaDesktopRef.current, textareaMobileRef.current]) {
+      if (!el) continue;
+      el.style.height = "auto";
+      el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+    }
+  }, [input, open]);
 
   const startNewConversation = () => {
     setActiveConversationId(null);
@@ -1514,25 +1563,30 @@ export function AiHelpChatWidgetV2() {
       </div>
 
       <div className={cn("border-t border-white/[0.08] p-3", mobile && "pb-[calc(env(safe-area-inset-bottom)+0.75rem)]")}>
-        <div className="flex items-center gap-2">
-          <Input
+        <div className="flex items-end gap-2">
+          <textarea
+            ref={mobile ? textareaMobileRef : textareaDesktopRef}
+            rows={1}
             placeholder="Escribe tu pregunta..."
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                void sendMessage();
-              }
+              if (e.key !== "Enter") return;
+              if (e.nativeEvent.isComposing) return;
+              // Cmd+Enter / Ctrl+Enter / Shift+Enter inserta salto de línea (default).
+              if (e.metaKey || e.ctrlKey || e.shiftKey) return;
+              e.preventDefault();
+              void sendMessage();
             }}
-            className="bg-white/5 border-white/15 text-white placeholder:text-white/35"
+            autoComplete="off"
+            className="flex-1 resize-none rounded-md border border-white/15 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/35 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-status-info-border max-h-40 overflow-y-auto leading-snug"
           />
           <Button
             type="button"
             size="icon"
             onClick={() => void sendMessage()}
             disabled={sending || !input.trim()}
-            className="bg-gradient-to-br from-status-info to-status-ok text-white shadow-[0_8px_24px_rgba(16,185,129,0.25)]"
+            className="bg-gradient-to-br from-status-info to-status-ok text-white shadow-[0_8px_24px_rgba(16,185,129,0.25)] shrink-0"
           >
             {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           </Button>
