@@ -35,6 +35,8 @@ import {
 } from "@/components/ui/select";
 import { Loader2, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { BillingDocConfigForm } from "@/components/finance/billing-doc-config/BillingDocConfigForm";
+import { SignersManager } from "@/components/finance/billing-doc-config/SignersManager";
 
 // ── Types — todos los Dates llegan ya serializados como ISO string ────────
 
@@ -177,6 +179,8 @@ export function DteConfigClient({
         <TabsTrigger value="emisor">Datos del Emisor</TabsTrigger>
         <TabsTrigger value="certificado">Certificado Digital</TabsTrigger>
         <TabsTrigger value="folios">Folios (CAFs)</TabsTrigger>
+        <TabsTrigger value="docCobro">Documento de Cobro</TabsTrigger>
+        <TabsTrigger value="firmantes">Firmantes</TabsTrigger>
       </TabsList>
 
       {/* ── Tab 1: Datos del Emisor ───────────────────────────────────── */}
@@ -645,6 +649,16 @@ export function DteConfigClient({
             </div>
           </CardContent>
         </Card>
+      </TabsContent>
+
+      {/* ── Tab 4: Documento de Cobro (plantillas + branding + código verif) ── */}
+      <TabsContent value="docCobro" className="space-y-4">
+        <BillingDocConfigForm />
+      </TabsContent>
+
+      {/* ── Tab 5: Firmantes ─────────────────────────────────────────── */}
+      <TabsContent value="firmantes" className="space-y-4">
+        <SignersManager />
       </TabsContent>
     </Tabs>
   );

@@ -22,6 +22,7 @@ import { EmailHistoryList } from "./EmailHistoryList";
 import { EntityDetailLayout, useEntityTabs, type EntityTab, type EntityHeaderAction } from "./EntityDetailLayout";
 import { OnboardingAccountBanner } from "@/components/crm/onboarding/OnboardingAccountBanner";
 import { OnboardingClientModal } from "@/components/crm/onboarding/OnboardingClientModal";
+import { AccountBillingDocSection } from "@/components/crm/AccountBillingDocSection";
 import { DetailField } from "./DetailField";
 import { CrmRelatedRecordCard, CrmRelatedRecordGrid } from "./CrmRelatedRecordCard";
 import { AssociatedTicketsSection } from "./AssociatedTicketsSection";
@@ -174,6 +175,10 @@ type AccountDetail = {
   notes?: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
+  // ── Documento de Cobro ──
+  numeroOrdenContrato?: string | null;
+  contactoEstadoPagoId?: string | null;
+  layoutDocumentoCobro?: "DTE_PREVIEW" | "PROFORMA" | "ESTADO_DE_PAGO";
   contacts: ContactRow[];
   deals: DealRow[];
   installations: InstallationRow[];
@@ -1444,6 +1449,31 @@ export function CrmAccountDetailClient({
           </details>
         );
       })()}
+
+      {/* ── Documento de Cobro (colapsable) ── */}
+      <AccountBillingDocSection
+        accountId={account.id}
+        initialNumeroOrdenContrato={account.numeroOrdenContrato ?? null}
+        initialContactoEstadoPagoId={account.contactoEstadoPagoId ?? null}
+        initialLayoutDocumentoCobro={
+          account.layoutDocumentoCobro ?? "DTE_PREVIEW"
+        }
+        contacts={account.contacts.map((c) => ({
+          id: c.id,
+          firstName: c.firstName,
+          lastName: c.lastName,
+          email: c.email ?? null,
+          roleTitle: c.roleTitle ?? null,
+        }))}
+        onSaved={(next) =>
+          setAccount((prev) => ({
+            ...prev,
+            numeroOrdenContrato: next.numeroOrdenContrato,
+            contactoEstadoPagoId: next.contactoEstadoPagoId,
+            layoutDocumentoCobro: next.layoutDocumentoCobro,
+          }))
+        }
+      />
 
       {/* ── Metadata (colapsable) ── */}
       <details className="group rounded-xl border border-border bg-card">

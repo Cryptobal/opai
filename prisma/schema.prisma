@@ -161,20 +161,20 @@ model PendingSignup {
 /// Estado del first-run wizard (Welcome) por admin. Se inicializa al provisionar
 /// un tenant nuevo para el owner. Frontend en Noche 2.
 model AdminOnboardingState {
-  id                  String    @id @default(cuid())
-  adminId             String    @unique @map("admin_id")
-  welcomeStartedAt    DateTime? @map("welcome_started_at")
-  welcomeCompletedAt  DateTime? @map("welcome_completed_at")
-  welcomeSkippedAt    DateTime? @map("welcome_skipped_at")
-  logoUploaded        Boolean   @default(false) @map("logo_uploaded")
-  firstInstallation   Boolean   @default(false) @map("first_installation")
-  firstGuard          Boolean   @default(false) @map("first_guard")
-  firstInvite         Boolean   @default(false) @map("first_invite")
+  id                 String    @id @default(cuid())
+  adminId            String    @unique @map("admin_id")
+  welcomeStartedAt   DateTime? @map("welcome_started_at")
+  welcomeCompletedAt DateTime? @map("welcome_completed_at")
+  welcomeSkippedAt   DateTime? @map("welcome_skipped_at")
+  logoUploaded       Boolean   @default(false) @map("logo_uploaded")
+  firstInstallation  Boolean   @default(false) @map("first_installation")
+  firstGuard         Boolean   @default(false) @map("first_guard")
+  firstInvite        Boolean   @default(false) @map("first_invite")
   /// Si el usuario eligió "empezar con datos demo" en el wizard.
-  demoDataLoaded      Boolean   @default(false) @map("demo_data_loaded")
-  checklistDismissed  Boolean   @default(false) @map("checklist_dismissed")
-  createdAt           DateTime  @default(now()) @map("created_at")
-  updatedAt           DateTime  @updatedAt @map("updated_at")
+  demoDataLoaded     Boolean   @default(false) @map("demo_data_loaded")
+  checklistDismissed Boolean   @default(false) @map("checklist_dismissed")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
 
   admin Admin @relation(fields: [adminId], references: [id], onDelete: Cascade)
 
@@ -2105,8 +2105,21 @@ model CrmAccount {
   portalConfig            Json?     @map("portal_config")
   portalEjecutivoId       String?   @map("portal_ejecutivo_id")
   portalTourShown         Boolean   @default(false) @map("portal_tour_shown")
-  createdAt               DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt               DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // ── Documento de Cobro ──
+  /// Número de orden / contrato que el cliente quiere ver impreso en el
+  /// Estado de Pago (ej: "P05048"). Texto libre.
+  numeroOrdenContrato  String?               @map("numero_orden_contrato")
+  /// Contacto del cliente al que se envía por defecto el documento de
+  /// cobro (proforma/estado de pago). Si null, se usa el primer contacto
+  /// activo de la cuenta o el receiverEmail del DTE.
+  contactoEstadoPagoId String?               @map("contacto_estado_pago_id") @db.Uuid
+  contactoEstadoPago   CrmContact?           @relation("AccountEstadoPagoContact", fields: [contactoEstadoPagoId], references: [id], onDelete: SetNull)
+  /// Layout de PDF preferido por este cliente al enviar documento de cobro.
+  layoutDocumentoCobro BillingDocumentLayout @default(DTE_PREVIEW) @map("layout_documento_cobro")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   contacts               CrmContact[]
   deals                  CrmDeal[]
@@ -2123,6 +2136,7 @@ model CrmAccount {
   @@index([isActive], map: "idx_crm_accounts_is_active")
   @@index([tenantId, type], map: "idx_crm_accounts_type")
   @@index([createdAt(sort: Desc)], map: "idx_crm_accounts_created_desc")
+  @@index([tenantId, contactoEstadoPagoId], map: "idx_crm_accounts_contacto_estado_pago")
   @@map("accounts")
   @@schema("crm")
 }
@@ -2164,6 +2178,18 @@ enum CrmInstallationStatus {
   prospect
   active
   inactive
+
+  @@schema("crm")
+}
+
+/// Layout preferido por cada cliente para el documento de cobro.
+/// DTE_PREVIEW = vista previa estándar SII; PROFORMA = formato factura sin
+/// folio tributario (marca de agua); ESTADO_DE_PAGO = formato chileno
+/// estándar de servicios (columnas operativas, firmantes, código verif).
+enum BillingDocumentLayout {
+  DTE_PREVIEW
+  PROFORMA
+  ESTADO_DE_PAGO
 
   @@schema("crm")
 }
@@ -2292,6 +2318,7 @@ model CrmContact {
   updatedAt              DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   account                       CrmAccount                     @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  accountsEstadoPago            CrmAccount[]                   @relation("AccountEstadoPagoContact")
   deals                         CrmDeal[]                      @relation("crm_deal_primary_contact")
   dealContacts                  CrmDealContact[]
   companyPresentations          CrmCompanyPresentation[]
@@ -6055,13 +6082,13 @@ model FinanceAccountPlan {
   description    String?
   taxCode        String?              @map("tax_code")
 
-  journalLines    FinanceJournalLine[]
-  bankAccounts    FinanceBankAccount[]
-  dteLines        FinanceDteLine[]
-  supplierPayable FinanceSupplier[]     @relation("SupplierPayableAccount")
-  supplierExpense FinanceSupplier[]     @relation("SupplierExpenseAccount")
-  cashRegisters   FinanceCashRegister[]
-  bankTxLinks     FinanceBankTransactionLink[] @relation("BankTxLinkAccountPlan")
+  journalLines       FinanceJournalLine[]
+  bankAccounts       FinanceBankAccount[]
+  dteLines           FinanceDteLine[]
+  supplierPayable    FinanceSupplier[]            @relation("SupplierPayableAccount")
+  supplierExpense    FinanceSupplier[]            @relation("SupplierExpenseAccount")
+  cashRegisters      FinanceCashRegister[]
+  bankTxLinks        FinanceBankTransactionLink[] @relation("BankTxLinkAccountPlan")
   cashflowCategories FinanceCashflowCategory[]
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -6202,6 +6229,21 @@ enum FinanceSiiStatus {
   REJECTED
   WITH_OBJECTIONS
   ANNULLED
+
+  @@schema("finance")
+}
+
+/// Estado de envío del documento de cobro (Proforma / Estado de Pago).
+/// Independiente de `siiStatus`: un draft con `siiStatus=DRAFT` puede haber
+/// enviado proforma (`proformaStatus=SENT`) y al emitir al SII preserva el
+/// estado de proforma para auditoría histórica. VIEWED/APPROVED/REJECTED
+/// quedan listos para fase 2 (portal cliente con tracking).
+enum FinanceProformaStatus {
+  NONE
+  SENT
+  VIEWED
+  APPROVED
+  REJECTED
 
   @@schema("finance")
 }
@@ -6454,6 +6496,17 @@ model FinanceDte {
   amountPaid     Decimal              @default(0) @map("amount_paid") @db.Decimal(14, 2)
   amountPending  Decimal              @default(0) @map("amount_pending") @db.Decimal(14, 2)
 
+  // ── Proforma / Pre-factura / Estado de Pago ──
+  // Estado paralelo a siiStatus. Un draft que mandó proforma sigue
+  // siendo siiStatus=DRAFT pero con proformaStatus=SENT. Al emitir al
+  // SII, se preserva proformaStatus para auditoría histórica.
+  proformaStatus        FinanceProformaStatus @default(NONE) @map("proforma_status")
+  proformaSentAt        DateTime?             @map("proforma_sent_at") @db.Timestamptz(6)
+  proformaSentCount     Int                   @default(0) @map("proforma_sent_count")
+  /// Última variante enviada: "PROFORMA" | "ESTADO_DE_PAGO" | "DTE_PREVIEW"
+  proformaLastVariant   String?               @map("proforma_last_variant")
+  proformaLastRecipient String?               @map("proforma_last_recipient")
+
   notes     String?
   createdBy String  @map("created_by")
 
@@ -6477,6 +6530,7 @@ model FinanceDte {
   @@index([tenantId, accountId], map: "idx_finance_dte_account")
   @@index([tenantId, supplierId], map: "idx_finance_dte_supplier")
   @@index([tenantId, date], map: "idx_finance_dte_date")
+  @@index([tenantId, proformaStatus], map: "idx_finance_dte_proforma_status")
   @@map("finance_dtes")
   @@schema("finance")
 }
@@ -6504,6 +6558,17 @@ model FinanceDteLine {
   costCenterId        String?               @map("cost_center_id") @db.Uuid
   refuerzoSolicitudId String?               @map("refuerzo_solicitud_id") @db.Uuid
   refuerzoSolicitud   OpsRefuerzoSolicitud? @relation(fields: [refuerzoSolicitudId], references: [id], onDelete: SetNull)
+
+  /// Metadata específica para la variante "Estado de Pago" del documento de
+  /// cobro. Shape:
+  ///   { dias?: number,
+  ///     factorZona?: number,
+  ///     fechaEjecucion?: "YYYY-MM-DD",
+  ///     fechaReporteTrabajo?: "YYYY-MM-DD",
+  ///     fechaInformeTecnico?: "YYYY-MM-DD" }
+  /// Solo afecta el render del PDF (variante ESTADO_DE_PAGO). NO se envía
+  /// al SII ni se persiste en el XML del DTE.
+  estadoPagoMeta Json? @map("estado_pago_meta")
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
@@ -6549,12 +6614,12 @@ model FinanceDteAttachment {
   ///   - USER_UPLOAD: subido por el usuario en el formulario del DTE; se incluye
   ///     en el correo al receptor por defecto.
   ///   - OTHER: escape hatch.
-  kind     String @default("OTHER")
-  filename String
-  mimeType String @map("mime_type")
-  size     Int
+  kind       String  @default("OTHER")
+  filename   String
+  mimeType   String  @map("mime_type")
+  size       Int
   /// Bytes del archivo (legacy / inline). NULL en filas nuevas que viven en R2.
-  data     Bytes?
+  data       Bytes?
   /// Key del objeto en R2 (formato {tenantId}/finance/YYYY/MM/uuid.ext).
   /// NULL en filas legacy con `data` inline.
   storageKey String? @map("storage_key")
@@ -6809,16 +6874,16 @@ model FinanceBankAccount {
 /// cierre de una cartola importada, y derivar saldos calculados a otras
 /// fechas. Cada cambio queda como fila nueva (historial completo).
 model FinanceBankAccountBalance {
-  id            String                       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId      String                       @map("tenant_id")
-  bankAccountId String                       @map("bank_account_id") @db.Uuid
-  bankAccount   FinanceBankAccount           @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
-  asOfDate      DateTime                     @map("as_of_date") @db.Date
-  balance       Decimal                      @db.Decimal(14, 2)
-  source        FinanceBalanceSource         @default(MANUAL)
+  id            String               @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId      String               @map("tenant_id")
+  bankAccountId String               @map("bank_account_id") @db.Uuid
+  bankAccount   FinanceBankAccount   @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+  asOfDate      DateTime             @map("as_of_date") @db.Date
+  balance       Decimal              @db.Decimal(14, 2)
+  source        FinanceBalanceSource @default(MANUAL)
   note          String?
-  createdById   String?                      @map("created_by") @db.Uuid
-  createdAt     DateTime                     @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdById   String?              @map("created_by") @db.Uuid
+  createdAt     DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
 
   @@index([tenantId, bankAccountId, asOfDate], map: "idx_finance_bank_balance_date")
   @@map("finance_bank_account_balances")
@@ -6864,16 +6929,16 @@ enum FinanceBalanceSource {
 ///     requiresReview: boolean
 ///   }
 model FinanceAutoMatchRule {
-  id           String                 @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId     String                 @map("tenant_id")
-  name         String
-  enabled      Boolean                @default(true)
+  id         String                @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId   String                @map("tenant_id")
+  name       String
+  enabled    Boolean               @default(true)
   /// Menor número = mayor prioridad. Si dos reglas matchean, gana la de
   /// menor priority. Default 100.
-  priority     Int                    @default(100)
-  appliesTo    FinanceAutoMatchScope  @default(BOTH) @map("applies_to")
-  conditions   Json
-  action       Json
+  priority   Int                   @default(100)
+  appliesTo  FinanceAutoMatchScope @default(BOTH) @map("applies_to")
+  conditions Json
+  action     Json
 
   /// Stats running para mostrar en la UI lista de reglas.
   timesMatched  Int       @default(0) @map("times_matched")
@@ -7298,19 +7363,19 @@ model FinanceCashflowConfig {
 
 /// Catálogo de categorías de flujo de caja por tenant.
 model FinanceCashflowCategory {
-  id            String                 @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId      String                 @map("tenant_id")
+  id            String                  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId      String                  @map("tenant_id")
   code          String
   name          String
   kind          FinanceCashflowItemKind
-  sortOrder     Int                    @default(100) @map("sort_order")
+  sortOrder     Int                     @default(100) @map("sort_order")
   color         String?
-  accountPlanId String?                @map("account_plan_id") @db.Uuid
-  accountPlan   FinanceAccountPlan?    @relation(fields: [accountPlanId], references: [id])
-  isActive      Boolean                @default(true) @map("is_active")
-  isSystem      Boolean                @default(false) @map("is_system")
-  createdAt     DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt     DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
+  accountPlanId String?                 @map("account_plan_id") @db.Uuid
+  accountPlan   FinanceAccountPlan?     @relation(fields: [accountPlanId], references: [id])
+  isActive      Boolean                 @default(true) @map("is_active")
+  isSystem      Boolean                 @default(false) @map("is_system")
+  createdAt     DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   items FinanceCashflowItem[]
 
@@ -7322,42 +7387,42 @@ model FinanceCashflowCategory {
 
 /// Regla maestra de un movimiento proyectado.
 model FinanceCashflowItem {
-  id            String                       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId      String                       @map("tenant_id")
-  categoryId    String                       @map("category_id") @db.Uuid
-  category      FinanceCashflowCategory      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  kind          FinanceCashflowItemKind
-  source        FinanceCashflowItemSource    @default(MANUAL)
-  sourceRefId   String?                      @map("source_ref_id") @db.Uuid
+  id          String                    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId    String                    @map("tenant_id")
+  categoryId  String                    @map("category_id") @db.Uuid
+  category    FinanceCashflowCategory   @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  kind        FinanceCashflowItemKind
+  source      FinanceCashflowItemSource @default(MANUAL)
+  sourceRefId String?                   @map("source_ref_id") @db.Uuid
 
-  name          String
-  description   String?
+  name        String
+  description String?
 
-  amount        Decimal                      @db.Decimal(14, 2)
-  currency      String                       @default("CLP")
-  ufFixingPolicy String?                     @map("uf_fixing_policy")
-  ufFixingDay   Int?                         @map("uf_fixing_day")
+  amount         Decimal @db.Decimal(14, 2)
+  currency       String  @default("CLP")
+  ufFixingPolicy String? @map("uf_fixing_policy")
+  ufFixingDay    Int?    @map("uf_fixing_day")
 
-  recurrence    FinanceCashflowRecurrence
-  dayOfMonth    Int?                         @map("day_of_month")
-  dayOfWeek     Int?                         @map("day_of_week")
-  monthOfYear   Int?                         @map("month_of_year")
+  recurrence  FinanceCashflowRecurrence
+  dayOfMonth  Int?                      @map("day_of_month")
+  dayOfWeek   Int?                      @map("day_of_week")
+  monthOfYear Int?                      @map("month_of_year")
 
-  startDate     DateTime                     @map("start_date") @db.Date
-  endDate       DateTime?                    @map("end_date") @db.Date
+  startDate DateTime  @map("start_date") @db.Date
+  endDate   DateTime? @map("end_date") @db.Date
 
-  installationId String?                     @map("installation_id") @db.Uuid
-  crmAccountId   String?                     @map("crm_account_id") @db.Uuid
-  supplierId     String?                     @map("supplier_id") @db.Uuid
+  installationId String? @map("installation_id") @db.Uuid
+  crmAccountId   String? @map("crm_account_id") @db.Uuid
+  supplierId     String? @map("supplier_id") @db.Uuid
 
-  isActive      Boolean                      @default(true) @map("is_active")
-  notes         String?
+  isActive Boolean @default(true) @map("is_active")
+  notes    String?
 
-  createdBy     String?                      @map("created_by")
-  createdAt     DateTime                     @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt     DateTime                     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdBy String?  @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  occurrences   FinanceCashflowOccurrence[]
+  occurrences FinanceCashflowOccurrence[]
 
   @@index([tenantId, isActive, kind], map: "idx_cashflow_item_tenant_active")
   @@index([categoryId], map: "idx_cashflow_item_category")
@@ -8244,21 +8309,21 @@ model ChatChannelArchive {
 // ══════════════════════════════════════════════════════════════
 
 model AccessControlConfig {
-  id                  String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId            String   @map("tenant_id")
-  installationId      String   @unique @map("installation_id") @db.Uuid
-  enabledRecordTypes  String[] @default([]) @map("enabled_record_types") // ['visit','provider','vehicle','staff','delivery']
-  useWhitelist        Boolean  @default(false) @map("use_whitelist")
-  useBlacklist        Boolean  @default(false) @map("use_blacklist")
-  requireIdValidation Boolean  @default(false) @map("require_id_validation")
-  requirePhoto        Boolean  @default(false) @map("require_photo")
-  requireSignature    Boolean  @default(false) @map("require_signature")
-  maxStayHours        Int?     @map("max_stay_hours")
-  autoReportSchedule    String?   @map("auto_report_schedule") // 'daily','weekly','monthly'
-  autoReportLastSentAt  DateTime? @map("auto_report_last_sent_at") @db.Timestamptz(6)
-  formConfig            Json      @default("{}") @map("form_config") @db.JsonB
-  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                   String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId             String    @map("tenant_id")
+  installationId       String    @unique @map("installation_id") @db.Uuid
+  enabledRecordTypes   String[]  @default([]) @map("enabled_record_types") // ['visit','provider','vehicle','staff','delivery']
+  useWhitelist         Boolean   @default(false) @map("use_whitelist")
+  useBlacklist         Boolean   @default(false) @map("use_blacklist")
+  requireIdValidation  Boolean   @default(false) @map("require_id_validation")
+  requirePhoto         Boolean   @default(false) @map("require_photo")
+  requireSignature     Boolean   @default(false) @map("require_signature")
+  maxStayHours         Int?      @map("max_stay_hours")
+  autoReportSchedule   String?   @map("auto_report_schedule") // 'daily','weekly','monthly'
+  autoReportLastSentAt DateTime? @map("auto_report_last_sent_at") @db.Timestamptz(6)
+  formConfig           Json      @default("{}") @map("form_config") @db.JsonB
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   installation CrmInstallation @relation(fields: [installationId], references: [id], onDelete: Cascade)
 
@@ -8394,14 +8459,14 @@ model AccessControlDeniedAttempt {
 }
 
 model AccessControlPreregistration {
-  id               String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId         String   @map("tenant_id")
-  installationId   String   @map("installation_id") @db.Uuid
-  visitorRut       String   @map("visitor_rut")
-  visitorName      String   @map("visitor_name")
-  visitorCompany   String?  @map("visitor_company")
-  hostName         String?  @map("host_name")
-  hostContact      String?  @map("host_contact")
+  id               String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId         String    @map("tenant_id")
+  installationId   String    @map("installation_id") @db.Uuid
+  visitorRut       String    @map("visitor_rut")
+  visitorName      String    @map("visitor_name")
+  visitorCompany   String?   @map("visitor_company")
+  hostName         String?   @map("host_name")
+  hostContact      String?   @map("host_contact")
   expectedDate     DateTime  @map("expected_date") @db.Date
   expectedEndDate  DateTime? @map("expected_end_date") @db.Date
   expectedTimeFrom String?   @map("expected_time_from")
@@ -8409,11 +8474,11 @@ model AccessControlPreregistration {
   vehiclePlate     String?   @map("vehicle_plate")
   purpose          String?
   recordType       String    @default("visit") @map("record_type")
-  status           String   @default("pending") // 'pending','checked_in','checked_out','no_show','cancelled'
-  createdBy        String?  @map("created_by")
-  createdByClient  Boolean  @default(false) @map("created_by_client")
-  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  status           String    @default("pending") // 'pending','checked_in','checked_out','no_show','cancelled'
+  createdBy        String?   @map("created_by")
+  createdByClient  Boolean   @default(false) @map("created_by_client")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   installation CrmInstallation       @relation(fields: [installationId], references: [id], onDelete: Cascade)
   records      AccessControlRecord[]
@@ -10014,9 +10079,9 @@ model ClientOnboardingStep {
 // ═══════════════════════════════════════════════════════════════
 
 model TenantDteConfig {
-  id          String  @id @default(cuid())
-  tenantId    String  @unique @map("tenant_id")
-  provider    String  @default("SIMPLEAPI") // SIMPLEAPI | SIMPLEFACTURA | STUB
+  id              String @id @default(cuid())
+  tenantId        String @unique @map("tenant_id")
+  provider        String @default("SIMPLEAPI") // SIMPLEAPI | SIMPLEFACTURA | STUB
   /// Provider para CESIÓN electrónica (AEC). Independiente del campo
   /// `provider` (que controla emisión de DTE).
   ///   - "SII_DIRECT" (default): builder/signer/sender propio → directo al SII RTC.
@@ -10028,20 +10093,20 @@ model TenantDteConfig {
   /// Default SII_DIRECT porque el plan SimpleAPI básico (que tiene la mayoría de
   /// tenants, incluyendo Gard) NO incluye cesión electrónica — el endpoint
   /// `/api/v1/dte/cesion/generar` devuelve HTTP 404 con esas apikeys.
-  cessionProvider String  @default("SII_DIRECT") @map("cession_provider")
+  cessionProvider String @default("SII_DIRECT") @map("cession_provider")
 
   // ── Octava cesión-as-a-service (cuando cessionProvider="OCTAVA") ──
   /// Password de acceso a la API Octava (devuelta por RegistraCedente).
   /// Se persiste cifrada para no quemar quota de RegistraCedente en cada cesión.
   /// Cifrado con `dte-encryption.encryptString`.
-  octavaPassAccesoApiEnc Bytes? @map("octava_pass_acceso_api_enc")
+  octavaPassAccesoApiEnc Bytes?    @map("octava_pass_acceso_api_enc")
   /// Token activo de Octava (TTL 6h). Cacheado para evitar TDUP en ObtenerToken.
   octavaToken            String?   @map("octava_token") @db.Text
   octavaTokenExpiresAt   DateTime? @map("octava_token_expires_at") @db.Timestamptz(6)
   /// Última fecha en que registramos al cedente en Octava.
   octavaRegisteredAt     DateTime? @map("octava_registered_at") @db.Timestamptz(6)
-  environment String  @default("CERTIFICATION") // CERTIFICATION | PRODUCTION
-  isActive    Boolean @default(false) @map("is_active")
+  environment            String    @default("CERTIFICATION") // CERTIFICATION | PRODUCTION
+  isActive               Boolean   @default(false) @map("is_active")
 
   // Datos del emisor (para construir Encabezado del DTE)
   emisorRut         String? @map("emisor_rut")
@@ -10083,6 +10148,28 @@ model TenantDteConfig {
   emailTemplateSubject String? @map("email_template_subject") @db.Text
   emailTemplateBody    String? @map("email_template_body") @db.Text
 
+  // ── Documento de Cobro: plantillas de email branded ──
+  // Si null, se usan defaults internos del servicio sendBillingDocument.
+  // Tokens permitidos en subject/intro: {{razonSocial}} {{folio}} {{tipo}}
+  // {{total}} {{fecha}} {{receiverName}} {{numeroOrdenContrato}} {{periodo}}.
+  proformaEmailSubject   String? @map("proforma_email_subject") @db.Text
+  proformaEmailIntro     String? @map("proforma_email_intro") @db.Text
+  estadoPagoEmailSubject String? @map("estado_pago_email_subject") @db.Text
+  estadoPagoEmailIntro   String? @map("estado_pago_email_intro") @db.Text
+  estadoPagoFooterLegal  String? @map("estado_pago_footer_legal") @db.Text
+
+  // Override de colores de marca para el documento de cobro. Si null, se
+  // usa brandingPrimaryColor / brandingSecondaryColor del Setting
+  // empresa.* del tenant. Útil cuando finanzas quiere un color distinto
+  // al de la app.
+  billingDocBrandPrimary   String? @map("billing_doc_brand_primary")
+  billingDocBrandSecondary String? @map("billing_doc_brand_secondary")
+
+  /// Plantilla del código de verificación que se imprime en el Estado
+  /// de Pago. Tokens disponibles: {{year}}, {{month}}, {{folio}},
+  /// {{accountSlug}}, {{installationSlug}}.
+  verificationCodeTemplate String @default("EP-{{year}}{{month}}-{{folio}}") @map("verification_code_template")
+
   // Última sincronización RCV (compras = DTEs RECIBIDOS).
   lastRcvSyncAt       DateTime? @map("last_rcv_sync_at")
   // Última sincronización RCV ventas (DTEs EMITIDOS desde el SII).
@@ -10116,6 +10203,26 @@ model TenantDteCertificate {
   @@index([tenantId], map: "idx_tenant_dte_cert_tenant")
   @@index([notAfter], map: "idx_tenant_dte_cert_expiry")
   @@map("tenant_dte_certificates")
+  @@schema("public")
+}
+
+/// Firmantes parametrizables que aparecen al pie del Estado de Pago /
+/// Proforma. Cada tenant puede tener entre 1 y 3 firmantes activos.
+/// `signatureStorageKey` apunta a un PNG/JPG en R2 con la firma manuscrita;
+/// si es null, en el PDF se imprime solo nombre + cargo + línea.
+model TenantBillingSigner {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()::text"))
+  tenantId            String   @map("tenant_id")
+  name                String
+  role                String
+  signatureStorageKey String?  @map("signature_storage_key")
+  displayOrder        Int      @default(0) @map("display_order")
+  isActive            Boolean  @default(true) @map("is_active")
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([tenantId, isActive, displayOrder], map: "idx_tenant_billing_signers_tenant")
+  @@map("tenant_billing_signers")
   @@schema("public")
 }
 

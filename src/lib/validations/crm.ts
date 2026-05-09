@@ -139,6 +139,12 @@ export const updateAccountSchema = z.object({
   notaryDate: z.string().trim().max(50).optional().nullable(),
   notes: z.string().trim().max(20000).optional().nullable(),
   logoUrl: z.string().trim().max(1000).optional().nullable(),
+  // ── Documento de Cobro ──
+  numeroOrdenContrato: z.string().trim().max(60).optional().nullable(),
+  contactoEstadoPagoId: z.string().uuid("contactoEstadoPagoId inválido").optional().nullable(),
+  layoutDocumentoCobro: z
+    .enum(["DTE_PREVIEW", "PROFORMA", "ESTADO_DE_PAGO"])
+    .optional(),
 });
 
 // ── Contact ──
