@@ -53,6 +53,18 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
   const incomeRows = projection.rows.filter((r) => r.kind === "INCOME");
   const expenseRows = projection.rows.filter((r) => r.kind === "EXPENSE");
 
+  const actualByCellKey = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const b of projection.buckets) {
+      for (const occ of b.occurrences) {
+        if (occ.actualAmountClp === null) continue;
+        const cellKey = `${occ.categoryId ?? "_"}_${b.key}`;
+        m.set(cellKey, (m.get(cellKey) ?? 0) + occ.actualAmountClp);
+      }
+    }
+    return m;
+  }, [projection]);
+
   async function handleAutoMatch() {
     setMatching(true);
     try {
@@ -134,13 +146,13 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
             <tbody>
               <SectionHeader label="Ingresos" colSpan={colCount} tone="ok" />
               {incomeRows.map((r) => (
-                <MatrixRow key={r.categoryCode} row={r} />
+                <MatrixRow key={r.categoryCode} row={r} actualByCellKey={actualByCellKey} buckets={projection.buckets} />
               ))}
               <SubtotalRow label="Total ingresos" rows={incomeRows} buckets={projection.buckets} tone="ok" />
 
               <SectionHeader label="Egresos" colSpan={colCount} tone="warn" />
               {expenseRows.map((r) => (
-                <MatrixRow key={r.categoryCode} row={r} />
+                <MatrixRow key={r.categoryCode} row={r} actualByCellKey={actualByCellKey} buckets={projection.buckets} />
               ))}
               <SubtotalRow label="Total egresos" rows={expenseRows} buckets={projection.buckets} tone="warn" />
             </tbody>

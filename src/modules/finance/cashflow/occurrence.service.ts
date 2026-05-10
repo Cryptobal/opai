@@ -116,3 +116,48 @@ export async function linkOccurrenceToBankTx(
     },
   });
 }
+
+/**
+ * Reagenda una ocurrencia materializada a una nueva fecha.
+ *
+ * Reglas:
+ *  - La ocurrencia debe pertenecer al tenant.
+ *  - No se pueden mover ocurrencias ya pagadas/conciliadas (status=PAID).
+ *  - No puede chocar con otra ocurrencia del mismo item en la fecha destino
+ *    (la unique [itemId, scheduledDate] del schema lo impediría igual; acá
+ *    devolvemos un error claro antes de invocar a Prisma).
+ *
+ * Actualiza tanto `scheduledDate` como `effectiveDate` para mantener
+ * consistencia con el flujo de matching.
+ */
+export async function moveOccurrence(
+  tenantId: string,
+  id: string,
+  newDate: Date,
+): Promise<void> {
+  const existing = await prisma.financeCashflowOccurrence.findFirst({
+    where: { id, tenantId },
+    select: { id: true, itemId: true, scheduledDate: true, status: true },
+  });
+  if (!existing) {
+    throw new Error("Ocurrencia no encontrada");
+  }
+  if (existing.status === "PAID") {
+    throw new Error("No se puede mover una ocurrencia ya pagada/conciliada");
+  }
+  const collision = await prisma.financeCashflowOccurrence.findFirst({
+    where: {
+      tenantId,
+      itemId: existing.itemId,
+      scheduledDate: newDate,
+    },
+    select: { id: true },
+  });
+  if (collision && collision.id !== id) {
+    throw new Error("Ya existe una ocurrencia de este ítem en esa fecha");
+  }
+  await prisma.financeCashflowOccurrence.update({
+    where: { id },
+    data: { scheduledDate: newDate, effectiveDate: newDate },
+  });
+}

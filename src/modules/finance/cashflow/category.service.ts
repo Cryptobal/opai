@@ -33,12 +33,42 @@ export const SYSTEM_CATEGORIES: Array<{
 ];
 
 export async function seedSystemCategoriesForTenant(tenantId: string): Promise<void> {
+  // Imports dinámicos para evitar ciclo: category-account-defaults y
+  // categoryAccount.service no dependen de category.service, pero
+  // category.service las necesita aquí.
+  const { DEFAULT_CATEGORY_ACCOUNT_MAP } = await import("./category-account-defaults");
+  const { setMappingsForCategory } = await import("./categoryAccount.service");
+
   for (const c of SYSTEM_CATEGORIES) {
-    await prisma.financeCashflowCategory.upsert({
+    const cat = await prisma.financeCashflowCategory.upsert({
       where: { tenantId_code: { tenantId, code: c.code } },
       update: { name: c.name, sortOrder: c.sortOrder, color: c.color, isSystem: true, kind: c.kind },
       create: { tenantId, ...c, isSystem: true, isActive: true },
     });
+
+    // Solo seed mappings si la categoría no tiene aún ninguno (preserva
+    // edits del usuario que ya configuró cuentas para sus categorías).
+    const existingMappings = await prisma.financeCashflowCategoryAccount.count({
+      where: { tenantId, categoryId: cat.id },
+    });
+    if (existingMappings > 0) continue;
+
+    const codes = DEFAULT_CATEGORY_ACCOUNT_MAP[c.code];
+    if (!codes || codes.length === 0) continue;
+
+    const accounts = await prisma.financeAccountPlan.findMany({
+      where: { tenantId, code: { in: codes } },
+      select: { id: true, code: true },
+    });
+    // Mantener el orden definido en DEFAULT_CATEGORY_ACCOUNT_MAP. Saltear
+    // códigos que no existen en el plan de cuentas del tenant (ej: tenant
+    // que no ha hecho seed completo del plan contable estándar).
+    const orderedIds = codes
+      .map((code) => accounts.find((a) => a.code === code)?.id)
+      .filter((id): id is string => !!id);
+    if (orderedIds.length > 0) {
+      await setMappingsForCategory(tenantId, cat.id, orderedIds);
+    }
   }
 }
 

@@ -6,6 +6,7 @@ import { Wallet } from "lucide-react";
 import { getOrCreateCashflowConfig } from "@/modules/finance/cashflow/config.service";
 import { listCategories } from "@/modules/finance/cashflow/category.service";
 import { CashflowConfigClient } from "@/components/finance/cashflow/CashflowConfigClient";
+import { prisma } from "@/lib/prisma";
 
 export default async function CashflowConfigPage() {
   const session = await auth();
@@ -23,6 +24,12 @@ export default async function CashflowConfigPage() {
     listCategories(tenantId),
   ]);
 
+  const accountOptions = await prisma.financeAccountPlan.findMany({
+    where: { tenantId, isActive: true, acceptsEntries: true },
+    select: { id: true, code: true, name: true },
+    orderBy: { code: "asc" },
+  });
+
   return (
     <ConfigPageLayout
       icon={<Wallet className="h-[18px] w-[18px]" />}
@@ -32,6 +39,7 @@ export default async function CashflowConfigPage() {
       <CashflowConfigClient
         initialConfig={JSON.parse(JSON.stringify(config))}
         initialCategories={JSON.parse(JSON.stringify(categories))}
+        accountOptions={accountOptions}
       />
     </ConfigPageLayout>
   );

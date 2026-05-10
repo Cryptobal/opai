@@ -21,8 +21,93 @@ import { projectPayrollFromDotacion } from "./generators/payroll-from-dotacion";
 import { projectTurnosExtraFromHistory } from "./generators/turnos-extra-from-history";
 import { projectIvaFromDte } from "./generators/iva-from-dte";
 import { projectRecurringDtes } from "./generators/recurring-dte";
+import { matchOccurrencesToBankLinks, type BankLinkSlim } from "./account-matcher";
+import { resolveCategoryForLink } from "./category-resolver";
+import { bulkResolveCategoriesFromAccounts } from "./categoryAccount.service";
 
 type CategoryLite = Pick<FinanceCashflowCategory, "id" | "code" | "name" | "kind" | "sortOrder">;
+
+async function loadResolvedBankLinks(
+  tenantId: string,
+  range: ProjectionRange,
+  categoryByCode: Map<string, CategoryLite>,
+): Promise<BankLinkSlim[]> {
+  const links = await prisma.financeBankTransactionLink.findMany({
+    where: {
+      tenantId,
+      bankTransaction: {
+        transactionDate: { gte: range.from, lte: range.to },
+        hiddenAt: null,
+      },
+    },
+    select: {
+      id: true,
+      bankTransactionId: true,
+      targetType: true,
+      targetId: true,
+      amount: true,
+      accountPlanId: true,
+      bankTransaction: { select: { transactionDate: true } },
+    },
+  });
+
+  // Recolectar todos los account ids relevantes (links directos + DTE lines)
+  const directAccountIds = new Set<string>();
+  for (const l of links) if (l.accountPlanId) directAccountIds.add(l.accountPlanId);
+
+  const dteIds = links
+    .filter(
+      (l) =>
+        (l.targetType === "DTE_ISSUED" || l.targetType === "DTE_RECEIVED") && l.targetId,
+    )
+    .map((l) => l.targetId!) as string[];
+
+  const dteLines =
+    dteIds.length > 0
+      ? await prisma.financeDteLine.findMany({
+          where: { dteId: { in: dteIds } },
+          select: { dteId: true, accountId: true },
+        })
+      : [];
+  for (const dl of dteLines) if (dl.accountId) directAccountIds.add(dl.accountId);
+
+  const accountToCategory = await bulkResolveCategoriesFromAccounts(
+    tenantId,
+    Array.from(directAccountIds),
+  );
+
+  // Atajos para payroll / TE — resolver una vez por request
+  const sueldoCat = categoryByCode.get("EGR_SUELDO");
+  const turnoExtraCat = categoryByCode.get("EGR_TURNO_EXTRA");
+  const anticipoCat = categoryByCode.get("EGR_QUINCENA");
+
+  const resolved: BankLinkSlim[] = [];
+  for (const l of links) {
+    const dteAccountIds =
+      (l.targetType === "DTE_ISSUED" || l.targetType === "DTE_RECEIVED") && l.targetId
+        ? dteLines
+            .filter((dl) => dl.dteId === l.targetId && dl.accountId)
+            .map((dl) => dl.accountId!)
+        : [];
+    const cat = resolveCategoryForLink({
+      targetType: l.targetType,
+      accountPlanId: l.accountPlanId,
+      dteAccountIds,
+      accountToCategory,
+      payrollSueldoCategoryId: sueldoCat?.id ?? null,
+      payrollTurnoExtraCategoryId: turnoExtraCat?.id ?? null,
+      payrollAnticipoCategoryId: anticipoCat?.id ?? null,
+    });
+    if (!cat) continue;
+    resolved.push({
+      bankTransactionId: l.bankTransactionId,
+      transactionDate: l.bankTransaction.transactionDate,
+      amountClp: Math.abs(Number(l.amount)),
+      categoryId: cat.id,
+    });
+  }
+  return resolved;
+}
 
 export async function buildProjection(
   tenantId: string,
@@ -119,6 +204,33 @@ export async function buildProjection(
     allOccurrences.push(...(await projectRecurringDtes(tenantId, range, codeToCategory)));
   }
 
+  // Inicializar campos de varianza en todas las ocurrencias
+  for (const occ of allOccurrences) {
+    occ.actualAmountClp = null;
+    occ.varianceClp = null;
+  }
+
+  // Aplicar matcher account-driven con bank links ya conciliados
+  const bankLinks = await loadResolvedBankLinks(tenantId, range, codeToCategory);
+  const matched = await matchOccurrencesToBankLinks(allOccurrences, bankLinks, {
+    matchDaysTolerance: config.matchDaysTolerance,
+  });
+
+  // Mergear actualizaciones de matched de vuelta en allOccurrences
+  const matchedByItemDate = new Map<string, VirtualOccurrence>();
+  for (const m of matched) {
+    if (m.itemId) {
+      matchedByItemDate.set(`${m.itemId}|${m.scheduledDate.toISOString().slice(0, 10)}`, m);
+    }
+  }
+  for (let i = 0; i < allOccurrences.length; i++) {
+    const occ = allOccurrences[i];
+    if (!occ.itemId) continue;
+    const key = `${occ.itemId}|${occ.scheduledDate.toISOString().slice(0, 10)}`;
+    const m = matchedByItemDate.get(key);
+    if (m) allOccurrences[i] = m;
+  }
+
   const buckets = buildBuckets(range);
   const bucketIndex = new Map(buckets.map((b, i) => [b.key, i]));
 
@@ -127,9 +239,16 @@ export async function buildProjection(
     const idx = bucketIndex.get(key);
     if (idx === undefined) continue;
     const b = buckets[idx];
-    if (occ.kind === "INCOME") b.income += occ.amountClp;
-    else b.expense += occ.amountClp;
+    if (occ.kind === "INCOME") {
+      b.income += occ.amountClp;
+      if (occ.actualAmountClp !== null) b.actualIncome += occ.actualAmountClp;
+    } else {
+      b.expense += occ.amountClp;
+      if (occ.actualAmountClp !== null) b.actualExpense += occ.actualAmountClp;
+    }
     b.net = b.income - b.expense;
+    // varianza neta del bucket: (real ingresos − proyectados) − (real egresos − proyectados)
+    b.varianceClp = (b.actualIncome - b.income) - (b.actualExpense - b.expense);
     b.occurrences.push(occ);
   }
 
@@ -151,6 +270,9 @@ export async function buildProjection(
       totalIncome: buckets.reduce((s, b) => s + b.income, 0),
       totalExpense: buckets.reduce((s, b) => s + b.expense, 0),
       totalNet: buckets.reduce((s, b) => s + b.net, 0),
+      totalActualIncome: buckets.reduce((s, b) => s + b.actualIncome, 0),
+      totalActualExpense: buckets.reduce((s, b) => s + b.actualExpense, 0),
+      totalVariance: buckets.reduce((s, b) => s + b.varianceClp, 0),
     },
     openingBalanceClp: opening,
     cumulativeBalances,
@@ -166,7 +288,19 @@ function buildBuckets(range: ProjectionRange): ProjectionBucket[] {
     if (seen.has(k)) continue;
     seen.add(k);
     const { start, end, label } = bucketBoundsFor(d, range.granularity);
-    buckets.push({ key: k, label, start, end, income: 0, expense: 0, net: 0, occurrences: [] });
+    buckets.push({
+      key: k,
+      label,
+      start,
+      end,
+      income: 0,
+      expense: 0,
+      net: 0,
+      actualIncome: 0,
+      actualExpense: 0,
+      varianceClp: 0,
+      occurrences: [],
+    });
   }
   return buckets.sort((a, b) => a.start.getTime() - b.start.getTime());
 }

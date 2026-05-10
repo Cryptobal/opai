@@ -6082,14 +6082,15 @@ model FinanceAccountPlan {
   description    String?
   taxCode        String?              @map("tax_code")
 
-  journalLines       FinanceJournalLine[]
-  bankAccounts       FinanceBankAccount[]
-  dteLines           FinanceDteLine[]
-  supplierPayable    FinanceSupplier[]            @relation("SupplierPayableAccount")
-  supplierExpense    FinanceSupplier[]            @relation("SupplierExpenseAccount")
-  cashRegisters      FinanceCashRegister[]
-  bankTxLinks        FinanceBankTransactionLink[] @relation("BankTxLinkAccountPlan")
-  cashflowCategories FinanceCashflowCategory[]
+  journalLines             FinanceJournalLine[]
+  bankAccounts             FinanceBankAccount[]
+  dteLines                 FinanceDteLine[]
+  supplierPayable          FinanceSupplier[]                @relation("SupplierPayableAccount")
+  supplierExpense          FinanceSupplier[]                @relation("SupplierExpenseAccount")
+  cashRegisters            FinanceCashRegister[]
+  bankTxLinks              FinanceBankTransactionLink[]     @relation("BankTxLinkAccountPlan")
+  cashflowCategories       FinanceCashflowCategory[]
+  cashflowCategoryAccounts FinanceCashflowCategoryAccount[] @relation("CashflowCategoryAccountMap")
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -7377,11 +7378,31 @@ model FinanceCashflowCategory {
   createdAt     DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  items FinanceCashflowItem[]
+  items           FinanceCashflowItem[]
+  accountMappings FinanceCashflowCategoryAccount[] @relation("CashflowCategoryAccountByCategory")
 
   @@unique([tenantId, code], map: "uq_cashflow_category_code")
   @@index([tenantId, isActive], map: "idx_cashflow_category_tenant")
   @@map("finance_cashflow_categories")
+  @@schema("finance")
+}
+
+/// Mapeo N:M entre categorías de flujo de caja y cuentas del plan de cuentas.
+/// Una categoría puede agrupar varias cuentas contables; una cuenta puede
+/// pertenecer a varias categorías (raro pero permitido para reglas especiales).
+model FinanceCashflowCategoryAccount {
+  id            String                   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId      String                   @map("tenant_id")
+  categoryId    String                   @map("category_id") @db.Uuid
+  category      FinanceCashflowCategory  @relation("CashflowCategoryAccountByCategory", fields: [categoryId], references: [id], onDelete: Cascade)
+  accountPlanId String                   @map("account_plan_id") @db.Uuid
+  accountPlan   FinanceAccountPlan       @relation("CashflowCategoryAccountMap", fields: [accountPlanId], references: [id], onDelete: Cascade)
+  isPrimary     Boolean                  @default(false) @map("is_primary")
+  createdAt     DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([categoryId, accountPlanId], map: "uq_cashflow_cat_account")
+  @@index([tenantId, accountPlanId], map: "idx_cashflow_cat_account_tenant_account")
+  @@map("finance_cashflow_category_accounts")
   @@schema("finance")
 }
 
