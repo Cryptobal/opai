@@ -159,7 +159,7 @@ export function ExpandableMatrixRow({
             )}
             <span className="truncate">{row.categoryName}</span>
             {hasItems && (
-              <span className="text-[10px] text-ds-text-3 shrink-0">
+              <span className="text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4 shrink-0">
                 ({row.items.length})
               </span>
             )}
