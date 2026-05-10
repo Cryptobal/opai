@@ -1,10 +1,4 @@
-// DEPRECATED 2026-05-10: La verificación ahora vive en
-// src/app/(marketing)/verify-signup/page.tsx para que la URL pública sea
-// /verify-signup (sin el prefijo /api/). Antes el email apuntaba a una ruta
-// inexistente y el PendingSignup nunca se promovía a Tenant.
-// Este endpoint se mantiene como fallback para emails enviados antes del fix.
-// Eliminar después de 30 días si no hay tráfico.
-import { NextRequest, NextResponse } from "next/server";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { provisionTenant } from "@/lib/tenant-provisioning";
 import {
@@ -16,6 +10,11 @@ import { logAudit } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
+
+export const metadata = {
+  title: "Verificando tu cuenta — Opai",
+  robots: { index: false, follow: false },
+};
 
 interface SiiRawShape {
   fechaInicioActividades?: string;
@@ -33,35 +32,45 @@ function pickSiiSummary(raw: unknown): PlatformAlertSiiData | null {
   };
 }
 
-export async function GET(request: NextRequest) {
-  const token = request.nextUrl.searchParams.get("token");
+function isNextRedirectError(error: unknown): boolean {
+  return (
+    !!error &&
+    typeof error === "object" &&
+    "digest" in error &&
+    typeof (error as { digest: unknown }).digest === "string" &&
+    (error as { digest: string }).digest.startsWith("NEXT_REDIRECT")
+  );
+}
+
+export default async function VerifySignupPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ token?: string }>;
+}) {
+  const { token } = await searchParams;
+
   if (!token) {
-    return NextResponse.redirect(new URL("/registro/error?reason=missing_token", request.url));
+    redirect("/registro/error?reason=missing_token");
   }
 
   const pending = await prisma.pendingSignup.findUnique({
     where: { verificationToken: token },
   });
+
   if (!pending) {
-    return NextResponse.redirect(new URL("/registro/error?reason=invalid_token", request.url));
+    redirect("/registro/error?reason=invalid_token");
   }
 
-  // Ya verificado → redirige a login
+  // Idempotente: si ya verificó y se aprovisionó, manda directo a login
   if (pending.verifiedAt && pending.provisionedTenantId) {
-    return NextResponse.redirect(
-      new URL(
-        `/opai/login?email=${encodeURIComponent(pending.email)}&verified=1`,
-        request.url,
-      ),
+    redirect(
+      `/opai/login?email=${encodeURIComponent(pending.email)}&verified=1`,
     );
   }
 
   if (pending.expiresAt < new Date()) {
-    return NextResponse.redirect(
-      new URL(
-        `/registro/error?reason=expired&email=${encodeURIComponent(pending.email)}`,
-        request.url,
-      ),
+    redirect(
+      `/registro/error?reason=expired&email=${encodeURIComponent(pending.email)}`,
     );
   }
 
@@ -99,7 +108,6 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // DPA aceptado al confirmar registro (Ley 21.719) — owner aceptó términos al signup
     await prisma.tenant.update({
       where: { id: result.tenant.id },
       data: {
@@ -120,7 +128,6 @@ export async function GET(request: NextRequest) {
       tenantId: result.tenant.id,
       userEmail: pending.email,
       details: { slug: result.tenant.slug, source: pending.source ?? "web" },
-      request,
     });
 
     void notifyPlatform({
@@ -148,14 +155,14 @@ export async function GET(request: NextRequest) {
       platformAdminUrl: `${getCanonicalSiteUrl()}/platform/tenants/${result.tenant.id}`,
     });
 
-    return NextResponse.redirect(
-      new URL(
-        `/opai/login?email=${encodeURIComponent(pending.email)}&welcome=1`,
-        request.url,
-      ),
-    );
+    redirect(`/opai/login?email=${encodeURIComponent(pending.email)}&welcome=1`);
   } catch (error) {
-    console.error("[signup/verify] provisioning failed:", error);
+    // El redirect() exitoso lanza NEXT_REDIRECT — re-throw para que Next lo maneje
+    if (isNextRedirectError(error)) {
+      throw error;
+    }
+
+    console.error("[verify-signup] provisioning failed:", error);
 
     void notifyPlatform({
       event: "signup_failed",
@@ -167,8 +174,6 @@ export async function GET(request: NextRequest) {
       errorMessage: error instanceof Error ? error.message : String(error),
     });
 
-    return NextResponse.redirect(
-      new URL("/registro/error?reason=provisioning_failed", request.url),
-    );
+    redirect("/registro/error?reason=provisioning_failed");
   }
 }

@@ -2,8 +2,9 @@
 
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
+import { Trash2 } from 'lucide-react';
 
-interface TenantRow {
+export interface TenantRow {
   id: string;
   name: string;
   slug: string;
@@ -23,6 +24,7 @@ interface TenantRow {
 interface TenantTableProps {
   tenants: TenantRow[];
   onImpersonate: (tenantId: string) => void;
+  onDelete?: (tenant: TenantRow) => void;
 }
 
 type SortKey = 'name' | 'plan' | 'status' | 'activeGuards' | 'lastLoginAt' | 'createdAt';
@@ -99,7 +101,7 @@ function SortHeader({
 
 type StatusFilter = 'all' | 'active' | 'trial' | 'suspended';
 
-export function TenantTable({ tenants, onImpersonate }: TenantTableProps) {
+export function TenantTable({ tenants, onImpersonate, onDelete }: TenantTableProps) {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [sortKey, setSortKey] = useState<SortKey>('createdAt');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
@@ -325,6 +327,17 @@ export function TenantTable({ tenants, onImpersonate }: TenantTableProps) {
                     >
                       Entrar
                     </button>
+                    {onDelete && (
+                      <button
+                        type="button"
+                        onClick={() => onDelete(t)}
+                        className="rounded-md bg-status-danger-soft p-1.5 text-status-danger-fg hover:brightness-110 transition-colors"
+                        title="Eliminar tenant"
+                        aria-label={`Eliminar ${t.name}`}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>

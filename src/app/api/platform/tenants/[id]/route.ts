@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePlatformAuth, platformUnauthorized } from '@/lib/platform-api-auth';
 import { prisma } from '@/lib/prisma';
+import { deleteTenant } from '@/lib/tenant-deletion';
+import { logAudit } from '@/lib/audit';
+
+// Tenants protegidos — no se pueden borrar desde la UI bajo ninguna circunstancia.
+const PROTECTED_SLUGS = new Set<string>(['gard']);
 
 export async function GET(
   _request: NextRequest,
@@ -97,4 +102,87 @@ export async function PATCH(
   await prisma.tenant.update({ where: { id }, data });
 
   return NextResponse.json({ success: true });
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const ctx = await requirePlatformAuth();
+  if (!ctx) return platformUnauthorized();
+
+  const { id } = await params;
+
+  let body: { confirmation?: string };
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json(
+      { error: "Body debe ser JSON con { confirmation: '<slug>' }" },
+      { status: 400 },
+    );
+  }
+
+  if (!body.confirmation) {
+    return NextResponse.json(
+      { error: 'Falta confirmation en el body' },
+      { status: 400 },
+    );
+  }
+
+  const tenant = await prisma.tenant.findUnique({
+    where: { id },
+    select: { id: true, slug: true, name: true },
+  });
+
+  if (!tenant) {
+    return NextResponse.json({ error: 'Tenant no encontrado' }, { status: 404 });
+  }
+
+  if (body.confirmation.trim() !== tenant.slug) {
+    return NextResponse.json(
+      {
+        error: `Confirmation inválida. Esperado: "${tenant.slug}", recibido: "${body.confirmation}"`,
+      },
+      { status: 400 },
+    );
+  }
+
+  if (PROTECTED_SLUGS.has(tenant.slug)) {
+    return NextResponse.json(
+      {
+        error: `El tenant "${tenant.slug}" está protegido y no puede eliminarse desde la UI. Si realmente necesitas borrarlo, hazlo manualmente vía Prisma Studio o SQL.`,
+      },
+      { status: 403 },
+    );
+  }
+
+  try {
+    const result = await deleteTenant(id);
+
+    await logAudit({
+      action: 'DELETE',
+      entity: 'Tenant',
+      entityId: tenant.id,
+      tenantId: null,
+      userEmail: ctx.email,
+      details: {
+        slug: result.tenantSlug,
+        name: result.tenantName,
+        rowsDeleted: result.rowsDeleted,
+      },
+      request,
+    });
+
+    return NextResponse.json({
+      success: true,
+      tenantId: result.tenantId,
+      tenantSlug: result.tenantSlug,
+      rowsDeleted: result.rowsDeleted,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Error al eliminar tenant';
+    console.error('[DELETE /api/platform/tenants/:id] failed:', error);
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }
