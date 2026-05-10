@@ -133,8 +133,42 @@ export async function sendBillingDocument(
   }
   // ESTADO_DE_PAGO se permite siempre (incluye DTEs ya emitidos).
 
-  // Resolver email primario.
+  // ── Resolver destinatarios ──
+  // Prioridad:
+  //   1. Override explícito en `input.recipientEmail` (modal de envío ad-hoc).
+  //   2. Plan persistido en el draft (proformaRecipientContactIds /
+  //      estadoPagoRecipientContactIds): si hay contactos seleccionados,
+  //      el primero es `primary` y los demás van como CC.
+  //   3. CrmAccount.contactoEstadoPago (contacto default por-cliente).
+  //   4. Primer contacto activo del CrmAccount.
+  //   5. dte.receiverEmail.
   let primary = input.recipientEmail?.trim() || null;
+  let planCcEmails: string[] = [];
+
+  if (!primary && account) {
+    const planContactIds =
+      input.variant === "PROFORMA"
+        ? (dte.proformaRecipientContactIds ?? [])
+        : (dte.estadoPagoRecipientContactIds ?? []);
+    if (planContactIds.length > 0) {
+      const planContacts = await prisma.crmContact.findMany({
+        where: {
+          tenantId,
+          accountId: account.id,
+          id: { in: planContactIds },
+          email: { not: null },
+        },
+        orderBy: { createdAt: "asc" },
+      });
+      const emails = planContacts
+        .map((c) => c.email!)
+        .filter((e) => e && e.trim());
+      if (emails.length > 0) {
+        primary = emails[0];
+        planCcEmails = emails.slice(1);
+      }
+    }
+  }
   if (!primary && account?.contactoEstadoPago?.email) {
     primary = account.contactoEstadoPago.email;
   }
@@ -147,7 +181,8 @@ export async function sendBillingDocument(
   if (!primary) {
     return {
       success: false,
-      error: "El cliente no tiene email de contacto configurado",
+      error:
+        "No hay destinatario configurado. Editá el borrador y elegí contactos del cliente en \"Documento de Cobro\".",
     };
   }
 
@@ -246,8 +281,13 @@ export async function sendBillingDocument(
   });
   const html = await render(emailEl);
 
-  const ccList = (input.ccEmails ?? []).filter(
-    (e) => e && e.trim() && e !== primary,
+  // CC: une los del input (modal de envío) con los CC implícitos del
+  // plan (contactos seleccionados después del primary). Dedup contra primary.
+  const ccCandidates = [...(input.ccEmails ?? []), ...planCcEmails];
+  const ccList = Array.from(
+    new Set(
+      ccCandidates.filter((e) => e && e.trim() && e !== primary),
+    ),
   );
   const bccList = (input.bccEmails ?? []).filter(
     (e) => e && e.trim() && e !== primary,
@@ -290,15 +330,26 @@ export async function sendBillingDocument(
       return { success: false, error: result.error.message };
     }
 
+    // Tracking separado por variante: proformaStatus aplica a Proforma,
+    // estadoPagoStatus a Estado de Pago. proformaLastVariant es legacy.
     await prisma.financeDte.update({
       where: { id: input.dteId },
-      data: {
-        proformaStatus: "SENT",
-        proformaSentAt: new Date(),
-        proformaSentCount: { increment: 1 },
-        proformaLastVariant: input.variant,
-        proformaLastRecipient: primary,
-      },
+      data:
+        input.variant === "PROFORMA"
+          ? {
+              proformaStatus: "SENT",
+              proformaSentAt: new Date(),
+              proformaSentCount: { increment: 1 },
+              proformaLastVariant: input.variant,
+              proformaLastRecipient: primary,
+            }
+          : {
+              estadoPagoStatus: "SENT",
+              estadoPagoSentAt: new Date(),
+              estadoPagoSentCount: { increment: 1 },
+              estadoPagoLastRecipient: primary,
+              proformaLastVariant: input.variant, // legacy info
+            },
     });
 
     await logEmail(tenantId, input.dteId, {

@@ -304,6 +304,14 @@ export const draftDteSchema = issueDteSchema.extend({
   receiverRut: z.string().trim().max(12).optional(),
   receiverName: z.string().trim().max(200).optional(),
   reference: dteReferenceSchema.optional(),
+  // ── Plan de Documento de Cobro ──
+  // El usuario decide al crear el draft si requiere mandar Proforma y/o
+  // Estado de Pago al cliente ANTES de emitir al SII, y a qué contactos
+  // del cliente. Los IDs son CrmContact.id (UUID).
+  requireProforma: z.boolean().optional(),
+  proformaRecipientContactIds: z.array(z.string().uuid()).max(20).optional(),
+  requireEstadoPago: z.boolean().optional(),
+  estadoPagoRecipientContactIds: z.array(z.string().uuid()).max(20).optional(),
 });
 
 export const dteCreditNoteSchema = z.object({

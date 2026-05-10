@@ -25,6 +25,13 @@ const DRAFT_REQUIRED_REFERENCE = [56, 61] as const;
 export type DraftDteInput = Omit<IssueDteInput, "receiverRut" | "receiverName"> & {
   receiverRut?: string;
   receiverName?: string;
+  // Plan de Documento de Cobro: configurado por el usuario al crear/editar
+  // el borrador. No es parte del IssueDte — el SII no sabe nada de esto;
+  // es metadata interna que controla el envío de Proforma / Estado de Pago.
+  requireProforma?: boolean;
+  proformaRecipientContactIds?: string[];
+  requireEstadoPago?: boolean;
+  estadoPagoRecipientContactIds?: string[];
 };
 
 /**
@@ -99,6 +106,11 @@ export async function createDraftDte(
         input.additionalReferences && input.additionalReferences.length > 0
           ? (input.additionalReferences as unknown as Prisma.InputJsonValue)
           : Prisma.DbNull,
+      // Plan de Documento de Cobro (Proforma / Estado de Pago).
+      requireProforma: input.requireProforma ?? false,
+      proformaRecipientContactIds: input.proformaRecipientContactIds ?? [],
+      requireEstadoPago: input.requireEstadoPago ?? false,
+      estadoPagoRecipientContactIds: input.estadoPagoRecipientContactIds ?? [],
       lines: {
         create: calc.lines.map((l, i) => ({
           lineNumber: i + 1,
@@ -178,6 +190,11 @@ export async function updateDraftDte(
           input.additionalReferences && input.additionalReferences.length > 0
             ? (input.additionalReferences as unknown as Prisma.InputJsonValue)
             : Prisma.JsonNull,
+        // Plan de Documento de Cobro (mismo tratamiento que create).
+        requireProforma: input.requireProforma ?? false,
+        proformaRecipientContactIds: input.proformaRecipientContactIds ?? [],
+        requireEstadoPago: input.requireEstadoPago ?? false,
+        estadoPagoRecipientContactIds: input.estadoPagoRecipientContactIds ?? [],
         lines: {
           create: calc.lines.map((l, i) => ({
             lineNumber: i + 1,

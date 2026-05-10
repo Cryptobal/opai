@@ -24,6 +24,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { CustomerCombobox, type CustomerOption } from "./CustomerCombobox";
+import { BillingPlanSection } from "@/components/finance/billing-plan/BillingPlanSection";
+import { BillingDocSendModal } from "@/components/finance/billing-doc-send/BillingDocSendModal";
 import { DteAttachmentsCard } from "./DteAttachmentsCard";
 import {
   Dialog,
@@ -138,6 +140,28 @@ export function DteForm({ availableTypes, accounts }: Props) {
   const [receiverCiudad, setReceiverCiudad] = useState("");
   /** Centro de costo: instalación del cliente. Se carga al seleccionar customer. */
   const [installationId, setInstallationId] = useState<string>("");
+
+  /**
+   * Plan de Documento de Cobro: el usuario decide en el draft si requiere
+   * mandar Proforma y/o Estado de Pago al cliente antes de emitir al SII,
+   * y a qué contactos. Se persiste en finance_dtes.
+   */
+  const [billingPlan, setBillingPlan] = useState<{
+    requireProforma: boolean;
+    proformaRecipientContactIds: string[];
+    requireEstadoPago: boolean;
+    estadoPagoRecipientContactIds: string[];
+  }>({
+    requireProforma: false,
+    proformaRecipientContactIds: [],
+    requireEstadoPago: false,
+    estadoPagoRecipientContactIds: [],
+  });
+
+  /** Modal para enviar Proforma / Estado de Pago al cliente. */
+  const [sendAsVariant, setSendAsVariant] = useState<
+    "PROFORMA" | "ESTADO_DE_PAGO" | null
+  >(null);
   const [installations, setInstallations] = useState<
     { id: string; name: string; address: string | null; commune: string | null }[]
   >([]);
@@ -298,6 +322,21 @@ export function DteForm({ availableTypes, accounts }: Props) {
           }),
         );
         if (draftLines.length > 0) setLines(draftLines);
+        // Cargar plan de Documento de Cobro persistido.
+        setBillingPlan({
+          requireProforma: !!d.requireProforma,
+          proformaRecipientContactIds: Array.isArray(
+            d.proformaRecipientContactIds,
+          )
+            ? (d.proformaRecipientContactIds as string[])
+            : [],
+          requireEstadoPago: !!d.requireEstadoPago,
+          estadoPagoRecipientContactIds: Array.isArray(
+            d.estadoPagoRecipientContactIds,
+          )
+            ? (d.estadoPagoRecipientContactIds as string[])
+            : [],
+        });
       })
       .catch(() => {
         toast.error("No se pudo cargar el borrador");
@@ -661,6 +700,12 @@ export function DteForm({ availableTypes, accounts }: Props) {
       crmAccountId: customer?.id ?? null,
       installationId: installationId || null,
       additionalReferences: validRefs.length > 0 ? validRefs : undefined,
+      // Plan de Documento de Cobro (Proforma / Estado de Pago).
+      requireProforma: billingPlan.requireProforma,
+      proformaRecipientContactIds: billingPlan.proformaRecipientContactIds,
+      requireEstadoPago: billingPlan.requireEstadoPago,
+      estadoPagoRecipientContactIds:
+        billingPlan.estadoPagoRecipientContactIds,
       notes: notes.trim() || null,
       autoSendEmail: overrides?.autoSendEmail ?? autoSendEmail,
       sendXmlToBackoffice: overrides?.sendXmlToBackoffice,
@@ -1508,6 +1553,16 @@ export function DteForm({ availableTypes, accounts }: Props) {
         </CardContent>
       </Card>
 
+      {/* Plan de Documento de Cobro: Proforma / Estado de Pago.
+          Configurás acá ANTES de emitir si hay que mandar Proforma o EP
+          al cliente, y a qué contactos. El plan queda en el borrador. */}
+      <BillingPlanSection
+        accountId={customer?.id ?? null}
+        value={billingPlan}
+        onChange={setBillingPlan}
+        isDraftSaved={!!draftIdParam}
+      />
+
       {/* Adjuntos del DTE: solo disponibles cuando ya existe un draft (necesita id).
           Para uno nuevo, mostramos hint instando a guardar primero. */}
       {draftIdParam ? (
@@ -1521,6 +1576,53 @@ export function DteForm({ availableTypes, accounts }: Props) {
             Para adjuntar archivos al documento, guárdalo primero como borrador.
           </CardContent>
         </Card>
+      )}
+
+      {/* Botones de envío del Documento de Cobro: aparecen si el plan
+          activó la variante y el draft está guardado. Habilitan el flow
+          "envío antes de emitir al SII". */}
+      {draftIdParam && (billingPlan.requireProforma || billingPlan.requireEstadoPago) && (
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap rounded-xl border border-border bg-muted/30 p-3">
+          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground self-center mr-2">
+            Documento de cobro
+          </span>
+          {billingPlan.requireProforma && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSendAsVariant("PROFORMA")}
+              disabled={saving || previewLoading}
+            >
+              <Send className="h-3.5 w-3.5 mr-1.5" />
+              Enviar Proforma
+            </Button>
+          )}
+          {billingPlan.requireEstadoPago && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSendAsVariant("ESTADO_DE_PAGO")}
+              disabled={saving || previewLoading}
+            >
+              <Send className="h-3.5 w-3.5 mr-1.5" />
+              Enviar Estado de Pago
+            </Button>
+          )}
+        </div>
+      )}
+
+      {/* Modal de envío: usa los recipientes/firmantes del plan persistido. */}
+      {sendAsVariant && draftIdParam && (
+        <BillingDocSendModal
+          open={true}
+          onOpenChange={(o) => !o && setSendAsVariant(null)}
+          dteId={draftIdParam}
+          target="draft"
+          defaultVariant={sendAsVariant}
+          defaultRecipientEmail={(customer?.email || receiverEmail || "") || null}
+          receiverName={(customer?.name || receiverName || "").trim() || "el cliente"}
+          onSent={() => setSendAsVariant(null)}
+        />
       )}
 
       {/* Actions */}

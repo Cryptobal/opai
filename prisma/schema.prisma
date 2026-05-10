@@ -6497,16 +6497,32 @@ model FinanceDte {
   amountPaid     Decimal              @default(0) @map("amount_paid") @db.Decimal(14, 2)
   amountPending  Decimal              @default(0) @map("amount_pending") @db.Decimal(14, 2)
 
-  // ── Proforma / Pre-factura / Estado de Pago ──
-  // Estado paralelo a siiStatus. Un draft que mandó proforma sigue
-  // siendo siiStatus=DRAFT pero con proformaStatus=SENT. Al emitir al
-  // SII, se preserva proformaStatus para auditoría histórica.
-  proformaStatus        FinanceProformaStatus @default(NONE) @map("proforma_status")
-  proformaSentAt        DateTime?             @map("proforma_sent_at") @db.Timestamptz(6)
-  proformaSentCount     Int                   @default(0) @map("proforma_sent_count")
-  /// Última variante enviada: "PROFORMA" | "ESTADO_DE_PAGO" | "DTE_PREVIEW"
-  proformaLastVariant   String?               @map("proforma_last_variant")
-  proformaLastRecipient String?               @map("proforma_last_recipient")
+  // ── Plan de Documento de Cobro (Proforma / Estado de Pago) ──
+  // Cuando el usuario crea el draft, decide si requiere mandar proforma
+  // y/o estado de pago ANTES de emitir al SII, y a qué contactos del
+  // cliente. El plan queda persistido en el draft.
+
+  // Proforma:
+  requireProforma             Boolean               @default(false) @map("require_proforma")
+  /// IDs de CrmContact (del cliente) que reciben la Proforma.
+  proformaRecipientContactIds String[]              @default([]) @map("proforma_recipient_contact_ids") @db.Uuid
+  proformaStatus              FinanceProformaStatus @default(NONE) @map("proforma_status")
+  proformaSentAt              DateTime?             @map("proforma_sent_at") @db.Timestamptz(6)
+  proformaSentCount           Int                   @default(0) @map("proforma_sent_count")
+  /// @deprecated Legacy informativa; superseded por status separado por variante.
+  proformaLastVariant         String?               @map("proforma_last_variant")
+  proformaLastRecipient       String?               @map("proforma_last_recipient")
+
+  // Estado de Pago:
+  requireEstadoPago             Boolean               @default(false) @map("require_estado_pago")
+  /// IDs de CrmContact (del cliente) que reciben Y firman el Estado de Pago.
+  /// Aparecen en el PDF en el bloque de firmas, después de los firmantes
+  /// del tenant (TenantBillingSigner).
+  estadoPagoRecipientContactIds String[]              @default([]) @map("estado_pago_recipient_contact_ids") @db.Uuid
+  estadoPagoStatus              FinanceProformaStatus @default(NONE) @map("estado_pago_status")
+  estadoPagoSentAt              DateTime?             @map("estado_pago_sent_at") @db.Timestamptz(6)
+  estadoPagoSentCount           Int                   @default(0) @map("estado_pago_sent_count")
+  estadoPagoLastRecipient       String?               @map("estado_pago_last_recipient")
 
   notes     String?
   createdBy String  @map("created_by")
@@ -6532,6 +6548,7 @@ model FinanceDte {
   @@index([tenantId, supplierId], map: "idx_finance_dte_supplier")
   @@index([tenantId, date], map: "idx_finance_dte_date")
   @@index([tenantId, proformaStatus], map: "idx_finance_dte_proforma_status")
+  @@index([tenantId, estadoPagoStatus], map: "idx_finance_dte_estado_pago_status")
   @@map("finance_dtes")
   @@schema("finance")
 }

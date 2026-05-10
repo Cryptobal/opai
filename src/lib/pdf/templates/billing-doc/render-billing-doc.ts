@@ -176,15 +176,23 @@ export async function renderBillingDocPdf(
         paddingLeft: 16,
       },
       docKind: {
-        fontSize: 9,
+        fontFamily: F.sans,
+        fontWeight: 800,
+        fontSize: 22,
         color: "#FFFFFF",
-        letterSpacing: 1,
+        letterSpacing: 3,
       },
       proformaTag: {
         fontSize: 7,
         color: C.accent,
-        letterSpacing: 1.5,
-        marginTop: 2,
+        letterSpacing: 1,
+        marginTop: 4,
+      },
+      proformaSubtle: {
+        fontSize: 6.5,
+        color: "#FFFFFF",
+        opacity: 0.7,
+        marginTop: 1,
       },
       accentBar: { height: 3, backgroundColor: C.accent },
 
@@ -372,8 +380,13 @@ export async function renderBillingDocPdf(
           e(
             View,
             { style: sProforma.headerRight },
-            e(Text, { style: sProforma.docKind }, props.document.dteTypeName),
-            e(Text, { style: sProforma.proformaTag }, "PROFORMA · NO ES FACTURA TRIBUTARIA"),
+            e(Text, { style: sProforma.docKind }, "PROFORMA"),
+            e(Text, { style: sProforma.proformaTag }, "NO ES FACTURA TRIBUTARIA"),
+            e(
+              Text,
+              { style: sProforma.proformaSubtle },
+              `Se facturará como ${props.document.dteTypeName} al SII tras aprobación`,
+            ),
             e(Text, { style: { fontSize: 8, color: "#FFFFFF", marginTop: 6 } }, `Fecha: ${props.document.dateFormatted}`),
             props.document.numeroOrdenContrato
               ? e(
@@ -709,25 +722,67 @@ export async function renderBillingDocPdf(
     });
 
   const buildSigners = () => {
-    if (props.signers.length === 0) return null;
+    const tenantSigners = props.signers.tenant;
+    const clientSigners = props.signers.client;
+    if (tenantSigners.length === 0 && clientSigners.length === 0) return null;
+
+    const renderSignerCell = (s: BillingDocSignerProp) =>
+      e(
+        View,
+        { key: s.id, style: sEP.signerCell },
+        s.signatureDataUrl
+          ? e(PDFImage, { src: s.signatureDataUrl, style: sEP.signerImg })
+          : e(View, { style: { height: 36 } }),
+        e(
+          View,
+          { style: sEP.signerLine },
+          e(Text, { style: sEP.signerName }, s.name),
+          e(Text, { style: sEP.signerRole }, s.role),
+        ),
+      );
+
+    // Si hay firmantes en ambos lados, dos filas separadas con label arriba.
+    // Si solo un lado, una sola fila sin labels.
+    if (tenantSigners.length > 0 && clientSigners.length > 0) {
+      return e(
+        View,
+        { style: { marginTop: 24 } },
+        e(
+          View,
+          { style: { marginBottom: 12 } },
+          e(
+            Text,
+            { style: { fontSize: 7, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 6 } },
+            "Por la empresa",
+          ),
+          e(
+            View,
+            { style: { flexDirection: "row", gap: 24 } },
+            ...tenantSigners.map(renderSignerCell),
+          ),
+        ),
+        e(
+          View,
+          {},
+          e(
+            Text,
+            { style: { fontSize: 7, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 6 } },
+            "Por el cliente · Recibido conforme",
+          ),
+          e(
+            View,
+            { style: { flexDirection: "row", gap: 24 } },
+            ...clientSigners.map(renderSignerCell),
+          ),
+        ),
+      );
+    }
+
+    const onlyOneSide = tenantSigners.length > 0 ? tenantSigners : clientSigners;
     return e(
       View,
       { style: sEP.signersBlock },
-      ...props.signers.map((s: BillingDocSignerProp) =>
-        e(
-          View,
-          { key: s.id, style: sEP.signerCell },
-          s.signatureDataUrl
-            ? e(PDFImage, { src: s.signatureDataUrl, style: sEP.signerImg })
-            : e(View, { style: { height: 36 } }),
-          e(
-            View,
-            { style: sEP.signerLine },
-            e(Text, { style: sEP.signerName }, s.name),
-            e(Text, { style: sEP.signerRole }, s.role),
-          ),
-        ),
-      ),
+      ...onlyOneSide.map(renderSignerCell),
     );
   };
 

@@ -25,6 +25,18 @@ export interface BillingDocSignerProp {
   signatureDataUrl: string | null;
 }
 
+/**
+ * Bloque de firmas del PDF: dos lados.
+ *  - tenant: firmantes del lado del emisor (TenantBillingSigner) — tienen
+ *    imagen de firma manuscrita (R2).
+ *  - client: contactos del cliente que firman (CrmContact) — solo nombre +
+ *    cargo + línea para firmar manuscrita en papel impreso.
+ */
+export interface BillingDocSignersBlock {
+  tenant: BillingDocSignerProp[];
+  client: BillingDocSignerProp[];
+}
+
 export interface BillingDocLine {
   lineNumber: number;
   itemCode: string | null;
@@ -111,8 +123,8 @@ export interface BillingDocProps {
     ufValueAtIssue: number | null;
   };
 
-  /** Firmantes activos del tenant (1-3). */
-  signers: BillingDocSignerProp[];
+  /** Firmantes del PDF: tenant (con firma R2) + cliente (solo nombre/cargo). */
+  signers: BillingDocSignersBlock;
 
   branding: {
     primary: string;
@@ -194,8 +206,14 @@ function logoDataUrlFromConfig(logoBase64: string | null): string | null {
 }
 
 export interface BuildBillingDocPropsOptions {
-  /** Override de firmantes (lista de IDs). Si null/undefined, usa todos los activos. */
+  /** Override de firmantes del tenant (lista de IDs). Si null/undefined, usa todos los activos. */
   signerOverrideIds?: string[];
+  /**
+   * Override de firmantes del cliente (lista de CrmContact IDs). Si
+   * null/undefined, usa los del plan persistido en el DTE
+   * (estadoPagoRecipientContactIds).
+   */
+  clientSignerContactIdsOverride?: string[];
 }
 
 export async function buildBillingDocProps(
@@ -240,21 +258,47 @@ export async function buildBillingDocProps(
   const company = await getTenantCompanyConfig(tenantId);
   const colors = await resolveBrandColors(tenantId);
 
-  // Firmantes: por defecto los activos. Si hay override, filtrar.
-  let signers = await listSigners(tenantId);
+  // Firmantes del tenant: por defecto los activos. Si hay override, filtrar.
+  let tenantSigners = await listSigners(tenantId);
   if (opts.signerOverrideIds && opts.signerOverrideIds.length > 0) {
     const set = new Set(opts.signerOverrideIds);
-    signers = signers.filter((s) => set.has(s.id));
+    tenantSigners = tenantSigners.filter((s) => set.has(s.id));
   }
 
-  const signersWithImages: BillingDocSignerProp[] = await Promise.all(
-    signers.slice(0, 3).map(async (s) => ({
+  const tenantSignersWithImages: BillingDocSignerProp[] = await Promise.all(
+    tenantSigners.slice(0, 3).map(async (s) => ({
       id: s.id,
       name: s.name,
       role: s.role,
       signatureDataUrl: await fetchSignatureDataUrl(s.signatureStorageKey),
     })),
   );
+
+  // Firmantes del cliente: contactos del CrmAccount que firman. Vienen del
+  // plan persistido en el draft (estadoPagoRecipientContactIds), o del
+  // override explícito del modal de envío. No tienen imagen de firma — solo
+  // nombre + cargo + línea para firmar a mano sobre el PDF impreso.
+  const clientSignerIds =
+    opts.clientSignerContactIdsOverride ??
+    (dte.estadoPagoRecipientContactIds ?? []);
+  const clientSigners: BillingDocSignerProp[] = [];
+  if (clientSignerIds.length > 0 && account) {
+    const clientContacts = await prisma.crmContact.findMany({
+      where: {
+        tenantId,
+        accountId: account.id,
+        id: { in: clientSignerIds },
+      },
+    });
+    for (const c of clientContacts.slice(0, 3)) {
+      clientSigners.push({
+        id: c.id,
+        name: `${c.firstName} ${c.lastName}`.trim(),
+        role: c.roleTitle ?? "Cliente",
+        signatureDataUrl: null,
+      });
+    }
+  }
 
   // Contacto: contactoEstadoPago si existe; si no, primer contacto activo.
   const contactoEP =
@@ -345,7 +389,7 @@ export async function buildBillingDocProps(
       ufValueAtIssue: dte.ufValueAtIssue ? Number(dte.ufValueAtIssue) : null,
     },
 
-    signers: signersWithImages,
+    signers: { tenant: tenantSignersWithImages, client: clientSigners },
 
     branding: {
       primary: colors.primary,
