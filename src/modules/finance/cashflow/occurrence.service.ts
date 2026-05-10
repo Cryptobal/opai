@@ -161,3 +161,34 @@ export async function moveOccurrence(
     data: { scheduledDate: newDate, effectiveDate: newDate },
   });
 }
+
+/**
+ * Override manual del monto de una ocurrencia materializada. Persiste
+ * `amountOverride` y actualiza `amountClp` para reflejar el monto que el
+ * usuario quiere ver. Para items en UF, el caller debe haber recomputado
+ * el amountClp con el factor de UF guardado antes de invocar.
+ */
+export async function setOccurrenceAmountOverride(
+  tenantId: string,
+  id: string,
+  newAmountClp: number,
+): Promise<void> {
+  if (!Number.isFinite(newAmountClp) || newAmountClp <= 0) {
+    throw new Error("El monto debe ser mayor a 0");
+  }
+  const existing = await prisma.financeCashflowOccurrence.findFirst({
+    where: { id, tenantId },
+    select: { id: true, status: true, ufValueUsed: true },
+  });
+  if (!existing) throw new Error("Ocurrencia no encontrada");
+  if (existing.status === "PAID") {
+    throw new Error("No se puede editar el monto de una ocurrencia ya conciliada");
+  }
+  await prisma.financeCashflowOccurrence.update({
+    where: { id },
+    data: {
+      amountOverride: newAmountClp,
+      amountClp: newAmountClp,
+    },
+  });
+}
