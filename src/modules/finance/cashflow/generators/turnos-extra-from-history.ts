@@ -1,3 +1,7 @@
+/**
+ * @deprecated Reemplazado por turnos-extra-sync.ts. Las ocurrencias de TE
+ * ahora se materializan como FinanceCashflowItem (source=TURNOS_EXTRA).
+ */
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { subWeeks, addWeeks, startOfISOWeek, isAfter, isBefore } from "date-fns";
