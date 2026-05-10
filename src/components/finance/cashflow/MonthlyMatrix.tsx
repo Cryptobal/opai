@@ -9,7 +9,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { ProjectionMatrix } from "@/modules/finance/cashflow/types";
-import { fmt, MatrixRow, SectionHeader, SubtotalRow } from "./MatrixHelpers";
+import { fmt, SectionHeader, SubtotalRow } from "./MatrixHelpers";
+import { ExpandableMatrixRow } from "./ExpandableMatrixRow";
 import { addMonths } from "date-fns";
 
 interface Props {
@@ -119,13 +120,27 @@ export function MonthlyMatrix({ defaultMonths }: Props) {
             <tbody>
               <SectionHeader label="Ingresos" colSpan={colCount} tone="ok" />
               {incomeRows.map((r) => (
-                <MatrixRow key={r.categoryCode} row={r} actualByCellKey={actualByCellKey} buckets={projection.buckets} granularity="monthly" onActionDone={() => setRefreshKey((k) => k + 1)} />
+                <ExpandableMatrixRow
+                  key={r.categoryCode}
+                  row={r}
+                  actualByCellKey={actualByCellKey}
+                  buckets={projection.buckets}
+                  granularity="monthly"
+                  onActionDone={() => setRefreshKey((k) => k + 1)}
+                />
               ))}
               <SubtotalRow label="Total ingresos" rows={incomeRows} buckets={projection.buckets} tone="ok" />
 
               <SectionHeader label="Egresos" colSpan={colCount} tone="warn" />
               {expenseRows.map((r) => (
-                <MatrixRow key={r.categoryCode} row={r} actualByCellKey={actualByCellKey} buckets={projection.buckets} granularity="monthly" onActionDone={() => setRefreshKey((k) => k + 1)} />
+                <ExpandableMatrixRow
+                  key={r.categoryCode}
+                  row={r}
+                  actualByCellKey={actualByCellKey}
+                  buckets={projection.buckets}
+                  granularity="monthly"
+                  onActionDone={() => setRefreshKey((k) => k + 1)}
+                />
               ))}
               <SubtotalRow label="Total egresos" rows={expenseRows} buckets={projection.buckets} tone="warn" />
             </tbody>
