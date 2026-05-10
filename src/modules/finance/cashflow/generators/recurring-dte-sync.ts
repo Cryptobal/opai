@@ -1,0 +1,169 @@
+import "server-only";
+import { prisma } from "@/lib/prisma";
+
+const SALES_CATEGORY_CODE = "ING_VENTA_CONTRATO";
+
+type SyncAction = "created" | "updated" | "deactivated" | "reactivated" | "noop";
+
+interface RecurringLine {
+  quantity?: number | string;
+  unitPrice?: number | string;
+  unitPriceUf?: number | string;
+  discountPct?: number | string;
+}
+
+const FREQUENCY_TO_RECURRENCE: Record<
+  string,
+  "MONTHLY" | "BIWEEKLY" | "WEEKLY" | "YEARLY"
+> = {
+  monthly: "MONTHLY",
+  biweekly: "BIWEEKLY",
+  weekly: "WEEKLY",
+  yearly: "YEARLY",
+};
+
+/**
+ * Idempotente: 1 item por FinanceDteRecurringTemplate.
+ */
+export async function syncRecurringDteItem(
+  tenantId: string,
+  templateId: string,
+): Promise<{ action: SyncAction }> {
+  const tpl = await prisma.financeDteRecurringTemplate.findFirst({
+    where: { id: templateId, tenantId },
+    select: {
+      id: true,
+      tenantId: true,
+      name: true,
+      receiverName: true,
+      currency: true,
+      lines: true,
+      frequency: true,
+      dayOfMonth: true,
+      dayOfWeek: true,
+      monthOfYear: true,
+      startDate: true,
+      endDate: true,
+      ufFixingPolicy: true,
+      ufFixingDay: true,
+      installationId: true,
+      crmAccountId: true,
+      isActive: true,
+    },
+  });
+  if (!tpl) return { action: "noop" };
+
+  const cat = await prisma.financeCashflowCategory.findFirst({
+    where: { tenantId, code: SALES_CATEGORY_CODE, isActive: true },
+    select: { id: true },
+  });
+  if (!cat) return { action: "noop" };
+
+  const lines = (tpl.lines as RecurringLine[] | null) ?? [];
+  const subtotal = lines.reduce((s, l) => {
+    const qty = Number(l.quantity ?? 1);
+    const price = Number(l.unitPrice ?? l.unitPriceUf ?? 0);
+    const disc = Number(l.discountPct ?? 0) / 100;
+    return s + qty * price * (1 - disc);
+  }, 0);
+
+  // El total a cobrar al cliente es subtotal + IVA 19% (en CLP).
+  // Para UF, se aplica IVA al monto convertido en runtime (lo hace el
+  // recurrence-engine al expandir? no — engine no aplica IVA. Guardamos
+  // el monto facturable directo).
+  const amount = tpl.currency === "CLP" ? subtotal * 1.19 : subtotal * 1.19;
+  const amountActive = tpl.isActive && subtotal > 0;
+
+  const existing = await prisma.financeCashflowItem.findFirst({
+    where: { tenantId, source: "RECURRING_DTE", sourceRefId: templateId },
+  });
+
+  if (!amountActive) {
+    if (existing && existing.isActive) {
+      await prisma.financeCashflowItem.update({
+        where: { id: existing.id },
+        data: { isActive: false },
+      });
+      return { action: "deactivated" };
+    }
+    return { action: "noop" };
+  }
+
+  const recurrence = FREQUENCY_TO_RECURRENCE[tpl.frequency] ?? "MONTHLY";
+  const data = {
+    tenantId,
+    categoryId: cat.id,
+    kind: "INCOME" as const,
+    source: "RECURRING_DTE" as const,
+    sourceRefId: tpl.id,
+    name: `DTE recurrente · ${tpl.name}`,
+    description: `${tpl.receiverName} · ${tpl.currency}`,
+    amount: Math.round(amount * 100) / 100,
+    currency: tpl.currency,
+    ufFixingPolicy: tpl.ufFixingPolicy,
+    ufFixingDay: tpl.ufFixingDay,
+    recurrence,
+    dayOfMonth:
+      recurrence === "MONTHLY" || recurrence === "YEARLY"
+        ? (tpl.dayOfMonth ?? new Date(tpl.startDate).getDate())
+        : null,
+    dayOfWeek:
+      recurrence === "WEEKLY" || recurrence === "BIWEEKLY"
+        ? (tpl.dayOfWeek ?? new Date(tpl.startDate).getDay())
+        : null,
+    monthOfYear: recurrence === "YEARLY" ? tpl.monthOfYear : null,
+    startDate: tpl.startDate,
+    endDate: tpl.endDate,
+    installationId: tpl.installationId,
+    crmAccountId: tpl.crmAccountId,
+    isActive: true,
+  };
+
+  if (existing) {
+    await prisma.financeCashflowItem.update({ where: { id: existing.id }, data });
+    return { action: existing.isActive ? "updated" : "reactivated" };
+  }
+  await prisma.financeCashflowItem.create({ data });
+  return { action: "created" };
+}
+
+export interface RecurringDteStats {
+  created: number;
+  updated: number;
+  reactivated: number;
+  deactivated: number;
+}
+
+export async function backfillRecurringDteItems(
+  tenantId: string,
+): Promise<RecurringDteStats> {
+  const tpls = await prisma.financeDteRecurringTemplate.findMany({
+    where: { tenantId },
+    select: { id: true },
+  });
+  const stats: RecurringDteStats = {
+    created: 0,
+    updated: 0,
+    reactivated: 0,
+    deactivated: 0,
+  };
+  for (const t of tpls) {
+    const r = await syncRecurringDteItem(tenantId, t.id);
+    if (r.action === "created") stats.created++;
+    else if (r.action === "updated") stats.updated++;
+    else if (r.action === "reactivated") stats.reactivated++;
+    else if (r.action === "deactivated") stats.deactivated++;
+  }
+  return stats;
+}
+
+export async function setRecurringDteItemsActive(
+  tenantId: string,
+  active: boolean,
+): Promise<{ affected: number }> {
+  const r = await prisma.financeCashflowItem.updateMany({
+    where: { tenantId, source: "RECURRING_DTE" },
+    data: { isActive: active },
+  });
+  return { affected: r.count };
+}

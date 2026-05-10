@@ -1,3 +1,7 @@
+/**
+ * @deprecated Reemplazado por iva-f29-sync.ts. Las ocurrencias de IVA F29
+ * ahora se materializan como FinanceCashflowItem (source=IVA).
+ */
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { addMonths, startOfMonth, endOfMonth, isAfter, isBefore, lastDayOfMonth } from "date-fns";
