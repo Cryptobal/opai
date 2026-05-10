@@ -7,7 +7,16 @@ import {
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ChevronLeft, ChevronRight, Pencil, Loader2 } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Pencil,
+  Loader2,
+  Calendar as CalendarIcon,
+} from "lucide-react";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
 
 const fmt = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 });
 
@@ -42,8 +51,9 @@ export function CellActionPopover({
   onActionDone,
 }: Props) {
   const [open, setOpen] = useState(false);
-  const [busy, setBusy] = useState<null | "shift" | "amount">(null);
+  const [busy, setBusy] = useState<null | "shift" | "amount" | "date">(null);
   const [editing, setEditing] = useState(false);
+  const [pickingDate, setPickingDate] = useState(false);
   const [draftAmount, setDraftAmount] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -51,14 +61,11 @@ export function CellActionPopover({
     return <>{children}</>;
   }
 
-  const stepDays = granularity === "weekly" ? 7 : 30;
-
-  async function shift(direction: "back" | "forward", multiplier: 1 | 2) {
+  async function shiftDays(days: number) {
     if (!target) return;
     setBusy("shift");
     setError(null);
     try {
-      const days = stepDays * multiplier * (direction === "back" ? -1 : 1);
       const r = await fetch(
         `/api/finance/cashflow/occurrences/${target.id}/move`,
         {
@@ -70,6 +77,34 @@ export function CellActionPopover({
       const j = await r.json();
       if (j?.success) {
         setOpen(false);
+        onActionDone();
+      } else {
+        setError(j?.error ?? "No se pudo mover");
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error de red");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function moveToDate(date: Date) {
+    if (!target) return;
+    setBusy("date");
+    setError(null);
+    try {
+      const r = await fetch(
+        `/api/finance/cashflow/occurrences/${target.id}/move`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ newDate: format(date, "yyyy-MM-dd") }),
+        },
+      );
+      const j = await r.json();
+      if (j?.success) {
+        setOpen(false);
+        setPickingDate(false);
         onActionDone();
       } else {
         setError(j?.error ?? "No se pudo mover");
@@ -116,6 +151,11 @@ export function CellActionPopover({
     }
   }
 
+  // granularity se mantiene por compatibilidad con la API; los nuevos
+  // botones de shift son explícitos en días y semanas, no dependen del
+  // contexto del bucket.
+  void granularity;
+
   return (
     <Popover
       open={open}
@@ -123,6 +163,7 @@ export function CellActionPopover({
         setOpen(v);
         if (!v) {
           setEditing(false);
+          setPickingDate(false);
           setError(null);
           setDraftAmount("");
         }
@@ -136,36 +177,59 @@ export function CellActionPopover({
           {children}
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-[280px] p-2">
-        {!editing ? (
+      <PopoverContent className="w-[300px] p-2">
+        {pickingDate ? (
           <div className="space-y-2">
+            <p className="text-[12px] text-ds-text-2 px-1">Mover a fecha exacta</p>
+            <Calendar
+              mode="single"
+              locale={es}
+              onSelect={(d) => {
+                if (d) moveToDate(d);
+              }}
+              disabled={busy !== null}
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setPickingDate(false)}
+              disabled={busy !== null}
+              className="w-full h-8 text-[12px]"
+            >
+              Cancelar
+            </Button>
+            {busy === "date" && (
+              <div className="flex items-center justify-center gap-1 text-[12px] text-ds-text-3">
+                <Loader2 className="h-3 w-3 animate-spin" /> Moviendo...
+              </div>
+            )}
+            {error && <p className="text-[12px] text-status-warn-fg">{error}</p>}
+          </div>
+        ) : !editing ? (
+          <div className="space-y-1.5">
             <div className="grid grid-cols-2 gap-1">
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => shift("back", 2)}
+                onClick={() => shiftDays(-1)}
                 disabled={busy !== null}
                 className="h-8 text-[12px]"
               >
-                <ChevronLeft className="h-3.5 w-3.5" />
-                <ChevronLeft className="h-3.5 w-3.5 -ml-2" />
-                2 sem
+                <ChevronLeft className="h-3.5 w-3.5" /> 1 día
               </Button>
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => shift("forward", 2)}
+                onClick={() => shiftDays(1)}
                 disabled={busy !== null}
                 className="h-8 text-[12px]"
               >
-                2 sem
-                <ChevronRight className="h-3.5 w-3.5" />
-                <ChevronRight className="h-3.5 w-3.5 -ml-2" />
+                1 día <ChevronRight className="h-3.5 w-3.5" />
               </Button>
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => shift("back", 1)}
+                onClick={() => shiftDays(-7)}
                 disabled={busy !== null}
                 className="h-8 text-[12px]"
               >
@@ -174,13 +238,58 @@ export function CellActionPopover({
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => shift("forward", 1)}
+                onClick={() => shiftDays(7)}
                 disabled={busy !== null}
                 className="h-8 text-[12px]"
               >
                 1 sem <ChevronRight className="h-3.5 w-3.5" />
               </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => shiftDays(-14)}
+                disabled={busy !== null}
+                className="h-8 text-[12px]"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" /> 2 sem
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => shiftDays(14)}
+                disabled={busy !== null}
+                className="h-8 text-[12px]"
+              >
+                2 sem <ChevronRight className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => shiftDays(-30)}
+                disabled={busy !== null}
+                className="h-8 text-[12px]"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" /> 1 mes
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => shiftDays(30)}
+                disabled={busy !== null}
+                className="h-8 text-[12px]"
+              >
+                1 mes <ChevronRight className="h-3.5 w-3.5" />
+              </Button>
             </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setPickingDate(true)}
+              disabled={busy !== null}
+              className="w-full h-8 text-[12px]"
+            >
+              <CalendarIcon className="h-3.5 w-3.5 mr-1" /> Fecha exacta...
+            </Button>
             <Button
               size="sm"
               variant="outline"
@@ -198,9 +307,7 @@ export function CellActionPopover({
                 <Loader2 className="h-3 w-3 animate-spin" /> Moviendo...
               </div>
             )}
-            {error && (
-              <p className="text-[12px] text-status-warn-fg">{error}</p>
-            )}
+            {error && <p className="text-[12px] text-status-warn-fg">{error}</p>}
           </div>
         ) : (
           <div className="space-y-2">
