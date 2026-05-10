@@ -356,8 +356,10 @@ export function CashflowConfigClient({ initialConfig, initialCategories, account
 
         <div className="mt-4 pt-3 border-t border-border">
           <p className="text-[12px] text-ds-text-3 mb-2">
-            <strong>Mantenimiento:</strong> sincroniza los contratos del CRM como items de flujo de caja.
-            Es seguro ejecutarlo varias veces (idempotente).
+            La sincronización es <strong>automática</strong> en tres puntos:
+            (1) cada vez que se crea/edita un contrato CPQ, (2) al cargar el flujo
+            de caja por primera vez tras un cambio masivo, (3) cada noche a las
+            4 AM. Solo usá el botón si querés forzar una recorrida ahora.
           </p>
           <Button
             variant="outline"
@@ -365,7 +367,7 @@ export function CashflowConfigClient({ initialConfig, initialCategories, account
             onClick={runContractsBackfill}
             disabled={backfillRunning}
           >
-            {backfillRunning ? "Sincronizando..." : "Sincronizar contratos del CRM"}
+            {backfillRunning ? "Sincronizando..." : "Forzar re-sync ahora"}
           </Button>
           {backfillStatus && (
             <p className="text-[12px] text-ds-text-2 mt-2">{backfillStatus}</p>
