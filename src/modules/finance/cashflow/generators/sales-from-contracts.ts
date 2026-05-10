@@ -1,3 +1,9 @@
+/**
+ * @deprecated Reemplazado por sales-contract-sync.ts en feat/cashflow-dinamico-completo.
+ * Las ventas de contratos ahora se materializan como FinanceCashflowItem
+ * con source=CONTRACT, lo que las hace movibles, conciliables y editables.
+ * Este archivo se mantiene un release como referencia y será eliminado.
+ */
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { addMonths, isAfter, isBefore } from "date-fns";

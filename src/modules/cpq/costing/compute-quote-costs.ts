@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { isDefaultUniform } from "@/lib/cpq-constants";
+import { syncContractItemForQuote } from "@/modules/finance/cashflow/generators/sales-contract-sync";
 import type {
   AdditionalLineDetail,
   CostByCategory,
@@ -632,7 +633,7 @@ export async function refreshQuoteTotals(quoteId: string) {
     create: { quoteId, salePriceMonthly },
   });
 
-  return prisma.cpqQuote.update({
+  const updated = await prisma.cpqQuote.update({
     where: { id: quoteId },
     data: {
       totalPositions,
@@ -640,4 +641,14 @@ export async function refreshQuoteTotals(quoteId: string) {
       monthlyCost: costSummary.monthlyTotal,
     },
   });
+
+  // Cashflow: si el quote ya está activo, recalcular el item espejo
+  // con el nuevo monthlyCost. Si está en draft, será noop.
+  try {
+    await syncContractItemForQuote(updated.tenantId, updated.id);
+  } catch (err) {
+    console.error("[CPQ costs] sync cashflow item failed:", err);
+  }
+
+  return updated;
 }

@@ -97,9 +97,53 @@ export function CashflowConfigClient({ initialConfig, initialCategories, account
   );
   const [creatingCat, setCreatingCat] = useState(false);
   const [catError, setCatError] = useState<string | null>(null);
+  const [backfillStatus, setBackfillStatus] = useState<string | null>(null);
+  const [backfillRunning, setBackfillRunning] = useState(false);
 
   function setField<K extends keyof CashflowConfig>(key: K, value: CashflowConfig[K]) {
     setConfig((c) => ({ ...c, [key]: value }));
+  }
+
+  async function toggleAutoSales(enabled: boolean) {
+    setField("autoSales", enabled);
+    const r = await fetch("/api/finance/cashflow/config/auto-sales-toggle", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled }),
+    });
+    const j = await r.json();
+    if (!j?.success) {
+      setField("autoSales", !enabled);
+      alert(j?.error ?? "Error al actualizar ventas automáticas");
+    }
+  }
+
+  async function runContractsBackfill() {
+    setBackfillRunning(true);
+    setBackfillStatus(null);
+    try {
+      const r = await fetch("/api/finance/cashflow/backfill/contracts", {
+        method: "POST",
+      });
+      const j = await r.json();
+      if (j?.success) {
+        const s = j.data as {
+          created: number;
+          updated: number;
+          reactivated: number;
+          deactivated: number;
+        };
+        setBackfillStatus(
+          `Sincronización OK · creados ${s.created} · actualizados ${s.updated} · reactivados ${s.reactivated} · desactivados ${s.deactivated}`,
+        );
+      } else {
+        setBackfillStatus(j?.error ?? "Error al sincronizar");
+      }
+    } catch (err) {
+      setBackfillStatus(`Error: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setBackfillRunning(false);
+    }
   }
 
   async function saveConfig() {
@@ -298,10 +342,34 @@ export function CashflowConfigClient({ initialConfig, initialCategories, account
               </div>
               <Switch
                 checked={config[g.key]}
-                onCheckedChange={(v) => setField(g.key, v)}
+                onCheckedChange={(v) => {
+                  if (g.key === "autoSales") {
+                    toggleAutoSales(v);
+                  } else {
+                    setField(g.key, v);
+                  }
+                }}
               />
             </div>
           ))}
+        </div>
+
+        <div className="mt-4 pt-3 border-t border-border">
+          <p className="text-[12px] text-ds-text-3 mb-2">
+            <strong>Mantenimiento:</strong> sincroniza los contratos del CRM como items de flujo de caja.
+            Es seguro ejecutarlo varias veces (idempotente).
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={runContractsBackfill}
+            disabled={backfillRunning}
+          >
+            {backfillRunning ? "Sincronizando..." : "Sincronizar contratos del CRM"}
+          </Button>
+          {backfillStatus && (
+            <p className="text-[12px] text-ds-text-2 mt-2">{backfillStatus}</p>
+          )}
         </div>
       </Surface>
 
