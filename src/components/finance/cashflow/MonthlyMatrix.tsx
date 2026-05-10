@@ -21,6 +21,7 @@ export function MonthlyMatrix({ defaultMonths }: Props) {
   const [months, setMonths] = useState<number>(defaultMonths);
   const [projection, setProjection] = useState<ProjectionMatrix | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const fromDate = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const toDate = useMemo(
@@ -44,7 +45,7 @@ export function MonthlyMatrix({ defaultMonths }: Props) {
         }
       })
       .finally(() => setLoading(false));
-  }, [fromDate, toDate]);
+  }, [fromDate, toDate, refreshKey]);
 
   // useMemo DEBE ir antes de cualquier early return para respetar Rules of Hooks.
   // El primer render con projection=null y los siguientes con projection≠null
@@ -118,13 +119,13 @@ export function MonthlyMatrix({ defaultMonths }: Props) {
             <tbody>
               <SectionHeader label="Ingresos" colSpan={colCount} tone="ok" />
               {incomeRows.map((r) => (
-                <MatrixRow key={r.categoryCode} row={r} actualByCellKey={actualByCellKey} buckets={projection.buckets} />
+                <MatrixRow key={r.categoryCode} row={r} actualByCellKey={actualByCellKey} buckets={projection.buckets} granularity="monthly" onActionDone={() => setRefreshKey((k) => k + 1)} />
               ))}
               <SubtotalRow label="Total ingresos" rows={incomeRows} buckets={projection.buckets} tone="ok" />
 
               <SectionHeader label="Egresos" colSpan={colCount} tone="warn" />
               {expenseRows.map((r) => (
-                <MatrixRow key={r.categoryCode} row={r} actualByCellKey={actualByCellKey} buckets={projection.buckets} />
+                <MatrixRow key={r.categoryCode} row={r} actualByCellKey={actualByCellKey} buckets={projection.buckets} granularity="monthly" onActionDone={() => setRefreshKey((k) => k + 1)} />
               ))}
               <SubtotalRow label="Total egresos" rows={expenseRows} buckets={projection.buckets} tone="warn" />
             </tbody>
