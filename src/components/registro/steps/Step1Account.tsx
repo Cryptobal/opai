@@ -190,21 +190,20 @@ export function Step1Account({
         </div>
 
         <div className="registro-field" style={{ marginTop: 20 }}>
-          <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', cursor: 'pointer', fontSize: 13, color: 'var(--mk-text)' }}>
+          <label>
             <input
               type="checkbox"
               checked={values.acceptTerms}
               onChange={(e) => update('acceptTerms', e.target.checked)}
-              style={{ width: 16, height: 16, marginTop: 2 }}
             />
-            <span>
+            <span style={{ fontSize: 13, lineHeight: 1.5, color: 'var(--mk-text)' }}>
               Acepto los{' '}
               <a href="/terminos" target="_blank" style={{ color: 'var(--mk-teal)', textDecoration: 'underline' }}>términos de servicio</a>
               {' '}y la{' '}
               <a href="/privacidad" target="_blank" style={{ color: 'var(--mk-teal)', textDecoration: 'underline' }}>política de privacidad</a>.
             </span>
           </label>
-          {errors.acceptTerms && <span className="registro-field-error">{errors.acceptTerms}</span>}
+          {errors.acceptTerms && <span className="registro-field-error" style={{ marginTop: 8 }}>{errors.acceptTerms}</span>}
         </div>
 
         <div className="registro-actions">

@@ -130,7 +130,7 @@
   margin-bottom: 6px;
 }
 
-.registro-field input,
+.registro-field input:not([type="checkbox"]):not([type="radio"]),
 .registro-field select,
 .registro-field textarea {
   width: 100%;
@@ -154,6 +154,28 @@
 .registro-field input.error,
 .registro-field select.error {
   border-color: var(--mk-orange);
+}
+
+/* Checkbox: native pero con accent-color teal y tamaño correcto */
+.registro-field input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  cursor: pointer;
+  accent-color: var(--mk-teal);
+  flex-shrink: 0;
+}
+
+/* Cuando el label envuelve un checkbox, el label no debe tener margin-bottom
+   ni display block (rompe el alineamiento horizontal con el span de texto). */
+.registro-field label:has(input[type="checkbox"]) {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-bottom: 0;
+  font-weight: 400;
+  cursor: pointer;
 }
 
 .registro-field-error {
