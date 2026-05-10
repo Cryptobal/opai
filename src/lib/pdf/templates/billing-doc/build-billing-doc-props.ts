@@ -1,0 +1,358 @@
+/**
+ * Construye las props completas para el renderer del documento de cobro
+ * (Proforma / Estado de Pago) a partir de un FinanceDte persistido.
+ *
+ * Se carga TODO en una sola pasada para evitar N+1: DTE + lines + cliente
+ * CRM + contacto Estado de Pago + instalación + tenant config + signers
+ * activos + base64 de las firmas (R2). El renderer recibe props 100%
+ * resueltas y NO toca BD.
+ */
+
+import { prisma } from "@/lib/prisma";
+import { getTenantCompanyConfig } from "@/lib/tenant-config";
+import { resolveBrandColors } from "@/modules/finance/billing/billing-doc-config.service";
+import { listSigners } from "@/modules/finance/billing/billing-signers.service";
+import { getFileBuffer } from "@/lib/storage";
+import { renderVerificationCode } from "@/lib/validations/billing-doc";
+
+export type BillingDocVariant = "PROFORMA" | "ESTADO_DE_PAGO" | "DTE_PREVIEW";
+
+export interface BillingDocSignerProp {
+  id: string;
+  name: string;
+  role: string;
+  /** Imagen PNG/JPG de la firma como dataURL base64. Null si no hay imagen. */
+  signatureDataUrl: string | null;
+}
+
+export interface BillingDocLine {
+  lineNumber: number;
+  itemCode: string | null;
+  itemName: string;
+  description: string | null;
+  quantity: number;
+  unit: string | null;
+  unitPrice: number;
+  unitPriceUf: number | null;
+  discountPct: number;
+  netAmount: number;
+  isExempt: boolean;
+  /** Metadata específica para Estado de Pago (días, factor zona, fechas). */
+  estadoPagoMeta: {
+    dias?: number;
+    factorZona?: number;
+    fechaEjecucion?: string;
+    fechaReporteTrabajo?: string;
+    fechaInformeTecnico?: string;
+  } | null;
+}
+
+export interface BillingDocProps {
+  variant: BillingDocVariant;
+
+  emisor: {
+    rut: string;
+    razonSocial: string;
+    giro: string | null;
+    direccion: string | null;
+    comuna: string | null;
+    ciudad: string | null;
+    telefono: string | null;
+    email: string | null;
+    /** Logo en base64 dataURL (de TenantDteConfig.logoBase64 o brandingLogoFull). */
+    logoDataUrl: string | null;
+    brandNameUpper: string;
+  };
+
+  receptor: {
+    rut: string;
+    razonSocial: string;
+    giro: string | null;
+    direccion: string | null;
+    comuna: string | null;
+    ciudad: string | null;
+    /** Nombre del contacto receptor (para Estado de Pago). */
+    contactName: string | null;
+    contactEmail: string | null;
+    contactPhone: string | null;
+  };
+
+  document: {
+    /** Para draft = "—"; para emitido = "1234". */
+    folio: string;
+    /** Tipo SII: 33, 34, etc. */
+    dteType: number;
+    /** Nombre del tipo: "FACTURA ELECTRÓNICA", etc. */
+    dteTypeName: string;
+    /** Fecha emisión formateada DD/MM/YYYY. */
+    dateFormatted: string;
+    /** ISO YYYY-MM-DD. */
+    dateIso: string;
+    /** N° Orden / Contrato del cliente (CrmAccount.numeroOrdenContrato). */
+    numeroOrdenContrato: string | null;
+    /** Nombre de la instalación si aplica. */
+    installationName: string | null;
+    /** Periodo "marzo 2026" para títulos de Estado de Pago. */
+    periodoLabel: string;
+    /** Código de verificación renderizado (para Estado de Pago). */
+    verificationCode: string;
+  };
+
+  lines: BillingDocLine[];
+
+  totals: {
+    netAmount: number;
+    exemptAmount: number;
+    taxRate: number;
+    taxAmount: number;
+    totalAmount: number;
+    currency: "CLP" | "UF";
+    /** UF del día si currency=UF. */
+    ufValueAtIssue: number | null;
+  };
+
+  /** Firmantes activos del tenant (1-3). */
+  signers: BillingDocSignerProp[];
+
+  branding: {
+    primary: string;
+    secondary: string;
+    /** Footer legal personalizado (Estado de Pago). */
+    estadoPagoFooterLegal: string | null;
+  };
+
+  notes: string | null;
+}
+
+const DTE_TYPE_NAMES: Record<number, string> = {
+  33: "FACTURA ELECTRÓNICA",
+  34: "FACTURA EXENTA ELECTRÓNICA",
+  39: "BOLETA ELECTRÓNICA",
+  41: "BOLETA EXENTA ELECTRÓNICA",
+  52: "GUÍA DE DESPACHO ELECTRÓNICA",
+  56: "NOTA DE DÉBITO ELECTRÓNICA",
+  61: "NOTA DE CRÉDITO ELECTRÓNICA",
+};
+
+const MONTHS_ES = [
+  "enero",
+  "febrero",
+  "marzo",
+  "abril",
+  "mayo",
+  "junio",
+  "julio",
+  "agosto",
+  "septiembre",
+  "octubre",
+  "noviembre",
+  "diciembre",
+];
+
+function formatDate(d: Date): string {
+  const dd = String(d.getUTCDate()).padStart(2, "0");
+  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const yyyy = d.getUTCFullYear();
+  return `${dd}/${mm}/${yyyy}`;
+}
+
+function periodoLabel(d: Date): string {
+  return `${MONTHS_ES[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+}
+
+function slugify(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
+async function fetchSignatureDataUrl(
+  storageKey: string | null,
+): Promise<string | null> {
+  if (!storageKey) return null;
+  try {
+    const buf = await getFileBuffer(storageKey, 1024 * 1024);
+    const ext = storageKey.toLowerCase().endsWith(".png") ? "png" : "jpeg";
+    return `data:image/${ext};base64,${buf.toString("base64")}`;
+  } catch (err) {
+    console.warn(
+      "[billing-doc] No se pudo cargar imagen de firma",
+      storageKey,
+      err,
+    );
+    return null;
+  }
+}
+
+function logoDataUrlFromConfig(logoBase64: string | null): string | null {
+  if (!logoBase64) return null;
+  if (logoBase64.startsWith("data:")) return logoBase64;
+  return `data:image/png;base64,${logoBase64}`;
+}
+
+export interface BuildBillingDocPropsOptions {
+  /** Override de firmantes (lista de IDs). Si null/undefined, usa todos los activos. */
+  signerOverrideIds?: string[];
+}
+
+export async function buildBillingDocProps(
+  tenantId: string,
+  dteId: string,
+  variant: BillingDocVariant,
+  opts: BuildBillingDocPropsOptions = {},
+): Promise<BillingDocProps> {
+  const dte = await prisma.financeDte.findFirst({
+    where: { id: dteId, tenantId },
+    include: {
+      lines: { orderBy: { lineNumber: "asc" } },
+    },
+  });
+  if (!dte) throw new Error("DTE no encontrado");
+
+  // Cliente CRM (si está vinculado) + contacto Estado de Pago.
+  const account = dte.crmAccountId
+    ? await prisma.crmAccount.findFirst({
+        where: { id: dte.crmAccountId, tenantId },
+        include: {
+          contactoEstadoPago: true,
+          contacts: {
+            orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
+            take: 1,
+          },
+        },
+      })
+    : null;
+
+  const installation = dte.installationId
+    ? await prisma.crmInstallation.findFirst({
+        where: { id: dte.installationId, tenantId },
+        select: { name: true },
+      })
+    : null;
+
+  const tenantConfig = await prisma.tenantDteConfig.findUnique({
+    where: { tenantId },
+  });
+
+  const company = await getTenantCompanyConfig(tenantId);
+  const colors = await resolveBrandColors(tenantId);
+
+  // Firmantes: por defecto los activos. Si hay override, filtrar.
+  let signers = await listSigners(tenantId);
+  if (opts.signerOverrideIds && opts.signerOverrideIds.length > 0) {
+    const set = new Set(opts.signerOverrideIds);
+    signers = signers.filter((s) => set.has(s.id));
+  }
+
+  const signersWithImages: BillingDocSignerProp[] = await Promise.all(
+    signers.slice(0, 3).map(async (s) => ({
+      id: s.id,
+      name: s.name,
+      role: s.role,
+      signatureDataUrl: await fetchSignatureDataUrl(s.signatureStorageKey),
+    })),
+  );
+
+  // Contacto: contactoEstadoPago si existe; si no, primer contacto activo.
+  const contactoEP =
+    account?.contactoEstadoPago ?? account?.contacts?.[0] ?? null;
+
+  // Periodo: del campo `date` del DTE.
+  const date = new Date(dte.date);
+
+  // Código verificación: solo se imprime en Estado de Pago.
+  const verifTemplate =
+    tenantConfig?.verificationCodeTemplate || "EP-{{year}}{{month}}-{{folio}}";
+  const verificationCode = renderVerificationCode(verifTemplate, {
+    year: date.getUTCFullYear(),
+    month: String(date.getUTCMonth() + 1).padStart(2, "0"),
+    folio: dte.folio || "DRAFT",
+    accountSlug: account ? slugify(account.name) : undefined,
+    installationSlug: installation ? slugify(installation.name) : undefined,
+  });
+
+  return {
+    variant,
+
+    emisor: {
+      rut: tenantConfig?.emisorRut ?? company.rut,
+      razonSocial: tenantConfig?.emisorRazonSocial ?? company.razonSocial,
+      giro: tenantConfig?.emisorGiro ?? null,
+      direccion: tenantConfig?.emisorDireccion ?? company.direccion ?? null,
+      comuna: tenantConfig?.emisorComuna ?? company.comuna ?? null,
+      ciudad: tenantConfig?.emisorCiudad ?? company.ciudad ?? null,
+      telefono: tenantConfig?.emisorTelefono ?? company.telefono ?? null,
+      email: tenantConfig?.emisorEmail ?? company.emailContact ?? null,
+      logoDataUrl:
+        logoDataUrlFromConfig(tenantConfig?.logoBase64 ?? null) ??
+        company.brandingLogoFull ??
+        company.logoUrl ??
+        null,
+      brandNameUpper: company.brandNameUpper ?? company.razonSocial.toUpperCase(),
+    },
+
+    receptor: {
+      rut: dte.receiverRut,
+      razonSocial: dte.receiverName,
+      giro: dte.receiverGiro,
+      direccion: dte.receiverDireccion,
+      comuna: dte.receiverComuna,
+      ciudad: dte.receiverCiudad,
+      contactName: contactoEP
+        ? `${contactoEP.firstName} ${contactoEP.lastName}`.trim()
+        : null,
+      contactEmail: contactoEP?.email ?? dte.receiverEmail ?? null,
+      contactPhone: contactoEP?.phone ?? null,
+    },
+
+    document: {
+      folio: dte.folio > 0 ? String(dte.folio) : "—",
+      dteType: dte.dteType,
+      dteTypeName: DTE_TYPE_NAMES[dte.dteType] ?? `Tipo ${dte.dteType}`,
+      dateFormatted: formatDate(date),
+      dateIso: date.toISOString().slice(0, 10),
+      numeroOrdenContrato: account?.numeroOrdenContrato ?? null,
+      installationName: installation?.name ?? null,
+      periodoLabel: periodoLabel(date),
+      verificationCode,
+    },
+
+    lines: dte.lines.map((l) => ({
+      lineNumber: l.lineNumber,
+      itemCode: l.itemCode,
+      itemName: l.itemName,
+      description: l.description,
+      quantity: Number(l.quantity),
+      unit: l.unit,
+      unitPrice: Number(l.unitPrice),
+      unitPriceUf: l.unitPriceUf ? Number(l.unitPriceUf) : null,
+      discountPct: Number(l.discountPct),
+      netAmount: Number(l.netAmount),
+      isExempt: l.isExempt,
+      estadoPagoMeta: (l.estadoPagoMeta as BillingDocLine["estadoPagoMeta"]) ?? null,
+    })),
+
+    totals: {
+      netAmount: Number(dte.netAmount),
+      exemptAmount: Number(dte.exemptAmount),
+      taxRate: Number(dte.taxRate),
+      taxAmount: Number(dte.taxAmount),
+      totalAmount: Number(dte.totalAmount),
+      currency: dte.currency === "UF" ? "UF" : "CLP",
+      ufValueAtIssue: dte.ufValueAtIssue ? Number(dte.ufValueAtIssue) : null,
+    },
+
+    signers: signersWithImages,
+
+    branding: {
+      primary: colors.primary,
+      secondary: colors.secondary,
+      estadoPagoFooterLegal: tenantConfig?.estadoPagoFooterLegal ?? null,
+    },
+
+    notes: dte.notes,
+  };
+}

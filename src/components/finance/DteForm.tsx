@@ -15,7 +15,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
-import { Plus, Trash2, Loader2, Send, Download, FileEdit, Eye, ExternalLink } from "lucide-react";
+import { Plus, Trash2, Loader2, Send, Download, FileEdit, Eye, ExternalLink, ChevronDown } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { CustomerCombobox, type CustomerOption } from "./CustomerCombobox";
 import { DteAttachmentsCard } from "./DteAttachmentsCard";
 import {
@@ -823,6 +830,45 @@ export function DteForm({ availableTypes, accounts }: Props) {
     }
   };
 
+  /**
+   * Vista previa para variantes Proforma / Estado de Pago. Requiere
+   * draftIdParam (no soporta modo ad-hoc — esos layouts cargan firmantes,
+   * branding, contacto receptor, metadata por línea desde la BD).
+   */
+  const handleVariantPreview = async (
+    variant: "PROFORMA" | "ESTADO_DE_PAGO",
+  ) => {
+    if (!draftIdParam) {
+      toast.error(
+        "Guardá primero el borrador para ver la vista previa de Proforma / Estado de Pago.",
+      );
+      return;
+    }
+    setPreviewLoading(true);
+    try {
+      if (previewBlobUrl) URL.revokeObjectURL(previewBlobUrl);
+      const res = await fetch("/api/finance/billing/preview-pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ documentVariant: variant, dteId: draftIdParam }),
+      });
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(
+          (errBody as { error?: string }).error ?? "Error al generar vista previa",
+        );
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      setPreviewBlobUrl(url);
+      setPreviewOpen(true);
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
   /** Guardar como borrador (sin emitir, sin reservar folio). */
   const handleSaveDraft = async () => {
     setSaving(true);
@@ -1486,22 +1532,71 @@ export function DteForm({ availableTypes, accounts }: Props) {
         >
           Cancelar
         </Button>
-        {/* Vista previa: NO gasta folio. El PDF lleva marca de agua
-            "VISTA PREVIA · NO EMITIDO". Recomendado siempre antes de
-            emitir, sobre todo en facturas grandes o con muchos items. */}
-        <Button
-          variant="outline"
-          onClick={handlePreviewPdf}
-          disabled={saving || previewLoading}
-          title="Genera PDF como se vería al emitir, sin reservar folio SII"
-        >
-          {previewLoading ? (
-            <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
-          ) : (
-            <Eye className="h-4 w-4 mr-1.5" />
-          )}
-          Vista previa PDF
-        </Button>
+        {/* Vista previa: NO gasta folio. El click principal genera el
+            DTE preview estándar. El chevron abre menú con variantes
+            Proforma / Estado de Pago (requieren draft guardado). */}
+        <div className="flex">
+          <Button
+            variant="outline"
+            onClick={handlePreviewPdf}
+            disabled={saving || previewLoading}
+            className="rounded-r-none border-r-0"
+            title="Genera PDF como se vería al emitir, sin reservar folio SII"
+          >
+            {previewLoading ? (
+              <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+            ) : (
+              <Eye className="h-4 w-4 mr-1.5" />
+            )}
+            Vista previa PDF
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                disabled={saving || previewLoading}
+                className="rounded-l-none px-2"
+                aria-label="Más opciones de vista previa"
+              >
+                <ChevronDown className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={handlePreviewPdf}
+                disabled={previewLoading}
+              >
+                <Eye className="h-3.5 w-3.5 mr-2" />
+                DTE Preview (estándar SII)
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => handleVariantPreview("PROFORMA")}
+                disabled={previewLoading || !draftIdParam}
+              >
+                <Eye className="h-3.5 w-3.5 mr-2" />
+                Vista previa Proforma
+                {!draftIdParam && (
+                  <span className="ml-2 text-[10px] text-muted-foreground">
+                    (requiere borrador)
+                  </span>
+                )}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => handleVariantPreview("ESTADO_DE_PAGO")}
+                disabled={previewLoading || !draftIdParam}
+              >
+                <Eye className="h-3.5 w-3.5 mr-2" />
+                Vista previa Estado de Pago
+                {!draftIdParam && (
+                  <span className="ml-2 text-[10px] text-muted-foreground">
+                    (requiere borrador)
+                  </span>
+                )}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
         <Button
           variant="outline"
           onClick={handleSaveDraft}

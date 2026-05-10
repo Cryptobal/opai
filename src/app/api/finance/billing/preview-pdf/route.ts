@@ -44,6 +44,8 @@ import {
   renderDtePreviewPdf,
   type DtePreviewInput,
 } from "@/lib/dte-pdf-preview-renderer";
+import { buildBillingDocProps } from "@/lib/pdf/templates/billing-doc/build-billing-doc-props";
+import { renderBillingDocPdf } from "@/lib/pdf/templates/billing-doc/render-billing-doc";
 
 export const runtime = "nodejs";
 
@@ -61,27 +63,48 @@ const previewLineSchema = z.object({
 });
 
 const previewSchema = z.object({
+  /**
+   * Variante del documento de cobro a renderizar.
+   *   - DTE_PREVIEW: vista previa estándar SII (renderer pdf-lib actual).
+   *   - PROFORMA: layout factura SII con marca "PROFORMA". Requiere dteId.
+   *   - ESTADO_DE_PAGO: layout landscape estilo servicios. Requiere dteId.
+   */
+  documentVariant: z
+    .enum(["DTE_PREVIEW", "PROFORMA", "ESTADO_DE_PAGO"])
+    .default("DTE_PREVIEW"),
+  /**
+   * ID del FinanceDte persistido. Requerido para PROFORMA y
+   * ESTADO_DE_PAGO. Para DTE_PREVIEW es opcional (modo ad-hoc desde
+   * los datos del form).
+   */
+  dteId: z.string().uuid().optional(),
+  /** Override de firmantes para PROFORMA / ESTADO_DE_PAGO. */
+  signerOverrideIds: z.array(z.string()).max(3).optional(),
+  // Campos del DteForm (solo para DTE_PREVIEW ad-hoc).
   dteType: z
     .number()
     .int()
     .refine((v) => [33, 34, 39, 41, 52, 56, 61].includes(v), {
       message: "Tipo de DTE inválido",
-    }),
+    })
+    .optional(),
   date: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha YYYY-MM-DD")
     .optional()
     .nullable(),
   currency: z.enum(["CLP", "USD", "UF"]).default("CLP"),
-  receptor: z.object({
-    rut: z.string().trim().min(2).max(20),
-    razonSocial: z.string().trim().min(1).max(200),
-    giro: z.string().trim().max(120).optional().nullable(),
-    direccion: z.string().trim().max(200).optional().nullable(),
-    comuna: z.string().trim().max(80).optional().nullable(),
-    ciudad: z.string().trim().max(80).optional().nullable(),
-  }),
-  lines: z.array(previewLineSchema).min(1, "Debe incluir al menos una línea"),
+  receptor: z
+    .object({
+      rut: z.string().trim().min(2).max(20),
+      razonSocial: z.string().trim().min(1).max(200),
+      giro: z.string().trim().max(120).optional().nullable(),
+      direccion: z.string().trim().max(200).optional().nullable(),
+      comuna: z.string().trim().max(80).optional().nullable(),
+      ciudad: z.string().trim().max(80).optional().nullable(),
+    })
+    .optional(),
+  lines: z.array(previewLineSchema).optional(),
   references: z
     .array(
       z.object({
@@ -98,10 +121,6 @@ const previewSchema = z.object({
     .max(30)
     .optional(),
   notes: z.string().trim().max(1000).optional().nullable(),
-  /**
-   * UF override para preview con UF distinta a la del día (usado por
-   * recurring template preview donde aplicamos una UF policy).
-   */
   ufOverride: z.number().positive().optional(),
 });
 
@@ -121,14 +140,66 @@ export async function POST(request: NextRequest) {
   const body = parsed.data;
 
   try {
+    // ── Variantes Proforma / Estado de Pago ──
+    // Requieren dteId persistido (no se puede generar desde el form
+    // ad-hoc porque necesitan firmantes, branding, contacto receptor,
+    // metadata por línea, etc.).
+    if (body.documentVariant !== "DTE_PREVIEW") {
+      if (!body.dteId) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "Las variantes Proforma y Estado de Pago requieren un borrador guardado (dteId). Guardá el borrador antes de previsualizar.",
+          },
+          { status: 400 },
+        );
+      }
+      const billingProps = await buildBillingDocProps(
+        ctx.tenantId,
+        body.dteId,
+        body.documentVariant,
+        { signerOverrideIds: body.signerOverrideIds },
+      );
+      const pdfBuf = await renderBillingDocPdf(billingProps);
+      const filename =
+        body.documentVariant === "PROFORMA"
+          ? "vista-previa-proforma.pdf"
+          : "vista-previa-estado-de-pago.pdf";
+      return new NextResponse(new Uint8Array(pdfBuf), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `inline; filename="${filename}"`,
+          "Cache-Control": "no-store, must-revalidate",
+        },
+      });
+    }
+
+    // ── DTE_PREVIEW (renderer pdf-lib existente) ──
+    if (!body.dteType || !body.receptor || !body.lines || body.lines.length === 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Faltan datos del DTE (dteType, receptor, lines) para generar la vista previa.",
+        },
+        { status: 400 },
+      );
+    }
+    // Aliasing locales para que TS narrowing se propague dentro de map() y al
+    // armado de DtePreviewInput.
+    const dteTypeNum = body.dteType;
+    const previewLines = body.lines;
+    const previewReceptor = body.receptor;
     // Cálculo de montos: misma fuente de verdad que la emisión real.
     // strict=true: si el form pasó algún unitPrice CLP con decimales,
     // el preview falla con el mismo error que vería al emitir.
     const calc = await computeDteAmounts(
       {
-        dteType: body.dteType,
+        dteType: dteTypeNum,
         currency: body.currency,
-        lines: body.lines.map((l) => ({
+        lines: previewLines.map((l) => ({
           itemName: l.itemName,
           description: l.description ?? undefined,
           quantity: l.quantity,
@@ -162,7 +233,7 @@ export async function POST(request: NextRequest) {
     });
 
     const previewInput: DtePreviewInput = {
-      dteType: body.dteType,
+      dteType: dteTypeNum,
       date: body.date ?? null,
       emisor: {
         rut: tenantConfig?.emisorRut ?? "—",
@@ -175,12 +246,12 @@ export async function POST(request: NextRequest) {
         correo: tenantConfig?.emisorEmail,
         logoBase64: tenantConfig?.logoBase64,
       },
-      receptor: body.receptor,
+      receptor: previewReceptor,
       lines: calc.lines.map((l, i) => ({
-        itemName: body.lines[i]?.itemName ?? l.itemName,
-        description: body.lines[i]?.description ?? l.description ?? null,
+        itemName: previewLines[i]?.itemName ?? l.itemName,
+        description: previewLines[i]?.description ?? l.description ?? null,
         quantity: l.quantity,
-        unit: body.lines[i]?.unit ?? l.unit ?? null,
+        unit: previewLines[i]?.unit ?? l.unit ?? null,
         unitPrice: l.unitPrice,
         netAmount: l.netAmount,
         isExempt: l.isExempt,
