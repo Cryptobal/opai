@@ -4,9 +4,15 @@ import { requireAuth, unauthorized, resolveApiPerms, parseBody } from "@/lib/api
 import { hasCapability } from "@/lib/permissions";
 import { moveOccurrence } from "@/modules/finance/cashflow/occurrence.service";
 
-const moveSchema = z.object({
-  newDate: z.coerce.date(),
-});
+const moveSchema = z
+  .object({
+    newDate: z.coerce.date().optional(),
+    daysFromCurrent: z.number().int().optional(),
+  })
+  .refine(
+    (v) => v.newDate !== undefined || v.daysFromCurrent !== undefined,
+    "Falta newDate o daysFromCurrent",
+  );
 
 export async function POST(
   request: NextRequest,
@@ -22,7 +28,10 @@ export async function POST(
     const { id } = await context.params;
     const parsed = await parseBody(request, moveSchema);
     if (parsed.error) return parsed.error;
-    await moveOccurrence(ctx.tenantId, id, parsed.data.newDate);
+    await moveOccurrence(ctx.tenantId, id, {
+      newDate: parsed.data.newDate ?? null,
+      daysFromCurrent: parsed.data.daysFromCurrent ?? null,
+    });
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : "Error interno";

@@ -129,11 +129,15 @@ export async function linkOccurrenceToBankTx(
  *
  * Actualiza tanto `scheduledDate` como `effectiveDate` para mantener
  * consistencia con el flujo de matching.
+ *
+ * Acepta dos modos de especificar la fecha destino:
+ *  - newDate: fecha absoluta
+ *  - daysFromCurrent: offset relativo (en días) desde la fecha actual de la ocurrencia
  */
 export async function moveOccurrence(
   tenantId: string,
   id: string,
-  newDate: Date,
+  arg: { newDate: Date | null; daysFromCurrent: number | null },
 ): Promise<void> {
   const existing = await prisma.financeCashflowOccurrence.findFirst({
     where: { id, tenantId },
@@ -145,11 +149,22 @@ export async function moveOccurrence(
   if (existing.status === "PAID") {
     throw new Error("No se puede mover una ocurrencia ya pagada/conciliada");
   }
+
+  let target: Date;
+  if (arg.newDate) {
+    target = arg.newDate;
+  } else if (arg.daysFromCurrent !== null) {
+    target = new Date(existing.scheduledDate);
+    target.setDate(target.getDate() + arg.daysFromCurrent);
+  } else {
+    throw new Error("Se requiere newDate o daysFromCurrent");
+  }
+
   const collision = await prisma.financeCashflowOccurrence.findFirst({
     where: {
       tenantId,
       itemId: existing.itemId,
-      scheduledDate: newDate,
+      scheduledDate: target,
     },
     select: { id: true },
   });
@@ -158,7 +173,7 @@ export async function moveOccurrence(
   }
   await prisma.financeCashflowOccurrence.update({
     where: { id },
-    data: { scheduledDate: newDate, effectiveDate: newDate },
+    data: { scheduledDate: target, effectiveDate: target },
   });
 }
 
