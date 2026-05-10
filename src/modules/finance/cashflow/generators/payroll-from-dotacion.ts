@@ -1,3 +1,7 @@
+/**
+ * @deprecated Reemplazado por payroll-sync.ts. Las ocurrencias de payroll ahora
+ * se materializan como FinanceCashflowItem (source=PAYROLL).
+ */
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { addMonths, lastDayOfMonth, startOfMonth, isAfter, isBefore } from "date-fns";
