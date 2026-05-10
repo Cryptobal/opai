@@ -7,7 +7,7 @@ import type {
 } from "@/modules/finance/cashflow/types";
 import { CellAmount } from "./CellAmount";
 import { CellActionPopover } from "./CellActionPopover";
-import { useDraggable, useDroppable } from "@dnd-kit/core";
+import { useDroppable } from "@dnd-kit/core";
 import { ItemDetailRow } from "./ItemDetailRow";
 
 const fmt = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 });
@@ -53,39 +53,6 @@ function DroppableBucketCell({
     >
       {children}
     </td>
-  );
-}
-
-function DraggableOccurrenceChip({
-  occurrenceId,
-  draggable,
-  children,
-}: {
-  occurrenceId: string | null;
-  draggable: boolean;
-  children: React.ReactNode;
-}) {
-  const dragId = occurrenceId ? `occ-${occurrenceId}` : "noop";
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: dragId,
-    disabled: !draggable,
-  });
-  const style: React.CSSProperties = {
-    transform: transform
-      ? `translate3d(${transform.x}px, ${transform.y}px, 0)`
-      : undefined,
-    cursor: draggable ? (isDragging ? "grabbing" : "grab") : "default",
-    opacity: isDragging ? 0.5 : 1,
-  };
-  return (
-    <span
-      ref={setNodeRef}
-      style={style}
-      {...(draggable ? listeners : {})}
-      {...(draggable ? attributes : {})}
-    >
-      {children}
-    </span>
   );
 }
 
@@ -135,7 +102,6 @@ export function ExpandableMatrixRow({
     return null;
   }
 
-  const hasItems = row.items.length > 0;
   const onActionDoneSafe = onActionDone ?? (() => {});
 
   return (
@@ -145,24 +111,17 @@ export function ExpandableMatrixRow({
           <button
             type="button"
             onClick={toggle}
-            disabled={!hasItems}
-            className="flex items-center gap-1.5 w-full text-left disabled:cursor-default"
+            className="flex items-center gap-1.5 w-full text-left min-h-[44px] sm:min-h-0"
           >
-            {hasItems ? (
-              expanded ? (
-                <ChevronDown className="h-3.5 w-3.5 text-ds-text-3 shrink-0" />
-              ) : (
-                <ChevronRightIcon className="h-3.5 w-3.5 text-ds-text-3 shrink-0" />
-              )
+            {expanded ? (
+              <ChevronDown className="h-3.5 w-3.5 text-ds-text-3 shrink-0" />
             ) : (
-              <span className="w-3.5 shrink-0" />
+              <ChevronRightIcon className="h-3.5 w-3.5 text-ds-text-3 shrink-0" />
             )}
             <span className="truncate">{row.categoryName}</span>
-            {hasItems && (
-              <span className="text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4 shrink-0">
-                ({row.items.length})
-              </span>
-            )}
+            <span className="text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4 shrink-0">
+              ({row.items.length})
+            </span>
           </button>
         </td>
         {row.values.map((v) => {
@@ -188,18 +147,13 @@ export function ExpandableMatrixRow({
               bucketKey={v.bucketKey}
               className="p-2 text-right text-ds-text-2 whitespace-nowrap"
             >
-              <DraggableOccurrenceChip
-                occurrenceId={occ?.id ?? null}
-                draggable={occ !== null}
+              <CellActionPopover
+                target={occ}
+                granularity={granularity}
+                onActionDone={onActionDoneSafe}
               >
-                <CellActionPopover
-                  target={occ}
-                  granularity={granularity}
-                  onActionDone={onActionDoneSafe}
-                >
-                  {cellContent}
-                </CellActionPopover>
-              </DraggableOccurrenceChip>
+                {cellContent}
+              </CellActionPopover>
             </DroppableBucketCell>
           );
         })}

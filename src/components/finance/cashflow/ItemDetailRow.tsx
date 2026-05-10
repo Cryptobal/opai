@@ -1,6 +1,5 @@
 "use client";
-import { useDraggable, useDroppable } from "@dnd-kit/core";
-import { ChevronRight } from "lucide-react";
+import { useDroppable } from "@dnd-kit/core";
 import type {
   ProjectionRowItemDetail,
   ProjectionBucket,
@@ -8,6 +7,7 @@ import type {
 } from "@/modules/finance/cashflow/types";
 import { CellAmount } from "./CellAmount";
 import { CellActionPopover } from "./CellActionPopover";
+import { DragHandle } from "./DragHandle";
 
 const fmt = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 });
 
@@ -36,17 +36,14 @@ function sourceLink(source: FinanceCashflowItemSource, item: ProjectionRowItemDe
 
 function DroppableSubCell({
   bucketKey,
-  occurrenceId,
   children,
   className = "",
 }: {
   bucketKey: string;
-  occurrenceId: string | null;
   children: React.ReactNode;
   className?: string;
 }) {
-  const dropId = `subcell:${bucketKey}:${occurrenceId ?? "none"}`;
-  const { setNodeRef, isOver } = useDroppable({ id: dropId });
+  const { setNodeRef, isOver } = useDroppable({ id: bucketKey });
   return (
     <td
       ref={setNodeRef}
@@ -57,35 +54,11 @@ function DroppableSubCell({
   );
 }
 
-function DraggableSubChip({
-  occurrenceId,
-  children,
-}: {
-  occurrenceId: string | null;
-  children: React.ReactNode;
-}) {
-  const dragId = occurrenceId ? `occ-${occurrenceId}` : "noop-sub";
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: dragId,
-    disabled: occurrenceId === null,
-  });
-  const style: React.CSSProperties = {
-    transform: transform
-      ? `translate3d(${transform.x}px, ${transform.y}px, 0)`
-      : undefined,
-    cursor: occurrenceId ? (isDragging ? "grabbing" : "grab") : "default",
-    opacity: isDragging ? 0.5 : 1,
-  };
-  return (
-    <span
-      ref={setNodeRef}
-      style={style}
-      {...(occurrenceId ? listeners : {})}
-      {...(occurrenceId ? attributes : {})}
-    >
-      {children}
-    </span>
-  );
+function firstMovableOccurrenceId(item: ProjectionRowItemDetail): string | null {
+  for (const v of item.values) {
+    if (v.occurrenceId) return v.occurrenceId;
+  }
+  return null;
 }
 
 interface Props {
@@ -104,8 +77,8 @@ export function ItemDetailRow({ item, buckets, granularity, kind, onActionDone }
   return (
     <tr className="bg-muted/10 hover:bg-muted/20 border-t border-border/50">
       <td className="sticky left-0 z-20 bg-muted/10 p-2 truncate min-w-[140px] max-w-[160px] sm:min-w-[180px] sm:max-w-none">
-        <div className="flex items-center gap-1.5 pl-5">
-          <ChevronRight className="h-3 w-3 text-ds-text-3 shrink-0" />
+        <div className="flex items-center gap-1.5 pl-3">
+          <DragHandle occurrenceId={firstMovableOccurrenceId(item)} />
           {link ? (
             <a
               href={link}
@@ -141,18 +114,15 @@ export function ItemDetailRow({ item, buckets, granularity, kind, onActionDone }
           <DroppableSubCell
             key={v.bucketKey}
             bucketKey={v.bucketKey}
-            occurrenceId={v.occurrenceId}
             className="p-2 text-right text-ds-text-2 whitespace-nowrap"
           >
-            <DraggableSubChip occurrenceId={v.occurrenceId}>
-              <CellActionPopover
-                target={target}
-                granularity={granularity}
-                onActionDone={onActionDone}
-              >
-                {cellContent}
-              </CellActionPopover>
-            </DraggableSubChip>
+            <CellActionPopover
+              target={target}
+              granularity={granularity}
+              onActionDone={onActionDone}
+            >
+              {cellContent}
+            </CellActionPopover>
           </DroppableSubCell>
         );
       })}

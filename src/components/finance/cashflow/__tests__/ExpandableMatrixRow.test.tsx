@@ -142,14 +142,15 @@ describe("ExpandableMatrixRow", () => {
     expect(screen.getByText("Edificio A")).toBeTruthy();
   });
 
-  it("desactiva el chevron cuando la categoría no tiene items", () => {
+  it("chevron sigue activo y badge muestra (0) cuando la categoría no tiene items", () => {
     const empty: ProjectionRow = {
       ...makeRow(0),
       items: [],
     };
     renderRow(empty);
     const btn = screen.getByRole("button", { name: /Ventas contrato/i });
-    expect(btn.hasAttribute("disabled")).toBe(true);
+    expect(btn.hasAttribute("disabled")).toBe(false);
+    expect(screen.getByText("(0)")).toBeTruthy();
   });
 
   it("usa installationName cuando está disponible y itemName como fallback", () => {
