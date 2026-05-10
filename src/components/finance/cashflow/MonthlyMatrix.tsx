@@ -58,6 +58,18 @@ export function MonthlyMatrix({ defaultMonths }: Props) {
   const expenseRows = projection.rows.filter((r) => r.kind === "EXPENSE");
   const colCount = projection.buckets.length + 2;
 
+  const actualByCellKey = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const b of projection.buckets) {
+      for (const occ of b.occurrences) {
+        if (occ.actualAmountClp === null) continue;
+        const cellKey = `${occ.categoryId ?? "_"}_${b.key}`;
+        m.set(cellKey, (m.get(cellKey) ?? 0) + occ.actualAmountClp);
+      }
+    }
+    return m;
+  }, [projection]);
+
   return (
     <Surface elevation={1} padding="md" className="overflow-hidden">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
@@ -102,13 +114,13 @@ export function MonthlyMatrix({ defaultMonths }: Props) {
             <tbody>
               <SectionHeader label="Ingresos" colSpan={colCount} tone="ok" />
               {incomeRows.map((r) => (
-                <MatrixRow key={r.categoryCode} row={r} />
+                <MatrixRow key={r.categoryCode} row={r} actualByCellKey={actualByCellKey} />
               ))}
               <SubtotalRow label="Total ingresos" rows={incomeRows} buckets={projection.buckets} tone="ok" />
 
               <SectionHeader label="Egresos" colSpan={colCount} tone="warn" />
               {expenseRows.map((r) => (
-                <MatrixRow key={r.categoryCode} row={r} />
+                <MatrixRow key={r.categoryCode} row={r} actualByCellKey={actualByCellKey} />
               ))}
               <SubtotalRow label="Total egresos" rows={expenseRows} buckets={projection.buckets} tone="warn" />
             </tbody>

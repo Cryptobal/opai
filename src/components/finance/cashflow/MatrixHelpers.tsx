@@ -1,5 +1,6 @@
 "use client";
 import type { ProjectionBucket, ProjectionRow } from "@/modules/finance/cashflow/types";
+import { CellAmount } from "./CellAmount";
 
 export const fmt = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 });
 
@@ -13,17 +14,36 @@ export const fmt = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 });
  *     stay above adjacent sticky cells.
  */
 
-export function MatrixRow({ row }: { row: ProjectionRow }) {
+export function MatrixRow({
+  row,
+  actualByCellKey,
+}: {
+  row: ProjectionRow;
+  actualByCellKey?: Map<string, number>;
+}) {
   return (
     <tr className="hover:bg-muted/20">
       <td className="sticky left-0 z-20 bg-background p-2 truncate min-w-[140px] max-w-[160px] sm:min-w-[180px] sm:max-w-none">
         {row.categoryName}
       </td>
-      {row.values.map((v) => (
-        <td key={v.bucketKey} className="p-2 text-right font-mono text-ds-text-2 whitespace-nowrap">
-          {v.amount > 0 ? fmt.format(v.amount) : "—"}
-        </td>
-      ))}
+      {row.values.map((v) => {
+        const cellKey = `${row.categoryId ?? "_"}_${v.bucketKey}`;
+        const actual = actualByCellKey?.has(cellKey)
+          ? (actualByCellKey.get(cellKey) ?? null)
+          : null;
+        const variance =
+          actual !== null ? actual - v.amount : null;
+        return (
+          <td key={v.bucketKey} className="p-2 text-right text-ds-text-2 whitespace-nowrap">
+            <CellAmount
+              projected={v.amount}
+              actual={actual}
+              variance={variance}
+              kind={row.kind as "INCOME" | "EXPENSE"}
+            />
+          </td>
+        );
+      })}
       <td className="sticky right-0 z-20 p-2 text-right font-mono bg-muted/40 whitespace-nowrap">
         {fmt.format(row.total)}
       </td>
