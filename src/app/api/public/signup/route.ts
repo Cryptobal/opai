@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
     prisma.admin.findFirst({ where: { email: data.email } }),
     prisma.tenant.findFirst({ where: { slug: data.proposedSlug } }),
     prisma.pendingSignup.findFirst({
-      where: { email: data.email, verifiedAt: null, expiresAt: { gt: new Date() } },
+      where: { email: data.email, verifiedAt: null },
     }),
   ]);
 
@@ -111,13 +111,18 @@ export async function POST(request: NextRequest) {
     );
   }
   if (pending) {
-    return NextResponse.json(
-      {
-        error: "Ya iniciaste un registro con este email. Revisa tu correo.",
-        action: "resend",
-      },
-      { status: 409 },
-    );
+    if (pending.expiresAt < new Date()) {
+      // Pending expirado: lo limpiamos y permitimos un registro nuevo.
+      await prisma.pendingSignup.delete({ where: { id: pending.id } });
+    } else {
+      return NextResponse.json(
+        {
+          error: "Ya iniciaste un registro con este email. Revisa tu correo.",
+          action: "resend",
+        },
+        { status: 409 },
+      );
+    }
   }
 
   const passwordHash = await bcrypt.hash(data.password, 12);

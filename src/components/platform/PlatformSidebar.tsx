@@ -37,7 +37,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   {
-    href: '/platform/dashboard',
+    href: '/platform/tenants',
     label: 'Tenants',
     icon: Building2,
     matches: ['/platform/dashboard', '/platform/tenants'],
