@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { TrialBanner } from '@/components/marketing/TrialBanner'
+import { HeroEmailCta } from '@/components/marketing/HeroEmailCta'
 import TestimonialsSection from '@/components/marketing/TestimonialsSection'
 import { ImpactStats } from '@/components/marketing/ImpactStats'
 import { ProductShowcase } from '@/components/marketing/ProductShowcase'
@@ -287,27 +288,8 @@ export default function MarketingPage() {
             ausentismo y automatiza lo repetitivo.
           </p>
 
-          {/* CTAs */}
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'center',
-              gap: '14px',
-              flexWrap: 'wrap',
-              marginBottom: '14px',
-            }}
-          >
-            <Link
-              href="/registrarse"
-              className="mk-btn-primary"
-              style={{ padding: '16px 32px', fontSize: '1rem' }}
-            >
-              Comenzar gratis →
-            </Link>
-            <Link href="/planes" className="mk-btn-ghost">
-              Ver planes y precios
-            </Link>
-          </div>
+          {/* CTA: email-box inline para registro directo (sin pasar por /registrarse) */}
+          <HeroEmailCta />
 
           <p
             style={{
@@ -318,7 +300,7 @@ export default function MarketingPage() {
               marginBottom: '20px',
             }}
           >
-            Sin tarjeta de crédito · Sin compromisos · Cancela cuando quieras
+            Sin tarjeta de crédito · 30 días Profesional gratis · Plan Gratis para siempre
           </p>
 
           {/* Stats bar */}

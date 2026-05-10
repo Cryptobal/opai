@@ -29,7 +29,7 @@ function isPublicPath(pathname: string): boolean {
   // Marketing site pages (route group: (marketing))
   const marketingPaths = [
     '/funcionalidades', '/planes', '/blog', '/nosotros', '/contacto',
-    '/registrarse', '/erp-seguridad-privada', '/control-rondas-gps',
+    '/registrarse', '/registro', '/erp-seguridad-privada', '/control-rondas-gps',
     '/ia-seguridad-privada', '/integraciones', '/privacidad', '/terminos',
     '/empleos',
   ];
