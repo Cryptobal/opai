@@ -1,5 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
+import { resolveUfForOccurrence } from "./uf-resolver";
 import type {
   FinanceCashflowOccurrence,
   FinanceCashflowOccurrenceStatus,
@@ -205,5 +206,104 @@ export async function setOccurrenceAmountOverride(
       amountOverride: newAmountClp,
       amountClp: newAmountClp,
     },
+  });
+}
+
+export type MaterializeAndActInput =
+  | { itemId: string; originalDate: Date; action: "move"; newDate?: Date; daysFromCurrent?: number }
+  | { itemId: string; originalDate: Date; action: "amount"; amountClp: number };
+
+/**
+ * Materializa una ocurrencia virtual (idempotente) y aplica una acción sobre
+ * ella en una sola llamada. La unique [itemId, scheduledDate] del schema
+ * garantiza que un segundo llamado con la misma originalDate reutilice la fila
+ * existente, preservando overrides previos del usuario.
+ */
+export async function materializeAndAct(
+  tenantId: string,
+  input: MaterializeAndActInput,
+): Promise<FinanceCashflowOccurrence> {
+  const item = await prisma.financeCashflowItem.findFirst({
+    where: { id: input.itemId, tenantId, isActive: true },
+    select: {
+      id: true,
+      amount: true,
+      currency: true,
+      ufFixingPolicy: true,
+      ufFixingDay: true,
+    },
+  });
+  if (!item) throw new Error("Item no encontrado o inactivo");
+
+  const itemAmount = Number(item.amount);
+  let amountClpBase: number;
+  let ufValue: number | null = null;
+  if (item.currency === "UF") {
+    ufValue = await resolveUfForOccurrence(
+      item.ufFixingPolicy,
+      item.ufFixingDay,
+      input.originalDate,
+    );
+    amountClpBase = itemAmount * ufValue;
+  } else {
+    amountClpBase = itemAmount;
+  }
+
+  const existing = await prisma.financeCashflowOccurrence.upsert({
+    where: { itemId_scheduledDate: { itemId: item.id, scheduledDate: input.originalDate } },
+    create: {
+      tenantId,
+      itemId: item.id,
+      scheduledDate: input.originalDate,
+      amountClp: amountClpBase,
+      ufValueUsed: ufValue ?? undefined,
+      status: "PROJECTED",
+    },
+    update: {},
+  });
+
+  if (existing.status === "PAID") {
+    if (input.action === "move") {
+      throw new Error("No se puede mover una ocurrencia ya pagada/conciliada");
+    }
+    if (input.action === "amount") {
+      throw new Error("No se puede editar el monto de una ocurrencia ya conciliada");
+    }
+  }
+
+  if (input.action === "move") {
+    let target: Date;
+    if (input.newDate) {
+      target = input.newDate;
+    } else if (input.daysFromCurrent !== undefined) {
+      target = new Date(existing.scheduledDate);
+      target.setDate(target.getDate() + input.daysFromCurrent);
+    } else {
+      throw new Error("Se requiere newDate o daysFromCurrent para move");
+    }
+    if (
+      target.toISOString().slice(0, 10) !==
+      existing.scheduledDate.toISOString().slice(0, 10)
+    ) {
+      const collision = await prisma.financeCashflowOccurrence.findFirst({
+        where: { tenantId, itemId: item.id, scheduledDate: target },
+        select: { id: true },
+      });
+      if (collision && collision.id !== existing.id) {
+        throw new Error("Ya existe una ocurrencia de este ítem en esa fecha");
+      }
+    }
+    return prisma.financeCashflowOccurrence.update({
+      where: { id: existing.id },
+      data: { scheduledDate: target, effectiveDate: target },
+    });
+  }
+
+  if (!Number.isFinite(input.amountClp) || input.amountClp <= 0) {
+    throw new Error("El monto debe ser mayor a 0");
+  }
+  return prisma.financeCashflowOccurrence.update({
+    where: { id: existing.id },
+    data: { amountOverride: input.amountClp, amountClp: input.amountClp },
   });
 }

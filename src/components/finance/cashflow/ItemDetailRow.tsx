@@ -54,9 +54,14 @@ function DroppableSubCell({
   );
 }
 
-function firstMovableOccurrenceId(item: ProjectionRowItemDetail): string | null {
+function firstMovableValue(
+  item: ProjectionRowItemDetail,
+): { occurrenceId: string | null; scheduledDate: string } | null {
+  if (item.itemId === "_orphan") return null;
   for (const v of item.values) {
-    if (v.occurrenceId) return v.occurrenceId;
+    if (v.amount > 0 || v.occurrenceId) {
+      return { occurrenceId: v.occurrenceId, scheduledDate: v.scheduledDate };
+    }
   }
   return null;
 }
@@ -73,12 +78,19 @@ export function ItemDetailRow({ item, buckets, granularity, kind, onActionDone }
   const badge = SOURCE_BADGE[item.source];
   const link = sourceLink(item.source, item);
   const display = item.installationName ?? item.itemName;
+  const handleTarget = firstMovableValue(item);
 
   return (
     <tr className="bg-muted/10 hover:bg-muted/20 border-t border-border/50">
       <td className="sticky left-0 z-20 bg-muted/10 p-2 truncate min-w-[140px] max-w-[160px] sm:min-w-[180px] sm:max-w-none">
         <div className="flex items-center gap-1.5 pl-3">
-          <DragHandle occurrenceId={firstMovableOccurrenceId(item)} />
+          {handleTarget && (
+            <DragHandle
+              occurrenceId={handleTarget.occurrenceId}
+              itemId={item.itemId}
+              originalDate={handleTarget.scheduledDate}
+            />
+          )}
           {link ? (
             <a
               href={link}
@@ -109,7 +121,15 @@ export function ItemDetailRow({ item, buckets, granularity, kind, onActionDone }
             kind={kind}
           />
         );
-        const target = v.occurrenceId ? { id: v.occurrenceId, amountClp: v.amount } : null;
+        const target =
+          item.itemId !== "_orphan" && (v.amount > 0 || v.occurrenceId)
+            ? {
+                id: v.occurrenceId,
+                itemId: item.itemId,
+                originalDate: v.scheduledDate,
+                amountClp: v.amount,
+              }
+            : null;
         return (
           <DroppableSubCell
             key={v.bucketKey}

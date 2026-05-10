@@ -86,3 +86,24 @@ export const autoMatchSchema = z.object({
   from: z.coerce.date(),
   to: z.coerce.date(),
 });
+
+export const upsertAndActSchema = z.discriminatedUnion("action", [
+  z
+    .object({
+      action: z.literal("move"),
+      itemId: z.string().uuid(),
+      originalDate: z.coerce.date(),
+      newDate: z.coerce.date().optional(),
+      daysFromCurrent: z.number().int().optional(),
+    })
+    .refine(
+      (v) => v.newDate !== undefined || v.daysFromCurrent !== undefined,
+      "Falta newDate o daysFromCurrent",
+    ),
+  z.object({
+    action: z.literal("amount"),
+    itemId: z.string().uuid(),
+    originalDate: z.coerce.date(),
+    amountClp: z.number().positive(),
+  }),
+]);

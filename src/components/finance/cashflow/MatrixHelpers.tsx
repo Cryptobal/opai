@@ -141,7 +141,15 @@ export function MatrixRow({
         if (buckets) {
           // Find the first moveable occurrence for this category+bucket
           const occ = findDraggableOccurrence(buckets, row.categoryId, v.bucketKey);
-          const target = occ ? { id: occ.id!, amountClp: occ.amountClp } : null;
+          const target =
+            occ && occ.itemId
+              ? {
+                  id: occ.id,
+                  itemId: occ.itemId,
+                  originalDate: occ.scheduledDate.toISOString().slice(0, 10),
+                  amountClp: occ.amountClp,
+                }
+              : null;
           return (
             <DroppableBucketCell
               key={v.bucketKey}

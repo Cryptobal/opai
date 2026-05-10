@@ -90,13 +90,22 @@ export function ExpandableMatrixRow({
     });
   }
 
-  // Encontrar la primera ocurrencia movible por bucket (para popover/DnD de
-  // la fila colapsada — agregada).
-  function findOcc(bucketKey: string) {
+  // Target agregado por bucket para popover/DnD de la fila colapsada.
+  // Devolvemos el primer item con amount > 0 (incluyendo cuotas vírgenes
+  // — itemId+scheduledDate basta para materializar al primer move).
+  // Items `_orphan` (sin itemId real) se filtran porque el endpoint de
+  // materialize requiere un UUID válido.
+  function findAggregatedTarget(bucketKey: string) {
     for (const item of row.items) {
+      if (item.itemId === "_orphan") continue;
       const cell = item.values.find((v) => v.bucketKey === bucketKey);
-      if (cell?.occurrenceId) {
-        return { id: cell.occurrenceId, amountClp: cell.amount };
+      if (cell && (cell.amount > 0 || cell.occurrenceId)) {
+        return {
+          id: cell.occurrenceId,
+          itemId: item.itemId,
+          originalDate: cell.scheduledDate,
+          amountClp: cell.amount,
+        };
       }
     }
     return null;
@@ -140,7 +149,7 @@ export function ExpandableMatrixRow({
             />
           );
 
-          const occ = findOcc(v.bucketKey);
+          const aggregatedTarget = findAggregatedTarget(v.bucketKey);
           return (
             <DroppableBucketCell
               key={v.bucketKey}
@@ -148,7 +157,7 @@ export function ExpandableMatrixRow({
               className="p-2 text-right text-ds-text-2 whitespace-nowrap"
             >
               <CellActionPopover
-                target={occ}
+                target={aggregatedTarget}
                 granularity={granularity}
                 onActionDone={onActionDoneSafe}
               >

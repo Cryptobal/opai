@@ -83,6 +83,9 @@ export interface ProjectionRowItemValue {
   actualAmount: number | null;
   /** id de una occurrence representativa (no PAID, materializada) para DnD/popover. */
   occurrenceId: string | null;
+  /** scheduledDate (yyyy-MM-dd) de una cuota representativa del bucket. Permite
+   *  materializar al primer move/amount aunque occurrenceId sea null. */
+  scheduledDate: string;
 }
 
 export interface ProjectionRowItemDetail {
