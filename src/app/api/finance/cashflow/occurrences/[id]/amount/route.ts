@@ -2,17 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAuth, unauthorized, resolveApiPerms, parseBody } from "@/lib/api-auth";
 import { hasCapability } from "@/lib/permissions";
-import { moveOccurrence } from "@/modules/finance/cashflow/occurrence.service";
+import { setOccurrenceAmountOverride } from "@/modules/finance/cashflow/occurrence.service";
 
-const moveSchema = z
-  .object({
-    newDate: z.coerce.date().optional(),
-    daysFromCurrent: z.number().int().optional(),
-  })
-  .refine(
-    (v) => v.newDate !== undefined || v.daysFromCurrent !== undefined,
-    "Falta newDate o daysFromCurrent",
-  );
+const amountSchema = z.object({
+  amountClp: z.number().positive(),
+});
 
 export async function POST(
   request: NextRequest,
@@ -26,16 +20,12 @@ export async function POST(
       return NextResponse.json({ success: false, error: "Sin permisos" }, { status: 403 });
     }
     const { id } = await context.params;
-    const parsed = await parseBody(request, moveSchema);
+    const parsed = await parseBody(request, amountSchema);
     if (parsed.error) return parsed.error;
-    await moveOccurrence(ctx.tenantId, id, {
-      newDate: parsed.data.newDate ?? null,
-      daysFromCurrent: parsed.data.daysFromCurrent ?? null,
-    });
+    await setOccurrenceAmountOverride(ctx.tenantId, id, parsed.data.amountClp);
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : "Error interno";
-    console.error("[Finance/Cashflow] POST occurrences/move:", error);
     return NextResponse.json({ success: false, error: msg }, { status: 400 });
   }
 }

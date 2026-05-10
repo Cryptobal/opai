@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import { Pencil, Trash2, Plus } from "lucide-react";
 import { CategoryAccountsEditor } from "./CategoryAccountsEditor";
+import { CategoryRowExpandable } from "./CategoryRowExpandable";
 
 interface CashflowConfig {
   horizonWeeksDefault: number;
@@ -252,7 +253,7 @@ export function CashflowConfigClient({ initialConfig, initialCategories, account
               onChange={(e) => setField("matchAmountToleranceClp", Number(e.target.value))}
             />
             <p className="mt-1 text-[12px] text-ds-text-3">
-              Diferencia máxima en pesos para que un movimiento bancario se considere coincidencia con un ítem proyectado.
+              Cuando el banco cobra un movimiento, el monto puede no coincidir exacto con tu proyección (impuestos extra, comisiones, redondeo). Este número es la <strong>diferencia máxima en pesos</strong> que el sistema acepta para considerar que el cobro corresponde a esa proyección. Recomendado: <strong>5.000</strong> para gastos fijos, <strong>15.000</strong> si tu banco aplica comisiones variables.
             </p>
           </div>
           <div>
@@ -266,7 +267,7 @@ export function CashflowConfigClient({ initialConfig, initialCategories, account
               onChange={(e) => setField("matchDaysTolerance", Number(e.target.value))}
             />
             <p className="mt-1 text-[12px] text-ds-text-3">
-              Días de diferencia aceptados entre la fecha proyectada y la fecha real del banco.
+              Un movimiento puede no caer exactamente el día proyectado. Ej: pagaste Movistar el día 7 pero lo proyectaste para el 5 → diferencia de 2 días. Este número es el <strong>máximo de días de diferencia</strong> aceptado. Recomendado: <strong>3 días</strong> para gastos fijos, <strong>5 días</strong> si tu banco demora en procesar.
             </p>
           </div>
         </div>
@@ -405,6 +406,7 @@ export function CashflowConfigClient({ initialConfig, initialCategories, account
           <table className="w-full text-[12px]">
             <thead>
               <tr className="border-b border-border text-ds-text-3">
+                <th className="w-6 p-2"></th>
                 <th className="text-left p-2">Código</th>
                 <th className="text-left p-2">Nombre</th>
                 <th className="text-left p-2">Tipo</th>
@@ -416,41 +418,52 @@ export function CashflowConfigClient({ initialConfig, initialCategories, account
             </thead>
             <tbody>
               {categories.map((c) => (
-                <tr key={c.id} className="border-b border-border hover:bg-muted/20">
-                  <td className="p-2 font-mono text-ds-text-3">{c.code}</td>
-                  <td className="p-2">{c.name}</td>
-                  <td className="p-2">{c.kind === "INCOME" ? "↑ Ingreso" : "↓ Egreso"}</td>
-                  <td className="p-2">
-                    <CategoryAccountsEditor
-                      categoryId={c.id}
-                      accountOptions={accountOptions}
-                      canEdit={true}
-                    />
-                  </td>
-                  <td className="p-2 text-center">
-                    {c.isSystem ? (
-                      <span className="text-[11px] px-1.5 py-0.5 rounded-ds-sm bg-status-info-soft text-status-info-fg font-mono uppercase tracking-[0.08em]">
-                        Sistema
-                      </span>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                  <td className="p-2 text-center">
-                    <Switch checked={c.isActive} onCheckedChange={() => toggleCategoryActive(c)} />
-                  </td>
-                  <td className="p-2 text-center">
-                    {!c.isSystem && (
-                      <button
-                        onClick={() => deleteCategory(c)}
-                        className="p-1 hover:bg-status-warn-soft rounded text-status-warn-fg"
-                        aria-label="Eliminar"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    )}
-                  </td>
-                </tr>
+                <CategoryRowExpandable
+                  key={c.id}
+                  categoryId={c.id}
+                  categoryCode={c.code}
+                  categoryName={c.name}
+                  categoryKind={c.kind}
+                  canManage={true}
+                  colSpan={7}
+                  header={
+                    <>
+                      <td className="p-2 font-mono text-ds-text-3">{c.code}</td>
+                      <td className="p-2">{c.name}</td>
+                      <td className="p-2">{c.kind === "INCOME" ? "↑ Ingreso" : "↓ Egreso"}</td>
+                      <td className="p-2">
+                        <CategoryAccountsEditor
+                          categoryId={c.id}
+                          accountOptions={accountOptions}
+                          canEdit={true}
+                        />
+                      </td>
+                      <td className="p-2 text-center">
+                        {c.isSystem ? (
+                          <span className="text-[11px] px-1.5 py-0.5 rounded-ds-sm bg-status-info-soft text-status-info-fg font-mono uppercase tracking-[0.08em]">
+                            Sistema
+                          </span>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                      <td className="p-2 text-center">
+                        <Switch checked={c.isActive} onCheckedChange={() => toggleCategoryActive(c)} />
+                      </td>
+                      <td className="p-2 text-center">
+                        {!c.isSystem && (
+                          <button
+                            onClick={() => deleteCategory(c)}
+                            className="p-1 hover:bg-status-warn-soft rounded text-status-warn-fg"
+                            aria-label="Eliminar"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </td>
+                    </>
+                  }
+                />
               ))}
             </tbody>
           </table>

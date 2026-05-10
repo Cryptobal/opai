@@ -1,6 +1,7 @@
 "use client";
 import type { ProjectionBucket, ProjectionRow, VirtualOccurrence } from "@/modules/finance/cashflow/types";
 import { CellAmount } from "./CellAmount";
+import { CellActionPopover } from "./CellActionPopover";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 
 export const fmt = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 });
@@ -103,11 +104,17 @@ export function MatrixRow({
   row,
   actualByCellKey,
   buckets,
+  granularity,
+  onActionDone,
 }: {
   row: ProjectionRow;
   actualByCellKey?: Map<string, number>;
   /** When provided, cells become droppable and aggregate amounts become draggable. */
   buckets?: ProjectionBucket[];
+  /** Required when buckets is set — drives popover semantics ("1 sem" en weekly, "1 mes" conceptual en monthly). */
+  granularity?: "weekly" | "monthly";
+  /** Callback tras una acción de mover/editar exitosa, para refrescar la matriz. */
+  onActionDone?: () => void;
 }) {
   return (
     <tr className="hover:bg-muted/20">
@@ -134,6 +141,7 @@ export function MatrixRow({
         if (buckets) {
           // Find the first moveable occurrence for this category+bucket
           const occ = findDraggableOccurrence(buckets, row.categoryId, v.bucketKey);
+          const target = occ ? { id: occ.id!, amountClp: occ.amountClp } : null;
           return (
             <DroppableBucketCell
               key={v.bucketKey}
@@ -144,7 +152,13 @@ export function MatrixRow({
                 occurrenceId={occ?.id ?? null}
                 draggable={occ !== null}
               >
-                {cellContent}
+                <CellActionPopover
+                  target={target}
+                  granularity={granularity ?? "weekly"}
+                  onActionDone={onActionDone ?? (() => {})}
+                >
+                  {cellContent}
+                </CellActionPopover>
               </DraggableOccurrenceChip>
             </DroppableBucketCell>
           );

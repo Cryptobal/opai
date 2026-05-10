@@ -3,6 +3,11 @@ import { prisma } from "@/lib/prisma";
 import { addMonths, isAfter, isBefore } from "date-fns";
 import type { ProjectionRange, VirtualOccurrence } from "../types";
 import { resolveUfForOccurrence } from "../uf-resolver";
+import {
+  firstBusinessDayOfMonth,
+  lastBusinessDayOfMonth,
+  firstMondayOfMonth,
+} from "@/lib/business-days";
 
 const ACTIVE_QUOTE_STATUSES = ["accepted", "active", "in_progress", "approved"];
 const SALES_CATEGORY_CODE = "ING_VENTA_CONTRATO";
@@ -34,6 +39,7 @@ export async function projectSalesFromContracts(
       contractStartDate: true,
       contractDuration: true,
       paymentDays: true,
+      paymentDayMode: true,
       paymentTerms: true,
       realAnnualIncrement: true,
       installation: { select: { id: true, name: true } },
@@ -57,11 +63,26 @@ export async function projectSalesFromContracts(
         (q.paymentTerms ?? "").toLowerCase().includes("contrafactura") ||
         (q.paymentTerms ?? "").toLowerCase().includes("post");
       const billingMonth = isPostpago ? addMonths(monthCursor, 1) : monthCursor;
-      const scheduledDate = new Date(
-        billingMonth.getFullYear(),
-        billingMonth.getMonth(),
-        Math.min(payDay, 28),
-      );
+
+      const mode = q.paymentDayMode ?? "SPECIFIC_DAY";
+      const y = billingMonth.getFullYear();
+      const mo = billingMonth.getMonth() + 1; // 1-12 para los helpers
+      let scheduledDate: Date;
+      switch (mode) {
+        case "FIRST_BUSINESS_DAY":
+          scheduledDate = firstBusinessDayOfMonth(y, mo);
+          break;
+        case "LAST_BUSINESS_DAY":
+          scheduledDate = lastBusinessDayOfMonth(y, mo);
+          break;
+        case "FIRST_MONDAY":
+          scheduledDate = firstMondayOfMonth(y, mo);
+          break;
+        case "SPECIFIC_DAY":
+        default:
+          scheduledDate = new Date(y, mo - 1, Math.min(payDay, 28));
+          break;
+      }
 
       if (isBefore(scheduledDate, range.from) || isAfter(scheduledDate, range.to)) {
         monthCursor = addMonths(monthCursor, 1);

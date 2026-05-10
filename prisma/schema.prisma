@@ -1468,6 +1468,7 @@ model CpqQuote {
   cctvRetentionDays     Int?      @default(30) @map("cctv_retention_days")
   contractTemplateId    String?   @map("contract_template_id") @db.Uuid
   paymentDays           Int       @default(5) @map("payment_days")
+  paymentDayMode        String    @default("SPECIFIC_DAY") @map("payment_day_mode")
   realAnnualIncrement   Int       @default(3) @map("real_annual_increment") // % incremento real anual (cláusula Reajuste)
   includedItems         String[]  @default([]) @map("included_items")
   createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)

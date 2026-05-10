@@ -23,6 +23,7 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
   const [projection, setProjection] = useState<ProjectionMatrix>(initialProjection);
   const [loading, setLoading] = useState(false);
   const [matching, setMatching] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const toDate = useMemo(() => {
@@ -32,7 +33,7 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
   }, [weeks]);
 
   useEffect(() => {
-    if (weeks === defaultWeeks) return;
+    if (weeks === defaultWeeks && refreshKey === 0) return;
     setLoading(true);
     fetch(`/api/finance/cashflow/projection?from=${today}&to=${toDate}&granularity=weekly`)
       .then((r) => r.json())
@@ -48,7 +49,7 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
         }
       })
       .finally(() => setLoading(false));
-  }, [weeks, defaultWeeks, today, toDate]);
+  }, [weeks, defaultWeeks, today, toDate, refreshKey]);
 
   const incomeRows = projection.rows.filter((r) => r.kind === "INCOME");
   const expenseRows = projection.rows.filter((r) => r.kind === "EXPENSE");
@@ -146,13 +147,13 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
             <tbody>
               <SectionHeader label="Ingresos" colSpan={colCount} tone="ok" />
               {incomeRows.map((r) => (
-                <MatrixRow key={r.categoryCode} row={r} actualByCellKey={actualByCellKey} buckets={projection.buckets} />
+                <MatrixRow key={r.categoryCode} row={r} actualByCellKey={actualByCellKey} buckets={projection.buckets} granularity="weekly" onActionDone={() => setRefreshKey((k) => k + 1)} />
               ))}
               <SubtotalRow label="Total ingresos" rows={incomeRows} buckets={projection.buckets} tone="ok" />
 
               <SectionHeader label="Egresos" colSpan={colCount} tone="warn" />
               {expenseRows.map((r) => (
-                <MatrixRow key={r.categoryCode} row={r} actualByCellKey={actualByCellKey} buckets={projection.buckets} />
+                <MatrixRow key={r.categoryCode} row={r} actualByCellKey={actualByCellKey} buckets={projection.buckets} granularity="weekly" onActionDone={() => setRefreshKey((k) => k + 1)} />
               ))}
               <SubtotalRow label="Total egresos" rows={expenseRows} buckets={projection.buckets} tone="warn" />
             </tbody>
