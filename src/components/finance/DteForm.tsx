@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
@@ -124,6 +124,14 @@ export function DteForm({ availableTypes, accounts }: Props) {
   // Cliente seleccionado del CRM (vía CustomerCombobox). Si está null, el
   // usuario está ingresando manualmente los datos del receptor.
   const [customer, setCustomer] = useState<CustomerOption | null>(null);
+  /**
+   * Cuando cargamos un draft existente y seteamos `customer` con los datos
+   * del CRM, los efectos auto-completado abajo pisarían los receiverXxx /
+   * installationId que ya restauramos del draft. Este ref evita ese reset
+   * — se enciende durante la carga del draft y se apaga cuando el usuario
+   * cambia el customer manualmente desde el combobox.
+   */
+  const skipCustomerAutofillRef = useRef(false);
   // Datos manuales del receptor (cuando el cliente NO está en el CRM).
   // Si hay `customer` seleccionado, estos campos se ignoran al enviar.
   const [receiverRut, setReceiverRut] = useState("");
@@ -337,6 +345,43 @@ export function DteForm({ availableTypes, accounts }: Props) {
             ? (d.estadoPagoRecipientContactIds as string[])
             : [],
         });
+        // Reconstruir el `customer` (CustomerOption) del CRM cuando el draft
+        // tiene crmAccountId. Sin esto el combobox queda vacío y, peor, la
+        // BillingPlanSection cree que no hay cliente y deshabilita el plan.
+        if (d.crmAccountId) {
+          // Evitar que los efectos [customer] pisen receiver fields y reseteen
+          // installationId. El flag se desactiva al primer cambio manual del
+          // usuario en el combobox (handleCustomerChange).
+          skipCustomerAutofillRef.current = true;
+          fetch(`/api/crm/accounts/${d.crmAccountId}`, { signal: ctrl.signal })
+            .then((r) => r.json())
+            .then((aj) => {
+              const a = aj?.data;
+              if (!a) return;
+              const dn = a.legalName
+                ? `${a.legalName}${a.rut ? ` · ${a.rut}` : ""}`
+                : a.name;
+              setCustomer({
+                id: String(a.id),
+                name: String(a.name ?? ""),
+                displayName: dn,
+                rut: a.rut ?? "",
+                email: a.email ?? null,
+                address: a.address ?? null,
+                commune: a.commune ?? null,
+                city: a.city ?? null,
+                giro: a.giro ?? null,
+                industry: a.industry ?? null,
+              });
+            })
+            .catch(() => {
+              // best-effort: si falla, queda en modo manual con datos del receptor.
+            });
+        }
+        // Restaurar la instalación seleccionada también.
+        if (d.installationId) {
+          setInstallationId(String(d.installationId));
+        }
       })
       .catch(() => {
         toast.error("No se pudo cargar el borrador");
@@ -350,6 +395,7 @@ export function DteForm({ availableTypes, accounts }: Props) {
   // escribir o el provider usa defaults seguros para el SII).
   useEffect(() => {
     if (!customer) return;
+    if (skipCustomerAutofillRef.current) return; // carga inicial de draft.
     setReceiverDireccion(customer.address ?? "");
     setReceiverComuna(customer.commune ?? "");
     setReceiverCiudad(customer.city ?? "");
@@ -365,7 +411,12 @@ export function DteForm({ availableTypes, accounts }: Props) {
   useEffect(() => {
     if (!customer) {
       setInstallations([]);
-      setInstallationId("");
+      // Solo limpiar la selección si el usuario despeja el customer
+      // manualmente — durante la carga inicial del draft conservamos el
+      // installationId que ya restauramos del DTE persistido.
+      if (!skipCustomerAutofillRef.current) {
+        setInstallationId("");
+      }
       return;
     }
     const ctrl = new AbortController();
@@ -1121,7 +1172,13 @@ export function DteForm({ availableTypes, accounts }: Props) {
             */}
             <CustomerCombobox
               value={customer}
-              onChange={setCustomer}
+              onChange={(c) => {
+                // Cualquier cambio manual del usuario en el combobox apaga el
+                // skip — desde acá los efectos auto-completado vuelven a operar
+                // normalmente (pisar receiver fields con datos del CRM, etc.).
+                skipCustomerAutofillRef.current = false;
+                setCustomer(c);
+              }}
               manualRut={receiverRut}
               manualName={receiverName}
               manualEmail={receiverEmail}
