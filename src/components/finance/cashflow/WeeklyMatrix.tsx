@@ -22,23 +22,49 @@ interface Props {
 
 export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Props) {
   const [weeks, setWeeks] = useState<number>(defaultWeeks);
-  // initialProjection llega serializado vía JSON.parse(JSON.stringify(...)) desde
-  // el Server Component, así que `start`/`end` son strings. Rehidratamos en el
-  // lazy initializer para que las filas del tfoot (`b.start.getTime()`) y
-  // cualquier otro consumidor puedan usar métodos de Date sin crashear.
-  const [projection, setProjection] = useState<ProjectionMatrix>(() => ({
-    ...initialProjection,
-    buckets: initialProjection.buckets.map((b) => ({
-      ...b,
-      start: new Date(b.start as unknown as string),
-      end: new Date(b.end as unknown as string),
-    })),
-  }));
   const [loading, setLoading] = useState(false);
   const [matching, setMatching] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [drawerBucket, setDrawerBucket] = useState<string | null>(null);
   const todayDate = useMemo(() => new Date(), []);
+
+  // initialProjection llega serializado vía JSON.parse(JSON.stringify(...)) desde
+  // el Server Component, así que `start`/`end` son strings. Rehidratamos en una
+  // memo derivada — cuando el Server Component re-renderiza por router.refresh(),
+  // initialProjection es un objeto nuevo y la memo se recalcula, exponiendo la
+  // proyección fresca a la UI sin overrides locales.
+  const hydratedInitial = useMemo<ProjectionMatrix>(
+    () => ({
+      ...initialProjection,
+      buckets: initialProjection.buckets.map((b) => ({
+        ...b,
+        start: new Date(b.start as unknown as string),
+        end: new Date(b.end as unknown as string),
+      })),
+    }),
+    [initialProjection],
+  );
+
+  // override es null cuando estamos mostrando hydratedInitial; pasa a tener
+  // valor cuando el usuario cambia el rango o cuando refreshKey > 0 dispara
+  // un re-fetch (auto-match, etc).
+  const [override, setOverride] = useState<ProjectionMatrix | null>(null);
+
+  // Cada vez que el server envía una proyección nueva (creación de quick item,
+  // move/amount, etc → router.refresh()), descartamos el override para mostrar
+  // la fresca. Si el usuario tenía un rango distinto al default, disparamos un
+  // re-fetch para mantener su selección.
+  useEffect(() => {
+    setOverride(null);
+    if (weeks !== defaultWeeks) {
+      setRefreshKey((k) => k + 1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- queremos correr solo
+    // cuando llega una proyección nueva del server; `weeks` y `defaultWeeks` se
+    // capturan al ejecutar.
+  }, [hydratedInitial]);
+
+  const projection: ProjectionMatrix = override ?? hydratedInitial;
 
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const toDate = useMemo(() => {
@@ -60,7 +86,7 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
             start: new Date(b.start),
             end: new Date(b.end),
           }));
-          setProjection(p);
+          setOverride(p);
         }
       })
       .finally(() => setLoading(false));
