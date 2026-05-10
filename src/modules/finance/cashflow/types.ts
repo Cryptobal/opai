@@ -64,6 +64,15 @@ export interface ProjectionBucket {
   actualExpense: number;
   /** real − proyectado para todo el bucket: (actualIncome − income) − (actualExpense − expense). */
   varianceClp: number;
+  /** Suma de créditos (amount > 0) de FinanceBankTransaction visibles en el bucket. */
+  actualBankIncome: number;
+  /** Suma de débitos (amount < 0) en valor absoluto. */
+  actualBankExpense: number;
+  /** Net real de cartola = actualBankIncome − actualBankExpense. */
+  actualBankNet: number;
+  /** Diferencia entre lo que el banco ejecutó y lo proyectado:
+   *  (actualBankIncome − income) − (actualBankExpense − expense). */
+  bankVarianceClp: number;
   occurrences: VirtualOccurrence[];
 }
 
