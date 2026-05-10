@@ -51,6 +51,9 @@ export async function matchOccurrencesToBankLinks(
     for (const occ of occurrences) {
       if (occ.bankTransactionId) continue;
       if (occ.status !== "PROJECTED") continue;
+      // Defensa: tras la materialización completa (sales/payroll/IVA/TE/DTE)
+      // las occurrences sin itemId no deberían existir. Mantenemos la guarda
+      // como salvaguarda contra regresiones de generadores virtuales legacy.
       if (occ.itemId === null) continue;
       if (occ.categoryId !== link.categoryId) continue;
 

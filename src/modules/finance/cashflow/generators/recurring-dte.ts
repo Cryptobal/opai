@@ -1,3 +1,8 @@
+/**
+ * @deprecated Reemplazado por recurring-dte-sync.ts. Las ocurrencias de
+ * DTEs recurrentes ahora se materializan como FinanceCashflowItem
+ * (source=RECURRING_DTE).
+ */
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { addMonths, addWeeks, isAfter } from "date-fns";

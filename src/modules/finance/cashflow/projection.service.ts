@@ -16,10 +16,6 @@ import type {
 } from "./types";
 import { eachDayOfInterval } from "date-fns";
 
-import { projectPayrollFromDotacion } from "./generators/payroll-from-dotacion";
-import { projectTurnosExtraFromHistory } from "./generators/turnos-extra-from-history";
-import { projectIvaFromDte } from "./generators/iva-from-dte";
-import { projectRecurringDtes } from "./generators/recurring-dte";
 import { matchOccurrencesToBankLinks, type BankLinkSlim } from "./account-matcher";
 import { resolveCategoryForLink } from "./category-resolver";
 import { bulkResolveCategoriesFromAccounts } from "./categoryAccount.service";
@@ -189,23 +185,12 @@ export async function buildProjection(
     }
   }
 
-  // Las ventas de contratos ahora se materializan como FinanceCashflowItem
-  // con source=CONTRACT (ver sales-contract-sync.ts). El recurrence-engine
-  // las expande junto con el resto de items, así que ya no se emiten virtuales.
-  // El flag config.autoSales gobierna activación masiva (ver
-  // /api/finance/cashflow/config/auto-sales-toggle).
-  if (config.autoPayroll) {
-    allOccurrences.push(...(await projectPayrollFromDotacion(tenantId, range, codeToCategory, config)));
-  }
-  if (config.autoTurnosExtra) {
-    allOccurrences.push(...(await projectTurnosExtraFromHistory(tenantId, range, codeToCategory)));
-  }
-  if (config.autoIva) {
-    allOccurrences.push(...(await projectIvaFromDte(tenantId, range, codeToCategory, config)));
-  }
-  if (config.autoRecurringDte) {
-    allOccurrences.push(...(await projectRecurringDtes(tenantId, range, codeToCategory)));
-  }
+  // Todos los generadores automáticos (CONTRACT, PAYROLL, TURNOS_EXTRA, IVA,
+  // RECURRING_DTE) ahora se materializan como FinanceCashflowItem y se expanden
+  // con expandRecurrence (loop arriba). Los flags config.autoX gobiernan la
+  // activación/desactivación masiva (ver setXItemsActive en cada generator).
+  // No se emiten ocurrencias virtuales paralelas; eso permitía drag/edit/match
+  // sobre filas que la UI consideraba "huérfanas".
 
   // Inicializar campos de varianza en todas las ocurrencias
   for (const occ of allOccurrences) {
