@@ -6,6 +6,7 @@ import { Wallet, Settings } from "lucide-react";
 import Link from "next/link";
 import { getOrCreateCashflowConfig } from "@/modules/finance/cashflow/config.service";
 import { buildProjection } from "@/modules/finance/cashflow/projection.service";
+import { ensureCashflowSynced } from "@/modules/finance/cashflow/auto-sync";
 import { addWeeks } from "date-fns";
 import { CashflowTabs } from "@/components/finance/cashflow/CashflowTabs";
 import { CashflowKpis, type KpiData } from "@/components/finance/cashflow/CashflowKpis";
@@ -26,6 +27,13 @@ export default async function FlujoCajaPage({
   const config = await getOrCreateCashflowConfig(tenantId);
   const canManage = hasCapability(perms, "cashflow_manage");
   const canConfigure = hasCapability(perms, "cashflow_configure");
+
+  // Self-heal: si detectamos drift entre datos fuente (quotes, dotación,
+  // templates DTE) y items materializados, sincroniza inline ANTES de
+  // construir la proyección. Idempotente y barato cuando ya está OK
+  // (~50ms de counts); paga ~2-5s solo en el primer load post-deploy.
+  // El cron nightly cubre IVA/TURNOS_EXTRA y refresh de montos.
+  await ensureCashflowSynced(tenantId);
 
   const weeks = Math.max(8, Math.min(104, Number(sp.weeks) || config.horizonWeeksDefault));
   const today = new Date();
