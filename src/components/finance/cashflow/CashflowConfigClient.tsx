@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import { Pencil, Trash2, Plus } from "lucide-react";
 import { CategoryAccountsEditor } from "./CategoryAccountsEditor";
+import { CategoryRowExpandable } from "./CategoryRowExpandable";
 
 interface CashflowConfig {
   horizonWeeksDefault: number;
@@ -405,6 +406,7 @@ export function CashflowConfigClient({ initialConfig, initialCategories, account
           <table className="w-full text-[12px]">
             <thead>
               <tr className="border-b border-border text-ds-text-3">
+                <th className="w-6 p-2"></th>
                 <th className="text-left p-2">Código</th>
                 <th className="text-left p-2">Nombre</th>
                 <th className="text-left p-2">Tipo</th>
@@ -416,41 +418,52 @@ export function CashflowConfigClient({ initialConfig, initialCategories, account
             </thead>
             <tbody>
               {categories.map((c) => (
-                <tr key={c.id} className="border-b border-border hover:bg-muted/20">
-                  <td className="p-2 font-mono text-ds-text-3">{c.code}</td>
-                  <td className="p-2">{c.name}</td>
-                  <td className="p-2">{c.kind === "INCOME" ? "↑ Ingreso" : "↓ Egreso"}</td>
-                  <td className="p-2">
-                    <CategoryAccountsEditor
-                      categoryId={c.id}
-                      accountOptions={accountOptions}
-                      canEdit={true}
-                    />
-                  </td>
-                  <td className="p-2 text-center">
-                    {c.isSystem ? (
-                      <span className="text-[11px] px-1.5 py-0.5 rounded-ds-sm bg-status-info-soft text-status-info-fg font-mono uppercase tracking-[0.08em]">
-                        Sistema
-                      </span>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                  <td className="p-2 text-center">
-                    <Switch checked={c.isActive} onCheckedChange={() => toggleCategoryActive(c)} />
-                  </td>
-                  <td className="p-2 text-center">
-                    {!c.isSystem && (
-                      <button
-                        onClick={() => deleteCategory(c)}
-                        className="p-1 hover:bg-status-warn-soft rounded text-status-warn-fg"
-                        aria-label="Eliminar"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    )}
-                  </td>
-                </tr>
+                <CategoryRowExpandable
+                  key={c.id}
+                  categoryId={c.id}
+                  categoryCode={c.code}
+                  categoryName={c.name}
+                  categoryKind={c.kind}
+                  canManage={true}
+                  colSpan={7}
+                  header={
+                    <>
+                      <td className="p-2 font-mono text-ds-text-3">{c.code}</td>
+                      <td className="p-2">{c.name}</td>
+                      <td className="p-2">{c.kind === "INCOME" ? "↑ Ingreso" : "↓ Egreso"}</td>
+                      <td className="p-2">
+                        <CategoryAccountsEditor
+                          categoryId={c.id}
+                          accountOptions={accountOptions}
+                          canEdit={true}
+                        />
+                      </td>
+                      <td className="p-2 text-center">
+                        {c.isSystem ? (
+                          <span className="text-[11px] px-1.5 py-0.5 rounded-ds-sm bg-status-info-soft text-status-info-fg font-mono uppercase tracking-[0.08em]">
+                            Sistema
+                          </span>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                      <td className="p-2 text-center">
+                        <Switch checked={c.isActive} onCheckedChange={() => toggleCategoryActive(c)} />
+                      </td>
+                      <td className="p-2 text-center">
+                        {!c.isSystem && (
+                          <button
+                            onClick={() => deleteCategory(c)}
+                            className="p-1 hover:bg-status-warn-soft rounded text-status-warn-fg"
+                            aria-label="Eliminar"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </td>
+                    </>
+                  }
+                />
               ))}
             </tbody>
           </table>
