@@ -374,6 +374,7 @@ function buildRows(
             amount: 0,
             actualAmount: null,
             occurrenceId: null,
+            scheduledDate: "",
           })),
           total: 0,
           totalActual: 0,
@@ -385,6 +386,12 @@ function buildRows(
       );
       if (bIdx === -1) continue;
       detail.values[bIdx].amount += o.amountClp;
+      // Guardamos la fecha original de la primera ocurrencia que aporta al
+      // bucket. Sirve como identificador estable para materializar la cuota
+      // al primer move/amount aunque la occurrence aún no exista en DB.
+      if (!detail.values[bIdx].scheduledDate) {
+        detail.values[bIdx].scheduledDate = o.scheduledDate.toISOString().slice(0, 10);
+      }
       if (o.actualAmountClp !== null) {
         detail.values[bIdx].actualAmount =
           (detail.values[bIdx].actualAmount ?? 0) + o.actualAmountClp;

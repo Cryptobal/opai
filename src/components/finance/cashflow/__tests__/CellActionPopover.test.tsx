@@ -16,7 +16,12 @@ function renderPopover() {
   const onActionDone = vi.fn();
   const utils = render(
     <CellActionPopover
-      target={{ id: "occ-1", amountClp: 500_000 }}
+      target={{
+        id: "occ-1",
+        itemId: "item-1",
+        originalDate: "2026-05-15",
+        amountClp: 500_000,
+      }}
       granularity="weekly"
       onActionDone={onActionDone}
     >

@@ -21,7 +21,12 @@ import { es } from "date-fns/locale";
 const fmt = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 });
 
 interface CellOccurrenceTarget {
-  id: string;
+  /** UUID si la cuota ya está materializada en FinanceCashflowOccurrence. null si es virtual. */
+  id: string | null;
+  /** Item dueño — siempre presente, necesario para materializar al primer move/amount. */
+  itemId: string;
+  /** Fecha original de la cuota (yyyy-MM-dd) que junto con itemId identifica la celda virtual. */
+  originalDate: string;
   amountClp: number;
 }
 
@@ -61,20 +66,29 @@ export function CellActionPopover({
     return <>{children}</>;
   }
 
+  async function callMoveEndpoint(args: { newDate?: string; daysFromCurrent?: number }) {
+    if (!target) return null;
+    const useUpsert = target.id === null;
+    const url = useUpsert
+      ? `/api/finance/cashflow/occurrences/upsert-and-act`
+      : `/api/finance/cashflow/occurrences/${target.id}/move`;
+    const body = useUpsert
+      ? { action: "move", itemId: target.itemId, originalDate: target.originalDate, ...args }
+      : args;
+    const r = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    return r.json();
+  }
+
   async function shiftDays(days: number) {
     if (!target) return;
     setBusy("shift");
     setError(null);
     try {
-      const r = await fetch(
-        `/api/finance/cashflow/occurrences/${target.id}/move`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ daysFromCurrent: days }),
-        },
-      );
-      const j = await r.json();
+      const j = await callMoveEndpoint({ daysFromCurrent: days });
       if (j?.success) {
         setOpen(false);
         onActionDone();
@@ -93,15 +107,7 @@ export function CellActionPopover({
     setBusy("date");
     setError(null);
     try {
-      const r = await fetch(
-        `/api/finance/cashflow/occurrences/${target.id}/move`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ newDate: format(date, "yyyy-MM-dd") }),
-        },
-      );
-      const j = await r.json();
+      const j = await callMoveEndpoint({ newDate: format(date, "yyyy-MM-dd") });
       if (j?.success) {
         setOpen(false);
         setPickingDate(false);
@@ -127,14 +133,23 @@ export function CellActionPopover({
     setBusy("amount");
     setError(null);
     try {
-      const r = await fetch(
-        `/api/finance/cashflow/occurrences/${target.id}/amount`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ amountClp: n }),
-        },
-      );
+      const useUpsert = target.id === null;
+      const url = useUpsert
+        ? `/api/finance/cashflow/occurrences/upsert-and-act`
+        : `/api/finance/cashflow/occurrences/${target.id}/amount`;
+      const body = useUpsert
+        ? {
+            action: "amount",
+            itemId: target.itemId,
+            originalDate: target.originalDate,
+            amountClp: n,
+          }
+        : { amountClp: n };
+      const r = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
       const j = await r.json();
       if (j?.success) {
         setOpen(false);

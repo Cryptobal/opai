@@ -81,7 +81,7 @@ export function CashflowTabs({
     return target;
   }
 
-  async function handleMove(
+  async function handleMoveById(
     occurrenceId: string,
     targetBucketKey: string,
     granularity: "weekly" | "monthly",
@@ -91,6 +91,31 @@ export function CashflowTabs({
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ newDate: target.toISOString().slice(0, 10) }),
+    });
+    const j = await r.json();
+    if (!j?.success) {
+      alert(j?.error ?? "No se pudo mover la ocurrencia");
+      return;
+    }
+    router.refresh();
+  }
+
+  async function handleMoveVirtual(
+    itemId: string,
+    originalDate: string,
+    targetBucketKey: string,
+    granularity: "weekly" | "monthly",
+  ) {
+    const target = bucketKeyToDate(targetBucketKey, granularity);
+    const r = await fetch(`/api/finance/cashflow/occurrences/upsert-and-act`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "move",
+        itemId,
+        originalDate,
+        newDate: target.toISOString().slice(0, 10),
+      }),
     });
     const j = await r.json();
     if (!j?.success) {
@@ -132,7 +157,12 @@ export function CashflowTabs({
           )}
         </div>
         <TabsContent value="weekly" className="mt-4">
-          <MatrixDnDProvider onMove={(id, key) => handleMove(id, key, "weekly")}>
+          <MatrixDnDProvider
+            onMoveById={(id, key) => handleMoveById(id, key, "weekly")}
+            onMoveVirtual={(itemId, origDate, key) =>
+              handleMoveVirtual(itemId, origDate, key, "weekly")
+            }
+          >
             <WeeklyMatrix
               initialProjection={initialProjection}
               defaultWeeks={defaultWeeks}
@@ -141,7 +171,12 @@ export function CashflowTabs({
           </MatrixDnDProvider>
         </TabsContent>
         <TabsContent value="monthly" className="mt-4">
-          <MatrixDnDProvider onMove={(id, key) => handleMove(id, key, "monthly")}>
+          <MatrixDnDProvider
+            onMoveById={(id, key) => handleMoveById(id, key, "monthly")}
+            onMoveVirtual={(itemId, origDate, key) =>
+              handleMoveVirtual(itemId, origDate, key, "monthly")
+            }
+          >
             <MonthlyMatrix defaultMonths={defaultMonths} canManage={canManage} />
           </MatrixDnDProvider>
         </TabsContent>
