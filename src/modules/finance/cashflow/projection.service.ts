@@ -16,7 +16,6 @@ import type {
 } from "./types";
 import { eachDayOfInterval } from "date-fns";
 
-import { projectSalesFromContracts } from "./generators/sales-from-contracts";
 import { projectPayrollFromDotacion } from "./generators/payroll-from-dotacion";
 import { projectTurnosExtraFromHistory } from "./generators/turnos-extra-from-history";
 import { projectIvaFromDte } from "./generators/iva-from-dte";
@@ -190,9 +189,11 @@ export async function buildProjection(
     }
   }
 
-  if (config.autoSales) {
-    allOccurrences.push(...(await projectSalesFromContracts(tenantId, range, codeToCategory)));
-  }
+  // Las ventas de contratos ahora se materializan como FinanceCashflowItem
+  // con source=CONTRACT (ver sales-contract-sync.ts). El recurrence-engine
+  // las expande junto con el resto de items, así que ya no se emiten virtuales.
+  // El flag config.autoSales gobierna activación masiva (ver
+  // /api/finance/cashflow/config/auto-sales-toggle).
   if (config.autoPayroll) {
     allOccurrences.push(...(await projectPayrollFromDotacion(tenantId, range, codeToCategory, config)));
   }

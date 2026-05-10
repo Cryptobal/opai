@@ -8,6 +8,7 @@ import { resend } from "@/lib/resend";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
 import { notify } from "@/lib/notifications/notify";
 import { propagateDealWon } from "@/lib/crm/deal-propagation";
+import { syncContractItemForQuote } from "@/modules/finance/cashflow/generators/sales-contract-sync";
 
 export async function POST(
   _request: Request,
@@ -41,6 +42,13 @@ export async function POST(
     where: { id },
     data: { status: "approved" },
   });
+
+  // ── 1b. Cashflow: materializar item espejo source=CONTRACT ──
+  try {
+    await syncContractItemForQuote(session.tenantId, id);
+  } catch (err) {
+    console.error("[Portal] sync cashflow item failed:", err);
+  }
 
   // ── 2. Audit log ──
   await createCrmHistoryLog({
