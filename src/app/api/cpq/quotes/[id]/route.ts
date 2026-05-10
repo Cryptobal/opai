@@ -12,6 +12,7 @@ import { prisma } from "@/lib/prisma";
 import { computeChangedFields, createCrmHistoryLog } from "@/lib/crm-history";
 import { syncCrmDealQuoteLink } from "@/lib/crm-sync-quote-deal-link";
 import { requireTenantModule } from '@/lib/require-module';
+import { syncContractItemForQuote } from "@/modules/finance/cashflow/generators/sales-contract-sync";
 
 export async function GET(
   _request: NextRequest,
@@ -209,6 +210,14 @@ export async function PATCH(
           createdBy: ctx.userId,
         });
       }
+    }
+
+    // Cashflow: refrescar item espejo source=CONTRACT cuando cambian campos
+    // que afectan la proyección (status, fechas, monto, condiciones de pago).
+    try {
+      await syncContractItemForQuote(ctx.tenantId, id);
+    } catch (err) {
+      console.error('[CPQ] sync cashflow item failed:', err);
     }
 
     // Quote accepted or rejected — notify admins via bell + email + push

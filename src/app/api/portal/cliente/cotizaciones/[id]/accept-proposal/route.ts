@@ -6,6 +6,7 @@ import { resend } from "@/lib/resend";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
 import { cpqQuoteListedInClientPortalWhere } from "@/lib/cpq-portal-visibility";
 import { notify } from "@/lib/notifications/notify";
+import { syncContractItemForQuote } from "@/modules/finance/cashflow/generators/sales-contract-sync";
 
 export async function POST(
   request: Request,
@@ -56,6 +57,13 @@ export async function POST(
       where: { id: quoteId },
       data: { status: "approved" },
     });
+
+    // 2b. Cashflow: materializar item espejo source=CONTRACT al aceptar.
+    try {
+      await syncContractItemForQuote(session.tenantId, quoteId);
+    } catch (err) {
+      console.error("[Portal] sync cashflow item failed:", err);
+    }
 
     // 3. Find "Ganado" pipeline stage
     const ganadoStage = await prisma.crmPipelineStage.findFirst({
