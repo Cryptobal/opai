@@ -38,6 +38,7 @@ import { ActiveFilterChips } from "./ActiveFilterChips";
 import { IssuedDtesTable } from "./IssuedDtesTable";
 import { IssuedDtesMobileList } from "./IssuedDtesMobileList";
 import { BulkActionBar } from "./BulkActionBar";
+import { BillingDocSendModal } from "@/components/finance/billing-doc-send/BillingDocSendModal";
 import { IssuedDteSlideOver } from "./IssuedDteSlideOver";
 import { useDteFilters } from "./hooks/useDteFilters";
 import { fmtCLP, sortDteRows } from "./shared/constants";
@@ -102,6 +103,14 @@ export function DtesEmitidosClient({
   const [cedeModalDteId, setCedeModalDteId] = useState<string | null>(null);
   const [previewDteId, setPreviewDteId] = useState<string | null>(null);
   const [emailDteId, setEmailDteId] = useState<string | null>(null);
+  // ── "Enviar como…" (Proforma / Estado de Pago) ──
+  const [sendAsModal, setSendAsModal] = useState<{
+    dteId: string;
+    target: "draft" | "issued";
+    defaultVariant: "PROFORMA" | "ESTADO_DE_PAGO";
+    defaultRecipientEmail: string | null;
+    receiverName: string;
+  } | null>(null);
 
   const [voiding, setVoiding] = useState<string | null>(null);
   const [sendingEmail] = useState<string | null>(null);
@@ -859,7 +868,39 @@ export function DtesEmitidosClient({
         onExportCsv={handleBulkExportCsv}
         canResendEmail={canManage}
         canMarkPaid={canManage}
+        canSendAs={canManage}
+        onSendAs={() => {
+          if (selectedIds.size !== 1) return;
+          const [dteId] = Array.from(selectedIds);
+          const row = dtes.find((d) => d.id === dteId);
+          if (!row) return;
+          const isDraft = row.siiStatus === "DRAFT";
+          setSendAsModal({
+            dteId,
+            target: isDraft ? "draft" : "issued",
+            defaultVariant: isDraft ? "PROFORMA" : "ESTADO_DE_PAGO",
+            defaultRecipientEmail: row.receiverEmail ?? null,
+            receiverName: row.receiverName,
+          });
+        }}
       />
+
+      {sendAsModal && (
+        <BillingDocSendModal
+          open={true}
+          onOpenChange={(o) => !o && setSendAsModal(null)}
+          dteId={sendAsModal.dteId}
+          target={sendAsModal.target}
+          defaultVariant={sendAsModal.defaultVariant}
+          defaultRecipientEmail={sendAsModal.defaultRecipientEmail}
+          receiverName={sendAsModal.receiverName}
+          onSent={() => {
+            setSendAsModal(null);
+            // Refrescar listado para reflejar nuevo proformaStatus.
+            setDtes((prev) => prev.slice());
+          }}
+        />
+      )}
 
       <CreditNoteModal
         open={noteModal !== null}

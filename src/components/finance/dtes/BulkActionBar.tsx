@@ -1,6 +1,6 @@
 "use client";
 
-import { Mail, RefreshCw, CheckCircle2, Download, X } from "lucide-react";
+import { Mail, RefreshCw, CheckCircle2, Download, X, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -11,8 +11,11 @@ interface Props {
   onCheckStatus: () => void;
   onMarkPaid: () => void;
   onExportCsv: () => void;
+  /** Abre modal "Enviar como…" para el PRIMER DTE seleccionado. */
+  onSendAs?: () => void;
   canResendEmail: boolean;
   canMarkPaid: boolean;
+  canSendAs?: boolean;
 }
 
 /**
@@ -27,8 +30,10 @@ export function BulkActionBar({
   onCheckStatus,
   onMarkPaid,
   onExportCsv,
+  onSendAs,
   canResendEmail,
   canMarkPaid,
+  canSendAs,
 }: Props) {
   if (count === 0) return null;
 
@@ -71,6 +76,19 @@ export function BulkActionBar({
               <Mail className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Reenviar email</span>
               <span className="sm:hidden">Email</span>
+            </Button>
+          )}
+          {canSendAs && onSendAs && count === 1 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onSendAs}
+              className="gap-1.5 shrink-0"
+              title="Enviar como Proforma o Estado de Pago"
+            >
+              <FileText className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Enviar como…</span>
+              <span className="sm:hidden">Enviar</span>
             </Button>
           )}
           <Button
