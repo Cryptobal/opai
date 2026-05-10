@@ -7,6 +7,7 @@ import { WeeklyMatrix } from "./WeeklyMatrix";
 import { MonthlyMatrix } from "./MonthlyMatrix";
 import { ItemsList } from "./ItemsList";
 import { QuickItemModal } from "./QuickItemModal";
+import { MatrixDnDProvider } from "./MatrixDnDProvider";
 import type { ProjectionMatrix } from "@/modules/finance/cashflow/types";
 
 interface CategoryLite {
@@ -53,6 +54,52 @@ export function CashflowTabs({
     setQuickOpen(true);
   }
 
+  // ---------------------------------------------------------------------------
+  // DnD helpers
+  // ---------------------------------------------------------------------------
+
+  function bucketKeyToDate(key: string, granularity: "weekly" | "monthly"): Date {
+    if (granularity === "monthly") {
+      // key format "YYYY-MM"
+      const [yStr, mStr] = key.split("-");
+      const y = Number(yStr);
+      const m = Number(mStr);
+      return new Date(y, m - 1, 5);
+    }
+    // weekly: "YYYY-Www" (ISO week)
+    const wm = key.match(/^(\d{4})-W(\d{1,2})$/);
+    if (!wm) return new Date();
+    const y = Number(wm[1]);
+    const w = Number(wm[2]);
+    // First day of ISO week: Jan 4 is always in week 1.
+    const jan4 = new Date(y, 0, 4);
+    const jan4Dow = jan4.getDay() || 7;
+    const week1Monday = new Date(jan4);
+    week1Monday.setDate(jan4.getDate() - (jan4Dow - 1));
+    const target = new Date(week1Monday);
+    target.setDate(week1Monday.getDate() + (w - 1) * 7);
+    return target;
+  }
+
+  async function handleMove(
+    occurrenceId: string,
+    targetBucketKey: string,
+    granularity: "weekly" | "monthly",
+  ) {
+    const target = bucketKeyToDate(targetBucketKey, granularity);
+    const r = await fetch(`/api/finance/cashflow/occurrences/${occurrenceId}/move`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ newDate: target.toISOString().slice(0, 10) }),
+    });
+    const j = await r.json();
+    if (!j?.success) {
+      alert(j?.error ?? "No se pudo mover la ocurrencia");
+      return;
+    }
+    router.refresh();
+  }
+
   return (
     <>
       <Tabs value={tab} onValueChange={setTab} className="w-full">
@@ -85,14 +132,18 @@ export function CashflowTabs({
           )}
         </div>
         <TabsContent value="weekly" className="mt-4">
-          <WeeklyMatrix
-            initialProjection={initialProjection}
-            defaultWeeks={defaultWeeks}
-            canManage={canManage}
-          />
+          <MatrixDnDProvider onMove={(id, key) => handleMove(id, key, "weekly")}>
+            <WeeklyMatrix
+              initialProjection={initialProjection}
+              defaultWeeks={defaultWeeks}
+              canManage={canManage}
+            />
+          </MatrixDnDProvider>
         </TabsContent>
         <TabsContent value="monthly" className="mt-4">
-          <MonthlyMatrix defaultMonths={defaultMonths} canManage={canManage} />
+          <MatrixDnDProvider onMove={(id, key) => handleMove(id, key, "monthly")}>
+            <MonthlyMatrix defaultMonths={defaultMonths} canManage={canManage} />
+          </MatrixDnDProvider>
         </TabsContent>
         <TabsContent value="items" className="mt-4">
           <ItemsList canManage={canManage} />

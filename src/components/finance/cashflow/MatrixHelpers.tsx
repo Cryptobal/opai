@@ -1,8 +1,93 @@
 "use client";
-import type { ProjectionBucket, ProjectionRow } from "@/modules/finance/cashflow/types";
+import type { ProjectionBucket, ProjectionRow, VirtualOccurrence } from "@/modules/finance/cashflow/types";
 import { CellAmount } from "./CellAmount";
+import { useDraggable, useDroppable } from "@dnd-kit/core";
 
 export const fmt = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 });
+
+// ---------------------------------------------------------------------------
+// DnD helper components
+// ---------------------------------------------------------------------------
+
+function DroppableBucketCell({
+  bucketKey,
+  children,
+  className = "",
+}: {
+  bucketKey: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id: bucketKey });
+  return (
+    <td
+      ref={setNodeRef}
+      className={`${className} ${isOver ? "bg-status-info-soft transition-colors" : ""}`}
+    >
+      {children}
+    </td>
+  );
+}
+
+function DraggableOccurrenceChip({
+  occurrenceId,
+  draggable,
+  children,
+}: {
+  occurrenceId: string | null;
+  /** false si la ocurrencia es PAID o no tiene id (virtual). */
+  draggable: boolean;
+  children: React.ReactNode;
+}) {
+  const dragId = occurrenceId ? `occ-${occurrenceId}` : "noop";
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: dragId,
+    disabled: !draggable,
+  });
+  const style: React.CSSProperties = {
+    transform: transform
+      ? `translate3d(${transform.x}px, ${transform.y}px, 0)`
+      : undefined,
+    cursor: draggable ? (isDragging ? "grabbing" : "grab") : "default",
+    opacity: isDragging ? 0.5 : 1,
+  };
+  return (
+    <span
+      ref={setNodeRef}
+      style={style}
+      {...(draggable ? listeners : {})}
+      {...(draggable ? attributes : {})}
+    >
+      {children}
+    </span>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Helpers to find a representative draggable occurrence for a cell
+// ---------------------------------------------------------------------------
+
+/**
+ * Given the full bucket list and the category/bucket coordinates, returns
+ * the first occurrence that is materialized (has an id) and not PAID.
+ * Returns null if none exists (cell is a pure aggregate / all conciliated).
+ */
+function findDraggableOccurrence(
+  buckets: ProjectionBucket[],
+  categoryId: string | null,
+  bucketKey: string,
+): VirtualOccurrence | null {
+  const bucket = buckets.find((b) => b.key === bucketKey);
+  if (!bucket) return null;
+  return (
+    bucket.occurrences.find(
+      (o) =>
+        (o.categoryId ?? "_") === (categoryId ?? "_") &&
+        o.id !== null &&
+        o.status !== "PAID",
+    ) ?? null
+  );
+}
 
 /**
  * Sticky positioning convention used across the matrix:
@@ -17,9 +102,12 @@ export const fmt = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 });
 export function MatrixRow({
   row,
   actualByCellKey,
+  buckets,
 }: {
   row: ProjectionRow;
   actualByCellKey?: Map<string, number>;
+  /** When provided, cells become droppable and aggregate amounts become draggable. */
+  buckets?: ProjectionBucket[];
 }) {
   return (
     <tr className="hover:bg-muted/20">
@@ -33,14 +121,38 @@ export function MatrixRow({
           : null;
         const variance =
           actual !== null ? actual - v.amount : null;
+
+        const cellContent = (
+          <CellAmount
+            projected={v.amount}
+            actual={actual}
+            variance={variance}
+            kind={row.kind as "INCOME" | "EXPENSE"}
+          />
+        );
+
+        if (buckets) {
+          // Find the first moveable occurrence for this category+bucket
+          const occ = findDraggableOccurrence(buckets, row.categoryId, v.bucketKey);
+          return (
+            <DroppableBucketCell
+              key={v.bucketKey}
+              bucketKey={v.bucketKey}
+              className="p-2 text-right text-ds-text-2 whitespace-nowrap"
+            >
+              <DraggableOccurrenceChip
+                occurrenceId={occ?.id ?? null}
+                draggable={occ !== null}
+              >
+                {cellContent}
+              </DraggableOccurrenceChip>
+            </DroppableBucketCell>
+          );
+        }
+
         return (
           <td key={v.bucketKey} className="p-2 text-right text-ds-text-2 whitespace-nowrap">
-            <CellAmount
-              projected={v.amount}
-              actual={actual}
-              variance={variance}
-              kind={row.kind as "INCOME" | "EXPENSE"}
-            />
+            {cellContent}
           </td>
         );
       })}

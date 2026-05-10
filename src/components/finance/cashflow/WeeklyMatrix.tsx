@@ -146,13 +146,13 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
             <tbody>
               <SectionHeader label="Ingresos" colSpan={colCount} tone="ok" />
               {incomeRows.map((r) => (
-                <MatrixRow key={r.categoryCode} row={r} actualByCellKey={actualByCellKey} />
+                <MatrixRow key={r.categoryCode} row={r} actualByCellKey={actualByCellKey} buckets={projection.buckets} />
               ))}
               <SubtotalRow label="Total ingresos" rows={incomeRows} buckets={projection.buckets} tone="ok" />
 
               <SectionHeader label="Egresos" colSpan={colCount} tone="warn" />
               {expenseRows.map((r) => (
-                <MatrixRow key={r.categoryCode} row={r} actualByCellKey={actualByCellKey} />
+                <MatrixRow key={r.categoryCode} row={r} actualByCellKey={actualByCellKey} buckets={projection.buckets} />
               ))}
               <SubtotalRow label="Total egresos" rows={expenseRows} buckets={projection.buckets} tone="warn" />
             </tbody>
