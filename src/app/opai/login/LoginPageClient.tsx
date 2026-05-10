@@ -122,9 +122,18 @@ export function LoginPageClient({ callbackUrl: callbackUrlProp, error: errorProp
               {error === 'CredentialsSignin'
                 ? 'Email o contrase\u00f1a incorrectos.'
                 : error === 'google_not_registered'
-                ? 'Tu cuenta de Google no est\u00e1 registrada como administrador.'
+                ? 'Tu cuenta de Google a\u00fan no est\u00e1 registrada en Opai.'
                 : 'Error al iniciar sesi\u00f3n.'}
             </p>
+            {error === 'google_not_registered' && (
+              <Link
+                href="/registro"
+                className="mt-2 inline-flex items-center gap-2 text-sm font-medium hover:underline"
+                style={{ color: ACCENT }}
+              >
+                Crear cuenta nueva &rarr;
+              </Link>
+            )}
           </div>
         )}
 
@@ -161,6 +170,23 @@ export function LoginPageClient({ callbackUrl: callbackUrlProp, error: errorProp
         </svg>
         Continuar con Google
       </button>
+
+      {/* Escape hatch: visitante público sin cuenta */}
+      <div
+        className="mt-6 pt-5 text-center"
+        style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}
+      >
+        <p className="text-sm" style={{ color: "#9ca3af" }}>
+          ¿No tienes cuenta?{' '}
+          <Link
+            href="/registro"
+            className="font-medium hover:underline"
+            style={{ color: ACCENT }}
+          >
+            Crea una gratis &rarr;
+          </Link>
+        </p>
+      </div>
     </AuthShell>
   );
 }

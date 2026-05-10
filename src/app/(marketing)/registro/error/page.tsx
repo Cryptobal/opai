@@ -9,7 +9,7 @@ const REASONS: Record<
     message:
       "Este enlace de verificación no es válido. Revisa que copiaste la URL completa.",
     cta: "Volver al registro",
-    href: "/registrarse",
+    href: "/registro",
   },
   invalid_token: {
     title: "Link no encontrado",
@@ -23,7 +23,7 @@ const REASONS: Record<
     message:
       "Tu link de verificación caducó. Reenvíalo para recibir uno nuevo.",
     cta: "Reenviar verificación",
-    href: "/registro/reenviar",
+    href: "/registro/verificar-email",
   },
   provisioning_failed: {
     title: "Algo salió mal",
@@ -32,6 +32,11 @@ const REASONS: Record<
     cta: "Volver al inicio",
     href: "/",
   },
+};
+
+export const metadata = {
+  title: "Error de registro",
+  robots: { index: false, follow: false },
 };
 
 export default async function SignupErrorPage({
@@ -45,14 +50,26 @@ export default async function SignupErrorPage({
   const href = info.href + (sp.email ? `?email=${encodeURIComponent(sp.email)}` : "");
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-[#0D1117] text-white p-6">
-      <div className="max-w-md w-full text-center">
-        <h1 className="text-2xl font-bold mb-3">{info.title}</h1>
-        <p className="text-slate-400 mb-6">{info.message}</p>
-        <Link
-          href={href}
-          className="inline-block bg-[#0066FF] text-white font-semibold px-6 py-3 rounded-lg hover:bg-[#0052CC] transition"
-        >
+    <main style={{ padding: "120px 24px 80px", display: "flex", justifyContent: "center" }}>
+      <div className="mk-card" style={{ maxWidth: 480, width: "100%", padding: 40, textAlign: "center" }}>
+        <h1 style={{
+          fontFamily: "var(--mk-font-h)",
+          fontSize: 28,
+          fontWeight: 700,
+          color: "var(--mk-text)",
+          margin: "0 0 12px",
+        }}>
+          {info.title}
+        </h1>
+        <p style={{
+          fontSize: 15,
+          color: "var(--mk-muted)",
+          lineHeight: 1.6,
+          margin: "0 0 28px",
+        }}>
+          {info.message}
+        </p>
+        <Link href={href} className="mk-btn-primary" style={{ padding: "14px 28px", fontSize: 15 }}>
           {info.cta}
         </Link>
       </div>

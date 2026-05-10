@@ -1,0 +1,282 @@
+/* Wizard /registro — usa el DS marketing (--mk-*) */
+
+.registro-shell {
+  min-height: calc(100vh - 80px);
+  padding: 32px 16px 80px;
+}
+
+.registro-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+@media (min-width: 960px) {
+  .registro-grid {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+    gap: 40px;
+  }
+}
+
+.registro-form-panel {
+  background: var(--mk-bg-card);
+  border: 1px solid var(--mk-border);
+  border-radius: 16px;
+  padding: 28px;
+}
+
+@media (min-width: 640px) {
+  .registro-form-panel {
+    padding: 36px 40px;
+  }
+}
+
+.registro-preview-panel {
+  position: sticky;
+  top: 100px;
+  align-self: start;
+  background: var(--mk-bg-card);
+  border: 1px solid var(--mk-border);
+  border-radius: 16px;
+  padding: 24px;
+  display: none;
+}
+
+@media (min-width: 960px) {
+  .registro-preview-panel {
+    display: block;
+  }
+}
+
+/* Stepper */
+.registro-stepper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.registro-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.registro-step-dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--mk-font-m);
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--mk-bg-card-h);
+  border: 1px solid var(--mk-border);
+  color: var(--mk-muted);
+  transition: all 0.2s ease;
+}
+
+.registro-step-dot.active {
+  background: var(--mk-teal);
+  color: #04211B;
+  border-color: var(--mk-teal);
+}
+
+.registro-step-dot.done {
+  background: var(--mk-teal-dim);
+  color: var(--mk-teal);
+  border-color: var(--mk-teal-glow);
+}
+
+.registro-step-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--mk-muted);
+  display: none;
+}
+
+.registro-step.active .registro-step-label,
+.registro-step.done .registro-step-label {
+  color: var(--mk-text);
+}
+
+@media (min-width: 540px) {
+  .registro-step-label {
+    display: inline;
+  }
+}
+
+.registro-step-divider {
+  flex: 1;
+  height: 1px;
+  background: var(--mk-border);
+}
+
+/* Form fields */
+.registro-field {
+  margin-bottom: 16px;
+}
+
+.registro-field label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--mk-text);
+  margin-bottom: 6px;
+}
+
+.registro-field input,
+.registro-field select,
+.registro-field textarea {
+  width: 100%;
+  padding: 12px 14px;
+  background: var(--mk-bg);
+  border: 1px solid var(--mk-border);
+  border-radius: 8px;
+  color: var(--mk-text);
+  font-family: var(--mk-font-b);
+  font-size: 15px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.registro-field input:focus,
+.registro-field select:focus,
+.registro-field textarea:focus {
+  border-color: var(--mk-teal);
+}
+
+.registro-field input.error,
+.registro-field select.error {
+  border-color: var(--mk-orange);
+}
+
+.registro-field-error {
+  display: block;
+  font-size: 12px;
+  color: var(--mk-orange);
+  margin-top: 4px;
+}
+
+.registro-field-hint {
+  display: block;
+  font-size: 12px;
+  color: var(--mk-muted);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+.registro-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+  flex-wrap: wrap-reverse;
+  justify-content: space-between;
+}
+
+.registro-btn {
+  padding: 12px 22px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: var(--mk-font-b);
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.15s;
+  background: transparent;
+  color: var(--mk-text);
+}
+
+.registro-btn-primary {
+  background: var(--mk-teal);
+  color: #04211B;
+}
+
+.registro-btn-primary:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+
+.registro-btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.registro-btn-ghost {
+  background: var(--mk-bg-card-h);
+  border-color: var(--mk-border);
+}
+
+.registro-btn-ghost:hover:not(:disabled) {
+  border-color: var(--mk-border-h);
+}
+
+/* Honeypot */
+.registro-hp {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Slug input */
+.registro-slug-wrap {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--mk-border);
+  border-radius: 8px;
+  background: var(--mk-bg);
+  overflow: hidden;
+}
+
+.registro-slug-prefix,
+.registro-slug-suffix {
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  font-family: var(--mk-font-m);
+  font-size: 13px;
+  color: var(--mk-muted);
+  background: var(--mk-bg-card);
+  white-space: nowrap;
+}
+
+.registro-slug-input {
+  flex: 1;
+  border: none !important;
+  background: transparent !important;
+  border-radius: 0 !important;
+  padding-left: 4px !important;
+  padding-right: 4px !important;
+}
+
+/* Preview panel rows */
+.registro-preview-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--mk-border);
+  font-size: 13px;
+}
+
+.registro-preview-row:last-child {
+  border-bottom: none;
+}
+
+.registro-preview-key {
+  color: var(--mk-muted);
+}
+
+.registro-preview-val {
+  color: var(--mk-text);
+  font-weight: 500;
+  text-align: right;
+  word-break: break-word;
+}

@@ -1,15 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { TrialBanner } from '@/components/marketing/TrialBanner'
-
-const guardOptions = [
-  { value: '1-25', label: '1 — 25 guardias' },
-  { value: '26-100', label: '26 — 100 guardias' },
-  { value: '101-300', label: '101 — 300 guardias' },
-  { value: '301-500', label: '301 — 500 guardias' },
-  { value: '500+', label: '500+ guardias' },
-]
 
 const benefits = [
   'Acceso completo a todos los módulos',
@@ -22,45 +14,17 @@ const benefits = [
 ]
 
 const timelineSteps = [
-  {
-    day: 'Día 1',
-    title: 'Crea tu cuenta',
-    text: 'Configura tu empresa, sube tu logo y agrega tus primeros guardias e instalaciones.',
-  },
-  {
-    day: 'Día 2-7',
-    title: 'Operaciones en vivo',
-    text: 'Activa Face ID, configura rondas GPS con checkpoints y prueba las alertas WhatsApp.',
-  },
-  {
-    day: 'Día 8-20',
-    title: 'Explora el potencial',
-    text: 'Usa el CRM, genera cotizaciones, prueba la nómina y comparte el portal del cliente.',
-  },
-  {
-    day: 'Día 21-30',
-    title: 'Decide con datos',
-    text: 'Revisa métricas, reportes y el impacto real en tu operación. Sin presión.',
-  },
+  { day: 'Día 1', title: 'Crea tu cuenta', text: 'Configura tu empresa, sube tu logo y agrega tus primeros guardias e instalaciones.' },
+  { day: 'Día 2-7', title: 'Operaciones en vivo', text: 'Activa Face ID, configura rondas GPS con checkpoints y prueba las alertas WhatsApp.' },
+  { day: 'Día 8-20', title: 'Explora el potencial', text: 'Usa el CRM, genera cotizaciones, prueba la nómina y comparte el portal del cliente.' },
+  { day: 'Día 21-30', title: 'Decide con datos', text: 'Revisa métricas, reportes y el impacto real en tu operación. Sin presión.' },
 ]
 
 const faqs = [
-  {
-    q: '¿Necesito tarjeta de crédito para la prueba gratuita?',
-    a: 'No. La prueba es completamente gratis y no requiere tarjeta de crédito ni ningún dato de pago.',
-  },
-  {
-    q: '¿Qué pasa si quiero funcionalidades avanzadas?',
-    a: 'Eliges un plan pagado y activas tu suscripción. Si prefieres seguir con el plan gratis, tus datos se mantienen sin límite de tiempo.',
-  },
-  {
-    q: '¿Puedo migrar mis datos desde otro sistema?',
-    a: 'Sí. Ofrecemos migración asistida gratuita desde Excel, otros ERPs o sistemas propios. Te ayudamos a importar guardias, instalaciones, clientes y contratos.',
-  },
-  {
-    q: '¿Cuánto cuesta después de la prueba?',
-    a: 'Los planes comienzan desde UF 0.12 por guardia activo al mes (plan Starter). Sin contratos mínimos, cancela cuando quieras.',
-  },
+  { q: '¿Necesito tarjeta de crédito para la prueba gratuita?', a: 'No. La prueba es completamente gratis y no requiere tarjeta de crédito ni ningún dato de pago.' },
+  { q: '¿Qué pasa si quiero funcionalidades avanzadas?', a: 'Eliges un plan pagado y activas tu suscripción. Si prefieres seguir con el plan gratis, tus datos se mantienen sin límite de tiempo.' },
+  { q: '¿Puedo migrar mis datos desde otro sistema?', a: 'Sí. Ofrecemos migración asistida gratuita desde Excel, otros ERPs o sistemas propios. Te ayudamos a importar guardias, instalaciones, clientes y contratos.' },
+  { q: '¿Cuánto cuesta después de la prueba?', a: 'Los planes comienzan desde UF 0.12 por guardia activo al mes (plan Starter). Sin contratos mínimos, cancela cuando quieras.' },
 ]
 
 const faqJsonLd = {
@@ -74,50 +38,39 @@ const faqJsonLd = {
 }
 
 export default function RegistrarsePage() {
-  const [form, setForm] = useState({
-    nombre: '',
-    empresa: '',
-    email: '',
-    whatsapp: '',
-    guardias: '',
-  })
+  const [email, setEmail] = useState('')
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }))
-  }
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    const e = params.get('email')
+    if (e) setEmail(e)
+  }, [])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    const params = new URLSearchParams({
-      nombre: form.nombre,
-      empresa: form.empresa,
-      email: form.email,
-      whatsapp: form.whatsapp,
-      guardias: form.guardias,
-    })
-    window.location.href = `${process.env.NEXT_PUBLIC_APP_URL || ""}/registro?${params.toString()}`
+
+    const params = new URLSearchParams()
+    if (email) params.set('email', email)
+
+    if (typeof window !== 'undefined') {
+      const incoming = new URLSearchParams(window.location.search)
+      for (const k of ['utm_source', 'utm_campaign', 'utm_medium', 'utm_term', 'utm_content', 'ref']) {
+        const v = incoming.get(k)
+        if (v) params.set(k, v)
+      }
+    }
+
+    // Path relativo intencional: NEXT_PUBLIC_APP_URL puede apuntar a un
+    // subdominio autenticado y rompía el flujo redirigiendo a login.
+    window.location.href = `/registro?${params.toString()}`
   }
 
-  const inputStyle: React.CSSProperties = {
-    width: '100%',
-    padding: '12px 16px',
-    background: 'var(--mk-bg-card)',
-    border: '1px solid var(--mk-border)',
-    borderRadius: '4px',
-    color: 'var(--mk-text)',
-    fontFamily: 'var(--mk-font-b)',
-    fontSize: '0.9rem',
-    outline: 'none',
-    transition: 'border-color 0.2s',
-  }
-
-  const labelStyle: React.CSSProperties = {
-    display: 'block',
-    fontFamily: 'var(--mk-font-h)',
-    fontSize: '0.85rem',
-    fontWeight: 600,
-    color: 'var(--mk-muted)',
-    marginBottom: '6px',
+  const focusEmail = (e: React.MouseEvent) => {
+    e.preventDefault()
+    const el = document.getElementById('email')
+    el?.focus()
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
 
   return (
@@ -127,389 +80,135 @@ export default function RegistrarsePage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
       />
 
-      {/* Two-column layout */}
-      <section className="mk-section">
+      <TrialBanner />
+
+      <main className="mk-grid-bg" style={{ paddingTop: 60, paddingBottom: 80 }}>
         <div className="mk-container">
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 360px), 1fr))',
-              gap: 'clamp(32px, 5vw, 64px)',
-              alignItems: 'start',
-            }}
-          >
-            {/* Left Column: Benefits */}
-            <div>
-              <div className="mk-label">
-                <div className="mk-pulse" />
-                Gratis para siempre
-              </div>
-              <h1
-                style={{
-                  fontFamily: 'var(--mk-font-h)',
-                  fontSize: 'clamp(1.8rem, 4vw, 2.8rem)',
-                  fontWeight: 800,
-                  lineHeight: 1.1,
-                  marginBottom: '24px',
-                }}
-              >
-                Crea tu cuenta gratis — sin tarjeta
+          <section style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 48, alignItems: 'center', maxWidth: 1100, margin: '0 auto', padding: '64px 0' }}>
+            <div style={{ textAlign: 'center', maxWidth: 720, margin: '0 auto' }}>
+              <span className="mk-label">
+                <span className="mk-pulse" />
+                30 días gratis · Plan Profesional
+              </span>
+              <h1 style={{
+                fontFamily: 'var(--mk-font-h)',
+                fontSize: 'clamp(36px, 6vw, 56px)',
+                fontWeight: 800,
+                lineHeight: 1.05,
+                margin: '0 0 16px',
+                color: 'var(--mk-text)',
+                letterSpacing: '-0.02em',
+              }}>
+                Empieza gratis en <span style={{ color: 'var(--mk-teal)' }}>menos de 2 minutos</span>
               </h1>
-              <p
-                style={{
-                  color: 'var(--mk-muted)',
-                  fontSize: 'clamp(0.95rem, 1.5vw, 1.05rem)',
-                  lineHeight: 1.75,
-                  marginBottom: '32px',
-                  maxWidth: '480px',
-                }}
-              >
-                Prueba OPAI con todas las funcionalidades, sin límites y sin
-                compromisos. En 2 minutos tienes tu cuenta lista para operar.
+              <p style={{ fontSize: 18, color: 'var(--mk-muted)', lineHeight: 1.6, margin: '0 auto 40px', maxWidth: 560 }}>
+                Sin tarjeta de crédito. Sin contratos. Acceso completo al plan Profesional por 30 días, después pasa a Gratis automáticamente.
               </p>
 
-              {/* Benefits checklist */}
-              <div style={{ marginBottom: '40px' }}>
-                <h3
-                  style={{
-                    fontFamily: 'var(--mk-font-h)',
-                    fontSize: '0.95rem',
-                    fontWeight: 700,
-                    marginBottom: '16px',
-                  }}
-                >
-                  Tu prueba incluye:
-                </h3>
-                <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                  {benefits.map((b) => (
-                    <li
-                      key={b}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                        gap: '10px',
-                        marginBottom: '12px',
-                        fontSize: '0.9rem',
-                        color: 'var(--mk-muted)',
-                        lineHeight: 1.5,
-                      }}
-                    >
-                      <span
-                        style={{
-                          color: 'var(--mk-teal)',
-                          fontWeight: 700,
-                          flexShrink: 0,
-                          marginTop: '1px',
-                        }}
-                      >
-                        ✓
-                      </span>
-                      {b}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              {/* Testimonial */}
-              <div
-                className="mk-card"
-                style={{
-                  padding: 'clamp(20px, 3vw, 28px)',
-                  borderLeft: '3px solid var(--mk-teal)',
-                  marginBottom: '40px',
-                }}
-              >
-                <p
-                  style={{
-                    color: 'var(--mk-muted)',
-                    fontSize: '0.9rem',
-                    lineHeight: 1.75,
-                    fontStyle: 'italic',
-                    marginBottom: '12px',
-                  }}
-                >
-                  &ldquo;En 15 años operando empresas de seguridad privada nunca encontramos un software que
-                  realmente entendiera nuestro negocio. Por eso construimos OPAI.&rdquo;
-                </p>
-                <p
-                  style={{
-                    fontFamily: 'var(--mk-font-h)',
-                    fontSize: '0.85rem',
-                    fontWeight: 600,
-                    color: 'var(--mk-text)',
-                  }}
-                >
-                  Equipo Fundador
-                  <span style={{ color: 'var(--mk-muted)', fontWeight: 400, marginLeft: '8px' }}>
-                    OPAI
-                  </span>
-                </p>
-              </div>
-
-              {/* Timeline */}
-              <div>
-                <h3
-                  style={{
-                    fontFamily: 'var(--mk-font-h)',
-                    fontSize: '0.95rem',
-                    fontWeight: 700,
-                    marginBottom: '20px',
-                  }}
-                >
-                  Tu primer mes con OPAI
-                </h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  {timelineSteps.map((t) => (
-                    <div
-                      key={t.day}
-                      style={{
-                        display: 'flex',
-                        gap: '16px',
-                        alignItems: 'flex-start',
-                      }}
-                    >
-                      <div
-                        style={{
-                          fontFamily: 'var(--mk-font-m)',
-                          fontSize: '0.75rem',
-                          color: 'var(--mk-teal)',
-                          letterSpacing: '0.05em',
-                          flexShrink: 0,
-                          minWidth: '72px',
-                          paddingTop: '2px',
-                        }}
-                      >
-                        {t.day}
-                      </div>
-                      <div>
-                        <div
-                          style={{
-                            fontFamily: 'var(--mk-font-h)',
-                            fontSize: '0.9rem',
-                            fontWeight: 700,
-                            marginBottom: '4px',
-                          }}
-                        >
-                          {t.title}
-                        </div>
-                        <p
-                          style={{
-                            color: 'var(--mk-muted)',
-                            fontSize: '0.85rem',
-                            lineHeight: 1.6,
-                          }}
-                        >
-                          {t.text}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Right Column: Form */}
-            <div>
-              <div
-                className="mk-card"
-                style={{
-                  padding: 'clamp(28px, 4vw, 40px)',
-                  position: 'sticky',
-                  top: '88px',
-                }}
-              >
-                <h2
-                  style={{
-                    fontFamily: 'var(--mk-font-h)',
-                    fontSize: '1.3rem',
-                    fontWeight: 700,
-                    marginBottom: '8px',
-                  }}
-                >
-                  Crea tu cuenta
-                </h2>
-                <p
-                  style={{
-                    color: 'var(--mk-muted)',
-                    fontSize: '0.88rem',
-                    lineHeight: 1.6,
-                    marginBottom: '28px',
-                  }}
-                >
-                  Completa el formulario y comienza a operar en minutos.
-                </p>
-
-                <form
-                  onSubmit={handleSubmit}
-                  style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}
-                >
-                  <div>
-                    <label htmlFor="nombre" style={labelStyle}>
-                      Nombre
-                    </label>
-                    <input
-                      id="nombre"
-                      name="nombre"
-                      type="text"
-                      required
-                      value={form.nombre}
-                      onChange={handleChange}
-                      placeholder="Tu nombre completo"
-                      style={inputStyle}
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="empresa" style={labelStyle}>
-                      Empresa
-                    </label>
-                    <input
-                      id="empresa"
-                      name="empresa"
-                      type="text"
-                      required
-                      value={form.empresa}
-                      onChange={handleChange}
-                      placeholder="Nombre de tu empresa de seguridad"
-                      style={inputStyle}
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="email" style={labelStyle}>
-                      Email corporativo
-                    </label>
-                    <input
-                      id="email"
-                      name="email"
-                      type="email"
-                      required
-                      value={form.email}
-                      onChange={handleChange}
-                      placeholder="tu@empresa.cl"
-                      style={inputStyle}
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="whatsapp" style={labelStyle}>
-                      WhatsApp / Teléfono
-                    </label>
-                    <input
-                      id="whatsapp"
-                      name="whatsapp"
-                      type="tel"
-                      required
-                      value={form.whatsapp}
-                      onChange={handleChange}
-                      placeholder="+56 9 XXXX XXXX"
-                      style={inputStyle}
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="guardias" style={labelStyle}>
-                      ¿Cuántos guardias tienes?
-                    </label>
-                    <select
-                      id="guardias"
-                      name="guardias"
-                      required
-                      value={form.guardias}
-                      onChange={handleChange}
-                      style={{
-                        ...inputStyle,
-                        appearance: 'auto',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      <option value="" disabled>
-                        Selecciona un rango
-                      </option>
-                      {guardOptions.map((o) => (
-                        <option key={o.value} value={o.value}>
-                          {o.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <button
-                    type="submit"
-                    className="mk-btn-primary"
+              <form onSubmit={handleSubmit} style={{ maxWidth: 480, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div style={{ display: 'flex', gap: 8, flexDirection: 'column' }}>
+                  <label htmlFor="email" style={{ display: 'block', fontSize: 13, color: 'var(--mk-text)', fontWeight: 500, textAlign: 'left' }}>
+                    Email corporativo
+                  </label>
+                  <input
+                    id="email"
+                    name="email"
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="tu@empresa.cl"
                     style={{
+                      background: 'var(--mk-bg-card)',
+                      border: '1px solid var(--mk-border)',
+                      borderRadius: 8,
+                      padding: '14px 16px',
+                      fontFamily: 'var(--mk-font-b)',
+                      fontSize: 15,
+                      color: 'var(--mk-text)',
                       width: '100%',
-                      justifyContent: 'center',
-                      padding: '16px 28px',
-                      fontSize: '1rem',
-                      marginTop: '8px',
+                      outline: 'none',
                     }}
-                  >
-                    Crear cuenta gratis →
-                  </button>
-                </form>
-
-                <p
-                  style={{
-                    textAlign: 'center',
-                    marginTop: '16px',
-                    fontFamily: 'var(--mk-font-m)',
-                    fontSize: '0.75rem',
-                    color: 'var(--mk-muted)',
-                    letterSpacing: '0.03em',
-                    lineHeight: 1.6,
-                  }}
+                    autoComplete="email"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="mk-btn-primary"
+                  style={{ padding: '16px 32px', fontSize: 16, justifyContent: 'center' }}
                 >
-                  Sin spam &nbsp;·&nbsp; Sin tarjeta de crédito &nbsp;·&nbsp; Sin compromiso
+                  Empezar gratis →
+                </button>
+                <p style={{ fontSize: 12, color: 'var(--mk-muted)', textAlign: 'center', margin: 0, lineHeight: 1.5 }}>
+                  Sin tarjeta de crédito · 30 días Profesional gratis · Plan Gratis para siempre
                 </p>
-              </div>
+              </form>
             </div>
-          </div>
-        </div>
-      </section>
+          </section>
 
-      {/* FAQ */}
-      <section className="mk-section" style={{ borderTop: '1px solid var(--mk-border)' }}>
-        <div className="mk-container">
-          <div className="mk-label">
-            <div className="mk-pulse" />
-            Preguntas frecuentes
-          </div>
-          <h2
-            style={{
-              fontFamily: 'var(--mk-font-h)',
-              fontSize: 'clamp(1.5rem, 3.5vw, 2.4rem)',
-              fontWeight: 700,
-              marginBottom: '48px',
-              lineHeight: 1.15,
-            }}
-          >
-            Sobre la prueba gratuita
-          </h2>
-          <div style={{ maxWidth: '700px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            {faqs.map((f) => (
-              <div
-                key={f.q}
-                className="mk-card"
-                style={{ padding: 'clamp(20px, 3vw, 28px)' }}
-              >
-                <h3
-                  style={{
-                    fontFamily: 'var(--mk-font-h)',
-                    fontSize: '1rem',
-                    fontWeight: 700,
-                    marginBottom: '8px',
-                    lineHeight: 1.4,
-                  }}
-                >
-                  {f.q}
-                </h3>
-                <p style={{ color: 'var(--mk-muted)', fontSize: '0.9rem', lineHeight: 1.75 }}>
-                  {f.a}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+          <section style={{ padding: '64px 0', borderTop: '1px solid var(--mk-border)' }}>
+            <h2 style={{ fontFamily: 'var(--mk-font-h)', fontSize: 'clamp(24px, 4vw, 36px)', fontWeight: 700, textAlign: 'center', margin: '0 0 32px', color: 'var(--mk-text)' }}>
+              Todo incluido durante tu prueba
+            </h2>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16, maxWidth: 920, margin: '0 auto' }}>
+              {benefits.map((b) => (
+                <div key={b} className="mk-card" style={{ padding: 20, display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                  <span style={{ width: 22, height: 22, borderRadius: '50%', background: 'var(--mk-teal-dim)', border: '1px solid var(--mk-teal-glow)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: 'var(--mk-teal)', fontSize: 12, fontWeight: 700 }}>✓</span>
+                  <span style={{ fontSize: 14, color: 'var(--mk-text)', lineHeight: 1.5 }}>{b}</span>
+                </div>
+              ))}
+            </div>
+          </section>
 
-      <TrialBanner />
+          <section style={{ padding: '64px 0', borderTop: '1px solid var(--mk-border)' }}>
+            <h2 style={{ fontFamily: 'var(--mk-font-h)', fontSize: 'clamp(24px, 4vw, 36px)', fontWeight: 700, textAlign: 'center', margin: '0 0 48px', color: 'var(--mk-text)' }}>
+              Tu mes de prueba, día por día
+            </h2>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 24, maxWidth: 1080, margin: '0 auto' }}>
+              {timelineSteps.map((s) => (
+                <div key={s.day} className="mk-card" style={{ padding: 24 }}>
+                  <span style={{ fontFamily: 'var(--mk-font-m)', fontSize: 11, color: 'var(--mk-teal)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }}>
+                    {s.day}
+                  </span>
+                  <h3 style={{ fontFamily: 'var(--mk-font-h)', fontSize: 18, fontWeight: 700, margin: '8px 0 8px', color: 'var(--mk-text)' }}>{s.title}</h3>
+                  <p style={{ fontSize: 14, color: 'var(--mk-muted)', lineHeight: 1.6, margin: 0 }}>{s.text}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section style={{ padding: '64px 0', borderTop: '1px solid var(--mk-border)' }}>
+            <h2 style={{ fontFamily: 'var(--mk-font-h)', fontSize: 'clamp(24px, 4vw, 36px)', fontWeight: 700, textAlign: 'center', margin: '0 0 32px', color: 'var(--mk-text)' }}>
+              Preguntas frecuentes
+            </h2>
+            <div style={{ maxWidth: 760, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {faqs.map((f) => (
+                <details key={f.q} className="mk-card" style={{ padding: 20 }}>
+                  <summary style={{ fontWeight: 600, fontSize: 15, color: 'var(--mk-text)', cursor: 'pointer', listStyle: 'none' }}>{f.q}</summary>
+                  <p style={{ fontSize: 14, color: 'var(--mk-muted)', lineHeight: 1.6, margin: '12px 0 0' }}>{f.a}</p>
+                </details>
+              ))}
+            </div>
+          </section>
+
+          <section style={{ padding: '64px 0', textAlign: 'center', borderTop: '1px solid var(--mk-border)' }}>
+            <h2 style={{ fontFamily: 'var(--mk-font-h)', fontSize: 'clamp(24px, 4vw, 36px)', fontWeight: 700, margin: '0 0 16px', color: 'var(--mk-text)' }}>
+              ¿Listo para empezar?
+            </h2>
+            <p style={{ fontSize: 16, color: 'var(--mk-muted)', margin: '0 0 24px' }}>
+              90 segundos. Sin tarjeta. Acceso completo.
+            </p>
+            <a
+              href="#"
+              onClick={focusEmail}
+              className="mk-btn-primary"
+              style={{ padding: '16px 32px', fontSize: 16 }}
+            >
+              Empezar mi prueba gratis →
+            </a>
+          </section>
+        </div>
+      </main>
     </>
   )
 }
