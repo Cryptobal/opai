@@ -120,7 +120,7 @@ export function ItemDetailRow({ item, buckets, granularity, kind, onActionDone }
             </span>
           )}
           {badge && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded-ds-sm bg-muted/40 text-ds-text-3 shrink-0">
+            <span className="text-[11px] font-mono uppercase tracking-[0.08em] px-1.5 py-0.5 rounded-ds-sm bg-muted/40 text-ds-text-4 shrink-0">
               {badge}
             </span>
           )}
