@@ -2,10 +2,16 @@
 import { useState } from "react";
 import { Surface } from "@/components/opai-ds";
 import { ChevronDown } from "lucide-react";
-import { Wallet, TrendingUp, TrendingDown, AlertTriangle } from "lucide-react";
+import {
+  Wallet,
+  TrendingUp,
+  TrendingDown,
+  AlertTriangle,
+  CheckCircle2,
+} from "lucide-react";
 
 type ToneKey = "ok" | "info" | "warn";
-type IconKey = "wallet" | "up" | "down" | "alert";
+type IconKey = "wallet" | "up" | "down" | "alert" | "ok";
 
 export interface KpiData {
   label: string;
@@ -26,6 +32,7 @@ const ICONS = {
   up: TrendingUp,
   down: TrendingDown,
   alert: AlertTriangle,
+  ok: CheckCircle2,
 };
 
 export function CashflowKpis({ kpis }: { kpis: KpiData[] }) {

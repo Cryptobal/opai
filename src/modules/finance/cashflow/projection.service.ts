@@ -240,6 +240,34 @@ export async function buildProjection(
     b.occurrences.push(occ);
   }
 
+  // Cargar TODOS los movimientos bancarios visibles del rango para mostrar
+  // cuadratura banco vs proyectado (independiente de conciliación).
+  const bankTxs = await prisma.financeBankTransaction.findMany({
+    where: {
+      tenantId,
+      transactionDate: { gte: range.from, lte: range.to },
+      hiddenAt: null,
+    },
+    select: { transactionDate: true, amount: true },
+  });
+  for (const tx of bankTxs) {
+    const key = bucketKeyFor(tx.transactionDate, range.granularity);
+    const idx = bucketIndex.get(key);
+    if (idx === undefined) continue;
+    const b = buckets[idx];
+    const amt = Number(tx.amount);
+    if (amt > 0) {
+      b.actualBankIncome += amt;
+    } else {
+      b.actualBankExpense += Math.abs(amt);
+    }
+  }
+  for (const b of buckets) {
+    b.actualBankNet = b.actualBankIncome - b.actualBankExpense;
+    b.bankVarianceClp =
+      (b.actualBankIncome - b.income) - (b.actualBankExpense - b.expense);
+  }
+
   const rows = buildRows(buckets, categories, allOccurrences);
 
   const opening = await getOpeningBalance(tenantId);
@@ -287,6 +315,10 @@ function buildBuckets(range: ProjectionRange): ProjectionBucket[] {
       actualIncome: 0,
       actualExpense: 0,
       varianceClp: 0,
+      actualBankIncome: 0,
+      actualBankExpense: 0,
+      actualBankNet: 0,
+      bankVarianceClp: 0,
       occurrences: [],
     });
   }
