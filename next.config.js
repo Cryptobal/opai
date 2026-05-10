@@ -80,6 +80,12 @@ const nextConfig = {
     root: __dirname,
   },
   serverExternalPackages: [
+    // Prisma: evitar que Webpack/Turbopack bundle el cliente y termine
+    // resolviendo el variant `wasm.js` (que exige Prisma Accelerate y
+    // rechaza URLs `postgresql://`). Externalizándolo, Node lo carga
+    // por require natural y obtiene el library engine correcto.
+    '@prisma/client',
+    '.prisma/client',
     'sharp',
     '@sparticuz/chromium',
     'playwright-core',
