@@ -46,6 +46,22 @@ export function MonthlyMatrix({ defaultMonths }: Props) {
       .finally(() => setLoading(false));
   }, [fromDate, toDate]);
 
+  // useMemo DEBE ir antes de cualquier early return para respetar Rules of Hooks.
+  // El primer render con projection=null y los siguientes con projection≠null
+  // tienen que llamar la misma cantidad de hooks (React error #310 en prod).
+  const actualByCellKey = useMemo(() => {
+    const m = new Map<string, number>();
+    if (!projection) return m;
+    for (const b of projection.buckets) {
+      for (const occ of b.occurrences) {
+        if (occ.actualAmountClp === null) continue;
+        const cellKey = `${occ.categoryId ?? "_"}_${b.key}`;
+        m.set(cellKey, (m.get(cellKey) ?? 0) + occ.actualAmountClp);
+      }
+    }
+    return m;
+  }, [projection]);
+
   if (loading || !projection) {
     return (
       <Surface elevation={1} padding="md">
@@ -57,18 +73,6 @@ export function MonthlyMatrix({ defaultMonths }: Props) {
   const incomeRows = projection.rows.filter((r) => r.kind === "INCOME");
   const expenseRows = projection.rows.filter((r) => r.kind === "EXPENSE");
   const colCount = projection.buckets.length + 2;
-
-  const actualByCellKey = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const b of projection.buckets) {
-      for (const occ of b.occurrences) {
-        if (occ.actualAmountClp === null) continue;
-        const cellKey = `${occ.categoryId ?? "_"}_${b.key}`;
-        m.set(cellKey, (m.get(cellKey) ?? 0) + occ.actualAmountClp);
-      }
-    }
-    return m;
-  }, [projection]);
 
   return (
     <Surface elevation={1} padding="md" className="overflow-hidden">
