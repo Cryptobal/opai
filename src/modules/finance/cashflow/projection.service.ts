@@ -308,6 +308,47 @@ function buildRows(
         .reduce((s, o) => s + o.amountClp, 0);
       return { bucketKey: b.key, amount };
     });
+
+    // Desglose por item — una sub-fila por (itemId | _orphan).
+    const byItem = new Map<string, import("./types").ProjectionRowItemDetail>();
+    for (const o of filtered) {
+      const key = o.itemId ?? "_orphan";
+      let detail = byItem.get(key);
+      if (!detail) {
+        detail = {
+          itemId: key,
+          itemName: o.name,
+          installationId: o.installationId,
+          installationName: o.installationName,
+          source: o.source,
+          sourceRefCode: null,
+          values: buckets.map((b) => ({
+            bucketKey: b.key,
+            amount: 0,
+            actualAmount: null,
+            occurrenceId: null,
+          })),
+          total: 0,
+          totalActual: 0,
+        };
+        byItem.set(key, detail);
+      }
+      const bIdx = buckets.findIndex(
+        (b) => o.scheduledDate >= b.start && o.scheduledDate <= b.end,
+      );
+      if (bIdx === -1) continue;
+      detail.values[bIdx].amount += o.amountClp;
+      if (o.actualAmountClp !== null) {
+        detail.values[bIdx].actualAmount =
+          (detail.values[bIdx].actualAmount ?? 0) + o.actualAmountClp;
+        detail.totalActual += o.actualAmountClp;
+      }
+      if (o.id && !detail.values[bIdx].occurrenceId && o.status !== "PAID") {
+        detail.values[bIdx].occurrenceId = o.id;
+      }
+      detail.total += o.amountClp;
+    }
+
     rows.push({
       categoryId: cat.id,
       categoryCode: cat.code,
@@ -315,6 +356,12 @@ function buildRows(
       kind: cat.kind,
       values,
       total: values.reduce((s, v) => s + v.amount, 0),
+      items: Array.from(byItem.values()).sort((a, b) =>
+        (a.installationName ?? a.itemName).localeCompare(
+          b.installationName ?? b.itemName,
+          "es",
+        ),
+      ),
     });
   }
   return rows.sort((a, b) => (a.kind === b.kind ? 0 : a.kind === "INCOME" ? -1 : 1));

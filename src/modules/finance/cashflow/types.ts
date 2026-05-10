@@ -67,6 +67,28 @@ export interface ProjectionBucket {
   occurrences: VirtualOccurrence[];
 }
 
+export interface ProjectionRowItemValue {
+  bucketKey: string;
+  amount: number;
+  /** Suma de actualAmountClp en este bucket (null si no hay conciliación). */
+  actualAmount: number | null;
+  /** id de una occurrence representativa (no PAID, materializada) para DnD/popover. */
+  occurrenceId: string | null;
+}
+
+export interface ProjectionRowItemDetail {
+  itemId: string;
+  itemName: string;
+  installationId: string | null;
+  installationName: string | null;
+  source: FinanceCashflowItemSource;
+  /** Código del contrato CpqQuote o ref similar para mostrar en badge. */
+  sourceRefCode: string | null;
+  values: ProjectionRowItemValue[];
+  total: number;
+  totalActual: number;
+}
+
 export interface ProjectionRow {
   categoryId: string | null;
   categoryCode: string;
@@ -74,6 +96,8 @@ export interface ProjectionRow {
   kind: FinanceCashflowItemKind;
   values: { bucketKey: string; amount: number }[];
   total: number;
+  /** Sub-filas por item (instalación / contrato / template / etc) para expansión. */
+  items: ProjectionRowItemDetail[];
 }
 
 export interface ProjectionMatrix {
