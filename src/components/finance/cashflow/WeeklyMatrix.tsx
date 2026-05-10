@@ -12,6 +12,7 @@ import {
 import type { ProjectionMatrix } from "@/modules/finance/cashflow/types";
 import { fmt, SectionHeader, SubtotalRow } from "./MatrixHelpers";
 import { ExpandableMatrixRow } from "./ExpandableMatrixRow";
+import { BucketBankDrawer } from "./BucketBankDrawer";
 
 interface Props {
   initialProjection: ProjectionMatrix;
@@ -25,6 +26,8 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
   const [loading, setLoading] = useState(false);
   const [matching, setMatching] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [drawerBucket, setDrawerBucket] = useState<string | null>(null);
+  const todayDate = useMemo(() => new Date(), []);
 
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const toDate = useMemo(() => {
@@ -67,8 +70,11 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
     return m;
   }, [projection]);
 
+  const [matchResultMsg, setMatchResultMsg] = useState<string | null>(null);
+
   async function handleAutoMatch() {
     setMatching(true);
+    setMatchResultMsg(null);
     try {
       const r = await fetch("/api/finance/cashflow/match/auto", {
         method: "POST",
@@ -77,7 +83,15 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
       });
       const j = await r.json();
       if (j?.success) {
-        window.location.reload();
+        const total =
+          (j.data.accountMatched ?? 0) + (j.data.heuristicMatched ?? 0);
+        setMatchResultMsg(
+          `Vinculadas ${total} ocurrencias · revisá los buckets para conciliar las restantes.`,
+        );
+        // Refrescar la matriz pero sin perder el mensaje.
+        setRefreshKey((k) => k + 1);
+      } else {
+        setMatchResultMsg(j?.error ?? "Error en auto-match");
       }
     } finally {
       setMatching(false);
@@ -190,6 +204,116 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
                 </td>
               </tr>
 
+              {/* Real banco — solo buckets con start ≤ hoy. Las semanas futuras
+                  no tienen datos de banco todavía y se muestran como —. */}
+              <tr className="bg-status-ok-soft/30">
+                <td className="sticky left-0 z-40 bg-status-ok-soft/30 p-2 whitespace-nowrap text-status-ok-fg text-[12px]">
+                  Real banco (ingresos)
+                </td>
+                {projection.buckets.map((b) => {
+                  const isPast = b.start.getTime() <= todayDate.getTime();
+                  return (
+                    <td
+                      key={b.key}
+                      className="p-2 text-right font-mono whitespace-nowrap text-status-ok-fg text-[12px]"
+                    >
+                      {isPast ? (
+                        <button
+                          type="button"
+                          onClick={() => setDrawerBucket(b.key)}
+                          className="hover:underline"
+                          title="Ver movimientos del bucket"
+                        >
+                          {b.actualBankIncome > 0 ? fmt.format(b.actualBankIncome) : "—"}
+                        </button>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                  );
+                })}
+                <td className="sticky right-0 z-40 p-2 text-right font-mono bg-status-ok-soft/30 whitespace-nowrap text-status-ok-fg text-[12px]">
+                  {fmt.format(
+                    projection.buckets.reduce((s, b) => s + (b.actualBankIncome ?? 0), 0),
+                  )}
+                </td>
+              </tr>
+
+              <tr className="bg-status-warn-soft/30">
+                <td className="sticky left-0 z-40 bg-status-warn-soft/30 p-2 whitespace-nowrap text-status-warn-fg text-[12px]">
+                  Real banco (egresos)
+                </td>
+                {projection.buckets.map((b) => {
+                  const isPast = b.start.getTime() <= todayDate.getTime();
+                  return (
+                    <td
+                      key={b.key}
+                      className="p-2 text-right font-mono whitespace-nowrap text-status-warn-fg text-[12px]"
+                    >
+                      {isPast ? (
+                        <button
+                          type="button"
+                          onClick={() => setDrawerBucket(b.key)}
+                          className="hover:underline"
+                          title="Ver movimientos del bucket"
+                        >
+                          {b.actualBankExpense > 0 ? fmt.format(b.actualBankExpense) : "—"}
+                        </button>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                  );
+                })}
+                <td className="sticky right-0 z-40 p-2 text-right font-mono bg-status-warn-soft/30 whitespace-nowrap text-status-warn-fg text-[12px]">
+                  {fmt.format(
+                    projection.buckets.reduce((s, b) => s + (b.actualBankExpense ?? 0), 0),
+                  )}
+                </td>
+              </tr>
+
+              <tr className="bg-status-info-soft/30 border-b border-border">
+                <td
+                  className="sticky left-0 z-40 bg-status-info-soft/30 p-2 whitespace-nowrap text-status-info-fg text-[12px]"
+                  title="Δ vs proyectado: (real ingresos − proyectado) − (real egresos − proyectado). Positivo = real mejor que proyectado; negativo = peor."
+                >
+                  Δ vs proyectado
+                </td>
+                {projection.buckets.map((b) => {
+                  const isPast = b.start.getTime() <= todayDate.getTime();
+                  if (!isPast) {
+                    return (
+                      <td
+                        key={b.key}
+                        className="p-2 text-right font-mono whitespace-nowrap text-ds-text-4 text-[12px]"
+                      >
+                        —
+                      </td>
+                    );
+                  }
+                  const tone =
+                    Math.abs(b.bankVarianceClp) < 50_000
+                      ? "text-ds-text-3"
+                      : b.bankVarianceClp > 0
+                        ? "text-status-ok-fg"
+                        : "text-status-warn-fg";
+                  return (
+                    <td
+                      key={b.key}
+                      className={`p-2 text-right font-mono whitespace-nowrap text-[12px] ${tone}`}
+                    >
+                      {b.bankVarianceClp > 0 ? "+" : ""}
+                      {fmt.format(b.bankVarianceClp)}
+                    </td>
+                  );
+                })}
+                <td className="sticky right-0 z-40 p-2 text-right font-mono bg-status-info-soft/30 whitespace-nowrap text-status-info-fg text-[12px]">
+                  {fmt.format(
+                    projection.buckets.reduce((s, b) => s + (b.bankVarianceClp ?? 0), 0),
+                  )}
+                </td>
+              </tr>
+
               <tr className="bg-muted/60 font-semibold">
                 <td className="sticky left-0 z-40 bg-muted/60 p-2 whitespace-nowrap">Saldo acumulado</td>
                 {projection.cumulativeBalances.map((c) => (
@@ -209,6 +333,18 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
         </div>
       </div>
       {loading && <p className="text-[12px] text-ds-text-3 mt-2">Recalculando...</p>}
+      {matchResultMsg && (
+        <p className="text-[12px] text-ds-text-2 mt-2">{matchResultMsg}</p>
+      )}
+
+      <BucketBankDrawer
+        open={drawerBucket !== null}
+        onOpenChange={(o) => {
+          if (!o) setDrawerBucket(null);
+        }}
+        bucketKey={drawerBucket}
+        granularity="weekly"
+      />
     </Surface>
   );
 }
