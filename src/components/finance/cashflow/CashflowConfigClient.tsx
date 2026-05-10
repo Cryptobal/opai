@@ -252,7 +252,7 @@ export function CashflowConfigClient({ initialConfig, initialCategories, account
               onChange={(e) => setField("matchAmountToleranceClp", Number(e.target.value))}
             />
             <p className="mt-1 text-[12px] text-ds-text-3">
-              Diferencia máxima en pesos para que un movimiento bancario se considere coincidencia con un ítem proyectado.
+              Cuando el banco cobra un movimiento, el monto puede no coincidir exacto con tu proyección (impuestos extra, comisiones, redondeo). Este número es la <strong>diferencia máxima en pesos</strong> que el sistema acepta para considerar que el cobro corresponde a esa proyección. Recomendado: <strong>5.000</strong> para gastos fijos, <strong>15.000</strong> si tu banco aplica comisiones variables.
             </p>
           </div>
           <div>
@@ -266,7 +266,7 @@ export function CashflowConfigClient({ initialConfig, initialCategories, account
               onChange={(e) => setField("matchDaysTolerance", Number(e.target.value))}
             />
             <p className="mt-1 text-[12px] text-ds-text-3">
-              Días de diferencia aceptados entre la fecha proyectada y la fecha real del banco.
+              Un movimiento puede no caer exactamente el día proyectado. Ej: pagaste Movistar el día 7 pero lo proyectaste para el 5 → diferencia de 2 días. Este número es el <strong>máximo de días de diferencia</strong> aceptado. Recomendado: <strong>3 días</strong> para gastos fijos, <strong>5 días</strong> si tu banco demora en procesar.
             </p>
           </div>
         </div>
