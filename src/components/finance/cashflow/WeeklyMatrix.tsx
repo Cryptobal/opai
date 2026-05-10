@@ -22,7 +22,18 @@ interface Props {
 
 export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Props) {
   const [weeks, setWeeks] = useState<number>(defaultWeeks);
-  const [projection, setProjection] = useState<ProjectionMatrix>(initialProjection);
+  // initialProjection llega serializado vía JSON.parse(JSON.stringify(...)) desde
+  // el Server Component, así que `start`/`end` son strings. Rehidratamos en el
+  // lazy initializer para que las filas del tfoot (`b.start.getTime()`) y
+  // cualquier otro consumidor puedan usar métodos de Date sin crashear.
+  const [projection, setProjection] = useState<ProjectionMatrix>(() => ({
+    ...initialProjection,
+    buckets: initialProjection.buckets.map((b) => ({
+      ...b,
+      start: new Date(b.start as unknown as string),
+      end: new Date(b.end as unknown as string),
+    })),
+  }));
   const [loading, setLoading] = useState(false);
   const [matching, setMatching] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
