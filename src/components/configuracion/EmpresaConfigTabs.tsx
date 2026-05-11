@@ -18,6 +18,7 @@ const FIELDS = [
   { key: "empresa.telefono", label: "Teléfono empresa", placeholder: "Ej: +56 2 1234 5678" },
   { key: "empresa.repLegalNombre", label: "Nombre Representante Legal", placeholder: "Ej: Juan Pérez González" },
   { key: "empresa.repLegalRut", label: "RUT Representante Legal", placeholder: "Ej: 12.345.678-9" },
+  { key: "empresa.repLegalEmail", label: "Email Representante Legal", placeholder: "Ej: jperez@miempresa.cl" },
   { key: "empresa.fechaEscrituraPublica", label: "Fecha Escritura Pública", placeholder: "Ej: 15 de marzo de 2020" },
   { key: "empresa.nombreNotaria", label: "Notaría que otorgó la escritura", placeholder: "Ej: Notaría Juan Ricardo San Martín Urrejola" },
 ];
