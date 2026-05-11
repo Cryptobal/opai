@@ -46,14 +46,14 @@ export async function generateServiceContract(
         where: {
           tenantId,
           module: "crm",
-          category: { in: ["contrato_servicio", "contrato_cliente"] },
+          category: "contrato_cliente",
           isActive: true,
           isDefault: true,
         },
       });
 
   if (!template) {
-    return { success: false, error: "No hay template de contrato. Cree uno en Documentos > Plantillas con categoría 'Contrato de Servicio'." };
+    return { success: false, error: "No hay template de contrato. Cree uno en Documentos > Plantillas con categoría 'Contrato Cliente'." };
   }
 
   // 3. Load account (with relations — portal stores rep legal + personería in
@@ -214,7 +214,7 @@ export async function generateServiceContract(
       content: resolvedContent,
       tokenValues: { ...entityData, resolved: tokenValues },
       module: "crm",
-      category: "contrato_servicio",
+      category: "contrato_cliente",
       status: "draft",
       effectiveDate: startDate,
       expirationDate: endDate,

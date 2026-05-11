@@ -32,8 +32,7 @@ import {
 import type { DocTemplate } from "@/types/docs";
 
 const CATEGORY_HELP_TEXT: Record<string, string> = {
-  contrato_cliente: "Contrato marco con un cliente.",
-  contrato_servicio: "Contrato de prestación de servicios específico.",
+  contrato_cliente: "Contrato con un cliente / contrato de prestación de servicios.",
   contrato_confidencialidad: "NDA — acuerdo de no divulgación.",
   acuerdo_nivel_servicio: "SLA — niveles y métricas de servicio comprometidos.",
   adendum: "Modificación o anexo a un contrato existente.",

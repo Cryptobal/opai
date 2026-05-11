@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState, type ComponentType } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { format } from "date-fns";
@@ -35,8 +35,18 @@ import {
   Search,
   Pencil,
   ChevronRight,
+  ChevronLeft,
   Loader2,
   Lock,
+  ArrowLeft,
+  AlertTriangle,
+  CheckCircle2,
+  Wallet,
+  CreditCard,
+  PiggyBank,
+  TrendingUp,
+  Factory,
+  Receipt,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -106,6 +116,43 @@ const ACCOUNT_TYPE_CONFIG: Record<string, { label: string; className: string }> 
   COST: { label: "Costo", className: "bg-status-warn-soft text-status-warn-fg border-status-warn-border" },
   EXPENSE: { label: "Gasto", className: "bg-status-warn-soft text-status-warn-fg border-status-warn-border" },
 };
+
+/** Tipo → naturaleza por defecto (ecuación contable). Editable como escape hatch. */
+const DEFAULT_NATURE_BY_TYPE: Record<string, "DEBIT" | "CREDIT"> = {
+  ASSET: "DEBIT",
+  COST: "DEBIT",
+  EXPENSE: "DEBIT",
+  LIABILITY: "CREDIT",
+  EQUITY: "CREDIT",
+  REVENUE: "CREDIT",
+};
+
+/** Prefijo de código numérico por tipo (convención plan chileno). */
+const TYPE_CODE_PREFIX: Record<string, string> = {
+  ASSET: "1",
+  LIABILITY: "2",
+  EQUITY: "3",
+  REVENUE: "4",
+  COST: "5",
+  EXPENSE: "6",
+};
+
+/** Metadatos visuales de cada tipo para las cards del paso 1. */
+const ACCOUNT_TYPE_CARDS: ReadonlyArray<{
+  type: string;
+  label: string;
+  prefix: string;
+  description: string;
+  icon: ComponentType<{ className?: string }>;
+  className: string;
+}> = [
+  { type: "ASSET", label: "Activo", prefix: "1.x", description: "Bienes y derechos", icon: Wallet, className: "bg-status-info-soft text-status-info-fg border-status-info-border" },
+  { type: "LIABILITY", label: "Pasivo", prefix: "2.x", description: "Obligaciones y deudas", icon: CreditCard, className: "bg-status-danger-soft text-status-danger-fg border-status-danger-border" },
+  { type: "EQUITY", label: "Patrimonio", prefix: "3.x", description: "Capital y reservas", icon: PiggyBank, className: "bg-tint-violet text-tint-violet-fg border-tint-violet-fg/30" },
+  { type: "REVENUE", label: "Ingreso", prefix: "4.x", description: "Ventas y otros ingresos", icon: TrendingUp, className: "bg-status-ok-soft text-status-ok-fg border-status-ok-border" },
+  { type: "COST", label: "Costo", prefix: "5.x", description: "Costos directos de operación", icon: Factory, className: "bg-status-warn-soft text-status-warn-fg border-status-warn-border" },
+  { type: "EXPENSE", label: "Gasto", prefix: "6.x", description: "Gastos de administración", icon: Receipt, className: "bg-status-warn-soft text-status-warn-fg border-status-warn-border" },
+];
 
 const JOURNAL_STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   DRAFT: { label: "Borrador", className: "bg-zinc-500/15 text-zinc-400 border-zinc-500/30" },
@@ -267,50 +314,28 @@ function AccountsTab({
   };
 
   const handleSave = async () => {
-    if (!form.code.trim() || !form.name.trim()) {
-      toast.error("Código y nombre son obligatorios");
+    if (!editingId) return;
+    if (!form.name.trim()) {
+      toast.error("El nombre es obligatorio");
       return;
     }
     setSaving(true);
     try {
-      if (editingId) {
-        const res = await fetch(`/api/finance/accounting/accounts/${editingId}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: form.name.trim(),
-            description: form.description.trim() || null,
-            acceptsEntries: form.acceptsEntries,
-            isActive: true,
-          }),
-        });
-        if (!res.ok) {
-          const err = await res.json();
-          throw new Error(err.error || "Error al actualizar cuenta");
-        }
-        toast.success("Cuenta actualizada");
-      } else {
-        const res = await fetch("/api/finance/accounting/accounts", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            code: form.code.trim(),
-            name: form.name.trim(),
-            type: form.type,
-            nature: form.nature,
-            parentId: form.parentId && form.parentId !== "__none__" ? form.parentId : null,
-            level: parseInt(form.level) || 1,
-            acceptsEntries: form.acceptsEntries,
-            description: form.description.trim() || null,
-            taxCode: form.taxCode.trim() || null,
-          }),
-        });
-        if (!res.ok) {
-          const err = await res.json();
-          throw new Error(err.error || "Error al crear cuenta");
-        }
-        toast.success("Cuenta creada");
+      const res = await fetch(`/api/finance/accounting/accounts/${editingId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: form.name.trim(),
+          description: form.description.trim() || null,
+          acceptsEntries: form.acceptsEntries,
+          isActive: true,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Error al actualizar cuenta");
       }
+      toast.success("Cuenta actualizada");
       setDialogOpen(false);
       router.refresh();
     } catch (error) {
@@ -489,126 +514,548 @@ function AccountsTab({
       )}
 
       {/* Create/Edit Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{editingId ? "Editar cuenta" : "Nueva cuenta"}</DialogTitle>
-            <DialogDescription>
-              {editingId
-                ? "Modifica los datos de la cuenta contable."
-                : "Completa los campos para agregar una nueva cuenta al plan contable."}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-2">
+      {editingId ? (
+        <EditAccountDialog
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          form={form}
+          setField={setField}
+          saving={saving}
+          onSave={handleSave}
+        />
+      ) : (
+        <NewAccountWizard
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          accounts={accounts}
+          saving={saving}
+          onCreated={() => {
+            setDialogOpen(false);
+            router.refresh();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ── Edit dialog (mantiene UI simple, sólo nombre/descripción editables) ── */
+
+function EditAccountDialog({
+  open,
+  onOpenChange,
+  form,
+  setField,
+  saving,
+  onSave,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  form: { code: string; name: string; description: string; acceptsEntries: boolean | string };
+  setField: (key: string, value: string | boolean) => void;
+  saving: boolean;
+  onSave: () => void;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Editar cuenta</DialogTitle>
+          <DialogDescription>Modifica los datos de la cuenta contable.</DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-2">
+          <div className="space-y-1.5">
+            <Label>Código</Label>
+            <Input value={form.code} disabled />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Nombre *</Label>
+            <Input value={form.name} onChange={(e) => setField("name", e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Descripción</Label>
+            <Input value={form.description} onChange={(e) => setField("description", e.target.value)} />
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="acc-entries-edit"
+              checked={form.acceptsEntries as boolean}
+              onChange={(e) => setField("acceptsEntries", e.target.checked)}
+              className="rounded border-border"
+            />
+            <Label htmlFor="acc-entries-edit">Acepta movimientos</Label>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
+            Cancelar
+          </Button>
+          <Button onClick={onSave} disabled={saving}>
+            {saving && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
+            Guardar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ── Wizard de creación de cuenta (3 pasos) ── */
+
+type WizardStep = 1 | 2 | 3;
+
+function NewAccountWizard({
+  open,
+  onOpenChange,
+  accounts,
+  saving: savingProp,
+  onCreated,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  accounts: AccountRow[];
+  saving: boolean;
+  onCreated: () => void;
+}) {
+  void savingProp;
+  const [step, setStep] = useState<WizardStep>(1);
+  const [type, setType] = useState<string | null>(null);
+  const [parentId, setParentId] = useState<string | null>(null);
+  // null = aún no decidido; "root" = nueva raíz; string = id del padre
+  const [parentChoice, setParentChoice] = useState<"root" | string | null>(null);
+
+  const [code, setCode] = useState("");
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [taxCode, setTaxCode] = useState("");
+  const [acceptsEntries, setAcceptsEntries] = useState(true);
+  const [nature, setNature] = useState<"DEBIT" | "CREDIT">("DEBIT");
+  const [showNatureOverride, setShowNatureOverride] = useState(false);
+
+  const [suggestedLevel, setSuggestedLevel] = useState(1);
+  const [suggesting, setSuggesting] = useState(false);
+  const [codeWasEdited, setCodeWasEdited] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  // Reset al abrir
+  const resetAll = useCallback(() => {
+    setStep(1);
+    setType(null);
+    setParentId(null);
+    setParentChoice(null);
+    setCode("");
+    setName("");
+    setDescription("");
+    setTaxCode("");
+    setAcceptsEntries(true);
+    setNature("DEBIT");
+    setShowNatureOverride(false);
+    setSuggestedLevel(1);
+    setCodeWasEdited(false);
+  }, []);
+
+  // Cuando se elige tipo en step 1, setear naturaleza por defecto.
+  const pickType = (t: string) => {
+    setType(t);
+    setNature(DEFAULT_NATURE_BY_TYPE[t] ?? "DEBIT");
+    setShowNatureOverride(false);
+    setParentChoice(null);
+    setParentId(null);
+    setCode("");
+    setCodeWasEdited(false);
+    setStep(2);
+  };
+
+  // Padres elegibles para el tipo (no aceptan movimientos y mismo tipo).
+  const eligibleParents = useMemo(() => {
+    if (!type) return [];
+    return accounts
+      .filter((a) => !a.acceptsEntries && a.type === type)
+      .sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }));
+  }, [accounts, type]);
+
+  // Cuando se confirma el padre en step 2 → pedir next-code y avanzar a step 3.
+  const confirmParentAndAdvance = async (choice: "root" | string) => {
+    if (!type) return;
+    setParentChoice(choice);
+    setParentId(choice === "root" ? null : choice);
+    setSuggesting(true);
+    try {
+      const qs = new URLSearchParams({ type });
+      if (choice !== "root") qs.set("parentId", choice);
+      const res = await fetch(`/api/finance/accounting/accounts/next-code?${qs.toString()}`);
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || "No pude sugerir un código");
+      }
+      setCode(json.data.code as string);
+      setSuggestedLevel(json.data.level as number);
+      setCodeWasEdited(false);
+      setStep(3);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Error sugiriendo código");
+    } finally {
+      setSuggesting(false);
+    }
+  };
+
+  // Detección de colisión / formato extraño del código.
+  const codeWarning = useMemo(() => {
+    if (!type) return null;
+    if (!code.trim()) return null;
+    const dup = accounts.find((a) => a.code === code.trim());
+    if (dup) return `El código ${code} ya existe (${dup.name}).`;
+    if (parentChoice && parentChoice !== "root") {
+      const parent = accounts.find((a) => a.id === parentChoice);
+      if (parent && !code.startsWith(`${parent.code}.`)) {
+        return `El código no respeta el prefijo del padre (${parent.code}.…). Podés guardarlo igual si querés.`;
+      }
+    } else {
+      const prefix = TYPE_CODE_PREFIX[type];
+      if (prefix && !code.startsWith(prefix)) {
+        return `Por convención, las cuentas de ${ACCOUNT_TYPE_CONFIG[type]?.label ?? type} empiezan con ${prefix}.`;
+      }
+    }
+    return null;
+  }, [code, parentChoice, accounts, type]);
+
+  const canSave = !!type && !!name.trim() && !!code.trim() && !saving;
+
+  const handleSave = async () => {
+    if (!canSave || !type) return;
+    setSaving(true);
+    try {
+      const res = await fetch("/api/finance/accounting/accounts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: code.trim(),
+          name: name.trim(),
+          type,
+          nature,
+          parentId: parentChoice && parentChoice !== "root" ? parentChoice : null,
+          level: suggestedLevel || 1,
+          acceptsEntries,
+          description: description.trim() || null,
+          taxCode: taxCode.trim() || null,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Error al crear cuenta");
+      }
+      toast.success("Cuenta creada");
+      resetAll();
+      onCreated();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Error inesperado");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        if (!v) resetAll();
+        onOpenChange(v);
+      }}
+    >
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <div className="flex items-center gap-2">
+            {step > 1 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 w-7 p-0"
+                onClick={() => setStep((s) => Math.max(1, (s - 1) as WizardStep) as WizardStep)}
+                disabled={saving}
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+            )}
+            <DialogTitle>Nueva cuenta</DialogTitle>
+          </div>
+          <WizardStepper current={step} />
+        </DialogHeader>
+
+        {step === 1 && (
+          <div className="space-y-3 py-2">
+            <p className="text-sm text-muted-foreground">
+              ¿Qué tipo de cuenta vas a crear? Esto define el prefijo del código y la naturaleza por defecto.
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {ACCOUNT_TYPE_CARDS.map((card) => {
+                const Icon = card.icon;
+                const isActive = type === card.type;
+                return (
+                  <button
+                    key={card.type}
+                    type="button"
+                    onClick={() => pickType(card.type)}
+                    className={cn(
+                      "rounded-lg border p-3 text-left transition-all hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-primary",
+                      isActive ? "ring-2 ring-primary" : "border-border hover:border-primary/40",
+                    )}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0", card.className)}>
+                        <Icon className="h-3 w-3 mr-1" />
+                        {card.label}
+                      </Badge>
+                      <span className="font-mono text-[10px] text-muted-foreground">{card.prefix}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">{card.description}</p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {step === 2 && type && (
+          <div className="space-y-3 py-2">
+            <p className="text-sm text-muted-foreground">
+              ¿Dónde colgamos esta cuenta dentro de{" "}
+              <span className="text-foreground font-medium">{ACCOUNT_TYPE_CONFIG[type]?.label}</span>?
+            </p>
+            <div className="space-y-1.5 max-h-[50vh] overflow-y-auto pr-1">
+              <button
+                type="button"
+                onClick={() => confirmParentAndAdvance("root")}
+                disabled={suggesting}
+                className={cn(
+                  "w-full rounded-md border p-3 text-left transition-colors",
+                  "hover:bg-accent/40 hover:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary",
+                  parentChoice === "root" ? "border-primary bg-primary/5" : "border-border",
+                )}
+              >
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <Plus className="h-3.5 w-3.5 text-primary" />
+                  Crear como nueva categoría raíz
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Empieza una nueva familia de cuentas bajo {TYPE_CODE_PREFIX[type]}.x
+                </p>
+              </button>
+
+              {eligibleParents.length > 0 ? (
+                eligibleParents.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => confirmParentAndAdvance(p.id)}
+                    disabled={suggesting}
+                    className={cn(
+                      "w-full rounded-md border p-2.5 text-left transition-colors",
+                      "hover:bg-accent/40 hover:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary",
+                      parentChoice === p.id ? "border-primary bg-primary/5" : "border-border",
+                    )}
+                    style={{ paddingLeft: `${10 + (p.level - 1) * 16}px` }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-xs text-muted-foreground">{p.code}</span>
+                      <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                      <span className="text-sm">{p.name}</span>
+                    </div>
+                  </button>
+                ))
+              ) : (
+                <p className="text-xs text-muted-foreground italic px-2 py-1">
+                  No hay categorías existentes de este tipo todavía.
+                </p>
+              )}
+            </div>
+            {suggesting && (
+              <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Calculando código…
+              </p>
+            )}
+          </div>
+        )}
+
+        {step === 3 && type && (
+          <div className="space-y-4 py-2">
+            <div className="rounded-md bg-muted/40 border border-border px-3 py-2 text-xs flex flex-wrap items-center gap-x-3 gap-y-1">
+              <Badge variant="outline" className={cn("text-[10px]", ACCOUNT_TYPE_CONFIG[type]?.className)}>
+                {ACCOUNT_TYPE_CONFIG[type]?.label}
+              </Badge>
+              {parentChoice && parentChoice !== "root" ? (
+                <span className="text-muted-foreground">
+                  bajo{" "}
+                  <span className="font-mono">
+                    {accounts.find((a) => a.id === parentChoice)?.code}
+                  </span>{" "}
+                  {accounts.find((a) => a.id === parentChoice)?.name}
+                </span>
+              ) : (
+                <span className="text-muted-foreground">categoría raíz</span>
+              )}
+              <span className="text-muted-foreground">· nivel {suggestedLevel}</span>
+            </div>
+
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-1.5">
                 <Label>Código *</Label>
                 <Input
-                  value={form.code}
-                  onChange={(e) => setField("code", e.target.value)}
-                  disabled={!!editingId}
-                  placeholder="1.1.01"
+                  value={code}
+                  onChange={(e) => {
+                    setCode(e.target.value);
+                    setCodeWasEdited(true);
+                  }}
+                  className="font-mono"
                 />
+                {codeWarning ? (
+                  <p className="text-[11px] text-status-warn-fg flex items-start gap-1">
+                    <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
+                    <span>{codeWarning}</span>
+                  </p>
+                ) : codeWasEdited ? null : (
+                  <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+                    <CheckCircle2 className="h-3 w-3 text-status-ok-fg" />
+                    Código sugerido automáticamente
+                  </p>
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label>Nombre *</Label>
                 <Input
-                  value={form.name}
-                  onChange={(e) => setField("name", e.target.value)}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Ej: Personal operativo"
+                  autoFocus
                 />
               </div>
             </div>
-            {!editingId && (
-              <>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <Label>Tipo *</Label>
-                    <Select value={form.type} onValueChange={(v) => setField("type", v)}>
-                      <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {Object.entries(ACCOUNT_TYPE_CONFIG).map(([k, v]) => (
-                          <SelectItem key={k} value={k}>{v.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Naturaleza *</Label>
-                    <Select value={form.nature} onValueChange={(v) => setField("nature", v)}>
-                      <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="DEBIT">Débito</SelectItem>
-                        <SelectItem value="CREDIT">Crédito</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <Label>Cuenta padre</Label>
-                    <Select value={form.parentId} onValueChange={(v) => setField("parentId", v)}>
-                      <SelectTrigger className="h-9"><SelectValue placeholder="Sin padre" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__">Sin padre (raíz)</SelectItem>
-                        {accounts
-                          .filter((a) => !a.acceptsEntries)
-                          .map((a) => (
-                            <SelectItem key={a.id} value={a.id}>
-                              {a.code} - {a.name}
-                            </SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Nivel</Label>
-                    <Input
-                      type="number" min={1} max={10}
-                      value={form.level}
-                      onChange={(e) => setField("level", e.target.value)}
-                    />
-                  </div>
-                </div>
-              </>
-            )}
+
             <div className="space-y-1.5">
               <Label>Descripción</Label>
               <Input
-                value={form.description}
-                onChange={(e) => setField("description", e.target.value)}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Opcional"
               />
             </div>
-            {!editingId && (
-              <div className="space-y-1.5">
-                <Label>Código tributario</Label>
-                <Input
-                  value={form.taxCode}
-                  onChange={(e) => setField("taxCode", e.target.value)}
-                />
-              </div>
-            )}
+
+            <div className="space-y-1.5">
+              <Label>Código tributario</Label>
+              <Input
+                value={taxCode}
+                onChange={(e) => setTaxCode(e.target.value)}
+                placeholder="Opcional"
+              />
+            </div>
+
             <div className="flex items-center gap-2">
               <input
                 type="checkbox"
-                id="acc-entries"
-                checked={form.acceptsEntries as boolean}
-                onChange={(e) => setField("acceptsEntries", e.target.checked)}
+                id="acc-entries-new"
+                checked={acceptsEntries}
+                onChange={(e) => setAcceptsEntries(e.target.checked)}
                 className="rounded border-border"
               />
-              <Label htmlFor="acc-entries">Acepta movimientos</Label>
+              <Label htmlFor="acc-entries-new" className="cursor-pointer">
+                Acepta movimientos
+                <span className="text-[11px] text-muted-foreground ml-1.5">
+                  (desmarcá si esta cuenta va a tener cuentas hijas)
+                </span>
+              </Label>
+            </div>
+
+            <div className="text-[11px] text-muted-foreground flex items-center gap-2">
+              <span>
+                Naturaleza:{" "}
+                <span className="text-foreground">{nature === "DEBIT" ? "Débito" : "Crédito"}</span>
+              </span>
+              <button
+                type="button"
+                className="underline hover:text-foreground"
+                onClick={() => setShowNatureOverride((v) => !v)}
+              >
+                cambiar
+              </button>
+              {showNatureOverride && (
+                <Select value={nature} onValueChange={(v) => setNature(v as "DEBIT" | "CREDIT")}>
+                  <SelectTrigger className="h-7 w-28 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="DEBIT">Débito</SelectItem>
+                    <SelectItem value="CREDIT">Crédito</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>
+        )}
+
+        <DialogFooter>
+          {step === 1 && (
+            <Button variant="outline" onClick={() => { resetAll(); onOpenChange(false); }} disabled={saving}>
               Cancelar
             </Button>
-            <Button onClick={handleSave} disabled={saving}>
-              {saving && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
-              {editingId ? "Guardar" : "Crear cuenta"}
+          )}
+          {step === 2 && (
+            <Button
+              variant="outline"
+              onClick={() => setStep(1)}
+              disabled={suggesting}
+            >
+              <ChevronLeft className="h-4 w-4 mr-1" />
+              Atrás
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          )}
+          {step === 3 && (
+            <>
+              <Button variant="outline" onClick={() => setStep(2)} disabled={saving}>
+                <ChevronLeft className="h-4 w-4 mr-1" />
+                Atrás
+              </Button>
+              <Button onClick={handleSave} disabled={!canSave}>
+                {saving && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
+                Crear cuenta
+              </Button>
+            </>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function WizardStepper({ current }: { current: WizardStep }) {
+  const steps: ReadonlyArray<{ n: WizardStep; label: string }> = [
+    { n: 1, label: "Tipo" },
+    { n: 2, label: "Ubicación" },
+    { n: 3, label: "Datos" },
+  ];
+  return (
+    <div className="flex items-center gap-1.5 pt-1">
+      {steps.map((s, i) => {
+        const isDone = current > s.n;
+        const isActive = current === s.n;
+        return (
+          <div key={s.n} className="flex items-center gap-1.5">
+            <div
+              className={cn(
+                "h-1.5 w-1.5 rounded-full transition-colors",
+                isActive ? "bg-primary" : isDone ? "bg-primary/60" : "bg-muted-foreground/30",
+              )}
+            />
+            <span
+              className={cn(
+                "text-[11px]",
+                isActive ? "text-foreground font-medium" : "text-muted-foreground",
+              )}
+            >
+              {s.label}
+            </span>
+            {i < steps.length - 1 && <span className="text-muted-foreground/40 text-[11px]">·</span>}
+          </div>
+        );
+      })}
     </div>
   );
 }

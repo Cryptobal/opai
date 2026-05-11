@@ -4276,7 +4276,7 @@ async function toolCreateFactoringCompany(
         name: created.razonSocial,
         rut: created.rutFormatted,
         executiveName: created.contactName,
-        url: `/finanzas/facturacion/factoring/empresas`,
+        url: `/finanzas/facturacion/cesiones/factorings`,
       },
     };
   } catch (e) {

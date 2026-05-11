@@ -15,7 +15,13 @@ import {
   sendSignatureRequestEmail,
 } from "@/lib/docs-signature-email";
 
-function canSignNow(currentOrder: number, recipients: Array<{ role: string; signingOrder: number; status: string }>) {
+function canSignNow(
+  currentOrder: number,
+  recipients: Array<{ role: string; signingOrder: number; status: string }>,
+  signingMode: string = "sequential",
+) {
+  // En modo paralelo cualquier firmante puede firmar sin esperar al anterior.
+  if (signingMode === "parallel") return true;
   const previousSigners = recipients.filter(
     (r) => r.role === "signer" && r.signingOrder < currentOrder
   );
@@ -98,7 +104,11 @@ export async function GET(
 
     const canSign = recipient.role === "cc"
       ? false
-      : canSignNow(recipient.signingOrder, recipient.request.recipients);
+      : canSignNow(
+          recipient.signingOrder,
+          recipient.request.recipients,
+          recipient.request.signingMode,
+        );
 
     if ((recipient.status === "pending" || recipient.status === "sent") && !recipient.viewedAt) {
       await prisma.docSignatureRecipient.update({
@@ -255,7 +265,13 @@ export async function POST(
       );
     }
 
-    if (!canSignNow(recipient.signingOrder, recipient.request.recipients)) {
+    if (
+      !canSignNow(
+        recipient.signingOrder,
+        recipient.request.recipients,
+        recipient.request.signingMode,
+      )
+    ) {
       return NextResponse.json(
         { success: false, error: "Aún no puedes firmar. Hay firmantes previos pendientes." },
         { status: 409 }
@@ -390,6 +406,7 @@ export async function POST(
         requestId: recipient.requestId,
         tenantId: recipient.request.tenantId,
         signedViewToken,
+        signingMode: recipient.request.signingMode,
         recipients: refreshedRecipients.map((r) => ({
           id: r.id,
           email: r.email,
@@ -488,7 +505,10 @@ export async function POST(
       }
     }
 
-    if (!result.allSigned) {
+    // En "parallel" todos los firmantes ya recibieron su link al crear la
+    // solicitud, así que NO disparamos el email "siguiente firmante" tras
+    // cada firma — solo esperamos a que todos completen.
+    if (!result.allSigned && result.signingMode !== "parallel") {
       const signedOrders = result.recipients
         .filter((r) => r.role === "signer" && r.status === "signed")
         .map((r) => r.signingOrder);
@@ -523,7 +543,7 @@ export async function POST(
           }
         }
       }
-    } else {
+    } else if (result.allSigned) {
       const doneAt = new Date().toLocaleString("es-CL");
       const everyone = [...new Set(result.recipients.map((r) => r.email))];
       const publicViewUrl =

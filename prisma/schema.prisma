@@ -5648,6 +5648,12 @@ model DocSignatureRequest {
   tenantId    String    @map("tenant_id")
   documentId  String    @map("document_id") @db.Uuid
   status      String    @default("draft") // draft, pending, in_progress, completed, cancelled, expired
+  /// "sequential" (default, comportamiento histórico): cada firmante recibe
+  /// el email solo cuando el anterior firmó. "parallel": al crear la
+  /// solicitud todos los firmantes reciben el link simultáneamente y
+  /// pueden firmar en cualquier orden; el documento se considera completo
+  /// cuando TODOS firmaron.
+  signingMode String    @default("sequential") @map("signing_mode")
   message     String?
   expiresAt   DateTime? @map("expires_at") @db.Timestamptz(6)
   completedAt DateTime? @map("completed_at") @db.Timestamptz(6)

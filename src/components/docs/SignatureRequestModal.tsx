@@ -74,6 +74,7 @@ export function SignatureRequestModal({
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
+  const [signingMode, setSigningMode] = useState<"sequential" | "parallel">("sequential");
   const [rows, setRows] = useState<RecipientRow[]>(() =>
     initialRecipients?.length
       ? initialRecipients.map((r, i) =>
@@ -226,6 +227,7 @@ export function SignatureRequestModal({
         body: JSON.stringify({
           message: message.trim() || null,
           expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
+          signingMode,
           recipients: rows.map((r) => ({
             name: r.name.trim(),
             email: r.email.trim(),
@@ -300,6 +302,40 @@ export function SignatureRequestModal({
                 onChange={(e) => setMessage(e.target.value)}
                 placeholder="Indicaciones para los firmantes"
               />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Modo de firma</Label>
+            <div className="grid sm:grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setSigningMode("sequential")}
+                className={`rounded-md border p-2.5 text-left transition-colors focus:outline-none focus:ring-2 focus:ring-primary ${
+                  signingMode === "sequential"
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-primary/40"
+                }`}
+              >
+                <div className="text-sm font-medium">En orden</div>
+                <div className="text-[11px] text-muted-foreground mt-0.5">
+                  Cada firmante recibe el link cuando el anterior firma.
+                </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setSigningMode("parallel")}
+                className={`rounded-md border p-2.5 text-left transition-colors focus:outline-none focus:ring-2 focus:ring-primary ${
+                  signingMode === "parallel"
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-primary/40"
+                }`}
+              >
+                <div className="text-sm font-medium">Sin orden (paralelo)</div>
+                <div className="text-[11px] text-muted-foreground mt-0.5">
+                  Todos reciben el link a la vez. El documento se completa cuando todos firmaron.
+                </div>
+              </button>
             </div>
           </div>
 
@@ -386,7 +422,7 @@ export function SignatureRequestModal({
                     <option value="signer">Firmante</option>
                     <option value="cc">Copia</option>
                   </select>
-                  {row.role === "signer" ? (
+                  {row.role === "signer" && signingMode === "sequential" ? (
                     <div className="sm:col-span-1 space-y-1">
                       <Label className="text-xs text-muted-foreground">Orden</Label>
                       <Input

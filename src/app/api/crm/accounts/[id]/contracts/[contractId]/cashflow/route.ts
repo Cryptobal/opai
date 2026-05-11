@@ -19,6 +19,9 @@ import { prisma } from "@/lib/prisma";
 const upsertSchema = z.object({
   installationId: z.string().uuid().nullable().optional(),
   monthlyAmountClp: z.number().positive(),
+  /// "CLP" (default) o "UF". Si UF, el monto se persiste tal cual y la
+  /// conversión a CLP la hace la capa de proyección con la UF del día.
+  currency: z.enum(["CLP", "UF"]).optional().default("CLP"),
   paymentDay: z.number().int().min(-1).max(31),
   startDate: z.string().min(1, "Fecha de inicio requerida"),
   endDate: z.string().nullable().optional(),
@@ -178,7 +181,7 @@ export async function PUT(
     name: document.title,
     description: `Contrato ${document.title}`,
     amount: data.monthlyAmountClp,
-    currency: "CLP",
+    currency: data.currency,
     recurrence: "MONTHLY" as const,
     dayOfMonth: dom,
     dayOfWeek: null,

@@ -153,6 +153,7 @@ export async function POST(
           tenantId: ctx.tenantId,
           documentId: id,
           status: "pending",
+          signingMode: payload.signingMode,
           message: payload.message ?? null,
           expiresAt: payload.expiresAt ? new Date(payload.expiresAt) : null,
           createdBy: ctx.userId,
@@ -210,13 +211,21 @@ export async function POST(
 
     if (created) {
       const siteUrl = getCanonicalSiteUrl();
-      const signerOrders = created.recipients
-        .filter((r) => r.role === "signer")
-        .map((r) => r.signingOrder);
-      const activeOrder = Math.min(...signerOrders);
-      const recipientsToSend = created.recipients.filter(
-        (r) => r.role === "signer" && r.signingOrder === activeOrder
-      );
+      // En "parallel" enviamos a TODOS los firmantes en simultáneo; en
+      // "sequential" solo al firmante con menor signingOrder (resto se
+      // dispara cuando el anterior firma, en /api/docs/sign/[token]).
+      let recipientsToSend: typeof created.recipients;
+      if (created.signingMode === "parallel") {
+        recipientsToSend = created.recipients.filter((r) => r.role === "signer");
+      } else {
+        const signerOrders = created.recipients
+          .filter((r) => r.role === "signer")
+          .map((r) => r.signingOrder);
+        const activeOrder = Math.min(...signerOrders);
+        recipientsToSend = created.recipients.filter(
+          (r) => r.role === "signer" && r.signingOrder === activeOrder
+        );
+      }
 
       for (const recipient of recipientsToSend) {
         const signingUrl = `${siteUrl}/sign/${recipient.token}`;

@@ -350,7 +350,6 @@ export function getAllTokenKeys(): string[] {
 export const DOC_CATEGORIES: Record<string, { key: string; label: string }[]> = {
   crm: [
     { key: "contrato_cliente", label: "Contrato Cliente" },
-    { key: "contrato_servicio", label: "Contrato de Servicio" },
     { key: "contrato_confidencialidad", label: "Acuerdo de Confidencialidad (NDA)" },
     { key: "acuerdo_nivel_servicio", label: "Acuerdo de Nivel de Servicio (SLA)" },
     { key: "adendum", label: "Adendum / Modificación" },

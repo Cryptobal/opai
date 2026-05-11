@@ -197,7 +197,7 @@ export async function GET(request: NextRequest) {
       const serviceContracts = await prisma.document.findMany({
         where: {
           status: "active",
-          category: "contrato_servicio",
+          category: "contrato_cliente",
           contractMetadata: { not: Prisma.JsonNull },
           signedAt: { not: null },
         },

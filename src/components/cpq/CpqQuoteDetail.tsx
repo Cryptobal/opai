@@ -608,7 +608,7 @@ export function CpqQuoteDetail({
       .then((r) => r.ok ? r.json() : null)
       .then((d) => { if (d?.success) setProposalTemplates(d.data); })
       .catch(() => {});
-    fetch("/api/docs/templates?module=crm&category=contrato_servicio")
+    fetch("/api/docs/templates?module=crm&category=contrato_cliente")
       .then((r) => r.ok ? r.json() : null)
       .then((d) => { if (d?.success) setContractTemplates(d.data ?? []); })
       .catch(() => {});

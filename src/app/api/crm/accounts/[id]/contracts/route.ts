@@ -43,7 +43,7 @@ export async function GET(
       include: {
         template: { select: { id: true, name: true } },
         associations: {
-          where: { entityType: { in: ["crm_account", "crm_deal"] } },
+          where: { entityType: { in: ["crm_account", "crm_deal", "crm_installation"] } },
         },
         signatureRequests: {
           select: {
@@ -244,6 +244,7 @@ export async function POST(
       installationId,
       addToCashflow,
       monthlyAmountClp,
+      currency,
       paymentDay,
     } = parsed.data;
 
@@ -363,7 +364,7 @@ export async function POST(
               name: title,
               description: `Contrato ${title}`,
               amount: monthlyAmountClp,
-              currency: "CLP",
+              currency: currency,
               recurrence: "MONTHLY",
               dayOfMonth: dom,
               startDate: new Date(effectiveDate),

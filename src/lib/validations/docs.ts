@@ -119,9 +119,12 @@ const signatureRecipientInputSchema = z.object({
   signingOrder: z.number().int().min(1).default(1),
 });
 
+export const signingModeSchema = z.enum(["sequential", "parallel"]);
+
 export const createSignatureRequestSchema = z.object({
   message: z.string().max(1500).optional().nullable(),
   expiresAt: z.string().datetime().optional().nullable(),
+  signingMode: signingModeSchema.default("sequential"),
   recipients: z.array(signatureRecipientInputSchema).min(1, "Debe incluir al menos un firmante"),
 });
 
@@ -151,7 +154,6 @@ export const declineSignatureSchema = z.object({
 
 export const CONTRACT_CATEGORIES = [
   "contrato_cliente",
-  "contrato_servicio",
   "contrato_confidencialidad",
   "acuerdo_nivel_servicio",
   "adendum",
@@ -161,7 +163,6 @@ export type ContractCategory = (typeof CONTRACT_CATEGORIES)[number];
 
 export const CONTRACT_CATEGORY_LABELS: Record<ContractCategory, string> = {
   contrato_cliente: "Contrato Cliente",
-  contrato_servicio: "Contrato de Servicio",
   contrato_confidencialidad: "Acuerdo de Confidencialidad (NDA)",
   acuerdo_nivel_servicio: "Acuerdo de Nivel de Servicio (SLA)",
   adendum: "Adendum / Anexo",
@@ -222,6 +223,9 @@ export const uploadContractSchema = z
       }, z.boolean())
       .default(false),
     monthlyAmountClp: z.coerce.number().positive().optional().nullable(),
+    /// "CLP" (default) o "UF". Si UF, el monto se persiste tal cual y la
+    /// proyección lo convierte a CLP con la UF del día de pago.
+    currency: z.enum(["CLP", "UF"]).optional().default("CLP"),
     paymentDay: z.coerce.number().int().min(-1).max(31).optional().nullable(),
   })
   .superRefine((val, ctx) => {

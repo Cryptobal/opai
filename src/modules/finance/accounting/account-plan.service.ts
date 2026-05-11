@@ -56,6 +56,80 @@ export async function getAccountTree(tenantId: string): Promise<AccountTreeNode[
   return roots;
 }
 
+/** Prefijo de código por tipo de cuenta (convención plan chileno). */
+const TYPE_CODE_PREFIX: Record<string, string> = {
+  ASSET: "1",
+  LIABILITY: "2",
+  EQUITY: "3",
+  REVENUE: "4",
+  COST: "5",
+  EXPENSE: "6",
+};
+
+/**
+ * Sugiere el siguiente código disponible dentro de un padre (o raíz por tipo).
+ *
+ * - Con parentId: lee los hijos directos del padre, parsea el último segmento
+ *   numérico de cada code, y propone `${parent.code}.${maxLastSeg + 1}`
+ *   con padding según el formato observado (mínimo 2 dígitos en hojas).
+ * - Sin parentId: busca el siguiente correlativo a nivel raíz dentro del
+ *   prefijo del tipo (1=Asset, 2=Liab, 3=Equity, 4=Rev, 5=Cost, 6=Exp).
+ */
+export async function suggestNextAccountCode(
+  tenantId: string,
+  type: string,
+  parentId: string | null,
+): Promise<{ code: string; level: number; parentCode: string | null }> {
+  if (parentId) {
+    const parent = await prisma.financeAccountPlan.findFirst({
+      where: { id: parentId, tenantId },
+      select: { id: true, code: true, level: true },
+    });
+    if (!parent) throw new Error("Cuenta padre no encontrada");
+
+    const children = await prisma.financeAccountPlan.findMany({
+      where: { tenantId, parentId },
+      select: { code: true },
+    });
+
+    const lastSegs = children
+      .map((c) => {
+        const segs = c.code.split(".");
+        return parseInt(segs[segs.length - 1] ?? "", 10);
+      })
+      .filter((n) => Number.isFinite(n));
+    const next = (lastSegs.length ? Math.max(...lastSegs) : 0) + 1;
+
+    const padLen = children.reduce((acc, c) => {
+      const last = c.code.split(".").pop() ?? "";
+      return /^\d+$/.test(last) ? Math.max(acc, last.length) : acc;
+    }, 2);
+    const padded = String(next).padStart(padLen, "0");
+    return {
+      code: `${parent.code}.${padded}`,
+      level: parent.level + 1,
+      parentCode: parent.code,
+    };
+  }
+
+  const prefix = TYPE_CODE_PREFIX[type];
+  if (!prefix) throw new Error(`Tipo de cuenta inválido: ${type}`);
+
+  const roots = await prisma.financeAccountPlan.findMany({
+    where: { tenantId, parentId: null, type: type as never },
+    select: { code: true },
+  });
+  const usedSecondSegs = roots
+    .map((r) => {
+      const segs = r.code.split(".");
+      if (segs[0] !== prefix) return NaN;
+      return parseInt(segs[1] ?? "", 10);
+    })
+    .filter((n) => Number.isFinite(n));
+  const next = (usedSecondSegs.length ? Math.max(...usedSecondSegs) : 0) + 1;
+  return { code: `${prefix}.${next}`, level: 2, parentCode: null };
+}
+
 /**
  * Create a new account
  */

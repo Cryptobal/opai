@@ -66,6 +66,7 @@ export function ContractCashflowDialog({
   const [hadLink, setHadLink] = useState(false);
   const [installationId, setInstallationId] = useState<string>("");
   const [monthlyAmount, setMonthlyAmount] = useState<string>("");
+  const [currency, setCurrency] = useState<"CLP" | "UF">("CLP");
   const [paymentDay, setPaymentDay] = useState<string>("5");
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
@@ -91,6 +92,7 @@ export function ContractCashflowDialog({
         setHadLink(true);
         setInstallationId(cashflow.installationId ?? "");
         setMonthlyAmount(fmt.format(cashflow.amountClp));
+        setCurrency(cashflow.currency === "UF" ? "UF" : "CLP");
         setPaymentDay(String(cashflow.dayOfMonth ?? 5));
         setStartDate(
           cashflow.startDate
@@ -110,6 +112,7 @@ export function ContractCashflowDialog({
         setHadLink(false);
         setInstallationId("");
         setMonthlyAmount("");
+        setCurrency("CLP");
         setPaymentDay("5");
         setStartDate(defaultEffectiveDate ?? "");
         if (defaultExpirationDate) {
@@ -170,6 +173,7 @@ export function ContractCashflowDialog({
           body: JSON.stringify({
             installationId: installationId || null,
             monthlyAmountClp: amt,
+            currency,
             paymentDay: pd,
             startDate,
             endDate: hasEndDate && endDate ? endDate : null,
@@ -285,9 +289,11 @@ export function ContractCashflowDialog({
                   </Select>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-[1fr_auto] gap-3">
                   <div className="space-y-2">
-                    <Label>Monto mensual (CLP)</Label>
+                    <Label>
+                      Monto mensual ({currency})
+                    </Label>
                     <Input
                       inputMode="decimal"
                       value={monthlyAmount}
@@ -303,24 +309,45 @@ export function ContractCashflowDialog({
                           setMonthlyAmount(e.target.value);
                         }
                       }}
-                      placeholder="1.500.000"
+                      placeholder={currency === "UF" ? "120" : "1.500.000"}
                       className="font-mono text-right h-10 sm:h-9"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Día de pago</Label>
-                    <Input
-                      type="number"
-                      min={-1}
-                      max={31}
-                      value={paymentDay}
-                      onChange={(e) => setPaymentDay(e.target.value)}
-                      className="h-10 sm:h-9"
-                    />
-                    <p className="text-[10px] text-muted-foreground">
-                      <code className="font-mono">-1</code> = último día
-                    </p>
+                    <Label>Moneda</Label>
+                    <Select
+                      value={currency}
+                      onValueChange={(v) => setCurrency(v === "UF" ? "UF" : "CLP")}
+                    >
+                      <SelectTrigger className="h-10 sm:h-9 w-24">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="CLP">CLP</SelectItem>
+                        <SelectItem value="UF">UF</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Día de pago</Label>
+                  <Input
+                    type="number"
+                    min={-1}
+                    max={31}
+                    value={paymentDay}
+                    onChange={(e) => setPaymentDay(e.target.value)}
+                    className="h-10 sm:h-9"
+                  />
+                  <p className="text-[10px] text-muted-foreground">
+                    <code className="font-mono">-1</code> = último día.
+                    {currency === "UF" && (
+                      <>
+                        {" "}Monto en UF, convertido a CLP con la UF del día de pago.
+                      </>
+                    )}
+                  </p>
                 </div>
 
                 <div className="space-y-2">

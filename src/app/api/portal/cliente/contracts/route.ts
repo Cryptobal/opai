@@ -5,7 +5,6 @@ import { requirePortalClienteAuth } from "@/lib/portal-cliente";
 /** Contract-type categories visible in the client portal */
 const CONTRACT_CATEGORIES = [
   "contrato_cliente",
-  "contrato_servicio",
   "contrato_confidencialidad",
   "acuerdo_nivel_servicio",
   "adendum",

@@ -24,7 +24,14 @@ export async function PATCH(
 
   try {
     const body = await request.json();
-    const { status, effectiveDate, expirationDate, alertDaysBefore, portalVisible } = body;
+    const {
+      status,
+      effectiveDate,
+      expirationDate,
+      alertDaysBefore,
+      portalVisible,
+      installationId,
+    } = body;
 
     // Verify the document belongs to this account and tenant
     const doc = await prisma.document.findFirst({
@@ -59,6 +66,25 @@ export async function PATCH(
         where: { id: contractId },
         data: updateData,
       });
+
+      // Instalación vinculada → DocAssociation con role=related. Si viene
+      // null/"" se elimina la asociación; si viene un id distinto, se
+      // reemplaza.
+      if (installationId !== undefined) {
+        await tx.docAssociation.deleteMany({
+          where: { documentId: contractId, entityType: "crm_installation" },
+        });
+        if (installationId) {
+          await tx.docAssociation.create({
+            data: {
+              documentId: contractId,
+              entityType: "crm_installation",
+              entityId: installationId,
+              role: "related",
+            },
+          });
+        }
+      }
 
       await tx.docHistory.create({
         data: {

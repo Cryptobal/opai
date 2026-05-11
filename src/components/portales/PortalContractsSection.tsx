@@ -43,8 +43,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
-  contrato_cliente: "Contrato de Servicios",
-  contrato_servicio: "Contrato de Servicio",
+  contrato_cliente: "Contrato Cliente",
   contrato_confidencialidad: "Confidencialidad",
   acuerdo_nivel_servicio: "SLA",
   adendum: "Adendum",

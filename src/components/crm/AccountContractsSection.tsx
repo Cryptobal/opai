@@ -152,6 +152,7 @@ export function AccountContractsSection({
   const [uploadInstallationId, setUploadInstallationId] = useState<string>("");
   const [uploadAddToCashflow, setUploadAddToCashflow] = useState(false);
   const [uploadMonthlyAmount, setUploadMonthlyAmount] = useState<string>("");
+  const [uploadCurrency, setUploadCurrency] = useState<"CLP" | "UF">("CLP");
   const [uploadPaymentDay, setUploadPaymentDay] = useState<string>("5");
   // Diálogo "Configurar flujo de caja" por contrato individual.
   const [cashflowDialogContract, setCashflowDialogContract] = useState<Contract | null>(null);
@@ -186,6 +187,12 @@ export function AccountContractsSection({
   const [editIndefinite, setEditIndefinite] = useState(false);
   const [editAlertDays, setEditAlertDays] = useState<string>("30");
   const [editSaving, setEditSaving] = useState(false);
+  // Edit ampliado: instalación, flujo de caja, monto y moneda
+  const [editInstallationId, setEditInstallationId] = useState<string>("");
+  const [editInCashflow, setEditInCashflow] = useState(false);
+  const [editMonthlyAmount, setEditMonthlyAmount] = useState<string>("");
+  const [editCurrency, setEditCurrency] = useState<"CLP" | "UF">("CLP");
+  const [editPaymentDay, setEditPaymentDay] = useState<string>("5");
 
   // Action loading states
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
@@ -274,6 +281,7 @@ export function AccountContractsSection({
     setUploadInstallationId("");
     setUploadAddToCashflow(false);
     setUploadMonthlyAmount("");
+    setUploadCurrency("CLP");
     setUploadPaymentDay("5");
   }, []);
 
@@ -342,6 +350,7 @@ export function AccountContractsSection({
       if (uploadAddToCashflow) {
         const amt = Number(uploadMonthlyAmount.replace(/\./g, "").replace(",", "."));
         if (Number.isFinite(amt) && amt > 0) fd.append("monthlyAmountClp", String(amt));
+        fd.append("currency", uploadCurrency);
         if (uploadPaymentDay) fd.append("paymentDay", uploadPaymentDay);
       }
 
@@ -378,6 +387,21 @@ export function AccountContractsSection({
     setEditExpiration(contract.expirationDate?.slice(0, 10) ?? "");
     setEditIndefinite(!contract.expirationDate);
     setEditAlertDays(String(contract.alertDaysBefore ?? 30));
+    setEditInstallationId(contract.installationId ?? "");
+    if (contract.cashflow) {
+      setEditInCashflow(true);
+      const amt = contract.cashflow.amountClp;
+      setEditMonthlyAmount(
+        new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 }).format(amt),
+      );
+      setEditCurrency(contract.cashflow.currency === "UF" ? "UF" : "CLP");
+      setEditPaymentDay(String(contract.cashflow.dayOfMonth ?? 5));
+    } else {
+      setEditInCashflow(false);
+      setEditMonthlyAmount("");
+      setEditCurrency("CLP");
+      setEditPaymentDay("5");
+    }
     setEditOpen(true);
   };
 
@@ -404,6 +428,7 @@ export function AccountContractsSection({
         effectiveDate: editEffective || null,
         expirationDate: editIndefinite ? null : editExpiration || null,
         alertDaysBefore: Number(editAlertDays) || 30,
+        installationId: editInstallationId || null,
       };
       const res = await fetch(
         `/api/crm/accounts/${accountId}/contracts/${editContract.id}`,
@@ -414,15 +439,68 @@ export function AccountContractsSection({
         },
       );
       const data = await res.json();
-      if (data.success) {
-        toast.success("Contrato actualizado");
-        setEditOpen(false);
-        setEditContract(null);
-        fetchContracts();
-        onRefresh?.();
-      } else {
+      if (!data.success) {
         toast.error(data.error || "Error al actualizar contrato");
+        return;
       }
+
+      // Si se cambió algo del cashflow (monto/moneda/día/instalación o
+      // toggle), upsert/delete vía el mismo endpoint que usa el dialog
+      // específico de cashflow para no duplicar la lógica.
+      const hadCashflow = !!editContract.cashflow;
+      const cashflowChanged =
+        hadCashflow !== editInCashflow ||
+        (editInCashflow &&
+          (parseFloat(editMonthlyAmount.replace(/\./g, "").replace(",", ".")) !==
+            (editContract.cashflow?.amountClp ?? NaN) ||
+            editCurrency !== (editContract.cashflow?.currency ?? "CLP") ||
+            Number(editPaymentDay) !== (editContract.cashflow?.dayOfMonth ?? NaN) ||
+            editInstallationId !== (editContract.installationId ?? "")));
+
+      if (cashflowChanged) {
+        if (editInCashflow) {
+          const amt = parseFloat(
+            editMonthlyAmount.replace(/\./g, "").replace(",", "."),
+          );
+          if (!Number.isFinite(amt) || amt <= 0) {
+            toast.error("Indica el monto mensual del contrato");
+            return;
+          }
+          const pd = Number(editPaymentDay);
+          const cfRes = await fetch(
+            `/api/crm/accounts/${accountId}/contracts/${editContract.id}/cashflow`,
+            {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                installationId: editInstallationId || null,
+                monthlyAmountClp: amt,
+                currency: editCurrency,
+                paymentDay: Number.isFinite(pd) && pd !== 0 ? pd : 5,
+                startDate: editEffective || todayISO(),
+                endDate:
+                  editIndefinite || !editExpiration ? null : editExpiration,
+              }),
+            },
+          );
+          const cfJson = await cfRes.json();
+          if (!cfJson?.success) {
+            toast.error(cfJson?.error || "Error guardando flujo de caja");
+            return;
+          }
+        } else if (hadCashflow) {
+          await fetch(
+            `/api/crm/accounts/${accountId}/contracts/${editContract.id}/cashflow`,
+            { method: "DELETE" },
+          );
+        }
+      }
+
+      toast.success("Contrato actualizado");
+      setEditOpen(false);
+      setEditContract(null);
+      fetchContracts();
+      onRefresh?.();
     } catch {
       toast.error("Error de conexión");
     } finally {
@@ -1151,31 +1229,48 @@ export function AccountContractsSection({
               </label>
 
               {uploadAddToCashflow && (
-                <div className="grid grid-cols-2 gap-3 pt-2 border-t border-border">
-                  <div className="space-y-2">
-                    <Label>Monto mensual (CLP)</Label>
-                    <Input
-                      inputMode="decimal"
-                      value={uploadMonthlyAmount}
-                      onChange={(e) => {
-                        const raw = e.target.value
-                          .replace(/[^\d,.-]/g, "")
-                          .replace(/\./g, "")
-                          .replace(",", ".");
-                        const n = Number(raw);
-                        if (Number.isFinite(n)) {
-                          setUploadMonthlyAmount(
-                            new Intl.NumberFormat("es-CL", {
-                              maximumFractionDigits: 0,
-                            }).format(n),
-                          );
-                        } else {
-                          setUploadMonthlyAmount(e.target.value);
-                        }
-                      }}
-                      placeholder="1.500.000"
-                      className="font-mono text-right"
-                    />
+                <div className="pt-2 border-t border-border space-y-3">
+                  <div className="grid grid-cols-[1fr_auto] gap-3">
+                    <div className="space-y-2">
+                      <Label>Monto mensual ({uploadCurrency})</Label>
+                      <Input
+                        inputMode="decimal"
+                        value={uploadMonthlyAmount}
+                        onChange={(e) => {
+                          const raw = e.target.value
+                            .replace(/[^\d,.-]/g, "")
+                            .replace(/\./g, "")
+                            .replace(",", ".");
+                          const n = Number(raw);
+                          if (Number.isFinite(n)) {
+                            setUploadMonthlyAmount(
+                              new Intl.NumberFormat("es-CL", {
+                                maximumFractionDigits: 0,
+                              }).format(n),
+                            );
+                          } else {
+                            setUploadMonthlyAmount(e.target.value);
+                          }
+                        }}
+                        placeholder={uploadCurrency === "UF" ? "120" : "1.500.000"}
+                        className="font-mono text-right"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Moneda</Label>
+                      <Select
+                        value={uploadCurrency}
+                        onValueChange={(v) => setUploadCurrency(v === "UF" ? "UF" : "CLP")}
+                      >
+                        <SelectTrigger className="w-24">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="CLP">CLP</SelectItem>
+                          <SelectItem value="UF">UF</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <Label>Día de pago</Label>
@@ -1187,7 +1282,10 @@ export function AccountContractsSection({
                       onChange={(e) => setUploadPaymentDay(e.target.value)}
                     />
                     <p className="text-[11px] text-muted-foreground">
-                      <code className="font-mono">-1</code> = último día del mes
+                      <code className="font-mono">-1</code> = último día del mes.
+                      {uploadCurrency === "UF" && (
+                        <> Monto en UF, convertido a CLP con la UF del día de pago.</>
+                      )}
                     </p>
                   </div>
                 </div>
@@ -1229,8 +1327,8 @@ export function AccountContractsSection({
           <DialogHeader>
             <DialogTitle>Editar contrato</DialogTitle>
             <DialogDescription>
-              Actualiza el estado, las fechas y la alerta de vencimiento del PDF
-              cargado manualmente.
+              Actualiza estado, fechas, alerta, instalación y configuración de
+              flujo de caja del PDF cargado manualmente.
             </DialogDescription>
           </DialogHeader>
 
@@ -1313,6 +1411,113 @@ export function AccountContractsSection({
                 disabled={editIndefinite}
               />
             </div>
+
+            <div className="space-y-2 pt-2 border-t border-border">
+              <Label>
+                Instalación vinculada{" "}
+                <span className="text-[10px] text-muted-foreground font-normal">
+                  (opcional)
+                </span>
+              </Label>
+              <Select
+                value={editInstallationId || "none"}
+                onValueChange={(v) =>
+                  setEditInstallationId(v === "none" ? "" : v)
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Sin instalación específica" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sin instalación específica</SelectItem>
+                  {installations.map((i) => (
+                    <SelectItem key={i.id} value={i.id}>
+                      {i.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <label className="flex items-start gap-2 cursor-pointer pt-2 border-t border-border">
+              <Checkbox
+                checked={editInCashflow}
+                onCheckedChange={(v) => setEditInCashflow(v === true)}
+                className="mt-1"
+              />
+              <div className="space-y-0.5">
+                <span className="text-sm font-medium">
+                  Ingresa al flujo de caja
+                </span>
+                <p className="text-xs text-muted-foreground">
+                  Crea un ingreso mensual recurrente vinculado a este contrato.
+                  Termina cuando vence el contrato.
+                </p>
+              </div>
+            </label>
+
+            {editInCashflow && (
+              <div className="space-y-3 pt-2 border-t border-border">
+                <div className="grid grid-cols-[1fr_auto] gap-3">
+                  <div className="space-y-2">
+                    <Label>Monto mensual ({editCurrency})</Label>
+                    <Input
+                      inputMode="decimal"
+                      value={editMonthlyAmount}
+                      onChange={(e) => {
+                        const raw = e.target.value
+                          .replace(/[^\d,.-]/g, "")
+                          .replace(/\./g, "")
+                          .replace(",", ".");
+                        const n = Number(raw);
+                        if (Number.isFinite(n)) {
+                          setEditMonthlyAmount(
+                            new Intl.NumberFormat("es-CL", {
+                              maximumFractionDigits: 0,
+                            }).format(n),
+                          );
+                        } else {
+                          setEditMonthlyAmount(e.target.value);
+                        }
+                      }}
+                      placeholder={editCurrency === "UF" ? "120" : "1.500.000"}
+                      className="font-mono text-right"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Moneda</Label>
+                    <Select
+                      value={editCurrency}
+                      onValueChange={(v) => setEditCurrency(v === "UF" ? "UF" : "CLP")}
+                    >
+                      <SelectTrigger className="w-24">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="CLP">CLP</SelectItem>
+                        <SelectItem value="UF">UF</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Día de pago</Label>
+                  <Input
+                    type="number"
+                    min={-1}
+                    max={31}
+                    value={editPaymentDay}
+                    onChange={(e) => setEditPaymentDay(e.target.value)}
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    <code className="font-mono">-1</code> = último día del mes.
+                    {editCurrency === "UF" && (
+                      <> Monto en UF, convertido a CLP con la UF del día de pago.</>
+                    )}
+                  </p>
+                </div>
+              </div>
+            )}
 
             {editError && (
               <div className="flex items-start gap-2 rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
