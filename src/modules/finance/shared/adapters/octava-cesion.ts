@@ -331,27 +331,32 @@ export async function cedeDteOctava(
       };
     }
 
+    const cedePayload = {
+      FOLIO: String(request.dteFolio),
+      TIPODTE: String(request.dteType),
+      RUTEMISOR: formatRutForOctava(request.dteIssuerRut),
+      AMBIENTE: ambiente,
+      DIRECCIONCEDENTE: request.cedenteDireccion || "Sin direccion",
+      EMAILCEDENTE: request.cedenteEmail || "noreply@opai.cl",
+      RUTCESIONARIO: formatRutForOctava(request.cesionarioRut),
+      RAZONSOCIALCESIONARIO: request.cesionarioRazonSocial,
+      DIRECCIONCESIONARIO: request.cesionarioDireccion || "Sin direccion",
+      EMAILCESIONARIO: request.cesionarioEmail || "noreply@opai.cl",
+      NOMBRECONTACTO: request.contactNombre,
+      EMAILCONTACTO: request.contactEmail,
+      MONTOCEDER: String(Math.round(request.montoCesion)),
+      FECHAVENCIMIENTO: request.fechaUltimoVencimiento,
+      EMAILDEUDOR: limitAecEmail(emailDeudor),
+      TOKEN: "(omitted)",
+    };
+    console.log("[octava-cesion] CedeDte payload:", JSON.stringify(cedePayload));
+
     const cedeRes = await octavaCedeDte(
-      {
-        FOLIO: String(request.dteFolio),
-        TIPODTE: String(request.dteType),
-        RUTEMISOR: formatRutForOctava(request.dteIssuerRut),
-        AMBIENTE: ambiente,
-        DIRECCIONCEDENTE: request.cedenteDireccion || "Sin direccion",
-        EMAILCEDENTE: request.cedenteEmail || "noreply@opai.cl",
-        RUTCESIONARIO: formatRutForOctava(request.cesionarioRut),
-        RAZONSOCIALCESIONARIO: request.cesionarioRazonSocial,
-        DIRECCIONCESIONARIO: request.cesionarioDireccion || "Sin direccion",
-        EMAILCESIONARIO: request.cesionarioEmail || "noreply@opai.cl",
-        NOMBRECONTACTO: request.contactNombre,
-        EMAILCONTACTO: request.contactEmail,
-        MONTOCEDER: String(Math.round(request.montoCesion)),
-        FECHAVENCIMIENTO: request.fechaUltimoVencimiento,
-        EMAILDEUDOR: limitAecEmail(emailDeudor),
-        TOKEN: token,
-      },
+      { ...cedePayload, TOKEN: token },
       opts.signal,
     );
+    console.log("[octava-cesion] CedeDte response:", JSON.stringify(cedeRes));
+
     // 0 = nueva cesión ejecutada.
     // 3 = DTE ya cedido. 4 = no es tenedor vigente para re‑ceder; igual puede existir cesión RPETC.
     const proceedToConsultaEstado =
@@ -387,6 +392,7 @@ export async function cedeDteOctava(
       { signal: opts.signal },
     );
 
+    console.log("[octava-cesion] ConsultaEstadoAEC final:", JSON.stringify(final));
     const codigo = (final.CodigoCesion ?? "").trim();
     const urlAecNorm = normalizeOctavaUrl(final.UrlAec);
 

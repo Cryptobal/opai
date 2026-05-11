@@ -35,6 +35,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   if (parsed.error) return parsed.error;
 
   try {
+    console.log("[cede-route] iniciando cesión para DTE:", id);
     const result = await cedeDte(
       {
         dteId: id,
@@ -55,11 +56,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     );
     return NextResponse.json({ success: true, ...result }, { status: 201 });
   } catch (err) {
+    const msg = err instanceof Error ? err.message : "Error cediendo DTE";
+    console.error("[cede-route] error:", msg, err);
     return NextResponse.json(
-      {
-        success: false,
-        error: err instanceof Error ? err.message : "Error cediendo DTE",
-      },
+      { success: false, error: msg },
       { status: 400 },
     );
   }
