@@ -456,7 +456,14 @@ async function renderDtePage(
     size: 8,
   });
 
-  // Filas
+  // Filas: el nombre del item va en la línea principal y la descripción
+  // (si existe) en una segunda línea más chica y gris debajo, para que el
+  // cliente vea el detalle ingresado por el emisor. Antes se concatenaban
+  // con guion y se truncaba a 50 chars, lo que comía la descripción.
+  const NAME_MAX_CHARS = 65;
+  const DESC_MAX_CHARS = 90;
+  const truncate = (s: string, max: number): string =>
+    s.length > max ? s.slice(0, max - 1) + "…" : s;
   let rowY = tableTop - 16;
   for (const linea of dte.lineas) {
     rowY -= 14;
@@ -466,10 +473,7 @@ async function renderDtePage(
       font: ctx.fontRegular,
       size: 8,
     });
-    const detalleText =
-      linea.nombre +
-      (linea.descripcion ? ` — ${linea.descripcion}` : "");
-    page.drawText(detalleText.slice(0, 50), {
+    page.drawText(truncate(linea.nombre, NAME_MAX_CHARS), {
       x: colX.detalle,
       y: rowY,
       font: ctx.fontRegular,
@@ -496,6 +500,18 @@ async function renderDtePage(
       font: ctx.fontRegular,
       size: 8,
     });
+    // Descripción en segunda línea (sólo si existe y no duplica el nombre).
+    const desc = linea.descripcion?.trim();
+    if (desc && desc !== linea.nombre.trim()) {
+      rowY -= 10;
+      page.drawText(truncate(desc, DESC_MAX_CHARS), {
+        x: colX.detalle,
+        y: rowY,
+        font: ctx.fontRegular,
+        size: 7,
+        color: COLORS.gray,
+      });
+    }
   }
 
   // Borde inferior de la tabla
