@@ -255,6 +255,28 @@ export async function buildProjection(
         ufValue = mat?.ufValueUsed
           ? Number(mat.ufValueUsed)
           : await resolveUfForOccurrence(item.ufFixingPolicy, item.ufFixingDay, d);
+        // Fase D: para meses futuros aplicamos crecimiento compuesto al
+        // valor UF cuando el tenant configuró `ufMonthlyGrowthPct`. La UF
+        // real se respeta para el mes actual y pasados; sólo se proyecta
+        // hacia adelante. La fecha de corte es el primer día del mes
+        // siguiente al actual (no aplicamos al mes en curso).
+        const growthPct = Number(config.ufMonthlyGrowthPct ?? 0);
+        if (!mat?.ufValueUsed && growthPct > 0) {
+          const now = new Date();
+          const refMonthStart = new Date(
+            now.getUTCFullYear(),
+            now.getUTCMonth() + 1,
+            1,
+          );
+          if (d >= refMonthStart) {
+            const monthsAhead =
+              (d.getUTCFullYear() - now.getUTCFullYear()) * 12 +
+              (d.getUTCMonth() - now.getUTCMonth());
+            if (monthsAhead > 0) {
+              ufValue = ufValue * Math.pow(1 + growthPct / 100, monthsAhead);
+            }
+          }
+        }
         const baseUf = mat?.amountOverride !== null && mat?.amountOverride !== undefined
           ? Number(mat.amountOverride)
           : itemAmount;

@@ -29,6 +29,7 @@ interface CashflowConfig {
   ivaPayDay: number;
   matchAmountToleranceClp: number;
   matchDaysTolerance: number;
+  ufMonthlyGrowthPct?: number;
 }
 
 interface Category {
@@ -312,6 +313,26 @@ export function CashflowConfigClient({ initialConfig, initialCategories, account
             />
             <p className="mt-1 text-[12px] text-ds-text-3">
               Un movimiento puede no caer exactamente el día proyectado. Ej: pagaste Movistar el día 7 pero lo proyectaste para el 5 → diferencia de 2 días. Este número es el <strong>máximo de días de diferencia</strong> aceptado. Recomendado: <strong>3 días</strong> para gastos fijos, <strong>5 días</strong> si tu banco demora en procesar.
+            </p>
+          </div>
+          <div className="sm:col-span-2">
+            <Label>Crecimiento mensual de la UF (%)</Label>
+            <Input
+              className="h-10 sm:h-9"
+              type="number"
+              min={0}
+              max={5}
+              step={0.01}
+              value={config.ufMonthlyGrowthPct ?? 0}
+              onChange={(e) =>
+                setField("ufMonthlyGrowthPct" as keyof CashflowConfig, Number(e.target.value))
+              }
+            />
+            <p className="mt-1 text-[12px] text-ds-text-3">
+              Para meses futuros donde aún no se conoce la UF, proyectamos con
+              <strong> UF<sub>hoy</sub> × (1 + tasa)<sup>N</sup></strong> (compuesto, N = meses
+              adelante). El mes en curso y los pasados usan la UF real. Default <strong>0</strong>
+              (UF futura plana). Históricamente la UF crece ~0,30%–0,50% al mes.
             </p>
           </div>
         </div>

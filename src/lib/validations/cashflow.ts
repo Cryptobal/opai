@@ -13,6 +13,7 @@ export const updateCashflowConfigSchema = z.object({
   ivaPayDay: z.number().int().min(1).max(28).optional(),
   matchAmountToleranceClp: z.number().int().min(0).max(1000000).optional(),
   matchDaysTolerance: z.number().int().min(0).max(30).optional(),
+  ufMonthlyGrowthPct: z.number().min(0).max(5).optional(),
 });
 
 export const createCashflowCategorySchema = z.object({

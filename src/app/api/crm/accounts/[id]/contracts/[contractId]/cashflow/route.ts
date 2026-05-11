@@ -25,6 +25,9 @@ const upsertSchema = z.object({
   paymentDay: z.number().int().min(-1).max(31),
   startDate: z.string().min(1, "Fecha de inicio requerida"),
   endDate: z.string().nullable().optional(),
+  // Fase E — IPC adjustment metadata
+  hasIpcAdjustment: z.boolean().optional(),
+  ipcAdjustmentMonths: z.number().int().min(1).max(36).nullable().optional(),
 });
 
 async function loadContractAndCheck(
@@ -79,6 +82,8 @@ export async function GET(
       endDate: true,
       installationId: true,
       isActive: true,
+      hasIpcAdjustment: true,
+      ipcAdjustmentMonths: true,
     },
   });
 
@@ -101,6 +106,8 @@ export async function GET(
             endDate: item.endDate,
             installationId: item.installationId,
             isActive: item.isActive,
+            hasIpcAdjustment: item.hasIpcAdjustment,
+            ipcAdjustmentMonths: item.ipcAdjustmentMonths,
           }
         : null,
     },
@@ -191,6 +198,13 @@ export async function PUT(
     installationId,
     crmAccountId: accountId,
     isActive: true,
+    // Fase E — IPC sólo aplica a CLP. Si el item es UF, ignoramos.
+    hasIpcAdjustment:
+      data.currency === "CLP" ? !!data.hasIpcAdjustment : false,
+    ipcAdjustmentMonths:
+      data.currency === "CLP" && data.hasIpcAdjustment
+        ? data.ipcAdjustmentMonths ?? 12
+        : null,
   };
 
   let itemId: string;

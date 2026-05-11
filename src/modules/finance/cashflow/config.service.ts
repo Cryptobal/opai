@@ -27,6 +27,7 @@ export async function updateCashflowConfig(
     ivaPayDay: number;
     matchAmountToleranceClp: number;
     matchDaysTolerance: number;
+    ufMonthlyGrowthPct: number;
   }>,
 ): Promise<FinanceCashflowConfig> {
   await getOrCreateCashflowConfig(tenantId);

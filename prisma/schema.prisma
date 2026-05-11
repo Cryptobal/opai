@@ -7500,6 +7500,10 @@ model FinanceCashflowConfig {
   ivaPayDay               Int      @default(12) @map("iva_pay_day")
   matchAmountToleranceClp Int      @default(5000) @map("match_amount_tolerance_clp")
   matchDaysTolerance      Int      @default(3) @map("match_days_tolerance")
+  /// Crecimiento mensual de la UF en % (ej. 0.30 = 0,3% por mes). Sólo
+  /// aplica a meses futuros — el actual y pasados usan la UF real
+  /// (Bd `FxUfRate`). Default 0 = UF futura plana.
+  ufMonthlyGrowthPct      Decimal  @default(0) @map("uf_monthly_growth_pct") @db.Decimal(6, 4)
   createdAt               DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt               DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -7584,11 +7588,18 @@ model FinanceCashflowItem {
   isActive Boolean @default(true) @map("is_active")
   notes    String?
 
+  // ── Ajuste de IPC (Fase E) ──
+  /// Indica que el item CLP tiene ajuste periódico de IPC.
+  hasIpcAdjustment     Boolean @default(false) @map("has_ipc_adjustment")
+  /// Frecuencia del ajuste en meses (típicamente 6 ó 12).
+  ipcAdjustmentMonths  Int?    @map("ipc_adjustment_months")
+
   createdBy String?  @map("created_by")
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  occurrences FinanceCashflowOccurrence[]
+  occurrences      FinanceCashflowOccurrence[]
+  ipcAdjustments   FinanceContractIpcAdjustment[]
 
   @@index([tenantId, isActive, kind], map: "idx_cashflow_item_tenant_active")
   @@index([categoryId], map: "idx_cashflow_item_category")
@@ -7622,6 +7633,33 @@ model FinanceCashflowOccurrence {
   @@index([tenantId, status], map: "idx_cashflow_occ_tenant_status")
   @@index([bankTransactionId], map: "idx_cashflow_occ_bank_tx")
   @@map("finance_cashflow_occurrences")
+  @@schema("finance")
+}
+
+/// Ajuste de IPC pendiente o aplicado de un FinanceCashflowItem (Fase E).
+/// El cron diario detecta items con `hasIpcAdjustment=true` cuya próxima
+/// fecha de ajuste cae en los próximos 30 días y crea una fila PENDING
+/// + dispara notificación. El usuario aplica con un modal ingresando
+/// el % real del período (que no se conoce de antemano).
+model FinanceContractIpcAdjustment {
+  id          String              @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId    String              @map("tenant_id")
+  itemId      String              @map("item_id") @db.Uuid
+  item        FinanceCashflowItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  dueDate     DateTime            @map("due_date") @db.Date
+  status      String              @default("PENDING")
+  appliedPct  Decimal?            @map("applied_pct") @db.Decimal(6, 4)
+  oldAmount   Decimal?            @map("old_amount") @db.Decimal(14, 2)
+  newAmount   Decimal?            @map("new_amount") @db.Decimal(14, 2)
+  appliedAt   DateTime?           @map("applied_at") @db.Timestamptz(6)
+  appliedBy   String?             @map("applied_by")
+  notes       String?
+  createdAt   DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([itemId, dueDate], map: "uq_ipc_adjustment_item_date")
+  @@index([tenantId, status, dueDate], map: "idx_ipc_adjustment_tenant_pending")
+  @@map("finance_contract_ipc_adjustments")
   @@schema("finance")
 }
 

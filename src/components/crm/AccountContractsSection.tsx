@@ -79,6 +79,8 @@ interface Contract {
     amountClp: number;
     currency: string;
     dayOfMonth: number | null;
+    hasIpcAdjustment?: boolean;
+    ipcAdjustmentMonths?: number | null;
   } | null;
 }
 
@@ -232,6 +234,9 @@ export function AccountContractsSection({
   const [editMonthlyAmount, setEditMonthlyAmount] = useState<string>("");
   const [editCurrency, setEditCurrency] = useState<"CLP" | "UF">("CLP");
   const [editPaymentDay, setEditPaymentDay] = useState<string>("5");
+  // Fase E — ajuste IPC (sólo aplicable a CLP)
+  const [editHasIpc, setEditHasIpc] = useState<boolean>(false);
+  const [editIpcMonths, setEditIpcMonths] = useState<string>("12");
 
   // Action loading states
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
@@ -486,11 +491,15 @@ export function AccountContractsSection({
       setEditCurrency(currency);
       setEditMonthlyAmount(formatAmount(amt, currency));
       setEditPaymentDay(String(contract.cashflow.dayOfMonth ?? 5));
+      setEditHasIpc(!!contract.cashflow.hasIpcAdjustment);
+      setEditIpcMonths(String(contract.cashflow.ipcAdjustmentMonths ?? 12));
     } else {
       setEditInCashflow(false);
       setEditMonthlyAmount("");
       setEditCurrency("CLP");
       setEditPaymentDay("5");
+      setEditHasIpc(false);
+      setEditIpcMonths("12");
     }
     setEditOpen(true);
   };
@@ -556,7 +565,11 @@ export function AccountContractsSection({
             (editContract.cashflow?.amountClp ?? NaN) ||
             editCurrency !== (editContract.cashflow?.currency ?? "CLP") ||
             Number(editPaymentDay) !== (editContract.cashflow?.dayOfMonth ?? NaN) ||
-            editInstallationId !== (editContract.installationId ?? "")));
+            editInstallationId !== (editContract.installationId ?? "") ||
+            editHasIpc !== !!editContract.cashflow?.hasIpcAdjustment ||
+            (editHasIpc &&
+              Number(editIpcMonths) !==
+                (editContract.cashflow?.ipcAdjustmentMonths ?? NaN))));
 
       if (cashflowChanged) {
         if (editInCashflow) {
@@ -586,6 +599,11 @@ export function AccountContractsSection({
                 startDate: editEffective || todayISO(),
                 endDate:
                   editIndefinite || !editExpiration ? null : editExpiration,
+                hasIpcAdjustment: editCurrency === "CLP" ? editHasIpc : false,
+                ipcAdjustmentMonths:
+                  editCurrency === "CLP" && editHasIpc
+                    ? Number(editIpcMonths) || 12
+                    : null,
               }),
             },
           );
@@ -1736,6 +1754,44 @@ export function AccountContractsSection({
                     )}
                   </p>
                 </div>
+                {/* Ajuste IPC — sólo aplica a contratos CLP (los UF se reajustan solos vía UF) */}
+                {editCurrency === "CLP" ? (
+                  <div className="space-y-2 pt-3 border-t border-border">
+                    <label className="flex items-start gap-2 cursor-pointer">
+                      <Checkbox
+                        checked={editHasIpc}
+                        onCheckedChange={(v) => setEditHasIpc(v === true)}
+                        className="mt-1"
+                      />
+                      <div className="space-y-0.5">
+                        <span className="text-sm font-medium">
+                          Tiene ajuste de IPC
+                        </span>
+                        <p className="text-xs text-muted-foreground">
+                          Cuando se acerque la fecha del ajuste, te avisamos para
+                          que ingreses el % del período (el IPC real recién se
+                          conoce ese mes, no se puede predefinir).
+                        </p>
+                      </div>
+                    </label>
+                    {editHasIpc ? (
+                      <div className="space-y-1 pl-6">
+                        <Label className="text-xs">Cada cuántos meses se ajusta</Label>
+                        <Input
+                          type="number"
+                          min={1}
+                          max={36}
+                          value={editIpcMonths}
+                          onChange={(e) => setEditIpcMonths(e.target.value)}
+                          className="max-w-[120px]"
+                        />
+                        <p className="text-[11px] text-muted-foreground">
+                          Típico: <strong>12</strong> (anual) o <strong>6</strong> (semestral).
+                        </p>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
             )}
 

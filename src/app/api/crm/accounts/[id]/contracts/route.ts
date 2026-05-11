@@ -97,6 +97,8 @@ export async function GET(
         currency: true,
         dayOfMonth: true,
         installationId: true,
+        hasIpcAdjustment: true,
+        ipcAdjustmentMonths: true,
       },
     });
     const cashflowByDoc = new Map(
@@ -146,6 +148,8 @@ export async function GET(
               amountClp: Number(cashflow.amount),
               currency: cashflow.currency,
               dayOfMonth: cashflow.dayOfMonth,
+              hasIpcAdjustment: cashflow.hasIpcAdjustment,
+              ipcAdjustmentMonths: cashflow.ipcAdjustmentMonths,
             }
           : null,
       };
