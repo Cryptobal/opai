@@ -288,7 +288,7 @@ export async function cedeDte(
     );
   }
 
-  const terms = calculateEconomicTerms(
+  const baseTerms = calculateEconomicTerms(
     saldoCedible,
     input.fechaCesion,
     input.fechaVencimiento,
@@ -296,6 +296,22 @@ export async function cedeDte(
     input.interestRate,
     input.commissionAmount,
   );
+  // Single source: si vinieron los CLP del cesionario (PDF o tipeados),
+  // pisamos los amounts calculados con los reales. Eso elimina la
+  // discrepancia ~$300 entre "estimado" y "PDF" en la cesión persistida.
+  const overrideInterest =
+    input.simulation?.difPrecio != null && input.simulation.difPrecio >= 0
+      ? input.simulation.difPrecio
+      : null;
+  const overrideNetAdvance =
+    input.simulation?.montoAGirar != null && input.simulation.montoAGirar >= 0
+      ? input.simulation.montoAGirar
+      : null;
+  const terms = {
+    ...baseTerms,
+    interestAmount: overrideInterest ?? baseTerms.interestAmount,
+    netAdvance: overrideNetAdvance ?? baseTerms.netAdvance,
+  };
 
   // 5. Construir el request común y llamar al adapter correcto según
   // `cessionProvider` (default SII_DIRECT — ver migration

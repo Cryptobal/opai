@@ -208,9 +208,14 @@ export function CederDteDialog({ open, onOpenChange, dte }: Props) {
         confidence: ex?.confidence ?? null,
       };
       setSimulation(sim);
-      // Pre-fill de inputs con lo que extrajo la IA, sólo si vinieron
-      // valores concretos. Lo dejamos editable.
+      // Pre-fill de los 4 inputs CLP con lo que extrajo la IA. El
+      // usuario los puede ajustar antes de ceder. Sin PDF, los tipea
+      // todos a mano (ese es el camino "manual").
       if (sim.comision != null) setCommissionAmount(String(Math.round(sim.comision)));
+      if (sim.difPrecio != null) setDifPrecioAmount(String(Math.round(sim.difPrecio)));
+      if (sim.iva != null) setIvaAmount(String(Math.round(sim.iva)));
+      if (sim.montoAGirar != null)
+        setMontoAGirarAmount(String(Math.round(sim.montoAGirar)));
       if (sim.porcAnticipo != null) setAdvanceRate(String(sim.porcAnticipo));
       if (sim.extractionError) {
         toast.warning("PDF subido. No se pudieron extraer los datos — completa a mano.");
@@ -228,39 +233,68 @@ export function CederDteDialog({ open, onOpenChange, dte }: Props) {
     setSimulation(null);
   }
 
-  // Auto-rellenar tasas y comisión (CLP) al elegir factoring del catálogo.
+  // Auto-rellenar anticipo y comisión (CLP) al elegir factoring del catálogo.
+  // El "interés mensual" default que tenían algunos catálogos legacy ya
+  // no se usa como input — la tasa efectiva real se deriva de los 4
+  // montos CLP cuando hay simulación o entrada manual.
   useEffect(() => {
     if (!selectedCompany) return;
     if (selectedCompany.defaultAdvanceRate !== null)
       setAdvanceRate(String(selectedCompany.defaultAdvanceRate));
-    if (selectedCompany.defaultInterestRate !== null)
-      setInterestRate(String(selectedCompany.defaultInterestRate));
     if (selectedCompany.defaultCommissionAmount !== null)
       setCommissionAmount(String(Math.round(selectedCompany.defaultCommissionAmount)));
   }, [selectedCompany]);
 
-  // Cálculos en vivo.
+  // Cálculos en vivo, derivados de los 4 inputs CLP (única fuente de
+  // verdad). El usuario tipea/PDF rellena monto a girar, dif. precio,
+  // comisión, IVA; el resto se calcula automáticamente.
   const calc = useMemo(() => {
     const aRate = Number(advanceRate) || 0;
-    const iRate = Number(interestRate) || 0;
-    const cClp = Math.max(0, Number(commissionAmount) || 0);
+    const commissionClp = Math.max(0, Number(commissionAmount) || 0);
+    const difPrecioClp = Math.max(0, Number(difPrecioAmount) || 0);
+    const ivaClp = Math.max(0, Number(ivaAmount) || 0);
+    const montoAGirarTyped = Number(montoAGirarAmount);
     const cesion = new Date(`${fechaCesion}T00:00:00Z`);
     const venc = new Date(`${fechaVencimiento}T00:00:00Z`);
     const dias = Math.max(1, Math.round((venc.getTime() - cesion.getTime()) / 86400000));
     const advance = dte.totalAmount * (aRate / 100);
-    const interest = advance * (iRate / 100) * (dias / 30);
-    const commission = cClp;
-    const net = advance - interest - commission;
+    // Si el usuario tipeó monto a girar, esa es la verdad y derivamos
+    // costo financiero de ahí. Sino, costo financiero = dif precio +
+    // comisión + IVA (los descuentos conocidos) y monto a girar es la
+    // resta del anticipo.
+    const hasMontoAGirar =
+      Number.isFinite(montoAGirarTyped) && montoAGirarTyped > 0;
+    const montoAGirar = hasMontoAGirar
+      ? montoAGirarTyped
+      : Math.max(0, advance - difPrecioClp - commissionClp - ivaClp);
+    const costoFinanciero = Math.max(0, dte.totalAmount - montoAGirar);
     const retention = dte.totalAmount - advance;
+    const effectiveMonthlyRate =
+      advance > 0 && dias > 0
+        ? (costoFinanciero / advance) * (30 / dias) * 100
+        : null;
     return {
       dias,
       advance: Math.round(advance),
-      interest: Math.round(interest),
-      commission: Math.round(commission),
-      net: Math.round(net),
+      difPrecio: Math.round(difPrecioClp),
+      commission: Math.round(commissionClp),
+      iva: Math.round(ivaClp),
+      costoFinanciero: Math.round(costoFinanciero),
+      montoAGirar: Math.round(montoAGirar),
       retention: Math.round(retention),
+      effectiveMonthlyRate,
+      hasMontoAGirar,
     };
-  }, [advanceRate, interestRate, commissionAmount, fechaCesion, fechaVencimiento, dte.totalAmount]);
+  }, [
+    advanceRate,
+    commissionAmount,
+    difPrecioAmount,
+    ivaAmount,
+    montoAGirarAmount,
+    fechaCesion,
+    fechaVencimiento,
+    dte.totalAmount,
+  ]);
 
   async function handleSubmit() {
     if (!factoringId) {
@@ -269,6 +303,24 @@ export function CederDteDialog({ open, onOpenChange, dte }: Props) {
     }
     setSubmitting(true);
     try {
+      // Construir snapshot a partir de los inputs CLP (ÚNICA fuente).
+      // Si hay PDF cargado, traemos también el storage key + JSON
+      // extraído para auditoría, pero los valores numéricos vienen
+      // de los inputs actuales (que el usuario pudo haber editado).
+      const simPayload = {
+        fileUrl: simulation?.fileUrl ?? undefined,
+        fileKey: simulation?.fileKey ?? undefined,
+        fileName: simulation?.fileName ?? undefined,
+        extractedJson: simulation?.extractedJson,
+        montoBruto: simulation?.montoBruto ?? dte.totalAmount,
+        montoAGirar: calc.montoAGirar,
+        difPrecio: calc.difPrecio,
+        comision: calc.commission,
+        iva: calc.iva,
+        gastosLegal: simulation?.gastosLegal ?? null,
+        notaria: simulation?.notaria ?? null,
+        gastosOperacionales: simulation?.gastosOperacionales ?? null,
+      };
       const res = await fetch(`/api/finance/billing/issued/${dte.id}/cede`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -277,26 +329,14 @@ export function CederDteDialog({ open, onOpenChange, dte }: Props) {
           fechaCesion,
           fechaVencimiento,
           advanceRate: Number(advanceRate),
-          interestRate: Number(interestRate),
-          commissionAmount: Math.max(0, Number(commissionAmount) || 0),
+          // interestRate derivado de los inputs CLP. El server podría
+          // calcularlo igual; lo mandamos para que `FinanceFactoringOperation.
+          // interestRate` no quede en 0 cuando hay datos reales.
+          interestRate: calc.effectiveMonthlyRate ?? 0,
+          commissionAmount: calc.commission,
           emailDeudor: emailDeudor.trim() || undefined,
           notes: notes.trim() || undefined,
-          simulation: simulation
-            ? {
-                fileUrl: simulation.fileUrl,
-                fileKey: simulation.fileKey,
-                fileName: simulation.fileName,
-                extractedJson: simulation.extractedJson,
-                montoBruto: simulation.montoBruto,
-                montoAGirar: simulation.montoAGirar,
-                difPrecio: simulation.difPrecio,
-                comision: simulation.comision,
-                iva: simulation.iva,
-                gastosLegal: simulation.gastosLegal,
-                notaria: simulation.notaria,
-                gastosOperacionales: simulation.gastosOperacionales,
-              }
-            : undefined,
+          simulation: simPayload,
         }),
       });
       const json = await res.json();
@@ -572,17 +612,19 @@ export function CederDteDialog({ open, onOpenChange, dte }: Props) {
             />
           </div>
           <div>
-            <Label htmlFor="interestRate">Interés mensual (%)</Label>
+            <Label htmlFor="difPrecioAmount">Diferencia de precio (CLP)</Label>
             <Input
-              id="interestRate"
+              id="difPrecioAmount"
               type="number"
               min="0"
-              max="100"
-              step="0.01"
-              value={interestRate}
-              onChange={(e) => setInterestRate(e.target.value)}
+              step="1"
+              value={difPrecioAmount}
+              onChange={(e) => setDifPrecioAmount(e.target.value)}
               className="h-10 sm:h-9"
             />
+            <p className="text-[10px] text-ds-text-3 mt-0.5">
+              El interés total cobrado por el plazo, en pesos.
+            </p>
           </div>
           <div>
             <Label htmlFor="commissionAmount">Comisión (CLP)</Label>
@@ -604,6 +646,36 @@ export function CederDteDialog({ open, onOpenChange, dte }: Props) {
               {selectedCompany
                 ? "Default desde catálogo. Editable para esta cesión."
                 : "Se rellena al elegir la empresa de factoring."}
+            </p>
+          </div>
+          <div>
+            <Label htmlFor="ivaAmount">IVA comisión (CLP)</Label>
+            <Input
+              id="ivaAmount"
+              type="number"
+              min="0"
+              step="1"
+              value={ivaAmount}
+              onChange={(e) => setIvaAmount(e.target.value)}
+              className="h-10 sm:h-9"
+            />
+          </div>
+          <div>
+            <Label htmlFor="montoAGirarAmount">Monto a girar (CLP)</Label>
+            <Input
+              id="montoAGirarAmount"
+              type="number"
+              min="0"
+              step="1"
+              value={montoAGirarAmount}
+              onChange={(e) => setMontoAGirarAmount(e.target.value)}
+              placeholder={String(calc.montoAGirar || "")}
+              className="h-10 sm:h-9"
+            />
+            <p className="text-[10px] text-ds-text-3 mt-0.5">
+              {calc.hasMontoAGirar
+                ? "Valor real del cesionario. Costo financiero se deriva de aquí."
+                : "Vacío: se calcula como anticipo − dif. precio − comisión − IVA."}
             </p>
           </div>
           <div>
@@ -633,45 +705,35 @@ export function CederDteDialog({ open, onOpenChange, dte }: Props) {
 
         <div className="rounded-lg border border-ds-border-subtle bg-ds-surface-2 p-3 space-y-1.5 text-sm">
           <div className="text-xs uppercase tracking-wide text-ds-text-3 mb-1">
-            Cálculos ({calc.dias} días)
+            Resumen ({calc.dias} {calc.dias === 1 ? "día" : "días"})
           </div>
-          <CalcRow label="Anticipo" value={formatCLP(calc.advance)} />
-          <CalcRow label={`Interés (${interestRate}% × ${calc.dias}d)`} value={`-${formatCLP(calc.interest)}`} />
+          <CalcRow label="Anticipo bruto" value={formatCLP(calc.advance)} />
+          <CalcRow
+            label="Dif. precio (interés CLP)"
+            value={`-${formatCLP(calc.difPrecio)}`}
+          />
           <CalcRow label="Comisión" value={`-${formatCLP(calc.commission)}`} />
+          {calc.iva > 0 ? (
+            <CalcRow label="IVA comisión" value={`-${formatCLP(calc.iva)}`} />
+          ) : null}
           <div className="border-t border-ds-border-subtle pt-1.5">
-            <CalcRow label="Neto a girar (estimado)" value={formatCLP(calc.net)} strong />
+            <CalcRow
+              label="Monto a girar"
+              value={formatCLP(calc.montoAGirar)}
+              strong
+            />
           </div>
+          <CalcRow
+            label="Costo financiero"
+            value={`-${formatCLP(calc.costoFinanciero)}`}
+          />
+          {calc.effectiveMonthlyRate != null ? (
+            <CalcRow
+              label="Tasa efectiva mensual"
+              value={`${calc.effectiveMonthlyRate.toFixed(2)}%`}
+            />
+          ) : null}
           <CalcRow label="Retención" value={formatCLP(calc.retention)} muted />
-          {simulation?.montoAGirar != null ? (() => {
-            const costoFin = Math.max(0, dte.totalAmount - simulation.montoAGirar);
-            const effRate =
-              calc.advance > 0 && calc.dias > 0
-                ? (costoFin / calc.advance) * (30 / calc.dias) * 100
-                : null;
-            return (
-              <div className="border-t border-ds-border-subtle pt-1.5 mt-1 space-y-1">
-                <div className="text-[11px] font-mono uppercase tracking-[0.08em] text-primary inline-flex items-center gap-1">
-                  <Sparkles className="h-3 w-3" />
-                  Real (desde simulación PDF)
-                </div>
-                <CalcRow
-                  label="Monto a girar"
-                  value={formatCLP(simulation.montoAGirar)}
-                  strong
-                />
-                <CalcRow
-                  label="Costo financiero"
-                  value={`-${formatCLP(costoFin)}`}
-                />
-                {effRate != null ? (
-                  <CalcRow
-                    label="Tasa efectiva mensual"
-                    value={`${effRate.toFixed(2)}%`}
-                  />
-                ) : null}
-              </div>
-            );
-          })() : null}
         </div>
 
         <DialogFooter>

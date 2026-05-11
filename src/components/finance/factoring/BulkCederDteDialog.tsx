@@ -110,8 +110,11 @@ export function BulkCederDteDialog({
   const [fechaCesion, setFechaCesion] = useState(todayIso);
   const [fechaVencimiento, setFechaVencimiento] = useState(() => isoPlusDays(60));
   const [advanceRate, setAdvanceRate] = useState<string>("90");
-  const [interestRate, setInterestRate] = useState<string>("1.5");
+  // 4 inputs CLP a nivel batch (se prorratean por bruto en el server).
   const [comision, setComision] = useState<string>("0");
+  const [difPrecio, setDifPrecio] = useState<string>("0");
+  const [iva, setIva] = useState<string>("0");
+  const [montoAGirarTotal, setMontoAGirarTotal] = useState<string>("");
   const [notes, setNotes] = useState("");
 
   const [simulation, setSimulation] = useState<SimulationState | null>(null);
@@ -154,32 +157,52 @@ export function BulkCederDteDialog({
     if (!selectedCompany) return;
     if (selectedCompany.defaultAdvanceRate !== null)
       setAdvanceRate(String(selectedCompany.defaultAdvanceRate));
-    if (selectedCompany.defaultInterestRate !== null)
-      setInterestRate(String(selectedCompany.defaultInterestRate));
     if (selectedCompany.defaultCommissionAmount !== null)
       setComision(String(Math.round(selectedCompany.defaultCommissionAmount)));
   }, [selectedCompany]);
 
   const calc = useMemo(() => {
     const aRate = Number(advanceRate) || 0;
-    const iRate = Number(interestRate) || 0;
     const cClp = Math.max(0, Number(comision) || 0);
+    const dpClp = Math.max(0, Number(difPrecio) || 0);
+    const ivaClp = Math.max(0, Number(iva) || 0);
+    const montoTyped = Number(montoAGirarTotal);
     const cesion = new Date(`${fechaCesion}T00:00:00Z`);
     const venc = new Date(`${fechaVencimiento}T00:00:00Z`);
     const dias = Math.max(1, Math.round((venc.getTime() - cesion.getTime()) / 86400000));
     const advance = totalBruto * (aRate / 100);
-    const interest = advance * (iRate / 100) * (dias / 30);
-    const net = advance - interest - cClp;
+    const hasMontoAGirar = Number.isFinite(montoTyped) && montoTyped > 0;
+    const montoAGirar = hasMontoAGirar
+      ? montoTyped
+      : Math.max(0, advance - dpClp - cClp - ivaClp);
+    const costoFinanciero = Math.max(0, totalBruto - montoAGirar);
     const retention = totalBruto - advance;
+    const effectiveMonthlyRate =
+      advance > 0 && dias > 0
+        ? (costoFinanciero / advance) * (30 / dias) * 100
+        : null;
     return {
       dias,
       advance: Math.round(advance),
-      interest: Math.round(interest),
+      difPrecio: Math.round(dpClp),
       commission: Math.round(cClp),
-      net: Math.round(net),
+      iva: Math.round(ivaClp),
+      montoAGirar: Math.round(montoAGirar),
+      costoFinanciero: Math.round(costoFinanciero),
       retention: Math.round(retention),
+      effectiveMonthlyRate,
+      hasMontoAGirar,
     };
-  }, [advanceRate, interestRate, comision, fechaCesion, fechaVencimiento, totalBruto]);
+  }, [
+    advanceRate,
+    comision,
+    difPrecio,
+    iva,
+    montoAGirarTotal,
+    fechaCesion,
+    fechaVencimiento,
+    totalBruto,
+  ]);
 
   async function handleSimulationFile(file: File) {
     if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
@@ -219,6 +242,10 @@ export function BulkCederDteDialog({
       };
       setSimulation(sim);
       if (sim.comision != null) setComision(String(Math.round(sim.comision)));
+      if (sim.difPrecio != null) setDifPrecio(String(Math.round(sim.difPrecio)));
+      if (sim.iva != null) setIva(String(Math.round(sim.iva)));
+      if (sim.montoAGirar != null)
+        setMontoAGirarTotal(String(Math.round(sim.montoAGirar)));
       if (sim.porcAnticipo != null) setAdvanceRate(String(sim.porcAnticipo));
       if (sim.extractionError) {
         toast.warning("PDF subido. No se extrajeron datos — completa a mano.");
@@ -248,12 +275,13 @@ export function BulkCederDteDialog({
           fechaCesion,
           fechaVencimiento,
           advanceRate: Number(advanceRate),
-          interestRate: Number(interestRate),
+          // Tasa efectiva derivada de los inputs CLP del batch.
+          interestRate: calc.effectiveMonthlyRate ?? 0,
           totals: {
-            montoAGirar: simulation?.montoAGirar ?? null,
-            difPrecio: simulation?.difPrecio ?? null,
-            comision: Math.max(0, Number(comision) || 0),
-            iva: simulation?.iva ?? null,
+            montoAGirar: calc.montoAGirar,
+            difPrecio: calc.difPrecio,
+            comision: calc.commission,
+            iva: calc.iva,
             gastosLegal: simulation?.gastosLegal ?? null,
             notaria: simulation?.notaria ?? null,
             gastosOperacionales: simulation?.gastosOperacionales ?? null,
@@ -562,19 +590,18 @@ export function BulkCederDteDialog({
             />
           </div>
           <div>
-            <Label htmlFor="irBulk">Interés mensual (%)</Label>
+            <Label htmlFor="dpBulk">Diferencia de precio (CLP)</Label>
             <Input
-              id="irBulk"
+              id="dpBulk"
               type="number"
               min="0"
-              max="100"
-              step="0.01"
-              value={interestRate}
-              onChange={(e) => setInterestRate(e.target.value)}
+              step="1"
+              value={difPrecio}
+              onChange={(e) => setDifPrecio(e.target.value)}
               className="h-10 sm:h-9"
             />
           </div>
-          <div className="sm:col-span-2">
+          <div>
             <Label htmlFor="comBulk">Comisión total del batch (CLP)</Label>
             <Input
               id="comBulk"
@@ -585,8 +612,36 @@ export function BulkCederDteDialog({
               onChange={(e) => setComision(e.target.value)}
               className="h-10 sm:h-9"
             />
-            <p className="text-[11px] text-ds-text-3 mt-0.5">
-              Se prorratea por monto bruto entre las {dtes.length} facturas.
+          </div>
+          <div>
+            <Label htmlFor="ivaBulk">IVA comisión total (CLP)</Label>
+            <Input
+              id="ivaBulk"
+              type="number"
+              min="0"
+              step="1"
+              value={iva}
+              onChange={(e) => setIva(e.target.value)}
+              className="h-10 sm:h-9"
+            />
+          </div>
+          <div>
+            <Label htmlFor="mgBulk">Monto a girar total (CLP)</Label>
+            <Input
+              id="mgBulk"
+              type="number"
+              min="0"
+              step="1"
+              value={montoAGirarTotal}
+              onChange={(e) => setMontoAGirarTotal(e.target.value)}
+              placeholder={String(calc.montoAGirar || "")}
+              className="h-10 sm:h-9"
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <p className="text-[11px] text-ds-text-3">
+              Todos los montos se prorratean por bruto entre las {dtes.length}
+              {" "}facturas.
             </p>
           </div>
           <div className="sm:col-span-2">
@@ -602,37 +657,31 @@ export function BulkCederDteDialog({
 
         <div className="rounded-lg border border-ds-border-subtle bg-ds-surface-2 p-3 space-y-1.5 text-sm">
           <div className="text-xs uppercase tracking-wide text-ds-text-3 mb-1">
-            Totales del batch ({calc.dias} días)
+            Totales del batch ({calc.dias} {calc.dias === 1 ? "día" : "días"})
           </div>
-          <Row label="Anticipo" value={formatCLP(calc.advance)} />
-          <Row label={`Interés (${interestRate}% × ${calc.dias}d)`} value={`-${formatCLP(calc.interest)}`} />
+          <Row label="Anticipo bruto" value={formatCLP(calc.advance)} />
+          <Row label="Dif. precio" value={`-${formatCLP(calc.difPrecio)}`} />
           <Row label="Comisión" value={`-${formatCLP(calc.commission)}`} />
+          {calc.iva > 0 ? (
+            <Row label="IVA comisión" value={`-${formatCLP(calc.iva)}`} />
+          ) : null}
           <div className="border-t border-ds-border-subtle pt-1.5">
-            <Row label="Neto a girar (estimado)" value={formatCLP(calc.net)} strong />
+            <Row
+              label="Monto a girar"
+              value={formatCLP(calc.montoAGirar)}
+              strong
+            />
           </div>
-          {simulation?.montoAGirar != null ? (() => {
-            const costoFin = Math.max(0, totalBruto - simulation.montoAGirar);
-            const effRate =
-              calc.advance > 0 && calc.dias > 0
-                ? (costoFin / calc.advance) * (30 / calc.dias) * 100
-                : null;
-            return (
-              <div className="border-t border-ds-border-subtle pt-1.5 mt-1 space-y-1">
-                <div className="text-[11px] font-mono uppercase tracking-[0.08em] text-primary inline-flex items-center gap-1">
-                  <Sparkles className="h-3 w-3" />
-                  Real (desde simulación PDF)
-                </div>
-                <Row label="Monto a girar" value={formatCLP(simulation.montoAGirar)} strong />
-                <Row label="Costo financiero" value={`-${formatCLP(costoFin)}`} />
-                {effRate != null ? (
-                  <Row
-                    label="Tasa efectiva mensual"
-                    value={`${effRate.toFixed(2)}%`}
-                  />
-                ) : null}
-              </div>
-            );
-          })() : null}
+          <Row
+            label="Costo financiero"
+            value={`-${formatCLP(calc.costoFinanciero)}`}
+          />
+          {calc.effectiveMonthlyRate != null ? (
+            <Row
+              label="Tasa efectiva mensual"
+              value={`${calc.effectiveMonthlyRate.toFixed(2)}%`}
+            />
+          ) : null}
         </div>
 
         <DialogFooter>
