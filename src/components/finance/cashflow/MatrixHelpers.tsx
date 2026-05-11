@@ -178,7 +178,7 @@ export function MatrixRow({
           </td>
         );
       })}
-      <td className="sticky right-0 z-20 p-2 text-right font-mono bg-muted/40 whitespace-nowrap">
+      <td className="sticky right-0 z-20 p-2 text-right font-mono bg-card whitespace-nowrap border-l border-border/50">
         {fmt.format(row.total)}
       </td>
     </tr>
@@ -229,7 +229,7 @@ export function SubtotalRow({
           {fmt.format(t)}
         </td>
       ))}
-      <td className={`sticky right-0 z-20 p-2 text-right font-mono bg-muted/40 whitespace-nowrap ${cls}`}>
+      <td className={`sticky right-0 z-20 p-2 text-right font-mono bg-card whitespace-nowrap border-l border-border/50 ${cls}`}>
         {fmt.format(grand)}
       </td>
     </tr>

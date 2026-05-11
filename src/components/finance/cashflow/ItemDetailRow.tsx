@@ -28,7 +28,13 @@ function sourceLink(source: FinanceCashflowItemSource, item: ProjectionRowItemDe
     case "TURNOS_EXTRA":
       return item.installationId ? `/configuracion/instalaciones/${item.installationId}` : null;
     case "CONTRACT":
-      return item.itemId !== "_orphan" ? `/cpq/quotes/${item.itemId}` : null;
+      // Para contratos preferimos llevar al tab "Contratos" de la cuenta CRM
+      // (donde el usuario gestiona los PDFs y la vinculación). Si no hay
+      // crmAccountId, fallback a la cotización origen.
+      if (item.crmAccountId) {
+        return `/crm/accounts/${item.crmAccountId}?tab=contracts`;
+      }
+      return item.itemId !== "_orphan" ? `/crm/cotizaciones/${item.itemId}` : null;
     default:
       return null;
   }
@@ -82,7 +88,7 @@ export function ItemDetailRow({ item, buckets, granularity, kind, onActionDone }
 
   return (
     <tr className="bg-muted/10 hover:bg-muted/20 border-t border-border/50">
-      <td className="sticky left-0 z-20 bg-muted/10 p-2 truncate min-w-[140px] max-w-[160px] sm:min-w-[180px] sm:max-w-none">
+      <td className="sticky left-0 z-20 bg-card p-2 truncate min-w-[140px] max-w-[160px] sm:min-w-[180px] sm:max-w-none border-r border-border/50">
         <div className="flex items-center gap-1.5 pl-3">
           {handleTarget && (
             <DragHandle
@@ -107,6 +113,14 @@ export function ItemDetailRow({ item, buckets, granularity, kind, onActionDone }
           {badge && (
             <span className="text-[11px] font-mono uppercase tracking-[0.08em] px-1.5 py-0.5 rounded-ds-sm bg-muted/40 text-ds-text-4 shrink-0">
               {badge}
+            </span>
+          )}
+          {item.currency === "UF" && (
+            <span
+              className="text-[10px] font-mono font-semibold uppercase tracking-[0.06em] px-1.5 py-0.5 rounded-ds-sm bg-status-info-soft text-status-info-fg shrink-0"
+              title="Contrato indexado a UF — el monto se recalcula mes a mes con la UF de cada cuota"
+            >
+              UF
             </span>
           )}
         </div>
@@ -146,7 +160,7 @@ export function ItemDetailRow({ item, buckets, granularity, kind, onActionDone }
           </DroppableSubCell>
         );
       })}
-      <td className="sticky right-0 z-20 p-2 text-right font-mono bg-muted/30 whitespace-nowrap text-[12px] text-ds-text-2">
+      <td className="sticky right-0 z-20 p-2 text-right font-mono bg-card whitespace-nowrap text-[12px] text-ds-text-2 border-l border-border/50">
         {fmt.format(item.total)}
       </td>
     </tr>

@@ -14,41 +14,51 @@ import {
   Pencil,
   Loader2,
   Calendar as CalendarIcon,
+  AlertCircle,
+  CheckCircle2,
+  X,
+  CircleSlash,
 } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
 const fmt = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 });
 
+function formatDateLabel(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  if (!y || !m || !d) return iso;
+  const dt = new Date(y, m - 1, d);
+  return format(dt, "d MMM yyyy", { locale: es });
+}
+
+interface ConflictInfo {
+  existingOccurrenceId: string;
+  targetDate: string;
+  suggestedFreeDate: string;
+  originalArgs: { newDate?: string; daysFromCurrent?: number };
+}
+
 interface CellOccurrenceTarget {
-  /** UUID si la cuota ya está materializada en FinanceCashflowOccurrence. null si es virtual. */
   id: string | null;
-  /** Item dueño — siempre presente, necesario para materializar al primer move/amount. */
   itemId: string;
-  /** Fecha original de la cuota (yyyy-MM-dd) que junto con itemId identifica la celda virtual. */
   originalDate: string;
   amountClp: number;
 }
 
 interface Props {
-  /** Children es el contenido visual de la celda (el monto formateado, etc). */
   children: React.ReactNode;
-  /** La ocurrencia materializable que se va a actuar (null = nada que hacer; renderiza children sin popover). */
   target: CellOccurrenceTarget | null;
-  /** Granularidad para calcular el desplazamiento en días. */
   granularity: "weekly" | "monthly";
-  /** Llamado tras una acción exitosa para que el padre haga refresh. */
   onActionDone: () => void;
 }
 
-/**
- * Popover sobre una celda de la matriz de proyección. Acciones:
- *  - Mover la ocurrencia ±1 o ±2 buckets (semanas o meses).
- *  - Editar el monto manualmente (override).
- *
- * Si target es null, simplemente renderiza children sin envoltura — útil
- * para celdas con totales o sin ocurrencia editable (auto-generadas).
- */
+const SHIFT_OPTIONS: { label: string; days: number }[] = [
+  { label: "1 día", days: 1 },
+  { label: "1 sem", days: 7 },
+  { label: "2 sem", days: 14 },
+  { label: "1 mes", days: 30 },
+];
+
 export function CellActionPopover({
   children,
   target,
@@ -56,17 +66,74 @@ export function CellActionPopover({
   onActionDone,
 }: Props) {
   const [open, setOpen] = useState(false);
-  const [busy, setBusy] = useState<null | "shift" | "amount" | "date">(null);
+  const [busy, setBusy] = useState<null | "shift" | "amount" | "date" | "resolve" | "end">(null);
   const [editing, setEditing] = useState(false);
   const [pickingDate, setPickingDate] = useState(false);
+  const [confirmingEnd, setConfirmingEnd] = useState(false);
   const [draftAmount, setDraftAmount] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [conflict, setConflict] = useState<ConflictInfo | null>(null);
 
   if (!target) {
     return <>{children}</>;
   }
 
-  async function callMoveEndpoint(args: { newDate?: string; daysFromCurrent?: number }) {
+  function resetState() {
+    setEditing(false);
+    setPickingDate(false);
+    setConfirmingEnd(false);
+    setError(null);
+    setSuccess(null);
+    setDraftAmount("");
+    setConflict(null);
+  }
+
+  async function endRecurrenceFromHere() {
+    if (!target) return;
+    setBusy("end");
+    setError(null);
+    setSuccess(null);
+    try {
+      // endDate = día anterior al originalDate → la cuota actual y las
+      // posteriores dejan de proyectarse. Si el usuario quiere mantener la
+      // actual, debería usar "Editar monto"; este botón es el corte limpio.
+      const [y, m, d] = target.originalDate.split("-").map(Number);
+      const dt = new Date(y, (m ?? 1) - 1, d);
+      dt.setDate(dt.getDate() - 1);
+      const newEnd = format(dt, "yyyy-MM-dd");
+      const r = await fetch(`/api/finance/cashflow/items/${target.itemId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ endDate: newEnd }),
+      });
+      const j = await r.json();
+      if (j?.success) {
+        flashSuccessAndClose(`Terminado desde ${formatDateLabel(target.originalDate)}`);
+      } else {
+        setError(j?.error ?? "No se pudo terminar la recurrencia");
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error de red");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  function flashSuccessAndClose(msg: string) {
+    setSuccess(msg);
+    onActionDone();
+    setTimeout(() => {
+      setOpen(false);
+      resetState();
+    }, 900);
+  }
+
+  async function callMoveEndpoint(args: {
+    newDate?: string;
+    daysFromCurrent?: number;
+    resolveStrategy?: "replace" | "next_free";
+  }) {
     if (!target) return null;
     const useUpsert = target.id === null;
     const url = useUpsert
@@ -87,11 +154,14 @@ export function CellActionPopover({
     if (!target) return;
     setBusy("shift");
     setError(null);
+    setSuccess(null);
     try {
-      const j = await callMoveEndpoint({ daysFromCurrent: days });
+      const args = { daysFromCurrent: days };
+      const j = await callMoveEndpoint(args);
       if (j?.success) {
-        setOpen(false);
-        onActionDone();
+        flashSuccessAndClose(`Movido ${days > 0 ? "+" : ""}${days} día${Math.abs(days) === 1 ? "" : "s"}`);
+      } else if (j?.conflict) {
+        setConflict({ ...j.conflict, originalArgs: args });
       } else {
         setError(j?.error ?? "No se pudo mover");
       }
@@ -106,12 +176,15 @@ export function CellActionPopover({
     if (!target) return;
     setBusy("date");
     setError(null);
+    setSuccess(null);
     try {
-      const j = await callMoveEndpoint({ newDate: format(date, "yyyy-MM-dd") });
+      const args = { newDate: format(date, "yyyy-MM-dd") };
+      const j = await callMoveEndpoint(args);
       if (j?.success) {
-        setOpen(false);
+        flashSuccessAndClose(`Movido a ${format(date, "d MMM", { locale: es })}`);
+      } else if (j?.conflict) {
+        setConflict({ ...j.conflict, originalArgs: args });
         setPickingDate(false);
-        onActionDone();
       } else {
         setError(j?.error ?? "No se pudo mover");
       }
@@ -120,6 +193,32 @@ export function CellActionPopover({
     } finally {
       setBusy(null);
     }
+  }
+
+  async function resolveConflict(strategy: "replace" | "next_free") {
+    if (!target || !conflict) return;
+    setBusy("resolve");
+    setError(null);
+    try {
+      const j = await callMoveEndpoint({ ...conflict.originalArgs, resolveStrategy: strategy });
+      if (j?.success) {
+        flashSuccessAndClose(
+          strategy === "replace" ? "Cuota reemplazada" : "Movida a fecha libre",
+        );
+        setConflict(null);
+      } else {
+        setError(j?.error ?? "No se pudo resolver la colisión");
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error de red");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  function cancelConflict() {
+    setConflict(null);
+    setError(null);
   }
 
   async function saveAmount() {
@@ -132,6 +231,7 @@ export function CellActionPopover({
     }
     setBusy("amount");
     setError(null);
+    setSuccess(null);
     try {
       const useUpsert = target.id === null;
       const url = useUpsert
@@ -152,10 +252,7 @@ export function CellActionPopover({
       });
       const j = await r.json();
       if (j?.success) {
-        setOpen(false);
-        setEditing(false);
-        setDraftAmount("");
-        onActionDone();
+        flashSuccessAndClose(`Monto actualizado a $${fmt.format(n)}`);
       } else {
         setError(j?.error ?? "No se pudo guardar");
       }
@@ -166,9 +263,6 @@ export function CellActionPopover({
     }
   }
 
-  // granularity se mantiene por compatibilidad con la API; los nuevos
-  // botones de shift son explícitos en días y semanas, no dependen del
-  // contexto del bucket.
   void granularity;
 
   return (
@@ -176,201 +270,300 @@ export function CellActionPopover({
       open={open}
       onOpenChange={(v) => {
         setOpen(v);
-        if (!v) {
-          setEditing(false);
-          setPickingDate(false);
-          setError(null);
-          setDraftAmount("");
-        }
+        if (!v) resetState();
       }}
     >
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="block w-full text-right hover:bg-muted/30 rounded-ds-sm px-1 py-0.5 cursor-pointer"
+          className="block w-full text-right hover:bg-muted/40 rounded-ds-sm px-1 py-0.5 cursor-pointer min-h-[32px] sm:min-h-0"
         >
           {children}
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-[300px] p-2">
-        {pickingDate ? (
-          <div className="space-y-2">
-            <p className="text-[12px] text-ds-text-2 px-1">Mover a fecha exacta</p>
-            <Calendar
-              mode="single"
-              locale={es}
-              onSelect={(d) => {
-                if (d) moveToDate(d);
-              }}
-              disabled={busy !== null}
-            />
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setPickingDate(false)}
-              disabled={busy !== null}
-              className="w-full h-8 text-[12px]"
-            >
-              Cancelar
-            </Button>
-            {busy === "date" && (
-              <div className="flex items-center justify-center gap-1 text-[12px] text-ds-text-3">
-                <Loader2 className="h-3 w-3 animate-spin" /> Moviendo...
-              </div>
-            )}
-            {error && <p className="text-[12px] text-status-warn-fg">{error}</p>}
+      <PopoverContent
+        side="bottom"
+        align="center"
+        sideOffset={6}
+        collisionPadding={12}
+        // Mobile-first: el popover ocupa casi todo el ancho del viewport con
+        // un padding de seguridad. En desktop se limita a 360px. Border y
+        // shadow fuertes garantizan contraste sobre el dashboard oscuro.
+        className="w-[calc(100vw-1rem)] max-w-[360px] sm:w-[360px] p-0 bg-popover border-2 border-border shadow-2xl rounded-ds-lg overflow-hidden"
+      >
+        {/* Header con monto/fecha actuales y botón cerrar */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30">
+          <div className="min-w-0">
+            <p className="text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-3">
+              Cuota
+            </p>
+            <p className="text-[14px] font-semibold text-ds-text-1 tabular-nums">
+              ${fmt.format(target.amountClp)}
+            </p>
+            <p className="text-[11px] text-ds-text-3 truncate">
+              {formatDateLabel(target.originalDate)}
+            </p>
           </div>
-        ) : !editing ? (
-          <div className="space-y-1.5">
-            <div className="grid grid-cols-2 gap-1">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => shiftDays(-1)}
-                disabled={busy !== null}
-                className="h-8 text-[12px]"
-              >
-                <ChevronLeft className="h-3.5 w-3.5" /> 1 día
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => shiftDays(1)}
-                disabled={busy !== null}
-                className="h-8 text-[12px]"
-              >
-                1 día <ChevronRight className="h-3.5 w-3.5" />
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => shiftDays(-7)}
-                disabled={busy !== null}
-                className="h-8 text-[12px]"
-              >
-                <ChevronLeft className="h-3.5 w-3.5" /> 1 sem
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => shiftDays(7)}
-                disabled={busy !== null}
-                className="h-8 text-[12px]"
-              >
-                1 sem <ChevronRight className="h-3.5 w-3.5" />
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => shiftDays(-14)}
-                disabled={busy !== null}
-                className="h-8 text-[12px]"
-              >
-                <ChevronLeft className="h-3.5 w-3.5" /> 2 sem
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => shiftDays(14)}
-                disabled={busy !== null}
-                className="h-8 text-[12px]"
-              >
-                2 sem <ChevronRight className="h-3.5 w-3.5" />
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => shiftDays(-30)}
-                disabled={busy !== null}
-                className="h-8 text-[12px]"
-              >
-                <ChevronLeft className="h-3.5 w-3.5" /> 1 mes
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => shiftDays(30)}
-                disabled={busy !== null}
-                className="h-8 text-[12px]"
-              >
-                1 mes <ChevronRight className="h-3.5 w-3.5" />
-              </Button>
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            className="p-2 -mr-1 rounded-ds-sm hover:bg-muted/60 text-ds-text-3"
+            aria-label="Cerrar"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="p-3">
+          {/* SUCCESS banner — visible 0.9s antes de cerrar */}
+          {success && (
+            <div className="mb-2 flex items-center gap-2 px-3 py-2 rounded-ds-md bg-status-ok-soft border border-status-ok-fg/20">
+              <CheckCircle2 className="h-4 w-4 text-status-ok-fg shrink-0" />
+              <p className="text-[13px] text-status-ok-fg font-medium">{success}</p>
             </div>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setPickingDate(true)}
-              disabled={busy !== null}
-              className="w-full h-8 text-[12px]"
-            >
-              <CalendarIcon className="h-3.5 w-3.5 mr-1" /> Fecha exacta...
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                setDraftAmount(fmt.format(target.amountClp));
-                setEditing(true);
-              }}
-              disabled={busy !== null}
-              className="w-full h-8 text-[12px]"
-            >
-              <Pencil className="h-3.5 w-3.5 mr-1" /> Editar monto
-            </Button>
-            {busy === "shift" && (
-              <div className="flex items-center justify-center gap-1 text-[12px] text-ds-text-3">
-                <Loader2 className="h-3 w-3 animate-spin" /> Moviendo...
+          )}
+
+          {/* ERROR banner — destacado, no cierra el popover */}
+          {error && !conflict && (
+            <div className="mb-2 flex items-start gap-2 px-3 py-2 rounded-ds-md bg-status-warn-soft border border-status-warn-fg/20">
+              <AlertCircle className="h-4 w-4 text-status-warn-fg shrink-0 mt-0.5" />
+              <p className="text-[13px] text-status-warn-fg">{error}</p>
+            </div>
+          )}
+
+          {conflict ? (
+            <div className="space-y-3">
+              <div className="flex items-start gap-2 px-1">
+                <AlertCircle className="h-5 w-5 text-status-warn-fg shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-[13px] font-semibold text-ds-text-1">
+                    Hay otra cuota en {formatDateLabel(conflict.targetDate)}
+                  </p>
+                  <p className="text-[12px] text-ds-text-3 mt-0.5">
+                    ¿Cómo querés resolver el conflicto?
+                  </p>
+                </div>
               </div>
-            )}
-            {error && <p className="text-[12px] text-status-warn-fg">{error}</p>}
-          </div>
-        ) : (
-          <div className="space-y-2">
-            <label className="text-[12px] text-ds-text-2">Nuevo monto (CLP)</label>
-            <Input
-              autoFocus
-              inputMode="decimal"
-              value={draftAmount}
-              onChange={(e) => {
-                const cleaned = e.target.value
-                  .replace(/[^\d,.-]/g, "")
-                  .replace(/\./g, "")
-                  .replace(",", ".");
-                const n = Number(cleaned);
-                setDraftAmount(
-                  Number.isFinite(n) ? fmt.format(n) : e.target.value,
-                );
-              }}
-              className="h-8 font-mono text-right text-[12px]"
-            />
-            <div className="flex gap-1">
+              <div className="space-y-2">
+                <Button
+                  variant="outline"
+                  onClick={() => resolveConflict("replace")}
+                  disabled={busy !== null}
+                  className="w-full h-11 sm:h-10 text-[13px] justify-start"
+                >
+                  Reemplazar la otra cuota
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => resolveConflict("next_free")}
+                  disabled={busy !== null}
+                  className="w-full h-11 sm:h-10 text-[13px] justify-start"
+                >
+                  Mover a {formatDateLabel(conflict.suggestedFreeDate)}
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={cancelConflict}
+                  disabled={busy !== null}
+                  className="w-full h-11 sm:h-10 text-[13px]"
+                >
+                  Cancelar
+                </Button>
+              </div>
+              {busy === "resolve" && (
+                <div className="flex items-center justify-center gap-2 text-[13px] text-ds-text-3">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Aplicando…
+                </div>
+              )}
+              {error && (
+                <div className="flex items-start gap-2 px-3 py-2 rounded-ds-md bg-status-warn-soft border border-status-warn-fg/20">
+                  <AlertCircle className="h-4 w-4 text-status-warn-fg shrink-0 mt-0.5" />
+                  <p className="text-[13px] text-status-warn-fg">{error}</p>
+                </div>
+              )}
+            </div>
+          ) : pickingDate ? (
+            <div className="space-y-2">
+              <p className="text-[12px] font-mono uppercase tracking-[0.08em] text-ds-text-3 px-1">
+                Elegí una fecha
+              </p>
+              <div className="flex justify-center">
+                <Calendar
+                  mode="single"
+                  locale={es}
+                  onSelect={(d) => {
+                    if (d) moveToDate(d);
+                  }}
+                  disabled={busy !== null}
+                />
+              </div>
               <Button
-                size="sm"
                 variant="outline"
-                onClick={() => setEditing(false)}
+                onClick={() => setPickingDate(false)}
                 disabled={busy !== null}
-                className="flex-1 h-8 text-[12px]"
+                className="w-full h-11 sm:h-10 text-[13px]"
               >
                 Cancelar
               </Button>
-              <Button
-                size="sm"
-                onClick={saveAmount}
-                disabled={busy !== null}
-                className="flex-1 h-8 text-[12px]"
-              >
-                {busy === "amount" ? (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                ) : (
-                  "Guardar"
-                )}
-              </Button>
+              {busy === "date" && (
+                <div className="flex items-center justify-center gap-2 text-[13px] text-ds-text-3">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Moviendo…
+                </div>
+              )}
             </div>
-            {error && (
-              <p className="text-[12px] text-status-warn-fg">{error}</p>
-            )}
-          </div>
-        )}
+          ) : confirmingEnd ? (
+            <div className="space-y-3">
+              <div className="flex items-start gap-2 px-1">
+                <CircleSlash className="h-5 w-5 text-status-warn-fg shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-[13px] font-semibold text-ds-text-1">
+                    Terminar este ítem
+                  </p>
+                  <p className="text-[12px] text-ds-text-3 mt-0.5">
+                    A partir de {formatDateLabel(target.originalDate)} no se
+                    proyectarán más cuotas. Las ocurrencias ya pagadas quedan
+                    intactas. Podés revertirlo editando el ítem en
+                    &quot;Movimientos proyectados&quot;.
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setConfirmingEnd(false)}
+                  disabled={busy !== null}
+                  className="flex-1 h-11 sm:h-10 text-[13px]"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={endRecurrenceFromHere}
+                  disabled={busy !== null}
+                  className="flex-1 h-11 sm:h-10 text-[13px] bg-status-warn-fg text-background hover:bg-status-warn-fg/90"
+                >
+                  {busy === "end" ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "Terminar"
+                  )}
+                </Button>
+              </div>
+            </div>
+          ) : editing ? (
+            <div className="space-y-2">
+              <label className="text-[12px] font-mono uppercase tracking-[0.08em] text-ds-text-3 px-1 block">
+                Nuevo monto (CLP)
+              </label>
+              <Input
+                autoFocus
+                inputMode="decimal"
+                value={draftAmount}
+                onChange={(e) => {
+                  const cleaned = e.target.value
+                    .replace(/[^\d,.-]/g, "")
+                    .replace(/\./g, "")
+                    .replace(",", ".");
+                  const n = Number(cleaned);
+                  setDraftAmount(
+                    Number.isFinite(n) ? fmt.format(n) : e.target.value,
+                  );
+                }}
+                className="h-12 sm:h-11 font-mono text-right text-[16px] font-semibold"
+              />
+              <div className="flex gap-2 pt-1">
+                <Button
+                  variant="outline"
+                  onClick={() => setEditing(false)}
+                  disabled={busy !== null}
+                  className="flex-1 h-11 sm:h-10 text-[13px]"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={saveAmount}
+                  disabled={busy !== null}
+                  className="flex-1 h-11 sm:h-10 text-[13px]"
+                >
+                  {busy === "amount" ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "Guardar"
+                  )}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-[12px] font-mono uppercase tracking-[0.08em] text-ds-text-3 px-1">
+                Mover ocurrencia
+              </p>
+              <div className="space-y-2">
+                {SHIFT_OPTIONS.map(({ label, days }) => (
+                  <div
+                    key={label}
+                    className="grid grid-cols-[1fr_72px_1fr] items-center gap-2"
+                  >
+                    <Button
+                      variant="outline"
+                      onClick={() => shiftDays(-days)}
+                      disabled={busy !== null}
+                      className="h-11 sm:h-10"
+                      aria-label={`Mover ${label} hacia atrás`}
+                    >
+                      <ChevronLeft className="h-5 w-5" />
+                    </Button>
+                    <span className="text-[14px] text-ds-text-1 text-center font-semibold tabular-nums">
+                      {label}
+                    </span>
+                    <Button
+                      variant="outline"
+                      onClick={() => shiftDays(days)}
+                      disabled={busy !== null}
+                      className="h-11 sm:h-10"
+                      aria-label={`Mover ${label} hacia adelante`}
+                    >
+                      <ChevronRight className="h-5 w-5" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+              <div className="pt-2 space-y-2 border-t border-border">
+                <Button
+                  variant="outline"
+                  onClick={() => setPickingDate(true)}
+                  disabled={busy !== null}
+                  className="w-full h-11 sm:h-10 text-[13px] justify-start"
+                >
+                  <CalendarIcon className="h-4 w-4 mr-2" /> Mover a fecha exacta…
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setDraftAmount(fmt.format(target.amountClp));
+                    setEditing(true);
+                  }}
+                  disabled={busy !== null}
+                  className="w-full h-11 sm:h-10 text-[13px] justify-start"
+                >
+                  <Pencil className="h-4 w-4 mr-2" /> Editar monto
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setConfirmingEnd(true)}
+                  disabled={busy !== null}
+                  className="w-full h-11 sm:h-10 text-[13px] justify-start text-status-warn-fg hover:bg-status-warn-soft"
+                >
+                  <CircleSlash className="h-4 w-4 mr-2" /> Terminar desde aquí…
+                </Button>
+              </div>
+              {busy === "shift" && (
+                <div className="flex items-center justify-center gap-2 text-[13px] text-ds-text-3">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Moviendo…
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </PopoverContent>
     </Popover>
   );

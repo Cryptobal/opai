@@ -80,6 +80,29 @@ export async function GET(
         : [];
     const dealMap = new Map(deals.map((d) => [d.id, d]));
 
+    // Cashflow items vinculados (los que creamos al subir con `addToCashflow`).
+    // Indexamos por sourceRefId = document.id para mostrar el monto mensual
+    // en la tarjeta del contrato.
+    const cashflowItems = await prisma.financeCashflowItem.findMany({
+      where: {
+        tenantId: ctx.tenantId,
+        source: "OTHER",
+        sourceRefId: { in: documents.map((d) => d.id) },
+        isActive: true,
+      },
+      select: {
+        id: true,
+        sourceRefId: true,
+        amount: true,
+        currency: true,
+        dayOfMonth: true,
+        installationId: true,
+      },
+    });
+    const cashflowByDoc = new Map(
+      cashflowItems.map((i) => [i.sourceRefId ?? "", i]),
+    );
+
     const data = documents.map((doc) => {
       const dealAssoc = doc.associations.find(
         (a) => a.entityType === "crm_deal",
@@ -92,6 +115,10 @@ export async function GET(
         sigReq?.status ??
         (doc.signatureStatus === "external" ? "external" : null);
 
+      const cashflow = cashflowByDoc.get(doc.id);
+      const installAssoc = doc.associations.find(
+        (a) => a.entityType === "crm_installation",
+      );
       return {
         id: doc.id,
         uniqueId: doc.uniqueId,
@@ -110,6 +137,15 @@ export async function GET(
         signatureStatus,
         signatureRecipients: sigReq?.recipients ?? [],
         createdAt: doc.createdAt,
+        installationId: installAssoc?.entityId ?? null,
+        cashflow: cashflow
+          ? {
+              itemId: cashflow.id,
+              amountClp: Number(cashflow.amount),
+              currency: cashflow.currency,
+              dayOfMonth: cashflow.dayOfMonth,
+            }
+          : null,
       };
     });
 
@@ -205,6 +241,10 @@ export async function POST(
       signedAt,
       signedBy,
       notes,
+      installationId,
+      addToCashflow,
+      monthlyAmountClp,
+      paymentDay,
     } = parsed.data;
 
     // Derive expirationDate: explicit value wins; else compute from effective + duration.
@@ -285,6 +325,56 @@ export async function POST(
           role: "primary",
         },
       });
+
+      // Asociación opcional con instalación (queda registrada para
+      // navegación futura desde el detalle de instalación).
+      if (installationId) {
+        await tx.docAssociation.create({
+          data: {
+            documentId: doc.id,
+            entityType: "crm_installation",
+            entityId: installationId,
+            role: "related",
+          },
+        });
+      }
+
+      // Vinculación con Flujo de Caja: si el usuario marcó el toggle, se
+      // crea un FinanceCashflowItem mensual con sourceRefId=document.id.
+      // source=OTHER porque no es CpqQuote (que es lo que maneja
+      // sales-contract-sync). La categoría es la misma ING_VENTA_CONTRATO
+      // para que aparezca en la sección "Ventas por contrato".
+      if (addToCashflow && monthlyAmountClp && paymentDay !== null && paymentDay !== undefined && effectiveDate) {
+        const cat = await tx.financeCashflowCategory.findFirst({
+          where: { tenantId: ctx.tenantId, code: "ING_VENTA_CONTRATO", isActive: true },
+          select: { id: true },
+        });
+        if (cat) {
+          const dom =
+            paymentDay === -1 ? -1 : Math.min(Math.max(paymentDay, 1), 28);
+          await tx.financeCashflowItem.create({
+            data: {
+              tenantId: ctx.tenantId,
+              createdBy: ctx.userId ?? undefined,
+              categoryId: cat.id,
+              kind: "INCOME",
+              source: "OTHER",
+              sourceRefId: doc.id,
+              name: title,
+              description: `Contrato ${title}`,
+              amount: monthlyAmountClp,
+              currency: "CLP",
+              recurrence: "MONTHLY",
+              dayOfMonth: dom,
+              startDate: new Date(effectiveDate),
+              endDate: computedExpiration ? new Date(computedExpiration) : null,
+              installationId: installationId ?? null,
+              crmAccountId: accountId,
+              isActive: true,
+            },
+          });
+        }
+      }
 
       await tx.docHistory.create({
         data: {

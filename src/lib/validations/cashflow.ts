@@ -95,6 +95,7 @@ export const upsertAndActSchema = z.discriminatedUnion("action", [
       originalDate: z.coerce.date(),
       newDate: z.coerce.date().optional(),
       daysFromCurrent: z.number().int().optional(),
+      resolveStrategy: z.enum(["replace", "next_free"]).optional(),
     })
     .refine(
       (v) => v.newDate !== undefined || v.daysFromCurrent !== undefined,

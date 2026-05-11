@@ -94,7 +94,7 @@ export default async function FlujoCajaPage({
   }
 
   return (
-    <div className="space-y-4 sm:space-y-5 min-w-0">
+    <div className="space-y-3 sm:space-y-5 min-w-0">
       <PageHero
         icon={<Wallet />}
         iconTone="teal"

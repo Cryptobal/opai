@@ -4,6 +4,7 @@ import { parseBody, requireAuth, unauthorized } from "@/lib/api-auth";
 import { createPuestoSchema } from "@/lib/validations/ops";
 import { createOpsAuditLog, ensureOpsAccess } from "@/lib/ops";
 import { simulatePayslip } from "@/modules/payroll/engine/simulate-payslip";
+import { syncPayrollItemForInstallation } from "@/modules/finance/cashflow/generators/payroll-sync";
 
 export async function GET(request: NextRequest) {
   try {
@@ -198,6 +199,14 @@ export async function POST(request: NextRequest) {
       installationId: body.installationId,
       name: body.name,
     });
+
+    // Mantener flujo de caja en sync: recalcula el item PAYROLL de la
+    // instalación. Best-effort, no bloquea la respuesta si falla.
+    try {
+      await syncPayrollItemForInstallation(ctx.tenantId, body.installationId);
+    } catch (err) {
+      console.error("[OPS] sync payroll cashflow failed:", err);
+    }
 
     return NextResponse.json({ success: true, data: puesto }, { status: 201 });
   } catch (error) {

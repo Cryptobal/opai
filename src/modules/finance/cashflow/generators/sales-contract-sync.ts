@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { addMonths } from "date-fns";
+import { getUfValueForDate } from "@/lib/uf";
 
 const ACTIVE_QUOTE_STATUSES = ["accepted", "active", "in_progress", "approved"] as const;
 const SALES_CATEGORY_CODE = "ING_VENTA_CONTRATO";
@@ -48,14 +49,24 @@ export async function syncContractItemForQuote(
       paymentTerms: true,
       realAnnualIncrement: true,
       status: true,
+      parameters: { select: { salePriceMonthly: true } },
     },
   });
   if (!quote) return { action: "noop" };
 
+  // `monthlyCost` es el COSTO interno (suma de costos de posiciones). Lo que
+  // el cliente paga (y por tanto el ingreso real en flujo de caja) es el
+  // `salePriceMonthly` guardado en `CpqQuoteParameters`. Si por alguna razón
+  // no está calculado (quote viejo), caemos a `monthlyCost` como fallback
+  // para no romper la proyección.
+  const salePriceClp =
+    Number(quote.parameters?.salePriceMonthly ?? 0) ||
+    Number(quote.monthlyCost ?? 0);
+
   const isActive =
     (ACTIVE_QUOTE_STATUSES as readonly string[]).includes(quote.status) &&
     quote.contractStartDate !== null &&
-    Number(quote.monthlyCost ?? 0) > 0;
+    salePriceClp > 0;
 
   const cat = await prisma.financeCashflowCategory.findFirst({
     where: { tenantId, code: SALES_CATEGORY_CODE, isActive: true },
@@ -104,6 +115,27 @@ export async function syncContractItemForQuote(
   const name = quote.installation?.name ?? quote.clientName ?? quote.name ?? quote.code;
   const description = `Contrato ${quote.code} · ${quote.installation?.name ?? "sin instalación"}`;
 
+  // Moneda del contrato:
+  //   - "CLP" → monto fijo en pesos cada mes.
+  //   - "UF"  → guardamos el valor en UF; el proyector reconvierte a CLP
+  //             usando la UF de cada mes (resolveUfForOccurrence), así el
+  //             flujo de caja refleja la indexación real del contrato.
+  //
+  // Para contratos en UF reconstruimos el valor en UF dividiendo el sale
+  // price CLP por la UF de la fecha de inicio del contrato — esa es la
+  // referencia más estable y predecible para mostrarlo al cliente.
+  let amount: number;
+  let currency: "CLP" | "UF";
+  if (quote.currency === "UF" && quote.contractStartDate) {
+    const ufAtStart = await getUfValueForDate(quote.contractStartDate);
+    amount =
+      ufAtStart > 0 ? salePriceClp / ufAtStart : salePriceClp;
+    currency = "UF";
+  } else {
+    amount = salePriceClp;
+    currency = "CLP";
+  }
+
   const data = {
     tenantId,
     categoryId: cat.id,
@@ -112,8 +144,11 @@ export async function syncContractItemForQuote(
     sourceRefId: quote.id,
     name,
     description,
-    amount: Number(quote.monthlyCost),
-    currency: quote.currency,
+    amount,
+    currency,
+    // Política UF: cada cuota usa el último día del mes anterior. Es la
+    // convención más común en contratos chilenos indexados a UF.
+    ufFixingPolicy: currency === "UF" ? "LAST_DAY_PREV_MONTH" : null,
     recurrence: "MONTHLY" as const,
     dayOfMonth: dom,
     dayOfWeek: null,
@@ -126,6 +161,33 @@ export async function syncContractItemForQuote(
   };
 
   if (existing) {
+    // Si hubo un cambio SIGNIFICATIVO en monto / currency / fechas, las
+    // occurrences PROJECTED pueden quedar con amountClp congelado del
+    // cálculo anterior. Las borramos para que se re-materialicen con el
+    // nuevo monto. PAID y CONFIRMED se respetan siempre (históricos).
+    //
+    // ⚠️  CRÍTICO: usar tolerancia para `amountChanged`. Sin esta tolerancia,
+    // el cálculo `salePriceClp / ufAtStart` produce diferencias de 6 ceros
+    // decimales entre runs (epsilon de floating-point), lo que dispara el
+    // borrado en cada page-load. Resultado anterior: cuotas movidas por el
+    // usuario "volvían solas" al refrescar la página.
+    const amountDelta = Math.abs(
+      Number(existing.amount) - Number(data.amount),
+    );
+    const amountChanged = amountDelta > 0.01;
+    const currencyChanged = existing.currency !== data.currency;
+    const startChanged =
+      existing.startDate?.toISOString().slice(0, 10) !==
+      data.startDate.toISOString().slice(0, 10);
+    if (amountChanged || currencyChanged || startChanged) {
+      await prisma.financeCashflowOccurrence.deleteMany({
+        where: {
+          tenantId,
+          itemId: existing.id,
+          status: "PROJECTED",
+        },
+      });
+    }
     await prisma.financeCashflowItem.update({
       where: { id: existing.id },
       data,

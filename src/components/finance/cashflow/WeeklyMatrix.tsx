@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Surface } from "@/components/opai-ds";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,6 +14,30 @@ import { fmt, SectionHeader, SubtotalRow } from "./MatrixHelpers";
 import { ExpandableMatrixRow } from "./ExpandableMatrixRow";
 import { BucketBankDrawer } from "./BucketBankDrawer";
 
+const MONTH_LABEL_SHORT = [
+  "ene",
+  "feb",
+  "mar",
+  "abr",
+  "may",
+  "jun",
+  "jul",
+  "ago",
+  "sep",
+  "oct",
+  "nov",
+  "dic",
+];
+
+/**
+ * Etiqueta breve de mes para el header del bucket: "may '26".
+ * Se muestra debajo de "Sem N" para que el usuario sepa de un vistazo
+ * a qué mes pertenece cada columna sin tener que contar semanas.
+ */
+function monthYearShort(d: Date): string {
+  return `${MONTH_LABEL_SHORT[d.getMonth()]} '${String(d.getFullYear()).slice(-2)}`;
+}
+
 interface Props {
   initialProjection: ProjectionMatrix;
   defaultWeeks: number;
@@ -27,6 +51,13 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
   const [refreshKey, setRefreshKey] = useState(0);
   const [drawerBucket, setDrawerBucket] = useState<string | null>(null);
   const todayDate = useMemo(() => new Date(), []);
+
+  // Auto-scroll horizontal: queremos que la semana actual quede como la
+  // 3ra columna visible. Permite ver 2 semanas pasadas como contexto y el
+  // resto futuras (lo que el usuario consulta más a menudo).
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const currentBucketKey = useRef<string | null>(null);
+  const hasAutoScrolled = useRef(false);
 
   // initialProjection llega serializado vía JSON.parse(JSON.stringify(...)) desde
   // el Server Component, así que `start`/`end` son strings. Rehidratamos en una
@@ -94,6 +125,44 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
 
   const incomeRows = projection.rows.filter((r) => r.kind === "INCOME");
   const expenseRows = projection.rows.filter((r) => r.kind === "EXPENSE");
+
+  // Índice del bucket que contiene hoy. Si hoy queda fuera del rango
+  // (caso raro: range start > hoy), idx queda en -1 y no auto-scrolleamos.
+  const currentBucketIdx = useMemo(() => {
+    const t = todayDate.getTime();
+    return projection.buckets.findIndex(
+      (b) => b.start.getTime() <= t && t <= b.end.getTime(),
+    );
+  }, [projection.buckets, todayDate]);
+
+  if (currentBucketIdx !== -1) {
+    currentBucketKey.current = projection.buckets[currentBucketIdx].key;
+  }
+
+  // Auto-scroll a la 3ra columna (offsetIdx=2). Se ejecuta una sola vez al
+  // montar / cuando llega projection inicial. Si el usuario hace scroll
+  // manual después, no lo molestamos.
+  useEffect(() => {
+    if (hasAutoScrolled.current) return;
+    if (currentBucketIdx < 0) return;
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    const table = container.querySelector("table");
+    if (!table) return;
+    // El thead tiene: [Categoría, ...buckets, Total]. Bucket en posición
+    // (currentBucketIdx + 1) en el `<tr>` (la 1ra <th> es Categoría).
+    const headers = table.querySelectorAll("thead th");
+    const targetCol = headers[currentBucketIdx + 1] as HTMLElement | undefined;
+    const categoryCol = headers[0] as HTMLElement | undefined;
+    if (!targetCol || !categoryCol) return;
+    // Posición deseada: la columna actual debe quedar después de 2
+    // columnas visibles (sin contar la columna sticky "Categoría").
+    const colWidth = targetCol.offsetWidth;
+    const desiredLeft =
+      targetCol.offsetLeft - categoryCol.offsetWidth - colWidth * 2;
+    container.scrollTo({ left: Math.max(0, desiredLeft), behavior: "auto" });
+    hasAutoScrolled.current = true;
+  }, [currentBucketIdx, projection.buckets.length]);
 
   const actualByCellKey = useMemo(() => {
     const m = new Map<string, number>();
@@ -176,22 +245,64 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
           for vertical scrolling so bottom totals can stay sticky.
           relative + overflow-auto is what enables sticky positioning. */}
       <div className="-mx-4 px-4 sm:mx-0 sm:px-0">
-        <div className="relative overflow-auto max-h-[70vh] rounded-ds-md border border-border">
+        <div
+          ref={scrollContainerRef}
+          className="relative overflow-auto max-h-[70vh] rounded-ds-md border border-border"
+        >
           <table className="text-[11px] sm:text-[12px] w-full border-collapse">
+            {/* <colgroup> permite pintar toda la columna de la semana actual
+                con un fondo de acento. Las celdas sticky-left/right tienen
+                su propio bg, así no se ven afectadas. */}
+            <colgroup>
+              <col />
+              {projection.buckets.map((b) => (
+                <col
+                  key={b.key}
+                  className={
+                    b.key === currentBucketKey.current
+                      ? "bg-status-info-soft/15"
+                      : undefined
+                  }
+                />
+              ))}
+              <col />
+            </colgroup>
             <thead className="sticky top-0 z-30 bg-background">
               <tr>
                 <th className="sticky left-0 z-40 bg-background text-left p-2 min-w-[140px] sm:min-w-[180px] border-b border-border">
                   Categoría
                 </th>
-                {projection.buckets.map((b) => (
-                  <th
-                    key={b.key}
-                    className="p-2 text-right min-w-[80px] border-b border-border whitespace-nowrap text-ds-text-3 font-mono bg-background"
-                  >
-                    {b.label}
-                  </th>
-                ))}
-                <th className="sticky right-0 z-40 p-2 text-right min-w-[100px] border-b border-border bg-muted/40 whitespace-nowrap">
+                {projection.buckets.map((b, idx) => {
+                  const isCurrent = b.key === currentBucketKey.current;
+                  const prevBucket = idx > 0 ? projection.buckets[idx - 1] : null;
+                  // Mostrar el mes solo cuando cambia respecto al bucket
+                  // anterior (evita repetir "may '26" cuatro veces). En el
+                  // primer bucket siempre.
+                  const showMonth =
+                    !prevBucket ||
+                    prevBucket.start.getMonth() !== b.start.getMonth() ||
+                    prevBucket.start.getFullYear() !== b.start.getFullYear();
+                  return (
+                    <th
+                      key={b.key}
+                      className={`p-2 text-right min-w-[80px] border-b whitespace-nowrap font-mono ${
+                        isCurrent
+                          ? "bg-status-info-soft/40 text-status-info-fg border-status-info-fg/30"
+                          : "bg-background text-ds-text-3 border-border"
+                      } ${showMonth ? "border-l border-l-border" : ""}`}
+                    >
+                      <div className="flex flex-col items-end leading-tight">
+                        <span className="text-[10px] uppercase tracking-wider opacity-70">
+                          {showMonth ? monthYearShort(b.start) : "·"}
+                        </span>
+                        <span className={isCurrent ? "font-bold" : ""}>
+                          {b.label}
+                        </span>
+                      </div>
+                    </th>
+                  );
+                })}
+                <th className="sticky right-0 z-40 p-2 text-right min-w-[100px] border-b border-l border-border bg-card whitespace-nowrap">
                   Total
                 </th>
               </tr>
@@ -225,7 +336,7 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
             </tbody>
             <tfoot className="sticky bottom-0 z-30">
               <tr className="border-t-2 border-border font-semibold bg-background">
-                <td className="sticky left-0 z-40 bg-background p-2 whitespace-nowrap">Neto semanal</td>
+                <td className="sticky left-0 z-40 bg-card p-2 whitespace-nowrap border-r border-border/50">Neto semanal</td>
                 {projection.buckets.map((b) => (
                   <td
                     key={b.key}
@@ -236,7 +347,7 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
                     {fmt.format(b.net)}
                   </td>
                 ))}
-                <td className="sticky right-0 z-40 p-2 text-right font-mono bg-muted/40 whitespace-nowrap">
+                <td className="sticky right-0 z-40 p-2 text-right font-mono bg-card whitespace-nowrap border-l border-border/50">
                   {fmt.format(projection.totals.totalNet)}
                 </td>
               </tr>
@@ -244,7 +355,7 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
               {/* Real banco — solo buckets con start ≤ hoy. Las semanas futuras
                   no tienen datos de banco todavía y se muestran como —. */}
               <tr className="bg-status-ok-soft/30">
-                <td className="sticky left-0 z-40 bg-status-ok-soft/30 p-2 whitespace-nowrap text-status-ok-fg text-[12px]">
+                <td className="sticky left-0 z-40 bg-card p-2 whitespace-nowrap text-status-ok-fg text-[12px] border-r border-border/50">
                   Real banco (ingresos)
                 </td>
                 {projection.buckets.map((b) => {
@@ -269,7 +380,7 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
                     </td>
                   );
                 })}
-                <td className="sticky right-0 z-40 p-2 text-right font-mono bg-status-ok-soft/30 whitespace-nowrap text-status-ok-fg text-[12px]">
+                <td className="sticky right-0 z-40 p-2 text-right font-mono bg-card whitespace-nowrap text-status-ok-fg text-[12px] border-l border-border/50">
                   {fmt.format(
                     projection.buckets.reduce((s, b) => s + (b.actualBankIncome ?? 0), 0),
                   )}
@@ -277,7 +388,7 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
               </tr>
 
               <tr className="bg-status-warn-soft/30">
-                <td className="sticky left-0 z-40 bg-status-warn-soft/30 p-2 whitespace-nowrap text-status-warn-fg text-[12px]">
+                <td className="sticky left-0 z-40 bg-card p-2 whitespace-nowrap text-status-warn-fg text-[12px] border-r border-border/50">
                   Real banco (egresos)
                 </td>
                 {projection.buckets.map((b) => {
@@ -302,7 +413,7 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
                     </td>
                   );
                 })}
-                <td className="sticky right-0 z-40 p-2 text-right font-mono bg-status-warn-soft/30 whitespace-nowrap text-status-warn-fg text-[12px]">
+                <td className="sticky right-0 z-40 p-2 text-right font-mono bg-card whitespace-nowrap text-status-warn-fg text-[12px] border-l border-border/50">
                   {fmt.format(
                     projection.buckets.reduce((s, b) => s + (b.actualBankExpense ?? 0), 0),
                   )}
@@ -311,7 +422,7 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
 
               <tr className="bg-status-info-soft/30 border-b border-border">
                 <td
-                  className="sticky left-0 z-40 bg-status-info-soft/30 p-2 whitespace-nowrap text-status-info-fg text-[12px]"
+                  className="sticky left-0 z-40 bg-card p-2 whitespace-nowrap text-status-info-fg text-[12px] border-r border-border/50"
                   title="Δ vs proyectado: (real ingresos − proyectado) − (real egresos − proyectado). Positivo = real mejor que proyectado; negativo = peor."
                 >
                   Δ vs proyectado
@@ -344,26 +455,26 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
                     </td>
                   );
                 })}
-                <td className="sticky right-0 z-40 p-2 text-right font-mono bg-status-info-soft/30 whitespace-nowrap text-status-info-fg text-[12px]">
+                <td className="sticky right-0 z-40 p-2 text-right font-mono bg-card whitespace-nowrap text-status-info-fg text-[12px] border-l border-border/50">
                   {fmt.format(
                     projection.buckets.reduce((s, b) => s + (b.bankVarianceClp ?? 0), 0),
                   )}
                 </td>
               </tr>
 
-              <tr className="bg-muted/60 font-semibold">
-                <td className="sticky left-0 z-40 bg-muted/60 p-2 whitespace-nowrap">Saldo acumulado</td>
+              <tr className="bg-muted font-semibold">
+                <td className="sticky left-0 z-40 bg-card p-2 whitespace-nowrap border-r border-border/50">Saldo acumulado</td>
                 {projection.cumulativeBalances.map((c) => (
                   <td
                     key={c.bucketKey}
-                    className={`p-2 text-right font-mono whitespace-nowrap bg-muted/60 ${
+                    className={`p-2 text-right font-mono whitespace-nowrap bg-muted ${
                       c.balanceClp >= 0 ? "text-status-ok-fg" : "text-status-warn-fg"
                     }`}
                   >
                     {fmt.format(c.balanceClp)}
                   </td>
                 ))}
-                <td className="sticky right-0 z-40 p-2 text-right font-mono bg-muted/60 whitespace-nowrap">—</td>
+                <td className="sticky right-0 z-40 p-2 text-right font-mono bg-card whitespace-nowrap border-l border-border/50">—</td>
               </tr>
             </tfoot>
           </table>

@@ -67,7 +67,6 @@ import { CrmSectionCreateButton } from "./CrmSectionCreateButton";
 import { AssociatedRecordsPanel, type AssociatedSection } from "@/components/ui/AssociatedRecordsPanel";
 import { AccountPortalSection } from "./AccountPortalSection";
 import { AccountContractsSection } from "./AccountContractsSection";
-import { AccountCashflowQuotesSection } from "./AccountCashflowQuotesSection";
 import { CrmActivityTimeline } from "./CrmActivityTimeline";
 import { NewExternalChatModal } from "@/components/chat/NewExternalChatModal";
 import { useChatSidePanelContext } from "@/components/chat/ChatFloatingProvider";
@@ -1663,16 +1662,11 @@ export function CrmAccountDetailClient({
         )}
 
         {activeTab === "contracts" && (
-          <div className="space-y-6">
-            <AccountContractsSection
-              accountId={account.id}
-              accountName={account.name}
-              onRefresh={() => router.refresh()}
-            />
-            <div className="border-t border-border pt-4">
-              <AccountCashflowQuotesSection accountId={account.id} />
-            </div>
-          </div>
+          <AccountContractsSection
+            accountId={account.id}
+            accountName={account.name}
+            onRefresh={() => router.refresh()}
+          />
         )}
 
         {activeTab === "files" && <FileAttachments entityType="account" entityId={account.id} title="Documentos" />}

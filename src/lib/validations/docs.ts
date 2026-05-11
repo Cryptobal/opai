@@ -204,6 +204,25 @@ export const uploadContractSchema = z
     signedAt: z.string().optional().nullable(),
     signedBy: z.string().trim().max(200).optional().nullable(),
     notes: z.string().trim().max(2000).optional().nullable(),
+    // ── Vinculación opcional con Flujo de Caja ──
+    // Si el usuario habilita el toggle, se crea un FinanceCashflowItem mensual
+    // que cobra `monthlyAmountClp` el día `paymentDay` desde `effectiveDate`
+    // hasta `expirationDate`. Vinculado al contrato vía sourceRefId=document.id.
+    installationId: z.string().uuid().optional().nullable(),
+    addToCashflow: z
+      .preprocess((v) => {
+        if (typeof v === "boolean") return v;
+        if (typeof v === "string") {
+          const s = v.trim().toLowerCase();
+          if (s === "true" || s === "1" || s === "on" || s === "yes") return true;
+          if (s === "false" || s === "0" || s === "" || s === "off" || s === "no")
+            return false;
+        }
+        return Boolean(v);
+      }, z.boolean())
+      .default(false),
+    monthlyAmountClp: z.coerce.number().positive().optional().nullable(),
+    paymentDay: z.coerce.number().int().min(-1).max(31).optional().nullable(),
   })
   .superRefine((val, ctx) => {
     if (val.effectiveDate && val.expirationDate) {
@@ -223,6 +242,29 @@ export const uploadContractSchema = z
         path: ["signedAt"],
         message: "Si fue firmado externamente, indica la fecha de firma",
       });
+    }
+    if (val.addToCashflow) {
+      if (!val.monthlyAmountClp || val.monthlyAmountClp <= 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["monthlyAmountClp"],
+          message: "Indica el monto mensual del contrato",
+        });
+      }
+      if (val.paymentDay === null || val.paymentDay === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["paymentDay"],
+          message: "Indica el día del mes en que se cobra",
+        });
+      }
+      if (!val.effectiveDate) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["effectiveDate"],
+          message: "La fecha de inicio es requerida si vinculás al flujo de caja",
+        });
+      }
     }
   });
 

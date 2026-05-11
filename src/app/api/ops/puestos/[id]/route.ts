@@ -4,6 +4,7 @@ import { parseBody, requireAuth, unauthorized } from "@/lib/api-auth";
 import { updatePuestoSchema } from "@/lib/validations/ops";
 import { createOpsAuditLog, ensureOpsAccess, parseDateOnly, toISODate } from "@/lib/ops";
 import { simulatePayslip } from "@/modules/payroll/engine/simulate-payslip";
+import { syncPayrollItemForInstallation } from "@/modules/finance/cashflow/generators/payroll-sync";
 
 type Params = { id: string };
 
@@ -238,7 +239,7 @@ export async function PATCH(
 
     const existing = await prisma.opsPuestoOperativo.findFirst({
       where: { id, tenantId: ctx.tenantId },
-      select: { id: true, active: true },
+      select: { id: true, active: true, installationId: true },
     });
     if (!existing) {
       return NextResponse.json(
@@ -327,6 +328,12 @@ export async function PATCH(
         activeUntil: toISODate(deactivateDate),
       });
 
+      try {
+        await syncPayrollItemForInstallation(ctx.tenantId, existing.installationId);
+      } catch (err) {
+        console.error("[OPS] sync payroll cashflow failed:", err);
+      }
+
       return NextResponse.json({ success: true, data: updated });
     }
 
@@ -349,6 +356,12 @@ export async function PATCH(
       await createOpsAuditLog(ctx, "ops.puesto.activated", "ops_puesto", id, {
         activeFrom: toISODate(activateDate),
       });
+
+      try {
+        await syncPayrollItemForInstallation(ctx.tenantId, existing.installationId);
+      } catch (err) {
+        console.error("[OPS] sync payroll cashflow failed:", err);
+      }
 
       return NextResponse.json({ success: true, data: updated });
     }
@@ -514,6 +527,12 @@ export async function PATCH(
 
     await createOpsAuditLog(ctx, "ops.puesto.updated", "ops_puesto", id, body);
 
+    try {
+      await syncPayrollItemForInstallation(ctx.tenantId, existing.installationId);
+    } catch (err) {
+      console.error("[OPS] sync payroll cashflow failed:", err);
+    }
+
     return NextResponse.json({ success: true, data: updated });
   } catch (error) {
     console.error("[OPS] Error updating puesto:", error);
@@ -539,7 +558,7 @@ export async function DELETE(
 
     const existing = await prisma.opsPuestoOperativo.findFirst({
       where: { id, tenantId: ctx.tenantId },
-      select: { id: true },
+      select: { id: true, installationId: true },
     });
     if (!existing) {
       return NextResponse.json(
@@ -615,6 +634,12 @@ export async function DELETE(
       diagnostics,
       affectedGuardias: affectedGuardiaIds.length,
     });
+
+    try {
+      await syncPayrollItemForInstallation(ctx.tenantId, existing.installationId);
+    } catch (err) {
+      console.error("[OPS] sync payroll cashflow failed:", err);
+    }
 
     return NextResponse.json({
       success: true,

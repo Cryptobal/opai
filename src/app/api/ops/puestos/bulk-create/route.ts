@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { parseBody, requireAuth, unauthorized } from "@/lib/api-auth";
 import { bulkCreatePuestosSchema } from "@/lib/validations/ops";
 import { createOpsAuditLog, ensureOpsAccess } from "@/lib/ops";
+import { syncPayrollItemForInstallation } from "@/modules/finance/cashflow/generators/payroll-sync";
 
 export async function POST(request: NextRequest) {
   try {
@@ -49,6 +50,12 @@ export async function POST(request: NextRequest) {
       installationId: body.installationId,
       total: created.length,
     });
+
+    try {
+      await syncPayrollItemForInstallation(ctx.tenantId, body.installationId);
+    } catch (err) {
+      console.error("[OPS] sync payroll cashflow failed:", err);
+    }
 
     return NextResponse.json({
       success: true,

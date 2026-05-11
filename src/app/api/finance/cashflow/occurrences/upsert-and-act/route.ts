@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized, resolveApiPerms, parseBody } from "@/lib/api-auth";
 import { hasCapability } from "@/lib/permissions";
-import { materializeAndAct } from "@/modules/finance/cashflow/occurrence.service";
+import {
+  materializeAndAct,
+  OccurrenceCollisionError,
+} from "@/modules/finance/cashflow/occurrence.service";
 import { upsertAndActSchema } from "@/lib/validations/cashflow";
 
 /**
@@ -21,8 +24,18 @@ export async function POST(request: NextRequest) {
     }
     const parsed = await parseBody(request, upsertAndActSchema);
     if (parsed.error) return parsed.error;
-    const result = await materializeAndAct(ctx.tenantId, parsed.data);
-    return NextResponse.json({ success: true, data: { id: result.id } });
+    try {
+      const result = await materializeAndAct(ctx.tenantId, parsed.data);
+      return NextResponse.json({ success: true, data: { id: result.id } });
+    } catch (e) {
+      if (e instanceof OccurrenceCollisionError) {
+        return NextResponse.json(
+          { success: false, conflict: e.conflict, error: e.message },
+          { status: 409 },
+        );
+      }
+      throw e;
+    }
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : "Error interno";
     console.error("[Finance/Cashflow] POST upsert-and-act:", error);

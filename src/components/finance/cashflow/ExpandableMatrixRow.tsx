@@ -116,7 +116,7 @@ export function ExpandableMatrixRow({
   return (
     <>
       <tr className="hover:bg-muted/20">
-        <td className="sticky left-0 z-20 bg-background p-2 truncate min-w-[140px] max-w-[160px] sm:min-w-[180px] sm:max-w-none">
+        <td className="sticky left-0 z-20 bg-card p-2 truncate min-w-[140px] max-w-[160px] sm:min-w-[180px] sm:max-w-none border-r border-border/50">
           <button
             type="button"
             onClick={toggle}
@@ -166,7 +166,7 @@ export function ExpandableMatrixRow({
             </DroppableBucketCell>
           );
         })}
-        <td className="sticky right-0 z-20 p-2 text-right font-mono bg-muted/40 whitespace-nowrap">
+        <td className="sticky right-0 z-20 p-2 text-right font-mono bg-card whitespace-nowrap border-l border-border/50">
           {fmt.format(row.total)}
         </td>
       </tr>

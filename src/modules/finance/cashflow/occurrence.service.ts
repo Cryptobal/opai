@@ -7,6 +7,54 @@ import type {
   Prisma,
 } from "@prisma/client";
 
+export type CollisionResolveStrategy = "replace" | "next_free";
+
+/**
+ * Lanzado cuando una operación de mover ocurrencia choca con otra existente
+ * y el caller no especificó cómo resolverla. La API la convierte en una
+ * respuesta 409 con la metadata, que la UI usa para abrir el modal con
+ * [Reemplazar] [Mover a fecha libre] [Cancelar].
+ */
+export class OccurrenceCollisionError extends Error {
+  conflict: {
+    existingOccurrenceId: string;
+    targetDate: string;
+    suggestedFreeDate: string;
+  };
+  constructor(conflict: OccurrenceCollisionError["conflict"]) {
+    super("Ya existe una ocurrencia de este ítem en esa fecha");
+    this.name = "OccurrenceCollisionError";
+    this.conflict = conflict;
+  }
+}
+
+const MAX_FREE_DATE_PROBES = 365;
+
+/**
+ * Busca la siguiente fecha libre (sin colisión) para un item, partiendo de
+ * `startFrom` y avanzando 1 día por iteración. Si `startFrom` ya está libre,
+ * la devuelve. Direction: 1 = futuro, -1 = pasado. Lanza si no encuentra una
+ * fecha libre dentro de MAX_FREE_DATE_PROBES días.
+ */
+async function findFreeDate(
+  tenantId: string,
+  itemId: string,
+  startFrom: Date,
+  excludeOccurrenceId: string | null,
+  direction: 1 | -1 = 1,
+): Promise<Date> {
+  const probe = new Date(startFrom);
+  for (let i = 0; i < MAX_FREE_DATE_PROBES; i++) {
+    const collision = await prisma.financeCashflowOccurrence.findFirst({
+      where: { tenantId, itemId, scheduledDate: probe },
+      select: { id: true },
+    });
+    if (!collision || collision.id === excludeOccurrenceId) return new Date(probe);
+    probe.setDate(probe.getDate() + direction);
+  }
+  throw new Error("No se encontró una fecha libre cercana");
+}
+
 export async function listMaterializedOccurrences(
   tenantId: string,
   from: Date,
@@ -138,7 +186,11 @@ export async function linkOccurrenceToBankTx(
 export async function moveOccurrence(
   tenantId: string,
   id: string,
-  arg: { newDate: Date | null; daysFromCurrent: number | null },
+  arg: {
+    newDate: Date | null;
+    daysFromCurrent: number | null;
+    resolveStrategy?: CollisionResolveStrategy;
+  },
 ): Promise<void> {
   const existing = await prisma.financeCashflowOccurrence.findFirst({
     where: { id, tenantId },
@@ -161,19 +213,63 @@ export async function moveOccurrence(
     throw new Error("Se requiere newDate o daysFromCurrent");
   }
 
-  const collision = await prisma.financeCashflowOccurrence.findFirst({
-    where: {
-      tenantId,
-      itemId: existing.itemId,
-      scheduledDate: target,
-    },
-    select: { id: true },
+  await resolveCollisionAndMove({
+    tenantId,
+    itemId: existing.itemId,
+    occurrenceId: id,
+    target,
+    resolveStrategy: arg.resolveStrategy,
+    direction: arg.daysFromCurrent && arg.daysFromCurrent < 0 ? -1 : 1,
   });
-  if (collision && collision.id !== id) {
-    throw new Error("Ya existe una ocurrencia de este ítem en esa fecha");
+}
+
+/**
+ * Núcleo compartido por moveOccurrence y materializeAndAct: resuelve la
+ * eventual colisión con [itemId, target] según strategy y aplica el update
+ * en la ocurrencia indicada.
+ */
+async function resolveCollisionAndMove(args: {
+  tenantId: string;
+  itemId: string;
+  occurrenceId: string;
+  target: Date;
+  resolveStrategy?: CollisionResolveStrategy;
+  direction: 1 | -1;
+}): Promise<void> {
+  const { tenantId, itemId, occurrenceId, resolveStrategy, direction } = args;
+  let target = args.target;
+
+  const collision = await prisma.financeCashflowOccurrence.findFirst({
+    where: { tenantId, itemId, scheduledDate: target },
+    select: { id: true, status: true },
+  });
+
+  if (collision && collision.id !== occurrenceId) {
+    if (!resolveStrategy) {
+      // Calcular sugerencia de próxima fecha libre para la UI.
+      const probe = new Date(target);
+      probe.setDate(probe.getDate() + direction);
+      const suggested = await findFreeDate(tenantId, itemId, probe, occurrenceId, direction);
+      throw new OccurrenceCollisionError({
+        existingOccurrenceId: collision.id,
+        targetDate: target.toISOString().slice(0, 10),
+        suggestedFreeDate: suggested.toISOString().slice(0, 10),
+      });
+    }
+    if (resolveStrategy === "replace") {
+      if (collision.status === "PAID") {
+        throw new Error("No se puede reemplazar una ocurrencia ya conciliada");
+      }
+      await prisma.financeCashflowOccurrence.delete({ where: { id: collision.id } });
+    } else if (resolveStrategy === "next_free") {
+      const probe = new Date(target);
+      probe.setDate(probe.getDate() + direction);
+      target = await findFreeDate(tenantId, itemId, probe, occurrenceId, direction);
+    }
   }
+
   await prisma.financeCashflowOccurrence.update({
-    where: { id },
+    where: { id: occurrenceId },
     data: { scheduledDate: target, effectiveDate: target },
   });
 }
@@ -210,7 +306,14 @@ export async function setOccurrenceAmountOverride(
 }
 
 export type MaterializeAndActInput =
-  | { itemId: string; originalDate: Date; action: "move"; newDate?: Date; daysFromCurrent?: number }
+  | {
+      itemId: string;
+      originalDate: Date;
+      action: "move";
+      newDate?: Date;
+      daysFromCurrent?: number;
+      resolveStrategy?: CollisionResolveStrategy;
+    }
   | { itemId: string; originalDate: Date; action: "amount"; amountClp: number };
 
 /**
@@ -281,21 +384,21 @@ export async function materializeAndAct(
     } else {
       throw new Error("Se requiere newDate o daysFromCurrent para move");
     }
-    if (
-      target.toISOString().slice(0, 10) !==
-      existing.scheduledDate.toISOString().slice(0, 10)
-    ) {
-      const collision = await prisma.financeCashflowOccurrence.findFirst({
-        where: { tenantId, itemId: item.id, scheduledDate: target },
-        select: { id: true },
+    const sameDay =
+      target.toISOString().slice(0, 10) ===
+      existing.scheduledDate.toISOString().slice(0, 10);
+    if (!sameDay) {
+      await resolveCollisionAndMove({
+        tenantId,
+        itemId: item.id,
+        occurrenceId: existing.id,
+        target,
+        resolveStrategy: input.resolveStrategy,
+        direction: input.daysFromCurrent && input.daysFromCurrent < 0 ? -1 : 1,
       });
-      if (collision && collision.id !== existing.id) {
-        throw new Error("Ya existe una ocurrencia de este ítem en esa fecha");
-      }
     }
-    return prisma.financeCashflowOccurrence.update({
+    return prisma.financeCashflowOccurrence.findUniqueOrThrow({
       where: { id: existing.id },
-      data: { scheduledDate: target, effectiveDate: target },
     });
   }
 

@@ -30,6 +30,14 @@ export async function ensureCashflowSynced(tenantId: string): Promise<{
 
   try {
     // ── Contratos ──
+    // Drift: hay quotes activas pero faltan items (e.g. cotización aceptada
+    // recientemente que aún no se materializó). El backfill las crea.
+    //
+    // OJO: anteriormente también disparábamos backfill cuando había items
+    // con currency=UF (lógica del bug histórico CLP×UF). Ya no aplica:
+    // currency=UF es válido para contratos indexados. Re-disparar el
+    // backfill en cada page-load borraba las occurrences PROJECTED que el
+    // usuario había movido manualmente — efecto "la cuota vuelve sola".
     const [activeQuotes, contractItems] = await Promise.all([
       prisma.cpqQuote.count({
         where: {

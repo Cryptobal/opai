@@ -339,6 +339,13 @@ export function EntityDetailLayout({
 
 /* ── Convenience hook for tab state ── */
 export function useEntityTabs(defaultTab: string) {
-  const [activeTab, setActiveTab] = useState(defaultTab);
+  // Soporta deep-link a tabs con ?tab=contracts en la URL. Se lee solo al
+  // montar (es el comportamiento esperado: navegar dentro del detalle no
+  // debe re-leer el query). Setters posteriores se manejan en memoria.
+  const [activeTab, setActiveTab] = useState(() => {
+    if (typeof window === "undefined") return defaultTab;
+    const url = new URL(window.location.href);
+    return url.searchParams.get("tab") ?? defaultTab;
+  });
   return { activeTab, setActiveTab } as const;
 }

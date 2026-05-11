@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useRegisterChatPageContext } from "@/components/opai/ChatPageContextProvider";
-import { MapPin, ExternalLink, Trash2, Pencil, Loader2, LayoutGrid, Plus, QrCode, Copy, RefreshCw, Moon, UserPlus, UserMinus, Search, CalendarDays, AlertTriangle, Info, Users, Briefcase, FileText, ClipboardList, Shield, ShieldAlert, ShieldCheck, Receipt, Package, UserCircle, BookOpen, History, MessageCircle, Route, Fingerprint, Clock, FileCheck, ChevronDown, Power, Ticket as TicketIcon } from "lucide-react";
+import { MapPin, ExternalLink, Trash2, Pencil, Loader2, LayoutGrid, Plus, QrCode, Copy, RefreshCw, Moon, UserPlus, UserMinus, Search, CalendarDays, AlertTriangle, Info, Users, Briefcase, FileText, ClipboardList, Shield, ShieldAlert, ShieldCheck, Receipt, Package, UserCircle, BookOpen, History, MessageCircle, Route, Fingerprint, Clock, FileCheck, ChevronDown, Power, Wallet, Ticket as TicketIcon } from "lucide-react";
 import { InstalacionRondasTab } from "./InstalacionRondasTab";
 import { InstalacionMarcacionesTab } from "@/components/ops/InstalacionMarcacionesTab";
 import { PuestoFormModal, type PuestoFormData } from "@/components/shared/PuestoFormModal";
@@ -33,6 +33,7 @@ import { CRM_MODULES } from "./CrmModuleIcons";
 import { getQuoteStatus } from "@/lib/quoteStatus";
 import { FileAttachments } from "./FileAttachments";
 import { InstallationExpensesSection } from "@/components/finance/InstallationExpensesSection";
+import { InstallationCashflowCard } from "@/components/finance/InstallationCashflowCard";
 import { InventarioInstallationSection } from "@/components/inventario/InventarioInstallationSection";
 import { OpsRefuerzosClient } from "@/components/ops";
 import { InstalacionVisitasTecnicasTab } from "./InstalacionVisitasTecnicasTab";
@@ -2606,6 +2607,12 @@ export function CrmInstallationDetailClient({
           )}
         </div>
       ),
+    },
+    {
+      id: "cashflow",
+      label: "Flujo de caja",
+      icon: Wallet,
+      content: <InstallationCashflowCard installationId={installation.id} />,
     },
     {
       id: "rendiciones",

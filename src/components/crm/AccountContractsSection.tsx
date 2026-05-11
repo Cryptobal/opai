@@ -38,7 +38,9 @@ import {
   CalendarClock,
   Pencil,
   ExternalLink,
+  Wallet,
 } from "lucide-react";
+import { ContractCashflowDialog } from "./ContractCashflowDialog";
 import { cn } from "@/lib/utils";
 import { DOC_STATUS_CONFIG } from "@/lib/docs/token-registry";
 import {
@@ -70,6 +72,13 @@ interface Contract {
     status: string;
   }>;
   createdAt: string;
+  installationId?: string | null;
+  cashflow?: {
+    itemId: string;
+    amountClp: number;
+    currency: string;
+    dayOfMonth: number | null;
+  } | null;
 }
 
 interface Props {
@@ -136,6 +145,35 @@ export function AccountContractsSection({
   const [uploadSignedBy, setUploadSignedBy] = useState("");
   const [uploadNotes, setUploadNotes] = useState("");
   const [uploadSaving, setUploadSaving] = useState(false);
+  // Instalación + integración con Flujo de Caja al subir contrato.
+  const [installations, setInstallations] = useState<
+    Array<{ id: string; name: string }>
+  >([]);
+  const [uploadInstallationId, setUploadInstallationId] = useState<string>("");
+  const [uploadAddToCashflow, setUploadAddToCashflow] = useState(false);
+  const [uploadMonthlyAmount, setUploadMonthlyAmount] = useState<string>("");
+  const [uploadPaymentDay, setUploadPaymentDay] = useState<string>("5");
+  // Diálogo "Configurar flujo de caja" por contrato individual.
+  const [cashflowDialogContract, setCashflowDialogContract] = useState<Contract | null>(null);
+
+  // Cotizaciones aceptadas con flujo de caja (CpqQuote-derived). Históricamente
+  // se mostraban en una sección separada (AccountCashflowQuotesSection), pero
+  // conceptualmente son contratos del cliente igual que los Documents — los
+  // renderizamos en la misma lista para no duplicar visualmente.
+  interface QuoteContract {
+    id: string;
+    code: string;
+    clientName: string | null;
+    monthlyCost: number;
+    currency: string;
+    contractStartDate: string | null;
+    contractDuration: number;
+    paymentDays: number;
+    paymentDayMode: string;
+    installation: { id: string; name: string } | null;
+  }
+  const [quoteContracts, setQuoteContracts] = useState<QuoteContract[]>([]);
+  const [quotesLoading, setQuotesLoading] = useState(true);
 
   // Edit dialog state (only for manually uploaded contracts)
   const [editOpen, setEditOpen] = useState(false);
@@ -169,6 +207,45 @@ export function AccountContractsSection({
     fetchContracts();
   }, [fetchContracts]);
 
+  // Cargar cotizaciones (CpqQuote) con cashflow para mostrarlas en la
+  // misma lista. Endpoint reutilizado: AccountCashflowQuotesSection ya lo
+  // usaba.
+  const fetchQuoteContracts = useCallback(async () => {
+    setQuotesLoading(true);
+    try {
+      const r = await fetch(`/api/crm/accounts/${accountId}/cashflow-quotes`);
+      const j = await r.json();
+      if (j?.success) {
+        setQuoteContracts(j.data.quotes ?? []);
+      }
+    } finally {
+      setQuotesLoading(false);
+    }
+  }, [accountId]);
+
+  useEffect(() => {
+    fetchQuoteContracts();
+  }, [fetchQuoteContracts]);
+
+  // Lazy-load instalaciones del cliente para el selector del upload.
+  // Solo se trae una vez al montar; el set cambia poco en runtime.
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/crm/installations?accountId=${encodeURIComponent(accountId)}`)
+      .then((r) => r.json())
+      .then((j) => {
+        if (cancelled || !j?.success) return;
+        const items = (j.data ?? []).map(
+          (i: { id: string; name: string }) => ({ id: i.id, name: i.name }),
+        );
+        setInstallations(items);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [accountId]);
+
   // ─── Auto-compute expiration when effective + duration change ──
   useEffect(() => {
     if (expirationManuallyEdited) return;
@@ -194,6 +271,10 @@ export function AccountContractsSection({
     setUploadSignedAt("");
     setUploadSignedBy("");
     setUploadNotes("");
+    setUploadInstallationId("");
+    setUploadAddToCashflow(false);
+    setUploadMonthlyAmount("");
+    setUploadPaymentDay("5");
   }, []);
 
   // ─── Handle file selection ─────────────────────────────────────
@@ -256,6 +337,13 @@ export function AccountContractsSection({
       if (uploadSignedExternally && uploadSignedBy.trim())
         fd.append("signedBy", uploadSignedBy.trim());
       if (uploadNotes.trim()) fd.append("notes", uploadNotes.trim());
+      if (uploadInstallationId) fd.append("installationId", uploadInstallationId);
+      fd.append("addToCashflow", String(uploadAddToCashflow));
+      if (uploadAddToCashflow) {
+        const amt = Number(uploadMonthlyAmount.replace(/\./g, "").replace(",", "."));
+        if (Number.isFinite(amt) && amt > 0) fd.append("monthlyAmountClp", String(amt));
+        if (uploadPaymentDay) fd.append("paymentDay", uploadPaymentDay);
+      }
 
       const res = await fetch(`/api/crm/accounts/${accountId}/contracts`, {
         method: "POST",
@@ -539,7 +627,7 @@ export function AccountContractsSection({
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </div>
-      ) : contracts.length === 0 ? (
+      ) : contracts.length === 0 && quoteContracts.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-center">
           <FileText className="h-10 w-10 text-muted-foreground/40 mb-3" />
           <p className="text-sm text-muted-foreground">No hay contratos aún</p>
@@ -622,6 +710,54 @@ export function AccountContractsSection({
                       {CONTRACT_CATEGORY_LABELS[c.category as ContractCategory] ?? c.category}
                     </span>
                   </div>
+                  {c.cashflow ? (
+                    <div className="mt-2 flex flex-wrap items-center gap-2 rounded-md bg-status-ok-soft/30 border border-status-ok-fg/20 px-2.5 py-1.5">
+                      <Wallet className="h-3.5 w-3.5 text-status-ok-fg" />
+                      <span className="text-[11px] font-mono uppercase tracking-[0.08em] text-status-ok-fg">
+                        En flujo de caja
+                      </span>
+                      <span className="text-[13px] font-semibold tabular-nums text-status-ok-fg">
+                        ${new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 }).format(c.cashflow.amountClp)}/mes
+                      </span>
+                      <span className="text-[11px] text-muted-foreground">
+                        · día {c.cashflow.dayOfMonth === -1 ? "último" : c.cashflow.dayOfMonth}
+                      </span>
+                      <div className="flex gap-1 ml-auto">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-[11px]"
+                          onClick={() => setCashflowDialogContract(c)}
+                        >
+                          <Pencil className="h-3 w-3 mr-1" /> Editar
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-[11px]"
+                          onClick={() => router.push(`/finanzas/flujo-caja?itemId=${c.cashflow!.itemId}`)}
+                        >
+                          Ver
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setCashflowDialogContract(c)}
+                      className="mt-2 w-full sm:w-auto flex items-center gap-2 rounded-md border border-dashed border-status-ok-fg/40 bg-status-ok-soft/10 hover:bg-status-ok-soft/30 hover:border-status-ok-fg/70 px-3 py-2 text-left transition-colors"
+                    >
+                      <Wallet className="h-4 w-4 text-status-ok-fg shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[12px] font-medium text-foreground">
+                          Agregar a flujo de caja
+                        </p>
+                        <p className="text-[11px] text-muted-foreground truncate">
+                          Configurar monto mensual, instalación y día de pago
+                        </p>
+                      </div>
+                    </button>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-1 shrink-0 self-end sm:self-center">
@@ -705,6 +841,93 @@ export function AccountContractsSection({
               </div>
             );
           })}
+
+          {/* Cotizaciones aceptadas (CpqQuote-derived). Aparecen en la
+              misma lista para que el usuario las vea como "el contrato"
+              independiente del origen (PDF subido vs cotización ganada). */}
+          {quoteContracts.map((q) => {
+            const monthly = new Intl.NumberFormat("es-CL", {
+              maximumFractionDigits: 0,
+            }).format(Number(q.monthlyCost));
+            const startStr = q.contractStartDate
+              ? new Date(q.contractStartDate).toLocaleDateString("es-CL")
+              : "—";
+            const payLabel =
+              q.paymentDayMode === "SPECIFIC_DAY"
+                ? `día ${q.paymentDays}`
+                : q.paymentDayMode === "FIRST_BUSINESS_DAY"
+                  ? "primer día hábil"
+                  : q.paymentDayMode === "LAST_BUSINESS_DAY"
+                    ? "último día hábil"
+                    : q.paymentDayMode === "FIRST_MONDAY"
+                      ? "primer lunes"
+                      : q.paymentDayMode;
+            return (
+              <div
+                key={`quote-${q.id}`}
+                className="flex items-start sm:items-center justify-between gap-3 rounded-lg border border-border p-3 transition-colors hover:bg-accent/30 flex-col sm:flex-row"
+              >
+                <div className="flex-1 min-w-0 w-full">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-medium text-sm break-words">
+                      {q.installation?.name ?? q.clientName ?? "Cotización"}
+                    </span>
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] px-1.5 py-0 font-mono"
+                    >
+                      {q.code}
+                    </Badge>
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] px-1.5 py-0 bg-status-info-soft text-status-info-fg"
+                    >
+                      Desde cotización
+                    </Badge>
+                  </div>
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:gap-3 mt-1 gap-1">
+                    <span className="text-xs text-muted-foreground">
+                      Inicio: {startStr}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      Duración: {q.contractDuration} meses
+                    </span>
+                  </div>
+                  <div className="mt-2 flex flex-wrap items-center gap-2 rounded-md bg-status-ok-soft/30 border border-status-ok-fg/20 px-2.5 py-1.5">
+                    <Wallet className="h-3.5 w-3.5 text-status-ok-fg" />
+                    <span className="text-[11px] font-mono uppercase tracking-[0.08em] text-status-ok-fg">
+                      En flujo de caja
+                    </span>
+                    <span className="text-[13px] font-semibold tabular-nums text-status-ok-fg">
+                      ${monthly}/mes
+                    </span>
+                    <span className="text-[11px] text-muted-foreground">
+                      · {payLabel}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 shrink-0 self-end sm:self-center">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-[11px]"
+                    title="Abrir cotización"
+                    onClick={() => router.push(`/crm/cotizaciones/${q.id}`)}
+                  >
+                    <ExternalLink className="h-3.5 w-3.5 mr-1" />
+                    Cotización
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+
+          {quotesLoading && quoteContracts.length === 0 && (
+            <div className="flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Cargando cotizaciones…
+            </div>
+          )}
         </div>
       )}
 
@@ -875,6 +1098,102 @@ export function AccountContractsSection({
               />
             </div>
 
+            {/* ── Vinculación: Instalación + Flujo de Caja ───────────── */}
+            <div className="rounded-md border border-border p-3 space-y-3">
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  Instalación vinculada
+                  <span className="text-[10px] text-muted-foreground font-normal">
+                    (opcional)
+                  </span>
+                </Label>
+                <Select
+                  value={uploadInstallationId || "none"}
+                  onValueChange={(v) =>
+                    setUploadInstallationId(v === "none" ? "" : v)
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sin instalación" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Sin instalación específica</SelectItem>
+                    {installations.map((i) => (
+                      <SelectItem key={i.id} value={i.id}>
+                        {i.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground">
+                  Si vinculás una instalación, el contrato aparece en el detalle
+                  de esa instalación y en el flujo de caja como ingreso de ese
+                  servicio.
+                </p>
+              </div>
+
+              <label className="flex items-start gap-2 cursor-pointer pt-1 border-t border-border">
+                <Checkbox
+                  checked={uploadAddToCashflow}
+                  onCheckedChange={(v) => setUploadAddToCashflow(v === true)}
+                  className="mt-1"
+                />
+                <div className="space-y-0.5">
+                  <span className="text-sm font-medium">
+                    Ingresa al flujo de caja
+                  </span>
+                  <p className="text-xs text-muted-foreground">
+                    Crea automáticamente un ingreso mensual recurrente en
+                    &quot;Ventas por contrato&quot;, vinculado a este PDF.
+                    Termina cuando vence el contrato.
+                  </p>
+                </div>
+              </label>
+
+              {uploadAddToCashflow && (
+                <div className="grid grid-cols-2 gap-3 pt-2 border-t border-border">
+                  <div className="space-y-2">
+                    <Label>Monto mensual (CLP)</Label>
+                    <Input
+                      inputMode="decimal"
+                      value={uploadMonthlyAmount}
+                      onChange={(e) => {
+                        const raw = e.target.value
+                          .replace(/[^\d,.-]/g, "")
+                          .replace(/\./g, "")
+                          .replace(",", ".");
+                        const n = Number(raw);
+                        if (Number.isFinite(n)) {
+                          setUploadMonthlyAmount(
+                            new Intl.NumberFormat("es-CL", {
+                              maximumFractionDigits: 0,
+                            }).format(n),
+                          );
+                        } else {
+                          setUploadMonthlyAmount(e.target.value);
+                        }
+                      }}
+                      placeholder="1.500.000"
+                      className="font-mono text-right"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Día de pago</Label>
+                    <Input
+                      type="number"
+                      min={-1}
+                      max={31}
+                      value={uploadPaymentDay}
+                      onChange={(e) => setUploadPaymentDay(e.target.value)}
+                    />
+                    <p className="text-[11px] text-muted-foreground">
+                      <code className="font-mono">-1</code> = último día del mes
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {dialogError && (
               <div className="flex items-start gap-2 rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
                 <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
@@ -1017,6 +1336,20 @@ export function AccountContractsSection({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {cashflowDialogContract && (
+        <ContractCashflowDialog
+          open={cashflowDialogContract !== null}
+          onClose={() => setCashflowDialogContract(null)}
+          onChanged={fetchContracts}
+          accountId={accountId}
+          contractId={cashflowDialogContract.id}
+          contractTitle={cashflowDialogContract.title}
+          defaultEffectiveDate={cashflowDialogContract.effectiveDate}
+          defaultExpirationDate={cashflowDialogContract.expirationDate}
+          installations={installations}
+        />
+      )}
     </div>
   );
 }

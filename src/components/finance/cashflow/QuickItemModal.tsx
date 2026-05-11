@@ -65,6 +65,7 @@ export function QuickItemModal({
   const [amount, setAmount] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [dayOfMonth, setDayOfMonth] = useState(String(defaultDayOfMonth ?? 5));
+  const [endDate, setEndDate] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -72,6 +73,7 @@ export function QuickItemModal({
   useEffect(() => {
     if (open) {
       setDayOfMonth(String(defaultDayOfMonth ?? 5));
+      setEndDate("");
       setError(null);
     }
   }, [open, defaultDayOfMonth]);
@@ -97,6 +99,13 @@ export function QuickItemModal({
       setError("Día del mes debe ser 1-31 o -1 (último)");
       return;
     }
+    if (endDate) {
+      const startISO = new Date().toISOString().slice(0, 10);
+      if (endDate < startISO) {
+        setError("La fecha de vencimiento no puede ser anterior a hoy");
+        return;
+      }
+    }
     setSaving(true);
     try {
       const r = await fetch("/api/finance/cashflow/items", {
@@ -111,6 +120,7 @@ export function QuickItemModal({
           recurrence: "MONTHLY",
           dayOfMonth: dom,
           startDate: new Date().toISOString().slice(0, 10),
+          ...(endDate ? { endDate } : {}),
         }),
       });
       const j = await r.json();
@@ -185,6 +195,19 @@ export function QuickItemModal({
                 <code className="font-mono">-1</code> = último día.
               </p>
             </div>
+          </div>
+          <div>
+            <Label>Vence el (opcional)</Label>
+            <Input
+              className="h-10 sm:h-9"
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+            />
+            <p className="mt-1 text-[12px] text-ds-text-3">
+              Dejar vacío = recurrente perpetuo. Podés editarlo después en
+              &quot;Movimientos proyectados&quot;.
+            </p>
           </div>
           {error && <p className="text-status-warn-fg text-[12px]">{error}</p>}
         </div>
