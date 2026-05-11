@@ -184,6 +184,7 @@ export default async function DtesEmitidosPage({
       receiverRut: d.receiverRut,
       receiverName: d.receiverName,
       receiverEmail: d.receiverEmail,
+      receiverEmailCc: [...d.receiverEmailCc],
       netAmount: d.netAmount.toNumber(),
       taxAmount: d.taxAmount.toNumber(),
       totalAmount: d.totalAmount.toNumber(),

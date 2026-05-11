@@ -258,6 +258,9 @@ export function DtesEmitidosClient({
               receiverRut: String(d.receiverRut ?? ""),
               receiverName: String(d.receiverName ?? ""),
               receiverEmail: (d.receiverEmail as string | null) ?? null,
+              receiverEmailCc: Array.isArray(d.receiverEmailCc)
+                ? (d.receiverEmailCc as string[])
+                : [],
               netAmount: Number(d.netAmount),
               taxAmount: Number(d.taxAmount),
               totalAmount: Number(d.totalAmount),
@@ -971,6 +974,7 @@ export function DtesEmitidosClient({
             folio: cedeDte.folio,
             receiverName: cedeDte.receiverName,
             receiverEmail: cedeDte.receiverEmail,
+            receiverEmailCc: cedeDte.receiverEmailCc ?? [],
             totalAmount: cedeDte.totalAmount,
             date: cedeDte.date,
           }}

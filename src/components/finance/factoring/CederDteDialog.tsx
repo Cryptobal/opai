@@ -54,6 +54,8 @@ interface DteSummary {
   receiverName: string;
   /** Correo del receptor en la factura; se antepone en la cesión Octava. */
   receiverEmail?: string | null;
+  /** Copias configuradas al emitir / reenviar el DTE. */
+  receiverEmailCc?: string[] | null;
   totalAmount: number;
   /** Fecha de emisión del DTE, formato ISO o YYYY-MM-DD. */
   date?: string;
@@ -112,6 +114,44 @@ function formatDayMonth(iso: string | undefined): string | null {
   });
 }
 
+function normalizeEmailKey(s: string): string {
+  return s.trim().toLowerCase();
+}
+
+/** Principal primero, luego CC, sin duplicados (case-insensitive). */
+function collectReceiverEmails(
+  primary?: string | null,
+  cc?: string[] | null,
+): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  const push = (raw: string | undefined | null) => {
+    const e = raw?.trim();
+    if (!e) return;
+    const key = normalizeEmailKey(e);
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push(e);
+  };
+  push(primary);
+  for (const x of cc ?? []) push(x);
+  return out;
+}
+
+function defaultDeudorEmailFromDte(
+  dte: Pick<DteSummary, "receiverEmail" | "receiverEmailCc">,
+): string {
+  const list = collectReceiverEmails(dte.receiverEmail, dte.receiverEmailCc);
+  return list[0] ?? "";
+}
+
+function labelDeudorEmailOption(email: string, primary?: string | null): string {
+  const p = primary?.trim().toLowerCase();
+  const e = email.trim().toLowerCase();
+  const tag = p && e === p ? "Principal" : "Copia (CC)";
+  return `${email} · ${tag}`;
+}
+
 export function CederDteDialog({ open, onOpenChange, dte }: Props) {
   const router = useRouter();
   const [companies, setCompanies] = useState<FactoringCompanyOpt[]>([]);
@@ -139,9 +179,8 @@ export function CederDteDialog({ open, onOpenChange, dte }: Props) {
   // Anteponer email del receptor del DTE al abrir (Octava exige email del deudor).
   useEffect(() => {
     if (!open) return;
-    const pre = dte.receiverEmail?.trim();
-    setEmailDeudor(pre ?? "");
-  }, [open, dte.id, dte.receiverEmail]);
+    setEmailDeudor(defaultDeudorEmailFromDte(dte));
+  }, [open, dte.id, dte.receiverEmail, dte.receiverEmailCc]);
 
   useEffect(() => {
     if (!open) return;
@@ -158,6 +197,21 @@ export function CederDteDialog({ open, onOpenChange, dte }: Props) {
     () => companies.find((c) => c.id === factoringId) ?? null,
     [factoringId, companies],
   );
+
+  const deudorEmailCandidates = useMemo(
+    () => collectReceiverEmails(dte.receiverEmail, dte.receiverEmailCc),
+    [dte.receiverEmail, dte.receiverEmailCc],
+  );
+
+  const deudorEmailPresetValue = useMemo(() => {
+    if (deudorEmailCandidates.length === 0) return "__custom__";
+    const cur = emailDeudor.trim();
+    if (!cur) return "__custom__";
+    const match = deudorEmailCandidates.find(
+      (e) => normalizeEmailKey(e) === normalizeEmailKey(cur),
+    );
+    return match ?? "__custom__";
+  }, [deudorEmailCandidates, emailDeudor]);
 
   // Reset estado simulación cuando se cierra el modal.
   useEffect(() => {
@@ -678,18 +732,40 @@ export function CederDteDialog({ open, onOpenChange, dte }: Props) {
                 : "Vacío: se calcula como anticipo − dif. precio − comisión − IVA."}
             </p>
           </div>
-          <div>
-            <Label htmlFor="emailDeudor">Email del deudor (receptor)</Label>
+          <div className="sm:col-span-2 space-y-2">
+            <Label htmlFor="emailDeudor">Correo del deudor para la cesión</Label>
+            {deudorEmailCandidates.length > 0 ? (
+              <Select
+                value={deudorEmailPresetValue}
+                onValueChange={(v) => {
+                  if (v !== "__custom__") setEmailDeudor(v);
+                }}
+              >
+                <SelectTrigger id="emailDeudorPreset" className="h-10 sm:h-9 w-full">
+                  <SelectValue placeholder="Elegir entre los correos del DTE…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {deudorEmailCandidates.map((e, i) => (
+                    <SelectItem key={`${e}-${i}`} value={e}>
+                      {labelDeudorEmailOption(e, dte.receiverEmail)}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="__custom__">Otro correo (editar abajo)</SelectItem>
+                </SelectContent>
+              </Select>
+            ) : null}
             <Input
               id="emailDeudor"
               type="email"
               value={emailDeudor}
               onChange={(e) => setEmailDeudor(e.target.value)}
               className="h-10 sm:h-9"
+              placeholder="facturacion@cliente.cl"
             />
-            <p className="text-xs text-ds-text-3 mt-0.5">
-              Obligatorio con App Octava. Si la factura tiene correo del receptor, se carga solo;
-              si no, ingresalo aquí.
+            <p className="text-xs text-ds-text-3">
+              Es el contacto del receptor de la factura (tu cliente), no el del factoring. Obligatorio
+              con App Octava. En el detalle del DTE los correos son solo lectura; la cesión se completa
+              acá. Si hay varios (principal y CC), elegí uno en la lista o escribí otro.
             </p>
           </div>
           <div className="sm:col-span-2">

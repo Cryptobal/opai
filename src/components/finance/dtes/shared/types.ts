@@ -13,6 +13,8 @@ export interface DteRow {
   receiverRut: string;
   receiverName: string;
   receiverEmail: string | null;
+  /** Copias al enviar la factura por correo (mismo DTE). */
+  receiverEmailCc?: string[];
   netAmount: number;
   taxAmount: number;
   totalAmount: number;
