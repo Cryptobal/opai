@@ -86,6 +86,41 @@ export async function PATCH(
         }
       }
 
+      // Propagar fechas + instalación al FinanceCashflowItem vinculado.
+      // Sin esto, si el usuario extiende el contrato el flujo de caja
+      // sigue proyectando hasta la fecha vieja (bug histórico).
+      if (
+        updateData.effectiveDate !== undefined ||
+        updateData.expirationDate !== undefined ||
+        installationId !== undefined
+      ) {
+        const cashflowItem = await tx.financeCashflowItem.findFirst({
+          where: {
+            tenantId: ctx.tenantId,
+            source: "OTHER",
+            sourceRefId: contractId,
+            isActive: true,
+          },
+          select: { id: true },
+        });
+        if (cashflowItem) {
+          const itemUpdate: Record<string, unknown> = {};
+          if (updateData.effectiveDate !== undefined) {
+            itemUpdate.startDate = updateData.effectiveDate ?? new Date();
+          }
+          if (updateData.expirationDate !== undefined) {
+            itemUpdate.endDate = updateData.expirationDate ?? null;
+          }
+          if (installationId !== undefined) {
+            itemUpdate.installationId = installationId || null;
+          }
+          await tx.financeCashflowItem.update({
+            where: { id: cashflowItem.id },
+            data: itemUpdate,
+          });
+        }
+      }
+
       await tx.docHistory.create({
         data: {
           documentId: contractId,
