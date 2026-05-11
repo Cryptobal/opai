@@ -368,31 +368,68 @@ export function AccountContractsSection({
     if (!uploadFile) return;
     setUploadSaving(true);
     try {
-      const fd = new FormData();
-      fd.append("file", uploadFile);
-      fd.append("title", uploadTitle.trim());
-      fd.append("category", uploadCategory);
-      if (uploadEffective) fd.append("effectiveDate", uploadEffective);
-      if (uploadExpiration) fd.append("expirationDate", uploadExpiration);
-      if (uploadDuration) fd.append("durationMonths", uploadDuration);
-      if (uploadAlertDays) fd.append("alertDaysBefore", uploadAlertDays);
-      fd.append("signedExternally", String(uploadSignedExternally));
-      if (uploadSignedExternally && uploadSignedAt) fd.append("signedAt", uploadSignedAt);
-      if (uploadSignedExternally && uploadSignedBy.trim())
-        fd.append("signedBy", uploadSignedBy.trim());
-      if (uploadNotes.trim()) fd.append("notes", uploadNotes.trim());
-      if (uploadInstallationId) fd.append("installationId", uploadInstallationId);
-      fd.append("addToCashflow", String(uploadAddToCashflow));
+      // Subida en dos pasos para bypassear el límite de body de Vercel
+      // (Hobby ~4.5MB). Pedimos un presigned URL, subimos el PDF directo
+      // a R2, y después POSTeamos sólo metadata + storageKey al endpoint.
+      const presignRes = await fetch("/api/storage/presigned-upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fileName: uploadFile.name,
+          mimeType: uploadFile.type || "application/pdf",
+          prefix: "contracts",
+        }),
+      });
+      const presign = await presignRes.json();
+      if (!presign.success) {
+        toast.error(presign.error || "No se pudo iniciar la subida");
+        return;
+      }
+      const putRes = await fetch(presign.uploadUrl, {
+        method: "PUT",
+        headers: { "Content-Type": uploadFile.type || "application/pdf" },
+        body: uploadFile,
+      });
+      if (!putRes.ok) {
+        toast.error(`Error subiendo el PDF al storage (${putRes.status})`);
+        return;
+      }
+
+      const amt = uploadAddToCashflow
+        ? Number(uploadMonthlyAmount.replace(/\./g, "").replace(",", "."))
+        : null;
+      const payload: Record<string, unknown> = {
+        storageKey: presign.storageKey,
+        fileName: uploadFile.name,
+        fileSize: uploadFile.size,
+        title: uploadTitle.trim(),
+        category: uploadCategory,
+        effectiveDate: uploadEffective || undefined,
+        expirationDate: uploadExpiration || undefined,
+        durationMonths: uploadDuration || undefined,
+        alertDaysBefore: uploadAlertDays || undefined,
+        signedExternally: uploadSignedExternally,
+        signedAt: uploadSignedExternally && uploadSignedAt ? uploadSignedAt : undefined,
+        signedBy:
+          uploadSignedExternally && uploadSignedBy.trim()
+            ? uploadSignedBy.trim()
+            : undefined,
+        notes: uploadNotes.trim() || undefined,
+        installationId: uploadInstallationId || undefined,
+        addToCashflow: uploadAddToCashflow,
+      };
       if (uploadAddToCashflow) {
-        const amt = Number(uploadMonthlyAmount.replace(/\./g, "").replace(",", "."));
-        if (Number.isFinite(amt) && amt > 0) fd.append("monthlyAmountClp", String(amt));
-        fd.append("currency", uploadCurrency);
-        if (uploadPaymentDay) fd.append("paymentDay", uploadPaymentDay);
+        if (Number.isFinite(amt) && (amt ?? 0) > 0) {
+          payload.monthlyAmountClp = amt;
+        }
+        payload.currency = uploadCurrency;
+        if (uploadPaymentDay) payload.paymentDay = Number(uploadPaymentDay);
       }
 
       const res = await fetch(`/api/crm/accounts/${accountId}/contracts`, {
         method: "POST",
-        body: fd,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (data.success) {

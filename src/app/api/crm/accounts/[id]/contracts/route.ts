@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { requireCrmView, requireCrmEdit } from "@/lib/api-auth-crm";
 import { prisma } from "@/lib/prisma";
-import { uploadFile } from "@/lib/storage";
+import { uploadFile, getFileUrl } from "@/lib/storage";
 import { requireTenantModule } from "@/lib/require-module";
 import {
   CONTRACT_CATEGORIES,
@@ -180,13 +180,15 @@ export async function POST(
 
   const { id: accountId } = await params;
   const contentType = request.headers.get("content-type") ?? "";
+  const isJson = contentType.includes("application/json");
+  const isMultipart = contentType.includes("multipart/form-data");
 
-  if (!contentType.includes("multipart/form-data")) {
+  if (!isJson && !isMultipart) {
     return NextResponse.json(
       {
         success: false,
         error:
-          "Solo se acepta upload de PDF (multipart/form-data). Para generar un contrato desde plantilla, usa el flujo CPQ desde una cotización.",
+          "Solo se acepta multipart/form-data o application/json. Para generar un contrato desde plantilla, usa el flujo CPQ desde una cotización.",
       },
       { status: 400 },
     );
@@ -205,17 +207,30 @@ export async function POST(
       );
     }
 
-    const formData = await request.formData();
-    const file = formData.get("file") as File | null;
+    // Extraer campos según content-type. En el flujo JSON el archivo ya
+    // está en R2 (subida directa vía presigned URL — evita el límite de
+    // body de Vercel) y sólo recibimos `storageKey`.
+    let rawFields: Record<string, unknown> = {};
+    let file: File | null = null;
+    let presignedStorageKey: string | null = null;
 
-    // Build a plain object of the rest of the fields for zod
-    const rawFields: Record<string, unknown> = {};
-    for (const [key, value] of formData.entries()) {
-      if (key === "file") continue;
-      // FormData returns strings or File objects; normalize empty strings to undefined
-      if (typeof value === "string") {
-        rawFields[key] = value === "" ? undefined : value;
+    if (isMultipart) {
+      const formData = await request.formData();
+      file = formData.get("file") as File | null;
+      for (const [key, value] of formData.entries()) {
+        if (key === "file") continue;
+        if (typeof value === "string") {
+          rawFields[key] = value === "" ? undefined : value;
+        }
       }
+    } else {
+      const body = (await request.json()) as Record<string, unknown>;
+      presignedStorageKey =
+        typeof body.storageKey === "string" ? body.storageKey : null;
+      rawFields = { ...body };
+      delete rawFields.storageKey;
+      delete rawFields.fileName;
+      delete rawFields.fileSize;
     }
 
     const parsed = uploadContractSchema.safeParse(rawFields);
@@ -253,48 +268,63 @@ export async function POST(
       explicitExpiration ??
       computeExpirationFromDuration(effectiveDate, durationMonths);
 
-    if (!file) {
-      return NextResponse.json(
-        { success: false, error: "Archivo PDF requerido" },
-        { status: 400 },
+    let uploadedPublicUrl: string;
+    if (isMultipart) {
+      if (!file) {
+        return NextResponse.json(
+          { success: false, error: "Archivo PDF requerido" },
+          { status: 400 },
+        );
+      }
+      if (file.size === 0) {
+        return NextResponse.json(
+          { success: false, error: "El archivo está vacío" },
+          { status: 400 },
+        );
+      }
+      if (file.size > MAX_PDF_SIZE_BYTES) {
+        return NextResponse.json(
+          { success: false, error: "El archivo supera el límite de 25 MB" },
+          { status: 400 },
+        );
+      }
+      const buffer = Buffer.from(await file.arrayBuffer());
+      const header = buffer.subarray(0, 5).toString("ascii");
+      if (header !== "%PDF-") {
+        return NextResponse.json(
+          { success: false, error: "El archivo no es un PDF válido" },
+          { status: 400 },
+        );
+      }
+      const uploaded = await uploadFile(
+        buffer,
+        file.name,
+        file.type || "application/pdf",
+        "contracts",
+        ctx.tenantId,
       );
+      uploadedPublicUrl = uploaded.publicUrl;
+    } else {
+      if (!presignedStorageKey) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "storageKey requerido cuando se usa subida pre-firmada",
+          },
+          { status: 400 },
+        );
+      }
+      // Validamos que la key sea del tenant + el prefix esperado para
+      // evitar que un atacante reuse keys de otro tenant.
+      const expectedPrefix = `${ctx.tenantId}/contracts/`;
+      if (!presignedStorageKey.startsWith(expectedPrefix)) {
+        return NextResponse.json(
+          { success: false, error: "storageKey no pertenece a este tenant" },
+          { status: 400 },
+        );
+      }
+      uploadedPublicUrl = getFileUrl(presignedStorageKey);
     }
-
-    // Size validation
-    if (file.size === 0) {
-      return NextResponse.json(
-        { success: false, error: "El archivo está vacío" },
-        { status: 400 },
-      );
-    }
-    if (file.size > MAX_PDF_SIZE_BYTES) {
-      return NextResponse.json(
-        { success: false, error: "El archivo supera el límite de 25 MB" },
-        { status: 400 },
-      );
-    }
-
-    const buffer = Buffer.from(await file.arrayBuffer());
-
-    // Magic bytes validation: real PDFs start with "%PDF-"
-    const header = buffer.subarray(0, 5).toString("ascii");
-    if (header !== "%PDF-") {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "El archivo no es un PDF válido",
-        },
-        { status: 400 },
-      );
-    }
-
-    const uploaded = await uploadFile(
-      buffer,
-      file.name,
-      file.type || "application/pdf",
-      "contracts",
-      ctx.tenantId,
-    );
 
     const document = await prisma.$transaction(async (tx) => {
       const doc = await tx.document.create({
@@ -308,7 +338,7 @@ export async function POST(
           effectiveDate: effectiveDate ? new Date(effectiveDate) : null,
           expirationDate: computedExpiration ? new Date(computedExpiration) : null,
           alertDaysBefore,
-          pdfUrl: uploaded.publicUrl,
+          pdfUrl: uploadedPublicUrl,
           portalVisible: true,
           // External-signature metadata
           signatureStatus: signedExternally ? "external" : null,
@@ -383,8 +413,8 @@ export async function POST(
           action: "created",
           details: {
             mode: "upload",
-            fileName: file.name,
-            fileSize: file.size,
+            fileName: file?.name ?? presignedStorageKey?.split("/").pop() ?? "—",
+            fileSize: file?.size ?? null,
             category,
             durationMonths: durationMonths ?? null,
             computedExpiration: !explicitExpiration && computedExpiration ? true : false,

@@ -47,6 +47,7 @@
   "dependencies": {
     "@aws-sdk/client-rekognition": "^3.1007.0",
     "@aws-sdk/client-s3": "^3.1007.0",
+    "@aws-sdk/s3-request-presigner": "^3.1045.0",
     "@capacitor/android": "^8.2.0",
     "@capacitor/camera": "^8.0.2",
     "@capacitor/cli": "^8.2.0",

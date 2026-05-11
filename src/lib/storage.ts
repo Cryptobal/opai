@@ -9,6 +9,7 @@ import {
   DeleteObjectCommand,
   GetObjectCommand,
 } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { randomUUID } from "node:crypto";
 
 const STORAGE_PROVIDER = "r2";
@@ -110,6 +111,44 @@ export async function uploadFile(
     mimeType,
     size: buffer.length,
   };
+}
+
+/**
+ * Genera una URL pre-firmada para que el cliente suba un archivo
+ * directamente a R2 (PUT) sin pasar el body por el server Next/Vercel.
+ *
+ * Esto evita el límite de body de Vercel (~4.5MB Hobby, configurable
+ * en Pro) — la subida llega directo al bucket. El server sólo persiste
+ * la metadata (storageKey, mime, size) después de que el PUT terminó.
+ *
+ * El URL expira a los `expiresInSeconds` (default 5 min).
+ */
+export async function getPresignedUploadUrl(opts: {
+  fileName: string;
+  mimeType: string;
+  prefix?: string;
+  tenantId?: string;
+  expiresInSeconds?: number;
+}): Promise<{
+  uploadUrl: string;
+  storageKey: string;
+  publicUrl: string;
+  expiresIn: number;
+}> {
+  const client = getClient();
+  const bucket = getBucket();
+  const storageKey = buildStorageKey(opts.fileName, opts.prefix ?? "crm", opts.tenantId);
+  const command = new PutObjectCommand({
+    Bucket: bucket,
+    Key: storageKey,
+    ContentType: opts.mimeType,
+    ContentDisposition: `inline; filename="${encodeURIComponent(opts.fileName)}"`,
+  });
+  const expiresIn = opts.expiresInSeconds ?? 300;
+  const uploadUrl = await getSignedUrl(client, command, { expiresIn });
+  const baseUrl = process.env.R2_PUBLIC_URL?.replace(/\/$/, "") || "";
+  const publicUrl = baseUrl ? `${baseUrl}/${storageKey}` : "";
+  return { uploadUrl, storageKey, publicUrl, expiresIn };
 }
 
 /**
