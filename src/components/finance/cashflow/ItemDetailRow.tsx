@@ -35,6 +35,13 @@ function sourceLink(source: FinanceCashflowItemSource, item: ProjectionRowItemDe
         return `/crm/accounts/${item.crmAccountId}?tab=contracts`;
       }
       return item.itemId !== "_orphan" ? `/crm/cotizaciones/${item.itemId}` : null;
+    case "OTHER":
+      // OTHER cubre los contratos subidos manualmente y los generados
+      // desde plantilla CPQ (Document.source=OTHER). Llevamos al tab
+      // de contratos del cliente cuando hay crmAccountId.
+      return item.crmAccountId
+        ? `/crm/accounts/${item.crmAccountId}?tab=contracts`
+        : null;
     default:
       return null;
   }

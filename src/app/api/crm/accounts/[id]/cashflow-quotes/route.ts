@@ -39,6 +39,9 @@ export async function GET(
         paymentTerms: true,
         installationId: true,
         installation: { select: { id: true, name: true } },
+        // Para unificar Document(plantilla) con su cotización origen en
+        // el listado de contratos: matcheamos por dealId.
+        dealId: true,
       },
       orderBy: { contractStartDate: "asc" },
     });

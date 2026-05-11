@@ -1,4 +1,5 @@
 "use client";
+import type React from "react";
 import { useEffect, useState } from "react";
 import { ChevronDown, ChevronRight as ChevronRightIcon } from "lucide-react";
 import type {
@@ -172,16 +173,127 @@ export function ExpandableMatrixRow({
       </tr>
 
       {expanded &&
-        row.items.map((item) => (
-          <ItemDetailRow
-            key={item.itemId}
-            item={item}
-            buckets={buckets}
-            granularity={granularity}
-            kind={row.kind as "INCOME" | "EXPENSE"}
-            onActionDone={onActionDoneSafe}
-          />
-        ))}
+        (() => {
+          // Agrupar items por cliente (crmAccountName) cuando un cliente tiene
+          // 2+ contratos en la misma categoría → sub-header con total. Si es 1
+          // solo, va directo sin sub-header. "Sin cliente" agrupa los items
+          // huérfanos (manual sin asociación a cuenta CRM).
+          type Item = (typeof row.items)[number];
+          const groups: Array<{ name: string; items: Item[] }> = [];
+          const order: string[] = [];
+          const byName = new Map<string, Item[]>();
+          for (const it of row.items) {
+            const key = it.crmAccountName ?? "—";
+            if (!byName.has(key)) {
+              byName.set(key, []);
+              order.push(key);
+            }
+            byName.get(key)!.push(it);
+          }
+          for (const name of order) {
+            groups.push({ name, items: byName.get(name)! });
+          }
+          const out: React.ReactNode[] = [];
+          for (const g of groups) {
+            if (g.items.length === 1 || g.name === "—") {
+              for (const it of g.items) {
+                out.push(
+                  <ItemDetailRow
+                    key={it.itemId}
+                    item={it}
+                    buckets={buckets}
+                    granularity={granularity}
+                    kind={row.kind as "INCOME" | "EXPENSE"}
+                    onActionDone={onActionDoneSafe}
+                  />,
+                );
+              }
+              continue;
+            }
+            // 2+ items del mismo cliente: sub-header con total agregado.
+            const groupTotalsByBucket = new Map<string, number>();
+            for (const it of g.items) {
+              for (const v of it.values) {
+                groupTotalsByBucket.set(
+                  v.bucketKey,
+                  (groupTotalsByBucket.get(v.bucketKey) ?? 0) + v.amount,
+                );
+              }
+            }
+            const groupTotal = g.items.reduce((s, it) => s + it.total, 0);
+            out.push(
+              <ClientGroupHeaderRow
+                key={`grp-${row.categoryCode}-${g.name}`}
+                name={g.name}
+                count={g.items.length}
+                totalsByBucket={groupTotalsByBucket}
+                buckets={buckets}
+                grandTotal={groupTotal}
+              />,
+            );
+            for (const it of g.items) {
+              out.push(
+                <ItemDetailRow
+                  key={it.itemId}
+                  item={it}
+                  buckets={buckets}
+                  granularity={granularity}
+                  kind={row.kind as "INCOME" | "EXPENSE"}
+                  onActionDone={onActionDoneSafe}
+                />,
+              );
+            }
+          }
+          return out;
+        })()}
     </>
+  );
+}
+
+/**
+ * Sub-header de cliente cuando hay 2+ contratos del mismo cliente en una
+ * categoría. Sticky-left con nombre + (N), una celda por bucket con el
+ * total agregado del cliente en ese período, y total general a la derecha.
+ */
+function ClientGroupHeaderRow({
+  name,
+  count,
+  totalsByBucket,
+  buckets,
+  grandTotal,
+}: {
+  name: string;
+  count: number;
+  totalsByBucket: Map<string, number>;
+  buckets: ProjectionBucket[];
+  grandTotal: number;
+}) {
+  return (
+    <tr className="bg-muted/30 border-t border-border/50">
+      <td className="sticky left-0 z-20 bg-card p-2 truncate min-w-[140px] max-w-[160px] sm:min-w-[180px] sm:max-w-none border-r border-border/50">
+        <div className="flex items-center gap-1.5 pl-2">
+          <span className="text-[12px] font-semibold text-ds-text-1 truncate" title={name}>
+            {name}
+          </span>
+          <span className="text-[11px] font-mono text-ds-text-4 shrink-0">
+            ({count})
+          </span>
+        </div>
+      </td>
+      {buckets.map((b) => {
+        const amount = totalsByBucket.get(b.key) ?? 0;
+        return (
+          <td
+            key={b.key}
+            className="p-2 text-right font-mono text-[12px] tabular-nums text-ds-text-2 whitespace-nowrap"
+          >
+            {amount > 0 ? fmt.format(amount) : "—"}
+          </td>
+        );
+      })}
+      <td className="sticky right-0 z-20 p-2 text-right font-mono text-[12px] font-semibold tabular-nums bg-card whitespace-nowrap border-l border-border/50">
+        {fmt.format(grandTotal)}
+      </td>
+    </tr>
   );
 }
