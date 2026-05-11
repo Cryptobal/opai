@@ -107,4 +107,12 @@ export const upsertAndActSchema = z.discriminatedUnion("action", [
     originalDate: z.coerce.date(),
     amountClp: z.number().positive(),
   }),
+  // Cancelar solo esta ocurrencia: la materializa (si no existe) y la marca
+  // CANCELLED. El item recurrente sigue activo: las próximas cuotas se
+  // proyectan normalmente.
+  z.object({
+    action: z.literal("cancel"),
+    itemId: z.string().uuid(),
+    originalDate: z.coerce.date(),
+  }),
 ]);

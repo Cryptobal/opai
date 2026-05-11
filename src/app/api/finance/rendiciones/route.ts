@@ -20,7 +20,8 @@ const createRendicionSchema = z.object({
   itemId: z.string().uuid().optional().nullable().transform((v) => v ?? undefined),
   costCenterId: z.string().uuid().optional().nullable().transform((v) => v ?? undefined),
   beneficiaryGuardiaId: z.string().uuid().optional().nullable().transform((v) => v ?? undefined),
-  beneficiaryAdminId: z.string().uuid().optional().nullable().transform((v) => v ?? undefined),
+  // Admin.id es CUID (no UUID); por eso aceptamos cualquier string no vacío.
+  beneficiaryAdminId: z.string().min(1).optional().nullable().transform((v) => v ?? undefined),
 });
 
 // ── GET: list rendiciones ──

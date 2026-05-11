@@ -58,6 +58,9 @@ import {
   ChevronDown,
   ChevronUp,
   X,
+  AlertTriangle,
+  History,
+  CheckCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -166,6 +169,17 @@ const RECONC_STATUS_CONFIG: Record<string, { label: string; className: string }>
     className: "bg-zinc-500/15 text-zinc-400 border-zinc-500/30",
   },
 };
+
+/**
+ * Parse a YYYY-MM-DD (or full ISO) date string as a *local* Date, evitando
+ * el shift de timezone que ocurre cuando Postgres devuelve `2026-05-11T00:00:00.000Z`
+ * y JS lo interpreta como medianoche UTC, mostrando "10 may" en GMT-3.
+ */
+function parseLocalDate(iso: string): Date {
+  const ymd = iso.slice(0, 10);
+  const [y, m, d] = ymd.split("-").map(Number);
+  return new Date(y, (m ?? 1) - 1, d ?? 1);
+}
 
 const fmtCLP = new Intl.NumberFormat("es-CL", {
   style: "currency",
@@ -1090,7 +1104,7 @@ function TransactionsTab({
         header: sortableHeader("Fecha", "transactionDate"),
         cell: (row) => (
           <span className="text-xs text-muted-foreground">
-            {format(new Date(row.transactionDate), "dd MMM yyyy", { locale: es })}
+            {format(parseLocalDate(row.transactionDate), "dd MMM yyyy", { locale: es })}
           </span>
         ),
       },
@@ -1487,7 +1501,7 @@ function TransactionsTab({
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 mb-1 flex-wrap">
                           <span className="text-xs text-muted-foreground">
-                            {format(new Date(tx.transactionDate), "dd MMM yyyy", {
+                            {format(parseLocalDate(tx.transactionDate), "dd MMM yyyy", {
                               locale: es,
                             })}
                           </span>
@@ -1656,7 +1670,7 @@ function TransactionsTab({
               <div className="rounded-md border border-border bg-muted/30 p-3 text-sm space-y-1">
                 <p className="font-medium">{hideDialog.description}</p>
                 <p className="text-xs text-muted-foreground">
-                  {format(new Date(hideDialog.transactionDate), "dd MMM yyyy", {
+                  {format(parseLocalDate(hideDialog.transactionDate), "dd MMM yyyy", {
                     locale: es,
                   })}
                   {" · "}
@@ -1745,6 +1759,56 @@ function TransactionsTab({
    Tab 3: Importar Cartola
    ═══════════════════════════════════════════════ */
 
+interface PreviewRow {
+  transactionDate: string;
+  description: string;
+  reference: string | null;
+  amount: number;
+}
+
+interface PreviewData {
+  totalInFile: number;
+  newCount: number;
+  duplicateCount: number;
+  new: PreviewRow[];
+  duplicates: PreviewRow[];
+  accountNumberInFile: string | null;
+  periodFrom: string | null;
+  periodTo: string | null;
+  closingBalance: number | null;
+  accountMismatch: boolean;
+}
+
+interface ImportHistoryRow {
+  id: string;
+  bankAccountId: string;
+  bankName: string;
+  accountNumber: string;
+  fileName: string;
+  periodFrom: string | null;
+  periodTo: string | null;
+  totalInFile: number;
+  importedCount: number;
+  duplicateCount: number;
+  createdAt: string;
+}
+
+interface ImportDetail extends ImportHistoryRow {
+  fileSize: number;
+  bankFormat: string;
+  accountNumberInFile: string | null;
+  closingBalance: string | null;
+  transactions: {
+    id: string;
+    transactionDate: string;
+    description: string;
+    reference: string | null;
+    amount: string;
+    reconciliationStatus: string;
+    hiddenAt: string | null;
+  }[];
+}
+
 function ImportTab({
   accounts,
   canManage,
@@ -1762,28 +1826,82 @@ function ImportTab({
   const [bankFormat, setBankFormat] = useState("SANTANDER");
   const [file, setFile] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [result, setResult] = useState<{
-    imported: number;
-    total: number;
-    accountNumber: string | null;
-    periodFrom: string | null;
-    periodTo: string | null;
-  } | null>(null);
+  const [preview, setPreview] = useState<PreviewData | null>(null);
+  const [showNew, setShowNew] = useState(true);
+  const [showDuplicates, setShowDuplicates] = useState(false);
 
-  const handleUpload = async () => {
+  // Historial de cartolas importadas
+  const [history, setHistory] = useState<ImportHistoryRow[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyKey, setHistoryKey] = useState(0); // trigger reload
+  const [openImport, setOpenImport] = useState<ImportDetail | null>(null);
+  const [openImportLoading, setOpenImportLoading] = useState(false);
+
+  useEffect(() => {
+    if (!canManage) return;
+    let cancelled = false;
+    setHistoryLoading(true);
+    fetch("/api/finance/banking/imports?limit=20")
+      .then((r) => r.json())
+      .then((j) => {
+        if (cancelled) return;
+        if (j?.success) setHistory(j.data as ImportHistoryRow[]);
+      })
+      .catch(() => {
+        /* no-op: el panel principal no depende del historial */
+      })
+      .finally(() => {
+        if (!cancelled) setHistoryLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [canManage, historyKey]);
+
+  const resetFlow = () => {
+    setPreview(null);
+    setFile(null);
+    if (inputRef.current) inputRef.current.value = "";
+  };
+
+  const handleAnalyze = async () => {
     if (!file || !selectedAccount) {
       toast.error("Selecciona una cuenta y un archivo");
       return;
     }
-    setUploading(true);
-    setResult(null);
+    setAnalyzing(true);
+    setPreview(null);
     try {
       const formData = new FormData();
       formData.append("file", file);
       formData.append("bankAccountId", selectedAccount);
       formData.append("bankFormat", bankFormat);
+      const res = await fetch(
+        "/api/finance/banking/transactions/import/preview",
+        { method: "POST", body: formData },
+      );
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json?.success) {
+        throw new Error(json?.error || "Error al analizar cartola");
+      }
+      setPreview(json.data as PreviewData);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Error inesperado");
+    } finally {
+      setAnalyzing(false);
+    }
+  };
 
+  const handleConfirmImport = async () => {
+    if (!file || !selectedAccount) return;
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("bankAccountId", selectedAccount);
+      formData.append("bankFormat", bankFormat);
       const res = await fetch("/api/finance/banking/transactions/import", {
         method: "POST",
         body: formData,
@@ -1793,23 +1911,36 @@ function ImportTab({
         throw new Error(json?.error || "Error al importar cartola");
       }
       const data = json.data ?? {};
-      setResult({
-        imported: data.importedCount ?? 0,
-        total: data.totalInFile ?? 0,
-        accountNumber: data.accountNumber ?? null,
-        periodFrom: data.periodFrom ?? null,
-        periodTo: data.periodTo ?? null,
-      });
       toast.success(
-        `Cartola importada: ${data.importedCount ?? 0} de ${data.totalInFile ?? 0} movimientos`
+        `Cartola importada: ${data.importedCount ?? 0} movimientos nuevos${
+          (data.duplicateCount ?? 0) > 0
+            ? `, ${data.duplicateCount} duplicados omitidos`
+            : ""
+        }`,
       );
-      setFile(null);
-      if (inputRef.current) inputRef.current.value = "";
+      resetFlow();
+      setHistoryKey((k) => k + 1);
       router.refresh();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Error inesperado");
     } finally {
       setUploading(false);
+    }
+  };
+
+  const openImportDetail = async (id: string) => {
+    setOpenImportLoading(true);
+    try {
+      const res = await fetch(`/api/finance/banking/imports/${id}`);
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json?.success) {
+        throw new Error(json?.error || "Error al cargar la cartola");
+      }
+      setOpenImport(json.data as ImportDetail);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Error inesperado");
+    } finally {
+      setOpenImportLoading(false);
     }
   };
 
@@ -1982,46 +2113,381 @@ function ImportTab({
           </div>
 
           <div className="flex items-center gap-3">
-            <Button
-              onClick={handleUpload}
-              disabled={uploading || !file || !selectedAccount}
-            >
-              {uploading ? (
-                <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
-              ) : (
-                <Upload className="h-4 w-4 mr-1.5" />
-              )}
-              Importar
-            </Button>
+            {!preview && (
+              <Button
+                onClick={handleAnalyze}
+                disabled={analyzing || !file || !selectedAccount}
+              >
+                {analyzing ? (
+                  <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                ) : (
+                  <Search className="h-4 w-4 mr-1.5" />
+                )}
+                Analizar
+              </Button>
+            )}
+            {preview && (
+              <>
+                <Button
+                  onClick={handleConfirmImport}
+                  disabled={uploading || preview.newCount === 0}
+                >
+                  {uploading ? (
+                    <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                  ) : (
+                    <Upload className="h-4 w-4 mr-1.5" />
+                  )}
+                  Confirmar importación ({preview.newCount.toLocaleString("es-CL")})
+                </Button>
+                <Button variant="outline" onClick={resetFlow} disabled={uploading}>
+                  Cancelar
+                </Button>
+              </>
+            )}
           </div>
 
-          {result && (
-            <div className="rounded-md border border-status-ok-border bg-status-ok-soft p-3 text-sm space-y-1">
-              <p>
-                Movimientos importados:{" "}
-                <span className="font-medium">
-                  {result.imported.toLocaleString("es-CL")}
-                </span>
-                <span className="text-muted-foreground">
-                  {" "}
-                  de {result.total.toLocaleString("es-CL")}
-                </span>
-              </p>
-              {result.imported < result.total && (
-                <p className="text-xs text-muted-foreground">
-                  Omitidos {(result.total - result.imported).toLocaleString("es-CL")}{" "}
-                  (duplicados ya cargados)
-                </p>
-              )}
-              {(result.periodFrom || result.periodTo) && (
-                <p className="text-xs text-muted-foreground">
-                  Período: {result.periodFrom ?? "?"} → {result.periodTo ?? "?"}
-                </p>
-              )}
+          {preview && (
+            <PreviewPanel
+              preview={preview}
+              showNew={showNew}
+              setShowNew={setShowNew}
+              showDuplicates={showDuplicates}
+              setShowDuplicates={setShowDuplicates}
+            />
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ── Últimas cartolas importadas ── */}
+      <Card>
+        <CardContent className="p-6 space-y-3">
+          <div className="flex items-center gap-2">
+            <History className="h-4 w-4 text-muted-foreground" />
+            <h3 className="text-sm font-medium">Últimas cartolas importadas</h3>
+          </div>
+          {historyLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            </div>
+          ) : history.length === 0 ? (
+            <p className="text-xs text-muted-foreground py-4">
+              Aún no has importado cartolas. La primera importación aparecerá acá.
+            </p>
+          ) : (
+            <div className="rounded-md border border-border divide-y divide-border">
+              {history.map((row) => (
+                <button
+                  key={row.id}
+                  onClick={() => openImportDetail(row.id)}
+                  disabled={openImportLoading}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-muted/50 transition-colors disabled:opacity-50"
+                >
+                  <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">
+                      {row.fileName}
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {row.bankName} {row.accountNumber} ·{" "}
+                      {format(new Date(row.createdAt), "dd MMM yyyy HH:mm", {
+                        locale: es,
+                      })}
+                      {row.periodFrom && row.periodTo
+                        ? ` · ${row.periodFrom} → ${row.periodTo}`
+                        : ""}
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-sm font-medium">
+                      {row.importedCount.toLocaleString("es-CL")}
+                      <span className="text-muted-foreground text-xs">
+                        {" "}
+                        / {row.totalInFile.toLocaleString("es-CL")}
+                      </span>
+                    </p>
+                    {row.duplicateCount > 0 && (
+                      <p className="text-[11px] text-muted-foreground">
+                        {row.duplicateCount} duplicados
+                      </p>
+                    )}
+                  </div>
+                </button>
+              ))}
             </div>
           )}
         </CardContent>
       </Card>
+
+      {/* Modal con el detalle de una cartola */}
+      <Dialog
+        open={openImport !== null}
+        onOpenChange={(o) => !o && setOpenImport(null)}
+      >
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>{openImport?.fileName}</DialogTitle>
+          </DialogHeader>
+          {openImport && (
+            <div className="flex-1 overflow-auto space-y-3 -mx-6 px-6">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                <div>
+                  <p className="text-muted-foreground">Cuenta</p>
+                  <p className="font-medium">
+                    {openImport.bankName} {openImport.accountNumber}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Período</p>
+                  <p className="font-medium">
+                    {openImport.periodFrom ?? "?"} → {openImport.periodTo ?? "?"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Importados</p>
+                  <p className="font-medium">
+                    {openImport.importedCount.toLocaleString("es-CL")} /{" "}
+                    {openImport.totalInFile.toLocaleString("es-CL")}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Saldo de cierre</p>
+                  <p className="font-medium">
+                    {openImport.closingBalance
+                      ? new Intl.NumberFormat("es-CL", {
+                          style: "currency",
+                          currency: "CLP",
+                          maximumFractionDigits: 0,
+                        }).format(Number(openImport.closingBalance))
+                      : "—"}
+                  </p>
+                </div>
+              </div>
+              <div className="rounded-md border border-border overflow-hidden">
+                <table className="w-full text-xs">
+                  <thead className="bg-muted/50">
+                    <tr>
+                      <th className="text-left px-3 py-2 font-medium">Fecha</th>
+                      <th className="text-left px-3 py-2 font-medium">
+                        Descripción
+                      </th>
+                      <th className="text-right px-3 py-2 font-medium">Monto</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {openImport.transactions.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={3}
+                          className="text-center py-6 text-muted-foreground"
+                        >
+                          Sin movimientos asociados
+                        </td>
+                      </tr>
+                    ) : (
+                      openImport.transactions.map((t) => (
+                        <tr key={t.id}>
+                          <td className="px-3 py-1.5 whitespace-nowrap">
+                            {t.transactionDate}
+                          </td>
+                          <td className="px-3 py-1.5">
+                            <p className="truncate">{t.description}</p>
+                            {t.reference && (
+                              <p className="text-[10px] text-muted-foreground truncate">
+                                {t.reference}
+                              </p>
+                            )}
+                          </td>
+                          <td
+                            className={cn(
+                              "px-3 py-1.5 text-right whitespace-nowrap font-mono",
+                              Number(t.amount) >= 0
+                                ? "text-status-ok-fg"
+                                : "text-status-error-fg",
+                            )}
+                          >
+                            {new Intl.NumberFormat("es-CL", {
+                              style: "currency",
+                              currency: "CLP",
+                              maximumFractionDigits: 0,
+                            }).format(Number(t.amount))}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpenImport(null)}>
+              Cerrar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+/* ── Subcomponente: panel de pre-chequeo de cartola ── */
+function PreviewPanel({
+  preview,
+  showNew,
+  setShowNew,
+  showDuplicates,
+  setShowDuplicates,
+}: {
+  preview: PreviewData;
+  showNew: boolean;
+  setShowNew: (v: boolean) => void;
+  showDuplicates: boolean;
+  setShowDuplicates: (v: boolean) => void;
+}) {
+  const fmtAmount = (n: number) =>
+    new Intl.NumberFormat("es-CL", {
+      style: "currency",
+      currency: "CLP",
+      maximumFractionDigits: 0,
+    }).format(n);
+
+  return (
+    <div className="space-y-3">
+      {preview.accountMismatch && (
+        <div className="flex items-start gap-2 rounded-md border border-status-warn-border bg-status-warn-soft p-3 text-sm">
+          <AlertTriangle className="h-4 w-4 text-status-warn-fg shrink-0 mt-0.5" />
+          <div>
+            <p className="font-medium">Número de cuenta no coincide</p>
+            <p className="text-xs text-muted-foreground">
+              El archivo declara cuenta{" "}
+              <span className="font-mono">
+                {preview.accountNumberInFile ?? "?"}
+              </span>{" "}
+              pero estás importando a una cuenta distinta. Revisa antes de
+              confirmar.
+            </p>
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 rounded-md border border-border p-3 text-xs">
+        <div>
+          <p className="text-muted-foreground">Total en archivo</p>
+          <p className="text-base font-semibold">
+            {preview.totalInFile.toLocaleString("es-CL")}
+          </p>
+        </div>
+        <div>
+          <p className="text-muted-foreground">Nuevos</p>
+          <p className="text-base font-semibold text-status-ok-fg">
+            {preview.newCount.toLocaleString("es-CL")}
+          </p>
+        </div>
+        <div>
+          <p className="text-muted-foreground">Duplicados (omitidos)</p>
+          <p className="text-base font-semibold text-muted-foreground">
+            {preview.duplicateCount.toLocaleString("es-CL")}
+          </p>
+        </div>
+        <div>
+          <p className="text-muted-foreground">Período</p>
+          <p className="text-sm font-medium">
+            {preview.periodFrom ?? "?"} → {preview.periodTo ?? "?"}
+          </p>
+        </div>
+      </div>
+
+      {preview.newCount === 0 && (
+        <div className="flex items-start gap-2 rounded-md border border-border bg-muted/30 p-3 text-sm">
+          <CheckCircle className="h-4 w-4 shrink-0 mt-0.5 text-muted-foreground" />
+          <p>
+            Todos los movimientos del archivo ya están importados. No hay nada
+            nuevo que cargar.
+          </p>
+        </div>
+      )}
+
+      {preview.new.length > 0 && (
+        <div className="rounded-md border border-border overflow-hidden">
+          <button
+            onClick={() => setShowNew(!showNew)}
+            className="w-full flex items-center justify-between px-3 py-2 bg-status-ok-soft/50 hover:bg-status-ok-soft text-sm font-medium"
+          >
+            <span>
+              Nuevos ({preview.new.length.toLocaleString("es-CL")})
+            </span>
+            {showNew ? (
+              <ChevronUp className="h-4 w-4" />
+            ) : (
+              <ChevronDown className="h-4 w-4" />
+            )}
+          </button>
+          {showNew && (
+            <div className="max-h-72 overflow-auto">
+              <table className="w-full text-xs">
+                <tbody className="divide-y divide-border">
+                  {preview.new.map((t, idx) => (
+                    <tr key={idx}>
+                      <td className="px-3 py-1.5 whitespace-nowrap text-muted-foreground">
+                        {t.transactionDate}
+                      </td>
+                      <td className="px-3 py-1.5 truncate">{t.description}</td>
+                      <td
+                        className={cn(
+                          "px-3 py-1.5 text-right whitespace-nowrap font-mono",
+                          t.amount >= 0
+                            ? "text-status-ok-fg"
+                            : "text-status-error-fg",
+                        )}
+                      >
+                        {fmtAmount(t.amount)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {preview.duplicates.length > 0 && (
+        <div className="rounded-md border border-border overflow-hidden">
+          <button
+            onClick={() => setShowDuplicates(!showDuplicates)}
+            className="w-full flex items-center justify-between px-3 py-2 bg-muted/50 hover:bg-muted text-sm font-medium"
+          >
+            <span>
+              Duplicados — se omitirán (
+              {preview.duplicates.length.toLocaleString("es-CL")})
+            </span>
+            {showDuplicates ? (
+              <ChevronUp className="h-4 w-4" />
+            ) : (
+              <ChevronDown className="h-4 w-4" />
+            )}
+          </button>
+          {showDuplicates && (
+            <div className="max-h-72 overflow-auto">
+              <table className="w-full text-xs">
+                <tbody className="divide-y divide-border">
+                  {preview.duplicates.map((t, idx) => (
+                    <tr key={idx} className="text-muted-foreground">
+                      <td className="px-3 py-1.5 whitespace-nowrap">
+                        {t.transactionDate}
+                      </td>
+                      <td className="px-3 py-1.5 truncate">{t.description}</td>
+                      <td className="px-3 py-1.5 text-right whitespace-nowrap font-mono">
+                        {fmtAmount(t.amount)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -132,12 +132,37 @@ interface ListBankTransactionsOpts {
   tab?: "all" | "recognized" | "unrecognized" | "matched";
 }
 
-interface ImportTransactionInput {
+export interface ImportTransactionInput {
   transactionDate: string; // YYYY-MM-DD
   description: string;
   reference: string | null;
   amount: number;
   branch?: string | null;
+}
+
+/**
+ * Resultado de un preview de cartola: separa qué se importaría como nuevo
+ * vs qué ya existe en BD (y por lo tanto sería omitido por skipDuplicates).
+ * El cliente puede mostrar este desglose y pedir confirmación antes de
+ * llamar al import real.
+ */
+export interface ImportPreviewResult {
+  totalInFile: number;
+  newCount: number;
+  duplicateCount: number;
+  new: PreviewRow[];
+  duplicates: PreviewRow[];
+  accountNumberInFile: string | null;
+  periodFrom: string | null;
+  periodTo: string | null;
+  closingBalance: number | null;
+}
+
+export interface PreviewRow {
+  transactionDate: string;
+  description: string;
+  reference: string | null;
+  amount: number;
 }
 
 interface CreateTransactionInput {
@@ -331,13 +356,28 @@ export async function listBankTransactions(
  *   pendientes después del bulk insert. Cobros que coinciden EXACTO
  *   (monto + RUT) se vinculan solos y la factura pasa a PAID.
  */
+export interface ImportMetadata {
+  fileName: string;
+  fileSize: number;
+  bankFormat: string;
+  accountNumberInFile?: string | null;
+  periodFrom?: string | null;
+  periodTo?: string | null;
+}
+
 export async function importBankTransactions(
   tenantId: string,
   bankAccountId: string,
   transactions: ImportTransactionInput[],
   closingBalance?: number | null,
   userId?: string,
-): Promise<{ importedCount: number; autoMatch?: BulkAutoMatchSummary }> {
+  metadata?: ImportMetadata,
+): Promise<{
+  importedCount: number;
+  duplicateCount: number;
+  importId: string | null;
+  autoMatch?: BulkAutoMatchSummary;
+}> {
   // Verify bank account exists and belongs to tenant
   const bankAccount = await prisma.financeBankAccount.findFirst({
     where: { id: bankAccountId, tenantId },
@@ -347,7 +387,7 @@ export async function importBankTransactions(
   }
 
   if (transactions.length === 0) {
-    return { importedCount: 0 };
+    return { importedCount: 0, duplicateCount: 0, importId: null };
   }
 
   // Build data for createMany — incluye apiTransactionId determinístico para
@@ -384,6 +424,53 @@ export async function importBankTransactions(
     data,
     skipDuplicates: true,
   });
+
+  const duplicateCount = transactions.length - result.count;
+
+  // Historial de cartola: solo lo creamos cuando hubo importación efectiva
+  // (count > 0). Si todo eran duplicados, no dejamos rastro porque no aporta
+  // valor — el usuario ya recibió el feedback en el preview.
+  let importId: string | null = null;
+  if (result.count > 0 && metadata) {
+    const statementImport = await prisma.financeBankStatementImport.create({
+      data: {
+        tenantId,
+        bankAccountId,
+        fileName: metadata.fileName,
+        fileSize: metadata.fileSize,
+        bankFormat: metadata.bankFormat,
+        accountNumberInFile: metadata.accountNumberInFile ?? null,
+        periodFrom: metadata.periodFrom ? new Date(metadata.periodFrom) : null,
+        periodTo: metadata.periodTo ? new Date(metadata.periodTo) : null,
+        totalInFile: transactions.length,
+        importedCount: result.count,
+        duplicateCount,
+        closingBalance:
+          closingBalance !== null && closingBalance !== undefined
+            ? new Decimal(closingBalance)
+            : null,
+        createdById: userId ?? null,
+      },
+    });
+    importId = statementImport.id;
+
+    // Enlazamos las transacciones recién insertadas a esta cartola.
+    // Las identificamos por sus apiTransactionId (únicos por cuenta) y filtramos
+    // las que aún no tienen importId (las "nuevas" recién creadas). Esto evita
+    // sobreescribir el importId de movimientos preexistentes que pudieran
+    // compartir apiTransactionId (no debería pasar por el unique key, pero
+    // defensa en profundidad).
+    const apiTransactionIds = data.map((d) => d.apiTransactionId);
+    await prisma.financeBankTransaction.updateMany({
+      where: {
+        tenantId,
+        bankAccountId,
+        apiTransactionId: { in: apiTransactionIds },
+        importId: null,
+      },
+      data: { importId },
+    });
+  }
 
   // Update bank account balance if closing balance was provided.
   // Además registra un snapshot IMPORT en el historial para que quede trazable
@@ -447,7 +534,93 @@ export async function importBankTransactions(
     );
   }
 
-  return { importedCount: result.count, autoMatch };
+  return {
+    importedCount: result.count,
+    duplicateCount,
+    importId,
+    autoMatch,
+  };
+}
+
+/**
+ * Pre-chequeo de importación: parsea las transacciones, calcula sus
+ * apiTransactionId determinísticos y consulta BD para separar nuevos vs
+ * duplicados. No escribe nada. La UI lo usa para mostrar al usuario qué se
+ * va a importar y qué se va a omitir antes de confirmar.
+ */
+export async function previewBankStatementImport(
+  tenantId: string,
+  bankAccountId: string,
+  transactions: ImportTransactionInput[],
+  metadata: {
+    accountNumberInFile?: string | null;
+    periodFrom?: string | null;
+    periodTo?: string | null;
+    closingBalance?: number | null;
+  },
+): Promise<ImportPreviewResult> {
+  const bankAccount = await prisma.financeBankAccount.findFirst({
+    where: { id: bankAccountId, tenantId },
+    select: { id: true },
+  });
+  if (!bankAccount) {
+    throw new Error("Cuenta bancaria no encontrada");
+  }
+
+  // Para cada transacción del archivo, calculamos su apiTransactionId con la
+  // misma lógica que importBankTransactions (incluyendo occurrenceIdx para
+  // duplicados legítimos intra-archivo).
+  const occurrenceCounts = new Map<string, number>();
+  const enriched = transactions.map((tx) => {
+    const baseKey = [
+      tx.transactionDate,
+      tx.amount.toString(),
+      (tx.description ?? "").trim(),
+      tx.reference ?? "",
+    ].join("|");
+    const occ = occurrenceCounts.get(baseKey) ?? 0;
+    occurrenceCounts.set(baseKey, occ + 1);
+    return { tx, apiTransactionId: buildImportTxId(tx, occ) };
+  });
+
+  // Buscamos cuáles de esos apiTransactionId ya existen en BD para esta cuenta.
+  const existing = await prisma.financeBankTransaction.findMany({
+    where: {
+      tenantId,
+      bankAccountId,
+      apiTransactionId: { in: enriched.map((e) => e.apiTransactionId) },
+    },
+    select: { apiTransactionId: true },
+  });
+  const existingSet = new Set(
+    existing.map((e) => e.apiTransactionId).filter((id): id is string => !!id),
+  );
+
+  const toRow = (tx: ImportTransactionInput): PreviewRow => ({
+    transactionDate: tx.transactionDate,
+    description: tx.description,
+    reference: tx.reference ?? null,
+    amount: tx.amount,
+  });
+
+  const newRows: PreviewRow[] = [];
+  const duplicateRows: PreviewRow[] = [];
+  for (const { tx, apiTransactionId } of enriched) {
+    if (existingSet.has(apiTransactionId)) duplicateRows.push(toRow(tx));
+    else newRows.push(toRow(tx));
+  }
+
+  return {
+    totalInFile: transactions.length,
+    newCount: newRows.length,
+    duplicateCount: duplicateRows.length,
+    new: newRows,
+    duplicates: duplicateRows,
+    accountNumberInFile: metadata.accountNumberInFile ?? null,
+    periodFrom: metadata.periodFrom ?? null,
+    periodTo: metadata.periodTo ?? null,
+    closingBalance: metadata.closingBalance ?? null,
+  };
 }
 
 /**

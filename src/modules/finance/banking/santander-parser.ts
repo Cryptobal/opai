@@ -182,7 +182,12 @@ export function parseSantanderCartola(
       firstCell.toLowerCase().includes("saldos diarios") ||
       secondCell.toLowerCase().includes("saldos diarios")
     ) {
-      // Try to extract closing balance from footer
+      // Try to extract closing balance from footer (solo cuando una fila
+      // está EXPLÍCITAMENTE etiquetada como "SALDO FINAL" o "CIERRE").
+      // NO usamos heurísticas tipo "último número del footer": el bloque
+      // "Saldos diarios" suele traer un valor por DÍA del período, y tomar
+      // el último silenciosamente daba como closingBalance el saldo del
+      // día equivocado (ej. cierre del 8 cuando la cartola va hasta el 11).
       for (let j = i + 1; j < rows.length; j++) {
         const footerRow = rows[j];
         if (!footerRow) continue;
@@ -192,9 +197,6 @@ export function parseSantanderCartola(
           if (closingVal !== null) result.closingBalance = closingVal;
           break;
         }
-        // Last row with a balance value can serve as closing balance
-        const lastBalVal = parseNumber(footerRow[0]);
-        if (lastBalVal !== null) result.closingBalance = lastBalVal;
       }
       break;
     }

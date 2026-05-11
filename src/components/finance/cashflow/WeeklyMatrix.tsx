@@ -287,7 +287,7 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
                       key={b.key}
                       className={`p-2 text-right min-w-[80px] border-b whitespace-nowrap font-mono ${
                         isCurrent
-                          ? "bg-status-info-soft/40 text-status-info-fg border-status-info-fg/30"
+                          ? "bg-status-info-soft text-status-info-fg border-status-info-fg/30"
                           : "bg-background text-ds-text-3 border-border"
                       } ${showMonth ? "border-l border-l-border" : ""}`}
                     >
@@ -297,6 +297,9 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
                         </span>
                         <span className={isCurrent ? "font-bold" : ""}>
                           {b.label}
+                        </span>
+                        <span className="text-[10px] opacity-60">
+                          Lun {b.start.getDate()}
                         </span>
                       </div>
                     </th>
@@ -334,6 +337,12 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
               ))}
               <SubtotalRow label="Total egresos" rows={expenseRows} buckets={projection.buckets} tone="warn" />
             </tbody>
+            {/* tfoot sticky bottom: las filas Neto / Real / Δ / Saldo quedan
+                fijas al hacer scroll vertical. Cada <td> debe tener fondo
+                opaco (no semitransparente con /30) para que el tbody no se
+                transparente por debajo. Las stickies left/right ya usan
+                bg-card; las celdas del medio usan bg-background o bg-muted
+                según el tono. */}
             <tfoot className="sticky bottom-0 z-30">
               <tr className="border-t-2 border-border font-semibold bg-background">
                 <td className="sticky left-0 z-40 bg-card p-2 whitespace-nowrap border-r border-border/50">Neto semanal</td>
@@ -354,7 +363,7 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
 
               {/* Real banco — solo buckets con start ≤ hoy. Las semanas futuras
                   no tienen datos de banco todavía y se muestran como —. */}
-              <tr className="bg-status-ok-soft/30">
+              <tr className="bg-background">
                 <td className="sticky left-0 z-40 bg-card p-2 whitespace-nowrap text-status-ok-fg text-[12px] border-r border-border/50">
                   Real banco (ingresos)
                 </td>
@@ -363,7 +372,7 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
                   return (
                     <td
                       key={b.key}
-                      className="p-2 text-right font-mono whitespace-nowrap text-status-ok-fg text-[12px]"
+                      className="p-2 text-right font-mono whitespace-nowrap text-status-ok-fg text-[12px] bg-background"
                     >
                       {isPast ? (
                         <button
@@ -387,7 +396,7 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
                 </td>
               </tr>
 
-              <tr className="bg-status-warn-soft/30">
+              <tr className="bg-background">
                 <td className="sticky left-0 z-40 bg-card p-2 whitespace-nowrap text-status-warn-fg text-[12px] border-r border-border/50">
                   Real banco (egresos)
                 </td>
@@ -396,7 +405,7 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
                   return (
                     <td
                       key={b.key}
-                      className="p-2 text-right font-mono whitespace-nowrap text-status-warn-fg text-[12px]"
+                      className="p-2 text-right font-mono whitespace-nowrap text-status-warn-fg text-[12px] bg-background"
                     >
                       {isPast ? (
                         <button
@@ -420,7 +429,7 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
                 </td>
               </tr>
 
-              <tr className="bg-status-info-soft/30 border-b border-border">
+              <tr className="bg-background border-b border-border">
                 <td
                   className="sticky left-0 z-40 bg-card p-2 whitespace-nowrap text-status-info-fg text-[12px] border-r border-border/50"
                   title="Δ vs proyectado: (real ingresos − proyectado) − (real egresos − proyectado). Positivo = real mejor que proyectado; negativo = peor."
@@ -433,7 +442,7 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
                     return (
                       <td
                         key={b.key}
-                        className="p-2 text-right font-mono whitespace-nowrap text-ds-text-4 text-[12px]"
+                        className="p-2 text-right font-mono whitespace-nowrap text-ds-text-4 text-[12px] bg-background"
                       >
                         —
                       </td>
@@ -448,7 +457,7 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
                   return (
                     <td
                       key={b.key}
-                      className={`p-2 text-right font-mono whitespace-nowrap text-[12px] ${tone}`}
+                      className={`p-2 text-right font-mono whitespace-nowrap text-[12px] bg-background ${tone}`}
                     >
                       {b.bankVarianceClp > 0 ? "+" : ""}
                       {fmt.format(b.bankVarianceClp)}

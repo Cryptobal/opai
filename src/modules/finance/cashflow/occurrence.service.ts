@@ -314,7 +314,8 @@ export type MaterializeAndActInput =
       daysFromCurrent?: number;
       resolveStrategy?: CollisionResolveStrategy;
     }
-  | { itemId: string; originalDate: Date; action: "amount"; amountClp: number };
+  | { itemId: string; originalDate: Date; action: "amount"; amountClp: number }
+  | { itemId: string; originalDate: Date; action: "cancel" };
 
 /**
  * Materializa una ocurrencia virtual (idempotente) y aplica una acción sobre
@@ -372,6 +373,16 @@ export async function materializeAndAct(
     if (input.action === "amount") {
       throw new Error("No se puede editar el monto de una ocurrencia ya conciliada");
     }
+    if (input.action === "cancel") {
+      throw new Error("No se puede cancelar una ocurrencia ya pagada/conciliada");
+    }
+  }
+
+  if (input.action === "cancel") {
+    return prisma.financeCashflowOccurrence.update({
+      where: { id: existing.id },
+      data: { status: "CANCELLED" },
+    });
   }
 
   if (input.action === "move") {
@@ -402,6 +413,10 @@ export async function materializeAndAct(
     });
   }
 
+  // input.action === "amount" (única alternativa restante por el discriminated union)
+  if (input.action !== "amount") {
+    throw new Error("Acción no soportada");
+  }
   if (!Number.isFinite(input.amountClp) || input.amountClp <= 0) {
     throw new Error("El monto debe ser mayor a 0");
   }

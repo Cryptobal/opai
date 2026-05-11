@@ -41,6 +41,8 @@ export type ListReceivedDtesOpts = {
   sort?: string;
   /** Filtro por período (mes-año) — formato "YYYY-MM". Filtra por FinanceDte.date. */
   periodo?: string;
+  /** Búsqueda libre: folio, RUT emisor, nombre emisor. */
+  search?: string;
 };
 
 // ── Service Functions ──
@@ -60,6 +62,7 @@ export async function listReceivedDtes(
     installationId,
     sort = "date_desc",
     periodo,
+    search,
   } = opts;
 
   const where: Record<string, unknown> = {
@@ -67,6 +70,18 @@ export async function listReceivedDtes(
     direction: "RECEIVED",
   };
   if (supplierId) where.supplierId = supplierId;
+  // Búsqueda libre: matchea folio (entero), RUT emisor y nombre emisor.
+  // Folio se interpreta como número solo si el input es numérico, para
+  // no romper la búsqueda parcial de texto.
+  if (search && search.trim()) {
+    const q = search.trim();
+    const folioNum = /^\d+$/.test(q) ? parseInt(q, 10) : null;
+    where.OR = [
+      ...(folioNum !== null ? [{ folio: folioNum }] : []),
+      { issuerRut: { contains: q, mode: "insensitive" } },
+      { issuerName: { contains: q, mode: "insensitive" } },
+    ];
+  }
   if (accountId === "NONE") {
     where.crmAccountId = null;
   } else if (accountId && accountId !== "ALL") {

@@ -27,6 +27,7 @@ import { EmptyState } from "@/components/opai-ds";
 import { toast } from "sonner";
 import { CederDteDialog } from "../factoring/CederDteDialog";
 import { PdfPreviewDialog } from "../PdfPreviewDialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmisionConfirmDialog } from "../EmisionConfirmDialog";
 import { CreditNoteModal } from "../CreditNoteModal";
 import { SendEmailDialog } from "../SendEmailDialog";
@@ -368,6 +369,28 @@ export function DtesEmitidosClient({
 
   // ── Per-row handlers (idénticos al DtesTab original) ──
 
+  // Sanitiza un string para usarlo en un nombre de archivo: acentos quitados,
+  // caracteres no [a-zA-Z0-9-_ ] reemplazados por "-", espacios colapsados.
+  const sanitizeForFilename = (s: string): string =>
+    s
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-zA-Z0-9_\s-]/g, "")
+      .trim()
+      .replace(/\s+/g, "_")
+      .slice(0, 60);
+
+  const buildDtePdfFilename = (id: string, folio: number): string => {
+    const row = dtes.find((d) => d.id === id);
+    const parts: string[] = [`F${folio}`];
+    const clientName =
+      row?.crmAccount?.name || row?.crmAccount?.legalName || row?.receiverName;
+    if (clientName) parts.push(sanitizeForFilename(clientName));
+    if (row?.installation?.name)
+      parts.push(sanitizeForFilename(row.installation.name));
+    return `${parts.join("-")}.pdf`;
+  };
+
   const handleDownloadPdf = async (id: string, folio: number) => {
     try {
       const res = await fetch(`/api/finance/billing/issued/${id}/pdf`);
@@ -379,7 +402,7 @@ export function DtesEmitidosClient({
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `DTE-${folio}.pdf`;
+      a.download = buildDtePdfFilename(id, folio);
       a.click();
       URL.revokeObjectURL(url);
     } catch (error) {
@@ -501,9 +524,20 @@ export function DtesEmitidosClient({
     }
   };
 
-  const handleDeleteDraft = async (id: string) => {
-    if (!confirm("¿Eliminar este borrador? Esta acción no es reversible."))
-      return;
+  // Confirmación de borrado de borrador. Antes usaba window.confirm() pero
+  // algunos navegadores lo bloquean silenciosamente (especialmente cuando el
+  // usuario marcó "evitar más diálogos" en una sesión previa), lo que dejaba
+  // el botón aparentando que no funcionaba. Ahora abrimos un ConfirmDialog
+  // controlado por estado.
+  const [draftToDelete, setDraftToDelete] = useState<string | null>(null);
+
+  const handleDeleteDraft = (id: string) => {
+    setDraftToDelete(id);
+  };
+
+  const confirmDeleteDraft = async () => {
+    if (!draftToDelete) return;
+    const id = draftToDelete;
     setDeletingDraft(id);
     try {
       const res = await fetch(`/api/finance/billing/drafts/${id}`, {
@@ -514,6 +548,7 @@ export function DtesEmitidosClient({
         throw new Error(err.error || "Error al eliminar borrador");
       }
       toast.success("Borrador eliminado");
+      setDraftToDelete(null);
       router.refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Error inesperado");
@@ -986,6 +1021,16 @@ export function DtesEmitidosClient({
           defaultBackofficeAlwaysSend={tenantBackoffice.alwaysSend}
         />
       )}
+
+      <ConfirmDialog
+        open={draftToDelete !== null}
+        onOpenChange={(o) => !o && setDraftToDelete(null)}
+        title="Eliminar borrador"
+        description="¿Eliminar este borrador? Esta acción no es reversible."
+        confirmLabel="Eliminar"
+        loading={deletingDraft !== null}
+        onConfirm={confirmDeleteDraft}
+      />
     </div>
   );
 }

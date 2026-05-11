@@ -588,6 +588,13 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(EMPTY_RECEIVED_FORM);
   const [search, setSearch] = useState("");
+  // Debouncear el search antes de enviarlo al server para no disparar un
+  // fetch por cada tecla. 300ms es el mismo valor que usa DTEs Emitidos.
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => clearTimeout(id);
+  }, [search]);
   const [typeFilter, setTypeFilter] = useState("ALL");
   const [receptionFilter, setReceptionFilter] = useState("ALL");
   const [paymentFilter, setPaymentFilter] = useState("ALL");
@@ -653,6 +660,7 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
       if (periodoFilter !== "ALL") params.set("periodo", periodoFilter);
       if (accountFilter !== "ALL") params.set("accountId", accountFilter);
       if (installationFilter !== "ALL") params.set("installationId", installationFilter);
+      if (debouncedSearch) params.set("search", debouncedSearch);
       params.set("sort", sort);
       params.set("page", String(page));
       params.set("pageSize", String(pageSize));
@@ -691,33 +699,27 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, periodoFilter, accountFilter, installationFilter, sort]);
+  }, [page, pageSize, periodoFilter, accountFilter, installationFilter, sort, debouncedSearch]);
 
   useEffect(() => { loadReceivedDtes(); }, [loadReceivedDtes]);
 
-  // Reset page=1 cuando cambia el período (para no quedar en página vacía).
+  // Reset page=1 cuando cambia el período, filtros o búsqueda (para no quedar
+  // en una página vacía cuando el resultado total se reduce).
   useEffect(() => {
     setPage(1);
-  }, [periodoFilter, accountFilter, installationFilter, sort]);
+  }, [periodoFilter, accountFilter, installationFilter, sort, debouncedSearch]);
 
   const filtered = useMemo(() => {
     // Defensa: si por alguna razón el state quedó corrupto, devolvemos [].
+    // El search ya viaja al server (debouncedSearch en loadReceivedDtes), así
+    // que acá solo filtramos por filtros que aún son client-side.
     if (!Array.isArray(receivedDtes)) return [];
     let list = receivedDtes;
     if (typeFilter !== "ALL") list = list.filter((d) => String(d.dteType) === typeFilter);
     if (receptionFilter !== "ALL") list = list.filter((d) => d.receptionStatus === receptionFilter);
     if (paymentFilter !== "ALL") list = list.filter((d) => d.paymentStatus === paymentFilter);
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      list = list.filter(
-        (d) =>
-          String(d.folio).includes(q) ||
-          d.issuerRut.toLowerCase().includes(q) ||
-          d.issuerName.toLowerCase().includes(q)
-      );
-    }
     return sortDteRows(list, sort);
-  }, [receivedDtes, typeFilter, receptionFilter, paymentFilter, search, sort]);
+  }, [receivedDtes, typeFilter, receptionFilter, paymentFilter, sort]);
 
   const handleExportCsv = () => {
     if (filtered.length === 0) return;

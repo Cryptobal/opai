@@ -230,6 +230,11 @@ export async function buildProjection(
     }
 
     for (const { d, mat } of slots) {
+      // Las ocurrencias CANCELLED están materializadas pero el usuario las
+      // eliminó individualmente. No se proyectan, pero el item sigue activo
+      // y sus otras cuotas se mantienen.
+      if (mat?.status === "CANCELLED") continue;
+
       let amountClp: number;
       let ufValue: number | null = null;
       const itemAmount = Number(item.amount);
@@ -436,7 +441,10 @@ function buildRows(
   const rows: ProjectionRow[] = [];
   for (const cat of categories) {
     const filtered = occs.filter((o) => o.categoryId === cat.id || o.categoryCode === cat.code);
-    if (filtered.length === 0) continue;
+    // Mostramos todas las categorías activas configuradas, incluso sin
+    // ocurrencias. Esto permite al usuario ver el plan completo de su
+    // flujo de caja y agregar movimientos a categorías vacías sin tener
+    // que volver a la configuración para confirmar que existen.
     const values = buckets.map((b) => {
       const amount = filtered
         .filter((o) => {

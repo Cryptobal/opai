@@ -32,6 +32,7 @@ export async function GET(request: NextRequest) {
     const accountId = url.searchParams.get("accountId") || undefined;
     const installationId = url.searchParams.get("installationId") || undefined;
     const sort = url.searchParams.get("sort") || undefined;
+    const search = url.searchParams.get("search") || undefined;
 
     const result = await listReceivedDtes(ctx.tenantId, {
       page,
@@ -41,6 +42,7 @@ export async function GET(request: NextRequest) {
       installationId,
       sort,
       periodo,
+      search,
     });
 
     return NextResponse.json({ success: true, data: result });

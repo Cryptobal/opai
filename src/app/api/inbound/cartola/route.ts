@@ -317,6 +317,14 @@ export async function POST(request: NextRequest) {
       // userId=undefined → no corre auto-match. Las reglas se evalúan luego
       // si el usuario corre "Aplicar al histórico" desde Reglas.
       undefined,
+      {
+        fileName: att.filename ?? `cartola-${att.id}.xlsx`,
+        fileSize: buf.byteLength,
+        bankFormat: "SANTANDER",
+        accountNumberInFile: parsed.accountNumber ?? null,
+        periodFrom: parsed.periodFrom ?? null,
+        periodTo: parsed.periodTo ?? null,
+      },
     );
     totalImported += result.importedCount;
   }

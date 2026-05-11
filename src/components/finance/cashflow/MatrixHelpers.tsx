@@ -196,10 +196,19 @@ export function SectionHeader({
 }) {
   const cls =
     tone === "ok" ? "bg-status-ok-soft text-status-ok-fg" : "bg-status-warn-soft text-status-warn-fg";
+  // No usamos `sticky left-0` en el <td> porque combinado con colSpan
+  // hace que el background visible se reduzca al ancho de la primera
+  // columna (las celdas de filas siguientes se ven a través del resto
+  // de la fila). En vez de eso, el <td> cubre todas las columnas con
+  // fondo opaco y solo el <span> con el label queda sticky-left para
+  // mantenerse visible al hacer scroll horizontal.
   return (
     <tr className={cls}>
-      <td colSpan={colSpan} className={`p-1.5 text-[11px] font-mono uppercase tracking-wider sticky left-0 z-30 ${cls}`}>
-        {label}
+      <td
+        colSpan={colSpan}
+        className={`p-1.5 text-[11px] font-mono uppercase tracking-wider ${cls}`}
+      >
+        <span className="sticky left-2 inline-block">{label}</span>
       </td>
     </tr>
   );

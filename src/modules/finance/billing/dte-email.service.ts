@@ -14,6 +14,7 @@ import { getDteProvider } from "../shared/adapters/dte-provider.adapter";
 import { getDteTypeName as dteTypeName } from "../shared/constants/dte-types";
 import { renderDteEmailHtml, renderDteEmailSubject } from "./dte-email-template";
 import { getFileBuffer } from "@/lib/storage";
+import { buildDteAttachmentBaseName } from "./dte-filename";
 
 export interface SendDteEmailResult {
   success: boolean;
@@ -27,6 +28,7 @@ export type DteEmailKind =
   | "manual_resend"
   | "manual_override_recipient"
   | "manual_backoffice";
+
 
 async function logEmail(
   tenantId: string,
@@ -175,6 +177,12 @@ export async function sendDteEmail(
   const subject = renderDteEmailSubject(tenantConfig.emailTemplateSubject, vars);
   const html = renderDteEmailHtml(tenantConfig.emailTemplateBody, vars);
 
+  // Filename del PDF y XML adjuntos: queremos algo identificable. Incluimos
+  // folio + cliente + instalación cuando están disponibles, para que el
+  // receptor pueda buscarlos por nombre. dte.code (formato F<tipo>-<folio>)
+  // queda como fallback puro.
+  const dteFilenameBase = await buildDteAttachmentBaseName(tenantId, dte);
+
   try {
     const result = await resend.emails.send({
       from: emailCfg.from,
@@ -185,8 +193,8 @@ export async function sendDteEmail(
       subject,
       html,
       attachments: [
-        { filename: `${dte.code}.xml`, content: xmlBuffer.toString("base64") },
-        { filename: `${dte.code}.pdf`, content: pdfBuffer.toString("base64") },
+        { filename: `${dteFilenameBase}.xml`, content: xmlBuffer.toString("base64") },
+        { filename: `${dteFilenameBase}.pdf`, content: pdfBuffer.toString("base64") },
         ...userAttachmentPayloads,
       ],
     });
@@ -309,6 +317,8 @@ export async function sendDteXmlToBackoffice(
 
   const kind: DteEmailKind = opts?.kindOverride ?? (opts?.triggeredBy ? "manual_backoffice" : "auto_backoffice");
 
+  const dteFilenameBase = await buildDteAttachmentBaseName(tenantId, dte);
+
   try {
     const result = await resend.emails.send({
       from: emailCfg.from,
@@ -316,7 +326,7 @@ export async function sendDteXmlToBackoffice(
       to: recipients,
       subject,
       html,
-      attachments: [{ filename: `${dte.code}.xml`, content: xmlBuffer.toString("base64") }],
+      attachments: [{ filename: `${dteFilenameBase}.xml`, content: xmlBuffer.toString("base64") }],
     });
 
     if (result.error) {

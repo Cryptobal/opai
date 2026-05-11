@@ -20,7 +20,8 @@ const updateRendicionSchema = z.object({
   costCenterId: z.string().uuid().optional().nullable(),
   type: z.enum(["PURCHASE", "MILEAGE"]).optional(),
   beneficiaryGuardiaId: z.string().uuid().optional().nullable(),
-  beneficiaryAdminId: z.string().uuid().optional().nullable(),
+  // Admin.id es CUID (no UUID); por eso aceptamos cualquier string no vacío.
+  beneficiaryAdminId: z.string().min(1).optional().nullable(),
 });
 
 // ── GET: detail with relations ──

@@ -5,13 +5,8 @@ import {
   resolveApiPerms,
 } from "@/lib/api-auth";
 import { hasCapability } from "@/lib/permissions";
-import { parseSantanderCartola } from "@/modules/finance/banking/santander-parser";
-import { loadXlsxRows } from "@/modules/finance/banking/xlsx-loader";
 import { importBankTransactions } from "@/modules/finance/banking/bank-transaction.service";
-
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
-const SUPPORTED_FORMATS = ["SANTANDER"] as const;
-type BankFormat = (typeof SUPPORTED_FORMATS)[number];
+import { parseCartolaUpload } from "@/modules/finance/banking/parse-cartola-upload";
 
 /**
  * POST /api/finance/banking/transactions/import
@@ -34,117 +29,42 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // --- Parse FormData ---
     const formData = await request.formData();
-    const file = formData.get("file") as File | null;
-    const bankAccountId = formData.get("bankAccountId") as string | null;
-    const bankFormat = (
-      (formData.get("bankFormat") as string) || "SANTANDER"
-    ).toUpperCase() as BankFormat;
+    const parsedUpload = await parseCartolaUpload(formData);
+    if (!parsedUpload.ok) return parsedUpload.response;
+    const { file, bankAccountId, bankFormat, transactions, ...meta } =
+      parsedUpload.data;
 
-    if (!file) {
-      return NextResponse.json(
-        { success: false, error: "Archivo es requerido" },
-        { status: 400 }
-      );
-    }
-
-    if (!bankAccountId) {
-      return NextResponse.json(
-        { success: false, error: "bankAccountId es requerido" },
-        { status: 400 }
-      );
-    }
-
-    if (!SUPPORTED_FORMATS.includes(bankFormat)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: `Formato no soportado. Formatos disponibles: ${SUPPORTED_FORMATS.join(", ")}`,
-        },
-        { status: 400 }
-      );
-    }
-
-    if (file.size > MAX_FILE_SIZE) {
-      return NextResponse.json(
-        { success: false, error: "El archivo excede el tamano maximo de 5MB" },
-        { status: 400 }
-      );
-    }
-
-    // --- Read Excel file ---
-    // Usamos un loader propio (JSZip + fast-xml-parser) en vez de exceljs porque
-    // Santander emite XLSX no-estándar (paths con `/` inicial, sheet.xml en vez
-    // de sheet1.xml, namespace `x:`) y exceljs revienta con
-    // "Cannot read properties of undefined (reading 'sheets')".
-    const arrayBuffer = await file.arrayBuffer();
-    let rows: (string | number | null)[][];
-    try {
-      const loaded = await loadXlsxRows(new Uint8Array(arrayBuffer));
-      rows = loaded.rows;
-    } catch (err) {
-      console.error("[Finance BankTransactions Import] XLSX load error:", err);
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "No se pudo leer el archivo. Verifica que sea el Excel descargado desde Santander (Historial de Cuenta).",
-        },
-        { status: 400 }
-      );
-    }
-    if (rows.length === 0) {
-      return NextResponse.json(
-        { success: false, error: "El archivo no contiene datos" },
-        { status: 400 }
-      );
-    }
-
-    // --- Parse with the appropriate parser ---
-    let parsed;
-    switch (bankFormat) {
-      case "SANTANDER":
-        parsed = parseSantanderCartola(rows);
-        break;
-      default:
-        return NextResponse.json(
-          { success: false, error: "Formato no implementado" },
-          { status: 400 }
-        );
-    }
-
-    if (parsed.transactions.length === 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "No se encontraron transacciones en el archivo",
-        },
-        { status: 400 }
-      );
-    }
-
-    // --- Import transactions ---
     // Pasamos userId para que importBankTransactions corra auto-match
     // contra DTEs pendientes después del bulk insert. Cobros con monto
     // exacto + RUT detectado en cartola pasan a PAID automáticamente.
     const result = await importBankTransactions(
       ctx.tenantId,
       bankAccountId,
-      parsed.transactions,
-      parsed.closingBalance,
+      transactions,
+      meta.closingBalance,
       ctx.userId,
+      {
+        fileName: file.name,
+        fileSize: file.size,
+        bankFormat,
+        accountNumberInFile: meta.accountNumber,
+        periodFrom: meta.periodFrom,
+        periodTo: meta.periodTo,
+      },
     );
 
     return NextResponse.json(
       {
         success: true,
         data: {
+          importId: result.importId,
           importedCount: result.importedCount,
-          totalInFile: parsed.transactions.length,
-          accountNumber: parsed.accountNumber,
-          periodFrom: parsed.periodFrom,
-          periodTo: parsed.periodTo,
+          duplicateCount: result.duplicateCount,
+          totalInFile: transactions.length,
+          accountNumber: meta.accountNumber,
+          periodFrom: meta.periodFrom,
+          periodTo: meta.periodTo,
           // Resumen del auto-match para que la UI pueda mostrar
           // "X transacciones importadas, Y conciliadas automáticamente,
           // Z requieren revisión manual".

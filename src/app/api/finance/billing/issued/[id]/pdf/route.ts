@@ -3,6 +3,7 @@ import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { canView } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { getDteProvider } from "@/modules/finance/shared/adapters/dte-provider.adapter";
+import { buildDteAttachmentBaseName } from "@/modules/finance/billing/dte-filename";
 
 export async function GET(
   request: NextRequest,
@@ -44,11 +45,15 @@ export async function GET(
     console.log(
       `[Finance/Billing/PDF] Generated ${pdfBuffer.length} bytes in ${Date.now() - t0}ms`,
     );
+    // Filename con folio + cliente + instalación. El navegador prioriza este
+    // Content-Disposition sobre el atributo `download` del <a>, por eso se
+    // construye acá en el server.
+    const filenameBase = await buildDteAttachmentBaseName(ctx.tenantId, dte);
     return new NextResponse(new Uint8Array(pdfBuffer), {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `${disposition}; filename="${dte.code}.pdf"`,
+        "Content-Disposition": `${disposition}; filename="${filenameBase}.pdf"`,
         "Cache-Control": "no-store, must-revalidate",
       },
     });

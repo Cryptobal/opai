@@ -3,6 +3,7 @@ import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { canView } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { getDteProvider } from "@/modules/finance/shared/adapters/dte-provider.adapter";
+import { buildDteAttachmentBaseName } from "@/modules/finance/billing/dte-filename";
 
 export async function GET(
   _request: NextRequest,
@@ -32,11 +33,12 @@ export async function GET(
   try {
     const provider = await getDteProvider(ctx.tenantId);
     const xmlBuffer = await provider.getXml(dte.dteType, dte.folio);
+    const filenameBase = await buildDteAttachmentBaseName(ctx.tenantId, dte);
     return new NextResponse(new Uint8Array(xmlBuffer), {
       status: 200,
       headers: {
         "Content-Type": "application/xml",
-        "Content-Disposition": `attachment; filename="${dte.code}.xml"`,
+        "Content-Disposition": `attachment; filename="${filenameBase}.xml"`,
       },
     });
   } catch (err) {

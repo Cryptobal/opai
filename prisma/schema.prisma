@@ -5868,7 +5868,7 @@ model FinanceRendicion {
   submittedAt          DateTime?             @map("submitted_at") @db.Timestamptz(6)
   beneficiaryGuardiaId String?               @map("beneficiary_guardia_id") @db.Uuid
   beneficiaryGuardia   OpsGuardia?           @relation("finance_rendicion_beneficiary", fields: [beneficiaryGuardiaId], references: [id], onDelete: SetNull)
-  beneficiaryAdminId   String?               @map("beneficiary_admin_id") @db.Uuid
+  beneficiaryAdminId   String?               @map("beneficiary_admin_id")
 
   approvals   FinanceApproval[]
   attachments FinanceAttachment[]
@@ -6878,6 +6878,7 @@ model FinanceBankAccount {
   reconciliations FinanceReconciliation[]
   paymentsFrom    FinancePaymentRecord[]
   balanceHistory  FinanceBankAccountBalance[]
+  statementImports FinanceBankStatementImport[]
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -6901,7 +6902,7 @@ model FinanceBankAccountBalance {
   balance       Decimal              @db.Decimal(14, 2)
   source        FinanceBalanceSource @default(MANUAL)
   note          String?
-  createdById   String?              @map("created_by") @db.Uuid
+  createdById   String?              @map("created_by")
   createdAt     DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
 
   @@index([tenantId, bankAccountId, asOfDate], map: "idx_finance_bank_balance_date")
@@ -6963,7 +6964,7 @@ model FinanceAutoMatchRule {
   timesMatched  Int       @default(0) @map("times_matched")
   lastMatchedAt DateTime? @map("last_matched_at") @db.Timestamptz(6)
 
-  createdById String?  @map("created_by") @db.Uuid
+  createdById String?  @map("created_by")
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -7004,7 +7005,7 @@ model FinanceBankTransactionLink {
   accountPlanId     String?                @map("account_plan_id") @db.Uuid
   accountPlan       FinanceAccountPlan?    @relation("BankTxLinkAccountPlan", fields: [accountPlanId], references: [id])
   note              String?
-  createdById       String?                @map("created_by") @db.Uuid
+  createdById       String?                @map("created_by")
   createdAt         DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
 
   @@index([tenantId, bankTransactionId], map: "idx_finance_bank_link_tx")
@@ -7066,6 +7067,11 @@ model FinanceBankTransaction {
   reconcMatch FinanceReconciliationMatch?
   links       FinanceBankTransactionLink[]
 
+  // Cartola desde la que se importó esta transacción. NULL para movimientos
+  // creados manualmente o anteriores a la introducción del historial.
+  importId String?                     @map("import_id") @db.Uuid
+  import   FinanceBankStatementImport? @relation(fields: [importId], references: [id], onDelete: SetNull)
+
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -7074,7 +7080,37 @@ model FinanceBankTransaction {
   @@index([reconciliationStatus], map: "idx_finance_bank_tx_reconc")
   @@index([hiddenAt], map: "idx_finance_bank_tx_hidden")
   @@index([suggestedRuleId], map: "idx_finance_bank_tx_suggestion")
+  @@index([importId], map: "idx_finance_bank_tx_import")
   @@map("finance_bank_transactions")
+  @@schema("finance")
+}
+
+/// Historial de cartolas bancarias importadas. Cada importación deja una fila
+/// que enlaza al archivo subido y al lote de movimientos que generó, para
+/// trazabilidad y para que la UI pueda mostrar "últimas cartolas importadas"
+/// con drill-down a los movimientos.
+model FinanceBankStatementImport {
+  id                  String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId            String   @map("tenant_id")
+  bankAccountId       String   @map("bank_account_id") @db.Uuid
+  bankAccount         FinanceBankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+  fileName            String   @map("file_name")
+  fileSize            Int      @map("file_size")
+  bankFormat          String   @map("bank_format")
+  accountNumberInFile String?  @map("account_number_in_file")
+  periodFrom          DateTime? @map("period_from") @db.Date
+  periodTo            DateTime? @map("period_to") @db.Date
+  totalInFile         Int      @map("total_in_file")
+  importedCount       Int      @map("imported_count")
+  duplicateCount      Int      @map("duplicate_count")
+  closingBalance      Decimal? @map("closing_balance") @db.Decimal(14, 2)
+  createdById         String?  @map("created_by")
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  transactions FinanceBankTransaction[]
+
+  @@index([tenantId, bankAccountId, createdAt(sort: Desc)], map: "idx_finance_bank_stmt_import_recent")
+  @@map("finance_bank_statement_imports")
   @@schema("finance")
 }
 

@@ -18,6 +18,7 @@ import {
   CheckCircle2,
   X,
   CircleSlash,
+  Trash2,
 } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -66,10 +67,13 @@ export function CellActionPopover({
   onActionDone,
 }: Props) {
   const [open, setOpen] = useState(false);
-  const [busy, setBusy] = useState<null | "shift" | "amount" | "date" | "resolve" | "end">(null);
+  const [busy, setBusy] = useState<
+    null | "shift" | "amount" | "date" | "resolve" | "end" | "cancel"
+  >(null);
   const [editing, setEditing] = useState(false);
   const [pickingDate, setPickingDate] = useState(false);
   const [confirmingEnd, setConfirmingEnd] = useState(false);
+  const [confirmingCancel, setConfirmingCancel] = useState(false);
   const [draftAmount, setDraftAmount] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -83,10 +87,56 @@ export function CellActionPopover({
     setEditing(false);
     setPickingDate(false);
     setConfirmingEnd(false);
+    setConfirmingCancel(false);
     setError(null);
     setSuccess(null);
     setDraftAmount("");
     setConflict(null);
+  }
+
+  async function cancelOccurrence() {
+    if (!target) return;
+    setBusy("cancel");
+    setError(null);
+    setSuccess(null);
+    try {
+      // Si la ocurrencia aún no está materializada (id === null) usamos
+      // upsert-and-act que la crea y la marca CANCELLED de una vez. Si ya
+      // existe, vamos directo al endpoint de status.
+      let r: Response;
+      if (target.id === null) {
+        r = await fetch(`/api/finance/cashflow/occurrences/upsert-and-act`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "cancel",
+            itemId: target.itemId,
+            originalDate: target.originalDate,
+          }),
+        });
+      } else {
+        r = await fetch(
+          `/api/finance/cashflow/occurrences/${target.id}/status`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: "CANCELLED" }),
+          },
+        );
+      }
+      const j = await r.json();
+      if (j?.success) {
+        flashSuccessAndClose(
+          `Monto eliminado de ${formatDateLabel(target.originalDate)}`,
+        );
+      } else {
+        setError(j?.error ?? "No se pudo eliminar el monto");
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error de red");
+    } finally {
+      setBusy(null);
+    }
   }
 
   async function endRecurrenceFromHere() {
@@ -411,6 +461,44 @@ export function CellActionPopover({
                 </div>
               )}
             </div>
+          ) : confirmingCancel ? (
+            <div className="space-y-3">
+              <div className="flex items-start gap-2 px-1">
+                <Trash2 className="h-5 w-5 text-status-error-fg shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-[13px] font-semibold text-ds-text-1">
+                    Eliminar solo este monto
+                  </p>
+                  <p className="text-[12px] text-ds-text-3 mt-0.5">
+                    La cuota de {formatDateLabel(target.originalDate)} dejará
+                    de proyectarse. Las próximas cuotas del ítem se mantienen
+                    intactas. Podés revertirlo desde &quot;Movimientos
+                    proyectados&quot;.
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setConfirmingCancel(false)}
+                  disabled={busy !== null}
+                  className="flex-1 h-11 sm:h-10 text-[13px]"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={cancelOccurrence}
+                  disabled={busy !== null}
+                  className="flex-1 h-11 sm:h-10 text-[13px] bg-status-error-fg text-background hover:bg-status-error-fg/90"
+                >
+                  {busy === "cancel" ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "Eliminar"
+                  )}
+                </Button>
+              </div>
+            </div>
           ) : confirmingEnd ? (
             <div className="space-y-3">
               <div className="flex items-start gap-2 px-1">
@@ -546,6 +634,14 @@ export function CellActionPopover({
                   className="w-full h-11 sm:h-10 text-[13px] justify-start"
                 >
                   <Pencil className="h-4 w-4 mr-2" /> Editar monto
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setConfirmingCancel(true)}
+                  disabled={busy !== null}
+                  className="w-full h-11 sm:h-10 text-[13px] justify-start text-status-error-fg hover:bg-status-error-soft"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" /> Eliminar este monto…
                 </Button>
                 <Button
                   variant="outline"
