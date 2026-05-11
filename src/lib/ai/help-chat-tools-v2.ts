@@ -1060,7 +1060,7 @@ function writeToolDefinitions() {
             executivePhone: { type: "string" },
             defaultAdvanceRate: { type: "number", description: "Tasa de anticipo % default (0-100)." },
             defaultInterestRate: { type: "number", description: "Tasa de interés mensual % default (0-100)." },
-            defaultCommissionPct: { type: "number", description: "Comisión % default (0-100)." },
+            defaultCommissionAmount: { type: "number", description: "Comisión default en CLP (monto fijo). Ej: 15000." },
             notes: { type: "string" },
           },
           required: ["name", "rut"],
@@ -4252,7 +4252,10 @@ async function toolCreateFactoringCompany(
     contactPhone: typeof args.executivePhone === "string" ? args.executivePhone : null,
     defaultAdvanceRate: typeof args.defaultAdvanceRate === "number" ? args.defaultAdvanceRate : null,
     defaultInterestRate: typeof args.defaultInterestRate === "number" ? args.defaultInterestRate : null,
-    defaultCommissionPct: typeof args.defaultCommissionPct === "number" ? args.defaultCommissionPct : null,
+    defaultCommissionAmount:
+      typeof args.defaultCommissionAmount === "number"
+        ? args.defaultCommissionAmount
+        : null,
     notes: typeof args.notes === "string" ? args.notes : null,
   };
   const parsed = factoringCompanyInputSchema.safeParse(input);

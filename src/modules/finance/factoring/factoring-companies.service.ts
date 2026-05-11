@@ -25,7 +25,10 @@ export interface FactoringCompanyInput {
   contactPhone?: string | null;
   defaultAdvanceRate?: number | null;
   defaultInterestRate?: number | null;
+  /** @deprecated — la UI nueva usa defaultCommissionAmount (monto CLP). */
   defaultCommissionPct?: number | null;
+  /** Comisión por defecto del factoring en CLP (monto fijo). */
+  defaultCommissionAmount?: number | null;
   notes?: string | null;
 }
 
@@ -137,6 +140,7 @@ export async function createFactoringCompany(
       defaultAdvanceRate: norm.data.defaultAdvanceRate ?? null,
       defaultInterestRate: norm.data.defaultInterestRate ?? null,
       defaultCommissionPct: norm.data.defaultCommissionPct ?? null,
+      defaultCommissionAmount: norm.data.defaultCommissionAmount ?? null,
       notes: norm.data.notes ?? null,
     },
   });
@@ -173,6 +177,12 @@ export async function updateFactoringCompany(
       input.defaultInterestRate ?? Number(current.defaultInterestRate ?? 0),
     defaultCommissionPct:
       input.defaultCommissionPct ?? Number(current.defaultCommissionPct ?? 0),
+    defaultCommissionAmount:
+      input.defaultCommissionAmount !== undefined
+        ? input.defaultCommissionAmount
+        : current.defaultCommissionAmount !== null && current.defaultCommissionAmount !== undefined
+          ? Number(current.defaultCommissionAmount)
+          : null,
     notes: input.notes ?? current.notes,
   };
 
@@ -207,6 +217,7 @@ export async function updateFactoringCompany(
       defaultAdvanceRate: norm.data.defaultAdvanceRate ?? null,
       defaultInterestRate: norm.data.defaultInterestRate ?? null,
       defaultCommissionPct: norm.data.defaultCommissionPct ?? null,
+      defaultCommissionAmount: norm.data.defaultCommissionAmount ?? null,
       notes: norm.data.notes ?? null,
     },
   });

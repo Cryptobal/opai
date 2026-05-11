@@ -37,7 +37,7 @@ export function FactoringCompanyForm({ mode, company, onClose, onSuccess }: Prop
     contactPhone: company?.contactPhone ?? "",
     defaultAdvanceRate: company?.defaultAdvanceRate ?? "",
     defaultInterestRate: company?.defaultInterestRate ?? "",
-    defaultCommissionPct: company?.defaultCommissionPct ?? "",
+    defaultCommissionAmount: company?.defaultCommissionAmount ?? "",
     notes: company?.notes ?? "",
   });
 
@@ -48,19 +48,25 @@ export function FactoringCompanyForm({ mode, company, onClose, onSuccess }: Prop
   const handleSubmit = async () => {
     const advance = form.defaultAdvanceRate === "" ? null : Number(form.defaultAdvanceRate);
     const interest = form.defaultInterestRate === "" ? null : Number(form.defaultInterestRate);
-    const commission =
-      form.defaultCommissionPct === "" ? null : Number(form.defaultCommissionPct);
+    const commissionAmount =
+      form.defaultCommissionAmount === "" ? null : Number(form.defaultCommissionAmount);
 
     const pctChecks: Array<[string, number | null]> = [
       ["Anticipo default", advance],
       ["Interés mensual default", interest],
-      ["Comisión default", commission],
     ];
     for (const [label, value] of pctChecks) {
       if (value !== null && (Number.isNaN(value) || value < 0 || value > 100)) {
         toast.error(`${label}: debe ser un porcentaje entre 0 y 100.`);
         return;
       }
+    }
+    if (
+      commissionAmount !== null &&
+      (Number.isNaN(commissionAmount) || commissionAmount < 0)
+    ) {
+      toast.error("Comisión default debe ser un monto en CLP positivo.");
+      return;
     }
 
     setSubmitting(true);
@@ -77,7 +83,7 @@ export function FactoringCompanyForm({ mode, company, onClose, onSuccess }: Prop
         contactPhone: form.contactPhone.trim() || null,
         defaultAdvanceRate: advance,
         defaultInterestRate: interest,
-        defaultCommissionPct: commission,
+        defaultCommissionAmount: commissionAmount,
         notes: form.notes.trim() || null,
       };
 
@@ -229,21 +235,20 @@ export function FactoringCompanyForm({ mode, company, onClose, onSuccess }: Prop
             />
           </div>
           <div>
-            <Label htmlFor="defaultCommissionPct">Comisión default (%)</Label>
+            <Label htmlFor="defaultCommissionAmount">Comisión default (CLP)</Label>
             <Input
-              id="defaultCommissionPct"
+              id="defaultCommissionAmount"
               type="number"
               min="0"
-              max="100"
-              step="0.01"
-              placeholder="Ej: 0.5"
-              value={form.defaultCommissionPct}
-              onChange={(e) => setField("defaultCommissionPct", e.target.value)}
+              step="1"
+              placeholder="Ej: 15000"
+              value={form.defaultCommissionAmount}
+              onChange={(e) => setField("defaultCommissionAmount", e.target.value)}
               className="h-10 sm:h-9"
             />
             <p className="text-[11px] text-ds-text-3 mt-1">
-              Porcentaje (0–100). Si tu factoring cobra un monto fijo, déjalo
-              vacío y registralo por cesión.
+              Monto fijo en CLP que cobra el factoring por cesión. Si varía
+              caso a caso, dejá vacío y registralo en cada cesión.
             </p>
           </div>
           <div className="sm:col-span-2">

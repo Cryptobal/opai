@@ -55,6 +55,10 @@ export default async function FactoringCompaniesPage() {
       c.defaultInterestRate !== null ? Number(c.defaultInterestRate) : null,
     defaultCommissionPct:
       c.defaultCommissionPct !== null ? Number(c.defaultCommissionPct) : null,
+    defaultCommissionAmount:
+      c.defaultCommissionAmount !== null && c.defaultCommissionAmount !== undefined
+        ? Number(c.defaultCommissionAmount)
+        : null,
     notes: c.notes,
     isActive: c.isActive,
   }));

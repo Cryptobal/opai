@@ -7258,7 +7258,15 @@ model FinanceFactoringCompany {
   contactPhone         String?                     @map("contact_phone")
   defaultAdvanceRate   Decimal?                    @map("default_advance_rate") @db.Decimal(5, 2)
   defaultInterestRate  Decimal?                    @map("default_interest_rate") @db.Decimal(6, 4)
+  /// @deprecated — antes la comisión se modelaba como porcentaje sobre el
+  /// bruto. En la práctica los factorings cobran un monto fijo en CLP, así
+  /// que la UI usa `defaultCommissionAmount`. Se mantiene la columna para
+  /// no perder datos legacy de tenants que ya tenían configurado un %.
   defaultCommissionPct Decimal?                    @map("default_commission_pct") @db.Decimal(5, 2)
+  /// Comisión por defecto en CLP (monto fijo). Es lo que la UI muestra
+  /// como "Comisión default (CLP)". Si el factoring cobra distinto por
+  /// cesión, déjalo vacío y registralo en cada cesión.
+  defaultCommissionAmount Decimal?                 @map("default_commission_amount") @db.Decimal(14, 2)
   notes                String?                     @db.Text
   isActive             Boolean                     @default(true) @map("is_active")
   operations           FinanceFactoringOperation[]

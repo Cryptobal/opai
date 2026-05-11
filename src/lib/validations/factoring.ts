@@ -34,7 +34,14 @@ export const factoringCompanyInputSchema = z.object({
   contactPhone: z.string().nullable().optional(),
   defaultAdvanceRate: pctField("Anticipo default"),
   defaultInterestRate: pctField("Interés mensual default"),
+  /** @deprecated — se mantiene para no romper clientes legacy. La UI nueva usa defaultCommissionAmount (CLP). */
   defaultCommissionPct: pctField("Comisión default"),
+  /** Monto fijo en CLP que cobra el factoring por cesión. */
+  defaultCommissionAmount: z
+    .number()
+    .min(0, "Comisión default no puede ser negativa")
+    .nullable()
+    .optional(),
   notes: z.string().nullable().optional(),
 });
 

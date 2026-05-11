@@ -29,6 +29,7 @@ export interface FactoringCompanyRow {
   defaultAdvanceRate: number | null;
   defaultInterestRate: number | null;
   defaultCommissionPct: number | null;
+  defaultCommissionAmount: number | null;
   notes: string | null;
   isActive: boolean;
 }
@@ -135,7 +136,11 @@ export function FactoringCompaniesClient({ initialCompanies, canManage }: Props)
         <div className="text-xs text-ds-text-2 font-mono whitespace-nowrap">
           {c.defaultAdvanceRate !== null ? `Anticipo ${c.defaultAdvanceRate}%` : "—"}
           {c.defaultInterestRate !== null ? ` · Int ${c.defaultInterestRate}%/m` : ""}
-          {c.defaultCommissionPct !== null ? ` · Com ${c.defaultCommissionPct}%` : ""}
+          {c.defaultCommissionAmount !== null
+            ? ` · Com $${new Intl.NumberFormat("es-CL").format(c.defaultCommissionAmount)}`
+            : c.defaultCommissionPct !== null
+              ? ` · Com ${c.defaultCommissionPct}%`
+              : ""}
         </div>
       ),
     },
