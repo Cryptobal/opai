@@ -7340,6 +7340,24 @@ model FinanceFactoringOperation {
   approvedAt DateTime? @map("approved_at") @db.Timestamptz(6)
   closedAt   DateTime? @map("closed_at") @db.Timestamptz(6)
 
+  // ── Simulación del cesionario (PDF subido por el usuario + extracción IA) ──
+  simulationFileUrl       String?  @map("simulation_file_url")
+  simulationFileKey       String?  @map("simulation_file_key")
+  simulationFileName      String?  @map("simulation_file_name")
+  simulationExtractedAt   DateTime? @map("simulation_extracted_at") @db.Timestamptz(6)
+  simulationExtractedJson Json?    @map("simulation_extracted_json")
+  simMontoAGirar          Decimal? @map("sim_monto_a_girar") @db.Decimal(14, 2)
+  simDifPrecio            Decimal? @map("sim_dif_precio") @db.Decimal(14, 2)
+  simComision             Decimal? @map("sim_comision") @db.Decimal(14, 2)
+  simIva                  Decimal? @map("sim_iva") @db.Decimal(14, 2)
+  simGastosLegal          Decimal? @map("sim_gastos_legal") @db.Decimal(14, 2)
+  simNotaria              Decimal? @map("sim_notaria") @db.Decimal(14, 2)
+  simGastosOperacionales  Decimal? @map("sim_gastos_operacionales") @db.Decimal(14, 2)
+
+  // ── Métricas derivadas (calculadas server-side al guardar la cesión) ──
+  costoFinanciero        Decimal? @map("costo_financiero") @db.Decimal(14, 2)
+  effectiveMonthlyRate   Decimal? @map("effective_monthly_rate") @db.Decimal(8, 4)
+
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 

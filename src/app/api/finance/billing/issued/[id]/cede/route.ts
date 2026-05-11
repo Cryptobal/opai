@@ -49,6 +49,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         contactNombre: parsed.data.contactNombre,
         contactFono: parsed.data.contactFono,
         contactEmail: parsed.data.contactEmail || undefined,
+        simulation: parsed.data.simulation,
       },
       { tenantId: ctx.tenantId, userId: ctx.userId },
     );

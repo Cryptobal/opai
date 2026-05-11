@@ -46,6 +46,26 @@ export interface CedeDteInput {
   contactNombre?: string;
   contactFono?: string;
   contactEmail?: string;
+  /** Datos del PDF de simulación subido por el usuario. Opcional — si
+   *  no viene, la cesión se persiste sólo con las tasas calculadas. */
+  simulation?: SimulationSnapshot;
+}
+
+/** Datos extraídos del PDF de simulación del factoring (Fase 1). */
+export interface SimulationSnapshot {
+  fileUrl?: string | null;
+  fileKey?: string | null;
+  fileName?: string | null;
+  /** JSON crudo devuelto por la IA, para auditoría/diagnóstico. */
+  extractedJson?: unknown;
+  montoBruto?: number | null;
+  montoAGirar?: number | null;
+  difPrecio?: number | null;
+  comision?: number | null;
+  iva?: number | null;
+  gastosLegal?: number | null;
+  notaria?: number | null;
+  gastosOperacionales?: number | null;
 }
 
 export interface CedeDteContext {
@@ -347,6 +367,27 @@ export async function cedeDte(
   const submittedAt = new Date();
 
   // 6. Persistir operación (+ traza JSON para auditoría / soporte).
+  // Si vino simulación del factoring, derivamos costo financiero real y
+  // tasa efectiva mensual para comparar empresas más tarde.
+  const sim = input.simulation;
+  const simMontoAGirar = sim?.montoAGirar ?? null;
+  const costoFinanciero =
+    simMontoAGirar != null
+      ? Math.max(0, terms.invoiceAmount - simMontoAGirar)
+      : null;
+  // Guardado como porcentaje (mismas unidades que `interest_rate`).
+  // Ej: $149.975 de costo sobre $5.306.452 de anticipo en 60 días →
+  // (149975 / 5306452) × (30 / 60) × 100 ≈ 1,4128 → guarda 1.4128.
+  const effectiveMonthlyRate =
+    costoFinanciero != null && terms.advanceAmount > 0 && terms.plazoDias > 0
+      ? Math.round(
+          (costoFinanciero / terms.advanceAmount) *
+            (30 / terms.plazoDias) *
+            100 *
+            10000,
+        ) / 10000
+      : null;
+
   const code = await generateOperationCode(ctx.tenantId, new Date());
   const op = await prisma.financeFactoringOperation.create({
     data: {
@@ -384,6 +425,22 @@ export async function cedeDte(
       approvedAt: terminalOk ? submittedAt : null,
       notes: input.notes ?? null,
       createdBy: ctx.userId,
+      // ── Simulación del cesionario (PDF + IA) ──
+      simulationFileUrl: sim?.fileUrl ?? null,
+      simulationFileKey: sim?.fileKey ?? null,
+      simulationFileName: sim?.fileName ?? null,
+      simulationExtractedAt: sim ? new Date() : null,
+      simulationExtractedJson:
+        sim?.extractedJson != null ? (sim.extractedJson as object) : undefined,
+      simMontoAGirar: simMontoAGirar,
+      simDifPrecio: sim?.difPrecio ?? null,
+      simComision: sim?.comision ?? null,
+      simIva: sim?.iva ?? null,
+      simGastosLegal: sim?.gastosLegal ?? null,
+      simNotaria: sim?.notaria ?? null,
+      simGastosOperacionales: sim?.gastosOperacionales ?? null,
+      costoFinanciero: costoFinanciero,
+      effectiveMonthlyRate: effectiveMonthlyRate,
     },
     select: { id: true, code: true, aecTrackId: true },
   });

@@ -50,6 +50,26 @@ export type FactoringCompanyInputSchema = z.infer<typeof factoringCompanyInputSc
 /** Schema para PATCH (todos los campos opcionales). */
 export const factoringCompanyUpdateSchema = factoringCompanyInputSchema.partial();
 
+/** Datos extraídos del PDF de simulación del factoring (Fase 1). Todos
+ *  los montos en CLP. Todos opcionales — si el usuario no subió PDF o
+ *  la IA no pudo extraer un campo, el server persiste null. */
+const simulationSnapshotSchema = z
+  .object({
+    fileUrl: z.string().url().optional().nullable(),
+    fileKey: z.string().optional().nullable(),
+    fileName: z.string().optional().nullable(),
+    extractedJson: z.unknown().optional(),
+    montoBruto: z.number().nonnegative().optional().nullable(),
+    montoAGirar: z.number().nonnegative().optional().nullable(),
+    difPrecio: z.number().nonnegative().optional().nullable(),
+    comision: z.number().nonnegative().optional().nullable(),
+    iva: z.number().nonnegative().optional().nullable(),
+    gastosLegal: z.number().nonnegative().optional().nullable(),
+    notaria: z.number().nonnegative().optional().nullable(),
+    gastosOperacionales: z.number().nonnegative().optional().nullable(),
+  })
+  .strict();
+
 /** Schema para POST cede en /api/finance/billing/issued/[id]/cede. */
 export const cedeDteSchema = z.object({
   factoringCompanyId: z.string().uuid("factoringCompanyId debe ser uuid"),
@@ -67,6 +87,7 @@ export const cedeDteSchema = z.object({
     .email("Email contacto inválido")
     .optional()
     .or(z.literal("")),
+  simulation: simulationSnapshotSchema.optional(),
 });
 
 export type CedeDteSchema = z.infer<typeof cedeDteSchema>;
