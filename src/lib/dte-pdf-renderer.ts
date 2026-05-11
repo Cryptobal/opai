@@ -500,17 +500,33 @@ async function renderDtePage(
       font: ctx.fontRegular,
       size: 8,
     });
-    // Descripción en segunda línea (sólo si existe y no duplica el nombre).
+    // Descripción multi-línea bajo el nombre (sólo si existe y no duplica
+    // el nombre). pdf-lib `drawText` no maneja `\n` correctamente —
+    // hay que dibujar cada sub-línea con su propio rowY o quedan
+    // colgadas al final del PDF. Soporta hasta 4 sub-líneas; el resto
+    // se trunca con "…" en la última.
     const desc = linea.descripcion?.trim();
     if (desc && desc !== linea.nombre.trim()) {
-      rowY -= 10;
-      page.drawText(truncate(desc, DESC_MAX_CHARS), {
-        x: colX.detalle,
-        y: rowY,
-        font: ctx.fontRegular,
-        size: 7,
-        color: COLORS.gray,
-      });
+      const MAX_DESC_LINES = 4;
+      const subLines = desc
+        .split(/\r?\n/)
+        .map((l) => l.trim())
+        .filter((l) => l.length > 0);
+      const shown = subLines.slice(0, MAX_DESC_LINES);
+      if (subLines.length > MAX_DESC_LINES && shown.length > 0) {
+        shown[shown.length - 1] =
+          truncate(shown[shown.length - 1], DESC_MAX_CHARS - 2) + " …";
+      }
+      for (const subLine of shown) {
+        rowY -= 10;
+        page.drawText(truncate(subLine, DESC_MAX_CHARS), {
+          x: colX.detalle,
+          y: rowY,
+          font: ctx.fontRegular,
+          size: 7,
+          color: COLORS.gray,
+        });
+      }
     }
   }
 
