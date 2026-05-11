@@ -410,3 +410,101 @@ export async function materializeAndAct(
     data: { amountOverride: input.amountClp, amountClp: input.amountClp },
   });
 }
+
+export interface ConfirmCashflowMatchInput {
+  occurrenceId: string;
+  bankTransactionId: string;
+  /** Si true, mueve scheduledDate y effectiveDate a transactionDate del banco. */
+  rebalanceDate?: boolean;
+  /** Si true, ajusta amountClp al monto real del banco (registra varianza). */
+  rebalanceAmount?: boolean;
+}
+
+/**
+ * Operación atómica de confirmación de match cashflow ↔ bank tx.
+ *
+ * Realiza en una sola transacción:
+ *  1. Marca la occurrence como PAID
+ *  2. Vincula con bankTransactionId
+ *  3. Si rebalanceDate=true: scheduledDate y effectiveDate ← bank tx date
+ *  4. Si rebalanceAmount=true: amountClp ← monto banco (absoluto)
+ *  5. Marca el bank tx con reconciliationStatus=MATCHED
+ *
+ * No modifica el item maestro — solo la occurrence individual.
+ * Idempotente: si la occurrence ya está PAID con ese mismo bank tx, no-op.
+ */
+export async function confirmCashflowMatch(
+  tenantId: string,
+  userId: string | null,
+  input: ConfirmCashflowMatchInput,
+): Promise<FinanceCashflowOccurrence> {
+  const { occurrenceId, bankTransactionId, rebalanceDate = true, rebalanceAmount = true } = input;
+
+  return prisma.$transaction(async (tx) => {
+    const occ = await tx.financeCashflowOccurrence.findFirst({
+      where: { id: occurrenceId, tenantId },
+      select: { id: true, itemId: true, scheduledDate: true, status: true, bankTransactionId: true },
+    });
+    if (!occ) throw new Error("Occurrence no encontrada");
+    if (occ.status === "PAID" && occ.bankTransactionId === bankTransactionId) {
+      const same = await tx.financeCashflowOccurrence.findUnique({ where: { id: occurrenceId } });
+      if (!same) throw new Error("Occurrence desapareció");
+      return same;
+    }
+
+    const bankTx = await tx.financeBankTransaction.findFirst({
+      where: { id: bankTransactionId, tenantId, hiddenAt: null },
+      select: { id: true, transactionDate: true, amount: true },
+    });
+    if (!bankTx) throw new Error("Movimiento bancario no encontrado");
+
+    const bankAmountAbs = Math.abs(Number(bankTx.amount));
+
+    // Si rebalanceDate, validar que no choque con otra occurrence del mismo item
+    if (rebalanceDate) {
+      const collision = await tx.financeCashflowOccurrence.findFirst({
+        where: {
+          tenantId,
+          itemId: occ.itemId,
+          scheduledDate: bankTx.transactionDate,
+          id: { not: occurrenceId },
+        },
+        select: { id: true },
+      });
+      if (collision) {
+        throw new Error(
+          `Ya existe otra ocurrencia del mismo item en ${bankTx.transactionDate.toISOString().slice(0, 10)}. Resolvé manualmente.`,
+        );
+      }
+    }
+
+    const updateData: Record<string, unknown> = {
+      status: "PAID",
+      bankTransactionId,
+      matchedAt: new Date(),
+      matchedBy: userId ?? undefined,
+    };
+    if (rebalanceDate) {
+      updateData.scheduledDate = bankTx.transactionDate;
+      updateData.effectiveDate = bankTx.transactionDate;
+    } else {
+      updateData.effectiveDate = bankTx.transactionDate;
+    }
+    if (rebalanceAmount) {
+      updateData.amountOverride = bankAmountAbs;
+      updateData.amountClp = bankAmountAbs;
+    }
+
+    const updated = await tx.financeCashflowOccurrence.update({
+      where: { id: occurrenceId },
+      data: updateData,
+    });
+
+    await tx.financeBankTransaction.update({
+      where: { id: bankTransactionId },
+      data: { reconciliationStatus: "MATCHED" },
+    });
+
+    return updated;
+  });
+}
