@@ -322,7 +322,11 @@ export async function buildProjection(
   const bucketIndex = new Map(buckets.map((b, i) => [b.key, i]));
 
   for (const occ of allOccurrences) {
-    const key = bucketKeyFor(occ.scheduledDate, range.granularity);
+    // Usamos effectiveDate cuando existe — refleja la fecha REAL en que la
+    // cuota se ejecutó (rebalanceada al conciliar), no la fecha programada
+    // original. Esto hace que la matriz "siga al banco" cuando hay atrasos.
+    const placementDate = occ.effectiveDate ?? occ.scheduledDate;
+    const key = bucketKeyFor(placementDate, range.granularity);
     const idx = bucketIndex.get(key);
     if (idx === undefined) continue;
     const b = buckets[idx];
@@ -435,7 +439,10 @@ function buildRows(
     if (filtered.length === 0) continue;
     const values = buckets.map((b) => {
       const amount = filtered
-        .filter((o) => o.scheduledDate >= b.start && o.scheduledDate <= b.end)
+        .filter((o) => {
+          const d = o.effectiveDate ?? o.scheduledDate;
+          return d >= b.start && d <= b.end;
+        })
         .reduce((s, o) => s + o.amountClp, 0);
       return { bucketKey: b.key, amount };
     });
@@ -467,8 +474,9 @@ function buildRows(
         };
         byItem.set(key, detail);
       }
+      const placementDate = o.effectiveDate ?? o.scheduledDate;
       const bIdx = buckets.findIndex(
-        (b) => o.scheduledDate >= b.start && o.scheduledDate <= b.end,
+        (b) => placementDate >= b.start && placementDate <= b.end,
       );
       if (bIdx === -1) continue;
       detail.values[bIdx].amount += o.amountClp;
