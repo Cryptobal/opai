@@ -40,7 +40,9 @@ import {
   ExternalLink,
   Wallet,
   MapPin,
+  TrendingUp,
 } from "lucide-react";
+import { ApplyIpcDialog } from "./ApplyIpcDialog";
 import { cn } from "@/lib/utils";
 import { DOC_STATUS_CONFIG } from "@/lib/docs/token-registry";
 import {
@@ -81,6 +83,7 @@ interface Contract {
     dayOfMonth: number | null;
     hasIpcAdjustment?: boolean;
     ipcAdjustmentMonths?: number | null;
+    pendingIpcAdjustments?: Array<{ id: string; dueDate: string }>;
   } | null;
 }
 
@@ -217,6 +220,13 @@ export function AccountContractsSection({
 
   // Edit dialog state (only for manually uploaded contracts)
   const [editOpen, setEditOpen] = useState(false);
+  const [ipcModal, setIpcModal] = useState<{
+    adjustmentId: string;
+    contractTitle: string;
+    dueDate: string;
+    currentAmount: number;
+    currency: string;
+  } | null>(null);
   const [editContract, setEditContract] = useState<Contract | null>(null);
   const [editStatus, setEditStatus] = useState<"active" | "expired" | "renewed">(
     "active",
@@ -954,6 +964,27 @@ export function AccountContractsSection({
                       <span className="text-[11px] text-muted-foreground">
                         · día {c.cashflow.dayOfMonth === -1 ? "último" : c.cashflow.dayOfMonth}
                       </span>
+                      {c.cashflow.pendingIpcAdjustments &&
+                      c.cashflow.pendingIpcAdjustments.length > 0 ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const next = c.cashflow!.pendingIpcAdjustments![0];
+                            setIpcModal({
+                              adjustmentId: next.id,
+                              contractTitle: c.title,
+                              dueDate: next.dueDate,
+                              currentAmount: c.cashflow!.amountClp,
+                              currency: c.cashflow!.currency,
+                            });
+                          }}
+                          className="inline-flex items-center gap-1 rounded-md bg-status-warn-soft text-status-warn-fg text-[11px] font-medium px-2 py-0.5 hover:bg-status-warn-soft/80 transition-colors"
+                          title="Aplicar ajuste IPC pendiente"
+                        >
+                          <TrendingUp className="h-3 w-3" />
+                          Ajuste IPC pendiente
+                        </button>
+                      ) : null}
                       <div className="flex gap-1 ml-auto">
                         <Button
                           variant="ghost"
@@ -1865,6 +1896,22 @@ export function AccountContractsSection({
         </DialogContent>
       </Dialog>
 
+      {ipcModal ? (
+        <ApplyIpcDialog
+          open={true}
+          onOpenChange={(o) => !o && setIpcModal(null)}
+          adjustmentId={ipcModal.adjustmentId}
+          contractTitle={ipcModal.contractTitle}
+          dueDate={ipcModal.dueDate}
+          currentAmount={ipcModal.currentAmount}
+          currency={ipcModal.currency}
+          onApplied={() => {
+            setIpcModal(null);
+            fetchContracts();
+            onRefresh?.();
+          }}
+        />
+      ) : null}
     </div>
   );
 }

@@ -225,6 +225,12 @@ export const UNIFIED_NOTIFICATION_TYPES: UnifiedNotificationType[] = [
     critical: true,
   },
   {
+    key: 'contract_ipc_adjustment_due', label: 'Ajuste de IPC pendiente',
+    description: 'Cuando se acerca la fecha de ajuste de IPC de un contrato CLP — hay que ingresar el % real del período',
+    module: 'finance', submodule: 'cashflow', category: 'Finanzas - Flujo de Caja',
+    audiences: ['admin'], defaults: { admin: adminBell(true) },
+  },
+  {
     key: 'document_rejected', label: 'Documento rechazado',
     description: 'Cuando un cliente rechaza un documento enviado',
     module: 'docs', category: 'Documentos',

@@ -99,6 +99,11 @@ export async function GET(
         installationId: true,
         hasIpcAdjustment: true,
         ipcAdjustmentMonths: true,
+        ipcAdjustments: {
+          where: { status: "PENDING" },
+          orderBy: { dueDate: "asc" },
+          select: { id: true, dueDate: true },
+        },
       },
     });
     const cashflowByDoc = new Map(
@@ -150,6 +155,10 @@ export async function GET(
               dayOfMonth: cashflow.dayOfMonth,
               hasIpcAdjustment: cashflow.hasIpcAdjustment,
               ipcAdjustmentMonths: cashflow.ipcAdjustmentMonths,
+              pendingIpcAdjustments: cashflow.ipcAdjustments.map((a) => ({
+                id: a.id,
+                dueDate: a.dueDate.toISOString().slice(0, 10),
+              })),
             }
           : null,
       };

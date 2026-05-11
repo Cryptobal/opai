@@ -23,10 +23,21 @@ const SOURCE_BADGE: Record<FinanceCashflowItemSource, string | null> = {
 };
 
 function sourceLink(source: FinanceCashflowItemSource, item: ProjectionRowItemDetail): string | null {
+  // Fallback genérico para cualquier fuente: si el item tiene cuenta CRM
+  // o instalación, podemos llevar ahí incluso si no hay match específico
+  // abajo. Eso evita filas "no clickeables" cuando el contexto existe.
+  const fallback = item.crmAccountId
+    ? `/crm/accounts/${item.crmAccountId}?tab=contracts`
+    : item.installationId
+      ? `/configuracion/instalaciones/${item.installationId}`
+      : null;
+
   switch (source) {
     case "PAYROLL":
     case "TURNOS_EXTRA":
-      return item.installationId ? `/configuracion/instalaciones/${item.installationId}` : null;
+      return item.installationId
+        ? `/configuracion/instalaciones/${item.installationId}`
+        : fallback;
     case "CONTRACT":
       // Para contratos preferimos llevar al tab "Contratos" de la cuenta CRM
       // (donde el usuario gestiona los PDFs y la vinculación). Si no hay
@@ -39,11 +50,17 @@ function sourceLink(source: FinanceCashflowItemSource, item: ProjectionRowItemDe
       // OTHER cubre los contratos subidos manualmente y los generados
       // desde plantilla CPQ (Document.source=OTHER). Llevamos al tab
       // de contratos del cliente cuando hay crmAccountId.
-      return item.crmAccountId
-        ? `/crm/accounts/${item.crmAccountId}?tab=contracts`
-        : null;
+      return fallback;
+    case "MANUAL":
+      // Item manual: si tiene cuenta o instalación, llevamos ahí; si no,
+      // queda sin link (el usuario crea desde "Nuevo item rápido").
+      return fallback;
+    case "SUPPLIER":
+      // Item de proveedor recurrente — sin entidad CRM hoy, fallback al
+      // contexto que tenga (cuenta o instalación).
+      return fallback;
     default:
-      return null;
+      return fallback;
   }
 }
 
