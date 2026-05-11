@@ -50,6 +50,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CashflowCandidatesPanel } from "./cashflow/CashflowCandidatesPanel";
+import { CategoryMappingDialog } from "./cashflow/CategoryMappingDialog";
 
 // ── Tipos ──
 
@@ -186,6 +187,10 @@ export function BankTxReconcileSheet({
   const [restAccountType, setRestAccountType] = useState<string>("");
   const [restAccountId, setRestAccountId] = useState<string>("");
   const [restNote, setRestNote] = useState("");
+  // Cola de cuentas que el PUT devolvió como sin mapeo. Se procesan una por una.
+  const [unmappedQueue, setUnmappedQueue] = useState<
+    Array<{ id: string; code: string; name: string }>
+  >([]);
 
   const txAmountAbs = tx ? Math.abs(tx.amount) : 0;
   const linksTotal = useMemo(
@@ -398,8 +403,16 @@ export function BankTxReconcileSheet({
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.error);
       toast.success("Movimiento conciliado");
-      onSaved();
-      onOpenChange(false);
+      const unmapped: Array<{ id: string; code: string; name: string }> =
+        json.data?.unmappedAccounts ?? [];
+      if (unmapped.length > 0) {
+        // Encolar cuentas sin mapping. NO cerramos el sheet todavía;
+        // el dialog se abrirá automáticamente y procesará una por una.
+        setUnmappedQueue(unmapped);
+      } else {
+        onSaved();
+        onOpenChange(false);
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Error al guardar");
     } finally {
@@ -925,6 +938,35 @@ export function BankTxReconcileSheet({
             Cancelar
           </Button>
         </div>
+
+        {unmappedQueue.length > 0 && tx && (
+          <CategoryMappingDialog
+            open={true}
+            onOpenChange={(open) => {
+              if (!open) {
+                // El usuario cerró sin mapear: procedemos como si no quedaran
+                setUnmappedQueue([]);
+                onSaved();
+                onOpenChange(false);
+              }
+            }}
+            accountPlanId={unmappedQueue[0].id}
+            accountCode={unmappedQueue[0].code}
+            accountName={unmappedQueue[0].name}
+            preferredKind={tx.amount > 0 ? "INCOME" : "EXPENSE"}
+            onMapped={() => {
+              // Avanza al siguiente. Si era el último, cerramos el sheet.
+              setUnmappedQueue((q) => {
+                const rest = q.slice(1);
+                if (rest.length === 0) {
+                  onSaved();
+                  onOpenChange(false);
+                }
+                return rest;
+              });
+            }}
+          />
+        )}
       </SheetContent>
     </Sheet>
   );
