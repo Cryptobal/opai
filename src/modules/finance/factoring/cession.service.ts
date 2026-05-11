@@ -38,8 +38,9 @@ export interface CedeDteInput {
   advanceRate: number;
   /** % interés MENSUAL (se prorratea por días reales). */
   interestRate: number;
-  /** % comisión sobre el bruto. */
-  commissionPct: number;
+  /** Comisión en CLP (monto fijo). Viene del catálogo de empresas de factoring
+   *  o se ingresa manualmente en el modal de cesión. */
+  commissionAmount: number;
   emailDeudor?: string;
   notes?: string;
   contactNombre?: string;
@@ -74,7 +75,7 @@ export function calculateEconomicTerms(
   fechaVencimiento: string,
   advanceRatePct: number,
   interestRatePct: number,
-  commissionPctPct: number,
+  commissionAmountClp: number,
 ): EconomicTerms {
   const cesionDate = new Date(`${fechaCesion}T00:00:00Z`);
   const vencDate = new Date(`${fechaVencimiento}T00:00:00Z`);
@@ -85,7 +86,7 @@ export function calculateEconomicTerms(
   const interestAmount = round2(
     advanceAmount * (interestRatePct / 100) * (plazoDias / 30),
   );
-  const commissionAmount = round2(invoiceAmount * (commissionPctPct / 100));
+  const commissionAmount = round2(Math.max(0, commissionAmountClp));
   const netAdvance = round2(advanceAmount - interestAmount - commissionAmount);
   const retentionAmount = round2(invoiceAmount - advanceAmount);
 
@@ -259,7 +260,7 @@ export async function cedeDte(
     input.fechaVencimiento,
     input.advanceRate,
     input.interestRate,
-    input.commissionPct,
+    input.commissionAmount,
   );
 
   // 5. Construir el request común y llamar al adapter correcto según

@@ -39,8 +39,8 @@ import {
   Pencil,
   ExternalLink,
   Wallet,
+  MapPin,
 } from "lucide-react";
-import { ContractCashflowDialog } from "./ContractCashflowDialog";
 import { cn } from "@/lib/utils";
 import { DOC_STATUS_CONFIG } from "@/lib/docs/token-registry";
 import {
@@ -104,6 +104,15 @@ function addMonthsISO(isoDate: string, months: number): string {
   return out.toISOString().slice(0, 10);
 }
 
+function monthsBetweenISO(startISO: string, endISO: string): number | null {
+  const s = startISO.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const e = endISO.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!s || !e) return null;
+  const months =
+    (Number(e[1]) - Number(s[1])) * 12 + (Number(e[2]) - Number(s[2]));
+  return months > 0 ? months : null;
+}
+
 function formatDate(d: string | null): string {
   if (!d) return "—";
   return new Date(d).toLocaleDateString("es-CL");
@@ -155,7 +164,6 @@ export function AccountContractsSection({
   const [uploadCurrency, setUploadCurrency] = useState<"CLP" | "UF">("CLP");
   const [uploadPaymentDay, setUploadPaymentDay] = useState<string>("5");
   // Diálogo "Configurar flujo de caja" por contrato individual.
-  const [cashflowDialogContract, setCashflowDialogContract] = useState<Contract | null>(null);
 
   // Cotizaciones aceptadas con flujo de caja (CpqQuote-derived). Históricamente
   // se mostraban en una sección separada (AccountCashflowQuotesSection), pero
@@ -184,6 +192,8 @@ export function AccountContractsSection({
   );
   const [editEffective, setEditEffective] = useState("");
   const [editExpiration, setEditExpiration] = useState("");
+  const [editDuration, setEditDuration] = useState<string>("12");
+  const [editExpirationManuallyEdited, setEditExpirationManuallyEdited] = useState(false);
   const [editIndefinite, setEditIndefinite] = useState(false);
   const [editAlertDays, setEditAlertDays] = useState<string>("30");
   const [editSaving, setEditSaving] = useState(false);
@@ -383,9 +393,14 @@ export function AccountContractsSection({
         ? contract.status
         : "active";
     setEditStatus(allowedStatus);
-    setEditEffective(contract.effectiveDate?.slice(0, 10) ?? "");
-    setEditExpiration(contract.expirationDate?.slice(0, 10) ?? "");
+    const effISO = contract.effectiveDate?.slice(0, 10) ?? "";
+    const expISO = contract.expirationDate?.slice(0, 10) ?? "";
+    setEditEffective(effISO);
+    setEditExpiration(expISO);
     setEditIndefinite(!contract.expirationDate);
+    const inferred = effISO && expISO ? monthsBetweenISO(effISO, expISO) : null;
+    setEditDuration(inferred ? String(inferred) : "12");
+    setEditExpirationManuallyEdited(true);
     setEditAlertDays(String(contract.alertDaysBefore ?? 30));
     setEditInstallationId(contract.installationId ?? "");
     if (contract.cashflow) {
@@ -414,6 +429,15 @@ export function AccountContractsSection({
     }
     return null;
   }, [editContract, editIndefinite, editEffective, editExpiration]);
+
+  // Recalcula fecha de término cuando cambia inicio o duración, salvo que el
+  // usuario haya editado manualmente la fecha de término en esta sesión.
+  useEffect(() => {
+    if (!editOpen || editIndefinite || editExpirationManuallyEdited) return;
+    const months = Number(editDuration);
+    if (!editEffective || !Number.isFinite(months) || months <= 0) return;
+    setEditExpiration(addMonthsISO(editEffective, months));
+  }, [editOpen, editEffective, editDuration, editIndefinite, editExpirationManuallyEdited]);
 
   const handleEditSave = async () => {
     if (!editContract) return;
@@ -774,6 +798,12 @@ export function AccountContractsSection({
                       Inicio: {formatDate(c.effectiveDate)}
                     </span>
                     {renderExpirationPill(c)}
+                    {c.installationId && (
+                      <span className="text-xs text-muted-foreground break-words inline-flex items-center gap-1">
+                        <MapPin className="h-3 w-3" />
+                        {installations.find((i) => i.id === c.installationId)?.name ?? "Instalación"}
+                      </span>
+                    )}
                     {c.deal && (
                       <span className="text-xs text-muted-foreground break-words">
                         Negocio: {c.deal.title}
@@ -805,14 +835,6 @@ export function AccountContractsSection({
                           variant="ghost"
                           size="sm"
                           className="h-7 px-2 text-[11px]"
-                          onClick={() => setCashflowDialogContract(c)}
-                        >
-                          <Pencil className="h-3 w-3 mr-1" /> Editar
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 px-2 text-[11px]"
                           onClick={() => router.push(`/finanzas/flujo-caja?itemId=${c.cashflow!.itemId}`)}
                         >
                           Ver
@@ -822,7 +844,7 @@ export function AccountContractsSection({
                   ) : (
                     <button
                       type="button"
-                      onClick={() => setCashflowDialogContract(c)}
+                      onClick={() => openEditDialog(c)}
                       className="mt-2 w-full sm:w-auto flex items-center gap-2 rounded-md border border-dashed border-status-ok-fg/40 bg-status-ok-soft/10 hover:bg-status-ok-soft/30 hover:border-status-ok-fg/70 px-3 py-2 text-left transition-colors"
                     >
                       <Wallet className="h-4 w-4 text-status-ok-fg shrink-0" />
@@ -866,18 +888,16 @@ export function AccountContractsSection({
                       <ExternalLink className="h-3.5 w-3.5" />
                     </Button>
                   )}
-                  {isUpload && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 w-7 p-0"
-                      title="Editar fechas y estado"
-                      onClick={() => openEditDialog(c)}
-                      disabled={isLoading}
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-7 p-0"
+                    title="Editar contrato"
+                    onClick={() => openEditDialog(c)}
+                    disabled={isLoading}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
                   {c.pdfUrl && (
                     <Button
                       variant="ghost"
@@ -1369,21 +1389,46 @@ export function AccountContractsSection({
                 <Input
                   type="date"
                   value={editEffective}
-                  onChange={(e) => setEditEffective(e.target.value)}
+                  onChange={(e) => {
+                    setEditEffective(e.target.value);
+                    setEditExpirationManuallyEdited(false);
+                  }}
                 />
               </div>
               <div className="space-y-2">
-                <Label>Fecha de término</Label>
+                <Label>Duración (meses)</Label>
                 <Input
-                  type="date"
-                  value={editExpiration}
+                  type="number"
+                  min={1}
+                  max={600}
+                  value={editDuration}
                   onChange={(e) => {
-                    setEditExpiration(e.target.value);
-                    if (e.target.value) setEditIndefinite(false);
+                    setEditDuration(e.target.value);
+                    setEditExpirationManuallyEdited(false);
                   }}
+                  placeholder="12"
                   disabled={editIndefinite}
                 />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                Fecha de término
+                <span className="text-[10px] text-muted-foreground font-normal">
+                  (calculada · puedes editarla)
+                </span>
+              </Label>
+              <Input
+                type="date"
+                value={editExpiration}
+                onChange={(e) => {
+                  setEditExpiration(e.target.value);
+                  setEditExpirationManuallyEdited(true);
+                  if (e.target.value) setEditIndefinite(false);
+                }}
+                disabled={editIndefinite}
+              />
             </div>
 
             <label className="flex items-center gap-2 cursor-pointer">
@@ -1392,7 +1437,11 @@ export function AccountContractsSection({
                 onCheckedChange={(v) => {
                   const next = v === true;
                   setEditIndefinite(next);
-                  if (next) setEditExpiration("");
+                  if (next) {
+                    setEditExpiration("");
+                  } else {
+                    setEditExpirationManuallyEdited(false);
+                  }
                 }}
               />
               <span className="text-sm">
@@ -1542,19 +1591,6 @@ export function AccountContractsSection({
         </DialogContent>
       </Dialog>
 
-      {cashflowDialogContract && (
-        <ContractCashflowDialog
-          open={cashflowDialogContract !== null}
-          onClose={() => setCashflowDialogContract(null)}
-          onChanged={fetchContracts}
-          accountId={accountId}
-          contractId={cashflowDialogContract.id}
-          contractTitle={cashflowDialogContract.title}
-          defaultEffectiveDate={cashflowDialogContract.effectiveDate}
-          defaultExpirationDate={cashflowDialogContract.expirationDate}
-          installations={installations}
-        />
-      )}
     </div>
   );
 }

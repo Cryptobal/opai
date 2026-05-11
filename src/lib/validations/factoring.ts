@@ -57,7 +57,7 @@ export const cedeDteSchema = z.object({
   fechaVencimiento: yyyyMmDd,
   advanceRate: z.number().min(0).max(100),
   interestRate: z.number().min(0).max(100),
-  commissionPct: z.number().min(0).max(100),
+  commissionAmount: z.number().min(0),
   emailDeudor: z.string().email("Email deudor inválido").optional().or(z.literal("")),
   notes: z.string().optional(),
   contactNombre: z.string().optional(),

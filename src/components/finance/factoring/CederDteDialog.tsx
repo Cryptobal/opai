@@ -34,7 +34,7 @@ interface FactoringCompanyOpt {
   email: string | null;
   defaultAdvanceRate: number | null;
   defaultInterestRate: number | null;
-  defaultCommissionPct: number | null;
+  defaultCommissionAmount: number | null;
 }
 
 interface DteSummary {
@@ -75,7 +75,7 @@ export function CederDteDialog({ open, onOpenChange, dte }: Props) {
   const [fechaVencimiento, setFechaVencimiento] = useState(() => isoPlusDays(60));
   const [advanceRate, setAdvanceRate] = useState<string>("90");
   const [interestRate, setInterestRate] = useState<string>("1.5");
-  const [commissionPct, setCommissionPct] = useState<string>("0.5");
+  const [commissionAmount, setCommissionAmount] = useState<string>("0");
   const [emailDeudor, setEmailDeudor] = useState("");
   const [notes, setNotes] = useState("");
 
@@ -95,28 +95,28 @@ export function CederDteDialog({ open, onOpenChange, dte }: Props) {
     [factoringId, companies],
   );
 
-  // Auto-rellenar tasas al elegir factoring del catálogo.
+  // Auto-rellenar tasas y comisión (CLP) al elegir factoring del catálogo.
   useEffect(() => {
     if (!selectedCompany) return;
     if (selectedCompany.defaultAdvanceRate !== null)
       setAdvanceRate(String(selectedCompany.defaultAdvanceRate));
     if (selectedCompany.defaultInterestRate !== null)
       setInterestRate(String(selectedCompany.defaultInterestRate));
-    if (selectedCompany.defaultCommissionPct !== null)
-      setCommissionPct(String(selectedCompany.defaultCommissionPct));
+    if (selectedCompany.defaultCommissionAmount !== null)
+      setCommissionAmount(String(Math.round(selectedCompany.defaultCommissionAmount)));
   }, [selectedCompany]);
 
   // Cálculos en vivo.
   const calc = useMemo(() => {
     const aRate = Number(advanceRate) || 0;
     const iRate = Number(interestRate) || 0;
-    const cPct = Number(commissionPct) || 0;
+    const cClp = Math.max(0, Number(commissionAmount) || 0);
     const cesion = new Date(`${fechaCesion}T00:00:00Z`);
     const venc = new Date(`${fechaVencimiento}T00:00:00Z`);
     const dias = Math.max(1, Math.round((venc.getTime() - cesion.getTime()) / 86400000));
     const advance = dte.totalAmount * (aRate / 100);
     const interest = advance * (iRate / 100) * (dias / 30);
-    const commission = dte.totalAmount * (cPct / 100);
+    const commission = cClp;
     const net = advance - interest - commission;
     const retention = dte.totalAmount - advance;
     return {
@@ -127,7 +127,7 @@ export function CederDteDialog({ open, onOpenChange, dte }: Props) {
       net: Math.round(net),
       retention: Math.round(retention),
     };
-  }, [advanceRate, interestRate, commissionPct, fechaCesion, fechaVencimiento, dte.totalAmount]);
+  }, [advanceRate, interestRate, commissionAmount, fechaCesion, fechaVencimiento, dte.totalAmount]);
 
   async function handleSubmit() {
     if (!factoringId) {
@@ -145,7 +145,7 @@ export function CederDteDialog({ open, onOpenChange, dte }: Props) {
           fechaVencimiento,
           advanceRate: Number(advanceRate),
           interestRate: Number(interestRate),
-          commissionPct: Number(commissionPct),
+          commissionAmount: Math.max(0, Number(commissionAmount) || 0),
           emailDeudor: emailDeudor.trim() || undefined,
           notes: notes.trim() || undefined,
         }),
@@ -275,17 +275,26 @@ export function CederDteDialog({ open, onOpenChange, dte }: Props) {
             />
           </div>
           <div>
-            <Label htmlFor="commissionPct">Comisión (%)</Label>
+            <Label htmlFor="commissionAmount">Comisión (CLP)</Label>
             <Input
-              id="commissionPct"
+              id="commissionAmount"
               type="number"
               min="0"
-              max="100"
-              step="0.01"
-              value={commissionPct}
-              onChange={(e) => setCommissionPct(e.target.value)}
+              step="1"
+              value={commissionAmount}
+              onChange={(e) => setCommissionAmount(e.target.value)}
+              placeholder={
+                selectedCompany?.defaultCommissionAmount != null
+                  ? String(Math.round(selectedCompany.defaultCommissionAmount))
+                  : "0"
+              }
               className="h-10 sm:h-9"
             />
+            <p className="text-[10px] text-ds-text-3 mt-0.5">
+              {selectedCompany
+                ? "Default desde catálogo. Editable para esta cesión."
+                : "Se rellena al elegir la empresa de factoring."}
+            </p>
           </div>
           <div>
             <Label htmlFor="emailDeudor">Email deudor (opcional)</Label>
