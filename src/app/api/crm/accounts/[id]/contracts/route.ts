@@ -116,9 +116,10 @@ export async function GET(
         (doc.signatureStatus === "external" ? "external" : null);
 
       const cashflow = cashflowByDoc.get(doc.id);
-      const installAssoc = doc.associations.find(
+      const installAssocs = doc.associations.filter(
         (a) => a.entityType === "crm_installation",
       );
+      const installAssoc = installAssocs[0];
       return {
         id: doc.id,
         uniqueId: doc.uniqueId,
@@ -138,6 +139,7 @@ export async function GET(
         signatureRecipients: sigReq?.recipients ?? [],
         createdAt: doc.createdAt,
         installationId: installAssoc?.entityId ?? null,
+        installationIds: installAssocs.map((a) => a.entityId),
         cashflow: cashflow
           ? {
               itemId: cashflow.id,
@@ -257,11 +259,26 @@ export async function POST(
       signedBy,
       notes,
       installationId,
+      installationIds,
       addToCashflow,
       monthlyAmountClp,
       currency,
       paymentDay,
     } = parsed.data;
+
+    // Multi-instalación (Fase C): si vienen N, las usamos. Si sólo viene
+    // el legacy `installationId`, lo envolvemos como array de 1.
+    const installationList =
+      installationIds && installationIds.length > 0
+        ? installationIds
+        : installationId
+          ? [installationId]
+          : [];
+    // El item de cashflow guarda installationId sólo si es 1 instalación.
+    // Con 2+, queda null (vive a nivel cuenta) y la UI lista las
+    // instalaciones desde las DocAssociations.
+    const itemInstallationId =
+      installationList.length === 1 ? installationList[0] : null;
 
     // Derive expirationDate: explicit value wins; else compute from effective + duration.
     const computedExpiration =
@@ -357,16 +374,19 @@ export async function POST(
         },
       });
 
-      // Asociación opcional con instalación (queda registrada para
-      // navegación futura desde el detalle de instalación).
-      if (installationId) {
-        await tx.docAssociation.create({
-          data: {
+      // Asociaciones N:M con instalaciones (Fase C). Cada instalación
+      // queda como DocAssociation(entityType=crm_installation), lo que
+      // permite navegar desde el detalle de cada instalación de vuelta
+      // al contrato y agruparlas en la UI.
+      if (installationList.length > 0) {
+        await tx.docAssociation.createMany({
+          data: installationList.map((instId) => ({
             documentId: doc.id,
             entityType: "crm_installation",
-            entityId: installationId,
+            entityId: instId,
             role: "related",
-          },
+          })),
+          skipDuplicates: true,
         });
       }
 
@@ -399,7 +419,7 @@ export async function POST(
               dayOfMonth: dom,
               startDate: new Date(effectiveDate),
               endDate: computedExpiration ? new Date(computedExpiration) : null,
-              installationId: installationId ?? null,
+              installationId: itemInstallationId,
               crmAccountId: accountId,
               isActive: true,
             },

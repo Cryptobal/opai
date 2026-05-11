@@ -156,6 +156,19 @@ export async function buildProjection(
         })
       : [];
   const installationNameById = new Map(installations.map((i) => [i.id, i.name]));
+
+  // Mapeo crmAccountId → name para agrupar en UI por cliente (Fase C.3).
+  const crmAccountIds = Array.from(
+    new Set(items.map((i) => i.crmAccountId).filter((x): x is string => !!x)),
+  );
+  const crmAccounts =
+    crmAccountIds.length > 0
+      ? await prisma.crmAccount.findMany({
+          where: { tenantId, id: { in: crmAccountIds } },
+          select: { id: true, name: true },
+        })
+      : [];
+  const crmAccountNameById = new Map(crmAccounts.map((a) => [a.id, a.name]));
   const materialized = await listMaterializedOccurrences(
     tenantId,
     range.from,
@@ -376,7 +389,7 @@ export async function buildProjection(
       (b.actualBankIncome - b.income) - (b.actualBankExpense - b.expense);
   }
 
-  const rows = buildRows(buckets, categories, allOccurrences);
+  const rows = buildRows(buckets, categories, allOccurrences, crmAccountNameById);
 
   const opening = await getOpeningBalance(tenantId);
 
@@ -437,6 +450,7 @@ function buildRows(
   buckets: ProjectionBucket[],
   categories: FinanceCashflowCategory[],
   occs: VirtualOccurrence[],
+  crmAccountNameById: Map<string, string>,
 ): ProjectionRow[] {
   const rows: ProjectionRow[] = [];
   for (const cat of categories) {
@@ -467,6 +481,9 @@ function buildRows(
           installationId: o.installationId,
           installationName: o.installationName,
           crmAccountId: o.crmAccountId,
+          crmAccountName: o.crmAccountId
+            ? (crmAccountNameById.get(o.crmAccountId) ?? null)
+            : null,
           currency: o.currency,
           source: o.source,
           sourceRefCode: null,
@@ -512,12 +529,18 @@ function buildRows(
       kind: cat.kind,
       values,
       total: values.reduce((s, v) => s + v.amount, 0),
-      items: Array.from(byItem.values()).sort((a, b) =>
-        (a.installationName ?? a.itemName).localeCompare(
+      // Ordenamos PRIMERO por cliente (los sin cliente al final) y luego
+      // por instalación/nombre, para que la sub-fila se vea agrupada por
+      // cuenta CRM dentro de la categoría.
+      items: Array.from(byItem.values()).sort((a, b) => {
+        const an = a.crmAccountName ?? "￿";
+        const bn = b.crmAccountName ?? "￿";
+        if (an !== bn) return an.localeCompare(bn, "es");
+        return (a.installationName ?? a.itemName).localeCompare(
           b.installationName ?? b.itemName,
           "es",
-        ),
-      ),
+        );
+      }),
     });
   }
   return rows.sort((a, b) => (a.kind === b.kind ? 0 : a.kind === "INCOME" ? -1 : 1));

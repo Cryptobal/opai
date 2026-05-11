@@ -97,6 +97,8 @@ export interface ProjectionRowItemDetail {
   installationName: string | null;
   /** Cuenta CRM dueña del ítem — habilita link al tab Contratos. */
   crmAccountId: string | null;
+  /** Nombre del cliente (CrmAccount.name) para mostrar agrupación en UI. */
+  crmAccountName: string | null;
   /** Moneda del item ("CLP" | "UF"). Útil para mostrar badge al lado del nombre. */
   currency: string;
   source: FinanceCashflowItemSource;

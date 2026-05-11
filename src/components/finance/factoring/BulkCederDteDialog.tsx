@@ -109,6 +109,18 @@ export function BulkCederDteDialog({
   const [factoringId, setFactoringId] = useState<string>("");
   const [fechaCesion, setFechaCesion] = useState(todayIso);
   const [fechaVencimiento, setFechaVencimiento] = useState(() => isoPlusDays(60));
+  const addDaysToIso = (iso: string, days: number): string => {
+    const d = new Date(`${iso}T00:00:00Z`);
+    if (Number.isNaN(d.getTime())) return iso;
+    d.setUTCDate(d.getUTCDate() + days);
+    return d.toISOString().slice(0, 10);
+  };
+  const diasFromDates = useMemo(() => {
+    const a = new Date(`${fechaCesion}T00:00:00Z`).getTime();
+    const b = new Date(`${fechaVencimiento}T00:00:00Z`).getTime();
+    if (Number.isNaN(a) || Number.isNaN(b)) return 60;
+    return Math.max(1, Math.round((b - a) / 86400000));
+  }, [fechaCesion, fechaVencimiento]);
   const [advanceRate, setAdvanceRate] = useState<string>("90");
   // 4 inputs CLP a nivel batch (se prorratean por bruto en el server).
   const [comision, setComision] = useState<string>("0");
@@ -177,9 +189,15 @@ export function BulkCederDteDialog({
       : Math.max(0, advance - dpClp - cClp - ivaClp);
     const costoFinanciero = Math.max(0, totalBruto - montoAGirar);
     const retention = totalBruto - advance;
+    // Tasa efectiva (costo total / bruto) y tasa real (interés puro / bruto),
+    // ambas mensuales para comparar entre factorings con distintos plazos.
     const effectiveMonthlyRate =
-      advance > 0 && dias > 0
-        ? (costoFinanciero / advance) * (30 / dias) * 100
+      totalBruto > 0 && dias > 0
+        ? (costoFinanciero / totalBruto) * (30 / dias) * 100
+        : null;
+    const realMonthlyRate =
+      totalBruto > 0 && dias > 0
+        ? (dpClp / totalBruto) * (30 / dias) * 100
         : null;
     return {
       dias,
@@ -191,6 +209,7 @@ export function BulkCederDteDialog({
       costoFinanciero: Math.round(costoFinanciero),
       retention: Math.round(retention),
       effectiveMonthlyRate,
+      realMonthlyRate,
       hasMontoAGirar,
     };
   }, [
@@ -557,24 +576,38 @@ export function BulkCederDteDialog({
               id="fcBulk"
               type="date"
               value={fechaCesion}
-              onChange={(e) => setFechaCesion(e.target.value)}
+              onChange={(e) => {
+                const next = e.target.value;
+                setFechaCesion(next);
+                setFechaVencimiento(addDaysToIso(next, diasFromDates));
+              }}
               className="h-10 sm:h-9"
             />
           </div>
           <div>
-            <Label htmlFor="fvBulk" className="flex items-center justify-between gap-2">
-              <span>Vencimiento factura</span>
-              <span className="text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-3 rounded-md bg-ds-surface-2 border border-ds-border-subtle px-1.5 py-0.5">
-                {calc.dias} {calc.dias === 1 ? "día" : "días"}
-              </span>
-            </Label>
+            <Label htmlFor="dcBulk">Días de cesión</Label>
             <Input
-              id="fvBulk"
-              type="date"
-              value={fechaVencimiento}
-              onChange={(e) => setFechaVencimiento(e.target.value)}
+              id="dcBulk"
+              type="number"
+              min={1}
+              max={365}
+              value={diasFromDates}
+              onChange={(e) => {
+                const n = Number(e.target.value);
+                if (!Number.isFinite(n) || n <= 0) return;
+                setFechaVencimiento(addDaysToIso(fechaCesion, n));
+              }}
               className="h-10 sm:h-9"
             />
+            <p className="text-[11px] text-ds-text-3 mt-0.5">
+              Vence el {new Date(`${fechaVencimiento}T00:00:00Z`)
+                .toLocaleDateString("es-CL", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                  timeZone: "UTC",
+                })}
+            </p>
           </div>
           <div>
             <Label htmlFor="arBulk">Anticipo (%)</Label>
@@ -676,6 +709,12 @@ export function BulkCederDteDialog({
             label="Costo financiero"
             value={`-${formatCLP(calc.costoFinanciero)}`}
           />
+          {calc.realMonthlyRate != null ? (
+            <Row
+              label="Tasa real mensual"
+              value={`${calc.realMonthlyRate.toFixed(2)}%`}
+            />
+          ) : null}
           {calc.effectiveMonthlyRate != null ? (
             <Row
               label="Tasa efectiva mensual"

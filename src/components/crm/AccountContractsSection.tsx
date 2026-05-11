@@ -73,6 +73,7 @@ interface Contract {
   }>;
   createdAt: string;
   installationId?: string | null;
+  installationIds?: string[];
   cashflow?: {
     itemId: string;
     amountClp: number;
@@ -185,6 +186,7 @@ export function AccountContractsSection({
     Array<{ id: string; name: string }>
   >([]);
   const [uploadInstallationId, setUploadInstallationId] = useState<string>("");
+  const [uploadInstallationIds, setUploadInstallationIds] = useState<string[]>([]);
   const [uploadAddToCashflow, setUploadAddToCashflow] = useState(false);
   const [uploadMonthlyAmount, setUploadMonthlyAmount] = useState<string>("");
   const [uploadCurrency, setUploadCurrency] = useState<"CLP" | "UF">("CLP");
@@ -225,6 +227,7 @@ export function AccountContractsSection({
   const [editSaving, setEditSaving] = useState(false);
   // Edit ampliado: instalación, flujo de caja, monto y moneda
   const [editInstallationId, setEditInstallationId] = useState<string>("");
+  const [editInstallationIds, setEditInstallationIds] = useState<string[]>([]);
   const [editInCashflow, setEditInCashflow] = useState(false);
   const [editMonthlyAmount, setEditMonthlyAmount] = useState<string>("");
   const [editCurrency, setEditCurrency] = useState<"CLP" | "UF">("CLP");
@@ -315,6 +318,7 @@ export function AccountContractsSection({
     setUploadSignedBy("");
     setUploadNotes("");
     setUploadInstallationId("");
+    setUploadInstallationIds([]);
     setUploadAddToCashflow(false);
     setUploadMonthlyAmount("");
     setUploadCurrency("CLP");
@@ -416,6 +420,8 @@ export function AccountContractsSection({
             : undefined,
         notes: uploadNotes.trim() || undefined,
         installationId: uploadInstallationId || undefined,
+        installationIds:
+          uploadInstallationIds.length > 0 ? uploadInstallationIds : undefined,
         addToCashflow: uploadAddToCashflow,
       };
       if (uploadAddToCashflow) {
@@ -466,6 +472,13 @@ export function AccountContractsSection({
     setEditExpirationManuallyEdited(true);
     setEditAlertDays(String(contract.alertDaysBefore ?? 30));
     setEditInstallationId(contract.installationId ?? "");
+    setEditInstallationIds(
+      contract.installationIds && contract.installationIds.length > 0
+        ? contract.installationIds
+        : contract.installationId
+          ? [contract.installationId]
+          : [],
+    );
     if (contract.cashflow) {
       setEditInCashflow(true);
       const amt = contract.cashflow.amountClp;
@@ -514,7 +527,9 @@ export function AccountContractsSection({
         effectiveDate: editEffective || null,
         expirationDate: editIndefinite ? null : editExpiration || null,
         alertDaysBefore: Number(editAlertDays) || 30,
-        installationId: editInstallationId || null,
+        installationId:
+          editInstallationIds[0] ?? (editInstallationId || null),
+        installationIds: editInstallationIds,
       };
       const res = await fetch(
         `/api/crm/accounts/${accountId}/contracts/${editContract.id}`,
@@ -559,7 +574,12 @@ export function AccountContractsSection({
               method: "PUT",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                installationId: editInstallationId || null,
+                // En multi-instalación pasamos null al cashflow item (vive a
+                // nivel cuenta y la UI lista las instalaciones desde DocAssoc).
+                installationId:
+                  editInstallationIds.length === 1
+                    ? editInstallationIds[0]
+                    : null,
                 monthlyAmountClp: amt,
                 currency: editCurrency,
                 paymentDay: Number.isFinite(pd) && pd !== 0 ? pd : 5,
@@ -860,12 +880,29 @@ export function AccountContractsSection({
                       Inicio: {formatDate(c.effectiveDate)}
                     </span>
                     {renderExpirationPill(c)}
-                    {c.installationId && (
-                      <span className="text-xs text-muted-foreground break-words inline-flex items-center gap-1">
-                        <MapPin className="h-3 w-3" />
-                        {installations.find((i) => i.id === c.installationId)?.name ?? "Instalación"}
-                      </span>
-                    )}
+                    {(() => {
+                      const ids =
+                        c.installationIds && c.installationIds.length > 0
+                          ? c.installationIds
+                          : c.installationId
+                            ? [c.installationId]
+                            : [];
+                      if (ids.length === 0) return null;
+                      const names = ids
+                        .map(
+                          (id) =>
+                            installations.find((i) => i.id === id)?.name ?? "—",
+                        )
+                        .filter(Boolean);
+                      return (
+                        <span className="text-xs text-muted-foreground break-words inline-flex items-center gap-1">
+                          <MapPin className="h-3 w-3" />
+                          {names.length === 1
+                            ? names[0]
+                            : `${names.length} instalaciones: ${names.join(", ")}`}
+                        </span>
+                      );
+                    })()}
                     {c.deal && (
                       <span className="text-xs text-muted-foreground break-words">
                         Negocio: {c.deal.title}
@@ -1262,33 +1299,66 @@ export function AccountContractsSection({
             <div className="rounded-md border border-border p-3 space-y-3">
               <div className="space-y-2">
                 <Label className="flex items-center gap-2">
-                  Instalación vinculada
+                  Instalaciones vinculadas
                   <span className="text-[10px] text-muted-foreground font-normal">
-                    (opcional)
+                    (puede ser más de una)
                   </span>
                 </Label>
+                {uploadInstallationIds.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {uploadInstallationIds.map((id) => {
+                      const inst = installations.find((i) => i.id === id);
+                      return (
+                        <span
+                          key={id}
+                          className="inline-flex items-center gap-1 rounded-md bg-status-info-soft text-status-info-fg text-xs px-2 py-0.5"
+                        >
+                          <MapPin className="h-3 w-3" />
+                          {inst?.name ?? id.slice(0, 8)}
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setUploadInstallationIds((prev) =>
+                                prev.filter((x) => x !== id),
+                              )
+                            }
+                            className="ml-0.5 hover:opacity-70"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                ) : null}
                 <Select
-                  value={uploadInstallationId || "none"}
-                  onValueChange={(v) =>
-                    setUploadInstallationId(v === "none" ? "" : v)
-                  }
+                  value=""
+                  onValueChange={(v) => {
+                    if (v && !uploadInstallationIds.includes(v)) {
+                      setUploadInstallationIds((prev) => [...prev, v]);
+                    }
+                    if (v && uploadInstallationIds.length === 0) {
+                      setUploadInstallationId(v);
+                    }
+                  }}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Sin instalación" />
+                    <SelectValue placeholder="+ Agregar instalación" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">Sin instalación específica</SelectItem>
-                    {installations.map((i) => (
-                      <SelectItem key={i.id} value={i.id}>
-                        {i.name}
-                      </SelectItem>
-                    ))}
+                    {installations
+                      .filter((i) => !uploadInstallationIds.includes(i.id))
+                      .map((i) => (
+                        <SelectItem key={i.id} value={i.id}>
+                          {i.name}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
                 <p className="text-[11px] text-muted-foreground">
-                  Si vinculás una instalación, el contrato aparece en el detalle
-                  de esa instalación y en el flujo de caja como ingreso de ese
-                  servicio.
+                  Una instalación: el contrato aparece sólo en su detalle.
+                  Varias: aparece bajo el cliente en el flujo de caja con todas
+                  las instalaciones listadas.
                 </p>
               </div>
 
@@ -1526,27 +1596,62 @@ export function AccountContractsSection({
 
             <div className="space-y-2 pt-2 border-t border-border">
               <Label>
-                Instalación vinculada{" "}
+                Instalaciones vinculadas{" "}
                 <span className="text-[10px] text-muted-foreground font-normal">
-                  (opcional)
+                  (puede ser más de una)
                 </span>
               </Label>
+              {editInstallationIds.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {editInstallationIds.map((id) => {
+                    const inst = installations.find((i) => i.id === id);
+                    return (
+                      <span
+                        key={id}
+                        className="inline-flex items-center gap-1 rounded-md bg-status-info-soft text-status-info-fg text-xs px-2 py-0.5"
+                      >
+                        <MapPin className="h-3 w-3" />
+                        {inst?.name ?? id.slice(0, 8)}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setEditInstallationIds((prev) =>
+                              prev.filter((x) => x !== id),
+                            )
+                          }
+                          className="ml-0.5 hover:opacity-70"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    );
+                  })}
+                </div>
+              ) : null}
               <Select
-                value={editInstallationId || "none"}
-                onValueChange={(v) =>
-                  setEditInstallationId(v === "none" ? "" : v)
-                }
+                value=""
+                onValueChange={(v) => {
+                  if (v && !editInstallationIds.includes(v)) {
+                    setEditInstallationIds((prev) => [...prev, v]);
+                  }
+                  // sincroniza el legacy `installationId` con la primera
+                  // elegida para retrocompatibilidad con UI vieja.
+                  if (v && editInstallationIds.length === 0) {
+                    setEditInstallationId(v);
+                  }
+                }}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Sin instalación específica" />
+                  <SelectValue placeholder="+ Agregar instalación" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Sin instalación específica</SelectItem>
-                  {installations.map((i) => (
-                    <SelectItem key={i.id} value={i.id}>
-                      {i.name}
-                    </SelectItem>
-                  ))}
+                  {installations
+                    .filter((i) => !editInstallationIds.includes(i.id))
+                    .map((i) => (
+                      <SelectItem key={i.id} value={i.id}>
+                        {i.name}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>

@@ -161,6 +161,20 @@ export function CederDteDialog({ open, onOpenChange, dte }: Props) {
   const [fechaCesion, setFechaCesion] = useState(todayIso);
   const [fechaVencimiento, setFechaVencimiento] = useState(() => isoPlusDays(60));
   const [advanceRate, setAdvanceRate] = useState<string>("90");
+
+  // Helper: suma N días a una fecha ISO YYYY-MM-DD y devuelve ISO.
+  const addDaysToIso = (iso: string, days: number): string => {
+    const d = new Date(`${iso}T00:00:00Z`);
+    if (Number.isNaN(d.getTime())) return iso;
+    d.setUTCDate(d.getUTCDate() + days);
+    return d.toISOString().slice(0, 10);
+  };
+  const diasFromDates = useMemo(() => {
+    const a = new Date(`${fechaCesion}T00:00:00Z`).getTime();
+    const b = new Date(`${fechaVencimiento}T00:00:00Z`).getTime();
+    if (Number.isNaN(a) || Number.isNaN(b)) return 60;
+    return Math.max(1, Math.round((b - a) / 86400000));
+  }, [fechaCesion, fechaVencimiento]);
   // Los 4 montos del cesionario son la ÚNICA fuente: vienen del PDF o
   // los tipea el usuario. La tasa efectiva mensual se DERIVA — ya no
   // hay input "interés %".
@@ -323,9 +337,19 @@ export function CederDteDialog({ open, onOpenChange, dte }: Props) {
       : Math.max(0, advance - difPrecioClp - commissionClp - ivaClp);
     const costoFinanciero = Math.max(0, dte.totalAmount - montoAGirar);
     const retention = dte.totalAmount - advance;
+    // Tasa efectiva mensual: costo financiero total (incluye comisión +
+    // IVA + gastos + dif precio) sobre el monto BRUTO de la factura,
+    // prorrateado a 30 días. Es el costo TOTAL de la operación.
     const effectiveMonthlyRate =
-      advance > 0 && dias > 0
-        ? (costoFinanciero / advance) * (30 / dias) * 100
+      dte.totalAmount > 0 && dias > 0
+        ? (costoFinanciero / dte.totalAmount) * (30 / dias) * 100
+        : null;
+    // Tasa real mensual: SÓLO el interés (dif precio) sobre el bruto,
+    // prorrateado a 30 días. Es la tasa pura del factoring, sin
+    // comisiones ni gastos.
+    const realMonthlyRate =
+      dte.totalAmount > 0 && dias > 0
+        ? (difPrecioClp / dte.totalAmount) * (30 / dias) * 100
         : null;
     return {
       dias,
@@ -337,6 +361,7 @@ export function CederDteDialog({ open, onOpenChange, dte }: Props) {
       montoAGirar: Math.round(montoAGirar),
       retention: Math.round(retention),
       effectiveMonthlyRate,
+      realMonthlyRate,
       hasMontoAGirar,
     };
   }, [
@@ -633,24 +658,39 @@ export function CederDteDialog({ open, onOpenChange, dte }: Props) {
               id="fechaCesion"
               type="date"
               value={fechaCesion}
-              onChange={(e) => setFechaCesion(e.target.value)}
+              onChange={(e) => {
+                const next = e.target.value;
+                setFechaCesion(next);
+                // Mantenemos los días constantes: re-derivamos vencimiento.
+                setFechaVencimiento(addDaysToIso(next, diasFromDates));
+              }}
               className="h-10 sm:h-9"
             />
           </div>
           <div>
-            <Label htmlFor="fechaVencimiento" className="flex items-center justify-between gap-2">
-              <span>Vencimiento factura</span>
-              <span className="text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-3 rounded-md bg-ds-surface-2 border border-ds-border-subtle px-1.5 py-0.5">
-                {calc.dias} {calc.dias === 1 ? "día" : "días"}
-              </span>
-            </Label>
+            <Label htmlFor="diasCesion">Días de cesión</Label>
             <Input
-              id="fechaVencimiento"
-              type="date"
-              value={fechaVencimiento}
-              onChange={(e) => setFechaVencimiento(e.target.value)}
+              id="diasCesion"
+              type="number"
+              min={1}
+              max={365}
+              value={diasFromDates}
+              onChange={(e) => {
+                const n = Number(e.target.value);
+                if (!Number.isFinite(n) || n <= 0) return;
+                setFechaVencimiento(addDaysToIso(fechaCesion, n));
+              }}
               className="h-10 sm:h-9"
             />
+            <p className="text-[11px] text-ds-text-3 mt-0.5">
+              Vence el {new Date(`${fechaVencimiento}T00:00:00Z`)
+                .toLocaleDateString("es-CL", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                  timeZone: "UTC",
+                })}
+            </p>
           </div>
           <div>
             <Label htmlFor="advanceRate">Anticipo (%)</Label>
@@ -803,6 +843,12 @@ export function CederDteDialog({ open, onOpenChange, dte }: Props) {
             label="Costo financiero"
             value={`-${formatCLP(calc.costoFinanciero)}`}
           />
+          {calc.realMonthlyRate != null ? (
+            <CalcRow
+              label="Tasa real mensual"
+              value={`${calc.realMonthlyRate.toFixed(2)}%`}
+            />
+          ) : null}
           {calc.effectiveMonthlyRate != null ? (
             <CalcRow
               label="Tasa efectiva mensual"

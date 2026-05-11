@@ -31,7 +31,18 @@ export async function PATCH(
       alertDaysBefore,
       portalVisible,
       installationId,
+      installationIds,
     } = body;
+
+    // Multi-instalación: prefer N IDs si vienen. Si sólo viene el legacy
+    // `installationId`, lo convertimos a array de 0/1 elementos.
+    const wantsMultiUpdate =
+      installationIds !== undefined || installationId !== undefined;
+    const installationList: string[] = Array.isArray(installationIds)
+      ? installationIds.filter((x): x is string => typeof x === "string")
+      : installationId
+        ? [installationId]
+        : [];
 
     // Verify the document belongs to this account and tenant
     const doc = await prisma.document.findFirst({
@@ -67,21 +78,22 @@ export async function PATCH(
         data: updateData,
       });
 
-      // Instalación vinculada → DocAssociation con role=related. Si viene
-      // null/"" se elimina la asociación; si viene un id distinto, se
-      // reemplaza.
-      if (installationId !== undefined) {
+      // Instalaciones vinculadas (Fase C — N:M). Borramos las asocs
+      // anteriores y recreamos las que vienen. Si la lista es vacía,
+      // queda el contrato sin instalaciones asociadas.
+      if (wantsMultiUpdate) {
         await tx.docAssociation.deleteMany({
           where: { documentId: contractId, entityType: "crm_installation" },
         });
-        if (installationId) {
-          await tx.docAssociation.create({
-            data: {
+        if (installationList.length > 0) {
+          await tx.docAssociation.createMany({
+            data: installationList.map((instId) => ({
               documentId: contractId,
-              entityType: "crm_installation",
-              entityId: installationId,
+              entityType: "crm_installation" as const,
+              entityId: instId,
               role: "related",
-            },
+            })),
+            skipDuplicates: true,
           });
         }
       }
@@ -92,7 +104,7 @@ export async function PATCH(
       if (
         updateData.effectiveDate !== undefined ||
         updateData.expirationDate !== undefined ||
-        installationId !== undefined
+        wantsMultiUpdate
       ) {
         const cashflowItem = await tx.financeCashflowItem.findFirst({
           where: {
@@ -111,8 +123,12 @@ export async function PATCH(
           if (updateData.expirationDate !== undefined) {
             itemUpdate.endDate = updateData.expirationDate ?? null;
           }
-          if (installationId !== undefined) {
-            itemUpdate.installationId = installationId || null;
+          if (wantsMultiUpdate) {
+            // Con 1 instalación, la pegamos al item para drill-down.
+            // Con 0 ó ≥2, queda null (el item vive a nivel cuenta y la
+            // UI lista las N instalaciones desde DocAssociation).
+            itemUpdate.installationId =
+              installationList.length === 1 ? installationList[0] : null;
           }
           await tx.financeCashflowItem.update({
             where: { id: cashflowItem.id },

@@ -84,6 +84,12 @@ export function ItemDetailRow({ item, buckets, granularity, kind, onActionDone }
   const badge = SOURCE_BADGE[item.source];
   const link = sourceLink(item.source, item);
   const display = item.installationName ?? item.itemName;
+  // Mostrar cliente como prefix sólo cuando es distinto del nombre (evita
+  // duplicación "Ametel — Ametel algarrobo" cuando la instalación ya
+  // contiene el nombre del cliente).
+  const showAccount =
+    item.crmAccountName &&
+    !display.toLowerCase().includes(item.crmAccountName.toLowerCase());
   const handleTarget = firstMovableValue(item);
 
   return (
@@ -97,6 +103,14 @@ export function ItemDetailRow({ item, buckets, granularity, kind, onActionDone }
               originalDate={handleTarget.scheduledDate}
             />
           )}
+          {showAccount ? (
+            <span
+              className="text-[11px] font-mono uppercase tracking-[0.06em] text-ds-text-4 shrink-0"
+              title={item.crmAccountName ?? undefined}
+            >
+              {item.crmAccountName} ·
+            </span>
+          ) : null}
           {link ? (
             <a
               href={link}

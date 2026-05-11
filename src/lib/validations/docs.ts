@@ -210,6 +210,24 @@ export const uploadContractSchema = z
     // que cobra `monthlyAmountClp` el día `paymentDay` desde `effectiveDate`
     // hasta `expirationDate`. Vinculado al contrato vía sourceRefId=document.id.
     installationId: z.string().uuid().optional().nullable(),
+    /** Multi-instalación (Fase C): un contrato puede cubrir N instalaciones.
+     *  Cuando viene, prevalece sobre `installationId` legacy y se guardan
+     *  N `DocAssociation(crm_installation)`. El `FinanceCashflowItem` se
+     *  crea sin installationId si hay ≥2 (es a nivel cuenta). */
+    installationIds: z
+      .preprocess((v) => {
+        if (Array.isArray(v)) return v;
+        if (typeof v === "string" && v.trim().length > 0) {
+          try {
+            const parsed = JSON.parse(v);
+            return Array.isArray(parsed) ? parsed : undefined;
+          } catch {
+            return undefined;
+          }
+        }
+        return undefined;
+      }, z.array(z.string().uuid()).optional())
+      .optional(),
     addToCashflow: z
       .preprocess((v) => {
         if (typeof v === "boolean") return v;
