@@ -242,9 +242,10 @@ export async function GET(request: NextRequest) {
     const dtesEnriched = dtes.map((d) => {
       const activeCession = cessionByDte.get(d.id) ?? null;
       const hasXml = d.dteXml !== null && d.dteXml.length > 0;
+      const CEDIBLE_SII_STATUSES = new Set(["ACCEPTED", "SENT", "PENDING", "WITH_OBJECTIONS"]);
       const canBeCeded =
         CEDIBLE_TYPES.has(d.dteType) &&
-        d.siiStatus === "ACCEPTED" &&
+        CEDIBLE_SII_STATUSES.has(d.siiStatus) &&
         hasXml &&
         activeCession === null;
 

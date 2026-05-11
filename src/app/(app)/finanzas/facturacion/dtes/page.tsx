@@ -153,9 +153,10 @@ export default async function DtesEmitidosPage({
     const enrichedAccount =
       (d.crmAccountId ? accountMapCC.get(d.crmAccountId) ?? null : null) ??
       (d.receiverRut ? accountByRutMap.get(d.receiverRut) ?? null : null);
+    const CEDIBLE_SII_STATUSES = new Set(["ACCEPTED", "SENT", "PENDING", "WITH_OBJECTIONS"]);
     const canBeCeded =
       CEDIBLE_TYPES.has(d.dteType) &&
-      d.siiStatus === "ACCEPTED" &&
+      CEDIBLE_SII_STATUSES.has(d.siiStatus) &&
       hasXml &&
       !cession;
     const ncs = ncsByDte.get(d.id) ?? [];

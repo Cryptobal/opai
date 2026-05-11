@@ -165,9 +165,10 @@ export default async function FacturacionPage() {
   const dtesData = dtes.map((d: typeof dtes[number]) => {
     const hasXml = d.dteXml !== null && d.dteXml.length > 0;
     const cession = cessionByDte.get(d.id);
+    const CEDIBLE_SII_STATUSES = new Set(["ACCEPTED", "SENT", "PENDING", "WITH_OBJECTIONS"]);
     const canBeCeded =
       CEDIBLE_TYPES.has(d.dteType) &&
-      d.siiStatus === "ACCEPTED" &&
+      CEDIBLE_SII_STATUSES.has(d.siiStatus) &&
       hasXml &&
       !cession;
     // NCs vivas sobre este DTE → resumen para el badge de la lista.
