@@ -1134,6 +1134,7 @@ export function IssuedDteDetailDialog({
             dteType: dte.dteType,
             folio: dte.folio,
             receiverName: dte.receiverName,
+            receiverEmail: dte.receiverEmail,
             totalAmount: dte.totalAmount,
             date: dte.date,
           }}

@@ -130,6 +130,16 @@ function round2(n: number): number {
 }
 
 /**
+ * El SII/AppOCTAVA espera RUT chileno sin puntos y con guion antes del DV
+ * (ej: 76083507-2). Nuestro catálogo guarda algunos RUTs limpios sin guion.
+ */
+function formatRutForSii(raw: string): string {
+  const clean = raw.replace(/[.\-\s]/g, "").toUpperCase();
+  if (clean.length < 2) return raw.trim();
+  return `${clean.slice(0, -1)}-${clean.slice(-1)}`;
+}
+
+/**
  * Genera un código humano único per-tenant para la operación.
  * Formato: CES-YYYYMMDD-NNNN (NNNN = secuencia del día).
  */
@@ -159,6 +169,7 @@ async function validateAndLoadDte(tenantId: string, dteId: string) {
       issuerRut: true,
       receiverRut: true,
       receiverName: true,
+      receiverEmail: true,
       totalAmount: true,
       siiStatus: true,
       dteXml: true,
@@ -291,11 +302,23 @@ export async function cedeDte(
   // 20260808000000). El adapter directo construye/firma/envía el AEC
   // sin pasar por SimpleAPI; el legacy SIMPLEAPI sigue disponible para
   // tenants que tengan ese módulo en su plan.
+  const emailDeudorTrimmed =
+    input.emailDeudor?.trim() || dte.receiverEmail?.trim() || "";
+  const emailDeudor = emailDeudorTrimmed || undefined;
+
+  const cessionProvider = dteCfg.cessionProvider ?? "SII_DIRECT";
+  if (cessionProvider === "OCTAVA" && !emailDeudorTrimmed) {
+    throw new Error(
+      "Para cesión con App Octava se requiere el correo del deudor (receptor del DTE). " +
+        "Completá \"Email deudor\" en el modal o actualizá el email del receptor en la cuenta CRM antes de ceder.",
+    );
+  }
+
   const cedeRequest: DteCedeRequest = {
     dteType: dte.dteType,
     dteFolio: dte.folio,
-    dteIssuerRut: dte.issuerRut,
-    dteReceiverRut: dte.receiverRut,
+    dteIssuerRut: formatRutForSii(dte.issuerRut),
+    dteReceiverRut: formatRutForSii(dte.receiverRut),
     // Razón social del deudor — necesaria para que el adapter directo
     // arme la <DeclaracionJurada> Ley 19.983 con el nombre. SimpleAPI
     // la ignora (la extrae del XML), no afecta su flow.
@@ -303,7 +326,7 @@ export async function cedeDte(
     dteDate: dte.date.toISOString().slice(0, 10),
     dteTotalAmount: Number(dte.totalAmount),
     dteXml: Buffer.from(dte.dteXml as Buffer),
-    cesionarioRut: company.rut,
+    cesionarioRut: formatRutForSii(company.rut),
     cesionarioRazonSocial: company.razonSocial,
     cesionarioDireccion: company.direccion ?? "",
     cesionarioEmail: company.email ?? "",
@@ -311,16 +334,15 @@ export async function cedeDte(
     cedenteDireccion: dteCfg.emisorDireccion ?? "",
     cedenteEmail: dteCfg.emisorEmail ?? "",
     rutAutorizadoNombre: cert.nombreTitular ?? "Representante Legal",
-    rutAutorizadoRut: cert.rutTitular,
+    rutAutorizadoRut: formatRutForSii(cert.rutTitular),
     montoCesion: terms.montoCesion,
     fechaUltimoVencimiento: input.fechaVencimiento,
-    emailDeudor: input.emailDeudor,
+    emailDeudor,
     contactNombre: input.contactNombre ?? cert.nombreTitular ?? "Contacto Cesión",
     contactFono: input.contactFono,
     contactEmail: input.contactEmail ?? dteCfg.emisorEmail ?? "noreply@opai.cl",
   };
 
-  const cessionProvider = dteCfg.cessionProvider ?? "SII_DIRECT";
   let cedeResult: DteCedeResponse;
   if (cessionProvider === "SII_DIRECT") {
     // Descifrar el cert in-memory para el adapter directo. NO se loguea
@@ -415,7 +437,7 @@ export async function cedeDte(
       commissionAmount: terms.commissionAmount,
       netAdvance: terms.netAdvance,
       retentionAmount: terms.retentionAmount,
-      emailDeudor: input.emailDeudor ?? null,
+      emailDeudor: emailDeudorTrimmed || null,
       cessionMethod: "ELECTRONIC",
       cessionRegistered: true,
       cessionDate: new Date(`${input.fechaCesion}T00:00:00Z`),

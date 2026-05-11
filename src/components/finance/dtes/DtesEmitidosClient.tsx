@@ -970,6 +970,7 @@ export function DtesEmitidosClient({
             dteType: cedeDte.dteType,
             folio: cedeDte.folio,
             receiverName: cedeDte.receiverName,
+            receiverEmail: cedeDte.receiverEmail,
             totalAmount: cedeDte.totalAmount,
             date: cedeDte.date,
           }}

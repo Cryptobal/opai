@@ -87,6 +87,22 @@ function envToAmbiente(env: "PRODUCTION" | "CERTIFICATION"): OctavaAmbiente {
   return env === "PRODUCTION" ? "1" : "0";
 }
 
+function formatRutForOctava(raw: string): string {
+  const clean = raw.replace(/[.\-\s]/g, "").toUpperCase();
+  if (clean.length < 2) return raw.trim();
+  return `${clean.slice(0, -1)}-${clean.slice(-1)}`;
+}
+
+function limitAecText(value: string | undefined, max: number, fallback: string): string {
+  const normalized = (value ?? "").replace(/[\u0000-\u001F\u007F]/g, " ").trim();
+  const safe = normalized || fallback;
+  return safe.length > max ? safe.slice(0, max) : safe;
+}
+
+function limitAecEmail(value: string | undefined, fallback = ""): string {
+  return limitAecText(value, 40, fallback);
+}
+
 /** Octava suele responder Token/Url `"NULL"` (string); ignora igual que vacío. */
 function normalizeOctavaToken(raw: string | undefined | null): string | null {
   if (raw == null) return null;
@@ -128,13 +144,13 @@ async function ensureCedenteRegistered(
 
   // No hay password — registramos el cedente.
   const integrador = loadIntegradorCreds();
-  const cedenteRut = cfg?.emisorRut ?? ctx.rutTitular;
+  const cedenteRut = formatRutForOctava(cfg?.emisorRut ?? ctx.rutTitular);
   const res = await registraCedente(
     {
       RUT: cedenteRut,
-      RAZONSOCIAL: ctx.razonSocialEmisor,
-      RUTAUTORIZADOSII: ctx.rutTitular,
-      NOMBREAUTORIZADOSII: ctx.nombreTitular,
+      RAZONSOCIAL: limitAecText(ctx.razonSocialEmisor, 100, "Sin Razon Social"),
+      RUTAUTORIZADOSII: formatRutForOctava(ctx.rutTitular),
+      NOMBREAUTORIZADOSII: limitAecText(ctx.nombreTitular, 60, "Representante Legal"),
       CERTDIGBASE64: ctx.pfxBuffer.toString("base64"),
       PASSCERTDIG: ctx.pfxPassword,
       INTEGRADOR: integrador.rut,
@@ -214,7 +230,10 @@ async function ensureToken(
   }
 
   const res = await obtenerToken(
-    { RUTACCESOAPI: cedenteRut, PASSWORDACCESOAPI: passAccesoApi },
+    {
+      RUTACCESOAPI: formatRutForOctava(cedenteRut),
+      PASSWORDACCESOAPI: passAccesoApi,
+    },
     signal,
   );
   const tokenFromApi = normalizeOctavaToken(res.Token);
@@ -301,15 +320,26 @@ export async function cedeDteOctava(
     }
 
     // 4. Cede el DTE.
+    // EMAILDEUDOR = correo del receptor/deudor del DTE (no del cesionario).
+    // Mandar el mail del factoring como deudor suele producir RSC (error de schema en RPETC).
+    const emailDeudor = request.emailDeudor?.trim();
+    if (!emailDeudor) {
+      return {
+        success: false,
+        error:
+          "Octava requiere el email del deudor (receptor del DTE). Completá \"Email deudor\" en el modal o registrá el correo del receptor en la factura.",
+      };
+    }
+
     const cedeRes = await octavaCedeDte(
       {
         FOLIO: String(request.dteFolio),
         TIPODTE: String(request.dteType),
-        RUTEMISOR: request.dteIssuerRut,
+        RUTEMISOR: formatRutForOctava(request.dteIssuerRut),
         AMBIENTE: ambiente,
         DIRECCIONCEDENTE: request.cedenteDireccion || "Sin direccion",
         EMAILCEDENTE: request.cedenteEmail || "noreply@opai.cl",
-        RUTCESIONARIO: request.cesionarioRut,
+        RUTCESIONARIO: formatRutForOctava(request.cesionarioRut),
         RAZONSOCIALCESIONARIO: request.cesionarioRazonSocial,
         DIRECCIONCESIONARIO: request.cesionarioDireccion || "Sin direccion",
         EMAILCESIONARIO: request.cesionarioEmail || "noreply@opai.cl",
@@ -317,7 +347,7 @@ export async function cedeDteOctava(
         EMAILCONTACTO: request.contactEmail,
         MONTOCEDER: String(Math.round(request.montoCesion)),
         FECHAVENCIMIENTO: request.fechaUltimoVencimiento,
-        EMAILDEUDOR: request.emailDeudor ?? request.cesionarioEmail,
+        EMAILDEUDOR: limitAecEmail(emailDeudor),
         TOKEN: token,
       },
       opts.signal,
@@ -350,7 +380,7 @@ export async function cedeDteOctava(
       {
         FOLIO: String(request.dteFolio),
         TIPODTE: String(request.dteType),
-        RUTEMISOR: request.dteIssuerRut,
+        RUTEMISOR: formatRutForOctava(request.dteIssuerRut),
         AMBIENTE: ambiente,
         TOKEN: token,
       },

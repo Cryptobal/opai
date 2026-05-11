@@ -52,6 +52,8 @@ interface DteSummary {
   dteType: number;
   folio: number;
   receiverName: string;
+  /** Correo del receptor en la factura; se antepone en la cesión Octava. */
+  receiverEmail?: string | null;
   totalAmount: number;
   /** Fecha de emisión del DTE, formato ISO o YYYY-MM-DD. */
   date?: string;
@@ -119,8 +121,13 @@ export function CederDteDialog({ open, onOpenChange, dte }: Props) {
   const [fechaCesion, setFechaCesion] = useState(todayIso);
   const [fechaVencimiento, setFechaVencimiento] = useState(() => isoPlusDays(60));
   const [advanceRate, setAdvanceRate] = useState<string>("90");
-  const [interestRate, setInterestRate] = useState<string>("1.5");
+  // Los 4 montos del cesionario son la ÚNICA fuente: vienen del PDF o
+  // los tipea el usuario. La tasa efectiva mensual se DERIVA — ya no
+  // hay input "interés %".
   const [commissionAmount, setCommissionAmount] = useState<string>("0");
+  const [difPrecioAmount, setDifPrecioAmount] = useState<string>("0");
+  const [ivaAmount, setIvaAmount] = useState<string>("0");
+  const [montoAGirarAmount, setMontoAGirarAmount] = useState<string>("");
   const [emailDeudor, setEmailDeudor] = useState("");
   const [notes, setNotes] = useState("");
 
@@ -128,6 +135,13 @@ export function CederDteDialog({ open, onOpenChange, dte }: Props) {
   const [simulation, setSimulation] = useState<SimulationState | null>(null);
   const [simulationUploading, setSimulationUploading] = useState(false);
   const [simulationDragOver, setSimulationDragOver] = useState(false);
+
+  // Anteponer email del receptor del DTE al abrir (Octava exige email del deudor).
+  useEffect(() => {
+    if (!open) return;
+    const pre = dte.receiverEmail?.trim();
+    setEmailDeudor(pre ?? "");
+  }, [open, dte.id, dte.receiverEmail]);
 
   useEffect(() => {
     if (!open) return;
@@ -593,7 +607,7 @@ export function CederDteDialog({ open, onOpenChange, dte }: Props) {
             </p>
           </div>
           <div>
-            <Label htmlFor="emailDeudor">Email deudor (opcional)</Label>
+            <Label htmlFor="emailDeudor">Email del deudor (receptor)</Label>
             <Input
               id="emailDeudor"
               type="email"
@@ -601,6 +615,10 @@ export function CederDteDialog({ open, onOpenChange, dte }: Props) {
               onChange={(e) => setEmailDeudor(e.target.value)}
               className="h-10 sm:h-9"
             />
+            <p className="text-xs text-ds-text-3 mt-0.5">
+              Obligatorio con App Octava. Si la factura tiene correo del receptor, se carga solo;
+              si no, ingresalo aquí.
+            </p>
           </div>
           <div className="sm:col-span-2">
             <Label htmlFor="notes">Notas internas</Label>
