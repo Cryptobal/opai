@@ -1,6 +1,6 @@
 "use client";
 
-import { Mail, RefreshCw, CheckCircle2, Download, X, FileText } from "lucide-react";
+import { Mail, RefreshCw, CheckCircle2, Download, X, FileText, Coins } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -13,9 +13,12 @@ interface Props {
   onExportCsv: () => void;
   /** Abre modal "Enviar como…" para el PRIMER DTE seleccionado. */
   onSendAs?: () => void;
+  /** Abre el modal de cesión bulk a factoring (≥ 2 DTEs). */
+  onCedeFactoring?: () => void;
   canResendEmail: boolean;
   canMarkPaid: boolean;
   canSendAs?: boolean;
+  canCedeFactoring?: boolean;
 }
 
 /**
@@ -31,9 +34,11 @@ export function BulkActionBar({
   onMarkPaid,
   onExportCsv,
   onSendAs,
+  onCedeFactoring,
   canResendEmail,
   canMarkPaid,
   canSendAs,
+  canCedeFactoring,
 }: Props) {
   if (count === 0) return null;
 
@@ -111,6 +116,19 @@ export function BulkActionBar({
               <CheckCircle2 className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Marcar pagado</span>
               <span className="sm:hidden">Pagar</span>
+            </Button>
+          )}
+          {canCedeFactoring && onCedeFactoring && count >= 2 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onCedeFactoring}
+              className="gap-1.5 shrink-0"
+              title="Ceder estas facturas a factoring en un mismo batch"
+            >
+              <Coins className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Ceder a factoring</span>
+              <span className="sm:hidden">Ceder</span>
             </Button>
           )}
           <Button

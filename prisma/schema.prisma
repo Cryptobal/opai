@@ -7270,6 +7270,7 @@ model FinanceFactoringCompany {
   notes                String?                     @db.Text
   isActive             Boolean                     @default(true) @map("is_active")
   operations           FinanceFactoringOperation[]
+  batches              FinanceFactoringBatch[]
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -7277,6 +7278,54 @@ model FinanceFactoringCompany {
   @@unique([tenantId, rut], map: "uq_factoring_company_rut")
   @@index([tenantId, isActive], map: "idx_factoring_company_active")
   @@map("finance_factoring_companies")
+  @@schema("finance")
+}
+
+/// Batch de cesión: una simulación del cesionario que cubre N facturas
+/// se modela como un FinanceFactoringBatch con N FinanceFactoringOperation
+/// hijas. Cada operación hija guarda su share prorrateado del costo total.
+model FinanceFactoringBatch {
+  id                       String                  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId                 String                  @map("tenant_id")
+  code                     String
+  factoringCompanyId       String                  @map("factoring_company_id") @db.Uuid
+  factoringCompany         FinanceFactoringCompany @relation(fields: [factoringCompanyId], references: [id])
+
+  // Simulación del cesionario (1 PDF para N facturas).
+  simulationFileUrl        String?                 @map("simulation_file_url")
+  simulationFileKey        String?                 @map("simulation_file_key")
+  simulationFileName       String?                 @map("simulation_file_name")
+  simulationExtractedAt    DateTime?               @map("simulation_extracted_at") @db.Timestamptz(6)
+  simulationExtractedJson  Json?                   @map("simulation_extracted_json")
+
+  fechaCesion              DateTime                @map("fecha_cesion") @db.Date
+  fechaVencimiento         DateTime                @map("fecha_vencimiento") @db.Date
+  plazoDias                Int                     @map("plazo_dias")
+
+  // Totales del batch (input del usuario + extracción IA).
+  totalInvoiceAmount       Decimal                 @default(0) @map("total_invoice_amount") @db.Decimal(14, 2)
+  totalMontoAGirar         Decimal?                @map("total_monto_a_girar") @db.Decimal(14, 2)
+  totalDifPrecio           Decimal?                @map("total_dif_precio") @db.Decimal(14, 2)
+  totalComision            Decimal?                @map("total_comision") @db.Decimal(14, 2)
+  totalIva                 Decimal?                @map("total_iva") @db.Decimal(14, 2)
+  totalGastosLegal         Decimal?                @map("total_gastos_legal") @db.Decimal(14, 2)
+  totalNotaria             Decimal?                @map("total_notaria") @db.Decimal(14, 2)
+  totalGastosOperacionales Decimal?                @map("total_gastos_operacionales") @db.Decimal(14, 2)
+  totalCostoFinanciero     Decimal?                @map("total_costo_financiero") @db.Decimal(14, 2)
+  effectiveMonthlyRate     Decimal?                @map("effective_monthly_rate") @db.Decimal(8, 4)
+
+  operationsCount          Int                     @default(0) @map("operations_count")
+  notes                    String?
+  createdBy                String                  @map("created_by")
+  createdAt                DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  operations               FinanceFactoringOperation[]
+
+  @@unique([tenantId, code], map: "uq_factoring_batch_code")
+  @@index([tenantId, factoringCompanyId], map: "idx_factoring_batch_company")
+  @@index([tenantId, fechaCesion(sort: Desc)], map: "idx_factoring_batch_fecha")
+  @@map("finance_factoring_batches")
   @@schema("finance")
 }
 
@@ -7358,6 +7407,10 @@ model FinanceFactoringOperation {
   costoFinanciero        Decimal? @map("costo_financiero") @db.Decimal(14, 2)
   effectiveMonthlyRate   Decimal? @map("effective_monthly_rate") @db.Decimal(8, 4)
 
+  // ── Batch (N operaciones bajo una sola simulación del cesionario) ──
+  batchId String?                @map("batch_id") @db.Uuid
+  batch   FinanceFactoringBatch? @relation(fields: [batchId], references: [id])
+
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -7365,6 +7418,7 @@ model FinanceFactoringOperation {
   @@index([tenantId, status], map: "idx_finance_factoring_status")
   @@index([tenantId, factoringCompanyId], map: "idx_factoring_op_company")
   @@index([tenantId, fechaCesion], map: "idx_factoring_op_fecha_cesion")
+  @@index([batchId], map: "idx_factoring_op_batch")
   @@map("finance_factoring_operations")
   @@schema("finance")
 }

@@ -26,6 +26,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/opai-ds";
 import { toast } from "sonner";
 import { CederDteDialog } from "../factoring/CederDteDialog";
+import { BulkCederDteDialog } from "../factoring/BulkCederDteDialog";
 import { PdfPreviewDialog } from "../PdfPreviewDialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmisionConfirmDialog } from "../EmisionConfirmDialog";
@@ -102,6 +103,7 @@ export function DtesEmitidosClient({
   } | null>(null);
   const [detailDteId, setDetailDteId] = useState<string | null>(null);
   const [cedeModalDteId, setCedeModalDteId] = useState<string | null>(null);
+  const [bulkCedeOpen, setBulkCedeOpen] = useState(false);
   const [previewDteId, setPreviewDteId] = useState<string | null>(null);
   const [emailDteId, setEmailDteId] = useState<string | null>(null);
   // ── "Enviar como…" (Proforma / Estado de Pago) ──
@@ -901,9 +903,11 @@ export function DtesEmitidosClient({
         onCheckStatus={handleBulkCheckStatus}
         onMarkPaid={handleBulkMarkPaid}
         onExportCsv={handleBulkExportCsv}
+        onCedeFactoring={() => setBulkCedeOpen(true)}
         canResendEmail={canManage}
         canMarkPaid={canManage}
         canSendAs={canManage}
+        canCedeFactoring={canManage}
         onSendAs={() => {
           if (selectedIds.size !== 1) return;
           const [dteId] = Array.from(selectedIds);
@@ -971,6 +975,24 @@ export function DtesEmitidosClient({
           }}
         />
       )}
+
+      <BulkCederDteDialog
+        open={bulkCedeOpen}
+        onOpenChange={setBulkCedeOpen}
+        dtes={filtered
+          .filter((d) => selectedIds.has(d.id))
+          .map((d) => ({
+            id: d.id,
+            dteType: d.dteType,
+            folio: d.folio,
+            receiverName: d.receiverName,
+            totalAmount: d.totalAmount,
+          }))}
+        onCompleted={() => {
+          clearSelection();
+          setBulkCedeOpen(false);
+        }}
+      />
 
       {previewDte && (
         <PdfPreviewDialog

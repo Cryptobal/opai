@@ -92,6 +92,42 @@ export const cedeDteSchema = z.object({
 
 export type CedeDteSchema = z.infer<typeof cedeDteSchema>;
 
+/** Schema para POST bulk-cede en /api/finance/factoring/bulk-cede (Fase 2).
+ *  Cede N facturas bajo un mismo batch. Los totales se prorratean por
+ *  monto bruto entre las N operaciones hijas. */
+export const bulkCedeSchema = z.object({
+  dteIds: z.array(z.string().uuid("dteId debe ser uuid")).min(2, "Mínimo 2 DTEs"),
+  factoringCompanyId: z.string().uuid("factoringCompanyId debe ser uuid"),
+  fechaCesion: yyyyMmDd,
+  fechaVencimiento: yyyyMmDd,
+  advanceRate: z.number().min(0).max(100),
+  interestRate: z.number().min(0).max(100),
+  totals: z
+    .object({
+      montoAGirar: z.number().nonnegative().optional().nullable(),
+      difPrecio: z.number().nonnegative().optional().nullable(),
+      comision: z.number().nonnegative().optional().nullable(),
+      iva: z.number().nonnegative().optional().nullable(),
+      gastosLegal: z.number().nonnegative().optional().nullable(),
+      notaria: z.number().nonnegative().optional().nullable(),
+      gastosOperacionales: z.number().nonnegative().optional().nullable(),
+    })
+    .partial()
+    .default({}),
+  emailDeudor: z.string().email("Email deudor inválido").optional().or(z.literal("")),
+  notes: z.string().optional(),
+  contactNombre: z.string().optional(),
+  contactFono: z.string().optional(),
+  contactEmail: z
+    .string()
+    .email("Email contacto inválido")
+    .optional()
+    .or(z.literal("")),
+  simulation: simulationSnapshotSchema.optional(),
+});
+
+export type BulkCedeSchema = z.infer<typeof bulkCedeSchema>;
+
 /** Schema para POST cancel. */
 export const cancelOperationSchema = z.object({
   reason: z.string().min(3, "Razón de cancelación requerida (mín 3 chars)"),

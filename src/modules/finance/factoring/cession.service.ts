@@ -49,6 +49,9 @@ export interface CedeDteInput {
   /** Datos del PDF de simulación subido por el usuario. Opcional — si
    *  no viene, la cesión se persiste sólo con las tasas calculadas. */
   simulation?: SimulationSnapshot;
+  /** Si la cesión es parte de un batch (Fase 2), el id del batch. La
+   *  función NO crea el batch — eso lo hace el wrapper bulkCedeDtes. */
+  batchId?: string;
 }
 
 /** Datos extraídos del PDF de simulación del factoring (Fase 1). */
@@ -441,6 +444,7 @@ export async function cedeDte(
       simGastosOperacionales: sim?.gastosOperacionales ?? null,
       costoFinanciero: costoFinanciero,
       effectiveMonthlyRate: effectiveMonthlyRate,
+      batchId: input.batchId ?? null,
     },
     select: { id: true, code: true, aecTrackId: true },
   });
@@ -545,4 +549,232 @@ async function sendCesionNotificacionEmail(p: CesionEmailPayload): Promise<void>
     subject: `Cesión electrónica ${p.operationCode} — ${montoCesionFmt} registrada en SII`,
     html,
   });
+}
+
+// ════════════════════════════════════════════════════════════════
+//  BULK CESIÓN — Fase 2
+// ════════════════════════════════════════════════════════════════
+
+export interface BulkCedeInput {
+  /** IDs de los DTEs a ceder en este batch. Mínimo 2 (caso 1 usa cedeDte). */
+  dteIds: string[];
+  factoringCompanyId: string;
+  fechaCesion: string; // YYYY-MM-DD
+  fechaVencimiento: string; // YYYY-MM-DD
+  advanceRate: number;
+  interestRate: number;
+  emailDeudor?: string;
+  notes?: string;
+  contactNombre?: string;
+  contactFono?: string;
+  contactEmail?: string;
+  /** Totales del batch (vienen del PDF de simulación o tipeados a mano).
+   *  El servidor prorratea estos totales entre las N facturas por
+   *  monto bruto y persiste el share en cada FinanceFactoringOperation. */
+  totals: {
+    montoAGirar?: number | null;
+    difPrecio?: number | null;
+    comision?: number | null;
+    iva?: number | null;
+    gastosLegal?: number | null;
+    notaria?: number | null;
+    gastosOperacionales?: number | null;
+  };
+  simulation?: SimulationSnapshot;
+}
+
+export interface BulkCedeResult {
+  batchId: string;
+  batchCode: string;
+  results: Array<{
+    dteId: string;
+    operationId?: string;
+    code?: string;
+    trackId?: string;
+    error?: string;
+  }>;
+}
+
+async function generateBatchCode(tenantId: string, date: Date): Promise<string> {
+  const yyyy = date.getUTCFullYear();
+  const mm = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(date.getUTCDate()).padStart(2, "0");
+  const datePrefix = `BATCH-${yyyy}${mm}${dd}`;
+  const count = await prisma.financeFactoringBatch.count({
+    where: { tenantId, code: { startsWith: datePrefix } },
+  });
+  return `${datePrefix}-${String(count + 1).padStart(4, "0")}`;
+}
+
+/**
+ * Cede N DTEs bajo un mismo batch. Crea el batch primero con totales y
+ * simulación, luego itera los DTEs llamando `cedeDte` para cada uno con
+ * el `batchId` inyectado + comisión prorrateada por monto bruto.
+ *
+ * **Tolerancia a fallos parciales:** si un DTE individual falla, el
+ * batch sigue con los siguientes. El caller recibe el detalle por DTE
+ * en `results[]`. Si TODOS fallan, devuelve el batch igual (vacío) para
+ * que el usuario pueda reintentar.
+ *
+ * SII no soporta cesión bulk nativa — cada DTE genera su propio AEC,
+ * así que iteramos en serie (mismo certificado, evita rate-limit).
+ */
+export async function bulkCedeDtes(
+  input: BulkCedeInput,
+  ctx: CedeDteContext,
+): Promise<BulkCedeResult> {
+  if (input.dteIds.length < 2) {
+    throw new Error("bulkCedeDtes requiere al menos 2 DTEs.");
+  }
+
+  // 1. Pre-cargar montos brutos de los DTEs para validación + prorrateo.
+  const dteMontos = await prisma.financeDte.findMany({
+    where: {
+      id: { in: input.dteIds },
+      tenantId: ctx.tenantId,
+      direction: "ISSUED",
+    },
+    select: { id: true, totalAmount: true },
+  });
+  if (dteMontos.length !== input.dteIds.length) {
+    throw new Error(
+      `Sólo ${dteMontos.length} de ${input.dteIds.length} DTEs encontrados en este tenant.`,
+    );
+  }
+  const totalBruto = dteMontos.reduce(
+    (s, d) => s + Number(d.totalAmount),
+    0,
+  );
+  if (totalBruto <= 0) {
+    throw new Error("La suma de los DTEs es 0 o negativa — no se puede ceder.");
+  }
+
+  // 2. Métricas derivadas del batch.
+  const cesion = new Date(`${input.fechaCesion}T00:00:00Z`);
+  const venc = new Date(`${input.fechaVencimiento}T00:00:00Z`);
+  const plazoDias = Math.max(
+    1,
+    Math.round((venc.getTime() - cesion.getTime()) / 86400000),
+  );
+  const t = input.totals;
+  const totalCostoFinanciero =
+    t.montoAGirar != null ? Math.max(0, totalBruto - t.montoAGirar) : null;
+  const totalAdvance = round2(totalBruto * (input.advanceRate / 100));
+  const effectiveMonthlyRate =
+    totalCostoFinanciero != null && totalAdvance > 0 && plazoDias > 0
+      ? Math.round(
+          (totalCostoFinanciero / totalAdvance) *
+            (30 / plazoDias) *
+            100 *
+            10000,
+        ) / 10000
+      : null;
+
+  // 3. Crear batch.
+  const code = await generateBatchCode(ctx.tenantId, new Date());
+  const batch = await prisma.financeFactoringBatch.create({
+    data: {
+      tenantId: ctx.tenantId,
+      code,
+      factoringCompanyId: input.factoringCompanyId,
+      simulationFileUrl: input.simulation?.fileUrl ?? null,
+      simulationFileKey: input.simulation?.fileKey ?? null,
+      simulationFileName: input.simulation?.fileName ?? null,
+      simulationExtractedAt: input.simulation ? new Date() : null,
+      simulationExtractedJson:
+        input.simulation?.extractedJson != null
+          ? (input.simulation.extractedJson as object)
+          : undefined,
+      fechaCesion: cesion,
+      fechaVencimiento: venc,
+      plazoDias,
+      totalInvoiceAmount: totalBruto,
+      totalMontoAGirar: t.montoAGirar ?? null,
+      totalDifPrecio: t.difPrecio ?? null,
+      totalComision: t.comision ?? null,
+      totalIva: t.iva ?? null,
+      totalGastosLegal: t.gastosLegal ?? null,
+      totalNotaria: t.notaria ?? null,
+      totalGastosOperacionales: t.gastosOperacionales ?? null,
+      totalCostoFinanciero,
+      effectiveMonthlyRate,
+      notes: input.notes ?? null,
+      createdBy: ctx.userId,
+    },
+    select: { id: true, code: true },
+  });
+
+  // 4. Iterar cada DTE en serie, prorrateando los totales por bruto.
+  const results: BulkCedeResult["results"] = [];
+  let successCount = 0;
+  for (const dte of dteMontos) {
+    const share = Number(dte.totalAmount) / totalBruto;
+    const dteComision = t.comision != null ? round2(t.comision * share) : 0;
+    const dteSim: SimulationSnapshot | undefined = input.simulation
+      ? {
+          fileUrl: input.simulation.fileUrl ?? null,
+          fileKey: input.simulation.fileKey ?? null,
+          fileName: input.simulation.fileName ?? null,
+          extractedJson: input.simulation.extractedJson,
+          // Cada operation guarda SU share, no el total del batch.
+          montoBruto: Number(dte.totalAmount),
+          montoAGirar:
+            t.montoAGirar != null ? round2(t.montoAGirar * share) : null,
+          difPrecio: t.difPrecio != null ? round2(t.difPrecio * share) : null,
+          comision: dteComision,
+          iva: t.iva != null ? round2(t.iva * share) : null,
+          gastosLegal:
+            t.gastosLegal != null ? round2(t.gastosLegal * share) : null,
+          notaria: t.notaria != null ? round2(t.notaria * share) : null,
+          gastosOperacionales:
+            t.gastosOperacionales != null
+              ? round2(t.gastosOperacionales * share)
+              : null,
+        }
+      : undefined;
+
+    try {
+      const r = await cedeDte(
+        {
+          dteId: dte.id,
+          factoringCompanyId: input.factoringCompanyId,
+          fechaCesion: input.fechaCesion,
+          fechaVencimiento: input.fechaVencimiento,
+          advanceRate: input.advanceRate,
+          interestRate: input.interestRate,
+          commissionAmount: dteComision,
+          emailDeudor: input.emailDeudor,
+          notes: input.notes,
+          contactNombre: input.contactNombre,
+          contactFono: input.contactFono,
+          contactEmail: input.contactEmail,
+          simulation: dteSim,
+          batchId: batch.id,
+        },
+        ctx,
+      );
+      results.push({
+        dteId: dte.id,
+        operationId: r.operationId,
+        code: r.code,
+        trackId: r.trackId,
+      });
+      successCount += 1;
+    } catch (err) {
+      results.push({
+        dteId: dte.id,
+        error: err instanceof Error ? err.message : "Error desconocido",
+      });
+    }
+  }
+
+  // 5. Actualizar count en el batch (para reporting).
+  if (successCount > 0) {
+    await prisma.financeFactoringBatch.update({
+      where: { id: batch.id },
+      data: { operationsCount: successCount },
+    });
+  }
+
+  return { batchId: batch.id, batchCode: batch.code, results };
 }
