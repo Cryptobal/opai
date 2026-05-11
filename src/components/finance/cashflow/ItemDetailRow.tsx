@@ -102,16 +102,39 @@ interface Props {
   granularity: "weekly" | "monthly";
   kind: "INCOME" | "EXPENSE";
   onActionDone: () => void;
+  /** Si está dentro de un grupo por cliente, lo indentamos más para
+   *  marcar visualmente la jerarquía. */
+  inGroup?: boolean;
 }
 
-export function ItemDetailRow({ item, buckets, granularity, kind, onActionDone }: Props) {
+function formatBaseAmount(amount: number, currency: string): string {
+  if (currency === "UF") {
+    return `UF ${new Intl.NumberFormat("es-CL", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount)}/mes`;
+  }
+  return `$${new Intl.NumberFormat("es-CL", {
+    maximumFractionDigits: 0,
+  }).format(amount)}/mes`;
+}
+
+export function ItemDetailRow({
+  item,
+  buckets,
+  granularity,
+  kind,
+  onActionDone,
+  inGroup = false,
+}: Props) {
   const badge = SOURCE_BADGE[item.source];
   const link = sourceLink(item.source, item);
   const display = item.installationName ?? item.itemName;
-  // Mostrar cliente como prefix sólo cuando es distinto del nombre (evita
-  // duplicación "Ametel — Ametel algarrobo" cuando la instalación ya
-  // contiene el nombre del cliente).
+  // Si el item está dentro de un grupo por cliente, ocultamos el prefix
+  // del cliente porque el sub-header ya lo dice. En items planos
+  // mantenemos el prefix sólo cuando el cliente no está ya en el nombre.
   const showAccount =
+    !inGroup &&
     item.crmAccountName &&
     !display.toLowerCase().includes(item.crmAccountName.toLowerCase());
   const handleTarget = firstMovableValue(item);
@@ -119,7 +142,7 @@ export function ItemDetailRow({ item, buckets, granularity, kind, onActionDone }
   return (
     <tr className="bg-muted/10 hover:bg-muted/20 border-t border-border/50">
       <td className="sticky left-0 z-20 bg-card p-2 truncate min-w-[140px] max-w-[160px] sm:min-w-[180px] sm:max-w-none border-r border-border/50">
-        <div className="flex items-center gap-1.5 pl-3">
+        <div className={`flex items-center gap-1.5 ${inGroup ? "pl-8" : "pl-3"}`}>
           {handleTarget && (
             <DragHandle
               occurrenceId={handleTarget.occurrenceId}
@@ -153,6 +176,14 @@ export function ItemDetailRow({ item, buckets, granularity, kind, onActionDone }
               {badge}
             </span>
           )}
+          {item.baseAmount > 0 ? (
+            <span
+              className="text-[11px] font-mono tabular-nums text-ds-text-3 shrink-0"
+              title="Monto base del contrato. Las celdas muestran el total proyectado por bucket."
+            >
+              · {formatBaseAmount(item.baseAmount, item.currency)}
+            </span>
+          ) : null}
           {item.currency === "UF" && (
             <span
               className="text-[10px] font-mono font-semibold uppercase tracking-[0.06em] px-1.5 py-0.5 rounded-ds-sm bg-status-info-soft text-status-info-fg shrink-0"

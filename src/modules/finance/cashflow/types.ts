@@ -99,6 +99,10 @@ export interface ProjectionRowItemDetail {
   crmAccountId: string | null;
   /** Nombre del cliente (CrmAccount.name) para mostrar agrupación en UI. */
   crmAccountName: string | null;
+  /** Monto base del item en su moneda original (UF o CLP), tal como se
+   *  guardó. Se muestra al lado del nombre para que el usuario vea el
+   *  "precio del contrato" sin tener que calcularlo desde los buckets. */
+  baseAmount: number;
   /** Moneda del item ("CLP" | "UF"). Útil para mostrar badge al lado del nombre. */
   currency: string;
   source: FinanceCashflowItemSource;

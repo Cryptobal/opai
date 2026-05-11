@@ -506,6 +506,7 @@ function buildRows(
           crmAccountName: o.crmAccountId
             ? (crmAccountNameById.get(o.crmAccountId) ?? null)
             : null,
+          baseAmount: o.amountOriginal ?? o.amountClp,
           currency: o.currency,
           source: o.source,
           sourceRefCode: null,

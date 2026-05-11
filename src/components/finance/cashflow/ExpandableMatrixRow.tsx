@@ -1,7 +1,7 @@
 "use client";
 import type React from "react";
 import { useEffect, useState } from "react";
-import { ChevronDown, ChevronRight as ChevronRightIcon } from "lucide-react";
+import { ChevronDown, ChevronRight as ChevronRightIcon, Building2 } from "lucide-react";
 import type {
   ProjectionRow,
   ProjectionBucket,
@@ -240,6 +240,7 @@ export function ExpandableMatrixRow({
                   granularity={granularity}
                   kind={row.kind as "INCOME" | "EXPENSE"}
                   onActionDone={onActionDoneSafe}
+                  inGroup
                 />,
               );
             }
@@ -269,14 +270,15 @@ function ClientGroupHeaderRow({
   grandTotal: number;
 }) {
   return (
-    <tr className="bg-muted/30 border-t border-border/50">
+    <tr className="bg-primary/5 border-t-2 border-primary/30">
       <td className="sticky left-0 z-20 bg-card p-2 truncate min-w-[140px] max-w-[160px] sm:min-w-[180px] sm:max-w-none border-r border-border/50">
-        <div className="flex items-center gap-1.5 pl-2">
+        <div className="flex items-center gap-1.5 pl-3">
+          <Building2 className="h-3.5 w-3.5 text-primary shrink-0" />
           <span className="text-[12px] font-semibold text-ds-text-1 truncate" title={name}>
             {name}
           </span>
-          <span className="text-[11px] font-mono text-ds-text-4 shrink-0">
-            ({count})
+          <span className="text-[10px] font-mono uppercase tracking-[0.06em] px-1.5 py-0.5 rounded-ds-sm bg-primary/15 text-primary shrink-0">
+            {count} contratos
           </span>
         </div>
       </td>
