@@ -29,6 +29,7 @@ import { PaginationControls } from "./PaginationControls";
 import { BankBalanceSheet } from "./BankBalanceSheet";
 import { BankRulesClient } from "./BankRulesClient";
 import { BankTxReconcileSheet } from "./BankTxReconcileSheet";
+import { CategoryMappingDialog } from "./cashflow/CategoryMappingDialog";
 import { BankAnalysisClient } from "./BankAnalysisClient";
 import {
   Landmark,

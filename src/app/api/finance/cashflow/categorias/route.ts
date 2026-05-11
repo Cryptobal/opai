@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized, resolveApiPerms, parseBody } from "@/lib/api-auth";
 import { hasCapability } from "@/lib/permissions";
-import { listCategories, createCategory } from "@/modules/finance/cashflow/category.service";
+import { createCategory, seedSystemCategoriesForTenant } from "@/modules/finance/cashflow/category.service";
 import { createCashflowCategorySchema } from "@/lib/validations/cashflow";
+import { prisma } from "@/lib/prisma";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
@@ -12,8 +13,32 @@ export async function GET() {
     if (!hasCapability(perms, "cashflow_view")) {
       return NextResponse.json({ success: false, error: "Sin permisos" }, { status: 403 });
     }
-    const cats = await listCategories(ctx.tenantId);
-    return NextResponse.json({ success: true, data: cats });
+    const sp = new URL(request.url).searchParams;
+    const kindParam = sp.get("kind");
+    const kind = kindParam === "INCOME" || kindParam === "EXPENSE" ? kindParam : undefined;
+
+    const total = await prisma.financeCashflowCategory.count({ where: { tenantId: ctx.tenantId } });
+    if (total === 0) await seedSystemCategoriesForTenant(ctx.tenantId);
+
+    const cats = await prisma.financeCashflowCategory.findMany({
+      where: { tenantId: ctx.tenantId, isActive: true, ...(kind && { kind }) },
+      orderBy: [{ kind: "asc" }, { sortOrder: "asc" }, { code: "asc" }],
+      include: { _count: { select: { accountMappings: true } } },
+    });
+    return NextResponse.json({
+      success: true,
+      data: cats.map((c) => ({
+        id: c.id,
+        code: c.code,
+        name: c.name,
+        kind: c.kind,
+        sortOrder: c.sortOrder,
+        color: c.color,
+        isActive: c.isActive,
+        isSystem: c.isSystem,
+        mappedAccountCount: c._count.accountMappings,
+      })),
+    });
   } catch (error) {
     console.error("[Finance/Cashflow] GET categorias:", error);
     return NextResponse.json({ success: false, error: "Error interno" }, { status: 500 });

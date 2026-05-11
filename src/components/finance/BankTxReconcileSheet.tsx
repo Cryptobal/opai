@@ -49,6 +49,7 @@ import {
   Filter,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CashflowCandidatesPanel } from "./cashflow/CashflowCandidatesPanel";
 
 // ── Tipos ──
 
@@ -162,7 +163,7 @@ export function BankTxReconcileSheet({
   accountPlans,
   onSaved,
 }: BankTxReconcileSheetProps) {
-  const [tab, setTab] = useState<"compare" | "manual">("compare");
+  const [tab, setTab] = useState<"cashflow" | "compare" | "manual">("cashflow");
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [loadingCandidates, setLoadingCandidates] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
@@ -212,7 +213,7 @@ export function BankTxReconcileSheet({
 
   useEffect(() => {
     if (open && tx) {
-      setTab("compare");
+      setTab("cashflow");
       setLinks([]);
       setManualAccountType("");
       setManualAccountId("");
@@ -449,6 +450,18 @@ export function BankTxReconcileSheet({
           <div className="flex gap-4">
             <button
               type="button"
+              onClick={() => setTab("cashflow")}
+              className={cn(
+                "px-1 py-2 text-sm font-medium transition-colors border-b-2",
+                tab === "cashflow"
+                  ? "border-primary text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Flujo de caja
+            </button>
+            <button
+              type="button"
               onClick={() => setTab("compare")}
               className={cn(
                 "px-1 py-2 text-sm font-medium transition-colors border-b-2",
@@ -477,6 +490,21 @@ export function BankTxReconcileSheet({
         </div>
 
         {/* Content */}
+        {tab === "cashflow" && tx && (
+          <div className="mt-4 space-y-3">
+            <p className="text-xs font-mono uppercase tracking-[0.08em] text-muted-foreground">
+              Cuotas proyectadas similares
+            </p>
+            <CashflowCandidatesPanel
+              bankTransactionId={tx.id}
+              onMatched={() => {
+                onSaved();
+                onOpenChange(false);
+              }}
+            />
+          </div>
+        )}
+
         {tab === "compare" && (
           <div className="mt-4 space-y-4">
             <div>
