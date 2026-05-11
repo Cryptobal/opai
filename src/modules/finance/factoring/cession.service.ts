@@ -441,15 +441,22 @@ export async function cedeDte(
     const pfxPassword = decryptString(cert.passwordEnc);
     const env = dteCfg.environment === "PRODUCTION" ? "PRODUCTION" : "CERTIFICATION";
     const { cedeDteOctava } = await import("../shared/adapters/octava-cesion");
-    cedeResult = await cedeDteOctava(cedeRequest, {
-      tenantId: ctx.tenantId,
-      environment: env,
-      pfxBuffer,
-      pfxPassword,
-      rutTitular: cert.rutTitular,
-      nombreTitular: cert.nombreTitular ?? "Representante Legal",
-      razonSocialEmisor: dteCfg.emisorRazonSocial ?? "Sin Razón Social",
-    });
+    cedeResult = await cedeDteOctava(
+      cedeRequest,
+      {
+        tenantId: ctx.tenantId,
+        environment: env,
+        pfxBuffer,
+        pfxPassword,
+        rutTitular: cert.rutTitular,
+        nombreTitular: cert.nombreTitular ?? "Representante Legal",
+        razonSocialEmisor: dteCfg.emisorRazonSocial ?? "Sin Razón Social",
+      },
+      // No hacer polling: devolver SUBMITTED de inmediato y dejar que
+      // el cron factoring-status actualice el estado final (EOK/RSC).
+      // Evita que el modal tarde 1-7 min esperando al SII.
+      { pollFinal: false },
+    );
   } else {
     const provider = await getDteProvider(ctx.tenantId);
     cedeResult = await provider.cede(cedeRequest);
