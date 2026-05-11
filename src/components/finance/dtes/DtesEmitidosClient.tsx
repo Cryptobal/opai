@@ -967,6 +967,7 @@ export function DtesEmitidosClient({
             folio: cedeDte.folio,
             receiverName: cedeDte.receiverName,
             totalAmount: cedeDte.totalAmount,
+            date: cedeDte.date,
           }}
         />
       )}

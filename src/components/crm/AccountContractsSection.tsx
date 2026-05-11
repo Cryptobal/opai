@@ -118,6 +118,32 @@ function formatDate(d: string | null): string {
   return new Date(d).toLocaleDateString("es-CL");
 }
 
+/** Parser robusto de montos en formato chileno: punto miles, coma decimal. */
+function parseChileanAmount(input: string): number {
+  if (!input) return NaN;
+  const cleaned = input.replace(/\./g, "").replace(",", ".");
+  return Number(cleaned);
+}
+
+/** Formato de monto según moneda: UF acepta hasta 2 decimales, CLP entero. */
+function formatAmount(n: number, currency: string): string {
+  return new Intl.NumberFormat("es-CL", {
+    maximumFractionDigits: currency === "UF" ? 2 : 0,
+    minimumFractionDigits: 0,
+  }).format(n);
+}
+
+/** Renderiza el monto con su signo: "$1.500.000" o "UF 117,50". */
+function renderAmountWithCurrency(n: number, currency: string): string {
+  if (currency === "UF") {
+    return `UF ${new Intl.NumberFormat("es-CL", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(n)}`;
+  }
+  return `$${new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 }).format(n)}`;
+}
+
 function daysUntil(d: string | null): number | null {
   if (!d) return null;
   const target = new Date(d);
@@ -406,10 +432,9 @@ export function AccountContractsSection({
     if (contract.cashflow) {
       setEditInCashflow(true);
       const amt = contract.cashflow.amountClp;
-      setEditMonthlyAmount(
-        new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 }).format(amt),
-      );
-      setEditCurrency(contract.cashflow.currency === "UF" ? "UF" : "CLP");
+      const currency = contract.cashflow.currency === "UF" ? "UF" : "CLP";
+      setEditCurrency(currency);
+      setEditMonthlyAmount(formatAmount(amt, currency));
       setEditPaymentDay(String(contract.cashflow.dayOfMonth ?? 5));
     } else {
       setEditInCashflow(false);
@@ -825,7 +850,7 @@ export function AccountContractsSection({
                         En flujo de caja
                       </span>
                       <span className="text-[13px] font-semibold tabular-nums text-status-ok-fg">
-                        ${new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 }).format(c.cashflow.amountClp)}/mes
+                        {renderAmountWithCurrency(c.cashflow.amountClp, c.cashflow.currency)}/mes
                       </span>
                       <span className="text-[11px] text-muted-foreground">
                         · día {c.cashflow.dayOfMonth === -1 ? "último" : c.cashflow.dayOfMonth}
@@ -1257,22 +1282,16 @@ export function AccountContractsSection({
                         inputMode="decimal"
                         value={uploadMonthlyAmount}
                         onChange={(e) => {
-                          const raw = e.target.value
-                            .replace(/[^\d,.-]/g, "")
-                            .replace(/\./g, "")
-                            .replace(",", ".");
-                          const n = Number(raw);
-                          if (Number.isFinite(n)) {
-                            setUploadMonthlyAmount(
-                              new Intl.NumberFormat("es-CL", {
-                                maximumFractionDigits: 0,
-                              }).format(n),
-                            );
-                          } else {
-                            setUploadMonthlyAmount(e.target.value);
+                          // Permite tipear coma decimal (UF) sin que se reemplace en vivo.
+                          setUploadMonthlyAmount(e.target.value.replace(/[^\d.,]/g, ""));
+                        }}
+                        onBlur={() => {
+                          const n = parseChileanAmount(uploadMonthlyAmount);
+                          if (Number.isFinite(n) && n > 0) {
+                            setUploadMonthlyAmount(formatAmount(n, uploadCurrency));
                           }
                         }}
-                        placeholder={uploadCurrency === "UF" ? "120" : "1.500.000"}
+                        placeholder={uploadCurrency === "UF" ? "117,50" : "1.500.000"}
                         className="font-mono text-right"
                       />
                     </div>
@@ -1280,7 +1299,14 @@ export function AccountContractsSection({
                       <Label>Moneda</Label>
                       <Select
                         value={uploadCurrency}
-                        onValueChange={(v) => setUploadCurrency(v === "UF" ? "UF" : "CLP")}
+                        onValueChange={(v) => {
+                          const next = v === "UF" ? "UF" : "CLP";
+                          setUploadCurrency(next);
+                          const n = parseChileanAmount(uploadMonthlyAmount);
+                          if (Number.isFinite(n) && n > 0) {
+                            setUploadMonthlyAmount(formatAmount(n, next));
+                          }
+                        }}
                       >
                         <SelectTrigger className="w-24">
                           <SelectValue />
@@ -1514,22 +1540,18 @@ export function AccountContractsSection({
                       inputMode="decimal"
                       value={editMonthlyAmount}
                       onChange={(e) => {
-                        const raw = e.target.value
-                          .replace(/[^\d,.-]/g, "")
-                          .replace(/\./g, "")
-                          .replace(",", ".");
-                        const n = Number(raw);
-                        if (Number.isFinite(n)) {
-                          setEditMonthlyAmount(
-                            new Intl.NumberFormat("es-CL", {
-                              maximumFractionDigits: 0,
-                            }).format(n),
-                          );
-                        } else {
-                          setEditMonthlyAmount(e.target.value);
+                        // Acepta dígitos, punto (miles) y coma (decimal).
+                        // No re-formateamos en cada keystroke porque eso
+                        // se come la coma cuando el usuario está tipeando.
+                        setEditMonthlyAmount(e.target.value.replace(/[^\d.,]/g, ""));
+                      }}
+                      onBlur={() => {
+                        const n = parseChileanAmount(editMonthlyAmount);
+                        if (Number.isFinite(n) && n > 0) {
+                          setEditMonthlyAmount(formatAmount(n, editCurrency));
                         }
                       }}
-                      placeholder={editCurrency === "UF" ? "120" : "1.500.000"}
+                      placeholder={editCurrency === "UF" ? "117,50" : "1.500.000"}
                       className="font-mono text-right"
                     />
                   </div>
@@ -1537,7 +1559,14 @@ export function AccountContractsSection({
                     <Label>Moneda</Label>
                     <Select
                       value={editCurrency}
-                      onValueChange={(v) => setEditCurrency(v === "UF" ? "UF" : "CLP")}
+                      onValueChange={(v) => {
+                        const next = v === "UF" ? "UF" : "CLP";
+                        setEditCurrency(next);
+                        const n = parseChileanAmount(editMonthlyAmount);
+                        if (Number.isFinite(n) && n > 0) {
+                          setEditMonthlyAmount(formatAmount(n, next));
+                        }
+                      }}
                     >
                       <SelectTrigger className="w-24">
                         <SelectValue />

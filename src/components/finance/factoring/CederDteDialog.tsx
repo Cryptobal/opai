@@ -43,6 +43,8 @@ interface DteSummary {
   folio: number;
   receiverName: string;
   totalAmount: number;
+  /** Fecha de emisión del DTE, formato ISO o YYYY-MM-DD. */
+  date?: string;
 }
 
 interface Props {
@@ -63,6 +65,17 @@ function isoPlusDays(days: number): string {
 
 function formatCLP(n: number): string {
   return `$${Math.round(n).toLocaleString("es-CL")}`;
+}
+
+function formatDayMonth(iso: string | undefined): string | null {
+  if (!iso) return null;
+  const d = new Date(iso.length === 10 ? `${iso}T00:00:00Z` : iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString("es-CL", {
+    day: "2-digit",
+    month: "short",
+    timeZone: "UTC",
+  });
 }
 
 export function CederDteDialog({ open, onOpenChange, dte }: Props) {
@@ -172,6 +185,11 @@ export function CederDteDialog({ open, onOpenChange, dte }: Props) {
           </DialogTitle>
           <DialogDescription>
             DTE {dte.dteType}-{dte.folio} · {dte.receiverName} · {formatCLP(dte.totalAmount)}
+            {formatDayMonth(dte.date) ? (
+              <span className="block text-[11px] text-ds-text-3 mt-0.5">
+                Emitida el {formatDayMonth(dte.date)}
+              </span>
+            ) : null}
           </DialogDescription>
         </DialogHeader>
 
@@ -239,7 +257,12 @@ export function CederDteDialog({ open, onOpenChange, dte }: Props) {
             />
           </div>
           <div>
-            <Label htmlFor="fechaVencimiento">Vencimiento factura</Label>
+            <Label htmlFor="fechaVencimiento" className="flex items-center justify-between gap-2">
+              <span>Vencimiento factura</span>
+              <span className="text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-3 rounded-md bg-ds-surface-2 border border-ds-border-subtle px-1.5 py-0.5">
+                {calc.dias} {calc.dias === 1 ? "día" : "días"}
+              </span>
+            </Label>
             <Input
               id="fechaVencimiento"
               type="date"

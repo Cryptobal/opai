@@ -1135,6 +1135,7 @@ export function IssuedDteDetailDialog({
             folio: dte.folio,
             receiverName: dte.receiverName,
             totalAmount: dte.totalAmount,
+            date: dte.date,
           }}
         />
       ) : null}
