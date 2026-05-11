@@ -137,6 +137,8 @@ type InstallationRow = {
   lng?: number | null;
   notes?: string | null;
   status?: "prospect" | "active" | "inactive";
+  contractStatus?: "vigente" | "por_vencer" | "vencido" | "no_aplica" | "sin_documento";
+  contractTitle?: string | null;
 };
 
 type QuoteRow = {

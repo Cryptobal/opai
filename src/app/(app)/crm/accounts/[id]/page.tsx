@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
+import { getInstallationContractCoverage } from "@/lib/crm/installation-contracts";
 import { CrmAccountDetailClient } from "@/components/crm/CrmAccountDetailClient";
 export default async function CrmAccountDetailPage({
   params,
@@ -30,7 +31,7 @@ export default async function CrmAccountDetailPage({
           include: { stage: true, primaryContact: true },
           orderBy: { createdAt: "desc" },
         },
-        installations: { orderBy: { createdAt: "desc" } },
+        installations: { orderBy: { name: "asc" } },
         // Mirror of Portal Cliente edit surface — these relations are the
         // canonical editor for legal reps / personería and must be visible
         // here even when the flat columns are still empty.
@@ -74,7 +75,7 @@ export default async function CrmAccountDetailPage({
       include: {
         contacts: { orderBy: { createdAt: "desc" } },
         deals: { include: { stage: true, primaryContact: true }, orderBy: { createdAt: "desc" } },
-        installations: { orderBy: { createdAt: "desc" } },
+        installations: { orderBy: { name: "asc" } },
         representantesLegales: {
           select: { id: true, nombre: true, rut: true, email: true },
           orderBy: { createdAt: "asc" },
@@ -87,7 +88,20 @@ export default async function CrmAccountDetailPage({
     }) ?? account;
   }
 
-  const data = JSON.parse(JSON.stringify({ ...account, quotes }));
+  const contractCoverage = await getInstallationContractCoverage({
+    tenantId,
+    installationIds: account.installations.map((installation) => installation.id),
+  });
+  const installationsWithContractStatus = account.installations.map((installation) => {
+    const coverage = contractCoverage.get(installation.id);
+    return {
+      ...installation,
+      contractStatus: coverage?.status ?? "sin_documento",
+      contractTitle: coverage?.title ?? null,
+    };
+  });
+
+  const data = JSON.parse(JSON.stringify({ ...account, installations: installationsWithContractStatus, quotes }));
   const actorIds = Array.from(
     new Set(activityLogs.map((log) => log.createdBy).filter((id): id is string => Boolean(id)))
   );

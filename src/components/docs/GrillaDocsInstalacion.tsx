@@ -162,7 +162,7 @@ export function GrillaDocsInstalacion() {
     fetchData();
   }, [fetchData]);
 
-  // Build computed rows (attach cellStatuses + compliancePercent, sort worst first)
+  // Build computed rows (attach cellStatuses + compliancePercent, keep the first view alphabetical)
   const computedRows: ComputedRow[] = (() => {
     if (!data) return [];
     return data.rows
@@ -173,7 +173,9 @@ export function GrillaDocsInstalacion() {
         const compliancePercent = calcCompliancePercent(cellStatuses);
         return { ...row, cellStatuses, compliancePercent };
       })
-      .sort((a, b) => a.compliancePercent - b.compliancePercent);
+      .sort((a, b) =>
+        a.installationName.localeCompare(b.installationName, "es", { sensitivity: "base" }),
+      );
   })();
 
   const tipos = data?.tipos ?? [];

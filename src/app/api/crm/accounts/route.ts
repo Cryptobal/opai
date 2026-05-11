@@ -11,6 +11,7 @@ import { requireCrmView, requireCrmEdit } from "@/lib/api-auth-crm";
 import { createAccountSchema } from "@/lib/validations/crm";
 import { createCrmHistoryLog } from "@/lib/crm-history";
 import { requireTenantModule } from '@/lib/require-module';
+import { getInstallationContractCoverage } from "@/lib/crm/installation-contracts";
 
 type AccountLifecycle = "prospect" | "client_active" | "client_inactive";
 
@@ -68,10 +69,40 @@ export async function GET(request: NextRequest) {
         ...(status ? { status } : {}),
         ...(search ? { name: { contains: search, mode: "insensitive" as const } } : {}),
       },
-      orderBy: { createdAt: "desc" },
+      include: {
+        installations: {
+          orderBy: { name: "asc" },
+          select: { id: true },
+        },
+        _count: { select: { contacts: true, deals: true, installations: true } },
+      },
+      orderBy: { name: "asc" },
     });
 
-    return NextResponse.json({ success: true, data: accounts });
+    const contractCoverage = await getInstallationContractCoverage({
+      tenantId: ctx.tenantId,
+      installationIds: accounts.flatMap((account) => account.installations.map((installation) => installation.id)),
+    });
+
+    const data = accounts.map(({ installations, ...account }) => {
+      const statuses = installations.map((installation) => contractCoverage.get(installation.id)?.status ?? "sin_documento");
+      const withContract = statuses.filter((status) => status !== "sin_documento").length;
+      const expiredContract = statuses.filter((status) => status === "vencido").length;
+      const expiringContract = statuses.filter((status) => status === "por_vencer").length;
+
+      return {
+        ...account,
+        contractCoverage: {
+          totalInstallations: installations.length,
+          withContract,
+          missingContract: installations.length - withContract,
+          expiredContract,
+          expiringContract,
+        },
+      };
+    });
+
+    return NextResponse.json({ success: true, data });
   } catch (error) {
     console.error("Error fetching CRM accounts:", error);
     return NextResponse.json(

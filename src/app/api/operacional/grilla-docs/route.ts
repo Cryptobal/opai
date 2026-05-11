@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureOpsAccess } from "@/lib/ops";
 import { calcDocStatus } from "@/lib/docs-operacionales";
+import { getInstallationContractCoverage } from "@/lib/crm/installation-contracts";
 
 export async function GET(request: NextRequest) {
   try {
@@ -274,6 +275,15 @@ export async function GET(request: NextRequest) {
       lastVisitByInst.set(v.installationId, v);
     }
 
+    const contratoMandanteTipo = tipos.find((tipo) => tipo.codigo === "contrato_mandante");
+    const contractCoverage = contratoMandanteTipo
+      ? await getInstallationContractCoverage({
+          tenantId: ctx.tenantId,
+          installationIds,
+          alertDaysBefore: contratoMandanteTipo.diasAlerta,
+        })
+      : new Map();
+
     // 6. Build response rows
     const rows = installations.map((inst) => {
       const lastVisit = lastVisitByInst.get(inst.id);
@@ -289,7 +299,14 @@ export async function GET(request: NextRequest) {
 
         const verif = verifByKey.get(`${tipo.id}|${inst.id}`);
 
-        const digitalStatus = doc
+        const accountContract =
+          tipo.codigo === "contrato_mandante" ? contractCoverage.get(inst.id) : null;
+
+        const digitalStatus = accountContract
+          ? accountContract.status === "sin_documento"
+            ? null
+            : accountContract.status
+          : doc
           ? calcDocStatus(doc.expiresAt, tipo.tieneVencimiento, tipo.diasAlerta)
           : null;
 
@@ -355,10 +372,10 @@ export async function GET(request: NextRequest) {
         return {
           tipoDocId: tipo.id,
           digitalStatus,
-          docId: doc?.id ?? null,
-          fileName: doc?.fileName ?? null,
-          fileUrl: doc?.fileUrl ?? null,
-          expiresAt: doc?.expiresAt?.toISOString() ?? null,
+          docId: accountContract?.contractId ?? doc?.id ?? null,
+          fileName: accountContract?.title ?? doc?.fileName ?? null,
+          fileUrl: accountContract?.pdfUrl ?? doc?.fileUrl ?? null,
+          expiresAt: accountContract?.expiresAt?.toISOString() ?? doc?.expiresAt?.toISOString() ?? null,
           fisicaPresente: verif?.presente ?? null,
           ultimaVerificacion: verif?.createdAt?.toISOString() ?? null,
           supervisorName: verif?.supervisor?.name ?? null,

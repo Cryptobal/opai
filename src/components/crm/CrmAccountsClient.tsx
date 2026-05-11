@@ -20,7 +20,7 @@ import Link from "next/link";
 import { Loader2, Plus, ChevronRight, Globe, MessageSquare, GitMerge } from "lucide-react";
 import { DuplicateAccountModal } from "./DuplicateAccountModal";
 import { CRM_MODULES } from "./CrmModuleIcons";
-import { EmptyState } from "@/components/opai-ds";
+import { EmptyState, Tag } from "@/components/opai-ds";
 import { CrmDates } from "@/components/crm/CrmDates";
 import { CrmToolbar } from "./CrmToolbar";
 import type { ViewMode } from "@/components/shared/ViewToggle";
@@ -80,6 +80,14 @@ type AccountRow = {
   _count?: {
     contacts: number;
     deals: number;
+    installations?: number;
+  };
+  contractCoverage?: {
+    totalInstallations: number;
+    withContract: number;
+    missingContract: number;
+    expiredContract?: number;
+    expiringContract?: number;
   };
 };
 
@@ -111,7 +119,7 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
   const [typeFilter, setTypeFilter] = useState<"client_active" | "prospect" | "client_inactive" | "all">("client_active");
   const [search, setSearch] = useState("");
   const [view, setView] = useState<ViewMode>("cards");
-  const [sort, setSort] = useState("newest");
+  const [sort, setSort] = useState("az");
   const unreadNoteIds = useUnreadNoteIds("ACCOUNT");
   const [industries, setIndustries] = useState<{ id: string; name: string }[]>([]);
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
@@ -184,7 +192,17 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
         throw new Error(typeof payload?.error === "string" ? payload.error : "Error creando cuenta");
       }
       setAccounts((prev) => [
-        { ...payload.data, _count: { contacts: 0, deals: 0 } },
+        {
+          ...payload.data,
+          _count: { contacts: 0, deals: 0, installations: 0 },
+          contractCoverage: {
+            totalInstallations: 0,
+            withContract: 0,
+            missingContract: 0,
+            expiredContract: 0,
+            expiringContract: 0,
+          },
+        },
         ...prev,
       ]);
       setForm(DEFAULT_FORM);
@@ -209,6 +227,25 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
     { key: "client_inactive" as const, label: "Clientes inactivos", count: counts.clientInactive },
     { key: "all" as const, label: "Todos", count: counts.total },
   ];
+
+  const getContractCoverageTag = (account: AccountRow) => {
+    const coverage = account.contractCoverage;
+    if (!coverage || coverage.totalInstallations === 0) return null;
+    const label = `Contrato ${coverage.withContract}/${coverage.totalInstallations}`;
+    if ((coverage.expiredContract ?? 0) > 0) {
+      return { variant: "danger" as const, label };
+    }
+    if (coverage.missingContract === 0) {
+      if ((coverage.expiringContract ?? 0) > 0) {
+        return { variant: "warn" as const, label };
+      }
+      return { variant: "ok" as const, label };
+    }
+    if (coverage.withContract > 0) {
+      return { variant: "warn" as const, label };
+    }
+    return { variant: "danger" as const, label: "Sin contrato" };
+  };
 
   return (
     <div className="space-y-4">
@@ -367,6 +404,7 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
               {filteredAccounts.map((account) => {
                 const lifecycle = getLifecycle(account);
                 const statusLabel = lifecycle === "prospect" ? "Prospecto" : lifecycle === "client_active" ? "Cliente" : "Ex cliente";
+                const contractTag = getContractCoverageTag(account);
                 return (
                   <div
                     key={account.id}
@@ -427,6 +465,11 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
                           </Badge>
                           <Badge variant="outline">{account._count?.contacts ?? 0} contactos</Badge>
                           <Badge variant="outline">{account._count?.deals ?? 0} negocios</Badge>
+                          {contractTag && (
+                            <Tag variant={contractTag.variant} size="sm" dot>
+                              {contractTag.label}
+                            </Tag>
+                          )}
                           <ChevronRight className="h-4 w-4 text-muted-foreground/40 transition-transform group-hover:translate-x-0.5 hidden sm:block" />
                         </div>
                       </Link>
@@ -440,6 +483,7 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
               {filteredAccounts.map((account) => {
                 const lifecycle = getLifecycle(account);
                 const statusLabel = lifecycle === "prospect" ? "Prospecto" : lifecycle === "client_active" ? "Cliente" : "Ex cliente";
+                const contractTag = getContractCoverageTag(account);
                 return (
                   <div
                     key={account.id}
@@ -481,6 +525,11 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
                           </Badge>
                           <span className="flex items-center gap-1"><CRM_MODULES.contacts.icon className="h-3 w-3" />{account._count?.contacts ?? 0}</span>
                           <span className="flex items-center gap-1"><CRM_MODULES.deals.icon className="h-3 w-3" />{account._count?.deals ?? 0}</span>
+                          {contractTag && (
+                            <Tag variant={contractTag.variant} size="sm" dot>
+                              {contractTag.label}
+                            </Tag>
+                          )}
                           {account.rut && <span>{account.rut}</span>}
                           {account.website && (
                             <span role="link" tabIndex={0} className="flex items-center gap-1 text-primary hover:underline truncate max-w-[140px] cursor-pointer" onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.open(account.website!, "_blank", "noopener,noreferrer"); }}>

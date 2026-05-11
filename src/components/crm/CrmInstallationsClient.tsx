@@ -32,6 +32,8 @@ type InstallationRow = {
   lng?: number | null;
   notes?: string | null;
   status?: "prospect" | "active" | "inactive";
+  contractStatus?: "vigente" | "por_vencer" | "vencido" | "no_aplica" | "sin_documento";
+  contractTitle?: string | null;
 };
 
 type FormState = {
@@ -53,6 +55,21 @@ const DEFAULT_FORM: FormState = {
   lng: null,
   notes: "",
 };
+
+function getContractTag(status: InstallationRow["contractStatus"]) {
+  switch (status) {
+    case "vigente":
+    case "no_aplica":
+      return { variant: "ok" as const, label: "Contrato vigente" };
+    case "por_vencer":
+      return { variant: "warn" as const, label: "Contrato por vencer" };
+    case "vencido":
+      return { variant: "danger" as const, label: "Contrato vencido" };
+    case "sin_documento":
+    default:
+      return { variant: "danger" as const, label: "Sin contrato" };
+  }
+}
 
 export function CrmInstallationsClient({
   accountId,
@@ -121,7 +138,10 @@ export function CrmInstallationsClient({
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload?.error);
-      setInstallations((prev) => [payload.data, ...prev]);
+      setInstallations((prev) => [
+        { ...payload.data, contractStatus: "sin_documento", contractTitle: null },
+        ...prev,
+      ]);
       setOpen(false);
       setForm(DEFAULT_FORM);
       toast.success("Instalación creada");
@@ -160,7 +180,13 @@ export function CrmInstallationsClient({
       const payload = await response.json();
       if (!response.ok || !payload.success) throw new Error(payload?.error || "No se pudo actualizar");
 
-      setInstallations((prev) => prev.map((i) => (i.id === inst.id ? payload.data : i)));
+      setInstallations((prev) =>
+        prev.map((i) =>
+          i.id === inst.id
+            ? { ...i, ...payload.data, contractStatus: i.contractStatus, contractTitle: i.contractTitle }
+            : i,
+        ),
+      );
       if (payload.data?.account?.isActive === true) setAccountActiveState(true);
       setStatusConfirm({ open: false, id: "", next: false, activateAccount: false });
       toast.success(statusConfirm.next ? "Instalación activada" : "Instalación desactivada");
@@ -176,74 +202,89 @@ export function CrmInstallationsClient({
     }
   };
 
+  const sortedInstallations = [...installations].sort((a, b) =>
+    a.name.localeCompare(b.name, "es", { sensitivity: "base" }),
+  );
+
   return (
     <>
       <div className="flex items-center justify-between mb-3">
         <p className="text-xs text-muted-foreground">
-          {installations.length} instalación(es)
+          {sortedInstallations.length} instalación(es)
         </p>
         {!createRef && <CrmSectionCreateButton onClick={openCreate} />}
       </div>
 
-      {installations.length === 0 && (
+      {sortedInstallations.length === 0 && (
         <p className="text-sm text-muted-foreground py-4 text-center">
           Sin instalaciones registradas.
         </p>
       )}
 
       <div className="space-y-3">
-        {installations.map((inst) => (
-          <div key={inst.id} className="rounded-lg border p-3 hover:bg-accent/30 transition-colors">
-            <Link
-              href={`/crm/installations/${inst.id}`}
-              className="group"
-            >
-              <div className="flex items-center gap-2">
-                <p className="font-medium text-sm truncate group-hover:text-primary transition-colors">
-                  {inst.name}
-                </p>
-                <Tag
-                  variant={
-                    inst.status === "active" ? "ok" :
-                    inst.status === "inactive" ? "warn" :
-                    "neutral"
-                  }
-                  size="sm"
-                  dot
-                  className="shrink-0"
-                >
-                  {inst.status === "active" ? "Activa" : inst.status === "inactive" ? "Inactiva" : "Prospecto"}
-                </Tag>
-              </div>
-              {inst.address && (
-                <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                  <MapPin className="h-3 w-3 shrink-0" />
-                  {inst.address}
-                </p>
-              )}
-              {(inst.city || inst.commune) && (
-                <p className="text-xs text-muted-foreground ml-4">
-                  {[inst.commune, inst.city].filter(Boolean).join(", ")}
-                </p>
-              )}
-            </Link>
-            <div className="mt-3 flex items-center justify-end gap-2 border-t pt-2">
-              <Button
-                size="sm"
-                variant={inst.status === "active" ? "outline" : "secondary"}
-                className="h-8"
-                onClick={() => openToggleInstallationStatus(inst)}
-                disabled={statusUpdatingIds.has(inst.id)}
+        {sortedInstallations.map((inst) => {
+          const contractTag = getContractTag(inst.contractStatus);
+          return (
+            <div key={inst.id} className="rounded-lg border p-3 hover:bg-accent/30 transition-colors">
+              <Link
+                href={`/crm/installations/${inst.id}`}
+                className="group"
               >
-                {statusUpdatingIds.has(inst.id)
-                  ? "Guardando..."
-                  : inst.status === "active"
-                  ? "Desactivar"
-                  : "Activar"}
-              </Button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="font-medium text-sm truncate group-hover:text-primary transition-colors">
+                    {inst.name}
+                  </p>
+                  <Tag
+                    variant={
+                      inst.status === "active" ? "ok" :
+                      inst.status === "inactive" ? "warn" :
+                      "neutral"
+                    }
+                    size="sm"
+                    dot
+                    className="shrink-0"
+                  >
+                    {inst.status === "active" ? "Activa" : inst.status === "inactive" ? "Inactiva" : "Prospecto"}
+                  </Tag>
+                  <Tag
+                    variant={contractTag.variant}
+                    size="sm"
+                    dot
+                    className="shrink-0"
+                  >
+                    {contractTag.label}
+                  </Tag>
+                </div>
+                {inst.address && (
+                  <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                    <MapPin className="h-3 w-3 shrink-0" />
+                    {inst.address}
+                  </p>
+                )}
+                {(inst.city || inst.commune) && (
+                  <p className="text-xs text-muted-foreground ml-4">
+                    {[inst.commune, inst.city].filter(Boolean).join(", ")}
+                  </p>
+                )}
+              </Link>
+              <div className="mt-3 flex items-center justify-end gap-2 border-t pt-2">
+                <Button
+                  size="sm"
+                  variant={inst.status === "active" ? "outline" : "secondary"}
+                  className="h-8"
+                  onClick={() => openToggleInstallationStatus(inst)}
+                  disabled={statusUpdatingIds.has(inst.id)}
+                >
+                  {statusUpdatingIds.has(inst.id)
+                    ? "Guardando..."
+                    : inst.status === "active"
+                    ? "Desactivar"
+                    : "Activar"}
+                </Button>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
