@@ -16,6 +16,7 @@
  * re-cesión, no parcial. Tipos de DTE cedibles: 33, 34, 43, 46.
  */
 
+import { parseDteXml } from "@/lib/dte-xml-parser";
 import { prisma } from "@/lib/prisma";
 import { decryptBuffer, decryptString } from "@/lib/dte-encryption";
 import { getDteProvider } from "../shared/adapters/dte-provider.adapter";
@@ -137,6 +138,48 @@ function formatRutForSii(raw: string): string {
   const clean = raw.replace(/[.\-\s]/g, "").toUpperCase();
   if (clean.length < 2) return raw.trim();
   return `${clean.slice(0, -1)}-${clean.slice(-1)}`;
+}
+
+const ISO_DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * App Octava documenta MONTOCEDER = «monto total DTE a ceder» — debe coincidir con
+ * `<MntTotal>` del XML firmado. Si mandamos el total de BD con drift de redondeo o
+ * TZ distinta en `FchEmis`, el RPETC responde **RSC** (error de schema).
+ *
+ * Cuando no hay NC aplicadas al DTE, forzamos fecha/monto/total desde el XML parseado.
+ * Con NC el monto cedible puede ser menor: conservamos `montoCesionEconomico`.
+ */
+function alignCedePayloadWithParsedDteXml(
+  dteXml: Buffer,
+  sinNotasCreditoAplicadas: boolean,
+  fechaEmisionDbIso: string,
+  totalAmountDb: number,
+  montoCesionEconomico: number,
+): {
+  dteDate: string;
+  dteTotalAmount: number;
+  montoCesion: number;
+} {
+  let dteDate = fechaEmisionDbIso;
+  let dteTotalAmount = totalAmountDb;
+  let montoCesion = montoCesionEconomico;
+  try {
+    const p = parseDteXml(dteXml);
+    if (ISO_DATE_ONLY.test(p.fechaEmision)) {
+      dteDate = p.fechaEmision;
+    }
+    const xmlTot = p.totales.total;
+    if (Number.isFinite(xmlTot) && xmlTot > 0) {
+      dteTotalAmount = xmlTot;
+      if (sinNotasCreditoAplicadas) {
+        montoCesion = xmlTot;
+      }
+    }
+  } catch {
+    // Sin parseo fiable no alineamos — evitamos romper DTEs legacy/raros.
+  }
+  return { dteDate, dteTotalAmount, montoCesion };
 }
 
 /**
@@ -330,6 +373,21 @@ export async function cedeDte(
     );
   }
 
+  const sinNcSobreEsteDte = ncAplicadas < 0.01;
+  const xmlBuf = Buffer.from(dte.dteXml as Buffer);
+  const rpetcAligned = alignCedePayloadWithParsedDteXml(
+    xmlBuf,
+    sinNcSobreEsteDte,
+    dte.date.toISOString().slice(0, 10),
+    Number(dte.totalAmount),
+    terms.montoCesion,
+  );
+  const invoiceAmountPersist =
+    sinNcSobreEsteDte &&
+    Math.abs(rpetcAligned.dteTotalAmount - terms.invoiceAmount) > 0.01
+      ? rpetcAligned.dteTotalAmount
+      : terms.invoiceAmount;
+
   const cedeRequest: DteCedeRequest = {
     dteType: dte.dteType,
     dteFolio: dte.folio,
@@ -339,9 +397,9 @@ export async function cedeDte(
     // arme la <DeclaracionJurada> Ley 19.983 con el nombre. SimpleAPI
     // la ignora (la extrae del XML), no afecta su flow.
     dteReceiverName: dte.receiverName ?? undefined,
-    dteDate: dte.date.toISOString().slice(0, 10),
-    dteTotalAmount: Number(dte.totalAmount),
-    dteXml: Buffer.from(dte.dteXml as Buffer),
+    dteDate: rpetcAligned.dteDate,
+    dteTotalAmount: rpetcAligned.dteTotalAmount,
+    dteXml: xmlBuf,
     cesionarioRut: formatRutForSii(company.rut),
     cesionarioRazonSocial: company.razonSocial,
     cesionarioDireccion: company.direccion ?? "",
@@ -351,7 +409,7 @@ export async function cedeDte(
     cedenteEmail: dteCfg.emisorEmail ?? "",
     rutAutorizadoNombre: cert.nombreTitular ?? "Representante Legal",
     rutAutorizadoRut: formatRutForSii(cert.rutTitular),
-    montoCesion: terms.montoCesion,
+    montoCesion: rpetcAligned.montoCesion,
     fechaUltimoVencimiento: input.fechaVencimiento,
     emailDeudor,
     contactNombre: input.contactNombre ?? cert.nombreTitular ?? "Contacto Cesión",
@@ -414,7 +472,7 @@ export async function cedeDte(
   const simMontoAGirar = sim?.montoAGirar ?? null;
   const costoFinanciero =
     simMontoAGirar != null
-      ? Math.max(0, terms.invoiceAmount - simMontoAGirar)
+      ? Math.max(0, invoiceAmountPersist - simMontoAGirar)
       : null;
   // Guardado como porcentaje (mismas unidades que `interest_rate`).
   // Ej: $149.975 de costo sobre $5.306.452 de anticipo en 60 días →
@@ -441,8 +499,8 @@ export async function cedeDte(
       cesionarioRazonSoc: company.razonSocial,
       cesionarioEmail: company.email,
       cesionarioDireccion: company.direccion,
-      invoiceAmount: terms.invoiceAmount,
-      montoCesion: terms.montoCesion,
+      invoiceAmount: invoiceAmountPersist,
+      montoCesion: rpetcAligned.montoCesion,
       plazoDias: terms.plazoDias,
       fechaCesion: new Date(`${input.fechaCesion}T00:00:00Z`),
       fechaVencimiento: new Date(`${input.fechaVencimiento}T00:00:00Z`),
@@ -508,7 +566,7 @@ export async function cedeDte(
     cedenteRazonSocial: dteCfg.emisorRazonSocial ?? "",
     dteType: dte.dteType,
     dteFolio: dte.folio,
-    montoCesion: terms.montoCesion,
+    montoCesion: rpetcAligned.montoCesion,
     fechaCesion: input.fechaCesion,
     fechaVencimiento: input.fechaVencimiento,
     trackId: op.aecTrackId ?? cedeResult.trackId,
