@@ -7035,6 +7035,10 @@ enum FinanceLinkTarget {
   EXPENSE
   /// Ingreso manual sin entidad (solo cuenta contable).
   INCOME
+  /// Cesión de factura a factoring (FinanceFactoringOperation). El monto
+  /// del link corresponde al monto a girar real (sim_monto_a_girar o
+  /// net_advance como fallback) y queda asociado al cesionario.
+  FACTORING_OPERATION
 
   @@schema("finance")
 }

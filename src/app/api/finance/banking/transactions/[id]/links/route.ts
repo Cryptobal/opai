@@ -22,6 +22,7 @@ const linkSchema = z.object({
     "TE_LOTE",
     "EXPENSE",
     "INCOME",
+    "FACTORING_OPERATION",
   ]),
   targetId: z.string().nullable().optional(),
   amount: z.number().positive(),

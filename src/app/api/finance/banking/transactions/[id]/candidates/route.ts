@@ -5,11 +5,15 @@ import {
   resolveApiPerms,
 } from "@/lib/api-auth";
 import { hasCapability } from "@/lib/permissions";
-import { findDteCandidates } from "@/modules/finance/banking/bank-tx-link.service";
+import {
+  findDteCandidates,
+  findFactoringCandidates,
+} from "@/modules/finance/banking/bank-tx-link.service";
 
 /**
  * GET /api/finance/banking/transactions/[id]/candidates
- * Devuelve DTEs candidatos para conciliar con un movimiento bancario.
+ * Devuelve DTEs candidatos + operaciones de factoring candidatas para
+ * conciliar con un movimiento bancario.
  */
 export async function GET(
   _request: NextRequest,
@@ -26,8 +30,15 @@ export async function GET(
       );
     }
     const { id } = await params;
-    const candidates = await findDteCandidates(ctx.tenantId, id);
-    return NextResponse.json({ success: true, data: candidates });
+    const [dtes, factoring] = await Promise.all([
+      findDteCandidates(ctx.tenantId, id),
+      findFactoringCandidates(ctx.tenantId, id),
+    ]);
+    return NextResponse.json({
+      success: true,
+      data: dtes,
+      factoring,
+    });
   } catch (error) {
     console.error("[Finance/Banking/Candidates] error:", error);
     return NextResponse.json(

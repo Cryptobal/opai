@@ -82,7 +82,22 @@ type LocalLinkType =
   | "DTE_ISSUED"
   | "DTE_RECEIVED"
   | "EXPENSE"
-  | "INCOME";
+  | "INCOME"
+  | "FACTORING_OPERATION";
+
+interface FactoringCandidate {
+  id: string;
+  code: string;
+  factoringCompanyName: string;
+  fechaCesion: string;
+  fechaVencimiento: string;
+  invoiceAmount: number;
+  expectedDeposit: number;
+  expectedDepositSource: "simulation" | "computed";
+  status: string;
+  dteFolio: number | null;
+  dteReceiverName: string | null;
+}
 
 interface LocalLink {
   /** Identificador local para el render. Si es DTE, es el id del DTE. */
@@ -166,6 +181,9 @@ export function BankTxReconcileSheet({
 }: BankTxReconcileSheetProps) {
   const [tab, setTab] = useState<"cashflow" | "compare" | "manual">("cashflow");
   const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [factoringCandidates, setFactoringCandidates] = useState<
+    FactoringCandidate[]
+  >([]);
   const [loadingCandidates, setLoadingCandidates] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   // Filtros del tab "Comparar transacciones" (estilo Zoho)
@@ -209,6 +227,7 @@ export function BankTxReconcileSheet({
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.error);
       setCandidates(json.data ?? []);
+      setFactoringCandidates(json.factoring ?? []);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Error al cargar");
     } finally {
@@ -305,6 +324,33 @@ export function BankTxReconcileSheet({
         note: null,
         label: `${c.documentType} ${c.folio ?? ""} - ${
           c.direction === "ISSUED" ? c.receiverName : c.issuerName
+        }`,
+      },
+    ]);
+  };
+
+  const toggleFactoring = (c: FactoringCandidate) => {
+    const isLinked = links.some((l) => l.key === c.id);
+    if (isLinked) {
+      setLinks((prev) => prev.filter((l) => l.key !== c.id));
+      return;
+    }
+    // Monto sugerido: el expected del factoring (cap al remaining).
+    const suggested = Math.min(
+      c.expectedDeposit,
+      remaining || c.expectedDeposit,
+    );
+    setLinks((prev) => [
+      ...prev,
+      {
+        key: c.id,
+        targetType: "FACTORING_OPERATION",
+        targetId: c.id,
+        amount: suggested,
+        accountPlanId: null,
+        note: null,
+        label: `Cesión ${c.code} · ${c.factoringCompanyName}${
+          c.dteFolio ? ` · Factura ${c.dteFolio}` : ""
         }`,
       },
     ]);
@@ -598,13 +644,85 @@ export function BankTxReconcileSheet({
                 </div>
               )}
 
+              {/* Cesiones a factoring (Fase 4 — conciliación con monto a girar) */}
+              {factoringCandidates.length > 0 && (
+                <div className="mb-4 space-y-2">
+                  <p className="text-[11px] font-mono uppercase tracking-[0.08em] text-primary">
+                    Cesiones a factoring ({factoringCandidates.length})
+                  </p>
+                  <ul className="space-y-2">
+                    {factoringCandidates.map((c) => {
+                      const selected = links.some((l) => l.key === c.id);
+                      return (
+                        <li
+                          key={c.id}
+                          className={cn(
+                            "flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors",
+                            selected
+                              ? "border-primary bg-primary/5"
+                              : "border-border hover:bg-muted/30",
+                          )}
+                          onClick={() => toggleFactoring(c)}
+                        >
+                          <div className="shrink-0 pt-0.5">
+                            {selected ? (
+                              <CheckCircle2 className="h-5 w-5 text-primary" />
+                            ) : (
+                              <Circle className="h-5 w-5 text-muted-foreground" />
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-sm font-medium">
+                                Cesión {c.code}
+                              </span>
+                              <Badge variant="outline" className="text-xs">
+                                {c.factoringCompanyName}
+                              </Badge>
+                              {c.expectedDepositSource === "simulation" ? (
+                                <Badge
+                                  variant="outline"
+                                  className="text-xs bg-status-ok-soft text-status-ok-fg border-status-ok-border"
+                                >
+                                  desde PDF
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-xs">
+                                  estimado
+                                </Badge>
+                              )}
+                            </div>
+                            {c.dteFolio ? (
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                Factura {c.dteFolio} · {c.dteReceiverName}
+                              </p>
+                            ) : null}
+                            <div className="flex items-center justify-between mt-1.5">
+                              <span className="text-xs text-muted-foreground">
+                                Cedida{" "}
+                                {format(new Date(c.fechaCesion), "dd MMM yyyy", {
+                                  locale: es,
+                                })}
+                              </span>
+                              <p className="font-mono text-sm font-medium">
+                                {fmtCLP.format(c.expectedDeposit)}
+                              </p>
+                            </div>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
+
               {loadingCandidates ? (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                 </div>
               ) : filteredCandidates.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-4">
-                  {candidates.length === 0
+                  {candidates.length === 0 && factoringCandidates.length === 0
                     ? "No se encontraron facturas candidatas. Probá con “Categorizar manual” o ajustá la fecha."
                     : "Ninguno de los candidatos coincide con tus filtros. Limpiá los filtros para ver todos."}
                 </p>

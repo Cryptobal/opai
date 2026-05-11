@@ -52,6 +52,25 @@ export interface CandidateDte {
   paymentStatus: string;
 }
 
+/** Candidato de cesión a factoring (Fase 4). El monto a matchear es
+ *  `simMontoAGirar` (preferido — viene del PDF de simulación) o
+ *  `netAdvance` (calculado por nosotros) como fallback. */
+export interface CandidateFactoring {
+  id: string;
+  code: string;
+  factoringCompanyName: string;
+  factoringCompanyId: string | null;
+  fechaCesion: string;
+  fechaVencimiento: string;
+  invoiceAmount: number;
+  /** Monto que se debería ver entrar en el banco. Preferimos sim si existe. */
+  expectedDeposit: number;
+  expectedDepositSource: "simulation" | "computed";
+  status: string;
+  dteFolio: number | null;
+  dteReceiverName: string | null;
+}
+
 // ── Candidatos sugeridos ──
 
 /**
@@ -120,6 +139,85 @@ export async function findDteCandidates(
     issuedAt: d.date.toISOString(),
     paymentStatus: d.paymentStatus,
   }));
+}
+
+/**
+ * Busca cesiones a factoring cuyo monto a girar coincida (±tolerancia)
+ * con un ingreso bancario. Sólo se evalúan tx positivas (los abonos del
+ * factoring son ingresos). Match aceptable cuando:
+ *   - status NOT IN (CANCELLED)
+ *   - fechaCesion entre tx.transactionDate − 14 días y +1 día
+ *   - expectedDeposit (sim o netAdvance) dentro de ±5% / ±$1.000
+ */
+export async function findFactoringCandidates(
+  tenantId: string,
+  bankTxId: string,
+  toleranceFactor: number = 0.05,
+): Promise<CandidateFactoring[]> {
+  const tx = await prisma.financeBankTransaction.findFirst({
+    where: { id: bankTxId, tenantId },
+    select: { amount: true, transactionDate: true },
+  });
+  if (!tx) return [];
+  const amount = tx.amount.toNumber();
+  if (amount <= 0) return []; // Sólo ingresos.
+
+  const tolerance = Math.max(amount * toleranceFactor, 1000);
+  const minAmount = amount - tolerance;
+  const maxAmount = amount + tolerance;
+
+  const minDate = new Date(tx.transactionDate);
+  minDate.setDate(minDate.getDate() - 14);
+  const maxDate = new Date(tx.transactionDate);
+  maxDate.setDate(maxDate.getDate() + 1);
+
+  const ops = await prisma.financeFactoringOperation.findMany({
+    where: {
+      tenantId,
+      status: { notIn: ["CANCELLED"] },
+      fechaCesion: { gte: minDate, lte: maxDate },
+      OR: [
+        { simMontoAGirar: { gte: minAmount, lte: maxAmount } },
+        { netAdvance: { gte: minAmount, lte: maxAmount } },
+      ],
+    },
+    select: {
+      id: true,
+      code: true,
+      factoringCompany: true,
+      factoringCompanyId: true,
+      fechaCesion: true,
+      fechaVencimiento: true,
+      invoiceAmount: true,
+      simMontoAGirar: true,
+      netAdvance: true,
+      status: true,
+      dte: { select: { folio: true, receiverName: true } },
+    },
+    orderBy: { fechaCesion: "desc" },
+    take: 20,
+  });
+
+  return ops.map((op) => {
+    const sim = op.simMontoAGirar ? Number(op.simMontoAGirar) : null;
+    const net = op.netAdvance ? Number(op.netAdvance) : 0;
+    return {
+      id: op.id,
+      code: op.code,
+      factoringCompanyName: op.factoringCompany,
+      factoringCompanyId: op.factoringCompanyId ?? null,
+      fechaCesion: op.fechaCesion ? op.fechaCesion.toISOString() : "",
+      fechaVencimiento: op.fechaVencimiento
+        ? op.fechaVencimiento.toISOString()
+        : "",
+      invoiceAmount: Number(op.invoiceAmount),
+      expectedDeposit: sim ?? net,
+      expectedDepositSource: sim != null ? "simulation" : "computed",
+      status: op.status,
+      dteFolio: op.dte?.folio ?? null,
+      dteReceiverName: op.dte?.receiverName ?? null,
+    };
+  });
 }
 
 // ── Listar links existentes de una tx ──
