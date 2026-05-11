@@ -81,8 +81,42 @@ export function expandRecurrence(
   return uniq;
 }
 
-export function bucketKeyFor(date: Date, granularity: "weekly" | "monthly"): string {
+/**
+ * Devuelve el viernes (o el día de cierre configurado) de la semana de `date`.
+ * Si `date` cae justo en el día de cierre, devuelve esa misma fecha.
+ * closingDow: 0=Dom, 1=Lun, ..., 5=Vie, 6=Sáb. Default 5 (viernes).
+ */
+export function weekEndForClosing(date: Date, closingDow = 5): Date {
+  const dow = date.getDay(); // 0=Dom, 6=Sáb
+  const daysToAdd = (closingDow - dow + 7) % 7;
+  const result = new Date(date);
+  result.setDate(date.getDate() + daysToAdd);
+  result.setHours(23, 59, 59, 999);
+  return result;
+}
+
+/** Día siguiente al cierre anterior. Si cierra viernes, devuelve el sábado anterior. */
+export function weekStartForClosing(date: Date, closingDow = 5): Date {
+  const end = weekEndForClosing(date, closingDow);
+  const start = new Date(end);
+  start.setDate(end.getDate() - 6);
+  start.setHours(0, 0, 0, 0);
+  return start;
+}
+
+export function bucketKeyFor(
+  date: Date,
+  granularity: "weekly" | "monthly",
+  weekClosingDow?: number,
+): string {
   if (granularity === "weekly") {
+    if (weekClosingDow !== undefined) {
+      const end = weekEndForClosing(date, weekClosingDow);
+      const y = end.getFullYear();
+      const m = String(end.getMonth() + 1).padStart(2, "0");
+      const d = String(end.getDate()).padStart(2, "0");
+      return `WK-${y}${m}${d}`;
+    }
     const w = String(getISOWeek(date)).padStart(2, "0");
     return `${getISOWeekYear(date)}-W${w}`;
   }
@@ -93,8 +127,17 @@ export function bucketKeyFor(date: Date, granularity: "weekly" | "monthly"): str
 export function bucketBoundsFor(
   date: Date,
   granularity: "weekly" | "monthly",
+  weekClosingDow?: number,
 ): { start: Date; end: Date; label: string } {
   if (granularity === "weekly") {
+    if (weekClosingDow !== undefined) {
+      const start = weekStartForClosing(date, weekClosingDow);
+      const end = weekEndForClosing(date, weekClosingDow);
+      const closingDayLabel = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"][weekClosingDow];
+      const dayNum = String(end.getDate()).padStart(2, "0");
+      const monthNum = String(end.getMonth() + 1).padStart(2, "0");
+      return { start, end, label: `${closingDayLabel} ${dayNum}/${monthNum}` };
+    }
     const start = startOfISOWeek(date);
     const end = endOfISOWeek(date);
     const w = getISOWeek(date);

@@ -7364,6 +7364,7 @@ model FinanceCashflowConfig {
   horizonWeeksDefault     Int      @default(52) @map("horizon_weeks_default")
   horizonMonthsDefault    Int      @default(12) @map("horizon_months_default")
   weekStartsOn            Int      @default(1) @map("week_starts_on")
+  weekClosingDow          Int      @default(5) @map("week_closing_dow")
   autoSales               Boolean  @default(true) @map("auto_sales")
   autoPayroll             Boolean  @default(true) @map("auto_payroll")
   autoTurnosExtra         Boolean  @default(true) @map("auto_turnos_extra")
@@ -7409,14 +7410,14 @@ model FinanceCashflowCategory {
 /// Una categoría puede agrupar varias cuentas contables; una cuenta puede
 /// pertenecer a varias categorías (raro pero permitido para reglas especiales).
 model FinanceCashflowCategoryAccount {
-  id            String                   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId      String                   @map("tenant_id")
-  categoryId    String                   @map("category_id") @db.Uuid
-  category      FinanceCashflowCategory  @relation("CashflowCategoryAccountByCategory", fields: [categoryId], references: [id], onDelete: Cascade)
-  accountPlanId String                   @map("account_plan_id") @db.Uuid
-  accountPlan   FinanceAccountPlan       @relation("CashflowCategoryAccountMap", fields: [accountPlanId], references: [id], onDelete: Cascade)
-  isPrimary     Boolean                  @default(false) @map("is_primary")
-  createdAt     DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  id            String                  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId      String                  @map("tenant_id")
+  categoryId    String                  @map("category_id") @db.Uuid
+  category      FinanceCashflowCategory @relation("CashflowCategoryAccountByCategory", fields: [categoryId], references: [id], onDelete: Cascade)
+  accountPlanId String                  @map("account_plan_id") @db.Uuid
+  accountPlan   FinanceAccountPlan      @relation("CashflowCategoryAccountMap", fields: [accountPlanId], references: [id], onDelete: Cascade)
+  isPrimary     Boolean                 @default(false) @map("is_primary")
+  createdAt     DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
 
   @@unique([categoryId, accountPlanId], map: "uq_cashflow_cat_account")
   @@index([tenantId, accountPlanId], map: "idx_cashflow_cat_account_tenant_account")
@@ -7495,6 +7496,30 @@ model FinanceCashflowOccurrence {
   @@index([tenantId, status], map: "idx_cashflow_occ_tenant_status")
   @@index([bankTransactionId], map: "idx_cashflow_occ_bank_tx")
   @@map("finance_cashflow_occurrences")
+  @@schema("finance")
+}
+
+/// Snapshot semanal del cierre del viernes (soft close). No bloquea ediciones
+/// retroactivas; solo congela "lo que se veía al cierre del viernes EOD".
+model FinanceCashflowWeeklyClose {
+  id                      String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId                String   @map("tenant_id")
+  weekEndDate             DateTime @map("week_end_date") @db.Date
+  weekStartDate           DateTime @map("week_start_date") @db.Date
+  bankBalanceClp          Decimal  @map("bank_balance_clp") @db.Decimal(14, 2)
+  projectedBalanceClp     Decimal  @map("projected_balance_clp") @db.Decimal(14, 2)
+  varianceClp             Decimal  @map("variance_clp") @db.Decimal(14, 2)
+  unassignedBankCount     Int      @default(0) @map("unassigned_bank_count")
+  unassignedBankTotalClp  Decimal  @default(0) @map("unassigned_bank_total_clp") @db.Decimal(14, 2)
+  unfulfilledProjCount    Int      @default(0) @map("unfulfilled_proj_count")
+  unfulfilledProjTotalClp Decimal  @default(0) @map("unfulfilled_proj_total_clp") @db.Decimal(14, 2)
+  closedBy                String?  @map("closed_by")
+  closedAt                DateTime @default(now()) @map("closed_at") @db.Timestamptz(6)
+  notes                   String?
+
+  @@unique([tenantId, weekEndDate], map: "uq_cashflow_weekly_close")
+  @@index([tenantId, weekEndDate(sort: Desc)], map: "idx_cashflow_weekly_close_tenant_date")
+  @@map("finance_cashflow_weekly_close")
   @@schema("finance")
 }
 
