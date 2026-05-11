@@ -30,6 +30,8 @@ import { BankBalanceSheet } from "./BankBalanceSheet";
 import { BankRulesClient } from "./BankRulesClient";
 import { BankTxReconcileSheet } from "./BankTxReconcileSheet";
 import { CategoryMappingDialog } from "./cashflow/CategoryMappingDialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { BulkAssignDialog } from "./BulkAssignDialog";
 import { BankAnalysisClient } from "./BankAnalysisClient";
 import {
   Landmark,
@@ -865,6 +867,20 @@ function TransactionsTab({
   // Drawer de conciliación
   const [reconcileTx, setReconcileTx] = useState<TransactionRow | null>(null);
 
+  // ── Selección múltiple para bulk-assign ──
+  const [selectedTxIds, setSelectedTxIds] = useState<Set<string>>(new Set());
+  const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
+
+  const toggleSelectTx = (id: string) => {
+    setSelectedTxIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+  const clearSelection = () => setSelectedTxIds(new Set());
+
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search.trim()), 250);
     return () => clearTimeout(t);
@@ -1438,16 +1454,36 @@ function TransactionsTab({
                   key={tx.id}
                   className={cn(
                     tx.hiddenAt ? "opacity-60" : undefined,
-                    canManage && !tx.hiddenAt && "cursor-pointer hover:bg-muted/30"
+                    canManage && !tx.hiddenAt && "cursor-pointer hover:bg-muted/30",
+                    selectedTxIds.has(tx.id) && "ring-1 ring-primary/40"
                   )}
                   onClick={
                     canManage && !tx.hiddenAt
-                      ? () => setReconcileTx(tx)
+                      ? (e) => {
+                          // No abrir el sheet si el click fue sobre el checkbox o sus children
+                          const target = e.target as HTMLElement;
+                          if (target.closest("[data-bulk-checkbox]")) return;
+                          setReconcileTx(tx);
+                        }
                       : undefined
                   }
                 >
                   <CardContent className="p-4">
-                    <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-start gap-3">
+                      {canManage && !tx.hiddenAt && (
+                        <div
+                          data-bulk-checkbox
+                          className="pt-0.5"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Checkbox
+                            checked={selectedTxIds.has(tx.id)}
+                            onCheckedChange={() => toggleSelectTx(tx.id)}
+                            aria-label="Seleccionar movimiento"
+                          />
+                        </div>
+                      )}
+                      <div className="flex items-start justify-between gap-2 flex-1 min-w-0">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 mb-1 flex-wrap">
                           <span className="text-xs text-muted-foreground">
@@ -1581,6 +1617,7 @@ function TransactionsTab({
                           )}
                         </div>
                       )}
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -1668,6 +1705,35 @@ function TransactionsTab({
         accountPlans={accountPlans}
         onSaved={() => {
           setReconcileTx(null);
+          loadTransactions();
+        }}
+      />
+
+      {/* Barra flotante de acciones masivas */}
+      {selectedTxIds.size > 0 && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-full border border-border bg-card px-4 py-2 shadow-lg">
+          <span className="text-[12px] font-mono text-muted-foreground">
+            {selectedTxIds.size} movimiento{selectedTxIds.size === 1 ? "" : "s"} seleccionado{selectedTxIds.size === 1 ? "" : "s"}
+          </span>
+          <div className="h-4 w-px bg-border" />
+          <Button size="sm" variant="default" onClick={() => setBulkAssignOpen(true)}>
+            Asignar cuenta...
+          </Button>
+          <Button size="sm" variant="ghost" onClick={clearSelection}>
+            Cancelar
+          </Button>
+        </div>
+      )}
+
+      {/* Modal de bulk-assign */}
+      <BulkAssignDialog
+        open={bulkAssignOpen}
+        onOpenChange={setBulkAssignOpen}
+        selectedIds={Array.from(selectedTxIds)}
+        accountPlans={accountPlans}
+        onDone={() => {
+          clearSelection();
+          setBulkAssignOpen(false);
           loadTransactions();
         }}
       />

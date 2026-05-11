@@ -94,7 +94,34 @@ export async function PUT(
       parsed.data.links,
       { allowPartial: parsed.data.allowPartial ?? false }
     );
-    return NextResponse.json({ success: true, data: { ok: true } });
+
+    // Detectar cuentas contables sin mapping en flujo de caja
+    // (importante: solo si el usuario tiene cashflow_view, sino no abrimos el modal)
+    let unmappedAccounts: Array<{ id: string; code: string; name: string }> = [];
+    if (hasCapability(perms, "cashflow_view")) {
+      const accountIds = Array.from(
+        new Set(
+          parsed.data.links
+            .map((l) => l.accountPlanId)
+            .filter((x): x is string => !!x)
+        )
+      );
+      if (accountIds.length > 0) {
+        const { findUnmappedAccounts } = await import(
+          "@/modules/finance/cashflow/categoryAccount.service"
+        );
+        unmappedAccounts = await findUnmappedAccounts(ctx.tenantId, accountIds);
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        // Si hay cuentas sin mapping, el front muestra el modal CategoryMappingDialog
+        // para resolverlas. Si está vacío, el link ya quedó completo.
+        unmappedAccounts,
+      },
+    });
   } catch (error) {
     console.error("[Finance/Banking/Links] PUT error:", error);
     const message =

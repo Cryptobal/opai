@@ -98,3 +98,27 @@ export async function bulkResolveCategoriesFromAccounts(
   }
   return result;
 }
+
+/**
+ * Dada una lista de accountPlanIds, devuelve aquellos que NO tienen mapping
+ * a ninguna categoría de cashflow. Sirve para detectar después de un link
+ * a qué cuentas hay que pedir mapping al usuario.
+ */
+export async function findUnmappedAccounts(
+  tenantId: string,
+  accountPlanIds: string[],
+): Promise<Array<{ id: string; code: string; name: string }>> {
+  if (accountPlanIds.length === 0) return [];
+  const mapped = await prisma.financeCashflowCategoryAccount.findMany({
+    where: { tenantId, accountPlanId: { in: accountPlanIds } },
+    select: { accountPlanId: true },
+  });
+  const mappedSet = new Set(mapped.map((m) => m.accountPlanId));
+  const unmappedIds = accountPlanIds.filter((id) => !mappedSet.has(id));
+  if (unmappedIds.length === 0) return [];
+  const accounts = await prisma.financeAccountPlan.findMany({
+    where: { tenantId, id: { in: unmappedIds } },
+    select: { id: true, code: true, name: true },
+  });
+  return accounts;
+}
