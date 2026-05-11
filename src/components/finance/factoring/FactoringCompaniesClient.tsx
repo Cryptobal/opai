@@ -32,6 +32,15 @@ export interface FactoringCompanyRow {
   defaultCommissionAmount: number | null;
   notes: string | null;
   isActive: boolean;
+  /** Operaciones cedidas (no canceladas) con este factoring. */
+  operationsCount?: number;
+  /** Volumen total cedido (suma de invoice_amount). */
+  totalVolume?: number;
+  /** Tasa efectiva mensual promedio ponderada (% mensual). null si no hay
+   *  operaciones con simulación PDF de las cuales derivarla. */
+  avgEffectiveMonthlyRate?: number | null;
+  /** Última cesión registrada (ISO string). */
+  lastCessionAt?: string | null;
 }
 
 interface Props {
@@ -141,6 +150,47 @@ export function FactoringCompaniesClient({ initialCompanies, canManage }: Props)
             : c.defaultCommissionPct !== null
               ? ` · Com ${c.defaultCommissionPct}%`
               : ""}
+        </div>
+      ),
+    },
+    {
+      id: "operations",
+      header: "Operaciones",
+      align: "right",
+      hideOnMobile: true,
+      cell: (c) => (
+        <div className="text-xs text-ds-text-2 font-mono whitespace-nowrap">
+          {c.operationsCount && c.operationsCount > 0
+            ? `${c.operationsCount} ops · $${new Intl.NumberFormat("es-CL").format(
+                Math.round(c.totalVolume ?? 0),
+              )}`
+            : "—"}
+        </div>
+      ),
+    },
+    {
+      id: "effectiveRate",
+      header: "Tasa efectiva (m)",
+      align: "right",
+      hideOnMobile: true,
+      cell: (c) => (
+        <div className="text-xs font-mono whitespace-nowrap">
+          {c.avgEffectiveMonthlyRate != null ? (
+            <span
+              className={
+                c.avgEffectiveMonthlyRate <= 1.5
+                  ? "text-status-ok-fg"
+                  : c.avgEffectiveMonthlyRate <= 2.5
+                    ? "text-ds-text-1"
+                    : "text-status-warn-fg"
+              }
+              title="Promedio ponderado por anticipo, basado en simulaciones reales subidas"
+            >
+              {c.avgEffectiveMonthlyRate.toFixed(2)}%
+            </span>
+          ) : (
+            <span className="text-ds-text-3">—</span>
+          )}
         </div>
       ),
     },

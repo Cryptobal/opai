@@ -17,6 +17,7 @@ import {
 } from "@/lib/permissions-server";
 import { PageHero, ModuleSubNav } from "@/components/opai-ds";
 import { listFactoringCompanies } from "@/modules/finance/factoring/factoring-companies.service";
+import { getFactoringMetricsByCompany } from "@/modules/finance/factoring/analytics.service";
 import { FactoringCompaniesClient } from "@/components/finance/factoring/FactoringCompaniesClient";
 import { CesionesTabs } from "@/components/finance/factoring/CesionesTabs";
 
@@ -32,36 +33,44 @@ export default async function FactoringCompaniesPage() {
   }
   const canManage = hasFacturacionCapability(perms, "facturacion_configure");
 
-  const companies = await listFactoringCompanies(session.user.tenantId, {
-    includeInactive: true,
-  });
+  const [companies, metrics] = await Promise.all([
+    listFactoringCompanies(session.user.tenantId, { includeInactive: true }),
+    getFactoringMetricsByCompany(session.user.tenantId),
+  ]);
 
   // Decimals → numbers para hidratación cliente.
-  const initialCompanies = companies.map((c) => ({
-    id: c.id,
-    rut: c.rut,
-    rutFormatted: c.rutFormatted,
-    razonSocial: c.razonSocial,
-    direccion: c.direccion,
-    comuna: c.comuna,
-    ciudad: c.ciudad,
-    email: c.email,
-    contactName: c.contactName,
-    contactEmail: c.contactEmail,
-    contactPhone: c.contactPhone,
-    defaultAdvanceRate:
-      c.defaultAdvanceRate !== null ? Number(c.defaultAdvanceRate) : null,
-    defaultInterestRate:
-      c.defaultInterestRate !== null ? Number(c.defaultInterestRate) : null,
-    defaultCommissionPct:
-      c.defaultCommissionPct !== null ? Number(c.defaultCommissionPct) : null,
-    defaultCommissionAmount:
-      c.defaultCommissionAmount !== null && c.defaultCommissionAmount !== undefined
-        ? Number(c.defaultCommissionAmount)
-        : null,
-    notes: c.notes,
-    isActive: c.isActive,
-  }));
+  const initialCompanies = companies.map((c) => {
+    const m = metrics.get(c.id);
+    return {
+      id: c.id,
+      rut: c.rut,
+      rutFormatted: c.rutFormatted,
+      razonSocial: c.razonSocial,
+      direccion: c.direccion,
+      comuna: c.comuna,
+      ciudad: c.ciudad,
+      email: c.email,
+      contactName: c.contactName,
+      contactEmail: c.contactEmail,
+      contactPhone: c.contactPhone,
+      defaultAdvanceRate:
+        c.defaultAdvanceRate !== null ? Number(c.defaultAdvanceRate) : null,
+      defaultInterestRate:
+        c.defaultInterestRate !== null ? Number(c.defaultInterestRate) : null,
+      defaultCommissionPct:
+        c.defaultCommissionPct !== null ? Number(c.defaultCommissionPct) : null,
+      defaultCommissionAmount:
+        c.defaultCommissionAmount !== null && c.defaultCommissionAmount !== undefined
+          ? Number(c.defaultCommissionAmount)
+          : null,
+      notes: c.notes,
+      isActive: c.isActive,
+      operationsCount: m?.operationsCount ?? 0,
+      totalVolume: m?.totalVolume ?? 0,
+      avgEffectiveMonthlyRate: m?.avgEffectiveMonthlyRate ?? null,
+      lastCessionAt: m?.lastCessionAt ? m.lastCessionAt.toISOString() : null,
+    };
+  });
 
   return (
     <div className="space-y-6 min-w-0">
