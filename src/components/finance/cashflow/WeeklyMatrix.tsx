@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useMemo, useRef } from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { Surface } from "@/components/opai-ds";
 import { Button } from "@/components/ui/button";
 import {
@@ -178,6 +179,33 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
 
   const [matchResultMsg, setMatchResultMsg] = useState<string | null>(null);
 
+  // Footer colapsable: en móvil las 5 filas sticky-bottom (Neto, Real banco
+  // ing/eg, Δ, Saldo) ocupan demasiado vertical en landscape. Por default
+  // colapsamos las 4 intermedias y dejamos solo "Saldo acumulado" — el
+  // valor más importante. Desktop: expandido. localStorage mantiene la pref.
+  const [footerExpanded, setFooterExpanded] = useState(true);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const saved = window.localStorage.getItem("cashflow.footer.expanded");
+    if (saved !== null) {
+      setFooterExpanded(saved === "1");
+    } else {
+      setFooterExpanded(window.innerWidth >= 640);
+    }
+  }, []);
+  function toggleFooter() {
+    setFooterExpanded((prev) => {
+      const next = !prev;
+      try {
+        window.localStorage.setItem(
+          "cashflow.footer.expanded",
+          next ? "1" : "0",
+        );
+      } catch {}
+      return next;
+    });
+  }
+
   async function handleAutoMatch() {
     setMatching(true);
     setMatchResultMsg(null);
@@ -344,6 +372,7 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
                 bg-card; las celdas del medio usan bg-background o bg-muted
                 según el tono. */}
             <tfoot className="sticky bottom-0 z-30">
+              {footerExpanded && (
               <tr className="border-t-2 border-border font-semibold bg-background">
                 <td className="sticky left-0 z-40 bg-card p-2 whitespace-nowrap border-r border-border/50">Neto semanal</td>
                 {projection.buckets.map((b) => (
@@ -360,9 +389,11 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
                   {fmt.format(projection.totals.totalNet)}
                 </td>
               </tr>
+              )}
 
               {/* Real banco — solo buckets con start ≤ hoy. Las semanas futuras
                   no tienen datos de banco todavía y se muestran como —. */}
+              {footerExpanded && (
               <tr className="bg-background">
                 <td className="sticky left-0 z-40 bg-card p-2 whitespace-nowrap text-status-ok-fg text-[12px] border-r border-border/50">
                   Real banco (ingresos)
@@ -395,7 +426,9 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
                   )}
                 </td>
               </tr>
+              )}
 
+              {footerExpanded && (
               <tr className="bg-background">
                 <td className="sticky left-0 z-40 bg-card p-2 whitespace-nowrap text-status-warn-fg text-[12px] border-r border-border/50">
                   Real banco (egresos)
@@ -428,7 +461,9 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
                   )}
                 </td>
               </tr>
+              )}
 
+              {footerExpanded && (
               <tr className="bg-background border-b border-border">
                 <td
                   className="sticky left-0 z-40 bg-card p-2 whitespace-nowrap text-status-info-fg text-[12px] border-r border-border/50"
@@ -470,9 +505,27 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
                   )}
                 </td>
               </tr>
+              )}
 
+              {/* Saldo acumulado: SIEMPRE visible. La celda sticky-left tiene
+                  el toggle para mostrar/ocultar las 4 filas de arriba. */}
               <tr className="bg-muted font-semibold">
-                <td className="sticky left-0 z-40 bg-card p-2 whitespace-nowrap border-r border-border/50">Saldo acumulado</td>
+                <td className="sticky left-0 z-40 bg-card p-2 whitespace-nowrap border-r border-border/50">
+                  <button
+                    type="button"
+                    onClick={toggleFooter}
+                    className="flex items-center gap-1.5 w-full text-left"
+                    title={footerExpanded ? "Ocultar detalles (Neto/Real/Δ)" : "Mostrar detalles"}
+                    aria-expanded={footerExpanded}
+                  >
+                    {footerExpanded ? (
+                      <ChevronDown className="h-3.5 w-3.5 text-ds-text-3 shrink-0" />
+                    ) : (
+                      <ChevronUp className="h-3.5 w-3.5 text-ds-text-3 shrink-0" />
+                    )}
+                    <span>Saldo acumulado</span>
+                  </button>
+                </td>
                 {projection.cumulativeBalances.map((c) => (
                   <td
                     key={c.bucketKey}

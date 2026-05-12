@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useMemo } from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { Surface } from "@/components/opai-ds";
 import {
   Select,
@@ -47,6 +48,31 @@ export function MonthlyMatrix({ defaultMonths }: Props) {
       })
       .finally(() => setLoading(false));
   }, [fromDate, toDate, refreshKey]);
+
+  // Footer colapsable (mismo patrón que WeeklyMatrix). En móvil ocultamos
+  // "Neto mensual" por default y dejamos solo "Saldo acumulado".
+  const [footerExpanded, setFooterExpanded] = useState(true);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const saved = window.localStorage.getItem("cashflow.footer.expanded");
+    if (saved !== null) {
+      setFooterExpanded(saved === "1");
+    } else {
+      setFooterExpanded(window.innerWidth >= 640);
+    }
+  }, []);
+  function toggleFooter() {
+    setFooterExpanded((prev) => {
+      const next = !prev;
+      try {
+        window.localStorage.setItem(
+          "cashflow.footer.expanded",
+          next ? "1" : "0",
+        );
+      } catch {}
+      return next;
+    });
+  }
 
   // useMemo DEBE ir antes de cualquier early return para respetar Rules of Hooks.
   // El primer render con projection=null y los siguientes con projection≠null
@@ -145,6 +171,7 @@ export function MonthlyMatrix({ defaultMonths }: Props) {
               <SubtotalRow label="Total egresos" rows={expenseRows} buckets={projection.buckets} tone="warn" />
             </tbody>
             <tfoot className="sticky bottom-0 z-30">
+              {footerExpanded && (
               <tr className="border-t-2 border-border font-semibold bg-background">
                 <td className="sticky left-0 z-40 bg-background p-2 whitespace-nowrap">Neto mensual</td>
                 {projection.buckets.map((b) => (
@@ -161,9 +188,25 @@ export function MonthlyMatrix({ defaultMonths }: Props) {
                   {fmt.format(projection.totals.totalNet)}
                 </td>
               </tr>
+              )}
 
               <tr className="bg-muted/60 font-semibold">
-                <td className="sticky left-0 z-40 bg-muted/60 p-2 whitespace-nowrap">Saldo acumulado</td>
+                <td className="sticky left-0 z-40 bg-muted/60 p-2 whitespace-nowrap">
+                  <button
+                    type="button"
+                    onClick={toggleFooter}
+                    className="flex items-center gap-1.5 w-full text-left"
+                    title={footerExpanded ? "Ocultar Neto mensual" : "Mostrar Neto mensual"}
+                    aria-expanded={footerExpanded}
+                  >
+                    {footerExpanded ? (
+                      <ChevronDown className="h-3.5 w-3.5 text-ds-text-3 shrink-0" />
+                    ) : (
+                      <ChevronUp className="h-3.5 w-3.5 text-ds-text-3 shrink-0" />
+                    )}
+                    <span>Saldo acumulado</span>
+                  </button>
+                </td>
                 {projection.cumulativeBalances.map((c) => (
                   <td
                     key={c.bucketKey}
