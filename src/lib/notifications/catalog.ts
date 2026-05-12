@@ -231,6 +231,12 @@ export const UNIFIED_NOTIFICATION_TYPES: UnifiedNotificationType[] = [
     audiences: ['admin'], defaults: { admin: adminBell(true) },
   },
   {
+    key: 'cashflow_drift_alert', label: 'Drift de caja persistente',
+    description: 'Cuando el saldo bancario real difiere del proyectado por más del umbral configurado por dos días consecutivos',
+    module: 'finance', submodule: 'cashflow', category: 'Finanzas - Flujo de Caja',
+    audiences: ['admin'], defaults: { admin: adminBell(true) },
+  },
+  {
     key: 'document_rejected', label: 'Documento rechazado',
     description: 'Cuando un cliente rechaza un documento enviado',
     module: 'docs', category: 'Documentos',

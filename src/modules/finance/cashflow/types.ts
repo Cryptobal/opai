@@ -6,6 +6,7 @@ import type {
   FinanceCashflowOccurrenceStatus,
   FinanceCashflowConfig,
 } from "@prisma/client";
+import type { OpeningBalanceBreakdown } from "./opening-balance.service";
 
 export type {
   FinanceCashflowItem,
@@ -14,6 +15,7 @@ export type {
   FinanceCashflowItemSource,
   FinanceCashflowOccurrenceStatus,
   FinanceCashflowConfig,
+  OpeningBalanceBreakdown,
 };
 
 export interface VirtualOccurrence {
@@ -124,6 +126,22 @@ export interface ProjectionRow {
   items: ProjectionRowItemDetail[];
 }
 
+export interface CumulativeBalancePoint {
+  bucketKey: string;
+  /** Saldo proyectado al final del bucket: opening + Σ(net hasta bucket i). */
+  projectedClp: number;
+  /**
+   * Saldo bancario real al final del bucket: opening + Σ(actualBankNet hasta i).
+   * Null para buckets futuros (start > today).
+   */
+  realBankClp: number | null;
+  /**
+   * Drift acumulado = realBankClp − projectedClp.
+   * Null para buckets futuros. Positivo = banco tiene más plata; negativo = menos.
+   */
+  cumulativeBankVarianceClp: number | null;
+}
+
 export interface ProjectionMatrix {
   range: ProjectionRange;
   buckets: ProjectionBucket[];
@@ -135,7 +153,13 @@ export interface ProjectionMatrix {
     totalActualIncome: number;
     totalActualExpense: number;
     totalVariance: number;
+    /** Drift al bucket actual (hoy). Null si todos los buckets son futuros. */
+    currentDriftClp: number | null;
   };
   openingBalanceClp: number;
+  openingBreakdown: OpeningBalanceBreakdown;
+  /** Legacy: mismo orden que cumulativePoints.map(p => ({bucketKey, balanceClp: p.projectedClp})). */
   cumulativeBalances: { bucketKey: string; balanceClp: number }[];
+  /** Saldo proyectado + real + drift por bucket. */
+  cumulativePoints: CumulativeBalancePoint[];
 }

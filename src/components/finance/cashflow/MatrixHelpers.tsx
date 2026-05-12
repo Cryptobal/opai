@@ -7,6 +7,30 @@ import { useDraggable, useDroppable } from "@dnd-kit/core";
 
 export const fmt = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 });
 
+/**
+ * Tono semántico para drift de caja:
+ *  - |drift| < 50.000 → ok (cuadrado)
+ *  - |drift| < 500.000 → info
+ *  - resto → warn
+ *  - null → muted (bucket futuro)
+ */
+export type DriftTone = "ok" | "info" | "warn" | "muted";
+
+export function driftTone(drift: number | null): DriftTone {
+  if (drift === null) return "muted";
+  const abs = Math.abs(drift);
+  if (abs < 50_000) return "ok";
+  if (abs < 500_000) return "info";
+  return "warn";
+}
+
+export const DRIFT_TONE_CLASS: Record<DriftTone, string> = {
+  ok: "text-status-ok-fg",
+  info: "text-status-info-fg",
+  warn: "text-status-warn-fg",
+  muted: "text-ds-text-4",
+};
+
 // ---------------------------------------------------------------------------
 // DnD helper components
 // ---------------------------------------------------------------------------

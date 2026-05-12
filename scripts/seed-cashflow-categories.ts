@@ -37,6 +37,11 @@ const SYSTEM_CATEGORIES: Array<{
   { code: "EGR_IMPUESTO", name: "Otros impuestos", kind: "EXPENSE", sortOrder: 310, color: "#FBBF24" },
   { code: "EGR_RETIRO_SOCIO", name: "Retiros socios / dividendos", kind: "EXPENSE", sortOrder: 400, color: "#0EA5E9" },
   { code: "EGR_OTRO", name: "Otros egresos", kind: "EXPENSE", sortOrder: 990, color: "#94A3B8" },
+  // Ajustes de conciliación: se usan al cerrar drift entre saldo proyectado
+  // y saldo real del banco. La UI muestra estas líneas en el flujo como
+  // ajustes explícitos del usuario para mantener la cuadratura.
+  { code: "ING_AJUSTE_CONCILIACION", name: "Ajuste de conciliación (ingreso)", kind: "INCOME", sortOrder: 990, color: "#64748B" },
+  { code: "EGR_AJUSTE_CONCILIACION", name: "Ajuste de conciliación (egreso)", kind: "EXPENSE", sortOrder: 995, color: "#64748B" },
 ];
 
 async function seedForTenant(tenantId: string) {

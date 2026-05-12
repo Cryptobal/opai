@@ -10,7 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { ProjectionMatrix } from "@/modules/finance/cashflow/types";
-import { fmt, SectionHeader, SubtotalRow } from "./MatrixHelpers";
+import { fmt, SectionHeader, SubtotalRow, driftTone, DRIFT_TONE_CLASS } from "./MatrixHelpers";
 import { ExpandableMatrixRow } from "./ExpandableMatrixRow";
 import { addMonths } from "date-fns";
 
@@ -257,6 +257,52 @@ export function MonthlyMatrix({ defaultMonths }: Props) {
                   </td>
                 ))}
                 <td className="hidden sm:table-cell sticky right-0 z-40 p-2 text-right font-mono bg-muted/60 whitespace-nowrap">—</td>
+              </tr>
+
+              {/* Saldo banco real acumulado — SIEMPRE visible. */}
+              <tr className="bg-card border-t border-border/40">
+                <td className="sticky left-0 z-40 bg-card p-2 whitespace-nowrap text-[12px] text-ds-text-2 border-r border-border/50">
+                  Saldo banco real
+                </td>
+                {projection.cumulativePoints.map((p) => (
+                  <td
+                    key={p.bucketKey}
+                    className={`p-2 text-right font-mono whitespace-nowrap text-[12px] bg-card ${
+                      p.realBankClp === null
+                        ? "text-ds-text-4"
+                        : p.realBankClp >= 0
+                          ? "text-status-ok-fg"
+                          : "text-status-warn-fg"
+                    }`}
+                  >
+                    {p.realBankClp === null ? "—" : fmt.format(p.realBankClp)}
+                  </td>
+                ))}
+                <td className="hidden sm:table-cell sticky right-0 z-40 p-2 text-right font-mono bg-card whitespace-nowrap border-l border-border/50">—</td>
+              </tr>
+
+              {/* Δ banco vs proyectado — drift acumulado por bucket. */}
+              <tr className="bg-card border-t border-border/40">
+                <td
+                  className="sticky left-0 z-40 bg-card p-2 whitespace-nowrap text-[12px] text-ds-text-2 border-r border-border/50"
+                  title="Δ acumulado: saldo banco real − saldo proyectado. 0 = cuadrado."
+                >
+                  Δ banco vs proyectado
+                </td>
+                {projection.cumulativePoints.map((p) => {
+                  const tone = driftTone(p.cumulativeBankVarianceClp);
+                  return (
+                    <td
+                      key={p.bucketKey}
+                      className={`p-2 text-right font-mono whitespace-nowrap text-[12px] bg-card ${DRIFT_TONE_CLASS[tone]}`}
+                    >
+                      {p.cumulativeBankVarianceClp === null
+                        ? "—"
+                        : `${p.cumulativeBankVarianceClp > 0 ? "+" : ""}${fmt.format(p.cumulativeBankVarianceClp)}`}
+                    </td>
+                  );
+                })}
+                <td className="hidden sm:table-cell sticky right-0 z-40 p-2 text-right font-mono bg-card whitespace-nowrap border-l border-border/50">—</td>
               </tr>
             </tfoot>
           </table>

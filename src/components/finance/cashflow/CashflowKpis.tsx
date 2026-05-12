@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
 import { ChevronDown } from "lucide-react";
 import {
   Wallet,
@@ -18,6 +19,8 @@ export interface KpiData {
   tone: ToneKey;
   icon: IconKey;
   sub: string;
+  /** Si está presente, la card se renderiza como link al destino. */
+  href?: string;
 }
 
 const TONE: Record<ToneKey, { bg: string; fg: string; border: string }> = {
@@ -57,33 +60,38 @@ export function CashflowKpis({ kpis }: { kpis: KpiData[] }) {
             {kpis.map((k) => {
               const Icon = ICONS[k.icon];
               const tone = TONE[k.tone];
-              return (
-                <div
-                  key={k.label}
-                  className={`shrink-0 rounded-ds-md border bg-card ${tone.border} ${
-                    expanded ? "px-3 py-2 min-w-[170px]" : "px-2.5 py-1.5 min-w-[120px]"
-                  }`}
-                >
-                  <div className="flex items-center gap-1.5">
-                    {expanded && (
-                      <div className={`p-1 rounded-ds-sm shrink-0 ${tone.bg} ${tone.fg}`}>
-                        <Icon className="h-3.5 w-3.5" />
-                      </div>
-                    )}
-                    <div className="min-w-0">
-                      <p className="text-[10px] font-mono uppercase tracking-[0.06em] text-ds-text-3 truncate">
-                        {k.label}
-                      </p>
-                      <p className={`tabular-nums truncate ${tone.fg} ${
-                        expanded ? "text-[15px] font-semibold" : "text-[13px] font-semibold"
-                      }`}>
-                        {k.value}
-                      </p>
-                      {expanded && (
-                        <p className="text-[10px] text-ds-text-3 truncate">{k.sub}</p>
-                      )}
+              const cardClass = `shrink-0 rounded-ds-md border bg-card ${tone.border} ${
+                expanded ? "px-3 py-2 min-w-[170px]" : "px-2.5 py-1.5 min-w-[120px]"
+              } ${k.href ? "hover:bg-muted/30 transition-colors" : ""}`;
+              const body = (
+                <div className="flex items-center gap-1.5">
+                  {expanded && (
+                    <div className={`p-1 rounded-ds-sm shrink-0 ${tone.bg} ${tone.fg}`}>
+                      <Icon className="h-3.5 w-3.5" />
                     </div>
+                  )}
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-mono uppercase tracking-[0.06em] text-ds-text-3 truncate">
+                      {k.label}
+                    </p>
+                    <p className={`tabular-nums truncate ${tone.fg} ${
+                      expanded ? "text-[15px] font-semibold" : "text-[13px] font-semibold"
+                    }`}>
+                      {k.value}
+                    </p>
+                    {expanded && (
+                      <p className="text-[10px] text-ds-text-3 truncate">{k.sub}</p>
+                    )}
                   </div>
+                </div>
+              );
+              return k.href ? (
+                <Link key={k.label} href={k.href} className={cardClass}>
+                  {body}
+                </Link>
+              ) : (
+                <div key={k.label} className={cardClass}>
+                  {body}
                 </div>
               );
             })}

@@ -13,12 +13,14 @@ import type {
   VirtualOccurrence,
   ProjectionRow,
   FinanceCashflowCategory,
+  CumulativeBalancePoint,
 } from "./types";
 import { eachDayOfInterval } from "date-fns";
 
 import { matchOccurrencesToBankLinks, type BankLinkSlim } from "./account-matcher";
 import { resolveCategoryForLink } from "./category-resolver";
 import { bulkResolveCategoriesFromAccounts } from "./categoryAccount.service";
+import { resolveOpeningBalance } from "./opening-balance.service";
 
 type CategoryLite = Pick<FinanceCashflowCategory, "id" | "code" | "name" | "kind" | "sortOrder">;
 
@@ -421,13 +423,48 @@ export async function buildProjection(
 
   const rows = buildRows(buckets, categories, allOccurrences, crmAccountNameById);
 
-  const opening = await getOpeningBalance(tenantId);
+  const openingBreakdown = await resolveOpeningBalance(tenantId);
+  const opening = openingBreakdown.totalClp;
 
-  let running = opening;
-  const cumulativeBalances = buckets.map((b) => {
-    running += b.net;
-    return { bucketKey: b.key, balanceClp: running };
+  const todayMidnight = new Date();
+  todayMidnight.setHours(0, 0, 0, 0);
+
+  let runningProjected = opening;
+  let runningReal = opening;
+  let lastRealBucketIdx = -1;
+  const cumulativePoints: CumulativeBalancePoint[] = buckets.map((b, idx) => {
+    runningProjected += b.net;
+
+    const isPastOrCurrent = b.start.getTime() <= todayMidnight.getTime();
+
+    if (isPastOrCurrent) {
+      runningReal += b.actualBankNet;
+      lastRealBucketIdx = idx;
+      return {
+        bucketKey: b.key,
+        projectedClp: runningProjected,
+        realBankClp: runningReal,
+        cumulativeBankVarianceClp: runningReal - runningProjected,
+      };
+    }
+
+    return {
+      bucketKey: b.key,
+      projectedClp: runningProjected,
+      realBankClp: null,
+      cumulativeBankVarianceClp: null,
+    };
   });
+
+  const currentDriftClp =
+    lastRealBucketIdx >= 0
+      ? cumulativePoints[lastRealBucketIdx].cumulativeBankVarianceClp
+      : null;
+
+  const cumulativeBalances = cumulativePoints.map((p) => ({
+    bucketKey: p.bucketKey,
+    balanceClp: p.projectedClp,
+  }));
 
   return {
     range,
@@ -440,9 +477,12 @@ export async function buildProjection(
       totalActualIncome: buckets.reduce((s, b) => s + b.actualIncome, 0),
       totalActualExpense: buckets.reduce((s, b) => s + b.actualExpense, 0),
       totalVariance: buckets.reduce((s, b) => s + b.varianceClp, 0),
+      currentDriftClp,
     },
     openingBalanceClp: opening,
+    openingBreakdown,
     cumulativeBalances,
+    cumulativePoints,
   };
 }
 
@@ -577,10 +617,3 @@ function buildRows(
   return rows.sort((a, b) => (a.kind === b.kind ? 0 : a.kind === "INCOME" ? -1 : 1));
 }
 
-async function getOpeningBalance(tenantId: string): Promise<number> {
-  const accounts = await prisma.financeBankAccount.findMany({
-    where: { tenantId, isActive: true, currency: "CLP" },
-    select: { currentBalance: true },
-  });
-  return accounts.reduce((s, a) => s + Number(a.currentBalance ?? 0), 0);
-}
