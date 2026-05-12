@@ -42,19 +42,13 @@ export default async function DtesEmitidosPage({
 
   const INITIAL_PAGE_SIZE = 50;
 
-  // Server-side default: solo el mes en curso. El cliente puede cambiar
-  // a otro período (incluido "ALL" = últimos 12 meses) y se hace fetch.
-  const now = new Date();
-  const monthFrom = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
-  );
-  const monthTo = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1),
-  );
+  // Server-side default: TODOS los períodos. El cliente puede filtrar
+  // por mes desde el drawer (incluido "Mes en curso"). Antes filtrábamos
+  // por mes en curso acá, lo que junto al chip "Período CURRENT_MONTH"
+  // del cliente ocultaba DTEs de otros meses incluso al buscar por folio.
   const initialWhere = {
     tenantId,
     direction: "ISSUED" as const,
-    date: { gte: monthFrom, lt: monthTo },
   };
 
   const [dtes, issuedTotal, suppliers] = await Promise.all([

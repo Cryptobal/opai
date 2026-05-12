@@ -248,7 +248,7 @@ export function DtesEmitidosClient({
     const noServerFilters =
       page === 1 &&
       pageSize === 50 &&
-      filters.periodo === "CURRENT_MONTH" &&
+      filters.periodo === "ALL" &&
       filters.accountId === "ALL" &&
       filters.installationId === "ALL" &&
       filters.sort === "date_desc" &&

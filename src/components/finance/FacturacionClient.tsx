@@ -614,8 +614,10 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
   const [installationFilter, setInstallationFilter] = useState("ALL");
   const [accountOptions, setAccountOptions] = useState<CostCenterOption[]>([]);
   const [installationOptions, setInstallationOptions] = useState<InstallationOption[]>([]);
-  /** Filtro por período. Default CURRENT_MONTH = mes en curso. "ALL" = todos los períodos. */
-  const [periodoFilter, setPeriodoFilter] = useState("CURRENT_MONTH");
+  /** Filtro por período. Default "ALL" = todos los períodos (para que la
+   * lista no oculte facturas viejas y el buscador por folio encuentre
+   * documentos de cualquier mes sin que el usuario tenga que tocar nada). */
+  const [periodoFilter, setPeriodoFilter] = useState("ALL");
   const periodOptions = useMemo(() => buildPeriodOptions(36), []);
   // Paginación server-side (selector 10/25/50/100/200) + slide-over de detalle.
   const [page, setPage] = useState(1);
@@ -629,8 +631,8 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
     (typeFilter !== "ALL" ? 1 : 0) +
     (receptionFilter !== "ALL" ? 1 : 0) +
     (paymentFilter !== "ALL" ? 1 : 0) +
-    // Default es CURRENT_MONTH; solo es "filtro activo" si el usuario eligió otra cosa.
-    (periodoFilter !== "CURRENT_MONTH" ? 1 : 0) +
+    // Default es "ALL"; solo cuenta como filtro activo si el usuario eligió un mes.
+    (periodoFilter !== "ALL" ? 1 : 0) +
     (accountFilter !== "ALL" ? 1 : 0) +
     (installationFilter !== "ALL" ? 1 : 0);
 
@@ -638,7 +640,7 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
     setTypeFilter("ALL");
     setReceptionFilter("ALL");
     setPaymentFilter("ALL");
-    setPeriodoFilter("CURRENT_MONTH");
+    setPeriodoFilter("ALL");
     setAccountFilter("ALL");
     setInstallationFilter("ALL");
   };

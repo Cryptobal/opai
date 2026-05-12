@@ -109,7 +109,7 @@ export const EMPTY_DTE_FILTERS: DteFilters = {
   types: [],
   siiStatuses: [],
   paymentStatuses: [],
-  periodo: "CURRENT_MONTH",
+  periodo: "ALL",
   accountId: "ALL",
   installationId: "ALL",
   amountMin: null,

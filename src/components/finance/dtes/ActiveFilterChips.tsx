@@ -55,7 +55,21 @@ export function ActiveFilterChips({
     chips.push({ key: `paymentStatuses:${s}`, label: PAYMENT_LABELS[s] ?? s }),
   );
   if (filters.periodo !== "ALL") {
-    chips.push({ key: "periodo", label: `Período ${filters.periodo}` });
+    const periodoLabel =
+      filters.periodo === "CURRENT_MONTH"
+        ? "Mes en curso"
+        : /^\d{4}-\d{2}$/.test(filters.periodo)
+          ? (() => {
+              const [y, m] = filters.periodo.split("-");
+              const mesNames = [
+                "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+                "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+              ];
+              const mi = parseInt(m, 10) - 1;
+              return `${mesNames[mi] ?? m} ${y}`;
+            })()
+          : filters.periodo;
+    chips.push({ key: "periodo", label: `Período: ${periodoLabel}` });
   }
   if (filters.accountId !== "ALL") {
     const a = accounts.find((x) => x.id === filters.accountId);
