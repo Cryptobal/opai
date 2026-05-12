@@ -32,8 +32,9 @@ export default async function RendicionesPage() {
 
   const canApprove = hasCapability(perms, "rendicion_approve");
   const canPay = hasCapability(perms, "rendicion_pay");
+  const canConfigure = hasCapability(perms, "rendicion_configure");
 
-  const [rendiciones, items] = await Promise.all([
+  const [rendiciones, items, config] = await Promise.all([
     prisma.financeRendicion.findMany({
       where: whereClause,
       include: {
@@ -54,7 +55,45 @@ export default async function RendicionesPage() {
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),
+    prisma.financeRendicionConfig.findUnique({
+      where: { tenantId },
+      select: {
+        defaultApprover1Id: true,
+        defaultApprover2Id: true,
+        autoApproveWhenNoApprovers: true,
+      },
+    }),
   ]);
+
+  const hasApprovers = !!(
+    config?.defaultApprover1Id || config?.defaultApprover2Id
+  );
+  const autoApprove = config?.autoApproveWhenNoApprovers === true;
+
+  // Aprobaciones pendientes para el usuario actual (filtro "Mis aprobaciones")
+  const myPendingApprovalsList = canApprove
+    ? await prisma.financeApproval.findMany({
+        where: {
+          approverId: session.user.id,
+          decision: null,
+          rendicion: { tenantId },
+        },
+        select: { rendicionId: true },
+      })
+    : [];
+  const myPendingApprovalIds = new Set(
+    myPendingApprovalsList.map((a) => a.rendicionId),
+  );
+  const myPendingApprovalsCount = myPendingApprovalIds.size;
+
+  // Aprobadas pendientes de pago (callout "Por pagar")
+  const approvedToPay = canPay
+    ? await prisma.financeRendicion.aggregate({
+        where: { tenantId, status: "APPROVED", paymentId: null },
+        _count: true,
+        _sum: { amount: true },
+      })
+    : { _count: 0, _sum: { amount: 0 } };
 
   const submitterIds = [...new Set(rendiciones.map((r) => r.submitterId))];
   const beneficiaryAdminIds = rendiciones
@@ -93,6 +132,7 @@ export default async function RendicionesPage() {
       submitterId: r.submitterId,
       beneficiaryName,
       createdAt: r.createdAt.toISOString(),
+      needsMyApproval: myPendingApprovalIds.has(r.id),
     };
   });
 
@@ -111,7 +151,13 @@ export default async function RendicionesPage() {
         canSubmit={canSubmit}
         canApprove={canApprove}
         canPay={canPay}
+        canConfigure={canConfigure}
         currentUserId={session.user.id}
+        hasApprovers={hasApprovers}
+        autoApprove={autoApprove}
+        myPendingApprovalsCount={myPendingApprovalsCount}
+        approvedToPayCount={approvedToPay._count}
+        approvedToPayAmount={approvedToPay._sum.amount ?? 0}
       />
     </div>
   );

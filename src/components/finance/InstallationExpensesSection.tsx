@@ -8,28 +8,11 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { DataTable, EmptyState, Stat, type DataTableColumn } from "@/components/opai-ds";
 import { Receipt } from "lucide-react";
+import { getRendicionStatusConfig } from "@/lib/finance/rendicion-status";
 
 interface InstallationExpensesSectionProps {
   installationId: string;
 }
-
-const STATUS_COLORS: Record<string, string> = {
-  DRAFT: "bg-zinc-500/15 text-zinc-400",
-  SUBMITTED: "bg-status-info-soft text-status-info-fg",
-  IN_APPROVAL: "bg-status-warn-soft text-status-warn-fg",
-  APPROVED: "bg-status-ok-soft text-status-ok-fg",
-  REJECTED: "bg-status-danger-soft text-status-danger-fg",
-  PAID: "bg-tint-violet text-tint-violet-fg",
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  DRAFT: "Borrador",
-  SUBMITTED: "Enviada",
-  IN_APPROVAL: "En aprobación",
-  APPROVED: "Aprobada",
-  REJECTED: "Rechazada",
-  PAID: "Pagada",
-};
 
 const fmtCLP = (n: number) =>
   new Intl.NumberFormat("es-CL", {
@@ -86,9 +69,9 @@ const columns: DataTableColumn<RendicionRow>[] = [
     cell: (row) => (
       <Badge
         variant="secondary"
-        className={`text-[10px] ${STATUS_COLORS[row.status] || ""}`}
+        className={`text-[10px] ${getRendicionStatusConfig(row.status).className}`}
       >
-        {STATUS_LABELS[row.status] || row.status}
+        {getRendicionStatusConfig(row.status).label}
       </Badge>
     ),
   },

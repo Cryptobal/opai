@@ -305,8 +305,8 @@ export const SUBMODULE_META: SubmoduleMeta[] = [
   { key: "payroll.parametros", module: "payroll", submodule: "parametros", label: "Parámetros", href: "/payroll/parameters" },
   // ── Finance ──
   { key: "finance.rendiciones", module: "finance", submodule: "rendiciones", label: "Rendiciones", href: "/finanzas/rendiciones" },
-  { key: "finance.aprobaciones", module: "finance", submodule: "aprobaciones", label: "Aprobaciones", href: "/finanzas/rendiciones/aprobaciones" },
-  { key: "finance.pagos", module: "finance", submodule: "pagos", label: "Pagos", href: "/finanzas/rendiciones/pagos" },
+  { key: "finance.aprobaciones", module: "finance", submodule: "aprobaciones", label: "Aprobaciones", href: "/finanzas/rendiciones?filter=my_approvals" },
+  { key: "finance.pagos", module: "finance", submodule: "pagos", label: "Pagos", href: "/finanzas/rendiciones/historial-pagos" },
   { key: "finance.reportes", module: "finance", submodule: "reportes", label: "Reportes", href: "/finanzas/reportes" },
   { key: "finance.configuracion", module: "finance", submodule: "configuracion", label: "Configuración", href: "/opai/configuracion/finanzas" },
   { key: "finance.configuracion_dte", module: "finance", submodule: "configuracion", label: "Configuración DTE", href: "/opai/configuracion/finanzas/dte" },
@@ -1112,7 +1112,11 @@ export function pathToPermission(
   if (pathname.startsWith("/opai/configuracion")) return { module: "config" };
 
   // Finance submodules
+  // (rutas legacy /aprobaciones y /pagos están redirigidas a la lista unificada
+  //  o a /historial-pagos; mantenemos los mapeos por si el redirect intermedio
+  //  necesita resolverlos antes de saltar)
   if (pathname.startsWith("/finanzas/rendiciones/aprobaciones")) return { module: "finance", submodule: "aprobaciones" };
+  if (pathname.startsWith("/finanzas/rendiciones/historial-pagos")) return { module: "finance", submodule: "pagos" };
   if (pathname.startsWith("/finanzas/rendiciones/pagos")) return { module: "finance", submodule: "pagos" };
   if (pathname.startsWith("/finanzas/rendiciones")) return { module: "finance", submodule: "rendiciones" };
   if (pathname.startsWith("/finanzas/aprobaciones")) return { module: "finance", submodule: "aprobaciones" };

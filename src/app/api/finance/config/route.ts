@@ -18,6 +18,7 @@ const updateConfigSchema = z.object({
   requireTollImage: z.boolean().optional(),
   defaultApprover1Id: z.string().optional().nullable(),
   defaultApprover2Id: z.string().optional().nullable(),
+  autoApproveWhenNoApprovers: z.boolean().optional(),
   maxDailyAmount: z.number().int().positive().optional().nullable(),
   maxMonthlyAmount: z.number().int().positive().optional().nullable(),
   pendingAlertDays: z.number().int().min(1).optional(),

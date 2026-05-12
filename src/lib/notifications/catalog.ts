@@ -537,6 +537,12 @@ export const UNIFIED_NOTIFICATION_TYPES: UnifiedNotificationType[] = [
     audiences: ['admin'], defaults: { admin: adminBell() },
   },
   {
+    key: 'expense_report_reverted', label: 'Rendición revertida por administrador',
+    description: 'Cuando un administrador revierte el estado de una rendición (ej. de pagada a aprobada)',
+    module: 'finance', category: 'Finanzas - Rendiciones',
+    audiences: ['admin'], defaults: { admin: adminBell(true) },
+  },
+  {
     key: 'bank_cartola_received', label: 'Cartola bancaria recibida',
     description: 'Cuando llega una cartola por email del banco y se procesan los movimientos',
     module: 'finance', category: 'Finanzas - Bancos',

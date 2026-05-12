@@ -53,9 +53,24 @@ export async function POST(
     if (config?.defaultApprover1Id) approverIds.push(config.defaultApprover1Id);
     if (config?.defaultApprover2Id) approverIds.push(config.defaultApprover2Id);
 
+    const hasApprovers = approverIds.length > 0;
+    const autoApprove = config?.autoApproveWhenNoApprovers === true;
+
+    // Bloquear el submit si no hay aprobadores y el tenant no optó por auto-aprobación.
+    // Esto evita el salto silencioso DRAFT → APPROVED que llevaba a pagos sin revisión.
+    if (!hasApprovers && !autoApprove) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "No hay aprobadores configurados. Un administrador debe configurar al menos un aprobador en Configuración de Rendiciones, o activar 'Auto-aprobar cuando no hay aprobadores'.",
+          code: "NO_APPROVERS_CONFIGURED",
+        },
+        { status: 409 },
+      );
+    }
+
     const rendicion = await prisma.$transaction(async (tx) => {
-      // Determine target status based on approvers
-      const hasApprovers = approverIds.length > 0;
       const targetStatus = hasApprovers ? "SUBMITTED" : "APPROVED";
 
       const updated = await tx.financeRendicion.update({
@@ -87,7 +102,7 @@ export async function POST(
           userName: ctx.userEmail,
           comment: hasApprovers
             ? `Enviada a ${approverIds.length} aprobador(es)`
-            : "Aprobada automáticamente (sin aprobadores configurados)",
+            : "Auto-aprobada (flag autoApproveWhenNoApprovers activo)",
         },
       });
 

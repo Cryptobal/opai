@@ -17,6 +17,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getRendicionStatusConfig } from "@/lib/finance/rendicion-status";
 
 /* ── Types ── */
 
@@ -47,23 +48,7 @@ interface RendicionesReportClientProps {
 
 /* ── Constants ── */
 
-const STATUS_LABELS: Record<string, string> = {
-  DRAFT: "Borrador",
-  SUBMITTED: "Enviada",
-  IN_APPROVAL: "En aprobación",
-  APPROVED: "Aprobada",
-  REJECTED: "Rechazada",
-  PAID: "Pagada",
-};
-
-const STATUS_COLORS: Record<string, string> = {
-  DRAFT: "bg-zinc-500/15 text-zinc-400",
-  SUBMITTED: "bg-status-info-soft text-status-info-fg",
-  IN_APPROVAL: "bg-status-warn-soft text-status-warn-fg",
-  APPROVED: "bg-status-ok-soft text-status-ok-fg",
-  REJECTED: "bg-status-danger-soft text-status-danger-fg",
-  PAID: "bg-tint-violet text-tint-violet-fg",
-};
+// Mapeo de estado movido a `@/lib/finance/rendicion-status`.
 
 const TYPE_LABELS: Record<string, string> = {
   PURCHASE: "Compra",
@@ -197,10 +182,10 @@ export function RendicionesReportClient({
                       <Badge
                         className={cn(
                           "text-[10px]",
-                          STATUS_COLORS[s.status] ?? "bg-muted"
+                          getRendicionStatusConfig(s.status).className,
                         )}
                       >
-                        {STATUS_LABELS[s.status] ?? s.status}
+                        {getRendicionStatusConfig(s.status).label}
                       </Badge>
                       <span className="text-xs text-muted-foreground">
                         {s.count} rendición(es)

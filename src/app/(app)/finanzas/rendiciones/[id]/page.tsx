@@ -72,6 +72,7 @@ export default async function RendicionDetailPage({ params }: PageProps) {
   const canApprove = hasCapability(perms, "rendicion_approve");
   const canPay = hasCapability(perms, "rendicion_pay");
   const canSubmit = hasCapability(perms, "rendicion_submit");
+  const canRevert = hasCapability(perms, "rendicion_configure");
   const isOwner = rendicion.submitterId === session.user.id;
   const isApprover = rendicion.approvals.some(
     (a) => a.approverId === session.user.id && !a.decision
@@ -173,6 +174,7 @@ export default async function RendicionDetailPage({ params }: PageProps) {
           canApprove: canApprove && isApprover,
           canPay,
           canEdit: canSubmit && isOwner,
+          canRevert,
           isOwner,
         }}
       />
