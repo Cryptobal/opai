@@ -770,7 +770,7 @@ export async function bulkReconcileToDte(
   const totalAlloc = txs.reduce((s, t) => s + Math.abs(t.amount.toNumber()), 0);
   if (totalAlloc > dte.amountPending.toNumber() + 0.01) {
     throw new Error(
-      `La suma de los movimientos ($${totalAlloc.toLocaleString("es-CL")}) supera el saldo pendiente del DTE ($${dte.amountPending.toLocaleString("es-CL")})`
+      `La suma de los movimientos ($${totalAlloc.toLocaleString("es-CL")}) supera el saldo pendiente del DTE ($${dte.amountPending.toNumber().toLocaleString("es-CL")})`
     );
   }
 
