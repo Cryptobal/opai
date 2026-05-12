@@ -144,15 +144,12 @@ export async function buildProjection(
     categories.map((c) => [c.code, c]),
   );
 
-  // Excluimos source=CONTRACT y source=PAYROLL: ambos pipelines auto-sync se
-  // reemplazaron el 2026-05-11. Contratos → manuales (source=OTHER). Sueldos
-  // → split en PAYROLL_LIQUIDO + PAYROLL_PREVIRED. Cualquier registro legacy
-  // que quede en DB se ignora aquí como salvaguarda (defense-in-depth);
-  // los scripts delete-legacy-{contract,payroll}-items los borran de la DB.
+  // Excluimos source=PAYROLL (legacy pre-split): reemplazado por
+  // PAYROLL_LIQUIDO + PAYROLL_PREVIRED. Los ítems source=CONTRACT son los
+  // contratos CRM vigentes (Document → FinanceCashflowItem vía el tab
+  // Contratos de cada cuenta) y deben incluirse en la proyección.
   const allItems = await listItems(tenantId, { isActive: true });
-  const items = allItems.filter(
-    (i) => i.source !== "CONTRACT" && i.source !== "PAYROLL",
-  );
+  const items = allItems.filter((i) => i.source !== "PAYROLL");
   // FinanceCashflowItem.installationId no tiene @relation, así que resolvemos
   // los nombres en un lookup batch por tenant. Pick mínimo para no traer overhead.
   const installationIds = Array.from(

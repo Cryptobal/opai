@@ -17,7 +17,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import Link from "next/link";
-import { Loader2, Plus, ChevronRight, Globe, MessageSquare, GitMerge } from "lucide-react";
+import { Loader2, Plus, ChevronRight, Globe, MessageSquare, GitMerge, ShieldCheck, Wallet } from "lucide-react";
 import { DuplicateAccountModal } from "./DuplicateAccountModal";
 import { CRM_MODULES } from "./CrmModuleIcons";
 import { EmptyState, Tag } from "@/components/opai-ds";
@@ -51,6 +51,13 @@ function extractAccountLogoUrl(notes?: string | null): string | null {
   if (end === -1) return null;
   const raw = notes.slice(start + ACCOUNT_LOGO_PREFIX.length, end).trim();
   return raw || null;
+}
+
+function formatContractAmount(amount: number, currency: string): string {
+  if (currency === "UF") {
+    return `UF ${new Intl.NumberFormat("es-CL", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount)}/mes`;
+  }
+  return `$${new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 }).format(amount)}/mes`;
 }
 
 const BROKEN_LOGO_PREFIX = "/uploads/company-logos/";
@@ -89,6 +96,9 @@ type AccountRow = {
     expiredContract?: number;
     expiringContract?: number;
   };
+  cashflowItemCount?: number;
+  cashflowMonthlyAmount?: { amount: number; currency: string } | null;
+  activeGuardsCount?: number;
 };
 
 function getLifecycle(account: Pick<AccountRow, "status" | "type" | "isActive">) {
@@ -457,19 +467,31 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
                             <CrmDates createdAt={account.createdAt} updatedAt={account.updatedAt} className="mt-0.5" />
                           </div>
                         </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <Badge
-                            variant={lifecycle === "prospect" ? "warning" : lifecycle === "client_active" ? "success" : "destructive"}
-                          >
+                        <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
+                          <Badge variant={lifecycle === "prospect" ? "warning" : lifecycle === "client_active" ? "success" : "destructive"}>
                             {statusLabel}
                           </Badge>
-                          <Badge variant="outline">{account._count?.contacts ?? 0} contactos</Badge>
-                          <Badge variant="outline">{account._count?.deals ?? 0} negocios</Badge>
                           {contractTag && (
                             <Tag variant={contractTag.variant} size="sm" dot>
                               {contractTag.label}
                             </Tag>
                           )}
+                          {(account.activeGuardsCount ?? 0) > 0 && (
+                            <Tag variant="neutral" size="sm" icon={ShieldCheck}>
+                              {account.activeGuardsCount} guardias
+                            </Tag>
+                          )}
+                          {(account.cashflowItemCount ?? 0) > 0 && account.cashflowMonthlyAmount && (
+                            <Tag variant="info" size="sm" icon={Wallet}>
+                              {formatContractAmount(account.cashflowMonthlyAmount.amount, account.cashflowMonthlyAmount.currency)}
+                            </Tag>
+                          )}
+                          <span className="text-xs text-muted-foreground flex items-center gap-1">
+                            <CRM_MODULES.contacts.icon className="h-3 w-3" />{account._count?.contacts ?? 0}
+                          </span>
+                          <span className="text-xs text-muted-foreground flex items-center gap-1">
+                            <CRM_MODULES.deals.icon className="h-3 w-3" />{account._count?.deals ?? 0}
+                          </span>
                           <ChevronRight className="h-4 w-4 text-muted-foreground/40 transition-transform group-hover:translate-x-0.5 hidden sm:block" />
                         </div>
                       </Link>
@@ -489,58 +511,78 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
                     key={account.id}
                     className="rounded-lg border transition-colors hover:border-primary/30 group hover:bg-accent/30 min-w-0 overflow-hidden"
                   >
-                    <div className="flex items-start justify-between gap-2 p-4">
-                      <Link href={`/crm/accounts/${account.id}`} className="flex flex-1 min-w-0">
-                        <div className="flex items-center gap-2.5">
-                          {getAccountLogo(account) ? (
-                            <img
-                              src={getAccountLogo(account)!}
-                              alt=""
-                              className="h-9 w-9 shrink-0 rounded-lg border border-border bg-background object-contain"
-                            />
-                          ) : (
-                            <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${CRM_MODULES.accounts.color}`}>
-                              <CRM_MODULES.accounts.icon className="h-4 w-4" />
-                            </div>
-                          )}
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <p className="font-medium text-sm group-hover:text-primary transition-colors">{account.name}</p>
-                              {unreadNoteIds.has(account.id) && (
-                                <span className="relative shrink-0" title="Notas no leídas">
-                                  <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
-                                  <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-destructive" />
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-[11px] text-muted-foreground">{account.industry || "Sin industria"}</p>
+                    <Link href={`/crm/accounts/${account.id}`} className="block p-4">
+                      {/* Fila 1: logo + nombre + industria */}
+                      <div className="flex items-start gap-2.5">
+                        {getAccountLogo(account) ? (
+                          <img
+                            src={getAccountLogo(account)!}
+                            alt=""
+                            className="h-9 w-9 shrink-0 rounded-lg border border-border bg-background object-contain"
+                          />
+                        ) : (
+                          <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${CRM_MODULES.accounts.color}`}>
+                            <CRM_MODULES.accounts.icon className="h-4 w-4" />
                           </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <p className="font-medium text-sm group-hover:text-primary transition-colors truncate">{account.name}</p>
+                            {unreadNoteIds.has(account.id) && (
+                              <span className="relative shrink-0" title="Notas no leídas">
+                                <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
+                                <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-destructive" />
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-muted-foreground truncate">{account.industry || "Sin industria"}</p>
+                          {account.rut && <p className="text-[11px] text-muted-foreground/70">{account.rut}</p>}
                         </div>
-                        <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap mt-2 min-w-0">
-                          <Badge
-                            variant={lifecycle === "prospect" ? "warning" : lifecycle === "client_active" ? "success" : "destructive"}
-                            className="text-[10px]"
+                        <ChevronRight className="h-4 w-4 text-muted-foreground/30 shrink-0 mt-0.5 group-hover:text-muted-foreground/60 transition-colors" />
+                      </div>
+
+                      {/* Fila 2: badges ordenados */}
+                      <div className="flex flex-wrap gap-1.5 mt-3">
+                        <Badge
+                          variant={lifecycle === "prospect" ? "warning" : lifecycle === "client_active" ? "success" : "destructive"}
+                          className="text-[10px]"
+                        >
+                          {statusLabel}
+                        </Badge>
+                        {contractTag && (
+                          <Tag variant={contractTag.variant} size="sm" dot>
+                            {contractTag.label}
+                          </Tag>
+                        )}
+                        {(account.activeGuardsCount ?? 0) > 0 && (
+                          <Tag variant="neutral" size="sm" icon={ShieldCheck}>
+                            {account.activeGuardsCount} G
+                          </Tag>
+                        )}
+                        {(account.cashflowItemCount ?? 0) > 0 && account.cashflowMonthlyAmount && (
+                          <Tag variant="info" size="sm" icon={Wallet}>
+                            {formatContractAmount(account.cashflowMonthlyAmount.amount, account.cashflowMonthlyAmount.currency)}
+                          </Tag>
+                        )}
+                        <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                          <CRM_MODULES.contacts.icon className="h-3 w-3" />{account._count?.contacts ?? 0}
+                        </span>
+                        <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                          <CRM_MODULES.deals.icon className="h-3 w-3" />{account._count?.deals ?? 0}
+                        </span>
+                        {account.website && (
+                          <span
+                            role="link"
+                            tabIndex={0}
+                            className="flex items-center gap-1 text-[11px] text-primary hover:underline cursor-pointer"
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.open(account.website!, "_blank", "noopener,noreferrer"); }}
                           >
-                            {statusLabel}
-                          </Badge>
-                          <span className="flex items-center gap-1"><CRM_MODULES.contacts.icon className="h-3 w-3" />{account._count?.contacts ?? 0}</span>
-                          <span className="flex items-center gap-1"><CRM_MODULES.deals.icon className="h-3 w-3" />{account._count?.deals ?? 0}</span>
-                          {contractTag && (
-                            <Tag variant={contractTag.variant} size="sm" dot>
-                              {contractTag.label}
-                            </Tag>
-                          )}
-                          {account.rut && <span>{account.rut}</span>}
-                          {account.website && (
-                            <span role="link" tabIndex={0} className="flex items-center gap-1 text-primary hover:underline truncate max-w-[140px] cursor-pointer" onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.open(account.website!, "_blank", "noopener,noreferrer"); }}>
-                              <Globe className="h-3 w-3 shrink-0" />
-                              Web
-                            </span>
-                          )}
-                        </div>
-                      </Link>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground/40 shrink-0" />
-                    </div>
+                            <Globe className="h-3 w-3 shrink-0" />
+                            Web
+                          </span>
+                        )}
+                      </div>
+                    </Link>
                   </div>
                 );
               })}

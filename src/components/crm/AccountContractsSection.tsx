@@ -1041,7 +1041,7 @@ export function AccountContractsSection({
                     </span>
                   </div>
                   {c.cashflow ? (
-                    <div className="mt-2 flex flex-wrap items-center gap-2 rounded-md bg-status-ok-soft/30 border border-status-ok-fg/20 px-2.5 py-1.5">
+                    <div className="mt-2 flex flex-wrap items-center gap-2 rounded-md bg-status-ok-soft border border-status-ok-border px-2.5 py-1.5">
                       <Wallet className="h-3.5 w-3.5 text-status-ok-fg" />
                       <span className="text-[11px] font-mono uppercase tracking-[0.08em] text-status-ok-fg">
                         En flujo de caja

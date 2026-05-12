@@ -72,9 +72,7 @@ export async function GET(request: NextRequest) {
       include: {
         installations: {
           orderBy: { name: "asc" },
-          // status: necesario para excluir las inactivas/prospect del badge
-          // "Contrato X/Y" — el denominador debe contar sólo instalaciones
-          // donde un contrato es relevante.
+          // status + id para cobertura de contratos y puestos operativos
           select: { id: true, status: true },
         },
         _count: { select: { contacts: true, deals: true, installations: true } },
@@ -82,10 +80,96 @@ export async function GET(request: NextRequest) {
       orderBy: { name: "asc" },
     });
 
+    const accountIds = accounts.map((a) => a.id);
+    const allInstallationIds = accounts.flatMap((a) => a.installations.map((i) => i.id));
+
+    // Batch 1: cobertura de contratos por instalación
     const contractCoverage = await getInstallationContractCoverage({
       tenantId: ctx.tenantId,
-      installationIds: accounts.flatMap((account) => account.installations.map((installation) => installation.id)),
+      installationIds: allInstallationIds,
     });
+
+    // Batch 2a: documentos asociados a cada cuenta (para lookup de items FC legacy)
+    const docAssociations = accountIds.length > 0
+      ? await prisma.docAssociation.findMany({
+          where: {
+            entityType: "crm_account",
+            entityId: { in: accountIds },
+          },
+          select: { entityId: true, documentId: true },
+        })
+      : [];
+    // documentId → accountId
+    const accountByDocId = new Map<string, string>();
+    for (const assoc of docAssociations) {
+      accountByDocId.set(assoc.documentId, assoc.entityId);
+    }
+
+    // Batch 2b: ítems FC source=CONTRACT activos — por crmAccountId (nuevos)
+    // O por sourceRefId→document (legacy sin crmAccountId)
+    const allDocIds = Array.from(accountByDocId.keys());
+    const cashflowItems = accountIds.length > 0
+      ? await prisma.financeCashflowItem.findMany({
+          where: {
+            tenantId: ctx.tenantId,
+            source: { in: ["CONTRACT", "OTHER"] },
+            isActive: true,
+            OR: [
+              { crmAccountId: { in: accountIds } },
+              ...(allDocIds.length > 0 ? [{ sourceRefId: { in: allDocIds } }] : []),
+            ],
+          },
+          select: { crmAccountId: true, sourceRefId: true, amount: true, currency: true },
+        })
+      : [];
+
+    // Por cuenta: cantidad de ítems FC + monto total mensual por moneda
+    const cashflowCountByAccount = new Map<string, number>();
+    const cashflowAmountByAccount = new Map<string, { amount: number; currency: string }>();
+    for (const item of cashflowItems) {
+      const acctId =
+        item.crmAccountId ??
+        (item.sourceRefId ? accountByDocId.get(item.sourceRefId) : null);
+      if (!acctId) continue;
+      cashflowCountByAccount.set(acctId, (cashflowCountByAccount.get(acctId) ?? 0) + 1);
+      // Guardamos el monto del primer ítem (o acumulamos si hay varios)
+      const prev = cashflowAmountByAccount.get(acctId);
+      if (!prev) {
+        cashflowAmountByAccount.set(acctId, {
+          amount: Number(item.amount),
+          currency: item.currency ?? "CLP",
+        });
+      } else {
+        // Si hay varios contratos, suma en CLP; si mezclan UF/CLP marcamos como "mixto"
+        cashflowAmountByAccount.set(acctId, {
+          amount: prev.amount + Number(item.amount),
+          currency: prev.currency === item.currency ? prev.currency : "CLP",
+        });
+      }
+    }
+
+    // Batch 3: puestos operativos activos por instalación → guardias por cuenta
+    const activeInstallationIds = accounts.flatMap((a) =>
+      a.installations.filter((i) => i.status === "active").map((i) => i.id),
+    );
+    const puestos = activeInstallationIds.length > 0
+      ? await prisma.opsPuestoOperativo.findMany({
+          where: {
+            tenantId: ctx.tenantId,
+            installationId: { in: activeInstallationIds },
+            active: true,
+          },
+          select: { installationId: true, requiredGuards: true },
+        })
+      : [];
+    // requiredGuards por installationId
+    const guardsByInstallation = new Map<string, number>();
+    for (const p of puestos) {
+      guardsByInstallation.set(
+        p.installationId,
+        (guardsByInstallation.get(p.installationId) ?? 0) + p.requiredGuards,
+      );
+    }
 
     const data = accounts.map(({ installations, ...account }) => {
       // Sólo las instalaciones activas pesan para el cálculo de cobertura
@@ -102,6 +186,11 @@ export async function GET(request: NextRequest) {
       const expiredContract = statuses.filter((status) => status === "vencido").length;
       const expiringContract = statuses.filter((status) => status === "por_vencer").length;
 
+      const activeGuardsCount = activeInstallations.reduce(
+        (sum, i) => sum + (guardsByInstallation.get(i.id) ?? 0),
+        0,
+      );
+
       return {
         ...account,
         contractCoverage: {
@@ -111,6 +200,9 @@ export async function GET(request: NextRequest) {
           expiredContract,
           expiringContract,
         },
+        cashflowItemCount: cashflowCountByAccount.get(account.id) ?? 0,
+        cashflowMonthlyAmount: cashflowAmountByAccount.get(account.id) ?? null,
+        activeGuardsCount,
       };
     });
 

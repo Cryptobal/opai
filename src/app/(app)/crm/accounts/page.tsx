@@ -29,9 +29,6 @@ export default async function CrmAccountsPage() {
     include: {
       installations: {
         orderBy: { name: "asc" },
-        // status: necesario para que el badge "Contrato X/Y" sólo cuente
-        // instalaciones activas (las inactivas/prospect no requieren
-        // contrato y no deben inflar el denominador).
         select: { id: true, status: true },
       },
       _count: { select: { contacts: true, deals: true, installations: true } },
@@ -39,23 +36,72 @@ export default async function CrmAccountsPage() {
     orderBy: { name: "asc" },
   });
 
-  const contractCoverage = await getInstallationContractCoverage({
-    tenantId,
-    installationIds: accounts.flatMap((account) => account.installations.map((installation) => installation.id)),
-  });
+  const accountIds = accounts.map((a) => a.id);
+  const allInstallationIds = accounts.flatMap((a) => a.installations.map((i) => i.id));
+
+  // Batch: cobertura de contratos, FC items y puestos operativos en paralelo
+  const [contractCoverage, cashflowItems, puestos] = await Promise.all([
+    getInstallationContractCoverage({ tenantId, installationIds: allInstallationIds }),
+
+    // FC items de contratos activos: source=CONTRACT (nuevo) o source=OTHER
+    // con crmAccountId (legacy pre-11-may-2026). Ambos representan ingresos
+    // por contrato vinculados explícitamente a una cuenta.
+    accountIds.length > 0
+      ? prisma.financeCashflowItem.findMany({
+          where: {
+            tenantId,
+            source: { in: ["CONTRACT", "OTHER"] },
+            isActive: true,
+            crmAccountId: { in: accountIds },
+          },
+          select: { crmAccountId: true, amount: true, currency: true },
+        })
+      : Promise.resolve([]),
+
+    // Puestos operativos activos por instalación
+    allInstallationIds.length > 0
+      ? prisma.opsPuestoOperativo.findMany({
+          where: { tenantId, installationId: { in: allInstallationIds }, active: true },
+          select: { installationId: true, requiredGuards: true },
+        })
+      : Promise.resolve([]),
+  ]);
+
+  // FC: cuenta e importe mensual por cuenta
+  const cashflowCountByAccount = new Map<string, number>();
+  const cashflowAmountByAccount = new Map<string, { amount: number; currency: string }>();
+  for (const item of cashflowItems) {
+    if (!item.crmAccountId) continue;
+    cashflowCountByAccount.set(item.crmAccountId, (cashflowCountByAccount.get(item.crmAccountId) ?? 0) + 1);
+    const prev = cashflowAmountByAccount.get(item.crmAccountId);
+    if (!prev) {
+      cashflowAmountByAccount.set(item.crmAccountId, { amount: Number(item.amount), currency: item.currency ?? "CLP" });
+    } else {
+      cashflowAmountByAccount.set(item.crmAccountId, {
+        amount: prev.amount + Number(item.amount),
+        currency: prev.currency === item.currency ? prev.currency : "CLP",
+      });
+    }
+  }
+
+  // Guardias: requiredGuards por installationId
+  const guardsByInstallation = new Map<string, number>();
+  for (const p of puestos) {
+    guardsByInstallation.set(p.installationId, (guardsByInstallation.get(p.installationId) ?? 0) + p.requiredGuards);
+  }
 
   const initialAccounts = JSON.parse(JSON.stringify(
     accounts.map(({ installations, ...account }) => {
-      const activeInstallations = installations.filter(
-        (installation) => installation.status === "active",
-      );
+      const activeInstallations = installations.filter((i) => i.status === "active");
       const statuses = activeInstallations.map(
-        (installation) =>
-          contractCoverage.get(installation.id)?.status ?? "sin_documento",
+        (i) => contractCoverage.get(i.id)?.status ?? "sin_documento",
       );
-      const withContract = statuses.filter((status) => status !== "sin_documento").length;
-      const expiredContract = statuses.filter((status) => status === "vencido").length;
-      const expiringContract = statuses.filter((status) => status === "por_vencer").length;
+      const withContract = statuses.filter((s) => s !== "sin_documento").length;
+      const expiredContract = statuses.filter((s) => s === "vencido").length;
+      const expiringContract = statuses.filter((s) => s === "por_vencer").length;
+      const activeGuardsCount = activeInstallations.reduce(
+        (sum, i) => sum + (guardsByInstallation.get(i.id) ?? 0), 0,
+      );
 
       return {
         ...account,
@@ -66,6 +112,9 @@ export default async function CrmAccountsPage() {
           expiredContract,
           expiringContract,
         },
+        cashflowItemCount: cashflowCountByAccount.get(account.id) ?? 0,
+        cashflowMonthlyAmount: cashflowAmountByAccount.get(account.id) ?? null,
+        activeGuardsCount,
       };
     }),
   ));
