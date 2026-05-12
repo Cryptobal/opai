@@ -62,13 +62,32 @@ export function LogoutPinModal({ open, deviceToken, onConfirm, onCancel }: Logou
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ deviceToken, pin: fullPin }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
 
-      if (data.success) {
+      if (data?.success) {
         reset();
         onConfirm();
       } else {
-        setError("PIN incorrecto");
+        // Map server codes to user-friendly messages instead of blanket
+        // "PIN incorrecto" — helps the user (and support) distinguish a
+        // real PIN mismatch from a misconfigured / unpaired device.
+        const code = data?.code as string | undefined;
+        let msg: string;
+        switch (code) {
+          case "DEVICE_NOT_FOUND":
+            msg = "Dispositivo no reconocido. Contacta a tu supervisor.";
+            break;
+          case "MISSING_FIELDS":
+            msg = "Faltan datos. Intenta de nuevo.";
+            break;
+          case "SERVER_ERROR":
+            msg = "Error del servidor. Intenta de nuevo en unos segundos.";
+            break;
+          case "PIN_MISMATCH":
+          default:
+            msg = "PIN incorrecto";
+        }
+        setError(msg);
         setPin(["", "", "", ""]);
         inputRefs.current[0]?.focus();
       }

@@ -109,17 +109,25 @@ export async function PATCH(request: NextRequest) {
     for (const shortKey of EMPRESA_KEYS) {
       if (body[shortKey] !== undefined) {
         const key = settingKey(ctx.tenantId, shortKey);
+        // Normalize the logout PIN: keep digits only, max 4 chars. Mirrors
+        // the regex used by the config UI input. Defends against accidental
+        // whitespace / CRLF / zero-width chars on paste.
+        const rawValue = String(body[shortKey]);
+        const value =
+          shortKey === "portales.logoutPin"
+            ? rawValue.replace(/[^0-9]/g, "").slice(0, 4)
+            : rawValue;
         await prisma.setting.upsert({
           where: { tenantId_key: { tenantId: ctx.tenantId, key } },
           create: {
             key,
-            value: String(body[shortKey]),
+            value,
             type: "string",
             category: "empresa",
             tenantId: ctx.tenantId,
           },
           update: {
-            value: String(body[shortKey]),
+            value,
           },
         });
       }
