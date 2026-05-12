@@ -5,21 +5,45 @@ import { validateClienteSession, parsePortalClienteSessionCookie } from "@/lib/p
 import { DEFAULT_PORTAL_CONFIG } from "@/lib/portal-cliente-types";
 import type { ClienteSession, PortalConfig } from "@/lib/portal-cliente-types";
 import { cpqQuoteListedInClientPortalWhere } from "@/lib/cpq-portal-visibility";
-import { buildClienteSessionCookie, clearClienteSessionCookie } from "@/lib/portal-cliente-session";
+import {
+  buildClienteSessionCookie,
+  buildClienteSessionToken,
+  clearClienteSessionCookie,
+} from "@/lib/portal-cliente-session";
 
 // Aliases for backward compatibility within this file
 const setSessionCookie = buildClienteSessionCookie;
 const clearPortalClienteSessionCookie = clearClienteSessionCookie;
 const PORTAL_CLIENTE_SESSION_COOKIE = "portal_cliente_session";
 
-export async function GET() {
+/**
+ * Extrae el token de sesión de:
+ *   1. Cookie httpOnly `portal_cliente_session` (camino normal)
+ *   2. Header `Authorization: Bearer <token>` (fallback para iOS PWA
+ *      cuando WebKit purga la cookie al cerrar la app — el cliente
+ *      mantiene un backup en localStorage y lo manda en este header).
+ */
+function readSessionToken(request: NextRequest | undefined, cookieValue: string | undefined): string | undefined {
+  if (cookieValue) return cookieValue;
+  const authHeader = request?.headers.get("authorization") ?? "";
+  if (authHeader.toLowerCase().startsWith("bearer ")) {
+    const token = authHeader.slice(7).trim();
+    return token || undefined;
+  }
+  return undefined;
+}
+
+export async function GET(request: NextRequest) {
   const cookieStore = await cookies();
-  const session = parsePortalClienteSessionCookie(
-    cookieStore.get(PORTAL_CLIENTE_SESSION_COOKIE)?.value
-  );
+  const cookieValue = cookieStore.get(PORTAL_CLIENTE_SESSION_COOKIE)?.value;
+  const tokenValue = readSessionToken(request, cookieValue);
+  const session = parsePortalClienteSessionCookie(tokenValue);
   if (!session) {
     return NextResponse.json({ success: false }, { status: 401 });
   }
+  // Si la sesión vino por Bearer (cookie purgada por iOS PWA), forzamos
+  // refresh para volver a setear la cookie en el cliente.
+  const recoveredFromHeader = !cookieValue && !!tokenValue;
 
   let needsCookieRefresh = false;
   const freshSession = { ...session };
@@ -151,13 +175,22 @@ export async function GET() {
     // companyPresentations table may not exist in prod yet
   }
 
-  if (needsCookieRefresh) {
-    const res = NextResponse.json({ success: true, data: freshSession });
+  // Si el contenido cambió, refrescamos cookie + token.
+  // Si la sesión vino por Bearer (cookie purgada en iOS PWA), también
+  // reescribimos la cookie para restaurarla en el navegador.
+  const mustWriteCookie = needsCookieRefresh || recoveredFromHeader;
+  const freshToken = mustWriteCookie
+    ? buildClienteSessionToken(freshSession)
+    : tokenValue!;
+  const res = NextResponse.json({
+    success: true,
+    data: freshSession,
+    token: freshToken,
+  });
+  if (mustWriteCookie) {
     res.cookies.set(setSessionCookie(freshSession));
-    return res;
   }
-
-  return NextResponse.json({ success: true, data: freshSession });
+  return res;
 }
 
 export async function POST(request: NextRequest) {
@@ -258,8 +291,13 @@ export async function POST(request: NextRequest) {
       });
     } catch {}
 
-    const res = NextResponse.json({ success: true, data: result.session });
-    res.cookies.set(setSessionCookie(result.session));
+    const cookie = setSessionCookie(result.session);
+    const res = NextResponse.json({
+      success: true,
+      data: result.session,
+      token: cookie.value, // backup para localStorage (iOS PWA cookie purge fix)
+    });
+    res.cookies.set(cookie);
     return res;
   } catch (error) {
     console.error("[Portal Cliente] Auth error:", error);
