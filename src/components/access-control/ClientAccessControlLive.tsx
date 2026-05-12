@@ -7,8 +7,10 @@ import {
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import type { AccessRecordType } from "@/lib/access-control/types";
-import { RECORD_TYPE_CONFIG } from "@/lib/access-control/types";
+import type { AccessRecordType, CustomRecordType } from "@/lib/access-control/types";
+import {
+  DEFAULT_RECORD_TYPE_IDS, getRecordTypeLabel,
+} from "@/lib/access-control/types";
 import { formatRut, formatDuration, elapsedMinutes } from "@/lib/access-control/utils";
 
 interface LiveRecord {
@@ -32,6 +34,36 @@ export function ClientAccessControlLive({ installationId }: Props) {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<AccessRecordType | "">("");
   const [counts, setCounts] = useState({ persons: 0, vehicles: 0, total: 0 });
+  const [availableTypes, setAvailableTypes] = useState<string[]>([
+    ...DEFAULT_RECORD_TYPE_IDS,
+  ]);
+  const [customTypes, setCustomTypes] = useState<CustomRecordType[]>([]);
+  const [recordTypeLabels, setRecordTypeLabels] = useState<Partial<Record<string, string>>>({});
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/portal/cliente/access-control/${installationId}/record-types`)
+      .then((r) => r.json())
+      .then((json) => {
+        if (cancelled || !json.success) return;
+        const enabled: string[] = json.data?.enabledRecordTypes ?? [
+          ...DEFAULT_RECORD_TYPE_IDS,
+        ];
+        setAvailableTypes(enabled.length ? enabled : [...DEFAULT_RECORD_TYPE_IDS]);
+        setCustomTypes(json.data?.customRecordTypes ?? []);
+        setRecordTypeLabels(json.data?.recordTypeLabels ?? {});
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [installationId]);
+
+  const typeLabel = useCallback(
+    (t: string) =>
+      getRecordTypeLabel(t, { customRecordTypes: customTypes, recordTypeLabels }),
+    [customTypes, recordTypeLabels],
+  );
 
   const fetchLive = useCallback(async () => {
     try {
@@ -102,8 +134,8 @@ export function ClientAccessControlLive({ installationId }: Props) {
           className="rounded-md border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-zinc-200"
         >
           <option value="">Todos</option>
-          {(Object.keys(RECORD_TYPE_CONFIG) as AccessRecordType[]).map((t) => (
-            <option key={t} value={t}>{RECORD_TYPE_CONFIG[t]?.label ?? t}</option>
+          {availableTypes.map((t) => (
+            <option key={t} value={t}>{typeLabel(t)}</option>
           ))}
         </select>
         <button onClick={fetchLive} className="text-zinc-500 hover:text-zinc-300 p-2">
@@ -124,7 +156,6 @@ export function ClientAccessControlLive({ installationId }: Props) {
         <div className="space-y-2">
           {records.map((r) => {
             const elapsed = elapsedMinutes(r.entryAt);
-            const tc = RECORD_TYPE_CONFIG[r.recordType] ?? { label: r.recordType, icon: "UserPlus", color: "blue" };
             return (
               <div
                 key={r.id}
@@ -133,7 +164,7 @@ export function ClientAccessControlLive({ installationId }: Props) {
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge variant="outline" className="text-xs border-zinc-600">
-                      {tc.label}
+                      {typeLabel(r.recordType)}
                     </Badge>
                     <span className="text-sm font-medium text-zinc-200 break-words">
                       {r.fullName || r.vehiclePlate || "—"}

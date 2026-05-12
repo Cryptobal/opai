@@ -62,7 +62,10 @@ export function ClientWhitelistManager({ installationId, createdBy }: Props) {
 
   useEffect(() => {
     let cancelled = false;
-    fetch(`/api/access-control/config/${installationId}`)
+    // Use the portal-cliente record-types endpoint (its auth differs
+    // from the admin /api/access-control/config endpoint, which would
+    // reject a cliente session with 401).
+    fetch(`/api/portal/cliente/access-control/${installationId}/record-types`)
       .then((r) => r.json())
       .then((json) => {
         if (cancelled || !json.success) return;
