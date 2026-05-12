@@ -15,7 +15,7 @@ import { startOfMonth } from "date-fns";
 
 const prisma = new PrismaClient();
 
-const WORKER_DEDUCTION_FACTOR = 0.17;
+const WORKER_DEDUCTION_FALLBACK = 0.17;
 const EMPLOYER_COST_FACTOR = 1.45;
 
 async function computePayroll(tenantId: string, installationId: string) {
@@ -27,13 +27,14 @@ async function computePayroll(tenantId: string, installationId: string) {
       salaryStructureId: { not: null },
     },
     select: {
+      requiredGuards: true,
       installation: { select: { name: true } },
-      salaryStructure: { select: { baseSalary: true } },
+      salaryStructure: { select: { baseSalary: true, netSalaryEstimate: true } },
     },
   });
   if (puestos.length === 0) return null;
 
-  let grossTotal = 0;
+  let liquidoTotal = 0;
   let employerTotal = 0;
   let name: string | null = null;
   for (const p of puestos) {
@@ -41,11 +42,20 @@ async function computePayroll(tenantId: string, installationId: string) {
     if (!name) name = p.installation?.name ?? null;
     const baseSalary = Number(p.salaryStructure.baseSalary ?? 0);
     if (baseSalary <= 0) continue;
-    grossTotal += baseSalary;
-    employerTotal += baseSalary * EMPLOYER_COST_FACTOR;
+
+    const count = Math.max(1, p.requiredGuards ?? 1);
+    const netPerGuard = Number(p.salaryStructure.netSalaryEstimate ?? 0);
+    const liquidoPerGuard =
+      netPerGuard > 0
+        ? netPerGuard
+        : baseSalary * (1 - WORKER_DEDUCTION_FALLBACK);
+    const employerCostPerGuard = baseSalary * EMPLOYER_COST_FACTOR;
+
+    liquidoTotal += liquidoPerGuard * count;
+    employerTotal += employerCostPerGuard * count;
   }
   if (employerTotal <= 0) return null;
-  const liquido = Math.round(grossTotal * (1 - WORKER_DEDUCTION_FACTOR));
+  const liquido = Math.round(liquidoTotal);
   const previRed = Math.max(0, Math.round(employerTotal - liquido));
   return { liquido, previRed, name };
 }

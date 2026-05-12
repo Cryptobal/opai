@@ -9,16 +9,14 @@ const PREVIRED_CATEGORY_CODE = "EGR_PREVIRED";
 type SyncAction = "created" | "updated" | "deactivated" | "reactivated" | "noop";
 
 /**
- * Aproximación standard de descuentos al trabajador para proyección
- * agregada: AFP 10–12% + Salud 7% + AFC trab 0.6% ≈ 17.6%. Usamos 17% como
- * conservador (subestima imposiciones, sobreestima líquido). Es suficiente
- * para cashflow forecasting; el detalle real lo da `simulate-payslip` por
- * guardia individual.
+ * Fallback de descuentos al trabajador cuando el puesto no tiene
+ * `netSalaryEstimate` calculado: AFP 10–12% + Salud 7% + AFC trab 0.6% ≈ 17.6%.
+ * Usamos 17% (subestima imposiciones, sobreestima líquido).
  */
-const WORKER_DEDUCTION_FACTOR = 0.17;
+const WORKER_DEDUCTION_FALLBACK = 0.17;
 
 interface PayrollAmounts {
-  /** Líquido total mensual al guardia (lo que se transfiere fin de mes). */
+  /** Líquido total mensual a guardias (lo que se transfiere fin de mes). */
   liquido: number;
   /** Pago a PreviRed (imposiciones trab + aportes empleador). */
   previRed: number;
@@ -31,6 +29,9 @@ async function computeMonthlyPayrollForInstallation(
   tenantId: string,
   installationId: string,
 ): Promise<PayrollAmounts | null> {
+  // Cada `OpsPuestoOperativo` representa un puesto de trabajo con N guardias
+  // requeridos (`requiredGuards`). El sueldo y el costo son POR guardia; hay
+  // que multiplicar por la dotación para obtener el costo real del puesto.
   const puestos = await prisma.opsPuestoOperativo.findMany({
     where: {
       tenantId,
@@ -39,14 +40,17 @@ async function computeMonthlyPayrollForInstallation(
       salaryStructureId: { not: null },
     },
     select: {
+      requiredGuards: true,
       installation: { select: { name: true } },
-      salaryStructure: { select: { baseSalary: true } },
+      salaryStructure: {
+        select: { baseSalary: true, netSalaryEstimate: true },
+      },
     },
   });
   if (puestos.length === 0) return null;
 
   const useFullCompute = puestos.length <= 50;
-  let grossTotal = 0;
+  let liquidoTotal = 0;
   let employerTotal = 0;
   let name: string | null = null;
   for (const p of puestos) {
@@ -54,24 +58,39 @@ async function computeMonthlyPayrollForInstallation(
     if (!name) name = p.installation?.name ?? null;
     const baseSalary = Number(p.salaryStructure.baseSalary ?? 0);
     if (baseSalary <= 0) continue;
-    grossTotal += baseSalary;
-    let employerCost = baseSalary * 1.45;
+
+    const count = Math.max(1, p.requiredGuards ?? 1);
+
+    // Líquido por guardia: preferimos `netSalaryEstimate` (incluye gratifica-
+    // ción, colación, movilización y bonos). Si no existe, fallback al factor
+    // 0.83 × base.
+    const netPerGuard = Number(p.salaryStructure.netSalaryEstimate ?? 0);
+    const liquidoPerGuard =
+      netPerGuard > 0 ? netPerGuard : baseSalary * (1 - WORKER_DEDUCTION_FALLBACK);
+
+    // Costo empleador por guardia: payroll engine (real, con AFP/Salud/SIS/
+    // mutual/AFC patronal/grat) o fallback 1.45 × base.
+    let employerCostPerGuard = baseSalary * 1.45;
     if (useFullCompute) {
       try {
         const r = await computeEmployerCost({
           base_salary_clp: baseSalary,
           contract_type: "indefinite",
         });
-        if (r?.monthly_employer_cost_clp) employerCost = r.monthly_employer_cost_clp;
+        if (r?.monthly_employer_cost_clp) {
+          employerCostPerGuard = r.monthly_employer_cost_clp;
+        }
       } catch {
         // fallback al factor
       }
     }
-    employerTotal += employerCost;
+
+    liquidoTotal += liquidoPerGuard * count;
+    employerTotal += employerCostPerGuard * count;
   }
   if (employerTotal <= 0) return null;
 
-  const liquido = Math.round(grossTotal * (1 - WORKER_DEDUCTION_FACTOR));
+  const liquido = Math.round(liquidoTotal);
   const previRed = Math.max(0, Math.round(employerTotal - liquido));
   return { liquido, previRed, total: Math.round(employerTotal), name };
 }

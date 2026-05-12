@@ -1424,6 +1424,9 @@ function StaffingSection({
                   <th className="px-3 py-2 text-right font-medium text-muted-foreground">Dotación</th>
                   <th className="px-3 py-2 text-right font-medium text-muted-foreground">Sueldo base</th>
                   <th className="px-3 py-2 text-right font-medium text-muted-foreground">Líquido est.</th>
+                  <th className="px-3 py-2 text-right font-medium text-muted-foreground" title="Cotizaciones de leyes sociales pagadas por la empresa cada mes (AFP + Salud + AFC + SIS + mutual). Estimado como base × 1,45 − líquido.">
+                    Cotiz. leyes
+                  </th>
                   <th className="px-3 py-2 text-right font-medium text-muted-foreground w-[160px]">Acciones</th>
                 </tr>
               </thead>
@@ -1433,6 +1436,9 @@ function StaffingSection({
                   const rolName = item.rol?.name ?? "—";
                   const puestoTrabajoName = item.puestoTrabajo?.name ?? "—";
                   const salary = Number(item.baseSalary ?? 0);
+                  const ss = (item as any).salaryStructure;
+                  const net = ss ? Number(ss.netSalaryEstimate ?? 0) : 0;
+                  const cotiz = Math.max(0, Math.round(salary * 1.45 - net));
                   return (
                     <tr key={item.id} className="border-b border-border/60 last:border-0">
                       <td className="px-3 py-2 font-medium">{cargoName}</td>
@@ -1467,12 +1473,18 @@ function StaffingSection({
                       <td className="px-3 py-2 text-right">{item.requiredGuards}</td>
                       <td className="px-3 py-2 text-right">{salary > 0 ? `$${salary.toLocaleString("es-CL")}` : "—"}</td>
                       <td className="px-3 py-2 text-right">
-                        {(() => {
-                          const ss = (item as any).salaryStructure;
-                          const net = ss ? Number(ss.netSalaryEstimate ?? 0) : 0;
-                          if (net > 0) return <span className="text-status-ok-fg font-medium">${net.toLocaleString("es-CL")}</span>;
-                          return <span className="text-muted-foreground">—</span>;
-                        })()}
+                        {net > 0 ? (
+                          <span className="text-status-ok-fg font-medium">${net.toLocaleString("es-CL")}</span>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        {salary > 0 ? (
+                          <span className="text-status-warn-fg">${cotiz.toLocaleString("es-CL")}</span>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
                       </td>
                       <td className="px-3 py-2 text-right">
                         <div className="flex items-center justify-end gap-1">
@@ -1506,6 +1518,45 @@ function StaffingSection({
                   );
                 })}
               </tbody>
+              {/* Totales: cada columna se multiplica por la dotación del puesto
+                  y se suma. Es la cifra que el flujo de caja replica. */}
+              {(() => {
+                let totalDot = 0;
+                let totalBase = 0;
+                let totalLiq = 0;
+                let totalCotiz = 0;
+                for (const item of installation.puestosActivos!) {
+                  const count = item.requiredGuards ?? 1;
+                  const salary = Number(item.baseSalary ?? 0);
+                  const ss = (item as any).salaryStructure;
+                  const net = ss ? Number(ss.netSalaryEstimate ?? 0) : 0;
+                  const cotiz = Math.max(0, Math.round(salary * 1.45 - net));
+                  totalDot += count;
+                  totalBase += salary * count;
+                  totalLiq += net * count;
+                  totalCotiz += cotiz * count;
+                }
+                return (
+                  <tfoot className="bg-muted/40 border-t-2 border-border">
+                    <tr className="font-semibold">
+                      <td colSpan={5} className="px-3 py-2 text-right text-muted-foreground">
+                        Totales (× dotación)
+                      </td>
+                      <td className="px-3 py-2 text-right">{totalDot}</td>
+                      <td className="px-3 py-2 text-right">
+                        ${Math.round(totalBase).toLocaleString("es-CL")}
+                      </td>
+                      <td className="px-3 py-2 text-right text-status-ok-fg">
+                        ${Math.round(totalLiq).toLocaleString("es-CL")}
+                      </td>
+                      <td className="px-3 py-2 text-right text-status-warn-fg">
+                        ${Math.round(totalCotiz).toLocaleString("es-CL")}
+                      </td>
+                      <td />
+                    </tr>
+                  </tfoot>
+                );
+              })()}
             </table>
           </div>
         </>
