@@ -11,10 +11,15 @@
 export interface SupervisorInstallation {
   id: string;
   name: string;
+  accountId?: string | null;
   accountName?: string | null;
   address?: string | null;
   status?: string | null;
   pairingCode?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+  geoRadiusM?: number | null;
+  teMontoClp?: number | null;
 }
 
 export interface SupervisorSession {
