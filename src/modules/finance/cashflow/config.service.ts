@@ -24,10 +24,13 @@ export async function updateCashflowConfig(
     autoIva: boolean;
     autoRecurringDte: boolean;
     payrollPayDay: number;
+    previRedPayDay: number;
     ivaPayDay: number;
     matchAmountToleranceClp: number;
     matchDaysTolerance: number;
     ufMonthlyGrowthPct: number;
+    turnosExtraMode: "HISTORICAL" | "PCT_PAYROLL";
+    turnosExtraPercentage: number;
   }>,
 ): Promise<FinanceCashflowConfig> {
   await getOrCreateCashflowConfig(tenantId);

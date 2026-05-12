@@ -1,19 +1,27 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { startOfMonth, subWeeks } from "date-fns";
+import { computeEmployerCost } from "@/modules/payroll/engine/compute-employer-cost";
 
 const TE_CATEGORY_CODE = "EGR_TURNO_EXTRA";
 
 type SyncAction = "created" | "updated" | "deactivated" | "reactivated" | "noop";
 
+interface ComputedTurnosExtra {
+  amount: number;
+  name: string | null;
+  /** Etiqueta para la descripción del item según el modo. */
+  detail: string;
+}
+
 /**
- * Calcula el promedio rolling de turnos extra mensuales para una instalación
- * (suma últimas 8 semanas / 8 * 4.33 = aprox mensual).
+ * Modo HISTORICAL: promedio rolling 8 semanas de OpsTurnoExtra.amountClp,
+ * proyectado a mensual con factor 4.33 sem/mes.
  */
-async function computeMonthlyTurnosExtraForInstallation(
+async function computeHistorical(
   tenantId: string,
   installationId: string,
-): Promise<{ amount: number; name: string | null; count: number } | null> {
+): Promise<ComputedTurnosExtra | null> {
   const since = subWeeks(new Date(), 8);
   const tes = await prisma.opsTurnoExtra.findMany({
     where: { tenantId, installationId, date: { gte: since } },
@@ -25,10 +33,64 @@ async function computeMonthlyTurnosExtraForInstallation(
   if (tes.length === 0) return null;
   const total = tes.reduce((s, t) => s + Number(t.amountClp ?? 0), 0);
   if (total <= 0) return null;
-  // Proyección mensual: total 8 semanas / 8 * 4.33 (semanas/mes promedio)
   const monthly = (total / 8) * 4.33;
-  const name = tes[0]?.installation?.name ?? null;
-  return { amount: Math.round(monthly), name, count: tes.length };
+  return {
+    amount: Math.round(monthly),
+    name: tes[0]?.installation?.name ?? null,
+    detail: `Promedio rolling 8 semanas (${tes.length} TE históricos)`,
+  };
+}
+
+/**
+ * Modo PCT_PAYROLL: porcentaje configurable aplicado al COSTO EMPLEADOR
+ * total de los puestos activos de la instalación. Útil cuando aún no hay
+ * historial de TE pero el negocio estima los TE como % de planilla.
+ */
+async function computeAsPctOfPayroll(
+  tenantId: string,
+  installationId: string,
+  pct: number,
+): Promise<ComputedTurnosExtra | null> {
+  if (pct <= 0) return null;
+  const puestos = await prisma.opsPuestoOperativo.findMany({
+    where: {
+      tenantId,
+      installationId,
+      active: true,
+      salaryStructureId: { not: null },
+    },
+    select: {
+      installation: { select: { name: true } },
+      salaryStructure: { select: { baseSalary: true } },
+    },
+  });
+  if (puestos.length === 0) return null;
+  let employerTotal = 0;
+  let name: string | null = null;
+  for (const p of puestos) {
+    if (!p.salaryStructure) continue;
+    if (!name) name = p.installation?.name ?? null;
+    const baseSalary = Number(p.salaryStructure.baseSalary ?? 0);
+    if (baseSalary <= 0) continue;
+    let employerCost = baseSalary * 1.45;
+    try {
+      const r = await computeEmployerCost({
+        base_salary_clp: baseSalary,
+        contract_type: "indefinite",
+      });
+      if (r?.monthly_employer_cost_clp) employerCost = r.monthly_employer_cost_clp;
+    } catch {
+      // fallback al factor
+    }
+    employerTotal += employerCost;
+  }
+  if (employerTotal <= 0) return null;
+  const amount = Math.round(employerTotal * pct);
+  return {
+    amount,
+    name,
+    detail: `${(pct * 100).toFixed(1)}% de planilla mensual`,
+  };
 }
 
 export async function syncTurnosExtraItemForInstallation(
@@ -41,7 +103,17 @@ export async function syncTurnosExtraItemForInstallation(
   });
   if (!cat) return { action: "noop" };
 
-  const computed = await computeMonthlyTurnosExtraForInstallation(tenantId, installationId);
+  const config = await prisma.financeCashflowConfig.findUnique({
+    where: { tenantId },
+    select: { turnosExtraMode: true, turnosExtraPercentage: true },
+  });
+  const mode = config?.turnosExtraMode ?? "HISTORICAL";
+  const pct = Number(config?.turnosExtraPercentage ?? 0);
+
+  const computed =
+    mode === "PCT_PAYROLL"
+      ? await computeAsPctOfPayroll(tenantId, installationId, pct)
+      : await computeHistorical(tenantId, installationId);
 
   const existing = await prisma.financeCashflowItem.findFirst({
     where: { tenantId, source: "TURNOS_EXTRA", sourceRefId: installationId },
@@ -65,7 +137,7 @@ export async function syncTurnosExtraItemForInstallation(
     source: "TURNOS_EXTRA" as const,
     sourceRefId: installationId,
     name: `Turnos extra · ${computed.name ?? "instalación"}`,
-    description: `Promedio rolling 8 semanas (${computed.count} TE históricos)`,
+    description: computed.detail,
     amount: computed.amount,
     currency: "CLP",
     recurrence: "MONTHLY" as const,

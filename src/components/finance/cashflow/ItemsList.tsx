@@ -49,6 +49,22 @@ export function ItemsList({ canManage }: { canManage: boolean }) {
   const [filterKind, setFilterKind] = useState<string>("all");
   const [filterSource, setFilterSource] = useState<string>("all");
   const [search, setSearch] = useState("");
+  // Por default escondemos los auto-generados (contratos, sueldos, IVA,
+  // turnos extra, DTE recurrentes). Esos viven en sus propios módulos y
+  // no se editan desde acá; aparecen en la matriz semanal/mensual igual.
+  const [includeAuto, setIncludeAuto] = useState<boolean>(false);
+
+  // Sources considerados "auto-generados": no se editan desde esta UI,
+  // se derivan de otros datos (dotación, DTEs, contratos CRM, etc.).
+  const AUTO_SOURCES = new Set([
+    "CONTRACT",
+    "PAYROLL",
+    "PAYROLL_LIQUIDO",
+    "PAYROLL_PREVIRED",
+    "TURNOS_EXTRA",
+    "IVA",
+    "RECURRING_DTE",
+  ]);
   const [editing, setEditing] = useState<ItemRow | null>(null);
   const [creating, setCreating] = useState(false);
 
@@ -83,9 +99,10 @@ export function ItemsList({ canManage }: { canManage: boolean }) {
     else alert(j?.error ?? "Error al eliminar");
   }
 
-  const filtered = items.filter((i) =>
-    search ? i.name.toLowerCase().includes(search.toLowerCase()) : true,
-  );
+  const filtered = items.filter((i) => {
+    if (!includeAuto && AUTO_SOURCES.has(i.source)) return false;
+    return search ? i.name.toLowerCase().includes(search.toLowerCase()) : true;
+  });
 
   return (
     <Surface elevation={1} padding="md">
@@ -119,6 +136,15 @@ export function ItemsList({ canManage }: { canManage: boolean }) {
               <SelectItem value="OTHER">Otros</SelectItem>
             </SelectContent>
           </Select>
+          <label className="flex items-center gap-1.5 text-[12px] text-ds-text-3 cursor-pointer h-10 sm:h-9 px-2 rounded-md border border-border bg-background hover:bg-muted/30">
+            <input
+              type="checkbox"
+              checked={includeAuto}
+              onChange={(e) => setIncludeAuto(e.target.checked)}
+              className="rounded border-border"
+            />
+            Incluir auto-generados
+          </label>
         </div>
         {canManage && (
           <Button

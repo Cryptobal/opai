@@ -4,18 +4,33 @@ import { startOfMonth } from "date-fns";
 import { computeEmployerCost } from "@/modules/payroll/engine/compute-employer-cost";
 
 const PAYROLL_CATEGORY_CODE = "EGR_SUELDO";
+const PREVIRED_CATEGORY_CODE = "EGR_PREVIRED";
 
 type SyncAction = "created" | "updated" | "deactivated" | "reactivated" | "noop";
 
 /**
- * Calcula el costo empleador mensual estimado para una instalación
- * sumando el costo de cada puesto operativo activo con salary structure.
- * Reusa la fórmula de payroll-from-dotacion.ts.
+ * Aproximación standard de descuentos al trabajador para proyección
+ * agregada: AFP 10–12% + Salud 7% + AFC trab 0.6% ≈ 17.6%. Usamos 17% como
+ * conservador (subestima imposiciones, sobreestima líquido). Es suficiente
+ * para cashflow forecasting; el detalle real lo da `simulate-payslip` por
+ * guardia individual.
  */
+const WORKER_DEDUCTION_FACTOR = 0.17;
+
+interface PayrollAmounts {
+  /** Líquido total mensual al guardia (lo que se transfiere fin de mes). */
+  liquido: number;
+  /** Pago a PreviRed (imposiciones trab + aportes empleador). */
+  previRed: number;
+  /** Costo empleador total (línea legacy). */
+  total: number;
+  name: string | null;
+}
+
 async function computeMonthlyPayrollForInstallation(
   tenantId: string,
   installationId: string,
-): Promise<{ amount: number; name: string | null } | null> {
+): Promise<PayrollAmounts | null> {
   const puestos = await prisma.opsPuestoOperativo.findMany({
     where: {
       tenantId,
@@ -31,13 +46,15 @@ async function computeMonthlyPayrollForInstallation(
   if (puestos.length === 0) return null;
 
   const useFullCompute = puestos.length <= 50;
-  let total = 0;
+  let grossTotal = 0;
+  let employerTotal = 0;
   let name: string | null = null;
   for (const p of puestos) {
     if (!p.salaryStructure) continue;
     if (!name) name = p.installation?.name ?? null;
     const baseSalary = Number(p.salaryStructure.baseSalary ?? 0);
     if (baseSalary <= 0) continue;
+    grossTotal += baseSalary;
     let employerCost = baseSalary * 1.45;
     if (useFullCompute) {
       try {
@@ -50,76 +67,150 @@ async function computeMonthlyPayrollForInstallation(
         // fallback al factor
       }
     }
-    total += employerCost;
+    employerTotal += employerCost;
   }
-  if (total <= 0) return null;
-  return { amount: total, name };
+  if (employerTotal <= 0) return null;
+
+  const liquido = Math.round(grossTotal * (1 - WORKER_DEDUCTION_FACTOR));
+  const previRed = Math.max(0, Math.round(employerTotal - liquido));
+  return { liquido, previRed, total: Math.round(employerTotal), name };
+}
+
+/** Crea/actualiza un FinanceCashflowItem para una variante específica. */
+async function upsertPayrollVariant(args: {
+  tenantId: string;
+  installationId: string;
+  source: "PAYROLL_LIQUIDO" | "PAYROLL_PREVIRED";
+  categoryId: string;
+  name: string;
+  description: string;
+  amount: number;
+  dayOfMonth: number;
+}): Promise<SyncAction> {
+  const existing = await prisma.financeCashflowItem.findFirst({
+    where: {
+      tenantId: args.tenantId,
+      source: args.source,
+      sourceRefId: args.installationId,
+    },
+  });
+  const data = {
+    tenantId: args.tenantId,
+    categoryId: args.categoryId,
+    kind: "EXPENSE" as const,
+    source: args.source,
+    sourceRefId: args.installationId,
+    name: args.name,
+    description: args.description,
+    amount: args.amount,
+    currency: "CLP",
+    recurrence: "MONTHLY" as const,
+    dayOfMonth: args.dayOfMonth,
+    dayOfWeek: null,
+    monthOfYear: null,
+    startDate: startOfMonth(new Date()),
+    endDate: null,
+    installationId: args.installationId,
+    isActive: true,
+  };
+  if (existing) {
+    await prisma.financeCashflowItem.update({ where: { id: existing.id }, data });
+    return existing.isActive ? "updated" : "reactivated";
+  }
+  await prisma.financeCashflowItem.create({ data });
+  return "created";
 }
 
 /**
  * Idempotente: garantiza que cada instalación con dotación activa tenga
- * un FinanceCashflowItem con source=PAYROLL, sourceRefId=installationId.
+ * DOS items en el cashflow:
+ *   - PAYROLL_LIQUIDO: el monto que se transfiere al guardia (día payrollPayDay)
+ *   - PAYROLL_PREVIRED: el pago a PreviRed (día previRedPayDay del mes siguiente)
+ *
+ * Si existía un item legacy source=PAYROLL (monolítico), se desactiva al
+ * recomputar.
  */
 export async function syncPayrollItemForInstallation(
   tenantId: string,
   installationId: string,
 ): Promise<{ action: SyncAction }> {
-  const cat = await prisma.financeCashflowCategory.findFirst({
-    where: { tenantId, code: PAYROLL_CATEGORY_CODE, isActive: true },
-    select: { id: true },
+  const cats = await prisma.financeCashflowCategory.findMany({
+    where: {
+      tenantId,
+      code: { in: [PAYROLL_CATEGORY_CODE, PREVIRED_CATEGORY_CODE] },
+      isActive: true,
+    },
+    select: { id: true, code: true },
   });
-  if (!cat) return { action: "noop" };
+  const sueldoCat = cats.find((c) => c.code === PAYROLL_CATEGORY_CODE);
+  // PreviRed cae al mismo bucket conceptual que sueldos si no hay categoría
+  // dedicada. Preferimos la específica cuando exista.
+  const previRedCat = cats.find((c) => c.code === PREVIRED_CATEGORY_CODE) ?? sueldoCat;
+  if (!sueldoCat || !previRedCat) return { action: "noop" };
 
   const config = await prisma.financeCashflowConfig.findUnique({
     where: { tenantId },
-    select: { payrollPayDay: true },
+    select: { payrollPayDay: true, previRedPayDay: true },
   });
-  const payDay = config?.payrollPayDay ?? 5;
+  const payDay = config?.payrollPayDay ?? 30;
   const dom = payDay === -1 ? -1 : Math.min(Math.max(payDay, 1), 28);
+  const previRedDay = config?.previRedPayDay ?? 10;
+  const previRedDom =
+    previRedDay === -1 ? -1 : Math.min(Math.max(previRedDay, 1), 28);
 
   const computed = await computeMonthlyPayrollForInstallation(tenantId, installationId);
 
-  const existing = await prisma.financeCashflowItem.findFirst({
-    where: { tenantId, source: "PAYROLL", sourceRefId: installationId },
+  // Desactivar items legacy PAYROLL (versión monolítica anterior) — quedaron
+  // en BD antes del split de 2026-05. Solo desactiva, no borra, para no
+  // perder occurrences PAID conciliadas con banco.
+  await prisma.financeCashflowItem.updateMany({
+    where: {
+      tenantId,
+      source: "PAYROLL",
+      sourceRefId: installationId,
+      isActive: true,
+    },
+    data: { isActive: false },
   });
 
   if (!computed) {
-    if (existing && existing.isActive) {
-      await prisma.financeCashflowItem.update({
-        where: { id: existing.id },
-        data: { isActive: false },
-      });
-      return { action: "deactivated" };
-    }
-    return { action: "noop" };
+    // Sin dotación: desactivar variants vivas si las hay.
+    const r = await prisma.financeCashflowItem.updateMany({
+      where: {
+        tenantId,
+        source: { in: ["PAYROLL_LIQUIDO", "PAYROLL_PREVIRED"] },
+        sourceRefId: installationId,
+        isActive: true,
+      },
+      data: { isActive: false },
+    });
+    return { action: r.count > 0 ? "deactivated" : "noop" };
   }
 
-  const data = {
+  const baseName = computed.name ?? "instalación";
+  const a = await upsertPayrollVariant({
     tenantId,
-    categoryId: cat.id,
-    kind: "EXPENSE" as const,
-    source: "PAYROLL" as const,
-    sourceRefId: installationId,
-    name: `Sueldos · ${computed.name ?? "instalación"}`,
-    description: "Costo empleador mensual estimado (dotación activa)",
-    amount: Math.round(computed.amount),
-    currency: "CLP",
-    recurrence: "MONTHLY" as const,
-    dayOfMonth: dom,
-    dayOfWeek: null,
-    monthOfYear: null,
-    startDate: startOfMonth(new Date()),
-    endDate: null,
     installationId,
-    isActive: true,
-  };
-
-  if (existing) {
-    await prisma.financeCashflowItem.update({ where: { id: existing.id }, data });
-    return { action: existing.isActive ? "updated" : "reactivated" };
-  }
-  await prisma.financeCashflowItem.create({ data });
-  return { action: "created" };
+    source: "PAYROLL_LIQUIDO",
+    categoryId: sueldoCat.id,
+    name: `Sueldos líquidos · ${baseName}`,
+    description: "Líquido al guardia (transferencia mensual)",
+    amount: computed.liquido,
+    dayOfMonth: dom,
+  });
+  const b = await upsertPayrollVariant({
+    tenantId,
+    installationId,
+    source: "PAYROLL_PREVIRED",
+    categoryId: previRedCat.id,
+    name: `PreviRed · ${baseName}`,
+    description: "Imposiciones (AFP + Salud + AFC + SIS + mutual)",
+    amount: computed.previRed,
+    dayOfMonth: previRedDom,
+  });
+  // Reportamos el "peor caso" (en orden de novedad): created > reactivated > updated > noop.
+  const order = { created: 4, reactivated: 3, updated: 2, deactivated: 1, noop: 0 } as const;
+  return { action: order[a] >= order[b] ? a : b };
 }
 
 export interface RecomputeStats {
@@ -129,16 +220,17 @@ export interface RecomputeStats {
   deactivated: number;
 }
 
-/** Recorre todas las instalaciones del tenant y refresca el item de payroll. */
+/** Recorre todas las instalaciones del tenant y refresca payroll. */
 export async function recomputePayrollAmounts(tenantId: string): Promise<RecomputeStats> {
   const installations = await prisma.crmInstallation.findMany({
     where: { tenantId },
     select: { id: true },
   });
-  // También procesar instalaciones que ya tienen item PAYROLL pero ya no
-  // tienen dotación (las "huérfanas") para desactivarlas.
   const orphans = await prisma.financeCashflowItem.findMany({
-    where: { tenantId, source: "PAYROLL" },
+    where: {
+      tenantId,
+      source: { in: ["PAYROLL", "PAYROLL_LIQUIDO", "PAYROLL_PREVIRED"] },
+    },
     select: { sourceRefId: true },
   });
   const targets = new Set<string>();
@@ -161,7 +253,10 @@ export async function setPayrollItemsActive(
   active: boolean,
 ): Promise<{ affected: number }> {
   const r = await prisma.financeCashflowItem.updateMany({
-    where: { tenantId, source: "PAYROLL" },
+    where: {
+      tenantId,
+      source: { in: ["PAYROLL", "PAYROLL_LIQUIDO", "PAYROLL_PREVIRED"] },
+    },
     data: { isActive: active },
   });
   return { affected: r.count };

@@ -44,7 +44,11 @@ export async function ensureCashflowSynced(tenantId: string): Promise<{
         distinct: ["installationId"],
       }),
       prisma.financeCashflowItem.count({
-        where: { tenantId, source: "PAYROLL", isActive: true },
+        where: {
+          tenantId,
+          source: { in: ["PAYROLL", "PAYROLL_LIQUIDO", "PAYROLL_PREVIRED"] },
+          isActive: true,
+        },
       }),
     ]);
     const installationsWithDotacion = puestosRows.filter(

@@ -15,6 +15,8 @@ const SOURCE_BADGE: Record<FinanceCashflowItemSource, string | null> = {
   MANUAL: null,
   CONTRACT: "Contrato",
   PAYROLL: "Sueldos",
+  PAYROLL_LIQUIDO: "Líquido",
+  PAYROLL_PREVIRED: "PreviRed",
   RECURRING_DTE: "DTE recurrente",
   SUPPLIER: "Proveedor",
   IVA: "F29",
@@ -34,6 +36,8 @@ function sourceLink(source: FinanceCashflowItemSource, item: ProjectionRowItemDe
 
   switch (source) {
     case "PAYROLL":
+    case "PAYROLL_LIQUIDO":
+    case "PAYROLL_PREVIRED":
     case "TURNOS_EXTRA":
       return item.installationId
         ? `/configuracion/instalaciones/${item.installationId}`

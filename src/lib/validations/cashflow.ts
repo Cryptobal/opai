@@ -10,10 +10,14 @@ export const updateCashflowConfigSchema = z.object({
   autoIva: z.boolean().optional(),
   autoRecurringDte: z.boolean().optional(),
   payrollPayDay: z.number().int().min(-1).max(31).optional(),
+  previRedPayDay: z.number().int().min(1).max(28).optional(),
   ivaPayDay: z.number().int().min(1).max(28).optional(),
   matchAmountToleranceClp: z.number().int().min(0).max(1000000).optional(),
   matchDaysTolerance: z.number().int().min(0).max(30).optional(),
   ufMonthlyGrowthPct: z.number().min(0).max(5).optional(),
+  turnosExtraMode: z.enum(["HISTORICAL", "PCT_PAYROLL"]).optional(),
+  // % como fracción: 0.05 = 5%. Cap a 0.5 por sanity.
+  turnosExtraPercentage: z.number().min(0).max(0.5).optional(),
 });
 
 export const createCashflowCategorySchema = z.object({

@@ -7465,11 +7465,31 @@ enum FinanceCashflowItemSource {
   MANUAL
   CONTRACT
   PAYROLL
+  /// Sueldo líquido al guardia. Paga el día `config.payrollPayDay` del
+  /// mismo mes (típicamente día 30). Generado por payroll-sync desde la
+  /// dotación de instalaciones (simulate-payslip para descontar AFP/Salud/AFC).
+  PAYROLL_LIQUIDO
+  /// Pago de imposiciones a PreviRed (AFP + Isapre + AFC trab + SIS + AFC
+  /// emp + mutual). Paga el día `config.previRedPayDay` del MES SIGUIENTE
+  /// al período trabajado (típicamente día 10).
+  PAYROLL_PREVIRED
   RECURRING_DTE
   SUPPLIER
   IVA
   TURNOS_EXTRA
   OTHER
+
+  @@schema("finance")
+}
+
+/// Estrategia para proyectar turnos extra en flujo de caja.
+/// - HISTORICAL: promedio rolling 8 semanas de OpsTurnoExtra.amountClp.
+/// - PCT_PAYROLL: porcentaje configurable aplicado a la suma de sueldos
+///   brutos del mes. Útil cuando aún no hay historia o cuando el negocio
+///   estima los TE como % de planilla.
+enum FinanceTurnosExtraMode {
+  HISTORICAL
+  PCT_PAYROLL
 
   @@schema("finance")
 }
@@ -7497,7 +7517,14 @@ model FinanceCashflowConfig {
   autoIva                 Boolean  @default(true) @map("auto_iva")
   autoRecurringDte        Boolean  @default(true) @map("auto_recurring_dte")
   payrollPayDay           Int      @default(5) @map("payroll_pay_day")
+  /// Día del mes para pagar PreviRed (imposiciones del mes anterior).
+  /// 10 = día 10 hábil del mes siguiente al período trabajado.
+  previRedPayDay          Int      @default(10) @map("previred_pay_day")
   ivaPayDay               Int      @default(12) @map("iva_pay_day")
+  /// Cómo proyectar turnos extra. Default HISTORICAL (rolling 8 semanas).
+  turnosExtraMode         FinanceTurnosExtraMode @default(HISTORICAL) @map("turnos_extra_mode")
+  /// % de sueldos brutos cuando mode=PCT_PAYROLL (ej. 0.05 = 5%).
+  turnosExtraPercentage   Decimal  @default(0) @map("turnos_extra_percentage") @db.Decimal(6, 4)
   matchAmountToleranceClp Int      @default(5000) @map("match_amount_tolerance_clp")
   matchDaysTolerance      Int      @default(3) @map("match_days_tolerance")
   /// Crecimiento mensual de la UF en % (ej. 0.30 = 0,3% por mes). Sólo

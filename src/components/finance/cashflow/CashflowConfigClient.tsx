@@ -26,10 +26,16 @@ interface CashflowConfig {
   autoIva: boolean;
   autoRecurringDte: boolean;
   payrollPayDay: number;
+  /** Día del mes para pagar PreviRed (imposiciones del mes anterior). */
+  previRedPayDay: number;
   ivaPayDay: number;
   matchAmountToleranceClp: number;
   matchDaysTolerance: number;
   ufMonthlyGrowthPct?: number;
+  /** Modo de proyección de turnos extra. */
+  turnosExtraMode: "HISTORICAL" | "PCT_PAYROLL";
+  /** % de planilla cuando mode=PCT_PAYROLL (0.05 = 5%). */
+  turnosExtraPercentage: number;
 }
 
 interface Category {
@@ -260,7 +266,7 @@ export function CashflowConfigClient({ initialConfig, initialCategories, account
             </Select>
           </div>
           <div>
-            <Label>Día pago de sueldos</Label>
+            <Label>Día pago de sueldos (líquido)</Label>
             <Input
               className="h-10 sm:h-9"
               type="number"
@@ -270,7 +276,21 @@ export function CashflowConfigClient({ initialConfig, initialCategories, account
               onChange={(e) => setField("payrollPayDay", Number(e.target.value))}
             />
             <p className="mt-1 text-[12px] text-ds-text-3">
-              Día del mes en que se proyecta el pago. Usa <code className="font-mono">-1</code> para el último día del mes.
+              Día del mes en que se proyecta el pago del líquido al guardia. Usa <code className="font-mono">-1</code> para el último día.
+            </p>
+          </div>
+          <div>
+            <Label>Día pago PreviRed (imposiciones)</Label>
+            <Input
+              className="h-10 sm:h-9"
+              type="number"
+              min={1}
+              max={28}
+              value={config.previRedPayDay}
+              onChange={(e) => setField("previRedPayDay", Number(e.target.value))}
+            />
+            <p className="mt-1 text-[12px] text-ds-text-3">
+              Día del mes siguiente en que pagás imposiciones (AFP + Salud + AFC + SIS + mutual). Plazo legal: día 10 hábil.
             </p>
           </div>
           <div>
@@ -313,6 +333,52 @@ export function CashflowConfigClient({ initialConfig, initialCategories, account
             />
             <p className="mt-1 text-[12px] text-ds-text-3">
               Un movimiento puede no caer exactamente el día proyectado. Ej: pagaste Movistar el día 7 pero lo proyectaste para el 5 → diferencia de 2 días. Este número es el <strong>máximo de días de diferencia</strong> aceptado. Recomendado: <strong>3 días</strong> para gastos fijos, <strong>5 días</strong> si tu banco demora en procesar.
+            </p>
+          </div>
+          <div>
+            <Label>Modo de proyección turnos extra</Label>
+            <Select
+              value={config.turnosExtraMode}
+              onValueChange={(v) =>
+                setField("turnosExtraMode", v as "HISTORICAL" | "PCT_PAYROLL")
+              }
+            >
+              <SelectTrigger className="h-10 sm:h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="HISTORICAL">Histórico (rolling 8 semanas)</SelectItem>
+                <SelectItem value="PCT_PAYROLL">% de planilla mensual</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="mt-1 text-[12px] text-ds-text-3">
+              <strong>Histórico</strong>: promedia los últimos 2 meses de TE
+              registrados. Bien si hay historia. <strong>% de planilla</strong>:
+              aplica el porcentaje configurado al costo empleador mensual.
+              Útil cuando aún no hay historia o querés un techo predecible.
+            </p>
+          </div>
+          <div>
+            <Label>% turnos extra sobre planilla</Label>
+            <Input
+              className="h-10 sm:h-9"
+              type="number"
+              min={0}
+              max={50}
+              step={0.5}
+              disabled={config.turnosExtraMode !== "PCT_PAYROLL"}
+              value={
+                config.turnosExtraMode === "PCT_PAYROLL"
+                  ? Number((config.turnosExtraPercentage * 100).toFixed(2))
+                  : 0
+              }
+              onChange={(e) =>
+                setField("turnosExtraPercentage", Number(e.target.value) / 100)
+              }
+            />
+            <p className="mt-1 text-[12px] text-ds-text-3">
+              Aplicado al costo empleador total mensual cuando el modo es{" "}
+              <strong>% de planilla</strong>. Ej: 5 = 5% del costo de sueldos.
             </p>
           </div>
           <div className="sm:col-span-2">

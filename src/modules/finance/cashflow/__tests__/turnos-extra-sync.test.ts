@@ -1,11 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("server-only", () => ({}));
+vi.mock("@/modules/payroll/engine/compute-employer-cost", () => ({
+  computeEmployerCost: vi.fn(async ({ base_salary_clp }) => ({
+    monthly_employer_cost_clp: Math.round(base_salary_clp * 1.45),
+  })),
+}));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     opsTurnoExtra: { findMany: vi.fn() },
+    opsPuestoOperativo: { findMany: vi.fn() },
     crmInstallation: { findMany: vi.fn() },
     financeCashflowCategory: { findFirst: vi.fn() },
+    financeCashflowConfig: { findUnique: vi.fn() },
     financeCashflowItem: {
       findFirst: vi.fn(),
       findMany: vi.fn(),
@@ -29,6 +36,11 @@ beforeEach(() => {
   vi.clearAllMocks();
   (prisma.financeCashflowCategory.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
     id: "cat-te",
+  });
+  // Default: modo HISTORICAL (comportamiento histórico).
+  (prisma.financeCashflowConfig.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+    turnosExtraMode: "HISTORICAL",
+    turnosExtraPercentage: 0,
   });
 });
 
@@ -101,5 +113,42 @@ describe("recomputeTurnosExtraAmounts", () => {
     const stats = await recomputeTurnosExtraAmounts(TENANT);
     expect(stats.created).toBe(1);
     expect(stats.deactivated).toBe(1);
+  });
+});
+
+describe("modo PCT_PAYROLL", () => {
+  it("aplica el porcentaje al costo empleador de los puestos activos", async () => {
+    (prisma.financeCashflowConfig.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+      turnosExtraMode: "PCT_PAYROLL",
+      turnosExtraPercentage: 0.05, // 5%
+    });
+    (prisma.opsPuestoOperativo.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { installation: { name: "X" }, salaryStructure: { baseSalary: 1_000_000 } },
+      { installation: { name: "X" }, salaryStructure: { baseSalary: 1_000_000 } },
+    ]);
+    (prisma.financeCashflowItem.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (prisma.financeCashflowItem.create as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "x" });
+
+    const r = await syncTurnosExtraItemForInstallation(TENANT, INST);
+    expect(r.action).toBe("created");
+    const call = (prisma.financeCashflowItem.create as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    // 2 * 1.000.000 * 1.45 = 2.900.000 costo empleador. 5% = 145.000.
+    expect(call.data.amount).toBe(145_000);
+    expect(call.data.description).toContain("5.0%");
+  });
+
+  it("no proyecta nada si pct=0", async () => {
+    (prisma.financeCashflowConfig.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+      turnosExtraMode: "PCT_PAYROLL",
+      turnosExtraPercentage: 0,
+    });
+    (prisma.opsPuestoOperativo.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { installation: { name: "X" }, salaryStructure: { baseSalary: 500_000 } },
+    ]);
+    (prisma.financeCashflowItem.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+
+    const r = await syncTurnosExtraItemForInstallation(TENANT, INST);
+    expect(r.action).toBe("noop");
+    expect(prisma.financeCashflowItem.create).not.toHaveBeenCalled();
   });
 });
