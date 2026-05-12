@@ -1089,84 +1089,144 @@ export function AccountContractsSection({
                     </span>
                   </div>
                   {/* ── Flujo de Caja por instalación ── */}
-                  <div className="mt-2 space-y-1.5">
-                    {c.cashflowItems.map((item) => {
-                      const instName = item.installationId
-                        ? installations.find((i) => i.id === item.installationId)?.name ?? item.installationId.slice(0, 8)
-                        : null;
-                      return (
-                        <div
-                          key={item.itemId}
-                          className="flex flex-wrap items-center gap-2 rounded-md bg-status-ok-soft border border-status-ok-border px-2.5 py-1.5"
-                        >
-                          <Wallet className="h-3.5 w-3.5 text-status-ok-fg shrink-0" />
-                          <span className="text-[12px] font-mono uppercase tracking-[0.08em] text-status-ok-fg">
-                            {instName ?? "En flujo de caja"}
-                          </span>
-                          <span className="text-[13px] font-semibold tabular-nums text-status-ok-fg">
-                            {renderAmountWithCurrency(item.amountClp, item.currency)}/mes
-                          </span>
-                          <span className="text-[12px] text-muted-foreground">
-                            · día {item.dayOfMonth === -1 ? "último" : item.dayOfMonth}
-                          </span>
-                          {item.pendingIpcAdjustments && item.pendingIpcAdjustments.length > 0 && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const next = item.pendingIpcAdjustments![0];
-                                setIpcModal({
-                                  adjustmentId: next.id,
-                                  contractTitle: c.title,
-                                  dueDate: next.dueDate,
-                                  currentAmount: item.amountClp,
-                                  currency: item.currency,
-                                });
-                              }}
-                              className="inline-flex items-center gap-1 rounded-md bg-status-warn-soft text-status-warn-fg text-[12px] font-medium px-2 py-0.5 hover:bg-status-warn-soft/80 transition-colors"
-                              title="Aplicar ajuste IPC pendiente"
-                            >
-                              <TrendingUp className="h-3 w-3" />
-                              Ajuste IPC
-                            </button>
-                          )}
-                          <div className="flex gap-1 ml-auto">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 px-2 text-[12px]"
-                              onClick={() => openCfItemDialog(c, item)}
-                              title="Editar monto, instalación y día de pago"
-                            >
-                              <Pencil className="h-3 w-3 mr-1" />
-                              Editar
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 w-7 p-0 text-destructive"
-                              onClick={() => deleteFcItem(c.id, item.itemId)}
-                              title="Quitar del flujo de caja"
-                            >
-                              <X className="h-3 w-3" />
-                            </Button>
+                  {(() => {
+                    // Detección de items "huérfanos": si el contrato tiene
+                    // items por instalación + items globales (sin installationId),
+                    // los globales muy probablemente sean el monto antiguo
+                    // (creado al subir el contrato con N instalaciones, donde
+                    // se crea un único item con installationId=null). Eso
+                    // duplica el monto en el flujo de caja.
+                    const hasInstItems = c.cashflowItems.some(
+                      (i) => i.installationId,
+                    );
+                    const hasGlobalItems = c.cashflowItems.some(
+                      (i) => !i.installationId,
+                    );
+                    const hasOrphanGlobals = hasInstItems && hasGlobalItems;
+                    return (
+                      <div className="mt-2 space-y-1.5">
+                        {hasOrphanGlobals && (
+                          <div className="flex items-start gap-2 rounded-md bg-status-warn-soft border border-status-warn-border px-2.5 py-2 text-[12px] text-status-warn-fg">
+                            <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium">
+                                Posible monto duplicado
+                              </p>
+                              <p className="text-[12px] opacity-90">
+                                Este contrato tiene un ítem global (sin
+                                instalación) <strong>más</strong> ítems por
+                                instalación. El global probablemente es el monto
+                                antiguo y se está sumando dos veces en el flujo
+                                de caja. Quítalo o conviértelo a una instalación
+                                específica.
+                              </p>
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })}
-                    {/* Botón para agregar una instalación más al FC */}
-                    <button
-                      type="button"
-                      onClick={() => openCfItemDialog(c, null)}
-                      className="w-full flex items-center gap-2 rounded-md border border-dashed border-status-ok-fg/40 bg-status-ok-soft/10 hover:bg-status-ok-soft/30 hover:border-status-ok-fg/70 px-3 py-1.5 text-left transition-colors"
-                    >
-                      <PlusCircle className="h-3.5 w-3.5 text-status-ok-fg shrink-0" />
-                      <span className="text-[12px] font-medium text-foreground">
-                        {c.cashflowItems.length === 0
-                          ? "Agregar a flujo de caja"
-                          : "Agregar otra instalación al FC"}
-                      </span>
-                    </button>
-                  </div>
+                        )}
+                        {c.cashflowItems.map((item) => {
+                          const instName = item.installationId
+                            ? installations.find((i) => i.id === item.installationId)?.name ?? item.installationId.slice(0, 8)
+                            : null;
+                          const isOrphan = hasOrphanGlobals && !item.installationId;
+                          return (
+                            <div
+                              key={item.itemId}
+                              className={cn(
+                                "flex flex-wrap items-center gap-2 rounded-md px-2.5 py-1.5 border",
+                                isOrphan
+                                  ? "bg-status-warn-soft border-status-warn-border"
+                                  : "bg-status-ok-soft border-status-ok-border",
+                              )}
+                            >
+                              <Wallet
+                                className={cn(
+                                  "h-3.5 w-3.5 shrink-0",
+                                  isOrphan ? "text-status-warn-fg" : "text-status-ok-fg",
+                                )}
+                              />
+                              <span
+                                className={cn(
+                                  "text-[12px] font-mono uppercase tracking-[0.08em]",
+                                  isOrphan ? "text-status-warn-fg" : "text-status-ok-fg",
+                                )}
+                              >
+                                {instName ?? (isOrphan ? "Monto antiguo (sin instalación)" : "En flujo de caja")}
+                              </span>
+                              <span
+                                className={cn(
+                                  "text-[13px] font-semibold tabular-nums",
+                                  isOrphan ? "text-status-warn-fg" : "text-status-ok-fg",
+                                )}
+                              >
+                                {renderAmountWithCurrency(item.amountClp, item.currency)}/mes
+                              </span>
+                              <span className="text-[12px] text-muted-foreground">
+                                · día {item.dayOfMonth === -1 ? "último" : item.dayOfMonth}
+                              </span>
+                              {item.pendingIpcAdjustments && item.pendingIpcAdjustments.length > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const next = item.pendingIpcAdjustments![0];
+                                    setIpcModal({
+                                      adjustmentId: next.id,
+                                      contractTitle: c.title,
+                                      dueDate: next.dueDate,
+                                      currentAmount: item.amountClp,
+                                      currency: item.currency,
+                                    });
+                                  }}
+                                  className="inline-flex items-center gap-1 rounded-md bg-status-warn-soft text-status-warn-fg text-[12px] font-medium px-2 py-0.5 hover:bg-status-warn-soft/80 transition-colors"
+                                  title="Aplicar ajuste IPC pendiente"
+                                >
+                                  <TrendingUp className="h-3 w-3" />
+                                  Ajuste IPC
+                                </button>
+                              )}
+                              <div className="flex gap-1 ml-auto">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 px-2 text-[12px]"
+                                  onClick={() => openCfItemDialog(c, item)}
+                                  title="Editar monto, instalación y día de pago"
+                                >
+                                  <Pencil className="h-3 w-3 mr-1" />
+                                  Editar
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className={cn(
+                                    "h-7 p-0 text-destructive",
+                                    isOrphan ? "px-2 text-[12px] w-auto" : "w-7",
+                                  )}
+                                  onClick={() => deleteFcItem(c.id, item.itemId)}
+                                  title="Quitar del flujo de caja"
+                                >
+                                  <X className="h-3 w-3" />
+                                  {isOrphan && <span className="ml-1">Quitar</span>}
+                                </Button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {/* Botón para agregar una instalación más al FC */}
+                        <button
+                          type="button"
+                          onClick={() => openCfItemDialog(c, null)}
+                          className="w-full flex items-center gap-2 rounded-md border border-dashed border-status-ok-fg/40 bg-status-ok-soft/10 hover:bg-status-ok-soft/30 hover:border-status-ok-fg/70 px-3 py-1.5 text-left transition-colors"
+                        >
+                          <PlusCircle className="h-3.5 w-3.5 text-status-ok-fg shrink-0" />
+                          <span className="text-[12px] font-medium text-foreground">
+                            {c.cashflowItems.length === 0
+                              ? "Agregar a flujo de caja"
+                              : "Agregar otra instalación al FC"}
+                          </span>
+                        </button>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 <div className="flex items-center gap-1 shrink-0 self-end sm:self-center">

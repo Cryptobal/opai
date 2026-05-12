@@ -160,7 +160,7 @@ export function ExpandableMatrixRow({
             <div className="relative inline-flex items-center justify-end gap-1">
               {hasIpcInBucket && (
                 <TrendingUp
-                  className="h-3 w-3 text-amber-600 shrink-0"
+                  className="h-3 w-3 text-status-warn-fg shrink-0"
                   aria-label="Reajuste IPC pendiente este mes"
                 />
               )}
@@ -179,7 +179,9 @@ export function ExpandableMatrixRow({
               key={v.bucketKey}
               bucketKey={v.bucketKey}
               className={`p-2 text-right text-ds-text-2 whitespace-nowrap ${
-                hasIpcInBucket ? "bg-amber-50/60" : ""
+                hasIpcInBucket
+                  ? "bg-status-warn-soft ring-1 ring-status-warn-border"
+                  : ""
               }`}
             >
               <CellActionPopover
@@ -386,13 +388,15 @@ function ClientGroup({
             <td
               key={b.key}
               className={`p-2 text-right font-mono text-[12px] tabular-nums text-ds-text-2 whitespace-nowrap ${
-                hasIpc ? "bg-amber-50/60" : ""
+                hasIpc
+                  ? "bg-status-warn-soft ring-1 ring-status-warn-border"
+                  : ""
               }`}
             >
               <span className="inline-flex items-center justify-end gap-1">
                 {hasIpc && (
                   <TrendingUp
-                    className="h-3 w-3 text-amber-600"
+                    className="h-3 w-3 text-status-warn-fg"
                     aria-label="Reajuste IPC pendiente este mes"
                   />
                 )}

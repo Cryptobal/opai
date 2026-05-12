@@ -195,7 +195,7 @@ export function ItemDetailRow({
               <span
                 title={`Reajuste IPC pendiente · vence ${ipcMarker.dueDate}`}
               >
-                <TrendingUp className="h-3 w-3 text-amber-600 shrink-0" />
+                <TrendingUp className="h-3 w-3 text-status-warn-fg shrink-0" />
               </span>
             )}
             <CellAmount
@@ -220,7 +220,9 @@ export function ItemDetailRow({
             key={v.bucketKey}
             bucketKey={v.bucketKey}
             className={`p-2 text-right text-ds-text-2 whitespace-nowrap ${
-              ipcMarker ? "bg-amber-50/60" : ""
+              ipcMarker
+                ? "bg-status-warn-soft ring-1 ring-status-warn-border"
+                : ""
             }`}
           >
             <CellActionPopover
