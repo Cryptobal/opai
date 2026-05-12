@@ -1424,7 +1424,7 @@ function StaffingSection({
                   <th className="px-3 py-2 text-right font-medium text-muted-foreground">Dotación</th>
                   <th className="px-3 py-2 text-right font-medium text-muted-foreground">Sueldo base</th>
                   <th className="px-3 py-2 text-right font-medium text-muted-foreground">Líquido est.</th>
-                  <th className="px-3 py-2 text-right font-medium text-muted-foreground" title="Cotizaciones de leyes sociales pagadas por la empresa cada mes (AFP + Salud + AFC + SIS + mutual). Estimado como base × 1,45 − líquido.">
+                  <th className="px-3 py-2 text-right font-medium text-muted-foreground" title="Cotizaciones legales empresa + trabajador (AFP + Salud + AFC + SIS + mutual). Estimado ≈ 30% del sueldo base (24% del imponible con gratificación legal). La línea 'Previred' del flujo de caja puede ser ligeramente mayor: incluye provisiones (vacaciones, indemnización).">
                     Cotiz. leyes
                   </th>
                   <th className="px-3 py-2 text-right font-medium text-muted-foreground w-[160px]">Acciones</th>
@@ -1438,7 +1438,11 @@ function StaffingSection({
                   const salary = Number(item.baseSalary ?? 0);
                   const ss = (item as any).salaryStructure;
                   const net = ss ? Number(ss.netSalaryEstimate ?? 0) : 0;
-                  const cotiz = Math.max(0, Math.round(salary * 1.45 - net));
+                  // Cotizaciones de leyes sociales (empresa + trabajador): AFP +
+                  // Salud + AFC + SIS + Mutual ≈ 24% del imponible. El imponible
+                  // ≈ base × 1,25 (con grat legal 25%), así que cotiz ≈ base × 0,30.
+                  // No depende del líquido (no genera ceros cuando hay bonos altos).
+                  const cotiz = Math.round(salary * 0.3);
                   return (
                     <tr key={item.id} className="border-b border-border/60 last:border-0">
                       <td className="px-3 py-2 font-medium">{cargoName}</td>
@@ -1530,7 +1534,11 @@ function StaffingSection({
                   const salary = Number(item.baseSalary ?? 0);
                   const ss = (item as any).salaryStructure;
                   const net = ss ? Number(ss.netSalaryEstimate ?? 0) : 0;
-                  const cotiz = Math.max(0, Math.round(salary * 1.45 - net));
+                  // Cotizaciones de leyes sociales (empresa + trabajador): AFP +
+                  // Salud + AFC + SIS + Mutual ≈ 24% del imponible. El imponible
+                  // ≈ base × 1,25 (con grat legal 25%), así que cotiz ≈ base × 0,30.
+                  // No depende del líquido (no genera ceros cuando hay bonos altos).
+                  const cotiz = Math.round(salary * 0.3);
                   totalDot += count;
                   totalBase += salary * count;
                   totalLiq += net * count;

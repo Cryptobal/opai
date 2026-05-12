@@ -1,4 +1,5 @@
 "use client";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import type { ProjectionBucket, ProjectionRow, VirtualOccurrence } from "@/modules/finance/cashflow/types";
 import { CellAmount } from "./CellAmount";
 import { CellActionPopover } from "./CellActionPopover";
@@ -189,10 +190,15 @@ export function SectionHeader({
   label,
   colSpan,
   tone,
+  expanded,
+  onToggle,
 }: {
   label: string;
   colSpan: number;
   tone: "ok" | "warn";
+  /** Si `onToggle` está definido, el header es clickeable con chevron. */
+  expanded?: boolean;
+  onToggle?: () => void;
 }) {
   const cls =
     tone === "ok" ? "bg-status-ok-soft text-status-ok-fg" : "bg-status-warn-soft text-status-warn-fg";
@@ -200,15 +206,32 @@ export function SectionHeader({
   // hace que el background visible se reduzca al ancho de la primera
   // columna (las celdas de filas siguientes se ven a través del resto
   // de la fila). En vez de eso, el <td> cubre todas las columnas con
-  // fondo opaco y solo el <span> con el label queda sticky-left para
-  // mantenerse visible al hacer scroll horizontal.
+  // fondo opaco y solo el <span>/<button> con el label queda sticky-left
+  // para mantenerse visible al hacer scroll horizontal.
   return (
     <tr className={cls}>
       <td
         colSpan={colSpan}
         className={`p-1.5 text-[11px] font-mono uppercase tracking-wider ${cls}`}
       >
-        <span className="sticky left-2 inline-block">{label}</span>
+        {onToggle ? (
+          <button
+            type="button"
+            onClick={onToggle}
+            aria-expanded={expanded}
+            className="sticky left-2 inline-flex items-center gap-1.5 cursor-pointer"
+            title={expanded ? `Colapsar ${label}` : `Expandir ${label}`}
+          >
+            {expanded ? (
+              <ChevronDown className="h-3 w-3 shrink-0" />
+            ) : (
+              <ChevronRight className="h-3 w-3 shrink-0" />
+            )}
+            <span>{label}</span>
+          </button>
+        ) : (
+          <span className="sticky left-2 inline-block">{label}</span>
+        )}
       </td>
     </tr>
   );

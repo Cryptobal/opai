@@ -184,14 +184,23 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
   // colapsamos las 4 intermedias y dejamos solo "Saldo acumulado" — el
   // valor más importante. Desktop: expandido. localStorage mantiene la pref.
   const [footerExpanded, setFooterExpanded] = useState(true);
+  // Secciones Ingresos / Egresos colapsables (chevron en el header). Cuando
+  // están colapsadas se ve solo el "Total ingresos" / "Total egresos" como
+  // resumen, sin las filas de categorías individuales.
+  const [ingresosExpanded, setIngresosExpanded] = useState(true);
+  const [egresosExpanded, setEgresosExpanded] = useState(true);
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const saved = window.localStorage.getItem("cashflow.footer.expanded");
-    if (saved !== null) {
-      setFooterExpanded(saved === "1");
+    const savedFooter = window.localStorage.getItem("cashflow.footer.expanded");
+    if (savedFooter !== null) {
+      setFooterExpanded(savedFooter === "1");
     } else {
       setFooterExpanded(window.innerWidth >= 640);
     }
+    const savedIng = window.localStorage.getItem("cashflow.ingresos.expanded");
+    if (savedIng !== null) setIngresosExpanded(savedIng === "1");
+    const savedEgr = window.localStorage.getItem("cashflow.egresos.expanded");
+    if (savedEgr !== null) setEgresosExpanded(savedEgr === "1");
   }, []);
   function toggleFooter() {
     setFooterExpanded((prev) => {
@@ -201,6 +210,24 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
           "cashflow.footer.expanded",
           next ? "1" : "0",
         );
+      } catch {}
+      return next;
+    });
+  }
+  function toggleIngresos() {
+    setIngresosExpanded((prev) => {
+      const next = !prev;
+      try {
+        window.localStorage.setItem("cashflow.ingresos.expanded", next ? "1" : "0");
+      } catch {}
+      return next;
+    });
+  }
+  function toggleEgresos() {
+    setEgresosExpanded((prev) => {
+      const next = !prev;
+      try {
+        window.localStorage.setItem("cashflow.egresos.expanded", next ? "1" : "0");
       } catch {}
       return next;
     });
@@ -339,30 +366,44 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
               </tr>
             </thead>
             <tbody>
-              <SectionHeader label="Ingresos" colSpan={colCount} tone="ok" />
-              {incomeRows.map((r) => (
-                <ExpandableMatrixRow
-                  key={r.categoryCode}
-                  row={r}
-                  actualByCellKey={actualByCellKey}
-                  buckets={projection.buckets}
-                  granularity="weekly"
-                  onActionDone={() => setRefreshKey((k) => k + 1)}
-                />
-              ))}
+              <SectionHeader
+                label="Ingresos"
+                colSpan={colCount}
+                tone="ok"
+                expanded={ingresosExpanded}
+                onToggle={toggleIngresos}
+              />
+              {ingresosExpanded &&
+                incomeRows.map((r) => (
+                  <ExpandableMatrixRow
+                    key={r.categoryCode}
+                    row={r}
+                    actualByCellKey={actualByCellKey}
+                    buckets={projection.buckets}
+                    granularity="weekly"
+                    onActionDone={() => setRefreshKey((k) => k + 1)}
+                  />
+                ))}
               <SubtotalRow label="Total ingresos" rows={incomeRows} buckets={projection.buckets} tone="ok" />
 
-              <SectionHeader label="Egresos" colSpan={colCount} tone="warn" />
-              {expenseRows.map((r) => (
-                <ExpandableMatrixRow
-                  key={r.categoryCode}
-                  row={r}
-                  actualByCellKey={actualByCellKey}
-                  buckets={projection.buckets}
-                  granularity="weekly"
-                  onActionDone={() => setRefreshKey((k) => k + 1)}
-                />
-              ))}
+              <SectionHeader
+                label="Egresos"
+                colSpan={colCount}
+                tone="warn"
+                expanded={egresosExpanded}
+                onToggle={toggleEgresos}
+              />
+              {egresosExpanded &&
+                expenseRows.map((r) => (
+                  <ExpandableMatrixRow
+                    key={r.categoryCode}
+                    row={r}
+                    actualByCellKey={actualByCellKey}
+                    buckets={projection.buckets}
+                    granularity="weekly"
+                    onActionDone={() => setRefreshKey((k) => k + 1)}
+                  />
+                ))}
               <SubtotalRow label="Total egresos" rows={expenseRows} buckets={projection.buckets} tone="warn" />
             </tbody>
             {/* tfoot sticky bottom: las filas Neto / Real / Δ / Saldo quedan
