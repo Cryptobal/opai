@@ -283,12 +283,10 @@ export async function DELETE(
     // body vacío o no-JSON → sin itemId específico
   }
 
-  const whereClause = specificItemId
-    ? { tenantId: ctx.tenantId, id: specificItemId, sourceRefId: contractId }
-    : { tenantId: ctx.tenantId, source: { in: ["CONTRACT", "OTHER"] as const }, sourceRefId: contractId };
-
   const items = await prisma.financeCashflowItem.findMany({
-    where: whereClause,
+    where: specificItemId
+      ? { tenantId: ctx.tenantId, id: specificItemId, sourceRefId: contractId }
+      : { tenantId: ctx.tenantId, source: { in: ["CONTRACT", "OTHER"] }, sourceRefId: contractId },
     select: { id: true },
   });
 
