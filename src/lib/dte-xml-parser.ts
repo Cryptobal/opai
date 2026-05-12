@@ -105,6 +105,30 @@ export interface DteParsed {
 }
 
 /**
+ * Localiza el nodo <Documento> dentro del árbol parseado. Acepta dos
+ * shapes válidos del SII:
+ *   - DTE suelto:        <DTE><Documento>...
+ *   - EnvioDTE envelope: <EnvioDTE><SetDTE><DTE><Documento>...
+ *
+ * El segundo es el formato que entrega el portal SII al descargar un
+ * documento emitido ("Consultar mis documentos emitidos"). Si el
+ * envelope contiene varios DTEs, devolvemos todos para que el caller
+ * decida cuál corresponde (matching por tipo/folio).
+ */
+function findDteNodes(parsed: any): any[] {
+  if (parsed?.DTE) {
+    const dteArr = Array.isArray(parsed.DTE) ? parsed.DTE : [parsed.DTE];
+    return dteArr.filter(Boolean);
+  }
+  const setDte = parsed?.EnvioDTE?.SetDTE;
+  if (setDte?.DTE) {
+    const dteArr = Array.isArray(setDte.DTE) ? setDte.DTE : [setDte.DTE];
+    return dteArr.filter(Boolean);
+  }
+  return [];
+}
+
+/**
  * Parsea un buffer XML de DTE firmado y devuelve los datos. Lanza si
  * el XML no tiene la estructura esperada del SII.
  */
@@ -127,9 +151,18 @@ export function parseDteXml(xmlBuffer: Buffer): DteParsed {
     );
   }
 
-  const documento = parsed?.DTE?.Documento;
-  if (!documento) {
+  const dteNodes = findDteNodes(parsed);
+  if (dteNodes.length === 0) {
     throw new Error("XML del DTE no contiene <DTE><Documento>...</Documento></DTE>.");
+  }
+  if (dteNodes.length > 1) {
+    throw new Error(
+      `XML contiene ${dteNodes.length} DTEs en el envelope; parseDteXml solo soporta uno.`,
+    );
+  }
+  const documento = dteNodes[0]?.Documento;
+  if (!documento) {
+    throw new Error("XML del DTE no contiene <Documento> dentro de <DTE>.");
   }
 
   const documentId = documento["@_ID"] ?? "";
@@ -281,32 +314,46 @@ export function extractDteIdentity(xmlBuffer: Buffer): DteIdentity {
     );
   }
 
-  const documento = parsed?.DTE?.Documento;
-  if (!documento) {
+  const dteNodes = findDteNodes(parsed);
+  if (dteNodes.length === 0) {
     throw new Error("XML no contiene <DTE><Documento>.");
   }
-  const enc = documento.Encabezado;
-  if (!enc) throw new Error("XML no contiene <Encabezado>.");
 
-  const idDoc = enc.IdDoc ?? {};
-  const tipoDte = parseInt(String(idDoc.TipoDTE ?? "0"), 10);
-  const folio = parseInt(String(idDoc.Folio ?? "0"), 10);
-  if (!tipoDte) throw new Error("XML sin TipoDTE.");
-  if (!folio) throw new Error("XML sin Folio.");
+  const identities: DteIdentity[] = [];
+  for (const dteNode of dteNodes) {
+    const documento = dteNode?.Documento;
+    if (!documento) continue;
+    const enc = documento.Encabezado;
+    if (!enc) continue;
 
-  const emisor = enc.Emisor ?? {};
-  const receptor = enc.Receptor ?? {};
-  const totales = enc.Totales ?? {};
+    const idDoc = enc.IdDoc ?? {};
+    const tipoDte = parseInt(String(idDoc.TipoDTE ?? "0"), 10);
+    const folio = parseInt(String(idDoc.Folio ?? "0"), 10);
+    if (!tipoDte || !folio) continue;
 
-  const rutEmisor = String(emisor.RUTEmisor ?? "").trim();
-  const rutReceptor = String(receptor.RUTRecep ?? "").trim();
-  if (!rutEmisor) throw new Error("XML sin RUTEmisor.");
-  if (!rutReceptor) throw new Error("XML sin RUTRecep.");
+    const emisor = enc.Emisor ?? {};
+    const receptor = enc.Receptor ?? {};
+    const totales = enc.Totales ?? {};
 
-  const totalRaw = totales.MntTotal ?? totales.MntPeriodo ?? "0";
-  const total = parseFloat(String(totalRaw).replace(/[^\d.-]/g, "")) || 0;
+    const rutEmisor = String(emisor.RUTEmisor ?? "").trim();
+    const rutReceptor = String(receptor.RUTRecep ?? "").trim();
+    if (!rutEmisor || !rutReceptor) continue;
 
-  return { tipoDte, folio, rutEmisor, rutReceptor, total };
+    const totalRaw = totales.MntTotal ?? totales.MntPeriodo ?? "0";
+    const total = parseFloat(String(totalRaw).replace(/[^\d.-]/g, "")) || 0;
+
+    identities.push({ tipoDte, folio, rutEmisor, rutReceptor, total });
+  }
+
+  if (identities.length === 0) {
+    throw new Error("XML no contiene un DTE con datos completos (TipoDTE, Folio, RUTs).");
+  }
+  if (identities.length > 1) {
+    throw new Error(
+      `El envelope contiene ${identities.length} DTEs; subí el XML con solo el DTE específico que querés adjuntar.`,
+    );
+  }
+  return identities[0];
 }
 
 function extractCodigoItem(d: any): string | null {
