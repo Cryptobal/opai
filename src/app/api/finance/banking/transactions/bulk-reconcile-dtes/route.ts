@@ -28,6 +28,14 @@ const schema = z.object({
    * asiento contable distribuya el monto por los `accountId` de las
    * líneas de las facturas seleccionadas (ponderado por subtotal de
    * línea × asignación de factura).
+   *
+   * `direction`:
+   *   - "surplus" (default): banco > sum(allocations) — comisión/ingreso
+   *     extra que el banco entregó por sobre lo que cubren las facturas.
+   *   - "shortfall": sum(allocations) < banco — típico factoring: el
+   *     banco recibió neto, pero las facturas se asignan al bruto
+   *     (PAID), y la diferencia se imputa como COSTO de factoring /
+   *     retención. Asiento: DEBE Costo / HABER Banco.
    */
   differenceAllocation: z
     .object({
@@ -35,6 +43,7 @@ const schema = z.object({
       amount: z.number().positive(),
       label: z.string().max(200).nullable().optional(),
       prorateAcrossDteLines: z.boolean().optional(),
+      direction: z.enum(["surplus", "shortfall"]).optional(),
     })
     .optional(),
 });

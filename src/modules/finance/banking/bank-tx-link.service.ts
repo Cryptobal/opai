@@ -1038,12 +1038,24 @@ export interface BulkReconcileToDtesInput {
    * subtotal de línea × asignación de factura. Si una factura no tiene
    * `accountId` en sus líneas, su porción cae en la cuenta elegida sin
    * sub-detalle.
+   *
+   * `direction`:
+   *   - "surplus" (default, retrocompat): banco > sum(allocations); la
+   *     diferencia es ingreso/gasto extra que el banco trajo además.
+   *     Validación: totalAlloc + diffAmount ≈ totalMovs.
+   *   - "shortfall": sum(allocations) > banco; el usuario asigna a las
+   *     facturas su valor bruto (queda PAID) y la diferencia es un
+   *     COSTO contable (factoring, retención, descuento). Validación:
+   *     totalAlloc − diffAmount ≈ totalMovs. El link de diferencia
+   *     usa targetType EXPENSE en ingresos (es costo) e INCOME en
+   *     egresos (es descuento recibido).
    */
   differenceAllocation?: {
     accountPlanId: string;
     amount: number;
     label?: string | null;
     prorateAcrossDteLines?: boolean;
+    direction?: "surplus" | "shortfall";
   };
 }
 
@@ -1169,13 +1181,22 @@ export async function bulkReconcileToDtes(
   const diffAmount = differenceAllocation
     ? Math.max(0, differenceAllocation.amount)
     : 0;
-  // Cuando hay diferencia, validamos que totalAlloc + diff ≈ totalMovs.
-  // Sin diferencia, exigimos cuadrar exacto como antes.
-  if (Math.abs(totalAlloc + diffAmount - totalMovs) > 1) {
+  const diffDirection: "surplus" | "shortfall" =
+    differenceAllocation?.direction ?? "surplus";
+  // Surplus: banco > facturas → totalAlloc + diff = totalMovs.
+  // Shortfall: facturas > banco → totalAlloc − diff = totalMovs.
+  const signedDiff = diffDirection === "shortfall" ? -diffAmount : diffAmount;
+  if (Math.abs(totalAlloc + signedDiff - totalMovs) > 1) {
+    if (diffAmount > 0) {
+      const expected = totalAlloc + signedDiff;
+      throw new Error(
+        diffDirection === "shortfall"
+          ? `Suma de facturas − diferencia ($${expected.toLocaleString("es-CL")}) no coincide con el total de los movimientos ($${totalMovs.toLocaleString("es-CL")}).`
+          : `Suma de facturas + diferencia ($${expected.toLocaleString("es-CL")}) no coincide con el total de los movimientos ($${totalMovs.toLocaleString("es-CL")}).`,
+      );
+    }
     throw new Error(
-      diffAmount > 0
-        ? `Suma de allocations + diferencia ($${(totalAlloc + diffAmount).toLocaleString("es-CL")}) no coincide con el total de los movimientos ($${totalMovs.toLocaleString("es-CL")}).`
-        : `La suma de allocations ($${totalAlloc.toLocaleString("es-CL")}) no coincide con el total de los movimientos ($${totalMovs.toLocaleString("es-CL")}).`,
+      `La suma de allocations ($${totalAlloc.toLocaleString("es-CL")}) no coincide con el total de los movimientos ($${totalMovs.toLocaleString("es-CL")}).`,
     );
   }
 
@@ -1252,23 +1273,36 @@ export async function bulkReconcileToDtes(
       });
       paymentRecordCodes.push(record.code);
 
-      // Reparto proporcional de la porción DTE de este mov con corrección
-      // de redondeo en la última allocation.
-      let assignedToDtes = 0;
+      // Reparto proporcional con redondeo en la última allocation.
+      // En SHORTFALL: el `linkPiece` (lo que toma el banco) es prorrateado
+      // sobre `movAmount` (suma por mov = movAmount), mientras que el
+      // `paymentPiece` (lo que se aplica al bruto de la factura) es
+      // prorrateado sobre `movDtePortion` (suma por DTE = a.amount, la
+      // factura queda PAID). El gap entre ambos es el costo absorbido
+      // contablemente más abajo.
+      // En SURPLUS: ambos coinciden (movLinkPool = movDtePortion).
+      const movLinkPool =
+        diffDirection === "shortfall" ? movAmount : movDtePortion;
+      let assignedToPayments = 0;
+      let assignedToLinks = 0;
       for (let i = 0; i < allocations.length; i++) {
         const a = allocations[i];
         const isLast = i === allocations.length - 1;
         const share = totalAlloc > 0 ? a.amount / totalAlloc : 0;
-        const piece = isLast
-          ? movDtePortion - assignedToDtes
+        const paymentPiece = isLast
+          ? movDtePortion - assignedToPayments
           : Math.round(movDtePortion * share * 100) / 100;
-        assignedToDtes += piece;
+        assignedToPayments += paymentPiece;
+        const linkPiece = isLast
+          ? movLinkPool - assignedToLinks
+          : Math.round(movLinkPool * share * 100) / 100;
+        assignedToLinks += linkPiece;
 
         await tx2.financePaymentAllocation.create({
           data: {
             paymentId: record.id,
             dteId: a.dteId,
-            amount: new Decimal(piece),
+            amount: new Decimal(paymentPiece),
           },
         });
         await tx2.financeBankTransactionLink.create({
@@ -1277,7 +1311,7 @@ export async function bulkReconcileToDtes(
             bankTransactionId: t.id,
             targetType: isIncome ? "DTE_ISSUED" : "DTE_RECEIVED",
             targetId: a.dteId,
-            amount: new Decimal(piece),
+            amount: new Decimal(linkPiece),
             accountPlanId: null,
             note: `Conciliación masiva N→N`,
             createdById: userId ?? null,
@@ -1285,10 +1319,18 @@ export async function bulkReconcileToDtes(
         });
       }
 
-      // Diferencia: 1 link EXPENSE/INCOME por mov con la cuenta elegida,
-      // proporcional al peso del mov en el total. El asiento contable
-      // (paso fuera de $transaction) hace el desglose por centro de costo.
-      if (differenceAllocation && diffAmount > 0 && diffAccount) {
+      // Link EXPENSE/INCOME del banco para la diferencia: SOLO en SURPLUS.
+      // En SURPLUS el banco aportó "de más" → ese sobrante se atribuye a
+      // la cuenta elegida (comisión recibida / gasto extra) con su link
+      // bancario. En SHORTFALL el banco ya está saturado en DTE-links
+      // (sum links = bankAmount); el costo se refleja solo en el asiento
+      // contable más abajo.
+      if (
+        differenceAllocation &&
+        diffAmount > 0 &&
+        diffAccount &&
+        diffDirection === "surplus"
+      ) {
         const movDiffPortion =
           Math.round(movShare * diffAmount * 100) / 100;
         if (movDiffPortion > 0) {
@@ -1339,6 +1381,7 @@ export async function bulkReconcileToDtes(
       prorateAcrossDteLines: !!differenceAllocation.prorateAcrossDteLines,
       allocations,
       dteLinesByDte,
+      direction: diffDirection,
     });
   }
 
@@ -1388,6 +1431,7 @@ async function generateDifferenceJournalEntry(
       string,
       Array<{ accountId: string | null; subtotal: number }>
     >;
+    direction: "surplus" | "shortfall";
   },
 ): Promise<string | null> {
   const {
@@ -1399,8 +1443,17 @@ async function generateDifferenceJournalEntry(
     prorateAcrossDteLines,
     allocations,
     dteLinesByDte,
+    direction,
   } = params;
   if (diffAmount <= 0) return null;
+  // Side del asiento para la(s) línea(s) de la cuenta diff:
+  //   surplus  + ingreso → ingreso extra (HABER cuenta diff, DEBE banco)
+  //   surplus  + egreso  → gasto extra   (DEBE cuenta diff, HABER banco)
+  //   shortfall+ ingreso → costo factor. (DEBE cuenta diff, HABER banco)
+  //   shortfall+ egreso  → descuento     (HABER cuenta diff, DEBE banco)
+  // Es decir, shortfall invierte el lado respecto a surplus.
+  const diffOnCredit =
+    direction === "shortfall" ? !isIncome : isIncome;
 
   // Necesitamos la cuenta contable del banco para la contrapartida.
   const refTx = txs[0];
@@ -1478,7 +1531,7 @@ async function generateDifferenceJournalEntry(
 
     for (const e of entries) {
       const desc = diffLabel ?? "Diferencia conciliación";
-      if (isIncome) {
+      if (diffOnCredit) {
         lines.push({
           accountId: e.accountId,
           description: desc,
@@ -1501,7 +1554,7 @@ async function generateDifferenceJournalEntry(
   if (lines.length === 0) {
     const desc = diffLabel ?? "Diferencia conciliación";
     const total = Math.round(diffAmount);
-    if (isIncome) {
+    if (diffOnCredit) {
       lines.push({
         accountId: diffAccountId,
         description: desc,
@@ -1518,9 +1571,10 @@ async function generateDifferenceJournalEntry(
     }
   }
 
-  // Contrapartida banco: 1 sola línea por el total de la diferencia.
+  // Contrapartida banco: 1 sola línea por el total de la diferencia,
+  // opuesta al lado de la cuenta diff.
   const total = lines.reduce((s, l) => s + l.debit + l.credit, 0);
-  if (isIncome) {
+  if (diffOnCredit) {
     lines.push({
       accountId: bankAccount.accountPlanId,
       description: `${bankAccount.bankName} - ${bankAccount.accountNumber}`,

@@ -370,9 +370,22 @@ export function BulkReconcileToDteDialog({
     0
   );
   const delta = totalAlloc - totalAssigned;
-  const isBalanced = Math.abs(delta) <= 1;
-  const hasDifference = delta > 1;
-  const hasOverflow = delta < -1;
+  const absDelta = Math.abs(delta);
+  const isBalanced = absDelta <= 1;
+  // Surplus: el banco trajo más que la suma asignada a facturas → la
+  // diferencia se imputa a una cuenta de ingreso/gasto extra.
+  const hasSurplus = delta > 1;
+  // Shortfall: las facturas valen más que el banco → la diferencia es
+  // un COSTO (factoring, retención, descuento). Se ofrece la misma UX:
+  // elegir cuenta contable + prorratear, pero filtramos cuentas y
+  // labels para el sentido contable opuesto.
+  const hasShortfall = delta < -1;
+  const hasDifference = hasSurplus || hasShortfall;
+  const diffDirection: "surplus" | "shortfall" = hasShortfall
+    ? "shortfall"
+    : "surplus";
+  // Cualquier asignación individual > amountPending sigue siendo error
+  // (no se puede pagar más de lo pendiente en una sola factura).
   const overflowing = selected.some((a) => {
     const v = parseCLPInput(a.amountInput) ?? 0;
     return v > a.dte.amountPending + 0.01;
@@ -382,23 +395,44 @@ export function BulkReconcileToDteDialog({
     !isMixed &&
     selected.length > 0 &&
     !overflowing &&
-    !hasOverflow &&
     (isBalanced || diffCovered) &&
     !confirming &&
     transactions.length > 0;
 
-  // Filtramos las cuentas contables del plan según signo del movimiento:
-  // ingresos absorben en cuentas REVENUE / LIABILITY, egresos en EXPENSE/COST.
-  // Sin tipo seteado, se muestran todas (defensa por si el seed legacy no
-  // tiene `type`).
+  // Filtramos las cuentas contables del plan según el SENTIDO real de la
+  // diferencia (no del movimiento):
+  //   surplus  + ingreso → REVENUE / LIABILITY (ingreso extra)
+  //   surplus  + egreso  → EXPENSE / COST    (gasto extra)
+  //   shortfall+ ingreso → EXPENSE / COST    (costo factoring)
+  //   shortfall+ egreso  → REVENUE / LIABILITY (descuento recibido)
+  // Es decir, shortfall invierte el lado. Si no hay tipo de cuenta seteado
+  // (seed legacy), se muestran todas.
+  const expectsExpenseAccount = hasShortfall ? isIncome : !isIncome;
   const eligibleAccounts = useMemo(() => {
     if (!accountPlans.length) return [];
     return accountPlans.filter((ap) => {
       if (!ap.type) return true;
-      if (isIncome) return ["REVENUE", "LIABILITY", "INCOME"].includes(ap.type);
-      return ["EXPENSE", "COST"].includes(ap.type);
+      if (expectsExpenseAccount) return ["EXPENSE", "COST"].includes(ap.type);
+      return ["REVENUE", "LIABILITY", "INCOME"].includes(ap.type);
     });
-  }, [accountPlans, isIncome]);
+  }, [accountPlans, expectsExpenseAccount]);
+
+  /**
+   * Rellena los inputs de todas las facturas (incluyendo las editadas)
+   * al `amountPending` real, dejando cada factura en condición de quedar
+   * PAID. El diferencial respecto al monto bancario se absorbe vía la
+   * cuenta contable elegida (shortfall). Útil para depósitos de factoring
+   * donde el banco recibe neto pero las facturas se ceden brutas.
+   */
+  const fillToPending = () => {
+    setSelected((prev) =>
+      prev.map((a) => ({
+        ...a,
+        amountInput: formatCLPInput(String(Math.round(a.dte.amountPending))),
+        manuallyEdited: true,
+      })),
+    );
+  };
 
   const handleConfirm = async () => {
     if (!canConfirm) return;
@@ -415,9 +449,10 @@ export function BulkReconcileToDteDialog({
       if (hasDifference && diffCovered) {
         body.differenceAllocation = {
           accountPlanId: diffAccountPlanId,
-          amount: Math.round(delta),
+          amount: Math.round(absDelta),
           label: diffLabel.trim() || null,
           prorateAcrossDteLines: diffProrate,
+          direction: diffDirection,
         };
       }
       const res = await fetch(
@@ -629,7 +664,7 @@ export function BulkReconcileToDteDialog({
                         "rounded-lg border p-3 text-sm space-y-2",
                         isBalanced && !overflowing
                           ? "border-status-ok-border bg-status-ok-soft/30"
-                          : hasOverflow || overflowing
+                          : overflowing
                             ? "border-status-danger-border bg-status-danger-soft/20"
                             : "border-status-warn-border bg-status-warn-soft/30",
                       )}
@@ -643,23 +678,38 @@ export function BulkReconcileToDteDialog({
                           {fmtCLP.format(totalAlloc)}
                         </span>
                       </div>
-                      {hasDifference && (
+                      {hasSurplus && (
                         <p className="text-status-warn-fg text-xs">
                           Falta asignar {fmtCLP.format(delta)} — elegí abajo
-                          una cuenta contable que absorba la diferencia.
+                          una cuenta contable que absorba el ingreso extra.
                         </p>
                       )}
-                      {hasOverflow && (
-                        <p className="text-status-danger-fg text-xs">
-                          Excede en {fmtCLP.format(-delta)} — bajá uno de los
-                          montos.
+                      {hasShortfall && (
+                        <p className="text-status-warn-fg text-xs">
+                          Las facturas suman {fmtCLP.format(absDelta)} más que
+                          el banco — imputá esa diferencia a una cuenta de
+                          {isIncome ? " costo (factoring / retención)" : " descuento"}.
                         </p>
                       )}
-                      {overflowing && !hasOverflow && (
+                      {overflowing && (
                         <p className="text-status-danger-fg text-xs">
                           Una asignación supera el saldo pendiente de su
                           factura. Ajustala.
                         </p>
+                      )}
+                      {/* Atajo para saldar facturas completas (modo factoring). */}
+                      {selected.length > 0 && !overflowing && totalAssigned + 1 < selected.reduce((s, a) => s + a.dte.amountPending, 0) && (
+                        <button
+                          type="button"
+                          onClick={fillToPending}
+                          className="text-xs underline text-primary hover:text-primary/80"
+                        >
+                          Saldar facturas al pendiente (
+                          {fmtCLP.format(
+                            selected.reduce((s, a) => s + a.dte.amountPending, 0),
+                          )}
+                          )
+                        </button>
                       )}
                     </div>
 
@@ -671,13 +721,14 @@ export function BulkReconcileToDteDialog({
                             htmlFor="diff-account"
                             className="text-sm font-medium"
                           >
-                            Asignar diferencia ({fmtCLP.format(delta)}) a
-                            cuenta contable
+                            {hasShortfall
+                              ? `Imputar costo (${fmtCLP.format(absDelta)}) a cuenta contable`
+                              : `Asignar diferencia (${fmtCLP.format(delta)}) a cuenta contable`}
                           </Label>
                           <p className="text-[11px] text-muted-foreground">
-                            Típico: comisión de factoring, descuento por
-                            pronto pago, retenciones. El asiento contable se
-                            genera automáticamente con esa cuenta.
+                            {hasShortfall
+                              ? "Típico: comisión de factoring, retención, descuento aplicado. Las facturas quedan PAID por el bruto; el asiento contable refleja el costo: DEBE Cuenta / HABER Banco."
+                              : "Típico: comisión recibida, ingreso extra, ajuste positivo. El asiento contable se genera automáticamente con esa cuenta."}
                           </p>
                         </div>
                         <AccountPlanCombobox
@@ -685,9 +736,9 @@ export function BulkReconcileToDteDialog({
                           value={diffAccountPlanId}
                           onChange={setDiffAccountPlanId}
                           placeholder={
-                            isIncome
-                              ? "Buscar cuenta de ingreso / comisión…"
-                              : "Buscar cuenta de gasto…"
+                            expectsExpenseAccount
+                              ? "Buscar cuenta de gasto / costo factoring…"
+                              : "Buscar cuenta de ingreso / comisión…"
                           }
                           emptyLabel="Seleccionar cuenta"
                           triggerClassName="w-full"
@@ -695,7 +746,11 @@ export function BulkReconcileToDteDialog({
                         <Input
                           value={diffLabel}
                           onChange={(e) => setDiffLabel(e.target.value)}
-                          placeholder="Nota del asiento (ej. 'Comisión SCF Servicios Financieros')"
+                          placeholder={
+                            hasShortfall
+                              ? "Nota del asiento (ej. 'Comisión factoring SCF')"
+                              : "Nota del asiento (ej. 'Ingreso extra cliente')"
+                          }
                           className="h-10 sm:h-9 text-sm"
                         />
                         <label className="flex items-start gap-2 text-xs text-muted-foreground cursor-pointer">
@@ -889,9 +944,11 @@ export function BulkReconcileToDteDialog({
               className="h-10 sm:h-9"
             >
               {confirming && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
-              {hasDifference && diffCovered
-                ? `Conciliar (${fmtCLP.format(totalAssigned)} + diferencia)`
-                : "Conciliar"}
+              {hasSurplus && diffCovered
+                ? `Conciliar (${fmtCLP.format(totalAssigned)} + ingreso extra)`
+                : hasShortfall && diffCovered
+                  ? `Conciliar (${fmtCLP.format(totalAssigned)} − ${fmtCLP.format(absDelta)} costo)`
+                  : "Conciliar"}
             </Button>
           </div>
         </DialogPrimitive.Content>
