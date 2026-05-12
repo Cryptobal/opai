@@ -565,6 +565,7 @@ export const DOC_STATUS_CONFIG: Record<string, { label: string; color: string; i
   review: { label: "En Revisión", color: "bg-yellow-100 text-yellow-700", icon: "Eye" },
   approved: { label: "Aprobado", color: "bg-blue-100 text-blue-700", icon: "CheckCircle" },
   active: { label: "Activo", color: "bg-green-100 text-green-700", icon: "CheckCircle2" },
+  pending_signature: { label: "Pendiente de firma", color: "bg-amber-100 text-amber-800", icon: "Clock" },
   expiring: { label: "Por Vencer", color: "bg-orange-100 text-orange-700", icon: "AlertTriangle" },
   expired: { label: "Vencido", color: "bg-red-100 text-status-danger-fg", icon: "XCircle" },
   renewed: { label: "Renovado", color: "bg-purple-100 text-purple-700", icon: "RefreshCw" },

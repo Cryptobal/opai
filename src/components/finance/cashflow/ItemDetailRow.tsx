@@ -1,5 +1,6 @@
 "use client";
 import { useDroppable } from "@dnd-kit/core";
+import { TrendingUp } from "lucide-react";
 import type {
   ProjectionRowItemDetail,
   ProjectionBucket,
@@ -95,6 +96,9 @@ interface Props {
   buckets: ProjectionBucket[];
   granularity: "weekly" | "monthly";
   kind: "INCOME" | "EXPENSE";
+  /** Ajustes IPC PENDING indexados por `${itemId}_${bucketKey}`. La celda
+   *  con marker queda resaltada en ámbar + icono TrendingUp. */
+  ipcPending?: Map<string, Array<{ id: string; dueDate: string }>>;
   onActionDone: () => void;
   /** Si está dentro de un grupo por cliente, lo indentamos más para
    *  marcar visualmente la jerarquía. */
@@ -118,6 +122,7 @@ export function ItemDetailRow({
   buckets,
   granularity,
   kind,
+  ipcPending,
   onActionDone,
   inGroup = false,
 }: Props) {
@@ -182,13 +187,24 @@ export function ItemDetailRow({
       </td>
       {item.values.map((v) => {
         const variance = v.actualAmount !== null ? v.actualAmount - v.amount : null;
+        const ipcKey = `${item.itemId}_${v.bucketKey}`;
+        const ipcMarker = ipcPending?.get(ipcKey)?.[0] ?? null;
         const cellContent = (
-          <CellAmount
-            projected={v.amount}
-            actual={v.actualAmount}
-            variance={variance}
-            kind={kind}
-          />
+          <span className="inline-flex items-center justify-end gap-1">
+            {ipcMarker && (
+              <span
+                title={`Reajuste IPC pendiente · vence ${ipcMarker.dueDate}`}
+              >
+                <TrendingUp className="h-3 w-3 text-amber-600 shrink-0" />
+              </span>
+            )}
+            <CellAmount
+              projected={v.amount}
+              actual={v.actualAmount}
+              variance={variance}
+              kind={kind}
+            />
+          </span>
         );
         const target =
           item.itemId !== "_orphan" && (v.amount > 0 || v.occurrenceId)
@@ -203,7 +219,9 @@ export function ItemDetailRow({
           <DroppableSubCell
             key={v.bucketKey}
             bucketKey={v.bucketKey}
-            className="p-2 text-right text-ds-text-2 whitespace-nowrap"
+            className={`p-2 text-right text-ds-text-2 whitespace-nowrap ${
+              ipcMarker ? "bg-amber-50/60" : ""
+            }`}
           >
             <CellActionPopover
               target={target}

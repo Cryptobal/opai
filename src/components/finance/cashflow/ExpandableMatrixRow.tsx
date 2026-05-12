@@ -1,7 +1,7 @@
 "use client";
 import type React from "react";
 import { useEffect, useState, useCallback } from "react";
-import { ChevronDown, ChevronRight as ChevronRightIcon, Building2 } from "lucide-react";
+import { ChevronDown, ChevronRight as ChevronRightIcon, Building2, TrendingUp } from "lucide-react";
 import type {
   ProjectionRow,
   ProjectionBucket,
@@ -60,6 +60,10 @@ function DroppableBucketCell({
 interface Props {
   row: ProjectionRow;
   actualByCellKey?: Map<string, number>;
+  /** Ajustes IPC PENDING indexados por `${itemId}_${bucketKey}`. La celda
+   *  con marker muestra un mini-badge ámbar para que el reajuste no se
+   *  pase de fecha. */
+  ipcPending?: Map<string, Array<{ id: string; dueDate: string }>>;
   buckets: ProjectionBucket[];
   granularity: "weekly" | "monthly";
   onActionDone?: () => void;
@@ -73,6 +77,7 @@ interface Props {
 export function ExpandableMatrixRow({
   row,
   actualByCellKey,
+  ipcPending,
   buckets,
   granularity,
   onActionDone,
@@ -141,13 +146,31 @@ export function ExpandableMatrixRow({
             : null;
           const variance = actual !== null ? actual - v.amount : null;
 
+          // ¿Algún item de la fila tiene IPC pendiente en este bucket?
+          // Si sí, marcamos la celda agregada para que el usuario lo vea
+          // aunque tenga la fila colapsada.
+          const hasIpcInBucket =
+            ipcPending && ipcPending.size > 0
+              ? row.items.some((it) =>
+                  ipcPending.has(`${it.itemId}_${v.bucketKey}`),
+                )
+              : false;
+
           const cellContent = (
-            <CellAmount
-              projected={v.amount}
-              actual={actual}
-              variance={variance}
-              kind={row.kind as "INCOME" | "EXPENSE"}
-            />
+            <div className="relative inline-flex items-center justify-end gap-1">
+              {hasIpcInBucket && (
+                <TrendingUp
+                  className="h-3 w-3 text-amber-600 shrink-0"
+                  aria-label="Reajuste IPC pendiente este mes"
+                />
+              )}
+              <CellAmount
+                projected={v.amount}
+                actual={actual}
+                variance={variance}
+                kind={row.kind as "INCOME" | "EXPENSE"}
+              />
+            </div>
           );
 
           const aggregatedTarget = findAggregatedTarget(v.bucketKey);
@@ -155,7 +178,9 @@ export function ExpandableMatrixRow({
             <DroppableBucketCell
               key={v.bucketKey}
               bucketKey={v.bucketKey}
-              className="p-2 text-right text-ds-text-2 whitespace-nowrap"
+              className={`p-2 text-right text-ds-text-2 whitespace-nowrap ${
+                hasIpcInBucket ? "bg-amber-50/60" : ""
+              }`}
             >
               <CellActionPopover
                 target={aggregatedTarget}
@@ -205,6 +230,7 @@ export function ExpandableMatrixRow({
                     buckets={buckets}
                     granularity={granularity}
                     kind={row.kind as "INCOME" | "EXPENSE"}
+                    ipcPending={ipcPending}
                     onActionDone={onActionDoneSafe}
                   />,
                 );
@@ -233,6 +259,7 @@ export function ExpandableMatrixRow({
                 grandTotal={groupTotal}
                 granularity={granularity}
                 kind={row.kind as "INCOME" | "EXPENSE"}
+                ipcPending={ipcPending}
                 onActionDone={onActionDoneSafe}
               />,
             );
@@ -291,6 +318,7 @@ function ClientGroup({
   grandTotal,
   granularity,
   kind,
+  ipcPending,
   onActionDone,
 }: {
   categoryCode: string;
@@ -301,6 +329,7 @@ function ClientGroup({
   grandTotal: number;
   granularity: "weekly" | "monthly";
   kind: "INCOME" | "EXPENSE";
+  ipcPending?: Map<string, Array<{ id: string; dueDate: string }>>;
   onActionDone: () => void;
 }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -349,12 +378,26 @@ function ClientGroup({
         </td>
         {buckets.map((b) => {
           const amount = totalsByBucket.get(b.key) ?? 0;
+          const hasIpc =
+            ipcPending && ipcPending.size > 0
+              ? items.some((it) => ipcPending.has(`${it.itemId}_${b.key}`))
+              : false;
           return (
             <td
               key={b.key}
-              className="p-2 text-right font-mono text-[12px] tabular-nums text-ds-text-2 whitespace-nowrap"
+              className={`p-2 text-right font-mono text-[12px] tabular-nums text-ds-text-2 whitespace-nowrap ${
+                hasIpc ? "bg-amber-50/60" : ""
+              }`}
             >
-              {amount > 0 ? fmt.format(amount) : "—"}
+              <span className="inline-flex items-center justify-end gap-1">
+                {hasIpc && (
+                  <TrendingUp
+                    className="h-3 w-3 text-amber-600"
+                    aria-label="Reajuste IPC pendiente este mes"
+                  />
+                )}
+                {amount > 0 ? fmt.format(amount) : "—"}
+              </span>
             </td>
           );
         })}
@@ -370,6 +413,7 @@ function ClientGroup({
             buckets={buckets}
             granularity={granularity}
             kind={kind}
+            ipcPending={ipcPending}
             onActionDone={onActionDone}
             inGroup
           />

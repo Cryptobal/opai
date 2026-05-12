@@ -196,6 +196,14 @@ export function AccountContractsSection({
   const [uploadMonthlyAmount, setUploadMonthlyAmount] = useState<string>("");
   const [uploadCurrency, setUploadCurrency] = useState<"CLP" | "UF">("CLP");
   const [uploadPaymentDay, setUploadPaymentDay] = useState<string>("5");
+  // Modo "ingreso al FC sin contrato firmado": el modal queda sin
+  // dropzone, `addToCashflow` queda forzado en true y el doc se crea
+  // con pdfUrl=null + status="pending_signature".
+  const [uploadPendingSignature, setUploadPendingSignature] = useState(false);
+  // Ajuste IPC al crear — sólo aplica a CLP. Espejo del bloque que ya
+  // existe en el modal de edición.
+  const [uploadHasIpc, setUploadHasIpc] = useState(false);
+  const [uploadIpcMonths, setUploadIpcMonths] = useState<string>("12");
   // Diálogo "Configurar flujo de caja" por contrato individual.
 
   // Cotizaciones aceptadas con flujo de caja (CpqQuote-derived). Históricamente
@@ -339,7 +347,21 @@ export function AccountContractsSection({
     setUploadMonthlyAmount("");
     setUploadCurrency("CLP");
     setUploadPaymentDay("5");
+    setUploadPendingSignature(false);
+    setUploadHasIpc(false);
+    setUploadIpcMonths("12");
   }, []);
+
+  // ─── Abrir modal en modo "sin contrato firmado" ───────────────
+  // Permite proyectar el ingreso al flujo de caja antes de tener el PDF.
+  const openPendingSignatureDialog = useCallback(() => {
+    resetUploadForm();
+    setUploadPendingSignature(true);
+    setUploadAddToCashflow(true);
+    setUploadTitle(`Contrato ${accountName}`);
+    setUploadEffective(todayISO());
+    setUploadOpen(true);
+  }, [accountName, resetUploadForm]);
 
   // ─── Handle file selection ─────────────────────────────────────
   const handleFileSelected = (f: File) => {
@@ -359,7 +381,9 @@ export function AccountContractsSection({
 
   // ─── Validation for the dialog ─────────────────────────────────
   const dialogError = useMemo(() => {
-    if (!uploadFile) return "Archivo requerido";
+    // En modo "sin contrato firmado" el archivo NO es requerido, pero sí
+    // que el ingreso al flujo de caja tenga monto, día y fecha de inicio.
+    if (!uploadPendingSignature && !uploadFile) return "Archivo requerido";
     if (!uploadTitle.trim()) return "Título requerido";
     if (uploadEffective && uploadExpiration) {
       if (new Date(uploadExpiration) < new Date(uploadEffective)) {
@@ -369,6 +393,13 @@ export function AccountContractsSection({
     if (uploadSignedExternally && !uploadSignedAt) {
       return "Indica la fecha de firma externa";
     }
+    if (uploadPendingSignature) {
+      if (!uploadEffective) return "Indica la fecha de inicio del contrato";
+      const amt = parseChileanAmount(uploadMonthlyAmount);
+      if (!Number.isFinite(amt) || amt <= 0)
+        return "Indica el monto mensual del contrato";
+      if (!uploadPaymentDay) return "Indica el día de pago";
+    }
     return null;
   }, [
     uploadFile,
@@ -377,6 +408,9 @@ export function AccountContractsSection({
     uploadExpiration,
     uploadSignedExternally,
     uploadSignedAt,
+    uploadPendingSignature,
+    uploadMonthlyAmount,
+    uploadPaymentDay,
   ]);
 
   // ─── Submit upload ─────────────────────────────────────────────
@@ -385,53 +419,66 @@ export function AccountContractsSection({
       toast.error(dialogError);
       return;
     }
-    if (!uploadFile) return;
+    if (!uploadPendingSignature && !uploadFile) return;
     setUploadSaving(true);
     try {
-      // Subida en dos pasos para bypassear el límite de body de Vercel
-      // (Hobby ~4.5MB). Pedimos un presigned URL, subimos el PDF directo
-      // a R2, y después POSTeamos sólo metadata + storageKey al endpoint.
-      const presignRes = await fetch("/api/storage/presigned-upload", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fileName: uploadFile.name,
-          mimeType: uploadFile.type || "application/pdf",
-          prefix: "contracts",
-        }),
-      });
-      const presign = await presignRes.json();
-      if (!presign.success) {
-        toast.error(presign.error || "No se pudo iniciar la subida");
-        return;
-      }
-      const putRes = await fetch(presign.uploadUrl, {
-        method: "PUT",
-        headers: { "Content-Type": uploadFile.type || "application/pdf" },
-        body: uploadFile,
-      });
-      if (!putRes.ok) {
-        toast.error(`Error subiendo el PDF al storage (${putRes.status})`);
-        return;
+      // En modo "sin contrato firmado" saltamos la subida a R2: el Document
+      // se crea con pdfUrl=null directamente vía JSON.
+      let storageKey: string | undefined;
+      let fileName: string | undefined;
+      let fileSize: number | undefined;
+      if (!uploadPendingSignature && uploadFile) {
+        // Subida en dos pasos para bypassear el límite de body de Vercel
+        // (Hobby ~4.5MB). Pedimos un presigned URL, subimos el PDF directo
+        // a R2, y después POSTeamos sólo metadata + storageKey al endpoint.
+        const presignRes = await fetch("/api/storage/presigned-upload", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fileName: uploadFile.name,
+            mimeType: uploadFile.type || "application/pdf",
+            prefix: "contracts",
+          }),
+        });
+        const presign = await presignRes.json();
+        if (!presign.success) {
+          toast.error(presign.error || "No se pudo iniciar la subida");
+          return;
+        }
+        const putRes = await fetch(presign.uploadUrl, {
+          method: "PUT",
+          headers: { "Content-Type": uploadFile.type || "application/pdf" },
+          body: uploadFile,
+        });
+        if (!putRes.ok) {
+          toast.error(`Error subiendo el PDF al storage (${putRes.status})`);
+          return;
+        }
+        storageKey = presign.storageKey;
+        fileName = uploadFile.name;
+        fileSize = uploadFile.size;
       }
 
       const amt = uploadAddToCashflow
         ? Number(uploadMonthlyAmount.replace(/\./g, "").replace(",", "."))
         : null;
       const payload: Record<string, unknown> = {
-        storageKey: presign.storageKey,
-        fileName: uploadFile.name,
-        fileSize: uploadFile.size,
+        ...(storageKey ? { storageKey, fileName, fileSize } : {}),
         title: uploadTitle.trim(),
         category: uploadCategory,
         effectiveDate: uploadEffective || undefined,
         expirationDate: uploadExpiration || undefined,
         durationMonths: uploadDuration || undefined,
         alertDaysBefore: uploadAlertDays || undefined,
-        signedExternally: uploadSignedExternally,
-        signedAt: uploadSignedExternally && uploadSignedAt ? uploadSignedAt : undefined,
+        // En modo pendiente, signedExternally siempre va en false (el doc
+        // se está creando justamente porque aún no hay firma).
+        signedExternally: uploadPendingSignature ? false : uploadSignedExternally,
+        signedAt:
+          !uploadPendingSignature && uploadSignedExternally && uploadSignedAt
+            ? uploadSignedAt
+            : undefined,
         signedBy:
-          uploadSignedExternally && uploadSignedBy.trim()
+          !uploadPendingSignature && uploadSignedExternally && uploadSignedBy.trim()
             ? uploadSignedBy.trim()
             : undefined,
         notes: uploadNotes.trim() || undefined,
@@ -439,6 +486,7 @@ export function AccountContractsSection({
         installationIds:
           uploadInstallationIds.length > 0 ? uploadInstallationIds : undefined,
         addToCashflow: uploadAddToCashflow,
+        pendingSignature: uploadPendingSignature,
       };
       if (uploadAddToCashflow) {
         if (Number.isFinite(amt) && (amt ?? 0) > 0) {
@@ -446,6 +494,13 @@ export function AccountContractsSection({
         }
         payload.currency = uploadCurrency;
         if (uploadPaymentDay) payload.paymentDay = Number(uploadPaymentDay);
+        // IPC sólo para CLP. El schema rechaza UF+hasIpc, pero defendemos
+        // también en cliente para no enviar payloads inválidos.
+        const ipcOn = uploadCurrency === "CLP" && uploadHasIpc;
+        payload.hasIpcAdjustment = ipcOn;
+        if (ipcOn) {
+          payload.ipcAdjustmentMonths = Number(uploadIpcMonths) || 12;
+        }
       }
 
       const res = await fetch(`/api/crm/accounts/${accountId}/contracts`, {
@@ -455,7 +510,11 @@ export function AccountContractsSection({
       });
       const data = await res.json();
       if (data.success) {
-        toast.success("Contrato subido exitosamente");
+        toast.success(
+          uploadPendingSignature
+            ? "Ingreso agregado al flujo de caja · contrato pendiente"
+            : "Contrato subido exitosamente",
+        );
         setUploadOpen(false);
         resetUploadForm();
         fetchContracts();
@@ -772,6 +831,8 @@ export function AccountContractsSection({
   const rowAccent = (c: Contract): string => {
     if (c.status === "expired") return "border-status-danger-border bg-status-danger-soft/60";
     if (c.status === "expiring") return "border-status-warn-border bg-status-warn-soft/60";
+    if (c.status === "pending_signature")
+      return "border-amber-200 bg-amber-50/60";
     return "border-border bg-card";
   };
 
@@ -835,6 +896,21 @@ export function AccountContractsSection({
         </label>
       </div>
 
+      {/* Alternativa: agregar el ingreso al flujo de caja sin haber recibido
+          aún el PDF firmado. Crea un Document con pdfUrl=null y
+          status="pending_signature". */}
+      <div className="flex items-center justify-center">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={openPendingSignatureDialog}
+          className="text-xs text-muted-foreground hover:text-foreground gap-1.5"
+        >
+          <Wallet className="h-3.5 w-3.5" />
+          ¿Aún no tienes el contrato firmado? Agregar al flujo de caja como pendiente
+        </Button>
+      </div>
+
       {/* Contract list */}
       {loading ? (
         <div className="flex items-center justify-center py-12">
@@ -878,6 +954,24 @@ export function AccountContractsSection({
                     >
                       {statusCfg.label}
                     </Badge>
+                    {!c.pdfUrl && (
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] px-1.5 py-0 bg-amber-100 text-amber-800 border-amber-200"
+                      >
+                        <Paperclip className="h-2.5 w-2.5 mr-0.5" />
+                        Sin contrato subido
+                      </Badge>
+                    )}
+                    {c.cashflow && (
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] px-1.5 py-0 bg-status-ok-soft text-status-ok-fg border-status-ok-fg/30"
+                      >
+                        <Wallet className="h-2.5 w-2.5 mr-0.5" />
+                        Agregado al FC
+                      </Badge>
+                    )}
                     {sigLabel && (
                       <Badge
                         variant="outline"
@@ -1198,20 +1292,46 @@ export function AccountContractsSection({
       >
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Subir Contrato PDF</DialogTitle>
+            <DialogTitle>
+              {uploadPendingSignature
+                ? "Agregar ingreso al flujo de caja"
+                : "Subir Contrato PDF"}
+            </DialogTitle>
             <DialogDescription>
-              Sube un contrato firmado fuera de Opai. Define las fechas para activar las alertas
-              automáticas de vencimiento.
+              {uploadPendingSignature ? (
+                <>
+                  Proyecta el ingreso mensual antes de tener el PDF firmado. El
+                  contrato quedará marcado como{" "}
+                  <span className="font-medium">pendiente de firma</span> y podrás
+                  adjuntar el documento más adelante.
+                </>
+              ) : (
+                <>
+                  Sube un contrato firmado fuera de Opai. Define las fechas para
+                  activar las alertas automáticas de vencimiento.
+                </>
+              )}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
-            {uploadFile && (
+            {uploadFile && !uploadPendingSignature && (
               <div className="rounded-md bg-muted/50 px-3 py-2 text-xs flex items-center gap-2">
                 <FileText className="h-3.5 w-3.5 text-muted-foreground" />
                 <span className="break-all flex-1 min-w-0">{uploadFile.name}</span>
                 <span className="text-muted-foreground tabular-nums">
                   {(uploadFile.size / 1024 / 1024).toFixed(2)} MB
+                </span>
+              </div>
+            )}
+
+            {uploadPendingSignature && (
+              <div className="rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-xs flex items-start gap-2">
+                <CalendarClock className="h-3.5 w-3.5 text-amber-700 mt-0.5 shrink-0" />
+                <span className="text-amber-900">
+                  Sin archivo adjunto. El contrato quedará como{" "}
+                  <span className="font-medium">pendiente de firma</span>; el
+                  ingreso al flujo de caja se proyecta desde el día que indiques.
                 </span>
               </div>
             )}
@@ -1304,43 +1424,45 @@ export function AccountContractsSection({
               />
             </div>
 
-            <div className="rounded-md border border-border p-3 space-y-3">
-              <label className="flex items-start gap-2 cursor-pointer">
-                <Checkbox
-                  checked={uploadSignedExternally}
-                  onCheckedChange={(v) => setUploadSignedExternally(v === true)}
-                />
-                <div className="space-y-0.5">
-                  <span className="text-sm font-medium">
-                    Este contrato fue firmado fuera de Opai
-                  </span>
-                  <p className="text-xs text-muted-foreground">
-                    Registra los datos de la firma externa para mantener trazabilidad legal.
-                  </p>
-                </div>
-              </label>
+            {!uploadPendingSignature && (
+              <div className="rounded-md border border-border p-3 space-y-3">
+                <label className="flex items-start gap-2 cursor-pointer">
+                  <Checkbox
+                    checked={uploadSignedExternally}
+                    onCheckedChange={(v) => setUploadSignedExternally(v === true)}
+                  />
+                  <div className="space-y-0.5">
+                    <span className="text-sm font-medium">
+                      Este contrato fue firmado fuera de Opai
+                    </span>
+                    <p className="text-xs text-muted-foreground">
+                      Registra los datos de la firma externa para mantener trazabilidad legal.
+                    </p>
+                  </div>
+                </label>
 
-              {uploadSignedExternally && (
-                <div className="grid grid-cols-2 gap-3 pt-2 border-t border-border">
-                  <div className="space-y-2">
-                    <Label>Fecha de firma</Label>
-                    <Input
-                      type="date"
-                      value={uploadSignedAt}
-                      onChange={(e) => setUploadSignedAt(e.target.value)}
-                    />
+                {uploadSignedExternally && (
+                  <div className="grid grid-cols-2 gap-3 pt-2 border-t border-border">
+                    <div className="space-y-2">
+                      <Label>Fecha de firma</Label>
+                      <Input
+                        type="date"
+                        value={uploadSignedAt}
+                        onChange={(e) => setUploadSignedAt(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Firmado por</Label>
+                      <Input
+                        value={uploadSignedBy}
+                        onChange={(e) => setUploadSignedBy(e.target.value)}
+                        placeholder="Nombre completo"
+                      />
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label>Firmado por</Label>
-                    <Input
-                      value={uploadSignedBy}
-                      onChange={(e) => setUploadSignedBy(e.target.value)}
-                      placeholder="Nombre completo"
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label>
@@ -1422,23 +1544,40 @@ export function AccountContractsSection({
                 </p>
               </div>
 
-              <label className="flex items-start gap-2 cursor-pointer pt-1 border-t border-border">
-                <Checkbox
-                  checked={uploadAddToCashflow}
-                  onCheckedChange={(v) => setUploadAddToCashflow(v === true)}
-                  className="mt-1"
-                />
-                <div className="space-y-0.5">
-                  <span className="text-sm font-medium">
-                    Ingresa al flujo de caja
-                  </span>
-                  <p className="text-xs text-muted-foreground">
-                    Crea automáticamente un ingreso mensual recurrente en
-                    &quot;Ventas por contrato&quot;, vinculado a este PDF.
-                    Termina cuando vence el contrato.
-                  </p>
+              {uploadPendingSignature ? (
+                <div className="pt-1 border-t border-border">
+                  <div className="flex items-start gap-2">
+                    <Wallet className="h-4 w-4 text-status-ok-fg mt-0.5 shrink-0" />
+                    <div className="space-y-0.5">
+                      <span className="text-sm font-medium">
+                        Ingreso mensual al flujo de caja
+                      </span>
+                      <p className="text-xs text-muted-foreground">
+                        Es el motivo por el que estás creando este contrato sin
+                        archivo. Indica monto, moneda y día de pago.
+                      </p>
+                    </div>
+                  </div>
                 </div>
-              </label>
+              ) : (
+                <label className="flex items-start gap-2 cursor-pointer pt-1 border-t border-border">
+                  <Checkbox
+                    checked={uploadAddToCashflow}
+                    onCheckedChange={(v) => setUploadAddToCashflow(v === true)}
+                    className="mt-1"
+                  />
+                  <div className="space-y-0.5">
+                    <span className="text-sm font-medium">
+                      Ingresa al flujo de caja
+                    </span>
+                    <p className="text-xs text-muted-foreground">
+                      Crea automáticamente un ingreso mensual recurrente en
+                      &quot;Ventas por contrato&quot;, vinculado a este PDF.
+                      Termina cuando vence el contrato.
+                    </p>
+                  </div>
+                </label>
+              )}
 
               {uploadAddToCashflow && (
                 <div className="pt-2 border-t border-border space-y-3">
@@ -1501,6 +1640,51 @@ export function AccountContractsSection({
                       )}
                     </p>
                   </div>
+
+                  {/* Ajuste IPC — sólo aplica a contratos CLP. Los UF se
+                      auto-reajustan vía la UF del día de pago, así que
+                      activar IPC sobre UF sería doble ajuste. */}
+                  {uploadCurrency === "CLP" ? (
+                    <div className="space-y-2 pt-3 border-t border-border">
+                      <label className="flex items-start gap-2 cursor-pointer">
+                        <Checkbox
+                          checked={uploadHasIpc}
+                          onCheckedChange={(v) => setUploadHasIpc(v === true)}
+                          className="mt-1"
+                        />
+                        <div className="space-y-0.5">
+                          <span className="text-sm font-medium">
+                            Tiene ajuste de IPC
+                          </span>
+                          <p className="text-xs text-muted-foreground">
+                            30 días antes de cada reajuste recibirás un aviso
+                            (mail + notificación) para ingresar el % del
+                            período. El monto histórico no se toca, el nuevo se
+                            proyecta hacia adelante.
+                          </p>
+                        </div>
+                      </label>
+                      {uploadHasIpc ? (
+                        <div className="space-y-1 pl-6">
+                          <Label className="text-xs">
+                            Cada cuántos meses se ajusta
+                          </Label>
+                          <Input
+                            type="number"
+                            min={1}
+                            max={36}
+                            value={uploadIpcMonths}
+                            onChange={(e) => setUploadIpcMonths(e.target.value)}
+                            className="max-w-[120px]"
+                          />
+                          <p className="text-[11px] text-muted-foreground">
+                            Típico: <strong>12</strong> (anual) o{" "}
+                            <strong>6</strong> (semestral).
+                          </p>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
               )}
             </div>
@@ -1522,7 +1706,9 @@ export function AccountContractsSection({
               disabled={uploadSaving || !!dialogError}
             >
               {uploadSaving && <Loader2 className="h-4 w-4 animate-spin mr-1.5" />}
-              Subir Contrato
+              {uploadPendingSignature
+                ? "Agregar al flujo de caja"
+                : "Subir Contrato"}
             </Button>
           </DialogFooter>
         </DialogContent>

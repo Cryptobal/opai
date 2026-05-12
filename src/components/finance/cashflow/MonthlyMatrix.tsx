@@ -19,11 +19,21 @@ interface Props {
   canManage: boolean;
 }
 
+interface IpcPendingMarker {
+  id: string;
+  dueDate: string;
+}
+
 export function MonthlyMatrix({ defaultMonths }: Props) {
   const [months, setMonths] = useState<number>(defaultMonths);
   const [projection, setProjection] = useState<ProjectionMatrix | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
+  // Ajustes IPC PENDING — mostramos un highlight en la celda (mes × item)
+  // donde cae cada `dueDate` para que el reajuste no se pase de fecha.
+  const [ipcPending, setIpcPending] = useState<
+    Map<string, IpcPendingMarker[]>
+  >(new Map());
 
   const fromDate = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const toDate = useMemo(
@@ -48,6 +58,39 @@ export function MonthlyMatrix({ defaultMonths }: Props) {
       })
       .finally(() => setLoading(false));
   }, [fromDate, toDate, refreshKey]);
+
+  // Carga los ajustes IPC pendientes. Clave del Map: `${itemId}_${YYYY-MM}`
+  // — replica el formato de `bucketKeyFor` para monthly.
+  useEffect(() => {
+    fetch("/api/finance/cashflow/ipc-adjustments?status=PENDING")
+      .then((r) => r.json())
+      .then((j) => {
+        if (!j?.success || !Array.isArray(j.data)) return;
+        const m = new Map<string, IpcPendingMarker[]>();
+        for (const a of j.data as Array<{
+          id: string;
+          itemId: string;
+          dueDate: string;
+        }>) {
+          const d = new Date(a.dueDate);
+          if (Number.isNaN(d.getTime())) continue;
+          // Replicamos el formato de `bucketKeyFor(date, "monthly")` que
+          // usa fecha local (date-fns getYear/getMonth, no UTC). Si
+          // diverge, las celdas no matchean en zonas horarias UTC≠0.
+          const bucketKey = `${d.getFullYear()}-${String(
+            d.getMonth() + 1,
+          ).padStart(2, "0")}`;
+          const key = `${a.itemId}_${bucketKey}`;
+          const list = m.get(key) ?? [];
+          list.push({ id: a.id, dueDate: a.dueDate });
+          m.set(key, list);
+        }
+        setIpcPending(m);
+      })
+      .catch(() => {
+        // El highlight es informativo — si falla, la matriz funciona igual.
+      });
+  }, [refreshKey]);
 
   // Footer colapsable (mismo patrón que WeeklyMatrix). En móvil ocultamos
   // "Neto mensual" por default y dejamos solo "Saldo acumulado".
@@ -182,6 +225,7 @@ export function MonthlyMatrix({ defaultMonths }: Props) {
                     key={r.categoryCode}
                     row={r}
                     actualByCellKey={actualByCellKey}
+                    ipcPending={ipcPending}
                     buckets={projection.buckets}
                     granularity="monthly"
                     onActionDone={() => setRefreshKey((k) => k + 1)}
@@ -202,6 +246,7 @@ export function MonthlyMatrix({ defaultMonths }: Props) {
                     key={r.categoryCode}
                     row={r}
                     actualByCellKey={actualByCellKey}
+                    ipcPending={ipcPending}
                     buckets={projection.buckets}
                     granularity="monthly"
                     onActionDone={() => setRefreshKey((k) => k + 1)}

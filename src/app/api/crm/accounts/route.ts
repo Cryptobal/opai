@@ -72,7 +72,10 @@ export async function GET(request: NextRequest) {
       include: {
         installations: {
           orderBy: { name: "asc" },
-          select: { id: true },
+          // status: necesario para excluir las inactivas/prospect del badge
+          // "Contrato X/Y" — el denominador debe contar sólo instalaciones
+          // donde un contrato es relevante.
+          select: { id: true, status: true },
         },
         _count: { select: { contacts: true, deals: true, installations: true } },
       },
@@ -85,7 +88,16 @@ export async function GET(request: NextRequest) {
     });
 
     const data = accounts.map(({ installations, ...account }) => {
-      const statuses = installations.map((installation) => contractCoverage.get(installation.id)?.status ?? "sin_documento");
+      // Sólo las instalaciones activas pesan para el cálculo de cobertura
+      // de contratos. Una instalación inactiva o en estado prospect no
+      // requiere contrato y no debe contar en el denominador.
+      const activeInstallations = installations.filter(
+        (installation) => installation.status === "active",
+      );
+      const statuses = activeInstallations.map(
+        (installation) =>
+          contractCoverage.get(installation.id)?.status ?? "sin_documento",
+      );
       const withContract = statuses.filter((status) => status !== "sin_documento").length;
       const expiredContract = statuses.filter((status) => status === "vencido").length;
       const expiringContract = statuses.filter((status) => status === "por_vencer").length;
@@ -93,9 +105,9 @@ export async function GET(request: NextRequest) {
       return {
         ...account,
         contractCoverage: {
-          totalInstallations: installations.length,
+          totalInstallations: activeInstallations.length,
           withContract,
-          missingContract: installations.length - withContract,
+          missingContract: activeInstallations.length - withContract,
           expiredContract,
           expiringContract,
         },

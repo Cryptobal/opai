@@ -29,7 +29,10 @@ export default async function CrmAccountsPage() {
     include: {
       installations: {
         orderBy: { name: "asc" },
-        select: { id: true },
+        // status: necesario para que el badge "Contrato X/Y" sólo cuente
+        // instalaciones activas (las inactivas/prospect no requieren
+        // contrato y no deben inflar el denominador).
+        select: { id: true, status: true },
       },
       _count: { select: { contacts: true, deals: true, installations: true } },
     },
@@ -43,7 +46,13 @@ export default async function CrmAccountsPage() {
 
   const initialAccounts = JSON.parse(JSON.stringify(
     accounts.map(({ installations, ...account }) => {
-      const statuses = installations.map((installation) => contractCoverage.get(installation.id)?.status ?? "sin_documento");
+      const activeInstallations = installations.filter(
+        (installation) => installation.status === "active",
+      );
+      const statuses = activeInstallations.map(
+        (installation) =>
+          contractCoverage.get(installation.id)?.status ?? "sin_documento",
+      );
       const withContract = statuses.filter((status) => status !== "sin_documento").length;
       const expiredContract = statuses.filter((status) => status === "vencido").length;
       const expiringContract = statuses.filter((status) => status === "por_vencer").length;
@@ -51,9 +60,9 @@ export default async function CrmAccountsPage() {
       return {
         ...account,
         contractCoverage: {
-          totalInstallations: installations.length,
+          totalInstallations: activeInstallations.length,
           withContract,
-          missingContract: installations.length - withContract,
+          missingContract: activeInstallations.length - withContract,
           expiredContract,
           expiringContract,
         },
