@@ -181,13 +181,16 @@ export async function PUT(
     data.paymentDay === -1 ? -1 : Math.min(Math.max(data.paymentDay, 1), 28);
   const installationId = data.installationId ?? null;
 
-  // Update si ya existe; create si no. El sourceRefId apunta al document.
-  // Búsqueda inclusiva: matches CONTRACT (nuevo) y OTHER (legacy).
+  // Busca el item existente filtrando por sourceRefId Y installationId.
+  // Esto permite múltiples items por contrato (uno por instalación):
+  //   installationId=null  → item "global" del contrato (sin instalación)
+  //   installationId="uuid" → item de esa instalación específica
   const existing = await prisma.financeCashflowItem.findFirst({
     where: {
       tenantId: ctx.tenantId,
       source: { in: ["CONTRACT", "OTHER"] },
       sourceRefId: contractId,
+      installationId: installationId ?? null,
     },
     select: { id: true },
   });
@@ -253,7 +256,7 @@ export async function PUT(
 }
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string; contractId: string }> },
 ) {
   const ctx = await requireAuth();
@@ -270,34 +273,46 @@ export async function DELETE(
     );
   }
 
-  const existing = await prisma.financeCashflowItem.findFirst({
-    where: {
-      tenantId: ctx.tenantId,
-      source: { in: ["CONTRACT", "OTHER"] },
-      sourceRefId: contractId,
-    },
+  // Opcional: itemId específico en el body para borrar sólo ese item.
+  // Sin itemId → soft-delete de todos los items del contrato (backward compat).
+  let specificItemId: string | null = null;
+  try {
+    const body = await request.json();
+    if (typeof body?.itemId === "string") specificItemId = body.itemId;
+  } catch {
+    // body vacío o no-JSON → sin itemId específico
+  }
+
+  const whereClause = specificItemId
+    ? { tenantId: ctx.tenantId, id: specificItemId, sourceRefId: contractId }
+    : { tenantId: ctx.tenantId, source: { in: ["CONTRACT", "OTHER"] as const }, sourceRefId: contractId };
+
+  const items = await prisma.financeCashflowItem.findMany({
+    where: whereClause,
     select: { id: true },
   });
-  if (!existing) {
+
+  if (items.length === 0) {
     return NextResponse.json({ success: true, data: { action: "noop" } });
   }
 
-  // Soft delete: marcar inactivo. Preserva occurrences pagadas/conciliadas
-  // que podrían tener history bancario, y permite reactivar después.
-  await prisma.financeCashflowItem.update({
-    where: { id: existing.id },
+  const itemIds = items.map((i) => i.id);
+
+  // Soft delete: marcar inactivo. Preserva occurrences pagadas/conciliadas.
+  await prisma.financeCashflowItem.updateMany({
+    where: { id: { in: itemIds } },
     data: { isActive: false },
   });
   await prisma.financeCashflowOccurrence.deleteMany({
     where: {
       tenantId: ctx.tenantId,
-      itemId: existing.id,
+      itemId: { in: itemIds },
       status: "PROJECTED",
     },
   });
 
   return NextResponse.json({
     success: true,
-    data: { itemId: existing.id, action: "deactivated" },
+    data: { itemIds, action: "deactivated" },
   });
 }

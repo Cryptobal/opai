@@ -108,9 +108,13 @@ export async function GET(
         },
       },
     });
-    const cashflowByDoc = new Map(
-      cashflowItems.map((i) => [i.sourceRefId ?? "", i]),
-    );
+    // Multi-item: agrupar por sourceRefId → un contrato puede tener N items FC
+    const cashflowByDoc = new Map<string, typeof cashflowItems>();
+    for (const item of cashflowItems) {
+      const key = item.sourceRefId ?? "";
+      if (!cashflowByDoc.has(key)) cashflowByDoc.set(key, []);
+      cashflowByDoc.get(key)!.push(item);
+    }
 
     const data = documents.map((doc) => {
       const dealAssoc = doc.associations.find(
@@ -124,7 +128,7 @@ export async function GET(
         sigReq?.status ??
         (doc.signatureStatus === "external" ? "external" : null);
 
-      const cashflow = cashflowByDoc.get(doc.id);
+      const cfItems = cashflowByDoc.get(doc.id) ?? [];
       const installAssocs = doc.associations.filter(
         (a) => a.entityType === "crm_installation",
       );
@@ -149,20 +153,20 @@ export async function GET(
         createdAt: doc.createdAt,
         installationId: installAssoc?.entityId ?? null,
         installationIds: installAssocs.map((a) => a.entityId),
-        cashflow: cashflow
-          ? {
-              itemId: cashflow.id,
-              amountClp: Number(cashflow.amount),
-              currency: cashflow.currency,
-              dayOfMonth: cashflow.dayOfMonth,
-              hasIpcAdjustment: cashflow.hasIpcAdjustment,
-              ipcAdjustmentMonths: cashflow.ipcAdjustmentMonths,
-              pendingIpcAdjustments: cashflow.ipcAdjustments.map((a) => ({
-                id: a.id,
-                dueDate: a.dueDate.toISOString().slice(0, 10),
-              })),
-            }
-          : null,
+        // Array de items FC (uno por instalación). Puede haber 0, 1 o N.
+        cashflowItems: cfItems.map((cf) => ({
+          itemId: cf.id,
+          installationId: cf.installationId,
+          amountClp: Number(cf.amount),
+          currency: cf.currency,
+          dayOfMonth: cf.dayOfMonth,
+          hasIpcAdjustment: cf.hasIpcAdjustment,
+          ipcAdjustmentMonths: cf.ipcAdjustmentMonths,
+          pendingIpcAdjustments: cf.ipcAdjustments.map((a) => ({
+            id: a.id,
+            dueDate: a.dueDate.toISOString().slice(0, 10),
+          })),
+        })),
       };
     });
 

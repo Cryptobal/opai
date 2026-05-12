@@ -41,6 +41,8 @@ import {
   Wallet,
   MapPin,
   TrendingUp,
+  PlusCircle,
+  X,
 } from "lucide-react";
 import { ApplyIpcDialog } from "./ApplyIpcDialog";
 import { cn } from "@/lib/utils";
@@ -50,6 +52,17 @@ import {
   CONTRACT_CATEGORY_LABELS,
   type ContractCategory,
 } from "@/lib/validations/docs";
+
+interface CfItem {
+  itemId: string;
+  installationId: string | null;
+  amountClp: number;
+  currency: string;
+  dayOfMonth: number | null;
+  hasIpcAdjustment?: boolean;
+  ipcAdjustmentMonths?: number | null;
+  pendingIpcAdjustments?: Array<{ id: string; dueDate: string }>;
+}
 
 interface Contract {
   id: string;
@@ -76,15 +89,7 @@ interface Contract {
   createdAt: string;
   installationId?: string | null;
   installationIds?: string[];
-  cashflow?: {
-    itemId: string;
-    amountClp: number;
-    currency: string;
-    dayOfMonth: number | null;
-    hasIpcAdjustment?: boolean;
-    ipcAdjustmentMonths?: number | null;
-    pendingIpcAdjustments?: Array<{ id: string; dueDate: string }>;
-  } | null;
+  cashflowItems: CfItem[];
 }
 
 interface Props {
@@ -246,16 +251,30 @@ export function AccountContractsSection({
   const [editIndefinite, setEditIndefinite] = useState(false);
   const [editAlertDays, setEditAlertDays] = useState<string>("30");
   const [editSaving, setEditSaving] = useState(false);
-  // Edit ampliado: instalación, flujo de caja, monto y moneda
+  // Edit ampliado: instalación vinculada (sin FC — FC se gestiona desde la tarjeta)
   const [editInstallationId, setEditInstallationId] = useState<string>("");
   const [editInstallationIds, setEditInstallationIds] = useState<string[]>([]);
-  const [editInCashflow, setEditInCashflow] = useState(false);
-  const [editMonthlyAmount, setEditMonthlyAmount] = useState<string>("");
-  const [editCurrency, setEditCurrency] = useState<"CLP" | "UF">("CLP");
-  const [editPaymentDay, setEditPaymentDay] = useState<string>("5");
-  // Fase E — ajuste IPC (sólo aplicable a CLP)
-  const [editHasIpc, setEditHasIpc] = useState<boolean>(false);
-  const [editIpcMonths, setEditIpcMonths] = useState<string>("12");
+
+  // ─── Diálogo FC por instalación ───────────────────────────────────────────
+  // Permite agregar o editar un FinanceCashflowItem por instalación bajo
+  // el mismo contrato. Abre con openCfItemDialog(contract, existingItem | null).
+  const [cfDialog, setCfDialog] = useState<{
+    contractId: string;
+    contractTitle: string;
+    contractEffective: string | null;
+    contractExpiration: string | null;
+    itemId?: string;
+    installationId?: string | null;
+  } | null>(null);
+  const [cfInstallId, setCfInstallId] = useState<string>("");
+  const [cfAmount, setCfAmount] = useState<string>("");
+  const [cfCurrency, setCfCurrency] = useState<"CLP" | "UF">("CLP");
+  const [cfPayDay, setCfPayDay] = useState<string>("5");
+  const [cfStartDate, setCfStartDate] = useState<string>("");
+  const [cfEndDate, setCfEndDate] = useState<string>("");
+  const [cfHasIpc, setCfHasIpc] = useState<boolean>(false);
+  const [cfIpcMonths, setCfIpcMonths] = useState<string>("12");
+  const [cfSaving, setCfSaving] = useState(false);
 
   // Action loading states
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
@@ -554,23 +573,6 @@ export function AccountContractsSection({
           ? [contract.installationId]
           : [],
     );
-    if (contract.cashflow) {
-      setEditInCashflow(true);
-      const amt = contract.cashflow.amountClp;
-      const currency = contract.cashflow.currency === "UF" ? "UF" : "CLP";
-      setEditCurrency(currency);
-      setEditMonthlyAmount(formatAmount(amt, currency));
-      setEditPaymentDay(String(contract.cashflow.dayOfMonth ?? 5));
-      setEditHasIpc(!!contract.cashflow.hasIpcAdjustment);
-      setEditIpcMonths(String(contract.cashflow.ipcAdjustmentMonths ?? 12));
-    } else {
-      setEditInCashflow(false);
-      setEditMonthlyAmount("");
-      setEditCurrency("CLP");
-      setEditPaymentDay("5");
-      setEditHasIpc(false);
-      setEditIpcMonths("12");
-    }
     setEditOpen(true);
   };
 
@@ -624,72 +626,6 @@ export function AccountContractsSection({
         return;
       }
 
-      // Si se cambió algo del cashflow (monto/moneda/día/instalación o
-      // toggle), upsert/delete vía el mismo endpoint que usa el dialog
-      // específico de cashflow para no duplicar la lógica.
-      const hadCashflow = !!editContract.cashflow;
-      const cashflowChanged =
-        hadCashflow !== editInCashflow ||
-        (editInCashflow &&
-          (parseFloat(editMonthlyAmount.replace(/\./g, "").replace(",", ".")) !==
-            (editContract.cashflow?.amountClp ?? NaN) ||
-            editCurrency !== (editContract.cashflow?.currency ?? "CLP") ||
-            Number(editPaymentDay) !== (editContract.cashflow?.dayOfMonth ?? NaN) ||
-            editInstallationId !== (editContract.installationId ?? "") ||
-            editHasIpc !== !!editContract.cashflow?.hasIpcAdjustment ||
-            (editHasIpc &&
-              Number(editIpcMonths) !==
-                (editContract.cashflow?.ipcAdjustmentMonths ?? NaN))));
-
-      if (cashflowChanged) {
-        if (editInCashflow) {
-          const amt = parseFloat(
-            editMonthlyAmount.replace(/\./g, "").replace(",", "."),
-          );
-          if (!Number.isFinite(amt) || amt <= 0) {
-            toast.error("Indica el monto mensual del contrato");
-            return;
-          }
-          const pd = Number(editPaymentDay);
-          const cfRes = await fetch(
-            `/api/crm/accounts/${accountId}/contracts/${editContract.id}/cashflow`,
-            {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                // En multi-instalación pasamos null al cashflow item (vive a
-                // nivel cuenta y la UI lista las instalaciones desde DocAssoc).
-                installationId:
-                  editInstallationIds.length === 1
-                    ? editInstallationIds[0]
-                    : null,
-                monthlyAmount: amt,
-                currency: editCurrency,
-                paymentDay: Number.isFinite(pd) && pd !== 0 ? pd : 5,
-                startDate: editEffective || todayISO(),
-                endDate:
-                  editIndefinite || !editExpiration ? null : editExpiration,
-                hasIpcAdjustment: editCurrency === "CLP" ? editHasIpc : false,
-                ipcAdjustmentMonths:
-                  editCurrency === "CLP" && editHasIpc
-                    ? Number(editIpcMonths) || 12
-                    : null,
-              }),
-            },
-          );
-          const cfJson = await cfRes.json();
-          if (!cfJson?.success) {
-            toast.error(cfJson?.error || "Error guardando flujo de caja");
-            return;
-          }
-        } else if (hadCashflow) {
-          await fetch(
-            `/api/crm/accounts/${accountId}/contracts/${editContract.id}/cashflow`,
-            { method: "DELETE" },
-          );
-        }
-      }
-
       toast.success("Contrato actualizado");
       setEditOpen(false);
       setEditContract(null);
@@ -699,6 +635,102 @@ export function AccountContractsSection({
       toast.error("Error de conexión");
     } finally {
       setEditSaving(false);
+    }
+  };
+
+  // ─── FC por instalación ─────────────────────────────────────────
+  const openCfItemDialog = (contract: Contract, item: CfItem | null) => {
+    setCfDialog({
+      contractId: contract.id,
+      contractTitle: contract.title,
+      contractEffective: contract.effectiveDate,
+      contractExpiration: contract.expirationDate,
+      itemId: item?.itemId,
+      installationId: item?.installationId,
+    });
+    setCfInstallId(item?.installationId ?? "");
+    if (item) {
+      const cur = item.currency === "UF" ? "UF" : "CLP";
+      setCfCurrency(cur);
+      setCfAmount(formatAmount(item.amountClp, cur));
+      setCfPayDay(String(item.dayOfMonth ?? 5));
+      setCfHasIpc(!!item.hasIpcAdjustment);
+      setCfIpcMonths(String(item.ipcAdjustmentMonths ?? 12));
+    } else {
+      setCfCurrency("CLP");
+      setCfAmount("");
+      setCfPayDay("5");
+      setCfHasIpc(false);
+      setCfIpcMonths("12");
+    }
+    setCfStartDate(contract.effectiveDate?.slice(0, 10) ?? todayISO());
+    setCfEndDate(contract.expirationDate?.slice(0, 10) ?? "");
+  };
+
+  const handleCfSave = async () => {
+    if (!cfDialog) return;
+    const amt = parseChileanAmount(cfAmount);
+    if (!Number.isFinite(amt) || amt <= 0) {
+      toast.error("Indica el monto mensual");
+      return;
+    }
+    setCfSaving(true);
+    try {
+      const res = await fetch(
+        `/api/crm/accounts/${accountId}/contracts/${cfDialog.contractId}/cashflow`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            installationId: cfInstallId || null,
+            monthlyAmount: amt,
+            currency: cfCurrency,
+            paymentDay: Number(cfPayDay) || 5,
+            startDate: cfStartDate || todayISO(),
+            endDate: cfEndDate || null,
+            hasIpcAdjustment: cfCurrency === "CLP" && cfHasIpc,
+            ipcAdjustmentMonths:
+              cfCurrency === "CLP" && cfHasIpc ? Number(cfIpcMonths) || 12 : null,
+          }),
+        },
+      );
+      const data = await res.json();
+      if (data.success) {
+        toast.success(cfDialog.itemId ? "FC actualizado" : "Instalación agregada al flujo de caja");
+        setCfDialog(null);
+        fetchContracts();
+        onRefresh?.();
+      } else {
+        toast.error(data.error || "Error guardando FC");
+      }
+    } catch {
+      toast.error("Error de conexión");
+    } finally {
+      setCfSaving(false);
+    }
+  };
+
+  const deleteFcItem = async (contractId: string, itemId: string) => {
+    if (!confirm("¿Quitar este ítem del flujo de caja?")) return;
+    try {
+      const res = await fetch(
+        `/api/crm/accounts/${accountId}/contracts/${contractId}/cashflow`,
+        {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ itemId }),
+        },
+      );
+      const data = await res.json();
+      if (data.success) {
+        toast.success("Ítem eliminado del flujo de caja");
+        fetchContracts();
+        onRefresh?.();
+      } else {
+        toast.error(data.error || "Error eliminando FC");
+      }
+    } catch {
+      toast.error("Error de conexión");
     }
   };
 
@@ -939,7 +971,7 @@ export function AccountContractsSection({
               <div
                 key={c.id}
                 className={cn(
-                  "flex items-start sm:items-center justify-between gap-3 rounded-lg border p-3 transition-colors hover:bg-accent/30 flex-col sm:flex-row",
+                  "flex items-start sm:items-center justify-between gap-3 rounded-lg border p-3 transition-colors hover:bg-ds-surface-2 flex-col sm:flex-row",
                   rowAccent(c),
                 )}
               >
@@ -963,13 +995,15 @@ export function AccountContractsSection({
                         Sin contrato subido
                       </Badge>
                     )}
-                    {c.cashflow && (
+                    {c.cashflowItems.length > 0 && (
                       <Badge
                         variant="outline"
                         className="text-[10px] px-1.5 py-0 bg-status-ok-soft text-status-ok-fg border-status-ok-fg/30"
                       >
                         <Wallet className="h-2.5 w-2.5 mr-0.5" />
-                        Agregado al FC
+                        {c.cashflowItems.length === 1
+                          ? "En FC"
+                          : `${c.cashflowItems.length} ítems FC`}
                       </Badge>
                     )}
                     {sigLabel && (
@@ -1040,69 +1074,85 @@ export function AccountContractsSection({
                       {CONTRACT_CATEGORY_LABELS[c.category as ContractCategory] ?? c.category}
                     </span>
                   </div>
-                  {c.cashflow ? (
-                    <div className="mt-2 flex flex-wrap items-center gap-2 rounded-md bg-status-ok-soft border border-status-ok-border px-2.5 py-1.5">
-                      <Wallet className="h-3.5 w-3.5 text-status-ok-fg" />
-                      <span className="text-[11px] font-mono uppercase tracking-[0.08em] text-status-ok-fg">
-                        En flujo de caja
-                      </span>
-                      <span className="text-[13px] font-semibold tabular-nums text-status-ok-fg">
-                        {renderAmountWithCurrency(c.cashflow.amountClp, c.cashflow.currency)}/mes
-                      </span>
-                      <span className="text-[11px] text-muted-foreground">
-                        · día {c.cashflow.dayOfMonth === -1 ? "último" : c.cashflow.dayOfMonth}
-                      </span>
-                      {c.cashflow.pendingIpcAdjustments &&
-                      c.cashflow.pendingIpcAdjustments.length > 0 ? (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const next = c.cashflow!.pendingIpcAdjustments![0];
-                            setIpcModal({
-                              adjustmentId: next.id,
-                              contractTitle: c.title,
-                              dueDate: next.dueDate,
-                              currentAmount: c.cashflow!.amountClp,
-                              currency: c.cashflow!.currency,
-                            });
-                          }}
-                          className="inline-flex items-center gap-1 rounded-md bg-status-warn-soft text-status-warn-fg text-[11px] font-medium px-2 py-0.5 hover:bg-status-warn-soft/80 transition-colors"
-                          title="Aplicar ajuste IPC pendiente"
+                  {/* ── Flujo de Caja por instalación ── */}
+                  <div className="mt-2 space-y-1.5">
+                    {c.cashflowItems.map((item) => {
+                      const instName = item.installationId
+                        ? installations.find((i) => i.id === item.installationId)?.name ?? item.installationId.slice(0, 8)
+                        : null;
+                      return (
+                        <div
+                          key={item.itemId}
+                          className="flex flex-wrap items-center gap-2 rounded-md bg-status-ok-soft border border-status-ok-border px-2.5 py-1.5"
                         >
-                          <TrendingUp className="h-3 w-3" />
-                          Ajuste IPC pendiente
-                        </button>
-                      ) : null}
-                      <div className="flex gap-1 ml-auto">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 px-2 text-[11px]"
-                          onClick={() => openEditDialog(c)}
-                          title="Editar monto, día de pago e instalación"
-                        >
-                          <Pencil className="h-3 w-3 mr-1" />
-                          Editar
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
+                          <Wallet className="h-3.5 w-3.5 text-status-ok-fg shrink-0" />
+                          <span className="text-[12px] font-mono uppercase tracking-[0.08em] text-status-ok-fg">
+                            {instName ?? "En flujo de caja"}
+                          </span>
+                          <span className="text-[13px] font-semibold tabular-nums text-status-ok-fg">
+                            {renderAmountWithCurrency(item.amountClp, item.currency)}/mes
+                          </span>
+                          <span className="text-[12px] text-muted-foreground">
+                            · día {item.dayOfMonth === -1 ? "último" : item.dayOfMonth}
+                          </span>
+                          {item.pendingIpcAdjustments && item.pendingIpcAdjustments.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const next = item.pendingIpcAdjustments![0];
+                                setIpcModal({
+                                  adjustmentId: next.id,
+                                  contractTitle: c.title,
+                                  dueDate: next.dueDate,
+                                  currentAmount: item.amountClp,
+                                  currency: item.currency,
+                                });
+                              }}
+                              className="inline-flex items-center gap-1 rounded-md bg-status-warn-soft text-status-warn-fg text-[12px] font-medium px-2 py-0.5 hover:bg-status-warn-soft/80 transition-colors"
+                              title="Aplicar ajuste IPC pendiente"
+                            >
+                              <TrendingUp className="h-3 w-3" />
+                              Ajuste IPC
+                            </button>
+                          )}
+                          <div className="flex gap-1 ml-auto">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-2 text-[12px]"
+                              onClick={() => openCfItemDialog(c, item)}
+                              title="Editar monto, instalación y día de pago"
+                            >
+                              <Pencil className="h-3 w-3 mr-1" />
+                              Editar
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 w-7 p-0 text-destructive"
+                              onClick={() => deleteFcItem(c.id, item.itemId)}
+                              title="Quitar del flujo de caja"
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {/* Botón para agregar una instalación más al FC */}
                     <button
                       type="button"
-                      onClick={() => openEditDialog(c)}
-                      className="mt-2 w-full sm:w-auto flex items-center gap-2 rounded-md border border-dashed border-status-ok-fg/40 bg-status-ok-soft/10 hover:bg-status-ok-soft/30 hover:border-status-ok-fg/70 px-3 py-2 text-left transition-colors"
+                      onClick={() => openCfItemDialog(c, null)}
+                      className="w-full flex items-center gap-2 rounded-md border border-dashed border-status-ok-fg/40 bg-status-ok-soft/10 hover:bg-status-ok-soft/30 hover:border-status-ok-fg/70 px-3 py-1.5 text-left transition-colors"
                     >
-                      <Wallet className="h-4 w-4 text-status-ok-fg shrink-0" />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[12px] font-medium text-foreground">
-                          Agregar a flujo de caja
-                        </p>
-                        <p className="text-[11px] text-muted-foreground truncate">
-                          Configurar monto mensual, instalación y día de pago
-                        </p>
-                      </div>
+                      <PlusCircle className="h-3.5 w-3.5 text-status-ok-fg shrink-0" />
+                      <span className="text-[12px] font-medium text-foreground">
+                        {c.cashflowItems.length === 0
+                          ? "Agregar a flujo de caja"
+                          : "Agregar otra instalación al FC"}
+                      </span>
                     </button>
-                  )}
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-1 shrink-0 self-end sm:self-center">
@@ -1216,7 +1266,7 @@ export function AccountContractsSection({
             return (
               <div
                 key={`quote-${q.id}`}
-                className="flex items-start sm:items-center justify-between gap-3 rounded-lg border border-border p-3 transition-colors hover:bg-accent/30 flex-col sm:flex-row"
+                className="flex items-start sm:items-center justify-between gap-3 rounded-lg border border-border p-3 transition-colors hover:bg-ds-surface-2 flex-col sm:flex-row"
               >
                 <div className="flex-1 min-w-0 w-full">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -1244,7 +1294,7 @@ export function AccountContractsSection({
                       Duración: {q.contractDuration} meses
                     </span>
                   </div>
-                  <div className="mt-2 flex flex-wrap items-center gap-2 rounded-md bg-status-ok-soft/30 border border-status-ok-fg/20 px-2.5 py-1.5">
+                  <div className="mt-2 flex flex-wrap items-center gap-2 rounded-md bg-status-ok-soft border border-status-ok-border px-2.5 py-1.5">
                     <Wallet className="h-3.5 w-3.5 text-status-ok-fg" />
                     <span className="text-[11px] font-mono uppercase tracking-[0.08em] text-status-ok-fg">
                       En flujo de caja
@@ -1902,127 +1952,6 @@ export function AccountContractsSection({
               </Select>
             </div>
 
-            <label className="flex items-start gap-2 cursor-pointer pt-2 border-t border-border">
-              <Checkbox
-                checked={editInCashflow}
-                onCheckedChange={(v) => setEditInCashflow(v === true)}
-                className="mt-1"
-              />
-              <div className="space-y-0.5">
-                <span className="text-sm font-medium">
-                  Ingresa al flujo de caja
-                </span>
-                <p className="text-xs text-muted-foreground">
-                  Crea un ingreso mensual recurrente vinculado a este contrato.
-                  Termina cuando vence el contrato.
-                </p>
-              </div>
-            </label>
-
-            {editInCashflow && (
-              <div className="space-y-3 pt-2 border-t border-border">
-                <div className="grid grid-cols-[1fr_auto] gap-3">
-                  <div className="space-y-2">
-                    <Label>Monto mensual ({editCurrency})</Label>
-                    <Input
-                      inputMode="decimal"
-                      value={editMonthlyAmount}
-                      onChange={(e) => {
-                        // Acepta dígitos, punto (miles) y coma (decimal).
-                        // No re-formateamos en cada keystroke porque eso
-                        // se come la coma cuando el usuario está tipeando.
-                        setEditMonthlyAmount(e.target.value.replace(/[^\d.,]/g, ""));
-                      }}
-                      onBlur={() => {
-                        const n = parseChileanAmount(editMonthlyAmount);
-                        if (Number.isFinite(n) && n > 0) {
-                          setEditMonthlyAmount(formatAmount(n, editCurrency));
-                        }
-                      }}
-                      placeholder={editCurrency === "UF" ? "117,50" : "1.500.000"}
-                      className="font-mono text-right"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Moneda</Label>
-                    <Select
-                      value={editCurrency}
-                      onValueChange={(v) => {
-                        const next = v === "UF" ? "UF" : "CLP";
-                        setEditCurrency(next);
-                        const n = parseChileanAmount(editMonthlyAmount);
-                        if (Number.isFinite(n) && n > 0) {
-                          setEditMonthlyAmount(formatAmount(n, next));
-                        }
-                      }}
-                    >
-                      <SelectTrigger className="w-24">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="CLP">CLP</SelectItem>
-                        <SelectItem value="UF">UF</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>Día de pago</Label>
-                  <Input
-                    type="number"
-                    min={-1}
-                    max={31}
-                    value={editPaymentDay}
-                    onChange={(e) => setEditPaymentDay(e.target.value)}
-                  />
-                  <p className="text-[11px] text-muted-foreground">
-                    <code className="font-mono">-1</code> = último día del mes.
-                    {editCurrency === "UF" && (
-                      <> Monto en UF, convertido a CLP con la UF del día de pago.</>
-                    )}
-                  </p>
-                </div>
-                {/* Ajuste IPC — sólo aplica a contratos CLP (los UF se reajustan solos vía UF) */}
-                {editCurrency === "CLP" ? (
-                  <div className="space-y-2 pt-3 border-t border-border">
-                    <label className="flex items-start gap-2 cursor-pointer">
-                      <Checkbox
-                        checked={editHasIpc}
-                        onCheckedChange={(v) => setEditHasIpc(v === true)}
-                        className="mt-1"
-                      />
-                      <div className="space-y-0.5">
-                        <span className="text-sm font-medium">
-                          Tiene ajuste de IPC
-                        </span>
-                        <p className="text-xs text-muted-foreground">
-                          Cuando se acerque la fecha del ajuste, te avisamos para
-                          que ingreses el % del período (el IPC real recién se
-                          conoce ese mes, no se puede predefinir).
-                        </p>
-                      </div>
-                    </label>
-                    {editHasIpc ? (
-                      <div className="space-y-1 pl-6">
-                        <Label className="text-xs">Cada cuántos meses se ajusta</Label>
-                        <Input
-                          type="number"
-                          min={1}
-                          max={36}
-                          value={editIpcMonths}
-                          onChange={(e) => setEditIpcMonths(e.target.value)}
-                          className="max-w-[120px]"
-                        />
-                        <p className="text-[11px] text-muted-foreground">
-                          Típico: <strong>12</strong> (anual) o <strong>6</strong> (semestral).
-                        </p>
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
-              </div>
-            )}
-
             {editError && (
               <div className="flex items-start gap-2 rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
                 <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
@@ -2041,6 +1970,175 @@ export function AccountContractsSection({
             >
               {editSaving && <Loader2 className="h-4 w-4 animate-spin mr-1.5" />}
               Guardar cambios
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── Diálogo FC por instalación ──────────────────────────── */}
+      <Dialog open={!!cfDialog} onOpenChange={(o) => !o && setCfDialog(null)}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {cfDialog?.itemId ? "Editar ítem del flujo de caja" : "Agregar al flujo de caja"}
+            </DialogTitle>
+            <DialogDescription>
+              {cfDialog?.contractTitle}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* Instalación */}
+            <div className="space-y-2">
+              <Label>
+                Instalación{" "}
+                <span className="text-[12px] text-muted-foreground font-normal">
+                  (opcional — si el contrato es global deja en blanco)
+                </span>
+              </Label>
+              <Select value={cfInstallId} onValueChange={setCfInstallId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Sin instalación (global)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Sin instalación (global)</SelectItem>
+                  {installations.map((i) => (
+                    <SelectItem key={i.id} value={i.id}>
+                      {i.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Monto + Moneda */}
+            <div className="grid grid-cols-[1fr_auto] gap-3">
+              <div className="space-y-2">
+                <Label>Monto mensual ({cfCurrency})</Label>
+                <Input
+                  inputMode="decimal"
+                  value={cfAmount}
+                  onChange={(e) =>
+                    setCfAmount(e.target.value.replace(/[^\d.,]/g, ""))
+                  }
+                  onBlur={() => {
+                    const n = parseChileanAmount(cfAmount);
+                    if (Number.isFinite(n) && n > 0) {
+                      setCfAmount(formatAmount(n, cfCurrency));
+                    }
+                  }}
+                  placeholder={cfCurrency === "UF" ? "117,50" : "1.500.000"}
+                  className="font-mono text-right"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Moneda</Label>
+                <Select
+                  value={cfCurrency}
+                  onValueChange={(v) => {
+                    const next = v === "UF" ? "UF" : "CLP";
+                    setCfCurrency(next);
+                    const n = parseChileanAmount(cfAmount);
+                    if (Number.isFinite(n) && n > 0) {
+                      setCfAmount(formatAmount(n, next));
+                    }
+                  }}
+                >
+                  <SelectTrigger className="w-24">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="CLP">CLP</SelectItem>
+                    <SelectItem value="UF">UF</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Día de pago */}
+            <div className="space-y-2">
+              <Label>Día de pago del mes</Label>
+              <Input
+                type="number"
+                min={-1}
+                max={31}
+                value={cfPayDay}
+                onChange={(e) => setCfPayDay(e.target.value)}
+              />
+              <p className="text-[12px] text-muted-foreground">
+                <code className="font-mono">-1</code> = último día del mes.
+                {cfCurrency === "UF" && (
+                  <> Monto en UF, convertido a CLP con la UF del día de pago.</>
+                )}
+              </p>
+            </div>
+
+            {/* Fechas */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Fecha inicio FC</Label>
+                <Input
+                  type="date"
+                  value={cfStartDate}
+                  onChange={(e) => setCfStartDate(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>
+                  Fecha fin FC{" "}
+                  <span className="text-[12px] text-muted-foreground font-normal">(opcional)</span>
+                </Label>
+                <Input
+                  type="date"
+                  value={cfEndDate}
+                  onChange={(e) => setCfEndDate(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* Ajuste IPC — sólo CLP */}
+            {cfCurrency === "CLP" && (
+              <div className="space-y-2 pt-2 border-t border-border">
+                <label className="flex items-start gap-2 cursor-pointer">
+                  <Checkbox
+                    checked={cfHasIpc}
+                    onCheckedChange={(v) => setCfHasIpc(v === true)}
+                    className="mt-1"
+                  />
+                  <div className="space-y-0.5">
+                    <span className="text-sm font-medium">Tiene ajuste de IPC</span>
+                    <p className="text-xs text-muted-foreground">
+                      Te avisamos cuando se acerque la fecha para que ingreses el % real.
+                    </p>
+                  </div>
+                </label>
+                {cfHasIpc && (
+                  <div className="space-y-1 pl-6">
+                    <Label className="text-xs">Cada cuántos meses se ajusta</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={36}
+                      value={cfIpcMonths}
+                      onChange={(e) => setCfIpcMonths(e.target.value)}
+                      className="max-w-[120px]"
+                    />
+                    <p className="text-[12px] text-muted-foreground">
+                      Típico: <strong>12</strong> (anual) o <strong>6</strong> (semestral).
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCfDialog(null)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleCfSave} disabled={cfSaving}>
+              {cfSaving && <Loader2 className="h-4 w-4 animate-spin mr-1.5" />}
+              {cfDialog?.itemId ? "Guardar cambios" : "Agregar al FC"}
             </Button>
           </DialogFooter>
         </DialogContent>
