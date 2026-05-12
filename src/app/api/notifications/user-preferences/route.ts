@@ -17,6 +17,9 @@ import {
   type UserNotifPrefsMap,
 } from "@/lib/notification-types";
 
+/** Mismo modelo que usa `resolve-prefs.ts`: `NotificationPreference`, subscriber ADMIN. */
+const ADMIN_SUBSCRIBER = "ADMIN" as const;
+
 export async function GET() {
   try {
     const ctx = await requireAuth();
@@ -24,9 +27,12 @@ export async function GET() {
 
     const perms = await resolveApiPerms(ctx);
 
-    const record = await prisma.userNotificationPreference.findUnique({
+    const record = await prisma.notificationPreference.findUnique({
       where: {
-        userId_tenantId: { userId: ctx.userId, tenantId: ctx.tenantId },
+        subscriberType_subscriberId: {
+          subscriberType: ADMIN_SUBSCRIBER,
+          subscriberId: ctx.userId,
+        },
       },
     });
 
@@ -87,9 +93,12 @@ export async function PUT(request: NextRequest) {
       )
     );
 
-    const existing = await prisma.userNotificationPreference.findUnique({
+    const existing = await prisma.notificationPreference.findUnique({
       where: {
-        userId_tenantId: { userId: ctx.userId, tenantId: ctx.tenantId },
+        subscriberType_subscriberId: {
+          subscriberType: ADMIN_SUBSCRIBER,
+          subscriberId: ctx.userId,
+        },
       },
     });
 
@@ -107,17 +116,22 @@ export async function PUT(request: NextRequest) {
       }
     }
 
-    await prisma.userNotificationPreference.upsert({
+    await prisma.notificationPreference.upsert({
       where: {
-        userId_tenantId: { userId: ctx.userId, tenantId: ctx.tenantId },
+        subscriberType_subscriberId: {
+          subscriberType: ADMIN_SUBSCRIBER,
+          subscriberId: ctx.userId,
+        },
       },
       create: {
-        userId: ctx.userId,
         tenantId: ctx.tenantId,
-        preferences: merged as any,
+        subscriberType: ADMIN_SUBSCRIBER,
+        subscriberId: ctx.userId,
+        preferences: merged as object,
       },
       update: {
-        preferences: merged as any,
+        tenantId: ctx.tenantId,
+        preferences: merged as object,
       },
     });
 
