@@ -326,6 +326,7 @@ export function RondasPortalClient() {
 
   const doFullLogout = () => {
     safeStorage.removeItem(DEVICE_TOKEN_KEY);
+    try { window.localStorage.removeItem("opai_terreno_mode"); } catch { /* ignore */ }
     safeStorage.removeItem("rondas_portal_session");
     setDeviceToken(null);
     setDeviceInfo(null);

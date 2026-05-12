@@ -351,6 +351,7 @@ export function AccessPortalApp() {
 
   const doLogout = useCallback(() => {
     safeStorage.removeItem(DEVICE_TOKEN_KEY);
+    try { window.localStorage.removeItem("opai_terreno_mode"); } catch { /* ignore */ }
     setDevice(null);
     setConfig(null);
     setAppState("pairing");

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Clock, Shield, DoorOpen } from "lucide-react";
 import { usePlatform } from "@/lib/capacitor/usePlatform";
+import { DEVICE_TOKEN_KEY, safeStorage } from "@/lib/device-constants";
 
 /**
  * Top-bar mode switcher for the Terreno sub-apps (marcación, rondas, acceso).
@@ -12,9 +13,18 @@ import { usePlatform } from "@/lib/capacitor/usePlatform";
  * accent). Tapping another icon jumps directly to that sub-app, keeping the
  * same paired device token — no round-trip through the hub.
  *
- * Visible when:
- *   - the page is running inside a Capacitor native shell, OR
- *   - the page was navigated from the Terreno hub (`?from=terreno`).
+ * Visible when ANY of the following is true:
+ *   1. The page is running inside a Capacitor native shell (isNative).
+ *   2. The page was navigated from the Terreno hub (`?from=terreno`).
+ *   3. The browser has the persisted `opai_terreno_mode` flag in localStorage
+ *      (set the first time we detect 1 or 2, never auto-cleared).
+ *   4. There is a paired device token in safeStorage — a paired device is, by
+ *      definition, a Terreno installation device.
+ *
+ * The first detection of (1) or (2) writes the persistent flag, so subsequent
+ * refreshes / cold-starts / shortcut launches continue to show the switcher
+ * even if the `?from=terreno` query gets dropped by the browser or by an
+ * internal navigation that rewrites the URL.
  *
  * Reads the `from` query param via window.location.search (not
  * `useSearchParams`) to avoid forcing the parent layout into a Suspense
@@ -35,6 +45,7 @@ const MODES: Array<{
 ];
 
 const ACCENT = "#f59e0b"; // amber-500 — Terreno color
+const TERRENO_MODE_FLAG = "opai_terreno_mode";
 
 interface TerrenoModeSwitcherProps {
   active: Mode;
@@ -42,23 +53,61 @@ interface TerrenoModeSwitcherProps {
 
 export function TerrenoModeSwitcher({ active }: TerrenoModeSwitcherProps) {
   const { isNative } = usePlatform();
-  const [fromTerreno, setFromTerreno] = useState(false);
+  // Start as `null` to avoid SSR/hydration flicker. The first client-side
+  // effect resolves the real visibility.
+  const [visible, setVisible] = useState<boolean | null>(null);
 
   useEffect(() => {
+    let fromQuery = false;
     try {
       const params = new URLSearchParams(window.location.search);
-      if (params.get("from") === "terreno") setFromTerreno(true);
+      fromQuery = params.get("from") === "terreno";
     } catch {
       /* ignore */
     }
-  }, []);
 
-  const visible = fromTerreno || isNative;
+    // Persisted flag — once true, stays true until explicit logout clears
+    // safeStorage. We use plain localStorage here (not safeStorage) because
+    // this flag is a UX-only hint, not an auth token, and we want it scoped
+    // strictly to this browser/PWA install (no cookie mirror).
+    let persistedFlag = false;
+    try {
+      persistedFlag = window.localStorage.getItem(TERRENO_MODE_FLAG) === "1";
+    } catch {
+      /* ignore */
+    }
+
+    // A paired device is definitionally a Terreno device.
+    let hasDeviceToken = false;
+    try {
+      hasDeviceToken = !!safeStorage.getItem(DEVICE_TOKEN_KEY);
+    } catch {
+      /* ignore */
+    }
+
+    const shouldShow = isNative || fromQuery || persistedFlag || hasDeviceToken;
+
+    // Write-through: the first time we detect a strong terreno signal
+    // (isNative or fromQuery or paired token), persist the flag so future
+    // cold-starts / refreshes / shortcut launches keep showing the switcher
+    // even if `?from=terreno` was dropped.
+    if (shouldShow && !persistedFlag) {
+      try {
+        window.localStorage.setItem(TERRENO_MODE_FLAG, "1");
+      } catch {
+        /* ignore quota / privacy mode */
+      }
+    }
+
+    setVisible(shouldShow);
+  }, [isNative]);
 
   if (!visible) return null;
 
   function switchTo(href: string) {
-    // Preserve the from=terreno flag so the next screen also shows the switcher.
+    // Preserve the from=terreno flag so the next screen also shows the switcher
+    // immediately on the first render — the persistent flag will be set on
+    // mount anyway, but this keeps the existing-tab behavior identical.
     window.location.href = `${href}?from=terreno`;
   }
 
