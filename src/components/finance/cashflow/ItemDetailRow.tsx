@@ -30,7 +30,7 @@ function sourceLink(source: FinanceCashflowItemSource, item: ProjectionRowItemDe
   const fallback = item.crmAccountId
     ? `/crm/accounts/${item.crmAccountId}?tab=contracts`
     : item.installationId
-      ? `/configuracion/instalaciones/${item.installationId}`
+      ? `/crm/installations/${item.installationId}`
       : null;
 
   switch (source) {
@@ -38,8 +38,10 @@ function sourceLink(source: FinanceCashflowItemSource, item: ProjectionRowItemDe
     case "PAYROLL_LIQUIDO":
     case "PAYROLL_PREVIRED":
     case "TURNOS_EXTRA":
+      // Deep-link al ancla `#puestos` de la página de la instalación: ahí
+      // el usuario edita los puestos operativos (fuente de verdad del sueldo).
       return item.installationId
-        ? `/configuracion/instalaciones/${item.installationId}`
+        ? `/crm/installations/${item.installationId}#puestos`
         : fallback;
     case "CONTRACT":
       // Para contratos preferimos llevar al tab "Contratos" de la cuenta CRM

@@ -1299,7 +1299,7 @@ function StaffingSection({
   };
 
   return (
-    <div className="space-y-3">
+    <div id="puestos" className="space-y-3 scroll-mt-20">
       {sourceQuoteId && sourceQuoteCode ? (
         <div className="rounded-lg border border-status-ok-border bg-status-ok-soft p-3 text-xs text-status-ok-fg">
           Dotación sincronizada desde cotización{" "}

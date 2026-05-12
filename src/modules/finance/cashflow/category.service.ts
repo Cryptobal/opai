@@ -15,7 +15,7 @@ export const SYSTEM_CATEGORIES: Array<{
   { code: "ING_INSTALACION", name: "Cobro instalaciones", kind: "INCOME", sortOrder: 30, color: "#34D399" },
   { code: "ING_OTRO", name: "Otros ingresos", kind: "INCOME", sortOrder: 90, color: "#86EFAC" },
   // Egresos operativos
-  { code: "EGR_SUELDO", name: "Sueldos", kind: "EXPENSE", sortOrder: 110, color: "#EF4444" },
+  { code: "EGR_SUELDO", name: "Sueldos líquidos", kind: "EXPENSE", sortOrder: 110, color: "#EF4444" },
   { code: "EGR_QUINCENA", name: "Quincenas / anticipos", kind: "EXPENSE", sortOrder: 115, color: "#F87171" },
   { code: "EGR_PREVIRED", name: "Previred (cotizaciones)", kind: "EXPENSE", sortOrder: 120, color: "#DC2626" },
   { code: "EGR_TURNO_EXTRA", name: "Pago turnos extra", kind: "EXPENSE", sortOrder: 130, color: "#F97316" },
