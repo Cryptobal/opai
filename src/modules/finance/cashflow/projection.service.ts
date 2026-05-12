@@ -524,6 +524,7 @@ function buildRows(
 ): ProjectionRow[] {
   const rows: ProjectionRow[] = [];
   for (const cat of categories) {
+    if (!cat.isActive) continue;
     const filtered = occs.filter((o) => o.categoryId === cat.id || o.categoryCode === cat.code);
     // Mostramos todas las categorías activas configuradas, incluso sin
     // ocurrencias. Esto permite al usuario ver el plan completo de su
