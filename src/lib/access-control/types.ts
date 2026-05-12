@@ -40,6 +40,17 @@ export type AutoReportSchedule = "daily" | "weekly" | "monthly";
 
 export type PlateFormat = "old" | "new" | "moto" | "unknown";
 
+/**
+ * How a custom record type starts on the guard's portal.
+ *   "plate" → open VehiclePlateOCR straight away (like the built-in vehicle)
+ *   "rut"   → open the CedulaQRScanner / manual RUT step (like visit/provider)
+ *   "none"  → skip scanners; go straight to manual form fields
+ * Built-in default types hard-code their own behavior in AccessControlEntry,
+ * so this only applies to custom (admin-created) types.
+ */
+export type ScanMode = "plate" | "rut" | "none";
+export const SCAN_MODES = ["plate", "rut", "none"] as const;
+
 // ═══════════════════════════════════════════════════════════════
 //  CONFIGURATION
 // ═══════════════════════════════════════════════════════════════
@@ -92,9 +103,32 @@ export interface CustomRecordType {
   label: string;
   icon: string;
   defaultFields: FormFieldConfig[];
+  scanMode: ScanMode;
   orderIdx: number;
   isActive: boolean;
 }
+
+/** Seed fields used when an admin creates a new custom type, picked by the
+ *  scan mode chosen in the "Nuevo tipo de registro" modal. The admin can
+ *  edit / reorder / remove these immediately after creation. */
+export const SEED_FIELDS_BY_SCAN_MODE: Record<ScanMode, FormFieldConfig[]> = {
+  plate: [
+    { field: "vehicle_plate", label: "Patente", type: "text", required: true, order: 1 },
+    { field: "vehicle_type", label: "Tipo de Vehículo", type: "select", required: true, order: 2, options: ["Particular", "Carga", "Moto", "Bus", "Otro"] },
+    { field: "vehicle_brand_model", label: "Marca / Modelo / Color", type: "text", required: false, order: 3 },
+    { field: "observations", label: "Observaciones", type: "textarea", required: false, order: 4 },
+  ],
+  rut: [
+    { field: "rut", label: "RUT", type: "text", required: true, order: 1 },
+    { field: "full_name", label: "Nombre Completo", type: "text", required: true, order: 2 },
+    { field: "company", label: "Empresa", type: "text", required: false, order: 3 },
+    { field: "observations", label: "Observaciones", type: "textarea", required: false, order: 4 },
+  ],
+  none: [
+    { field: "full_name", label: "Nombre", type: "text", required: true, order: 1 },
+    { field: "observations", label: "Observaciones", type: "textarea", required: false, order: 2 },
+  ],
+};
 
 // ═══════════════════════════════════════════════════════════════
 //  LISTS (WHITELIST / BLACKLIST)
@@ -416,6 +450,22 @@ export function getRecordTypeIconName(
   if (custom?.icon) return custom.icon;
   if (isDefaultRecordType(type)) return RECORD_TYPE_CONFIG[type]?.icon ?? "UserPlus";
   return "UserPlus";
+}
+
+type ScanModeResolverConfig = {
+  customRecordTypes?: CustomRecordType[];
+} | null | undefined;
+
+/** Returns the scan mode the portal should use when this record type is
+ *  picked. Built-in types behave as before (vehicle = plate, others = rut).
+ *  Custom types use the `scanMode` chosen at creation. */
+export function getRecordTypeScanMode(
+  type: AccessRecordType,
+  config?: ScanModeResolverConfig,
+): ScanMode {
+  if (isDefaultRecordType(type)) return type === "vehicle" ? "plate" : "rut";
+  const custom = config?.customRecordTypes?.find((t) => t.key === type);
+  return custom?.scanMode ?? "none";
 }
 
 export const PREREGISTRATION_STATUS_CONFIG: Record<PreregistrationStatus, { label: string; color: string }> = {

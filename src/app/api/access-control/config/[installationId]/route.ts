@@ -23,6 +23,7 @@ const defaultConfig = (installationId: string) => ({
     label: string;
     icon: string;
     defaultFields: unknown[];
+    scanMode: string;
     orderIdx: number;
     isActive: boolean;
   }>,
@@ -55,7 +56,7 @@ export async function GET(
         orderBy: { orderIdx: "asc" },
         select: {
           id: true, key: true, label: true, icon: true,
-          defaultFields: true, orderIdx: true, isActive: true,
+          defaultFields: true, scanMode: true, orderIdx: true, isActive: true,
         },
       }),
       [],

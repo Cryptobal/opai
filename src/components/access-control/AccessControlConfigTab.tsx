@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import {
   Settings,
   Save, Loader2, GripVertical, Plus, Trash2, ChevronDown, ChevronUp, Mail, Send, Pencil, Check, X,
+  Car, User as UserIcon, Hand,
 } from "lucide-react";
 import {
   DndContext, closestCenter, KeyboardSensor, PointerSensor,
@@ -22,11 +23,12 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import type {
   AccessRecordType, AccessControlFormConfig, FormFieldConfig, AutoReportSchedule,
-  CustomRecordType,
+  CustomRecordType, ScanMode,
 } from "@/lib/access-control/types";
 import {
   RECORD_TYPE_CONFIG, DEFAULT_FORM_FIELDS, DEFAULT_RECORD_TYPE_IDS,
   AVAILABLE_RECORD_TYPE_ICONS,
+  SEED_FIELDS_BY_SCAN_MODE,
   getRecordTypeLabel, getRecordTypeIconName,
   isDefaultRecordType,
 } from "@/lib/access-control/types";
@@ -89,6 +91,7 @@ export function AccessControlConfigTab({ installationId }: Props) {
   const [creatingType, setCreatingType] = useState(false);
   const [newTypeLabel, setNewTypeLabel] = useState("");
   const [newTypeIcon, setNewTypeIcon] = useState("UserPlus");
+  const [newTypeScan, setNewTypeScan] = useState<ScanMode>("rut");
 
   // Inline label editing for record types: stores the type whose label is
   // being edited, and the draft text. null means "not editing".
@@ -409,17 +412,19 @@ export function AccessControlConfigTab({ installationId }: Props) {
     }
     setCreatingType(true);
     try {
-      // Seed with two sensible fields so the portal form isn't empty
-      // for the very first entry. The admin can edit/remove these on
-      // the spot via the same UI used for built-in types.
-      const seedFields: FormFieldConfig[] = [
-        { field: "full_name", label: "Nombre", type: "text", required: true, order: 1 },
-        { field: "observations", label: "Observaciones", type: "textarea", required: false, order: 2 },
-      ];
+      // Seed fields come from the chosen scan mode. The admin can edit /
+      // reorder / remove these immediately via the same UI used for the
+      // built-in types.
+      const seedFields: FormFieldConfig[] = SEED_FIELDS_BY_SCAN_MODE[newTypeScan];
       const res = await fetch(`/api/access-control/record-types/${installationId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ label: trimmed, icon: newTypeIcon, defaultFields: seedFields }),
+        body: JSON.stringify({
+          label: trimmed,
+          icon: newTypeIcon,
+          defaultFields: seedFields,
+          scanMode: newTypeScan,
+        }),
       });
       const json = await res.json();
       if (!json.success) {
@@ -438,6 +443,7 @@ export function AccessControlConfigTab({ installationId }: Props) {
       }));
       setNewTypeLabel("");
       setNewTypeIcon("UserPlus");
+      setNewTypeScan("rut");
       setShowCreateTypeModal(false);
       toast.success("Tipo creado");
     } catch {
@@ -935,6 +941,35 @@ export function AccessControlConfigTab({ installationId }: Props) {
               </div>
 
               <div>
+                <Label className="text-xs text-zinc-400 mb-1.5 block">¿Cómo inicia el registro?</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  {([
+                    { mode: "plate", label: "Patente", Icon: Car, hint: "Escanea patente" },
+                    { mode: "rut", label: "RUT", Icon: UserIcon, hint: "Escanea cédula" },
+                    { mode: "none", label: "Manual", Icon: Hand, hint: "Sin scanner" },
+                  ] as const).map(({ mode, label, Icon, hint }) => {
+                    const isSelected = newTypeScan === mode;
+                    return (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => setNewTypeScan(mode)}
+                        className={`flex flex-col items-center gap-1 rounded-md border p-2 transition-colors ${
+                          isSelected
+                            ? "border-status-info-border bg-status-info-soft text-status-info-fg"
+                            : "border-zinc-700 bg-zinc-800 text-zinc-300 hover:border-zinc-600"
+                        }`}
+                        title={hint}
+                      >
+                        <Icon className="h-5 w-5" />
+                        <span className="text-xs font-medium">{label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
                 <Label className="text-xs text-zinc-400 mb-1.5 block">Icono</Label>
                 <div className="grid grid-cols-6 gap-2">
                   {AVAILABLE_RECORD_TYPE_ICONS.map((iconName) => {
@@ -959,10 +994,22 @@ export function AccessControlConfigTab({ installationId }: Props) {
                 </div>
               </div>
 
-              <p className="text-xs text-zinc-500">
-                Se creará con 2 campos por defecto (Nombre, Observaciones). Puedes
-                editarlos o agregar otros después.
-              </p>
+              <div className="rounded-md border border-zinc-700 bg-zinc-800/50 p-3">
+                <p className="text-xs text-zinc-400 mb-1.5">
+                  Campos iniciales (puedes editarlos después):
+                </p>
+                <ul className="text-xs text-zinc-300 space-y-0.5">
+                  {SEED_FIELDS_BY_SCAN_MODE[newTypeScan].map((f) => (
+                    <li key={f.field} className="flex items-center gap-1.5">
+                      <span className="text-zinc-500">•</span>
+                      <span>{f.label}</span>
+                      {f.required && (
+                        <span className="text-[10px] uppercase tracking-wide text-status-info-fg">req.</span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
 
               <div className="flex gap-2">
                 <Button

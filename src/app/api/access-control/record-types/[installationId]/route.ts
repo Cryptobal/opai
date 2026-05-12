@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { safeAccessControlQuery } from "@/lib/access-control/safe-query";
 import { requireAccessControlAuth } from "@/lib/access-control/auth";
-import { DEFAULT_RECORD_TYPE_IDS } from "@/lib/access-control/types";
+import { DEFAULT_RECORD_TYPE_IDS, SCAN_MODES, type ScanMode } from "@/lib/access-control/types";
 
 /**
  * Generates a stable, opaque key for a new custom record type. We avoid
@@ -78,6 +78,7 @@ export async function POST(
       label?: string;
       icon?: string;
       defaultFields?: unknown;
+      scanMode?: string;
     };
 
     const label = (body.label ?? "").trim();
@@ -87,6 +88,10 @@ export async function POST(
         { status: 400 },
       );
     }
+
+    const scanMode: ScanMode = (SCAN_MODES as readonly string[]).includes(body.scanMode ?? "")
+      ? (body.scanMode as ScanMode)
+      : "none";
 
     // Find next orderIdx among active types
     const lastOrder = await safeAccessControlQuery(
@@ -113,6 +118,7 @@ export async function POST(
             label,
             icon: (body.icon ?? "UserPlus").toString(),
             defaultFields: (body.defaultFields ?? []) as Prisma.InputJsonValue,
+            scanMode,
             orderIdx: nextOrder,
             isActive: true,
           },
@@ -161,6 +167,7 @@ export async function PATCH(
       orderIdx?: number;
       isActive?: boolean;
       defaultFields?: unknown;
+      scanMode?: string;
     };
 
     if (!body.id) {
@@ -196,6 +203,9 @@ export async function PATCH(
         ...(body.isActive !== undefined ? { isActive: Boolean(body.isActive) } : {}),
         ...(body.defaultFields !== undefined
           ? { defaultFields: body.defaultFields as Prisma.InputJsonValue }
+          : {}),
+        ...(body.scanMode !== undefined && (SCAN_MODES as readonly string[]).includes(body.scanMode)
+          ? { scanMode: body.scanMode as ScanMode }
           : {}),
       },
     });

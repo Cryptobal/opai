@@ -22,6 +22,7 @@ import type {
 } from "@/lib/access-control/types";
 import {
   DEFAULT_FORM_FIELDS, getRecordTypeLabel, isDefaultRecordType,
+  getRecordTypeScanMode,
 } from "@/lib/access-control/types";
 import { RecordTypeIcon } from "@/lib/access-control/record-type-icon";
 import { validateRut, formatRut, cleanRut, formatRutDash, computeRutDv } from "@/lib/access-control/utils";
@@ -71,13 +72,14 @@ export function AccessControlEntry({
   }, []);
 
   // ── Step 1: Select Type ──
+  // The scan mode (resolved from the type) decides the next step:
+  //   "plate" → straight to the form, plate OCR rendered at the top
+  //   "rut"   → identify step (QR / manual RUT) before the form
+  //   "none"  → straight to the form, no scanner
   const handleSelectType = (type: AccessRecordType) => {
     setSelectedType(type);
-    if (type === "vehicle") {
-      setStep("form"); // Vehicles skip person identification
-    } else {
-      setStep("identify");
-    }
+    const mode = getRecordTypeScanMode(type, config);
+    setStep(mode === "rut" ? "identify" : "form");
   };
 
   // ── Step 2: QR Scan Result ──
@@ -447,7 +449,7 @@ export function AccessControlEntry({
               )}
             </div>
 
-            {selectedType === "vehicle" && (
+            {selectedType && getRecordTypeScanMode(selectedType, config) === "plate" && (
               <VehiclePlateOCR
                 tenantId={tenantId}
                 onPlateDetected={(plate) =>
