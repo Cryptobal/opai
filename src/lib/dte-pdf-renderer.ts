@@ -318,14 +318,21 @@ async function renderDtePage(
     .filter(([, v]) => v && String(v).trim().length > 0)
     .map(([label, v]) => [label, String(v)] as [string, string]);
 
-  // Layout 2 columnas — cada celda con label propio y value truncado al ancho
-  // disponible para no solaparse con la siguiente columna.
-  const recepRows = Math.ceil(recepFields.length / 2);
-  const recepBoxH = recepRows * 14 + 8;
+  // Layout mixto:
+  //   - SEÑOR(ES) y GIRO → fila completa (empresa y giro pueden ser largos)
+  //   - Resto → 2 columnas
+  const FULL_WIDTH_LABELS = new Set(["SEÑOR(ES)", "GIRO"]);
+  const recepFull = recepFields.filter(([l]) => FULL_WIDTH_LABELS.has(l));
+  const recepTwoCol = recepFields.filter(([l]) => !FULL_WIDTH_LABELS.has(l));
+
   const recepBoxW = PAGE_WIDTH - 2 * MARGIN;
   const recepCellW = recepBoxW / 2;
   const recepLabelW = 78;
-  const recepValueMaxW = recepCellW - recepLabelW - 16;
+  const fullValueMaxW = recepBoxW - recepLabelW - 16;
+  const colValueMaxW = recepCellW - recepLabelW - 16;
+
+  const recepTwoColRows = Math.ceil(recepTwoCol.length / 2);
+  const recepBoxH = (recepFull.length + recepTwoColRows) * 14 + 8;
 
   page.drawRectangle({
     x: MARGIN,
@@ -336,10 +343,29 @@ async function renderDtePage(
     borderWidth: 0.5,
   });
 
-  recepFields.forEach((field, i) => {
-    const [label, value] = field;
+  let recepRow = 0;
+
+  // Filas full-width (SEÑOR y GIRO)
+  recepFull.forEach(([label, value]) => {
+    const rowY = recepBoxY - 14 - recepRow * 14;
+    recepRow++;
+    page.drawText(`${label}:`, {
+      x: MARGIN + 8,
+      y: rowY,
+      font: ctx.fontBold,
+      size: 8,
+      color: COLORS.black,
+    });
+    page.drawText(
+      truncateToWidth(String(value ?? "").toUpperCase(), ctx.fontRegular, 8, fullValueMaxW),
+      { x: MARGIN + 8 + recepLabelW, y: rowY, font: ctx.fontRegular, size: 8, color: COLORS.black },
+    );
+  });
+
+  // Filas 2 columnas (RUT, DIRECCIÓN, COMUNA, CIUDAD)
+  recepTwoCol.forEach(([label, value], i) => {
     const col = i % 2;
-    const row = Math.floor(i / 2);
+    const row = recepRow + Math.floor(i / 2);
     const cellX = MARGIN + 8 + col * recepCellW;
     const rowY = recepBoxY - 14 - row * 14;
     page.drawText(`${label}:`, {
@@ -349,19 +375,10 @@ async function renderDtePage(
       size: 8,
       color: COLORS.black,
     });
-    const valueText = truncateToWidth(
-      String(value ?? "").toUpperCase(),
-      ctx.fontRegular,
-      8,
-      recepValueMaxW,
+    page.drawText(
+      truncateToWidth(String(value ?? "").toUpperCase(), ctx.fontRegular, 8, colValueMaxW),
+      { x: cellX + recepLabelW, y: rowY, font: ctx.fontRegular, size: 8, color: COLORS.black },
     );
-    page.drawText(valueText, {
-      x: cellX + recepLabelW,
-      y: rowY,
-      font: ctx.fontRegular,
-      size: 8,
-      color: COLORS.black,
-    });
   });
 
   y = recepBoxY - recepBoxH - 10;

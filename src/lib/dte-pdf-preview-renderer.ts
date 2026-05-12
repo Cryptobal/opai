@@ -329,10 +329,15 @@ export async function renderDtePreviewPdf(
     .filter(([, v]) => v && String(v).trim().length > 0)
     .map(([label, v]) => [label, String(v)] as [string, string]);
 
-  const recepRows = Math.ceil(recepFields.length / 2);
-  const recepBoxH = recepRows * 14 + 8;
+  const FULL_WIDTH_LABELS = new Set(["SEÑOR(ES)", "GIRO"]);
+  const recepFull = recepFields.filter(([l]) => FULL_WIDTH_LABELS.has(l));
+  const recepTwoCol = recepFields.filter(([l]) => !FULL_WIDTH_LABELS.has(l));
+
   const recepBoxW = PAGE_WIDTH - 2 * MARGIN;
   const recepCellW = recepBoxW / 2;
+  const LABEL_W = 78;
+  const recepTwoColRows = Math.ceil(recepTwoCol.length / 2);
+  const recepBoxH = (recepFull.length + recepTwoColRows) * 14 + 8;
 
   page.drawRectangle({
     x: MARGIN,
@@ -342,20 +347,30 @@ export async function renderDtePreviewPdf(
     borderColor: COLORS.border,
     borderWidth: 0.5,
   });
-  recepFields.forEach((field, i) => {
-    const [label, value] = field;
-    const col = i % 2;
-    const row = Math.floor(i / 2);
-    const cellX = MARGIN + 8 + col * recepCellW;
-    const rowY = y - 14 - row * 14;
-    page.drawText(`${label}:`, {
-      x: cellX,
+
+  const FULL_CHARS = 90;
+  const COL_CHARS = 40;
+
+  let recepRow = 0;
+  recepFull.forEach(([label, value]) => {
+    const rowY = y - 14 - recepRow * 14;
+    recepRow++;
+    page.drawText(`${label}:`, { x: MARGIN + 8, y: rowY, font: fontBold, size: 8 });
+    page.drawText(truncate(value.toUpperCase(), FULL_CHARS), {
+      x: MARGIN + 8 + LABEL_W,
       y: rowY,
-      font: fontBold,
+      font: fontRegular,
       size: 8,
     });
-    page.drawText(truncate(value.toUpperCase(), 45), {
-      x: cellX + 78,
+  });
+  recepTwoCol.forEach(([label, value], i) => {
+    const col = i % 2;
+    const row = recepRow + Math.floor(i / 2);
+    const cellX = MARGIN + 8 + col * recepCellW;
+    const rowY = y - 14 - row * 14;
+    page.drawText(`${label}:`, { x: cellX, y: rowY, font: fontBold, size: 8 });
+    page.drawText(truncate(value.toUpperCase(), COL_CHARS), {
+      x: cellX + LABEL_W,
       y: rowY,
       font: fontRegular,
       size: 8,
@@ -434,8 +449,7 @@ export async function renderDtePreviewPdf(
       font: fontRegular,
       size: 8,
     });
-    const detalle = l.itemName + (l.description ? ` — ${l.description}` : "");
-    page.drawText(truncate(detalle, 50), {
+    page.drawText(truncate(l.itemName, 65), {
       x: colX.detalle,
       y: rowY,
       font: fontRegular,
@@ -459,6 +473,21 @@ export async function renderDtePreviewPdf(
       font: fontRegular,
       size: 8,
     });
+    // Descripción en líneas separadas (igual que el PDF final emitido)
+    const desc = l.description?.trim();
+    if (desc && desc !== l.itemName.trim()) {
+      const subLines = desc.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+      for (const sub of subLines.slice(0, 4)) {
+        rowY -= 10;
+        page.drawText(truncate(sub, 90), {
+          x: colX.detalle,
+          y: rowY,
+          font: fontRegular,
+          size: 7,
+          color: COLORS.gray,
+        });
+      }
+    }
     if (l.isExempt) {
       page.drawText("(exento)", {
         x: colX.detalle,
