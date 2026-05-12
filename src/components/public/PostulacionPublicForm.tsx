@@ -40,11 +40,10 @@ type UploadedDoc = {
 
 interface PostulacionPublicFormProps {
   token: string;
-  // TODO: propagate tenantSlug from URL/server context instead of hardcoding
-  tenantSlug?: string;
+  tenantSlug: string;
 }
 
-export function PostulacionPublicForm({ token, tenantSlug = "gard" }: PostulacionPublicFormProps) {
+export function PostulacionPublicForm({ token, tenantSlug }: PostulacionPublicFormProps) {
   const { branding } = useBranding();
   const [documentTypes, setDocumentTypes] = useState<DocTypeConfig[]>(DEFAULT_POSTULACION_DOCUMENTS);
   const [saving, setSaving] = useState(false);

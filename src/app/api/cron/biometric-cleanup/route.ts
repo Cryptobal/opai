@@ -35,6 +35,7 @@ export async function POST(request: Request) {
       tenantId: true,
       faceIdAwsId: true,
       faceIdPhotoUrl: true,
+      faceIdPhotoKey: true,
       terminatedAt: true,
       persona: { select: { firstName: true, lastName: true, rut: true } },
     },
@@ -55,7 +56,19 @@ export async function POST(request: Request) {
         }
       }
 
-      // TODO: Delete face photo from R2 if faceIdPhotoUrl exists
+      if (guardia.faceIdPhotoKey) {
+        try {
+          const { deleteFile } = await import("@/lib/storage");
+          await deleteFile(guardia.faceIdPhotoKey);
+        } catch (err) {
+          // Best-effort: si R2 falla, continuamos limpiando la DB y queda
+          // registro en auditLog. Re-intentar manualmente si fuera necesario.
+          console.error(
+            `[biometric-cleanup] Error deleting R2 face photo for guardia ${guardia.id}:`,
+            err,
+          );
+        }
+      }
 
       await prisma.opsGuardia.update({
         where: { id: guardia.id },
@@ -63,6 +76,7 @@ export async function POST(request: Request) {
           faceIdRegistered: false,
           faceIdAwsId: null,
           faceIdPhotoUrl: null,
+          faceIdPhotoKey: null,
         },
       });
 

@@ -48,15 +48,37 @@ export async function generateMetadata({
   };
 }
 
+function resolvePostulacionTenantSlug(
+  searchParamTenant: string | string[] | undefined,
+): string {
+  // Prioridad: query param ?tenant=<slug> → env var → fallback "gard".
+  // El query param permite compartir links multi-tenant; la env var permite
+  // setear un default por deploy/tenant; "gard" se mantiene para no romper
+  // los enlaces ya distribuidos.
+  if (typeof searchParamTenant === "string" && searchParamTenant.trim()) {
+    return searchParamTenant.trim();
+  }
+  if (Array.isArray(searchParamTenant) && searchParamTenant[0]?.trim()) {
+    return searchParamTenant[0].trim();
+  }
+  const envSlug = process.env.OPAI_POSTULACION_TENANT_SLUG?.trim();
+  if (envSlug) return envSlug;
+  return "gard";
+}
+
 export default async function PostulacionPublicPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ token: string }>;
+  searchParams: Promise<{ tenant?: string | string[] }>;
 }) {
   const { token } = await params;
+  const { tenant } = await searchParams;
   if (!isValidPostulacionToken(token)) {
     notFound();
   }
+  const tenantSlug = resolvePostulacionTenantSlug(tenant);
 
-  return <PostulacionPublicForm token={token} />;
+  return <PostulacionPublicForm token={token} tenantSlug={tenantSlug} />;
 }
