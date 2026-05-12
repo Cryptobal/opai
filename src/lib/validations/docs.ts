@@ -171,9 +171,11 @@ export const CONTRACT_CATEGORY_LABELS: Record<ContractCategory, string> = {
 /**
  * Validates fields parsed from the multipart upload of a manual contract PDF.
  * The actual `file` is validated separately (magic bytes + size) in the route.
+ *
+ * Objeto base nombrado: con Zod 4 + Turbopack, `z.object(...).superRefine(...)` puede
+ * inferir un output sin algunas keys; exportamos {@link UploadContractFormValues}.
  */
-export const uploadContractSchema = z
-  .object({
+export const uploadContractFieldsSchema = z.object({
     title: z.string().trim().min(1, "Título requerido").max(300),
     category: z.enum(CONTRACT_CATEGORIES).default("contrato_cliente"),
     effectiveDate: z.string().optional().nullable(),
@@ -261,8 +263,34 @@ export const uploadContractSchema = z
     /// proyección lo convierte a CLP con la UF del día de pago.
     currency: z.enum(["CLP", "UF"]).optional().default("CLP"),
     paymentDay: z.coerce.number().int().min(-1).max(31).optional().nullable(),
-  })
-  .superRefine((val, ctx) => {
+    // Ajuste IPC — sólo aplica a contratos CLP (los UF se autoajustan
+    // vía conversión UF→CLP al día de pago). Se persisten en
+    // FinanceCashflowItem y el cron `/api/cron/ipc-alerts` genera el
+    // adjustment PENDING 30 días antes del próximo vencimiento.
+    hasIpcAdjustment: z
+      .preprocess((v) => {
+        if (typeof v === "boolean") return v;
+        if (typeof v === "string") {
+          const s = v.trim().toLowerCase();
+          if (s === "true" || s === "1" || s === "on" || s === "yes") return true;
+          if (s === "false" || s === "0" || s === "" || s === "off" || s === "no")
+            return false;
+        }
+        return Boolean(v);
+      }, z.boolean())
+      .default(false),
+    ipcAdjustmentMonths: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(36)
+      .optional()
+      .nullable(),
+  });
+
+export type UploadContractFormValues = z.infer<typeof uploadContractFieldsSchema>;
+
+export const uploadContractSchema = uploadContractFieldsSchema.superRefine((val, ctx) => {
     if (val.effectiveDate && val.expirationDate) {
       const eff = new Date(val.effectiveDate);
       const exp = new Date(val.expirationDate);
@@ -312,6 +340,29 @@ export const uploadContractSchema = z
           path: ["effectiveDate"],
           message: "La fecha de inicio es requerida si vinculás al flujo de caja",
         });
+      }
+      if (val.hasIpcAdjustment) {
+        // El IPC sólo aplica a contratos CLP. Los UF se autoajustan vía
+        // conversión UF→CLP, así que activar IPC sobre UF sería doble
+        // ajuste y rompería la proyección.
+        if (val.currency === "UF") {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["hasIpcAdjustment"],
+            message:
+              "Los contratos en UF se autoajustan vía UF; no actives IPC adicional",
+          });
+        }
+        if (
+          val.ipcAdjustmentMonths === null ||
+          val.ipcAdjustmentMonths === undefined
+        ) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["ipcAdjustmentMonths"],
+            message: "Indica cada cuántos meses se reajusta el IPC",
+          });
+        }
       }
     }
   });

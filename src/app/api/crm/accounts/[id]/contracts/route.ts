@@ -8,6 +8,7 @@ import {
   CONTRACT_CATEGORIES,
   uploadContractSchema,
   computeExpirationFromDuration,
+  type UploadContractFormValues,
 } from "@/lib/validations/docs";
 
 const MAX_PDF_SIZE_BYTES = 25 * 1024 * 1024; // 25 MB
@@ -261,6 +262,8 @@ export async function POST(
       );
     }
 
+    const payload = parsed.data as UploadContractFormValues;
+
     const {
       title,
       category,
@@ -279,7 +282,9 @@ export async function POST(
       currency,
       paymentDay,
       pendingSignature,
-    } = parsed.data;
+      hasIpcAdjustment,
+      ipcAdjustmentMonths,
+    } = payload;
 
     // Multi-instalación (Fase C): si vienen N, las usamos. Si sólo viene
     // el legacy `installationId`, lo envolvemos como array de 1.
@@ -430,6 +435,11 @@ export async function POST(
         if (cat) {
           const dom =
             paymentDay === -1 ? -1 : Math.min(Math.max(paymentDay, 1), 28);
+          // IPC sólo se persiste si es CLP y el usuario lo activó (el
+          // schema ya lo validó, pero re-gating defensivo evita
+          // inconsistencias por payloads manuales).
+          const ipcEnabled =
+            currency === "CLP" && hasIpcAdjustment && !!ipcAdjustmentMonths;
           await tx.financeCashflowItem.create({
             data: {
               tenantId: ctx.tenantId,
@@ -451,6 +461,10 @@ export async function POST(
               installationId: itemInstallationId,
               crmAccountId: accountId,
               isActive: true,
+              hasIpcAdjustment: ipcEnabled,
+              ipcAdjustmentMonths: ipcEnabled
+                ? ipcAdjustmentMonths ?? null
+                : null,
             },
           });
         }
