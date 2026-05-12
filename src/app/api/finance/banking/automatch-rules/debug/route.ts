@@ -52,20 +52,57 @@ export async function GET(_request: NextRequest) {
       }),
     ]);
 
-    // Si el modelo TenantUser/UserTenant existe, intentar listar los
-    // tenants asociados al usuario. Falla soft si no existe.
-    let userTenants: unknown = "tabla no encontrada o sin datos";
+    // Check del schema real de finance_automatch_rules: necesitamos
+    // saber si la migración del 11-may (created_by UUID→TEXT) está
+    // aplicada en producción. Si created_by sigue siendo UUID, todo
+    // INSERT con un CUID falla silenciosamente.
+    let schemaCheck: unknown = "no chequeado";
     try {
       const rows = await prisma.$queryRawUnsafe<
-        { tenant_id: string }[]
+        { column_name: string; data_type: string }[]
       >(
-        `SELECT DISTINCT tenant_id FROM "User" WHERE id = $1 OR email = $2`,
-        ctx.userId,
-        ctx.userEmail
+        `SELECT column_name, data_type
+         FROM information_schema.columns
+         WHERE table_schema = 'finance'
+           AND table_name = 'finance_automatch_rules'
+           AND column_name IN ('id', 'created_by', 'tenant_id')
+         ORDER BY column_name`
       );
-      userTenants = rows;
+      schemaCheck = rows;
     } catch (err) {
-      userTenants = `error: ${err instanceof Error ? err.message : "unknown"}`;
+      schemaCheck = `error: ${err instanceof Error ? err.message : "unknown"}`;
+    }
+
+    // Test de creación REAL: intentamos crear una regla con el userId
+    // de la sesión. Si falla, capturamos el error exacto de Postgres.
+    // Si funciona, la eliminamos inmediatamente y reportamos OK.
+    let testCreate: unknown = "no ejecutado";
+    try {
+      const created = await prisma.financeAutoMatchRule.create({
+        data: {
+          tenantId: ctx.tenantId,
+          name: `__debug_test_${Date.now()}`,
+          enabled: false,
+          priority: 9999,
+          appliesTo: "BOTH",
+          conditions: { mode: "ANY", items: [] },
+          action: { handlingMode: "CATEGORIZED", requiresReview: true },
+          createdById: ctx.userId,
+        },
+      });
+      // Cleanup inmediato — esto NO es una regla persistente.
+      await prisma.financeAutoMatchRule.delete({ where: { id: created.id } });
+      testCreate = {
+        ok: true,
+        createdId: created.id,
+        cleanedUp: true,
+      };
+    } catch (err) {
+      testCreate = {
+        ok: false,
+        error: err instanceof Error ? err.message : String(err),
+        code: (err as { code?: string })?.code,
+      };
     }
 
     return NextResponse.json(
@@ -87,7 +124,8 @@ export async function GET(_request: NextRequest) {
           })),
           sample,
         },
-        userTenants,
+        schemaCheck,
+        testCreate,
       },
       { headers: { "Cache-Control": "no-store" } }
     );
