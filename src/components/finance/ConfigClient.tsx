@@ -37,6 +37,7 @@ import {
   RefreshCw,
   MapPin,
   FileText,
+  Wallet,
   ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -113,6 +114,7 @@ const TOP_TABS = [
   { id: "rendiciones", label: "Rendiciones", icon: Tag },
   { id: "costcenters", label: "Centros de Costo", icon: Building2 },
   { id: "dte", label: "Facturación Electrónica", icon: FileText, href: "/opai/configuracion/finanzas/dte" },
+  { id: "cashflow", label: "Flujo de caja", icon: Wallet, href: "/opai/configuracion/finanzas/flujo-caja" },
 ] as const;
 
 type TopTabId = (typeof TOP_TABS)[number]["id"];
