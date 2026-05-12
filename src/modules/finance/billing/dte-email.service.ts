@@ -16,6 +16,8 @@ import { renderDteEmailHtml, renderDteEmailSubject } from "./dte-email-template"
 import { getFileBuffer } from "@/lib/storage";
 import { buildDteAttachmentBaseName } from "./dte-filename";
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export interface SendDteEmailResult {
   success: boolean;
   messageId?: string;
@@ -104,18 +106,27 @@ export async function sendDteEmail(
     (e) => typeof e === "string" && e.trim() && e !== primary,
   );
 
-  // BCC: solo viene de override (auto-envío no tiene BCC). Filtramos
-  // contra primary y CC para evitar duplicados (si está en CC ya recibe).
-  const bccList = (bccOverride ?? []).filter(
-    (e) =>
+  // BCC: empieza con lo que mandó el caller (manual override del dialog
+  // de reenvío). Después agregamos el `emailReplyTo` del tenant para que
+  // admin reciba siempre una copia oculta como auditoría (estándar pedido
+  // por el usuario 2026-05). Si está duplicado con primary/CC/BCC, se
+  // dedupea más abajo.
+  const tenantConfig = await prisma.tenantDteConfig.findUnique({ where: { tenantId } });
+  if (!tenantConfig) return { success: false, error: "Tenant DTE config no existe" };
+
+  const emailCfg = await getTenantEmailConfig(tenantId);
+  const adminBcc = (emailCfg.replyTo ?? "").trim();
+  const rawBcc = [...(bccOverride ?? [])];
+  if (adminBcc && EMAIL_RE.test(adminBcc)) rawBcc.push(adminBcc);
+
+  const bccList = rawBcc.filter(
+    (e, idx, arr) =>
       typeof e === "string" &&
       e.trim() &&
       e !== primary &&
-      !ccList.includes(e),
+      !ccList.includes(e) &&
+      arr.indexOf(e) === idx, // dedupe interno
   );
-
-  const tenantConfig = await prisma.tenantDteConfig.findUnique({ where: { tenantId } });
-  if (!tenantConfig) return { success: false, error: "Tenant DTE config no existe" };
 
   let xmlBuffer: Buffer;
   let pdfBuffer: Buffer;
@@ -163,7 +174,6 @@ export async function sendDteEmail(
     }
   }
 
-  const emailCfg = await getTenantEmailConfig(tenantId);
   const razonSocial = tenantConfig.emisorRazonSocial ?? emailCfg.companyName;
   const tipoNombre = dteTypeName(dte.dteType);
   const vars = {
@@ -319,11 +329,20 @@ export async function sendDteXmlToBackoffice(
 
   const dteFilenameBase = await buildDteAttachmentBaseName(tenantId, dte);
 
+  // Auto-BCC al `emailReplyTo` del tenant para auditoría — solo si no
+  // está ya como destinatario directo (evita duplicado en bandeja).
+  const adminBcc = (emailCfg.replyTo ?? "").trim();
+  const backofficeBccList =
+    adminBcc && EMAIL_RE.test(adminBcc) && !recipients.includes(adminBcc)
+      ? [adminBcc]
+      : undefined;
+
   try {
     const result = await resend.emails.send({
       from: emailCfg.from,
       replyTo: emailCfg.replyTo || undefined,
       to: recipients,
+      bcc: backofficeBccList,
       subject,
       html,
       attachments: [{ filename: `${dteFilenameBase}.xml`, content: xmlBuffer.toString("base64") }],
@@ -334,6 +353,7 @@ export async function sendDteXmlToBackoffice(
         kind,
         to: recipients,
         cc: [],
+        bcc: backofficeBccList ?? [],
         subject,
         attachments: "xml_only",
         status: "failed",
@@ -347,6 +367,7 @@ export async function sendDteXmlToBackoffice(
       kind,
       to: recipients,
       cc: [],
+      bcc: backofficeBccList ?? [],
       subject,
       attachments: "xml_only",
       status: "sent",
@@ -360,6 +381,7 @@ export async function sendDteXmlToBackoffice(
       kind,
       to: recipients,
       cc: [],
+      bcc: backofficeBccList ?? [],
       subject,
       attachments: "xml_only",
       status: "failed",
