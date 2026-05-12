@@ -33,6 +33,11 @@ function getClient(): S3Client {
       accessKeyId,
       secretAccessKey,
     },
+    // R2 rechaza con 403 los PUT firmados que llevan x-amz-checksum-crc32
+    // como query param firmado (el SDK v3 lo agrega por default y el browser
+    // no lo envía como header, => mismatch de signature).
+    requestChecksumCalculation: "WHEN_REQUIRED",
+    responseChecksumValidation: "WHEN_REQUIRED",
   });
 }
 
