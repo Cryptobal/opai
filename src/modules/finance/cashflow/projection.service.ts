@@ -212,6 +212,77 @@ export async function buildProjection(
     range.to,
     items.map((i) => i.id),
   );
+
+  // ── Reajuste IPC esperado (items CLP con hasIpcAdjustment=true) ──
+  // Pre-cargamos para cada item con ajuste IPC el último ajuste APPLIED
+  // (define la base + fecha del último reajuste real). Sirve para
+  // proyectar las cuotas futuras con incremento compuesto sin esperar a
+  // que el usuario aplique manualmente cada ajuste.
+  const ipcItemIds = items
+    .filter((i) => i.hasIpcAdjustment && i.currency === "CLP")
+    .map((i) => i.id);
+  const lastIpcByItem = new Map<
+    string,
+    { appliedAt: Date; newAmount: number }
+  >();
+  if (ipcItemIds.length > 0) {
+    const lastApplied = await prisma.financeContractIpcAdjustment.findMany({
+      where: {
+        tenantId,
+        itemId: { in: ipcItemIds },
+        status: "APPLIED",
+        newAmount: { not: null },
+        appliedAt: { not: null },
+      },
+      select: { itemId: true, appliedAt: true, newAmount: true },
+      orderBy: { appliedAt: "desc" },
+    });
+    for (const a of lastApplied) {
+      if (!a.appliedAt || a.newAmount == null) continue;
+      if (!lastIpcByItem.has(a.itemId)) {
+        lastIpcByItem.set(a.itemId, {
+          appliedAt: a.appliedAt,
+          newAmount: Number(a.newAmount),
+        });
+      }
+    }
+  }
+  const ipcAnnualPct = Number(config.ipcExpectedAnnualPct ?? 0);
+  const monthsBetween = (from: Date, to: Date): number => {
+    return (
+      (to.getUTCFullYear() - from.getUTCFullYear()) * 12 +
+      (to.getUTCMonth() - from.getUTCMonth())
+    );
+  };
+  /**
+   * Calcula el monto estimado de una cuota CLP de un contrato con reajuste
+   * IPC. Aplica incremento compuesto basado en cuántos ciclos de ajuste
+   * (cada `ipcAdjustmentMonths`) caben entre la fecha base y la cuota.
+   *
+   * - Base: último ajuste APPLIED si existe, si no `item.startDate` y
+   *   `item.amount` (asumimos que `amount` ya está actualizado al último).
+   * - El reajuste se aplica SOLO en ciclos completos futuros — la cuota
+   *   actual mantiene la base hasta que se cumpla el próximo ciclo.
+   */
+  const projectIpcAdjustedAmount = (
+    item: (typeof items)[number],
+    cuotaDate: Date,
+    baseAmount: number
+  ): number => {
+    if (!item.hasIpcAdjustment || item.currency !== "CLP") return baseAmount;
+    if (!ipcAnnualPct || ipcAnnualPct <= 0) return baseAmount;
+    const cycleMonths = Number(item.ipcAdjustmentMonths ?? 12);
+    if (cycleMonths <= 0) return baseAmount;
+    const last = lastIpcByItem.get(item.id);
+    const baseDate = last?.appliedAt ?? item.startDate;
+    const base = last?.newAmount ?? baseAmount;
+    const elapsed = monthsBetween(baseDate, cuotaDate);
+    if (elapsed <= 0) return base;
+    const cycles = Math.floor(elapsed / cycleMonths);
+    if (cycles <= 0) return base;
+    const pctPerCycle = (ipcAnnualPct * cycleMonths) / 12 / 100;
+    return base * Math.pow(1 + pctPerCycle, cycles);
+  };
   // Agrupar materialized por itemId para hacer matching por período.
   const matsByItem = new Map<string, typeof materialized>();
   for (const m of materialized) {
@@ -321,11 +392,20 @@ export async function buildProjection(
           ? Number(mat.amountClp)
           : baseUf * ufValue;
       } else {
-        amountClp = mat?.amountClp !== undefined && mat?.amountClp !== null
-          ? Number(mat.amountClp)
-          : (mat?.amountOverride !== null && mat?.amountOverride !== undefined
+        const baseClp =
+          mat?.amountOverride !== null && mat?.amountOverride !== undefined
             ? Number(mat.amountOverride)
-            : itemAmount);
+            : itemAmount;
+        if (mat?.amountClp !== undefined && mat?.amountClp !== null) {
+          // Si la cuota ya fue materializada (o el cron de IPC la ajustó
+          // explícitamente), respetamos el monto guardado.
+          amountClp = Number(mat.amountClp);
+        } else {
+          // Sin materializada: estimamos el reajuste IPC futuro para items
+          // CLP con hasIpcAdjustment=true. Si el item no tiene ajuste, esto
+          // retorna baseClp sin tocar.
+          amountClp = projectIpcAdjustedAmount(item, d, baseClp);
+        }
       }
       const cat = categoryMap.get(item.categoryId);
       allOccurrences.push({

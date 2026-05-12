@@ -159,8 +159,12 @@ interface ExistingPaymentRecord {
  *   - "loading": esperando GET /links inicial.
  *   - "view": tx ya conciliada, render resumen read-only + Desconciliar + Editar.
  *   - "edit" | "create": pestañas de creación / edición de vínculos.
+ *   - "stale": la tx está MATCHED/RECONCILED en BD pero no encontramos
+ *     evidencia (ni links ni payment record ni reconciliation match). Mostramos
+ *     un banner con CTA "Forzar desconciliar" en vez de tabs, para no permitir
+ *     comparar/categorizar sobre algo ya marcado como conciliado.
  */
-type SheetMode = "loading" | "view" | "edit" | "create";
+type SheetMode = "loading" | "view" | "edit" | "create" | "stale";
 
 interface AccountPlanOption {
   id: string;
@@ -352,6 +356,14 @@ export function BankTxReconcileSheet({
           // Pre-cargar candidatos en background para que "Editar" sea
           // instantáneo (no bloquea el render del resumen).
           loadCandidates();
+        } else if (
+          data.reconciliationStatus &&
+          data.reconciliationStatus !== "UNMATCHED"
+        ) {
+          // Tx marcada como conciliada en BD pero sin evidencia de links/payment.
+          // NO mostramos tabs de comparar/categorizar — el usuario debe forzar
+          // desconciliar primero. Evita conciliar dos veces el mismo mov.
+          setMode("stale");
         } else {
           setMode("create");
           loadCandidates();
@@ -646,6 +658,8 @@ export function BankTxReconcileSheet({
   const sheetTitle =
     mode === "view"
       ? "Movimiento conciliado"
+      : mode === "stale"
+      ? "Conciliación inconsistente"
       : mode === "edit"
         ? "Editar conciliación"
         : "Conciliar movimiento";
@@ -894,6 +908,47 @@ export function BankTxReconcileSheet({
                   <ExternalLink className="h-3.5 w-3.5 ml-1.5" />
                 </Button>
               ) : null}
+              <Button
+                variant="ghost"
+                onClick={() => onOpenChange(false)}
+                disabled={unreconciling}
+              >
+                Cerrar
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Conciliación inconsistente: tx marcada conciliada en BD pero
+            no hay links/payment/match. Forzar desconciliar es la única acción
+            válida — NO permitimos comparar/categorizar sobre algo conciliado. */}
+        {mode === "stale" && (
+          <div className="mt-4 space-y-4">
+            <div className="rounded-lg border border-status-warn-border bg-status-warn-soft/40 p-3 text-sm">
+              <p className="font-medium text-status-warn-fg">
+                Este movimiento está marcado como conciliado pero no
+                encontramos los vínculos asociados.
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Probablemente una conciliación previa quedó corrupta o se
+                eliminó el recibo de pago manualmente. Forzá la desconciliación
+                para limpiar el estado y volver a conciliar correctamente.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 border-t border-border pt-4">
+              <Button
+                onClick={handleUnreconcile}
+                variant="outline"
+                disabled={unreconciling}
+                className="text-status-danger-fg hover:bg-status-danger-soft"
+              >
+                {unreconciling ? (
+                  <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                ) : (
+                  <Link2Off className="h-3.5 w-3.5 mr-1.5" />
+                )}
+                Forzar desconciliar
+              </Button>
               <Button
                 variant="ghost"
                 onClick={() => onOpenChange(false)}

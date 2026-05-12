@@ -184,16 +184,17 @@ export async function findDteCandidates(
   // - INGRESO NORMAL: la factura suele coincidir o ser ligeramente menor
   //   (descuentos, retenciones). Permitimos -2% / +5%.
   // - INGRESO FACTORING: el banco trae el NETO post-comisión. La factura
-  //   original es siempre MAYOR (típicamente +3% a +15% por comisión).
-  //   Permitimos -1% / +30% para cubrir factoring agresivo + UI mostrará
-  //   delta y será claro qué pasó.
+  //   original es siempre MAYOR (típicamente +3% a +25% por comisión).
+  //   Cuando hay varias facturas cedidas en un mismo depósito, el bruto
+  //   puede llegar a +50%. Permitimos -1% / +50% — el sort por delta y
+  //   los badges en la UI hacen claro qué tan exacto es cada match.
   // - EGRESO: pago a proveedor. La factura suele ser exacta; permitimos
   //   ±5% para cubrir notas de crédito / descuentos parciales.
   let minAmount: number;
   let maxAmount: number;
   if (isFactoring) {
     minAmount = amountAbs * 0.99;
-    maxAmount = amountAbs * 1.3;
+    maxAmount = amountAbs * 1.5;
   } else if (isIncome) {
     minAmount = amountAbs * 0.98;
     maxAmount = amountAbs * 1.05;
@@ -204,28 +205,37 @@ export async function findDteCandidates(
   }
 
   // Ventana de fecha: 90 días antes, 30 días después.
-  // Para factoring ampliamos a 120 días antes (las facturas cedidas pueden
-  // ser viejas) y 7 días después (el banco deposita siempre después).
+  // Para factoring ampliamos a 180 días antes (las facturas cedidas pueden
+  // ser viejas y los plazos de cesión llegan a 6 meses) y 7 días después.
   const minDate = new Date(tx.transactionDate);
-  minDate.setDate(minDate.getDate() - (isFactoring ? 120 : 90));
+  minDate.setDate(minDate.getDate() - (isFactoring ? 180 : 90));
   const maxDate = new Date(tx.transactionDate);
   maxDate.setDate(maxDate.getDate() + (isFactoring ? 7 : 30));
 
+  // Para factoring INCLUIMOS facturas PAID también: el usuario puede haber
+  // marcado la factura como pagada manualmente al ceder al factoring, y aún
+  // así quiere matchear ese depósito contra la(s) factura(s) cedida(s).
+  // Para ingresos normales y egresos seguimos restringidos a las no pagadas.
   const dtes = await prisma.financeDte.findMany({
     where: {
       tenantId,
       direction,
-      paymentStatus: { in: ["UNPAID", "PARTIAL", "OVERDUE"] },
+      ...(isFactoring
+        ? {}
+        : {
+            paymentStatus: {
+              in: ["UNPAID", "PARTIAL", "OVERDUE"] as Prisma.EnumFinancePaymentStatusFilter["in"],
+            },
+            amountPending: { gt: 0 },
+          }),
       date: { gte: minDate, lte: maxDate },
-      amountPending: { gt: 0 },
-      // Filtro amplio por monto pendiente cercano
       OR: [
         { amountPending: { gte: minAmount, lte: maxAmount } },
         { totalAmount: { gte: minAmount, lte: maxAmount } },
       ],
     },
     orderBy: { date: "desc" },
-    take: 50,
+    take: isFactoring ? 100 : 50,
   });
 
   return dtes.map((d) => ({
@@ -260,20 +270,25 @@ export async function findFactoringCandidates(
 ): Promise<CandidateFactoring[]> {
   const tx = await prisma.financeBankTransaction.findFirst({
     where: { id: bankTxId, tenantId },
-    select: { amount: true, transactionDate: true },
+    select: { amount: true, transactionDate: true, description: true },
   });
   if (!tx) return [];
   const amount = tx.amount.toNumber();
   if (amount <= 0) return []; // Sólo ingresos.
 
-  const tolerance = Math.max(amount * toleranceFactor, 1000);
-  const minAmount = amount - tolerance;
+  // Si la descripción huele a factoring (AMIFACTOR, etc), relajamos rango y
+  // ventana. Para depósitos genéricos mantenemos ±5%.
+  const isFactoring = looksLikeFactoringDeposit(tx.description);
+  const tolerance = isFactoring
+    ? Math.max(amount * 0.25, 1000)
+    : Math.max(amount * toleranceFactor, 1000);
+  const minAmount = isFactoring ? amount * 0.5 : amount - tolerance;
   const maxAmount = amount + tolerance;
 
   const minDate = new Date(tx.transactionDate);
-  minDate.setDate(minDate.getDate() - 14);
+  minDate.setDate(minDate.getDate() - (isFactoring ? 60 : 14));
   const maxDate = new Date(tx.transactionDate);
-  maxDate.setDate(maxDate.getDate() + 1);
+  maxDate.setDate(maxDate.getDate() + (isFactoring ? 7 : 1));
 
   const ops = await prisma.financeFactoringOperation.findMany({
     where: {
@@ -283,6 +298,11 @@ export async function findFactoringCandidates(
       OR: [
         { simMontoAGirar: { gte: minAmount, lte: maxAmount } },
         { netAdvance: { gte: minAmount, lte: maxAmount } },
+        // Para factoring también permitimos matchear por invoiceAmount
+        // (bruto) si la simulación/netAdvance no están seteados.
+        ...(isFactoring
+          ? [{ invoiceAmount: { gte: minAmount, lte: amount * 1.5 } }]
+          : []),
       ],
     },
     select: {
@@ -374,48 +394,93 @@ export async function listTransactionLinks(
     orderBy: { createdAt: "asc" },
   });
 
-  // Retrocompatibilidad: movimientos auto-conciliados antes del fix 2026-05
-  // tienen reconciliationStatus=MATCHED pero sin FinanceBankTransactionLink.
-  // Sintetizamos links a partir del FinancePaymentRecord + allocations para
-  // que el drawer muestre el modo "view" correctamente.
+  // Retrocompatibilidad: movimientos auto-conciliados/legacy que NO tienen
+  // FinanceBankTransactionLink pero sí tienen una de estas señales de
+  // conciliación previa:
+  //   1) FinancePaymentRecord con bankTransactionId apuntando a esta tx.
+  //   2) FinanceReconciliationMatch (modelo de período) que enlaza la tx
+  //      con un paymentRecord (a través del cual llegamos a allocations).
+  //   3) Allocations cuyo PaymentRecord NO tiene bankTransactionId pero el
+  //      match de período sí lo asocia.
   //
-  // El guard NO se restringe al reconciliationStatus porque hay casos donde
-  // el status quedó UNMATCHED (auto-match temprano falló al setearlo) pero
-  // sí existe el PaymentRecord linkeado por bankTransactionId. Si hay
-  // PaymentRecord => hay reconciliación de facto, mostrarla.
+  // En todos los casos sintetizamos un set de EnrichedTransactionLink para
+  // que el drawer muestre modo "view" con tarjetas clickeables al DTE, y
+  // las opciones de comparar/categorizar manual NO aparezcan.
   if (rows.length === 0) {
-    const payments = await prisma.financePaymentRecord.findMany({
-      where: { tenantId, bankTransactionId: bankTxId },
-      include: {
-        allocations: {
-          include: {
-            dte: {
-              select: {
-                id: true,
-                direction: true,
-                code: true,
-                folio: true,
-                issuerName: true,
-                receiverName: true,
-                paymentStatus: true,
-                totalAmount: true,
+    const [paymentsDirect, reconcMatch, bankTx] = await Promise.all([
+      prisma.financePaymentRecord.findMany({
+        where: { tenantId, bankTransactionId: bankTxId },
+        include: {
+          allocations: {
+            include: {
+              dte: {
+                select: {
+                  id: true,
+                  direction: true,
+                  code: true,
+                  folio: true,
+                  issuerName: true,
+                  receiverName: true,
+                  paymentStatus: true,
+                  totalAmount: true,
+                },
               },
             },
           },
         },
-      },
-      orderBy: { createdAt: "desc" },
-      take: 5,
-    });
-    if (payments.length === 0) return [];
+        orderBy: { createdAt: "desc" },
+        take: 5,
+      }),
+      prisma.financeReconciliationMatch.findFirst({
+        where: { bankTransactionId: bankTxId },
+        include: {
+          paymentRecord: {
+            include: {
+              allocations: {
+                include: {
+                  dte: {
+                    select: {
+                      id: true,
+                      direction: true,
+                      code: true,
+                      folio: true,
+                      issuerName: true,
+                      receiverName: true,
+                      paymentStatus: true,
+                      totalAmount: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      }),
+      prisma.financeBankTransaction.findFirst({
+        where: { id: bankTxId, tenantId },
+        select: { amount: true },
+      }),
+    ]);
 
-    const bankTx = await prisma.financeBankTransaction.findFirst({
-      where: { id: bankTxId, tenantId },
-      select: { amount: true },
-    });
+    // Dedupe: si la misma payment aparece directo y via reconcMatch, no
+    // dupliquemos. Indexamos por id.
+    const paymentsById = new Map<string, (typeof paymentsDirect)[number]>();
+    for (const p of paymentsDirect) paymentsById.set(p.id, p);
+    if (
+      reconcMatch?.paymentRecord &&
+      !paymentsById.has(reconcMatch.paymentRecord.id)
+    ) {
+      paymentsById.set(
+        reconcMatch.paymentRecord.id,
+        reconcMatch.paymentRecord as (typeof paymentsDirect)[number]
+      );
+    }
+
+    if (paymentsById.size === 0) return [];
+
     const isIncome = (bankTx?.amount?.toNumber() ?? 0) > 0;
     const synthetic: EnrichedTransactionLink[] = [];
-    for (const pay of payments) {
+    for (const pay of paymentsById.values()) {
       for (const alloc of pay.allocations) {
         const d = alloc.dte;
         if (!d) continue;
@@ -948,6 +1013,213 @@ export async function bulkReconcileToDte(
     paymentRecordCode: firstRecordCode,
     matchedTransactions: txs.length,
     totalAmountAllocated: totalAlloc,
+  };
+}
+
+// ── N movs → N DTEs ──
+
+export interface BulkReconcileToDtesInput {
+  bankTransactionIds: string[];
+  /**
+   * Asignación por DTE. La suma debe ser ≈ sum(movs). El reparto a nivel
+   * de cada mov se hace proporcionalmente al peso de cada DTE en el total.
+   */
+  allocations: Array<{ dteId: string; amount: number }>;
+}
+
+export interface BulkReconcileToDtesResult {
+  paymentRecordCodes: string[];
+  matchedTransactions: number;
+  affectedDtes: number;
+  totalAmountAllocated: number;
+}
+
+/**
+ * Concilia N movimientos bancarios contra M DTEs en una operación atómica.
+ *
+ * Caso de uso típico (factoring):
+ *   - El banco deposita $12.7M (1 mov, neto post-comisión).
+ *   - Cubre 3 facturas cedidas (3 DTEs, brutas).
+ *   - El usuario reparte el neto entre las 3 facturas según un criterio
+ *     (proporcional a `amountPending` o manual).
+ *
+ * Por cada mov: 1 PaymentRecord con N PaymentAllocations (1 por DTE,
+ * monto = movAmount × share[dte]). N bank-tx-links por mov (1 por DTE).
+ *
+ * Validaciones:
+ *   - mismo tenant; mismo signo; ningún mov ya conciliado.
+ *   - cada allocation.amount > 0 y ≤ amountPending de su DTE.
+ *   - |sum(allocations) − sum(movs)| ≤ $1 (tolerancia de redondeo).
+ *   - dirección consistente (ingresos → DTE ISSUED; egresos → DTE RECEIVED).
+ */
+export async function bulkReconcileToDtes(
+  tenantId: string,
+  userId: string | null,
+  input: BulkReconcileToDtesInput
+): Promise<BulkReconcileToDtesResult> {
+  const { bankTransactionIds, allocations } = input;
+  if (bankTransactionIds.length === 0) {
+    throw new Error("Seleccioná al menos un movimiento");
+  }
+  if (bankTransactionIds.length > 50) {
+    throw new Error("Máximo 50 movimientos por conciliación masiva");
+  }
+  if (allocations.length === 0) {
+    throw new Error("Seleccioná al menos una factura");
+  }
+  if (allocations.length > 20) {
+    throw new Error("Máximo 20 facturas por conciliación masiva");
+  }
+
+  const txs = await prisma.financeBankTransaction.findMany({
+    where: { tenantId, id: { in: bankTransactionIds } },
+    select: {
+      id: true,
+      amount: true,
+      bankAccountId: true,
+      transactionDate: true,
+      description: true,
+      reference: true,
+      reconciliationStatus: true,
+    },
+  });
+  if (txs.length !== bankTransactionIds.length) {
+    throw new Error(
+      "Uno o más movimientos no existen o pertenecen a otro tenant"
+    );
+  }
+  const alreadyReconciled = txs.filter(
+    (t) => t.reconciliationStatus !== "UNMATCHED"
+  );
+  if (alreadyReconciled.length > 0) {
+    throw new Error(
+      `${alreadyReconciled.length} de los movimientos ya están conciliados.`
+    );
+  }
+  const signs = new Set(
+    txs.map((t) => (t.amount.toNumber() > 0 ? "in" : "out"))
+  );
+  if (signs.size > 1) {
+    throw new Error(
+      "No se pueden conciliar juntos ingresos y egresos."
+    );
+  }
+  const isIncome = signs.has("in");
+  const expectedDirection = isIncome ? "ISSUED" : "RECEIVED";
+
+  const dteIds = allocations.map((a) => a.dteId);
+  const dtes = await prisma.financeDte.findMany({
+    where: { tenantId, id: { in: dteIds } },
+    select: {
+      id: true,
+      direction: true,
+      totalAmount: true,
+      amountPending: true,
+    },
+  });
+  if (dtes.length !== dteIds.length) {
+    throw new Error("Una o más facturas no existen o pertenecen a otro tenant");
+  }
+  for (const d of dtes) {
+    if (d.direction !== expectedDirection) {
+      throw new Error(
+        isIncome
+          ? "Para ingresos elegí facturas emitidas (cobro a cliente)"
+          : "Para egresos elegí facturas recibidas (pago a proveedor)"
+      );
+    }
+  }
+  const dteById = new Map(dtes.map((d) => [d.id, d]));
+  for (const a of allocations) {
+    if (a.amount <= 0) {
+      throw new Error("Cada asignación debe ser > 0");
+    }
+    const d = dteById.get(a.dteId)!;
+    if (a.amount > d.amountPending.toNumber() + 0.01) {
+      throw new Error(
+        `La asignación supera el saldo pendiente de la factura ${a.dteId}`
+      );
+    }
+  }
+
+  const totalMovs = txs.reduce((s, t) => s + Math.abs(t.amount.toNumber()), 0);
+  const totalAlloc = allocations.reduce((s, a) => s + a.amount, 0);
+  if (Math.abs(totalAlloc - totalMovs) > 1) {
+    throw new Error(
+      `La suma de allocations ($${totalAlloc.toLocaleString("es-CL")}) no coincide con el total de los movimientos ($${totalMovs.toLocaleString("es-CL")}).`
+    );
+  }
+
+  const paymentRecordCodes: string[] = [];
+
+  await prisma.$transaction(async (tx2: Prisma.TransactionClient) => {
+    for (const t of txs) {
+      const movAmount = Math.abs(t.amount.toNumber());
+      const code = await nextPaymentRecordCode(tx2, tenantId, isIncome);
+      const record = await tx2.financePaymentRecord.create({
+        data: {
+          tenantId,
+          code,
+          type: isIncome ? "COLLECTION" : "DISBURSEMENT",
+          date: t.transactionDate,
+          amount: new Decimal(movAmount),
+          paymentMethod: "TRANSFER",
+          bankAccountId: t.bankAccountId,
+          bankTransactionId: t.id,
+          transferReference: t.reference ?? null,
+          notes: `Conciliación masiva N→N · ${t.description}`.slice(0, 500),
+          status: "CONFIRMED",
+          createdBy: userId ?? "system",
+        },
+      });
+      paymentRecordCodes.push(record.code);
+
+      // Reparto proporcional con corrección de redondeo en la última.
+      let assigned = 0;
+      for (let i = 0; i < allocations.length; i++) {
+        const a = allocations[i];
+        const isLast = i === allocations.length - 1;
+        const share = a.amount / totalAlloc;
+        const piece = isLast
+          ? movAmount - assigned
+          : Math.round(movAmount * share * 100) / 100;
+        assigned += piece;
+
+        await tx2.financePaymentAllocation.create({
+          data: {
+            paymentId: record.id,
+            dteId: a.dteId,
+            amount: new Decimal(piece),
+          },
+        });
+        await tx2.financeBankTransactionLink.create({
+          data: {
+            tenantId,
+            bankTransactionId: t.id,
+            targetType: isIncome ? "DTE_ISSUED" : "DTE_RECEIVED",
+            targetId: a.dteId,
+            amount: new Decimal(piece),
+            accountPlanId: null,
+            note: `Conciliación masiva N→N`,
+            createdById: userId ?? null,
+          },
+        });
+      }
+      await tx2.financeBankTransaction.update({
+        where: { id: t.id },
+        data: { reconciliationStatus: "MATCHED" },
+      });
+    }
+    for (const a of allocations) {
+      await recomputeDtePaymentAggregate(tx2, a.dteId);
+    }
+  });
+
+  return {
+    paymentRecordCodes,
+    matchedTransactions: txs.length,
+    affectedDtes: allocations.length,
+    totalAmountAllocated: totalMovs,
   };
 }
 

@@ -751,6 +751,34 @@ export async function hideTransaction(
 }
 
 /**
+ * Oculta múltiples movimientos en una sola transacción. Ignora silenciosamente
+ * los IDs ya ocultos o no existentes (no aborta el batch). Devuelve la cuenta
+ * de los efectivamente ocultados.
+ */
+export async function bulkHideTransactions(
+  tenantId: string,
+  txIds: string[],
+  userId: string | null,
+  reason: string
+): Promise<number> {
+  if (txIds.length === 0) return 0;
+  const trimmedReason = reason.trim().slice(0, 500);
+  if (!trimmedReason) throw new Error("Motivo requerido");
+
+  const result = await prisma.financeBankTransaction.updateMany({
+    where: { tenantId, id: { in: txIds }, hiddenAt: null },
+    data: {
+      hiddenAt: new Date(),
+      hiddenById: userId ?? null,
+      hiddenReason: trimmedReason,
+      reconciliationStatus: "UNMATCHED",
+      reconciliationId: null,
+    },
+  });
+  return result.count;
+}
+
+/**
  * Restaura un movimiento previamente oculto.
  */
 export async function unhideTransaction(

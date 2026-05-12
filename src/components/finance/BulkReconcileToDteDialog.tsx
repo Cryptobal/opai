@@ -1,18 +1,20 @@
 "use client";
 
 /**
- * BulkReconcileToDteDialog — concilia N movimientos bancarios contra 1 DTE
+ * BulkReconcileToDteDialog — concilia N movimientos bancarios contra M DTEs
  * en una sola operación.
  *
- * Caso de uso típico: cliente paga una factura grande en varios depósitos
- * (ej. 3 transferencias para una factura de $300k). El usuario selecciona
- * los 3 mov en /finanzas/bancos y abre este dialog desde la barra masiva.
+ * Casos de uso:
+ *   - N depósitos → 1 factura: cliente paga una factura grande en partes.
+ *   - 1 depósito de factoring → M facturas cedidas (caso AMIFACTOR).
+ *   - N → M libre: el usuario elige los DTEs y reparte el total.
  *
- * Validaciones cliente (las del server son la fuente de verdad):
- *   - Todos los mov deben ser del mismo signo (ingresos vs egresos).
- *     Si son mixtos, se muestra warning y se deshabilita el confirm.
- *   - Búsqueda y selección del DTE filtra por dirección esperada
- *     (ingreso → ISSUED, egreso → RECEIVED) y status UNPAID/PARTIAL/OVERDUE.
+ * UX:
+ *   - Multi-select de DTEs candidatos.
+ *   - Por cada DTE seleccionado, input de monto editable.
+ *   - Default: prorrateo automático según `amountPending` (acotado al
+ *     pendiente de cada uno). El usuario puede ajustar manualmente.
+ *   - Validación: suma de allocations ≈ suma de movs (±$1).
  */
 
 import { useEffect, useMemo, useState } from "react";
@@ -32,11 +34,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
+  formatCLPInput,
+  parseCLPInput,
+} from "@/lib/finance/format-clp-input";
+import {
   CheckCircle2,
   Circle,
   Loader2,
   Search,
   AlertTriangle,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -77,6 +84,16 @@ interface Props {
   onConfirmed: () => void;
 }
 
+/**
+ * Estado por DTE seleccionado: monto a asignar como string (input) +
+ * lockeado por el usuario (true = no recalcular en re-balance automático).
+ */
+interface DteAllocation {
+  dte: DteCandidate;
+  amountInput: string;
+  manuallyEdited: boolean;
+}
+
 export function BulkReconcileToDteDialog({
   open,
   onOpenChange,
@@ -87,10 +104,9 @@ export function BulkReconcileToDteDialog({
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [candidates, setCandidates] = useState<DteCandidate[]>([]);
   const [loading, setLoading] = useState(false);
-  const [selectedDteId, setSelectedDteId] = useState<string | null>(null);
+  const [selected, setSelected] = useState<DteAllocation[]>([]);
   const [confirming, setConfirming] = useState(false);
 
-  // Validación del lote: signo único.
   const signs = new Set(
     transactions.map((t) => (t.amount > 0 ? "in" : "out"))
   );
@@ -101,25 +117,20 @@ export function BulkReconcileToDteDialog({
     [transactions]
   );
 
-  // Debounce del search.
   useEffect(() => {
     const id = setTimeout(() => setDebouncedSearch(search.trim()), 250);
     return () => clearTimeout(id);
   }, [search]);
 
-  // Reset al abrir.
   useEffect(() => {
     if (open) {
       setSearch("");
       setDebouncedSearch("");
       setCandidates([]);
-      setSelectedDteId(null);
+      setSelected([]);
     }
   }, [open]);
 
-  // Carga de candidatos: filtra por dirección esperada + status no pagados
-  // y, si hay búsqueda, la pasa al endpoint server-side. El endpoint ya
-  // sabe filtrar por monto si lo necesitásemos en el futuro.
   useEffect(() => {
     if (!open || isMixed || transactions.length === 0) return;
     const ctrl = new AbortController();
@@ -157,22 +168,16 @@ export function BulkReconcileToDteDialog({
           })
         );
 
-        // Sort por afinidad de monto: primero los DTEs cuyo `amountPending`
-        // coincide exactamente con la suma a asignar (`totalAlloc`), luego
-        // los que estén dentro de ±2%, y por último el resto por fecha desc.
-        // Esto resuelve el caso típico "el banco depositó el total de la
-        // factura y quiero que aparezca arriba" sin necesidad de filtrar.
-        const exactWindow = 1; // tolerancia <$1 = match exacto
-        const nearWindow = totalAlloc * 0.02; // ±2%
+        // Sort por afinidad de monto al total de movs.
+        const exactWindow = 1;
+        const nearWindow = totalAlloc * 0.02;
         const sorted = [...list].sort((a, b) => {
           const da = Math.abs(a.amountPending - totalAlloc);
           const db = Math.abs(b.amountPending - totalAlloc);
           const ta = da <= exactWindow ? 0 : da <= nearWindow ? 1 : 2;
           const tb = db <= exactWindow ? 0 : db <= nearWindow ? 1 : 2;
           if (ta !== tb) return ta - tb;
-          // Dentro del mismo tier, ordenar por proximidad al monto.
           if (ta < 2) return da - db;
-          // Y para el resto, por fecha desc (nuevos primero).
           return new Date(b.date).getTime() - new Date(a.date).getTime();
         });
         setCandidates(sorted);
@@ -187,27 +192,98 @@ export function BulkReconcileToDteDialog({
       }
     })();
     return () => ctrl.abort();
-  }, [open, debouncedSearch, isIncome, isMixed, transactions.length]);
+  }, [open, debouncedSearch, isIncome, isMixed, transactions.length, totalAlloc]);
+
+  /**
+   * Rebalancea los DTEs no-editados manualmente para que la suma cubra
+   * `remaining` (el faltante después de los manualmente fijados).
+   * Reparto proporcional al `amountPending` de cada DTE auto, acotado.
+   */
+  const rebalance = (list: DteAllocation[]): DteAllocation[] => {
+    const manual = list.filter((a) => a.manuallyEdited);
+    const auto = list.filter((a) => !a.manuallyEdited);
+    const manualSum = manual.reduce(
+      (s, a) => s + (parseCLPInput(a.amountInput) ?? 0),
+      0
+    );
+    let remaining = Math.max(0, totalAlloc - manualSum);
+    if (auto.length === 0) return list;
+
+    const totalPending = auto.reduce((s, a) => s + a.dte.amountPending, 0);
+    const updatedAuto = auto.map((a, i) => {
+      const share = totalPending > 0 ? a.dte.amountPending / totalPending : 1 / auto.length;
+      const isLast = i === auto.length - 1;
+      let piece = isLast ? remaining : Math.round(remaining * share);
+      piece = Math.min(piece, a.dte.amountPending);
+      remaining -= piece;
+      return { ...a, amountInput: formatCLPInput(String(piece)) };
+    });
+
+    return list.map((a) =>
+      a.manuallyEdited
+        ? a
+        : updatedAuto.find((u) => u.dte.id === a.dte.id) ?? a
+    );
+  };
+
+  const toggleSelect = (c: DteCandidate) => {
+    setSelected((prev) => {
+      const exists = prev.find((a) => a.dte.id === c.id);
+      if (exists) {
+        return rebalance(prev.filter((a) => a.dte.id !== c.id));
+      }
+      const next = [
+        ...prev,
+        { dte: c, amountInput: "", manuallyEdited: false },
+      ];
+      return rebalance(next);
+    });
+  };
+
+  const updateAmount = (dteId: string, raw: string) => {
+    const formatted = formatCLPInput(raw);
+    setSelected((prev) =>
+      prev.map((a) =>
+        a.dte.id === dteId
+          ? { ...a, amountInput: formatted, manuallyEdited: true }
+          : a
+      )
+    );
+  };
+
+  const totalAssigned = selected.reduce(
+    (s, a) => s + (parseCLPInput(a.amountInput) ?? 0),
+    0
+  );
+  const delta = totalAlloc - totalAssigned;
+  const isBalanced = Math.abs(delta) <= 1;
+  const overflowing = selected.some((a) => {
+    const v = parseCLPInput(a.amountInput) ?? 0;
+    return v > a.dte.amountPending + 0.01;
+  });
 
   const handleConfirm = async () => {
-    if (!selectedDteId) return;
+    if (selected.length === 0 || !isBalanced || overflowing) return;
     setConfirming(true);
     try {
       const res = await fetch(
-        "/api/finance/banking/transactions/bulk-reconcile-dte",
+        "/api/finance/banking/transactions/bulk-reconcile-dtes",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             bankTransactionIds: transactions.map((t) => t.id),
-            dteId: selectedDteId,
+            allocations: selected.map((a) => ({
+              dteId: a.dte.id,
+              amount: parseCLPInput(a.amountInput) ?? 0,
+            })),
           }),
         }
       );
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.error);
       toast.success(
-        `${json.data.matchedTransactions} mov. conciliados · Recibo ${json.data.paymentRecordCode}`
+        `${json.data.matchedTransactions} mov. conciliados contra ${json.data.affectedDtes} factura${json.data.affectedDtes === 1 ? "" : "s"}`
       );
       onConfirmed();
       onOpenChange(false);
@@ -218,18 +294,20 @@ export function BulkReconcileToDteDialog({
     }
   };
 
-  const selectedDte = candidates.find((c) => c.id === selectedDteId);
-  const overflow =
-    selectedDte != null && totalAlloc > selectedDte.amountPending + 0.01;
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Conciliar {transactions.length} mov. contra 1 factura</DialogTitle>
+          <DialogTitle>
+            Conciliar {transactions.length} mov.{" "}
+            {selected.length > 0
+              ? `contra ${selected.length} factura${selected.length === 1 ? "" : "s"}`
+              : "contra facturas"}
+          </DialogTitle>
           <DialogDescription>
-            Crea un recibo de pago por cada movimiento, todos asignados al
-            mismo DTE. Útil para cobros o pagos en cuotas.
+            Seleccioná una o más facturas y ajustá el monto a asignar a cada
+            una. Útil para cobros parciales o depósitos de factoring que
+            cubren múltiples cesiones.
           </DialogDescription>
         </DialogHeader>
 
@@ -252,7 +330,8 @@ export function BulkReconcileToDteDialog({
             <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-1 text-sm">
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">
-                  {transactions.length} movimientos · {isIncome ? "Ingresos" : "Egresos"}
+                  {transactions.length} movimientos ·{" "}
+                  {isIncome ? "Ingresos" : "Egresos"}
                 </span>
                 <span
                   className={cn(
@@ -283,10 +362,120 @@ export function BulkReconcileToDteDialog({
               </ul>
             </div>
 
+            {/* DTEs ya seleccionados con sus inputs de monto */}
+            {selected.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-[11px] font-mono uppercase tracking-[0.08em] text-muted-foreground">
+                  Facturas seleccionadas ({selected.length})
+                </p>
+                <ul className="space-y-2">
+                  {selected.map((a) => {
+                    const counterparty = isIncome
+                      ? a.dte.receiverName
+                      : a.dte.issuerName;
+                    const v = parseCLPInput(a.amountInput) ?? 0;
+                    const over = v > a.dte.amountPending + 0.01;
+                    return (
+                      <li
+                        key={a.dte.id}
+                        className={cn(
+                          "rounded-lg border p-2.5 flex items-center gap-2",
+                          over
+                            ? "border-status-danger-border bg-status-danger-soft/20"
+                            : "border-border"
+                        )}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-medium">
+                              Tipo {a.dte.dteType} · F{a.dte.folio}
+                            </span>
+                            <Badge variant="outline" className="text-[11px]">
+                              {a.dte.paymentStatus}
+                            </Badge>
+                            {a.manuallyEdited && (
+                              <Badge
+                                variant="outline"
+                                className="text-[11px] bg-primary/10 text-primary border-primary/30"
+                              >
+                                Editado
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {counterparty ?? "—"} · Pendiente{" "}
+                            <span className="font-mono">
+                              {fmtCLP.format(a.dte.amountPending)}
+                            </span>
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <Input
+                            value={a.amountInput}
+                            onChange={(e) =>
+                              updateAmount(a.dte.id, e.target.value)
+                            }
+                            className="h-9 w-32 text-right font-mono text-sm"
+                            placeholder="0"
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => toggleSelect(a.dte)}
+                            className="h-9 px-2"
+                            aria-label="Quitar"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+
+                {/* Resumen de balance */}
+                <div
+                  className={cn(
+                    "rounded-lg border p-3 text-sm flex items-center justify-between",
+                    isBalanced && !overflowing
+                      ? "border-status-ok-border bg-status-ok-soft/30"
+                      : "border-status-warn-border bg-status-warn-soft/30"
+                  )}
+                >
+                  <div className="text-xs text-muted-foreground space-y-0.5">
+                    <p>
+                      Asignado:{" "}
+                      <span className="font-mono">
+                        {fmtCLP.format(totalAssigned)}
+                      </span>{" "}
+                      de{" "}
+                      <span className="font-mono">
+                        {fmtCLP.format(totalAlloc)}
+                      </span>
+                    </p>
+                    {!isBalanced && (
+                      <p className="text-status-warn-fg">
+                        {delta > 0
+                          ? `Falta asignar ${fmtCLP.format(delta)}`
+                          : `Excede en ${fmtCLP.format(-delta)}`}
+                      </p>
+                    )}
+                    {overflowing && (
+                      <p className="text-status-danger-fg">
+                        Una asignación supera el saldo pendiente de su
+                        factura. Ajustala.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Búsqueda DTE */}
             <div className="space-y-1.5">
               <Label htmlFor="bulk-dte-search">
-                Factura {isIncome ? "emitida" : "recibida"}
+                Agregar factura {isIncome ? "emitida" : "recibida"}
               </Label>
               <div className="relative">
                 <Search className="h-4 w-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -305,7 +494,7 @@ export function BulkReconcileToDteDialog({
             </div>
 
             {/* Lista candidatos */}
-            <div className="border border-border rounded-lg max-h-72 overflow-y-auto">
+            <div className="border border-border rounded-lg max-h-60 overflow-y-auto">
               {loading ? (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -319,25 +508,28 @@ export function BulkReconcileToDteDialog({
               ) : (
                 <ul className="divide-y divide-border">
                   {candidates.map((c) => {
-                    const selected = c.id === selectedDteId;
+                    const isSelected = selected.some(
+                      (a) => a.dte.id === c.id
+                    );
                     const counterparty = isIncome
                       ? c.receiverName
                       : c.issuerName;
-                    const delta = Math.abs(c.amountPending - totalAlloc);
-                    const isExactMatch = delta <= 1;
-                    const isNearMatch = !isExactMatch && delta <= totalAlloc * 0.02;
+                    const deltaC = Math.abs(c.amountPending - totalAlloc);
+                    const isExactMatch = deltaC <= 1;
+                    const isNearMatch =
+                      !isExactMatch && deltaC <= totalAlloc * 0.02;
                     return (
                       <li
                         key={c.id}
                         className={cn(
                           "flex items-start gap-3 p-3 cursor-pointer hover:bg-muted/30 transition-colors",
-                          selected && "bg-primary/5",
-                          isExactMatch && !selected && "bg-status-ok-soft/30",
+                          isSelected && "bg-primary/5",
+                          isExactMatch && !isSelected && "bg-status-ok-soft/30"
                         )}
-                        onClick={() => setSelectedDteId(c.id)}
+                        onClick={() => toggleSelect(c)}
                       >
                         <div className="shrink-0 pt-0.5">
-                          {selected ? (
+                          {isSelected ? (
                             <CheckCircle2 className="h-5 w-5 text-primary" />
                           ) : (
                             <Circle className="h-5 w-5 text-muted-foreground" />
@@ -356,7 +548,7 @@ export function BulkReconcileToDteDialog({
                                 variant="outline"
                                 className="text-[11px] bg-status-ok-soft text-status-ok-fg border-status-ok-border"
                               >
-                                Coincidencia exacta
+                                Match exacto
                               </Badge>
                             )}
                             {isNearMatch && (
@@ -364,7 +556,7 @@ export function BulkReconcileToDteDialog({
                                 variant="outline"
                                 className="text-[11px] bg-status-warn-soft text-status-warn-fg border-status-warn-border"
                               >
-                                ≈ {fmtCLP.format(delta)} diferencia
+                                ≈ {fmtCLP.format(deltaC)}
                               </Badge>
                             )}
                           </div>
@@ -395,39 +587,6 @@ export function BulkReconcileToDteDialog({
                 </ul>
               )}
             </div>
-
-            {/* Resumen + warning si overflow */}
-            {selectedDte && (
-              <div
-                className={cn(
-                  "rounded-lg border p-3 text-sm space-y-1",
-                  overflow
-                    ? "border-status-danger-border bg-status-danger-soft/30"
-                    : "border-status-ok-border bg-status-ok-soft/30"
-                )}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">A asignar</span>
-                  <span className="font-mono">
-                    {fmtCLP.format(totalAlloc)}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">
-                    Saldo pendiente DTE
-                  </span>
-                  <span className="font-mono">
-                    {fmtCLP.format(selectedDte.amountPending)}
-                  </span>
-                </div>
-                {overflow && (
-                  <p className="text-xs text-status-danger-fg pt-1">
-                    El total de los mov. supera el saldo pendiente del DTE.
-                    Quitá movimientos o elegí otra factura.
-                  </p>
-                )}
-              </div>
-            )}
           </>
         )}
 
@@ -443,8 +602,9 @@ export function BulkReconcileToDteDialog({
             onClick={handleConfirm}
             disabled={
               isMixed ||
-              !selectedDteId ||
-              overflow ||
+              selected.length === 0 ||
+              !isBalanced ||
+              overflowing ||
               confirming ||
               transactions.length === 0
             }

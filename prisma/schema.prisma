@@ -7076,7 +7076,11 @@ model FinanceBankTransaction {
   // movimientos de pago automático que no aplican, etc). Quedan ocultos del
   // listado por defecto pero auditables vía toggle "Ver ocultos".
   hiddenAt     DateTime? @map("hidden_at") @db.Timestamptz(6)
-  hiddenById   String?   @map("hidden_by") @db.Uuid
+  // `Admin.id` es cuid(), no UUID. Esta columna lo guarda como texto para
+  // evitar cast errors (Prisma intentaba parsear "cml…" como UUID y crasheaba
+  // con "Inconsistent column data: invalid character 'm' at 2"). Migrada de
+  // uuid → text vía 2026_05_12_hidden_by_to_text.
+  hiddenById   String?   @map("hidden_by")
   hiddenReason String?   @map("hidden_reason")
 
   // Sugerencia automática del motor de reglas. Cuando una regla matchea
@@ -7567,6 +7571,12 @@ model FinanceCashflowConfig {
   /// aplica a meses futuros — el actual y pasados usan la UF real
   /// (Bd `FxUfRate`). Default 0 = UF futura plana.
   ufMonthlyGrowthPct      Decimal  @default(0) @map("uf_monthly_growth_pct") @db.Decimal(6, 4)
+  /// IPC esperado anual en % (ej. 3.5 = 3,5%). Se usa para PROYECTAR
+  /// reajustes futuros de items CLP con `hasIpcAdjustment=true`. El reajuste
+  /// real se sigue aplicando manualmente vía `FinanceContractIpcAdjustment`
+  /// cuando el cron detecta una `dueDate` próxima; este % sólo sirve para
+  /// que la proyección no muestre el monto plano. Default 3.5%.
+  ipcExpectedAnnualPct    Decimal  @default(3.5) @map("ipc_expected_annual_pct") @db.Decimal(5, 2)
   /// Umbral de drift en CLP por encima del cual se dispara notificación al CFO.
   /// Default 100.000 CLP. 0 = nunca notificar.
   driftAlertThresholdClp  Int      @default(100000) @map("drift_alert_threshold_clp")

@@ -22,6 +22,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
 import { DataTable, EmptyState, type DataTableColumn } from "@/components/opai-ds";
@@ -913,8 +914,12 @@ function TransactionsTab({
   // ── Selección múltiple para bulk-assign ──
   const [selectedTxIds, setSelectedTxIds] = useState<Set<string>>(new Set());
   const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
-  // Conciliación masiva contra 1 DTE (post 2026-05).
+  // Conciliación masiva contra 1+ DTEs (post 2026-05).
   const [bulkReconcileOpen, setBulkReconcileOpen] = useState(false);
+  // Ocultar masivo (post 2026-05).
+  const [bulkHideOpen, setBulkHideOpen] = useState(false);
+  const [bulkHideReason, setBulkHideReason] = useState("");
+  const [bulkHiding, setBulkHiding] = useState(false);
   // Cola de conciliación uno-por-uno (post 2026-05). El sheet existente
   // (`reconcileTx`) se reutiliza, navegando entre items con `queueIndex`.
   const [reconcileQueue, setReconcileQueue] = useState<TransactionRow[]>([]);
@@ -1960,9 +1965,9 @@ function TransactionsTab({
             size="sm"
             variant="default"
             onClick={() => setBulkReconcileOpen(true)}
-            title="Conciliar todos contra una factura"
+            title="Conciliar todos contra una o varias facturas"
           >
-            Conciliar contra 1 DTE
+            Conciliar contra DTEs
           </Button>
           <Button
             size="sm"
@@ -1977,6 +1982,15 @@ function TransactionsTab({
             title="Abrir cada movimiento uno por uno"
           >
             Conciliar uno por uno
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setBulkHideOpen(true)}
+            title="Ocultar todos los movimientos seleccionados"
+            className="text-status-danger-fg hover:bg-status-danger-soft"
+          >
+            Ocultar seleccionados
           </Button>
           <Button size="sm" variant="ghost" onClick={clearSelection}>
             Cancelar
@@ -2015,6 +2029,93 @@ function TransactionsTab({
           loadTransactions();
         }}
       />
+
+      {/* Modal bulk-hide: ocultar varios movimientos con un solo motivo. */}
+      <Dialog
+        open={bulkHideOpen}
+        onOpenChange={(o) => {
+          if (!o) setBulkHideReason("");
+          setBulkHideOpen(o);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              Ocultar {selectedTxIds.size} movimiento
+              {selectedTxIds.size === 1 ? "" : "s"}
+            </DialogTitle>
+            <DialogDescription>
+              Los movimientos quedarán fuera del listado y desconciliados. Podés
+              restaurarlos desde la vista &ldquo;Ver ocultos&rdquo;.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label htmlFor="bulk-hide-reason">Motivo *</Label>
+              <Input
+                id="bulk-hide-reason"
+                value={bulkHideReason}
+                onChange={(e) => setBulkHideReason(e.target.value)}
+                placeholder="Ej: devolución sueldos, duplicados..."
+                className="h-10 sm:h-9 mt-1"
+                autoFocus
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setBulkHideOpen(false)}
+              disabled={bulkHiding}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={!bulkHideReason.trim() || bulkHiding}
+              onClick={async () => {
+                if (!bulkHideReason.trim()) return;
+                setBulkHiding(true);
+                try {
+                  const res = await fetch(
+                    "/api/finance/banking/transactions/bulk-hide",
+                    {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        bankTransactionIds: Array.from(selectedTxIds),
+                        reason: bulkHideReason.trim(),
+                      }),
+                    }
+                  );
+                  const json = await res.json();
+                  if (!res.ok || !json.success) {
+                    throw new Error(json.error || "Error al ocultar");
+                  }
+                  toast.success(
+                    `${json.data.hidden} movimiento${json.data.hidden === 1 ? "" : "s"} ocultado${json.data.hidden === 1 ? "" : "s"}`
+                  );
+                  clearSelection();
+                  setBulkHideReason("");
+                  setBulkHideOpen(false);
+                  loadTransactions();
+                } catch (err) {
+                  toast.error(
+                    err instanceof Error ? err.message : "Error al ocultar"
+                  );
+                } finally {
+                  setBulkHiding(false);
+                }
+              }}
+            >
+              {bulkHiding && (
+                <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+              )}
+              Ocultar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
