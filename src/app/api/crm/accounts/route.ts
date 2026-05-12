@@ -82,11 +82,21 @@ export async function GET(request: NextRequest) {
 
     const accountIds = accounts.map((a) => a.id);
     const allInstallationIds = accounts.flatMap((a) => a.installations.map((i) => i.id));
+    // Mapa installationId → accountId para que la coverage también considere
+    // contratos asociados a la cuenta (contratos marco / legacy).
+    const installationAccountMap = new Map<string, string>();
+    for (const account of accounts) {
+      for (const inst of account.installations) {
+        installationAccountMap.set(inst.id, account.id);
+      }
+    }
 
-    // Batch 1: cobertura de contratos por instalación
+    // Batch 1: cobertura de contratos por instalación (incluye contratos
+    // a nivel cuenta como fallback)
     const contractCoverage = await getInstallationContractCoverage({
       tenantId: ctx.tenantId,
       installationIds: allInstallationIds,
+      installationAccountMap,
     });
 
     // Batch 2a: documentos asociados a cada cuenta (para lookup de items FC legacy)

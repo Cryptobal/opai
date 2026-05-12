@@ -37,9 +37,9 @@ export async function GET(
     const tx = await prisma.financeBankTransaction.findFirst({
       where: { id, tenantId: ctx.tenantId },
       include: {
-        bankAccount: { select: { id: true, bankName: true, accountNumber: true } },
-        accountPlan: { select: { id: true, code: true, name: true } },
-        category: { select: { id: true, name: true } },
+        bankAccount: {
+          select: { id: true, bankName: true, accountNumber: true },
+        },
       },
     });
     if (!tx) {
@@ -48,6 +48,26 @@ export async function GET(
         { status: 404 }
       );
     }
+    // `category` en este modelo es String? (texto libre), no FK a tabla
+    // de categorías. `accountPlan` no es una relación declarada en el
+    // schema (solo existe `suggestedAccountPlanId` como FK lógica), por
+    // eso resolvemos la sugerencia (regla + cuenta) a mano para no
+    // romper el `TransactionRow` que consume el drawer.
+    const [suggestedRule, suggestedAccount] = await Promise.all([
+      tx.suggestedRuleId
+        ? prisma.financeAutoMatchRule.findFirst({
+            where: { id: tx.suggestedRuleId, tenantId: ctx.tenantId },
+            select: { id: true, name: true },
+          })
+        : Promise.resolve(null),
+      tx.suggestedAccountPlanId
+        ? prisma.financeAccountPlan.findFirst({
+            where: { id: tx.suggestedAccountPlanId, tenantId: ctx.tenantId },
+            select: { id: true, code: true, name: true },
+          })
+        : Promise.resolve(null),
+    ]);
+
     return NextResponse.json({
       success: true,
       data: {
@@ -58,15 +78,15 @@ export async function GET(
         reference: tx.reference,
         amount: Number(tx.amount),
         balance: tx.balance != null ? Number(tx.balance) : null,
-        categoryId: tx.categoryId,
-        categoryName: tx.category?.name ?? null,
-        accountPlanId: tx.accountPlanId,
-        accountPlan: tx.accountPlan,
         reconciliationStatus: tx.reconciliationStatus,
-        source: tx.source,
-        createdAt: tx.createdAt.toISOString(),
         hiddenAt: tx.hiddenAt?.toISOString() ?? null,
         hiddenReason: tx.hiddenReason ?? null,
+        suggestedRuleId: tx.suggestedRuleId ?? null,
+        suggestedRuleName: suggestedRule?.name ?? null,
+        suggestedAccountPlanId: tx.suggestedAccountPlanId ?? null,
+        suggestedAccountLabel: suggestedAccount
+          ? `${suggestedAccount.code} ${suggestedAccount.name}`
+          : null,
       },
     });
   } catch (error) {

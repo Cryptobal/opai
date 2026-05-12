@@ -83,6 +83,15 @@ function pickBestContract(
 export async function getInstallationContractCoverage(params: {
   tenantId: string;
   installationIds: string[];
+  /**
+   * Mapa opcional installationId → accountId. Cuando se provee, además de
+   * buscar contratos asociados directamente a cada instalación, también se
+   * consideran cubiertas las instalaciones cuya cuenta tiene un contrato
+   * "global" asociado (entityType=crm_account). Es el caso de un cliente
+   * con un contrato marco que cubre N instalaciones, sin necesidad de
+   * crear DocAssociation por cada una.
+   */
+  installationAccountMap?: Map<string, string>;
   alertDaysBefore?: number;
 }): Promise<Map<string, InstallationContractCoverage>> {
   const uniqueInstallationIds = Array.from(new Set(params.installationIds));
@@ -101,7 +110,8 @@ export async function getInstallationContractCoverage(params: {
 
   if (uniqueInstallationIds.length === 0) return coverage;
 
-  const contracts = await prisma.document.findMany({
+  // Lookup 1: contratos asociados DIRECTAMENTE a las instalaciones.
+  const directContracts = await prisma.document.findMany({
     where: {
       tenantId: params.tenantId,
       module: "crm",
@@ -130,14 +140,85 @@ export async function getInstallationContractCoverage(params: {
     },
   });
 
-  for (const contract of contracts) {
+  for (const contract of directContracts) {
     for (const association of contract.associations) {
       const next = buildCoverage(
         association.entityId,
         contract,
         params.alertDaysBefore ?? contract.alertDaysBefore,
       );
-      coverage.set(association.entityId, pickBestContract(coverage.get(association.entityId), next));
+      coverage.set(
+        association.entityId,
+        pickBestContract(coverage.get(association.entityId), next),
+      );
+    }
+  }
+
+  // Lookup 2: contratos "globales" asociados a la CUENTA. Cubren todas las
+  // instalaciones de esa cuenta como fallback cuando no hay un contrato
+  // específico de instalación. Esto cubre dos casos reales:
+  //   (a) contratos legacy subidos sin link a instalaciones (solo cuenta).
+  //   (b) contratos marco intencionalmente a nivel cuenta (ej. Polpaico
+  //       con un contrato que cubre 4 instalaciones).
+  if (params.installationAccountMap && params.installationAccountMap.size > 0) {
+    const accountIds = Array.from(
+      new Set(Array.from(params.installationAccountMap.values())),
+    );
+    if (accountIds.length > 0) {
+      const accountContracts = await prisma.document.findMany({
+        where: {
+          tenantId: params.tenantId,
+          module: "crm",
+          category: { in: [...CONTRACT_CATEGORIES] },
+          status: { in: COUNTABLE_CONTRACT_STATUSES },
+          associations: {
+            some: {
+              entityType: "crm_account",
+              entityId: { in: accountIds },
+            },
+          },
+        },
+        select: {
+          id: true,
+          title: true,
+          pdfUrl: true,
+          expirationDate: true,
+          alertDaysBefore: true,
+          associations: {
+            where: {
+              entityType: "crm_account",
+              entityId: { in: accountIds },
+            },
+            select: { entityId: true },
+          },
+        },
+      });
+
+      // Indexamos contratos por accountId para asignarlos a sus instalaciones.
+      const contractsByAccount = new Map<string, typeof accountContracts>();
+      for (const contract of accountContracts) {
+        for (const assoc of contract.associations) {
+          const list = contractsByAccount.get(assoc.entityId) ?? [];
+          list.push(contract);
+          contractsByAccount.set(assoc.entityId, list);
+        }
+      }
+
+      for (const [installationId, accountId] of params.installationAccountMap) {
+        const accountContractsForInst = contractsByAccount.get(accountId);
+        if (!accountContractsForInst) continue;
+        for (const contract of accountContractsForInst) {
+          const next = buildCoverage(
+            installationId,
+            { ...contract, associations: [] },
+            params.alertDaysBefore ?? contract.alertDaysBefore,
+          );
+          coverage.set(
+            installationId,
+            pickBestContract(coverage.get(installationId), next),
+          );
+        }
+      }
     }
   }
 

@@ -28,6 +28,9 @@ public/uploads/
 # (extract-cert.ts genera .pfx desde la BD para uso local del sandbox).
 # NUNCA commitear estos archivos — contienen firma digital de la empresa.
 /tmp/
+# Carpeta scratch de finders de duplicados (genera archivos con espacios y
+# nombres timestamped que rompen el typecheck de Next con strict mode).
+src/tmp/
 *.pfx
 *.p12
 

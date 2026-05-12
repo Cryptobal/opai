@@ -88,9 +88,16 @@ export default async function CrmAccountDetailPage({
     }) ?? account;
   }
 
+  // Mapa installation → account para que un contrato a nivel cuenta cuente
+  // como cobertura para sus instalaciones (contratos marco / legacy).
+  const installationAccountMap = new Map<string, string>();
+  for (const installation of account.installations) {
+    installationAccountMap.set(installation.id, account.id);
+  }
   const contractCoverage = await getInstallationContractCoverage({
     tenantId,
     installationIds: account.installations.map((installation) => installation.id),
+    installationAccountMap,
   });
   const installationsWithContractStatus = account.installations.map((installation) => {
     const coverage = contractCoverage.get(installation.id);

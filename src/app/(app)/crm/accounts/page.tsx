@@ -38,10 +38,22 @@ export default async function CrmAccountsPage() {
 
   const accountIds = accounts.map((a) => a.id);
   const allInstallationIds = accounts.flatMap((a) => a.installations.map((i) => i.id));
+  // Mapa installationId → accountId para que la coverage también considere
+  // contratos asociados a la cuenta (contratos marco / legacy).
+  const installationAccountMap = new Map<string, string>();
+  for (const account of accounts) {
+    for (const inst of account.installations) {
+      installationAccountMap.set(inst.id, account.id);
+    }
+  }
 
   // Batch: cobertura de contratos, FC items y puestos operativos en paralelo
   const [contractCoverage, cashflowItems, puestos] = await Promise.all([
-    getInstallationContractCoverage({ tenantId, installationIds: allInstallationIds }),
+    getInstallationContractCoverage({
+      tenantId,
+      installationIds: allInstallationIds,
+      installationAccountMap,
+    }),
 
     // FC items de contratos activos: source=CONTRACT (nuevo) o source=OTHER
     // con crmAccountId (legacy pre-11-may-2026). Ambos representan ingresos
