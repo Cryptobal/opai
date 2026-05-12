@@ -12,7 +12,7 @@ export interface SupervisorInstallation {
   id: string;
   name: string;
   accountId?: string | null;
-  accountName?: string | null;
+  accountName: string;
   address?: string | null;
   status?: string | null;
   pairingCode?: string | null;
