@@ -18,9 +18,10 @@ import { prisma } from "@/lib/prisma";
 
 const upsertSchema = z.object({
   installationId: z.string().uuid().nullable().optional(),
-  monthlyAmountClp: z.number().positive(),
-  /// "CLP" (default) o "UF". Si UF, el monto se persiste tal cual y la
-  /// conversión a CLP la hace la capa de proyección con la UF del día.
+  /// Monto mensual en la moneda especificada en `currency` (CLP o UF). Si
+  /// UF, el valor se persiste tal cual (ej. 117.94) y la conversión a CLP
+  /// la hace la capa de proyección con la UF del día.
+  monthlyAmount: z.number().positive(),
   currency: z.enum(["CLP", "UF"]).optional().default("CLP"),
   paymentDay: z.number().int().min(-1).max(31),
   startDate: z.string().min(1, "Fecha de inicio requerida"),
@@ -99,7 +100,11 @@ export async function GET(
       cashflowItem: item
         ? {
             id: item.id,
+            // El campo es el monto en su moneda nativa (CLP o UF). Se
+            // mantiene `amountClp` como alias por compatibilidad con
+            // ContractCashflowDialog/AccountContractsSection.
             amountClp: Number(item.amount),
+            monthlyAmount: Number(item.amount),
             currency: item.currency,
             dayOfMonth: item.dayOfMonth,
             startDate: item.startDate,
@@ -187,7 +192,7 @@ export async function PUT(
     sourceRefId: contractId,
     name: document.title,
     description: `Contrato ${document.title}`,
-    amount: data.monthlyAmountClp,
+    amount: data.monthlyAmount,
     currency: data.currency,
     recurrence: "MONTHLY" as const,
     dayOfMonth: dom,

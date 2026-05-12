@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Card, CardContent } from "@/components/ui/card";
@@ -128,6 +128,7 @@ const TX_SUB_TABS: { id: TxSubTab; label: string }[] = [
 
 const TABS = [
   { id: "transactions", label: "Movimientos", icon: ArrowLeftRight },
+  { id: "cashflow", label: "Flujo de caja", icon: Wallet },
   { id: "analysis", label: "Análisis", icon: BarChart3 },
   { id: "rules", label: "Reglas", icon: Settings2 },
   { id: "accounts", label: "Cuentas Bancarias", icon: Landmark },
@@ -207,7 +208,16 @@ export function BancosClient({
   canManage,
   cartolaInboxEmail,
 }: Props) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<TabId>("transactions");
+
+  useEffect(() => {
+    const t = searchParams.get("tab") as TabId | null;
+    if (!t) return;
+    const valid = TABS.some((tab) => tab.id === t) && t !== "cashflow";
+    if (valid) setActiveTab(t as TabId);
+  }, [searchParams]);
 
   return (
     <div className="space-y-4">
@@ -220,7 +230,15 @@ export function BancosClient({
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => {
+                  // "Flujo de caja" vive en su propia ruta (server component
+                  // que carga la proyección). El resto son tabs in-page.
+                  if (tab.id === "cashflow") {
+                    router.push("/finanzas/flujo-caja");
+                    return;
+                  }
+                  setActiveTab(tab.id);
+                }}
                 className={cn(
                   "whitespace-nowrap rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors shrink-0 flex items-center gap-1.5",
                   isActive

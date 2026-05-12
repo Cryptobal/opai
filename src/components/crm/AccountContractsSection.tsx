@@ -604,7 +604,7 @@ export function AccountContractsSection({
                   editInstallationIds.length === 1
                     ? editInstallationIds[0]
                     : null,
-                monthlyAmountClp: amt,
+                monthlyAmount: amt,
                 currency: editCurrency,
                 paymentDay: Number.isFinite(pd) && pd !== 0 ? pd : 5,
                 startDate: editEffective || todayISO(),
@@ -858,12 +858,6 @@ export function AccountContractsSection({
             // Es un upload manual cualquier doc con PDF que no nació de una
             // plantilla (independiente de si se marcó firma externa o no).
             const isUpload = !c.templateName && !!c.pdfUrl;
-            // Cotización origen (si existe): el Document fue generado desde
-            // una cotización ganada → preferimos mostrar su cashflow en
-            // lugar de pedir al usuario que lo configure de nuevo.
-            const quoteFromDoc = c.deal?.id
-              ? quoteContracts.find((q) => q.dealId === c.deal!.id)
-              : null;
 
             return (
               <div
@@ -990,41 +984,11 @@ export function AccountContractsSection({
                           variant="ghost"
                           size="sm"
                           className="h-7 px-2 text-[11px]"
-                          onClick={() => router.push(`/finanzas/flujo-caja?itemId=${c.cashflow!.itemId}`)}
+                          onClick={() => openEditDialog(c)}
+                          title="Editar monto, día de pago e instalación"
                         >
-                          Ver
-                        </Button>
-                      </div>
-                    </div>
-                  ) : quoteFromDoc ? (
-                    // Document desde plantilla cuya cotización-origen ya
-                    // tiene cashflow: mostramos esa info para que el
-                    // usuario sepa que está cubierto y no le pedimos
-                    // configurarlo de nuevo. El "Editar" lleva a la
-                    // cotización (única fuente de verdad).
-                    <div className="mt-2 flex flex-wrap items-center gap-2 rounded-md bg-status-info-soft/30 border border-status-info-fg/20 px-2.5 py-1.5">
-                      <Wallet className="h-3.5 w-3.5 text-status-info-fg" />
-                      <span className="text-[11px] font-mono uppercase tracking-[0.08em] text-status-info-fg">
-                        En flujo de caja · desde cotización
-                      </span>
-                      <span className="text-[13px] font-semibold tabular-nums text-status-info-fg">
-                        {renderAmountWithCurrency(
-                          Number(quoteFromDoc.monthlyCost),
-                          quoteFromDoc.currency,
-                        )}
-                        /mes
-                      </span>
-                      <span className="text-[11px] text-muted-foreground">
-                        · {quoteFromDoc.code}
-                      </span>
-                      <div className="flex gap-1 ml-auto">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 px-2 text-[11px]"
-                          onClick={() => router.push(`/crm/cotizaciones/${quoteFromDoc.id}`)}
-                        >
-                          Editar en cotización
+                          <Pencil className="h-3 w-3 mr-1" />
+                          Editar
                         </Button>
                       </div>
                     </div>

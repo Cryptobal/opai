@@ -1,8 +1,7 @@
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, hasCapability } from "@/lib/permissions-server";
 import { redirect } from "next/navigation";
-import { PageHero } from "@/components/opai-ds";
-import { Wallet, Settings } from "lucide-react";
+import { Settings } from "lucide-react";
 import Link from "next/link";
 import { getOrCreateCashflowConfig } from "@/modules/finance/cashflow/config.service";
 import { buildProjection } from "@/modules/finance/cashflow/projection.service";
@@ -11,6 +10,7 @@ import { addWeeks } from "date-fns";
 import { CashflowTabs } from "@/components/finance/cashflow/CashflowTabs";
 import { CashflowKpis, type KpiData } from "@/components/finance/cashflow/CashflowKpis";
 import { bucketKeyFor } from "@/modules/finance/cashflow/recurrence-engine";
+import { BancaTabsHeader } from "@/components/finance/BancaTabsHeader";
 
 export default async function FlujoCajaPage({
   searchParams,
@@ -94,24 +94,25 @@ export default async function FlujoCajaPage({
   }
 
   return (
-    <div className="space-y-3 sm:space-y-5 min-w-0">
-      <PageHero
-        icon={<Wallet />}
-        iconTone="teal"
-        title="Flujo de Caja"
-        subtitle="proyección y análisis"
-        description="Forecast semanal y mensual de ingresos y egresos. Vincula proyecciones con movimientos bancarios reales."
-        actions={
-          canConfigure ? (
-            <Link
-              href="/opai/configuracion/finanzas/flujo-caja"
-              className="inline-flex items-center gap-1.5 text-[13px] text-ds-text-2 hover:text-ds-text-1"
-            >
-              <Settings className="h-4 w-4" /> Configurar
-            </Link>
-          ) : null
-        }
-      />
+    <div className="space-y-4 min-w-0">
+      <BancaTabsHeader active="cashflow" />
+
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h1 className="text-lg font-semibold text-foreground">Flujo de Caja</h1>
+          <p className="text-xs text-muted-foreground">
+            Forecast semanal y mensual de ingresos y egresos
+          </p>
+        </div>
+        {canConfigure ? (
+          <Link
+            href="/opai/configuracion/finanzas/flujo-caja"
+            className="inline-flex items-center gap-1.5 text-[13px] text-ds-text-2 hover:text-ds-text-1"
+          >
+            <Settings className="h-4 w-4" /> Configurar
+          </Link>
+        ) : null}
+      </div>
 
       <CashflowKpis kpis={kpis} />
 

@@ -172,7 +172,7 @@ export function ContractCashflowDialog({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             installationId: installationId || null,
-            monthlyAmountClp: amt,
+            monthlyAmount: amt,
             currency,
             paymentDay: pd,
             startDate,

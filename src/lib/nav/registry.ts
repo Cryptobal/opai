@@ -528,17 +528,9 @@ export const NAV_MODULES: NavNode[] = [
         submodule: "contabilidad",
         show: (perms) => hasCapability(perms, "banking_view"),
       },
-      // Flujo de Caja — restringido a owner/admin (cashflow_view)
-      {
-        key: "finance-flujo-caja",
-        href: "/finanzas/flujo-caja",
-        label: "Flujo de Caja",
-        shortLabel: "Flujo",
-        icon: Wallet,
-        module: "finance",
-        submodule: "cashflow",
-        show: (perms) => hasCapability(perms, "cashflow_view"),
-      },
+      // Flujo de Caja vive como tab dentro de /finanzas/bancos.
+      // Mantenemos la ruta /finanzas/flujo-caja accesible pero ya no es un
+      // N3 propio en el nav (2026-05-11).
       // Contabilidad — restringido a owner/admin (accounting_view)
       {
         key: "finance-contabilidad",

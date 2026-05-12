@@ -1,201 +1,28 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import { addMonths } from "date-fns";
-import { getUfValueForDate } from "@/lib/uf";
 
-const ACTIVE_QUOTE_STATUSES = ["accepted", "active", "in_progress", "approved"] as const;
-const SALES_CATEGORY_CODE = "ING_VENTA_CONTRATO";
+/**
+ * NOTA — 2026-05-11
+ *
+ * El pipeline de auto-sync desde CpqQuote → FinanceCashflowItem fue eliminado.
+ * Los contratos ahora se agregan manualmente al flujo de caja desde el tab
+ * "Contratos" de cada cuenta CRM (botón verde / ContractCashflowDialog), con
+ * monto editable en UF o CLP. Esto evita el bug histórico donde el monto del
+ * quote se interpretaba como UF cuando realmente estaba almacenado en CLP
+ * (caso Santa Hilda: "UF 2.682.070,75/mes").
+ *
+ * Las funciones de este archivo se mantienen como no-ops para no romper
+ * callers existentes (portal cliente, cpq quotes, cron). Pueden eliminarse
+ * cuando se hayan limpiado los callsites.
+ */
 
 type SyncAction = "created" | "updated" | "deactivated" | "reactivated" | "noop";
 
-/**
- * Idempotente: garantiza que cada CpqQuote activo con contractStartDate
- * tenga su FinanceCashflowItem espejo con source=CONTRACT, sourceRefId=quoteId.
- *
- * Llamar:
- *  - al crear/actualizar/cambiar status de un CpqQuote
- *  - al cambiar contractStartDate, contractDuration, paymentDays, paymentDayMode,
- *    paymentTerms, monthlyCost, currency, installationId, realAnnualIncrement
- *  - en backfill manual y desde el cron nightly
- *
- * Reglas:
- *  - Si el quote sale de los estados activos → marcar item como inactive (no borrar
- *    para preservar history de occurrences materializadas y conciliadas).
- *  - Si vuelve a activarse → reactivar item.
- *  - Si cambian campos relevantes → upsert con los nuevos valores.
- *  - Nunca tocar amountOverride de occurrences ya materializadas.
- */
 export async function syncContractItemForQuote(
-  tenantId: string,
-  quoteId: string,
+  _tenantId: string,
+  _quoteId: string,
 ): Promise<{ action: SyncAction }> {
-  const quote = await prisma.cpqQuote.findFirst({
-    where: { id: quoteId, tenantId },
-    select: {
-      id: true,
-      tenantId: true,
-      code: true,
-      name: true,
-      clientName: true,
-      accountId: true,
-      installationId: true,
-      installation: { select: { name: true } },
-      monthlyCost: true,
-      currency: true,
-      contractStartDate: true,
-      contractDuration: true,
-      paymentDays: true,
-      paymentDayMode: true,
-      paymentTerms: true,
-      realAnnualIncrement: true,
-      status: true,
-      parameters: { select: { salePriceMonthly: true } },
-    },
-  });
-  if (!quote) return { action: "noop" };
-
-  // `monthlyCost` es el COSTO interno (suma de costos de posiciones). Lo que
-  // el cliente paga (y por tanto el ingreso real en flujo de caja) es el
-  // `salePriceMonthly` guardado en `CpqQuoteParameters`. Si por alguna razón
-  // no está calculado (quote viejo), caemos a `monthlyCost` como fallback
-  // para no romper la proyección.
-  const salePriceClp =
-    Number(quote.parameters?.salePriceMonthly ?? 0) ||
-    Number(quote.monthlyCost ?? 0);
-
-  const isActive =
-    (ACTIVE_QUOTE_STATUSES as readonly string[]).includes(quote.status) &&
-    quote.contractStartDate !== null &&
-    salePriceClp > 0;
-
-  const cat = await prisma.financeCashflowCategory.findFirst({
-    where: { tenantId, code: SALES_CATEGORY_CODE, isActive: true },
-    select: { id: true },
-  });
-  if (!cat) return { action: "noop" }; // tenant aún no inicializó cashflow
-
-  const existing = await prisma.financeCashflowItem.findFirst({
-    where: { tenantId, source: "CONTRACT", sourceRefId: quote.id },
-  });
-
-  if (!isActive) {
-    if (existing && existing.isActive) {
-      await prisma.financeCashflowItem.update({
-        where: { id: existing.id },
-        data: { isActive: false },
-      });
-      return { action: "deactivated" };
-    }
-    return { action: "noop" };
-  }
-
-  // Mapear paymentDayMode a dayOfMonth.
-  // - SPECIFIC_DAY → dayOfMonth = paymentDays (cap 1..28 para evitar months sin día 31)
-  // - LAST_BUSINESS_DAY → dayOfMonth = -1 (recurrence-engine usa último día del mes)
-  // - FIRST_BUSINESS_DAY / FIRST_MONDAY → dayOfMonth = 1 (aproximación; el engine
-  //   no resuelve "día hábil" sin extensión de schema). El usuario puede ajustar
-  //   la occurrence individual con shift-day si necesita corrección puntual.
-  const dom =
-    quote.paymentDayMode === "LAST_BUSINESS_DAY"
-      ? -1
-      : quote.paymentDayMode === "SPECIFIC_DAY"
-        ? Math.min(Math.max(quote.paymentDays ?? 5, 1), 28)
-        : 1;
-
-  // Postpago = se factura el mes siguiente al servicio prestado.
-  const isPostpago =
-    (quote.paymentTerms ?? "").toLowerCase().includes("contrafactura") ||
-    (quote.paymentTerms ?? "").toLowerCase().includes("post");
-
-  const startDate = isPostpago
-    ? addMonths(quote.contractStartDate!, 1)
-    : quote.contractStartDate!;
-  const endDate = addMonths(quote.contractStartDate!, quote.contractDuration ?? 12);
-
-  const name = quote.installation?.name ?? quote.clientName ?? quote.name ?? quote.code;
-  const description = `Contrato ${quote.code} · ${quote.installation?.name ?? "sin instalación"}`;
-
-  // Moneda del contrato:
-  //   - "CLP" → monto fijo en pesos cada mes.
-  //   - "UF"  → guardamos el valor en UF; el proyector reconvierte a CLP
-  //             usando la UF de cada mes (resolveUfForOccurrence), así el
-  //             flujo de caja refleja la indexación real del contrato.
-  //
-  // Para contratos en UF reconstruimos el valor en UF dividiendo el sale
-  // price CLP por la UF de la fecha de inicio del contrato — esa es la
-  // referencia más estable y predecible para mostrarlo al cliente.
-  let amount: number;
-  let currency: "CLP" | "UF";
-  if (quote.currency === "UF" && quote.contractStartDate) {
-    const ufAtStart = await getUfValueForDate(quote.contractStartDate);
-    amount =
-      ufAtStart > 0 ? salePriceClp / ufAtStart : salePriceClp;
-    currency = "UF";
-  } else {
-    amount = salePriceClp;
-    currency = "CLP";
-  }
-
-  const data = {
-    tenantId,
-    categoryId: cat.id,
-    kind: "INCOME" as const,
-    source: "CONTRACT" as const,
-    sourceRefId: quote.id,
-    name,
-    description,
-    amount,
-    currency,
-    // Política UF: cada cuota usa el último día del mes anterior. Es la
-    // convención más común en contratos chilenos indexados a UF.
-    ufFixingPolicy: currency === "UF" ? "LAST_DAY_PREV_MONTH" : null,
-    recurrence: "MONTHLY" as const,
-    dayOfMonth: dom,
-    dayOfWeek: null,
-    monthOfYear: null,
-    startDate,
-    endDate,
-    installationId: quote.installationId,
-    crmAccountId: quote.accountId,
-    isActive: true,
-  };
-
-  if (existing) {
-    // Si hubo un cambio SIGNIFICATIVO en monto / currency / fechas, las
-    // occurrences PROJECTED pueden quedar con amountClp congelado del
-    // cálculo anterior. Las borramos para que se re-materialicen con el
-    // nuevo monto. PAID y CONFIRMED se respetan siempre (históricos).
-    //
-    // ⚠️  CRÍTICO: usar tolerancia para `amountChanged`. Sin esta tolerancia,
-    // el cálculo `salePriceClp / ufAtStart` produce diferencias de 6 ceros
-    // decimales entre runs (epsilon de floating-point), lo que dispara el
-    // borrado en cada page-load. Resultado anterior: cuotas movidas por el
-    // usuario "volvían solas" al refrescar la página.
-    const amountDelta = Math.abs(
-      Number(existing.amount) - Number(data.amount),
-    );
-    const amountChanged = amountDelta > 0.01;
-    const currencyChanged = existing.currency !== data.currency;
-    const startChanged =
-      existing.startDate?.toISOString().slice(0, 10) !==
-      data.startDate.toISOString().slice(0, 10);
-    if (amountChanged || currencyChanged || startChanged) {
-      await prisma.financeCashflowOccurrence.deleteMany({
-        where: {
-          tenantId,
-          itemId: existing.id,
-          status: "PROJECTED",
-        },
-      });
-    }
-    await prisma.financeCashflowItem.update({
-      where: { id: existing.id },
-      data,
-    });
-    return { action: existing.isActive ? "updated" : "reactivated" };
-  }
-  await prisma.financeCashflowItem.create({ data });
-  return { action: "created" };
+  return { action: "noop" };
 }
 
 export interface BackfillContractStats {
@@ -205,36 +32,104 @@ export interface BackfillContractStats {
   deactivated: number;
 }
 
-/** Backfill: sincroniza todos los quotes del tenant. */
-export async function backfillContractItems(tenantId: string): Promise<BackfillContractStats> {
-  const quotes = await prisma.cpqQuote.findMany({
-    where: { tenantId },
-    select: { id: true },
-  });
-  const stats: BackfillContractStats = {
-    created: 0,
-    updated: 0,
-    reactivated: 0,
-    deactivated: 0,
-  };
-  for (const q of quotes) {
-    const r = await syncContractItemForQuote(tenantId, q.id);
-    if (r.action === "created") stats.created++;
-    else if (r.action === "updated") stats.updated++;
-    else if (r.action === "reactivated") stats.reactivated++;
-    else if (r.action === "deactivated") stats.deactivated++;
-  }
-  return stats;
+export async function backfillContractItems(
+  _tenantId: string,
+): Promise<BackfillContractStats> {
+  return { created: 0, updated: 0, reactivated: 0, deactivated: 0 };
 }
 
-/** Toggle masivo: activa/desactiva todos los items source=CONTRACT del tenant. */
 export async function setContractItemsActive(
   tenantId: string,
   active: boolean,
 ): Promise<{ affected: number }> {
+  // Compat shim: el toggle ya no existe en config, pero si alguien lo invoca
+  // lo aplicamos a los items source=CONTRACT remanentes (los no migrados).
   const result = await prisma.financeCashflowItem.updateMany({
     where: { tenantId, source: "CONTRACT" },
     data: { isActive: active },
   });
   return { affected: result.count };
+}
+
+/**
+ * Migra todos los items source=CONTRACT del tenant a source=OTHER, dejándolos
+ * editables manualmente desde ContractCashflowDialog. Idempotente.
+ *
+ * Reescritura de sourceRefId:
+ *  - source=CONTRACT.sourceRefId apunta al CpqQuote.id (modelo viejo).
+ *  - source=OTHER.sourceRefId debe apuntar al Document.id (el contrato PDF)
+ *    para que el endpoint /api/crm/accounts/[id]/contracts/[contractId]/cashflow
+ *    pueda encontrarlo desde el tab "Contratos" del CRM.
+ *
+ * Para cada item:
+ *  1. Buscar el CpqQuote por id (sourceRefId actual).
+ *  2. Si el quote tiene dealId, buscar Documents asociados a ese deal
+ *     (DocAssociation entityType=crm_deal). Tomar el primero que sea contrato
+ *     de servicio (module=crm, category=contrato_servicio).
+ *  3. Si encontramos un document → sourceRefId = document.id.
+ *  4. Si no → dejar sourceRefId apuntando al quote (huérfano: el item igual
+ *     queda en el flujo de caja y editable, solo que no se asocia a un PDF
+ *     del CRM).
+ *
+ * El monto y currency actuales se preservan. Si algún item tiene currency=UF
+ * con un monto que era CLP (bug Santa Hilda), el usuario lo corrige
+ * manualmente abriendo el dialog.
+ */
+export async function migrateContractItemsToManual(tenantId: string): Promise<{
+  migrated: number;
+  withDocument: number;
+  orphan: number;
+}> {
+  const items = await prisma.financeCashflowItem.findMany({
+    where: { tenantId, source: "CONTRACT" },
+    select: { id: true, sourceRefId: true },
+  });
+  if (items.length === 0) {
+    return { migrated: 0, withDocument: 0, orphan: 0 };
+  }
+
+  let withDocument = 0;
+  let orphan = 0;
+
+  for (const item of items) {
+    let newRefId: string | null = item.sourceRefId;
+
+    if (item.sourceRefId) {
+      const quote = await prisma.cpqQuote.findFirst({
+        where: { id: item.sourceRefId, tenantId },
+        select: { dealId: true },
+      });
+      if (quote?.dealId) {
+        // Cualquier Document module=crm asociado al deal. No filtramos por
+        // category porque hay variantes (contrato_servicio, contrato_cliente)
+        // según plantilla. El primer match gana.
+        const assoc = await prisma.docAssociation.findFirst({
+          where: {
+            entityType: "crm_deal",
+            entityId: quote.dealId,
+            document: {
+              tenantId,
+              module: "crm",
+            },
+          },
+          select: { documentId: true },
+        });
+        if (assoc) {
+          newRefId = assoc.documentId;
+          withDocument++;
+        } else {
+          orphan++;
+        }
+      } else {
+        orphan++;
+      }
+    }
+
+    await prisma.financeCashflowItem.update({
+      where: { id: item.id },
+      data: { source: "OTHER", sourceRefId: newRefId },
+    });
+  }
+
+  return { migrated: items.length, withDocument, orphan };
 }
