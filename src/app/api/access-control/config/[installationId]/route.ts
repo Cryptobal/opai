@@ -15,6 +15,8 @@ const defaultConfig = (installationId: string) => ({
   maxStayHours: null,
   autoReportSchedule: null,
   formConfig: {},
+  recordTypeLabels: {},
+  recordTypeIcons: {},
 });
 
 export async function GET(
@@ -90,6 +92,8 @@ export async function PUT(
           maxStayHours: body.maxStayHours ?? null,
           autoReportSchedule: body.autoReportSchedule ?? null,
           formConfig: (body.formConfig ?? {}) as Prisma.InputJsonValue,
+          recordTypeLabels: (body.recordTypeLabels ?? {}) as Prisma.InputJsonValue,
+          recordTypeIcons: (body.recordTypeIcons ?? {}) as Prisma.InputJsonValue,
         },
         create: {
           tenantId: installation.tenantId,
@@ -103,6 +107,8 @@ export async function PUT(
           maxStayHours: body.maxStayHours ?? null,
           autoReportSchedule: body.autoReportSchedule ?? null,
           formConfig: (body.formConfig ?? {}) as Prisma.InputJsonValue,
+          recordTypeLabels: (body.recordTypeLabels ?? {}) as Prisma.InputJsonValue,
+          recordTypeIcons: (body.recordTypeIcons ?? {}) as Prisma.InputJsonValue,
         },
       }),
       null,
@@ -165,6 +171,8 @@ export async function PATCH(
     if ("maxStayHours" in body) updateData.maxStayHours = (body.maxStayHours as number | null) ?? null;
     if ("autoReportSchedule" in body) updateData.autoReportSchedule = (body.autoReportSchedule as string | null) ?? null;
     if ("formConfig" in body) updateData.formConfig = (body.formConfig ?? {}) as Prisma.InputJsonValue;
+    if ("recordTypeLabels" in body) updateData.recordTypeLabels = (body.recordTypeLabels ?? {}) as Prisma.InputJsonValue;
+    if ("recordTypeIcons" in body) updateData.recordTypeIcons = (body.recordTypeIcons ?? {}) as Prisma.InputJsonValue;
 
     const config = await safeAccessControlQuery(
       () => prisma.accessControlConfig.upsert({
@@ -182,6 +190,8 @@ export async function PATCH(
           maxStayHours: (body.maxStayHours as number | null) ?? null,
           autoReportSchedule: (body.autoReportSchedule as string | null) ?? null,
           formConfig: (body.formConfig ?? {}) as Prisma.InputJsonValue,
+          recordTypeLabels: (body.recordTypeLabels ?? {}) as Prisma.InputJsonValue,
+          recordTypeIcons: (body.recordTypeIcons ?? {}) as Prisma.InputJsonValue,
         },
       }),
       null,

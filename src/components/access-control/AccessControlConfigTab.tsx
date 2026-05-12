@@ -3,9 +3,18 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 import {
-  Settings, UserPlus, Truck, Car, BadgeCheck, Package,
-  Save, Loader2, GripVertical, Plus, Trash2, ChevronDown, ChevronUp, Mail, Send,
+  Settings,
+  Save, Loader2, GripVertical, Plus, Trash2, ChevronDown, ChevronUp, Mail, Send, Pencil, Check, X,
 } from "lucide-react";
+import {
+  DndContext, closestCenter, KeyboardSensor, PointerSensor,
+  useSensor, useSensors, type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove, SortableContext, sortableKeyboardCoordinates,
+  useSortable, verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,7 +23,12 @@ import { Badge } from "@/components/ui/badge";
 import type {
   AccessRecordType, AccessControlFormConfig, FormFieldConfig, AutoReportSchedule,
 } from "@/lib/access-control/types";
-import { RECORD_TYPE_CONFIG, DEFAULT_FORM_FIELDS } from "@/lib/access-control/types";
+import {
+  RECORD_TYPE_CONFIG, DEFAULT_FORM_FIELDS,
+  AVAILABLE_RECORD_TYPE_ICONS,
+  getRecordTypeLabel, getRecordTypeIconName,
+} from "@/lib/access-control/types";
+import { getLucideIconByName } from "@/lib/access-control/record-type-icon";
 
 interface ReportRecipient {
   contactId: string;
@@ -24,16 +38,6 @@ interface ReportRecipient {
   isPrimary: boolean;
   isRecipient: boolean;
 }
-
-// ═══════════════════════════════════════════════════════════════
-
-const TYPE_ICONS: Record<AccessRecordType, React.ReactNode> = {
-  visit: <UserPlus className="h-5 w-5" />,
-  provider: <Truck className="h-5 w-5" />,
-  vehicle: <Car className="h-5 w-5" />,
-  staff: <BadgeCheck className="h-5 w-5" />,
-  delivery: <Package className="h-5 w-5" />,
-};
 
 interface Props {
   installationId: string;
@@ -49,6 +53,8 @@ interface ConfigState {
   maxStayHours: number | null;
   autoReportSchedule: AutoReportSchedule | null;
   formConfig: AccessControlFormConfig;
+  recordTypeLabels: Partial<Record<AccessRecordType, string>>;
+  recordTypeIcons: Partial<Record<AccessRecordType, string>>;
 }
 
 export function AccessControlConfigTab({ installationId }: Props) {
@@ -70,7 +76,16 @@ export function AccessControlConfigTab({ installationId }: Props) {
     maxStayHours: null,
     autoReportSchedule: null,
     formConfig: {},
+    recordTypeLabels: {},
+    recordTypeIcons: {},
   });
+
+  // Inline label editing for record types: stores the type whose label is
+  // being edited, and the draft text. null means "not editing".
+  const [editingLabelFor, setEditingLabelFor] = useState<AccessRecordType | null>(null);
+  const [editingLabelDraft, setEditingLabelDraft] = useState("");
+  // Icon picker dropdown — null means closed.
+  const [iconPickerFor, setIconPickerFor] = useState<AccessRecordType | null>(null);
 
   const fetchConfig = useCallback(async () => {
     try {
@@ -87,6 +102,8 @@ export function AccessControlConfigTab({ installationId }: Props) {
           maxStayHours: json.data.maxStayHours || null,
           autoReportSchedule: json.data.autoReportSchedule || null,
           formConfig: json.data.formConfig || {},
+          recordTypeLabels: json.data.recordTypeLabels || {},
+          recordTypeIcons: json.data.recordTypeIcons || {},
         });
       }
     } catch {
@@ -257,6 +274,72 @@ export function AccessControlConfigTab({ installationId }: Props) {
     updateFormFields(type, updated);
   };
 
+  // ── Per-record-type label & icon customization ──────────────────────
+
+  const startEditingLabel = (type: AccessRecordType) => {
+    setEditingLabelDraft(getRecordTypeLabel(type, config));
+    setEditingLabelFor(type);
+  };
+
+  const commitEditingLabel = () => {
+    if (!editingLabelFor) return;
+    const trimmed = editingLabelDraft.trim();
+    const fallback = RECORD_TYPE_CONFIG[editingLabelFor]?.label ?? "";
+    setConfig((prev) => {
+      const nextLabels = { ...prev.recordTypeLabels };
+      // Empty / equal to default → remove override so future default changes
+      // propagate. Non-empty + different → store override.
+      if (!trimmed || trimmed === fallback) {
+        delete nextLabels[editingLabelFor];
+      } else {
+        nextLabels[editingLabelFor] = trimmed;
+      }
+      return { ...prev, recordTypeLabels: nextLabels };
+    });
+    setEditingLabelFor(null);
+    setEditingLabelDraft("");
+  };
+
+  const cancelEditingLabel = () => {
+    setEditingLabelFor(null);
+    setEditingLabelDraft("");
+  };
+
+  const setRecordTypeIcon = (type: AccessRecordType, iconName: string) => {
+    const fallback = RECORD_TYPE_CONFIG[type]?.icon ?? "";
+    setConfig((prev) => {
+      const nextIcons = { ...prev.recordTypeIcons };
+      if (!iconName || iconName === fallback) {
+        delete nextIcons[type];
+      } else {
+        nextIcons[type] = iconName;
+      }
+      return { ...prev, recordTypeIcons: nextIcons };
+    });
+    setIconPickerFor(null);
+  };
+
+  // ── Drag & drop reorder ─────────────────────────────────────────────
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const handleFieldDragEnd = (type: AccessRecordType, event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const fields = getFormFields(type);
+    const oldIndex = fields.findIndex((f) => f.field === active.id);
+    const newIndex = fields.findIndex((f) => f.field === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    const reordered = arrayMove(fields, oldIndex, newIndex).map((f, i) => ({
+      ...f,
+      order: i + 1,
+    }));
+    updateFormFields(type, reordered);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -284,8 +367,8 @@ export function AccessControlConfigTab({ installationId }: Props) {
         <h4 className="mb-3 text-sm font-medium text-zinc-300">Tipos de Registro Habilitados</h4>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
           {(Object.keys(RECORD_TYPE_CONFIG) as AccessRecordType[]).map((type) => {
-            const tc = RECORD_TYPE_CONFIG[type];
             const enabled = config.enabledRecordTypes.includes(type);
+            const Icon = getLucideIconByName(getRecordTypeIconName(type, config));
             return (
               <button
                 key={type}
@@ -296,8 +379,8 @@ export function AccessControlConfigTab({ installationId }: Props) {
                     : "border-zinc-700 bg-zinc-800 text-zinc-500 hover:border-zinc-600"
                 }`}
               >
-                {TYPE_ICONS[type]}
-                <span className="text-xs font-medium">{tc.label}</span>
+                <Icon className="h-5 w-5" />
+                <span className="text-xs font-medium">{getRecordTypeLabel(type, config)}</span>
               </button>
             );
           })}
@@ -461,77 +544,152 @@ export function AccessControlConfigTab({ installationId }: Props) {
       {config.enabledRecordTypes.length > 0 && (
         <div className="rounded-lg border border-zinc-700 bg-zinc-900 p-4">
           <h4 className="mb-3 text-sm font-medium text-zinc-300">Formularios por Tipo de Registro</h4>
+          <p className="mb-3 text-xs text-zinc-500">
+            Arrastra los campos para reordenarlos. Haz click en el lápiz para renombrar el tipo o cambiar su icono.
+          </p>
           <div className="space-y-2">
             {config.enabledRecordTypes.map((type) => {
-              const tc = RECORD_TYPE_CONFIG[type];
               const fields = getFormFields(type);
               const isExpanded = expandedType === type;
+              const isEditingLabel = editingLabelFor === type;
+              const isPickingIcon = iconPickerFor === type;
+              const TypeIcon = getLucideIconByName(getRecordTypeIconName(type, config));
 
               return (
                 <div key={type} className="rounded-lg border border-zinc-700">
-                  <button
-                    onClick={() => setExpandedType(isExpanded ? null : type)}
-                    className="flex w-full items-center justify-between p-3 text-left hover:bg-zinc-800/50"
-                  >
-                    <div className="flex items-center gap-2">
-                      {TYPE_ICONS[type]}
-                      <span className="text-sm font-medium text-zinc-200">{tc.label}</span>
-                      <span className="text-xs text-zinc-500">({fields.length} campos)</span>
+                  <div className="flex w-full items-center justify-between p-3 hover:bg-zinc-800/50">
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <button
+                        type="button"
+                        onClick={() => setIconPickerFor(isPickingIcon ? null : type)}
+                        className="flex-shrink-0 rounded-md p-1 text-zinc-300 hover:bg-zinc-700"
+                        title="Cambiar icono"
+                      >
+                        <TypeIcon className="h-5 w-5" />
+                      </button>
+
+                      {isEditingLabel ? (
+                        <div className="flex items-center gap-1 flex-1 min-w-0">
+                          <Input
+                            value={editingLabelDraft}
+                            onChange={(e) => setEditingLabelDraft(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") commitEditingLabel();
+                              if (e.key === "Escape") cancelEditingLabel();
+                            }}
+                            autoFocus
+                            className="h-8 text-sm bg-zinc-800 border-zinc-600 max-w-xs"
+                            placeholder={RECORD_TYPE_CONFIG[type]?.label ?? ""}
+                          />
+                          <button
+                            type="button"
+                            onClick={commitEditingLabel}
+                            className="rounded-md p-1 text-status-ok-fg hover:bg-zinc-700"
+                            title="Guardar"
+                          >
+                            <Check className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={cancelEditingLabel}
+                            className="rounded-md p-1 text-zinc-400 hover:bg-zinc-700"
+                            title="Cancelar"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setExpandedType(isExpanded ? null : type)}
+                            className="flex items-center gap-2 flex-1 text-left min-w-0"
+                          >
+                            <span className="text-sm font-medium text-zinc-200 truncate">
+                              {getRecordTypeLabel(type, config)}
+                            </span>
+                            <span className="text-xs text-zinc-500 flex-shrink-0">
+                              ({fields.length} campos)
+                            </span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => startEditingLabel(type)}
+                            className="rounded-md p-1 text-zinc-400 hover:bg-zinc-700"
+                            title="Renombrar"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                        </>
+                      )}
                     </div>
-                    {isExpanded ? (
-                      <ChevronUp className="h-4 w-4 text-zinc-400" />
-                    ) : (
-                      <ChevronDown className="h-4 w-4 text-zinc-400" />
+
+                    {!isEditingLabel && (
+                      <button
+                        type="button"
+                        onClick={() => setExpandedType(isExpanded ? null : type)}
+                        className="rounded-md p-1 text-zinc-400 hover:bg-zinc-700"
+                      >
+                        {isExpanded ? (
+                          <ChevronUp className="h-4 w-4" />
+                        ) : (
+                          <ChevronDown className="h-4 w-4" />
+                        )}
+                      </button>
                     )}
-                  </button>
+                  </div>
+
+                  {/* Icon picker dropdown */}
+                  {isPickingIcon && (
+                    <div className="border-t border-zinc-700 p-3 bg-zinc-950/50">
+                      <div className="text-xs text-zinc-400 mb-2">Elige un icono:</div>
+                      <div className="grid grid-cols-6 gap-2">
+                        {AVAILABLE_RECORD_TYPE_ICONS.map((iconName) => {
+                          const Icon = getLucideIconByName(iconName);
+                          const isSelected = getRecordTypeIconName(type, config) === iconName;
+                          return (
+                            <button
+                              key={iconName}
+                              type="button"
+                              onClick={() => setRecordTypeIcon(type, iconName)}
+                              className={`flex items-center justify-center rounded-md border p-2 transition-colors ${
+                                isSelected
+                                  ? "border-status-info-border bg-status-info-soft text-status-info-fg"
+                                  : "border-zinc-700 bg-zinc-800 text-zinc-300 hover:border-zinc-600"
+                              }`}
+                              title={iconName}
+                            >
+                              <Icon className="h-5 w-5" />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
 
                   {isExpanded && (
                     <div className="border-t border-zinc-700 p-3 space-y-2">
-                      {fields.map((field, idx) => (
-                        <div
-                          key={field.field}
-                          className="flex items-center gap-2 rounded-md bg-zinc-800 p-2"
+                      <DndContext
+                        sensors={sensors}
+                        collisionDetection={closestCenter}
+                        onDragEnd={(event) => handleFieldDragEnd(type, event)}
+                      >
+                        <SortableContext
+                          items={fields.map((f) => f.field)}
+                          strategy={verticalListSortingStrategy}
                         >
-                          <GripVertical className="h-4 w-4 text-zinc-600 flex-shrink-0" />
-                          <Input
-                            value={field.label}
-                            onChange={(e) => updateField(type, idx, { label: e.target.value })}
-                            className="h-8 text-sm bg-zinc-700 border-zinc-600"
-                            placeholder="Etiqueta"
-                          />
-                          <select
-                            value={field.type}
-                            onChange={(e) =>
-                              updateField(type, idx, { type: e.target.value as FormFieldConfig["type"] })
-                            }
-                            className="h-8 rounded-md border border-zinc-600 bg-zinc-700 px-2 text-xs text-zinc-200"
-                          >
-                            <option value="text">Texto</option>
-                            <option value="number">Número</option>
-                            <option value="select">Selección</option>
-                            <option value="boolean">Sí/No</option>
-                            <option value="date">Fecha</option>
-                            <option value="photo">Foto</option>
-                            <option value="textarea">Texto largo</option>
-                            <option value="signature">Firma</option>
-                          </select>
-                          <label className="flex items-center gap-1 text-xs text-zinc-400">
-                            <input
-                              type="checkbox"
-                              checked={field.required}
-                              onChange={(e) => updateField(type, idx, { required: e.target.checked })}
-                              className="rounded border-zinc-600"
+                          {fields.map((field, idx) => (
+                            <SortableFieldRow
+                              key={field.field}
+                              field={field}
+                              onLabelChange={(label) => updateField(type, idx, { label })}
+                              onTypeChange={(t) => updateField(type, idx, { type: t })}
+                              onRequiredChange={(req) => updateField(type, idx, { required: req })}
+                              onRemove={() => removeField(type, idx)}
                             />
-                            Req.
-                          </label>
-                          <button
-                            onClick={() => removeField(type, idx)}
-                            className="text-zinc-500 hover:text-status-danger-fg"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      ))}
+                          ))}
+                        </SortableContext>
+                      </DndContext>
                       <Button
                         variant="outline"
                         size="sm"
@@ -549,6 +707,92 @@ export function AccessControlConfigTab({ installationId }: Props) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Sortable row for a single form field. Uses @dnd-kit to allow the
+// admin to drag fields up/down. The drag handle is the GripVertical
+// icon — clicking inputs does NOT start a drag (PointerSensor
+// activationConstraint=5px ensures intentional drags only).
+// ═══════════════════════════════════════════════════════════════
+
+interface SortableFieldRowProps {
+  field: FormFieldConfig;
+  onLabelChange: (label: string) => void;
+  onTypeChange: (type: FormFieldConfig["type"]) => void;
+  onRequiredChange: (required: boolean) => void;
+  onRemove: () => void;
+}
+
+function SortableFieldRow({
+  field,
+  onLabelChange,
+  onTypeChange,
+  onRequiredChange,
+  onRemove,
+}: SortableFieldRowProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: field.field });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center gap-2 rounded-md bg-zinc-800 p-2"
+    >
+      <button
+        type="button"
+        className="cursor-grab text-zinc-500 hover:text-zinc-300 active:cursor-grabbing flex-shrink-0 touch-none"
+        aria-label="Arrastrar para reordenar"
+        {...attributes}
+        {...listeners}
+      >
+        <GripVertical className="h-4 w-4" />
+      </button>
+      <Input
+        value={field.label}
+        onChange={(e) => onLabelChange(e.target.value)}
+        className="h-8 text-sm bg-zinc-700 border-zinc-600"
+        placeholder="Etiqueta"
+      />
+      <select
+        value={field.type}
+        onChange={(e) => onTypeChange(e.target.value as FormFieldConfig["type"])}
+        className="h-8 rounded-md border border-zinc-600 bg-zinc-700 px-2 text-xs text-zinc-200"
+      >
+        <option value="text">Texto</option>
+        <option value="number">Número</option>
+        <option value="select">Selección</option>
+        <option value="boolean">Sí/No</option>
+        <option value="date">Fecha</option>
+        <option value="photo">Foto</option>
+        <option value="textarea">Texto largo</option>
+        <option value="signature">Firma</option>
+      </select>
+      <label className="flex items-center gap-1 text-xs text-zinc-400">
+        <input
+          type="checkbox"
+          checked={field.required}
+          onChange={(e) => onRequiredChange(e.target.checked)}
+          className="rounded border-zinc-600"
+        />
+        Req.
+      </label>
+      <button
+        type="button"
+        onClick={onRemove}
+        className="text-zinc-500 hover:text-status-danger-fg"
+      >
+        <Trash2 className="h-4 w-4" />
+      </button>
     </div>
   );
 }

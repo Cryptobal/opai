@@ -8586,6 +8586,8 @@ model AccessControlConfig {
   autoReportSchedule   String?   @map("auto_report_schedule") // 'daily','weekly','monthly'
   autoReportLastSentAt DateTime? @map("auto_report_last_sent_at") @db.Timestamptz(6)
   formConfig           Json      @default("{}") @map("form_config") @db.JsonB
+  recordTypeLabels     Json      @default("{}") @map("record_type_labels") @db.JsonB
+  recordTypeIcons      Json      @default("{}") @map("record_type_icons") @db.JsonB
   createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 

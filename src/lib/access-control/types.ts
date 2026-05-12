@@ -54,6 +54,12 @@ export interface AccessControlConfigData {
   maxStayHours: number | null;
   autoReportSchedule: AutoReportSchedule | null;
   formConfig: AccessControlFormConfig;
+  /** Per-installation override of the type's display label. Keys are
+   *  AccessRecordType ids; missing keys fall back to RECORD_TYPE_CONFIG. */
+  recordTypeLabels?: Partial<Record<AccessRecordType, string>>;
+  /** Per-installation override of the type's lucide icon name. Keys are
+   *  AccessRecordType ids; missing keys fall back to RECORD_TYPE_CONFIG. */
+  recordTypeIcons?: Partial<Record<AccessRecordType, string>>;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -303,6 +309,50 @@ export const RECORD_TYPE_CONFIG: Record<AccessRecordType, { label: string; icon:
   staff: { label: "Personal", icon: "BadgeCheck", color: "green" },
   delivery: { label: "Despacho", icon: "Package", color: "amber" },
 };
+
+/** Icons available in the icon picker for customizing a record type. Keep
+ *  this list small and curated — every icon listed here must also be wired
+ *  in `RECORD_TYPE_ICON_MAP` (see `record-type-display.tsx`). */
+export const AVAILABLE_RECORD_TYPE_ICONS = [
+  "UserPlus",
+  "Truck",
+  "Car",
+  "BadgeCheck",
+  "Package",
+  "Users",
+  "Briefcase",
+  "ShieldCheck",
+  "ClipboardList",
+  "Wrench",
+  "Bike",
+  "Bus",
+] as const;
+export type AvailableRecordTypeIcon = (typeof AVAILABLE_RECORD_TYPE_ICONS)[number];
+
+/** Returns the customized label for a record type, falling back to the
+ *  default in RECORD_TYPE_CONFIG. Safe to call with a partial/undefined
+ *  config — useful for back-office views that don't load per-installation
+ *  overrides. */
+export function getRecordTypeLabel(
+  type: AccessRecordType,
+  config?: { recordTypeLabels?: Partial<Record<AccessRecordType, string>> } | null,
+): string {
+  const override = config?.recordTypeLabels?.[type];
+  if (override && override.trim().length > 0) return override;
+  return RECORD_TYPE_CONFIG[type]?.label ?? type;
+}
+
+/** Returns the icon name (lucide) to use for a record type. Returns a string
+ *  so the component layer can map it to a React element (icons are not safe
+ *  to embed in shared types — they would pull React into server bundles). */
+export function getRecordTypeIconName(
+  type: AccessRecordType,
+  config?: { recordTypeIcons?: Partial<Record<AccessRecordType, string>> } | null,
+): string {
+  const override = config?.recordTypeIcons?.[type];
+  if (override && override.trim().length > 0) return override;
+  return RECORD_TYPE_CONFIG[type]?.icon ?? "UserPlus";
+}
 
 export const PREREGISTRATION_STATUS_CONFIG: Record<PreregistrationStatus, { label: string; color: string }> = {
   pending: { label: "Pendiente", color: "yellow" },

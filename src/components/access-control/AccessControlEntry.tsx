@@ -3,7 +3,7 @@
 import React, { useState, useCallback } from "react";
 import { toast } from "sonner";
 import {
-  ArrowLeft, UserPlus, Truck, Car, BadgeCheck, Package,
+  ArrowLeft,
   QrCode, Keyboard, Loader2, Check, AlertTriangle,
   ShieldAlert, ShieldCheck, Camera, ChevronRight,
 } from "lucide-react";
@@ -20,18 +20,9 @@ import type {
   AccessRecordType, AccessControlConfigData,
   RutValidationResult, FormFieldConfig, CedulaQRData,
 } from "@/lib/access-control/types";
-import { RECORD_TYPE_CONFIG, DEFAULT_FORM_FIELDS } from "@/lib/access-control/types";
+import { DEFAULT_FORM_FIELDS, getRecordTypeLabel } from "@/lib/access-control/types";
+import { RecordTypeIcon } from "@/lib/access-control/record-type-icon";
 import { validateRut, formatRut, cleanRut, formatRutDash, computeRutDv } from "@/lib/access-control/utils";
-
-// ═══════════════════════════════════════════════════════════════
-
-const TYPE_ICONS: Record<AccessRecordType, React.ReactNode> = {
-  visit: <UserPlus className="h-6 w-6" />,
-  provider: <Truck className="h-6 w-6" />,
-  vehicle: <Car className="h-6 w-6" />,
-  staff: <BadgeCheck className="h-6 w-6" />,
-  delivery: <Package className="h-6 w-6" />,
-};
 
 type EntryStep = "type" | "identify" | "validation" | "form" | "confirm";
 
@@ -280,19 +271,18 @@ export function AccessControlEntry({
           <div className="space-y-3">
             <p className="text-sm text-zinc-400">Selecciona el tipo de registro</p>
             <div className="grid grid-cols-2 gap-3">
-              {config.enabledRecordTypes.map((type) => {
-                const tc = RECORD_TYPE_CONFIG[type];
-                return (
-                  <button
-                    key={type}
-                    onClick={() => handleSelectType(type)}
-                    className="flex flex-col items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 p-5 transition-colors hover:border-status-info-border hover:bg-status-info-soft active:bg-status-info-soft"
-                  >
-                    {TYPE_ICONS[type]}
-                    <span className="text-sm font-medium text-zinc-200">{tc.label}</span>
-                  </button>
-                );
-              })}
+              {config.enabledRecordTypes.map((type) => (
+                <button
+                  key={type}
+                  onClick={() => handleSelectType(type)}
+                  className="flex flex-col items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 p-5 transition-colors hover:border-status-info-border hover:bg-status-info-soft active:bg-status-info-soft"
+                >
+                  <RecordTypeIcon type={type} config={config} className="h-6 w-6" />
+                  <span className="text-sm font-medium text-zinc-200">
+                    {getRecordTypeLabel(type, config)}
+                  </span>
+                </button>
+              ))}
             </div>
           </div>
         )}
@@ -432,8 +422,8 @@ export function AccessControlEntry({
         {step === "form" && selectedType && (
           <div className="space-y-4">
             <div className="flex items-center gap-2 text-sm text-zinc-400">
-              {TYPE_ICONS[selectedType]}
-              <span>{RECORD_TYPE_CONFIG[selectedType].label}</span>
+              <RecordTypeIcon type={selectedType} config={config} className="h-6 w-6" />
+              <span>{getRecordTypeLabel(selectedType, config)}</span>
               {validationResult?.listMatch === "whitelist" && (
                 <Badge className="bg-status-ok-soft text-status-ok-fg border-status-ok-border">
                   Autorizado
@@ -470,8 +460,8 @@ export function AccessControlEntry({
             <div className="rounded-lg border border-zinc-700 bg-zinc-900 p-4 space-y-2">
               {selectedType && (
                 <div className="flex items-center gap-2 text-zinc-300">
-                  {TYPE_ICONS[selectedType]}
-                  <span className="font-medium">{RECORD_TYPE_CONFIG[selectedType].label}</span>
+                  <RecordTypeIcon type={selectedType} config={config} className="h-6 w-6" />
+                  <span className="font-medium">{getRecordTypeLabel(selectedType, config)}</span>
                 </div>
               )}
               {Boolean(formData.full_name) && (
