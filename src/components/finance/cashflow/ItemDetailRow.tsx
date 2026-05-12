@@ -214,7 +214,7 @@ export function ItemDetailRow({
           </DroppableSubCell>
         );
       })}
-      <td className="sticky right-0 z-20 p-2 text-right font-mono bg-card whitespace-nowrap text-[12px] text-ds-text-2 border-l border-border/50">
+      <td className="hidden sm:table-cell sticky right-0 z-20 p-2 text-right font-mono bg-card whitespace-nowrap text-[12px] text-ds-text-2 border-l border-border/50">
         {fmt.format(item.total)}
       </td>
     </tr>

@@ -33,6 +33,15 @@ export function CashflowTabs({
   const router = useRouter();
   const [tab, setTab] = useState("weekly");
 
+  // En móvil, la vista semanal queda demasiado densa (53 columnas + sticky
+  // izquierda/derecha). La mensual tiene menos columnas y se navega mejor.
+  // Cambiamos el default sólo en el primer mount cuando el viewport es < sm.
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.innerWidth < 640) {
+      setTab("monthly");
+    }
+  }, []);
+
   // --- Quick-item modal state ---
   const [quickOpen, setQuickOpen] = useState(false);
   const [quickDay, setQuickDay] = useState<number | undefined>(undefined);

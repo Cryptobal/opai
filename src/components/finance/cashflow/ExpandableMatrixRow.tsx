@@ -167,7 +167,7 @@ export function ExpandableMatrixRow({
             </DroppableBucketCell>
           );
         })}
-        <td className="sticky right-0 z-20 p-2 text-right font-mono bg-card whitespace-nowrap border-l border-border/50">
+        <td className="hidden sm:table-cell sticky right-0 z-20 p-2 text-right font-mono bg-card whitespace-nowrap border-l border-border/50">
           {fmt.format(row.total)}
         </td>
       </tr>
@@ -358,7 +358,7 @@ function ClientGroup({
             </td>
           );
         })}
-        <td className="sticky right-0 z-20 p-2 text-right font-mono text-[12px] font-semibold tabular-nums bg-card whitespace-nowrap border-l border-border/50">
+        <td className="hidden sm:table-cell sticky right-0 z-20 p-2 text-right font-mono text-[12px] font-semibold tabular-nums bg-card whitespace-nowrap border-l border-border/50">
           {fmt.format(grandTotal)}
         </td>
       </tr>

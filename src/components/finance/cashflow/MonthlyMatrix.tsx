@@ -112,7 +112,7 @@ export function MonthlyMatrix({ defaultMonths }: Props) {
                     {b.label}
                   </th>
                 ))}
-                <th className="sticky right-0 z-40 p-2 text-right min-w-[100px] border-b border-border bg-muted/40 whitespace-nowrap">
+                <th className="hidden sm:table-cell sticky right-0 z-40 p-2 text-right min-w-[100px] border-b border-border bg-muted/40 whitespace-nowrap">
                   Total
                 </th>
               </tr>
@@ -157,7 +157,7 @@ export function MonthlyMatrix({ defaultMonths }: Props) {
                     {fmt.format(b.net)}
                   </td>
                 ))}
-                <td className="sticky right-0 z-40 p-2 text-right font-mono bg-muted/40 whitespace-nowrap">
+                <td className="hidden sm:table-cell sticky right-0 z-40 p-2 text-right font-mono bg-muted/40 whitespace-nowrap">
                   {fmt.format(projection.totals.totalNet)}
                 </td>
               </tr>
@@ -174,7 +174,7 @@ export function MonthlyMatrix({ defaultMonths }: Props) {
                     {fmt.format(c.balanceClp)}
                   </td>
                 ))}
-                <td className="sticky right-0 z-40 p-2 text-right font-mono bg-muted/60 whitespace-nowrap">—</td>
+                <td className="hidden sm:table-cell sticky right-0 z-40 p-2 text-right font-mono bg-muted/60 whitespace-nowrap">—</td>
               </tr>
             </tfoot>
           </table>

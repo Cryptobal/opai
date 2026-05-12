@@ -305,7 +305,7 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
                     </th>
                   );
                 })}
-                <th className="sticky right-0 z-40 p-2 text-right min-w-[100px] border-b border-l border-border bg-card whitespace-nowrap">
+                <th className="hidden sm:table-cell sticky right-0 z-40 p-2 text-right min-w-[100px] border-b border-l border-border bg-card whitespace-nowrap">
                   Total
                 </th>
               </tr>
@@ -356,7 +356,7 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
                     {fmt.format(b.net)}
                   </td>
                 ))}
-                <td className="sticky right-0 z-40 p-2 text-right font-mono bg-card whitespace-nowrap border-l border-border/50">
+                <td className="hidden sm:table-cell sticky right-0 z-40 p-2 text-right font-mono bg-card whitespace-nowrap border-l border-border/50">
                   {fmt.format(projection.totals.totalNet)}
                 </td>
               </tr>
@@ -389,7 +389,7 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
                     </td>
                   );
                 })}
-                <td className="sticky right-0 z-40 p-2 text-right font-mono bg-card whitespace-nowrap text-status-ok-fg text-[12px] border-l border-border/50">
+                <td className="hidden sm:table-cell sticky right-0 z-40 p-2 text-right font-mono bg-card whitespace-nowrap text-status-ok-fg text-[12px] border-l border-border/50">
                   {fmt.format(
                     projection.buckets.reduce((s, b) => s + (b.actualBankIncome ?? 0), 0),
                   )}
@@ -422,7 +422,7 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
                     </td>
                   );
                 })}
-                <td className="sticky right-0 z-40 p-2 text-right font-mono bg-card whitespace-nowrap text-status-warn-fg text-[12px] border-l border-border/50">
+                <td className="hidden sm:table-cell sticky right-0 z-40 p-2 text-right font-mono bg-card whitespace-nowrap text-status-warn-fg text-[12px] border-l border-border/50">
                   {fmt.format(
                     projection.buckets.reduce((s, b) => s + (b.actualBankExpense ?? 0), 0),
                   )}
@@ -464,7 +464,7 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
                     </td>
                   );
                 })}
-                <td className="sticky right-0 z-40 p-2 text-right font-mono bg-card whitespace-nowrap text-status-info-fg text-[12px] border-l border-border/50">
+                <td className="hidden sm:table-cell sticky right-0 z-40 p-2 text-right font-mono bg-card whitespace-nowrap text-status-info-fg text-[12px] border-l border-border/50">
                   {fmt.format(
                     projection.buckets.reduce((s, b) => s + (b.bankVarianceClp ?? 0), 0),
                   )}
@@ -483,7 +483,7 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
                     {fmt.format(c.balanceClp)}
                   </td>
                 ))}
-                <td className="sticky right-0 z-40 p-2 text-right font-mono bg-card whitespace-nowrap border-l border-border/50">—</td>
+                <td className="hidden sm:table-cell sticky right-0 z-40 p-2 text-right font-mono bg-card whitespace-nowrap border-l border-border/50">—</td>
               </tr>
             </tfoot>
           </table>

@@ -32,8 +32,10 @@ export async function ensureCashflowSynced(tenantId: string): Promise<{
     // cuenta CRM. Mantenemos la key `contracts` en el shape de retorno por
     // compatibilidad con callers, pero siempre es false.
 
-    // ── Payroll: si hay instalaciones con dotación pero menos items ──
-    const [puestosRows, payrollItems] = await Promise.all([
+    // ── Payroll: cada instalación con dotación debe tener 2 items
+    //    (PAYROLL_LIQUIDO + PAYROLL_PREVIRED). El legacy `source=PAYROLL`
+    //    quedó eliminado el 2026-05-11; no lo contamos ni lo recreamos.
+    const [puestosRows, liquidoItems, previRedItems] = await Promise.all([
       prisma.opsPuestoOperativo.findMany({
         where: {
           tenantId,
@@ -44,17 +46,22 @@ export async function ensureCashflowSynced(tenantId: string): Promise<{
         distinct: ["installationId"],
       }),
       prisma.financeCashflowItem.count({
-        where: {
-          tenantId,
-          source: { in: ["PAYROLL", "PAYROLL_LIQUIDO", "PAYROLL_PREVIRED"] },
-          isActive: true,
-        },
+        where: { tenantId, source: "PAYROLL_LIQUIDO", isActive: true },
+      }),
+      prisma.financeCashflowItem.count({
+        where: { tenantId, source: "PAYROLL_PREVIRED", isActive: true },
       }),
     ]);
     const installationsWithDotacion = puestosRows.filter(
       (p) => p.installationId !== null,
     ).length;
-    if (installationsWithDotacion > 0 && payrollItems < installationsWithDotacion) {
+    // Si falta cualquiera de las dos variantes para alguna instalación,
+    // disparamos el recompute (que crea/actualiza ambas).
+    if (
+      installationsWithDotacion > 0 &&
+      (liquidoItems < installationsWithDotacion ||
+        previRedItems < installationsWithDotacion)
+    ) {
       triggered.payroll = true;
       await recomputePayrollAmounts(tenantId);
     }
