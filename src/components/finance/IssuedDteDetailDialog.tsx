@@ -360,7 +360,7 @@ export function IssuedDteDetailDialog({
           hasFullAnnulment: Boolean(d.hasFullAnnulment),
           creditedNet: Number(d.creditedNet ?? 0),
           lastReconciliation: (d.lastReconciliation as
-            | DteDetail["lastReconciliation"]
+            | DteFull["lastReconciliation"]
             | undefined) ?? null,
         });
       })

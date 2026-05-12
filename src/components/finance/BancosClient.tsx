@@ -1014,7 +1014,9 @@ function TransactionsTab({
   // `?openTx=...`, auto-abrimos el drawer de conciliación de esa tx.
   // Si la tx no está cargada todavía (por filtros/paginación), hacemos
   // un fetch dirigido al endpoint individual.
-  const requestedTxId = searchParams.get("txId") || searchParams.get("openTx");
+  const txTabSearchParams = useSearchParams();
+  const requestedTxId =
+    txTabSearchParams.get("txId") || txTabSearchParams.get("openTx");
   useEffect(() => {
     if (!requestedTxId) return;
     // Si ya está en la lista, abrirla directo.
