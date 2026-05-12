@@ -6,18 +6,32 @@
 import { signCookie } from "@/lib/cookie-signature";
 import type { ClienteSession } from "@/lib/portal-cliente-types";
 
-const PORTAL_CLIENTE_SESSION_COOKIE = "portal_cliente_session";
+export const PORTAL_CLIENTE_SESSION_COOKIE = "portal_cliente_session";
+/**
+ * Storage key del backup en localStorage para el token de sesión.
+ * Se usa SOLO en el cliente del portal-cliente (PWA iOS pierde cookies al
+ * cerrar la app en standalone mode; localStorage sí se persiste).
+ */
+export const PORTAL_CLIENTE_TOKEN_STORAGE_KEY = "portal_cliente_session_token";
 const SESSION_MAX_AGE_SECONDS = 90 * 24 * 60 * 60; // 90 días
 
-export function buildClienteSessionCookie(session: ClienteSession) {
+/**
+ * Devuelve el valor firmado (HMAC) del token de sesión — es el mismo string
+ * que se guarda en la cookie, pero expuesto para guardarlo también en
+ * localStorage como backup contra el purge de cookies en iOS PWA.
+ */
+export function buildClienteSessionToken(session: ClienteSession): string {
   const json = JSON.stringify(session);
-  let value: string;
   try {
-    value = signCookie(json);
+    return signCookie(json);
   } catch {
     // Fallback to unsigned if PORTAL_COOKIE_SECRET not configured yet
-    value = Buffer.from(json, "utf-8").toString("base64url");
+    return Buffer.from(json, "utf-8").toString("base64url");
   }
+}
+
+export function buildClienteSessionCookie(session: ClienteSession) {
+  const value = buildClienteSessionToken(session);
   // iOS Safari (WebKit) en modo PWA "Add to Home Screen" trata las cookies
   // como cookies de sesión y las purga al cerrar la app si NO viene un
   // `Expires` explícito, aunque `Max-Age` esté seteado. Por eso emitimos

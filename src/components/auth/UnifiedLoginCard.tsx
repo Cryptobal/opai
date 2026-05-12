@@ -274,6 +274,15 @@ export function UnifiedLoginCard({
         return;
       }
 
+      // Backup del token en localStorage. iOS PWA standalone purga las
+      // cookies al cerrar la app; con este backup el próximo refetch
+      // restaura la sesión vía Authorization: Bearer.
+      if (typeof data.token === "string" && data.token.length > 0) {
+        try {
+          window.localStorage.setItem("portal_cliente_session_token", data.token);
+        } catch {}
+      }
+
       toast.success("Sesión iniciada");
       if (onLoginSuccess) {
         onLoginSuccess(data.data ?? data);
