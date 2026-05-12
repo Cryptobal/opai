@@ -143,11 +143,14 @@ export async function getPresignedUploadUrl(opts: {
   const client = getClient();
   const bucket = getBucket();
   const storageKey = buildStorageKey(opts.fileName, opts.prefix ?? "crm", opts.tenantId);
+  // NOTA: No firmar ContentDisposition aquí — si lo incluimos, el SDK lo agrega
+  // a SignedHeaders y el browser DEBE enviarlo idéntico en el PUT, si no R2
+  // responde 403. Si hace falta inline display, aplicarlo al servir (GET firmado
+  // con ResponseContentDisposition) o vía metadata después del upload.
   const command = new PutObjectCommand({
     Bucket: bucket,
     Key: storageKey,
     ContentType: opts.mimeType,
-    ContentDisposition: `inline; filename="${encodeURIComponent(opts.fileName)}"`,
   });
   const expiresIn = opts.expiresInSeconds ?? 300;
   const uploadUrl = await getSignedUrl(client, command, { expiresIn });
