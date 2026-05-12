@@ -17,7 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DataTable, EmptyState, Tag, type DataTableColumn, type TagVariant } from "@/components/opai-ds";
-import { DocumentTag, fmtCLPSmart, KpiStripReceived } from "@/components/finance/dtes";
+import { DocumentTag, DtePaymentTag, fmtCLPSmart, KpiStripReceived } from "@/components/finance/dtes";
 import {
   Dialog,
   DialogContent,
@@ -160,6 +160,17 @@ interface ReceivedDteRow {
   installationId?: string | null;
   crmAccount?: { id: string; name: string; legalName: string | null } | null;
   installation?: { id: string; name: string; commune: string | null } | null;
+  /** Última conciliación con cartola (post 2026-05). Ver DteRow.lastReconciliation. */
+  lastReconciliation?: {
+    paymentId: string;
+    paymentCode: string;
+    paymentDate: string;
+    paymentStatus: string;
+    bankTransactionId: string | null;
+    bankTransactionDate: string | null;
+    bankTransactionReference: string | null;
+    bankTransactionDescription: string | null;
+  } | null;
 }
 
 interface SupplierOption {
@@ -664,6 +675,11 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
       params.set("sort", sort);
       params.set("page", String(page));
       params.set("pageSize", String(pageSize));
+      // Filtros que antes vivían en client (post 2026-05): mover al server
+      // para que `total` y la paginación reflejen el subset correcto.
+      if (typeFilter !== "ALL") params.set("dteType", typeFilter);
+      if (receptionFilter !== "ALL") params.set("receptionStatus", receptionFilter);
+      if (paymentFilter !== "ALL") params.set("paymentStatus", paymentFilter);
       const res = await fetch(`/api/finance/billing/received?${params.toString()}`);
       if (!res.ok) throw new Error();
       const json = await res.json();
@@ -699,7 +715,18 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, periodoFilter, accountFilter, installationFilter, sort, debouncedSearch]);
+  }, [
+    page,
+    pageSize,
+    periodoFilter,
+    accountFilter,
+    installationFilter,
+    sort,
+    debouncedSearch,
+    typeFilter,
+    receptionFilter,
+    paymentFilter,
+  ]);
 
   useEffect(() => { loadReceivedDtes(); }, [loadReceivedDtes]);
 
@@ -707,19 +734,24 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
   // en una página vacía cuando el resultado total se reduce).
   useEffect(() => {
     setPage(1);
-  }, [periodoFilter, accountFilter, installationFilter, sort, debouncedSearch]);
+  }, [
+    periodoFilter,
+    accountFilter,
+    installationFilter,
+    sort,
+    debouncedSearch,
+    typeFilter,
+    receptionFilter,
+    paymentFilter,
+  ]);
 
+  // Post 2026-05: el server ya filtra por type/reception/payment. Solo
+  // mantenemos sort client-side para casos de aging/etc. que aún se
+  // calculan en cliente. `filtered` queda como passthrough con sort.
   const filtered = useMemo(() => {
-    // Defensa: si por alguna razón el state quedó corrupto, devolvemos [].
-    // El search ya viaja al server (debouncedSearch en loadReceivedDtes), así
-    // que acá solo filtramos por filtros que aún son client-side.
     if (!Array.isArray(receivedDtes)) return [];
-    let list = receivedDtes;
-    if (typeFilter !== "ALL") list = list.filter((d) => String(d.dteType) === typeFilter);
-    if (receptionFilter !== "ALL") list = list.filter((d) => d.receptionStatus === receptionFilter);
-    if (paymentFilter !== "ALL") list = list.filter((d) => d.paymentStatus === paymentFilter);
-    return sortDteRows(list, sort);
-  }, [receivedDtes, typeFilter, receptionFilter, paymentFilter, sort]);
+    return sortDteRows(receivedDtes, sort);
+  }, [receivedDtes, sort]);
 
   const handleExportCsv = () => {
     if (filtered.length === 0) return;
@@ -1107,27 +1139,31 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
                 {
                   id: "paymentStatus",
                   header: "Pago",
-                  cell: (row) => {
-                    const payCfg = PAYMENT_STATUS_CONFIG[row.paymentStatus] ?? { label: row.paymentStatus, className: "bg-muted" };
-                    return (
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <Badge variant="outline" className={cn("text-xs", payCfg.className)}>
-                          {payCfg.label}
-                        </Badge>
-                        {/* Aging para compras: mismo patrón que emitidos.
-                            Si la factura está PAID o CEDED no muestra
-                            aging (resuelto financieramente). */}
-                        {row.date && row.paymentStatus !== "PAID" && (
-                          <DteAgingBadge
-                            date={row.date}
-                            dueDate={row.dueDate}
-                            paymentStatus={row.paymentStatus}
-                            siiStatus="ACCEPTED"
-                          />
-                        )}
-                      </div>
-                    );
-                  },
+                  cell: (row) => (
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {/* DtePaymentTag (post 2026-05) reemplaza al Badge
+                          legacy: usa tokens del DS y agrega tooltip con
+                          info de la conciliación bancaria si existe. */}
+                      <DtePaymentTag
+                        paymentStatus={row.paymentStatus}
+                        totalAmount={row.totalAmount}
+                        amountPaid={row.amountPaid}
+                        amountPending={row.amountPending}
+                        lastReconciliation={row.lastReconciliation}
+                      />
+                      {/* Aging para compras: mismo patrón que emitidos.
+                          Si la factura está PAID o CEDED no muestra
+                          aging (resuelto financieramente). */}
+                      {row.date && row.paymentStatus !== "PAID" && (
+                        <DteAgingBadge
+                          date={row.date}
+                          dueDate={row.dueDate}
+                          paymentStatus={row.paymentStatus}
+                          siiStatus="ACCEPTED"
+                        />
+                      )}
+                    </div>
+                  ),
                 },
                 {
                   id: "centroCosto",
@@ -1556,14 +1592,6 @@ function ReceivedDteMobileCard({
         : "warn";
   const recLabel =
     RECEPTION_STATUS_CONFIG[dte.receptionStatus]?.label ?? dte.receptionStatus;
-  const payVariant: TagVariant =
-    dte.paymentStatus === "PAID"
-      ? "ok"
-      : dte.paymentStatus === "PARTIAL"
-        ? "warn"
-        : "danger";
-  const payLabel =
-    PAYMENT_STATUS_CONFIG[dte.paymentStatus]?.label ?? dte.paymentStatus;
   return (
     <Card
       className="cursor-pointer hover:bg-ds-surface-2 transition-colors border-l-[3px] border-l-transparent"
@@ -1580,9 +1608,13 @@ function ReceivedDteMobileCard({
               <Tag variant={recVariant} size="sm" dot>
                 {recLabel}
               </Tag>
-              <Tag variant={payVariant} size="sm" dot>
-                {payLabel}
-              </Tag>
+              <DtePaymentTag
+                paymentStatus={dte.paymentStatus}
+                totalAmount={dte.totalAmount}
+                amountPaid={dte.amountPaid}
+                amountPending={dte.amountPending}
+                lastReconciliation={dte.lastReconciliation}
+              />
               {dte.date && dte.paymentStatus !== "PAID" && (
                 <DteAgingBadge
                   date={dte.date}

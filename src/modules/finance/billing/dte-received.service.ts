@@ -43,6 +43,12 @@ export type ListReceivedDtesOpts = {
   periodo?: string;
   /** Búsqueda libre: folio, RUT emisor, nombre emisor. */
   search?: string;
+  /** Filtros server-side adicionales (post 2026-05). Antes vivían en cliente. */
+  paymentStatuses?: string[];
+  dteTypes?: number[];
+  receptionStatuses?: string[];
+  amountMin?: number;
+  amountMax?: number;
 };
 
 // ── Service Functions ──
@@ -63,6 +69,11 @@ export async function listReceivedDtes(
     sort = "date_desc",
     periodo,
     search,
+    paymentStatuses,
+    dteTypes,
+    receptionStatuses,
+    amountMin,
+    amountMax,
   } = opts;
 
   const where: Record<string, unknown> = {
@@ -70,6 +81,21 @@ export async function listReceivedDtes(
     direction: "RECEIVED",
   };
   if (supplierId) where.supplierId = supplierId;
+  if (paymentStatuses && paymentStatuses.length > 0) {
+    where.paymentStatus = { in: paymentStatuses };
+  }
+  if (dteTypes && dteTypes.length > 0) {
+    where.dteType = { in: dteTypes };
+  }
+  if (receptionStatuses && receptionStatuses.length > 0) {
+    where.receptionStatus = { in: receptionStatuses };
+  }
+  if (amountMin != null && Number.isFinite(amountMin)) {
+    where.totalAmount = { ...(where.totalAmount as object | undefined), gte: amountMin };
+  }
+  if (amountMax != null && Number.isFinite(amountMax)) {
+    where.totalAmount = { ...(where.totalAmount as object | undefined), lte: amountMax };
+  }
   // Búsqueda libre: matchea folio (entero), RUT emisor y nombre emisor.
   // Folio se interpreta como número solo si el input es numérico, para
   // no romper la búsqueda parcial de texto.
@@ -147,12 +173,71 @@ export async function listReceivedDtes(
   const accountMap = new Map(accounts.map((a) => [a.id, a]));
   const installationMap = new Map(installations.map((i) => [i.id, i]));
 
+  // Conciliación con cartola: último FinancePaymentRecord asociado a
+  // cada DTE recibido. Sirve para la columna "Pago / Conciliación" con
+  // tooltip "Conciliado el {fecha} con mov. {referencia}".
+  const dteIds = dtes.map((d) => d.id);
+  const allocations = dteIds.length > 0
+    ? await prisma.financePaymentAllocation.findMany({
+        where: { dteId: { in: dteIds } },
+        select: {
+          dteId: true,
+          payment: {
+            select: {
+              id: true,
+              code: true,
+              date: true,
+              status: true,
+              bankTransaction: {
+                select: {
+                  id: true,
+                  transactionDate: true,
+                  reference: true,
+                  description: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      })
+    : [];
+  const lastPaymentByDte = new Map<
+    string,
+    {
+      paymentId: string;
+      paymentCode: string;
+      paymentDate: string;
+      paymentStatus: string;
+      bankTransactionId: string | null;
+      bankTransactionDate: string | null;
+      bankTransactionReference: string | null;
+      bankTransactionDescription: string | null;
+    }
+  >();
+  for (const a of allocations) {
+    if (lastPaymentByDte.has(a.dteId)) continue;
+    lastPaymentByDte.set(a.dteId, {
+      paymentId: a.payment.id,
+      paymentCode: a.payment.code,
+      paymentDate: a.payment.date.toISOString(),
+      paymentStatus: a.payment.status,
+      bankTransactionId: a.payment.bankTransaction?.id ?? null,
+      bankTransactionDate:
+        a.payment.bankTransaction?.transactionDate.toISOString() ?? null,
+      bankTransactionReference: a.payment.bankTransaction?.reference ?? null,
+      bankTransactionDescription:
+        a.payment.bankTransaction?.description ?? null,
+    });
+  }
+
   const enriched = dtes.map((d) => ({
     ...d,
     crmAccount: d.crmAccountId ? accountMap.get(d.crmAccountId) ?? null : null,
     installation: d.installationId
       ? installationMap.get(d.installationId) ?? null
       : null,
+    lastReconciliation: lastPaymentByDte.get(d.id) ?? null,
   }));
 
   return {

@@ -24,7 +24,14 @@ export async function GET(request: NextRequest) {
 
     const url = new URL(request.url);
     const page = parseInt(url.searchParams.get("page") || "1");
-    const pageSize = parseInt(url.searchParams.get("pageSize") || "20");
+    // Cap defensivo: la UI solo ofrece hasta 200, pero un cliente
+    // mal-formado podría pedir un take enorme. 500 es suficiente para
+    // exports y recolección de filtros sin saturar el connection pool.
+    const requestedPageSize = parseInt(url.searchParams.get("pageSize") || "20");
+    const pageSize = Math.min(
+      Math.max(1, Number.isFinite(requestedPageSize) ? requestedPageSize : 20),
+      500
+    );
     const periodo = url.searchParams.get("periodo") || undefined;
     // status=draft → solo DRAFT. status=all → DRAFT + emitidos.
     // sin status (default) → solo emitidos (excluye DRAFT).
@@ -39,6 +46,30 @@ export async function GET(request: NextRequest) {
     const accountId = url.searchParams.get("accountId") || undefined;
     const installationId = url.searchParams.get("installationId") || undefined;
     const sort = url.searchParams.get("sort") || "date_desc";
+
+    // Filtros server-side adicionales (post 2026-05): antes vivían
+    // sólo en cliente sobre la página actual, lo que hacía que `total`
+    // y la paginación quedaran desincronizados. Aceptan listas
+    // separadas por coma: `?paymentStatus=PAID,PARTIAL`.
+    const csv = (k: string) =>
+      (url.searchParams.get(k) ?? "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+    const paymentStatuses = csv("paymentStatus");
+    const dteTypes = csv("dteType")
+      .map((s) => parseInt(s, 10))
+      .filter((n) => Number.isFinite(n));
+    const siiStatuses = csv("siiStatus");
+    const flag = (k: string) => url.searchParams.get(k) === "1";
+    const onlyCeded = flag("onlyCeded");
+    const onlyWithCreditNotes = flag("onlyWithCreditNotes");
+    const onlyEmailFailed = flag("onlyEmailFailed");
+    const excludeDrafts = flag("excludeDrafts");
+    const amountMinRaw = url.searchParams.get("amountMin");
+    const amountMaxRaw = url.searchParams.get("amountMax");
+    const amountMin = amountMinRaw != null ? Number(amountMinRaw) : null;
+    const amountMax = amountMaxRaw != null ? Number(amountMaxRaw) : null;
 
     const where: Record<string, unknown> = {
       tenantId: ctx.tenantId,
@@ -55,13 +86,87 @@ export async function GET(request: NextRequest) {
       where.installationId = installationId;
     }
     // Drafts viven en la misma lista que los emitidos (UX 2026-05): el
-     // usuario los ve marcados con badge "Borrador" en DTEs Emitidos. Si
-     // se necesita la vista clásica que excluye drafts pasar
-     // ?status=issued; ?status=draft trae solo borradores.
+    // usuario los ve marcados con badge "Borrador" en DTEs Emitidos. Si
+    // se necesita la vista clásica que excluye drafts pasar
+    // ?status=issued; ?status=draft trae solo borradores.
+    // El flag ?excludeDrafts=1 (combinable con otros filtros) reemplaza
+    // el toggle "Excluir borradores" del cliente.
     if (statusFilter === "draft") {
       where.siiStatus = "DRAFT";
     } else if (statusFilter === "issued") {
       where.siiStatus = { not: "DRAFT" };
+    }
+    if (paymentStatuses.length > 0) {
+      where.paymentStatus = { in: paymentStatuses };
+    }
+    if (dteTypes.length > 0) {
+      where.dteType = { in: dteTypes };
+    }
+    if (siiStatuses.length > 0) {
+      // Si ya hay un filtro de siiStatus por statusFilter, lo combinamos
+      // con AND. (Ej: status=issued + siiStatus=ACCEPTED.)
+      const prev = where.siiStatus;
+      if (prev && typeof prev === "object" && "not" in prev) {
+        where.AND = [
+          ...(Array.isArray(where.AND) ? (where.AND as unknown[]) : []),
+          { siiStatus: prev },
+          { siiStatus: { in: siiStatuses } },
+        ];
+        delete where.siiStatus;
+      } else {
+        where.siiStatus = { in: siiStatuses };
+      }
+    } else if (excludeDrafts && !statusFilter) {
+      // No double-filter si statusFilter ya lo excluyó.
+      where.siiStatus = { not: "DRAFT" };
+    }
+    if (amountMin != null && Number.isFinite(amountMin)) {
+      where.totalAmount = { ...(where.totalAmount as object | undefined), gte: amountMin };
+    }
+    if (amountMax != null && Number.isFinite(amountMax)) {
+      where.totalAmount = { ...(where.totalAmount as object | undefined), lte: amountMax };
+    }
+    if (onlyEmailFailed) {
+      where.emailStatus = "FAILED";
+    }
+    // onlyCeded y onlyWithCreditNotes requieren joins por relación
+    // implícita; los aplicamos vía sub-queries.
+    if (onlyCeded) {
+      const cedidos = await prisma.financeFactoringOperation.findMany({
+        where: {
+          tenantId: ctx.tenantId,
+          status: { in: ["SUBMITTED", "APPROVED", "FUNDED", "COLLECTED", "CLOSED"] },
+        },
+        select: { dteId: true },
+      });
+      const cedidosIds = Array.from(
+        new Set(cedidos.map((c) => c.dteId).filter((x): x is string => !!x))
+      );
+      where.id = { in: cedidosIds };
+    }
+    if (onlyWithCreditNotes) {
+      const ncs = await prisma.financeDte.findMany({
+        where: {
+          tenantId: ctx.tenantId,
+          dteType: 61,
+          siiStatus: { not: "ANNULLED" },
+          referenceDteId: { not: null },
+        },
+        select: { referenceDteId: true },
+      });
+      const refIds = Array.from(
+        new Set(
+          ncs.map((n) => n.referenceDteId).filter((x): x is string => !!x)
+        )
+      );
+      // Combinar con onlyCeded si ambos están activos: intersección.
+      if (onlyCeded && Array.isArray((where.id as { in?: string[] })?.in)) {
+        const a = new Set(((where.id as { in: string[] }).in));
+        const intersection = refIds.filter((id) => a.has(id));
+        where.id = { in: intersection };
+      } else {
+        where.id = { in: refIds };
+      }
     }
     if (search) {
       // Búsqueda fuzzy global: folio, RUT (con/sin guión), razón social,
@@ -230,6 +335,66 @@ export async function GET(request: NextRequest) {
           },
         })
       : [];
+
+    // Conciliación con cartola: último FinancePaymentRecord asociado a
+    // cada DTE. Sirve para mostrar la columna "Pago / Conciliación" con
+    // tooltip "Conciliado el {fecha} con mov. {referencia}". Se hace en
+    // un único query batched filtrando por allocations de los DTE listados.
+    const allocations = dteIds.length > 0
+      ? await prisma.financePaymentAllocation.findMany({
+          where: { dteId: { in: dteIds } },
+          select: {
+            dteId: true,
+            amount: true,
+            payment: {
+              select: {
+                id: true,
+                code: true,
+                date: true,
+                status: true,
+                bankTransaction: {
+                  select: {
+                    id: true,
+                    transactionDate: true,
+                    reference: true,
+                    description: true,
+                  },
+                },
+              },
+            },
+          },
+          orderBy: { createdAt: "desc" },
+        })
+      : [];
+    // Último pago por DTE (ya viene ordenado desc por createdAt).
+    const lastPaymentByDte = new Map<
+      string,
+      {
+        paymentId: string;
+        paymentCode: string;
+        paymentDate: string;
+        paymentStatus: string;
+        bankTransactionId: string | null;
+        bankTransactionDate: string | null;
+        bankTransactionReference: string | null;
+        bankTransactionDescription: string | null;
+      }
+    >();
+    for (const a of allocations) {
+      if (lastPaymentByDte.has(a.dteId)) continue;
+      lastPaymentByDte.set(a.dteId, {
+        paymentId: a.payment.id,
+        paymentCode: a.payment.code,
+        paymentDate: a.payment.date.toISOString(),
+        paymentStatus: a.payment.status,
+        bankTransactionId: a.payment.bankTransaction?.id ?? null,
+        bankTransactionDate:
+          a.payment.bankTransaction?.transactionDate.toISOString() ?? null,
+        bankTransactionReference: a.payment.bankTransaction?.reference ?? null,
+        bankTransactionDescription:
+          a.payment.bankTransaction?.description ?? null,
+      });
+    }
     // Agrupar por dte original. Reduce la pasada a O(1) durante el map.
     const ncsByDte = new Map<string, typeof linkedCreditNotes>();
     for (const nc of linkedCreditNotes) {
@@ -299,6 +464,10 @@ export async function GET(request: NextRequest) {
             }
           : null,
         linkedCreditNote,
+        // Última conciliación con cartola — null si nunca se conció con
+        // un FinancePaymentRecord (ya sea porque está UNPAID o porque
+        // se marcó pagado vía bulk-mark-paid sin asociar mov. bancario).
+        lastReconciliation: lastPaymentByDte.get(d.id) ?? null,
       };
     });
 

@@ -7075,8 +7075,9 @@ model FinanceBankTransaction {
   suggestedRuleId        String? @map("suggested_rule_id") @db.Uuid
   suggestedAccountPlanId String? @map("suggested_account_plan_id") @db.Uuid
 
-  reconcMatch FinanceReconciliationMatch?
-  links       FinanceBankTransactionLink[]
+  reconcMatch    FinanceReconciliationMatch?
+  links          FinanceBankTransactionLink[]
+  paymentRecords FinancePaymentRecord[]
 
   // Cartola desde la que se importó esta transacción. NULL para movimientos
   // creados manualmente o anteriores a la introducción del historial.
@@ -7158,6 +7159,16 @@ model FinancePaymentRecord {
   paymentMethod     FinancePaymentMethod       @map("payment_method")
   bankAccountId     String?                    @map("bank_account_id") @db.Uuid
   bankAccount       FinanceBankAccount?        @relation(fields: [bankAccountId], references: [id])
+  /// Movimiento bancario que originó este pago. Cuando el usuario concilia
+  /// un mov. bancario contra uno o varios DTE desde el drawer "Conciliar
+  /// movimiento", se crea un FinancePaymentRecord con este FK apuntando al
+  /// mov. usado como medio de pago. Permite (a) trazabilidad
+  /// banco→pago→DTE, (b) revertir el pago al desconciliar el mov.,
+  /// (c) marcar el DTE como PAID/PARTIAL desde el flujo manual sin
+  /// duplicar lógica con auto-match. NULL en pagos creados desde el
+  /// módulo legacy de pagos (sin mov. bancario asociado).
+  bankTransactionId String?                    @map("bank_transaction_id") @db.Uuid
+  bankTransaction   FinanceBankTransaction?    @relation(fields: [bankTransactionId], references: [id], onDelete: SetNull)
   cashRegisterId    String?                    @map("cash_register_id") @db.Uuid
   cashRegister      FinanceCashRegister?       @relation(fields: [cashRegisterId], references: [id])
   checkNumber       String?                    @map("check_number")
@@ -7179,6 +7190,7 @@ model FinancePaymentRecord {
 
   @@unique([tenantId, code], map: "uq_finance_payment_record_code")
   @@index([tenantId, type, date], map: "idx_finance_payment_record_type_date")
+  @@index([bankTransactionId], map: "idx_finance_payment_record_bank_tx")
   @@map("finance_payment_records")
   @@schema("finance")
 }

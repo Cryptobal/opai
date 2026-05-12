@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { DteActionsMenu } from "../DteActionsMenu";
 import { DteAgingBadge } from "../DteAgingBadge";
 import { DocumentTag } from "./DocumentTag";
+import { DtePaymentTag } from "./DtePaymentTag";
 import { SiiStatusPill } from "./SiiStatusPill";
 import { CessionBadge } from "./CessionBadge";
 import { LinkedNoteBadge } from "./LinkedNoteBadge";
@@ -207,6 +208,20 @@ export function IssuedDtesTable({
           </span>
         );
       },
+    },
+    {
+      // Pago / Conciliación con cartola — visible para todos los DTEs
+      // emitidos. Hace tooltip con detalle del mov. bancario cuando
+      // existe un FinancePaymentRecord asociado a la cartola (post 2026-05).
+      id: "payment",
+      header: "Pago",
+      cell: (row) => (
+        <DtePaymentTag
+          paymentStatus={row.paymentStatus}
+          totalAmount={row.totalAmount}
+          lastReconciliation={row.lastReconciliation}
+        />
+      ),
     },
     {
       id: "siiStatus",

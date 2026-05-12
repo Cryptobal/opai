@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { DteActionsMenu } from "../DteActionsMenu";
 import { DteAgingBadge } from "../DteAgingBadge";
 import { DocumentTag } from "./DocumentTag";
+import { DtePaymentTag } from "./DtePaymentTag";
 import { SiiStatusPill } from "./SiiStatusPill";
 import { CessionBadge } from "./CessionBadge";
 import { LinkedNoteBadge } from "./LinkedNoteBadge";
@@ -190,6 +191,13 @@ export function IssuedDtesMobileList({
                         locale: es,
                       })}
                     </span>
+                  </div>
+                  <div className="mt-1.5">
+                    <DtePaymentTag
+                      paymentStatus={d.paymentStatus}
+                      totalAmount={d.totalAmount}
+                      lastReconciliation={d.lastReconciliation}
+                    />
                   </div>
                 </div>
               </div>

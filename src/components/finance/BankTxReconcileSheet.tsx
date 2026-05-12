@@ -47,6 +47,9 @@ import {
   Receipt,
   Search,
   Filter,
+  Pencil,
+  Link2Off,
+  ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CashflowCandidatesPanel } from "./cashflow/CashflowCandidatesPanel";
@@ -111,6 +114,49 @@ interface LocalLink {
   label: string;
 }
 
+/** Forma del link enriquecido que devuelve GET /links (post 2026-05). */
+interface ExistingLink {
+  id: string;
+  targetType: LocalLinkType | "PAYROLL_LIQUIDACION" | "PAYROLL_ANTICIPO" | "TE_LOTE";
+  targetId: string | null;
+  amount: number;
+  note: string | null;
+  accountPlan: { id: string; code: string; name: string } | null;
+  entityLabel: string;
+  dte: {
+    id: string;
+    direction: "ISSUED" | "RECEIVED";
+    documentType: string;
+    folio: number;
+    counterpartyName: string;
+    paymentStatus: string;
+    totalAmount: number;
+  } | null;
+  factoring: {
+    id: string;
+    code: string;
+    factoringCompanyName: string;
+  } | null;
+}
+
+interface ExistingPaymentRecord {
+  id: string;
+  code: string;
+  type: string;
+  date: string;
+  amount: number;
+  status: string;
+  createdAt: string;
+}
+
+/**
+ * Modo del drawer:
+ *   - "loading": esperando GET /links inicial.
+ *   - "view": tx ya conciliada, render resumen read-only + Desconciliar + Editar.
+ *   - "edit" | "create": pestañas de creación / edición de vínculos.
+ */
+type SheetMode = "loading" | "view" | "edit" | "create";
+
 interface AccountPlanOption {
   id: string;
   code: string;
@@ -164,6 +210,18 @@ interface BankTxReconcileSheetProps {
   tx: Tx | null;
   accountPlans: AccountPlanOption[];
   onSaved: () => void;
+  /**
+   * Modo "cola" (post 2026-05): cuando viene definido, el sheet muestra
+   * "Movimiento N de M" en el header y permite "Saltar" para avanzar al
+   * siguiente sin guardar. Se setea desde la barra masiva de Bancos al
+   * iniciar una sesión de conciliación uno-por-uno.
+   */
+  queueInfo?: {
+    index: number;
+    total: number;
+    onNext: () => void;
+    onCancel: () => void;
+  };
 }
 
 const fmtCLP = new Intl.NumberFormat("es-CL", {
@@ -178,7 +236,13 @@ export function BankTxReconcileSheet({
   tx,
   accountPlans,
   onSaved,
+  queueInfo,
 }: BankTxReconcileSheetProps) {
+  const [mode, setMode] = useState<SheetMode>("loading");
+  const [existingLinks, setExistingLinks] = useState<ExistingLink[]>([]);
+  const [existingPaymentRecord, setExistingPaymentRecord] =
+    useState<ExistingPaymentRecord | null>(null);
+  const [unreconciling, setUnreconciling] = useState(false);
   const [tab, setTab] = useState<"cashflow" | "compare" | "manual">("cashflow");
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [factoringCandidates, setFactoringCandidates] = useState<
@@ -235,28 +299,134 @@ export function BankTxReconcileSheet({
     }
   }, [tx]);
 
+  // Reset + carga inicial al abrir.
+  // Decide entre "view" (ya conciliado) y "create" (sin links) según GET.
   useEffect(() => {
-    if (open && tx) {
-      setTab("cashflow");
-      setLinks([]);
-      setManualAccountType("");
-      setManualAccountId("");
-      setManualAmount(String(Math.abs(tx.amount)));
-      setManualNote("");
-      setManualDate(tx.transactionDate.slice(0, 10));
-      setRestAccountType("");
-      setRestAccountId("");
-      setRestNote("");
-      setFilterText("");
-      setFilterMinAmount("");
-      setFilterMaxAmount("");
-      setFilterDateFrom("");
-      setFilterDateTo("");
-      setFilterDirection("all");
-      setShowFilters(false);
-      loadCandidates();
-    }
+    if (!open || !tx) return;
+    setMode("loading");
+    setExistingLinks([]);
+    setExistingPaymentRecord(null);
+    setTab("cashflow");
+    setLinks([]);
+    setManualAccountType("");
+    setManualAccountId("");
+    setManualAmount(String(Math.abs(tx.amount)));
+    setManualNote("");
+    setManualDate(tx.transactionDate.slice(0, 10));
+    setRestAccountType("");
+    setRestAccountId("");
+    setRestNote("");
+    setFilterText("");
+    setFilterMinAmount("");
+    setFilterMaxAmount("");
+    setFilterDateFrom("");
+    setFilterDateTo("");
+    setFilterDirection("all");
+    setShowFilters(false);
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/finance/banking/transactions/${tx.id}/links`
+        );
+        const json = await res.json();
+        if (cancelled) return;
+        if (!res.ok || !json.success) {
+          throw new Error(json.error ?? "Error al cargar conciliación");
+        }
+        const data = json.data as {
+          links: ExistingLink[];
+          paymentRecord: ExistingPaymentRecord | null;
+          reconciliationStatus: string;
+        };
+        setExistingLinks(data.links ?? []);
+        setExistingPaymentRecord(data.paymentRecord);
+        if ((data.links ?? []).length > 0) {
+          setMode("view");
+          // Pre-cargar candidatos en background para que "Editar" sea
+          // instantáneo (no bloquea el render del resumen).
+          loadCandidates();
+        } else {
+          setMode("create");
+          loadCandidates();
+        }
+      } catch (err) {
+        if (!cancelled) {
+          toast.error(
+            err instanceof Error ? err.message : "Error al cargar"
+          );
+          // Fallback: dejamos al usuario crear como antes.
+          setMode("create");
+          loadCandidates();
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [open, tx, loadCandidates]);
+
+  /** Carga los links existentes en `links` (state local) y entra a modo edit. */
+  const handleStartEdit = () => {
+    if (!tx) return;
+    const localLinks: LocalLink[] = existingLinks.map((l) => {
+      let label = l.entityLabel;
+      // Mantenemos compatibilidad de tipos: PAYROLL_* y TE_LOTE no son
+      // editables hoy desde el sheet — los pintamos pero el toggle de
+      // pestañas no los muestra como candidatos. Si alguien edita una
+      // tx con esos links, el resumen los preserva como un link "exotic"
+      // — lo guardamos con su key y monto para no perderlos.
+      const targetType = (l.targetType as LocalLinkType) ?? "EXPENSE";
+      return {
+        key: l.targetId ?? `existing-${l.id}`,
+        targetType,
+        targetId: l.targetId,
+        amount: l.amount,
+        accountPlanId: l.accountPlan?.id ?? null,
+        note: l.note,
+        label,
+      };
+    });
+    setLinks(localLinks);
+    // Si todos los links son DTE → arrancamos en "compare". Si hay
+    // EXPENSE/INCOME → "manual". Default "compare".
+    const onlyManual = localLinks.every(
+      (l) => l.targetType === "EXPENSE" || l.targetType === "INCOME"
+    );
+    setTab(onlyManual ? "manual" : "compare");
+    setMode("edit");
+  };
+
+  /** Desconcilia: DELETE /links + cierra. */
+  const handleUnreconcile = async () => {
+    if (!tx) return;
+    if (
+      !window.confirm(
+        "Vas a desconciliar este movimiento y revertir el pago asociado a los DTE. ¿Confirmás?"
+      )
+    ) {
+      return;
+    }
+    setUnreconciling(true);
+    try {
+      const res = await fetch(
+        `/api/finance/banking/transactions/${tx.id}/links`,
+        { method: "DELETE" }
+      );
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error ?? "Error al desconciliar");
+      }
+      toast.success("Conciliación deshecha");
+      onSaved();
+      onOpenChange(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al desconciliar");
+    } finally {
+      setUnreconciling(false);
+    }
+  };
 
   // Filtrado client-side de los candidatos según los filtros del usuario.
   // El endpoint trae sugerencias por monto cercano + fecha; los filtros
@@ -468,12 +638,62 @@ export function BankTxReconcileSheet({
 
   if (!tx) return null;
 
+  const sheetTitle =
+    mode === "view"
+      ? "Movimiento conciliado"
+      : mode === "edit"
+        ? "Editar conciliación"
+        : "Conciliar movimiento";
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
         <SheetHeader>
-          <SheetTitle>Conciliar movimiento</SheetTitle>
+          <SheetTitle>{sheetTitle}</SheetTitle>
         </SheetHeader>
+
+        {/* Header de cola (post 2026-05): cuando el usuario abrió el sheet
+            en modo cola desde la barra masiva, mostramos el progreso y
+            botones para saltar/cancelar la cola completa. */}
+        {queueInfo && (
+          <div className="mt-3 rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className="font-medium">
+                Cola: movimiento {queueInfo.index + 1} de {queueInfo.total}
+              </span>
+              <div className="flex items-center gap-1.5">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 text-xs"
+                  onClick={queueInfo.onNext}
+                  disabled={unreconciling || saving}
+                  title="Saltar al siguiente sin guardar"
+                >
+                  Saltar
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 text-xs text-status-danger-fg"
+                  onClick={queueInfo.onCancel}
+                  disabled={unreconciling || saving}
+                  title="Cancelar la cola completa"
+                >
+                  Cancelar cola
+                </Button>
+              </div>
+            </div>
+            <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+              <div
+                className="h-full bg-primary transition-all"
+                style={{
+                  width: `${((queueInfo.index + 1) / queueInfo.total) * 100}%`,
+                }}
+              />
+            </div>
+          </div>
+        )}
         {/* Preview de la tx — fuera de SheetDescription para no romper la
             regla de DOM (DialogDescription es <p>; los <div> internos
             disparaban hydration warning). */}
@@ -504,7 +724,157 @@ export function BankTxReconcileSheet({
           </div>
         </div>
 
-        {/* Tabs */}
+        {/* Loading inicial: GET /links en curso. */}
+        {mode === "loading" && (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          </div>
+        )}
+
+        {/* Vista RESUMEN read-only de la conciliación existente. */}
+        {mode === "view" && (
+          <div className="mt-4 space-y-4">
+            <div className="rounded-lg border border-status-ok-border bg-status-ok-soft/40 p-3 text-sm">
+              <div className="flex items-center gap-2 text-status-ok-fg">
+                <CheckCircle2 className="h-4 w-4" />
+                <span className="font-medium">Conciliado</span>
+              </div>
+              {existingPaymentRecord ? (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Pago{" "}
+                  <span className="font-mono">
+                    {existingPaymentRecord.code}
+                  </span>{" "}
+                  registrado el{" "}
+                  {format(
+                    new Date(existingPaymentRecord.date),
+                    "dd MMM yyyy",
+                    { locale: es }
+                  )}{" "}
+                  por{" "}
+                  <span className="font-mono">
+                    {fmtCLP.format(existingPaymentRecord.amount)}
+                  </span>
+                  .
+                </p>
+              ) : (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Vínculos creados manualmente. (Sin recibo de pago formal:
+                  conciliación previa al fix de coherencia. Re-conciliá para
+                  generar recibo.)
+                </p>
+              )}
+            </div>
+
+            <div>
+              <p className="text-xs font-mono uppercase tracking-[0.08em] text-muted-foreground mb-2">
+                Vínculos ({existingLinks.length})
+              </p>
+              <ul className="space-y-2">
+                {existingLinks.map((l) => (
+                  <li
+                    key={l.id}
+                    className="flex items-start gap-3 rounded-lg border border-border p-3"
+                  >
+                    <div className="shrink-0 pt-0.5">
+                      {l.dte ? (
+                        <Receipt className="h-4 w-4 text-primary" />
+                      ) : l.factoring ? (
+                        <Layers className="h-4 w-4 text-primary" />
+                      ) : (
+                        <Circle className="h-4 w-4 text-muted-foreground" />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-medium truncate">
+                          {l.entityLabel}
+                        </span>
+                        {l.dte ? (
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "text-xs",
+                              l.dte.paymentStatus === "PAID"
+                                ? "bg-status-ok-soft text-status-ok-fg border-status-ok-border"
+                                : l.dte.paymentStatus === "PARTIAL"
+                                  ? "bg-status-warn-soft text-status-warn-fg border-status-warn-border"
+                                  : "bg-muted"
+                            )}
+                          >
+                            {l.dte.paymentStatus}
+                          </Badge>
+                        ) : null}
+                      </div>
+                      {l.note ? (
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {l.note}
+                        </p>
+                      ) : null}
+                      {l.accountPlan ? (
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {l.accountPlan.code} {l.accountPlan.name}
+                        </p>
+                      ) : null}
+                    </div>
+                    <div className="text-right">
+                      <p className="font-mono text-sm font-medium">
+                        {fmtCLP.format(l.amount)}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Footer del modo view */}
+            <div className="mt-6 flex flex-wrap items-center gap-2 border-t border-border pt-4">
+              <Button onClick={handleStartEdit} variant="outline">
+                <Pencil className="h-3.5 w-3.5 mr-1.5" />
+                Editar vínculos
+              </Button>
+              <Button
+                onClick={handleUnreconcile}
+                variant="outline"
+                disabled={unreconciling}
+                className="text-status-danger-fg hover:bg-status-danger-soft"
+              >
+                {unreconciling ? (
+                  <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                ) : (
+                  <Link2Off className="h-3.5 w-3.5 mr-1.5" />
+                )}
+                Desconciliar
+              </Button>
+              {existingPaymentRecord ? (
+                <Button
+                  variant="ghost"
+                  onClick={() =>
+                    window.open(
+                      `/finanzas/pagos/${existingPaymentRecord.id}`,
+                      "_blank"
+                    )
+                  }
+                  className="ml-auto"
+                >
+                  Ver recibo
+                  <ExternalLink className="h-3.5 w-3.5 ml-1.5" />
+                </Button>
+              ) : null}
+              <Button
+                variant="ghost"
+                onClick={() => onOpenChange(false)}
+                disabled={unreconciling}
+              >
+                Cerrar
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Tabs (solo en modo create / edit) */}
+        {(mode === "create" || mode === "edit") && (
+        <>
         <div className="mt-4 border-b border-border">
           <div className="flex gap-4">
             <button
@@ -1039,23 +1409,33 @@ export function BankTxReconcileSheet({
           </div>
         )}
 
-        {/* Footer */}
+        {/* Footer (solo en modo create / edit) */}
         <div className="mt-6 flex items-center gap-2 border-t border-border pt-4">
           <Button
             onClick={handleSave}
             disabled={saving || links.length === 0}
           >
             {saving && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
-            Coincidir
+            {mode === "edit" ? "Guardar cambios" : "Coincidir"}
           </Button>
           <Button
             variant="outline"
-            onClick={() => onOpenChange(false)}
+            onClick={() => {
+              if (mode === "edit") {
+                // Volver al resumen sin guardar.
+                setLinks([]);
+                setMode("view");
+              } else {
+                onOpenChange(false);
+              }
+            }}
             disabled={saving}
           >
-            Cancelar
+            {mode === "edit" ? "Cancelar edición" : "Cancelar"}
           </Button>
         </div>
+        </>
+        )}
 
         {unmappedQueue.length > 0 && tx && (
           <CategoryMappingDialog

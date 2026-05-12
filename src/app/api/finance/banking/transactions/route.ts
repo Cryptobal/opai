@@ -71,6 +71,27 @@ export async function GET(request: NextRequest) {
         ? tabRaw
         : undefined;
 
+    // Filtro por signo del monto (post 2026-05). "inflow" = ingresos
+    // (amount > 0), "outflow" = egresos (amount < 0). Antes este filtro
+    // no existía y el usuario tenía que mirar el color de cada fila.
+    const directionRaw = searchParams.get("direction");
+    const direction: "inflow" | "outflow" | "all" | undefined =
+      directionRaw === "inflow" ||
+      directionRaw === "outflow" ||
+      directionRaw === "all"
+        ? directionRaw
+        : undefined;
+
+    // Cap defensivo de pageSize: la UI ofrece hasta 200 (PaginationControls),
+    // pero un cliente mal formado podría pedir un take enorme y saturar el
+    // pool de Neon. 500 es suficiente para exports puntuales.
+    const pageSizeRaw = searchParams.get("pageSize");
+    const requestedPageSize = pageSizeRaw ? parseInt(pageSizeRaw) : undefined;
+    const pageSize =
+      requestedPageSize != null && Number.isFinite(requestedPageSize)
+        ? Math.min(Math.max(1, requestedPageSize), 500)
+        : undefined;
+
     const opts = {
       dateFrom: searchParams.get("dateFrom") || undefined,
       dateTo: searchParams.get("dateTo") || undefined,
@@ -79,12 +100,11 @@ export async function GET(request: NextRequest) {
       sortDir,
       visibility,
       tab,
+      direction,
       page: searchParams.get("page")
         ? parseInt(searchParams.get("page")!)
         : undefined,
-      pageSize: searchParams.get("pageSize")
-        ? parseInt(searchParams.get("pageSize")!)
-        : undefined,
+      pageSize,
     };
 
     const data = await listBankTransactions(ctx.tenantId, bankAccountId, opts);

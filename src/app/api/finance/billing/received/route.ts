@@ -26,13 +26,35 @@ export async function GET(request: NextRequest) {
 
     const url = new URL(request.url);
     const page = parseInt(url.searchParams.get("page") || "1");
-    const pageSize = parseInt(url.searchParams.get("pageSize") || "50");
+    const requestedPageSize = parseInt(
+      url.searchParams.get("pageSize") || "50"
+    );
+    // Cap defensivo (ver issued/route.ts).
+    const pageSize = Math.min(
+      Math.max(1, Number.isFinite(requestedPageSize) ? requestedPageSize : 50),
+      500
+    );
     const supplierId = url.searchParams.get("supplierId") || undefined;
     const periodo = url.searchParams.get("periodo") || undefined;
     const accountId = url.searchParams.get("accountId") || undefined;
     const installationId = url.searchParams.get("installationId") || undefined;
     const sort = url.searchParams.get("sort") || undefined;
     const search = url.searchParams.get("search") || undefined;
+
+    const csv = (k: string) =>
+      (url.searchParams.get(k) ?? "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+    const paymentStatuses = csv("paymentStatus");
+    const dteTypes = csv("dteType")
+      .map((s) => parseInt(s, 10))
+      .filter((n) => Number.isFinite(n));
+    const receptionStatuses = csv("receptionStatus");
+    const amountMinRaw = url.searchParams.get("amountMin");
+    const amountMaxRaw = url.searchParams.get("amountMax");
+    const amountMin = amountMinRaw != null ? Number(amountMinRaw) : undefined;
+    const amountMax = amountMaxRaw != null ? Number(amountMaxRaw) : undefined;
 
     const result = await listReceivedDtes(ctx.tenantId, {
       page,
@@ -43,6 +65,11 @@ export async function GET(request: NextRequest) {
       sort,
       periodo,
       search,
+      paymentStatuses,
+      dteTypes,
+      receptionStatuses,
+      amountMin: Number.isFinite(amountMin) ? amountMin : undefined,
+      amountMax: Number.isFinite(amountMax) ? amountMax : undefined,
     });
 
     return NextResponse.json({ success: true, data: result });

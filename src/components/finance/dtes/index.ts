@@ -1,6 +1,7 @@
 // Barrel exports del módulo DTEs Emitidos.
 
 export { DocumentTag } from "./DocumentTag";
+export { DtePaymentTag } from "./DtePaymentTag";
 export { SiiStatusPill } from "./SiiStatusPill";
 export { CessionBadge } from "./CessionBadge";
 export { LinkedNoteBadge } from "./LinkedNoteBadge";

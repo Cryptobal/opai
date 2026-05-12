@@ -44,6 +44,25 @@ export interface DteRow {
   /** Estado de pago (UNPAID / PARTIAL / PAID / OVERDUE / WRITTEN_OFF). */
   paymentStatus?: string | null;
   /**
+   * Última conciliación con cartola bancaria (post 2026-05). Si hay
+   * un FinancePaymentRecord asociado al DTE, este campo trae info del
+   * recibo y del movimiento bancario que lo originó (si vino del flujo
+   * manual de "Conciliar movimiento") para mostrar tooltip "Conciliado
+   * el {fecha} con mov. {ref}". Null si nunca se conció con cartola
+   * (ya sea porque está UNPAID o porque se marcó pagado vía
+   * bulk-mark-paid sin asociar mov. bancario).
+   */
+  lastReconciliation?: {
+    paymentId: string;
+    paymentCode: string;
+    paymentDate: string;
+    paymentStatus: string;
+    bankTransactionId: string | null;
+    bankTransactionDate: string | null;
+    bankTransactionReference: string | null;
+    bankTransactionDescription: string | null;
+  } | null;
+  /**
    * NCs vivas que referencian a este DTE. Si hay al menos una, la lista
    * pinta un badge "Con NC" (rojo si es anulación total, ámbar si es
    * corrección parcial). Null = no tiene NCs asociadas.

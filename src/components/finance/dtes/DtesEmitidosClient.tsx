@@ -205,6 +205,9 @@ export function DtesEmitidosClient({
   }, []);
 
   // Reset page=1 cuando cambian los filtros que se persisten en server.
+  // Post 2026-05: incluimos los filtros que antes vivían en cliente
+  // (types, siiStatuses, paymentStatuses, montos, flags) porque ahora
+  // viajan al server y cada cambio requiere repaginar desde 1.
   useEffect(() => {
     setPage(1);
   }, [
@@ -213,19 +216,42 @@ export function DtesEmitidosClient({
     filters.accountId,
     filters.installationId,
     filters.sort,
+    filters.types,
+    filters.siiStatuses,
+    filters.paymentStatuses,
+    filters.amountMin,
+    filters.amountMax,
+    filters.onlyCeded,
+    filters.onlyWithCreditNotes,
+    filters.onlyEmailFailed,
+    filters.excludeDrafts,
   ]);
 
-  // Fetch server-side cuando cambian filtros de servidor.
+  // Fetch server-side: TODOS los filtros se envían al backend (post
+  // 2026-05). Antes los filtros tipo/pago/SII/montos/flags vivían en
+  // cliente sobre el array de la página actual, lo que rompía la
+  // paginación cuando había filtros (el `total` venía sin filtrar y los
+  // botones de página se desincronizaban con la lista visible).
   useEffect(() => {
-    if (
+    const noServerFilters =
       page === 1 &&
       pageSize === 50 &&
       filters.periodo === "CURRENT_MONTH" &&
       filters.accountId === "ALL" &&
       filters.installationId === "ALL" &&
       filters.sort === "date_desc" &&
-      debouncedSearch === ""
-    ) {
+      debouncedSearch === "" &&
+      filters.types.length === 0 &&
+      filters.siiStatuses.length === 0 &&
+      filters.paymentStatuses.length === 0 &&
+      filters.amountMin == null &&
+      filters.amountMax == null &&
+      !filters.onlyCeded &&
+      !filters.onlyWithCreditNotes &&
+      !filters.onlyEmailFailed &&
+      !filters.excludeDrafts;
+
+    if (noServerFilters) {
       setDtes(initialDtes);
       setTotal(issuedTotal);
       return;
@@ -244,6 +270,22 @@ export function DtesEmitidosClient({
         if (filters.installationId !== "ALL")
           params.set("installationId", filters.installationId);
         params.set("sort", filters.sort);
+        // Filtros nuevos (server-side).
+        if (filters.types.length > 0)
+          params.set("dteType", filters.types.join(","));
+        if (filters.siiStatuses.length > 0)
+          params.set("siiStatus", filters.siiStatuses.join(","));
+        if (filters.paymentStatuses.length > 0)
+          params.set("paymentStatus", filters.paymentStatuses.join(","));
+        if (filters.amountMin != null)
+          params.set("amountMin", String(filters.amountMin));
+        if (filters.amountMax != null)
+          params.set("amountMax", String(filters.amountMax));
+        if (filters.onlyCeded) params.set("onlyCeded", "1");
+        if (filters.onlyWithCreditNotes)
+          params.set("onlyWithCreditNotes", "1");
+        if (filters.onlyEmailFailed) params.set("onlyEmailFailed", "1");
+        if (filters.excludeDrafts) params.set("excludeDrafts", "1");
         const res = await fetch(
           `/api/finance/billing/issued?${params.toString()}`,
           { signal: ctrl.signal },
@@ -294,6 +336,8 @@ export function DtesEmitidosClient({
                 typeof d.date === "string" ? d.date : String(d.date ?? ""),
               dueDate: (d.dueDate as string | null) ?? null,
               paymentStatus: (d.paymentStatus as string | null) ?? null,
+              lastReconciliation:
+                (d.lastReconciliation as DteRow["lastReconciliation"]) ?? null,
               linkedCreditNote:
                 (d.linkedCreditNote as
                   | {
@@ -325,47 +369,25 @@ export function DtesEmitidosClient({
     filters.accountId,
     filters.installationId,
     filters.sort,
+    filters.types,
+    filters.siiStatuses,
+    filters.paymentStatuses,
+    filters.amountMin,
+    filters.amountMax,
+    filters.onlyCeded,
+    filters.onlyWithCreditNotes,
+    filters.onlyEmailFailed,
+    filters.excludeDrafts,
     debouncedSearch,
     initialDtes,
     issuedTotal,
   ]);
 
-  // ── Filtros client-side (los que NO van al server) ──
-  const filtered = useMemo(() => {
-    let list = dtes;
-    if (filters.types.length) {
-      list = list.filter((d) => filters.types.includes(d.dteType));
-    }
-    if (filters.siiStatuses.length) {
-      list = list.filter((d) => filters.siiStatuses.includes(d.siiStatus));
-    }
-    if (filters.paymentStatuses.length) {
-      list = list.filter((d) =>
-        d.paymentStatus
-          ? filters.paymentStatuses.includes(d.paymentStatus)
-          : false,
-      );
-    }
-    if (filters.amountMin != null) {
-      list = list.filter((d) => d.totalAmount >= (filters.amountMin ?? 0));
-    }
-    if (filters.amountMax != null) {
-      list = list.filter((d) => d.totalAmount <= (filters.amountMax ?? Infinity));
-    }
-    if (filters.onlyCeded) {
-      list = list.filter((d) => !!d.activeCession);
-    }
-    if (filters.onlyWithCreditNotes) {
-      list = list.filter((d) => !!d.linkedCreditNote);
-    }
-    if (filters.onlyEmailFailed) {
-      list = list.filter((d) => d.emailStatus === "FAILED");
-    }
-    if (filters.excludeDrafts) {
-      list = list.filter((d) => d.siiStatus !== "DRAFT");
-    }
-    return sortDteRows(list, filters.sort);
-  }, [dtes, filters]);
+  // Post 2026-05: el server ya devuelve los DTE filtrados y ordenados, así
+  // que `filtered` es prácticamente `dtes`. Mantenemos el cliente-sort
+  // como red de seguridad porque algunos casos (ej. sort por aging
+  // computado) aún no están en el server, y para no romper APIs.
+  const filtered = useMemo(() => sortDteRows(dtes, filters.sort), [dtes, filters.sort]);
 
   const filteredSumTotal = useMemo(
     () => filtered.reduce((acc, d) => acc + d.totalAmount, 0),

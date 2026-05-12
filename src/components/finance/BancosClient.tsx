@@ -32,6 +32,7 @@ import { BankTxReconcileSheet } from "./BankTxReconcileSheet";
 import { CategoryMappingDialog } from "./cashflow/CategoryMappingDialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { BulkAssignDialog } from "./BulkAssignDialog";
+import { BulkReconcileToDteDialog } from "./BulkReconcileToDteDialog";
 import { BankAnalysisClient } from "./BankAnalysisClient";
 import {
   Landmark,
@@ -875,6 +876,9 @@ function TransactionsTab({
   const [sortDir, setSortDir] = useState<TxSortDir>("desc");
   const [showHidden, setShowHidden] = useState(false);
   const [subTab, setSubTab] = useState<TxSubTab>("all");
+  // Filtro por dirección del flujo (post 2026-05): "all" | "inflow" | "outflow".
+  // Antes no existía y el usuario tenía que mirar el color/signo de cada fila.
+  const [direction, setDirection] = useState<"all" | "inflow" | "outflow">("all");
   const [authorizing, setAuthorizing] = useState<string | null>(null);
   const [bulkAuthorizing, setBulkAuthorizing] = useState(false);
   const [transactions, setTransactions] = useState<TransactionRow[]>([]);
@@ -887,7 +891,10 @@ function TransactionsTab({
   const isMobile = useIsMobileViewport();
   const [filtersOpenMobile, setFiltersOpenMobile] = useState(false);
   const activeFiltersCount =
-    (dateFrom ? 1 : 0) + (dateTo ? 1 : 0) + (search.trim() ? 1 : 0);
+    (dateFrom ? 1 : 0) +
+    (dateTo ? 1 : 0) +
+    (search.trim() ? 1 : 0) +
+    (direction !== "all" ? 1 : 0);
   const selectedAccountLabel = useMemo(() => {
     const a = accounts.find((x) => x.id === selectedAccount);
     return a ? `${a.bankName} · ${a.accountNumber}` : "Sin cuenta";
@@ -902,6 +909,12 @@ function TransactionsTab({
   // ── Selección múltiple para bulk-assign ──
   const [selectedTxIds, setSelectedTxIds] = useState<Set<string>>(new Set());
   const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
+  // Conciliación masiva contra 1 DTE (post 2026-05).
+  const [bulkReconcileOpen, setBulkReconcileOpen] = useState(false);
+  // Cola de conciliación uno-por-uno (post 2026-05). El sheet existente
+  // (`reconcileTx`) se reutiliza, navegando entre items con `queueIndex`.
+  const [reconcileQueue, setReconcileQueue] = useState<TransactionRow[]>([]);
+  const [queueIndex, setQueueIndex] = useState(0);
 
   const toggleSelectTx = (id: string) => {
     setSelectedTxIds((prev) => {
@@ -947,6 +960,7 @@ function TransactionsTab({
       if (dateFrom) params.set("dateFrom", dateFrom);
       if (dateTo) params.set("dateTo", dateTo);
       if (debouncedSearch) params.set("search", debouncedSearch);
+      if (direction !== "all") params.set("direction", direction);
       const res = await fetch(`/api/finance/banking/transactions?${params}`);
       if (!res.ok) throw new Error();
       const json = await res.json();
@@ -959,12 +973,34 @@ function TransactionsTab({
     } finally {
       setLoading(false);
     }
-  }, [selectedAccount, dateFrom, dateTo, debouncedSearch, sortField, sortDir, showHidden, subTab, page, pageSize]);
+  }, [
+    selectedAccount,
+    dateFrom,
+    dateTo,
+    debouncedSearch,
+    sortField,
+    sortDir,
+    showHidden,
+    subTab,
+    direction,
+    page,
+    pageSize,
+  ]);
 
   // Resetea a la página 1 cuando cambian filtros (cuenta, fechas, búsqueda, orden, visibilidad o sub-tab)
   useEffect(() => {
     setPage(1);
-  }, [selectedAccount, dateFrom, dateTo, debouncedSearch, sortField, sortDir, showHidden, subTab]);
+  }, [
+    selectedAccount,
+    dateFrom,
+    dateTo,
+    debouncedSearch,
+    sortField,
+    sortDir,
+    showHidden,
+    subTab,
+    direction,
+  ]);
 
   useEffect(() => {
     loadTransactions();
@@ -1115,8 +1151,63 @@ function TransactionsTab({
     [sortField, sortDir, toggleSort]
   );
 
+  // Estado tri-state del checkbox header (todos / parcial / ninguno).
+  const visibleTxIds = transactions.map((t) => t.id);
+  const visibleSelectedCount = visibleTxIds.filter((id) =>
+    selectedTxIds.has(id),
+  ).length;
+  const headerCheckboxState: "all" | "some" | "none" =
+    visibleSelectedCount === 0
+      ? "none"
+      : visibleSelectedCount === visibleTxIds.length
+        ? "all"
+        : "some";
+
+  const toggleAllVisible = useCallback(() => {
+    setSelectedTxIds((prev) => {
+      const next = new Set(prev);
+      if (visibleSelectedCount === visibleTxIds.length) {
+        // Todos seleccionados → deseleccionar visibles.
+        visibleTxIds.forEach((id) => next.delete(id));
+      } else {
+        // Algunos o ninguno → seleccionar todos los visibles.
+        visibleTxIds.forEach((id) => next.add(id));
+      }
+      return next;
+    });
+  }, [visibleSelectedCount, visibleTxIds]);
+
   const transactionColumns = useMemo<DataTableColumn<TransactionRow>[]>(
     () => [
+      {
+        // Checkbox de selección (post 2026-05): antes solo existía en
+        // mobile, lo que impedía conciliación masiva desde desktop.
+        id: "_select",
+        header: (
+          <input
+            type="checkbox"
+            aria-label="Seleccionar todos los visibles"
+            checked={headerCheckboxState === "all"}
+            ref={(el) => {
+              if (el) el.indeterminate = headerCheckboxState === "some";
+            }}
+            onChange={toggleAllVisible}
+            onClick={(e) => e.stopPropagation()}
+            className="h-4 w-4 rounded border-ds-border-default bg-ds-surface-2 text-primary cursor-pointer"
+          />
+        ),
+        width: "w-10",
+        cell: (row) => (
+          <input
+            type="checkbox"
+            aria-label={`Seleccionar mov ${row.id}`}
+            checked={selectedTxIds.has(row.id)}
+            onChange={() => toggleSelectTx(row.id)}
+            onClick={(e) => e.stopPropagation()}
+            className="h-4 w-4 rounded border-ds-border-default bg-ds-surface-2 text-primary cursor-pointer"
+          />
+        ),
+      },
       {
         id: "transactionDate",
         header: sortableHeader("Fecha", "transactionDate"),
@@ -1278,7 +1369,14 @@ function TransactionsTab({
           ) : null,
       },
     ],
-    [sortableHeader, canManage, authorizing]
+    [
+      sortableHeader,
+      canManage,
+      authorizing,
+      headerCheckboxState,
+      toggleAllVisible,
+      selectedTxIds,
+    ]
   );
 
   return (
@@ -1362,6 +1460,21 @@ function TransactionsTab({
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
+        </div>
+        <div className="space-y-1.5 sm:flex-initial">
+          <Label htmlFor="tx-direction">Tipo</Label>
+          <select
+            id="tx-direction"
+            value={direction}
+            onChange={(e) =>
+              setDirection(e.target.value as "all" | "inflow" | "outflow")
+            }
+            className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+          >
+            <option value="all">Todos</option>
+            <option value="inflow">Solo ingresos</option>
+            <option value="outflow">Solo egresos</option>
+          </select>
         </div>
         <div className="flex items-end gap-2 flex-wrap">
           <Button
@@ -1732,24 +1845,99 @@ function TransactionsTab({
 
       <BankTxReconcileSheet
         open={!!reconcileTx}
-        onOpenChange={(open) => !open && setReconcileTx(null)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setReconcileTx(null);
+            // Si estábamos en cola, también limpiar.
+            if (reconcileQueue.length > 0) {
+              setReconcileQueue([]);
+              setQueueIndex(0);
+            }
+          }
+        }}
         tx={reconcileTx}
         accountPlans={accountPlans}
+        queueInfo={
+          reconcileQueue.length > 0
+            ? {
+                index: queueIndex,
+                total: reconcileQueue.length,
+                onNext: () => {
+                  const nextIdx = queueIndex + 1;
+                  if (nextIdx < reconcileQueue.length) {
+                    setQueueIndex(nextIdx);
+                    setReconcileTx(reconcileQueue[nextIdx]);
+                  } else {
+                    // Fin de la cola.
+                    setReconcileTx(null);
+                    setReconcileQueue([]);
+                    setQueueIndex(0);
+                    clearSelection();
+                    loadTransactions();
+                  }
+                },
+                onCancel: () => {
+                  setReconcileTx(null);
+                  setReconcileQueue([]);
+                  setQueueIndex(0);
+                  loadTransactions();
+                },
+              }
+            : undefined
+        }
         onSaved={() => {
-          setReconcileTx(null);
-          loadTransactions();
+          if (reconcileQueue.length > 0) {
+            // En modo cola, avanzar al siguiente sin cerrar.
+            const nextIdx = queueIndex + 1;
+            if (nextIdx < reconcileQueue.length) {
+              setQueueIndex(nextIdx);
+              setReconcileTx(reconcileQueue[nextIdx]);
+              loadTransactions();
+            } else {
+              setReconcileTx(null);
+              setReconcileQueue([]);
+              setQueueIndex(0);
+              clearSelection();
+              loadTransactions();
+            }
+          } else {
+            setReconcileTx(null);
+            loadTransactions();
+          }
         }}
       />
 
       {/* Barra flotante de acciones masivas */}
       {selectedTxIds.size > 0 && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-full border border-border bg-card px-4 py-2 shadow-lg">
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex flex-wrap items-center gap-3 rounded-full border border-border bg-card px-4 py-2 shadow-lg max-w-[95vw]">
           <span className="text-[12px] font-mono text-muted-foreground">
             {selectedTxIds.size} movimiento{selectedTxIds.size === 1 ? "" : "s"} seleccionado{selectedTxIds.size === 1 ? "" : "s"}
           </span>
           <div className="h-4 w-px bg-border" />
           <Button size="sm" variant="default" onClick={() => setBulkAssignOpen(true)}>
-            Asignar cuenta...
+            Asignar cuenta…
+          </Button>
+          <Button
+            size="sm"
+            variant="default"
+            onClick={() => setBulkReconcileOpen(true)}
+            title="Conciliar todos contra una factura"
+          >
+            Conciliar contra 1 DTE
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              const queue = transactions.filter((t) => selectedTxIds.has(t.id));
+              if (queue.length === 0) return;
+              setReconcileQueue(queue);
+              setQueueIndex(0);
+              setReconcileTx(queue[0]);
+            }}
+            title="Abrir cada movimiento uno por uno"
+          >
+            Conciliar uno por uno
           </Button>
           <Button size="sm" variant="ghost" onClick={clearSelection}>
             Cancelar
@@ -1766,6 +1954,25 @@ function TransactionsTab({
         onDone={() => {
           clearSelection();
           setBulkAssignOpen(false);
+          loadTransactions();
+        }}
+      />
+
+      {/* Modal de conciliación masiva contra 1 DTE (post 2026-05) */}
+      <BulkReconcileToDteDialog
+        open={bulkReconcileOpen}
+        onOpenChange={setBulkReconcileOpen}
+        transactions={transactions
+          .filter((t) => selectedTxIds.has(t.id))
+          .map((t) => ({
+            id: t.id,
+            transactionDate: t.transactionDate,
+            description: t.description,
+            reference: t.reference,
+            amount: t.amount,
+          }))}
+        onConfirmed={() => {
+          clearSelection();
           loadTransactions();
         }}
       />

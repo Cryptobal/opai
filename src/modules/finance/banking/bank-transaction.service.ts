@@ -130,6 +130,13 @@ interface ListBankTransactionsOpts {
    *   - "matched": tx ya conciliadas (MATCHED/RECONCILED)
    */
   tab?: "all" | "recognized" | "unrecognized" | "matched";
+  /**
+   * Filtro por signo del monto (post 2026-05):
+   *   - "inflow":  amount > 0 (ingresos)
+   *   - "outflow": amount < 0 (egresos)
+   *   - "all" (default): sin filtro
+   */
+  direction?: "inflow" | "outflow" | "all";
 }
 
 export interface ImportTransactionInput {
@@ -219,6 +226,16 @@ export async function listBankTransactions(
     where.suggestedAccountPlanId = null;
   } else if (tab === "matched") {
     where.reconciliationStatus = { in: ["MATCHED", "RECONCILED"] };
+  }
+
+  // Filtro por signo del monto. Postgres permite filtrar Decimal con
+  // comparadores numéricos directamente; Prisma lo maneja como `gt`/`lt`
+  // numéricos sin pasar por Decimal.
+  const direction = opts?.direction ?? "all";
+  if (direction === "inflow") {
+    where.amount = { gt: 0 };
+  } else if (direction === "outflow") {
+    where.amount = { lt: 0 };
   }
 
   // Orden: por defecto fecha descendente, con id como tiebreaker estable.

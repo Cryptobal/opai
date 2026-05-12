@@ -7,6 +7,7 @@ import {
   parseBody,
 } from "@/lib/api-auth";
 import { hasCapability } from "@/lib/permissions";
+import { prisma } from "@/lib/prisma";
 import {
   listTransactionLinks,
   setTransactionLinks,
@@ -37,7 +38,17 @@ const setLinksSchema = z.object({
 
 /**
  * GET /api/finance/banking/transactions/[id]/links
- * Lista los vínculos actuales de una tx.
+ *
+ * Devuelve `{ links, paymentRecord, reconciliationStatus }`:
+ *   - `links` ya viene enriquecido con `entityLabel` y datos del DTE /
+ *     factoring / cuenta contable cuando aplica (ver
+ *     EnrichedTransactionLink en bank-tx-link.service.ts).
+ *   - `paymentRecord` es el FinancePaymentRecord más reciente creado
+ *     por la conciliación de esta tx (cuando hay links DTE). Se usa
+ *     en el drawer "Conciliar movimiento" para mostrar el resumen
+ *     read-only "Pago COB-000123 registrado el ..." con link al recibo.
+ *   - `reconciliationStatus` permite al cliente decidir si pintar la
+ *     vista resumen (MATCHED) o el flujo de creación (UNMATCHED).
  */
 export async function GET(
   _request: NextRequest,
@@ -54,8 +65,44 @@ export async function GET(
       );
     }
     const { id } = await params;
-    const links = await listTransactionLinks(ctx.tenantId, id);
-    return NextResponse.json({ success: true, data: links });
+    const [links, tx, paymentRecord] = await Promise.all([
+      listTransactionLinks(ctx.tenantId, id),
+      prisma.financeBankTransaction.findFirst({
+        where: { id, tenantId: ctx.tenantId },
+        select: { reconciliationStatus: true },
+      }),
+      prisma.financePaymentRecord.findFirst({
+        where: { tenantId: ctx.tenantId, bankTransactionId: id },
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          code: true,
+          type: true,
+          date: true,
+          amount: true,
+          status: true,
+          createdAt: true,
+        },
+      }),
+    ]);
+    return NextResponse.json({
+      success: true,
+      data: {
+        links,
+        paymentRecord: paymentRecord
+          ? {
+              id: paymentRecord.id,
+              code: paymentRecord.code,
+              type: paymentRecord.type,
+              date: paymentRecord.date.toISOString(),
+              amount: paymentRecord.amount.toNumber(),
+              status: paymentRecord.status,
+              createdAt: paymentRecord.createdAt.toISOString(),
+            }
+          : null,
+        reconciliationStatus: tx?.reconciliationStatus ?? "UNMATCHED",
+      },
+    });
   } catch (error) {
     console.error("[Finance/Banking/Links] GET error:", error);
     return NextResponse.json(
