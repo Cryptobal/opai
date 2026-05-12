@@ -1,10 +1,28 @@
+// v7 (2026-05-12): bumped para invalidar SW viejo y aplicar el bypass de
+// caching en endpoints de auth/sesión (ver AUTH_BYPASS_PATTERNS abajo).
+// Esto evita que una respuesta cacheada del endpoint de sesión enmascare
+// el flujo real de login/logout en PWAs iOS recién instaladas.
+//
 // v6 (2026-05-07): bumped to flush stale precached HTML que en clientes
 // viejos quedó apuntando a chunks `/_next/static/chunks/*.js` ya borrados
 // por Vercel. La combinación HTML viejo + chunk 404 producía
 // ChunkLoadError → global-error.tsx ("Algo salió mal") en el portal del
 // guardia (y resto de portales) sin que refrescar lo arreglara, porque
 // el navigate handler nunca refrescaba la cache (ver fix abajo).
-const CACHE_NAME = 'opai-v6';
+const CACHE_NAME = 'opai-v7';
+
+// Endpoints de autenticación/sesión que NUNCA deben pasar por la cache del
+// SW. Si una respuesta antigua quedara cacheada, el cliente podría ver una
+// sesión fantasma (o un 401 falso) cuando reabre el PWA — especialmente en
+// iOS standalone, donde el primer fetch al volver a abrir la app es
+// exactamente la verificación de sesión.
+const AUTH_BYPASS_PATTERNS = [
+  '/api/portal/cliente/auth',
+  '/api/portal/cliente/logout',
+  '/api/portal/guardia/auth',
+  '/api/portal/guardia/logout',
+  '/api/auth/',
+];
 const OFFLINE_URL = '/offline.html';
 
 const PRECACHE_URLS = [
@@ -53,6 +71,14 @@ self.addEventListener('fetch', (event) => {
   // AI chat routes: always bypass SW (SSE streaming is incompatible with SW caching)
   if (url.pathname.startsWith('/api/ai/') || url.pathname.startsWith('/api/marketing/chat')) {
     return; // Let the browser handle these directly
+  }
+
+  // Auth/session endpoints: bypass SW completely. La cookie de sesión la
+  // gestiona el navegador directamente; cualquier respuesta cacheada acá
+  // genera estados inconsistentes (ej. login que "se pierde" al reabrir
+  // el PWA en iOS).
+  if (AUTH_BYPASS_PATTERNS.some((p) => url.pathname.startsWith(p))) {
+    return; // Let the browser handle directly (no SW intervention)
   }
 
   // API: network-first with cache fallback
