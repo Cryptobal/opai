@@ -149,7 +149,37 @@ export async function buildProjection(
   // contratos CRM vigentes (Document → FinanceCashflowItem vía el tab
   // Contratos de cada cuenta) y deben incluirse en la proyección.
   const allItems = await listItems(tenantId, { isActive: true });
-  const items = allItems.filter((i) => i.source !== "PAYROLL");
+  const itemsAfterPayroll = allItems.filter((i) => i.source !== "PAYROLL");
+
+  // Filtro de items "globales huérfanos" por contrato: cuando un contrato
+  // (sourceRefId) tiene items con installationId específico Y además un
+  // item con installationId=null, el global es residuo de la migración
+  // single→multi y debe IGNORARSE en la proyección (genera doble conteo).
+  // Caso real: Polpaico tenía un FC item global de $5.6M creado al subir
+  // el contrato + 4 items per-installation; el global aparecía como
+  // "Contrato 4420005793 Gard_Cemento Polpaico" aunque ya no representaba
+  // valor económico real. El item sigue existiendo en DB (no se borra
+  // automáticamente) pero no se proyecta. La UI del tab Contratos lo
+  // marca como "Monto antiguo (sin instalación)" para que el usuario lo
+  // limpie cuando quiera.
+  const orphanGlobalItemIds = new Set<string>();
+  {
+    const itemsBySourceRef = new Map<string, typeof itemsAfterPayroll>();
+    for (const it of itemsAfterPayroll) {
+      if (!it.sourceRefId) continue;
+      const arr = itemsBySourceRef.get(it.sourceRefId) ?? [];
+      arr.push(it);
+      itemsBySourceRef.set(it.sourceRefId, arr);
+    }
+    for (const [, group] of itemsBySourceRef) {
+      const hasSpecific = group.some((g) => !!g.installationId);
+      if (!hasSpecific) continue;
+      for (const g of group) {
+        if (!g.installationId) orphanGlobalItemIds.add(g.id);
+      }
+    }
+  }
+  const items = itemsAfterPayroll.filter((i) => !orphanGlobalItemIds.has(i.id));
   // FinanceCashflowItem.installationId no tiene @relation, así que resolvemos
   // los nombres en un lookup batch por tenant. Pick mínimo para no traer overhead.
   const installationIds = Array.from(

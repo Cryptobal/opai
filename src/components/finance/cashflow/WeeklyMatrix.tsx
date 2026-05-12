@@ -45,6 +45,11 @@ interface Props {
   canManage: boolean;
 }
 
+interface IpcPendingMarker {
+  id: string;
+  dueDate: string;
+}
+
 export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Props) {
   const [weeks, setWeeks] = useState<number>(defaultWeeks);
   const [loading, setLoading] = useState(false);
@@ -52,6 +57,12 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
   const [refreshKey, setRefreshKey] = useState(0);
   const [drawerBucket, setDrawerBucket] = useState<string | null>(null);
   const todayDate = useMemo(() => new Date(), []);
+  // Ajustes IPC PENDING — mostramos un highlight ámbar en la celda
+  // (semana × item) donde cae cada `dueDate` para que el reajuste de
+  // contratos en CLP no se pase de fecha. Mismo patrón que MonthlyMatrix.
+  const [ipcPending, setIpcPending] = useState<
+    Map<string, IpcPendingMarker[]>
+  >(new Map());
 
   // Auto-scroll horizontal: queremos que la semana actual quede como la
   // 3ra columna visible. Permite ver 2 semanas pasadas como contexto y el
@@ -126,6 +137,39 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
 
   const incomeRows = projection.rows.filter((r) => r.kind === "INCOME");
   const expenseRows = projection.rows.filter((r) => r.kind === "EXPENSE");
+
+  // Carga los ajustes IPC pendientes y los indexa por `${itemId}_${bucketKey}`.
+  // En weekly, el bucket.key tiene formato `YYYY-Www` o `WK-YYYYMMDD` según
+  // la config del tenant, así que en vez de duplicar la lógica de bucketKeyFor
+  // buscamos el bucket por rango de fecha de la dueDate.
+  useEffect(() => {
+    fetch("/api/finance/cashflow/ipc-adjustments?status=PENDING")
+      .then((r) => r.json())
+      .then((j) => {
+        if (!j?.success || !Array.isArray(j.data)) return;
+        const m = new Map<string, IpcPendingMarker[]>();
+        for (const a of j.data as Array<{
+          id: string;
+          itemId: string;
+          dueDate: string;
+        }>) {
+          const due = new Date(a.dueDate);
+          if (Number.isNaN(due.getTime())) continue;
+          const bucket = projection.buckets.find(
+            (b) => due >= b.start && due <= b.end,
+          );
+          if (!bucket) continue;
+          const key = `${a.itemId}_${bucket.key}`;
+          const list = m.get(key) ?? [];
+          list.push({ id: a.id, dueDate: a.dueDate });
+          m.set(key, list);
+        }
+        setIpcPending(m);
+      })
+      .catch(() => {
+        // Highlight informativo: si falla, la matriz funciona igual.
+      });
+  }, [refreshKey, projection.buckets]);
 
   // Índice del bucket que contiene hoy. Si hoy queda fuera del rango
   // (caso raro: range start > hoy), idx queda en -1 y no auto-scrolleamos.
@@ -379,6 +423,7 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
                     key={r.categoryCode}
                     row={r}
                     actualByCellKey={actualByCellKey}
+                    ipcPending={ipcPending}
                     buckets={projection.buckets}
                     granularity="weekly"
                     onActionDone={() => setRefreshKey((k) => k + 1)}
@@ -399,6 +444,7 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
                     key={r.categoryCode}
                     row={r}
                     actualByCellKey={actualByCellKey}
+                    ipcPending={ipcPending}
                     buckets={projection.buckets}
                     granularity="weekly"
                     onActionDone={() => setRefreshKey((k) => k + 1)}
