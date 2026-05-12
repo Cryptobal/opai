@@ -14,6 +14,7 @@ import { getDefaultTenantId } from "@/lib/tenant";
 import { resend } from "@/lib/resend";
 import { getWaTemplate } from "@/lib/whatsapp-templates";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
+import type { EntityData } from "@/lib/docs/token-resolver";
 
 // CORS headers for cross-origin requests from the website
 const corsHeaders = {
@@ -175,28 +176,34 @@ export async function POST(request: NextRequest) {
           ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(data.direccion)}`
           : "";
 
-    // Token values for lead WhatsApp templates
-    const leadTokenValues: Record<string, string> = {
-      nombre: data.nombre,
-      apellido: data.apellido,
-      empresa: data.empresa,
-      direccion: direccionCompleta,
-      comuna: data.comuna || "",
-      ciudad: data.ciudad || "",
-      servicio: servicioLabel,
-      dotacion: dotacionTexto,
-      email: data.email,
-      celular: data.celular,
-      pagina_web: data.pagina_web || "",
-      industria: data.industria || "",
-      detalle: data.detalle || "",
-      maps_link: mapsLink,
+    const waLeadEntities: EntityData = {
+      lead: {
+        firstName: data.nombre,
+        lastName: data.apellido,
+        companyName: data.empresa,
+        address: direccionCompleta,
+        commune: data.comuna || "",
+        city: data.ciudad || "",
+        serviceLabel: servicioLabel,
+        dotacionResumen: dotacionTexto || "(no indicada)",
+        notes: data.detalle || "",
+        email: data.email,
+        phone: data.celular,
+        website: data.pagina_web || "",
+        industry: data.industria || "",
+      },
+      tenant: {
+        commercialName: tenantCfg.commercialName,
+        website: tenantCfg.website ? `https://${tenantCfg.website.replace(/^https?:\/\//, "")}` : "",
+      },
+      system: {
+        mapsLink: mapsLink || "",
+      },
     };
 
-    // Resolver templates desde la BD (o DocTemplate whatsapp, o defaults)
     const [tplComercial, tplCliente] = await Promise.all([
-      getWaTemplate(tenantId, "lead_commercial", { waValues: leadTokenValues }),
-      getWaTemplate(tenantId, "lead_client", { waValues: leadTokenValues }),
+      getWaTemplate(tenantId, "lead_commercial", { entities: waLeadEntities }),
+      getWaTemplate(tenantId, "lead_client", { entities: waLeadEntities }),
     ]);
 
     const whatsappMsgComercial = tplComercial;
