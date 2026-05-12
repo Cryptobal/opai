@@ -110,6 +110,7 @@ export function CashflowConfigClient({ initialConfig, initialCategories, account
   const [config, setConfig] = useState<CashflowConfig>({
     ...initialConfig,
     ufMonthlyGrowthPct: Number(initialConfig.ufMonthlyGrowthPct ?? 0),
+    turnosExtraPercentage: Number(initialConfig.turnosExtraPercentage ?? 0),
     turnosExtraLiquidoDiscountPct: Number(initialConfig.turnosExtraLiquidoDiscountPct),
     turnosExtraPreviRedDiscountPct: Number(initialConfig.turnosExtraPreviRedDiscountPct),
   });
