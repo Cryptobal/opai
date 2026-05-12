@@ -7537,6 +7537,9 @@ model FinanceCashflowConfig {
   /// aplica a meses futuros — el actual y pasados usan la UF real
   /// (Bd `FxUfRate`). Default 0 = UF futura plana.
   ufMonthlyGrowthPct      Decimal  @default(0) @map("uf_monthly_growth_pct") @db.Decimal(6, 4)
+  /// Umbral de drift en CLP por encima del cual se dispara notificación al CFO.
+  /// Default 100.000 CLP. 0 = nunca notificar.
+  driftAlertThresholdClp  Int      @default(100000) @map("drift_alert_threshold_clp")
   createdAt               DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt               DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
