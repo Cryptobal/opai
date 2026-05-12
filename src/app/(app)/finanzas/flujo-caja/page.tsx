@@ -9,7 +9,6 @@ import { ensureCashflowSynced } from "@/modules/finance/cashflow/auto-sync";
 import { addWeeks } from "date-fns";
 import { CashflowTabs } from "@/components/finance/cashflow/CashflowTabs";
 import { CashflowKpis, type KpiData } from "@/components/finance/cashflow/CashflowKpis";
-import { bucketKeyFor } from "@/modules/finance/cashflow/recurrence-engine";
 import { BancaTabsHeader } from "@/components/finance/BancaTabsHeader";
 
 export default async function FlujoCajaPage({
@@ -72,24 +71,32 @@ export default async function FlujoCajaPage({
     });
   }
 
-  // KPI de cuadratura: real banco vs proyectado de la semana corriente.
-  const currentWeekKey = bucketKeyFor(today, "weekly");
-  const currentWeek = projection.buckets.find((b) => b.key === currentWeekKey);
-  if (currentWeek) {
-    const variance = currentWeek.bankVarianceClp;
-    const isFlat = Math.abs(variance) < 50_000;
-    const tone: KpiData["tone"] = isFlat ? "ok" : variance > 0 ? "info" : "warn";
-    const icon: KpiData["icon"] = isFlat ? "ok" : variance > 0 ? "up" : "down";
+  // KPI de drift acumulado: saldo banco real vs saldo proyectado a hoy.
+  const drift = projection.totals.currentDriftClp;
+  if (drift !== null) {
+    const absDrift = Math.abs(drift);
+    const isFlat = absDrift < 50_000;
+    const tone: KpiData["tone"] = isFlat
+      ? "ok"
+      : absDrift < 500_000
+        ? "info"
+        : "warn";
+    const icon: KpiData["icon"] = isFlat
+      ? "ok"
+      : drift > 0
+        ? "up"
+        : "down";
     kpis.push({
-      label: "Cuadratura semana",
-      value: isFlat ? "✓ Cuadrada" : fmtCLP.format(variance),
+      label: "Drift de caja",
+      value: isFlat ? "✓ Cuadrado" : fmtCLP.format(drift),
       tone,
       icon,
       sub: isFlat
-        ? "real ≈ proyectado"
-        : variance > 0
-          ? "real > proyectado"
-          : "real < proyectado",
+        ? "banco ≈ proyectado"
+        : drift > 0
+          ? "banco > proyectado"
+          : "banco < proyectado",
+      href: "/finanzas/flujo-caja/cuadratura",
     });
   }
 
