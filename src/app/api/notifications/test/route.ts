@@ -8,7 +8,7 @@
 import { NextResponse } from "next/server";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
-import { sendPushToPortalUser } from "@/lib/pwa/push-service";
+import { sendPushToSubscriptions } from "@/lib/notifications/push-sender";
 
 const TEST_NOTIFICATIONS = [
   {
@@ -93,17 +93,19 @@ export async function POST() {
     let pushSent = false;
     let pushError: string | undefined;
     try {
-      await sendPushToPortalUser({
+      await sendPushToSubscriptions({
         tenantId: ctx.tenantId,
+        subscriberType: "ADMIN",
+        subscriberId: ctx.userId,
         notifKey: notif.notifKey,
-        userType: "admin",
-        userId: ctx.userId,
-        portalType: "app",
         title: notif.title,
         body: notif.message,
         url: notif.link,
-        tag: `test-${notif.type}`,
-        notificationId: record.id,
+        data: {
+          ...notif.data,
+          notificationId: record.id,
+          tag: `test-${notif.type}`,
+        },
       });
       pushSent = true;
     } catch (err) {

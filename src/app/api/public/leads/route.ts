@@ -139,18 +139,21 @@ export async function POST(request: NextRequest) {
       // Cuenta, contacto e instalaciones se crean solo al "Revisar y aprobar" el lead en el CRM.
 
       try {
-        const { sendNotification } = await import("@/lib/notification-service");
-        await sendNotification({
+        const { notify } = await import("@/lib/notifications/notify");
+        const dotacionInfo = totalGuards > 0 ? ` · ${totalGuards} guardias` : "";
+        await notify({
           tenantId,
           type: "new_lead",
+          audience: "admin",
           title: `Nuevo lead: ${data.empresa}`,
-          message: `${data.nombre} ${data.apellido} de ${data.empresa} solicita cotización de ${
+          body: `${data.nombre} ${data.apellido} · ${SERVICIO_LABELS[data.servicio] || data.servicio}${dotacionInfo}`,
+          emailBody: `${data.nombre} ${data.apellido} de ${data.empresa} solicita cotización de ${
             data.servicio === "guardias_seguridad"
               ? `guardias de seguridad (${totalGuards} guardias)`
               : data.servicio
           }`,
+          link: `/crm/leads/${lead.id}`,
           data: { leadId: lead.id, email: data.email, company: data.empresa },
-          link: "/crm/leads",
         });
       } catch (e) {
         console.warn("Lead: failed to create notification", e);

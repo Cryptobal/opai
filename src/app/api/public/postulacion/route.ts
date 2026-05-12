@@ -303,12 +303,13 @@ export async function POST(request: NextRequest) {
     if (createdGuardia) {
       try {
         const fullName = `${body.firstName} ${body.lastName}`.trim();
-        const { sendNotification } = await import("@/lib/notification-service");
-        await sendNotification({
+        const { notify } = await import("@/lib/notifications/notify");
+        await notify({
           tenantId,
           type: "new_postulacion",
+          audience: "admin",
           title: `Nueva postulación: ${fullName}`,
-          message: `${fullName} envió el formulario de postulación (${body.documents.length} documento(s)).`,
+          body: `${fullName} envió el formulario de postulación (${body.documents.length} documento(s)).`,
           link: `/personas/guardias/${createdGuardia.id}`,
           data: {
             guardiaId: createdGuardia.id,
