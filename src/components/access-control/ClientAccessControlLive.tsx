@@ -103,7 +103,7 @@ export function ClientAccessControlLive({ installationId }: Props) {
         >
           <option value="">Todos</option>
           {(Object.keys(RECORD_TYPE_CONFIG) as AccessRecordType[]).map((t) => (
-            <option key={t} value={t}>{RECORD_TYPE_CONFIG[t].label}</option>
+            <option key={t} value={t}>{RECORD_TYPE_CONFIG[t]?.label ?? t}</option>
           ))}
         </select>
         <button onClick={fetchLive} className="text-zinc-500 hover:text-zinc-300 p-2">
@@ -124,7 +124,7 @@ export function ClientAccessControlLive({ installationId }: Props) {
         <div className="space-y-2">
           {records.map((r) => {
             const elapsed = elapsedMinutes(r.entryAt);
-            const tc = RECORD_TYPE_CONFIG[r.recordType];
+            const tc = RECORD_TYPE_CONFIG[r.recordType] ?? { label: r.recordType, icon: "UserPlus", color: "blue" };
             return (
               <div
                 key={r.id}

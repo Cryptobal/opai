@@ -167,7 +167,7 @@ export default function RegistroTab({
           </p>
           <div className="flex flex-wrap gap-2">
             {enabledTypes.map((type) => {
-              const tc = RECORD_TYPE_CONFIG[type];
+              const tc = RECORD_TYPE_CONFIG[type] ?? { label: type, icon: "UserPlus", color: "blue" };
               return (
                 <Badge
                   key={type}

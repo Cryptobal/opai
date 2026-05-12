@@ -147,7 +147,7 @@ export function InSiteList({ installationId, guardId, maxStayHours, onExitRegist
           {records.map((record) => {
             const elapsed = elapsedMinutes(record.entryAt);
             const color = stayDurationColor(elapsed, maxStayHours);
-            const tc = RECORD_TYPE_CONFIG[record.recordType];
+            const tc = RECORD_TYPE_CONFIG[record.recordType] ?? { label: record.recordType, icon: "UserPlus", color: "blue" };
 
             return (
               <div

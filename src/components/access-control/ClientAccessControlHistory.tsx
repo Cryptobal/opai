@@ -121,7 +121,7 @@ export function ClientAccessControlHistory({ installationId }: Props) {
         >
           <option value="">Todos</option>
           {(Object.keys(RECORD_TYPE_CONFIG) as AccessRecordType[]).map((t) => (
-            <option key={t} value={t}>{RECORD_TYPE_CONFIG[t].label}</option>
+            <option key={t} value={t}>{RECORD_TYPE_CONFIG[t]?.label ?? t}</option>
           ))}
         </select>
         <Button variant="outline" size="sm" onClick={handleExport}>

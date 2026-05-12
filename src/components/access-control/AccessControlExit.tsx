@@ -126,7 +126,7 @@ export function AccessControlExit({ installationId, guardId, onClose }: Props) {
           <div className="space-y-2">
             {records.map((record) => {
               const elapsed = elapsedMinutes(record.entryAt);
-              const tc = RECORD_TYPE_CONFIG[record.recordType];
+              const tc = RECORD_TYPE_CONFIG[record.recordType] ?? { label: record.recordType, icon: "UserPlus", color: "blue" };
 
               return (
                 <div

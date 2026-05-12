@@ -201,7 +201,7 @@ export function AccessControlGuardHome({
                 <p className="text-xs text-zinc-500 mb-2">Tipos de registro habilitados</p>
                 <div className="flex flex-wrap gap-2">
                   {config.enabledRecordTypes.map((type) => {
-                    const tc = RECORD_TYPE_CONFIG[type];
+                    const tc = RECORD_TYPE_CONFIG[type] ?? { label: type, icon: "UserPlus", color: "blue" };
                     return (
                       <Badge key={type} variant="outline" className="border-zinc-600 text-zinc-300">
                         {tc.label}

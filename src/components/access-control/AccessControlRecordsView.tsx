@@ -189,7 +189,7 @@ export function AccessControlRecordsView({ installationId }: Props) {
         >
           <option value="">Todos los tipos</option>
           {(Object.keys(RECORD_TYPE_CONFIG) as AccessRecordType[]).map((t) => (
-            <option key={t} value={t}>{RECORD_TYPE_CONFIG[t].label}</option>
+            <option key={t} value={t}>{RECORD_TYPE_CONFIG[t]?.label ?? t}</option>
           ))}
         </select>
         <select

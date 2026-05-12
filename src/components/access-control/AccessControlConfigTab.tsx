@@ -22,11 +22,13 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import type {
   AccessRecordType, AccessControlFormConfig, FormFieldConfig, AutoReportSchedule,
+  CustomRecordType,
 } from "@/lib/access-control/types";
 import {
-  RECORD_TYPE_CONFIG, DEFAULT_FORM_FIELDS,
+  RECORD_TYPE_CONFIG, DEFAULT_FORM_FIELDS, DEFAULT_RECORD_TYPE_IDS,
   AVAILABLE_RECORD_TYPE_ICONS,
   getRecordTypeLabel, getRecordTypeIconName,
+  isDefaultRecordType,
 } from "@/lib/access-control/types";
 import { getLucideIconByName } from "@/lib/access-control/record-type-icon";
 
@@ -53,8 +55,9 @@ interface ConfigState {
   maxStayHours: number | null;
   autoReportSchedule: AutoReportSchedule | null;
   formConfig: AccessControlFormConfig;
-  recordTypeLabels: Partial<Record<AccessRecordType, string>>;
-  recordTypeIcons: Partial<Record<AccessRecordType, string>>;
+  recordTypeLabels: Partial<Record<string, string>>;
+  recordTypeIcons: Partial<Record<string, string>>;
+  customRecordTypes: CustomRecordType[];
 }
 
 export function AccessControlConfigTab({ installationId }: Props) {
@@ -78,7 +81,14 @@ export function AccessControlConfigTab({ installationId }: Props) {
     formConfig: {},
     recordTypeLabels: {},
     recordTypeIcons: {},
+    customRecordTypes: [],
   });
+
+  // New-type modal state
+  const [showCreateTypeModal, setShowCreateTypeModal] = useState(false);
+  const [creatingType, setCreatingType] = useState(false);
+  const [newTypeLabel, setNewTypeLabel] = useState("");
+  const [newTypeIcon, setNewTypeIcon] = useState("UserPlus");
 
   // Inline label editing for record types: stores the type whose label is
   // being edited, and the draft text. null means "not editing".
@@ -104,6 +114,7 @@ export function AccessControlConfigTab({ installationId }: Props) {
           formConfig: json.data.formConfig || {},
           recordTypeLabels: json.data.recordTypeLabels || {},
           recordTypeIcons: json.data.recordTypeIcons || {},
+          customRecordTypes: json.data.customRecordTypes || [],
         });
       }
     } catch {
@@ -192,16 +203,45 @@ export function AccessControlConfigTab({ installationId }: Props) {
   const saveConfig = async () => {
     setSaving(true);
     try {
+      // The main config (everything except customRecordTypes — those are
+      // persisted via a separate endpoint per row). We do NOT send the
+      // customRecordTypes array on this request because the columns don't
+      // exist on AccessControlConfig.
+      const { customRecordTypes: _ignored, ...rest } = config;
+      void _ignored;
       const res = await fetch(`/api/access-control/config/${installationId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(config),
+        body: JSON.stringify(rest),
       });
       const json = await res.json();
-      if (json.success) {
-        toast.success("Configuración guardada");
-      } else {
+      if (!json.success) {
         toast.error(json.error || "Error al guardar");
+        return;
+      }
+
+      // Persist edits to custom types (label/icon/defaultFields) and the
+      // current form fields, which the user edits inline. Done in
+      // parallel; failures are reported but don't undo the main save.
+      const customSaves = config.customRecordTypes.map((c) =>
+        fetch(`/api/access-control/record-types/${installationId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: c.id,
+            label: c.label,
+            icon: c.icon,
+            defaultFields: c.defaultFields,
+            orderIdx: c.orderIdx,
+          }),
+        }).then((r) => r.json()),
+      );
+      const results = await Promise.all(customSaves);
+      const failed = results.filter((r) => !r.success).length;
+      if (failed > 0) {
+        toast.error(`No se pudieron guardar ${failed} tipo(s) personalizado(s)`);
+      } else {
+        toast.success("Configuración guardada");
       }
     } catch {
       toast.error("Error al guardar configuración");
@@ -240,8 +280,24 @@ export function AccessControlConfigTab({ installationId }: Props) {
   };
 
   const getFormFields = (type: AccessRecordType): FormFieldConfig[] => {
-    return (config.formConfig as Record<string, FormFieldConfig[]>)[type] || DEFAULT_FORM_FIELDS[type] || [];
+    const fromConfig = (config.formConfig as Record<string, FormFieldConfig[] | undefined>)[type];
+    if (fromConfig) return fromConfig;
+    // Defaults: built-ins from constants, custom types from their seed
+    if (isDefaultRecordType(type)) return DEFAULT_FORM_FIELDS[type] ?? [];
+    const custom = config.customRecordTypes.find((c) => c.key === type);
+    return custom?.defaultFields ?? [];
   };
+
+  /** All record type ids known to this installation, in display order:
+   *  the 5 defaults first, then active custom types ordered by `orderIdx`.
+   *  Used by the type grid and the form builder. */
+  const allKnownTypes = [
+    ...(DEFAULT_RECORD_TYPE_IDS as readonly string[]),
+    ...config.customRecordTypes
+      .filter((c) => c.isActive)
+      .sort((a, b) => a.orderIdx - b.orderIdx)
+      .map((c) => c.key),
+  ];
 
   const updateFormFields = (type: AccessRecordType, fields: FormFieldConfig[]) => {
     setConfig((prev) => ({
@@ -284,15 +340,28 @@ export function AccessControlConfigTab({ installationId }: Props) {
   const commitEditingLabel = () => {
     if (!editingLabelFor) return;
     const trimmed = editingLabelDraft.trim();
-    const fallback = RECORD_TYPE_CONFIG[editingLabelFor]?.label ?? "";
+    const editingKey = editingLabelFor;
     setConfig((prev) => {
-      const nextLabels = { ...prev.recordTypeLabels };
-      // Empty / equal to default → remove override so future default changes
+      // For custom types, mutate the entry in customRecordTypes — there's
+      // no fallback. Empty label is rejected silently.
+      if (!isDefaultRecordType(editingKey)) {
+        if (!trimmed) return prev;
+        return {
+          ...prev,
+          customRecordTypes: prev.customRecordTypes.map((c) =>
+            c.key === editingKey ? { ...c, label: trimmed } : c,
+          ),
+        };
+      }
+      // Defaults use the recordTypeLabels override map. Empty / equal to
+      // the built-in label → remove override so future default changes
       // propagate. Non-empty + different → store override.
+      const fallback = RECORD_TYPE_CONFIG[editingKey]?.label ?? "";
+      const nextLabels = { ...prev.recordTypeLabels };
       if (!trimmed || trimmed === fallback) {
-        delete nextLabels[editingLabelFor];
+        delete nextLabels[editingKey];
       } else {
-        nextLabels[editingLabelFor] = trimmed;
+        nextLabels[editingKey] = trimmed;
       }
       return { ...prev, recordTypeLabels: nextLabels };
     });
@@ -306,8 +375,17 @@ export function AccessControlConfigTab({ installationId }: Props) {
   };
 
   const setRecordTypeIcon = (type: AccessRecordType, iconName: string) => {
-    const fallback = RECORD_TYPE_CONFIG[type]?.icon ?? "";
     setConfig((prev) => {
+      // Custom types store their icon directly on the row.
+      if (!isDefaultRecordType(type)) {
+        return {
+          ...prev,
+          customRecordTypes: prev.customRecordTypes.map((c) =>
+            c.key === type ? { ...c, icon: iconName } : c,
+          ),
+        };
+      }
+      const fallback = RECORD_TYPE_CONFIG[type]?.icon ?? "";
       const nextIcons = { ...prev.recordTypeIcons };
       if (!iconName || iconName === fallback) {
         delete nextIcons[type];
@@ -317,6 +395,85 @@ export function AccessControlConfigTab({ installationId }: Props) {
       return { ...prev, recordTypeIcons: nextIcons };
     });
     setIconPickerFor(null);
+  };
+
+  // ── Custom record type CRUD ─────────────────────────────────────────
+
+  /** Create a new custom record type. Persisted immediately because it
+   *  produces a server-generated `key` that the UI then needs. */
+  const handleCreateCustomType = async () => {
+    const trimmed = newTypeLabel.trim();
+    if (!trimmed) {
+      toast.error("Escribe un nombre para el tipo");
+      return;
+    }
+    setCreatingType(true);
+    try {
+      // Seed with two sensible fields so the portal form isn't empty
+      // for the very first entry. The admin can edit/remove these on
+      // the spot via the same UI used for built-in types.
+      const seedFields: FormFieldConfig[] = [
+        { field: "full_name", label: "Nombre", type: "text", required: true, order: 1 },
+        { field: "observations", label: "Observaciones", type: "textarea", required: false, order: 2 },
+      ];
+      const res = await fetch(`/api/access-control/record-types/${installationId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label: trimmed, icon: newTypeIcon, defaultFields: seedFields }),
+      });
+      const json = await res.json();
+      if (!json.success) {
+        toast.error(json.error || "Error al crear tipo");
+        return;
+      }
+      // Refetch so we pick up the new key/order assigned by the server.
+      await fetchConfig();
+      // Enable the new type by default so it shows up in the portal
+      // immediately. Persisted on next "Guardar" click.
+      setConfig((prev) => ({
+        ...prev,
+        enabledRecordTypes: prev.enabledRecordTypes.includes(json.data.key)
+          ? prev.enabledRecordTypes
+          : [...prev.enabledRecordTypes, json.data.key],
+      }));
+      setNewTypeLabel("");
+      setNewTypeIcon("UserPlus");
+      setShowCreateTypeModal(false);
+      toast.success("Tipo creado");
+    } catch {
+      toast.error("Error al crear tipo");
+    } finally {
+      setCreatingType(false);
+    }
+  };
+
+  /** Soft-delete a custom record type. Historical records keep their
+   *  recordType key — the type just stops appearing in the picker. */
+  const handleDeleteCustomType = async (type: CustomRecordType) => {
+    if (!confirm(`¿Eliminar el tipo "${type.label}"? Los registros históricos se conservan.`)) {
+      return;
+    }
+    try {
+      const res = await fetch(`/api/access-control/record-types/${installationId}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: type.id }),
+      });
+      const json = await res.json();
+      if (!json.success) {
+        toast.error(json.error || "Error al eliminar tipo");
+        return;
+      }
+      setConfig((prev) => ({
+        ...prev,
+        customRecordTypes: prev.customRecordTypes.filter((c) => c.id !== type.id),
+        enabledRecordTypes: prev.enabledRecordTypes.filter((t) => t !== type.key),
+      }));
+      if (expandedType === type.key) setExpandedType(null);
+      toast.success("Tipo eliminado");
+    } catch {
+      toast.error("Error al eliminar tipo");
+    }
   };
 
   // ── Drag & drop reorder ─────────────────────────────────────────────
@@ -364,11 +521,22 @@ export function AccessControlConfigTab({ installationId }: Props) {
 
       {/* Record Types */}
       <div className="rounded-lg border border-zinc-700 bg-zinc-900 p-4">
-        <h4 className="mb-3 text-sm font-medium text-zinc-300">Tipos de Registro Habilitados</h4>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-          {(Object.keys(RECORD_TYPE_CONFIG) as AccessRecordType[]).map((type) => {
+        <div className="mb-3 flex items-center justify-between">
+          <h4 className="text-sm font-medium text-zinc-300">Tipos de Registro Habilitados</h4>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => setShowCreateTypeModal(true)}
+          >
+            <Plus className="mr-1 h-3.5 w-3.5" /> Nuevo tipo
+          </Button>
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-5">
+          {allKnownTypes.map((type) => {
             const enabled = config.enabledRecordTypes.includes(type);
             const Icon = getLucideIconByName(getRecordTypeIconName(type, config));
+            const isCustom = !isDefaultRecordType(type);
             return (
               <button
                 key={type}
@@ -381,6 +549,11 @@ export function AccessControlConfigTab({ installationId }: Props) {
               >
                 <Icon className="h-5 w-5" />
                 <span className="text-xs font-medium">{getRecordTypeLabel(type, config)}</span>
+                {isCustom && (
+                  <span className="text-[9px] uppercase tracking-wider text-zinc-500">
+                    Personalizado
+                  </span>
+                )}
               </button>
             );
           })}
@@ -625,17 +798,32 @@ export function AccessControlConfigTab({ installationId }: Props) {
                     </div>
 
                     {!isEditingLabel && (
-                      <button
-                        type="button"
-                        onClick={() => setExpandedType(isExpanded ? null : type)}
-                        className="rounded-md p-1 text-zinc-400 hover:bg-zinc-700"
-                      >
-                        {isExpanded ? (
-                          <ChevronUp className="h-4 w-4" />
-                        ) : (
-                          <ChevronDown className="h-4 w-4" />
+                      <div className="flex items-center gap-1">
+                        {!isDefaultRecordType(type) && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const custom = config.customRecordTypes.find((c) => c.key === type);
+                              if (custom) handleDeleteCustomType(custom);
+                            }}
+                            className="rounded-md p-1 text-zinc-400 hover:bg-zinc-700 hover:text-status-danger-fg"
+                            title="Eliminar tipo personalizado"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
                         )}
-                      </button>
+                        <button
+                          type="button"
+                          onClick={() => setExpandedType(isExpanded ? null : type)}
+                          className="rounded-md p-1 text-zinc-400 hover:bg-zinc-700"
+                        >
+                          {isExpanded ? (
+                            <ChevronUp className="h-4 w-4" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4" />
+                          )}
+                        </button>
+                      </div>
                     )}
                   </div>
 
@@ -704,6 +892,103 @@ export function AccessControlConfigTab({ installationId }: Props) {
                 </div>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {/* New custom type modal */}
+      {showCreateTypeModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+          onClick={() => !creatingType && setShowCreateTypeModal(false)}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl border border-zinc-700 bg-zinc-900 p-5 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-semibold text-zinc-100">Nuevo tipo de registro</h3>
+              <button
+                type="button"
+                onClick={() => setShowCreateTypeModal(false)}
+                disabled={creatingType}
+                className="rounded-md p-1 text-zinc-400 hover:bg-zinc-800 disabled:opacity-50"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <Label className="text-xs text-zinc-400 mb-1.5 block">Nombre</Label>
+                <Input
+                  value={newTypeLabel}
+                  onChange={(e) => setNewTypeLabel(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !creatingType) handleCreateCustomType();
+                  }}
+                  autoFocus
+                  placeholder='Ej: "Contratista", "Camión externo"'
+                  className="bg-zinc-800 border-zinc-700"
+                  maxLength={50}
+                />
+              </div>
+
+              <div>
+                <Label className="text-xs text-zinc-400 mb-1.5 block">Icono</Label>
+                <div className="grid grid-cols-6 gap-2">
+                  {AVAILABLE_RECORD_TYPE_ICONS.map((iconName) => {
+                    const Icon = getLucideIconByName(iconName);
+                    const isSelected = newTypeIcon === iconName;
+                    return (
+                      <button
+                        key={iconName}
+                        type="button"
+                        onClick={() => setNewTypeIcon(iconName)}
+                        className={`flex items-center justify-center rounded-md border p-2 transition-colors ${
+                          isSelected
+                            ? "border-status-info-border bg-status-info-soft text-status-info-fg"
+                            : "border-zinc-700 bg-zinc-800 text-zinc-300 hover:border-zinc-600"
+                        }`}
+                        title={iconName}
+                      >
+                        <Icon className="h-5 w-5" />
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <p className="text-xs text-zinc-500">
+                Se creará con 2 campos por defecto (Nombre, Observaciones). Puedes
+                editarlos o agregar otros después.
+              </p>
+
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowCreateTypeModal(false)}
+                  disabled={creatingType}
+                  className="flex-1"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleCreateCustomType}
+                  disabled={creatingType || !newTypeLabel.trim()}
+                  className="flex-1"
+                >
+                  {creatingType ? (
+                    <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Plus className="mr-1 h-4 w-4" />
+                  )}
+                  Crear
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       )}
