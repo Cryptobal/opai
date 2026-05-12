@@ -48,7 +48,8 @@ function formatDigitsWithDots(digits: string): string {
 }
 
 /**
- * Construye el `OR` del where para búsqueda en `description` y `reference`.
+ * Construye el `OR` del where para búsqueda en `description`, `reference`
+ * y `amount`.
  *
  * Caso especial RUT chileno: el banco a veces emite el RUT con puntos y a
  * veces sin. Si el input parece un RUT (solo dígitos, opcional dígito
@@ -56,25 +57,55 @@ function formatDigitsWithDots(digits: string): string {
  * (con/sin puntos, con/sin guion, con/sin DV) y matcheamos cualquiera. Así
  * el usuario puede escribir solo los dígitos y encontrar descripciones que
  * traen el RUT formateado con puntos y guion.
+ *
+ * Caso especial monto: si el input es solo dígitos (sin puntos, sin guion),
+ * también buscamos por `amount` exacto para que el usuario pueda buscar
+ * "339960" y encontrar el movimiento.
  */
 function buildSearchOr(search: string) {
   const trimmed = search.trim();
+
+  // Monto puro: solo dígitos (sin separadores de RUT). Ej: "339960".
+  // También soporta monto con puntos de miles estilo chileno: "339.960".
+  const cleanedNumeric = trimmed.replace(/\./g, "").replace(/,/g, "");
+  const looksLikeAmount =
+    /^\d+$/.test(cleanedNumeric) &&
+    cleanedNumeric.length >= 3 &&
+    cleanedNumeric.length <= 12;
+
   // Detección de RUT: solo dígitos, puntos, guion, y opcional K final.
   const looksLikeRut = /^[\d.\-kK]+$/.test(trimmed) && /\d{4,9}/.test(trimmed);
+
   if (!looksLikeRut) {
-    return [
+    const or: Array<Record<string, unknown>> = [
       { description: { contains: trimmed, mode: "insensitive" as const } },
       { reference: { contains: trimmed, mode: "insensitive" as const } },
     ];
+    if (looksLikeAmount) {
+      const num = parseFloat(cleanedNumeric);
+      if (!isNaN(num)) {
+        or.push({ amount: num });
+        or.push({ amount: -num });
+      }
+    }
+    return or;
   }
 
   const cleaned = trimmed.replace(/[.\-]/g, "");
   const dvMatch = cleaned.match(/^(\d{4,9})([kK])?$/);
   if (!dvMatch) {
-    return [
+    const or: Array<Record<string, unknown>> = [
       { description: { contains: trimmed, mode: "insensitive" as const } },
       { reference: { contains: trimmed, mode: "insensitive" as const } },
     ];
+    if (looksLikeAmount) {
+      const num = parseFloat(cleanedNumeric);
+      if (!isNaN(num)) {
+        or.push({ amount: num });
+        or.push({ amount: -num });
+      }
+    }
+    return or;
   }
   const digits = dvMatch[1];
   const dv = dvMatch[2]?.toUpperCase() ?? null;
@@ -91,13 +122,18 @@ function buildSearchOr(search: string) {
     variants.add(`${digits}${dv}`);
   }
 
-  const or: Array<
-    | { description: { contains: string; mode: "insensitive" } }
-    | { reference: { contains: string; mode: "insensitive" } }
-  > = [];
+  const or: Array<Record<string, unknown>> = [];
   for (const v of variants) {
     or.push({ description: { contains: v, mode: "insensitive" as const } });
     or.push({ reference: { contains: v, mode: "insensitive" as const } });
+  }
+  // También buscar por monto si los dígitos del RUT coinciden numéricamente.
+  if (looksLikeAmount) {
+    const num = parseFloat(cleanedNumeric);
+    if (!isNaN(num)) {
+      or.push({ amount: num });
+      or.push({ amount: -num });
+    }
   }
   return or;
 }

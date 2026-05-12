@@ -330,7 +330,78 @@ export async function listTransactionLinks(
     },
     orderBy: { createdAt: "asc" },
   });
-  if (rows.length === 0) return [];
+
+  // Retrocompatibilidad: movimientos auto-conciliados antes del fix 2026-05
+  // tienen reconciliationStatus=MATCHED pero sin FinanceBankTransactionLink.
+  // En ese caso sintetizamos links a partir del FinancePaymentRecord + allocations
+  // para que el drawer muestre el modo "view" correctamente.
+  if (rows.length === 0) {
+    const bankTx = await prisma.financeBankTransaction.findFirst({
+      where: { id: bankTxId, tenantId },
+      select: { reconciliationStatus: true, amount: true },
+    });
+    if (
+      bankTx?.reconciliationStatus === "MATCHED" ||
+      bankTx?.reconciliationStatus === "RECONCILED"
+    ) {
+      const payments = await prisma.financePaymentRecord.findMany({
+        where: { tenantId, bankTransactionId: bankTxId },
+        include: {
+          allocations: {
+            include: {
+              dte: {
+                select: {
+                  id: true,
+                  direction: true,
+                  code: true,
+                  folio: true,
+                  issuerName: true,
+                  receiverName: true,
+                  paymentStatus: true,
+                  totalAmount: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 5,
+      });
+      const isIncome = (bankTx.amount?.toNumber() ?? 0) > 0;
+      const synthetic: EnrichedTransactionLink[] = [];
+      for (const pay of payments) {
+        for (const alloc of pay.allocations) {
+          const d = alloc.dte;
+          if (!d) continue;
+          const counterparty =
+            d.direction === "ISSUED"
+              ? d.receiverName ?? ""
+              : d.issuerName ?? "";
+          synthetic.push({
+            id: alloc.id,
+            targetType: isIncome ? "DTE_ISSUED" : "DTE_RECEIVED",
+            targetId: d.id,
+            amount: alloc.amount.toNumber(),
+            note: "Auto-match (vínculo sintetizado de registro de pago)",
+            accountPlan: null,
+            entityLabel: `${d.code} ${d.folio} · ${counterparty}`.trim(),
+            dte: {
+              id: d.id,
+              direction: d.direction as "ISSUED" | "RECEIVED",
+              documentType: d.code,
+              folio: d.folio,
+              counterpartyName: counterparty,
+              paymentStatus: d.paymentStatus,
+              totalAmount: d.totalAmount.toNumber(),
+            },
+            factoring: null,
+          });
+        }
+      }
+      if (synthetic.length > 0) return synthetic;
+    }
+    return [];
+  }
 
   // Recolectamos los IDs de DTE y factoring para 2 queries batched, en
   // vez de N+1 por link.

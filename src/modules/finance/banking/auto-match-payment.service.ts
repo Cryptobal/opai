@@ -271,6 +271,9 @@ export async function tryAutoMatchBankTransactionToDte(
         currency: "CLP",
         paymentMethod: "TRANSFER",
         bankAccountId: bankTx.bankAccountId,
+        // Vincula el payment record a la bank tx para que GET /links
+        // pueda encontrarlo y el sheet muestre "Ver recibo".
+        bankTransactionId: bankTx.id,
         transferReference: bankTx.reference ?? null,
         notes:
           matchType === "STRICT"
@@ -300,6 +303,25 @@ export async function tryAutoMatchBankTransactionToDte(
         amountPaid: new Decimal(newPaid),
         amountPending: new Decimal(newPending),
         paymentStatus: newPaid >= total ? "PAID" : "PARTIAL",
+      },
+    });
+
+    // Crear FinanceBankTransactionLink para que el drawer de conciliación
+    // pueda mostrar el modo "view" (resumen read-only) en vez de "create".
+    // Sin este registro el sheet no sabe qué DTE pagó este movimiento.
+    await tx.financeBankTransactionLink.create({
+      data: {
+        tenantId,
+        bankTransactionId: bankTx.id,
+        targetType: isIncome ? "DTE_ISSUED" : "DTE_RECEIVED",
+        targetId: chosen.id,
+        amount: new Decimal(amountAbs),
+        accountPlanId: null,
+        note:
+          matchType === "STRICT"
+            ? "Auto-match por RUT + monto exacto"
+            : "Auto-match por monto único",
+        createdById: userId,
       },
     });
 

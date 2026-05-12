@@ -2020,6 +2020,42 @@ function ReceivedDteDetailDialog({
             </div>
           </div>
 
+          {/* Movimiento bancario conciliado — solo visible cuando hay lastReconciliation */}
+          {dte.lastReconciliation?.bankTransactionId && (
+            <div className="rounded-md border border-status-ok-border bg-status-ok-soft p-4 space-y-2">
+              <p className="text-xs uppercase tracking-wide text-status-ok-fg font-medium">
+                Movimiento bancario conciliado
+              </p>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                {dte.lastReconciliation.bankTransactionDate && (
+                  <div>
+                    <p className="text-xs text-status-ok-fg/70 mb-0.5">Fecha</p>
+                    <p className="font-mono font-medium text-status-ok-fg">
+                      {format(
+                        new Date(dte.lastReconciliation.bankTransactionDate),
+                        "dd MMM yyyy",
+                        { locale: es },
+                      )}
+                    </p>
+                  </div>
+                )}
+                {dte.lastReconciliation.bankTransactionReference && (
+                  <div>
+                    <p className="text-xs text-status-ok-fg/70 mb-0.5">Referencia</p>
+                    <p className="font-mono text-[12px] text-status-ok-fg truncate">
+                      {dte.lastReconciliation.bankTransactionReference}
+                    </p>
+                  </div>
+                )}
+              </div>
+              {dte.lastReconciliation.bankTransactionDescription && (
+                <p className="text-[13px] text-status-ok-fg/90 truncate">
+                  {dte.lastReconciliation.bankTransactionDescription}
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="rounded-md border border-status-info-border bg-status-info-soft p-3 text-xs text-status-info-fg">
             <p className="font-medium mb-1">Nota sobre el documento original</p>
             <p>

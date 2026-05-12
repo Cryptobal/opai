@@ -215,21 +215,21 @@ export function CostCenterEditor({
   }
 
   // Visualización del badge actual (con o sin asignación).
-  // Con asignación: chip relleno con icono (Building) + instalación (MapPin).
-  // Sin asignación: chip "+ Asignar" con borde dasheado para que sea visible
-  // incluso en dark mode (antes era italic transparente y desaparecía).
-  const display = currentAccountName ? (
+  // Usa el estado interno (selectedAccountName/selectedInstallationName) en vez
+  // de los props para que la UI refleje el cambio inmediatamente después de
+  // guardar, sin esperar a que el padre refresque su estado.
+  const display = selectedAccountName ? (
     <div className="flex items-center gap-1.5 min-w-0">
       <Building className="h-3.5 w-3.5 shrink-0 text-status-info-fg" />
       <span className="truncate text-[13px] font-medium text-ds-text-1">
-        {currentAccountName}
+        {selectedAccountName}
       </span>
-      {currentInstallationName && (
+      {selectedInstallationName && (
         <>
           <span className="text-ds-text-3 shrink-0">·</span>
           <MapPin className="h-3.5 w-3.5 shrink-0 text-ds-text-3" />
           <span className="truncate text-[13px] text-ds-text-2">
-            {currentInstallationName}
+            {selectedInstallationName}
           </span>
         </>
       )}
@@ -244,7 +244,7 @@ export function CostCenterEditor({
   if (!canEdit) {
     // Read-only: si no hay asignación, mostrar "Sin asignar" en estado neutral
     // (sin CTA porque el usuario no puede editar).
-    if (!currentAccountName) {
+    if (!selectedAccountName) {
       return (
         <div className="px-2 py-1.5 text-[12px] text-ds-text-3">Sin asignar</div>
       );
@@ -255,7 +255,7 @@ export function CostCenterEditor({
   // Editable: el botón cambia visualmente según haya asignación o no.
   // Sin asignación: borde dasheado + hover suave → señaliza CTA.
   // Con asignación: chip lleno con hover sutil → señaliza editable.
-  const triggerClass = currentAccountName
+  const triggerClass = selectedAccountName
     ? "flex items-center gap-1 text-left rounded-md px-2.5 py-1.5 hover:bg-muted/50 transition-colors max-w-full w-full border border-transparent"
     : "flex items-center gap-1 text-left rounded-md px-2.5 py-1.5 hover:bg-status-info-soft/40 hover:text-status-info-fg transition-colors max-w-full w-full border border-dashed border-ds-border-default";
 
@@ -281,7 +281,7 @@ export function CostCenterEditor({
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <p className="text-sm font-medium">Cliente / Instalación</p>
-            {(currentAccountId || currentInstallationId) && (
+            {(selectedAccountId || selectedInstallationId) && (
               <Button
                 variant="ghost"
                 size="sm"
