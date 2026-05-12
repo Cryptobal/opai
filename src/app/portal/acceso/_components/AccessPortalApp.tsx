@@ -203,27 +203,49 @@ export function AccessPortalApp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Fetch config when device is set ────────────────────────────────
+  // ── Fetch config when device is set, plus revalidate on foreground
+  // and via a slow poll so admin changes propagate without re-pairing
+  // (~60s worst-case latency, instant when the guard returns to the tab).
   useEffect(() => {
     if (!device?.installationId) return;
+
+    const installationId = device.installationId;
+    const deviceToken = device.deviceToken;
+    let cancelled = false;
 
     async function fetchConfig() {
       try {
         const headers: Record<string, string> = {};
-        if (device!.deviceToken) {
-          headers.Authorization = `Bearer ${device!.deviceToken}`;
-        }
+        if (deviceToken) headers.Authorization = `Bearer ${deviceToken}`;
         const res = await fetch(
-          `/api/access-control/config/${device!.installationId}`,
-          { headers }
+          `/api/access-control/config/${installationId}`,
+          { headers, cache: "no-store" },
         );
         const json = await res.json();
-        if (json.success) setConfig(json.data);
+        if (!cancelled && json.success) setConfig(json.data);
       } catch {
-        // Will use default config
+        // Will use default config / keep previous on error
       }
     }
+
     fetchConfig();
+
+    // Refresh whenever the tab becomes visible again. Cheap and gives
+    // near-instant updates when a guard switches back from another app.
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") fetchConfig();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    // Slow background poll as a safety net for guards who keep the
+    // portal open continuously.
+    const intervalId = window.setInterval(fetchConfig, 60_000);
+
+    return () => {
+      cancelled = true;
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.clearInterval(intervalId);
+    };
   }, [device]);
 
   // ── Online/offline detection ───────────────────────────────────────
