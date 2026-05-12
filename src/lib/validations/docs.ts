@@ -240,6 +240,22 @@ export const uploadContractSchema = z
         return Boolean(v);
       }, z.boolean())
       .default(false),
+    // Flujo "ingreso al flujo de caja sin contrato firmado todavía".
+    // Crea el Document con pdfUrl=null y status="pending_signature".
+    // Implica addToCashflow=true (la única razón de no subir PDF es
+    // justamente proyectar el ingreso). Se valida en superRefine.
+    pendingSignature: z
+      .preprocess((v) => {
+        if (typeof v === "boolean") return v;
+        if (typeof v === "string") {
+          const s = v.trim().toLowerCase();
+          if (s === "true" || s === "1" || s === "on" || s === "yes") return true;
+          if (s === "false" || s === "0" || s === "" || s === "off" || s === "no")
+            return false;
+        }
+        return Boolean(v);
+      }, z.boolean())
+      .default(false),
     monthlyAmountClp: z.coerce.number().positive().optional().nullable(),
     /// "CLP" (default) o "UF". Si UF, el monto se persiste tal cual y la
     /// proyección lo convierte a CLP con la UF del día de pago.
@@ -263,6 +279,16 @@ export const uploadContractSchema = z
         code: z.ZodIssueCode.custom,
         path: ["signedAt"],
         message: "Si fue firmado externamente, indica la fecha de firma",
+      });
+    }
+    // Si es un contrato pendiente de firma, el único motivo para crearlo
+    // sin PDF es proyectar el ingreso — forzamos addToCashflow.
+    if (val.pendingSignature && !val.addToCashflow) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["addToCashflow"],
+        message:
+          "Un contrato pendiente de firma debe quedar agregado al flujo de caja",
       });
     }
     if (val.addToCashflow) {
