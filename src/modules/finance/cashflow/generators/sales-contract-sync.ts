@@ -75,6 +75,23 @@ export async function setContractItemsActive(
  * con un monto que era CLP (bug Santa Hilda), el usuario lo corrige
  * manualmente abriendo el dialog.
  */
+/**
+ * Borra definitivamente todos los `FinanceCashflowItem` con `source="CONTRACT"`
+ * del tenant. Útil para limpiar registros legacy que quedaron después de
+ * migrar a contratos 100% manuales (2026-05-11). Idempotente.
+ *
+ * Las `FinanceCashflowOccurrence` y `FinanceCashflowIpcAdjustment` asociadas
+ * caen por cascade (onDelete: Cascade en el schema).
+ */
+export async function deleteLegacyContractItems(
+  tenantId: string,
+): Promise<{ deleted: number }> {
+  const result = await prisma.financeCashflowItem.deleteMany({
+    where: { tenantId, source: "CONTRACT" },
+  });
+  return { deleted: result.count };
+}
+
 export async function migrateContractItemsToManual(tenantId: string): Promise<{
   migrated: number;
   withDocument: number;

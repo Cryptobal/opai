@@ -1,6 +1,6 @@
 "use client";
 import type React from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { ChevronDown, ChevronRight as ChevronRightIcon, Building2 } from "lucide-react";
 import type {
   ProjectionRow,
@@ -174,10 +174,10 @@ export function ExpandableMatrixRow({
 
       {expanded &&
         (() => {
-          // Agrupar items por cliente (crmAccountName) cuando un cliente tiene
-          // 2+ contratos en la misma categoría → sub-header con total. Si es 1
-          // solo, va directo sin sub-header. "Sin cliente" agrupa los items
-          // huérfanos (manual sin asociación a cuenta CRM).
+          // Agrupamos SIEMPRE por cliente (crmAccountName): cada cuenta CRM
+          // tiene su header con ícono de edificio y es colapsable. Items sin
+          // cuenta (huérfanos / manuales sin vincular) van planos en el grupo
+          // "—" sin sub-header.
           type Item = (typeof row.items)[number];
           const groups: Array<{ name: string; items: Item[] }> = [];
           const order: string[] = [];
@@ -195,7 +195,8 @@ export function ExpandableMatrixRow({
           }
           const out: React.ReactNode[] = [];
           for (const g of groups) {
-            if (g.items.length === 1 || g.name === "—") {
+            // "—" = items sin cuenta CRM: van directos sin sub-header.
+            if (g.name === "—") {
               for (const it of g.items) {
                 out.push(
                   <ItemDetailRow
@@ -210,7 +211,7 @@ export function ExpandableMatrixRow({
               }
               continue;
             }
-            // 2+ items del mismo cliente: sub-header con total agregado.
+            // Cuenta CRM (1+ contratos): sub-header colapsable con total agregado.
             const groupTotalsByBucket = new Map<string, number>();
             for (const it of g.items) {
               for (const v of it.values) {
@@ -222,28 +223,19 @@ export function ExpandableMatrixRow({
             }
             const groupTotal = g.items.reduce((s, it) => s + it.total, 0);
             out.push(
-              <ClientGroupHeaderRow
+              <ClientGroup
                 key={`grp-${row.categoryCode}-${g.name}`}
+                categoryCode={row.categoryCode}
                 name={g.name}
-                count={g.items.length}
+                items={g.items}
                 totalsByBucket={groupTotalsByBucket}
                 buckets={buckets}
                 grandTotal={groupTotal}
+                granularity={granularity}
+                kind={row.kind as "INCOME" | "EXPENSE"}
+                onActionDone={onActionDoneSafe}
               />,
             );
-            for (const it of g.items) {
-              out.push(
-                <ItemDetailRow
-                  key={it.itemId}
-                  item={it}
-                  buckets={buckets}
-                  granularity={granularity}
-                  kind={row.kind as "INCOME" | "EXPENSE"}
-                  onActionDone={onActionDoneSafe}
-                  inGroup
-                />,
-              );
-            }
           }
           return out;
         })()}
@@ -251,51 +243,137 @@ export function ExpandableMatrixRow({
   );
 }
 
+const GROUP_STORAGE_PREFIX = "cashflow.group.collapsed.";
+
+function isGroupCollapsed(categoryCode: string, name: string): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return (
+      window.localStorage.getItem(
+        `${GROUP_STORAGE_PREFIX}${categoryCode}.${name}`,
+      ) === "1"
+    );
+  } catch {
+    return false;
+  }
+}
+
+function setGroupCollapsed(
+  categoryCode: string,
+  name: string,
+  collapsed: boolean,
+) {
+  if (typeof window === "undefined") return;
+  try {
+    const key = `${GROUP_STORAGE_PREFIX}${categoryCode}.${name}`;
+    if (collapsed) {
+      window.localStorage.setItem(key, "1");
+    } else {
+      window.localStorage.removeItem(key);
+    }
+  } catch {
+    // ignore
+  }
+}
+
 /**
- * Sub-header de cliente cuando hay 2+ contratos del mismo cliente en una
- * categoría. Sticky-left con nombre + (N), una celda por bucket con el
- * total agregado del cliente en ese período, y total general a la derecha.
+ * Header colapsable + items de una cuenta CRM. Default expandido (muestra
+ * todas las instalaciones); el usuario puede colapsar y solo ve el header
+ * con el total agregado por bucket. Estado persiste en localStorage por
+ * (categoryCode, accountName).
  */
-function ClientGroupHeaderRow({
+function ClientGroup({
+  categoryCode,
   name,
-  count,
+  items,
   totalsByBucket,
   buckets,
   grandTotal,
+  granularity,
+  kind,
+  onActionDone,
 }: {
+  categoryCode: string;
   name: string;
-  count: number;
+  items: import("@/modules/finance/cashflow/types").ProjectionRowItemDetail[];
   totalsByBucket: Map<string, number>;
   buckets: ProjectionBucket[];
   grandTotal: number;
+  granularity: "weekly" | "monthly";
+  kind: "INCOME" | "EXPENSE";
+  onActionDone: () => void;
 }) {
+  const [collapsed, setCollapsed] = useState(false);
+
+  useEffect(() => {
+    setCollapsed(isGroupCollapsed(categoryCode, name));
+  }, [categoryCode, name]);
+
+  const toggle = useCallback(() => {
+    setCollapsed((prev) => {
+      const next = !prev;
+      setGroupCollapsed(categoryCode, name, next);
+      return next;
+    });
+  }, [categoryCode, name]);
+
+  const count = items.length;
+  const label = count === 1 ? "1 contrato" : `${count} contratos`;
+
   return (
-    <tr className="bg-primary/5 border-t-2 border-primary/30">
-      <td className="sticky left-0 z-20 bg-card p-2 truncate min-w-[140px] max-w-[160px] sm:min-w-[180px] sm:max-w-none border-r border-border/50">
-        <div className="flex items-center gap-1.5 pl-3">
-          <Building2 className="h-3.5 w-3.5 text-primary shrink-0" />
-          <span className="text-[12px] font-semibold text-ds-text-1 truncate" title={name}>
-            {name}
-          </span>
-          <span className="text-[10px] font-mono uppercase tracking-[0.06em] px-1.5 py-0.5 rounded-ds-sm bg-primary/15 text-primary shrink-0">
-            {count} contratos
-          </span>
-        </div>
-      </td>
-      {buckets.map((b) => {
-        const amount = totalsByBucket.get(b.key) ?? 0;
-        return (
-          <td
-            key={b.key}
-            className="p-2 text-right font-mono text-[12px] tabular-nums text-ds-text-2 whitespace-nowrap"
+    <>
+      <tr className="bg-primary/5 border-t-2 border-primary/30">
+        <td className="sticky left-0 z-20 bg-card p-2 truncate min-w-[140px] max-w-[160px] sm:min-w-[180px] sm:max-w-none border-r border-border/50">
+          <button
+            type="button"
+            onClick={toggle}
+            className="flex items-center gap-1.5 w-full text-left pl-3 min-h-[32px]"
+            title={collapsed ? "Expandir" : "Colapsar"}
           >
-            {amount > 0 ? fmt.format(amount) : "—"}
-          </td>
-        );
-      })}
-      <td className="sticky right-0 z-20 p-2 text-right font-mono text-[12px] font-semibold tabular-nums bg-card whitespace-nowrap border-l border-border/50">
-        {fmt.format(grandTotal)}
-      </td>
-    </tr>
+            {collapsed ? (
+              <ChevronRightIcon className="h-3.5 w-3.5 text-ds-text-3 shrink-0" />
+            ) : (
+              <ChevronDown className="h-3.5 w-3.5 text-ds-text-3 shrink-0" />
+            )}
+            <Building2 className="h-3.5 w-3.5 text-primary shrink-0" />
+            <span
+              className="text-[12px] font-semibold text-ds-text-1 truncate"
+              title={name}
+            >
+              {name}
+            </span>
+            <span className="text-[10px] font-mono uppercase tracking-[0.06em] px-1.5 py-0.5 rounded-ds-sm bg-primary/15 text-primary shrink-0">
+              {label}
+            </span>
+          </button>
+        </td>
+        {buckets.map((b) => {
+          const amount = totalsByBucket.get(b.key) ?? 0;
+          return (
+            <td
+              key={b.key}
+              className="p-2 text-right font-mono text-[12px] tabular-nums text-ds-text-2 whitespace-nowrap"
+            >
+              {amount > 0 ? fmt.format(amount) : "—"}
+            </td>
+          );
+        })}
+        <td className="sticky right-0 z-20 p-2 text-right font-mono text-[12px] font-semibold tabular-nums bg-card whitespace-nowrap border-l border-border/50">
+          {fmt.format(grandTotal)}
+        </td>
+      </tr>
+      {!collapsed &&
+        items.map((it) => (
+          <ItemDetailRow
+            key={it.itemId}
+            item={it}
+            buckets={buckets}
+            granularity={granularity}
+            kind={kind}
+            onActionDone={onActionDone}
+            inGroup
+          />
+        ))}
+    </>
   );
 }

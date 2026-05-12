@@ -142,7 +142,13 @@ export async function buildProjection(
     categories.map((c) => [c.code, c]),
   );
 
-  const items = await listItems(tenantId, { isActive: true });
+  // Excluimos source=CONTRACT: el pipeline auto-sync se eliminó el 2026-05-11
+  // y todo contrato ahora se agrega manualmente desde el tab CRM (source=OTHER).
+  // Cualquier registro legacy source=CONTRACT que quede en DB se ignora aquí
+  // como salvaguarda — además existe el endpoint /api/finance/cashflow/backfill/contracts
+  // que los borra definitivamente.
+  const allItems = await listItems(tenantId, { isActive: true });
+  const items = allItems.filter((i) => i.source !== "CONTRACT");
   // FinanceCashflowItem.installationId no tiene @relation, así que resolvemos
   // los nombres en un lookup batch por tenant. Pick mínimo para no traer overhead.
   const installationIds = Array.from(

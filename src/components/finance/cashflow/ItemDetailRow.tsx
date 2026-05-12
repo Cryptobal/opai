@@ -7,7 +7,6 @@ import type {
 } from "@/modules/finance/cashflow/types";
 import { CellAmount } from "./CellAmount";
 import { CellActionPopover } from "./CellActionPopover";
-import { DragHandle } from "./DragHandle";
 
 const fmt = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 });
 
@@ -88,18 +87,6 @@ function DroppableSubCell({
   );
 }
 
-function firstMovableValue(
-  item: ProjectionRowItemDetail,
-): { occurrenceId: string | null; scheduledDate: string } | null {
-  if (item.itemId === "_orphan") return null;
-  for (const v of item.values) {
-    if (v.amount > 0 || v.occurrenceId) {
-      return { occurrenceId: v.occurrenceId, scheduledDate: v.scheduledDate };
-    }
-  }
-  return null;
-}
-
 interface Props {
   item: ProjectionRowItemDetail;
   buckets: ProjectionBucket[];
@@ -141,19 +128,11 @@ export function ItemDetailRow({
     !inGroup &&
     item.crmAccountName &&
     !display.toLowerCase().includes(item.crmAccountName.toLowerCase());
-  const handleTarget = firstMovableValue(item);
 
   return (
     <tr className="bg-muted/10 hover:bg-muted/20 border-t border-border/50">
       <td className="sticky left-0 z-20 bg-card p-2 truncate min-w-[140px] max-w-[160px] sm:min-w-[180px] sm:max-w-none border-r border-border/50">
         <div className={`flex items-center gap-1.5 ${inGroup ? "pl-8" : "pl-3"}`}>
-          {handleTarget && (
-            <DragHandle
-              occurrenceId={handleTarget.occurrenceId}
-              itemId={item.itemId}
-              originalDate={handleTarget.scheduledDate}
-            />
-          )}
           {showAccount ? (
             <span
               className="text-[11px] font-mono uppercase tracking-[0.06em] text-ds-text-4 shrink-0"
