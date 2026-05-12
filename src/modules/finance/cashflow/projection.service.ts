@@ -13,6 +13,7 @@ import type {
   VirtualOccurrence,
   ProjectionRow,
   FinanceCashflowCategory,
+  CumulativeBalancePoint,
 } from "./types";
 import { eachDayOfInterval } from "date-fns";
 
@@ -425,11 +426,45 @@ export async function buildProjection(
   const openingBreakdown = await resolveOpeningBalance(tenantId);
   const opening = openingBreakdown.totalClp;
 
-  let running = opening;
-  const cumulativeBalances = buckets.map((b) => {
-    running += b.net;
-    return { bucketKey: b.key, balanceClp: running };
+  const todayMidnight = new Date();
+  todayMidnight.setHours(0, 0, 0, 0);
+
+  let runningProjected = opening;
+  let runningReal = opening;
+  let lastRealBucketIdx = -1;
+  const cumulativePoints: CumulativeBalancePoint[] = buckets.map((b, idx) => {
+    runningProjected += b.net;
+
+    const isPastOrCurrent = b.start.getTime() <= todayMidnight.getTime();
+
+    if (isPastOrCurrent) {
+      runningReal += b.actualBankNet;
+      lastRealBucketIdx = idx;
+      return {
+        bucketKey: b.key,
+        projectedClp: runningProjected,
+        realBankClp: runningReal,
+        cumulativeBankVarianceClp: runningReal - runningProjected,
+      };
+    }
+
+    return {
+      bucketKey: b.key,
+      projectedClp: runningProjected,
+      realBankClp: null,
+      cumulativeBankVarianceClp: null,
+    };
   });
+
+  const currentDriftClp =
+    lastRealBucketIdx >= 0
+      ? cumulativePoints[lastRealBucketIdx].cumulativeBankVarianceClp
+      : null;
+
+  const cumulativeBalances = cumulativePoints.map((p) => ({
+    bucketKey: p.bucketKey,
+    balanceClp: p.projectedClp,
+  }));
 
   return {
     range,
@@ -442,10 +477,12 @@ export async function buildProjection(
       totalActualIncome: buckets.reduce((s, b) => s + b.actualIncome, 0),
       totalActualExpense: buckets.reduce((s, b) => s + b.actualExpense, 0),
       totalVariance: buckets.reduce((s, b) => s + b.varianceClp, 0),
+      currentDriftClp,
     },
     openingBalanceClp: opening,
     openingBreakdown,
     cumulativeBalances,
+    cumulativePoints,
   };
 }
 
