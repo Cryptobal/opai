@@ -213,10 +213,10 @@ export function FiltersDrawer({
             </Select>
           </section>
 
-          {/* Centro de costo */}
+          {/* Cliente / Instalación (antes "Centro de costo") */}
           <section className="space-y-2">
             <Label className="text-xs font-mono uppercase tracking-wider text-ds-text-4">
-              Centro de costo
+              Cliente / Instalación
             </Label>
             <Select
               value={filters.accountId}

@@ -515,11 +515,31 @@ export function DtesEmitidosClient({
           body: JSON.stringify(opts),
         },
       );
+      const json = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Error al emitir borrador");
+        throw new Error(json.error || "Error al emitir borrador");
       }
       toast.success("Borrador emitido al SII");
+      // Reportar resultado del auto-send email (lo devuelve issueDte ahora).
+      const emailStatus = json?.data?.emailStatus as
+        | "sent"
+        | "failed"
+        | "no_receiver"
+        | "skipped"
+        | undefined;
+      if (emailStatus === "sent") {
+        toast.success("Email enviado al receptor");
+      } else if (emailStatus === "failed") {
+        toast.warning(
+          `Email automático no se envió: ${json?.data?.emailError ?? "error desconocido"}. Reenviá manualmente desde la fila.`,
+          { duration: 8000 },
+        );
+      } else if (emailStatus === "no_receiver") {
+        toast.warning(
+          "No se envió email: el receptor no tiene dirección registrada.",
+          { duration: 6000 },
+        );
+      }
       setIssuingDraft(null);
       router.refresh();
     } catch (err) {
@@ -692,7 +712,7 @@ export function DtesEmitidosClient({
       "Total",
       "Estado SII",
       "Estado Pago",
-      "Centro de costo",
+      "Cliente",
       "Instalación",
       "Cesión",
     ];
@@ -1021,6 +1041,7 @@ export function DtesEmitidosClient({
           dteType={emailDte.dteType}
           defaultRecipient={emailDte.receiverEmail}
           defaultCc={[]}
+          crmAccountId={emailDte.crmAccountId}
           onSent={() => router.refresh()}
         />
       )}

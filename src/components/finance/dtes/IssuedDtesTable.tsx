@@ -266,8 +266,12 @@ export function IssuedDtesTable({
       },
     },
     {
+      // Lo que mostramos acá ES el cliente CRM + la instalación a la que
+      // pertenece el DTE. "Centro de costo" confundía al usuario porque
+      // parecía un campo extra que tenía que llenar a mano — en realidad
+      // se deriva de la cuenta y la instalación asociadas al emitir.
       id: "centroCosto",
-      header: "Centro de costo",
+      header: "Cliente / Instalación",
       cell: (row) => {
         if (!row.crmAccount) {
           return (

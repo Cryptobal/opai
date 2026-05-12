@@ -409,14 +409,39 @@ export async function issueDte(
     }
   }
 
-  // 10. Auto-send email to receiver if requested and address is available.
-  // Fire-and-forget: a failure here shouldn't fail the emission flow.
-  if (input.autoSendEmail !== false && dte.receiverEmail) {
-    sendDteEmail(tenantId, dte.id, undefined, undefined, "auto_receiver", createdBy).catch(
-      (err) => {
-        console.error(`[FINANCE] Auto-send email failed for DTE ${dte.id}:`, err);
-      },
-    );
+  // 10. Auto-send email to receiver. Antes era fire-and-forget; el problema
+  // es que cuando fallaba (Resend caído, dominio sin verificar, attachment
+  // bounce) el frontend no se enteraba y el usuario creía que el email
+  // había salido. Ahora awaiteamos y reportamos el resultado en
+  // `emailStatus` / `emailError` para que la UI muestre un toast acorde.
+  let emailStatus: "sent" | "failed" | "no_receiver" | "skipped" = "skipped";
+  let emailError: string | null = null;
+  if (input.autoSendEmail === false) {
+    emailStatus = "skipped";
+  } else if (!dte.receiverEmail) {
+    emailStatus = "no_receiver";
+  } else {
+    try {
+      const r = await sendDteEmail(
+        tenantId,
+        dte.id,
+        undefined,
+        undefined,
+        "auto_receiver",
+        createdBy,
+      );
+      if (r.success) {
+        emailStatus = "sent";
+      } else {
+        emailStatus = "failed";
+        emailError = r.error ?? "Error desconocido al enviar email";
+        console.error(`[FINANCE] Auto-send email failed for DTE ${dte.id}: ${emailError}`);
+      }
+    } catch (err) {
+      emailStatus = "failed";
+      emailError = err instanceof Error ? err.message : String(err);
+      console.error(`[FINANCE] Auto-send email threw for DTE ${dte.id}:`, err);
+    }
   }
 
   // 10b. Auto-send XML to backoffice if configured at tenant level OR
@@ -463,7 +488,7 @@ export async function issueDte(
     }
   }
 
-  return dte;
+  return Object.assign(dte, { emailStatus, emailError });
 }
 
 /**

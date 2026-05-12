@@ -822,9 +822,26 @@ export function DteForm({ availableTypes, accounts }: Props) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
+        const json = await res.json().catch(() => ({}));
         if (!res.ok) {
-          const err = await res.json();
-          throw new Error(err.error || "Error al emitir DTE");
+          throw new Error(json.error || "Error al emitir DTE");
+        }
+        // Reportar el resultado del auto-send email.
+        const emailStatus = json?.data?.emailStatus as
+          | "sent"
+          | "failed"
+          | "no_receiver"
+          | "skipped"
+          | undefined;
+        if (emailStatus === "failed") {
+          toast.warning(
+            `Email automático no se envió: ${json?.data?.emailError ?? "error desconocido"}. Reenviá manualmente desde la lista.`,
+            { duration: 8000 },
+          );
+        } else if (emailStatus === "no_receiver") {
+          toast.warning("No se envió email: el receptor no tiene dirección registrada.", { duration: 6000 });
+        } else if (emailStatus === "sent") {
+          toast.success("Email enviado al receptor");
         }
       }
       toast.success("DTE emitido exitosamente");

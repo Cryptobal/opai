@@ -650,14 +650,12 @@ export function IssuedDteDetailDialog({
               </div>
             </div>
 
-            {/* Centro de costo - editable. Mismo tratamiento visual que el
-                bloque "Receptor" (bg-muted/30) para que NO desaparezca en
-                dark mode cuando "Sin asignar" está vacío — el contraste
-                pelado del border-only era invisible. */}
+            {/* Cliente / Instalación asociada al DTE (lo que internamente
+                llamábamos "centro de costo"). Editable inline. */}
             <div className="rounded-md border border-border bg-muted/30 p-4 space-y-2">
               <div className="flex items-center justify-between gap-2 mb-1">
                 <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                  Centro de costo
+                  Cliente / Instalación
                 </p>
                 <span className="text-[12px] text-muted-foreground italic">
                   Click para editar

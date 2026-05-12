@@ -63,8 +63,8 @@ export function ActiveFilterChips({
       key: "accountId",
       label:
         filters.accountId === "NONE"
-          ? "Sin centro"
-          : a?.name ?? "Centro de costo",
+          ? "Sin cliente"
+          : a?.name ?? "Cliente",
     });
   }
   if (filters.installationId !== "ALL") {

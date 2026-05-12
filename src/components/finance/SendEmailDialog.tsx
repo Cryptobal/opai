@@ -62,10 +62,17 @@ interface Props {
   /** CC adicionales guardados en el DTE (pre-llena CC chips). */
   defaultCc: string[];
   /**
-   * Sugerencias de CC desde el CRM (contactos del receptor). Si no
-   * se pasa, el usuario solo puede agregar emails manualmente.
+   * Sugerencias de CC pre-computadas (opcional). Si se pasa
+   * `crmAccountId`, el dialog también las trae automáticamente desde
+   * /api/crm/contacts?accountId=…
    */
   suggestedCc?: { email: string; label?: string }[];
+  /**
+   * Cuenta CRM dueña del DTE. Si está presente, el dialog hace fetch
+   * de los contactos asociados y los muestra como chips clickeables
+   * para añadirlos a CC.
+   */
+  crmAccountId?: string | null;
   /** Callback opcional al éxito. */
   onSent?: () => void;
 }
@@ -82,6 +89,7 @@ export function SendEmailDialog({
   defaultRecipient,
   defaultCc,
   suggestedCc = [],
+  crmAccountId,
   onSent,
 }: Props) {
   const [recipient, setRecipient] = useState<string>(defaultRecipient ?? "");
@@ -95,6 +103,11 @@ export function SendEmailDialog({
   const [attachments, setAttachments] = useState<UserAttachment[]>([]);
   const [excludedIds, setExcludedIds] = useState<Set<string>>(new Set());
   const [loadingAttachments, setLoadingAttachments] = useState(false);
+  // Contactos CRM de la cuenta dueña del DTE — se cargan en el background
+  // y se fusionan con `suggestedCc` para mostrar como chips agregables.
+  const [crmContacts, setCrmContacts] = useState<
+    { email: string; label?: string }[]
+  >([]);
 
   // Reset cuando se abre/cierra el modal o cambia el DTE.
   useEffect(() => {
@@ -121,6 +134,32 @@ export function SendEmailDialog({
       .finally(() => setLoadingAttachments(false));
     return () => ctrl.abort();
   }, [open, dteId]);
+
+  // Cargar contactos del CRM asociados a la cuenta del DTE (si la hay).
+  // Los emails se muestran como chips "+ contacto" que el user puede tocar
+  // para agregar al CC. Más simple que escribirlos a mano.
+  useEffect(() => {
+    if (!open || !crmAccountId) {
+      setCrmContacts([]);
+      return;
+    }
+    const ctrl = new AbortController();
+    fetch(`/api/crm/contacts?accountId=${crmAccountId}`, { signal: ctrl.signal })
+      .then((r) => r.json())
+      .then((j) => {
+        if (!j?.success || !Array.isArray(j.data)) return;
+        const list: { email: string; label?: string }[] = [];
+        for (const c of j.data) {
+          const email = (c.email ?? "").trim();
+          if (!email || !EMAIL_RE.test(email)) continue;
+          const name = [c.firstName, c.lastName].filter(Boolean).join(" ").trim();
+          list.push({ email, label: name ? `${name} <${email}>` : email });
+        }
+        setCrmContacts(list);
+      })
+      .catch(() => {});
+    return () => ctrl.abort();
+  }, [open, crmAccountId]);
 
   const toggleExclude = (id: string) => {
     setExcludedIds((prev) => {
@@ -171,8 +210,19 @@ export function SendEmailDialog({
     setter(list.filter((e) => e !== email));
   };
 
-  // Sugerencias filtradas: las que ya están en CC NO se muestran.
-  const ccSuggestionsToShow = suggestedCc.filter(
+  // Sugerencias: fusionamos prop + CRM contacts dedupeando por email.
+  // Filtramos las que ya están en CC o son el TO actual.
+  const allSuggestions = useMemo(() => {
+    const seen = new Set<string>();
+    const out: { email: string; label?: string }[] = [];
+    for (const s of [...suggestedCc, ...crmContacts]) {
+      if (seen.has(s.email)) continue;
+      seen.add(s.email);
+      out.push(s);
+    }
+    return out;
+  }, [suggestedCc, crmContacts]);
+  const ccSuggestionsToShow = allSuggestions.filter(
     (s) => !cc.includes(s.email) && s.email !== recipient,
   );
 

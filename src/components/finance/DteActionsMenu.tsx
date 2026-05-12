@@ -236,7 +236,13 @@ export function DteActionsMenu({
           <Eye className="h-3.5 w-3.5" />
         </Button>
       )}
-      <DropdownMenu>
+      {/*
+        modal=false: por default Radix hace scroll-lock al body, lo que
+        oculta el scrollbar y dispara un reflow horizontal de toda la
+        página (filas se mueven, KPIs saltan). Sin scroll-lock se siente
+        igual de bien y el click "fantasma" sobre Anular DTE desaparece.
+      */}
+      <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
           <Button
             variant={triggerVariant}
