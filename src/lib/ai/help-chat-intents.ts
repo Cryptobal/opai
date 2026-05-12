@@ -353,8 +353,8 @@ const INTENTS: IntentDefinition[] = [
     purpose: "Registrar, enviar y aprobar rendiciones de gastos y kilometraje.",
     mainLinks: [
       { label: "Rendiciones", path: "/finanzas/rendiciones" },
-      { label: "Aprobaciones", path: "/finanzas/rendiciones/aprobaciones" },
-      { label: "Pagos", path: "/finanzas/rendiciones/pagos" },
+      { label: "Mis aprobaciones", path: "/finanzas/rendiciones?filter=my_approvals" },
+      { label: "Historial de pagos", path: "/finanzas/rendiciones/historial-pagos" },
     ],
     steps: [
       {
@@ -369,12 +369,12 @@ const INTENTS: IntentDefinition[] = [
       {
         action: "Revisa y resuelve aprobaciones pendientes.",
         outcome: "La rendicion avanza a APPROVED o REJECTED.",
-        links: [{ label: "Aprobaciones", path: "/finanzas/rendiciones/aprobaciones" }],
+        links: [{ label: "Mis aprobaciones", path: "/finanzas/rendiciones?filter=my_approvals" }],
       },
       {
         action: "Gestiona pago cuando corresponda.",
         outcome: "Cierra el ciclo administrativo de rendicion.",
-        links: [{ label: "Pagos", path: "/finanzas/rendiciones/pagos" }],
+        links: [{ label: "Historial de pagos", path: "/finanzas/rendiciones/historial-pagos" }],
       },
     ],
     impacts: [

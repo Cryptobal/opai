@@ -41,7 +41,7 @@ export function HubFinanceSection({
               className="h-full cursor-pointer transition-all hover:ring-2 hover:ring-primary/25"
             />
           </Link>
-          <Link href="/finanzas/rendiciones/pagos" className="block min-w-0">
+          <Link href="/finanzas/rendiciones?filter=approved_to_pay" className="block min-w-0">
             <Stat
               label="Aprobadas sin pagar"
               value={financeMetrics.approvedUnpaidCount}

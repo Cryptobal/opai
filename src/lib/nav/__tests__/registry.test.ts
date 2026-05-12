@@ -213,18 +213,16 @@ describe("nav registry", () => {
       const nodes = getContextualBottomNavNodes("/finanzas/rendiciones");
       const keys = nodes.map((n) => n.key);
       expect(keys).toContain("rend-resumen");
-      expect(keys).toContain("rend-aprobaciones");
-      expect(keys).toContain("rend-pagos");
+      expect(keys).toContain("rend-historial-pagos");
     });
 
-    it("returns Rendiciones N4 children for /finanzas/rendiciones/aprobaciones", () => {
+    it("returns Rendiciones N4 children for /finanzas/rendiciones/historial-pagos", () => {
       const nodes = getContextualBottomNavNodes(
-        "/finanzas/rendiciones/aprobaciones"
+        "/finanzas/rendiciones/historial-pagos"
       );
       const keys = nodes.map((n) => n.key);
       expect(keys).toContain("rend-resumen");
-      expect(keys).toContain("rend-aprobaciones");
-      expect(keys).toContain("rend-pagos");
+      expect(keys).toContain("rend-historial-pagos");
     });
 
     it("returns Ventas N4 children for /finanzas/facturacion", () => {

@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Receipt, DollarSign, CheckCircle2, Clock } from "lucide-react";
+import { getRendicionStatusConfig } from "@/lib/finance/rendicion-status";
 
 interface PersonaRendicion {
   id: string;
@@ -22,32 +23,7 @@ interface PersonaRendicionesTabProps {
   adminId: string; // The Admin.id associated with this persona
 }
 
-const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
-  DRAFT: {
-    label: "Borrador",
-    className: "bg-zinc-500/15 text-zinc-400 border-zinc-500/30",
-  },
-  SUBMITTED: {
-    label: "Enviada",
-    className: "bg-status-info-soft text-status-info-fg border-status-info-border",
-  },
-  IN_APPROVAL: {
-    label: "En aprobación",
-    className: "bg-status-warn-soft text-status-warn-fg border-status-warn-border",
-  },
-  APPROVED: {
-    label: "Aprobada",
-    className: "bg-status-ok-soft text-status-ok-fg border-status-ok-border",
-  },
-  REJECTED: {
-    label: "Rechazada",
-    className: "bg-status-danger-soft text-status-danger-fg border-status-danger-border",
-  },
-  PAID: {
-    label: "Pagada",
-    className: "bg-tint-violet text-tint-violet-fg border-tint-violet-fg/30",
-  },
-};
+// Mapeo de estado movido a `@/lib/finance/rendicion-status`.
 
 const TYPE_LABELS: Record<string, string> = {
   PURCHASE: "Compra",
@@ -150,10 +126,7 @@ export function PersonaRendicionesTab({ adminId }: PersonaRendicionesTabProps) {
               </thead>
               <tbody>
                 {rendiciones.map((r) => {
-                  const cfg = STATUS_CONFIG[r.status] ?? {
-                    label: r.status,
-                    className: "bg-zinc-500/15 text-zinc-400",
-                  };
+                  const cfg = getRendicionStatusConfig(r.status);
                   return (
                     <tr
                       key={r.id}

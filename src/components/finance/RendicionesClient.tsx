@@ -1,7 +1,7 @@
 "use client";
 
-import { Suspense, useCallback, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -37,8 +37,11 @@ import {
   Landmark,
   ArrowRight,
   Search,
+  AlertTriangle,
+  Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getRendicionStatusConfig } from "@/lib/finance/rendicion-status";
 
 /* ── Types ── */
 
@@ -56,6 +59,7 @@ interface RendicionRow {
   submitterId: string;
   beneficiaryName: string | null;
   createdAt: string;
+  needsMyApproval?: boolean;
 }
 
 interface ItemOption {
@@ -69,45 +73,60 @@ interface RendicionesClientProps {
   canSubmit: boolean;
   canApprove: boolean;
   canPay: boolean;
+  canConfigure?: boolean;
   currentUserId: string;
+  hasApprovers?: boolean;
+  autoApprove?: boolean;
+  myPendingApprovalsCount?: number;
+  approvedToPayCount?: number;
+  approvedToPayAmount?: number;
 }
 
 /* ── Constants ── */
-
-const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
-  DRAFT: {
-    label: "Borrador",
-    className: "bg-zinc-500/15 text-zinc-400 border-zinc-500/30",
-  },
-  SUBMITTED: {
-    label: "Enviada",
-    className: "bg-status-info-soft text-status-info-fg border-status-info-border",
-  },
-  APPROVED: {
-    label: "Aprobada",
-    className: "bg-status-ok-soft text-status-ok-fg border-status-ok-border",
-  },
-  REJECTED: {
-    label: "Rechazada",
-    className: "bg-status-danger-soft text-status-danger-fg border-status-danger-border",
-  },
-  PAID: {
-    label: "Pagada",
-    className: "bg-tint-violet text-tint-violet-fg border-tint-violet-fg/30",
-  },
-};
 
 const TYPE_LABELS: Record<string, string> = {
   PURCHASE: "Compra",
   MILEAGE: "Kilometraje",
 };
 
-const STATUS_TABS = [
-  { value: "ALL", label: "Todos" },
-  { value: "SUBMITTED", label: "Enviadas" },
-  { value: "APPROVED", label: "Aprobadas" },
-  { value: "REJECTED", label: "Rechazadas" },
-  { value: "PAID", label: "Pagadas" },
+type FilterKey =
+  | "all"
+  | "my_approvals"
+  | "in_approval"
+  | "approved_to_pay"
+  | "paid"
+  | "rejected"
+  | "draft";
+
+interface FilterDef {
+  key: FilterKey;
+  label: string;
+  matches: (r: RendicionRow) => boolean;
+  show?: (ctx: { canApprove: boolean; canPay: boolean }) => boolean;
+}
+
+const FILTERS: FilterDef[] = [
+  { key: "all", label: "Todas", matches: () => true },
+  {
+    key: "my_approvals",
+    label: "Mis aprobaciones",
+    matches: (r) => Boolean(r.needsMyApproval),
+    show: (ctx) => ctx.canApprove,
+  },
+  {
+    key: "in_approval",
+    label: "En aprobación",
+    matches: (r) => ["SUBMITTED", "IN_APPROVAL"].includes(r.status),
+  },
+  {
+    key: "approved_to_pay",
+    label: "Por pagar",
+    matches: (r) => r.status === "APPROVED",
+    show: (ctx) => ctx.canPay,
+  },
+  { key: "paid", label: "Pagadas", matches: (r) => r.status === "PAID" },
+  { key: "rejected", label: "Rechazadas", matches: (r) => r.status === "REJECTED" },
+  { key: "draft", label: "Borradores", matches: (r) => r.status === "DRAFT" },
 ];
 
 const fmtCLP = new Intl.NumberFormat("es-CL", {
@@ -144,15 +163,46 @@ function RendicionesClientInner({
   canSubmit,
   canApprove,
   canPay,
+  canConfigure = false,
   currentUserId,
+  hasApprovers = true,
+  autoApprove = false,
+  myPendingApprovalsCount = 0,
+  approvedToPayCount = 0,
+  approvedToPayAmount = 0,
 }: RendicionesClientProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
-  // Filter state
+  // Filter state — inicializar desde `?filter=` para soportar links legacy
+  // (ej. /finanzas/rendiciones/aprobaciones redirige aquí con filter=my_approvals).
+  const initialFilter = useMemo<FilterKey>(() => {
+    const raw = searchParams?.get("filter");
+    const valid: FilterKey[] = [
+      "all",
+      "my_approvals",
+      "in_approval",
+      "approved_to_pay",
+      "paid",
+      "rejected",
+      "draft",
+    ];
+    return raw && (valid as string[]).includes(raw) ? (raw as FilterKey) : "all";
+  }, [searchParams]);
+
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [activeFilter, setActiveFilter] = useState<FilterKey>(initialFilter);
+
+  useEffect(() => {
+    setActiveFilter(initialFilter);
+  }, [initialFilter]);
   const [submitterFilter, setSubmitterFilter] = useState("ALL");
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
+
+  const visibleFilters = useMemo(
+    () => FILTERS.filter((f) => !f.show || f.show({ canApprove, canPay })),
+    [canApprove, canPay],
+  );
 
   // Selection state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -179,10 +229,16 @@ function RendicionesClientInner({
 
   const filtered = useMemo(() => {
     let list = rendiciones;
-    if (statusFilter !== "ALL") list = list.filter((r) => r.status === statusFilter);
-    if (submitterFilter !== "ALL") list = list.filter((r) => r.submitterId === submitterFilter);
-    if (dateRange?.from) list = list.filter((r) => new Date(r.date) >= dateRange.from!);
-    if (dateRange?.to) list = list.filter((r) => new Date(r.date) <= dateRange.to!);
+    const filterDef = FILTERS.find((f) => f.key === activeFilter);
+    if (filterDef && activeFilter !== "all") {
+      list = list.filter(filterDef.matches);
+    }
+    if (submitterFilter !== "ALL")
+      list = list.filter((r) => r.submitterId === submitterFilter);
+    if (dateRange?.from)
+      list = list.filter((r) => new Date(r.date) >= dateRange.from!);
+    if (dateRange?.to)
+      list = list.filter((r) => new Date(r.date) <= dateRange.to!);
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter(
@@ -191,21 +247,21 @@ function RendicionesClientInner({
           r.description?.toLowerCase().includes(q) ||
           r.submitterName.toLowerCase().includes(q) ||
           r.itemName?.toLowerCase().includes(q) ||
-          r.beneficiaryName?.toLowerCase().includes(q)
+          r.beneficiaryName?.toLowerCase().includes(q),
       );
     }
     return list;
-  }, [rendiciones, statusFilter, submitterFilter, dateRange, search]);
+  }, [rendiciones, activeFilter, submitterFilter, dateRange, search]);
 
   const clearFilters = useCallback(() => {
     setSearch("");
-    setStatusFilter("ALL");
+    setActiveFilter("all");
     setSubmitterFilter("ALL");
     setDateRange(undefined);
   }, []);
 
   const hasActiveFilters =
-    statusFilter !== "ALL" ||
+    activeFilter !== "all" ||
     submitterFilter !== "ALL" ||
     !!dateRange ||
     search.trim() !== "";
@@ -263,15 +319,19 @@ function RendicionesClientInner({
     return [...map.values()].sort((a, b) => b.total - a.total);
   }, [selectedPayable]);
 
-  /* ── "Pagar aprobadas" shortcut ── */
+  /* ── Callouts: "Por pagar" preselecciona aprobadas + activa filtro ── */
 
-  const approvedCount = rendiciones.filter((r) => r.status === "APPROVED").length;
-
-  const handlePayApproved = useCallback(() => {
-    setStatusFilter("APPROVED");
-    const approvedIds = rendiciones.filter((r) => r.status === "APPROVED").map((r) => r.id);
+  const handleJumpToApprovedToPay = useCallback(() => {
+    setActiveFilter("approved_to_pay");
+    const approvedIds = rendiciones
+      .filter((r) => r.status === "APPROVED")
+      .map((r) => r.id);
     setSelectedIds(new Set(approvedIds));
   }, [rendiciones]);
+
+  const handleJumpToMyApprovals = useCallback(() => {
+    setActiveFilter("my_approvals");
+  }, []);
 
   /* ── Bulk Actions ── */
 
@@ -520,12 +580,18 @@ function RendicionesClientInner({
         id: "status",
         header: "Estado",
         cell: (row) => {
-          const statusCfg = STATUS_CONFIG[row.status] ?? {
-            label: row.status,
-            className: "bg-muted text-muted-foreground",
-          };
+          const statusCfg = getRendicionStatusConfig(row.status);
           return (
-            <Badge className={statusCfg.className}>{statusCfg.label}</Badge>
+            <div className="inline-flex items-center gap-1.5">
+              <Badge className={statusCfg.className}>{statusCfg.label}</Badge>
+              {row.needsMyApproval && (
+                <span
+                  title="Esperando tu aprobación"
+                  className="inline-block h-2 w-2 rounded-full bg-status-warn-fg shrink-0"
+                  aria-label="Esperando tu aprobación"
+                />
+              )}
+            </div>
           );
         },
       },
@@ -555,6 +621,29 @@ function RendicionesClientInner({
 
   return (
     <div className={cn("space-y-4", selectedIds.size > 0 && "pb-20")}>
+      {/* Banner: aprobadores no configurados */}
+      {!hasApprovers && !autoApprove && (
+        <div className="rounded-lg border border-status-warn-border bg-status-warn-soft p-3 flex items-start gap-3">
+          <AlertTriangle className="h-5 w-5 text-status-warn-fg shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-status-warn-fg">
+              Configuración incompleta de aprobadores
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              No hay aprobadores configurados. Las rendiciones no podrán enviarse a aprobación hasta que se configure al menos uno.
+            </p>
+            {canConfigure && (
+              <Link
+                href="/opai/configuracion/finanzas"
+                className="text-xs text-primary underline mt-1 inline-flex items-center gap-1"
+              >
+                <Settings className="h-3 w-3" />
+                Ir a configuración
+              </Link>
+            )}
+          </div>
+        </div>
+      )}
       {/* Filters row */}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <div className="relative flex-1 min-w-0">
@@ -596,32 +685,78 @@ function RendicionesClientInner({
             </div>
           </div>
 
-          {/* Status pills */}
+          {/* Callouts de acción */}
+          {(myPendingApprovalsCount > 0 ||
+            (canPay && approvedToPayCount > 0)) && (
+            <div className="grid gap-2 md:grid-cols-2">
+              {canApprove && myPendingApprovalsCount > 0 && (
+                <button
+                  type="button"
+                  onClick={handleJumpToMyApprovals}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-status-warn-border bg-status-warn-soft p-3 text-left hover:brightness-110 transition"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <CheckCircle2 className="h-5 w-5 text-status-warn-fg shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-status-warn-fg">
+                        {myPendingApprovalsCount} rendición(es) esperan tu aprobación
+                      </p>
+                      <p className="text-xs text-muted-foreground">Revisar y decidir</p>
+                    </div>
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-status-warn-fg shrink-0" />
+                </button>
+              )}
+              {canPay && approvedToPayCount > 0 && (
+                <button
+                  type="button"
+                  onClick={handleJumpToApprovedToPay}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-tint-violet-fg/30 bg-tint-violet p-3 text-left hover:brightness-110 transition"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Wallet className="h-5 w-5 text-tint-violet-fg shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-tint-violet-fg">
+                        {approvedToPayCount} aprobadas listas para pagar
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {fmtCLP.format(approvedToPayAmount)} en total
+                      </p>
+                    </div>
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-tint-violet-fg shrink-0" />
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Filter pills */}
           <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">
-            {STATUS_TABS.map((tab) => {
+            {visibleFilters.map((f) => {
               const count =
-                tab.value === "ALL"
+                f.key === "all"
                   ? rendiciones.length
-                  : rendiciones.filter((r) => r.status === tab.value).length;
+                  : rendiciones.filter(f.matches).length;
+              const selected = activeFilter === f.key;
               return (
                 <button
-                  key={tab.value}
+                  key={f.key}
                   type="button"
-                  onClick={() => setStatusFilter(tab.value)}
+                  onClick={() => setActiveFilter(f.key)}
                   className={cn(
                     "whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-colors shrink-0 flex items-center gap-1.5",
-                    statusFilter === tab.value
+                    selected
                       ? "bg-primary/15 text-primary border border-primary/30"
-                      : "text-muted-foreground hover:bg-accent/50 hover:text-foreground border border-transparent"
+                      : "text-muted-foreground hover:bg-accent/50 hover:text-foreground border border-transparent",
                   )}
                 >
-                  {tab.label}
+                  {f.label}
                   <span
                     className={cn(
                       "text-[10px] rounded-full px-1.5 py-0.5 min-w-[18px] text-center",
-                      statusFilter === tab.value
+                      selected
                         ? "bg-primary/20 text-primary"
-                        : "bg-muted text-muted-foreground"
+                        : "bg-muted text-muted-foreground",
                     )}
                   >
                     {count}
@@ -630,16 +765,6 @@ function RendicionesClientInner({
               );
             })}
           </div>
-
-          {/* "Pagar aprobadas" button */}
-          {canPay && approvedCount > 0 && (
-            <div className="flex items-center gap-2">
-              <Button size="sm" variant="outline" onClick={handlePayApproved}>
-                <Wallet className="h-3.5 w-3.5 mr-1.5" />
-                Pagar aprobadas ({approvedCount})
-              </Button>
-            </div>
-          )}
 
           {/* Count + sum */}
           <p className="text-xs text-muted-foreground">
@@ -691,10 +816,7 @@ function RendicionesClientInner({
               {/* Mobile cards */}
               <div className="md:hidden space-y-2">
                 {filtered.map((r) => {
-                  const statusCfg = STATUS_CONFIG[r.status] ?? {
-                    label: r.status,
-                    className: "bg-muted text-muted-foreground",
-                  };
+                  const statusCfg = getRendicionStatusConfig(r.status);
                   const selectable = isSelectable(r.status);
                   const isSelected = selectedIds.has(r.id);
                   return (

@@ -5784,6 +5784,11 @@ model FinanceRendicionConfig {
   requireObservations Boolean @default(false) @map("require_observations")
   requireTollImage    Boolean @default(false) @map("require_toll_image")
 
+  // Cuando no hay aprobadores configurados:
+  //  - false (default): bloquea el submit y exige configurar aprobadores
+  //  - true: la rendición se aprueba automáticamente al enviar (modo no-aprobación)
+  autoApproveWhenNoApprovers Boolean @default(false) @map("auto_approve_when_no_approvers")
+
   // Aprobadores por defecto (Admin users)
   defaultApprover1Id String? @map("default_approver_1_id")
   defaultApprover2Id String? @map("default_approver_2_id")
@@ -6005,6 +6010,12 @@ model FinancePayment {
   paidById        String   @map("paid_by_id")
   paidAt          DateTime @default(now()) @map("paid_at") @db.Timestamptz(6)
   notes           String?
+
+  // Cancelación administrativa (cuando se revierte la última rendición vinculada).
+  cancelled       Boolean   @default(false) @map("cancelled")
+  cancelledAt     DateTime? @map("cancelled_at") @db.Timestamptz(6)
+  cancelledReason String?   @map("cancelled_reason")
+  cancelledById   String?   @map("cancelled_by_id")
 
   rendiciones FinanceRendicion[]
 

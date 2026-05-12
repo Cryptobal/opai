@@ -77,6 +77,10 @@ export interface PendingRendicion {
 interface PagosTabProps {
   payments: Payment[];
   pendingRendiciones: PendingRendicion[];
+  // Cuando true, oculta la tab "Pendientes" y muestra solo el historial.
+  // Se usa en `/finanzas/rendiciones/historial-pagos` (la creación de pagos
+  // vive ahora en la lista unificada).
+  historyOnly?: boolean;
 }
 
 /* ── Constants ── */
@@ -113,10 +117,18 @@ function extractFilenameFromDisposition(
 
 /* ── Component ── */
 
-export function PagosTab({ payments, pendingRendiciones }: PagosTabProps) {
+export function PagosTab({
+  payments,
+  pendingRendiciones,
+  historyOnly = false,
+}: PagosTabProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"pending" | "history">(
-    pendingRendiciones.length > 0 ? "pending" : "history"
+    historyOnly
+      ? "history"
+      : pendingRendiciones.length > 0
+        ? "pending"
+        : "history",
   );
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -393,7 +405,7 @@ export function PagosTab({ payments, pendingRendiciones }: PagosTabProps) {
       </StatGrid>
 
       {/* Tab navigation */}
-      <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">
+      <div className={cn("flex gap-1 overflow-x-auto pb-1 scrollbar-hide", historyOnly && "hidden")}>
         {[
           {
             value: "pending" as const,

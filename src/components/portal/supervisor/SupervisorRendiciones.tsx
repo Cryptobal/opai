@@ -21,6 +21,9 @@ interface Props {
   onCreateRendicion: () => void;
 }
 
+// @ds-allow-legacy: este componente usa color/bg tokens propios del portal supervisor
+// (distintos a los semánticos de DS v3). Mantener override local; las etiquetas siguen
+// siendo las mismas que en `@/lib/finance/rendicion-status`.
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
   DRAFT: { label: "Borrador", color: "text-zinc-400", bg: "bg-zinc-700/30" },
   SUBMITTED: { label: "Enviada", color: "text-blue-400", bg: "bg-blue-500/15" },

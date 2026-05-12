@@ -37,9 +37,12 @@ import {
   DollarSign,
   Building2,
   Tag,
+  RotateCcw,
+  AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import dynamic from "next/dynamic";
+import { getRendicionStatusConfig } from "@/lib/finance/rendicion-status";
 
 const TripRouteMap = dynamic(
   () => import("@/components/finance/TripRouteMap").then((m) => m.TripRouteMap),
@@ -130,22 +133,39 @@ interface RendicionDetailProps {
     canApprove: boolean;
     canPay: boolean;
     canEdit: boolean;
+    canRevert?: boolean;
     isOwner: boolean;
   };
 }
 
 type RendicionAction = "submit" | "approve" | "reject" | "resubmit" | "pay";
 
+// Transiciones permitidas para revert (debe matchear el endpoint).
+const REVERT_TRANSITIONS: Record<string, { value: string; label: string; warning?: string }[]> = {
+  PAID: [
+    { value: "APPROVED", label: "Aprobada", warning: "Se desvinculará el pago vigente." },
+    { value: "SUBMITTED", label: "Enviada (vuelve a aprobación)", warning: "Se desvinculará el pago y las aprobaciones se reabrirán." },
+    { value: "DRAFT", label: "Borrador", warning: "Se desvinculará el pago y se borrarán las aprobaciones." },
+  ],
+  APPROVED: [
+    { value: "SUBMITTED", label: "Enviada (vuelve a aprobación)", warning: "Las aprobaciones se reabrirán." },
+    { value: "DRAFT", label: "Borrador", warning: "Las aprobaciones se eliminarán." },
+  ],
+  IN_APPROVAL: [
+    { value: "SUBMITTED", label: "Enviada (resetea decisiones)", warning: "Las aprobaciones parciales se reabrirán." },
+    { value: "DRAFT", label: "Borrador", warning: "Las aprobaciones se eliminarán." },
+  ],
+  SUBMITTED: [
+    { value: "DRAFT", label: "Borrador", warning: "Las aprobaciones pendientes se eliminarán." },
+  ],
+  REJECTED: [
+    { value: "DRAFT", label: "Borrador" },
+  ],
+};
+
 /* ── Constants ── */
 
-const STATUS_CONFIG: Record<string, { label: string; className: string; icon: typeof Receipt }> = {
-  DRAFT: { label: "Borrador", className: "bg-zinc-500/15 text-zinc-400 border-zinc-500/30", icon: Edit },
-  SUBMITTED: { label: "Enviada", className: "bg-status-info-soft text-status-info-fg border-status-info-border", icon: Send },
-  IN_APPROVAL: { label: "En aprobación", className: "bg-status-warn-soft text-status-warn-fg border-status-warn-border", icon: Clock },
-  APPROVED: { label: "Aprobada", className: "bg-status-ok-soft text-status-ok-fg border-status-ok-border", icon: CheckCircle2 },
-  REJECTED: { label: "Rechazada", className: "bg-status-danger-soft text-status-danger-fg border-status-danger-border", icon: XCircle },
-  PAID: { label: "Pagada", className: "bg-tint-violet text-tint-violet-fg border-tint-violet-fg/30", icon: Wallet },
-};
+// Mapeo de estado movido a `@/lib/finance/rendicion-status`.
 
 const ACTION_LABELS: Record<string, string> = {
   CREATED: "Creada",
@@ -155,6 +175,7 @@ const ACTION_LABELS: Record<string, string> = {
   PAID: "Marcada como pagada",
   EDITED: "Editada",
   RESUBMITTED: "Reenviada",
+  REVERTED: "Revertida por administrador",
 };
 
 const TYPE_LABELS: Record<string, string> = { PURCHASE: "Compra", MILEAGE: "Kilometraje" };
@@ -171,13 +192,56 @@ const fmtCLP = new Intl.NumberFormat("es-CL", {
 export function RendicionDetail({ rendicion, permissions }: RendicionDetailProps) {
   const router = useRouter();
   const r = rendicion;
-  const statusCfg = STATUS_CONFIG[r.status] ?? { label: r.status, className: "bg-muted", icon: Receipt };
+  const statusCfg = getRendicionStatusConfig(r.status);
   const StatusIcon = statusCfg.icon;
 
   const [loading, setLoading] = useState<string | null>(null);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [revertDialogOpen, setRevertDialogOpen] = useState(false);
+  const [revertTargetStatus, setRevertTargetStatus] = useState<string>("");
+  const [revertReason, setRevertReason] = useState("");
+  const [reverting, setReverting] = useState(false);
+
+  const availableRevertTransitions = REVERT_TRANSITIONS[r.status] ?? [];
+
+  const handleRevert = useCallback(async () => {
+    if (!revertTargetStatus || revertReason.trim().length < 10) return;
+    setReverting(true);
+    try {
+      const res = await fetch(`/api/finance/rendiciones/${r.id}/revert`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          toStatus: revertTargetStatus,
+          reason: revertReason.trim(),
+        }),
+      });
+      const payload = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        data?: { paymentCancelled?: string | null };
+      };
+      if (!res.ok) {
+        throw new Error(payload.error || "No se pudo revertir");
+      }
+      if (payload.data?.paymentCancelled) {
+        toast.success(
+          `Rendición revertida. Pago ${payload.data.paymentCancelled} cancelado.`,
+        );
+      } else {
+        toast.success("Rendición revertida");
+      }
+      setRevertDialogOpen(false);
+      setRevertTargetStatus("");
+      setRevertReason("");
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al revertir");
+    } finally {
+      setReverting(false);
+    }
+  }, [r.id, revertTargetStatus, revertReason, router]);
 
   /* ── Actions ── */
 
@@ -198,9 +262,13 @@ export function RendicionDetail({ rendicion, permissions }: RendicionDetailProps
           });
           const payload = (await res
             .json()
-            .catch(() => ({}))) as { error?: string; message?: string };
+            .catch(() => ({}))) as { error?: string; message?: string; code?: string };
           if (!res.ok) {
-            throw new Error(payload.error || "Error al ejecutar acción");
+            const err = new Error(payload.error || "Error al ejecutar acción") as Error & {
+              code?: string;
+            };
+            err.code = payload.code;
+            throw err;
           }
           return payload;
         };
@@ -250,7 +318,18 @@ export function RendicionDetail({ rendicion, permissions }: RendicionDetailProps
         toast.success(response.message || successByAction[action]);
         router.refresh();
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Error inesperado");
+        const message = err instanceof Error ? err.message : "Error inesperado";
+        const code = (err as { code?: string } | undefined)?.code;
+        if (code === "NO_APPROVERS_CONFIGURED") {
+          toast.error(message, {
+            action: {
+              label: "Configurar",
+              onClick: () => router.push("/opai/configuracion/finanzas"),
+            },
+          });
+        } else {
+          toast.error(message);
+        }
       } finally {
         setLoading(null);
       }
@@ -761,6 +840,20 @@ export function RendicionDetail({ rendicion, permissions }: RendicionDetailProps
             Marcar como pagada
           </Button>
         )}
+
+        {/* Admin revert: estados que admiten reversión */}
+        {permissions.canRevert && availableRevertTransitions.length > 0 && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setRevertDialogOpen(true)}
+            className="text-status-warn-fg border-status-warn-border hover:bg-status-warn-soft"
+          >
+            <RotateCcw className="h-4 w-4 mr-1.5" />
+            Revertir estado
+          </Button>
+        )}
       </div>
 
       {/* Reject dialog */}
@@ -822,6 +915,95 @@ export function RendicionDetail({ rendicion, permissions }: RendicionDetailProps
               className="w-full rounded-lg"
             />
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Revert dialog (admin) */}
+      <Dialog open={revertDialogOpen} onOpenChange={setRevertDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Revertir estado de rendición</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-muted-foreground">Estado actual:</span>
+              <Badge className={statusCfg.className}>{statusCfg.label}</Badge>
+            </div>
+
+            <div>
+              <Label className="text-xs">Revertir a</Label>
+              <div className="mt-1 space-y-1.5">
+                {availableRevertTransitions.map((t) => (
+                  <button
+                    key={t.value}
+                    type="button"
+                    onClick={() => setRevertTargetStatus(t.value)}
+                    className={cn(
+                      "w-full rounded-md border p-2.5 text-left text-sm transition-colors",
+                      revertTargetStatus === t.value
+                        ? "border-primary/50 bg-primary/10"
+                        : "border-border hover:bg-accent/30",
+                    )}
+                  >
+                    <div className="font-medium">{t.label}</div>
+                    {t.warning && (
+                      <div className="mt-1 flex items-start gap-1.5 text-xs text-status-warn-fg">
+                        <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" />
+                        <span>{t.warning}</span>
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="revertReason" className="text-xs">
+                Motivo (mínimo 10 caracteres) *
+              </Label>
+              <textarea
+                id="revertReason"
+                value={revertReason}
+                onChange={(e) => setRevertReason(e.target.value)}
+                rows={3}
+                maxLength={500}
+                placeholder="Explica por qué se está revirtiendo esta rendición..."
+                className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none"
+              />
+              <p className="mt-1 text-[10px] text-muted-foreground">
+                {revertReason.trim().length} / 500
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setRevertDialogOpen(false)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleRevert}
+                disabled={
+                  reverting ||
+                  !revertTargetStatus ||
+                  revertReason.trim().length < 10
+                }
+                className="bg-status-warn hover:brightness-110"
+              >
+                {reverting ? (
+                  <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                ) : (
+                  <RotateCcw className="h-4 w-4 mr-1.5" />
+                )}
+                Confirmar reversión
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

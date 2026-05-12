@@ -1,7 +1,6 @@
 export { RendicionesClient } from "./RendicionesClient";
 export { RendicionForm } from "./RendicionForm";
 export { RendicionDetail } from "./RendicionDetail";
-export { AprobacionesClient } from "./AprobacionesClient";
 export { RendicionesReportClient } from "./RendicionesReportClient";
 export { ConfigClient } from "./ConfigClient";
 export { PersonaRendicionesTab } from "./PersonaRendicionesTab";
