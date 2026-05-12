@@ -273,13 +273,78 @@ function getDteOrderBy(sort: string): Record<string, "asc" | "desc">[] {
  * Get a single received DTE by ID.
  */
 export async function getReceivedDte(tenantId: string, id: string) {
-  return prisma.financeDte.findFirst({
+  const dte = await prisma.financeDte.findFirst({
     where: { id, tenantId, direction: "RECEIVED" },
     include: {
       supplier: { select: { id: true, name: true, rut: true } },
       lines: true,
     },
   });
+  if (!dte) return null;
+
+  // Enriquecimiento de centro de costo y última conciliación, igual que el
+  // listado de Recibidos para que el sheet detalle pueda renderizar el
+  // bloque "Movimiento bancario conciliado" y el editor de centro de costo
+  // con valores actuales.
+  const [crmAccount, installation, lastReconciliation] = await Promise.all([
+    dte.crmAccountId
+      ? prisma.crmAccount.findFirst({
+          where: { id: dte.crmAccountId, tenantId },
+          select: { id: true, name: true, legalName: true },
+        })
+      : Promise.resolve(null),
+    dte.installationId
+      ? prisma.crmInstallation.findFirst({
+          where: { id: dte.installationId, tenantId },
+          select: { id: true, name: true, commune: true },
+        })
+      : Promise.resolve(null),
+    prisma.financePaymentAllocation.findFirst({
+      where: { dteId: dte.id },
+      select: {
+        payment: {
+          select: {
+            id: true,
+            code: true,
+            date: true,
+            status: true,
+            bankTransaction: {
+              select: {
+                id: true,
+                transactionDate: true,
+                reference: true,
+                description: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+  ]);
+
+  return {
+    ...dte,
+    crmAccount,
+    installation,
+    lastReconciliation: lastReconciliation
+      ? {
+          paymentId: lastReconciliation.payment.id,
+          paymentCode: lastReconciliation.payment.code,
+          paymentDate: lastReconciliation.payment.date.toISOString(),
+          paymentStatus: lastReconciliation.payment.status,
+          bankTransactionId:
+            lastReconciliation.payment.bankTransaction?.id ?? null,
+          bankTransactionDate:
+            lastReconciliation.payment.bankTransaction?.transactionDate.toISOString() ??
+            null,
+          bankTransactionReference:
+            lastReconciliation.payment.bankTransaction?.reference ?? null,
+          bankTransactionDescription:
+            lastReconciliation.payment.bankTransaction?.description ?? null,
+        }
+      : null,
+  };
 }
 
 /**

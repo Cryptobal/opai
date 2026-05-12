@@ -32,6 +32,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
+  formatCLPInput,
+  parseCLPInput,
+} from "@/lib/finance/format-clp-input";
+import { AccountPlanCombobox } from "./AccountPlanCombobox";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -310,7 +315,7 @@ export function BankTxReconcileSheet({
     setLinks([]);
     setManualAccountType("");
     setManualAccountId("");
-    setManualAmount(String(Math.abs(tx.amount)));
+    setManualAmount(formatCLPInput(String(Math.abs(tx.amount))));
     setManualNote("");
     setManualDate(tx.transactionDate.slice(0, 10));
     setRestAccountType("");
@@ -450,12 +455,12 @@ export function BankTxReconcileSheet({
         if (!txt.includes(q)) return false;
       }
       if (filterMinAmount) {
-        const min = Number(filterMinAmount);
-        if (Number.isFinite(min) && c.amountPending < min) return false;
+        const min = parseCLPInput(filterMinAmount);
+        if (min != null && c.amountPending < min) return false;
       }
       if (filterMaxAmount) {
-        const max = Number(filterMaxAmount);
-        if (Number.isFinite(max) && c.amountPending > max) return false;
+        const max = parseCLPInput(filterMaxAmount);
+        if (max != null && c.amountPending > max) return false;
       }
       if (filterDateFrom) {
         if (c.issuedAt.slice(0, 10) < filterDateFrom) return false;
@@ -541,7 +546,7 @@ export function BankTxReconcileSheet({
       toast.error("Seleccioná una cuenta contable");
       return;
     }
-    const amt = Number(manualAmount.replace(/[^\d.-]/g, ""));
+    const amt = parseCLPInput(manualAmount) ?? 0;
     if (!Number.isFinite(amt) || amt <= 0) {
       toast.error("Monto inválido");
       return;
@@ -565,7 +570,7 @@ export function BankTxReconcileSheet({
         label: `${isIncome ? "Ingreso manual" : "Gasto manual"}: ${account?.code ?? ""} ${account?.name ?? ""}`,
       },
     ]);
-    setManualAmount(String(remaining > 0 ? remaining - amt : 0));
+    setManualAmount(formatCLPInput(String(remaining > 0 ? remaining - amt : 0)));
     setManualNote("");
     toast.success("Línea agregada");
     setTab("compare"); // volver para ver el resumen
@@ -771,59 +776,87 @@ export function BankTxReconcileSheet({
                 Vínculos ({existingLinks.length})
               </p>
               <ul className="space-y-2">
-                {existingLinks.map((l) => (
-                  <li
-                    key={l.id}
-                    className="flex items-start gap-3 rounded-lg border border-border p-3"
-                  >
-                    <div className="shrink-0 pt-0.5">
-                      {l.dte ? (
-                        <Receipt className="h-4 w-4 text-primary" />
-                      ) : l.factoring ? (
-                        <Layers className="h-4 w-4 text-primary" />
-                      ) : (
-                        <Circle className="h-4 w-4 text-muted-foreground" />
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-medium truncate">
-                          {l.entityLabel}
-                        </span>
-                        {l.dte ? (
-                          <Badge
-                            variant="outline"
-                            className={cn(
-                              "text-xs",
-                              l.dte.paymentStatus === "PAID"
-                                ? "bg-status-ok-soft text-status-ok-fg border-status-ok-border"
-                                : l.dte.paymentStatus === "PARTIAL"
-                                  ? "bg-status-warn-soft text-status-warn-fg border-status-warn-border"
-                                  : "bg-muted"
+                {existingLinks.map((l) => {
+                  // Si el vínculo es un DTE, lo hacemos clickeable: link
+                  // cross-módulo a la página de DTEs (emitidos o recibidos)
+                  // pre-filtrada por folio del DTE. Así desde el drawer de
+                  // banco se navega directo al detalle del documento.
+                  const dteHref = l.dte
+                    ? l.dte.direction === "ISSUED"
+                      ? `/finanzas/facturacion/dtes?openDteId=${l.dte.id}`
+                      : `/finanzas/facturacion/recibidos?openDteId=${l.dte.id}`
+                    : null;
+                  const Wrapper = dteHref
+                    ? ({ children }: { children: React.ReactNode }) => (
+                        <a
+                          href={dteHref}
+                          className="flex items-start gap-3 rounded-lg border border-border p-3 hover:bg-muted/30 transition-colors group"
+                          aria-label={`Ver ${l.entityLabel}`}
+                        >
+                          {children}
+                        </a>
+                      )
+                    : ({ children }: { children: React.ReactNode }) => (
+                        <div className="flex items-start gap-3 rounded-lg border border-border p-3">
+                          {children}
+                        </div>
+                      );
+                  return (
+                    <li key={l.id}>
+                      <Wrapper>
+                        <div className="shrink-0 pt-0.5">
+                          {l.dte ? (
+                            <Receipt className="h-4 w-4 text-primary" />
+                          ) : l.factoring ? (
+                            <Layers className="h-4 w-4 text-primary" />
+                          ) : (
+                            <Circle className="h-4 w-4 text-muted-foreground" />
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-medium truncate">
+                              {l.entityLabel}
+                            </span>
+                            {l.dte ? (
+                              <Badge
+                                variant="outline"
+                                className={cn(
+                                  "text-xs",
+                                  l.dte.paymentStatus === "PAID"
+                                    ? "bg-status-ok-soft text-status-ok-fg border-status-ok-border"
+                                    : l.dte.paymentStatus === "PARTIAL"
+                                      ? "bg-status-warn-soft text-status-warn-fg border-status-warn-border"
+                                      : "bg-muted"
+                                )}
+                              >
+                                {l.dte.paymentStatus}
+                              </Badge>
+                            ) : null}
+                            {dteHref && (
+                              <ExternalLink className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                             )}
-                          >
-                            {l.dte.paymentStatus}
-                          </Badge>
-                        ) : null}
-                      </div>
-                      {l.note ? (
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {l.note}
-                        </p>
-                      ) : null}
-                      {l.accountPlan ? (
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {l.accountPlan.code} {l.accountPlan.name}
-                        </p>
-                      ) : null}
-                    </div>
-                    <div className="text-right">
-                      <p className="font-mono text-sm font-medium">
-                        {fmtCLP.format(l.amount)}
-                      </p>
-                    </div>
-                  </li>
-                ))}
+                          </div>
+                          {l.note ? (
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {l.note}
+                            </p>
+                          ) : null}
+                          {l.accountPlan ? (
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {l.accountPlan.code} {l.accountPlan.name}
+                            </p>
+                          ) : null}
+                        </div>
+                        <div className="text-right">
+                          <p className="font-mono text-sm font-medium">
+                            {fmtCLP.format(l.amount)}
+                          </p>
+                        </div>
+                      </Wrapper>
+                    </li>
+                  );
+                })}
               </ul>
             </div>
 
@@ -964,20 +997,38 @@ export function BankTxReconcileSheet({
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-2">
-                    <Input
-                      type="number"
-                      placeholder="Monto desde"
-                      value={filterMinAmount}
-                      onChange={(e) => setFilterMinAmount(e.target.value)}
-                      className="h-9 text-sm"
-                    />
-                    <Input
-                      type="number"
-                      placeholder="Monto hasta"
-                      value={filterMaxAmount}
-                      onChange={(e) => setFilterMaxAmount(e.target.value)}
-                      className="h-9 text-sm"
-                    />
+                    {/* CLP con separador de miles. Almacenamos el string
+                        formateado en state; el filtrado parsea on-the-fly. */}
+                    <div className="relative">
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                        $
+                      </span>
+                      <Input
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="Monto desde"
+                        value={filterMinAmount}
+                        onChange={(e) =>
+                          setFilterMinAmount(formatCLPInput(e.target.value))
+                        }
+                        className="h-9 text-sm pl-5 font-mono"
+                      />
+                    </div>
+                    <div className="relative">
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                        $
+                      </span>
+                      <Input
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="Monto hasta"
+                        value={filterMaxAmount}
+                        onChange={(e) =>
+                          setFilterMaxAmount(formatCLPInput(e.target.value))
+                        }
+                        className="h-9 text-sm pl-5 font-mono"
+                      />
+                    </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <Input
@@ -1100,6 +1151,11 @@ export function BankTxReconcileSheet({
                 <ul className="space-y-2">
                   {filteredCandidates.map((c) => {
                     const selected = links.some((l) => l.key === c.id);
+                    const txAmountAbs = tx ? Math.abs(tx.amount) : 0;
+                    const delta = c.amountPending - txAmountAbs;
+                    const deltaPct = txAmountAbs > 0 ? Math.abs(delta) / txAmountAbs : 0;
+                    const isExact = Math.abs(delta) <= 1;
+                    const isFactoringLike = !isExact && delta > 0 && deltaPct <= 0.3;
                     return (
                       <li
                         key={c.id}
@@ -1107,7 +1163,9 @@ export function BankTxReconcileSheet({
                           "flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors",
                           selected
                             ? "border-primary bg-primary/5"
-                            : "border-border hover:bg-muted/30"
+                            : isExact
+                              ? "border-status-ok-border bg-status-ok-soft/30 hover:bg-status-ok-soft/50"
+                              : "border-border hover:bg-muted/30"
                         )}
                         onClick={() => toggleCandidate(c)}
                       >
@@ -1141,6 +1199,23 @@ export function BankTxReconcileSheet({
                             >
                               {c.paymentStatus}
                             </Badge>
+                            {isExact && (
+                              <Badge
+                                variant="outline"
+                                className="text-[11px] bg-status-ok-soft text-status-ok-fg border-status-ok-border"
+                              >
+                                Match exacto
+                              </Badge>
+                            )}
+                            {isFactoringLike && (
+                              <Badge
+                                variant="outline"
+                                className="text-[11px] bg-status-info-soft text-status-info-fg border-status-info-border"
+                                title="La diferencia puede ser comisión de factoring/descuento"
+                              >
+                                +{fmtCLP.format(delta)} (posible comisión)
+                              </Badge>
+                            )}
                           </div>
                           <p className="text-xs text-muted-foreground mt-0.5">
                             {c.direction === "ISSUED"
@@ -1186,11 +1261,15 @@ export function BankTxReconcileSheet({
                     >
                       <span className="flex-1 truncate">{l.label}</span>
                       <Input
-                        type="number"
+                        type="text"
+                        inputMode="numeric"
                         className="h-8 w-32 font-mono text-right"
-                        value={l.amount}
+                        value={formatCLPInput(String(l.amount))}
                         onChange={(e) =>
-                          updateLinkAmount(l.key, Number(e.target.value) || 0)
+                          updateLinkAmount(
+                            l.key,
+                            parseCLPInput(e.target.value) ?? 0,
+                          )
                         }
                       />
                       <Button
@@ -1264,31 +1343,21 @@ export function BankTxReconcileSheet({
                           ))}
                         </SelectContent>
                       </Select>
-                      <Select
+                      <AccountPlanCombobox
+                        items={
+                          groupAccounts(
+                            accountPlans,
+                            tx && tx.amount > 0 ? "income" : "expense"
+                          ).find((g) => g.type === restAccountType)?.items ?? []
+                        }
                         value={restAccountId}
-                        onValueChange={setRestAccountId}
+                        onChange={setRestAccountId}
                         disabled={!restAccountType}
-                      >
-                        <SelectTrigger className="h-10 sm:h-9">
-                          <SelectValue
-                            placeholder={
-                              restAccountType ? "Cuenta" : "Tipo primero"
-                            }
-                          />
-                        </SelectTrigger>
-                        <SelectContent className="max-h-72">
-                          {(
-                            groupAccounts(
-                              accountPlans,
-                              tx && tx.amount > 0 ? "income" : "expense"
-                            ).find((g) => g.type === restAccountType)?.items ?? []
-                          ).map((p) => (
-                            <SelectItem key={p.id} value={p.id}>
-                              {p.code} {p.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        placeholder="Buscar por código o nombre…"
+                        emptyLabel={
+                          restAccountType ? "Seleccionar cuenta" : "Tipo primero"
+                        }
+                      />
                     </div>
                     <Input
                       placeholder="Nota (opcional)"
@@ -1341,33 +1410,23 @@ export function BankTxReconcileSheet({
               </div>
               <div className="space-y-1.5">
                 <Label>Cuenta contable *</Label>
-                <Select
+                <AccountPlanCombobox
+                  items={
+                    groupAccounts(
+                      accountPlans,
+                      tx && tx.amount > 0 ? "income" : "expense"
+                    ).find((g) => g.type === manualAccountType)?.items ?? []
+                  }
                   value={manualAccountId}
-                  onValueChange={setManualAccountId}
+                  onChange={setManualAccountId}
                   disabled={!manualAccountType}
-                >
-                  <SelectTrigger className="h-10 sm:h-9">
-                    <SelectValue
-                      placeholder={
-                        manualAccountType
-                          ? "Seleccionar cuenta"
-                          : "Elige el tipo primero"
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-72">
-                    {(
-                      groupAccounts(
-                        accountPlans,
-                        tx && tx.amount > 0 ? "income" : "expense"
-                      ).find((g) => g.type === manualAccountType)?.items ?? []
-                    ).map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.code} {p.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  placeholder="Buscar por código o nombre…"
+                  emptyLabel={
+                    manualAccountType
+                      ? "Seleccionar cuenta"
+                      : "Elige el tipo primero"
+                  }
+                />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -1383,13 +1442,21 @@ export function BankTxReconcileSheet({
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="manual-amount">Monto *</Label>
-                <Input
-                  id="manual-amount"
-                  type="number"
-                  value={manualAmount}
-                  onChange={(e) => setManualAmount(e.target.value)}
-                  className="font-mono h-10 sm:h-9"
-                />
+                <div className="relative">
+                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                    $
+                  </span>
+                  <Input
+                    id="manual-amount"
+                    type="text"
+                    inputMode="numeric"
+                    value={manualAmount}
+                    onChange={(e) =>
+                      setManualAmount(formatCLPInput(e.target.value))
+                    }
+                    className="font-mono h-10 sm:h-9 pl-5"
+                  />
+                </div>
               </div>
             </div>
             <div className="space-y-1.5">

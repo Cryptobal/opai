@@ -132,6 +132,18 @@ interface DteFull {
   hasFullAnnulment: boolean;
   /** Suma de montos netos acreditados por NCs vivas (para saldo). */
   creditedNet: number;
+  /** Última conciliación con cartola (post 2026-05). Permite mostrar
+   *  "Pagado por mov bancario X" en el detalle del DTE emitido. */
+  lastReconciliation?: {
+    paymentId: string;
+    paymentCode: string;
+    paymentDate: string;
+    paymentStatus: string;
+    bankTransactionId: string | null;
+    bankTransactionDate: string | null;
+    bankTransactionReference: string | null;
+    bankTransactionDescription: string | null;
+  } | null;
 }
 
 const DTE_TYPE_LABELS: Record<number, string> = {
@@ -347,6 +359,9 @@ export function IssuedDteDetailDialog({
             : [],
           hasFullAnnulment: Boolean(d.hasFullAnnulment),
           creditedNet: Number(d.creditedNet ?? 0),
+          lastReconciliation: (d.lastReconciliation as
+            | DteDetail["lastReconciliation"]
+            | undefined) ?? null,
         });
       })
       .catch((err) => {
@@ -649,6 +664,52 @@ export function IssuedDteDetailDialog({
                 )}
               </div>
             </div>
+
+            {/* Movimiento bancario que cobró este DTE — clickeable, deep
+                link al drawer de conciliación del módulo Bancos. */}
+            {dte.lastReconciliation?.bankTransactionId && (
+              <a
+                href={`/finanzas/bancos?txId=${dte.lastReconciliation.bankTransactionId}`}
+                className="block rounded-md border border-status-ok-border bg-status-ok-soft p-4 space-y-2 hover:bg-status-ok-soft/70 transition-colors group"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs uppercase tracking-wide text-status-ok-fg font-medium">
+                    Cobrado vía movimiento bancario
+                  </p>
+                  <ExternalLink className="h-3.5 w-3.5 text-status-ok-fg opacity-70 group-hover:opacity-100 transition-opacity" />
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  {dte.lastReconciliation.bankTransactionDate && (
+                    <div>
+                      <p className="text-xs text-status-ok-fg/70 mb-0.5">Fecha</p>
+                      <p className="font-mono font-medium text-status-ok-fg">
+                        {format(
+                          new Date(dte.lastReconciliation.bankTransactionDate),
+                          "dd MMM yyyy",
+                          { locale: es },
+                        )}
+                      </p>
+                    </div>
+                  )}
+                  {dte.lastReconciliation.bankTransactionReference && (
+                    <div>
+                      <p className="text-xs text-status-ok-fg/70 mb-0.5">Referencia</p>
+                      <p className="font-mono text-[12px] text-status-ok-fg truncate">
+                        {dte.lastReconciliation.bankTransactionReference}
+                      </p>
+                    </div>
+                  )}
+                </div>
+                {dte.lastReconciliation.bankTransactionDescription && (
+                  <p className="text-[13px] text-status-ok-fg/90 truncate">
+                    {dte.lastReconciliation.bankTransactionDescription}
+                  </p>
+                )}
+                <p className="text-[11px] text-status-ok-fg/70 italic">
+                  Click para ver el movimiento en Bancos →
+                </p>
+              </a>
+            )}
 
             {/* Cliente / Instalación asociada al DTE (lo que internamente
                 llamábamos "centro de costo"). Editable inline. */}

@@ -643,6 +643,37 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
     setInstallationFilter("ALL");
   };
 
+  // Deep link cross-módulo: si llega `?openDteId=...`, abrir el sheet de
+  // detalle de ese DTE. Si no está en la lista, fetch directo del endpoint
+  // individual. Usado desde el drawer de Bancos cuando el usuario clickea
+  // un vínculo de conciliación.
+  const requestedDteId = searchParams.get("openDteId");
+  useEffect(() => {
+    if (!requestedDteId) return;
+    const inList = receivedDtes.find((d) => d.id === requestedDteId);
+    if (inList) {
+      setDetailDte(inList);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/finance/billing/received/${requestedDteId}`
+        );
+        if (!res.ok) return;
+        const json = await res.json();
+        if (cancelled || !json?.success || !json.data) return;
+        setDetailDte(json.data as ReceivedDteRow);
+      } catch {
+        // silencioso
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [requestedDteId, receivedDtes]);
+
   useEffect(() => {
     let cancelled = false;
     fetch("/api/finance/billing/accounts-with-dtes?direction=RECEIVED&include=installations")
@@ -927,6 +958,41 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
         >
           <Download className="h-4 w-4" />
         </Button>
+      </div>
+
+      {/* Quick filter: estado de pago. Acceso inmediato sin abrir drawer.
+          Acción más frecuente en cuentas por pagar / cobranza. */}
+      <div className="flex flex-wrap items-center gap-1.5 -mt-1">
+        <span className="text-[11px] font-mono uppercase tracking-wide text-ds-text-4 mr-1">
+          Pago:
+        </span>
+        {[
+          { value: "ALL", label: "Todos" },
+          { value: "UNPAID", label: "Pendiente" },
+          { value: "PARTIAL", label: "Parcial" },
+          { value: "PAID", label: "Pagado" },
+          { value: "OVERDUE", label: "Vencido" },
+        ].map((opt) => (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => setPaymentFilter(opt.value)}
+            className={cn(
+              "h-7 px-2.5 rounded-full border text-[12px] font-medium transition-colors",
+              paymentFilter === opt.value
+                ? opt.value === "PAID"
+                  ? "bg-status-ok-soft border-status-ok-border text-status-ok-fg"
+                  : opt.value === "OVERDUE"
+                    ? "bg-status-danger-soft border-status-danger-border text-status-danger-fg"
+                    : opt.value === "PARTIAL"
+                      ? "bg-status-warn-soft border-status-warn-border text-status-warn-fg"
+                      : "bg-ds-surface-3 border-ds-border-default text-ds-text-1"
+                : "bg-ds-surface-2 border-ds-border-default text-ds-text-3 hover:bg-ds-surface-3",
+            )}
+          >
+            {opt.label}
+          </button>
+        ))}
       </div>
 
       {/* Active filter chips */}
@@ -2020,12 +2086,19 @@ function ReceivedDteDetailDialog({
             </div>
           </div>
 
-          {/* Movimiento bancario conciliado — solo visible cuando hay lastReconciliation */}
+          {/* Movimiento bancario conciliado — clickeable, deep link al
+              drawer de conciliación del módulo Bancos. */}
           {dte.lastReconciliation?.bankTransactionId && (
-            <div className="rounded-md border border-status-ok-border bg-status-ok-soft p-4 space-y-2">
-              <p className="text-xs uppercase tracking-wide text-status-ok-fg font-medium">
-                Movimiento bancario conciliado
-              </p>
+            <a
+              href={`/finanzas/bancos?txId=${dte.lastReconciliation.bankTransactionId}`}
+              className="block rounded-md border border-status-ok-border bg-status-ok-soft p-4 space-y-2 hover:bg-status-ok-soft/70 transition-colors group"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs uppercase tracking-wide text-status-ok-fg font-medium">
+                  Movimiento bancario conciliado
+                </p>
+                <ExternalLink className="h-3.5 w-3.5 text-status-ok-fg opacity-70 group-hover:opacity-100 transition-opacity" />
+              </div>
               <div className="grid grid-cols-2 gap-2 text-sm">
                 {dte.lastReconciliation.bankTransactionDate && (
                   <div>
@@ -2053,7 +2126,10 @@ function ReceivedDteDetailDialog({
                   {dte.lastReconciliation.bankTransactionDescription}
                 </p>
               )}
-            </div>
+              <p className="text-[11px] text-status-ok-fg/70 italic">
+                Click para ver el movimiento en Bancos →
+              </p>
+            </a>
           )}
 
           <div className="rounded-md border border-status-info-border bg-status-info-soft p-3 text-xs text-status-info-fg">

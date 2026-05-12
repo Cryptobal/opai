@@ -17,7 +17,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -102,6 +102,18 @@ export function DtesEmitidosClient({
     noteType: "credit" | "debit";
   } | null>(null);
   const [detailDteId, setDetailDteId] = useState<string | null>(null);
+
+  // Deep link cross-módulo (?openDteId=...): cuando viene de un drawer
+  // de Bancos, abrir el slide-over del DTE automáticamente.
+  const searchParams = useSearchParams();
+  const requestedDteId = searchParams.get("openDteId");
+  useEffect(() => {
+    if (requestedDteId && requestedDteId !== detailDteId) {
+      setDetailDteId(requestedDteId);
+    }
+    // Solo se evalúa al cambiar el query param; setDetailDteId es estable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requestedDteId]);
   const [cedeModalDteId, setCedeModalDteId] = useState<string | null>(null);
   const [bulkCedeOpen, setBulkCedeOpen] = useState(false);
   const [previewDteId, setPreviewDteId] = useState<string | null>(null);
@@ -814,6 +826,59 @@ export function DtesEmitidosClient({
         onExport={handleExportCsv}
         exportDisabled={filtered.length === 0}
       />
+
+      {/* Quick filter: estado de pago. Acceso inmediato sin abrir el
+          drawer de filtros. Acción más frecuente en cuentas por cobrar. */}
+      <div className="flex flex-wrap items-center gap-1.5 -mt-1">
+        <span className="text-[11px] font-mono uppercase tracking-wide text-ds-text-4 mr-1">
+          Pago:
+        </span>
+        {[
+          { value: "UNPAID", label: "Pendiente", tone: "neutral" },
+          { value: "PARTIAL", label: "Parcial", tone: "warn" },
+          { value: "PAID", label: "Pagado", tone: "ok" },
+          { value: "OVERDUE", label: "Vencido", tone: "danger" },
+        ].map((opt) => {
+          const active = filters.paymentStatuses.includes(opt.value);
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => {
+                update(
+                  "paymentStatuses",
+                  active
+                    ? filters.paymentStatuses.filter((s) => s !== opt.value)
+                    : [...filters.paymentStatuses, opt.value],
+                );
+              }}
+              className={[
+                "h-7 px-2.5 rounded-full border text-[12px] font-medium transition-colors",
+                active
+                  ? opt.tone === "ok"
+                    ? "bg-status-ok-soft border-status-ok-border text-status-ok-fg"
+                    : opt.tone === "danger"
+                      ? "bg-status-danger-soft border-status-danger-border text-status-danger-fg"
+                      : opt.tone === "warn"
+                        ? "bg-status-warn-soft border-status-warn-border text-status-warn-fg"
+                        : "bg-ds-surface-3 border-ds-border-default text-ds-text-1"
+                  : "bg-ds-surface-2 border-ds-border-default text-ds-text-3 hover:bg-ds-surface-3",
+              ].join(" ")}
+            >
+              {opt.label}
+            </button>
+          );
+        })}
+        {filters.paymentStatuses.length > 0 && (
+          <button
+            type="button"
+            onClick={() => update("paymentStatuses", [])}
+            className="h-7 px-2.5 rounded-full border border-ds-border-subtle text-[11px] text-ds-text-4 hover:bg-ds-surface-2"
+          >
+            Limpiar
+          </button>
+        )}
+      </div>
 
       <ActiveFilterChips
         filters={filters}

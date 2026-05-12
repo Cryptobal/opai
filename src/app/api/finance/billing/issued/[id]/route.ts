@@ -56,6 +56,76 @@ export async function GET(
       );
     }
 
+    // Enriquecimiento de centro de costo. crmAccountId/installationId son
+    // FKs lógicas sin @relation en el schema, así que las resolvemos a mano.
+    // Fallback por RUT cuando crmAccountId está vacío: muchos DTEs históricos
+    // no llevan crmAccountId pero sí receiverRut → matcheamos por RUT contra
+    // CrmAccount.
+    const [crmAccount, crmAccountByRut, installation, lastReconciliation] =
+      await Promise.all([
+        dte.crmAccountId
+          ? prisma.crmAccount.findFirst({
+              where: { id: dte.crmAccountId, tenantId: ctx.tenantId },
+              select: { id: true, name: true, legalName: true, rut: true },
+            })
+          : Promise.resolve(null),
+        !dte.crmAccountId && dte.receiverRut
+          ? prisma.crmAccount.findFirst({
+              where: { rut: dte.receiverRut, tenantId: ctx.tenantId },
+              select: { id: true, name: true, legalName: true, rut: true },
+            })
+          : Promise.resolve(null),
+        dte.installationId
+          ? prisma.crmInstallation.findFirst({
+              where: { id: dte.installationId, tenantId: ctx.tenantId },
+              select: { id: true, name: true, commune: true },
+            })
+          : Promise.resolve(null),
+        // Última conciliación: último FinancePaymentAllocation que apunte
+        // a este DTE, junto con su FinancePaymentRecord y la bank tx.
+        prisma.financePaymentAllocation.findFirst({
+          where: { dteId: dte.id },
+          select: {
+            payment: {
+              select: {
+                id: true,
+                code: true,
+                date: true,
+                status: true,
+                bankTransaction: {
+                  select: {
+                    id: true,
+                    transactionDate: true,
+                    reference: true,
+                    description: true,
+                  },
+                },
+              },
+            },
+          },
+          orderBy: { createdAt: "desc" },
+        }),
+      ]);
+
+    const enrichedAccount = crmAccount ?? crmAccountByRut;
+    const lastReconciliationPayload = lastReconciliation
+      ? {
+          paymentId: lastReconciliation.payment.id,
+          paymentCode: lastReconciliation.payment.code,
+          paymentDate: lastReconciliation.payment.date.toISOString(),
+          paymentStatus: lastReconciliation.payment.status,
+          bankTransactionId:
+            lastReconciliation.payment.bankTransaction?.id ?? null,
+          bankTransactionDate:
+            lastReconciliation.payment.bankTransaction?.transactionDate.toISOString() ??
+            null,
+          bankTransactionReference:
+            lastReconciliation.payment.bankTransaction?.reference ?? null,
+          bankTransactionDescription:
+            lastReconciliation.payment.bankTransaction?.description ?? null,
+        }
+      : null;
+
     // Calcular agregados de NCs asociadas para que la UI muestre estado
     // sin tener que refacer el cálculo. `hasFullAnnulment` es lo que
     // bloquea la UI/backend de emitir otra NC tipo CodRef=1. `creditedNet`
@@ -92,6 +162,9 @@ export async function GET(
         creditNotes: ncs,
         hasFullAnnulment,
         creditedNet,
+        crmAccount: enrichedAccount,
+        installation,
+        lastReconciliation: lastReconciliationPayload,
       },
     });
   } catch (error) {

@@ -156,7 +156,26 @@ export function BulkReconcileToDteDialog({
             receiverRut: (d.receiverRut as string | null) ?? null,
           })
         );
-        setCandidates(list);
+
+        // Sort por afinidad de monto: primero los DTEs cuyo `amountPending`
+        // coincide exactamente con la suma a asignar (`totalAlloc`), luego
+        // los que estén dentro de ±2%, y por último el resto por fecha desc.
+        // Esto resuelve el caso típico "el banco depositó el total de la
+        // factura y quiero que aparezca arriba" sin necesidad de filtrar.
+        const exactWindow = 1; // tolerancia <$1 = match exacto
+        const nearWindow = totalAlloc * 0.02; // ±2%
+        const sorted = [...list].sort((a, b) => {
+          const da = Math.abs(a.amountPending - totalAlloc);
+          const db = Math.abs(b.amountPending - totalAlloc);
+          const ta = da <= exactWindow ? 0 : da <= nearWindow ? 1 : 2;
+          const tb = db <= exactWindow ? 0 : db <= nearWindow ? 1 : 2;
+          if (ta !== tb) return ta - tb;
+          // Dentro del mismo tier, ordenar por proximidad al monto.
+          if (ta < 2) return da - db;
+          // Y para el resto, por fecha desc (nuevos primero).
+          return new Date(b.date).getTime() - new Date(a.date).getTime();
+        });
+        setCandidates(sorted);
       } catch (err) {
         if ((err as Error).name !== "AbortError") {
           toast.error(
@@ -304,12 +323,16 @@ export function BulkReconcileToDteDialog({
                     const counterparty = isIncome
                       ? c.receiverName
                       : c.issuerName;
+                    const delta = Math.abs(c.amountPending - totalAlloc);
+                    const isExactMatch = delta <= 1;
+                    const isNearMatch = !isExactMatch && delta <= totalAlloc * 0.02;
                     return (
                       <li
                         key={c.id}
                         className={cn(
                           "flex items-start gap-3 p-3 cursor-pointer hover:bg-muted/30 transition-colors",
-                          selected && "bg-primary/5"
+                          selected && "bg-primary/5",
+                          isExactMatch && !selected && "bg-status-ok-soft/30",
                         )}
                         onClick={() => setSelectedDteId(c.id)}
                       >
@@ -328,6 +351,22 @@ export function BulkReconcileToDteDialog({
                             <Badge variant="outline" className="text-xs">
                               {c.paymentStatus}
                             </Badge>
+                            {isExactMatch && (
+                              <Badge
+                                variant="outline"
+                                className="text-[11px] bg-status-ok-soft text-status-ok-fg border-status-ok-border"
+                              >
+                                Coincidencia exacta
+                              </Badge>
+                            )}
+                            {isNearMatch && (
+                              <Badge
+                                variant="outline"
+                                className="text-[11px] bg-status-warn-soft text-status-warn-fg border-status-warn-border"
+                              >
+                                ≈ {fmtCLP.format(delta)} diferencia
+                              </Badge>
+                            )}
                           </div>
                           <p className="text-xs text-muted-foreground truncate mt-0.5">
                             {counterparty ?? "—"}

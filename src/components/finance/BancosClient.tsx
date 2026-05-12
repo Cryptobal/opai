@@ -220,6 +220,10 @@ export function BancosClient({
     if (valid) setActiveTab(t as TabId);
   }, [searchParams]);
 
+  // Auto-abrir el drawer de conciliación cuando llega `?txId=...` desde
+  // un DTE pagado (deep link cross-módulo). El TransactionsTab observa
+  // `searchParams` y abre el sheet con esa tx cuando aparece en la lista.
+
   return (
     <div className="space-y-4">
       {/* Tab navigation */}
@@ -1005,6 +1009,39 @@ function TransactionsTab({
   useEffect(() => {
     loadTransactions();
   }, [loadTransactions]);
+
+  // Deep-link cross-módulo: cuando un DTE pagado linkea a `?txId=...` o
+  // `?openTx=...`, auto-abrimos el drawer de conciliación de esa tx.
+  // Si la tx no está cargada todavía (por filtros/paginación), hacemos
+  // un fetch dirigido al endpoint individual.
+  const requestedTxId = searchParams.get("txId") || searchParams.get("openTx");
+  useEffect(() => {
+    if (!requestedTxId) return;
+    // Si ya está en la lista, abrirla directo.
+    const inList = transactions.find((t) => t.id === requestedTxId);
+    if (inList) {
+      setReconcileTx(inList);
+      return;
+    }
+    // Si no, fetch directo del endpoint individual.
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/finance/banking/transactions/${requestedTxId}`
+        );
+        if (!res.ok) return;
+        const json = await res.json();
+        if (cancelled || !json?.success || !json.data) return;
+        setReconcileTx(json.data as TransactionRow);
+      } catch {
+        // silencioso: si la tx no existe, no abrimos nada
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [requestedTxId, transactions]);
 
   const submitHide = async () => {
     if (!hideDialog || !hideReason.trim()) {
