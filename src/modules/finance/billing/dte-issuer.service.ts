@@ -147,6 +147,19 @@ export async function issueDte(
     throw new Error(`RUT receptor invalido: ${rutValidation.error}`);
   }
 
+  // 2b. Auto-link CrmAccount por RUT cuando el caller no lo provee.
+  // Antes el frontend tenía que mandar crmAccountId explícitamente y muchas
+  // emisiones quedaban sin vincular — el detalle del DTE mostraba "Sin
+  // asignar" aunque el cliente CRM existía. Si encontramos match por RUT
+  // lo asignamos; si no, queda null como antes.
+  if (!input.crmAccountId) {
+    const match = await prisma.crmAccount.findFirst({
+      where: { tenantId, rut: input.receiverRut },
+      select: { id: true },
+    });
+    if (match) input.crmAccountId = match.id;
+  }
+
   // 3-4. Calcular líneas, IVA, total. Si currency=UF, convierte cada
   // unitPriceUf → unitPrice CLP usando la UF del día (vía FxUfRate).
   // El XML SII y el asiento contable van SIEMPRE en CLP — la UF queda

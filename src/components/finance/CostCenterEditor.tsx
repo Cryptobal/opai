@@ -237,7 +237,7 @@ export function CostCenterEditor({
   ) : (
     <span className="inline-flex items-center gap-1 text-[12px] font-medium text-ds-text-3">
       <Plus className="h-3 w-3" />
-      Asignar centro de costo
+      Vincular cliente / instalación
     </span>
   );
 
@@ -267,7 +267,7 @@ export function CostCenterEditor({
           className={triggerClass}
           onClick={(e) => e.stopPropagation()}
           aria-label={
-            currentAccountName ? "Editar centro de costo" : "Asignar centro de costo"
+            currentAccountName ? "Editar cliente / instalación" : "Vincular cliente / instalación"
           }
         >
           {display}
@@ -280,7 +280,7 @@ export function CostCenterEditor({
       >
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-medium">Centro de costo</p>
+            <p className="text-sm font-medium">Cliente / Instalación</p>
             {(currentAccountId || currentInstallationId) && (
               <Button
                 variant="ghost"

@@ -73,6 +73,12 @@ interface Props {
    * para añadirlos a CC.
    */
   crmAccountId?: string | null;
+  /**
+   * RUT del receptor — fallback cuando crmAccountId está vacío (DTEs
+   * viejos sin auto-link). El endpoint /api/crm/contacts resuelve la
+   * cuenta CRM por RUT y devuelve sus contactos.
+   */
+  receiverRut?: string | null;
   /** Callback opcional al éxito. */
   onSent?: () => void;
 }
@@ -90,6 +96,7 @@ export function SendEmailDialog({
   defaultCc,
   suggestedCc = [],
   crmAccountId,
+  receiverRut,
   onSent,
 }: Props) {
   const [recipient, setRecipient] = useState<string>(defaultRecipient ?? "");
@@ -135,16 +142,23 @@ export function SendEmailDialog({
     return () => ctrl.abort();
   }, [open, dteId]);
 
-  // Cargar contactos del CRM asociados a la cuenta del DTE (si la hay).
-  // Los emails se muestran como chips "+ contacto" que el user puede tocar
-  // para agregar al CC. Más simple que escribirlos a mano.
+  // Cargar contactos del CRM asociados a la cuenta del DTE.
+  // Estrategia: primero por accountId, si no hay accountId fallback por RUT
+  // del receptor — necesario para DTEs viejos donde crmAccountId quedó
+  // null pero el RUT sí matchea con una cuenta CRM.
   useEffect(() => {
-    if (!open || !crmAccountId) {
+    if (!open) return;
+    const param = crmAccountId
+      ? `accountId=${crmAccountId}`
+      : receiverRut
+        ? `rut=${encodeURIComponent(receiverRut)}`
+        : null;
+    if (!param) {
       setCrmContacts([]);
       return;
     }
     const ctrl = new AbortController();
-    fetch(`/api/crm/contacts?accountId=${crmAccountId}`, { signal: ctrl.signal })
+    fetch(`/api/crm/contacts?${param}`, { signal: ctrl.signal })
       .then((r) => r.json())
       .then((j) => {
         if (!j?.success || !Array.isArray(j.data)) return;
@@ -159,7 +173,7 @@ export function SendEmailDialog({
       })
       .catch(() => {});
     return () => ctrl.abort();
-  }, [open, crmAccountId]);
+  }, [open, crmAccountId, receiverRut]);
 
   const toggleExclude = (id: string) => {
     setExcludedIds((prev) => {

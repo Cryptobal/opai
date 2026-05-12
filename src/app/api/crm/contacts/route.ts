@@ -23,8 +23,22 @@ export async function GET(request: NextRequest) {
     const forbidden = await requireCrmView(ctx, "contacts");
     if (forbidden) return forbidden;
 
-    const accountId = request.nextUrl.searchParams.get("accountId") || undefined;
+    const accountIdParam = request.nextUrl.searchParams.get("accountId") || undefined;
+    const rutParam = request.nextUrl.searchParams.get("rut") || undefined;
     const portalEnabled = request.nextUrl.searchParams.get("portalEnabled");
+
+    // Si viene RUT y no accountId, resolvemos la cuenta CRM por RUT.
+    // Caso de uso: DTEs viejos sin crmAccountId asignado pero con receiverRut
+    // que coincide con una cuenta CRM existente — queremos poder traer sus
+    // contactos sin que el caller tenga que hacer un lookup previo.
+    let accountId = accountIdParam;
+    if (!accountId && rutParam) {
+      const account = await prisma.crmAccount.findFirst({
+        where: { tenantId: ctx.tenantId, rut: rutParam },
+        select: { id: true },
+      });
+      if (account) accountId = account.id;
+    }
 
     const contacts = await prisma.crmContact.findMany({
       where: {

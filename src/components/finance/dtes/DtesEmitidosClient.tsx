@@ -1042,6 +1042,7 @@ export function DtesEmitidosClient({
           defaultRecipient={emailDte.receiverEmail}
           defaultCc={[]}
           crmAccountId={emailDte.crmAccountId}
+          receiverRut={emailDte.receiverRut}
           onSent={() => router.refresh()}
         />
       )}
