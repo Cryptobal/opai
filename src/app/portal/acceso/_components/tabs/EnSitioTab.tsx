@@ -341,7 +341,7 @@ export default function EnSitioTab({
           {filteredRecords.map((record) => {
             const elapsed = elapsedMinutes(record.entryAt);
             const color = stayDurationColor(elapsed, maxStayHours);
-            const tc = RECORD_TYPE_CONFIG[record.recordType];
+            const tc = RECORD_TYPE_CONFIG[record.recordType] ?? { label: record.recordType, icon: "UserPlus", color: "blue" };
             const entryTimeStr = new Date(record.entryAt).toLocaleTimeString(
               "es-CL",
               { hour: "2-digit", minute: "2-digit" }

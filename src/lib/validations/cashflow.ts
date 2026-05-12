@@ -18,6 +18,10 @@ export const updateCashflowConfigSchema = z.object({
   turnosExtraMode: z.enum(["HISTORICAL", "PCT_PAYROLL"]).optional(),
   // % como fracción: 0.05 = 5%. Cap a 0.5 por sanity.
   turnosExtraPercentage: z.number().min(0).max(0.5).optional(),
+  // % del monto TE que descuenta el sueldo líquido (fracción 0–1).
+  turnosExtraLiquidoDiscountPct: z.number().min(0).max(1).optional(),
+  // % del monto TE que descuenta el pago de PreviRed (fracción 0–1).
+  turnosExtraPreviRedDiscountPct: z.number().min(0).max(1).optional(),
 });
 
 export const createCashflowCategorySchema = z.object({

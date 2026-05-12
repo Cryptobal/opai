@@ -169,13 +169,20 @@ export async function syncPayrollItemForInstallation(
 
   const config = await prisma.financeCashflowConfig.findUnique({
     where: { tenantId },
-    select: { payrollPayDay: true, previRedPayDay: true },
+    select: {
+      payrollPayDay: true,
+      previRedPayDay: true,
+      turnosExtraLiquidoDiscountPct: true,
+      turnosExtraPreviRedDiscountPct: true,
+    },
   });
   const payDay = config?.payrollPayDay ?? 30;
   const dom = payDay === -1 ? -1 : Math.min(Math.max(payDay, 1), 28);
   const previRedDay = config?.previRedPayDay ?? 10;
   const previRedDom =
     previRedDay === -1 ? -1 : Math.min(Math.max(previRedDay, 1), 28);
+  const liquidoDiscountPct = Number(config?.turnosExtraLiquidoDiscountPct ?? 1);
+  const previRedDiscountPct = Number(config?.turnosExtraPreviRedDiscountPct ?? 0);
 
   const computed = await computeMonthlyPayrollForInstallation(tenantId, installationId);
 
@@ -206,6 +213,32 @@ export async function syncPayrollItemForInstallation(
     return { action: r.count > 0 ? "deactivated" : "noop" };
   }
 
+  // Descuento de turnos extra: el ítem TE almacena el monto SEMANAL;
+  // para descontarlo del egreso mensual de sueldos se convierte a mensual (× 4.33).
+  let teAmountMonthly = 0;
+  if (liquidoDiscountPct > 0 || previRedDiscountPct > 0) {
+    const teItem = await prisma.financeCashflowItem.findFirst({
+      where: { tenantId, source: "TURNOS_EXTRA", sourceRefId: installationId, isActive: true },
+      select: { amount: true },
+    });
+    const teWeekly = Number(teItem?.amount ?? 0);
+    teAmountMonthly = Math.round(teWeekly * 4.33);
+  }
+
+  const liquidoDescuento = Math.round(teAmountMonthly * liquidoDiscountPct);
+  const previRedDescuento = Math.round(teAmountMonthly * previRedDiscountPct);
+  const liquidoFinal = Math.max(0, computed.liquido - liquidoDescuento);
+  const previRedFinal = Math.max(0, computed.previRed - previRedDescuento);
+
+  const liquidoDesc =
+    liquidoDescuento > 0
+      ? `Líquido al guardia · descuenta $${liquidoDescuento.toLocaleString("es-CL")} de TE`
+      : "Líquido al guardia (transferencia mensual)";
+  const previRedDesc =
+    previRedDescuento > 0
+      ? `Imposiciones (AFP + Salud + AFC + SIS + mutual) · descuenta $${previRedDescuento.toLocaleString("es-CL")} de TE`
+      : "Imposiciones (AFP + Salud + AFC + SIS + mutual)";
+
   const baseName = computed.name ?? "instalación";
   const a = await upsertPayrollVariant({
     tenantId,
@@ -213,8 +246,8 @@ export async function syncPayrollItemForInstallation(
     source: "PAYROLL_LIQUIDO",
     categoryId: sueldoCat.id,
     name: `Sueldos líquidos · ${baseName}`,
-    description: "Líquido al guardia (transferencia mensual)",
-    amount: computed.liquido,
+    description: liquidoDesc,
+    amount: liquidoFinal,
     dayOfMonth: dom,
   });
   const b = await upsertPayrollVariant({
@@ -223,8 +256,8 @@ export async function syncPayrollItemForInstallation(
     source: "PAYROLL_PREVIRED",
     categoryId: previRedCat.id,
     name: `PreviRed · ${baseName}`,
-    description: "Imposiciones (AFP + Salud + AFC + SIS + mutual)",
-    amount: computed.previRed,
+    description: previRedDesc,
+    amount: previRedFinal,
     dayOfMonth: previRedDom,
   });
   // Reportamos el "peor caso" (en orden de novedad): created > reactivated > updated > noop.

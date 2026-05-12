@@ -36,7 +36,22 @@ interface CashflowConfig {
   turnosExtraMode: "HISTORICAL" | "PCT_PAYROLL";
   /** % de planilla cuando mode=PCT_PAYROLL (0.05 = 5%). */
   turnosExtraPercentage: number;
+  /** % del monto TE que se descuenta del pago de sueldo líquido (0–1). */
+  turnosExtraLiquidoDiscountPct: number;
+  /** % del monto TE que se descuenta del pago de PreviRed (0–1). */
+  turnosExtraPreviRedDiscountPct: number;
 }
+
+/** Prisma serializa campos Decimal como string en JSON; esta interfaz refleja esa realidad. */
+type RawCashflowConfig = Omit<
+  CashflowConfig,
+  "ufMonthlyGrowthPct" | "turnosExtraPercentage" | "turnosExtraLiquidoDiscountPct" | "turnosExtraPreviRedDiscountPct"
+> & {
+  ufMonthlyGrowthPct?: number | string;
+  turnosExtraPercentage: number | string;
+  turnosExtraLiquidoDiscountPct: number | string;
+  turnosExtraPreviRedDiscountPct: number | string;
+};
 
 interface Category {
   id: string;
@@ -50,7 +65,7 @@ interface Category {
 }
 
 interface Props {
-  initialConfig: CashflowConfig;
+  initialConfig: RawCashflowConfig;
   initialCategories: Category[];
   accountOptions: { id: string; code: string; name: string }[];
 }
@@ -64,12 +79,6 @@ const GENERATORS: Array<{
   description: string;
 }> = [
   {
-    key: "autoSales",
-    title: "Ventas por contrato",
-    description:
-      "Proyecta ingresos a partir de cotizaciones (CpqQuote) con contractStartDate y contrato activo. Considera reajuste real anual.",
-  },
-  {
     key: "autoPayroll",
     title: "Sueldos desde dotación",
     description:
@@ -77,26 +86,33 @@ const GENERATORS: Array<{
   },
   {
     key: "autoTurnosExtra",
-    title: "Turnos extra (rolling)",
+    title: "Turnos extra",
     description:
-      "Proyecta TE semanales por instalación como promedio rolling de las últimas 8 semanas históricas. Pago día viernes.",
+      "Proyecta el egreso mensual de turnos extra por instalación según el modo configurado arriba (histórico rolling o % de planilla). Pago el día 20 del mes.",
   },
   {
     key: "autoIva",
     title: "IVA F29",
     description:
-      "Calcula F29 = IVA débito (DTEs emitidos afectos) − IVA crédito (DTEs recibidos). Solo proyecta meses con saldo positivo.",
+      "Calcula F29 = IVA débito (DTEs emitidos afectos) − IVA crédito (DTEs recibidos). Solo proyecta meses con saldo positivo (cuando se debe pagar al SII).",
   },
   {
     key: "autoRecurringDte",
-    title: "DTEs recurrentes",
+    title: "Facturación recurrente",
     description:
-      "Espeja FinanceDteRecurringTemplate activos como ingresos proyectados.",
+      "Refleja las plantillas de facturación recurrente activas como ingresos proyectados en el flujo de caja. Útil si tenés clientes con facturas de monto y frecuencia fijos.",
   },
 ];
 
 export function CashflowConfigClient({ initialConfig, initialCategories, accountOptions }: Props) {
-  const [config, setConfig] = useState<CashflowConfig>(initialConfig);
+  // Prisma serializa Decimal como string en JSON.stringify; coercionar a number
+  // para evitar "expected number, received string" en el validador del API.
+  const [config, setConfig] = useState<CashflowConfig>({
+    ...initialConfig,
+    ufMonthlyGrowthPct: Number(initialConfig.ufMonthlyGrowthPct ?? 0),
+    turnosExtraLiquidoDiscountPct: Number(initialConfig.turnosExtraLiquidoDiscountPct),
+    turnosExtraPreviRedDiscountPct: Number(initialConfig.turnosExtraPreviRedDiscountPct),
+  });
   const [categories, setCategories] = useState<Category[]>(initialCategories);
   const [savingConfig, setSavingConfig] = useState(false);
   const [newCat, setNewCat] = useState<{ code: string; name: string; kind: "INCOME" | "EXPENSE" }>(
@@ -372,13 +388,54 @@ export function CashflowConfigClient({ initialConfig, initialCategories, account
                   ? Number((config.turnosExtraPercentage * 100).toFixed(2))
                   : 0
               }
-              onChange={(e) =>
-                setField("turnosExtraPercentage", Number(e.target.value) / 100)
-              }
+              onChange={(e) => {
+                const v = parseFloat(e.target.value);
+                setField("turnosExtraPercentage", isNaN(v) ? 0 : v / 100);
+              }}
             />
             <p className="mt-1 text-[12px] text-ds-text-3">
               Aplicado al costo empleador total mensual cuando el modo es{" "}
               <strong>% de planilla</strong>. Ej: 5 = 5% del costo de sueldos.
+            </p>
+          </div>
+          <div>
+            <Label>% TE que descuenta sueldo líquido</Label>
+            <Input
+              className="h-10 sm:h-9"
+              type="number"
+              min={0}
+              max={100}
+              step={1}
+              value={Number((config.turnosExtraLiquidoDiscountPct * 100).toFixed(0))}
+              onChange={(e) => {
+                const v = parseFloat(e.target.value);
+                setField("turnosExtraLiquidoDiscountPct", isNaN(v) ? 1 : Math.min(1, v / 100));
+              }}
+            />
+            <p className="mt-1 text-[12px] text-ds-text-3">
+              Cuando pagás un TE, ese monto ya fue transferido al guardia. Este
+              porcentaje del total de TE proyectado se descuenta del pago de{" "}
+              <strong>sueldo líquido</strong> del período. Ej: 100 = descuenta todo.
+            </p>
+          </div>
+          <div>
+            <Label>% TE que descuenta leyes sociales</Label>
+            <Input
+              className="h-10 sm:h-9"
+              type="number"
+              min={0}
+              max={100}
+              step={1}
+              value={Number((config.turnosExtraPreviRedDiscountPct * 100).toFixed(0))}
+              onChange={(e) => {
+                const v = parseFloat(e.target.value);
+                setField("turnosExtraPreviRedDiscountPct", isNaN(v) ? 0 : Math.min(1, v / 100));
+              }}
+            />
+            <p className="mt-1 text-[12px] text-ds-text-3">
+              Porcentaje del total de TE proyectado que se descuenta del pago a{" "}
+              <strong>PreviRed</strong> (cotizaciones) del mismo período. Ej: 20 =
+              descuenta el 20% del TE de las imposiciones.
             </p>
           </div>
           <div className="sm:col-span-2">

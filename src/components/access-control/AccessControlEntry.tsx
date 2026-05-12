@@ -20,7 +20,9 @@ import type {
   AccessRecordType, AccessControlConfigData,
   RutValidationResult, FormFieldConfig, CedulaQRData,
 } from "@/lib/access-control/types";
-import { DEFAULT_FORM_FIELDS, getRecordTypeLabel } from "@/lib/access-control/types";
+import {
+  DEFAULT_FORM_FIELDS, getRecordTypeLabel, isDefaultRecordType,
+} from "@/lib/access-control/types";
 import { RecordTypeIcon } from "@/lib/access-control/record-type-icon";
 import { validateRut, formatRut, cleanRut, formatRutDash, computeRutDv } from "@/lib/access-control/utils";
 
@@ -249,10 +251,19 @@ export function AccessControlEntry({
   };
 
   // ── Get form fields for the selected type ──
+  // Resolution order:
+  //   1) Explicit per-installation formConfig entry (the admin edited fields)
+  //   2) Built-in default for the 5 default types
+  //   3) Custom record type's seed fields (for newly-created custom types
+  //      that haven't been edited)
+  //   4) Empty array
   const getFields = (): FormFieldConfig[] => {
     if (!selectedType) return [];
-    const configFields = (config.formConfig as Record<string, FormFieldConfig[]>)[selectedType];
-    return configFields || DEFAULT_FORM_FIELDS[selectedType] || [];
+    const configFields = (config.formConfig as Record<string, FormFieldConfig[] | undefined>)[selectedType];
+    if (configFields) return configFields;
+    if (isDefaultRecordType(selectedType)) return DEFAULT_FORM_FIELDS[selectedType] ?? [];
+    const custom = config.customRecordTypes?.find((c) => c.key === selectedType);
+    return custom?.defaultFields ?? [];
   };
 
   return (

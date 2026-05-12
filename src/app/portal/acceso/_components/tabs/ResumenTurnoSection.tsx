@@ -155,7 +155,7 @@ export default function ResumenTurnoSection({
             {(Object.keys(stats.byType) as AccessRecordType[])
               .filter((type) => stats.byType[type] > 0)
               .map((type) => {
-                const tc = RECORD_TYPE_CONFIG[type];
+                const tc = RECORD_TYPE_CONFIG[type] ?? { label: type, icon: "UserPlus", color: "blue" };
                 const count = stats.byType[type];
                 return (
                   <div

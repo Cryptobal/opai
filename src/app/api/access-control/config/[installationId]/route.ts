@@ -17,6 +17,15 @@ const defaultConfig = (installationId: string) => ({
   formConfig: {},
   recordTypeLabels: {},
   recordTypeIcons: {},
+  customRecordTypes: [] as Array<{
+    id: string;
+    key: string;
+    label: string;
+    icon: string;
+    defaultFields: unknown[];
+    orderIdx: number;
+    isActive: boolean;
+  }>,
 });
 
 export async function GET(
@@ -36,14 +45,33 @@ export async function GET(
       null,
     );
 
+    // Always include active custom record types for this installation.
+    // Inactive (soft-deleted) types are omitted so the admin UI and the
+    // mobile portal both stop offering them — but the rows stay in the
+    // DB so historic AccessControlRecords keep resolving their label.
+    const customRecordTypes = await safeAccessControlQuery(
+      () => prisma.accessControlRecordType.findMany({
+        where: { installationId, isActive: true },
+        orderBy: { orderIdx: "asc" },
+        select: {
+          id: true, key: true, label: true, icon: true,
+          defaultFields: true, orderIdx: true, isActive: true,
+        },
+      }),
+      [],
+    );
+
     if (!config) {
       return NextResponse.json({
         success: true,
-        data: defaultConfig(installationId),
+        data: { ...defaultConfig(installationId), customRecordTypes: customRecordTypes ?? [] },
       });
     }
 
-    return NextResponse.json({ success: true, data: config });
+    return NextResponse.json({
+      success: true,
+      data: { ...config, customRecordTypes: customRecordTypes ?? [] },
+    });
   } catch (error) {
     console.error("[AccessControl] Error fetching config:", error);
     return NextResponse.json(

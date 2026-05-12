@@ -2265,6 +2265,7 @@ model CrmInstallation {
   chatChannels                    ChatChannel[]
   visitasTecnicas                 OpsVisitaTecnica[]
   accessControlConfig             AccessControlConfig?
+  accessControlRecordTypes        AccessControlRecordType[]
   accessControlLists              AccessControlList[]
   accessControlRecords            AccessControlRecord[]
   accessControlDeniedAttempts     AccessControlDeniedAttempt[]
@@ -7530,7 +7531,13 @@ model FinanceCashflowConfig {
   /// Cómo proyectar turnos extra. Default HISTORICAL (rolling 8 semanas).
   turnosExtraMode         FinanceTurnosExtraMode @default(HISTORICAL) @map("turnos_extra_mode")
   /// % de sueldos brutos cuando mode=PCT_PAYROLL (ej. 0.05 = 5%).
-  turnosExtraPercentage   Decimal  @default(0) @map("turnos_extra_percentage") @db.Decimal(6, 4)
+  turnosExtraPercentage            Decimal  @default(0) @map("turnos_extra_percentage") @db.Decimal(6, 4)
+  /// % del monto de TE proyectado que se descuenta del pago de sueldo líquido
+  /// del mismo período. 1 = 100% (default). 0 = no descontar nada.
+  turnosExtraLiquidoDiscountPct    Decimal  @default(1) @map("turnos_extra_liquido_discount_pct") @db.Decimal(5, 4)
+  /// % del monto de TE proyectado que se descuenta del pago de PreviRed
+  /// del mismo período. 0 = no descontar (default conservador).
+  turnosExtraPreviRedDiscountPct   Decimal  @default(0) @map("turnos_extra_previred_discount_pct") @db.Decimal(5, 4)
   matchAmountToleranceClp Int      @default(5000) @map("match_amount_tolerance_clp")
   matchDaysTolerance      Int      @default(3) @map("match_days_tolerance")
   /// Crecimiento mensual de la UF en % (ej. 0.30 = 0,3% por mes). Sólo
@@ -8595,6 +8602,28 @@ model AccessControlConfig {
 
   @@index([tenantId], map: "idx_ac_configs_tenant")
   @@map("access_control_configs")
+  @@schema("access_control")
+}
+
+model AccessControlRecordType {
+  id             String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId       String   @map("tenant_id")
+  installationId String   @map("installation_id") @db.Uuid
+  key            String
+  label          String
+  icon           String   @default("UserPlus")
+  defaultFields  Json     @default("[]") @map("default_fields") @db.JsonB
+  orderIdx       Int      @default(0) @map("order_idx")
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  installation CrmInstallation @relation(fields: [installationId], references: [id], onDelete: Cascade)
+
+  @@unique([installationId, key], map: "access_control_record_types_inst_key_uniq")
+  @@index([tenantId], map: "idx_ac_record_types_tenant")
+  @@index([installationId, isActive], map: "idx_ac_record_types_inst_active")
+  @@map("access_control_record_types")
   @@schema("access_control")
 }
 

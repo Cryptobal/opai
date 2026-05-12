@@ -6,7 +6,27 @@
 //  ENUMS / LITERALS
 // ═══════════════════════════════════════════════════════════════
 
-export type AccessRecordType = "visit" | "provider" | "vehicle" | "staff" | "delivery";
+/**
+ * The 5 built-in record type ids. They live forever in code and can be
+ * disabled per installation but not deleted; this protects historical
+ * AccessControlRecord rows from losing their type. New custom types
+ * created at runtime use a server-generated `custom_<random>` key.
+ */
+export const DEFAULT_RECORD_TYPE_IDS = ["visit", "provider", "vehicle", "staff", "delivery"] as const;
+export type DefaultRecordTypeId = (typeof DEFAULT_RECORD_TYPE_IDS)[number];
+
+/**
+ * Runtime record type id. Used to be a literal union; now any string is
+ * accepted to allow per-installation custom types. Built-in ids are
+ * exported as `DEFAULT_RECORD_TYPE_IDS` for the few code paths that need
+ * to special-case the defaults (e.g. the vehicle entry flow).
+ */
+export type AccessRecordType = string;
+
+/** Helper: is this id one of the 5 defaults? */
+export function isDefaultRecordType(id: string): id is DefaultRecordTypeId {
+  return (DEFAULT_RECORD_TYPE_IDS as readonly string[]).includes(id);
+}
 
 export type ListType = "whitelist" | "blacklist";
 export type ListScope = "local" | "global";
@@ -34,13 +54,9 @@ export interface FormFieldConfig {
   placeholder?: string;
 }
 
-export interface AccessControlFormConfig {
-  visit?: FormFieldConfig[];
-  provider?: FormFieldConfig[];
-  vehicle?: FormFieldConfig[];
-  staff?: FormFieldConfig[];
-  delivery?: FormFieldConfig[];
-}
+/** Form fields per record type. Keyed by record type id — the 5 default
+ *  ids (visit/provider/vehicle/staff/delivery) plus any custom keys. */
+export type AccessControlFormConfig = Record<string, FormFieldConfig[] | undefined>;
 
 export interface AccessControlConfigData {
   id?: string;
@@ -56,10 +72,28 @@ export interface AccessControlConfigData {
   formConfig: AccessControlFormConfig;
   /** Per-installation override of the type's display label. Keys are
    *  AccessRecordType ids; missing keys fall back to RECORD_TYPE_CONFIG. */
-  recordTypeLabels?: Partial<Record<AccessRecordType, string>>;
+  recordTypeLabels?: Partial<Record<string, string>>;
   /** Per-installation override of the type's lucide icon name. Keys are
    *  AccessRecordType ids; missing keys fall back to RECORD_TYPE_CONFIG. */
-  recordTypeIcons?: Partial<Record<AccessRecordType, string>>;
+  recordTypeIcons?: Partial<Record<string, string>>;
+  /** Custom record types created for this installation. Stored in a
+   *  separate table, included in this payload so the mobile portal and
+   *  admin get them in one round-trip. Inactive types are omitted from
+   *  this list but historic records keep resolving via their `key`. */
+  customRecordTypes?: CustomRecordType[];
+}
+
+/** A user-defined record type created at runtime for one installation.
+ *  Backed by the AccessControlRecordType table; the `key` is the value
+ *  stored on AccessControlRecord.recordType. */
+export interface CustomRecordType {
+  id: string;
+  key: string;
+  label: string;
+  icon: string;
+  defaultFields: FormFieldConfig[];
+  orderIdx: number;
+  isActive: boolean;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -279,7 +313,7 @@ export interface AccessControlStats {
   currentlyInSite: number;
   currentVehiclesInSite: number;
   averageStayMinutes: number;
-  byType: Record<AccessRecordType, number>;
+  byType: Record<string, number>;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -302,7 +336,18 @@ export type SyncStatus = "online" | "syncing" | "offline";
 //  UI CONSTANTS
 // ═══════════════════════════════════════════════════════════════
 
-export const RECORD_TYPE_CONFIG: Record<AccessRecordType, { label: string; icon: string; color: string }> = {
+/**
+ * Display config for the 5 built-in record types. Keyed by string (not
+ * DefaultRecordTypeId) so call sites can index by an arbitrary type id
+ * — custom types simply return `undefined` and the caller falls back to
+ * `getRecordTypeLabel` / `getRecordTypeIconName` which resolve via the
+ * per-installation config.
+ *
+ * Always access via the helpers when you have a `config`; this constant
+ * is for back-office views that don't know which installation a record
+ * comes from.
+ */
+export const RECORD_TYPE_CONFIG: Partial<Record<string, { label: string; icon: string; color: string }>> = {
   visit: { label: "Visita", icon: "UserPlus", color: "blue" },
   provider: { label: "Proveedor", icon: "Truck", color: "orange" },
   vehicle: { label: "Vehículo", icon: "Car", color: "purple" },
@@ -329,29 +374,48 @@ export const AVAILABLE_RECORD_TYPE_ICONS = [
 ] as const;
 export type AvailableRecordTypeIcon = (typeof AVAILABLE_RECORD_TYPE_ICONS)[number];
 
-/** Returns the customized label for a record type, falling back to the
- *  default in RECORD_TYPE_CONFIG. Safe to call with a partial/undefined
- *  config — useful for back-office views that don't load per-installation
- *  overrides. */
+type LabelResolverConfig = {
+  recordTypeLabels?: Partial<Record<string, string>>;
+  customRecordTypes?: CustomRecordType[];
+} | null | undefined;
+
+type IconResolverConfig = {
+  recordTypeIcons?: Partial<Record<string, string>>;
+  customRecordTypes?: CustomRecordType[];
+} | null | undefined;
+
+/** Returns the customized label for a record type. Resolution order:
+ *  1) Per-installation label override (admin renamed a default type)
+ *  2) Custom record type label (if `type` is a custom key)
+ *  3) Built-in RECORD_TYPE_CONFIG label
+ *  4) The raw type string (so unknown custom keys still render readable)
+ */
 export function getRecordTypeLabel(
   type: AccessRecordType,
-  config?: { recordTypeLabels?: Partial<Record<AccessRecordType, string>> } | null,
+  config?: LabelResolverConfig,
 ): string {
   const override = config?.recordTypeLabels?.[type];
   if (override && override.trim().length > 0) return override;
-  return RECORD_TYPE_CONFIG[type]?.label ?? type;
+  const custom = config?.customRecordTypes?.find((t) => t.key === type);
+  if (custom?.label) return custom.label;
+  if (isDefaultRecordType(type)) return RECORD_TYPE_CONFIG[type]?.label ?? type;
+  return type;
 }
 
-/** Returns the icon name (lucide) to use for a record type. Returns a string
- *  so the component layer can map it to a React element (icons are not safe
- *  to embed in shared types — they would pull React into server bundles). */
+/** Returns the icon name (lucide) to use for a record type. Same resolution
+ *  order as `getRecordTypeLabel`. Returns a string so the component layer
+ *  can map it to a React element (icons are not safe to embed in shared
+ *  types — they would pull React into server bundles). */
 export function getRecordTypeIconName(
   type: AccessRecordType,
-  config?: { recordTypeIcons?: Partial<Record<AccessRecordType, string>> } | null,
+  config?: IconResolverConfig,
 ): string {
   const override = config?.recordTypeIcons?.[type];
   if (override && override.trim().length > 0) return override;
-  return RECORD_TYPE_CONFIG[type]?.icon ?? "UserPlus";
+  const custom = config?.customRecordTypes?.find((t) => t.key === type);
+  if (custom?.icon) return custom.icon;
+  if (isDefaultRecordType(type)) return RECORD_TYPE_CONFIG[type]?.icon ?? "UserPlus";
+  return "UserPlus";
 }
 
 export const PREREGISTRATION_STATUS_CONFIG: Record<PreregistrationStatus, { label: string; color: string }> = {
@@ -362,8 +426,9 @@ export const PREREGISTRATION_STATUS_CONFIG: Record<PreregistrationStatus, { labe
   cancelled: { label: "Cancelado", color: "gray" },
 };
 
-/** Default form fields for each record type */
-export const DEFAULT_FORM_FIELDS: Record<AccessRecordType, FormFieldConfig[]> = {
+/** Default form fields for each built-in record type. Custom types take
+ *  their initial fields from the CustomRecordType.defaultFields column. */
+export const DEFAULT_FORM_FIELDS: Record<DefaultRecordTypeId, FormFieldConfig[]> = {
   visit: [
     { field: "rut", label: "RUT", type: "text", required: true, order: 1 },
     { field: "full_name", label: "Nombre Completo", type: "text", required: true, order: 2 },

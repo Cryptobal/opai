@@ -7,8 +7,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import type { AccessRecordType } from "@/lib/access-control/types";
-import { RECORD_TYPE_CONFIG } from "@/lib/access-control/types";
+import type { AccessRecordType, CustomRecordType } from "@/lib/access-control/types";
+import {
+  DEFAULT_RECORD_TYPE_IDS, getRecordTypeLabel,
+} from "@/lib/access-control/types";
 import { formatRut, formatDuration, elapsedMinutes } from "@/lib/access-control/utils";
 
 interface HistoryRecord {
@@ -35,6 +37,36 @@ export function ClientAccessControlHistory({ installationId }: Props) {
   const [typeFilter, setTypeFilter] = useState("");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [availableTypes, setAvailableTypes] = useState<string[]>([
+    ...DEFAULT_RECORD_TYPE_IDS,
+  ]);
+  const [customTypes, setCustomTypes] = useState<CustomRecordType[]>([]);
+  const [recordTypeLabels, setRecordTypeLabels] = useState<Partial<Record<string, string>>>({});
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/portal/cliente/access-control/${installationId}/record-types`)
+      .then((r) => r.json())
+      .then((json) => {
+        if (cancelled || !json.success) return;
+        const enabled: string[] = json.data?.enabledRecordTypes ?? [
+          ...DEFAULT_RECORD_TYPE_IDS,
+        ];
+        setAvailableTypes(enabled.length ? enabled : [...DEFAULT_RECORD_TYPE_IDS]);
+        setCustomTypes(json.data?.customRecordTypes ?? []);
+        setRecordTypeLabels(json.data?.recordTypeLabels ?? {});
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [installationId]);
+
+  const typeLabel = useCallback(
+    (t: string) =>
+      getRecordTypeLabel(t, { customRecordTypes: customTypes, recordTypeLabels }),
+    [customTypes, recordTypeLabels],
+  );
 
   const fetchHistory = useCallback(async () => {
     setLoading(true);
@@ -68,7 +100,7 @@ export function ClientAccessControlHistory({ installationId }: Props) {
     // Build CSV
     const headers = ["Tipo", "RUT", "Nombre", "Empresa", "Entrada", "Salida", "Patente"];
     const rows = records.map((r) => [
-      RECORD_TYPE_CONFIG[r.recordType]?.label || r.recordType,
+      typeLabel(r.recordType),
       r.rut ? formatRut(r.rut) : "",
       r.fullName || "",
       r.company || "",
@@ -120,8 +152,8 @@ export function ClientAccessControlHistory({ installationId }: Props) {
           className="rounded-md border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-zinc-200"
         >
           <option value="">Todos</option>
-          {(Object.keys(RECORD_TYPE_CONFIG) as AccessRecordType[]).map((t) => (
-            <option key={t} value={t}>{RECORD_TYPE_CONFIG[t].label}</option>
+          {availableTypes.map((t) => (
+            <option key={t} value={t}>{typeLabel(t)}</option>
           ))}
         </select>
         <Button variant="outline" size="sm" onClick={handleExport}>
@@ -160,7 +192,7 @@ export function ClientAccessControlHistory({ installationId }: Props) {
                   <tr key={r.id} className="border-b border-zinc-800 hover:bg-zinc-800/50">
                     <td className="px-3 py-2">
                       <Badge variant="outline" className="text-xs border-zinc-600">
-                        {RECORD_TYPE_CONFIG[r.recordType]?.label || r.recordType}
+                        {typeLabel(r.recordType)}
                       </Badge>
                     </td>
                     <td className="px-3 py-2 text-zinc-200">

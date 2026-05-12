@@ -236,7 +236,7 @@ export default function InicioTab({
             <div className="space-y-1">
               {recentRecords.map((record) => {
                 const isEntry = !record.exitAt;
-                const tc = RECORD_TYPE_CONFIG[record.recordType];
+                const tc = RECORD_TYPE_CONFIG[record.recordType] ?? { label: record.recordType, icon: "UserPlus", color: "blue" };
                 const timeStr = new Date(
                   record.exitAt || record.entryAt
                 ).toLocaleTimeString("es-CL", {
@@ -341,7 +341,7 @@ export default function InicioTab({
                   variant="outline"
                   className="border-[#374151] text-[#9CA3AF]"
                 >
-                  {RECORD_TYPE_CONFIG[selectedRecord.recordType].label}
+                  {RECORD_TYPE_CONFIG[selectedRecord.recordType]?.label ?? selectedRecord.recordType}
                 </Badge>
                 <Badge
                   variant="outline"

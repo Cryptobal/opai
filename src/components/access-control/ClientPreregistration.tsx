@@ -9,9 +9,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { PREREGISTRATION_STATUS_CONFIG } from "@/lib/access-control/types";
+import {
+  PREREGISTRATION_STATUS_CONFIG, DEFAULT_RECORD_TYPE_IDS,
+  getRecordTypeLabel,
+} from "@/lib/access-control/types";
 import { formatRut, validateRut } from "@/lib/access-control/utils";
-import type { PreregistrationStatus, AccessRecordType } from "@/lib/access-control/types";
+import type {
+  PreregistrationStatus, AccessRecordType, CustomRecordType,
+} from "@/lib/access-control/types";
 
 interface Prereg {
   id: string;
@@ -40,6 +45,34 @@ export function ClientPreregistration({ installationId, createdBy }: Props) {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
+  // Available record type ids for this installation (defaults + active
+  // custom types). Fetched from /api/access-control/config so the
+  // dropdown reflects whatever the admin configured.
+  const [availableTypes, setAvailableTypes] = useState<string[]>([
+    ...DEFAULT_RECORD_TYPE_IDS,
+  ]);
+  const [customTypes, setCustomTypes] = useState<CustomRecordType[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    // Use the portal-cliente record-types endpoint (its auth differs
+    // from the admin /api/access-control/config endpoint, which would
+    // reject a cliente session with 401).
+    fetch(`/api/portal/cliente/access-control/${installationId}/record-types`)
+      .then((r) => r.json())
+      .then((json) => {
+        if (cancelled || !json.success) return;
+        const enabled: string[] = json.data?.enabledRecordTypes ?? [
+          ...DEFAULT_RECORD_TYPE_IDS,
+        ];
+        setAvailableTypes(enabled.length ? enabled : [...DEFAULT_RECORD_TYPE_IDS]);
+        setCustomTypes(json.data?.customRecordTypes ?? []);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [installationId]);
 
   // Form
   const [fRut, setFRut] = useState("");
@@ -185,11 +218,11 @@ export function ClientPreregistration({ installationId, createdBy }: Props) {
                 onChange={(e) => setFRecordType(e.target.value as AccessRecordType)}
                 className="w-full rounded-md border border-zinc-600 bg-zinc-700 px-3 py-2 text-sm text-zinc-200"
               >
-                <option value="visit">Visita</option>
-                <option value="provider">Proveedor</option>
-                <option value="vehicle">Vehículo</option>
-                <option value="staff">Personal</option>
-                <option value="delivery">Despacho</option>
+                {availableTypes.map((t) => (
+                  <option key={t} value={t}>
+                    {getRecordTypeLabel(t, { customRecordTypes: customTypes })}
+                  </option>
+                ))}
               </select>
             </div>
             {fRecordType === "vehicle" && (

@@ -11,8 +11,6 @@ export const SYSTEM_CATEGORIES: Array<{
 }> = [
   // Ingresos
   { code: "ING_VENTA_CONTRATO", name: "Ventas por contrato", kind: "INCOME", sortOrder: 10, color: "#10B981" },
-  { code: "ING_TURNO_EXTRA", name: "Cobro turnos extra", kind: "INCOME", sortOrder: 20, color: "#22C55E" },
-  { code: "ING_INSTALACION", name: "Cobro instalaciones", kind: "INCOME", sortOrder: 30, color: "#34D399" },
   { code: "ING_OTRO", name: "Otros ingresos", kind: "INCOME", sortOrder: 90, color: "#86EFAC" },
   // Egresos operativos
   { code: "EGR_SUELDO", name: "Sueldos líquidos", kind: "EXPENSE", sortOrder: 110, color: "#EF4444" },
@@ -72,9 +70,21 @@ export async function seedSystemCategoriesForTenant(tenantId: string): Promise<v
   }
 }
 
+// Categorías de sistema eliminadas del catálogo — se desactivan automáticamente
+// en tenants existentes la próxima vez que se lista el catálogo.
+const REMOVED_SYSTEM_CODES = ["ING_TURNO_EXTRA", "ING_INSTALACION"];
+
 export async function listCategories(tenantId: string): Promise<FinanceCashflowCategory[]> {
   const count = await prisma.financeCashflowCategory.count({ where: { tenantId } });
   if (count === 0) await seedSystemCategoriesForTenant(tenantId);
+
+  // Desactivar categorías eliminadas del catálogo (sin tocar items existentes —
+  // quedan como histórico pero dejan de proyectarse al desactivarse la categoría).
+  await prisma.financeCashflowCategory.updateMany({
+    where: { tenantId, code: { in: REMOVED_SYSTEM_CODES }, isSystem: true, isActive: true },
+    data: { isActive: false },
+  });
+
   return prisma.financeCashflowCategory.findMany({
     where: { tenantId },
     orderBy: [{ kind: "asc" }, { sortOrder: "asc" }, { name: "asc" }],
