@@ -39,24 +39,41 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Look up the configured PIN. Try the new prefixed key first
-    // (`empresa:{tenantId}:portales.logoutPin`), then fall back to the
-    // legacy unprefixed key (`portales.logoutPin`) — mirroring the GET
-    // handler in /api/configuracion/empresa which already does this dual
-    // lookup. Always filter by tenantId for multi-tenant isolation.
+    // Look up the configured PIN. Try in order:
+    //   1. New prefixed key scoped to device's tenant
+    //      (`empresa:{tenantId}:portales.logoutPin`)
+    //   2. Legacy unprefixed key scoped to device's tenant
+    //      (`portales.logoutPin`)
+    //   3. Legacy unprefixed key with tenantId=NULL — pre-multi-tenant
+    //      global setting that the 20260406 migration left in place.
+    //
+    // Using findFirst (not findUnique) avoids issues with Prisma's
+    // composite unique selectors when the same upsert path was used
+    // under different tenant scopes over time.
     const newKey = `empresa:${device.tenantId}:portales.logoutPin`;
     const legacyKey = `portales.logoutPin`;
 
-    let setting = await prisma.setting.findUnique({
-      where: { tenantId_key: { tenantId: device.tenantId, key: newKey } },
+    let setting = await prisma.setting.findFirst({
+      where: { tenantId: device.tenantId, key: newKey },
       select: { value: true },
     });
+    let source: "new-scoped" | "legacy-scoped" | "legacy-global" | "none" =
+      setting ? "new-scoped" : "none";
 
     if (!setting) {
-      setting = await prisma.setting.findUnique({
-        where: { tenantId_key: { tenantId: device.tenantId, key: legacyKey } },
+      setting = await prisma.setting.findFirst({
+        where: { tenantId: device.tenantId, key: legacyKey },
         select: { value: true },
       });
+      if (setting) source = "legacy-scoped";
+    }
+
+    if (!setting) {
+      setting = await prisma.setting.findFirst({
+        where: { tenantId: null, key: legacyKey },
+        select: { value: true },
+      });
+      if (setting) source = "legacy-global";
     }
 
     const configured = normalizePin(setting?.value);
@@ -64,15 +81,28 @@ export async function POST(request: NextRequest) {
     const correctPin = configured || DEFAULT_PIN;
     const valid = submitted.length === 4 && submitted === correctPin;
 
-    // Diagnostic logging — never log the actual PIN values, only lengths
-    // and which key matched. Useful for production debugging without leaking.
+    // Diagnostic logging — never log actual PIN values. On mismatch we
+    // also probe whether the PIN exists under a *different* tenant, which
+    // is the most common real-world cause (admin saves PIN as tenant A,
+    // device paired to installation under tenant B).
     if (!valid) {
+      const crossTenant = await prisma.setting.findFirst({
+        where: {
+          key: { contains: "portales.logoutPin" },
+          NOT: { tenantId: device.tenantId },
+        },
+        select: { tenantId: true, key: true },
+      });
       console.warn("[validate-logout-pin] mismatch", {
         tenantId: device.tenantId,
-        hasSetting: !!setting,
+        deviceTokenSuffix: String(deviceToken).slice(-8),
+        source,
         configuredLength: configured.length,
         submittedLength: submitted.length,
         usingDefault: !configured,
+        crossTenantHit: crossTenant
+          ? { tenantId: crossTenant.tenantId, key: crossTenant.key }
+          : null,
       });
     }
 
