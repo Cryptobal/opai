@@ -44,6 +44,8 @@ import {
   Layers,
   PlayCircle,
   Settings2,
+  AlertCircle,
+  RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -202,19 +204,25 @@ const EMPTY_RULE: Omit<Rule, "id" | "timesMatched" | "lastMatchedAt" | "createdA
 export function BankRulesClient({ canManage, accountPlans }: BankRulesClientProps) {
   const [rules, setRules] = useState<Rule[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [runningHistorical, setRunningHistorical] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<Rule | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
-      const res = await fetch("/api/finance/banking/automatch-rules");
+      const res = await fetch("/api/finance/banking/automatch-rules", {
+        cache: "no-store",
+      });
       const json = await res.json();
-      if (!res.ok || !json.success) throw new Error(json.error || "Error");
+      if (!res.ok || !json.success) throw new Error(json.error || `HTTP ${res.status}`);
       setRules(json.data ?? []);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Error al cargar reglas");
+      const msg = err instanceof Error ? err.message : "Error al cargar reglas";
+      setLoadError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -268,7 +276,7 @@ export function BankRulesClient({ canManage, accountPlans }: BankRulesClientProp
   const handleRunHistorical = async () => {
     if (
       !confirm(
-        "¿Aplicar todas las reglas activas a movimientos sin reconocer del histórico? Las que matcheen quedarán como Reconocidas pendientes de autorizar."
+        "¿Conciliar histórico? Se evaluarán los movimientos UNMATCHED contra DTEs pendientes (match por monto + RUT) y, como fallback, contra las reglas activas. Los matches quedan como conciliados o reconocidos según corresponda."
       )
     ) {
       return;
@@ -280,7 +288,7 @@ export function BankRulesClient({ canManage, accountPlans }: BankRulesClientProp
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({}),
+          body: JSON.stringify({ includeSuggested: true }),
         }
       );
       const json = await res.json();
@@ -314,14 +322,14 @@ export function BankRulesClient({ canManage, accountPlans }: BankRulesClientProp
               variant="outline"
               size="sm"
               onClick={handleRunHistorical}
-              disabled={runningHistorical || rules.filter((r) => r.enabled).length === 0}
+              disabled={runningHistorical}
             >
               {runningHistorical ? (
                 <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
               ) : (
                 <PlayCircle className="h-4 w-4 mr-1.5" />
               )}
-              Aplicar al histórico
+              Conciliar histórico
             </Button>
             <Button size="sm" onClick={openCreate}>
               <Plus className="h-4 w-4 mr-1.5" />
@@ -335,6 +343,25 @@ export function BankRulesClient({ canManage, accountPlans }: BankRulesClientProp
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </div>
+      ) : loadError ? (
+        <Card className="border-status-danger-border bg-status-danger-soft">
+          <CardContent className="p-4 flex items-start gap-3">
+            <AlertCircle className="h-5 w-5 text-status-danger-fg flex-shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="font-medium text-sm text-status-danger-fg">
+                No pudimos cargar tus reglas
+              </p>
+              <p className="text-xs text-status-danger-fg/80 mt-1">
+                {loadError}. Tus reglas siguen guardadas — sólo falló la lectura.
+                Intenta recargar.
+              </p>
+            </div>
+            <Button size="sm" variant="outline" onClick={load}>
+              <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+              Reintentar
+            </Button>
+          </CardContent>
+        </Card>
       ) : rules.length === 0 ? (
         <EmptyState
           icon={Settings2}

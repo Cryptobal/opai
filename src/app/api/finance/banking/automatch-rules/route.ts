@@ -14,6 +14,9 @@ import {
   type RuleConditions,
 } from "@/modules/finance/banking/automatch-rule.service";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 const conditionItemSchema = z.object({
   field: z.enum(["DESCRIPTION", "REFERENCE", "AMOUNT", "BENEFICIARY_RUT"]),
   operator: z.enum([
@@ -69,7 +72,10 @@ export async function GET(_request: NextRequest) {
       );
     }
     const rules = await listRules(ctx.tenantId);
-    return NextResponse.json({ success: true, data: rules });
+    return NextResponse.json(
+      { success: true, data: rules },
+      { headers: { "Cache-Control": "no-store, max-age=0, must-revalidate" } }
+    );
   } catch (error) {
     console.error("[Finance/Banking/Rules] GET error:", error);
     return NextResponse.json(
