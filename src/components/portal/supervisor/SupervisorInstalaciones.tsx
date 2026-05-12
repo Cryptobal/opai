@@ -54,7 +54,7 @@ export function SupervisorInstalaciones({ tenantInstallations, onSelect }: Props
     const q = query.toLowerCase();
     return (
       inst.name.toLowerCase().includes(q) ||
-      inst.accountName.toLowerCase().includes(q) ||
+      (inst.accountName ?? "").toLowerCase().includes(q) ||
       (inst.address ?? "").toLowerCase().includes(q)
     );
   });
