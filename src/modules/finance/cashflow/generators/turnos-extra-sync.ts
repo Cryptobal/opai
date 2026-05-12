@@ -1,7 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { startOfMonth, subWeeks } from "date-fns";
-import { computeEmployerCost } from "@/modules/payroll/engine/compute-employer-cost";
 
 const TE_CATEGORY_CODE = "EGR_TURNO_EXTRA";
 
@@ -15,8 +14,8 @@ interface ComputedTurnosExtra {
 }
 
 /**
- * Modo HISTORICAL: promedio rolling 8 semanas de OpsTurnoExtra.amountClp,
- * proyectado a mensual con factor 4.33 sem/mes.
+ * Modo HISTORICAL: promedio SEMANAL rolling 8 semanas de OpsTurnoExtra.amountClp.
+ * El ítem se proyecta semanalmente, por lo que el amount es el egreso por semana.
  */
 async function computeHistorical(
   tenantId: string,
@@ -33,18 +32,19 @@ async function computeHistorical(
   if (tes.length === 0) return null;
   const total = tes.reduce((s, t) => s + Number(t.amountClp ?? 0), 0);
   if (total <= 0) return null;
-  const monthly = (total / 8) * 4.33;
+  // Promedio semanal directo: total / 8 semanas
+  const weekly = Math.round(total / 8);
   return {
-    amount: Math.round(monthly),
+    amount: weekly,
     name: tes[0]?.installation?.name ?? null,
-    detail: `Promedio rolling 8 semanas (${tes.length} TE históricos)`,
+    detail: `Promedio semanal rolling 8 semanas (${tes.length} TE históricos)`,
   };
 }
 
 /**
- * Modo PCT_PAYROLL: porcentaje configurable aplicado al COSTO EMPLEADOR
- * total de los puestos activos de la instalación. Útil cuando aún no hay
- * historial de TE pero el negocio estima los TE como % de planilla.
+ * Modo PCT_PAYROLL: porcentaje sobre el SUELDO BASE total de los puestos
+ * activos de la instalación. El monto resultante es el egreso SEMANAL de TE
+ * (mensual / 4.33), ya que el ítem se proyecta semanalmente.
  */
 async function computeAsPctOfPayroll(
   tenantId: string,
@@ -65,31 +65,23 @@ async function computeAsPctOfPayroll(
     },
   });
   if (puestos.length === 0) return null;
-  let employerTotal = 0;
+  let salaryTotal = 0;
   let name: string | null = null;
   for (const p of puestos) {
     if (!p.salaryStructure) continue;
     if (!name) name = p.installation?.name ?? null;
     const baseSalary = Number(p.salaryStructure.baseSalary ?? 0);
     if (baseSalary <= 0) continue;
-    let employerCost = baseSalary * 1.45;
-    try {
-      const r = await computeEmployerCost({
-        base_salary_clp: baseSalary,
-        contract_type: "indefinite",
-      });
-      if (r?.monthly_employer_cost_clp) employerCost = r.monthly_employer_cost_clp;
-    } catch {
-      // fallback al factor
-    }
-    employerTotal += employerCost;
+    salaryTotal += baseSalary;
   }
-  if (employerTotal <= 0) return null;
-  const amount = Math.round(employerTotal * pct);
+  if (salaryTotal <= 0) return null;
+  const monthlyAmount = Math.round(salaryTotal * pct);
+  // Convertir a egreso semanal (el ítem se repite semanalmente)
+  const weeklyAmount = Math.round(monthlyAmount / 4.33);
   return {
-    amount,
+    amount: weeklyAmount,
     name,
-    detail: `${(pct * 100).toFixed(1)}% de planilla mensual`,
+    detail: `${(pct * 100).toFixed(1)}% de sueldos brutos (semanal)`,
   };
 }
 
@@ -140,9 +132,9 @@ export async function syncTurnosExtraItemForInstallation(
     description: computed.detail,
     amount: computed.amount,
     currency: "CLP",
-    recurrence: "MONTHLY" as const,
-    dayOfMonth: 20,
-    dayOfWeek: null,
+    recurrence: "WEEKLY" as const,
+    dayOfMonth: null,
+    dayOfWeek: 5, // viernes (0=Dom … 5=Vie)
     monthOfYear: null,
     startDate: startOfMonth(new Date()),
     endDate: null,

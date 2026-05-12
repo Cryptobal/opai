@@ -213,19 +213,20 @@ export async function syncPayrollItemForInstallation(
     return { action: r.count > 0 ? "deactivated" : "noop" };
   }
 
-  // Descuento de turnos extra: el ítem TE de esta instalación ya fue pagado
-  // semanalmente, por lo que se descuenta del pago mensual según config.
-  let teAmount = 0;
+  // Descuento de turnos extra: el ítem TE almacena el monto SEMANAL;
+  // para descontarlo del egreso mensual de sueldos se convierte a mensual (× 4.33).
+  let teAmountMonthly = 0;
   if (liquidoDiscountPct > 0 || previRedDiscountPct > 0) {
     const teItem = await prisma.financeCashflowItem.findFirst({
       where: { tenantId, source: "TURNOS_EXTRA", sourceRefId: installationId, isActive: true },
       select: { amount: true },
     });
-    teAmount = Number(teItem?.amount ?? 0);
+    const teWeekly = Number(teItem?.amount ?? 0);
+    teAmountMonthly = Math.round(teWeekly * 4.33);
   }
 
-  const liquidoDescuento = Math.round(teAmount * liquidoDiscountPct);
-  const previRedDescuento = Math.round(teAmount * previRedDiscountPct);
+  const liquidoDescuento = Math.round(teAmountMonthly * liquidoDiscountPct);
+  const previRedDescuento = Math.round(teAmountMonthly * previRedDiscountPct);
   const liquidoFinal = Math.max(0, computed.liquido - liquidoDescuento);
   const previRedFinal = Math.max(0, computed.previRed - previRedDescuento);
 

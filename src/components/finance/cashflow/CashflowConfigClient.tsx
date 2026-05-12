@@ -42,6 +42,17 @@ interface CashflowConfig {
   turnosExtraPreviRedDiscountPct: number;
 }
 
+/** Prisma serializa campos Decimal como string en JSON; esta interfaz refleja esa realidad. */
+type RawCashflowConfig = Omit<
+  CashflowConfig,
+  "ufMonthlyGrowthPct" | "turnosExtraPercentage" | "turnosExtraLiquidoDiscountPct" | "turnosExtraPreviRedDiscountPct"
+> & {
+  ufMonthlyGrowthPct?: number | string;
+  turnosExtraPercentage: number | string;
+  turnosExtraLiquidoDiscountPct: number | string;
+  turnosExtraPreviRedDiscountPct: number | string;
+};
+
 interface Category {
   id: string;
   code: string;
@@ -54,7 +65,7 @@ interface Category {
 }
 
 interface Props {
-  initialConfig: CashflowConfig;
+  initialConfig: RawCashflowConfig;
   initialCategories: Category[];
   accountOptions: { id: string; code: string; name: string }[];
 }
@@ -94,7 +105,14 @@ const GENERATORS: Array<{
 ];
 
 export function CashflowConfigClient({ initialConfig, initialCategories, accountOptions }: Props) {
-  const [config, setConfig] = useState<CashflowConfig>(initialConfig);
+  // Prisma serializa Decimal como string en JSON.stringify; coercionar a number
+  // para evitar "expected number, received string" en el validador del API.
+  const [config, setConfig] = useState<CashflowConfig>({
+    ...initialConfig,
+    ufMonthlyGrowthPct: Number(initialConfig.ufMonthlyGrowthPct ?? 0),
+    turnosExtraLiquidoDiscountPct: Number(initialConfig.turnosExtraLiquidoDiscountPct),
+    turnosExtraPreviRedDiscountPct: Number(initialConfig.turnosExtraPreviRedDiscountPct),
+  });
   const [categories, setCategories] = useState<Category[]>(initialCategories);
   const [savingConfig, setSavingConfig] = useState(false);
   const [newCat, setNewCat] = useState<{ code: string; name: string; kind: "INCOME" | "EXPENSE" }>(
