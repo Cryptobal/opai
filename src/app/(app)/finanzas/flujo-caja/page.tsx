@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, hasCapability } from "@/lib/permissions-server";
 import { redirect } from "next/navigation";
-import { Settings } from "lucide-react";
+import { Settings, ArrowLeftRight } from "lucide-react";
 import Link from "next/link";
 import { getOrCreateCashflowConfig } from "@/modules/finance/cashflow/config.service";
 import { buildProjection } from "@/modules/finance/cashflow/projection.service";
@@ -111,14 +111,22 @@ export default async function FlujoCajaPage({
             Forecast semanal y mensual de ingresos y egresos
           </p>
         </div>
-        {canConfigure ? (
+        <div className="flex items-center gap-3">
           <Link
-            href="/opai/configuracion/finanzas/flujo-caja"
+            href="/finanzas/flujo-caja/cuadratura"
             className="inline-flex items-center gap-1.5 text-[13px] text-ds-text-2 hover:text-ds-text-1"
           >
-            <Settings className="h-4 w-4" /> Configurar
+            <ArrowLeftRight className="h-4 w-4" /> Cuadratura
           </Link>
-        ) : null}
+          {canConfigure ? (
+            <Link
+              href="/opai/configuracion/finanzas/flujo-caja"
+              className="inline-flex items-center gap-1.5 text-[13px] text-ds-text-2 hover:text-ds-text-1"
+            >
+              <Settings className="h-4 w-4" /> Configurar
+            </Link>
+          ) : null}
+        </div>
       </div>
 
       <CashflowKpis kpis={kpis} />
