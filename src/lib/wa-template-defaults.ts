@@ -1,6 +1,6 @@
 /**
- * Defaults planos para merge en `/api/crm/whatsapp-templates` (CrmWhatsAppTemplate).
- * Los cuerpos coinciden con {@link WA_TEMPLATE_SEEDS}; los tokens se extraen del texto.
+ * Defaults planos para merge en `/api/crm/whatsapp-templates`.
+ * Persistencia: modelo `DocTemplate` (`module="whatsapp"`, `usageSlug`).
  */
 
 import { WA_TEMPLATE_SEEDS } from "@/lib/docs/wa-template-seeds";
