@@ -42,10 +42,26 @@ export async function setContractItemsActive(
   tenantId: string,
   active: boolean,
 ): Promise<{ affected: number }> {
-  // Compat shim: el toggle ya no existe en config, pero si alguien lo invoca
-  // lo aplicamos a los items source=CONTRACT remanentes (los no migrados).
+  // Compat shim: el toggle ya no existe en config. Solo afecta a items
+  // CONTRACT LEGACY — los que apuntan a un CpqQuote (modelo viejo). Los
+  // items CONTRACT nuevos (apuntan a un Document desde el tab Contratos del
+  // CRM) son fuente-de-verdad y NO se tocan acá.
+  const legacy = await prisma.financeCashflowItem.findMany({
+    where: { tenantId, source: "CONTRACT", sourceRefId: { not: null } },
+    select: { id: true, sourceRefId: true },
+  });
+  const legacyIds: string[] = [];
+  for (const item of legacy) {
+    if (!item.sourceRefId) continue;
+    const quote = await prisma.cpqQuote.findFirst({
+      where: { id: item.sourceRefId, tenantId },
+      select: { id: true },
+    });
+    if (quote) legacyIds.push(item.id);
+  }
+  if (legacyIds.length === 0) return { affected: 0 };
   const result = await prisma.financeCashflowItem.updateMany({
-    where: { tenantId, source: "CONTRACT" },
+    where: { id: { in: legacyIds } },
     data: { isActive: active },
   });
   return { affected: result.count };
@@ -76,18 +92,35 @@ export async function setContractItemsActive(
  * manualmente abriendo el dialog.
  */
 /**
- * Borra definitivamente todos los `FinanceCashflowItem` con `source="CONTRACT"`
- * del tenant. Útil para limpiar registros legacy que quedaron después de
- * migrar a contratos 100% manuales (2026-05-11). Idempotente.
+ * Borra `FinanceCashflowItem` LEGACY con `source="CONTRACT"` cuyo
+ * `sourceRefId` apunta a un `CpqQuote` (modelo viejo, pre 2026-05-11).
+ *
+ * NO TOCA los items CONTRACT nuevos que apuntan a un `Document` — esos son
+ * la tipificación correcta post-fix de 2026-05-12. Filtramos explícitamente
+ * por existencia del Quote para evitar borrar registros válidos.
  *
  * Las `FinanceCashflowOccurrence` y `FinanceCashflowIpcAdjustment` asociadas
- * caen por cascade (onDelete: Cascade en el schema).
+ * caen por cascade (onDelete: Cascade en el schema). Idempotente.
  */
 export async function deleteLegacyContractItems(
   tenantId: string,
 ): Promise<{ deleted: number }> {
+  const candidates = await prisma.financeCashflowItem.findMany({
+    where: { tenantId, source: "CONTRACT", sourceRefId: { not: null } },
+    select: { id: true, sourceRefId: true },
+  });
+  const legacyIds: string[] = [];
+  for (const item of candidates) {
+    if (!item.sourceRefId) continue;
+    const quote = await prisma.cpqQuote.findFirst({
+      where: { id: item.sourceRefId, tenantId },
+      select: { id: true },
+    });
+    if (quote) legacyIds.push(item.id);
+  }
+  if (legacyIds.length === 0) return { deleted: 0 };
   const result = await prisma.financeCashflowItem.deleteMany({
-    where: { tenantId, source: "CONTRACT" },
+    where: { id: { in: legacyIds } },
   });
   return { deleted: result.count };
 }

@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Info } from "lucide-react";
 
 interface CategoryLite {
   id: string;
@@ -42,7 +43,34 @@ interface ItemLike {
   kind: "INCOME" | "EXPENSE";
   ufFixingPolicy?: string | null;
   ufFixingDay?: number | null;
+  /** Origen del ítem. Si es de un módulo upstream (PAYROLL_*, CONTRACT,
+   *  IVA, TURNOS_EXTRA, RECURRING_DTE), el cron diario lo sobrescribe, así
+   *  que solo se pueden editar campos cosméticos desde acá. */
+  source?: string;
 }
+
+/** Sources cuya plata/recurrencia se materializa desde otro módulo. El
+ *  formulario muestra estos campos en modo solo-lectura y solo permite
+ *  editar nombre/descripción para que el usuario no pierda cambios. */
+const LOCKED_SOURCES = new Set([
+  "CONTRACT",
+  "PAYROLL",
+  "PAYROLL_LIQUIDO",
+  "PAYROLL_PREVIRED",
+  "TURNOS_EXTRA",
+  "IVA",
+  "RECURRING_DTE",
+]);
+
+const SOURCE_LABEL_UI: Record<string, string> = {
+  CONTRACT: "Contrato del CRM",
+  PAYROLL: "Dotación de instalaciones",
+  PAYROLL_LIQUIDO: "Sueldo líquido (Dotación)",
+  PAYROLL_PREVIRED: "PreviRed (Dotación)",
+  TURNOS_EXTRA: "Histórico de turnos extra",
+  IVA: "F29 del SII",
+  RECURRING_DTE: "DTE recurrente",
+};
 
 interface Props {
   open: boolean;
@@ -111,6 +139,11 @@ export function ItemFormDialog({ open, item, categories, onClose, onSaved }: Pro
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const isEdit = item !== null;
+  const isLocked = isEdit && !!item?.source && LOCKED_SOURCES.has(item.source);
+  const lockedSourceLabel =
+    item?.source && SOURCE_LABEL_UI[item.source]
+      ? SOURCE_LABEL_UI[item.source]
+      : item?.source ?? "otra fuente";
 
   useEffect(() => {
     if (item) {
@@ -158,40 +191,52 @@ export function ItemFormDialog({ open, item, categories, onClose, onSaved }: Pro
 
   async function save() {
     setError(null);
-    const amountValue = parseAmount(form.amount);
-    if (!Number.isFinite(amountValue) || amountValue <= 0) {
-      setError("Monto inválido. Ingresa un número mayor a 0.");
-      return;
-    }
-    setSaving(true);
-    const body: Record<string, unknown> = {
-      categoryId: form.categoryId,
-      kind: form.kind,
-      name: form.name,
-      description: form.description || undefined,
-      amount: amountValue,
-      currency: form.currency,
-      recurrence: form.recurrence,
-      startDate: form.startDate,
-      endDate: form.endDate || undefined,
-      notes: form.notes || undefined,
-    };
-    if (form.currency === "UF") {
-      body.ufFixingPolicy = form.ufFixingPolicy;
-      if (form.ufFixingPolicy === "CUSTOM_DAY" && form.ufFixingDay) {
-        body.ufFixingDay = Number(form.ufFixingDay);
+    let body: Record<string, unknown>;
+
+    if (isLocked) {
+      // Item auto-generado: el backend rechaza cambios de monto/recurrencia
+      // /fechas. Solo enviamos los campos cosméticos para no fallar el PUT.
+      body = {
+        name: form.name,
+        description: form.description || undefined,
+        notes: form.notes || undefined,
+      };
+    } else {
+      const amountValue = parseAmount(form.amount);
+      if (!Number.isFinite(amountValue) || amountValue <= 0) {
+        setError("Monto inválido. Ingresa un número mayor a 0.");
+        return;
+      }
+      body = {
+        categoryId: form.categoryId,
+        kind: form.kind,
+        name: form.name,
+        description: form.description || undefined,
+        amount: amountValue,
+        currency: form.currency,
+        recurrence: form.recurrence,
+        startDate: form.startDate,
+        endDate: form.endDate || undefined,
+        notes: form.notes || undefined,
+      };
+      if (form.currency === "UF") {
+        body.ufFixingPolicy = form.ufFixingPolicy;
+        if (form.ufFixingPolicy === "CUSTOM_DAY" && form.ufFixingDay) {
+          body.ufFixingDay = Number(form.ufFixingDay);
+        }
+      }
+      if (["WEEKLY", "BIWEEKLY"].includes(form.recurrence)) {
+        body.dayOfWeek = Number(form.dayOfWeek);
+      }
+      if (["MONTHLY", "QUARTERLY", "YEARLY"].includes(form.recurrence)) {
+        body.dayOfMonth = Number(form.dayOfMonth);
+      }
+      if (form.recurrence === "YEARLY") {
+        body.monthOfYear = Number(form.monthOfYear);
       }
     }
-    if (["WEEKLY", "BIWEEKLY"].includes(form.recurrence)) {
-      body.dayOfWeek = Number(form.dayOfWeek);
-    }
-    if (["MONTHLY", "QUARTERLY", "YEARLY"].includes(form.recurrence)) {
-      body.dayOfMonth = Number(form.dayOfMonth);
-    }
-    if (form.recurrence === "YEARLY") {
-      body.monthOfYear = Number(form.monthOfYear);
-    }
 
+    setSaving(true);
     const url = isEdit ? `/api/finance/cashflow/items/${item!.id}` : "/api/finance/cashflow/items";
     const method = isEdit ? "PUT" : "POST";
     const r = await fetch(url, {
@@ -215,10 +260,28 @@ export function ItemFormDialog({ open, item, categories, onClose, onSaved }: Pro
           <DialogTitle>{isEdit ? "Editar item" : "Nuevo item proyectado"}</DialogTitle>
         </DialogHeader>
         <div className="grid gap-3 py-2">
+          {isLocked && (
+            <div className="flex gap-2 rounded-ds-md border border-status-info-border bg-status-info-soft px-3 py-2.5">
+              <Info className="h-4 w-4 text-status-info-fg shrink-0 mt-0.5" />
+              <div className="text-[12px] text-status-info-fg">
+                <p className="font-medium">Ítem auto-generado desde {lockedSourceLabel}</p>
+                <p className="mt-0.5 text-status-info-fg/85">
+                  El monto, recurrencia, fechas y vínculos los recalcula
+                  automáticamente el sistema desde la fuente original. Si los
+                  editas acá, el cron diario los va a sobrescribir. Para
+                  cambiarlos de verdad, edita la fuente
+                  {item?.source === "CONTRACT" ? " (Contrato del CRM)" : ""}
+                  {item?.source?.startsWith("PAYROLL") ? " (Dotación de la instalación)" : ""}
+                  {item?.source === "IVA" ? " (configuración de F29)" : ""}
+                  . Acá solo puedes ajustar nombre, descripción y notas.
+                </p>
+              </div>
+            </div>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label>Categoría</Label>
-              <Select value={form.categoryId} onValueChange={categoryChanged}>
+              <Select value={form.categoryId} onValueChange={categoryChanged} disabled={isLocked}>
                 <SelectTrigger className="h-10 sm:h-9">
                   <SelectValue placeholder="Selecciona..." />
                 </SelectTrigger>
@@ -259,6 +322,7 @@ export function ItemFormDialog({ open, item, categories, onClose, onSaved }: Pro
                 placeholder={form.currency === "UF" ? "0,00" : "0"}
                 value={form.amount}
                 onChange={(e) => setAmount(e.target.value)}
+                disabled={isLocked}
               />
               <p className="mt-1 text-[12px] text-ds-text-3">
                 {form.currency === "CLP" ? "Pesos chilenos. Ej: 150.000" : "UF con 2 decimales. Ej: 12,50"}
@@ -266,7 +330,11 @@ export function ItemFormDialog({ open, item, categories, onClose, onSaved }: Pro
             </div>
             <div>
               <Label>Moneda</Label>
-              <Select value={form.currency} onValueChange={(v) => setCurrency(v as "CLP" | "UF")}>
+              <Select
+                value={form.currency}
+                onValueChange={(v) => setCurrency(v as "CLP" | "UF")}
+                disabled={isLocked}
+              >
                 <SelectTrigger className="h-10 sm:h-9">
                   <SelectValue />
                 </SelectTrigger>
@@ -278,7 +346,7 @@ export function ItemFormDialog({ open, item, categories, onClose, onSaved }: Pro
             </div>
             <div>
               <Label>Recurrencia</Label>
-              <Select value={form.recurrence} onValueChange={(v) => set("recurrence", v)}>
+              <Select value={form.recurrence} onValueChange={(v) => set("recurrence", v)} disabled={isLocked}>
                 <SelectTrigger className="h-10 sm:h-9">
                   <SelectValue />
                 </SelectTrigger>
@@ -298,7 +366,11 @@ export function ItemFormDialog({ open, item, categories, onClose, onSaved }: Pro
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label>Política UF</Label>
-                <Select value={form.ufFixingPolicy} onValueChange={(v) => set("ufFixingPolicy", v)}>
+                <Select
+                  value={form.ufFixingPolicy}
+                  onValueChange={(v) => set("ufFixingPolicy", v)}
+                  disabled={isLocked}
+                >
                   <SelectTrigger className="h-10 sm:h-9">
                     <SelectValue />
                   </SelectTrigger>
@@ -321,6 +393,7 @@ export function ItemFormDialog({ open, item, categories, onClose, onSaved }: Pro
                     max={31}
                     value={form.ufFixingDay}
                     onChange={(e) => set("ufFixingDay", e.target.value)}
+                    disabled={isLocked}
                   />
                 </div>
               )}
@@ -331,7 +404,7 @@ export function ItemFormDialog({ open, item, categories, onClose, onSaved }: Pro
             {["WEEKLY", "BIWEEKLY"].includes(form.recurrence) && (
               <div>
                 <Label>Día de la semana</Label>
-                <Select value={form.dayOfWeek} onValueChange={(v) => set("dayOfWeek", v)}>
+                <Select value={form.dayOfWeek} onValueChange={(v) => set("dayOfWeek", v)} disabled={isLocked}>
                   <SelectTrigger className="h-10 sm:h-9">
                     <SelectValue />
                   </SelectTrigger>
@@ -357,6 +430,7 @@ export function ItemFormDialog({ open, item, categories, onClose, onSaved }: Pro
                   max={31}
                   value={form.dayOfMonth}
                   onChange={(e) => set("dayOfMonth", e.target.value)}
+                  disabled={isLocked}
                 />
                 <p className="mt-1 text-[12px] text-ds-text-3">
                   Día en que cae el pago. Usa <code className="font-mono">-1</code> para el último día (útil para arriendos que vencen fin de mes).
@@ -373,6 +447,7 @@ export function ItemFormDialog({ open, item, categories, onClose, onSaved }: Pro
                   max={12}
                   value={form.monthOfYear}
                   onChange={(e) => set("monthOfYear", e.target.value)}
+                  disabled={isLocked}
                 />
               </div>
             )}
@@ -386,6 +461,7 @@ export function ItemFormDialog({ open, item, categories, onClose, onSaved }: Pro
                 type="date"
                 value={form.startDate}
                 onChange={(e) => set("startDate", e.target.value)}
+                disabled={isLocked}
               />
             </div>
             <div>
@@ -395,6 +471,7 @@ export function ItemFormDialog({ open, item, categories, onClose, onSaved }: Pro
                 type="date"
                 value={form.endDate}
                 onChange={(e) => set("endDate", e.target.value)}
+                disabled={isLocked}
               />
             </div>
           </div>
@@ -421,7 +498,11 @@ export function ItemFormDialog({ open, item, categories, onClose, onSaved }: Pro
           </Button>
           <Button
             onClick={save}
-            disabled={saving || !form.categoryId || !form.name || !form.amount.trim()}
+            disabled={
+              saving ||
+              !form.name ||
+              (!isLocked && (!form.categoryId || !form.amount.trim()))
+            }
             className="w-full sm:w-auto h-10 sm:h-9"
           >
             {saving ? "Guardando..." : "Guardar"}

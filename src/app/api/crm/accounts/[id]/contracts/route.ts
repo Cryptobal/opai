@@ -86,7 +86,8 @@ export async function GET(
     const cashflowItems = await prisma.financeCashflowItem.findMany({
       where: {
         tenantId: ctx.tenantId,
-        source: "OTHER",
+        // Acepta CONTRACT (nuevo) y OTHER (legacy pre-fix tipificación)
+        source: { in: ["CONTRACT", "OTHER"] },
         sourceRefId: { in: documents.map((d) => d.id) },
         isActive: true,
       },
@@ -277,6 +278,7 @@ export async function POST(
       monthlyAmountClp,
       currency,
       paymentDay,
+      pendingSignature,
     } = parsed.data;
 
     // Multi-instalación (Fase C): si vienen N, las usamos. Si sólo viene
@@ -298,62 +300,67 @@ export async function POST(
       explicitExpiration ??
       computeExpirationFromDuration(effectiveDate, durationMonths);
 
-    let uploadedPublicUrl: string;
-    if (isMultipart) {
-      if (!file) {
-        return NextResponse.json(
-          { success: false, error: "Archivo PDF requerido" },
-          { status: 400 },
+    // Si es contrato pendiente de firma, no se exige archivo: el doc queda
+    // sin pdfUrl y con status="pending_signature". El usuario igual proyecta
+    // el ingreso al flujo de caja (validado por el superRefine del schema).
+    let uploadedPublicUrl: string | null = null;
+    if (!pendingSignature) {
+      if (isMultipart) {
+        if (!file) {
+          return NextResponse.json(
+            { success: false, error: "Archivo PDF requerido" },
+            { status: 400 },
+          );
+        }
+        if (file.size === 0) {
+          return NextResponse.json(
+            { success: false, error: "El archivo está vacío" },
+            { status: 400 },
+          );
+        }
+        if (file.size > MAX_PDF_SIZE_BYTES) {
+          return NextResponse.json(
+            { success: false, error: "El archivo supera el límite de 25 MB" },
+            { status: 400 },
+          );
+        }
+        const buffer = Buffer.from(await file.arrayBuffer());
+        const header = buffer.subarray(0, 5).toString("ascii");
+        if (header !== "%PDF-") {
+          return NextResponse.json(
+            { success: false, error: "El archivo no es un PDF válido" },
+            { status: 400 },
+          );
+        }
+        const uploaded = await uploadFile(
+          buffer,
+          file.name,
+          file.type || "application/pdf",
+          "contracts",
+          ctx.tenantId,
         );
+        uploadedPublicUrl = uploaded.publicUrl;
+      } else {
+        if (!presignedStorageKey) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: "storageKey requerido cuando se usa subida pre-firmada",
+            },
+            { status: 400 },
+          );
+        }
+        // Validamos que la key sea del tenant + el prefix esperado para
+        // evitar que un atacante reuse keys de otro tenant.
+        const expectedPrefix = `${ctx.tenantId}/contracts/`;
+        if (!presignedStorageKey.startsWith(expectedPrefix)) {
+          return NextResponse.json(
+            { success: false, error: "storageKey no pertenece a este tenant" },
+            { status: 400 },
+          );
+        }
+        uploadedPublicUrl = getFileUrl(presignedStorageKey);
       }
-      if (file.size === 0) {
-        return NextResponse.json(
-          { success: false, error: "El archivo está vacío" },
-          { status: 400 },
-        );
-      }
-      if (file.size > MAX_PDF_SIZE_BYTES) {
-        return NextResponse.json(
-          { success: false, error: "El archivo supera el límite de 25 MB" },
-          { status: 400 },
-        );
-      }
-      const buffer = Buffer.from(await file.arrayBuffer());
-      const header = buffer.subarray(0, 5).toString("ascii");
-      if (header !== "%PDF-") {
-        return NextResponse.json(
-          { success: false, error: "El archivo no es un PDF válido" },
-          { status: 400 },
-        );
-      }
-      const uploaded = await uploadFile(
-        buffer,
-        file.name,
-        file.type || "application/pdf",
-        "contracts",
-        ctx.tenantId,
-      );
-      uploadedPublicUrl = uploaded.publicUrl;
-    } else {
-      if (!presignedStorageKey) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "storageKey requerido cuando se usa subida pre-firmada",
-          },
-          { status: 400 },
-        );
-      }
-      // Validamos que la key sea del tenant + el prefix esperado para
-      // evitar que un atacante reuse keys de otro tenant.
-      const expectedPrefix = `${ctx.tenantId}/contracts/`;
-      if (!presignedStorageKey.startsWith(expectedPrefix)) {
-        return NextResponse.json(
-          { success: false, error: "storageKey no pertenece a este tenant" },
-          { status: 400 },
-        );
-      }
-      uploadedPublicUrl = getFileUrl(presignedStorageKey);
     }
 
     const document = await prisma.$transaction(async (tx) => {
@@ -364,16 +371,23 @@ export async function POST(
           content: { type: "doc", content: [] },
           module: "crm",
           category,
-          status: "active", // uploaded PDFs are considered live
+          // Contratos pendientes de firma (sin PDF) → "pending_signature".
+          // Contratos con PDF cargado → "active" (live).
+          status: pendingSignature ? "pending_signature" : "active",
           effectiveDate: effectiveDate ? new Date(effectiveDate) : null,
           expirationDate: computedExpiration ? new Date(computedExpiration) : null,
           alertDaysBefore,
           pdfUrl: uploadedPublicUrl,
-          portalVisible: true,
-          // External-signature metadata
-          signatureStatus: signedExternally ? "external" : null,
-          signedAt: signedExternally && signedAt ? new Date(signedAt) : null,
-          signedBy: signedExternally ? signedBy ?? null : null,
+          portalVisible: !pendingSignature,
+          // External-signature metadata. Si está pendiente, no aplica.
+          signatureStatus:
+            !pendingSignature && signedExternally ? "external" : null,
+          signedAt:
+            !pendingSignature && signedExternally && signedAt
+              ? new Date(signedAt)
+              : null,
+          signedBy:
+            !pendingSignature && signedExternally ? signedBy ?? null : null,
           createdBy: ctx.userId,
         },
       });
@@ -422,7 +436,9 @@ export async function POST(
               createdBy: ctx.userId ?? undefined,
               categoryId: cat.id,
               kind: "INCOME",
-              source: "OTHER",
+              // Tipificación correcta: items derivados de contratos CRM
+              // = source CONTRACT (no OTHER). Bloquea edición en cashflow.
+              source: "CONTRACT",
               sourceRefId: doc.id,
               name: title,
               description: `Contrato ${title}`,
@@ -445,20 +461,24 @@ export async function POST(
           documentId: doc.id,
           action: "created",
           details: {
-            mode: "upload",
-            fileName: file?.name ?? presignedStorageKey?.split("/").pop() ?? "—",
-            fileSize: file?.size ?? null,
+            mode: pendingSignature ? "pending_signature" : "upload",
+            fileName: pendingSignature
+              ? null
+              : file?.name ?? presignedStorageKey?.split("/").pop() ?? "—",
+            fileSize: pendingSignature ? null : file?.size ?? null,
             category,
             durationMonths: durationMonths ?? null,
-            computedExpiration: !explicitExpiration && computedExpiration ? true : false,
-            signedExternally,
+            computedExpiration:
+              !explicitExpiration && computedExpiration ? true : false,
+            signedExternally: pendingSignature ? false : signedExternally,
+            pendingSignature,
             notes: notes ?? null,
           },
           createdBy: ctx.userId,
         },
       });
 
-      if (signedExternally) {
+      if (signedExternally && !pendingSignature) {
         await tx.docHistory.create({
           data: {
             documentId: doc.id,

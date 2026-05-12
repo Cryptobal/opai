@@ -7,13 +7,19 @@ import { prisma } from "@/lib/prisma";
 /**
  * Gestión del FinanceCashflowItem vinculado a un contrato PDF (Document).
  *
- * Relación: FinanceCashflowItem.sourceRefId = document.id, source=OTHER,
+ * Relación: FinanceCashflowItem.sourceRefId = document.id, source=CONTRACT,
  * categoría ING_VENTA_CONTRATO. Cada contrato puede tener cero o un item.
  *
  * Un cliente (CrmAccount) puede tener N contratos, y cada uno
  * potencialmente vincularse a una instalación distinta con monto y día de
  * pago propios. Este endpoint permite gestionar esa vinculación por
  * contrato sin afectar a los demás.
+ *
+ * Backwards compat: items creados antes del fix de tipificación tienen
+ * source="OTHER". Las búsquedas de existing aceptan ambos sources
+ * (`{ in: ["CONTRACT", "OTHER"] }`) y al hacer update se migran a
+ * "CONTRACT" en place. Cuando todos los items legacy se hayan migrado,
+ * podemos dropear el "OTHER" de las queries.
  */
 
 const upsertSchema = z.object({
@@ -71,7 +77,8 @@ export async function GET(
   const item = await prisma.financeCashflowItem.findFirst({
     where: {
       tenantId: ctx.tenantId,
-      source: "OTHER",
+      // Acepta CONTRACT (nuevo) y OTHER (legacy pre-fix de tipificación)
+      source: { in: ["CONTRACT", "OTHER"] },
       sourceRefId: contractId,
     },
     select: {
@@ -175,10 +182,11 @@ export async function PUT(
   const installationId = data.installationId ?? null;
 
   // Update si ya existe; create si no. El sourceRefId apunta al document.
+  // Búsqueda inclusiva: matches CONTRACT (nuevo) y OTHER (legacy).
   const existing = await prisma.financeCashflowItem.findFirst({
     where: {
       tenantId: ctx.tenantId,
-      source: "OTHER",
+      source: { in: ["CONTRACT", "OTHER"] },
       sourceRefId: contractId,
     },
     select: { id: true },
@@ -188,7 +196,10 @@ export async function PUT(
     tenantId: ctx.tenantId,
     categoryId: cat.id,
     kind: "INCOME" as const,
-    source: "OTHER" as const,
+    // Tipificación correcta: contratos del CRM = source CONTRACT (no OTHER).
+    // Si el existing es OTHER (legacy), el update siguiente lo migra a
+    // CONTRACT in-place.
+    source: "CONTRACT" as const,
     sourceRefId: contractId,
     name: document.title,
     description: `Contrato ${document.title}`,
@@ -262,7 +273,7 @@ export async function DELETE(
   const existing = await prisma.financeCashflowItem.findFirst({
     where: {
       tenantId: ctx.tenantId,
-      source: "OTHER",
+      source: { in: ["CONTRACT", "OTHER"] },
       sourceRefId: contractId,
     },
     select: { id: true },

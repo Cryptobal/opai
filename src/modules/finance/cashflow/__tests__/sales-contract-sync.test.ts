@@ -16,6 +16,7 @@ vi.mock("@/lib/prisma", () => {
         findMany: vi.fn(),
         update: vi.fn(),
         updateMany: vi.fn(),
+        deleteMany: vi.fn(),
       },
       docAssociation: { findFirst: vi.fn() },
     },
@@ -53,13 +54,24 @@ describe("sales-contract-sync — deprecated pipeline", () => {
     });
   });
 
-  it("setContractItemsActive sí toca items remanentes (compat shim)", async () => {
+  it("setContractItemsActive solo toca items LEGACY (sourceRefId = CpqQuote)", async () => {
+    // Dos items source=CONTRACT: uno legacy (apunta a quote), uno nuevo
+    // (apunta a Document — la cpqQuote no existe).
+    (prisma.financeCashflowItem.findMany as ReturnType<typeof vi.fn>)
+      .mockResolvedValue([
+        { id: "item-legacy", sourceRefId: "quote-1" },
+        { id: "item-nuevo", sourceRefId: "doc-1" },
+      ]);
+    (prisma.cpqQuote.findFirst as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce({ id: "quote-1" }) // legacy: quote sí existe
+      .mockResolvedValueOnce(null); // nuevo: el sourceRefId apunta a Document
     (prisma.financeCashflowItem.updateMany as ReturnType<typeof vi.fn>)
-      .mockResolvedValue({ count: 3 });
+      .mockResolvedValue({ count: 1 });
+
     const r = await setContractItemsActive(TENANT, false);
-    expect(r).toEqual({ affected: 3 });
+    expect(r).toEqual({ affected: 1 });
     expect(prisma.financeCashflowItem.updateMany).toHaveBeenCalledWith({
-      where: { tenantId: TENANT, source: "CONTRACT" },
+      where: { id: { in: ["item-legacy"] } },
       data: { isActive: false },
     });
   });

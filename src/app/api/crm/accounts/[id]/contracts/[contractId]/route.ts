@@ -109,7 +109,8 @@ export async function PATCH(
         const cashflowItem = await tx.financeCashflowItem.findFirst({
           where: {
             tenantId: ctx.tenantId,
-            source: "OTHER",
+            // Acepta CONTRACT (nuevo) y OTHER (legacy pre-fix tipificación)
+            source: { in: ["CONTRACT", "OTHER"] },
             sourceRefId: contractId,
             isActive: true,
           },

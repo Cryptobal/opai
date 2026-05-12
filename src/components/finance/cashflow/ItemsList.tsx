@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Lock } from "lucide-react";
 import { ItemFormDialog } from "./ItemFormDialog";
 import { humanReadableRecurrence } from "./recurrence-label";
 
@@ -56,6 +56,9 @@ export function ItemsList({ canManage }: { canManage: boolean }) {
 
   // Sources considerados "auto-generados": no se editan desde esta UI,
   // se derivan de otros datos (dotación, DTEs, contratos CRM, etc.).
+  // El backend rechaza updates de monto/recurrencia/fechas en estos, y
+  // rechaza DELETE — solo se puede tocar nombre/descripción/notas o
+  // desactivarlos.
   const AUTO_SOURCES = new Set([
     "CONTRACT",
     "PAYROLL",
@@ -65,6 +68,8 @@ export function ItemsList({ canManage }: { canManage: boolean }) {
     "IVA",
     "RECURRING_DTE",
   ]);
+
+  const isAuto = (s: string) => AUTO_SOURCES.has(s);
   const [editing, setEditing] = useState<ItemRow | null>(null);
   const [creating, setCreating] = useState(false);
 
@@ -203,12 +208,32 @@ export function ItemsList({ canManage }: { canManage: boolean }) {
                     <button
                       onClick={() => setEditing(i)}
                       className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-ds-sm hover:bg-muted/40 text-[12px] text-ds-text-2"
+                      title={
+                        isAuto(i.source)
+                          ? "Auto-generado: solo puedes editar nombre/notas"
+                          : "Editar"
+                      }
                     >
-                      <Pencil className="h-3.5 w-3.5" /> Editar
+                      {isAuto(i.source) ? (
+                        <Lock className="h-3.5 w-3.5" />
+                      ) : (
+                        <Pencil className="h-3.5 w-3.5" />
+                      )}{" "}
+                      {isAuto(i.source) ? "Ver" : "Editar"}
                     </button>
                     <button
-                      onClick={() => handleDelete(i.id)}
-                      className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-ds-sm hover:bg-status-warn-soft text-[12px] text-status-warn-fg"
+                      onClick={() => !isAuto(i.source) && handleDelete(i.id)}
+                      disabled={isAuto(i.source)}
+                      className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-ds-sm text-[12px] ${
+                        isAuto(i.source)
+                          ? "text-ds-text-4 cursor-not-allowed opacity-50"
+                          : "hover:bg-status-warn-soft text-status-warn-fg"
+                      }`}
+                      title={
+                        isAuto(i.source)
+                          ? "Auto-generado: elimina la fuente (puesto operativo, contrato, etc.)"
+                          : "Eliminar"
+                      }
                     >
                       <Trash2 className="h-3.5 w-3.5" /> Eliminar
                     </button>
@@ -266,14 +291,33 @@ export function ItemsList({ canManage }: { canManage: boolean }) {
                           <button
                             onClick={() => setEditing(i)}
                             className="p-1.5 hover:bg-muted/40 rounded"
-                            aria-label="Editar"
+                            aria-label={isAuto(i.source) ? "Ver (solo lectura)" : "Editar"}
+                            title={
+                              isAuto(i.source)
+                                ? "Auto-generado: solo puedes editar nombre/notas"
+                                : "Editar"
+                            }
                           >
-                            <Pencil className="h-3.5 w-3.5" />
+                            {isAuto(i.source) ? (
+                              <Lock className="h-3.5 w-3.5 text-ds-text-3" />
+                            ) : (
+                              <Pencil className="h-3.5 w-3.5" />
+                            )}
                           </button>
                           <button
-                            onClick={() => handleDelete(i.id)}
-                            className="p-1.5 hover:bg-status-warn-soft rounded text-status-warn-fg"
-                            aria-label="Eliminar"
+                            onClick={() => !isAuto(i.source) && handleDelete(i.id)}
+                            disabled={isAuto(i.source)}
+                            className={`p-1.5 rounded ${
+                              isAuto(i.source)
+                                ? "text-ds-text-4 cursor-not-allowed opacity-40"
+                                : "hover:bg-status-warn-soft text-status-warn-fg"
+                            }`}
+                            aria-label={isAuto(i.source) ? "No editable" : "Eliminar"}
+                            title={
+                              isAuto(i.source)
+                                ? "Auto-generado: elimina la fuente original"
+                                : "Eliminar"
+                            }
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>

@@ -99,6 +99,61 @@ export async function createItem(
   });
 }
 
+/**
+ * Sources de items cuya plata, recurrencia o vínculos NO se editan desde
+ * el módulo de Cashflow porque la fuente de verdad vive en otro módulo
+ * (dotación de instalaciones, contratos del CRM, F29 del SII, etc.). El
+ * cron diario `cashflow-sync` re-materializa estos items desde su fuente
+ * — cualquier edición acá se pierde silenciosamente.
+ *
+ * Para estos sources, solo se permite editar metadata cosmética
+ * (descripción, notas) o desactivar el item. Para cambiar el monto, hay
+ * que ir a la fuente de verdad (la ficha de instalación, el contrato
+ * CRM, etc.).
+ */
+const LOCKED_SOURCES = new Set<FinanceCashflowItemSource>([
+  "CONTRACT",
+  "PAYROLL",
+  "PAYROLL_LIQUIDO",
+  "PAYROLL_PREVIRED",
+  "TURNOS_EXTRA",
+  "IVA",
+  "RECURRING_DTE",
+]);
+
+const SOURCE_LABEL: Partial<Record<FinanceCashflowItemSource, string>> = {
+  CONTRACT: "Contrato del CRM",
+  PAYROLL: "Dotación de instalaciones",
+  PAYROLL_LIQUIDO: "Dotación de instalaciones (sueldo líquido)",
+  PAYROLL_PREVIRED: "Dotación de instalaciones (PreviRed)",
+  TURNOS_EXTRA: "Histórico de turnos extra",
+  IVA: "F29 del SII",
+  RECURRING_DTE: "DTE recurrente",
+};
+
+/** Campos cuya modificación se materializaría en BD pero el cron de
+ * cashflow-sync sobrescribiría al día siguiente. Si el caller intenta
+ * cambiar uno de estos en un item lockeado, rechazamos con error claro. */
+const STRUCTURAL_FIELDS = [
+  "categoryId",
+  "kind",
+  "amount",
+  "currency",
+  "ufFixingPolicy",
+  "ufFixingDay",
+  "recurrence",
+  "dayOfMonth",
+  "dayOfWeek",
+  "monthOfYear",
+  "startDate",
+  "endDate",
+  "installationId",
+  "crmAccountId",
+  "supplierId",
+  "source",
+  "sourceRefId",
+] as const;
+
 export async function updateItem(
   tenantId: string,
   id: string,
@@ -106,6 +161,19 @@ export async function updateItem(
 ): Promise<FinanceCashflowItem> {
   const existing = await getItem(tenantId, id);
   if (!existing) throw new Error("Item no encontrado");
+
+  if (LOCKED_SOURCES.has(existing.source)) {
+    const attempted = STRUCTURAL_FIELDS.filter(
+      (f) => patch[f] !== undefined,
+    );
+    if (attempted.length > 0) {
+      const label = SOURCE_LABEL[existing.source] ?? existing.source;
+      throw new Error(
+        `Este ítem es auto-generado desde ${label}. No se puede editar monto, recurrencia ni fechas desde el módulo de Flujo de Caja porque el cron diario lo sobrescribiría. Para cambiarlo, edita la fuente original. Solo puedes editar el nombre, descripción, notas o desactivar el ítem.`,
+      );
+    }
+  }
+
   if (patch.amount !== undefined || patch.recurrence !== undefined) {
     validateItemInput({
       ...existing,
@@ -130,6 +198,12 @@ export async function updateItem(
 export async function deleteItem(tenantId: string, id: string): Promise<void> {
   const existing = await getItem(tenantId, id);
   if (!existing) throw new Error("Item no encontrado");
+  if (LOCKED_SOURCES.has(existing.source)) {
+    const label = SOURCE_LABEL[existing.source] ?? existing.source;
+    throw new Error(
+      `Este ítem es auto-generado desde ${label} y el cron lo volvería a crear. Para que desaparezca del flujo de caja, elimina/desactiva la fuente original (ej. desactivar el puesto operativo o eliminar el contrato del CRM).`,
+    );
+  }
   await prisma.financeCashflowItem.delete({ where: { id } });
 }
 
