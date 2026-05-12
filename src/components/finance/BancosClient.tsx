@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Card, CardContent } from "@/components/ui/card";
@@ -1019,18 +1019,41 @@ function TransactionsTab({
   // `?openTx=...`, auto-abrimos el drawer de conciliación de esa tx.
   // Si la tx no está cargada todavía (por filtros/paginación), hacemos
   // un fetch dirigido al endpoint individual.
+  //
+  // Tras abrir el drawer, LIMPIAMOS el query param de la URL para que:
+  //   - cerrar el drawer no vuelva a reabrirlo
+  //   - un refresh o nav back-y-forward no fuerce reabrir un drawer que
+  //     el usuario ya cerró
+  // Usamos un ref para no reentrar al mismo txId.
   const txTabSearchParams = useSearchParams();
+  const txTabPathname = usePathname();
+  const txTabRouter = useRouter();
   const requestedTxId =
     txTabSearchParams.get("txId") || txTabSearchParams.get("openTx");
+  const consumedTxIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (!requestedTxId) return;
-    // Si ya está en la lista, abrirla directo.
+    if (consumedTxIdRef.current === requestedTxId) return;
+    consumedTxIdRef.current = requestedTxId;
+    const clearQuery = () => {
+      // Mantiene cualquier otro query (ej. tab=) y solo elimina los
+      // deep-link params. Si quedan vacíos, queda la ruta limpia.
+      const next = new URLSearchParams(
+        Array.from(txTabSearchParams.entries()),
+      );
+      next.delete("txId");
+      next.delete("openTx");
+      const qs = next.toString();
+      txTabRouter.replace(qs ? `${txTabPathname}?${qs}` : txTabPathname, {
+        scroll: false,
+      });
+    };
     const inList = transactions.find((t) => t.id === requestedTxId);
     if (inList) {
       setReconcileTx(inList);
+      clearQuery();
       return;
     }
-    // Si no, fetch directo del endpoint individual.
     let cancelled = false;
     (async () => {
       try {
@@ -1041,6 +1064,7 @@ function TransactionsTab({
         const json = await res.json();
         if (cancelled || !json?.success || !json.data) return;
         setReconcileTx(json.data as TransactionRow);
+        clearQuery();
       } catch {
         // silencioso: si la tx no existe, no abrimos nada
       }
@@ -1048,7 +1072,7 @@ function TransactionsTab({
     return () => {
       cancelled = true;
     };
-  }, [requestedTxId, transactions]);
+  }, [requestedTxId, transactions, txTabPathname, txTabRouter, txTabSearchParams]);
 
   const submitHide = async () => {
     if (!hideDialog || !hideReason.trim()) {
