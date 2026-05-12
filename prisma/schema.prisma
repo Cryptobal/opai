@@ -7477,6 +7477,12 @@ enum FinanceCashflowItemSource {
   SUPPLIER
   IVA
   TURNOS_EXTRA
+  /// Línea de ajuste manual creada al cerrar un drift de conciliación bancaria.
+  /// Recurrence=ONCE, status inicial=PAID, vinculada opcionalmente a una bank
+  /// tx que justifique el ajuste. NO se considera en proyecciones automáticas:
+  /// es un sello explícito del usuario que dice "esta plata existe/no existe
+  /// en el banco y la registro acá para cuadrar el flujo".
+  AJUSTE
   OTHER
 
   @@schema("finance")
