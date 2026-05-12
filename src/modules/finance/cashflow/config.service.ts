@@ -31,6 +31,8 @@ export async function updateCashflowConfig(
     ufMonthlyGrowthPct: number;
     turnosExtraMode: "HISTORICAL" | "PCT_PAYROLL";
     turnosExtraPercentage: number;
+    turnosExtraLiquidoDiscountPct: number;
+    turnosExtraPreviRedDiscountPct: number;
   }>,
 ): Promise<FinanceCashflowConfig> {
   await getOrCreateCashflowConfig(tenantId);
