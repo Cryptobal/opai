@@ -6,6 +6,7 @@ import type {
   FinanceCashflowOccurrenceStatus,
   FinanceCashflowConfig,
 } from "@prisma/client";
+import type { OpeningBalanceBreakdown } from "./opening-balance.service";
 
 export type {
   FinanceCashflowItem,
@@ -14,6 +15,7 @@ export type {
   FinanceCashflowItemSource,
   FinanceCashflowOccurrenceStatus,
   FinanceCashflowConfig,
+  OpeningBalanceBreakdown,
 };
 
 export interface VirtualOccurrence {
@@ -137,5 +139,6 @@ export interface ProjectionMatrix {
     totalVariance: number;
   };
   openingBalanceClp: number;
+  openingBreakdown: OpeningBalanceBreakdown;
   cumulativeBalances: { bucketKey: string; balanceClp: number }[];
 }
