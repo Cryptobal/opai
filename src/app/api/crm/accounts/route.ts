@@ -123,29 +123,22 @@ export async function GET(request: NextRequest) {
         })
       : [];
 
-    // Por cuenta: cantidad de ítems FC + monto total mensual por moneda
+    // Por cuenta: cantidad de ítems FC + monto total mensual agrupado por
+    // moneda. UF y CLP no se suman entre sí (matemáticamente incorrecto);
+    // si la cuenta tiene mezcla, devolvemos un array con ambas líneas.
     const cashflowCountByAccount = new Map<string, number>();
-    const cashflowAmountByAccount = new Map<string, { amount: number; currency: string }>();
+    const cashflowAmountsByAccount = new Map<string, Map<string, number>>();
     for (const item of cashflowItems) {
       const acctId =
         item.crmAccountId ??
         (item.sourceRefId ? accountByDocId.get(item.sourceRefId) : null);
       if (!acctId) continue;
       cashflowCountByAccount.set(acctId, (cashflowCountByAccount.get(acctId) ?? 0) + 1);
-      // Guardamos el monto del primer ítem (o acumulamos si hay varios)
-      const prev = cashflowAmountByAccount.get(acctId);
-      if (!prev) {
-        cashflowAmountByAccount.set(acctId, {
-          amount: Number(item.amount),
-          currency: item.currency ?? "CLP",
-        });
-      } else {
-        // Si hay varios contratos, suma en CLP; si mezclan UF/CLP marcamos como "mixto"
-        cashflowAmountByAccount.set(acctId, {
-          amount: prev.amount + Number(item.amount),
-          currency: prev.currency === item.currency ? prev.currency : "CLP",
-        });
-      }
+      const accMap =
+        cashflowAmountsByAccount.get(acctId) ?? new Map<string, number>();
+      const cur = item.currency ?? "CLP";
+      accMap.set(cur, (accMap.get(cur) ?? 0) + Number(item.amount));
+      cashflowAmountsByAccount.set(acctId, accMap);
     }
 
     // Batch 3: puestos operativos activos por instalación → guardias por cuenta
@@ -201,7 +194,15 @@ export async function GET(request: NextRequest) {
           expiringContract,
         },
         cashflowItemCount: cashflowCountByAccount.get(account.id) ?? 0,
-        cashflowMonthlyAmount: cashflowAmountByAccount.get(account.id) ?? null,
+        cashflowMonthlyAmount: (() => {
+          const m = cashflowAmountsByAccount.get(account.id);
+          if (!m || m.size === 0) return null;
+          const entries = Array.from(m.entries()).map(([currency, amount]) => ({
+            amount,
+            currency,
+          }));
+          return entries.length === 1 ? entries[0] : entries;
+        })(),
         activeGuardsCount,
       };
     });

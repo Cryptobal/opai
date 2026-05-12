@@ -67,21 +67,21 @@ export default async function CrmAccountsPage() {
       : Promise.resolve([]),
   ]);
 
-  // FC: cuenta e importe mensual por cuenta
+  // FC: cuenta e importe mensual por cuenta. Soporta multi-moneda agrupando
+  // por currency (UF + CLP no se suman entre sí — se muestran como dos líneas).
   const cashflowCountByAccount = new Map<string, number>();
-  const cashflowAmountByAccount = new Map<string, { amount: number; currency: string }>();
+  const cashflowAmountsByAccount = new Map<string, Map<string, number>>();
   for (const item of cashflowItems) {
     if (!item.crmAccountId) continue;
-    cashflowCountByAccount.set(item.crmAccountId, (cashflowCountByAccount.get(item.crmAccountId) ?? 0) + 1);
-    const prev = cashflowAmountByAccount.get(item.crmAccountId);
-    if (!prev) {
-      cashflowAmountByAccount.set(item.crmAccountId, { amount: Number(item.amount), currency: item.currency ?? "CLP" });
-    } else {
-      cashflowAmountByAccount.set(item.crmAccountId, {
-        amount: prev.amount + Number(item.amount),
-        currency: prev.currency === item.currency ? prev.currency : "CLP",
-      });
-    }
+    cashflowCountByAccount.set(
+      item.crmAccountId,
+      (cashflowCountByAccount.get(item.crmAccountId) ?? 0) + 1,
+    );
+    const accMap =
+      cashflowAmountsByAccount.get(item.crmAccountId) ?? new Map<string, number>();
+    const cur = item.currency ?? "CLP";
+    accMap.set(cur, (accMap.get(cur) ?? 0) + Number(item.amount));
+    cashflowAmountsByAccount.set(item.crmAccountId, accMap);
   }
 
   // Guardias: requiredGuards por installationId
@@ -113,7 +113,17 @@ export default async function CrmAccountsPage() {
           expiringContract,
         },
         cashflowItemCount: cashflowCountByAccount.get(account.id) ?? 0,
-        cashflowMonthlyAmount: cashflowAmountByAccount.get(account.id) ?? null,
+        cashflowMonthlyAmount: (() => {
+          const m = cashflowAmountsByAccount.get(account.id);
+          if (!m || m.size === 0) return null;
+          // Backward-compat: si hay solo una moneda, devolvemos el shape viejo
+          // { amount, currency }. Si hay mezcla, devolvemos un array.
+          const entries = Array.from(m.entries()).map(([currency, amount]) => ({
+            amount,
+            currency,
+          }));
+          return entries.length === 1 ? entries[0] : entries;
+        })(),
         activeGuardsCount,
       };
     }),

@@ -97,9 +97,28 @@ type AccountRow = {
     expiringContract?: number;
   };
   cashflowItemCount?: number;
-  cashflowMonthlyAmount?: { amount: number; currency: string } | null;
+  // Single-currency: { amount, currency }. Multi-currency: array de items
+  // (UF y CLP no se suman entre sí).
+  cashflowMonthlyAmount?:
+    | { amount: number; currency: string }
+    | Array<{ amount: number; currency: string }>
+    | null;
   activeGuardsCount?: number;
 };
+
+function renderCashflowAmount(
+  v:
+    | { amount: number; currency: string }
+    | Array<{ amount: number; currency: string }>
+    | null
+    | undefined,
+): string {
+  if (!v) return "";
+  const arr = Array.isArray(v) ? v : [v];
+  return arr
+    .map((it) => formatContractAmount(it.amount, it.currency))
+    .join(" + ");
+}
 
 function getLifecycle(account: Pick<AccountRow, "status" | "type" | "isActive">) {
   if (account.status === "prospect") return "prospect";
@@ -483,7 +502,7 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
                           )}
                           {(account.cashflowItemCount ?? 0) > 0 && account.cashflowMonthlyAmount && (
                             <Tag variant="info" size="sm" icon={Wallet}>
-                              {formatContractAmount(account.cashflowMonthlyAmount.amount, account.cashflowMonthlyAmount.currency)}
+                              {renderCashflowAmount(account.cashflowMonthlyAmount)}
                             </Tag>
                           )}
                           <span className="text-xs text-muted-foreground flex items-center gap-1">
@@ -561,7 +580,7 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
                         )}
                         {(account.cashflowItemCount ?? 0) > 0 && account.cashflowMonthlyAmount && (
                           <Tag variant="info" size="sm" icon={Wallet}>
-                            {formatContractAmount(account.cashflowMonthlyAmount.amount, account.cashflowMonthlyAmount.currency)}
+                            {renderCashflowAmount(account.cashflowMonthlyAmount)}
                           </Tag>
                         )}
                         <span className="text-[11px] text-muted-foreground flex items-center gap-1">

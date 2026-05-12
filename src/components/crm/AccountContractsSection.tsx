@@ -861,11 +861,24 @@ export function AccountContractsSection({
   };
 
   const rowAccent = (c: Contract): string => {
-    if (c.status === "expired") return "border-status-danger-border bg-status-danger-soft/60";
-    if (c.status === "expiring") return "border-status-warn-border bg-status-warn-soft/60";
+    if (c.status === "expired") return "border-status-danger-border bg-status-danger-soft/40";
+    if (c.status === "expiring") return "border-status-warn-border bg-status-warn-soft/40";
     if (c.status === "pending_signature")
-      return "border-amber-200 bg-amber-50/60";
+      return "border-status-warn-border bg-status-warn-soft/40";
     return "border-border bg-card";
+  };
+
+  // Card con accent (warn/danger) NO debe pelear con hover:bg-ds-surface-2.
+  // Sin accent → hover gris suave estándar.
+  const rowHover = (c: Contract): string => {
+    if (
+      c.status === "expired" ||
+      c.status === "expiring" ||
+      c.status === "pending_signature"
+    ) {
+      return "hover:brightness-105 dark:hover:brightness-110";
+    }
+    return "hover:bg-ds-surface-2";
   };
 
   return (
@@ -971,8 +984,9 @@ export function AccountContractsSection({
               <div
                 key={c.id}
                 className={cn(
-                  "flex items-start sm:items-center justify-between gap-3 rounded-lg border p-3 transition-colors hover:bg-ds-surface-2 flex-col sm:flex-row",
+                  "flex items-start sm:items-center justify-between gap-3 rounded-lg border p-3 transition-colors flex-col sm:flex-row",
                   rowAccent(c),
+                  rowHover(c),
                 )}
               >
                 <div className="flex-1 min-w-0 w-full">
@@ -1996,12 +2010,15 @@ export function AccountContractsSection({
                   (opcional — si el contrato es global deja en blanco)
                 </span>
               </Label>
-              <Select value={cfInstallId} onValueChange={setCfInstallId}>
+              <Select
+                value={cfInstallId || "__none__"}
+                onValueChange={(v) => setCfInstallId(v === "__none__" ? "" : v)}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Sin instalación (global)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Sin instalación (global)</SelectItem>
+                  <SelectItem value="__none__">Sin instalación (global)</SelectItem>
                   {installations.map((i) => (
                     <SelectItem key={i.id} value={i.id}>
                       {i.name}
