@@ -1021,10 +1021,30 @@ export async function bulkReconcileToDte(
 export interface BulkReconcileToDtesInput {
   bankTransactionIds: string[];
   /**
-   * Asignación por DTE. La suma debe ser ≈ sum(movs). El reparto a nivel
-   * de cada mov se hace proporcionalmente al peso de cada DTE en el total.
+   * Asignación por DTE. La suma debe ser ≈ sum(movs) — a menos que se
+   * incluya `differenceAllocation` que absorba la diferencia.
+   * El reparto a nivel de cada mov se hace proporcionalmente al peso de
+   * cada DTE en el total.
    */
   allocations: Array<{ dteId: string; amount: number }>;
+  /**
+   * Diferencia opcional para cuadrar el lote (típicamente comisión de
+   * factoring). Se crea un FinanceBankTransactionLink EXPENSE/INCOME por
+   * cada movimiento con la cuenta elegida, prorrateado por peso del mov.
+   *
+   * Cuando `prorateAcrossDteLines=true`, el asiento contable se genera
+   * desglosando la línea de diferencia por los `accountId` (centros de
+   * costo) de las líneas de las facturas seleccionadas, ponderado por
+   * subtotal de línea × asignación de factura. Si una factura no tiene
+   * `accountId` en sus líneas, su porción cae en la cuenta elegida sin
+   * sub-detalle.
+   */
+  differenceAllocation?: {
+    accountPlanId: string;
+    amount: number;
+    label?: string | null;
+    prorateAcrossDteLines?: boolean;
+  };
 }
 
 export interface BulkReconcileToDtesResult {
@@ -1032,6 +1052,8 @@ export interface BulkReconcileToDtesResult {
   matchedTransactions: number;
   affectedDtes: number;
   totalAmountAllocated: number;
+  /** Monto de la diferencia absorbida por cuenta contable (0 si no hubo). */
+  differenceAmount: number;
 }
 
 /**
@@ -1057,7 +1079,7 @@ export async function bulkReconcileToDtes(
   userId: string | null,
   input: BulkReconcileToDtesInput
 ): Promise<BulkReconcileToDtesResult> {
-  const { bankTransactionIds, allocations } = input;
+  const { bankTransactionIds, allocations, differenceAllocation } = input;
   if (bankTransactionIds.length === 0) {
     throw new Error("Seleccioná al menos un movimiento");
   }
@@ -1144,10 +1166,61 @@ export async function bulkReconcileToDtes(
 
   const totalMovs = txs.reduce((s, t) => s + Math.abs(t.amount.toNumber()), 0);
   const totalAlloc = allocations.reduce((s, a) => s + a.amount, 0);
-  if (Math.abs(totalAlloc - totalMovs) > 1) {
+  const diffAmount = differenceAllocation
+    ? Math.max(0, differenceAllocation.amount)
+    : 0;
+  // Cuando hay diferencia, validamos que totalAlloc + diff ≈ totalMovs.
+  // Sin diferencia, exigimos cuadrar exacto como antes.
+  if (Math.abs(totalAlloc + diffAmount - totalMovs) > 1) {
     throw new Error(
-      `La suma de allocations ($${totalAlloc.toLocaleString("es-CL")}) no coincide con el total de los movimientos ($${totalMovs.toLocaleString("es-CL")}).`
+      diffAmount > 0
+        ? `Suma de allocations + diferencia ($${(totalAlloc + diffAmount).toLocaleString("es-CL")}) no coincide con el total de los movimientos ($${totalMovs.toLocaleString("es-CL")}).`
+        : `La suma de allocations ($${totalAlloc.toLocaleString("es-CL")}) no coincide con el total de los movimientos ($${totalMovs.toLocaleString("es-CL")}).`,
     );
+  }
+
+  // Si hay diferencia, validamos que la cuenta contable elegida exista y
+  // pertenezca al tenant.
+  let diffAccount: { id: string; type: string | null; name: string } | null =
+    null;
+  if (differenceAllocation && diffAmount > 0) {
+    diffAccount = await prisma.financeAccountPlan.findFirst({
+      where: {
+        tenantId,
+        id: differenceAllocation.accountPlanId,
+      },
+      select: { id: true, type: true, name: true },
+    });
+    if (!diffAccount) {
+      throw new Error("Cuenta contable para la diferencia no encontrada");
+    }
+  }
+
+  // Si vamos a prorratear a centros de costo, pre-cargamos las líneas de
+  // los DTE seleccionados con su accountId y subtotal.
+  let dteLinesByDte: Map<string, Array<{ accountId: string | null; subtotal: number }>> =
+    new Map();
+  if (
+    differenceAllocation &&
+    differenceAllocation.prorateAcrossDteLines &&
+    diffAmount > 0
+  ) {
+    // `netAmount` representa el subtotal de la línea (post-descuento,
+    // pre-IVA) y es el campo correcto para ponderar el peso de cada
+    // línea dentro de la factura para distribuir costos.
+    const lines = await prisma.financeDteLine.findMany({
+      where: { dteId: { in: dteIds } },
+      select: { dteId: true, accountId: true, netAmount: true },
+    });
+    dteLinesByDte = lines.reduce((map, l) => {
+      const arr = map.get(l.dteId) ?? [];
+      arr.push({
+        accountId: l.accountId ?? null,
+        subtotal: l.netAmount ? Number(l.netAmount) : 0,
+      });
+      map.set(l.dteId, arr);
+      return map;
+    }, new Map<string, Array<{ accountId: string | null; subtotal: number }>>());
   }
 
   const paymentRecordCodes: string[] = [];
@@ -1155,14 +1228,19 @@ export async function bulkReconcileToDtes(
   await prisma.$transaction(async (tx2: Prisma.TransactionClient) => {
     for (const t of txs) {
       const movAmount = Math.abs(t.amount.toNumber());
+      // El share base proporcional de este mov en el total (cubre tanto
+      // allocations DTE como diferencia). Garantiza que cada mov reparta
+      // exactamente movAmount entre todos los targets.
+      const movShare = totalMovs > 0 ? movAmount / totalMovs : 0;
       const code = await nextPaymentRecordCode(tx2, tenantId, isIncome);
+      const movDtePortion = Math.round(movShare * totalAlloc * 100) / 100;
       const record = await tx2.financePaymentRecord.create({
         data: {
           tenantId,
           code,
           type: isIncome ? "COLLECTION" : "DISBURSEMENT",
           date: t.transactionDate,
-          amount: new Decimal(movAmount),
+          amount: new Decimal(movDtePortion),
           paymentMethod: "TRANSFER",
           bankAccountId: t.bankAccountId,
           bankTransactionId: t.id,
@@ -1174,16 +1252,17 @@ export async function bulkReconcileToDtes(
       });
       paymentRecordCodes.push(record.code);
 
-      // Reparto proporcional con corrección de redondeo en la última.
-      let assigned = 0;
+      // Reparto proporcional de la porción DTE de este mov con corrección
+      // de redondeo en la última allocation.
+      let assignedToDtes = 0;
       for (let i = 0; i < allocations.length; i++) {
         const a = allocations[i];
         const isLast = i === allocations.length - 1;
-        const share = a.amount / totalAlloc;
+        const share = totalAlloc > 0 ? a.amount / totalAlloc : 0;
         const piece = isLast
-          ? movAmount - assigned
-          : Math.round(movAmount * share * 100) / 100;
-        assigned += piece;
+          ? movDtePortion - assignedToDtes
+          : Math.round(movDtePortion * share * 100) / 100;
+        assignedToDtes += piece;
 
         await tx2.financePaymentAllocation.create({
           data: {
@@ -1205,6 +1284,31 @@ export async function bulkReconcileToDtes(
           },
         });
       }
+
+      // Diferencia: 1 link EXPENSE/INCOME por mov con la cuenta elegida,
+      // proporcional al peso del mov en el total. El asiento contable
+      // (paso fuera de $transaction) hace el desglose por centro de costo.
+      if (differenceAllocation && diffAmount > 0 && diffAccount) {
+        const movDiffPortion =
+          Math.round(movShare * diffAmount * 100) / 100;
+        if (movDiffPortion > 0) {
+          await tx2.financeBankTransactionLink.create({
+            data: {
+              tenantId,
+              bankTransactionId: t.id,
+              targetType: isIncome ? "INCOME" : "EXPENSE",
+              targetId: null,
+              amount: new Decimal(movDiffPortion),
+              accountPlanId: diffAccount.id,
+              note:
+                differenceAllocation.label?.trim() ||
+                `Diferencia conciliación (${isIncome ? "ingreso" : "gasto"})`,
+              createdById: userId ?? null,
+            },
+          });
+        }
+      }
+
       await tx2.financeBankTransaction.update({
         where: { id: t.id },
         data: { reconciliationStatus: "MATCHED" },
@@ -1215,12 +1319,247 @@ export async function bulkReconcileToDtes(
     }
   });
 
+  // Asiento contable post-transacción para la PORCIÓN DE DIFERENCIA:
+  // las allocations DTE ya tienen su contabilidad propia (vía DTE → asiento
+  // al emitir). Acá lo único que requiere asiento es la diferencia
+  // (comisión / descuento / retención), desglosada opcionalmente por
+  // centro de costo de las líneas de cada factura.
+  if (
+    userId &&
+    differenceAllocation &&
+    diffAmount > 0 &&
+    diffAccount
+  ) {
+    await generateDifferenceJournalEntry(tenantId, userId, {
+      txs,
+      isIncome,
+      diffAmount,
+      diffAccountId: diffAccount.id,
+      diffLabel: differenceAllocation.label ?? null,
+      prorateAcrossDteLines: !!differenceAllocation.prorateAcrossDteLines,
+      allocations,
+      dteLinesByDte,
+    });
+  }
+
   return {
     paymentRecordCodes,
     matchedTransactions: txs.length,
     affectedDtes: allocations.length,
     totalAmountAllocated: totalMovs,
+    differenceAmount: diffAmount,
   };
+}
+
+/**
+ * Genera el asiento contable de la PORCIÓN DE DIFERENCIA en una conciliación
+ * masiva N → N con `differenceAllocation`. Las allocations DTE no se
+ * contabilizan acá: el DTE ya generó su asiento al emitirse y el pago se
+ * refleja vía `FinancePaymentRecord`.
+ *
+ * Cuando `prorateAcrossDteLines=true`, el debe (egreso) o haber (ingreso)
+ * se desglosa en N sub-líneas con la MISMA cuenta `diffAccountId`, una por
+ * cada `FinanceDteLine.accountId` (centro de costo) de las facturas
+ * seleccionadas. Cada sub-línea tiene la descripción "diffLabel · centro X"
+ * para que en el mayor contable la diferencia quede trazada por centro.
+ *
+ * Si una factura no tiene `accountId` en sus líneas, su porción cae
+ * íntegra en una línea con la cuenta elegida sin sub-detalle.
+ */
+async function generateDifferenceJournalEntry(
+  tenantId: string,
+  userId: string,
+  params: {
+    txs: Array<{
+      id: string;
+      bankAccountId: string;
+      transactionDate: Date;
+      description: string;
+      reference: string | null;
+      amount: Decimal;
+    }>;
+    isIncome: boolean;
+    diffAmount: number;
+    diffAccountId: string;
+    diffLabel: string | null;
+    prorateAcrossDteLines: boolean;
+    allocations: Array<{ dteId: string; amount: number }>;
+    dteLinesByDte: Map<
+      string,
+      Array<{ accountId: string | null; subtotal: number }>
+    >;
+  },
+): Promise<string | null> {
+  const {
+    txs,
+    isIncome,
+    diffAmount,
+    diffAccountId,
+    diffLabel,
+    prorateAcrossDteLines,
+    allocations,
+    dteLinesByDte,
+  } = params;
+  if (diffAmount <= 0) return null;
+
+  // Necesitamos la cuenta contable del banco para la contrapartida.
+  const refTx = txs[0];
+  const bankAccount = await prisma.financeBankAccount.findFirst({
+    where: { id: refTx.bankAccountId, tenantId },
+    select: { accountPlanId: true, bankName: true, accountNumber: true },
+  });
+  if (!bankAccount?.accountPlanId) {
+    // Sin cuenta bancaria vinculada no podemos balancear el asiento — la
+    // conciliación se hizo igual, pero no creamos asiento. Log + skip.
+    console.warn(
+      "[bank-tx-link] No se generó asiento de diferencia: cuenta bancaria sin accountPlanId",
+    );
+    return null;
+  }
+
+  // Acumulamos las líneas del lado gasto/ingreso por accountId. Si no hay
+  // prorrateo o no se logra desglosar, todo cae en `diffAccountId`.
+  const lines: { accountId: string; description: string; debit: number; credit: number }[] =
+    [];
+
+  if (prorateAcrossDteLines) {
+    // Para cada factura: porción = (a.amount / totalAlloc) × diffAmount.
+    // Esa porción se reparte entre las líneas de la factura ponderado por
+    // (line.lineTotal / sum(line.lineTotal)). Las líneas sin accountId
+    // colapsan a `diffAccountId`. Las líneas con accountId se acumulan
+    // por accountId para minimizar el número de líneas del asiento.
+    const totalAlloc = allocations.reduce((s, a) => s + a.amount, 0);
+    const byAccount = new Map<string, number>();
+    let unallocated = 0;
+    for (const a of allocations) {
+      const factShare = totalAlloc > 0 ? a.amount / totalAlloc : 0;
+      const factPortion = factShare * diffAmount;
+      const linesOfDte = dteLinesByDte.get(a.dteId) ?? [];
+      const totalLineSubtotal = linesOfDte.reduce(
+        (s, l) => s + (l.subtotal > 0 ? l.subtotal : 0),
+        0,
+      );
+      if (linesOfDte.length === 0 || totalLineSubtotal <= 0) {
+        unallocated += factPortion;
+        continue;
+      }
+      for (const l of linesOfDte) {
+        const lineShare = l.subtotal > 0 ? l.subtotal / totalLineSubtotal : 0;
+        const piece = factPortion * lineShare;
+        if (l.accountId) {
+          byAccount.set(
+            l.accountId,
+            (byAccount.get(l.accountId) ?? 0) + piece,
+          );
+        } else {
+          unallocated += piece;
+        }
+      }
+    }
+
+    // Convertimos a líneas con redondeo. Para evitar que el redondeo
+    // descuadre el asiento, ajustamos la última línea con el residuo.
+    const entries: { accountId: string; amount: number }[] = [];
+    for (const [accountId, amount] of byAccount.entries()) {
+      const rounded = Math.round(amount);
+      if (rounded > 0) entries.push({ accountId, amount: rounded });
+    }
+    if (unallocated > 0) {
+      const rounded = Math.round(unallocated);
+      if (rounded > 0)
+        entries.push({ accountId: diffAccountId, amount: rounded });
+    }
+    const entriesSum = entries.reduce((s, e) => s + e.amount, 0);
+    const diffRoundedTotal = Math.round(diffAmount);
+    const residue = diffRoundedTotal - entriesSum;
+    if (entries.length > 0 && residue !== 0) {
+      entries[entries.length - 1].amount += residue;
+    }
+
+    for (const e of entries) {
+      const desc = diffLabel ?? "Diferencia conciliación";
+      if (isIncome) {
+        lines.push({
+          accountId: e.accountId,
+          description: desc,
+          debit: 0,
+          credit: e.amount,
+        });
+      } else {
+        lines.push({
+          accountId: e.accountId,
+          description: desc,
+          debit: e.amount,
+          credit: 0,
+        });
+      }
+    }
+  }
+
+  // Fallback / sin prorrateo: 1 sola línea con la cuenta elegida por el
+  // monto completo de la diferencia.
+  if (lines.length === 0) {
+    const desc = diffLabel ?? "Diferencia conciliación";
+    const total = Math.round(diffAmount);
+    if (isIncome) {
+      lines.push({
+        accountId: diffAccountId,
+        description: desc,
+        debit: 0,
+        credit: total,
+      });
+    } else {
+      lines.push({
+        accountId: diffAccountId,
+        description: desc,
+        debit: total,
+        credit: 0,
+      });
+    }
+  }
+
+  // Contrapartida banco: 1 sola línea por el total de la diferencia.
+  const total = lines.reduce((s, l) => s + l.debit + l.credit, 0);
+  if (isIncome) {
+    lines.push({
+      accountId: bankAccount.accountPlanId,
+      description: `${bankAccount.bankName} - ${bankAccount.accountNumber}`,
+      debit: total,
+      credit: 0,
+    });
+  } else {
+    lines.push({
+      accountId: bankAccount.accountPlanId,
+      description: `${bankAccount.bankName} - ${bankAccount.accountNumber}`,
+      debit: 0,
+      credit: total,
+    });
+  }
+
+  const dateStr = refTx.transactionDate.toISOString().slice(0, 10);
+  try {
+    const entry = await createManualEntry(tenantId, userId, {
+      date: dateStr,
+      description: `Diferencia conciliación masiva: ${diffLabel ?? refTx.description}`.slice(
+        0,
+        200,
+      ),
+      reference: refTx.reference ?? undefined,
+      sourceType: "RECONCILIATION",
+      sourceId: refTx.id,
+      lines,
+    });
+    return entry.id;
+  } catch (err) {
+    // No frenamos la conciliación si el asiento falla (período cerrado,
+    // validación contable, etc). El usuario verá la conciliación lista
+    // pero podrá generar el asiento de la diferencia manualmente después.
+    console.error(
+      "[bank-tx-link] No se generó asiento de diferencia:",
+      err instanceof Error ? err.message : err,
+    );
+    return null;
+  }
 }
 
 /**

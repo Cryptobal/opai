@@ -2024,6 +2024,7 @@ function TransactionsTab({
             reference: t.reference,
             amount: t.amount,
           }))}
+        accountPlans={accountPlans}
         onConfirmed={() => {
           clearSelection();
           loadTransactions();

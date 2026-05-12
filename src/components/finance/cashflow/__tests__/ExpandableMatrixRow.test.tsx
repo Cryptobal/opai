@@ -54,8 +54,14 @@ function makeRow(items: number = 2): ProjectionRow {
       itemName: `Item ${i + 1}`,
       installationId: `inst-${i + 1}`,
       installationName: `Edificio ${String.fromCharCode(65 + i)}`,
+      crmAccountId: null,
+      crmAccountName: null,
+      baseAmount: 500_000,
+      currency: "CLP",
       source: "CONTRACT" as const,
       sourceRefCode: null,
+      hasIpcAdjustment: false,
+      ipcAdjustmentMonths: null,
       values: [
         {
           bucketKey: "2026-W19",

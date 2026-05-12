@@ -20,6 +20,23 @@ const schema = z.object({
     )
     .min(1)
     .max(20),
+  /**
+   * Diferencia entre el total bancario y la suma de allocations DTE.
+   * Se contabiliza como un FinanceBankTransactionLink EXPENSE/INCOME con
+   * la cuenta elegida sobre cada movimiento, prorrateado por peso. El
+   * flag `prorateAcrossDteLines` instruye al servicio para que el
+   * asiento contable distribuya el monto por los `accountId` de las
+   * líneas de las facturas seleccionadas (ponderado por subtotal de
+   * línea × asignación de factura).
+   */
+  differenceAllocation: z
+    .object({
+      accountPlanId: z.string().uuid(),
+      amount: z.number().positive(),
+      label: z.string().max(200).nullable().optional(),
+      prorateAcrossDteLines: z.boolean().optional(),
+    })
+    .optional(),
 });
 
 /**

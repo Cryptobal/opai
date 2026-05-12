@@ -183,6 +183,15 @@ export function ItemDetailRow({
               UF
             </span>
           )}
+          {item.hasIpcAdjustment && item.currency !== "UF" && (
+            <span
+              className="inline-flex items-center gap-0.5 text-[10px] font-mono font-semibold uppercase tracking-[0.06em] px-1.5 py-0.5 rounded-ds-sm bg-status-warn-soft text-status-warn-fg shrink-0"
+              title={`Contrato con reajuste IPC cada ${item.ipcAdjustmentMonths ?? "?"} meses — el monto se proyecta con el IPC esperado anual configurado`}
+            >
+              <TrendingUp className="h-2.5 w-2.5" />
+              IPC{item.ipcAdjustmentMonths ? ` · ${item.ipcAdjustmentMonths}m` : ""}
+            </span>
+          )}
         </div>
       </td>
       {item.values.map((v) => {

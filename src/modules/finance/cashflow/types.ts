@@ -46,6 +46,14 @@ export interface VirtualOccurrence {
   actualAmountClp: number | null;
   /** Diferencia real − proyectado. Positivo = gasté más / cobré más de lo proyectado. null si no hay actual. */
   varianceClp: number | null;
+  /**
+   * El item de origen tiene reajuste de IPC configurado. Permite a la UI
+   * marcar el contrato con un badge permanente, independiente de si hay
+   * un ajuste PENDING en los próximos 30 días.
+   */
+  hasIpcAdjustment: boolean;
+  /** Frecuencia del reajuste IPC en meses (6, 12, etc). */
+  ipcAdjustmentMonths: number | null;
 }
 
 export interface ProjectionRange {
@@ -110,6 +118,11 @@ export interface ProjectionRowItemDetail {
   source: FinanceCashflowItemSource;
   /** Código del contrato CpqQuote o ref similar para mostrar en badge. */
   sourceRefCode: string | null;
+  /** Reajuste IPC configurado en el item. Permite mostrar badge permanente
+   *  en la UI (no solo cuando hay ajuste PENDING próximo). */
+  hasIpcAdjustment: boolean;
+  /** Frecuencia del reajuste IPC en meses (6, 12). null si no aplica. */
+  ipcAdjustmentMonths: number | null;
   values: ProjectionRowItemValue[];
   total: number;
   totalActual: number;
