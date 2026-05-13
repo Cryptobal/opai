@@ -1,7 +1,8 @@
 "use client";
 import { useState, useEffect, useMemo } from "react";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
-import { ExternalLink, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ExternalLink, AlertCircle, CheckCircle2, Send } from "lucide-react";
 import type {
   ProjectionBucket,
   FinanceCashflowItemSource,
@@ -20,6 +21,7 @@ import {
   CashflowItemDrawerBase,
 } from "./CashflowItemDrawerHeader";
 import { useCashflowItemActions } from "./use-cashflow-item-actions";
+import { CobranzaSendDialog } from "./CobranzaSendDialog";
 
 export interface DrawerItemTarget {
   itemId: string;
@@ -81,6 +83,7 @@ export function CashflowItemDrawer({
   const [mode, setMode] = useState<DrawerMode>("idle");
   const [success, setSuccess] = useState<string | null>(null);
   const [draftAmount, setDraftAmount] = useState("");
+  const [cobranzaOpen, setCobranzaOpen] = useState(false);
 
   function handleSuccess(msg: string) {
     setSuccess(msg);
@@ -262,7 +265,15 @@ export function CashflowItemDrawer({
               <p className="text-[11px] font-mono uppercase tracking-wider text-ds-text-3">
                 Acciones
               </p>
-              {/* TODO PR4: integrar botón cobranza condicional */}
+              {target.cellStatus === "INVOICED" && target.dteId && (
+                <Button
+                  variant="outline"
+                  onClick={() => setCobranzaOpen(true)}
+                  className="w-full h-11 sm:h-10 text-[13px] justify-start text-status-info-fg hover:bg-status-info-soft"
+                >
+                  <Send className="h-4 w-4 mr-2" /> Enviar cobranza…
+                </Button>
+              )}
               <CashflowItemDrawerActions
                 mode={mode}
                 busy={actions.busy}
@@ -288,6 +299,15 @@ export function CashflowItemDrawer({
           )}
         </div>
       </SheetContent>
+      {target.dteId && (
+        <CobranzaSendDialog
+          open={cobranzaOpen}
+          onClose={() => setCobranzaOpen(false)}
+          dteId={target.dteId}
+          crmAccountId={target.crmAccountId}
+          daysOverdue={target.daysOverdue ?? 0}
+        />
+      )}
     </Sheet>
   );
 }

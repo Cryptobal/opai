@@ -311,6 +311,23 @@ export const TOKEN_MODULES: TokenModule[] = [
     ],
   },
   {
+    key: "dte",
+    label: "DTE / Factura",
+    icon: "Receipt",
+    description: "Datos del Documento Tributario Electrónico (factura / cobro) para mensajes de cobranza",
+    tokens: [
+      { key: "dte.folio", label: "Folio", path: "folio" },
+      { key: "dte.type", label: "Tipo de DTE", path: "type" },
+      { key: "dte.date", label: "Fecha emisión", path: "date", type: "date" },
+      { key: "dte.dueDate", label: "Fecha vencimiento", path: "dueDate", type: "date" },
+      { key: "dte.totalAmount", label: "Monto total", path: "totalAmount", type: "currency" },
+      { key: "dte.totalAmountFormatted", label: "Monto total (formateado CLP)", path: "totalAmountFormatted" },
+      { key: "dte.receiverName", label: "Cliente (nombre receptor)", path: "receiverName" },
+      { key: "dte.receiverRut", label: "RUT receptor", path: "receiverRut" },
+      { key: "dte.daysOverdue", label: "Días de mora", path: "daysOverdue", type: "number" },
+    ],
+  },
+  {
     key: "blocks",
     label: "Bloques pre-formateados",
     icon: "Blocks",
@@ -408,6 +425,10 @@ export const DOC_CATEGORIES: Record<string, { key: string; label: string }[]> = 
     { key: "portal_consult_general", label: "Portal Cliente · Consulta general" },
     // ── Presentación / propuesta visualizada ──
     { key: "presentation_contact_cta", label: "Presentación · CTA contacto" },
+    // ── Finanzas / Cobranza ──
+    { key: "cobranza_amable", label: "Finanzas · Cobranza — Recordatorio amable" },
+    { key: "cobranza_firme", label: "Finanzas · Cobranza — Recordatorio firme" },
+    { key: "cobranza_prejudicial", label: "Finanzas · Cobranza — Aviso pre-judicial" },
     // ── General ──
     { key: "general", label: "Uso general (elegir desde CRM)" },
   ],
@@ -556,6 +577,22 @@ export const WA_USAGE_SLUGS: Record<
     label: "CTA contacto en propuesta",
     usedIn: "Header de presentación visualizada por el cliente, botón WhatsApp del CTA principal.",
     group: "presentation",
+  },
+  // ── Finanzas / Cobranza ──
+  cobranza_amable: {
+    label: "Cobranza — Recordatorio amable",
+    usedIn: "Botón \"Enviar cobranza\" en la celda del flujo de caja, cuando la factura tiene 0-7 días vencida o por vencer.",
+    group: "crm",
+  },
+  cobranza_firme: {
+    label: "Cobranza — Recordatorio firme",
+    usedIn: "Botón \"Enviar cobranza\" en la celda del flujo de caja, cuando la factura tiene 8-30 días de mora.",
+    group: "crm",
+  },
+  cobranza_prejudicial: {
+    label: "Cobranza — Aviso pre-judicial",
+    usedIn: "Botón \"Enviar cobranza\" en la celda del flujo de caja, cuando la factura tiene más de 30 días de mora.",
+    group: "crm",
   },
 };
 

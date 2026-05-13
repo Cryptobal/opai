@@ -19,9 +19,12 @@ import {
   X,
   CircleSlash,
   Trash2,
+  Send,
 } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import type { CashflowCellStatus } from "@/modules/finance/cashflow/types";
+import { CobranzaSendDialog } from "./CobranzaSendDialog";
 
 const fmt = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 });
 
@@ -44,6 +47,14 @@ interface CellOccurrenceTarget {
   itemId: string;
   originalDate: string;
   amountClp: number;
+  /** Estado de la celda respecto al DTE vinculado (PR3). */
+  cellStatus?: CashflowCellStatus;
+  /** DTE vinculado a esta celda (presente cuando hay vínculo). */
+  dteId?: string | null;
+  /** Días de mora (positivo si vencido, 0 si al día). */
+  daysOverdue?: number;
+  /** Cliente CRM dueño del ítem — necesario para traer contactos en cobranza. */
+  crmAccountId?: string | null;
 }
 
 interface Props {
@@ -74,10 +85,14 @@ export function CellActionPopover({
   const [pickingDate, setPickingDate] = useState(false);
   const [confirmingEnd, setConfirmingEnd] = useState(false);
   const [confirmingCancel, setConfirmingCancel] = useState(false);
+  const [cobranzaOpen, setCobranzaOpen] = useState(false);
   const [draftAmount, setDraftAmount] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [conflict, setConflict] = useState<ConflictInfo | null>(null);
+
+  const canSendCobranza =
+    !!target?.dteId && target?.cellStatus === "INVOICED";
 
   if (!target) {
     return <>{children}</>;
@@ -316,6 +331,7 @@ export function CellActionPopover({
   void granularity;
 
   return (
+    <>
     <Popover
       open={open}
       onOpenChange={(v) => {
@@ -651,6 +667,16 @@ export function CellActionPopover({
                 >
                   <CircleSlash className="h-4 w-4 mr-2" /> Terminar desde aquí…
                 </Button>
+                {canSendCobranza && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setCobranzaOpen(true)}
+                    disabled={busy !== null}
+                    className="w-full h-11 sm:h-10 text-[13px] justify-start text-status-info-fg hover:bg-status-info-soft"
+                  >
+                    <Send className="h-4 w-4 mr-2" /> Enviar cobranza…
+                  </Button>
+                )}
               </div>
               {busy === "shift" && (
                 <div className="flex items-center justify-center gap-2 text-[13px] text-ds-text-3">
@@ -662,5 +688,15 @@ export function CellActionPopover({
         </div>
       </PopoverContent>
     </Popover>
+    {target?.dteId && (
+      <CobranzaSendDialog
+        open={cobranzaOpen}
+        onClose={() => setCobranzaOpen(false)}
+        dteId={target.dteId}
+        crmAccountId={target.crmAccountId ?? null}
+        daysOverdue={target.daysOverdue ?? 0}
+      />
+    )}
+    </>
   );
 }

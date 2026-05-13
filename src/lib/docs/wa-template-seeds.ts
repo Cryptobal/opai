@@ -270,4 +270,46 @@ Revisa los detalles en tu portal de supervisor.`,
     name: "CTA contacto en propuesta",
     body: `Hola, soy {{contact.firstName}} de {{account.name}}, vi {{quote.code}} y me gustaría conversar.`,
   },
+
+  // ── Finanzas / Cobranza ──
+  {
+    slug: "cobranza_amable",
+    name: "Cobranza — Recordatorio amable",
+    body: `Hola {{contact.firstName}}, ¿cómo estás?
+
+Te escribo para recordarte que tenemos pendiente el pago de la factura {{dte.folio}} por {{dte.totalAmountFormatted}} con fecha de vencimiento {{dte.dueDate}}.
+
+¿Podrías ayudarme con la confirmación del pago? Cualquier cosa quedo atento.
+
+Saludos,
+{{actor.firstName}} · {{tenant.commercialName}}`,
+  },
+  {
+    slug: "cobranza_firme",
+    name: "Cobranza — Recordatorio firme",
+    body: `Hola {{contact.firstName}},
+
+La factura {{dte.folio}} por {{dte.totalAmountFormatted}} venció hace {{dte.daysOverdue}} días.
+
+Necesito que coordinemos el pago a la brevedad para mantener el servicio activo. Te dejo nuestros datos:
+
+{{tenant.commercialName}}
+Cuenta para transferencia: solicítame el detalle por aquí.
+
+Quedo atento a tu respuesta hoy.
+
+{{actor.firstName}}`,
+  },
+  {
+    slug: "cobranza_prejudicial",
+    name: "Cobranza — Aviso pre-judicial",
+    body: `Estimado/a {{contact.firstName}},
+
+La factura {{dte.folio}} por {{dte.totalAmountFormatted}} se encuentra con {{dte.daysOverdue}} días de mora. Esta es una notificación previa a iniciar acciones de cobranza extrajudicial / pre-judicial.
+
+Te pedimos coordinar el pago en las próximas 48 horas o agendar una reunión para acordar un plan de pagos. De no recibir respuesta procederemos según corresponda.
+
+Atentamente,
+{{actor.firstName}} · {{tenant.commercialName}}`,
+  },
 ];

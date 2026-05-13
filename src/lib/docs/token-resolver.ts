@@ -37,6 +37,8 @@ export interface EntityData {
   tenant?: Record<string, any> | null;
   system?: Record<string, any> | null;
   blocks?: Record<string, any> | null;
+  /** DTE (factura) — usado en plantillas de cobranza desde el flujo de caja. */
+  dte?: Record<string, any> | null;
 }
 
 /**
