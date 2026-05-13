@@ -278,6 +278,13 @@ export function BankTxReconcileSheet({
   const [restAccountType, setRestAccountType] = useState<string>("");
   const [restAccountId, setRestAccountId] = useState<string>("");
   const [restNote, setRestNote] = useState("");
+  // Diff/shortfall: cuando sum(DTEs seleccionados) > banco (típico factoring).
+  // Misma UX que BulkReconcileToDteDialog.
+  const [diffMode, setDiffMode] = useState<"prorate" | "single" | "manual">(
+    "prorate"
+  );
+  const [diffAccountPlanId, setDiffAccountPlanId] = useState<string>("");
+  const [diffLabel, setDiffLabel] = useState("");
   // Cola de cuentas que el PUT devolvió como sin mapeo. Se procesan una por una.
   const [unmappedQueue, setUnmappedQueue] = useState<
     Array<{ id: string; code: string; name: string }>
@@ -289,6 +296,31 @@ export function BankTxReconcileSheet({
     [links]
   );
   const remaining = Math.max(0, txAmountAbs - linksTotal);
+  // Shortfall: la suma de facturas seleccionadas supera el banco (típico
+  // depósito de factoring: banco trae el NETO post-comisión; las facturas
+  // se asignan al BRUTO; diferencia = costo factoring). Para soportar este
+  // caso ruteamos al endpoint bulk-reconcile-dtes (que sabe crear el asiento
+  // contable de la diferencia). Sólo aplica cuando todos los vínculos son
+  // DTE — si hay factoring/manual mezclado, el flujo correcto es ajustar
+  // montos manualmente.
+  const overflow = Math.max(0, linksTotal - txAmountAbs);
+  const hasShortfall = overflow > 1;
+  const allLinksAreDtes =
+    links.length > 0 &&
+    links.every(
+      (l) => l.targetType === "DTE_ISSUED" || l.targetType === "DTE_RECEIVED"
+    );
+  // Sentido contable de la cuenta para el shortfall: ingreso → costo/gasto;
+  // egreso → ingreso/pasivo (descuento). Mismo criterio que el bulk modal.
+  const isIncomeTx = tx ? tx.amount > 0 : false;
+  const eligibleShortfallAccounts = useMemo(() => {
+    if (!accountPlans.length) return [];
+    return accountPlans.filter((ap) => {
+      if (!ap.type) return true;
+      if (isIncomeTx) return ["EXPENSE", "COST"].includes(ap.type);
+      return ["REVENUE", "LIABILITY", "INCOME"].includes(ap.type);
+    });
+  }, [accountPlans, isIncomeTx]);
 
   const loadCandidates = useCallback(async () => {
     if (!tx) return;
@@ -325,6 +357,9 @@ export function BankTxReconcileSheet({
     setRestAccountType("");
     setRestAccountId("");
     setRestNote("");
+    setDiffMode("prorate");
+    setDiffAccountPlanId("");
+    setDiffLabel("");
     setFilterText("");
     setFilterMinAmount("");
     setFilterMaxAmount("");
@@ -498,8 +533,11 @@ export function BankTxReconcileSheet({
       setLinks((prev) => prev.filter((l) => l.key !== c.id));
       return;
     }
-    // Monto sugerido: el menor entre el pendiente del DTE y el remaining
-    const suggested = Math.min(c.amountPending, remaining || c.amountPending);
+    // Monto sugerido: el amountPending REAL de la factura. Si la suma
+    // termina excediendo el banco (típico factoring), el UI muestra el
+    // bloque de shortfall para que el usuario elija cómo manejar la
+    // diferencia (Prorratear / Cuenta única / Manual).
+    const suggested = c.amountPending;
     setLinks((prev) => [
       ...prev,
       {
@@ -594,6 +632,84 @@ export function BankTxReconcileSheet({
       toast.error("Agregá al menos un vínculo o categorización");
       return;
     }
+
+    // Shortfall path: las facturas suman más que el banco. Lo ruteamos al
+    // endpoint bulk-reconcile-dtes para que el backend genere el asiento
+    // contable de la diferencia (costo factoring / descuento recibido).
+    // Sólo aplica cuando todos los vínculos son DTE — el bulk endpoint no
+    // acepta factoring/manual.
+    if (hasShortfall) {
+      if (!allLinksAreDtes) {
+        toast.error(
+          "Para manejar la diferencia, los vínculos deben ser sólo facturas. Remové los ítems de factoring o manuales."
+        );
+        return;
+      }
+      if (diffMode !== "manual" && !diffAccountPlanId) {
+        toast.error(
+          "Seleccioná una cuenta contable para la diferencia, o elegí modo Manual."
+        );
+        return;
+      }
+      // En modo manual escalamos las allocations para que su suma == banco
+      // (water-fill proporcional al monto editado). Las facturas quedan
+      // PARTIAL y el usuario registra el costo aparte después.
+      let allocations = links.map((l) => ({
+        dteId: l.targetId as string,
+        amount: l.amount,
+      }));
+      if (diffMode === "manual") {
+        const sum = allocations.reduce((s, a) => s + a.amount, 0);
+        if (sum > 0) {
+          const scale = txAmountAbs / sum;
+          allocations = allocations.map((a) => ({
+            dteId: a.dteId,
+            amount: Math.round(a.amount * scale),
+          }));
+          // Reparar residuo de redondeo en la última alloc.
+          const newSum = allocations.reduce((s, a) => s + a.amount, 0);
+          const diff = Math.round(txAmountAbs) - newSum;
+          if (allocations.length > 0) {
+            allocations[allocations.length - 1].amount += diff;
+          }
+        }
+      }
+      const body: Record<string, unknown> = {
+        bankTransactionIds: [tx.id],
+        allocations,
+      };
+      if (diffMode !== "manual") {
+        body.differenceAllocation = {
+          accountPlanId: diffAccountPlanId,
+          amount: Math.round(overflow),
+          label: diffLabel.trim() || null,
+          prorateAcrossDteLines: diffMode === "prorate",
+          direction: "shortfall",
+        };
+      }
+      setSaving(true);
+      try {
+        const res = await fetch(
+          "/api/finance/banking/transactions/bulk-reconcile-dtes",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          }
+        );
+        const json = await res.json();
+        if (!res.ok || !json.success) throw new Error(json.error);
+        toast.success("Movimiento conciliado");
+        onSaved();
+        onOpenChange(false);
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Error al guardar");
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
     // Si queda diferencia, exigir cuenta contable de resto
     let finalLinks = [...links];
     if (remaining > 0.01) {
@@ -1040,17 +1156,20 @@ export function BankTxReconcileSheet({
                 </Button>
               </div>
 
+              {/* Buscador siempre visible — el usuario no debe abrir
+                  "Filtrar" para tipear un folio / cliente / instalación. */}
+              <div className="relative mb-3">
+                <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar por folio, cliente o RUT…"
+                  value={filterText}
+                  onChange={(e) => setFilterText(e.target.value)}
+                  className="h-9 pl-8 text-sm"
+                />
+              </div>
+
               {showFilters && (
                 <div className="rounded-lg border border-border bg-muted/30 p-3 mb-3 space-y-2.5">
-                  <div className="relative">
-                    <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      placeholder="Buscar por contraparte, RUT, folio…"
-                      value={filterText}
-                      onChange={(e) => setFilterText(e.target.value)}
-                      className="h-9 pl-8 text-sm"
-                    />
-                  </div>
                   <div className="grid grid-cols-2 gap-2">
                     {/* CLP con separador de miles. Almacenamos el string
                         formateado en state; el filtrado parsea on-the-fly. */}
@@ -1356,17 +1475,138 @@ export function BankTxReconcileSheet({
                   <div
                     className={cn(
                       "flex items-center justify-between font-medium",
-                      remaining > 0.01
+                      remaining > 0.01 || hasShortfall
                         ? "text-status-warn-fg"
                         : "text-status-ok-fg"
                     )}
                   >
-                    <span>{remaining > 0.01 ? "Falta asignar" : "Cuadrado"}</span>
+                    <span>
+                      {hasShortfall
+                        ? "Diferencia (banco < facturas)"
+                        : remaining > 0.01
+                          ? "Falta asignar"
+                          : "Cuadrado"}
+                    </span>
                     <span className="font-mono">
-                      {remaining > 0.01 ? fmtCLP.format(remaining) : "✓"}
+                      {hasShortfall
+                        ? `−${fmtCLP.format(overflow)}`
+                        : remaining > 0.01
+                          ? fmtCLP.format(remaining)
+                          : "✓"}
                     </span>
                   </div>
                 </div>
+                {/* Shortfall block: las facturas suman MÁS que el banco
+                    (típico factoring). Misma UX que BulkReconcileToDteDialog.
+                    Sólo aplica cuando todos los vínculos son DTE. */}
+                {hasShortfall && allLinksAreDtes && (
+                  <div className="rounded-lg border border-status-warn-border bg-status-warn-soft/10 p-3 space-y-3">
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">
+                        ¿Cómo manejar la diferencia de{" "}
+                        <span className="font-mono tabular-nums">
+                          {fmtCLP.format(overflow)}
+                        </span>
+                        ?
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {isIncomeTx
+                          ? "El banco recibió menos que el bruto de las facturas (típico: comisión factoring, retención)."
+                          : "Las facturas suman más que el egreso bancario (descuento recibido)."}
+                      </p>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="flex items-start gap-2 text-xs cursor-pointer p-2 rounded-md hover:bg-muted/40">
+                        <input
+                          type="radio"
+                          name="reconcile-diff-mode"
+                          checked={diffMode === "prorate"}
+                          onChange={() => setDiffMode("prorate")}
+                          className="mt-0.5 accent-primary"
+                        />
+                        <span>
+                          <span className="font-medium text-foreground">
+                            Prorratear por centro de costo
+                          </span>
+                          <span className="block text-muted-foreground mt-0.5">
+                            Reparte la diferencia entre los centros de costo
+                            de las líneas de cada factura, ponderado por
+                            subtotal × asignación.
+                          </span>
+                        </span>
+                      </label>
+                      <label className="flex items-start gap-2 text-xs cursor-pointer p-2 rounded-md hover:bg-muted/40">
+                        <input
+                          type="radio"
+                          name="reconcile-diff-mode"
+                          checked={diffMode === "single"}
+                          onChange={() => setDiffMode("single")}
+                          className="mt-0.5 accent-primary"
+                        />
+                        <span>
+                          <span className="font-medium text-foreground">
+                            Todo a una sola cuenta (sin prorrateo)
+                          </span>
+                          <span className="block text-muted-foreground mt-0.5">
+                            Imputa los {fmtCLP.format(overflow)} completos a
+                            la cuenta elegida abajo.
+                          </span>
+                        </span>
+                      </label>
+                      <label className="flex items-start gap-2 text-xs cursor-pointer p-2 rounded-md hover:bg-muted/40">
+                        <input
+                          type="radio"
+                          name="reconcile-diff-mode"
+                          checked={diffMode === "manual"}
+                          onChange={() => setDiffMode("manual")}
+                          className="mt-0.5 accent-primary"
+                        />
+                        <span>
+                          <span className="font-medium text-foreground">
+                            Manual (asignar después)
+                          </span>
+                          <span className="block text-muted-foreground mt-0.5">
+                            No asignar costo ahora. Las facturas quedan
+                            PARTIAL y registrás el costo en un asiento aparte.
+                          </span>
+                        </span>
+                      </label>
+                    </div>
+                    {diffMode !== "manual" && (
+                      <div className="space-y-2 pt-1">
+                        <AccountPlanCombobox
+                          items={eligibleShortfallAccounts}
+                          value={diffAccountPlanId}
+                          onChange={setDiffAccountPlanId}
+                          placeholder={
+                            isIncomeTx
+                              ? "Buscar cuenta de gasto / costo factoring…"
+                              : "Buscar cuenta de ingreso / descuento…"
+                          }
+                          emptyLabel="Seleccionar cuenta"
+                          triggerClassName="w-full"
+                        />
+                        <Input
+                          value={diffLabel}
+                          onChange={(e) => setDiffLabel(e.target.value)}
+                          placeholder={
+                            isIncomeTx
+                              ? "Nota del asiento (ej. 'Comisión factoring AMIFACTOR')"
+                              : "Nota del asiento (ej. 'Descuento proveedor')"
+                          }
+                          className="h-9 text-sm"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+                {hasShortfall && !allLinksAreDtes && (
+                  <p className="text-xs text-status-danger-fg pt-2">
+                    Para manejar diferencia con facturas + factoring/manual
+                    mezclados, ajustá los montos de cada vínculo manualmente
+                    o remové los ítems no-factura.
+                  </p>
+                )}
                 {remaining > 0.01 && (
                   <div className="space-y-2 pt-2 border-t border-border">
                     <p className="text-xs text-muted-foreground">
