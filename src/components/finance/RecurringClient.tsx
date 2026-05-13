@@ -774,7 +774,11 @@ export function RecurringClient({
         )}
       </CardContent>
 
+      {/* key fuerza remount cuando cambiamos de plantilla — sin esto, el
+          state local (en particular `customer`) se filtra entre ediciones
+          y queda contaminando el receptor de la plantilla siguiente. */}
       <RecurringTemplateForm
+        key={editingId ?? "new"}
         open={editingId !== null}
         templateId={editingId || null}
         onClose={() => setEditingId(null)}

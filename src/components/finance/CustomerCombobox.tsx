@@ -1,7 +1,15 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Search, X, MapPin, Mail, Sparkles, Loader2 } from "lucide-react";
+import {
+  Search,
+  X,
+  MapPin,
+  Mail,
+  Sparkles,
+  Loader2,
+  RefreshCw,
+} from "lucide-react";
 import { Card } from "@/components/ui/card";
 
 export interface CustomerOption {
@@ -131,14 +139,38 @@ export function CustomerCombobox({
               </div>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => onChange(null)}
-            className="text-ds-text-3 hover:text-ds-text-1 shrink-0 p-1 rounded-md hover:bg-ds-surface-2"
-            aria-label="Quitar cliente"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-1 shrink-0">
+            {/* Cambiar cliente: en plantillas recurrentes a veces hay que
+                reemplazar el receptor sin "quitar primero". Limpia el
+                value (vuelve al combobox de búsqueda) y abre el dropdown
+                en un solo click. Marcamos `userToggledRef` para que el
+                effect que auto-muestra la vista manual (cuando hay
+                manualRut/Name/Email residuales) NO intercepte y mande
+                al input manual. */}
+            <button
+              type="button"
+              onClick={() => {
+                userToggledRef.current = true;
+                setShowManual(false);
+                onChange(null);
+                setOpen(true);
+              }}
+              className="text-ds-text-3 hover:text-ds-text-1 p-1.5 rounded-md hover:bg-ds-surface-2 inline-flex items-center gap-1 text-[11px]"
+              aria-label="Cambiar cliente"
+              title="Cambiar cliente"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Cambiar</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onChange(null)}
+              className="text-ds-text-3 hover:text-ds-text-1 p-1 rounded-md hover:bg-ds-surface-2"
+              aria-label="Quitar cliente"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         </div>
       </Card>
     );

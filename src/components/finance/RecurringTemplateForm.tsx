@@ -247,6 +247,29 @@ export function RecurringTemplateForm({
         setReceiverComuna(t.receiverComuna ?? "");
         setReceiverCiudad(t.receiverCiudad ?? "");
         setInstallationId(t.installationId ?? "");
+        // Reconstruimos el `customer` cuando la plantilla referencia un
+        // CRM account, así el form muestra la tarjeta verde del receptor
+        // (y NO la vista vacía "Buscar cliente del CRM…") al editar.
+        // Sin esto, el usuario debía re-elegir el cliente cada vez que
+        // abría una plantilla existente — y peor: por el bug histórico
+        // de state-leak (resuelto vía `key` en el padre), terminaba
+        // arrastrando al receptor de la plantilla anterior.
+        if (t.crmAccountId && t.receiverName) {
+          setCustomer({
+            id: t.crmAccountId,
+            name: t.receiverName,
+            displayName: t.receiverName,
+            rut: t.receiverRut ?? "",
+            email: t.receiverEmail ?? null,
+            address: t.receiverDireccion ?? null,
+            commune: t.receiverComuna ?? null,
+            city: t.receiverCiudad ?? null,
+            giro: t.receiverGiro ?? null,
+            industry: null,
+          });
+        } else {
+          setCustomer(null);
+        }
         setCcEmailsRaw((t.receiverEmailCc ?? []).join(", "));
         setNotes(t.notes ?? "");
         const linesData: TemplateLine[] = Array.isArray(t.lines) && t.lines.length > 0
