@@ -38,6 +38,15 @@ export interface Position {
   monthlyPositionCost: number;
   /** Precio venta asignado (cuando viene del API); usa esto para mostrar en vez de monthlyPositionCost */
   displayPrice?: number;
+  /** Agrupación opcional por servicio. */
+  serviceGroupId?: string | null;
+  serviceGroup?: {
+    id: string;
+    name: string;
+    coveragePattern: string;
+    iconName?: string | null;
+    displayOrder?: number;
+  } | null;
 }
 
 export interface AdditionalLine {

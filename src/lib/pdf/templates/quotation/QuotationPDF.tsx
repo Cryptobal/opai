@@ -477,34 +477,86 @@ function BreakdownPage({
             <Text style={[ls.bdSectionTitle, { color: '#1d4ed8' }]}>Mano de Obra</Text>
             <Text style={[ls.bdRowAmount, { color: '#1d4ed8' }]}>{fmt(breakdown.totalLaborCost)}</Text>
           </View>
-          {breakdown.positions.map((pos) => (
-            <View key={pos.id}>
-              <View style={ls.bdRow}>
-                <Text style={[ls.bdRowLabel, { fontWeight: 600 }]}>{pos.name} ({pos.totalGuardsInPosition}g)</Text>
-                <Text style={ls.bdRowAmount}>{fmt(pos.totalLaborCost)}</Text>
-              </View>
-              <View style={ls.bdSubRow}>
-                <Text style={ls.bdSubLabel}>Sueldo base</Text>
-                <Text style={ls.bdSubAmount}>{fmt(pos.baseSalary)}</Text>
-              </View>
-              {pos.gratification > 0 && (
-                <View style={ls.bdSubRow}>
-                  <Text style={ls.bdSubLabel}>Gratificación legal</Text>
-                  <Text style={ls.bdSubAmount}>{fmt(pos.gratification)}</Text>
+          {(() => {
+            type PB = typeof breakdown.positions[number];
+            const groups = new Map<string, { name: string; pattern: string; order: number; items: PB[] }>();
+            const ungrouped: PB[] = [];
+            for (const p of breakdown.positions) {
+              if (p.serviceGroupId && p.serviceGroupName) {
+                const existing = groups.get(p.serviceGroupId);
+                if (existing) existing.items.push(p);
+                else
+                  groups.set(p.serviceGroupId, {
+                    name: p.serviceGroupName,
+                    pattern: p.serviceGroupPattern || '',
+                    order: p.serviceGroupOrder ?? 0,
+                    items: [p],
+                  });
+              } else {
+                ungrouped.push(p);
+              }
+            }
+            const sortedGroups = Array.from(groups.values()).sort(
+              (a, b) => a.order - b.order || a.name.localeCompare(b.name),
+            );
+            const renderPos = (pos: PB) => (
+              <View key={pos.id}>
+                <View style={ls.bdRow}>
+                  <Text style={[ls.bdRowLabel, { fontWeight: 600 }]}>
+                    {pos.name} ({pos.totalGuardsInPosition}g)
+                  </Text>
+                  <Text style={ls.bdRowAmount}>{fmt(pos.totalLaborCost)}</Text>
                 </View>
-              )}
-              <View style={ls.bdSubRow}>
-                <Text style={ls.bdSubLabel}>Cargas sociales (SIS+AFC+Mutual)</Text>
-                <Text style={ls.bdSubAmount}>{fmt(pos.sisEmployer + pos.afcEmployer + pos.mutualEmployer)}</Text>
-              </View>
-              {(pos.vacationProvision + pos.severanceProvision) > 0 && (
                 <View style={ls.bdSubRow}>
-                  <Text style={ls.bdSubLabel}>Provisiones (vacaciones+finiquito)</Text>
-                  <Text style={ls.bdSubAmount}>{fmt(pos.vacationProvision + pos.severanceProvision)}</Text>
+                  <Text style={ls.bdSubLabel}>Sueldo base</Text>
+                  <Text style={ls.bdSubAmount}>{fmt(pos.baseSalary)}</Text>
                 </View>
-              )}
-            </View>
-          ))}
+                {pos.gratification > 0 && (
+                  <View style={ls.bdSubRow}>
+                    <Text style={ls.bdSubLabel}>Gratificación legal</Text>
+                    <Text style={ls.bdSubAmount}>{fmt(pos.gratification)}</Text>
+                  </View>
+                )}
+                <View style={ls.bdSubRow}>
+                  <Text style={ls.bdSubLabel}>Cargas sociales (SIS+AFC+Mutual)</Text>
+                  <Text style={ls.bdSubAmount}>
+                    {fmt(pos.sisEmployer + pos.afcEmployer + pos.mutualEmployer)}
+                  </Text>
+                </View>
+                {pos.vacationProvision + pos.severanceProvision > 0 && (
+                  <View style={ls.bdSubRow}>
+                    <Text style={ls.bdSubLabel}>Provisiones (vacaciones+finiquito)</Text>
+                    <Text style={ls.bdSubAmount}>
+                      {fmt(pos.vacationProvision + pos.severanceProvision)}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            );
+            return (
+              <>
+                {sortedGroups.map((g, gi) => (
+                  <View key={`g-${gi}`}>
+                    <Text style={{ fontWeight: 700, fontSize: 10, color: '#1d4ed8', marginTop: gi === 0 ? 0 : 6 }}>
+                      {g.name}
+                      {g.pattern ? ` · ${g.pattern.toUpperCase().replace('-', '/')}` : ''}
+                    </Text>
+                    {g.items.map(renderPos)}
+                  </View>
+                ))}
+                {ungrouped.length > 0 && (
+                  <View>
+                    {sortedGroups.length > 0 && (
+                      <Text style={{ fontWeight: 600, fontSize: 9, color: '#64748b', marginTop: 6 }}>
+                        Sin agrupar
+                      </Text>
+                    )}
+                    {ungrouped.map(renderPos)}
+                  </View>
+                )}
+              </>
+            );
+          })()}
         </View>
 
         {/* ── Costos Directos ── */}
@@ -611,22 +663,71 @@ function BreakdownPage({
         {breakdown.positions.length > 0 && (
           <>
             <PDFSectionTitle>Valor Hora de Venta por Puesto</PDFSectionTitle>
-            {breakdown.positions.map((pos) => (
-              <View key={pos.id} style={ls.posCard}>
-                <View style={ls.posCardHeader}>
-                  <View>
-                    <Text style={ls.posCardName}>{pos.name}</Text>
-                    <Text style={ls.posCardMeta}>
-                      {pos.totalGuardsInPosition} guardia{pos.totalGuardsInPosition !== 1 ? 's' : ''} · {breakdown.monthlyHoursStandard}h/mes
-                    </Text>
-                  </View>
-                  <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={ls.posCardPrice}>{fmtCLPPdf(Math.round(pos.hourlyRateSale))}/hr</Text>
-                    <Text style={ls.posCardMeta}>precio venta</Text>
+            {(() => {
+              type PB = typeof breakdown.positions[number];
+              const groups = new Map<string, { name: string; pattern: string; order: number; items: PB[] }>();
+              const ungrouped: PB[] = [];
+              for (const p of breakdown.positions) {
+                if (p.serviceGroupId && p.serviceGroupName) {
+                  const existing = groups.get(p.serviceGroupId);
+                  if (existing) existing.items.push(p);
+                  else
+                    groups.set(p.serviceGroupId, {
+                      name: p.serviceGroupName,
+                      pattern: p.serviceGroupPattern || '',
+                      order: p.serviceGroupOrder ?? 0,
+                      items: [p],
+                    });
+                } else {
+                  ungrouped.push(p);
+                }
+              }
+              const sorted = Array.from(groups.values()).sort(
+                (a, b) => a.order - b.order || a.name.localeCompare(b.name),
+              );
+              const renderPos = (pos: PB) => (
+                <View key={pos.id} style={ls.posCard}>
+                  <View style={ls.posCardHeader}>
+                    <View>
+                      <Text style={ls.posCardName}>{pos.name}</Text>
+                      <Text style={ls.posCardMeta}>
+                        {pos.totalGuardsInPosition} guardia{pos.totalGuardsInPosition !== 1 ? 's' : ''} ·{' '}
+                        {breakdown.monthlyHoursStandard}h/mes
+                      </Text>
+                    </View>
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Text style={ls.posCardPrice}>
+                        {fmtCLPPdf(Math.round(pos.hourlyRateSale))}/hr
+                      </Text>
+                      <Text style={ls.posCardMeta}>precio venta</Text>
+                    </View>
                   </View>
                 </View>
-              </View>
-            ))}
+              );
+              return (
+                <>
+                  {sorted.map((g, gi) => (
+                    <View key={`hr-g-${gi}`}>
+                      <Text style={{ fontWeight: 700, fontSize: 10, marginTop: gi === 0 ? 0 : 6, marginBottom: 2 }}>
+                        {g.name}
+                        {g.pattern ? ` · ${g.pattern.toUpperCase().replace('-', '/')}` : ''}
+                      </Text>
+                      {g.items.map(renderPos)}
+                    </View>
+                  ))}
+                  {ungrouped.length > 0 && (
+                    <View>
+                      {sorted.length > 0 && (
+                        <Text style={{ fontWeight: 600, fontSize: 9, color: '#64748b', marginTop: 6 }}>
+                          Sin agrupar
+                        </Text>
+                      )}
+                      {ungrouped.map(renderPos)}
+                    </View>
+                  )}
+                </>
+              );
+            })()}
           </>
         )}
 

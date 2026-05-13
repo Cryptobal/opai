@@ -124,7 +124,7 @@ export async function buildQuotationProps(
     where: { id: quoteId, tenantId },
     include: {
       positions: {
-        include: { cargo: true, rol: true, puestoTrabajo: true },
+        include: { cargo: true, rol: true, puestoTrabajo: true, serviceGroup: true },
       },
       parameters: true,
       installation: true,
@@ -344,6 +344,14 @@ export async function buildQuotationProps(
           monthlyPositionCost: unknown;
           baseSalary: unknown;
           payrollSnapshot?: unknown;
+          serviceGroupId?: string | null;
+          serviceGroup?: {
+            id: string;
+            name: string;
+            coveragePattern: string;
+            iconName: string | null;
+            displayOrder: number;
+          } | null;
         }) => {
           const snap = pos.payrollSnapshot as Record<string, unknown> | null;
           const bd = (snap?.breakdown ?? {}) as Record<string, unknown>;
@@ -391,6 +399,11 @@ export async function buildQuotationProps(
               totalGuardsInPos > 0 && monthlyHoursStandard > 0
                 ? salePrice / (totalGuardsInPos * monthlyHoursStandard)
                 : 0,
+            serviceGroupId: pos.serviceGroupId ?? null,
+            serviceGroupName: pos.serviceGroup?.name ?? null,
+            serviceGroupPattern: pos.serviceGroup?.coveragePattern ?? null,
+            serviceGroupOrder: pos.serviceGroup?.displayOrder ?? null,
+            serviceGroupIcon: pos.serviceGroup?.iconName ?? null,
           };
         },
       );

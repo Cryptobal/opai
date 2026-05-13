@@ -49,6 +49,13 @@ export interface PositionBreakdownItem {
   salePrice: number;
   /** Price per guard per hour: salePrice / (totalGuardsInPosition × monthlyHoursStandard) */
   hourlyRateSale: number;
+
+  /** Agrupación opcional para render agrupado en PDF / portal. */
+  serviceGroupId?: string | null;
+  serviceGroupName?: string | null;
+  serviceGroupPattern?: string | null;
+  serviceGroupOrder?: number | null;
+  serviceGroupIcon?: string | null;
 }
 
 export interface QuoteBreakdownData {
