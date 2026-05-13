@@ -22,6 +22,11 @@ import { matchOccurrencesToBankLinks, type BankLinkSlim } from "./account-matche
 import { resolveCategoryForLink } from "./category-resolver";
 import { bulkResolveCategoriesFromAccounts } from "./categoryAccount.service";
 import { resolveOpeningBalance } from "./opening-balance.service";
+import {
+  getRealBankBalanceAt,
+  type BalanceSnapshot,
+  type BalanceTx,
+} from "./real-balance.helper";
 
 type CategoryLite = Pick<FinanceCashflowCategory, "id" | "code" | "name" | "kind" | "sortOrder">;
 
@@ -237,7 +242,30 @@ export async function buildProjection(
       }
     }
   }
-  const items = itemsAfterPayroll.filter((i) => !orphanGlobalItemIds.has(i.id));
+  const itemsAfterOrphan = itemsAfterPayroll.filter(
+    (i) => !orphanGlobalItemIds.has(i.id),
+  );
+
+  // Deduplicación CONTRACT ↔ RECURRING_DTE: el flujo de caja se alimenta
+  // desde el tab Contratos de la ficha de cuenta CRM. Cuando un contrato
+  // ya emite un item `source=CONTRACT`, una plantilla DTE recurrente
+  // (`source=RECURRING_DTE`) del mismo cliente+instalación es duplicado:
+  // probablemente se creó al integrar contrato → factura recurrente SII y
+  // queda viva en `FinanceDteRecurringTemplate` para timbraje, pero NO
+  // debe sumar ingreso paralelo en la proyección. La clave de dedup es
+  // (crmAccountId, installationId): cubre el caso típico de un cliente
+  // con contrato + plantilla para la misma instalación.
+  const contractKeys = new Set<string>();
+  for (const it of itemsAfterOrphan) {
+    if (it.source === "CONTRACT" && it.crmAccountId) {
+      contractKeys.add(`${it.crmAccountId}|${it.installationId ?? ""}`);
+    }
+  }
+  const items = itemsAfterOrphan.filter((i) => {
+    if (i.source !== "RECURRING_DTE") return true;
+    if (!i.crmAccountId) return true;
+    return !contractKeys.has(`${i.crmAccountId}|${i.installationId ?? ""}`);
+  });
   // FinanceCashflowItem.installationId no tiene @relation, así que resolvemos
   // los nombres en un lookup batch por tenant. Pick mínimo para no traer overhead.
   const installationIds = Array.from(
@@ -251,6 +279,28 @@ export async function buildProjection(
         })
       : [];
   const installationNameById = new Map(installations.map((i) => [i.id, i.name]));
+
+  // Dotación por instalación (headcount planificado) — SUM(requiredGuards)
+  // de OpsPuestoOperativo activos. Cada puesto-turno cuenta como 1+ personas
+  // (`requiredGuards` permite multi-guardia en un mismo turno). Sirve para
+  // mostrar "· N personas" en cada línea de contrato/instalación y sumar al
+  // colapsar el cliente. Una sola query agregada por la lista de
+  // instalaciones que aparecen en la proyección.
+  const headcountRows =
+    installationIds.length > 0
+      ? await prisma.opsPuestoOperativo.groupBy({
+          by: ["installationId"],
+          where: {
+            tenantId,
+            installationId: { in: installationIds },
+            active: true,
+          },
+          _sum: { requiredGuards: true },
+        })
+      : [];
+  const headcountByInstallation = new Map<string, number>(
+    headcountRows.map((r) => [r.installationId, r._sum.requiredGuards ?? 0]),
+  );
 
   // Mapeo crmAccountId → name para agrupar en UI por cliente (Fase C.3).
   const crmAccountIds = Array.from(
@@ -727,6 +777,7 @@ export async function buildProjection(
     allOccurrences,
     crmAccountNameById,
     cellStatusByDteId,
+    headcountByInstallation,
   );
 
   const openingBreakdown = await resolveOpeningBalance(tenantId);
@@ -735,30 +786,97 @@ export async function buildProjection(
   const todayMidnight = new Date();
   todayMidnight.setHours(0, 0, 0, 0);
 
+  // Snapshots de saldo: necesarios para calcular el saldo real por bucket de
+  // forma independiente (no acumulativa). El algoritmo previo arrancaba en
+  // `opening` (que ya es el saldo de hoy) y sumaba `actualBankNet` de cada
+  // bucket pasado — eso duplicaba la plata. Ver `real-balance.helper.ts`.
+  const activeAccountsForBalance = await prisma.financeBankAccount.findMany({
+    where: { tenantId, isActive: true, currency: "CLP" },
+    select: { id: true },
+  });
+  const accountIds = activeAccountsForBalance.map((a) => a.id);
+
+  const allSnapshots = accountIds.length > 0
+    ? await prisma.financeBankAccountBalance.findMany({
+        where: {
+          tenantId,
+          bankAccountId: { in: accountIds },
+          asOfDate: { lte: range.to },
+        },
+        orderBy: { asOfDate: "asc" },
+        select: { bankAccountId: true, asOfDate: true, balance: true },
+      })
+    : [];
+
+  const snapshotsByAccount = new Map<string, BalanceSnapshot[]>();
+  for (const s of allSnapshots) {
+    const arr = snapshotsByAccount.get(s.bankAccountId) ?? [];
+    arr.push({ asOfDate: s.asOfDate, balance: Number(s.balance) });
+    snapshotsByAccount.set(s.bankAccountId, arr);
+  }
+
+  // Carga ampliada de tx (indexada por cuenta) para reconstruir el saldo
+  // desde el snapshot más antiguo relevante. Esta carga es independiente
+  // de `bankTxs` (que sigue usándose para actualBankIncome/Expense).
+  const oldestSnapshotDate = allSnapshots[0]?.asOfDate ?? range.from;
+  const minTxDate =
+    oldestSnapshotDate < range.from ? oldestSnapshotDate : range.from;
+
+  const allBankTxs = accountIds.length > 0
+    ? await prisma.financeBankTransaction.findMany({
+        where: {
+          tenantId,
+          bankAccountId: { in: accountIds },
+          hiddenAt: null,
+          transactionDate: { gt: minTxDate, lte: range.to },
+        },
+        select: { bankAccountId: true, transactionDate: true, amount: true },
+        orderBy: { transactionDate: "asc" },
+      })
+    : [];
+
+  const txsByAccount = new Map<string, BalanceTx[]>();
+  for (const t of allBankTxs) {
+    const arr = txsByAccount.get(t.bankAccountId) ?? [];
+    arr.push({ transactionDate: t.transactionDate, amount: Number(t.amount) });
+    txsByAccount.set(t.bankAccountId, arr);
+  }
+
   let runningProjected = opening;
-  let runningReal = opening;
   let lastRealBucketIdx = -1;
   const cumulativePoints: CumulativeBalancePoint[] = buckets.map((b, idx) => {
     runningProjected += b.net;
 
     const isPastOrCurrent = b.start.getTime() <= todayMidnight.getTime();
-
-    if (isPastOrCurrent) {
-      runningReal += b.actualBankNet;
-      lastRealBucketIdx = idx;
+    if (!isPastOrCurrent) {
       return {
         bucketKey: b.key,
         projectedClp: runningProjected,
-        realBankClp: runningReal,
-        cumulativeBankVarianceClp: runningReal - runningProjected,
+        realBankClp: null,
+        cumulativeBankVarianceClp: null,
       };
     }
 
+    // Para buckets pasados/actuales, calculamos el saldo real al cierre del
+    // bucket de forma independiente. Si b.end > today (caso del bucket
+    // actual), recortamos a hoy: el saldo real sólo va hasta hoy.
+    const cutoff =
+      b.end.getTime() <= todayMidnight.getTime() ? b.end : todayMidnight;
+
+    const realBank = getRealBankBalanceAt(
+      cutoff,
+      accountIds,
+      snapshotsByAccount,
+      txsByAccount,
+    );
+
+    lastRealBucketIdx = idx;
     return {
       bucketKey: b.key,
       projectedClp: runningProjected,
-      realBankClp: null,
-      cumulativeBankVarianceClp: null,
+      realBankClp: realBank,
+      cumulativeBankVarianceClp:
+        realBank !== null ? realBank - runningProjected : null,
     };
   });
 
@@ -831,6 +949,7 @@ function buildRows(
     string,
     { status: CashflowCellStatus; daysOverdue: number; dteId: string | null }
   >,
+  headcountByInstallation: Map<string, number>,
 ): ProjectionRow[] {
   const rows: ProjectionRow[] = [];
   for (const cat of categories) {
@@ -871,6 +990,9 @@ function buildRows(
           sourceRefCode: null,
           hasIpcAdjustment: o.hasIpcAdjustment,
           ipcAdjustmentMonths: o.ipcAdjustmentMonths,
+          headcount: o.installationId
+            ? (headcountByInstallation.get(o.installationId) ?? 0)
+            : 0,
           values: buckets.map((b) => ({
             bucketKey: b.key,
             amount: 0,

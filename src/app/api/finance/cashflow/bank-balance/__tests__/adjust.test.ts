@@ -64,6 +64,12 @@ vi.mock("@/lib/permissions", () => ({
   hasCapability: hasCapabilityMock,
 }));
 
+// revalidatePath requiere el static-generation store de Next, ausente en
+// tests unitarios. Lo mockeamos como no-op.
+vi.mock("next/cache", () => ({
+  revalidatePath: vi.fn(),
+}));
+
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     financeBankAccount: {

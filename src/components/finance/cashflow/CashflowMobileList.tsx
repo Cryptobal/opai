@@ -10,6 +10,7 @@ import {
   CashflowMobileBucketSummary,
 } from "./CashflowMobileBucketHeader";
 import { BankBalanceAdjustDrawer } from "./BankBalanceAdjustDrawer";
+import { CashflowDriftBanner } from "./CashflowDriftBanner";
 import { useHasCapability } from "@/lib/permissions-context";
 import {
   getChipLabel,
@@ -269,6 +270,19 @@ export function CashflowMobileList({
             onTouchStart={onTouchStart}
             onTouchEnd={onTouchEnd}
           />
+
+          {isActiveBucketCurrent && cumulativePoint && (
+            <CashflowDriftBanner
+              driftClp={cumulativePoint.cumulativeBankVarianceClp}
+              onCreateAdjustment={(amount) => {
+                // Pre-pobla el modal de nuevo ítem rápido vía URL params.
+                // El handler de los params vive en CashflowTabs (parent).
+                router.push(
+                  `/finanzas/flujo-caja?quick=adjustment&amount=${Math.round(amount)}`,
+                );
+              }}
+            />
+          )}
 
           <CashflowMobileSection
             title="Ingresos"

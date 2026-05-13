@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireAuth, unauthorized, parseBody, resolveApiPerms } from "@/lib/api-auth";
 import { hasCapability } from "@/lib/permissions";
@@ -65,6 +66,12 @@ export async function POST(req: NextRequest) {
     where: { id: bankAccountId },
     data: { currentBalance: balance, balanceUpdatedAt: today },
   });
+
+  // Invalida el data cache del server component que sirve la projection,
+  // para que el siguiente render del cliente (router.refresh) reciba el
+  // saldo recién guardado y no la versión cacheada.
+  revalidatePath("/finanzas/flujo-caja");
+  revalidatePath("/finanzas");
 
   return NextResponse.json({
     success: true,
