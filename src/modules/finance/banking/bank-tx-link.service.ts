@@ -169,7 +169,6 @@ function looksLikeFactoringDeposit(description: string | null | undefined): bool
 export async function findDteCandidates(
   tenantId: string,
   bankTxId: string,
-  toleranceFactor: number = 0.05
 ): Promise<CandidateDte[]> {
   const tx = await prisma.financeBankTransaction.findFirst({
     where: { id: bankTxId, tenantId },
@@ -184,42 +183,23 @@ export async function findDteCandidates(
   const direction = isIncome ? "ISSUED" : "RECEIVED";
   const isFactoring = isIncome && looksLikeFactoringDeposit(tx.description);
 
-  // Tolerancia asimétrica para ingresos:
-  // - INGRESO NORMAL: la factura suele coincidir o ser ligeramente menor
-  //   (descuentos, retenciones). Permitimos -2% / +5%.
-  // - INGRESO FACTORING: el banco trae el NETO post-comisión. La factura
-  //   original es siempre MAYOR (típicamente +3% a +25% por comisión).
-  //   Cuando hay varias facturas cedidas en un mismo depósito, el bruto
-  //   puede llegar a +50%. Permitimos -1% / +50% — el sort por delta y
-  //   los badges en la UI hacen claro qué tan exacto es cada match.
-  // - EGRESO: pago a proveedor. La factura suele ser exacta; permitimos
-  //   ±5% para cubrir notas de crédito / descuentos parciales.
-  let minAmount: number;
-  let maxAmount: number;
-  if (isFactoring) {
-    minAmount = amountAbs * 0.99;
-    maxAmount = amountAbs * 1.5;
-  } else if (isIncome) {
-    minAmount = amountAbs * 0.98;
-    maxAmount = amountAbs * 1.05;
-  } else {
-    const tolerance = Math.max(amountAbs * toleranceFactor, 1000);
-    minAmount = amountAbs - tolerance;
-    maxAmount = amountAbs + tolerance;
-  }
-
-  // Ventana de fecha: 90 días antes, 30 días después.
-  // Para factoring ampliamos a 180 días antes (las facturas cedidas pueden
-  // ser viejas y los plazos de cesión llegan a 6 meses) y 7 días después.
+  // Ventana de fecha: 90 días antes / 30 después para movimientos normales,
+  // 180 antes / 7 después para factoring (cesiones pueden ser viejas).
   const minDate = new Date(tx.transactionDate);
   minDate.setDate(minDate.getDate() - (isFactoring ? 180 : 90));
   const maxDate = new Date(tx.transactionDate);
   maxDate.setDate(maxDate.getDate() + (isFactoring ? 7 : 30));
 
-  // Para factoring INCLUIMOS facturas PAID también: el usuario puede haber
-  // marcado la factura como pagada manualmente al ceder al factoring, y aún
-  // así quiere matchear ese depósito contra la(s) factura(s) cedida(s).
-  // Para ingresos normales y egresos seguimos restringidos a las no pagadas.
+  // NO filtramos por rango de monto: un depósito de factoring suele cubrir
+  // N facturas chicas cuyo bruto individual nunca cae en ±%X del banco.
+  // En su lugar traemos todas las pendientes en la ventana y ordenamos por
+  // afinidad de monto — el 1:1 exacto queda arriba como antes, y los casos
+  // N:M (factoring, cobros parciales) ahora son alcanzables. La UI ya tiene
+  // filtros (search/monto/fecha) para que el usuario refine.
+  //
+  // Para factoring incluimos facturas PAID: el usuario puede haber marcado
+  // la factura como pagada al ceder, y quiere matchear el depósito contra
+  // la(s) factura(s) cedida(s) igual.
   const dtes = await prisma.financeDte.findMany({
     where: {
       tenantId,
@@ -233,16 +213,27 @@ export async function findDteCandidates(
             amountPending: { gt: 0 },
           }),
       date: { gte: minDate, lte: maxDate },
-      OR: [
-        { amountPending: { gte: minAmount, lte: maxAmount } },
-        { totalAmount: { gte: minAmount, lte: maxAmount } },
-      ],
     },
     orderBy: { date: "desc" },
-    take: isFactoring ? 100 : 50,
+    take: 200,
   });
 
-  return dtes.map((d) => ({
+  // Sort por afinidad: delta absoluto al monto del banco (tomando el menor
+  // entre amountPending y totalAmount). Empuja matches 1:1 al tope sin
+  // ocultar los N:M.
+  const sorted = [...dtes].sort((a, b) => {
+    const da = Math.min(
+      Math.abs(a.amountPending.toNumber() - amountAbs),
+      Math.abs(a.totalAmount.toNumber() - amountAbs),
+    );
+    const db = Math.min(
+      Math.abs(b.amountPending.toNumber() - amountAbs),
+      Math.abs(b.totalAmount.toNumber() - amountAbs),
+    );
+    return da - db;
+  });
+
+  return sorted.map((d) => ({
     id: d.id,
     direction: d.direction as "ISSUED" | "RECEIVED",
     documentType: d.code,
