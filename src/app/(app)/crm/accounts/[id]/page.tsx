@@ -4,10 +4,11 @@
 
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { resolvePagePerms, canView } from "@/lib/permissions-server";
+import { resolvePagePerms, canView, hasCapability } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { getInstallationContractCoverage } from "@/lib/crm/installation-contracts";
 import { CrmAccountDetailClient } from "@/components/crm/CrmAccountDetailClient";
+import type { AccountFacturacion } from "@/components/crm/account/AccountFacturacionSection";
 export default async function CrmAccountDetailPage({
   params,
 }: {
@@ -143,6 +144,61 @@ export default async function CrmAccountDetailPage({
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
 
+  // Facturación SII: sólo se carga si el usuario puede ver compras/ventas
+  // (purchases_view). Cuando el rol no tiene acceso el server jamás envía los
+  // DTEs al cliente.
+  let facturacion: AccountFacturacion | null = null;
+  if (hasCapability(perms, "purchases_view")) {
+    const dtes = await prisma.financeDte.findMany({
+      where: { tenantId, crmAccountId: id, direction: "ISSUED" },
+      orderBy: { date: "desc" },
+      take: 100,
+      select: {
+        id: true,
+        dteType: true,
+        folio: true,
+        date: true,
+        dueDate: true,
+        totalAmount: true,
+        netAmount: true,
+        amountPending: true,
+        paymentStatus: true,
+      },
+    });
+
+    const yearStart = new Date(new Date().getFullYear(), 0, 1);
+    let totalFacturadoYTD = 0;
+    let porCobrar = 0;
+    let ultimaFacturaDate: string | null = null;
+    for (const d of dtes) {
+      const total = Number(d.totalAmount);
+      const isFactura = d.dteType === 33 || d.dteType === 34 || d.dteType === 39;
+      if (isFactura && d.date >= yearStart) totalFacturadoYTD += total;
+      if (
+        d.paymentStatus !== "PAID" &&
+        d.paymentStatus !== "CEDED" &&
+        d.paymentStatus !== "WRITTEN_OFF"
+      ) {
+        porCobrar += Number(d.amountPending);
+      }
+      if (isFactura && !ultimaFacturaDate) ultimaFacturaDate = d.date.toISOString();
+    }
+
+    facturacion = {
+      dtes: dtes.map((d) => ({
+        id: d.id,
+        dteType: d.dteType,
+        folio: d.folio,
+        date: d.date.toISOString(),
+        dueDate: d.dueDate ? d.dueDate.toISOString() : null,
+        totalAmount: Number(d.totalAmount),
+        netAmount: Number(d.netAmount),
+        paymentStatus: d.paymentStatus,
+      })),
+      resumen: { totalFacturadoYTD, porCobrar, ultimaFacturaDate },
+    };
+  }
+
   const lifecycle =
     account.status === "prospect" || account.status === "client_active" || account.status === "client_inactive"
       ? account.status
@@ -158,6 +214,7 @@ export default async function CrmAccountDetailPage({
       quotes={data.quotes || []}
       activityEvents={JSON.parse(JSON.stringify(activityEvents))}
       currentUserId={session.user.id}
+      facturacion={facturacion}
     />
   );
 }

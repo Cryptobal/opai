@@ -252,6 +252,143 @@ export const NAV_MODULES: NavNode[] = [
   },
 
   // ═════════════════════════════════════════════════════════
+  // FINANZAS
+  // ═════════════════════════════════════════════════════════
+  {
+    key: "finance",
+    href: "/finanzas",
+    label: "Finanzas",
+    icon: Landmark,
+    module: "finance",
+    tenantModule: "finanzas",
+    children: [
+      // Inicio (dashboard tarjetas)
+      {
+        key: "finance-inicio",
+        href: "/finanzas",
+        label: "Inicio",
+        icon: Grid3x3,
+        exactMatch: true,
+        show: (perms) =>
+          canView(perms, "finance", "reportes") || hasCapability(perms, "rendicion_view_all"),
+      },
+      // Rendiciones — con N3 (Resumen + Aprobaciones + Pagos)
+      {
+        key: "finance-rendiciones",
+        href: "/finanzas/rendiciones",
+        label: "Rendiciones",
+        shortLabel: "Rendic.",
+        icon: Receipt,
+        module: "finance",
+        submodule: "rendiciones",
+        badge: { notesKey: "rendicion" },
+        children: [
+          {
+            key: "rend-resumen",
+            href: "/finanzas/rendiciones",
+            label: "Rendiciones",
+            shortLabel: "Lista",
+            icon: Receipt,
+            exactMatch: true,
+            module: "finance",
+            submodule: "rendiciones",
+          },
+          {
+            key: "rend-historial-pagos",
+            href: "/finanzas/rendiciones/historial-pagos",
+            label: "Historial de pagos",
+            shortLabel: "Pagos",
+            icon: Wallet,
+            capability: "rendicion_pay",
+            module: "finance",
+            submodule: "rendiciones",
+          },
+        ],
+      },
+      // Compras y Ventas (Facturación + Proveedores) — con N3.
+      // Unifica DTEs Emitidos (ventas) + DTEs Recibidos (compras) +
+      // Proveedores en una sola entrada. La pestaña "Compras" antes era
+      // una entrada N2 separada que apuntaba a /finanzas/proveedores —
+      // ahora Proveedores vive como child después del Libro IVA.
+      // Restringido a owner/admin (purchases_view) o roles con
+      // facturacion explícita.
+      {
+        key: "finance-compras-ventas",
+        href: "/finanzas/facturacion",
+        label: "Compras y Ventas",
+        shortLabel: "C/V",
+        icon: FileText,
+        module: "finance",
+        submodule: "facturacion",
+        // 2026-05-13: política Opai — solo owner/admin (purchases_view) ven
+        // Compras y Ventas. Quitados fallbacks canView "facturacion" /
+        // "proveedores" para que roles legacy con esos submodule grants no
+        // hereden acceso. Tenants que necesiten delegar deben otorgar
+        // capabilities granulares vía /opai/configuracion/roles.
+        show: (perms) => hasCapability(perms, "purchases_view"),
+        children: [
+          { key: "cv-resumen", href: "/finanzas/facturacion", label: "Resumen", icon: Grid3x3, exactMatch: true, module: "finance", submodule: "facturacion" },
+          { key: "cv-dtes", href: "/finanzas/facturacion/dtes", label: "DTEs Emitidos", icon: FileText, module: "finance", submodule: "facturacion" },
+          { key: "cv-recibidos", href: "/finanzas/facturacion/recibidos", label: "DTEs Recibidos", icon: FileInput, module: "finance", submodule: "facturacion" },
+          { key: "cv-programacion", href: "/finanzas/facturacion/programacion", label: "Programación", icon: CalendarDays, module: "finance", submodule: "facturacion" },
+          { key: "cv-libro-iva", href: "/finanzas/facturacion/libro-iva", label: "Libro IVA", icon: BookText, module: "finance", submodule: "facturacion" },
+          { key: "cv-proveedores", href: "/finanzas/proveedores", label: "Proveedores", icon: Truck, module: "finance", submodule: "proveedores" },
+          { key: "cv-folios", href: "/finanzas/facturacion/folios", label: "Folios", icon: FileText, module: "finance", submodule: "facturacion" },
+          { key: "cv-cesiones", href: "/finanzas/facturacion/cesiones", label: "Cesiones", icon: DollarSign, module: "finance", submodule: "facturacion" },
+        ],
+      },
+      // Banca — restringido a owner/admin (banking_view)
+      {
+        key: "finance-banca",
+        href: "/finanzas/bancos",
+        label: "Banca",
+        icon: Landmark,
+        module: "finance",
+        submodule: "contabilidad",
+        show: (perms) => hasCapability(perms, "banking_view"),
+      },
+      // Flujo de Caja vive como tab dentro de /finanzas/bancos.
+      // Mantenemos la ruta /finanzas/flujo-caja accesible pero ya no es un
+      // N3 propio en el nav (2026-05-11).
+      // Contabilidad — restringido a owner/admin (accounting_view)
+      {
+        key: "finance-contabilidad",
+        href: "/finanzas/contabilidad",
+        label: "Contabilidad",
+        shortLabel: "Contab.",
+        icon: BookText,
+        module: "finance",
+        submodule: "contabilidad",
+        // 2026-05-13: solo accounting_view (owner/admin). Roles con
+        // contabilidad_manage que necesiten seguir viendo el módulo deben
+        // recibir accounting_view explícitamente desde /configuracion/roles.
+        show: (perms) => hasCapability(perms, "accounting_view"),
+      },
+      // Informes (Reportes) — restringido a owner/admin (reports_finance_view)
+      {
+        key: "finance-informes",
+        href: "/finanzas/reportes",
+        label: "Informes",
+        icon: BarChart3,
+        module: "finance",
+        submodule: "reportes",
+        // 2026-05-13: solo reports_finance_view (owner/admin). El legacy
+        // finance_reports_view ya no concede acceso al nav.
+        show: (perms) => hasCapability(perms, "reports_finance_view"),
+        children: [
+          { key: "rep-dashboard", href: "/finanzas/reportes", label: "Dashboard", icon: Grid3x3, exactMatch: true, module: "finance", submodule: "reportes" },
+          { key: "rep-eerr", href: "/finanzas/reportes/eerr", label: "Estado de Resultado", shortLabel: "EERR", icon: FileBarChart, module: "finance", submodule: "reportes" },
+          { key: "rep-balance", href: "/finanzas/reportes/balance", label: "Balance General", shortLabel: "Balance", icon: Scale, module: "finance", submodule: "reportes" },
+          { key: "rep-ventas", href: "/finanzas/reportes/ventas", label: "Ventas por cliente", shortLabel: "Ventas", icon: TrendingUp, module: "finance", submodule: "reportes" },
+          { key: "rep-compras", href: "/finanzas/reportes/compras", label: "Compras", icon: Receipt, module: "finance", submodule: "reportes" },
+          { key: "rep-rentabilidad", href: "/finanzas/reportes/rentabilidad", label: "Rentabilidad", icon: TrendingUp, module: "finance", submodule: "reportes" },
+          { key: "rep-mayor", href: "/finanzas/reportes/mayor", label: "Libro Mayor", shortLabel: "Mayor", icon: BookText, module: "finance", submodule: "reportes" },
+        ],
+      },
+    ],
+  },
+
+  // ═════════════════════════════════════════════════════════
   // OPERACIONES
   // ═════════════════════════════════════════════════════════
   {
@@ -423,140 +560,6 @@ export const NAV_MODULES: NavNode[] = [
       { key: "payroll-anticipos", href: "/payroll/anticipos", label: "Anticipos", icon: Wallet },
       { key: "payroll-simulator", href: "/payroll/simulator", label: "Simulador", icon: Calculator },
       { key: "payroll-parameters", href: "/payroll/parameters", label: "Parámetros", icon: FileText },
-    ],
-  },
-
-  // ═════════════════════════════════════════════════════════
-  // FINANZAS
-  // ═════════════════════════════════════════════════════════
-  {
-    key: "finance",
-    href: "/finanzas",
-    label: "Finanzas",
-    icon: Landmark,
-    module: "finance",
-    tenantModule: "finanzas",
-    children: [
-      // Inicio (dashboard tarjetas)
-      {
-        key: "finance-inicio",
-        href: "/finanzas",
-        label: "Inicio",
-        icon: Grid3x3,
-        exactMatch: true,
-        show: (perms) =>
-          canView(perms, "finance", "reportes") || hasCapability(perms, "rendicion_view_all"),
-      },
-      // Rendiciones — con N3 (Resumen + Aprobaciones + Pagos)
-      {
-        key: "finance-rendiciones",
-        href: "/finanzas/rendiciones",
-        label: "Rendiciones",
-        shortLabel: "Rendic.",
-        icon: Receipt,
-        module: "finance",
-        submodule: "rendiciones",
-        badge: { notesKey: "rendicion" },
-        children: [
-          {
-            key: "rend-resumen",
-            href: "/finanzas/rendiciones",
-            label: "Rendiciones",
-            shortLabel: "Lista",
-            icon: Receipt,
-            exactMatch: true,
-            module: "finance",
-            submodule: "rendiciones",
-          },
-          {
-            key: "rend-historial-pagos",
-            href: "/finanzas/rendiciones/historial-pagos",
-            label: "Historial de pagos",
-            shortLabel: "Pagos",
-            icon: Wallet,
-            capability: "rendicion_pay",
-            module: "finance",
-            submodule: "rendiciones",
-          },
-        ],
-      },
-      // Compras y Ventas (Facturación + Proveedores) — con N3.
-      // Unifica DTEs Emitidos (ventas) + DTEs Recibidos (compras) +
-      // Proveedores en una sola entrada. La pestaña "Compras" antes era
-      // una entrada N2 separada que apuntaba a /finanzas/proveedores —
-      // ahora Proveedores vive como child después del Libro IVA.
-      // Restringido a owner/admin (purchases_view) o roles con
-      // facturacion explícita.
-      {
-        key: "finance-compras-ventas",
-        href: "/finanzas/facturacion",
-        label: "Compras y Ventas",
-        shortLabel: "C/V",
-        icon: FileText,
-        module: "finance",
-        submodule: "facturacion",
-        show: (perms) =>
-          hasCapability(perms, "purchases_view") ||
-          canView(perms, "finance", "facturacion") ||
-          canView(perms, "finance", "proveedores"),
-        children: [
-          { key: "cv-resumen", href: "/finanzas/facturacion", label: "Resumen", icon: Grid3x3, exactMatch: true, module: "finance", submodule: "facturacion" },
-          { key: "cv-dtes", href: "/finanzas/facturacion/dtes", label: "DTEs Emitidos", icon: FileText, module: "finance", submodule: "facturacion" },
-          { key: "cv-recibidos", href: "/finanzas/facturacion/recibidos", label: "DTEs Recibidos", icon: FileInput, module: "finance", submodule: "facturacion" },
-          { key: "cv-programacion", href: "/finanzas/facturacion/programacion", label: "Programación", icon: CalendarDays, module: "finance", submodule: "facturacion" },
-          { key: "cv-libro-iva", href: "/finanzas/facturacion/libro-iva", label: "Libro IVA", icon: BookText, module: "finance", submodule: "facturacion" },
-          { key: "cv-proveedores", href: "/finanzas/proveedores", label: "Proveedores", icon: Truck, module: "finance", submodule: "proveedores" },
-          { key: "cv-folios", href: "/finanzas/facturacion/folios", label: "Folios", icon: FileText, module: "finance", submodule: "facturacion" },
-          { key: "cv-cesiones", href: "/finanzas/facturacion/cesiones", label: "Cesiones", icon: DollarSign, module: "finance", submodule: "facturacion" },
-        ],
-      },
-      // Banca — restringido a owner/admin (banking_view)
-      {
-        key: "finance-banca",
-        href: "/finanzas/bancos",
-        label: "Banca",
-        icon: Landmark,
-        module: "finance",
-        submodule: "contabilidad",
-        show: (perms) => hasCapability(perms, "banking_view"),
-      },
-      // Flujo de Caja vive como tab dentro de /finanzas/bancos.
-      // Mantenemos la ruta /finanzas/flujo-caja accesible pero ya no es un
-      // N3 propio en el nav (2026-05-11).
-      // Contabilidad — restringido a owner/admin (accounting_view)
-      {
-        key: "finance-contabilidad",
-        href: "/finanzas/contabilidad",
-        label: "Contabilidad",
-        shortLabel: "Contab.",
-        icon: BookText,
-        module: "finance",
-        submodule: "contabilidad",
-        show: (perms) =>
-          hasCapability(perms, "accounting_view") ||
-          hasCapability(perms, "contabilidad_manage"),
-      },
-      // Informes (Reportes) — restringido a owner/admin (reports_finance_view)
-      {
-        key: "finance-informes",
-        href: "/finanzas/reportes",
-        label: "Informes",
-        icon: BarChart3,
-        module: "finance",
-        submodule: "reportes",
-        show: (perms) =>
-          hasCapability(perms, "reports_finance_view") ||
-          hasCapability(perms, "finance_reports_view"),
-        children: [
-          { key: "rep-dashboard", href: "/finanzas/reportes", label: "Dashboard", icon: Grid3x3, exactMatch: true, module: "finance", submodule: "reportes" },
-          { key: "rep-eerr", href: "/finanzas/reportes/eerr", label: "Estado de Resultado", shortLabel: "EERR", icon: FileBarChart, module: "finance", submodule: "reportes" },
-          { key: "rep-balance", href: "/finanzas/reportes/balance", label: "Balance General", shortLabel: "Balance", icon: Scale, module: "finance", submodule: "reportes" },
-          { key: "rep-ventas", href: "/finanzas/reportes/ventas", label: "Ventas por cliente", shortLabel: "Ventas", icon: TrendingUp, module: "finance", submodule: "reportes" },
-          { key: "rep-compras", href: "/finanzas/reportes/compras", label: "Compras", icon: Receipt, module: "finance", submodule: "reportes" },
-          { key: "rep-rentabilidad", href: "/finanzas/reportes/rentabilidad", label: "Rentabilidad", icon: TrendingUp, module: "finance", submodule: "reportes" },
-          { key: "rep-mayor", href: "/finanzas/reportes/mayor", label: "Libro Mayor", shortLabel: "Mayor", icon: BookText, module: "finance", submodule: "reportes" },
-        ],
-      },
     ],
   },
 

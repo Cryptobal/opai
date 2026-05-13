@@ -32,6 +32,7 @@ import type {
   CrmMetrics,
   DocsSignals,
   FinanceMetrics,
+  FinanceCaps,
   OpsMetrics,
   HubAlert,
   ActivityEntry,
@@ -48,6 +49,9 @@ import type {
   PayrollMetrics,
   PersonasMetrics,
 } from './hub-types';
+import { resolveOpeningBalance } from '@/modules/finance/cashflow/opening-balance.service';
+import { buildProjection } from '@/modules/finance/cashflow/projection.service';
+import { bucketBoundsFor } from '@/modules/finance/cashflow/recurrence-engine';
 
 /* ------------------------------------------------------------------ */
 /* Docs signals (existing)                                            */
@@ -1152,8 +1156,18 @@ export async function getCommercialMetrics(
 /* Finance metrics (existing)                                         */
 /* ------------------------------------------------------------------ */
 
+/**
+ * `caps` gates qué bloques se calculan. Cuando una capability viene en false,
+ * el bloque retorna null y nunca se ejecuta la query subyacente — así un rol
+ * sin banking_view jamás recibe saldos en el payload del server component.
+ */
 export async function getFinanceMetrics(
   tenantId: string,
+  caps: FinanceCaps = {
+    banking_view: false,
+    cashflow_view: false,
+    purchases_view: false,
+  },
 ): Promise<FinanceMetrics> {
   const [pendingApproval, approvedUnpaid] = await Promise.all([
     prisma.financeRendicion.findMany({
@@ -1166,6 +1180,151 @@ export async function getFinanceMetrics(
     }),
   ]);
 
+  const today = new Date();
+
+  const cajaPromise = caps.banking_view
+    ? resolveOpeningBalance(tenantId).then((b) => {
+        const anchored = b.perAccount
+          .map((a) => a.anchorSnapshotDate)
+          .filter((d): d is Date => !!d);
+        const hasNullAnchor = b.perAccount.some((a) => !a.anchorSnapshotDate);
+        const minAnchor = anchored.length > 0
+          ? anchored.reduce((min, d) => (d < min ? d : min))
+          : null;
+        const staleDays = hasNullAnchor || !minAnchor
+          ? 999
+          : Math.max(
+              0,
+              Math.floor((today.getTime() - minAnchor.getTime()) / 86_400_000),
+            );
+        return {
+          totalClp: b.totalClp,
+          asOfDate: (minAnchor ?? today).toISOString().slice(0, 10),
+          staleDays,
+          perAccount: b.perAccount.map((a) => ({
+            bankAccountId: a.bankAccountId,
+            bankName: a.bankName,
+            // últimos 4 dígitos enmascarados — privacidad en el hub.
+            accountNumber:
+              a.accountNumber.length <= 4
+                ? a.accountNumber
+                : '••••' + a.accountNumber.slice(-4),
+            resolvedBalanceClp: a.resolvedBalanceClp,
+          })),
+        } as FinanceMetrics['caja'];
+      })
+    : Promise.resolve<FinanceMetrics['caja']>(null);
+
+  const flujoPromise = caps.cashflow_view
+    ? (async () => {
+        // bucketBoundsFor(today, "weekly") → ISO week (lunes-domingo).
+        const { start, end } = bucketBoundsFor(today, 'weekly');
+        const matrix = await buildProjection(tenantId, {
+          from: start,
+          to: end,
+          granularity: 'weekly',
+        });
+        const bucket = matrix.buckets[0];
+        if (!bucket) return null;
+        return {
+          weekStartIso: bucket.start.toISOString().slice(0, 10),
+          weekEndIso: bucket.end.toISOString().slice(0, 10),
+          ingresos: bucket.income,
+          egresos: bucket.expense,
+          neto: bucket.net,
+        } as FinanceMetrics['flujoSemana'];
+      })()
+    : Promise.resolve<FinanceMetrics['flujoSemana']>(null);
+
+  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+  const monthEnd = new Date(
+    today.getFullYear(),
+    today.getMonth() + 1,
+    0,
+    23,
+    59,
+    59,
+    999,
+  );
+  const monthNames = [
+    'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
+    'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic',
+  ];
+  const periodLabel = `${monthNames[today.getMonth()]} ${today.getFullYear()}`;
+
+  const dteMesPromise = caps.purchases_view
+    ? Promise.all([
+        prisma.financeDte.aggregate({
+          where: {
+            tenantId,
+            direction: 'ISSUED',
+            date: { gte: monthStart, lte: monthEnd },
+          },
+          _count: { _all: true },
+          _sum: { totalAmount: true },
+        }),
+        prisma.financeDte.aggregate({
+          where: {
+            tenantId,
+            direction: 'RECEIVED',
+            date: { gte: monthStart, lte: monthEnd },
+          },
+          _count: { _all: true },
+          _sum: { totalAmount: true },
+        }),
+      ]).then(([emit, recv]) => ({
+        emitidasCount: emit._count._all,
+        emitidasAmount: Number(emit._sum.totalAmount ?? 0),
+        recibidasCount: recv._count._all,
+        recibidasAmount: Number(recv._sum.totalAmount ?? 0),
+        periodLabel,
+      } as FinanceMetrics['dteMes']))
+    : Promise.resolve<FinanceMetrics['dteMes']>(null);
+
+  const todayStart = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate(),
+  );
+
+  const porCobrarPromise = caps.purchases_view
+    ? (async () => {
+        // CEDED ya es value del enum FinancePaymentStatus — no requiere JOIN
+        // a FinanceFactoringOperation. WRITTEN_OFF también se excluye porque
+        // ya no se cobra. PAID por definición.
+        const baseWhere: Prisma.FinanceDteWhereInput = {
+          tenantId,
+          direction: 'ISSUED',
+          paymentStatus: { notIn: ['PAID', 'WRITTEN_OFF', 'CEDED'] },
+        };
+        const [all, vencido] = await Promise.all([
+          prisma.financeDte.aggregate({
+            where: baseWhere,
+            _count: { _all: true },
+            _sum: { amountPending: true },
+          }),
+          prisma.financeDte.aggregate({
+            where: { ...baseWhere, dueDate: { lt: todayStart } },
+            _count: { _all: true },
+            _sum: { amountPending: true },
+          }),
+        ]);
+        return {
+          totalAmount: Number(all._sum.amountPending ?? 0),
+          count: all._count._all,
+          vencidoAmount: Number(vencido._sum.amountPending ?? 0),
+          vencidoCount: vencido._count._all,
+        } as FinanceMetrics['porCobrar'];
+      })()
+    : Promise.resolve<FinanceMetrics['porCobrar']>(null);
+
+  const [caja, flujoSemana, dteMes, porCobrar] = await Promise.all([
+    cajaPromise,
+    flujoPromise,
+    dteMesPromise,
+    porCobrarPromise,
+  ]);
+
   return {
     pendingApprovalCount: pendingApproval.length,
     pendingApprovalAmount: pendingApproval.reduce(
@@ -1174,6 +1333,10 @@ export async function getFinanceMetrics(
     ),
     approvedUnpaidCount: approvedUnpaid.length,
     approvedUnpaidAmount: approvedUnpaid.reduce((sum, r) => sum + r.amount, 0),
+    caja,
+    flujoSemana,
+    dteMes,
+    porCobrar,
   };
 }
 

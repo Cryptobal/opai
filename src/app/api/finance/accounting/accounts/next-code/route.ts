@@ -4,7 +4,7 @@ import {
   unauthorized,
   resolveApiPerms,
 } from "@/lib/api-auth";
-import { canView } from "@/lib/permissions";
+import { hasCapability } from "@/lib/permissions";
 import { suggestNextAccountCode } from "@/modules/finance/accounting/account-plan.service";
 
 const VALID_TYPES = new Set(["ASSET", "LIABILITY", "EQUITY", "REVENUE", "COST", "EXPENSE"]);
@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const perms = await resolveApiPerms(ctx);
-    if (!canView(perms, "finance")) {
+    if (!hasCapability(perms, "accounting_view")) {
       return NextResponse.json({ success: false, error: "Sin permisos" }, { status: 403 });
     }
 

@@ -453,6 +453,11 @@ function fullPermissions(): RolePermissions {
 
 // ── Permisos del rol finanzas ──
 function finanzasPermissions(): RolePermissions {
+  // 2026-05-13: Removed `facturacion_manage`. Política Opai actual: solo
+  // owner/admin acceden a Compras y Ventas. Tenants con roles custom
+  // heredados de "finanzas" pueden re-otorgar capabilities granulares
+  // (facturacion_view/issue/credit_note/…) desde /opai/configuracion/roles
+  // si necesitan delegar.
   return {
     modules: {
       hub: "view",
@@ -476,7 +481,6 @@ function finanzasPermissions(): RolePermissions {
       finance_reports_export: true,
       finance_reports_drilldown: true,
       contabilidad_manage: true,
-      facturacion_manage: true,
     },
   };
 }

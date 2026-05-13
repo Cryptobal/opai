@@ -121,6 +121,50 @@ export interface FinanceMetrics {
   pendingApprovalAmount: number;
   approvedUnpaidCount: number;
   approvedUnpaidAmount: number;
+  /** Saldo bancario CLP — null si el usuario no tiene banking_view. */
+  caja: null | {
+    totalClp: number;
+    /** ISO date del snapshot más antiguo usado como ancla. */
+    asOfDate: string;
+    /** Días desde la última cartola; 999 si alguna cuenta no tiene snapshot. */
+    staleDays: number;
+    perAccount: Array<{
+      bankAccountId: string;
+      bankName: string;
+      /** Últimos 4 dígitos enmascarados. */
+      accountNumber: string;
+      resolvedBalanceClp: number;
+    }>;
+  };
+  /** Flujo de caja semana ISO (lunes-domingo) — null si !cashflow_view. */
+  flujoSemana: null | {
+    weekStartIso: string;
+    weekEndIso: string;
+    ingresos: number;
+    egresos: number;
+    neto: number;
+  };
+  /** DTEs del mes en curso — null si !purchases_view. */
+  dteMes: null | {
+    emitidasCount: number;
+    emitidasAmount: number;
+    recibidasCount: number;
+    recibidasAmount: number;
+    periodLabel: string;
+  };
+  /** Por cobrar (excluyendo cedidos) — null si !purchases_view. */
+  porCobrar: null | {
+    totalAmount: number;
+    count: number;
+    vencidoAmount: number;
+    vencidoCount: number;
+  };
+}
+
+export interface FinanceCaps {
+  banking_view: boolean;
+  cashflow_view: boolean;
+  purchases_view: boolean;
 }
 
 /* ------------------------------------------------------------------ */
