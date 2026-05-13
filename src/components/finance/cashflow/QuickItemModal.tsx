@@ -48,11 +48,33 @@ function formatAmount(raw: string): string {
   return fmt.format(n);
 }
 
+function toISO(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+/** Construye una fecha inicial razonable según `defaultDayOfMonth`. */
+function initialStartDate(defaultDayOfMonth?: number): string {
+  const today = new Date();
+  if (!defaultDayOfMonth || defaultDayOfMonth < 1 || defaultDayOfMonth > 31) {
+    return toISO(today);
+  }
+  const target = new Date(today.getFullYear(), today.getMonth(), defaultDayOfMonth);
+  if (target.getTime() < today.setHours(0, 0, 0, 0)) {
+    target.setMonth(target.getMonth() + 1);
+  }
+  return toISO(target);
+}
+
+type RepeatMode = "once" | "monthly_count" | "monthly_until";
+
 /**
- * Modal mínimo para crear un ítem mensual desde una celda del calendario.
- * Solo expone los campos esenciales: categoría, nombre, monto (CLP), día del mes.
- * Para configuraciones avanzadas (UF, recurrencia distinta, etc.) se usa el
- * formulario completo (ItemFormDialog).
+ * Modal mínimo para crear un movimiento desde el flujo de caja.
+ * El nombre del movimiento se toma de la categoría seleccionada — el usuario
+ * solo elige categoría, monto, fecha y, si quiere recurrencia, una cantidad
+ * de repeticiones mensuales o una fecha de término.
  */
 export function QuickItemModal({
   open,
@@ -61,19 +83,21 @@ export function QuickItemModal({
   onClose,
   onCreated,
 }: Props) {
-  const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
   const [categoryId, setCategoryId] = useState("");
-  const [dayOfMonth, setDayOfMonth] = useState(String(defaultDayOfMonth ?? 5));
+  const [startDate, setStartDate] = useState(initialStartDate(defaultDayOfMonth));
+  const [repeatMode, setRepeatMode] = useState<RepeatMode>("once");
+  const [repeatCount, setRepeatCount] = useState("3");
   const [endDate, setEndDate] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Reset cuando cambia el día default (al abrir desde otra celda)
   useEffect(() => {
     if (open) {
-      setDayOfMonth(String(defaultDayOfMonth ?? 5));
+      setStartDate(initialStartDate(defaultDayOfMonth));
       setEndDate("");
+      setRepeatMode("once");
+      setRepeatCount("3");
       setError(null);
     }
   }, [open, defaultDayOfMonth]);
@@ -85,47 +109,75 @@ export function QuickItemModal({
       setError("Selecciona una categoría");
       return;
     }
-    if (!name.trim()) {
-      setError("Ingresa un nombre (ej: Movistar)");
-      return;
-    }
     const amt = parseAmount(amount);
     if (!Number.isFinite(amt) || amt <= 0) {
       setError("Monto inválido");
       return;
     }
-    const dom = Number(dayOfMonth);
-    if (!Number.isFinite(dom) || dom < -1 || dom > 31 || dom === 0) {
-      setError("Día del mes debe ser 1-31 o -1 (último)");
+    if (!startDate) {
+      setError("Selecciona una fecha");
       return;
     }
-    if (endDate) {
-      const startISO = new Date().toISOString().slice(0, 10);
-      if (endDate < startISO) {
-        setError("La fecha de vencimiento no puede ser anterior a hoy");
+    const startObj = new Date(`${startDate}T00:00:00`);
+    if (Number.isNaN(startObj.getTime())) {
+      setError("Fecha inválida");
+      return;
+    }
+    const dom = startObj.getDate();
+
+    let recurrence: "ONCE" | "MONTHLY" = "ONCE";
+    let computedEndDate: string | undefined;
+
+    if (repeatMode === "once") {
+      recurrence = "ONCE";
+    } else if (repeatMode === "monthly_count") {
+      recurrence = "MONTHLY";
+      const n = Number(repeatCount);
+      if (!Number.isFinite(n) || n < 1 || n > 240) {
+        setError("Cantidad de repeticiones: 1 a 240");
         return;
       }
+      // n repeticiones empezando en startDate => endDate = startDate + (n-1) meses.
+      const endObj = new Date(startObj);
+      endObj.setMonth(endObj.getMonth() + (n - 1));
+      computedEndDate = toISO(endObj);
+    } else {
+      recurrence = "MONTHLY";
+      if (!endDate) {
+        setError("Selecciona la fecha de término");
+        return;
+      }
+      if (endDate < startDate) {
+        setError("La fecha de término no puede ser anterior al inicio");
+        return;
+      }
+      computedEndDate = endDate;
     }
+
     setSaving(true);
     try {
+      const body: Record<string, unknown> = {
+        categoryId,
+        kind: cat.kind,
+        name: cat.name,
+        amount: amt,
+        currency: "CLP",
+        recurrence,
+        startDate,
+      };
+      if (recurrence === "MONTHLY") {
+        body.dayOfMonth = dom;
+      }
+      if (computedEndDate) {
+        body.endDate = computedEndDate;
+      }
       const r = await fetch("/api/finance/cashflow/items", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          categoryId,
-          kind: cat.kind,
-          name: name.trim(),
-          amount: amt,
-          currency: "CLP",
-          recurrence: "MONTHLY",
-          dayOfMonth: dom,
-          startDate: new Date().toISOString().slice(0, 10),
-          ...(endDate ? { endDate } : {}),
-        }),
+        body: JSON.stringify(body),
       });
       const j = await r.json();
       if (j?.success) {
-        setName("");
         setAmount("");
         setCategoryId("");
         onCreated();
@@ -143,7 +195,7 @@ export function QuickItemModal({
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-md w-[calc(100vw-1.5rem)]">
         <DialogHeader>
-          <DialogTitle>Nuevo ítem mensual</DialogTitle>
+          <DialogTitle>Nuevo movimiento</DialogTitle>
         </DialogHeader>
         <div className="grid gap-3 py-2">
           <div>
@@ -161,15 +213,6 @@ export function QuickItemModal({
               </SelectContent>
             </Select>
           </div>
-          <div>
-            <Label>Nombre</Label>
-            <Input
-              className="h-10 sm:h-9"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Ej: Movistar, Edelmag"
-            />
-          </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Monto (CLP)</Label>
@@ -182,33 +225,62 @@ export function QuickItemModal({
               />
             </div>
             <div>
-              <Label>Día del mes</Label>
+              <Label>Fecha</Label>
               <Input
                 className="h-10 sm:h-9"
-                type="number"
-                min={-1}
-                max={31}
-                value={dayOfMonth}
-                onChange={(e) => setDayOfMonth(e.target.value)}
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
               />
-              <p className="mt-1 text-[12px] text-ds-text-3">
-                <code className="font-mono">-1</code> = último día.
-              </p>
             </div>
           </div>
           <div>
-            <Label>Vence el (opcional)</Label>
-            <Input
-              className="h-10 sm:h-9"
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-            />
-            <p className="mt-1 text-[12px] text-ds-text-3">
-              Dejar vacío = recurrente perpetuo. Podés editarlo después en
-              &quot;Movimientos proyectados&quot;.
-            </p>
+            <Label>Repetición</Label>
+            <Select
+              value={repeatMode}
+              onValueChange={(v) => setRepeatMode(v as RepeatMode)}
+            >
+              <SelectTrigger className="h-10 sm:h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="once">Una sola vez</SelectItem>
+                <SelectItem value="monthly_count">Mensual, N repeticiones</SelectItem>
+                <SelectItem value="monthly_until">Mensual hasta fecha</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
+          {repeatMode === "monthly_count" && (
+            <div>
+              <Label>Cantidad de repeticiones</Label>
+              <Input
+                className="h-10 sm:h-9"
+                type="number"
+                min={1}
+                max={240}
+                value={repeatCount}
+                onChange={(e) => setRepeatCount(e.target.value)}
+              />
+              <p className="mt-1 text-[12px] text-ds-text-3">
+                Se repite mensualmente el día {new Date(`${startDate}T00:00:00`).getDate() || "—"}.
+              </p>
+            </div>
+          )}
+          {repeatMode === "monthly_until" && (
+            <div>
+              <Label>Hasta el</Label>
+              <Input
+                className="h-10 sm:h-9"
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                min={startDate}
+              />
+              <p className="mt-1 text-[12px] text-ds-text-3">
+                Se repite mensualmente hasta esta fecha (inclusive).
+              </p>
+            </div>
+          )}
           {error && <p className="text-status-warn-fg text-[12px]">{error}</p>}
         </div>
         <DialogFooter className="flex-col-reverse sm:flex-row gap-2 sm:gap-0">
@@ -222,7 +294,7 @@ export function QuickItemModal({
           </Button>
           <Button
             onClick={save}
-            disabled={saving || !categoryId || !name.trim() || !amount.trim()}
+            disabled={saving || !categoryId || !amount.trim() || !startDate}
             className="w-full sm:w-auto h-10 sm:h-9"
           >
             {saving ? "Creando…" : "Crear"}
