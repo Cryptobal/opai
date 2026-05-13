@@ -10,7 +10,7 @@ import {
   hasCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHero } from "@/components/opai-ds";
+import { PageHero, ModuleSubNav } from "@/components/opai-ds";
 import { Wallet } from "lucide-react";
 import { PagosPageClient } from "@/components/finance/PagosPageClient";
 
@@ -81,6 +81,7 @@ export default async function HistorialPagosPage() {
         subtitle="rendiciones pagadas"
         description="Listado histórico de pagos generados. Los nuevos pagos se crean desde la lista de rendiciones."
       />
+      <ModuleSubNav moduleKey="finance-rendiciones" visibility="always" />
       <PagosPageClient
         payments={paymentsData}
         pendingRendiciones={[]}

@@ -8,7 +8,7 @@ import {
   hasCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHero } from "@/components/opai-ds";
+import { PageHero, ModuleSubNav } from "@/components/opai-ds";
 import { Truck } from "lucide-react";
 import { ProveedoresClient } from "@/components/finance/ProveedoresClient";
 
@@ -72,6 +72,7 @@ export default async function ProveedoresPage() {
         subtitle="ficha y condiciones"
         description="Gestión de proveedores y sus datos bancarios."
       />
+      <ModuleSubNav moduleKey="finance-compras-ventas" visibility="always" />
       <ProveedoresClient
         suppliers={data}
         accounts={accounts}

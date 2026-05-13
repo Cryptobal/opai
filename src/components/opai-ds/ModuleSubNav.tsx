@@ -62,6 +62,12 @@ export interface ModuleSubNavProps {
   trailingAction?: React.ReactNode;
   /** Force a specific item to be active (overrides path matching). Used for query-param-based tabs. */
   activeHref?: string;
+  /** Disable auto-suppress: cuando `moduleKey` se fuerza y la ruta activa
+   *  tiene un N3 más específico, por default este SubNav se oculta para no
+   *  duplicar con el N3 de la sub-layout. Si querés que la fila N2 siempre
+   *  se muestre (caso Finanzas, donde el N2 vive arriba del Hero y el N3
+   *  abajo), pasá `disableAutoSuppress`. */
+  disableAutoSuppress?: boolean;
 }
 
 function nodeToTabItem(node: NavNode): SwipeTabItem {
@@ -79,6 +85,7 @@ export function ModuleSubNav({
   className,
   trailingAction,
   activeHref: _activeHref,
+  disableAutoSuppress = false,
 }: ModuleSubNavProps) {
   const pathname = usePathname() ?? "/";
   const permissions = usePermissions();
@@ -107,6 +114,7 @@ export function ModuleSubNav({
   // a deeper N3 (finance-ventas). We let the deeper one win.
   const shouldSuppress = useMemo(() => {
     if (!moduleKey) return false;
+    if (disableAutoSuppress) return false;
     const auto = findN3Parent(pathname);
     if (!auto) return false;
     const forced = getModule(moduleKey) ?? findChildByKey(moduleKey);
@@ -116,7 +124,7 @@ export function ModuleSubNav({
     // Auto-detected is a descendant of forced (more specific) → suppress.
     return auto.href.length > forced.href.length &&
       auto.href.startsWith(forced.href === "/" ? "/" : forced.href + "/");
-  }, [moduleKey, pathname]);
+  }, [moduleKey, pathname, disableAutoSuppress]);
 
   const items = useMemo<SwipeTabItem[]>(() => {
     if (shouldSuppress) return [];
