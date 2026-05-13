@@ -90,7 +90,7 @@ export function MobileFilterChips({ chips, className, bleedX = false }: Props) {
                   e.stopPropagation();
                   c.onClear?.();
                 }}
-                className="shrink-0 -mr-1 inline-flex items-center justify-center h-5 w-5 rounded-full hover:bg-black/10 dark:hover:bg-white/10"
+                className="shrink-0 -mr-1 inline-flex items-center justify-center h-5 w-5 rounded-full hover:bg-ds-surface-3"
               >
                 <span className="text-[14px] leading-none">×</span>
               </button>

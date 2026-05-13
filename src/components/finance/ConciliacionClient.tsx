@@ -826,7 +826,7 @@ function DetailView({
                 vuelven a flex right-aligned como antes. */}
             <div className="grid grid-cols-3 gap-3 text-sm sm:flex sm:items-center sm:gap-4 sm:text-right">
               <div className="text-left sm:text-right">
-                <span className="text-muted-foreground text-[11px] sm:text-xs block">
+                <span className="text-muted-foreground text-[12px] block">
                   Saldo banco
                 </span>
                 <span className="font-mono font-medium tabular-nums text-[13px] sm:text-sm">
@@ -834,7 +834,7 @@ function DetailView({
                 </span>
               </div>
               <div className="text-left sm:text-right">
-                <span className="text-muted-foreground text-[11px] sm:text-xs block">
+                <span className="text-muted-foreground text-[12px] block">
                   Saldo libro
                 </span>
                 <span className="font-mono font-medium tabular-nums text-[13px] sm:text-sm">
@@ -842,7 +842,7 @@ function DetailView({
                 </span>
               </div>
               <div className="text-left sm:text-right">
-                <span className="text-muted-foreground text-[11px] sm:text-xs block">
+                <span className="text-muted-foreground text-[12px] block">
                   Diferencia
                 </span>
                 <span
