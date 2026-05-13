@@ -8,6 +8,7 @@ import { MonthlyMatrix } from "./MonthlyMatrix";
 import { ItemsList } from "./ItemsList";
 import { QuickItemModal } from "./QuickItemModal";
 import { MatrixDnDProvider } from "./MatrixDnDProvider";
+import { CashflowMobileList } from "./CashflowMobileList";
 import type { ProjectionMatrix } from "@/modules/finance/cashflow/types";
 
 interface CategoryLite {
@@ -32,14 +33,17 @@ export function CashflowTabs({
 }: Props) {
   const router = useRouter();
   const [tab, setTab] = useState("weekly");
+  // En viewport < sm, la matriz horizontal es ilegible: reemplazamos por
+  // el list view mobile-first. La detección es reactiva al resize porque
+  // el usuario puede rotar el dispositivo o redimensionar la ventana.
+  const [isMobile, setIsMobile] = useState(false);
 
-  // En móvil, la vista semanal queda demasiado densa (53 columnas + sticky
-  // izquierda/derecha). La mensual tiene menos columnas y se navega mejor.
-  // Cambiamos el default sólo en el primer mount cuando el viewport es < sm.
   useEffect(() => {
-    if (typeof window !== "undefined" && window.innerWidth < 640) {
-      setTab("monthly");
-    }
+    if (typeof window === "undefined") return;
+    const check = () => setIsMobile(window.innerWidth < 640);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
   }, []);
 
   // --- Quick-item modal state ---
@@ -132,6 +136,41 @@ export function CashflowTabs({
       return;
     }
     router.refresh();
+  }
+
+  if (isMobile) {
+    // DnD por gestos táctiles está fuera del scope de este PR. El
+    // MatrixDnDProvider se mantiene como contexto para que cualquier
+    // futuro draggable pueda engancharse, pero CashflowMobileList no
+    // renderiza chips draggable: el movimiento se hace desde el drawer
+    // del item con un selector de bucket destino.
+    return (
+      <>
+        <MatrixDnDProvider
+          onMoveById={(id, key) => handleMoveById(id, key, "monthly")}
+          onMoveVirtual={(itemId, origDate, key) =>
+            handleMoveVirtual(itemId, origDate, key, "monthly")
+          }
+        >
+          <CashflowMobileList
+            initialProjection={initialProjection}
+            defaultWeeks={defaultWeeks}
+            defaultMonths={defaultMonths}
+            canManage={canManage}
+          />
+        </MatrixDnDProvider>
+        <QuickItemModal
+          open={quickOpen}
+          defaultDayOfMonth={quickDay}
+          categories={quickCategories}
+          onClose={() => setQuickOpen(false)}
+          onCreated={() => {
+            setQuickOpen(false);
+            router.refresh();
+          }}
+        />
+      </>
+    );
   }
 
   return (
