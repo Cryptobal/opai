@@ -29,6 +29,12 @@ interface Props {
   open: boolean;
   /** Día del mes pre-seleccionado al abrir desde una celda. */
   defaultDayOfMonth?: number;
+  /** Monto pre-poblado (valor absoluto, en CLP). */
+  defaultAmount?: number;
+  /** Categoría pre-seleccionada (id). */
+  defaultCategoryId?: string;
+  /** Hint visible cuando el modal abre desde un flow específico (ej. cuadratura). */
+  hint?: string;
   /** Categorías disponibles (cargadas por el padre). */
   categories: CategoryLite[];
   onClose: () => void;
@@ -79,6 +85,9 @@ type RepeatMode = "once" | "monthly_count" | "monthly_until";
 export function QuickItemModal({
   open,
   defaultDayOfMonth,
+  defaultAmount,
+  defaultCategoryId,
+  hint,
   categories,
   onClose,
   onCreated,
@@ -99,8 +108,14 @@ export function QuickItemModal({
       setRepeatMode("once");
       setRepeatCount("3");
       setError(null);
+      if (defaultAmount !== undefined && Number.isFinite(defaultAmount)) {
+        setAmount(fmt.format(Math.abs(Math.round(defaultAmount))));
+      } else {
+        setAmount("");
+      }
+      setCategoryId(defaultCategoryId ?? "");
     }
-  }, [open, defaultDayOfMonth]);
+  }, [open, defaultDayOfMonth, defaultAmount, defaultCategoryId]);
 
   async function save() {
     setError(null);
@@ -197,6 +212,11 @@ export function QuickItemModal({
         <DialogHeader>
           <DialogTitle>Nuevo movimiento</DialogTitle>
         </DialogHeader>
+        {hint && (
+          <div className="rounded-ds-md bg-status-info-soft/40 border border-status-info-border/40 px-3 py-2 text-[12px] text-status-info-fg">
+            {hint}
+          </div>
+        )}
         <div className="grid gap-3 py-2">
           <div>
             <Label>Categoría</Label>

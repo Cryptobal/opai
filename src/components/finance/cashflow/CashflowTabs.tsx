@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { WeeklyMatrix } from "./WeeklyMatrix";
@@ -50,6 +50,16 @@ export function CashflowTabs({
   const [quickOpen, setQuickOpen] = useState(false);
   const [quickDay, setQuickDay] = useState<number | undefined>(undefined);
   const [quickCategories, setQuickCategories] = useState<CategoryLite[]>([]);
+  const [quickDefaultAmount, setQuickDefaultAmount] = useState<number | undefined>(
+    undefined,
+  );
+  const [quickDefaultCategoryId, setQuickDefaultCategoryId] = useState<
+    string | undefined
+  >(undefined);
+  const [quickHint, setQuickHint] = useState<string | undefined>(undefined);
+
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
 
   // Fetch categories once so the modal is ready when needed.
   useEffect(() => {
@@ -61,10 +71,54 @@ export function CashflowTabs({
       .catch(() => {});
   }, []);
 
+  // Auto-abre el modal con monto + categoría cuando llega desde el banner de
+  // cuadratura vía ?quick=adjustment&amount=N. Espera a tener categorías para
+  // poder matchear la "Ajuste de saldo" correcta según el signo del drift.
+  useEffect(() => {
+    const quick = searchParams?.get("quick");
+    const amountStr = searchParams?.get("amount");
+    if (quick !== "adjustment" || !amountStr) return;
+    if (quickCategories.length === 0) return;
+
+    const amount = Number(amountStr);
+    if (!Number.isFinite(amount) || amount === 0) {
+      router.replace(pathname);
+      return;
+    }
+
+    const wantedKind: "INCOME" | "EXPENSE" = amount > 0 ? "INCOME" : "EXPENSE";
+    const match = quickCategories.find((c) => {
+      if (c.kind !== wantedKind) return false;
+      const haystack = `${c.name} ${c.code}`.toLowerCase();
+      return haystack.includes("ajuste") && haystack.includes("saldo");
+    });
+
+    setQuickDefaultAmount(Math.abs(amount));
+    setQuickDefaultCategoryId(match?.id);
+    setQuickHint(
+      match
+        ? `Ajuste de cuadratura: ${amount > 0 ? "ingreso" : "egreso"} para alinear el saldo real con la proyección.`
+        : `No encontré una categoría con "ajuste" y "saldo" (${wantedKind === "INCOME" ? "ingreso" : "egreso"}). Crea una en /finanzas/flujo-caja/configurar o selecciona otra.`,
+    );
+    setQuickDay(undefined);
+    setQuickOpen(true);
+
+    router.replace(pathname);
+  }, [searchParams, quickCategories, router, pathname]);
+
   /** Open the quick-create modal, optionally pre-selecting a day of month. */
   function openQuickFor(dayOfMonth?: number) {
     setQuickDay(dayOfMonth);
+    setQuickDefaultAmount(undefined);
+    setQuickDefaultCategoryId(undefined);
+    setQuickHint(undefined);
     setQuickOpen(true);
+  }
+
+  function resetQuickDefaults() {
+    setQuickDefaultAmount(undefined);
+    setQuickDefaultCategoryId(undefined);
+    setQuickHint(undefined);
   }
 
   // ---------------------------------------------------------------------------
@@ -162,10 +216,17 @@ export function CashflowTabs({
         <QuickItemModal
           open={quickOpen}
           defaultDayOfMonth={quickDay}
+          defaultAmount={quickDefaultAmount}
+          defaultCategoryId={quickDefaultCategoryId}
+          hint={quickHint}
           categories={quickCategories}
-          onClose={() => setQuickOpen(false)}
+          onClose={() => {
+            setQuickOpen(false);
+            resetQuickDefaults();
+          }}
           onCreated={() => {
             setQuickOpen(false);
+            resetQuickDefaults();
             router.refresh();
           }}
         />
@@ -236,10 +297,17 @@ export function CashflowTabs({
       <QuickItemModal
         open={quickOpen}
         defaultDayOfMonth={quickDay}
+        defaultAmount={quickDefaultAmount}
+        defaultCategoryId={quickDefaultCategoryId}
+        hint={quickHint}
         categories={quickCategories}
-        onClose={() => setQuickOpen(false)}
+        onClose={() => {
+          setQuickOpen(false);
+          resetQuickDefaults();
+        }}
         onCreated={() => {
           setQuickOpen(false);
+          resetQuickDefaults();
           router.refresh();
         }}
       />
