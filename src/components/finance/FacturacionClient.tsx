@@ -33,6 +33,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { useIsMobileViewport } from "@/hooks/useIsMobileViewport";
+import { MobileFAB } from "@/components/finance/mobile";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
@@ -894,7 +895,7 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
   }
 
   return (
-    <div className="space-y-4 pb-4">
+    <div className="space-y-4 pb-24 md:pb-4">
       <KpiStripReceived
         periodo={periodoFilter}
         accountId={accountFilter}
@@ -1626,6 +1627,17 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* FAB mobile para registrar DTE recibido. Reemplaza al CTA del header
+          que en mobile queda lejos del listado. */}
+      {canManage && (
+        <MobileFAB
+          icon={<Plus className="h-5 w-5" />}
+          label="Registrar DTE"
+          extended
+          onClick={() => setDialogOpen(true)}
+        />
+      )}
     </div>
   );
 }
@@ -1722,7 +1734,7 @@ function ReceivedDteMobileCard({
               e.stopPropagation();
               onClick();
             }}
-            className="flex-1 justify-center"
+            className="flex-1 justify-center h-11"
           >
             <Eye className="h-3.5 w-3.5 mr-1.5" />
             Detalle

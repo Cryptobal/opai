@@ -2678,60 +2678,55 @@ function ImportTab({
                   </p>
                 </div>
               </div>
-              <div className="rounded-md border border-border overflow-hidden">
-                <table className="w-full text-xs">
-                  <thead className="bg-muted/50">
-                    <tr>
-                      <th className="text-left px-3 py-2 font-medium">Fecha</th>
-                      <th className="text-left px-3 py-2 font-medium">
-                        Descripción
-                      </th>
-                      <th className="text-right px-3 py-2 font-medium">Monto</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {openImport.transactions.length === 0 ? (
-                      <tr>
-                        <td
-                          colSpan={3}
-                          className="text-center py-6 text-muted-foreground"
+              {/* Lista de movimientos. En mobile la descripción puede ser
+                  larga, por eso usamos flex con truncate en lugar de <table>
+                  (que generaba overflow horizontal). */}
+              <div className="rounded-md border border-border overflow-hidden text-xs">
+                <div className="hidden sm:flex items-center gap-2 px-3 py-2 bg-muted/50 font-medium text-muted-foreground">
+                  <span className="w-20 shrink-0">Fecha</span>
+                  <span className="flex-1 min-w-0">Descripción</span>
+                  <span className="w-28 text-right shrink-0">Monto</span>
+                </div>
+                {openImport.transactions.length === 0 ? (
+                  <p className="text-center py-6 text-muted-foreground">
+                    Sin movimientos asociados
+                  </p>
+                ) : (
+                  <div className="divide-y divide-border">
+                    {openImport.transactions.map((t) => (
+                      <div
+                        key={t.id}
+                        className="flex flex-wrap sm:flex-nowrap items-baseline gap-x-2 gap-y-0.5 px-3 py-2"
+                      >
+                        <span className="w-20 shrink-0 text-muted-foreground whitespace-nowrap font-mono">
+                          {t.transactionDate}
+                        </span>
+                        <span className="flex-1 min-w-0 order-3 sm:order-none basis-full sm:basis-auto">
+                          <span className="block truncate">{t.description}</span>
+                          {t.reference && (
+                            <span className="block text-[10px] text-muted-foreground truncate">
+                              {t.reference}
+                            </span>
+                          )}
+                        </span>
+                        <span
+                          className={cn(
+                            "ml-auto sm:ml-0 sm:w-28 text-right shrink-0 whitespace-nowrap font-mono tabular-nums",
+                            Number(t.amount) >= 0
+                              ? "text-status-ok-fg"
+                              : "text-status-error-fg",
+                          )}
                         >
-                          Sin movimientos asociados
-                        </td>
-                      </tr>
-                    ) : (
-                      openImport.transactions.map((t) => (
-                        <tr key={t.id}>
-                          <td className="px-3 py-1.5 whitespace-nowrap">
-                            {t.transactionDate}
-                          </td>
-                          <td className="px-3 py-1.5">
-                            <p className="truncate">{t.description}</p>
-                            {t.reference && (
-                              <p className="text-[10px] text-muted-foreground truncate">
-                                {t.reference}
-                              </p>
-                            )}
-                          </td>
-                          <td
-                            className={cn(
-                              "px-3 py-1.5 text-right whitespace-nowrap font-mono",
-                              Number(t.amount) >= 0
-                                ? "text-status-ok-fg"
-                                : "text-status-error-fg",
-                            )}
-                          >
-                            {new Intl.NumberFormat("es-CL", {
-                              style: "currency",
-                              currency: "CLP",
-                              maximumFractionDigits: 0,
-                            }).format(Number(t.amount))}
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
+                          {new Intl.NumberFormat("es-CL", {
+                            style: "currency",
+                            currency: "CLP",
+                            maximumFractionDigits: 0,
+                          }).format(Number(t.amount))}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -2839,29 +2834,30 @@ function PreviewPanel({
             )}
           </button>
           {showNew && (
-            <div className="max-h-72 overflow-auto">
-              <table className="w-full text-xs">
-                <tbody className="divide-y divide-border">
-                  {preview.new.map((t, idx) => (
-                    <tr key={idx}>
-                      <td className="px-3 py-1.5 whitespace-nowrap text-muted-foreground">
-                        {t.transactionDate}
-                      </td>
-                      <td className="px-3 py-1.5 truncate">{t.description}</td>
-                      <td
-                        className={cn(
-                          "px-3 py-1.5 text-right whitespace-nowrap font-mono",
-                          t.amount >= 0
-                            ? "text-status-ok-fg"
-                            : "text-status-error-fg",
-                        )}
-                      >
-                        {fmtAmount(t.amount)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="max-h-72 overflow-auto divide-y divide-border text-xs">
+              {preview.new.map((t, idx) => (
+                <div
+                  key={idx}
+                  className="flex flex-wrap sm:flex-nowrap items-baseline gap-x-2 gap-y-0.5 px-3 py-1.5"
+                >
+                  <span className="w-20 shrink-0 text-muted-foreground whitespace-nowrap font-mono">
+                    {t.transactionDate}
+                  </span>
+                  <span className="flex-1 min-w-0 order-3 sm:order-none basis-full sm:basis-auto truncate">
+                    {t.description}
+                  </span>
+                  <span
+                    className={cn(
+                      "ml-auto sm:ml-0 sm:w-28 text-right shrink-0 whitespace-nowrap font-mono tabular-nums",
+                      t.amount >= 0
+                        ? "text-status-ok-fg"
+                        : "text-status-error-fg",
+                    )}
+                  >
+                    {fmtAmount(t.amount)}
+                  </span>
+                </div>
+              ))}
             </div>
           )}
         </div>
@@ -2884,22 +2880,23 @@ function PreviewPanel({
             )}
           </button>
           {showDuplicates && (
-            <div className="max-h-72 overflow-auto">
-              <table className="w-full text-xs">
-                <tbody className="divide-y divide-border">
-                  {preview.duplicates.map((t, idx) => (
-                    <tr key={idx} className="text-muted-foreground">
-                      <td className="px-3 py-1.5 whitespace-nowrap">
-                        {t.transactionDate}
-                      </td>
-                      <td className="px-3 py-1.5 truncate">{t.description}</td>
-                      <td className="px-3 py-1.5 text-right whitespace-nowrap font-mono">
-                        {fmtAmount(t.amount)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="max-h-72 overflow-auto divide-y divide-border text-xs text-muted-foreground">
+              {preview.duplicates.map((t, idx) => (
+                <div
+                  key={idx}
+                  className="flex flex-wrap sm:flex-nowrap items-baseline gap-x-2 gap-y-0.5 px-3 py-1.5"
+                >
+                  <span className="w-20 shrink-0 whitespace-nowrap font-mono">
+                    {t.transactionDate}
+                  </span>
+                  <span className="flex-1 min-w-0 order-3 sm:order-none basis-full sm:basis-auto truncate">
+                    {t.description}
+                  </span>
+                  <span className="ml-auto sm:ml-0 sm:w-28 text-right shrink-0 whitespace-nowrap font-mono tabular-nums">
+                    {fmtAmount(t.amount)}
+                  </span>
+                </div>
+              ))}
             </div>
           )}
         </div>
