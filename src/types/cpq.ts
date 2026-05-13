@@ -61,6 +61,32 @@ export interface CpqPosition {
   puestoTrabajo?: CpqPuestoTrabajo;
   cargo?: CpqCargo;
   rol?: CpqRol;
+  serviceGroupId?: string | null;
+  serviceGroup?: CpqServiceGroup | null;
+}
+
+/** Patrones de cobertura del catálogo. "custom" = configurado a mano. */
+export type CpqCoveragePattern =
+  | "24-7"
+  | "12-7-dia"
+  | "12-7-noche"
+  | "12-7-finde"
+  | "5x2-dia"
+  | "custom";
+
+export interface CpqServiceGroup {
+  id: string;
+  tenantId?: string;
+  quoteId: string;
+  name: string;
+  coveragePattern: CpqCoveragePattern;
+  iconName?: string | null;
+  colorHex?: string | null;
+  notes?: string | null;
+  displayOrder: number;
+  createdAt: string;
+  updatedAt: string;
+  positions?: CpqPosition[];
 }
 
 export type AdditionalLineType = "producto" | "servicio" | "arriendo" | "asesoria" | "equipamiento";

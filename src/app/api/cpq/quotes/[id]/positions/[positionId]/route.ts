@@ -58,6 +58,7 @@ export async function PATCH(
       "afpName",
       "healthSystem",
       "healthPlanPct",
+      "serviceGroupId",
     ];
 
     for (const field of fields) {

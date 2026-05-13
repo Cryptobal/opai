@@ -1475,6 +1475,7 @@ model CpqQuote {
   updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   positions        CpqPosition[]
+  serviceGroups    CpqServiceGroup[]
   parameters       CpqQuoteParameters?
   uniformItems     CpqQuoteUniformItem[]
   examItems        CpqQuoteExamItem[]
@@ -1577,6 +1578,28 @@ model CpqCostCategory {
   @@schema("cpq")
 }
 
+model CpqServiceGroup {
+  id              String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId        String   @map("tenant_id")
+  quoteId         String   @map("quote_id") @db.Uuid
+  name            String
+  coveragePattern String   @default("custom") @map("coverage_pattern")
+  iconName        String?  @map("icon_name")
+  colorHex        String?  @map("color_hex")
+  notes           String?
+  displayOrder    Int      @default(0) @map("display_order")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  quote     CpqQuote      @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  positions CpqPosition[]
+
+  @@index([tenantId], map: "idx_cpq_service_groups_tenant")
+  @@index([quoteId, displayOrder], map: "idx_cpq_service_groups_quote_order")
+  @@map("service_groups")
+  @@schema("cpq")
+}
+
 model CpqPosition {
   id                  String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   quoteId             String    @map("quote_id") @db.Uuid
@@ -1602,16 +1625,19 @@ model CpqPosition {
   calculatedAt        DateTime? @map("calculated_at") @db.Timestamptz(6)
   createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  serviceGroupId      String?   @map("service_group_id") @db.Uuid
 
   quote         CpqQuote         @relation(fields: [quoteId], references: [id], onDelete: Cascade)
   puestoTrabajo CpqPuestoTrabajo @relation(fields: [puestoTrabajoId], references: [id])
   cargo         CpqCargo         @relation(fields: [cargoId], references: [id])
   rol           CpqRol           @relation(fields: [rolId], references: [id])
+  serviceGroup  CpqServiceGroup? @relation(fields: [serviceGroupId], references: [id], onDelete: SetNull)
 
   @@index([quoteId], map: "idx_cpq_positions_quote")
   @@index([puestoTrabajoId], map: "idx_cpq_positions_puesto")
   @@index([cargoId], map: "idx_cpq_positions_cargo")
   @@index([rolId], map: "idx_cpq_positions_rol")
+  @@index([serviceGroupId], map: "idx_cpq_positions_service_group")
   @@map("positions")
   @@schema("cpq")
 }

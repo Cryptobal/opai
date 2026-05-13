@@ -45,6 +45,7 @@ export async function POST(
       afpName,
       healthSystem,
       healthPlanPct,
+      serviceGroupId,
     } = body || {};
 
     if (
@@ -94,6 +95,7 @@ export async function POST(
         data: {
           quoteId: id,
           puestoTrabajoId,
+          serviceGroupId: serviceGroupId || null,
           customName: customName?.trim() || null,
           description: description?.trim() || null,
           weekdays: normalizedWeekdays,
