@@ -10,7 +10,8 @@ export type CommandCategory =
   | 'search_ops'
   | 'search_docs'
   | 'search_chat'
-  | 'search_inventory';
+  | 'search_inventory'
+  | 'search_finance';
 
 export interface CommandItem {
   id: string;

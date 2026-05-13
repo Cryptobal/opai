@@ -12,9 +12,24 @@ import { ensureOpsAccess } from "@/lib/ops";
 
 export type GlobalSearchResult = {
   id: string;
-  type: "lead" | "account" | "contact" | "deal" | "quote" | "installation" | "guardia" | "document" | "pauta_mensual" | "channel" | "inventory_product" | "inventory_asset" | "inventory_phone_line";
+  type:
+    | "lead"
+    | "account"
+    | "contact"
+    | "deal"
+    | "quote"
+    | "installation"
+    | "guardia"
+    | "document"
+    | "pauta_mensual"
+    | "channel"
+    | "inventory_product"
+    | "inventory_asset"
+    | "inventory_phone_line"
+    | "dte_issued"
+    | "dte_received";
   /** Agrupa resultados por módulo para mostrar secciones separadas en la UI */
-  group: "crm" | "ops" | "docs" | "chat" | "inventory";
+  group: "crm" | "ops" | "docs" | "chat" | "inventory" | "finance";
   title: string;
   subtitle: string;
   href: string;
@@ -40,6 +55,32 @@ const OPS_LIMIT = 6;
 const DOCS_LIMIT = 5;
 const CHANNEL_LIMIT = 5;
 const INVENTORY_LIMIT = 5;
+const FINANCE_LIMIT = 6;
+
+const DTE_TYPE_LABEL: Record<number, string> = {
+  33: "Factura",
+  34: "Fact. Exenta",
+  39: "Boleta",
+  41: "Boleta Exenta",
+  43: "Liquidación",
+  46: "Fact. Compra",
+  52: "Guía Despacho",
+  56: "Nota Débito",
+  61: "Nota Crédito",
+  110: "Fact. Exportación",
+  111: "ND Exportación",
+  112: "NC Exportación",
+};
+
+const DTE_SII_STATUS_BADGE: Record<string, { label: string; class: string }> = {
+  DRAFT:           { label: "Borrador",       class: "bg-muted text-muted-foreground" },
+  PENDING:         { label: "SII Pendiente",  class: "bg-status-warn-soft text-status-warn-fg" },
+  SENT:            { label: "SII Enviado",    class: "bg-tint-sky text-tint-sky-fg" },
+  ACCEPTED:        { label: "SII Aceptado",   class: "bg-status-ok-soft text-status-ok-fg" },
+  WITH_OBJECTIONS: { label: "Con Reparos",    class: "bg-status-warn-soft text-status-warn-fg" },
+  REJECTED:        { label: "SII Rechazado",  class: "bg-status-danger-soft text-status-danger-fg" },
+  ANNULLED:        { label: "Anulado",        class: "bg-status-danger-soft text-status-danger-fg" },
+};
 
 const QUOTE_STATUS_LABEL: Record<string, string> = {
   draft: "Borrador",
@@ -639,6 +680,92 @@ export async function GET(request: NextRequest) {
         }
       } catch (err) {
         console.error("[global search] inventory query error:", err);
+      }
+    }
+
+    // ── Finanzas: DTE emitidos y recibidos (folio, RUT, monto, nombre receptor/emisor) ──
+    const hasFinance = hasModuleAccess(perms, "finance");
+    if (hasFinance) {
+      try {
+        // Normalizamos el query para poder buscar folio numérico y RUT sin puntos/guiones.
+        const folioCandidate = Number.parseInt(q.replace(/\D/g, ""), 10);
+        const folioFilter: Array<Record<string, unknown>> = Number.isFinite(folioCandidate) && folioCandidate > 0
+          ? [{ folio: folioCandidate }]
+          : [];
+        // Monto exacto: si el usuario escribe un número grande (más de 4 dígitos)
+        // lo consideramos un monto bruto. Match exacto a totalAmount.
+        const amountFilter: Array<Record<string, unknown>> = Number.isFinite(folioCandidate) && folioCandidate > 9999
+          ? [{ totalAmount: folioCandidate }]
+          : [];
+        const rutSearch = q.replace(/[.\s-]/g, "");
+
+        const dteOr: Array<Record<string, unknown>> = [
+          ...folioFilter,
+          ...amountFilter,
+          { code: contains },
+          { receiverName: contains },
+          { issuerName: contains },
+          { receiverRut: { contains: rutSearch, mode: "insensitive" } },
+          { issuerRut: { contains: rutSearch, mode: "insensitive" } },
+        ];
+
+        const [dtes] = await Promise.all([
+          prisma.financeDte.findMany({
+            where: { tenantId, OR: dteOr as never },
+            take: FINANCE_LIMIT * 2,
+            orderBy: [{ date: "desc" }],
+            select: {
+              id: true,
+              direction: true,
+              dteType: true,
+              folio: true,
+              code: true,
+              date: true,
+              issuerName: true,
+              issuerRut: true,
+              receiverName: true,
+              receiverRut: true,
+              totalAmount: true,
+              currency: true,
+              siiStatus: true,
+            },
+          }),
+        ]);
+
+        for (const d of dtes) {
+          const isIssued = d.direction === "ISSUED";
+          const tipo = DTE_TYPE_LABEL[d.dteType] ?? `DTE ${d.dteType}`;
+          const counterpartyName = isIssued ? d.receiverName : d.issuerName;
+          const counterpartyRut = isIssued ? d.receiverRut : d.issuerRut;
+          const totalNumber = Number(d.totalAmount);
+          const montoFmt =
+            d.currency === "CLP"
+              ? `$${totalNumber.toLocaleString("es-CL")}`
+              : `${d.currency} ${totalNumber.toLocaleString("es-CL")}`;
+          const fechaFmt = d.date.toLocaleDateString("es-CL", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "2-digit",
+          });
+          const badge = DTE_SII_STATUS_BADGE[d.siiStatus];
+
+          results.push({
+            id: d.id,
+            type: isIssued ? "dte_issued" : "dte_received",
+            group: "finance",
+            title: `${tipo} #${d.folio} · ${counterpartyName || "Sin receptor"}`,
+            subtitle: [counterpartyRut, montoFmt, fechaFmt]
+              .filter(Boolean)
+              .join(" · "),
+            href: isIssued
+              ? `/finanzas/facturacion/dtes?id=${d.id}`
+              : `/finanzas/facturacion/recibidos?id=${d.id}`,
+            badgeLabel: badge?.label,
+            badgeClass: badge?.class,
+          });
+        }
+      } catch (err) {
+        console.error("[global search] finance DTE query error:", err);
       }
     }
 

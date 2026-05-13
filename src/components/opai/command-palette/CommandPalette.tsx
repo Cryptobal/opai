@@ -32,6 +32,8 @@ import {
   Cpu,
   Phone,
   Sparkles,
+  FileInput,
+  FileOutput,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useIsIOS } from '@/hooks/usePlatform';
@@ -103,9 +105,10 @@ function highlightMatch(text: string, query: string): ReactNode {
 type SearchResultType =
   | 'lead' | 'account' | 'contact' | 'deal' | 'quote'
   | 'installation' | 'guardia' | 'document' | 'pauta_mensual' | 'channel'
-  | 'inventory_product' | 'inventory_asset' | 'inventory_phone_line';
+  | 'inventory_product' | 'inventory_asset' | 'inventory_phone_line'
+  | 'dte_issued' | 'dte_received';
 
-type SearchResultGroup = 'crm' | 'ops' | 'docs' | 'chat' | 'inventory';
+type SearchResultGroup = 'crm' | 'ops' | 'docs' | 'chat' | 'inventory' | 'finance';
 
 type ApiSearchResult = {
   id: string;
@@ -120,20 +123,31 @@ type ApiSearchResult = {
   pinDisplay?: string;
 };
 
+// ── Paleta única por TIPO de resultado ──
+// Cada tipo tiene su propio color distintivo para distinguirse visualmente
+// entre módulos y subtipos. Usamos los tints de OPAI DS + status semánticos.
 const SEARCH_TYPE_CONFIG: Record<SearchResultType, { icon: typeof Users; color: string; bgColor: string; label: string }> = {
-  lead:                  { icon: Users,        color: 'text-status-ok-fg',     bgColor: 'bg-status-ok-soft',   label: 'Lead' },
-  account:               { icon: Building2,    color: 'text-status-info-fg',   bgColor: 'bg-status-info-soft', label: 'Cuenta' },
-  contact:               { icon: Contact,      color: 'text-status-info-fg',   bgColor: 'bg-status-info-soft', label: 'Contacto' },
-  deal:                  { icon: TrendingUp,   color: 'text-tint-violet-fg',   bgColor: 'bg-tint-violet',      label: 'Negocio' },
-  quote:                 { icon: FileText,     color: 'text-status-warn-fg',   bgColor: 'bg-status-warn-soft', label: 'Cotización' },
-  installation:          { icon: MapPin,       color: 'text-status-info-fg',   bgColor: 'bg-status-info-soft', label: 'Instalación' },
-  guardia:               { icon: ShieldUser,   color: 'text-status-info-fg',   bgColor: 'bg-status-info-soft', label: 'Guardia' },
-  document:              { icon: File,         color: 'text-status-warn-fg',   bgColor: 'bg-status-warn-soft', label: 'Documento' },
-  pauta_mensual:         { icon: CalendarDays, color: 'text-status-info-fg',   bgColor: 'bg-status-info-soft', label: 'Pauta' },
-  channel:               { icon: MessageCircle,color: 'text-status-info-fg',   bgColor: 'bg-status-info-soft', label: 'Chat' },
-  inventory_product:     { icon: Package,      color: 'text-violet-400',  bgColor: 'bg-violet-400/10',  label: 'Producto' },
-  inventory_asset:       { icon: Cpu,          color: 'text-status-info-fg',   bgColor: 'bg-status-info-soft', label: 'Activo' },
-  inventory_phone_line:  { icon: Phone,        color: 'text-status-info-fg',   bgColor: 'bg-status-info-soft', label: 'Línea' },
+  // CRM
+  lead:                  { icon: Users,        color: 'text-tint-emerald-fg', bgColor: 'bg-tint-emerald',     label: 'Lead' },
+  account:               { icon: Building2,    color: 'text-tint-sky-fg',     bgColor: 'bg-tint-sky',         label: 'Cuenta' },
+  contact:               { icon: Contact,      color: 'text-tint-rose-fg',    bgColor: 'bg-tint-rose',        label: 'Contacto' },
+  deal:                  { icon: TrendingUp,   color: 'text-tint-violet-fg',  bgColor: 'bg-tint-violet',      label: 'Negocio' },
+  quote:                 { icon: FileText,     color: 'text-tint-amber-fg',   bgColor: 'bg-tint-amber',       label: 'Cotización' },
+  installation:          { icon: MapPin,       color: 'text-tint-teal-fg',    bgColor: 'bg-tint-teal',        label: 'Instalación' },
+  // Ops
+  guardia:               { icon: ShieldUser,   color: 'text-status-info-fg',  bgColor: 'bg-status-info-soft', label: 'Guardia' },
+  pauta_mensual:         { icon: CalendarDays, color: 'text-tint-teal-fg',    bgColor: 'bg-tint-teal',        label: 'Pauta' },
+  // Docs
+  document:              { icon: File,         color: 'text-status-warn-fg',  bgColor: 'bg-status-warn-soft', label: 'Documento' },
+  // Chat
+  channel:               { icon: MessageCircle,color: 'text-tint-rose-fg',    bgColor: 'bg-tint-rose',        label: 'Chat' },
+  // Inventario
+  inventory_product:     { icon: Package,      color: 'text-tint-violet-fg',  bgColor: 'bg-tint-violet',      label: 'Producto' },
+  inventory_asset:       { icon: Cpu,          color: 'text-tint-amber-fg',   bgColor: 'bg-tint-amber',       label: 'Activo' },
+  inventory_phone_line:  { icon: Phone,        color: 'text-tint-sky-fg',     bgColor: 'bg-tint-sky',         label: 'Línea' },
+  // Finanzas — DTE
+  dte_issued:            { icon: FileOutput,   color: 'text-status-ok-fg',    bgColor: 'bg-status-ok-soft',   label: 'DTE Emitido' },
+  dte_received:          { icon: FileInput,    color: 'text-status-warn-fg',  bgColor: 'bg-status-warn-soft', label: 'DTE Recibido' },
 };
 
 const GROUP_CATEGORY: Record<SearchResultGroup, CommandCategory> = {
@@ -142,7 +156,43 @@ const GROUP_CATEGORY: Record<SearchResultGroup, CommandCategory> = {
   docs:      'search_docs',
   chat:      'search_chat',
   inventory: 'search_inventory',
+  finance:   'search_finance',
 };
+
+// ── Paleta por categoría de COMANDO (recent/navigation/action/config) ──
+// Para que cada item de navegación tenga color en base al módulo destino.
+function getNavTone(href?: string): { color: string; bg: string } {
+  const path = href ?? '';
+  if (path.startsWith('/crm') || path.includes('/configuracion/crm'))
+    return { color: 'text-tint-violet-fg', bg: 'bg-tint-violet' };
+  if (
+    path.startsWith('/ops') ||
+    path.startsWith('/personas') ||
+    path.startsWith('/te') ||
+    path.startsWith('/reportes/dt') ||
+    path.startsWith('/portales') ||
+    path.includes('/configuracion/ops') ||
+    path.includes('/configuracion/ats')
+  )
+    return { color: 'text-tint-sky-fg', bg: 'bg-tint-sky' };
+  if (path.startsWith('/finanzas') || path.includes('/configuracion/finanzas'))
+    return { color: 'text-tint-emerald-fg', bg: 'bg-tint-emerald' };
+  if (path.startsWith('/payroll') || path.includes('/configuracion/payroll'))
+    return { color: 'text-tint-amber-fg', bg: 'bg-tint-amber' };
+  if (path.startsWith('/chat'))
+    return { color: 'text-tint-rose-fg', bg: 'bg-tint-rose' };
+  if (path.startsWith('/cpq') || path.includes('/configuracion/cpq'))
+    return { color: 'text-tint-teal-fg', bg: 'bg-tint-teal' };
+  if (path.startsWith('/opai/documentos'))
+    return { color: 'text-status-warn-fg', bg: 'bg-status-warn-soft' };
+  if (path.startsWith('/opai/notificaciones'))
+    return { color: 'text-tint-rose-fg', bg: 'bg-tint-rose' };
+  if (path.startsWith('/opai/configuracion'))
+    return { color: 'text-muted-foreground', bg: 'bg-muted' };
+  if (path === '/hub')
+    return { color: 'text-primary', bg: 'bg-primary/10' };
+  return { color: 'text-status-info-fg', bg: 'bg-status-info-soft' };
+}
 
 // ── Main component ──
 
@@ -232,7 +282,7 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
   // Group by category
   const grouped = useMemo(() => {
     const groups: Record<string, CommandItem[]> = {};
-    const order = ['recent', 'navigation', 'action', 'config', 'search_crm', 'search_ops', 'search_inventory', 'search_docs', 'search_chat'];
+    const order = ['recent', 'navigation', 'action', 'config', 'search_finance', 'search_crm', 'search_ops', 'search_inventory', 'search_docs', 'search_chat'];
 
     for (const cmd of allItems) {
       const cat = cmd.category;
@@ -516,6 +566,10 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
                   const showPin = isSearch && cmd.pinDisplay;
                   const showStatusBadge = isSearch && (cmd.badgeLabel ?? searchConfig?.label);
 
+                  // Tono por destino para navegación/acciones/recientes — cada
+                  // módulo recibe su propio color para identificación visual.
+                  const navTone = !isSearch ? getNavTone(cmd.href) : null;
+
                   return (
                     <Command.Item
                       key={cmd.id}
@@ -537,13 +591,9 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
                           'h-9 w-9',
                           isSearch && searchConfig && !showImage
                             ? searchConfig.bgColor
-                            : cmd.category === 'recent'
-                              ? 'bg-muted/70'
-                              : cmd.category === 'action'
-                                ? 'bg-primary/10'
-                                : cmd.category === 'config'
-                                  ? 'bg-status-warn-soft'
-                                  : 'bg-status-info-soft',
+                            : cmd.category === 'config'
+                              ? 'bg-muted'
+                              : navTone?.bg ?? 'bg-status-info-soft',
                         )}
                       >
                         {showImage ? (
@@ -570,13 +620,9 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
                               'h-[18px] w-[18px]',
                               isSearch && searchConfig
                                 ? searchConfig.color
-                                : cmd.category === 'recent'
+                                : cmd.category === 'config'
                                   ? 'text-muted-foreground'
-                                  : cmd.category === 'action'
-                                    ? 'text-primary'
-                                    : cmd.category === 'config'
-                                      ? 'text-status-warn-fg'
-                                      : 'text-status-info-fg',
+                                  : navTone?.color ?? 'text-status-info-fg',
                             )}
                           />
                         </div>

@@ -445,6 +445,287 @@ const INTENTS: IntentDefinition[] = [
     ],
     impacts: ["Cambios impactan resultados economicos y escenarios de calculo."],
   },
+  {
+    key: "finance_flujo_caja",
+    moduleName: "Finanzas",
+    submoduleName: "Flujo de Caja",
+    aliases: [
+      "flujo de caja",
+      "flujo caja",
+      "cashflow",
+      "tesoreria",
+      "forecast",
+      "proyeccion de caja",
+      "caja",
+      "drift",
+      "cuadratura caja",
+    ],
+    purpose:
+      "Proyectar ingresos y egresos por cuenta contable, anclar el saldo al banco real y monitorear desviaciones (drift).",
+    mainLinks: [
+      { label: "Flujo de Caja", path: "/finanzas/flujo-caja" },
+      { label: "Cuadratura", path: "/finanzas/flujo-caja/cuadratura" },
+      { label: "Cierre", path: "/finanzas/flujo-caja/cierre" },
+      { label: "Configuracion Flujo de Caja", path: "/opai/configuracion/finanzas/flujo-caja" },
+    ],
+    steps: [
+      {
+        action: "Abre la matriz de flujo de caja por semana/mes y cuenta contable.",
+        outcome: "Visualizas ingresos, egresos y saldo proyectado.",
+        links: [{ label: "Flujo de Caja", path: "/finanzas/flujo-caja" }],
+      },
+      {
+        action: "Vincula DTE/cobranza/pagos a cada celda para mejorar la proyeccion.",
+        outcome: "El forecast se nutre de hechos reales del sistema.",
+      },
+      {
+        action: "Revisa la cuadratura para detectar drift entre proyectado y saldo banco.",
+        outcome: "Quedan claras las diferencias y donde absorberlas.",
+        links: [{ label: "Cuadratura", path: "/finanzas/flujo-caja/cuadratura" }],
+      },
+      {
+        action: "Cierra el dia o el periodo cuando este conciliado.",
+        outcome: "El saldo queda congelado como punto de partida del siguiente periodo.",
+        links: [{ label: "Cierre", path: "/finanzas/flujo-caja/cierre" }],
+      },
+    ],
+    impacts: [
+      "Da visibilidad de tesoreria a corto plazo y decisiones de pago.",
+      "Conecta con bancos, conciliacion, DTE y cobranza.",
+    ],
+  },
+  {
+    key: "finance_dte_emitidos",
+    moduleName: "Finanzas",
+    submoduleName: "DTE Emitidos",
+    aliases: [
+      "dte emitido",
+      "dte emitidos",
+      "factura emitida",
+      "facturas emitidas",
+      "ventas",
+      "libro ventas",
+      "rcv ventas",
+      "emitir factura",
+      "emitir dte",
+      "nota credito",
+      "nota debito",
+      "boleta electronica",
+    ],
+    purpose:
+      "Emitir facturas electronicas (DTE) al SII, hacer seguimiento del estado tributario y de la cobranza.",
+    mainLinks: [
+      { label: "DTE Emitidos", path: "/finanzas/facturacion/dtes" },
+      { label: "Emitir DTE", path: "/finanzas/facturacion/emitir" },
+      { label: "Notas", path: "/finanzas/facturacion/notas" },
+      { label: "Folios", path: "/finanzas/facturacion/folios" },
+      { label: "Recurrentes", path: "/finanzas/facturacion/recurrentes" },
+      { label: "Programacion", path: "/finanzas/facturacion/programacion" },
+      { label: "Libro IVA", path: "/finanzas/facturacion/libro-iva" },
+      { label: "Cesiones / Factoring", path: "/finanzas/facturacion/cesiones" },
+    ],
+    steps: [
+      {
+        action: "Verifica que tengas folios CAF cargados para el tipo de DTE.",
+        outcome: "Puedes emitir sin bloqueos del SII.",
+        links: [{ label: "Folios", path: "/finanzas/facturacion/folios" }],
+      },
+      {
+        action: "Crea el DTE desde Emitir o desde una cotizacion/contrato vinculado.",
+        outcome: "Queda en estado borrador o pendiente de envio.",
+        links: [{ label: "Emitir DTE", path: "/finanzas/facturacion/emitir" }],
+      },
+      {
+        action: "Envia al SII y al receptor por mail.",
+        outcome: "Quedan track-id, XML y PDF asociados al documento.",
+      },
+      {
+        action: "Sigue el estado tributario (Aceptado/Reparos/Rechazado) y la cobranza.",
+        outcome: "Visibilidad fin a fin del documento.",
+        links: [{ label: "DTE Emitidos", path: "/finanzas/facturacion/dtes" }],
+      },
+    ],
+    impacts: [
+      "Alimenta libro IVA, F29, flujo de caja (cobranza) y contabilidad.",
+      "Una factura cedida en factoring cambia su flujo de pago esperado.",
+    ],
+  },
+  {
+    key: "finance_dte_recibidos",
+    moduleName: "Finanzas",
+    submoduleName: "DTE Recibidos",
+    aliases: [
+      "dte recibido",
+      "dte recibidos",
+      "factura recibida",
+      "facturas recibidas",
+      "compras",
+      "libro compras",
+      "rcv compras",
+      "proveedor",
+      "proveedores",
+      "factura de compra",
+    ],
+    purpose:
+      "Registrar, clasificar y aprobar facturas recibidas de proveedores; programar su pago.",
+    mainLinks: [
+      { label: "DTE Recibidos", path: "/finanzas/facturacion/recibidos" },
+      { label: "Proveedores", path: "/finanzas/proveedores" },
+      { label: "Pagos a Proveedores", path: "/finanzas/pagos-proveedores" },
+      { label: "Aprobaciones Finanzas", path: "/finanzas/aprobaciones" },
+    ],
+    steps: [
+      {
+        action: "Registra el DTE recibido (manual, por mail entrante o sincronizando RCV).",
+        outcome: "Queda creada la cuenta por pagar con monto y fecha.",
+        links: [{ label: "DTE Recibidos", path: "/finanzas/facturacion/recibidos" }],
+      },
+      {
+        action: "Clasifica con centro de costo (cliente/instalacion) y cuenta contable.",
+        outcome: "El gasto se asigna correctamente para reportes y rentabilidad.",
+      },
+      {
+        action: "Pasa por aprobacion segun el monto y el workflow del tenant.",
+        outcome: "Documento aprobado y listo para pago.",
+        links: [{ label: "Aprobaciones Finanzas", path: "/finanzas/aprobaciones" }],
+      },
+      {
+        action: "Programa o ejecuta el pago al proveedor.",
+        outcome: "Genera movimiento bancario y baja la cuenta por pagar.",
+        links: [{ label: "Pagos a Proveedores", path: "/finanzas/pagos-proveedores" }],
+      },
+    ],
+    impacts: [
+      "Alimenta libro IVA compras, flujo de caja (egresos), conciliacion y contabilidad.",
+    ],
+  },
+  {
+    key: "finance_bancos_conciliacion",
+    moduleName: "Finanzas",
+    submoduleName: "Bancos y Conciliacion",
+    aliases: [
+      "banco",
+      "bancos",
+      "cuenta corriente",
+      "saldo banco",
+      "cartola",
+      "conciliacion",
+      "conciliar",
+      "match banco",
+      "reglas auto match",
+    ],
+    purpose:
+      "Administrar cuentas bancarias, cargar cartolas y conciliar movimientos contra DTE/rendiciones/pagos.",
+    mainLinks: [
+      { label: "Bancos", path: "/finanzas/bancos" },
+      { label: "Conciliacion", path: "/finanzas/conciliacion" },
+    ],
+    steps: [
+      {
+        action: "Carga o sincroniza la cartola del banco.",
+        outcome: "Los movimientos quedan disponibles para conciliar.",
+        links: [{ label: "Bancos", path: "/finanzas/bancos" }],
+      },
+      {
+        action: "Concilia movimientos contra DTE, pagos y rendiciones (manual o reglas auto-match).",
+        outcome: "Cada movimiento queda con su contraparte y estado.",
+        links: [{ label: "Conciliacion", path: "/finanzas/conciliacion" }],
+      },
+      {
+        action: "Revisa diferencias y ajusta saldo ancla del flujo de caja si corresponde.",
+        outcome: "El sistema queda alineado con la realidad bancaria.",
+      },
+    ],
+    impacts: [
+      "Es la base del flujo de caja real, del cierre contable y de la auditoria financiera.",
+    ],
+  },
+  {
+    key: "finance_contabilidad_reportes",
+    moduleName: "Finanzas",
+    submoduleName: "Contabilidad y Reportes",
+    aliases: [
+      "contabilidad",
+      "plan de cuentas",
+      "asiento",
+      "asientos",
+      "libro mayor",
+      "balance",
+      "eerr",
+      "estado de resultados",
+      "rentabilidad",
+      "informe financiero",
+      "reporte financiero",
+    ],
+    purpose:
+      "Gestionar plan de cuentas, asientos y obtener reportes financieros (Balance, EERR, Mayor, Ventas, Compras, Rentabilidad).",
+    mainLinks: [
+      { label: "Contabilidad", path: "/finanzas/contabilidad" },
+      { label: "Asientos", path: "/finanzas/contabilidad/asientos" },
+      { label: "Reportes", path: "/finanzas/reportes" },
+      { label: "Balance", path: "/finanzas/reportes/balance" },
+      { label: "EERR", path: "/finanzas/reportes/eerr" },
+      { label: "Libro Mayor", path: "/finanzas/reportes/mayor" },
+      { label: "Rentabilidad", path: "/finanzas/reportes/rentabilidad" },
+    ],
+    steps: [
+      {
+        action: "Mantienes el plan de cuentas alineado al negocio.",
+        outcome: "Los reportes y el flujo de caja agrupan correctamente.",
+        links: [{ label: "Contabilidad", path: "/finanzas/contabilidad" }],
+      },
+      {
+        action: "Revisas asientos automaticos (DTE, pagos, rendiciones, banco).",
+        outcome: "Validas que la contabilidad refleje la operacion.",
+        links: [{ label: "Asientos", path: "/finanzas/contabilidad/asientos" }],
+      },
+      {
+        action: "Consultas reportes financieros del periodo.",
+        outcome: "Obtienes Balance, EERR, mayor y margen por cliente.",
+        links: [{ label: "Reportes", path: "/finanzas/reportes" }],
+      },
+    ],
+    impacts: [
+      "Soporta cierres contables, auditoria, F29 y reportes a directorio.",
+    ],
+  },
+  {
+    key: "command_palette",
+    moduleName: "Opai",
+    submoduleName: "Buscador global (Command Palette)",
+    aliases: [
+      "buscador",
+      "command palette",
+      "atajo de busqueda",
+      "como busco",
+      "barra de busqueda",
+      "ctrl k",
+      "cmd k",
+      "comando k",
+    ],
+    purpose:
+      "Navegar y buscar cualquier cosa en OPAI desde un solo lugar: modulos, guardias, clientes, instalaciones, DTE por folio, contactos, chats, productos y mas.",
+    mainLinks: [
+      { label: "Hub", path: "/hub" },
+    ],
+    steps: [
+      {
+        action: "Presiona Cmd+K (Mac) o Ctrl+K (Windows) desde cualquier pagina.",
+        outcome: "Se abre el buscador global.",
+      },
+      {
+        action: "Escribe lo que buscas: nombre, RUT, folio de factura, instalacion, telefono, SKU.",
+        outcome: "Los resultados se agrupan por modulo (CRM, Operaciones, Inventario, Finanzas, Documentos, Chat).",
+      },
+      {
+        action: "Selecciona con Enter o click para ir directo al detalle.",
+        outcome: "Te ahorra clics en el menu lateral.",
+      },
+    ],
+    impacts: [
+      "Atajo principal de navegacion del producto.",
+    ],
+  },
 ];
 
 function scoreIntent(message: string, def: IntentDefinition): number {
