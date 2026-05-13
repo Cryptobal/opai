@@ -98,6 +98,7 @@ export async function projectRecurringDtes(
           varianceClp: null,
           hasIpcAdjustment: false,
           ipcAdjustmentMonths: null,
+          dteId: null,
         });
       }
       switch (t.frequency) {

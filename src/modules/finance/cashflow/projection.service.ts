@@ -14,6 +14,7 @@ import type {
   ProjectionRow,
   FinanceCashflowCategory,
   CumulativeBalancePoint,
+  CashflowCellStatus,
 } from "./types";
 import { eachDayOfInterval } from "date-fns";
 
@@ -23,6 +24,54 @@ import { bulkResolveCategoriesFromAccounts } from "./categoryAccount.service";
 import { resolveOpeningBalance } from "./opening-balance.service";
 
 type CategoryLite = Pick<FinanceCashflowCategory, "id" | "code" | "name" | "kind" | "sortOrder">;
+
+interface DteStatusSlim {
+  id: string;
+  siiStatus: string;
+  paymentStatus: string;
+  dueDate: Date | null;
+}
+
+/**
+ * Precedencia para mergear cellStatus cuando varias cuotas con DTE caen en
+ * la misma celda. PAID > CEDED > DRAFT > INVOICED > PROJECTED — mostramos el
+ * más informativo desde la óptica financiera del usuario.
+ */
+const CELL_STATUS_RANK: Record<CashflowCellStatus, number> = {
+  PROJECTED: 0,
+  INVOICED: 1,
+  DRAFT: 2,
+  CEDED: 3,
+  PAID: 4,
+};
+
+/**
+ * Resuelve el estado a mostrar en la celda según el DTE vinculado y si tiene
+ * factoring activo. La precedencia importa: PAID > CEDED > DRAFT > INVOICED.
+ */
+function deriveCellStatus(opts: {
+  dte: DteStatusSlim | null;
+  hasFactoring: boolean;
+  today: Date;
+}): { status: CashflowCellStatus; daysOverdue: number; dteId: string | null } {
+  if (!opts.dte) return { status: "PROJECTED", daysOverdue: 0, dteId: null };
+  const { id, siiStatus, paymentStatus, dueDate } = opts.dte;
+
+  if (paymentStatus === "PAID") return { status: "PAID", daysOverdue: 0, dteId: id };
+  if (paymentStatus === "CEDED" || opts.hasFactoring) {
+    return { status: "CEDED", daysOverdue: 0, dteId: id };
+  }
+  if (siiStatus === "DRAFT" || siiStatus === "PENDING") {
+    return { status: "DRAFT", daysOverdue: 0, dteId: id };
+  }
+  if (siiStatus === "ACCEPTED") {
+    const overdue = dueDate
+      ? Math.max(0, Math.floor((opts.today.getTime() - dueDate.getTime()) / 86_400_000))
+      : 0;
+    return { status: "INVOICED", daysOverdue: overdue, dteId: id };
+  }
+  return { status: "PROJECTED", daysOverdue: 0, dteId: id };
+}
 
 /**
  * Tolerancia (en días) para asociar una `FinanceCashflowOccurrence` ya
@@ -448,6 +497,7 @@ export async function buildProjection(
         varianceClp: null,
         hasIpcAdjustment: !!item.hasIpcAdjustment,
         ipcAdjustmentMonths: item.ipcAdjustmentMonths ?? null,
+        dteId: mat?.dteId ?? null,
       });
     }
   }
@@ -526,6 +576,7 @@ export async function buildProjection(
       varianceClp: 0,
       hasIpcAdjustment: false,
       ipcAdjustmentMonths: null,
+      dteId: null,
     });
   }
 
@@ -609,7 +660,74 @@ export async function buildProjection(
       (b.actualBankIncome - b.income) - (b.actualBankExpense - b.expense);
   }
 
-  const rows = buildRows(buckets, categories, allOccurrences, crmAccountNameById);
+  // Bulk-load DTE status + factoring activo para derivar cellStatus por celda.
+  // Recolectamos dteIds únicos de las occurrences (sólo las materializadas
+  // tienen vínculo). Si no hay ninguno, saltamos las consultas.
+  const dteIds = Array.from(
+    new Set(
+      allOccurrences
+        .map((o) => o.dteId)
+        .filter((x): x is string => !!x),
+    ),
+  );
+  const dteStatusById = new Map<string, DteStatusSlim>();
+  const activeFactoringDteIds = new Set<string>();
+  if (dteIds.length > 0) {
+    const [dtes, factoringOps] = await Promise.all([
+      prisma.financeDte.findMany({
+        where: { tenantId, id: { in: dteIds } },
+        select: {
+          id: true,
+          siiStatus: true,
+          paymentStatus: true,
+          dueDate: true,
+        },
+      }),
+      prisma.financeFactoringOperation.findMany({
+        where: {
+          tenantId,
+          dteId: { in: dteIds },
+          status: { in: ["APPROVED", "FUNDED", "COLLECTED"] },
+        },
+        select: { dteId: true },
+      }),
+    ]);
+    for (const d of dtes) {
+      dteStatusById.set(d.id, {
+        id: d.id,
+        siiStatus: d.siiStatus,
+        paymentStatus: d.paymentStatus,
+        dueDate: d.dueDate,
+      });
+    }
+    for (const f of factoringOps) {
+      if (f.dteId) activeFactoringDteIds.add(f.dteId);
+    }
+  }
+  const cellStatusByDteId = new Map<
+    string,
+    { status: CashflowCellStatus; daysOverdue: number; dteId: string | null }
+  >();
+  const todayForStatus = new Date();
+  todayForStatus.setHours(0, 0, 0, 0);
+  for (const id of dteIds) {
+    cellStatusByDteId.set(
+      id,
+      deriveCellStatus({
+        dte: dteStatusById.get(id) ?? null,
+        hasFactoring: activeFactoringDteIds.has(id),
+        today: todayForStatus,
+      }),
+    );
+  }
+
+  const rows = buildRows(
+    buckets,
+    categories,
+    allOccurrences,
+    crmAccountNameById,
+    cellStatusByDteId,
+  );
 
   const openingBreakdown = await resolveOpeningBalance(tenantId);
   const opening = openingBreakdown.totalClp;
@@ -709,6 +827,10 @@ function buildRows(
   categories: FinanceCashflowCategory[],
   occs: VirtualOccurrence[],
   crmAccountNameById: Map<string, string>,
+  cellStatusByDteId: Map<
+    string,
+    { status: CashflowCellStatus; daysOverdue: number; dteId: string | null }
+  >,
 ): ProjectionRow[] {
   const rows: ProjectionRow[] = [];
   for (const cat of categories) {
@@ -755,6 +877,9 @@ function buildRows(
             actualAmount: null,
             occurrenceId: null,
             scheduledDate: "",
+            cellStatus: "PROJECTED" as CashflowCellStatus,
+            dteId: null,
+            daysOverdue: 0,
           })),
           total: 0,
           totalActual: 0,
@@ -782,6 +907,28 @@ function buildRows(
         detail.values[bIdx].occurrenceId = o.id;
       }
       detail.total += o.amountClp;
+      // cellStatus: si la occurrence tiene DTE vinculado, derivamos el estado
+      // y lo mergeamos con el actual de la celda. Precedencia: PAID > CEDED >
+      // DRAFT > INVOICED > PROJECTED. Mostramos el "más informativo" si caen
+      // varias cuotas en la misma celda.
+      if (o.dteId) {
+        const derived = cellStatusByDteId.get(o.dteId);
+        if (derived) {
+          const cell = detail.values[bIdx];
+          const current = cell.cellStatus ?? "PROJECTED";
+          if (CELL_STATUS_RANK[derived.status] > CELL_STATUS_RANK[current]) {
+            cell.cellStatus = derived.status;
+            cell.dteId = derived.dteId;
+            cell.daysOverdue = derived.daysOverdue;
+          } else if (
+            derived.status === "INVOICED" &&
+            current === "INVOICED" &&
+            (derived.daysOverdue ?? 0) > (cell.daysOverdue ?? 0)
+          ) {
+            cell.daysOverdue = derived.daysOverdue;
+          }
+        }
+      }
     }
 
     rows.push({

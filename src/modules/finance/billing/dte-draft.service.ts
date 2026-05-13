@@ -14,6 +14,10 @@ import { Prisma } from "@prisma/client";
 import { isDteTypeValid } from "../shared/constants/dte-types";
 import { issueDte, type IssueDteInput } from "./dte-issuer.service";
 import { computeDteAmounts } from "./dte-amounts.helper";
+import {
+  matchDraftToOccurrence,
+  rebindDraftOccurrencesToIssued,
+} from "@/modules/finance/cashflow/draft-occurrence-matcher.service";
 
 const DRAFT_REQUIRED_REFERENCE = [56, 61] as const;
 
@@ -60,7 +64,7 @@ export async function createDraftDte(
     ufOverride: opts?.ufOverride,
   });
 
-  return prisma.financeDte.create({
+  const draft = await prisma.financeDte.create({
     data: {
       tenantId,
       direction: "ISSUED",
@@ -132,6 +136,22 @@ export async function createDraftDte(
     },
     include: { lines: true },
   });
+
+  // Auto-match con flujo de caja (best effort, no romper si falla).
+  try {
+    await matchDraftToOccurrence({
+      tenantId,
+      dteId: draft.id,
+      crmAccountId: draft.crmAccountId,
+      installationId: draft.installationId,
+      expectedDate: draft.date,
+      amountClp: Number(draft.totalAmount),
+    });
+  } catch (err) {
+    console.error("[dte-draft] auto-match falló (no bloqueante):", err);
+  }
+
+  return draft;
 }
 
 export async function updateDraftDte(
@@ -318,6 +338,16 @@ export async function issueDraftDte(
         : undefined);
 
   const issued = await issueDte(tenantId, issuedBy, input, { ufOverride });
+
+  // Reasignar occurrences que apuntaban al draft → al nuevo DTE emitido,
+  // antes de borrar el draft (la FK es ON DELETE SET NULL, pero queremos
+  // preservar el vínculo en el flujo de caja).
+  try {
+    await rebindDraftOccurrencesToIssued(tenantId, draftId, issued.id);
+  } catch (err) {
+    console.error("[dte-draft] rebind a issued falló (no bloqueante):", err);
+  }
+
   // Borrar el borrador solo tras éxito de issueDte. Si falla arriba, el
   // throw burbujea y el borrador queda intacto para corrección manual.
   await prisma.financeDte.delete({ where: { id: draftId } });

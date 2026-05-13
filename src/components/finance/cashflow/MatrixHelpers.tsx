@@ -1,6 +1,11 @@
 "use client";
 import { ChevronDown, ChevronRight } from "lucide-react";
-import type { ProjectionBucket, ProjectionRow, VirtualOccurrence } from "@/modules/finance/cashflow/types";
+import type {
+  CashflowCellStatus,
+  ProjectionBucket,
+  ProjectionRow,
+  VirtualOccurrence,
+} from "@/modules/finance/cashflow/types";
 import { CellAmount } from "./CellAmount";
 import { CellActionPopover } from "./CellActionPopover";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
@@ -30,6 +35,58 @@ export const DRIFT_TONE_CLASS: Record<DriftTone, string> = {
   warn: "text-status-warn-fg",
   muted: "text-ds-text-4",
 };
+
+const STATUS_LABEL: Record<CashflowCellStatus, string | null> = {
+  DRAFT: "Borrador",
+  INVOICED: "Facturada",
+  CEDED: "Cedida",
+  PAID: "Pagada",
+  PROJECTED: null,
+};
+
+const STATUS_CLASS: Record<CashflowCellStatus, string> = {
+  DRAFT: "bg-status-warn-soft text-status-warn-fg",
+  INVOICED: "bg-status-info-soft text-status-info-fg",
+  CEDED:
+    "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
+  PAID: "bg-status-ok-soft text-status-ok-fg",
+  PROJECTED: "",
+};
+
+/**
+ * Badge textual de estado para list view móvil y drawer. En la matriz desktop
+ * usamos un dot inline (ver CellAmount), pero en mobile el espacio horizontal
+ * permite mostrar la etiqueta legible.
+ */
+export function StatusBadge({
+  status,
+  daysOverdue,
+  size = "sm",
+}: {
+  status?: CashflowCellStatus;
+  daysOverdue?: number;
+  size?: "sm" | "md";
+}) {
+  if (!status || status === "PROJECTED") return null;
+  const label = STATUS_LABEL[status];
+  if (!label) return null;
+  const overdueSuffix =
+    status === "INVOICED" && daysOverdue && daysOverdue > 0
+      ? ` · +${daysOverdue}d`
+      : "";
+  const sizeCls =
+    size === "md"
+      ? "text-[12px] px-2 py-0.5"
+      : "text-[10px] px-1.5 py-0.5";
+  return (
+    <span
+      className={`inline-flex items-center font-medium rounded-ds-sm ${sizeCls} ${STATUS_CLASS[status]}`}
+    >
+      {label}
+      {overdueSuffix}
+    </span>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // DnD helper components

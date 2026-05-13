@@ -78,6 +78,7 @@ export async function projectTurnosExtraFromHistory(
           varianceClp: null,
           hasIpcAdjustment: false,
           ipcAdjustmentMonths: null,
+          dteId: null,
         });
       }
     }

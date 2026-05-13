@@ -106,6 +106,7 @@ export async function projectPayrollFromDotacion(
           varianceClp: null,
           hasIpcAdjustment: false,
           ipcAdjustmentMonths: null,
+          dteId: null,
         });
       }
     }

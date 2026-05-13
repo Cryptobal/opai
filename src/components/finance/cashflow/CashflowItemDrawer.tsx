@@ -5,7 +5,9 @@ import { ExternalLink, AlertCircle, CheckCircle2 } from "lucide-react";
 import type {
   ProjectionBucket,
   FinanceCashflowItemSource,
+  CashflowCellStatus,
 } from "@/modules/finance/cashflow/types";
+import { StatusBadge } from "./MatrixHelpers";
 import { humanReadableRecurrence } from "./recurrence-label";
 import { fmt } from "./MatrixHelpers";
 import {
@@ -41,6 +43,12 @@ export interface DrawerItemTarget {
   categoryName: string;
   kind: "INCOME" | "EXPENSE";
   canManage: boolean;
+  /** Estado de la celda respecto al DTE vinculado. PROJECTED si no hay vínculo. */
+  cellStatus?: CashflowCellStatus;
+  /** dteId vinculado (si existe) para deep-link al DTE. */
+  dteId?: string | null;
+  /** Días de mora (solo INVOICED). */
+  daysOverdue?: number;
 }
 
 interface RecurrenceInfo {
@@ -184,6 +192,39 @@ export function CashflowItemDrawer({
             actualAmountClp={target.actualAmountClp}
             kind={target.kind}
           />
+
+          {target.cellStatus && target.cellStatus !== "PROJECTED" && (
+            <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-ds-md bg-muted/20">
+              <div className="flex flex-col gap-0.5">
+                <span className="text-[11px] font-mono uppercase tracking-wider text-ds-text-3">
+                  Estado factura
+                </span>
+                {target.cellStatus === "INVOICED" &&
+                  target.daysOverdue !== undefined &&
+                  target.daysOverdue > 0 && (
+                    <span className="text-[11px] text-status-warn-fg">
+                      {target.daysOverdue} día{target.daysOverdue !== 1 ? "s" : ""} de mora
+                    </span>
+                  )}
+              </div>
+              <div className="flex items-center gap-2">
+                <StatusBadge
+                  status={target.cellStatus}
+                  daysOverdue={target.daysOverdue}
+                  size="md"
+                />
+                {target.dteId && (
+                  <a
+                    href={`/finanzas/facturacion/dtes/${target.dteId}`}
+                    className="inline-flex items-center gap-1 text-[12px] text-primary hover:underline"
+                  >
+                    Ver DTE
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
 
           <CashflowItemDrawerBase
             baseAmount={target.baseAmount}

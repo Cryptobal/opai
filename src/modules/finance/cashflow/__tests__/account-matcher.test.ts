@@ -30,6 +30,7 @@ function makeOccurrence(overrides: Partial<VirtualOccurrence>): VirtualOccurrenc
     hasIpcAdjustment: false,
     ipcAdjustmentMonths: null,
     crmAccountId: null,
+    dteId: null,
     ...overrides,
   };
 }

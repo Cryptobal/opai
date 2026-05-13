@@ -92,6 +92,7 @@ export async function projectIvaFromDte(
           varianceClp: null,
           hasIpcAdjustment: false,
           ipcAdjustmentMonths: null,
+          dteId: null,
         });
       }
     }

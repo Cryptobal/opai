@@ -136,6 +136,7 @@ export async function projectSalesFromContracts(
         varianceClp: null,
         hasIpcAdjustment: false,
         ipcAdjustmentMonths: null,
+        dteId: null,
       });
 
       monthCursor = addMonths(monthCursor, 1);
