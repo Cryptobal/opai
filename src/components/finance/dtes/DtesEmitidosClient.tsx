@@ -24,6 +24,7 @@ import { es } from "date-fns/locale";
 import { FileText, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/opai-ds";
+import { MobileFAB } from "@/components/finance/mobile";
 import { toast } from "sonner";
 import { CederDteDialog } from "../factoring/CederDteDialog";
 import { BulkCederDteDialog } from "../factoring/BulkCederDteDialog";
@@ -1173,6 +1174,17 @@ export function DtesEmitidosClient({
         loading={deletingDraft !== null}
         onConfirm={confirmDeleteDraft}
       />
+
+      {/* FAB mobile para emitir DTE. Solo visible bajo md y cuando el
+          BulkActionBar no está activo (que ocupa el bottom). */}
+      {canManage && selectedIds.size === 0 && (
+        <MobileFAB
+          icon={<Plus className="h-5 w-5" />}
+          label="Emitir DTE"
+          extended
+          onClick={() => router.push("/finanzas/facturacion/emitir")}
+        />
+      )}
     </div>
   );
 }

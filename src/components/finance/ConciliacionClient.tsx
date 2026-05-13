@@ -23,6 +23,13 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
 import { DataTable, EmptyState, type DataTableColumn } from "@/components/opai-ds";
 import {
   ArrowLeft,
@@ -35,6 +42,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useIsMobileViewport } from "@/hooks/useIsMobileViewport";
 
 /* ── Types ── */
 
@@ -589,6 +597,10 @@ function DetailView({
   const [matching, setMatching] = useState(false);
   const [completing, setCompleting] = useState(false);
 
+  // En mobile el form de match no cabe al lado del listado; se abre en
+  // bottom sheet cuando el usuario tap un tx no conciliado.
+  const isMobile = useIsMobileViewport();
+
   const loadDetail = useCallback(async () => {
     try {
       const res = await fetch(
@@ -793,8 +805,8 @@ function DetailView({
       <Card>
         <CardContent className="p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 mb-1 flex-wrap">
                 <h3 className="font-semibold text-lg">
                   {MONTH_LABELS[detail.periodMonth - 1]} {detail.periodYear}
                 </h3>
@@ -805,35 +817,37 @@ function DetailView({
                   {stCfg.label}
                 </Badge>
               </div>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-muted-foreground truncate">
                 {detail.bankAccount.bankName} -{" "}
                 {detail.bankAccount.accountNumber}
               </p>
             </div>
-            <div className="flex items-center gap-4 text-sm">
-              <div className="text-right">
-                <span className="text-muted-foreground text-xs block">
+            {/* 3 saldos. En mobile usamos grid-cols-3 para no apretar; en sm+
+                vuelven a flex right-aligned como antes. */}
+            <div className="grid grid-cols-3 gap-3 text-sm sm:flex sm:items-center sm:gap-4 sm:text-right">
+              <div className="text-left sm:text-right">
+                <span className="text-muted-foreground text-[11px] sm:text-xs block">
                   Saldo banco
                 </span>
-                <span className="font-mono font-medium">
+                <span className="font-mono font-medium tabular-nums text-[13px] sm:text-sm">
                   {fmtCLP.format(detail.bankBalance)}
                 </span>
               </div>
-              <div className="text-right">
-                <span className="text-muted-foreground text-xs block">
+              <div className="text-left sm:text-right">
+                <span className="text-muted-foreground text-[11px] sm:text-xs block">
                   Saldo libro
                 </span>
-                <span className="font-mono font-medium">
+                <span className="font-mono font-medium tabular-nums text-[13px] sm:text-sm">
                   {fmtCLP.format(detail.bookBalance)}
                 </span>
               </div>
-              <div className="text-right">
-                <span className="text-muted-foreground text-xs block">
+              <div className="text-left sm:text-right">
+                <span className="text-muted-foreground text-[11px] sm:text-xs block">
                   Diferencia
                 </span>
                 <span
                   className={cn(
-                    "font-mono font-medium",
+                    "font-mono font-medium tabular-nums text-[13px] sm:text-sm",
                     detail.difference !== 0 && "text-status-warn-fg"
                   )}
                 >
@@ -921,8 +935,10 @@ function DetailView({
           )}
         </div>
 
-        {/* Match form */}
-        <div className="space-y-3">
+        {/* Match form — columna lateral en desktop. En mobile el form se
+            abre como bottom sheet (ver más abajo) para no obligar a
+            scrollear hasta abajo después de seleccionar un movimiento. */}
+        <div className="hidden md:flex md:flex-col md:gap-3">
           <h4 className="text-sm font-medium">Conciliar</h4>
 
           {!canManage || isCompleted ? (
@@ -998,7 +1014,7 @@ function DetailView({
             </Card>
           )}
 
-          {/* Complete button */}
+          {/* Complete button (desktop) */}
           {canManage && !isCompleted && (
             <Button
               variant="outline"
@@ -1016,6 +1032,102 @@ function DetailView({
           )}
         </div>
       </div>
+
+      {/* Botón Completar inline para mobile — sin esto, el usuario nunca
+          ve la acción "Completar" ya que la columna match form vive bajo
+          md:flex. */}
+      {canManage && !isCompleted && (
+        <Button
+          variant="outline"
+          className="md:hidden w-full h-11"
+          onClick={handleComplete}
+          disabled={completing}
+        >
+          {completing ? (
+            <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+          ) : (
+            <Check className="h-4 w-4 mr-1.5" />
+          )}
+          Completar conciliación
+        </Button>
+      )}
+
+      {/* Bottom sheet de match en mobile. Se abre cuando el usuario tap
+          un movimiento sin conciliar (y tiene permisos / no está
+          completada). Reutiliza los handlers existentes. */}
+      <Sheet
+        open={isMobile && selectedTx !== undefined && selectedTx !== null && canManage && !isCompleted}
+        onOpenChange={(o) => {
+          if (!o) setSelectedTxId(null);
+        }}
+      >
+        <SheetContent
+          side="bottom"
+          className="rounded-t-2xl max-h-[85vh] overflow-y-auto"
+        >
+          <SheetHeader className="text-left">
+            <SheetTitle>Conciliar movimiento</SheetTitle>
+            <SheetDescription className="text-xs">
+              Vincula este movimiento bancario a un registro de pago o
+              asiento contable.
+            </SheetDescription>
+          </SheetHeader>
+          {selectedTx && (
+            <div className="mt-4 space-y-4">
+              <div className="rounded-md bg-accent/30 p-3 text-sm">
+                <p className="font-medium">{selectedTx.description}</p>
+                <p className="text-xs text-muted-foreground mt-0.5 font-mono tabular-nums">
+                  {format(
+                    new Date(selectedTx.transactionDate),
+                    "dd MMM yyyy",
+                    { locale: es }
+                  )}{" "}
+                  &middot; {fmtCLP.format(selectedTx.amount)}
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="match-payment-mobile">
+                  ID Registro de pago (opcional)
+                </Label>
+                <Input
+                  id="match-payment-mobile"
+                  placeholder="ID del pago..."
+                  value={matchPaymentId}
+                  onChange={(e) => setMatchPaymentId(e.target.value)}
+                  className="h-11"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="match-journal-mobile">
+                  ID Asiento contable (opcional)
+                </Label>
+                <Input
+                  id="match-journal-mobile"
+                  placeholder="ID del asiento..."
+                  value={matchJournalId}
+                  onChange={(e) => setMatchJournalId(e.target.value)}
+                  className="h-11"
+                />
+              </div>
+
+              <Button
+                className="w-full h-11"
+                onClick={handleMatch}
+                disabled={matching}
+              >
+                {matching ? (
+                  <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                ) : (
+                  <Link2 className="h-4 w-4 mr-1.5" />
+                )}
+                Conciliar movimiento
+              </Button>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
 
       {/* Already matched */}
       {detail.matches.length > 0 && (
