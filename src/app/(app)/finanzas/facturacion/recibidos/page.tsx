@@ -8,7 +8,8 @@ import {
   hasCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHero, ModuleSubNav } from "@/components/opai-ds";
+import { PageHero } from "@/components/opai-ds";
+import { FinanceN3Chips } from "@/components/finance/FinanceN3Chips";
 import { Button } from "@/components/ui/button";
 import { FileInput, Plus } from "lucide-react";
 import { FacturacionClient } from "@/components/finance/FacturacionClient";
@@ -70,7 +71,7 @@ export default async function DtesRecibidosPage() {
           ) : undefined
         }
       />
-      <ModuleSubNav moduleKey="finance-compras-ventas" visibility="always" />
+      <FinanceN3Chips submoduleKey="finance-compras-ventas" />
       <FacturacionClient
         dtes={[]}
         issuedTotal={0}

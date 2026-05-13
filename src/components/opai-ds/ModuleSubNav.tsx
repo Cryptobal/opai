@@ -37,6 +37,7 @@ import { usePathname } from "next/navigation";
 import { useTenantModules } from "@/contexts/TenantModulesContext";
 import { usePermissions } from "@/lib/permissions-context";
 import {
+  findChildByKey,
   findN3Parent,
   getModule,
   isNodeVisible,
@@ -149,22 +150,3 @@ export function ModuleSubNav({
   );
 }
 
-/* ── helpers ── */
-
-import { NAV_MODULES } from "@/lib/nav/registry";
-
-function findChildByKey(key: string): NavNode | undefined {
-  const visit = (node: NavNode): NavNode | undefined => {
-    if (node.key === key) return node;
-    for (const c of node.children ?? []) {
-      const r = visit(c);
-      if (r) return r;
-    }
-    return undefined;
-  };
-  for (const m of NAV_MODULES) {
-    const r = visit(m);
-    if (r) return r;
-  }
-  return undefined;
-}

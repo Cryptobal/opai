@@ -7,6 +7,7 @@ import {
   hasCapability,
 } from "@/lib/permissions-server";
 import { PageHero } from "@/components/opai-ds";
+import { FinanceN3Chips } from "@/components/finance/FinanceN3Chips";
 import { LayoutDashboard } from "lucide-react";
 import { DashboardClient } from "@/components/finance/reports/DashboardClient";
 import { buildPeriod } from "@/modules/finance/reports/shared/period.helper";
@@ -41,6 +42,7 @@ export default async function ReportsPage() {
         subtitle="visión 360°"
         description="KPIs clave, tendencias y rankings en tiempo real."
       />
+      <FinanceN3Chips submoduleKey="finance-informes" />
       <DashboardClient initialPeriod={period} initialKpis={initialKpis} />
     </div>
   );

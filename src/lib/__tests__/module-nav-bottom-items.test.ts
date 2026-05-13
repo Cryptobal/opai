@@ -98,16 +98,54 @@ describe("getBottomNavItems — back-compat snapshots", () => {
     expect(hrefs).toContain("/finanzas/reportes");
   });
 
-  it("Reportes inner → dashboard, EERR, balance, ventas, compras, rentab, mayor", () => {
+  it("Reportes inner → bottom nav shows N2 (finance children), no N3 dropdown", () => {
     const items = getBottomNavItems("/finanzas/reportes/eerr", "owner", ALL_ENABLED);
     const hrefs = items.map((i) => i.href);
+    // N2 finance items (PR: bottom nav always shows N2 inside /finanzas)
+    expect(hrefs).toContain("/finanzas/rendiciones");
+    expect(hrefs).toContain("/finanzas/facturacion");
+    expect(hrefs).toContain("/finanzas/bancos");
+    expect(hrefs).toContain("/finanzas/contabilidad");
     expect(hrefs).toContain("/finanzas/reportes");
-    expect(hrefs).toContain("/finanzas/reportes/eerr");
-    expect(hrefs).toContain("/finanzas/reportes/balance");
-    expect(hrefs).toContain("/finanzas/reportes/ventas");
-    expect(hrefs).toContain("/finanzas/reportes/compras");
-    expect(hrefs).toContain("/finanzas/reportes/rentabilidad");
-    expect(hrefs).toContain("/finanzas/reportes/mayor");
+    // N3 reportes children should NOT appear (chips live above the hero now)
+    expect(hrefs).not.toContain("/finanzas/reportes/eerr");
+    expect(hrefs).not.toContain("/finanzas/reportes/balance");
+  });
+
+  it("Facturación inner → bottom nav shows N2 finance items, not N3 DTEs", () => {
+    const items = getBottomNavItems("/finanzas/facturacion/dtes", "owner", ALL_ENABLED);
+    const hrefs = items.map((i) => i.href);
+    expect(hrefs).toContain("/finanzas/rendiciones");
+    expect(hrefs).toContain("/finanzas/facturacion");
+    expect(hrefs).toContain("/finanzas/bancos");
+    expect(hrefs).toContain("/finanzas/contabilidad");
+    expect(hrefs).toContain("/finanzas/reportes");
+    expect(hrefs).not.toContain("/finanzas/facturacion/dtes");
+    expect(hrefs).not.toContain("/finanzas/facturacion/cesiones");
+  });
+
+  it("Rendiciones inner → bottom nav shows N2 finance items, not N3 historial", () => {
+    const items = getBottomNavItems(
+      "/finanzas/rendiciones/historial-pagos",
+      "owner",
+      ALL_ENABLED,
+    );
+    const hrefs = items.map((i) => i.href);
+    expect(hrefs).toContain("/finanzas/rendiciones");
+    expect(hrefs).toContain("/finanzas/facturacion");
+    expect(hrefs).toContain("/finanzas/bancos");
+    expect(hrefs).toContain("/finanzas/contabilidad");
+    expect(hrefs).toContain("/finanzas/reportes");
+    expect(hrefs).not.toContain("/finanzas/rendiciones/historial-pagos");
+  });
+
+  it("Ops Rondas inner still shows N3 (no regression)", () => {
+    const items = getBottomNavItems("/ops/rondas/alertas", "owner", ALL_ENABLED);
+    const hrefs = items.map((i) => i.href);
+    expect(hrefs).toContain("/ops/rondas");
+    expect(hrefs).toContain("/ops/rondas/monitoreo");
+    expect(hrefs).toContain("/ops/rondas/alertas");
+    expect(hrefs).toContain("/ops/rondas/reportes");
   });
 
   it("Personas inner → listado, conocimiento, onboarding, comunicaciones, sueldos, gamificación, psicolab", () => {

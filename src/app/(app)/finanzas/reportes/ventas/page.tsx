@@ -7,6 +7,7 @@ import {
   hasCapability,
 } from "@/lib/permissions-server";
 import { PageHero } from "@/components/opai-ds";
+import { FinanceN3Chips } from "@/components/finance/FinanceN3Chips";
 import { Grid3x3 } from "lucide-react";
 import { SalesMatrixClient } from "@/components/finance/reports/SalesMatrixClient";
 import { buildPeriod } from "@/modules/finance/reports/shared/period.helper";
@@ -35,6 +36,7 @@ export default async function VentasPage() {
         subtitle="heatmap mensual"
         description="Facturación por centro de costo (CrmAccount) por mes. Espejo F29."
       />
+      <FinanceN3Chips submoduleKey="finance-informes" />
       <SalesMatrixClient initialPeriod={period} initialData={initial} />
     </div>
   );

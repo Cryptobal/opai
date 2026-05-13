@@ -725,6 +725,23 @@ export function findActiveModule(pathname: string): NavNode | undefined {
   return best?.node;
 }
 
+/** Find any node in the tree by its key (DFS across all modules). */
+export function findChildByKey(key: string): NavNode | undefined {
+  const visit = (node: NavNode): NavNode | undefined => {
+    if (node.key === key) return node;
+    for (const c of node.children ?? []) {
+      const r = visit(c);
+      if (r) return r;
+    }
+    return undefined;
+  };
+  for (const m of NAV_MODULES) {
+    const r = visit(m);
+    if (r) return r;
+  }
+  return undefined;
+}
+
 /** Find the deepest N3 parent that contains this pathname (for SubNav N3 rendering) */
 export function findN3Parent(pathname: string): NavNode | undefined {
   let best: { node: NavNode; len: number } | undefined;
@@ -760,8 +777,7 @@ const PAUTAS_ROUTES = [
  *  - Inside Pautas routes → returns Pautas children (N3 promoted to bottom).
  *  - Inside Rondas → Rondas children.
  *  - Inside Inventario → Inventario children.
- *  - Inside Reportes → Informes children.
- *  - Inside Facturación nested routes → Facturación children.
+ *  - Inside Supervisión → Supervisión children.
  *  - Otherwise → top-level children of the active module. */
 export function getContextualBottomNavNodes(pathname: string): NavNode[] {
   // Pautas — special: any of the PAUTAS_ROUTES → Pautas children
@@ -783,35 +799,6 @@ export function getContextualBottomNavNodes(pathname: string): NavNode[] {
     const opsModule = getModule("ops");
     const inv = opsModule?.children?.find((c) => c.key === "ops-inventario");
     if (inv?.children) return inv.children;
-  }
-
-  // Reportes Finanzas
-  if (pathname === "/finanzas/reportes" || pathname.startsWith("/finanzas/reportes/")) {
-    const fin = getModule("finance");
-    const informes = fin?.children?.find((c) => c.key === "finance-informes");
-    if (informes?.children) return informes.children;
-  }
-
-  // Rendiciones (incluye aprobaciones y pagos)
-  if (
-    pathname === "/finanzas/rendiciones" ||
-    pathname.startsWith("/finanzas/rendiciones/")
-  ) {
-    const fin = getModule("finance");
-    const rendNode = fin?.children?.find((c) => c.key === "finance-rendiciones");
-    if (rendNode?.children) return rendNode.children;
-  }
-
-  // Ventas / Facturación (incluye DTEs, programación, libro IVA, folios, cesiones)
-  if (
-    pathname === "/finanzas/facturacion" ||
-    pathname.startsWith("/finanzas/facturacion/")
-  ) {
-    const fin = getModule("finance");
-    const ventasNode = fin?.children?.find(
-      (c) => c.key === "finance-compras-ventas" || c.key === "finance-ventas",
-    );
-    if (ventasNode?.children) return ventasNode.children;
   }
 
   // Supervisión

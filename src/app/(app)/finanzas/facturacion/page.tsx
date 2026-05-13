@@ -7,7 +7,8 @@ import {
   hasCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHero, ModuleSubNav } from "@/components/opai-ds";
+import { PageHero } from "@/components/opai-ds";
+import { FinanceN3Chips } from "@/components/finance/FinanceN3Chips";
 import { FileText } from "lucide-react";
 import { FacturacionClient } from "@/components/finance/FacturacionClient";
 import { getFolioStatus } from "@/modules/finance/billing/folio.service";
@@ -270,7 +271,7 @@ export default async function FacturacionPage() {
         subtitle="DTE Chile"
         description="Emisión y gestión de documentos tributarios electrónicos (DTE)."
       />
-      <ModuleSubNav moduleKey="finance-compras-ventas" visibility="always" />
+      <FinanceN3Chips submoduleKey="finance-compras-ventas" />
       <FacturacionClient
         dtes={dtesData}
         issuedTotal={issuedTotal}

@@ -11,7 +11,8 @@ import {
   hasModuleAccess,
   resolvePagePerms,
 } from "@/lib/permissions-server";
-import { PageHero, ModuleSubNav } from "@/components/opai-ds";
+import { PageHero } from "@/components/opai-ds";
+import { FinanceN3Chips } from "@/components/finance/FinanceN3Chips";
 import {
   getFactoringKpis,
   listFactoringOperations,
@@ -72,7 +73,7 @@ export default async function FactoringOperationsPage() {
         subtitle="Factoring electrónico"
         description="Operaciones de cesión a empresas de factoring, con anticipos, intereses, comisiones y trazabilidad SII."
       />
-      <ModuleSubNav moduleKey="finance-compras-ventas" visibility="always" />
+      <FinanceN3Chips submoduleKey="finance-compras-ventas" />
       <CesionesTabs />
       <FactoringOperationsClient
         initialOperations={initialOperations}

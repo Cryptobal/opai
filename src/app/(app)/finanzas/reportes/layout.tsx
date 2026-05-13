@@ -7,8 +7,6 @@ import {
   canView,
   hasCapability,
 } from "@/lib/permissions-server";
-import { ModuleSubNav } from "@/components/opai-ds";
-
 export default async function ReportsLayout({ children }: { children: ReactNode }) {
   const session = await auth();
   if (!session?.user) redirect("/opai/login?callbackUrl=/finanzas/reportes");
@@ -17,10 +15,7 @@ export default async function ReportsLayout({ children }: { children: ReactNode 
   if (!canView(perms, "finance", "reportes") && !hasCapability(perms, "finance_reports_view")) {
     redirect("/finanzas");
   }
-  return (
-    <div className="space-y-3 min-w-0">
-      <ModuleSubNav moduleKey="finance-informes" />
-      <div className="min-w-0">{children}</div>
-    </div>
-  );
+  // El N3 (chips) lo monta cada page DEBAJO del PageHero, manteniendo el
+  // orden estándar: breadcrumb → N2 → Hero → N3 → contenido.
+  return <div className="min-w-0">{children}</div>;
 }

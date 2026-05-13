@@ -7,6 +7,7 @@ import {
   hasCapability,
 } from "@/lib/permissions-server";
 import { PageHero } from "@/components/opai-ds";
+import { FinanceN3Chips } from "@/components/finance/FinanceN3Chips";
 import { Scale } from "lucide-react";
 import { BalanceSheetClient } from "@/components/finance/reports/BalanceSheetClient";
 import { getBalanceSheet } from "@/modules/finance/reports/balance-sheet.service";
@@ -39,6 +40,7 @@ export default async function BalancePage() {
         subtitle="situación patrimonial"
         description="Activo, pasivo y patrimonio a la fecha de corte. Solo asientos POSTED."
       />
+      <FinanceN3Chips submoduleKey="finance-informes" />
       <BalanceSheetClient initialAsOf={asOf} initialData={initial} initialCompare />
     </div>
   );
