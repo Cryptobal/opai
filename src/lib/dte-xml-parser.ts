@@ -296,6 +296,78 @@ export interface DteIdentity {
   total: number;
 }
 
+/**
+ * Líneas mínimas extraídas del XML sin requerir TED ni signature.
+ *
+ * Útil para flujos que necesitan poblar `FinanceDteLine` desde un XML
+ * adjunto a un DTE legacy (ej: factura cargada manual al sistema que
+ * después recibe el XML firmado del portal SII para poder emitir NCs
+ * con detalle precargado).
+ */
+export interface DteLineFromXml {
+  lineNumber: number;
+  itemCode: string | null;
+  itemName: string;
+  description: string | null;
+  quantity: number;
+  unit: string | null;
+  unitPrice: number;
+  netAmount: number;
+  isExempt: boolean;
+}
+
+export function extractDteLines(xmlBuffer: Buffer): DteLineFromXml[] {
+  const xml = xmlBuffer.toString("utf-8");
+  const parser = new XMLParser({
+    ignoreAttributes: false,
+    parseAttributeValue: false,
+    parseTagValue: false,
+    trimValues: true,
+  });
+
+  let parsed: any;
+  try {
+    parsed = parser.parse(xml);
+  } catch (err) {
+    throw new Error(
+      `XML inválido: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+
+  const dteNodes = findDteNodes(parsed);
+  if (dteNodes.length === 0) {
+    throw new Error("XML no contiene <DTE><Documento>.");
+  }
+  if (dteNodes.length > 1) {
+    throw new Error(
+      `El envelope contiene ${dteNodes.length} DTEs; extractDteLines solo soporta uno.`,
+    );
+  }
+  const documento = dteNodes[0]?.Documento;
+  if (!documento) {
+    throw new Error("XML no contiene <Documento> dentro de <DTE>.");
+  }
+
+  const detalleRaw = documento.Detalle ?? [];
+  const detalleArr = Array.isArray(detalleRaw) ? detalleRaw : [detalleRaw];
+  return detalleArr
+    .filter(Boolean)
+    .map((d: any, i: number) => {
+      const nroLinea = parseInt(String(d.NroLinDet ?? "0"), 10);
+      return {
+        lineNumber: nroLinea > 0 ? nroLinea : i + 1,
+        itemCode: extractCodigoItem(d),
+        itemName: String(d.NmbItem ?? ""),
+        description: d.DscItem ? String(d.DscItem) : null,
+        quantity: parseFloat(String(d.QtyItem ?? "0")),
+        unit: d.UnmdItem ? String(d.UnmdItem) : null,
+        unitPrice: parseFloat(String(d.PrcItem ?? "0")),
+        netAmount: parseInt(String(d.MontoItem ?? "0"), 10),
+        isExempt: d.IndExe === "1" || d.IndExe === 1,
+      };
+    });
+}
+
 export function extractDteIdentity(xmlBuffer: Buffer): DteIdentity {
   const xml = xmlBuffer.toString("utf-8");
   const parser = new XMLParser({
