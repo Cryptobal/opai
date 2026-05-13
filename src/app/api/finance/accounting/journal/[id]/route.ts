@@ -4,7 +4,7 @@ import {
   unauthorized,
   resolveApiPerms,
 } from "@/lib/api-auth";
-import { canView } from "@/lib/permissions";
+import { hasCapability } from "@/lib/permissions";
 import { getEntry } from "@/modules/finance/accounting/journal-entry.service";
 
 export async function GET(
@@ -15,7 +15,7 @@ export async function GET(
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const perms = await resolveApiPerms(ctx);
-    if (!canView(perms, "finance")) {
+    if (!hasCapability(perms, "accounting_view")) {
       return NextResponse.json(
         { success: false, error: "Sin permisos" },
         { status: 403 }

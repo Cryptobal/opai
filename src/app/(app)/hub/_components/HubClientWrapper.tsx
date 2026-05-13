@@ -35,6 +35,7 @@ import type {
   AtsMetrics,
   PayrollMetrics,
   PersonasMetrics,
+  FinanceCaps,
 } from '../_lib/hub-types';
 
 export interface HubClientWrapperProps {
@@ -43,6 +44,7 @@ export interface HubClientWrapperProps {
   opsMetrics: OpsMetrics | null;
   closingData: ClosingHubData | null;
   financeMetrics: FinanceMetrics | null;
+  financeCaps: FinanceCaps;
   notifications: HubNotification[];
   ticketMetrics: TicketMetrics;
   activities: ActivityEntry[];
@@ -61,6 +63,7 @@ export function HubClientWrapper({
   opsMetrics,
   closingData,
   financeMetrics,
+  financeCaps,
   ticketMetrics,
   activities,
   supervisionMetrics,
@@ -132,6 +135,7 @@ export function HubClientWrapper({
       {financeMetrics && hubPerms.hasFinance && (
         <HubFinanzasSection
           financeMetrics={financeMetrics}
+          financeCaps={financeCaps}
           opsMetrics={opsMetrics}
         />
       )}

@@ -26,6 +26,10 @@ import { AccountBillingDocSection } from "@/components/crm/AccountBillingDocSect
 import { DetailField } from "./DetailField";
 import { CrmRelatedRecordCard, CrmRelatedRecordGrid } from "./CrmRelatedRecordCard";
 import { AssociatedTicketsSection } from "./AssociatedTicketsSection";
+import {
+  AccountFacturacionSection,
+  type AccountFacturacion,
+} from "./account/AccountFacturacionSection";
 import { CRM_MODULES } from "./CrmModuleIcons";
 import {
   MapPin,
@@ -236,11 +240,13 @@ export function CrmAccountDetailClient({
   quotes = [],
   activityEvents = [],
   currentUserId,
+  facturacion = null,
 }: {
   account: AccountDetail;
   quotes?: QuoteRow[];
   activityEvents?: ActivityEvent[];
   currentUserId: string;
+  facturacion?: AccountFacturacion | null;
 }) {
   const router = useRouter();
   const chatCtx = useChatSidePanelContext();
@@ -1066,6 +1072,23 @@ export function CrmAccountDetailClient({
         </div>
       ),
     },
+    // Facturación SII: solo aparece si el server cargó los DTEs (es decir,
+    // si el usuario tiene purchases_view). Roles sin esa capability nunca ven
+    // la sección — el dato directamente no viaja al cliente.
+    ...(facturacion
+      ? [{
+          id: "facturacion",
+          label: "Facturación SII",
+          icon: Receipt,
+          count: facturacion.dtes.length,
+          content: (
+            <AccountFacturacionSection
+              accountId={account.id}
+              facturacion={facturacion}
+            />
+          ),
+        }]
+      : []),
     {
       id: "tickets",
       label: "Tickets",

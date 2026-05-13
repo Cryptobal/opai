@@ -50,6 +50,16 @@ export default async function HubPage() {
   const thirtyDaysAgo = new Date(now);
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
+  // Capabilities granulares de finanzas — gobiernan qué KPIs financieros se
+  // calculan en el server component y qué cards renderiza el cliente. Si el
+  // usuario no tiene la capability, la query subyacente no se ejecuta y el
+  // server jamás envía ese dato al cliente.
+  const financeCaps = {
+    banking_view: hasCapability(perms, 'banking_view'),
+    cashflow_view: hasCapability(perms, 'cashflow_view'),
+    purchases_view: hasCapability(perms, 'purchases_view'),
+  };
+
   // Resolve module access and capabilities
   const hubPerms: HubPerms = {
     hasCrm: hasModuleAccess(perms, 'crm'),
@@ -88,7 +98,7 @@ export default async function HubPage() {
     personasMetrics,
   ] = await Promise.all([
     hubPerms.hasCrm ? getClosingHubData(tenantId, thirtyDaysAgo, now) : null,
-    hubPerms.hasFinance ? getFinanceMetrics(tenantId) : null,
+    hubPerms.hasFinance ? getFinanceMetrics(tenantId, financeCaps) : null,
     hubPerms.hasOps ? getOpsMetrics(tenantId) : null,
     getRecentActivity(tenantId),
     getNotifications(tenantId, session.user.id, perms),
@@ -116,6 +126,7 @@ export default async function HubPage() {
       opsMetrics={opsMetrics}
       closingData={closingData}
       financeMetrics={financeMetrics}
+      financeCaps={financeCaps}
       notifications={notifications}
       ticketMetrics={ticketMetrics}
       activities={activities}

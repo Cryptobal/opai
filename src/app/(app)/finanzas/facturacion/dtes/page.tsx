@@ -10,13 +10,16 @@ import { prisma } from "@/lib/prisma";
 import { PageHero } from "@/components/opai-ds";
 import { FinanceN3Chips } from "@/components/finance/FinanceN3Chips";
 import { Button } from "@/components/ui/button";
-import { FileText, Plus } from "lucide-react";
+import { FileText, Plus, X } from "lucide-react";
 import { DtesEmitidosClient } from "@/components/finance/dtes/DtesEmitidosClient";
 
 interface SearchParams {
   siiStatus?: string;
   /** UNPAID | PARTIAL | OVERDUE | PAID — proviene de deeplinks de Salud Financiera. */
   paymentStatus?: string;
+  /** Filtra el listado a los DTEs cuyo `crmAccountId === accountId`.
+   *  Lo setea la ficha CRM (link "Ver todas las facturas de esta cuenta"). */
+  accountId?: string;
 }
 
 export default async function DtesEmitidosPage({
@@ -47,10 +50,21 @@ export default async function DtesEmitidosPage({
   // por mes desde el drawer (incluido "Mes en curso"). Antes filtrábamos
   // por mes en curso acá, lo que junto al chip "Período CURRENT_MONTH"
   // del cliente ocultaba DTEs de otros meses incluso al buscar por folio.
+  const accountFilter = sp.accountId ?? null;
   const initialWhere = {
     tenantId,
     direction: "ISSUED" as const,
+    ...(accountFilter ? { crmAccountId: accountFilter } : {}),
   };
+
+  // Si vino accountId, resolvemos el nombre para renderizar el chip de
+  // filtro. Validamos tenant para no exponer cuentas cruzadas.
+  const accountFilterRow = accountFilter
+    ? await prisma.crmAccount.findFirst({
+        where: { id: accountFilter, tenantId },
+        select: { id: true, name: true },
+      })
+    : null;
 
   const [dtes, issuedTotal, suppliers] = await Promise.all([
     prisma.financeDte.findMany({
@@ -249,6 +263,20 @@ export default async function DtesEmitidosPage({
         }
       />
       <FinanceN3Chips submoduleKey="finance-compras-ventas" />
+      {accountFilterRow && (
+        <div className="flex items-center gap-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
+          <span className="text-ds-text-3">Filtrado por cuenta:</span>
+          <span className="font-medium">{accountFilterRow.name}</span>
+          <Link
+            href="/finanzas/facturacion/dtes"
+            className="ml-auto inline-flex items-center gap-1 text-xs text-primary hover:underline"
+            aria-label="Quitar filtro de cuenta"
+          >
+            <X className="h-3 w-3" />
+            Quitar
+          </Link>
+        </div>
+      )}
       <DtesEmitidosClient
         dtes={dtesData}
         issuedTotal={issuedTotal}
