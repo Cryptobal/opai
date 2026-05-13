@@ -369,18 +369,42 @@ export function LineDetailSurface({
             )}
           </div>
           <div className="relative">
-            <Input
-              id={`line-price-${index}`}
-              type="number"
-              min={0}
-              step={lineCurrency === "UF" ? "0.0001" : "1"}
-              inputMode="decimal"
-              value={value.unitPrice}
-              onChange={(e) => onChange({ unitPrice: e.target.value })}
-              className="h-10 sm:h-9 text-sm text-right tabular-nums pr-12"
-              placeholder="0"
-              autoComplete="off"
-            />
+            {lineCurrency === "CLP" ? (
+              // CLP: input texto con separador de miles ("1.234.567"). El
+              // valor interno sigue siendo string sin puntos ("1234567")
+              // para que parseFloat funcione downstream. type="number" no
+              // permite formatear con separadores y mostraba "4459203"
+              // como un dígito corrido.
+              <Input
+                id={`line-price-${index}`}
+                type="text"
+                inputMode="numeric"
+                value={formatClpInputDisplay(value.unitPrice)}
+                onChange={(e) => {
+                  // Stripeamos todo lo que no sea dígito antes de
+                  // persistir en el state — así pegues "1.234.567" o
+                  // "$1.234", queda "1234567" / "1234".
+                  const raw = e.target.value.replace(/[^\d]/g, "");
+                  onChange({ unitPrice: raw });
+                }}
+                className="h-10 sm:h-9 text-sm text-right tabular-nums pr-12"
+                placeholder="0"
+                autoComplete="off"
+              />
+            ) : (
+              <Input
+                id={`line-price-${index}`}
+                type="number"
+                min={0}
+                step="0.0001"
+                inputMode="decimal"
+                value={value.unitPrice}
+                onChange={(e) => onChange({ unitPrice: e.target.value })}
+                className="h-10 sm:h-9 text-sm text-right tabular-nums pr-12"
+                placeholder="0"
+                autoComplete="off"
+              />
+            )}
             <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[11px] font-mono text-ds-text-3">
               {lineCurrency}
             </span>
@@ -499,3 +523,21 @@ export function lineDiscountToPct(line: LineDetailValue): number {
 
 // Re-export para evitar import duplicado en formularios.
 export { fmtClpQuick };
+
+/**
+ * Formatea el value del input de precio CLP para mostrar separador de
+ * miles ("1234567" → "1.234.567"). Sin moneda ni símbolo — el sufijo
+ * "CLP" lo agrega el JSX adyacente. Conserva el string vacío para que
+ * el placeholder "0" se siga viendo cuando el usuario aún no tipea.
+ *
+ * Tolera entradas con caracteres extra (puntos, espacios, símbolos):
+ * antes de formatear normaliza al dígito puro.
+ */
+function formatClpInputDisplay(raw: string): string {
+  if (!raw) return "";
+  const digits = raw.replace(/[^\d]/g, "");
+  if (!digits) return "";
+  const n = parseInt(digits, 10);
+  if (!Number.isFinite(n)) return "";
+  return n.toLocaleString("es-CL");
+}

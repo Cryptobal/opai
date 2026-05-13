@@ -298,6 +298,14 @@ function templateToDraftInput(
     notes,
     additionalReferences: (t.additionalReferences as DraftDteInput["additionalReferences"]) ?? undefined,
     autoSendEmail: t.autoSendEmail,
+    // Plan de Documento de Cobro: si la plantilla está configurada para
+    // mandar proforma o estado de pago automáticamente, dejamos el flag
+    // `require*` activo en el borrador para que la UI lo refleje (badge
+    // "Proforma pendiente" / "Estado de pago pendiente") y los listados
+    // filtren correctamente. El cron además dispara `sendBillingDocument`
+    // más abajo en `runTemplate` para enviarlos en el acto.
+    requireProforma: t.autoSendProforma,
+    requireEstadoPago: t.autoSendPaymentStatement,
   };
 }
 
