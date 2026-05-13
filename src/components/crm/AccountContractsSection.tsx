@@ -95,7 +95,38 @@ interface Contract {
 interface Props {
   accountId: string;
   accountName: string;
+  // Datos del CrmAccount necesarios para pre-rellenar la plantilla de
+  // factura recurrente (SII). Todos opcionales: si faltan, el usuario los
+  // completa en el modal antes de crear la plantilla.
+  accountRut?: string | null;
+  accountLegalName?: string | null;
+  accountGiro?: string | null;
+  accountAddress?: string | null;
+  accountCommune?: string | null;
+  accountCity?: string | null;
+  accountEmail?: string | null;
   onRefresh?: () => void;
+}
+
+// ─── RUT helper (DV check, espejo del validador del schema Zod en
+// /lib/validations/finance.ts). Lo dejamos local para no exportar desde el
+// archivo de validaciones del server y evitar inflar el bundle del cliente
+// con dependencias innecesarias.
+function validateRutDVClient(rut: string): boolean {
+  const clean = rut.replace(/[^\dKk]/g, "").toUpperCase();
+  if (clean.length < 2) return false;
+  const cuerpo = clean.slice(0, -1);
+  const dv = clean.slice(-1);
+  if (!/^\d+$/.test(cuerpo)) return false;
+  let suma = 0;
+  let multi = 2;
+  for (let i = cuerpo.length - 1; i >= 0; i--) {
+    suma += parseInt(cuerpo[i], 10) * multi;
+    multi = multi === 7 ? 2 : multi + 1;
+  }
+  const resto = 11 - (suma % 11);
+  const dvCalc = resto === 11 ? "0" : resto === 10 ? "K" : String(resto);
+  return dv === dvCalc;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -168,6 +199,13 @@ function daysUntil(d: string | null): number | null {
 export function AccountContractsSection({
   accountId,
   accountName,
+  accountRut,
+  accountLegalName,
+  accountGiro,
+  accountAddress,
+  accountCommune,
+  accountCity,
+  accountEmail,
   onRefresh,
 }: Props) {
   const router = useRouter();
@@ -209,6 +247,38 @@ export function AccountContractsSection({
   // existe en el modal de edición.
   const [uploadHasIpc, setUploadHasIpc] = useState(false);
   const [uploadIpcMonths, setUploadIpcMonths] = useState<string>("12");
+
+  // ── Plantilla de Factura Recurrente (SII) ──
+  // Cuando el contrato genera ingreso al flujo de caja, opcionalmente
+  // creamos también una `FinanceDteRecurringTemplate` que el cron diario
+  // usa para generar borradores DTE mensuales (revisa+emite el usuario).
+  // Pre-rellenamos con los datos del CrmAccount; el usuario puede editar
+  // todo antes de guardar.
+  const [recurringEnabled, setRecurringEnabled] = useState(false);
+  const [recurringName, setRecurringName] = useState<string>("");
+  const [recurringDteType, setRecurringDteType] = useState<"33" | "34">("33");
+  const [recurringRut, setRecurringRut] = useState<string>("");
+  const [recurringReceiverName, setRecurringReceiverName] = useState<string>("");
+  const [recurringEmail, setRecurringEmail] = useState<string>("");
+  const [recurringGiro, setRecurringGiro] = useState<string>("");
+  const [recurringAddress, setRecurringAddress] = useState<string>("");
+  const [recurringComuna, setRecurringComuna] = useState<string>("");
+  const [recurringCiudad, setRecurringCiudad] = useState<string>("");
+  const [recurringFrequency, setRecurringFrequency] = useState<
+    "monthly" | "biweekly" | "weekly" | "yearly"
+  >("monthly");
+  const [recurringDayOfWeek, setRecurringDayOfWeek] = useState<string>("1");
+  const [recurringMonthOfYear, setRecurringMonthOfYear] = useState<string>("1");
+  const [recurringPeriodPolicy, setRecurringPeriodPolicy] = useState<
+    "CURRENT_MONTH" | "PREVIOUS_MONTH" | "NEXT_MONTH"
+  >("CURRENT_MONTH");
+  const [recurringUfFixingPolicy, setRecurringUfFixingPolicy] = useState<
+    "RUN_DAY" | "LAST_DAY_PREV_MONTH" | "FIRST_DAY_MONTH" | "LAST_DAY_MONTH"
+  >("LAST_DAY_PREV_MONTH");
+  const [recurringAutoSendEmail, setRecurringAutoSendEmail] = useState<boolean>(true);
+  const [recurringLineDescription, setRecurringLineDescription] =
+    useState<string>("Servicios mensuales — {{periodo}}");
+
   // Diálogo "Configurar flujo de caja" por contrato individual.
 
   // Cotizaciones aceptadas con flujo de caja (CpqQuote-derived). Históricamente
@@ -369,7 +439,36 @@ export function AccountContractsSection({
     setUploadPendingSignature(false);
     setUploadHasIpc(false);
     setUploadIpcMonths("12");
-  }, []);
+    // Recurring template: re-hidratamos defaults desde los props del
+    // CrmAccount. Si el usuario ya editó algún campo, igual los pisamos
+    // — este reset corre al cerrar el modal.
+    setRecurringEnabled(false);
+    setRecurringName("");
+    setRecurringDteType("33");
+    setRecurringRut(accountRut ?? "");
+    setRecurringReceiverName(accountLegalName ?? accountName);
+    setRecurringEmail(accountEmail ?? "");
+    setRecurringGiro(accountGiro ?? "");
+    setRecurringAddress(accountAddress ?? "");
+    setRecurringComuna(accountCommune ?? "");
+    setRecurringCiudad(accountCity ?? "");
+    setRecurringFrequency("monthly");
+    setRecurringDayOfWeek("1");
+    setRecurringMonthOfYear("1");
+    setRecurringPeriodPolicy("CURRENT_MONTH");
+    setRecurringUfFixingPolicy("LAST_DAY_PREV_MONTH");
+    setRecurringAutoSendEmail(true);
+    setRecurringLineDescription("Servicios mensuales — {{periodo}}");
+  }, [
+    accountRut,
+    accountLegalName,
+    accountName,
+    accountEmail,
+    accountGiro,
+    accountAddress,
+    accountCommune,
+    accountCity,
+  ]);
 
   // ─── Abrir modal en modo "sin contrato firmado" ───────────────
   // Permite proyectar el ingreso al flujo de caja antes de tener el PDF.
@@ -419,6 +518,34 @@ export function AccountContractsSection({
         return "Indica el monto mensual del contrato";
       if (!uploadPaymentDay) return "Indica el día de pago";
     }
+    // Validaciones extra cuando el usuario quiere crear la plantilla
+    // recurrente: el endpoint exige RUT con DV correcto, razón social y
+    // los parámetros de frecuencia coherentes.
+    if (recurringEnabled && uploadAddToCashflow) {
+      if (!recurringName.trim()) return "Plantilla recurrente: indica un nombre";
+      if (!recurringRut.trim()) return "Plantilla recurrente: RUT receptor requerido";
+      if (!validateRutDVClient(recurringRut))
+        return "Plantilla recurrente: RUT inválido (dígito verificador no coincide)";
+      if (!recurringReceiverName.trim())
+        return "Plantilla recurrente: razón social del receptor requerida";
+      if (recurringEmail && !/^\S+@\S+\.\S+$/.test(recurringEmail))
+        return "Plantilla recurrente: email receptor inválido";
+      if (recurringFrequency === "monthly" || recurringFrequency === "yearly") {
+        const d = Number(uploadPaymentDay);
+        if (!Number.isFinite(d) || d === 0 || d < -1 || d > 31)
+          return "Plantilla recurrente: día del mes inválido (1-31 o -1)";
+      }
+      if (recurringFrequency === "weekly" || recurringFrequency === "biweekly") {
+        const w = Number(recurringDayOfWeek);
+        if (!Number.isFinite(w) || w < 0 || w > 6)
+          return "Plantilla recurrente: día de la semana inválido (0-6)";
+      }
+      if (recurringFrequency === "yearly") {
+        const m = Number(recurringMonthOfYear);
+        if (!Number.isFinite(m) || m < 1 || m > 12)
+          return "Plantilla recurrente: mes del año inválido (1-12)";
+      }
+    }
     return null;
   }, [
     uploadFile,
@@ -430,6 +557,15 @@ export function AccountContractsSection({
     uploadPendingSignature,
     uploadMonthlyAmount,
     uploadPaymentDay,
+    uploadAddToCashflow,
+    recurringEnabled,
+    recurringName,
+    recurringRut,
+    recurringReceiverName,
+    recurringEmail,
+    recurringFrequency,
+    recurringDayOfWeek,
+    recurringMonthOfYear,
   ]);
 
   // ─── Submit upload ─────────────────────────────────────────────
@@ -529,11 +665,97 @@ export function AccountContractsSection({
       });
       const data = await res.json();
       if (data.success) {
-        toast.success(
-          uploadPendingSignature
-            ? "Ingreso agregado al flujo de caja · contrato pendiente"
-            : "Contrato subido exitosamente",
-        );
+        // Si el usuario activó la plantilla de factura recurrente, la
+        // creamos AHORA (post-contrato OK) para no dejar plantilla
+        // huérfana si la creación del contrato falla. Si la plantilla
+        // falla, no se anula el contrato — sólo mostramos toast con el
+        // error para que el usuario la cree manualmente desde
+        // Facturación → Programación.
+        let recurringWarning: string | null = null;
+        if (recurringEnabled && uploadAddToCashflow && Number.isFinite(amt) && (amt ?? 0) > 0) {
+          try {
+            const startISO = uploadEffective || todayISO();
+            const endISO = uploadExpiration || undefined;
+            const dteTypeNum = Number(recurringDteType);
+            const dayOfMonthNum =
+              recurringFrequency === "monthly" || recurringFrequency === "yearly"
+                ? Number(uploadPaymentDay)
+                : undefined;
+            const dayOfWeekNum =
+              recurringFrequency === "weekly" || recurringFrequency === "biweekly"
+                ? Number(recurringDayOfWeek)
+                : undefined;
+            const monthOfYearNum =
+              recurringFrequency === "yearly"
+                ? Number(recurringMonthOfYear)
+                : undefined;
+            const isUf = uploadCurrency === "UF";
+            const lineItem = {
+              itemName: recurringLineDescription.trim() || `Servicios mensuales — ${accountName}`,
+              quantity: 1,
+              unit: "mes",
+              unitPrice: isUf ? 0 : (amt as number),
+              unitPriceUf: isUf ? (amt as number) : undefined,
+            };
+            const recurringPayload: Record<string, unknown> = {
+              name: recurringName.trim(),
+              isActive: true,
+              dteType: dteTypeNum,
+              receiverRut: recurringRut.trim(),
+              receiverName: recurringReceiverName.trim(),
+              receiverEmail: recurringEmail.trim() || null,
+              receiverGiro: recurringGiro.trim() || null,
+              receiverDireccion: recurringAddress.trim() || null,
+              receiverComuna: recurringComuna.trim() || null,
+              receiverCiudad: recurringCiudad.trim() || null,
+              crmAccountId: accountId,
+              installationId: uploadInstallationIds[0] || uploadInstallationId || null,
+              currency: uploadCurrency,
+              lines: [lineItem],
+              notes: uploadNotes.trim() || null,
+              frequency: recurringFrequency,
+              ...(dayOfMonthNum !== undefined ? { dayOfMonth: dayOfMonthNum } : {}),
+              ...(dayOfWeekNum !== undefined ? { dayOfWeek: dayOfWeekNum } : {}),
+              ...(monthOfYearNum !== undefined ? { monthOfYear: monthOfYearNum } : {}),
+              startDate: startISO,
+              ...(endISO ? { endDate: endISO } : {}),
+              autoSendEmail: recurringAutoSendEmail,
+              ufFixingPolicy: isUf ? recurringUfFixingPolicy : "RUN_DAY",
+              periodPolicy: recurringPeriodPolicy,
+            };
+            const rRes = await fetch("/api/finance/billing/recurring", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(recurringPayload),
+            });
+            const rJson = await rRes.json();
+            if (!rRes.ok || !rJson.success) {
+              recurringWarning =
+                rJson?.error ||
+                "No se pudo crear la plantilla de factura recurrente. Créala manualmente desde Facturación → Programación.";
+            }
+          } catch {
+            recurringWarning =
+              "No se pudo crear la plantilla de factura recurrente (error de red). Créala manualmente desde Facturación → Programación.";
+          }
+        }
+
+        if (recurringWarning) {
+          toast.success(
+            uploadPendingSignature
+              ? "Ingreso agregado al flujo de caja · contrato pendiente"
+              : "Contrato subido exitosamente",
+          );
+          toast.warning(recurringWarning, { duration: 8000 });
+        } else if (recurringEnabled && uploadAddToCashflow) {
+          toast.success("Contrato + plantilla de factura recurrente creados");
+        } else {
+          toast.success(
+            uploadPendingSignature
+              ? "Ingreso agregado al flujo de caja · contrato pendiente"
+              : "Contrato subido exitosamente",
+          );
+        }
         setUploadOpen(false);
         resetUploadForm();
         fetchContracts();
@@ -1812,6 +2034,389 @@ export function AccountContractsSection({
                 </div>
               )}
             </div>
+
+            {/* ── Plantilla de Factura Recurrente (SII) ───────────────
+                Crea una FinanceDteRecurringTemplate vinculada al contrato.
+                El cron diario generará un borrador en `nextRunAt`; el
+                usuario revisa y emite al SII manualmente. Pre-rellenamos
+                con los datos del CrmAccount + el monto/moneda/día del
+                bloque de flujo de caja, pero todo es editable. */}
+            {uploadAddToCashflow && (
+              <div className="rounded-md border border-border p-3 space-y-3">
+                <label className="flex items-start gap-2 cursor-pointer">
+                  <Checkbox
+                    checked={recurringEnabled}
+                    onCheckedChange={(v) => {
+                      const next = v === true;
+                      setRecurringEnabled(next);
+                      // Al activarla, completamos el nombre con el título
+                      // del contrato si el usuario aún no escribió uno.
+                      if (next && !recurringName.trim()) {
+                        setRecurringName(
+                          uploadTitle.trim() || `Contrato ${accountName}`,
+                        );
+                      }
+                    }}
+                    className="mt-1"
+                  />
+                  <div className="space-y-0.5">
+                    <span className="text-sm font-medium flex items-center gap-2">
+                      <FileText className="h-3.5 w-3.5 text-status-info-fg" />
+                      Crear plantilla de factura recurrente (SII)
+                    </span>
+                    <p className="text-xs text-muted-foreground">
+                      Cada mes (según frecuencia) se genera un borrador
+                      automático en Facturación. Tú lo revisas y emites al
+                      SII. La plantilla queda activa hasta el término del
+                      contrato.
+                    </p>
+                  </div>
+                </label>
+
+                {recurringEnabled && (
+                  <div className="space-y-3 pt-2 border-t border-border">
+                    {/* Datos del receptor (pre-fill desde CrmAccount) */}
+                    <div className="space-y-2">
+                      <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                        Receptor SII
+                      </Label>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Tipo de DTE</Label>
+                          <Select
+                            value={recurringDteType}
+                            onValueChange={(v) =>
+                              setRecurringDteType(v === "34" ? "34" : "33")
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="33">33 - Factura</SelectItem>
+                              <SelectItem value="34">
+                                34 - Factura Exenta
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Nombre plantilla</Label>
+                          <Input
+                            value={recurringName}
+                            onChange={(e) => setRecurringName(e.target.value)}
+                            placeholder={`Contrato ${accountName}`}
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-xs">RUT receptor*</Label>
+                          <Input
+                            value={recurringRut}
+                            onChange={(e) => setRecurringRut(e.target.value)}
+                            placeholder="76.123.456-7"
+                            className={cn(
+                              "font-mono",
+                              recurringRut &&
+                                !validateRutDVClient(recurringRut) &&
+                                "border-destructive",
+                            )}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Razón social*</Label>
+                          <Input
+                            value={recurringReceiverName}
+                            onChange={(e) =>
+                              setRecurringReceiverName(e.target.value)
+                            }
+                            placeholder={accountLegalName ?? accountName}
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Email receptor</Label>
+                          <Input
+                            type="email"
+                            value={recurringEmail}
+                            onChange={(e) => setRecurringEmail(e.target.value)}
+                            placeholder="facturas@cliente.cl"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Giro</Label>
+                          <Input
+                            value={recurringGiro}
+                            onChange={(e) => setRecurringGiro(e.target.value)}
+                            placeholder="Actividad económica SII"
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Dirección</Label>
+                        <Input
+                          value={recurringAddress}
+                          onChange={(e) => setRecurringAddress(e.target.value)}
+                          placeholder="Av. Apoquindo 1234"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Comuna</Label>
+                          <Input
+                            value={recurringComuna}
+                            onChange={(e) => setRecurringComuna(e.target.value)}
+                            placeholder="Las Condes"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Ciudad</Label>
+                          <Input
+                            value={recurringCiudad}
+                            onChange={(e) => setRecurringCiudad(e.target.value)}
+                            placeholder="Santiago"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Frecuencia + fechas */}
+                    <div className="space-y-2 pt-3 border-t border-border">
+                      <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                        Frecuencia
+                      </Label>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Cada</Label>
+                          <Select
+                            value={recurringFrequency}
+                            onValueChange={(v) =>
+                              setRecurringFrequency(
+                                v as
+                                  | "monthly"
+                                  | "biweekly"
+                                  | "weekly"
+                                  | "yearly",
+                              )
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="monthly">Mes</SelectItem>
+                              <SelectItem value="biweekly">
+                                2 semanas
+                              </SelectItem>
+                              <SelectItem value="weekly">Semana</SelectItem>
+                              <SelectItem value="yearly">Año</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        {(recurringFrequency === "monthly" ||
+                          recurringFrequency === "yearly") && (
+                          <div className="space-y-1">
+                            <Label className="text-xs">
+                              Día del mes
+                            </Label>
+                            <Input
+                              value={uploadPaymentDay}
+                              onChange={(e) =>
+                                setUploadPaymentDay(e.target.value)
+                              }
+                              placeholder="5"
+                              className="font-mono"
+                            />
+                            <p className="text-[10px] text-muted-foreground">
+                              Mismo día que el flujo de caja. <code>-1</code> = último.
+                            </p>
+                          </div>
+                        )}
+                        {(recurringFrequency === "weekly" ||
+                          recurringFrequency === "biweekly") && (
+                          <div className="space-y-1">
+                            <Label className="text-xs">Día de la semana</Label>
+                            <Select
+                              value={recurringDayOfWeek}
+                              onValueChange={(v) => setRecurringDayOfWeek(v)}
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="1">Lunes</SelectItem>
+                                <SelectItem value="2">Martes</SelectItem>
+                                <SelectItem value="3">Miércoles</SelectItem>
+                                <SelectItem value="4">Jueves</SelectItem>
+                                <SelectItem value="5">Viernes</SelectItem>
+                                <SelectItem value="6">Sábado</SelectItem>
+                                <SelectItem value="0">Domingo</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+                      </div>
+                      {recurringFrequency === "yearly" && (
+                        <div className="space-y-1">
+                          <Label className="text-xs">Mes del año</Label>
+                          <Select
+                            value={recurringMonthOfYear}
+                            onValueChange={(v) => setRecurringMonthOfYear(v)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {[
+                                "Enero",
+                                "Febrero",
+                                "Marzo",
+                                "Abril",
+                                "Mayo",
+                                "Junio",
+                                "Julio",
+                                "Agosto",
+                                "Septiembre",
+                                "Octubre",
+                                "Noviembre",
+                                "Diciembre",
+                              ].map((m, i) => (
+                                <SelectItem key={i + 1} value={String(i + 1)}>
+                                  {m}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+                      <p className="text-[11px] text-muted-foreground">
+                        Las fechas de inicio y término las hereda del contrato
+                        ({uploadEffective || "—"}
+                        {uploadExpiration ? ` → ${uploadExpiration}` : " (sin término)"}
+                        ).
+                      </p>
+                    </div>
+
+                    {/* Política UF — sólo cuando moneda UF */}
+                    {uploadCurrency === "UF" && (
+                      <div className="space-y-1 pt-3 border-t border-border">
+                        <Label className="text-xs">
+                          Política de fijación de UF
+                        </Label>
+                        <Select
+                          value={recurringUfFixingPolicy}
+                          onValueChange={(v) =>
+                            setRecurringUfFixingPolicy(
+                              v as
+                                | "RUN_DAY"
+                                | "LAST_DAY_PREV_MONTH"
+                                | "FIRST_DAY_MONTH"
+                                | "LAST_DAY_MONTH",
+                            )
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="LAST_DAY_PREV_MONTH">
+                              Último día del mes anterior (convención CL)
+                            </SelectItem>
+                            <SelectItem value="FIRST_DAY_MONTH">
+                              Primer día del mes
+                            </SelectItem>
+                            <SelectItem value="LAST_DAY_MONTH">
+                              Último día del mes
+                            </SelectItem>
+                            <SelectItem value="RUN_DAY">
+                              Día de emisión
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-[11px] text-muted-foreground">
+                          Determina qué UF usa el cron para convertir el
+                          monto al emitir el DTE.
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Periodo a facturar (placeholder {{periodo}} en línea) */}
+                    <div className="space-y-1 pt-3 border-t border-border">
+                      <Label className="text-xs">Período facturado</Label>
+                      <Select
+                        value={recurringPeriodPolicy}
+                        onValueChange={(v) =>
+                          setRecurringPeriodPolicy(
+                            v as "CURRENT_MONTH" | "PREVIOUS_MONTH" | "NEXT_MONTH",
+                          )
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="CURRENT_MONTH">
+                            Mes actual (factura por adelantado)
+                          </SelectItem>
+                          <SelectItem value="PREVIOUS_MONTH">
+                            Mes anterior (factura vencida)
+                          </SelectItem>
+                          <SelectItem value="NEXT_MONTH">
+                            Mes siguiente
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Línea (descripción) */}
+                    <div className="space-y-1 pt-3 border-t border-border">
+                      <Label className="text-xs">
+                        Descripción de la línea
+                      </Label>
+                      <Input
+                        value={recurringLineDescription}
+                        onChange={(e) =>
+                          setRecurringLineDescription(e.target.value)
+                        }
+                        placeholder="Servicios mensuales — {{periodo}}"
+                      />
+                      <p className="text-[11px] text-muted-foreground">
+                        <code className="font-mono">{"{{periodo}}"}</code> se
+                        reemplaza al emitir (ej.: &quot;Mayo 2026&quot;).
+                        El monto sale del flujo de caja:{" "}
+                        <strong>
+                          {uploadMonthlyAmount || "—"} {uploadCurrency}
+                        </strong>
+                        .
+                      </p>
+                    </div>
+
+                    {/* Notificación */}
+                    <label className="flex items-start gap-2 cursor-pointer pt-3 border-t border-border">
+                      <Checkbox
+                        checked={recurringAutoSendEmail}
+                        onCheckedChange={(v) =>
+                          setRecurringAutoSendEmail(v === true)
+                        }
+                        className="mt-1"
+                      />
+                      <div className="space-y-0.5">
+                        <span className="text-sm font-medium">
+                          Auto-enviar el DTE al receptor por email
+                        </span>
+                        <p className="text-xs text-muted-foreground">
+                          Cuando emites el borrador al SII, OPAI envía el
+                          PDF/XML al email receptor. Si lo desactivas, el
+                          envío queda manual.
+                        </p>
+                      </div>
+                    </label>
+                  </div>
+                )}
+              </div>
+            )}
 
             {dialogError && (
               <div className="flex items-start gap-2 rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">

@@ -289,7 +289,7 @@ export function CrmAccountDetailClient({
         domicilios: Array<{ direccion: string; ciudad: string; comuna: string }>;
       };
       diff: Record<string, { current: string | null; sii: string | null; changes: boolean }>;
-      apply: Record<string, boolean>;
+      apply: Record<string, { enabled: boolean; value: string }>;
     } | null;
   }>({ loading: false, data: null });
   const [applyingSii, setApplyingSii] = useState(false);
@@ -489,13 +489,14 @@ export function CrmAccountDetailClient({
       if (!res.ok || !json.success) {
         throw new Error(json.error ?? "Error al consultar al SII");
       }
-      const initialApply: Record<string, boolean> = {};
+      const initialApply: Record<string, { enabled: boolean; value: string }> = {};
       for (const [k, v] of Object.entries(
         json.data.diff as Record<string, { changes: boolean; sii: string | null }>,
       )) {
         // Por default activamos los campos donde el SII trae info y hay
-        // cambio respecto al actual. El operador puede destildar.
-        initialApply[k] = v.changes;
+        // cambio respecto al actual. El operador puede destildar y/o editar
+        // el valor manualmente antes de aplicar.
+        initialApply[k] = { enabled: v.changes, value: v.sii ?? "" };
       }
       setSiiLookup({
         loading: false,
@@ -513,13 +514,24 @@ export function CrmAccountDetailClient({
    */
   const applySiiData = async () => {
     if (!siiLookup.data) return;
-    const { sii, apply } = siiLookup.data;
+    const { apply } = siiLookup.data;
+    // Usamos el value editable del state (prepoblado con SII pero
+    // sobrescribible por el operador). Si el operador vacía el campo
+    // editado, lo enviamos como null para limpiar el dato en la cuenta.
+    const fieldMap: Array<["legalName" | "giro" | "address" | "commune" | "city", string]> = [
+      ["legalName", "legalName"],
+      ["giro", "giro"],
+      ["address", "address"],
+      ["commune", "commune"],
+      ["city", "city"],
+    ];
     const payload: Record<string, string | null> = {};
-    if (apply.legalName && sii.razonSocial) payload.legalName = sii.razonSocial;
-    if (apply.giro && sii.giro) payload.giro = sii.giro;
-    if (apply.address && sii.direccion) payload.address = sii.direccion;
-    if (apply.commune && sii.comuna) payload.commune = sii.comuna;
-    if (apply.city && sii.ciudad) payload.city = sii.ciudad;
+    for (const [field] of fieldMap) {
+      const entry = apply[field];
+      if (!entry?.enabled) continue;
+      const trimmed = entry.value.trim();
+      payload[field] = trimmed || null;
+    }
 
     if (Object.keys(payload).length === 0) {
       toast.error("No seleccionaste ningún campo para aplicar.");
@@ -1667,6 +1679,17 @@ export function CrmAccountDetailClient({
           <AccountContractsSection
             accountId={account.id}
             accountName={account.name}
+            accountRut={account.rut ?? null}
+            accountLegalName={account.legalName ?? null}
+            accountGiro={account.giro ?? null}
+            accountAddress={account.address ?? null}
+            accountCommune={account.commune ?? null}
+            accountCity={account.city ?? null}
+            accountEmail={
+              account.contacts?.find((c) => c.isPrimary && c.email)?.email ??
+              account.contacts?.find((c) => c.email)?.email ??
+              null
+            }
             onRefresh={() => router.refresh()}
           />
         )}
@@ -1899,6 +1922,8 @@ export function CrmAccountDetailClient({
                 const d = siiLookup.data!.diff[field];
                 if (!d) return null;
                 const hasChange = d.changes;
+                const applyEntry = siiLookup.data!.apply[field] ?? { enabled: false, value: "" };
+                const enabled = applyEntry.enabled;
                 return (
                   <div
                     key={field}
@@ -1913,8 +1938,8 @@ export function CrmAccountDetailClient({
                       <input
                         type="checkbox"
                         id={`apply-${field}`}
-                        checked={!!siiLookup.data!.apply[field]}
-                        disabled={!d.sii || applyingSii}
+                        checked={enabled}
+                        disabled={applyingSii}
                         onChange={(e) =>
                           setSiiLookup((prev) =>
                             prev.data
@@ -1924,7 +1949,10 @@ export function CrmAccountDetailClient({
                                     ...prev.data,
                                     apply: {
                                       ...prev.data.apply,
-                                      [field]: e.target.checked,
+                                      [field]: {
+                                        ...(prev.data.apply[field] ?? { value: d.sii ?? "" }),
+                                        enabled: e.target.checked,
+                                      },
                                     },
                                   },
                                 }
@@ -1971,6 +1999,51 @@ export function CrmAccountDetailClient({
                             </span>
                           </div>
                         </div>
+                        {enabled && (
+                          <div className="mt-2 space-y-1">
+                            <Label
+                              htmlFor={`value-${field}`}
+                              className="text-[11px] uppercase tracking-[0.06em] text-muted-foreground"
+                            >
+                              Valor a guardar
+                            </Label>
+                            <Input
+                              id={`value-${field}`}
+                              value={applyEntry.value}
+                              disabled={applyingSii}
+                              onChange={(e) =>
+                                setSiiLookup((prev) =>
+                                  prev.data
+                                    ? {
+                                        ...prev,
+                                        data: {
+                                          ...prev.data,
+                                          apply: {
+                                            ...prev.data.apply,
+                                            [field]: {
+                                              ...(prev.data.apply[field] ?? { enabled: true }),
+                                              value: e.target.value,
+                                            },
+                                          },
+                                        },
+                                      }
+                                    : prev,
+                                )
+                              }
+                              placeholder={
+                                d.sii ?? `Escribí la ${labels[field].toLowerCase()} manualmente`
+                              }
+                              className="h-9 text-sm"
+                              maxLength={field === "address" ? 200 : 80}
+                              autoComplete="off"
+                            />
+                            <p className="text-[11px] text-muted-foreground">
+                              {d.sii
+                                ? "Podés editar el valor antes de aplicarlo. Si lo vacías, se borra el dato actual."
+                                : "El SII no devolvió este dato — escribilo a mano si lo querés guardar."}
+                            </p>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -2028,7 +2101,7 @@ export function CrmAccountDetailClient({
               disabled={
                 applyingSii ||
                 !siiLookup.data ||
-                !Object.values(siiLookup.data.apply).some((v) => v)
+                !Object.values(siiLookup.data.apply).some((v) => v?.enabled)
               }
             >
               {applyingSii && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
