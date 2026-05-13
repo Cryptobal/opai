@@ -127,12 +127,17 @@ function BucketStat({
 interface SummaryProps {
   bucket: ProjectionBucket;
   cumulativePoint: CumulativeBalancePoint | undefined;
+  /** Si está presente, la fila "Saldo banco real" se vuelve tappable.
+   *  Sólo se pasa cuando el bucket activo es el actual y el usuario tiene
+   *  permisos para ajustar el saldo. */
+  onAdjustBalance?: () => void;
 }
 
 /** Card de resumen fijo al final del bucket activo. */
 export function CashflowMobileBucketSummary({
   bucket,
   cumulativePoint,
+  onAdjustBalance,
 }: SummaryProps) {
   return (
     <div className="rounded-ds-md border border-border bg-muted/20 p-3 space-y-2">
@@ -163,6 +168,8 @@ export function CashflowMobileBucketSummary({
             ? "warn"
             : "muted"
         }
+        onClick={onAdjustBalance}
+        clickTitle="Ajustar saldo del banco"
       />
       <SummaryRow
         label="Δ vs proyectado"
@@ -183,10 +190,14 @@ function SummaryRow({
   label,
   value,
   tone,
+  onClick,
+  clickTitle,
 }: {
   label: string;
   value: string;
   tone: "ok" | "warn" | "muted";
+  onClick?: () => void;
+  clickTitle?: string;
 }) {
   const toneCls =
     tone === "ok"
@@ -197,11 +208,22 @@ function SummaryRow({
   return (
     <div className="flex items-center justify-between gap-2">
       <span className="text-[12px] text-ds-text-3">{label}</span>
-      <span
-        className={`text-[13px] font-mono font-semibold tabular-nums ${toneCls}`}
-      >
-        {value}
-      </span>
+      {onClick ? (
+        <button
+          type="button"
+          onClick={onClick}
+          title={clickTitle}
+          className={`text-[13px] font-mono font-semibold tabular-nums hover:underline underline-offset-2 decoration-dotted cursor-pointer ${toneCls}`}
+        >
+          {value}
+        </button>
+      ) : (
+        <span
+          className={`text-[13px] font-mono font-semibold tabular-nums ${toneCls}`}
+        >
+          {value}
+        </span>
+      )}
     </div>
   );
 }
