@@ -29,6 +29,15 @@ export async function matchDraftToOccurrence(
 ): Promise<{ occurrenceId: string } | null> {
   if (!input.crmAccountId && !input.installationId) return null;
 
+  // Guard de idempotencia: si el DTE ya tiene una occurrence vinculada, no
+  // buscar más. Esto permite llamar al matcher desde múltiples puntos
+  // (createDraft, issueDraft, issueDte directo, RCV sync, backfill).
+  const existing = await prisma.financeCashflowOccurrence.findFirst({
+    where: { tenantId: input.tenantId, dteId: input.dteId },
+    select: { id: true },
+  });
+  if (existing) return { occurrenceId: existing.id };
+
   const dateFrom = new Date(input.expectedDate);
   dateFrom.setDate(dateFrom.getDate() - DATE_TOLERANCE_DAYS);
   const dateTo = new Date(input.expectedDate);
@@ -76,6 +85,12 @@ export async function matchDraftToOccurrence(
   });
   return { occurrenceId: winner.id };
 }
+
+/**
+ * Alias del matcher para flujos que no parten de un draft (emisión directa,
+ * RCV sync, backfill). Comparten la misma lógica e idempotencia.
+ */
+export const matchDteToOccurrence = matchDraftToOccurrence;
 
 /**
  * Re-asigna las occurrences ya vinculadas a un draft DTE al nuevo DTE emitido.

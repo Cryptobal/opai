@@ -10,6 +10,7 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     financeCashflowItem: { findMany: vi.fn() },
     financeCashflowOccurrence: {
+      findFirst: vi.fn(),
       findMany: vi.fn(),
       update: vi.fn(),
       updateMany: vi.fn(),
@@ -30,6 +31,8 @@ const DTE_ID = "dte-1";
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // Por default no hay vínculo previo — el guard de idempotencia pasa.
+  (prisma.financeCashflowOccurrence.findFirst as Mock).mockResolvedValue(null);
   (prisma.financeCashflowOccurrence.update as Mock).mockResolvedValue({ id: "occ-1" });
   (prisma.financeCashflowOccurrence.updateMany as Mock).mockResolvedValue({ count: 0 });
 });
@@ -169,6 +172,27 @@ describe("matchDraftToOccurrence", () => {
       where: { id: "occ-B" },
       data: { dteId: DTE_ID },
     });
+  });
+
+  it("idempotente: si el DTE ya tiene una occurrence vinculada, devuelve esa y no busca", async () => {
+    (prisma.financeCashflowOccurrence.findFirst as Mock).mockResolvedValue({
+      id: "occ-already",
+    });
+
+    const result = await matchDraftToOccurrence({
+      tenantId: TENANT,
+      dteId: DTE_ID,
+      crmAccountId: "acc-1",
+      installationId: null,
+      expectedDate: new Date("2026-05-13"),
+      amountClp: 1_000_000,
+    });
+
+    expect(result).toEqual({ occurrenceId: "occ-already" });
+    // No busca items ni candidatas porque ya hay vínculo.
+    expect(prisma.financeCashflowItem.findMany).not.toHaveBeenCalled();
+    expect(prisma.financeCashflowOccurrence.findMany).not.toHaveBeenCalled();
+    expect(prisma.financeCashflowOccurrence.update).not.toHaveBeenCalled();
   });
 
   it("no incluye occurrences ya vinculadas a otro DTE (filtra por dteId=null en la query)", async () => {

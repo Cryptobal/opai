@@ -36,8 +36,8 @@ export function CashflowMobileList({
   void defaultWeeks;
 
   const router = useRouter();
-  // Granularidad — mensual por default en móvil (menos buckets que swipear).
-  const [granularity, setGranularity] = useState<"weekly" | "monthly">("monthly");
+  // Granularidad — semanal por default en móvil (matchea expectativa del usuario).
+  const [granularity, setGranularity] = useState<"weekly" | "monthly">("weekly");
 
   // Cache de proyecciones por granularidad. Weekly arranca con la del server.
   const hydratedWeekly = useMemo(

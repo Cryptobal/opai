@@ -6,8 +6,19 @@
  * Uso:
  *   npx tsx scripts/backfill-cashflow-dte-links.ts --tenant=<tenantId> --dry-run
  *   npx tsx scripts/backfill-cashflow-dte-links.ts --tenant=<tenantId>
+ *   npx tsx scripts/backfill-cashflow-dte-links.ts                       # todos los tenants activos
  *
- * Si se omite --tenant, recorre todos los tenants activos.
+ * Opciones:
+ *   --tenant=<id>     limita a un tenant (default: todos los activos)
+ *   --dry-run         no escribe, solo reporta los matches que haría
+ *   --since=YYYY-MM-DD limita a DTEs emitidos desde esa fecha
+ *   --limit=N         procesa máximo N DTEs por tenant
+ *
+ * Filtros aplicados:
+ *   - dteType ∉ {56, 61}: NC/ND no son items proyectados independientes.
+ *   - paymentStatus ∈ {UNPAID, PARTIAL, OVERDUE}: los pagados ya cuentan.
+ *   - DTE con crmAccountId o installationId: sin centro de costo no hay match.
+ *   - DTE sin occurrence vinculada (cashflowOccurrences none).
  */
 
 import { PrismaClient } from "@prisma/client";
@@ -19,13 +30,31 @@ const DATE_TOLERANCE_DAYS = 15;
 interface CliArgs {
   tenantId: string | null;
   dryRun: boolean;
+  since: Date | null;
+  limit: number | null;
 }
 
 function parseArgs(): CliArgs {
-  const args: CliArgs = { tenantId: null, dryRun: false };
+  const args: CliArgs = {
+    tenantId: null,
+    dryRun: false,
+    since: null,
+    limit: null,
+  };
   for (const arg of process.argv.slice(2)) {
     if (arg === "--dry-run") args.dryRun = true;
     else if (arg.startsWith("--tenant=")) args.tenantId = arg.split("=")[1] ?? null;
+    else if (arg.startsWith("--since=")) {
+      const v = arg.split("=")[1];
+      if (v) {
+        const d = new Date(v);
+        if (!isNaN(d.getTime())) args.since = d;
+      }
+    } else if (arg.startsWith("--limit=")) {
+      const v = arg.split("=")[1];
+      const n = v ? Number(v) : NaN;
+      if (Number.isFinite(n) && n > 0) args.limit = Math.floor(n);
+    }
   }
   return args;
 }
@@ -93,13 +122,24 @@ async function backfillTenant(
   tenantId: string,
   label: string,
   dryRun: boolean,
+  since: Date | null,
+  limit: number | null,
 ): Promise<{ checked: number; linked: number }> {
   const dtes = await prisma.financeDte.findMany({
     where: {
       tenantId,
       direction: "ISSUED",
       siiStatus: { in: ["DRAFT", "PENDING", "SENT", "ACCEPTED"] },
+      paymentStatus: { in: ["UNPAID", "PARTIAL", "OVERDUE"] },
+      // NC (61) y ND (56) ajustan al DTE original, no son items proyectados.
+      dteType: { notIn: [56, 61] },
+      // Sin centro de costo no hay match posible — descartamos en el query.
+      OR: [
+        { crmAccountId: { not: null } },
+        { installationId: { not: null } },
+      ],
       cashflowOccurrences: { none: {} },
+      ...(since ? { date: { gte: since } } : {}),
     },
     select: {
       id: true,
@@ -109,8 +149,10 @@ async function backfillTenant(
       crmAccountId: true,
       installationId: true,
       totalAmount: true,
+      receiverName: true,
     },
-    orderBy: { date: "asc" },
+    orderBy: { date: "desc" },
+    ...(limit ? { take: limit } : {}),
   });
 
   if (dtes.length === 0) {
@@ -122,9 +164,10 @@ async function backfillTenant(
   for (const d of dtes) {
     const matchId = await findMatchOccurrence(tenantId, d);
     if (!matchId) continue;
+    const who = d.receiverName ?? "(sin receptor)";
     if (dryRun) {
       console.log(
-        `  · [DRY] DTE ${d.id} (F#${d.folio}, ${d.siiStatus}) → occ ${matchId}`,
+        `  · [DRY] DTE ${d.id} (F#${d.folio}, ${d.siiStatus}, ${who}) → occ ${matchId}`,
       );
     } else {
       await prisma.financeCashflowOccurrence.update({
@@ -132,7 +175,7 @@ async function backfillTenant(
         data: { dteId: d.id },
       });
       console.log(
-        `  · DTE ${d.id} (F#${d.folio}, ${d.siiStatus}) → occ ${matchId}`,
+        `  · DTE ${d.id} (F#${d.folio}, ${d.siiStatus}, ${who}) → occ ${matchId}`,
       );
     }
     linked++;
@@ -166,7 +209,13 @@ async function main() {
   for (const t of tenants) {
     const label = `${t.slug ?? t.name}`;
     console.log(`▸ ${label}`);
-    const { checked, linked } = await backfillTenant(t.id, label, args.dryRun);
+    const { checked, linked } = await backfillTenant(
+      t.id,
+      label,
+      args.dryRun,
+      args.since,
+      args.limit,
+    );
     totalChecked += checked;
     totalLinked += linked;
     console.log(`  ✓ ${linked}/${checked} DTEs vinculados`);

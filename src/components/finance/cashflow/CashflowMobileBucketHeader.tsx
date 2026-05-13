@@ -1,5 +1,5 @@
 "use client";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pencil } from "lucide-react";
 import type {
   ProjectionBucket,
   CumulativeBalancePoint,
@@ -213,8 +213,10 @@ function SummaryRow({
           type="button"
           onClick={onClick}
           title={clickTitle}
-          className={`text-[13px] font-mono font-semibold tabular-nums hover:underline underline-offset-2 decoration-dotted cursor-pointer ${toneCls}`}
+          aria-label={clickTitle ?? label}
+          className={`inline-flex items-center gap-1.5 text-[13px] font-mono font-semibold tabular-nums underline underline-offset-2 decoration-dotted decoration-primary/60 active:opacity-70 cursor-pointer ${toneCls}`}
         >
+          <Pencil className="h-3 w-3 opacity-70" aria-hidden="true" />
           {value}
         </button>
       ) : (
