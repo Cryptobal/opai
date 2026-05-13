@@ -6,7 +6,8 @@ import {
   hasFacturacionCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHero, ModuleSubNav } from "@/components/opai-ds";
+import { PageHero } from "@/components/opai-ds";
+import { FinanceN3Chips } from "@/components/finance/FinanceN3Chips";
 import { FilePlus } from "lucide-react";
 import { CreditNoteForm } from "@/components/finance/CreditNoteForm";
 
@@ -67,7 +68,7 @@ export default async function NotaDebitoPage({ searchParams }: PageProps) {
         subtitle="ajuste al alza"
         description="Emitir nota de débito electrónica referenciando un DTE."
       />
-      <ModuleSubNav moduleKey="finance-compras-ventas" visibility="always" />
+      <FinanceN3Chips submoduleKey="finance-compras-ventas" />
       <CreditNoteForm
         noteType="debit"
         referenceDte={referenceDte}

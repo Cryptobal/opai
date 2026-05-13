@@ -7,6 +7,7 @@ import {
   hasCapability,
 } from "@/lib/permissions-server";
 import { PageHero } from "@/components/opai-ds";
+import { FinanceN3Chips } from "@/components/finance/FinanceN3Chips";
 import { BookOpen } from "lucide-react";
 import { LedgerClient } from "@/components/finance/reports/LedgerClient";
 import { listAccountsForLedger } from "@/modules/finance/reports/ledger-extended.service";
@@ -33,6 +34,7 @@ export default async function LedgerListPage() {
         subtitle="por cuenta"
         description="Movimientos posteados con saldo running y filtro por centro de costo."
       />
+      <FinanceN3Chips submoduleKey="finance-informes" />
       <LedgerClient accounts={accounts} />
     </div>
   );

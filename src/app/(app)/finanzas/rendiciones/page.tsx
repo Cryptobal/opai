@@ -6,7 +6,8 @@ import {
   hasCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHero, ModuleSubNav } from "@/components/opai-ds";
+import { PageHero } from "@/components/opai-ds";
+import { FinanceN3Chips } from "@/components/finance/FinanceN3Chips";
 import { Receipt } from "lucide-react";
 import { RendicionesClient } from "@/components/finance/RendicionesClient";
 
@@ -145,7 +146,7 @@ export default async function RendicionesPage() {
         subtitle="gastos y kilometraje"
         description="Listado de rendiciones de gastos y kilometraje."
       />
-      <ModuleSubNav moduleKey="finance-rendiciones" visibility="always" />
+      <FinanceN3Chips submoduleKey="finance-rendiciones" />
       <RendicionesClient
         rendiciones={data}
         items={items}

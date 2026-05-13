@@ -41,26 +41,26 @@ describe("nav registry", () => {
       expect(config.hideInSidebar).toBe(true);
     });
 
-    it("finance-ventas children are real routes (no legacy emitir/notas/recurrentes tabs)", () => {
+    it("finance-compras-ventas children are real routes (no legacy emitir/notas/recurrentes tabs)", () => {
       const finance = NAV_MODULES.find((m) => m.key === "finance")!;
-      const ventas = finance.children?.find((c) => c.key === "finance-ventas");
+      const ventas = finance.children?.find((c) => c.key === "finance-compras-ventas");
       const childKeys = (ventas?.children ?? []).map((c) => c.key);
-      expect(childKeys).toContain("ventas-resumen");
-      expect(childKeys).toContain("ventas-dtes");
-      expect(childKeys).toContain("ventas-recibidos");
-      expect(childKeys).toContain("ventas-programacion");
-      expect(childKeys).toContain("ventas-libro-iva");
-      expect(childKeys).toContain("ventas-folios");
+      expect(childKeys).toContain("cv-resumen");
+      expect(childKeys).toContain("cv-dtes");
+      expect(childKeys).toContain("cv-recibidos");
+      expect(childKeys).toContain("cv-programacion");
+      expect(childKeys).toContain("cv-libro-iva");
+      expect(childKeys).toContain("cv-folios");
       // Acciones (Emitir DTE, Notas Crédito/Débito) ya no son tabs N3.
-      expect(childKeys).not.toContain("ventas-emitir");
-      expect(childKeys).not.toContain("ventas-recurrentes");
-      expect(childKeys).not.toContain("ventas-nc");
-      expect(childKeys).not.toContain("ventas-nd");
+      expect(childKeys).not.toContain("cv-emitir");
+      expect(childKeys).not.toContain("cv-recurrentes");
+      expect(childKeys).not.toContain("cv-nc");
+      expect(childKeys).not.toContain("cv-nd");
     });
 
-    it("findN3Parent for /finanzas/facturacion/dtes returns finance-ventas", () => {
+    it("findN3Parent for /finanzas/facturacion/dtes returns finance-compras-ventas", () => {
       expect(findN3Parent("/finanzas/facturacion/dtes")?.key).toBe(
-        "finance-ventas",
+        "finance-compras-ventas",
       );
     });
 
@@ -188,11 +188,14 @@ describe("nav registry", () => {
       expect(keys).toContain("inv-bodegas");
     });
 
-    it("returns Reportes children for /finanzas/reportes/balance", () => {
+    it("returns Finance N2 children for /finanzas/reportes/balance (PR: bottom nav always N2 in /finanzas)", () => {
       const nodes = getContextualBottomNavNodes("/finanzas/reportes/balance");
       const keys = nodes.map((n) => n.key);
-      expect(keys).toContain("rep-dashboard");
-      expect(keys).toContain("rep-balance");
+      expect(keys).toContain("finance-rendiciones");
+      expect(keys).toContain("finance-compras-ventas");
+      expect(keys).toContain("finance-banca");
+      expect(keys).toContain("finance-informes");
+      expect(keys).not.toContain("rep-balance");
     });
 
     it("returns Supervision children for /ops/supervision/historial", () => {
@@ -209,35 +212,43 @@ describe("nav registry", () => {
       expect(keys).toContain("ops-rondas");
     });
 
-    it("returns Rendiciones N4 children for /finanzas/rendiciones", () => {
+    it("returns Finance N2 children for /finanzas/rendiciones (PR: bottom nav always N2)", () => {
       const nodes = getContextualBottomNavNodes("/finanzas/rendiciones");
       const keys = nodes.map((n) => n.key);
-      expect(keys).toContain("rend-resumen");
-      expect(keys).toContain("rend-historial-pagos");
+      expect(keys).toContain("finance-rendiciones");
+      expect(keys).toContain("finance-compras-ventas");
+      expect(keys).toContain("finance-informes");
+      expect(keys).not.toContain("rend-historial-pagos");
     });
 
-    it("returns Rendiciones N4 children for /finanzas/rendiciones/historial-pagos", () => {
+    it("returns Finance N2 children for /finanzas/rendiciones/historial-pagos (PR: bottom nav always N2)", () => {
       const nodes = getContextualBottomNavNodes(
         "/finanzas/rendiciones/historial-pagos"
       );
       const keys = nodes.map((n) => n.key);
-      expect(keys).toContain("rend-resumen");
-      expect(keys).toContain("rend-historial-pagos");
+      expect(keys).toContain("finance-rendiciones");
+      expect(keys).toContain("finance-banca");
+      expect(keys).not.toContain("rend-historial-pagos");
     });
 
-    it("returns Ventas N4 children for /finanzas/facturacion", () => {
+    it("returns Finance N2 children for /finanzas/facturacion (PR: bottom nav always N2)", () => {
       const nodes = getContextualBottomNavNodes("/finanzas/facturacion");
       const keys = nodes.map((n) => n.key);
-      expect(keys).toContain("ventas-resumen");
-      expect(keys).toContain("ventas-dtes");
-      expect(keys).toContain("ventas-folios");
+      expect(keys).toContain("finance-rendiciones");
+      expect(keys).toContain("finance-compras-ventas");
+      expect(keys).toContain("finance-banca");
+      expect(keys).toContain("finance-informes");
+      expect(keys).not.toContain("cv-dtes");
     });
 
-    it("returns Ventas N4 children for /finanzas/facturacion/dtes", () => {
+    it("returns Finance N2 children for /finanzas/facturacion/dtes (PR: bottom nav always N2)", () => {
       const nodes = getContextualBottomNavNodes("/finanzas/facturacion/dtes");
       const keys = nodes.map((n) => n.key);
-      expect(keys).toContain("ventas-resumen");
-      expect(keys).toContain("ventas-dtes");
+      expect(keys).toContain("finance-rendiciones");
+      expect(keys).toContain("finance-compras-ventas");
+      expect(keys).toContain("finance-banca");
+      expect(keys).toContain("finance-informes");
+      expect(keys).not.toContain("cv-dtes");
     });
 
     it("returns [] for an unknown path", () => {
