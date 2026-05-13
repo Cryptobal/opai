@@ -55,6 +55,17 @@ export function CreatePositionModal({ quoteId, onCreated, disabled }: CreatePosi
   const [cargos, setCargos] = useState<CpqCargo[]>([]);
   const [roles, setRoles] = useState<CpqRol[]>([]);
   const [puestos, setPuestos] = useState<CpqPuestoTrabajo[]>([]);
+  const [forcedServiceGroupId, setForcedServiceGroupId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const ce = e as CustomEvent<{ serviceGroupId?: string }>;
+      setForcedServiceGroupId(ce.detail?.serviceGroupId || null);
+      setOpen(true);
+    };
+    window.addEventListener("cpq:open-create-position", handler);
+    return () => window.removeEventListener("cpq:open-create-position", handler);
+  }, []);
 
   const [form, setForm] = useState({
     puestoTrabajoId: "",
@@ -182,13 +193,19 @@ export function CreatePositionModal({ quoteId, onCreated, disabled }: CreatePosi
       const res = await fetch(`/api/cpq/quotes/${quoteId}/positions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, customName: resolvedName || null, healthPlanPct }),
+        body: JSON.stringify({
+          ...form,
+          customName: resolvedName || null,
+          healthPlanPct,
+          serviceGroupId: forcedServiceGroupId || null,
+        }),
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error || "Error al crear puesto");
       toast.success("Puesto creado");
       setOpen(false);
       setPreview(null);
+      setForcedServiceGroupId(null);
       onCreated?.();
     } catch (err: any) {
       console.error("Error creating position:", err);
@@ -201,11 +218,17 @@ export function CreatePositionModal({ quoteId, onCreated, disabled }: CreatePosi
   const selectClass = "flex h-9 w-full rounded-md border border-input bg-card px-3 text-sm";
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) setForcedServiceGroupId(null);
+      }}
+    >
       <DialogTrigger asChild>
-        <Button size="sm" className="gap-2" disabled={disabled}>
+        <Button size="sm" variant="outline" className="gap-2" disabled={disabled}>
           <Plus className="h-4 w-4" />
-          <span className="hidden sm:inline">Agregar Puesto</span>
+          <span className="hidden sm:inline">Turno suelto</span>
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-2xl lg:max-w-3xl max-h-[90vh] overflow-y-auto">
