@@ -1,163 +1,159 @@
-# Auditoría — DTE Emitidos (Fase 0)
+# Auditoría — DTE Emitidos (Fase 0 del PR de tracking async + mobile-first + sender sheet)
 
 > **Tipo:** READ-ONLY. No se modificó código.
-> **Branch:** `claude/dte-emitidos-refactor-okHvy`
+> **Branch:** `claude/dte-emitidos-mobile-tracking-UuChG`
+> **HEAD auditado:** `45b9946` (main al momento de auditar)
 > **Fecha:** 2026-05-13
-> **Scope:** módulo de facturación electrónica emitida (Next.js 15, Prisma, Resend, SimpleAPI/SII, R2).
+> **Scope:** verifica cada hallazgo del brief antes de avanzar a Fase 1 (4 migraciones Prisma).
 
-Este reporte mapea el estado actual del módulo y **levanta supuestos del PR brief que no coinciden con la realidad del código**. Es input obligatorio para Carlos antes de aprobar Fase 1.
-
----
-
-## 0. Diferencias importantes con el brief del PR
-
-El brief asume convenciones que no calzan con esta codebase. Antes de avanzar a Fase 1 hay que decidir cómo se alinea:
-
-| Supuesto del brief | Realidad | Impacto |
-|---|---|---|
-| Ruta `app/(dashboard)/finanzas/dte-emitidos/` | El módulo vive en `src/app/(app)/finanzas/facturacion/dtes/page.tsx` (groupe `(app)`, no `(dashboard)`; nombre `dtes` no `dte-emitidos`). | Decidir si renombrar la ruta o mantener `dtes` y solo migrar internamente. |
-| Modelo `Cliente.email` con string único | **No existe** modelo `Cliente`. El equivalente es `CrmAccount` (`prisma/schema.prisma:2072`) y **no tiene `email`** — los emails viven en `CrmContact.email` (`prisma/schema.prisma:2303`). | La "migración de `Cliente.email` → `ClienteContacto[]`" descrita en Fase 1 no aplica como está. Hay que migrar/extender `CrmContact`, no crear `ClienteContacto`. |
-| Tenant con `dteSettings Json?` | Existe `TenantDteConfig` (`prisma/schema.prisma:10424`) como **modelo separado con columnas tipadas** (`emailTemplateSubject`, `emailTemplateBody`, `alertEmails`, `defaultXmlRecipientEmails`, `proformaEmailSubject`, etc.). | Hay que decidir: ¿añadir `alwaysBcc String[]` y nuevos templates a `TenantDteConfig`, o introducir un `Json` adicional? Decisión clara: extender `TenantDteConfig` (no duplicar). |
-| "`RESEND_WEBHOOK_SECRET` no existe aún" | **Ya existe** y está documentado (`.env.example:63`). El webhook está activo (`src/app/api/webhook/resend/route.ts`) con verificación svix. | No hay que agregarlo. Lo que sí falta es que el webhook conozca a `FinanceDteEmailLog` (hoy mira 3 tablas, ninguna de DTE). |
-| Almacenamiento R2 para XML/PDF firmados | El **XML firmado se persiste en BD** (`FinanceDte.dteXml Bytes`, `prisma/schema.prisma:6507`) por decisión explícita: SimpleAPI/SII no expone re-descarga histórica. El PDF se **regenera on-demand** desde el XML con `pdf-lib` + `bwip-js`. | El requisito "PDF adjunto = XML firmado original, no se re-firma ni regenera" se cumple para XML; **pero el PDF sí se re-renderiza cada vez**. Hay que aclarar si eso es aceptable o si hay que persistir el PDF también (impacta storage). |
-| Reglas globales del proyecto | El proyecto usa **App Router groups `(app)`** (no `(dashboard)`), **Prisma multi-schema** (`public`, `crm`, `finance`), y **Tailwind con tokens `ds-*`** (no clases crudas). | Cualquier UI nueva debe usar `text-ds-text-*`, `bg-ds-surface-*`, `border-ds-border-*` y respetar el schema multi-namespace en queries. |
-
-**Recomendación antes de Fase 1:** confirmar con Carlos los seis puntos de arriba. El más crítico es **CrmContact vs ClienteContacto** — duplicar contactos sería un error grave de modelado (hoy ya hay `proformaRecipientContactIds` y `estadoPagoRecipientContactIds` apuntando a `CrmContact` desde `FinanceDte`).
+Este documento confirma — con cita de archivo y línea — que el estado real del repo coincide con lo que el brief asume. Cualquier desviación queda anotada explícitamente para que Carlos decida cómo seguir.
 
 ---
 
-## 1. Schema actual
+## 0. Resumen de verificación
 
-### 1.1 `Cliente` no existe; se usa `CrmAccount`
+| Área | Hallazgo del brief | Estado | Nota |
+|---|---|---|---|
+| Schema | `CrmContact` sin flags `recibe*` | ✅ Confirmado | `prisma/schema.prisma:2297-2334`. |
+| Schema | `TenantDteConfig` sin `alwaysBcc`/`fromName`/`replyTo` | ✅ Confirmado | `prisma/schema.prisma:10424-10529`. |
+| Schema | `FinanceDteEmailLog`: `kind/status/attachments` como `String`, `resendId` sin `@unique`, sin `idempotencyKey`/`attemptNumber`/`deliveredAt`/`openedAt`/`bouncedAt`/`complainedAt` | ✅ Confirmado | `prisma/schema.prisma:6826-6857`. |
+| Schema | `FinanceDte` sin `pdfR2Key` | ✅ Confirmado | `grep pdfR2Key/pdf_r2_key src/ prisma/` → 0 matches. |
+| Servicio | `sendDteEmail` único path | ✅ Confirmado | `src/modules/finance/billing/dte-email.service.ts` (393 líneas). |
+| Servicio | Firma posicional | ⚠️ Confirmado con matiz | Brief dice "7 args"; reales son **8** (`tenantId, dteId, recipientEmail?, ccOverride?, kind?, triggeredBy?, bccOverride?, excludeAttachmentIds?`). |
+| Servicio | 3 callers en `dte-issuer:438`, `send-email/route:50`, `bulk-resend-email/route` | ✅ Confirmado | Bulk-resend está en línea 67 (no en :50). |
+| Servicio | BCC actual viene del env `EMAIL_REPLY_TO` (no per-tenant) | ✅ Confirmado | `dte-email.service.ts:114-129`. |
+| Servicio | PDF se regenera (sin persistencia) | ✅ Confirmado | `dte-email.service.ts:135-138` + comentario del provider. |
+| Webhook | 3 lookups actuales (Presentation, CrmEmailMessage, OpsEmailLog), sin `financeDteEmailLog` | ✅ Confirmado | `src/app/api/webhook/resend/route.ts:65-143`. |
+| UI | `page.tsx` con `take: 50` offset, sin cursor | ✅ Confirmado | `src/app/(app)/finanzas/facturacion/dtes/page.tsx:44,55-61`. |
+| UI | `IssuedDtesMobileList`: cards SÍ, sin swipe/PTR/FAB/safe-area | ✅ Confirmado | `src/components/finance/dtes/IssuedDtesMobileList.tsx` (259 líneas). |
+| UI | `IssuedDteDetailDialog`: sin Tabs | ✅ Confirmado | 1377 líneas, `grep Tabs/TabsTrigger/TabsContent/TabsList` → 0 matches. |
+| UI | `SendEmailDialog`: `Dialog` con `sm:max-w-2xl` | ✅ Confirmado | `src/components/finance/SendEmailDialog.tsx:294-295`. |
+| UI | `DteEmailTimeline` existe, status solo `sent`/`failed` | ✅ Confirmado | 126 líneas. |
+| Env | `.env.example` ya tiene `RESEND_WEBHOOK_SECRET` | ✅ Confirmado | `.env.example:63`. |
 
-`prisma/schema.prisma:2072-2143` — `CrmAccount` (mapeado a `crm.accounts`).
+**No hay hallazgos nuevos que invaliden el plan.** El único matiz es la cantidad de args (8 vs 7) del refactor de `sendDteEmail`, sin impacto en la firma object-input propuesta.
 
-- No tiene campo `email`. Los datos del receptor SII (`giro`, `address`, `commune`, `city`) están en este modelo (lines 2091-2102) y se autocopian al `FinanceDte` en `receiverGiro/Direccion/Comuna/Ciudad`.
-- Ya tiene relación `contacts CrmContact[]` (`prisma/schema.prisma:2125`).
-- Ya tiene un puntero a contacto preferido para documento de cobro: `contactoEstadoPagoId String? → CrmContact` (`prisma/schema.prisma:2117-2118`).
+---
 
-### 1.2 `CrmContact` — la "tabla de contactos" que ya existe
+## 1. Schema — `prisma/schema.prisma`
 
-`prisma/schema.prisma:2297-2334` — mapeado a `crm.contacts`.
+### 1.1 `CrmContact` (línea **2297**)
 
-Campos relevantes:
-- `email String?` (line 2303)
-- `firstName / lastName / phone / roleTitle` (2301-2305)
-- `isPrimary Boolean @default(false)` (line 2306) — equivalente al `esPrincipal` del brief.
-- Campos del portal cliente (portalPin, portalEnabled, etc.) — no son del scope DTE pero ya están.
-
-**Lo que falta** para la nueva funcionalidad del brief:
-- Flags por tipo de documento: `recibeFacturacion`, `recibeNotasCredito`, `recibeCobranza`, `recibeOperacional`.
-- Estos NO existen hoy. La selección actual se hace por `contactoEstadoPagoId` (un solo contacto) o por arrays opacos `proformaRecipientContactIds` / `estadoPagoRecipientContactIds` en `FinanceDte`.
-
-**Recomendación:** agregar columnas booleanas a `CrmContact` (no crear `ClienteContacto`). Index ya cubierto por `idx_crm_contacts_account` (line 2330).
-
-### 1.3 `FinanceDte` — modelo DTE actual
-
-`prisma/schema.prisma:6408-6574` — mapeado a `finance.finance_dtes`.
-
-Campos relevantes para envío de email:
-- `receiverEmail String?` (line 6422) — un solo email primario (el que va en `<CorreoRecep>` del XML SII).
-- `receiverEmailCc String[] @default([])` (line 6426) — array CC adicional (sólo OPAI, no en XML).
-- `emailSentAt DateTime?` (line 6510) — timestamp último envío exitoso.
-- `emailStatus String?` (line 6511) — `"SENT"` | `"FAILED"` | null. **No es enum**, es texto libre.
-- `proformaRecipientContactIds String[] @db.Uuid` (line 6527) y `estadoPagoRecipientContactIds String[]` (line 6540) — IDs de `CrmContact` para documentos de cobro.
-- `proformaStatus / estadoPagoStatus` enum `FinanceProformaStatus` (lines 6528, 6541) — `NONE | SENT | BOUNCED`.
-
-Persistencia del XML/PDF:
-- `dteXml Bytes?` (line 6507) — XML firmado + timbrado guardado en BD. Comentario en código explica que SII no expone re-descarga.
-- `xmlUrl String?` / `pdfUrl String?` (lines 6501-6502) — campos legacy/opcionales para URLs externas (no se usan en el flujo actual).
-
-Enums asociados (`prisma/schema.prisma:6229-6260`):
-- `FinanceDteDirection { ISSUED, RECEIVED }`
-- `FinanceSiiStatus { DRAFT, PENDING, SENT, ACCEPTED, REJECTED, WITH_OBJECTIONS, ANNULLED }`
-
-### 1.4 `FinanceDteEmailLog` — el histórico de envíos ya existe (parcial)
-
-`prisma/schema.prisma:6826-6857`. **El brief asume que no existe; sí existe** pero le faltan campos para tracking asíncrono.
-
-Lo que ya tiene:
-- `kind String` (line 6834) — `"auto_receiver" | "auto_backoffice" | "manual_resend" | "manual_override_recipient" | "manual_backoffice"`. **No es enum** — es texto comentado.
-- `to / cc / bcc String[]` (lines 6835-6840).
-- `subject` (line 6841).
-- `attachments String` (line 6843) — `"pdf_xml" | "xml_only" | "pdf_only"` (texto, no enum).
-- `status String` (line 6845) — `"sent" | "failed"` (texto, no enum).
-- `resendId String?` (line 6846) — **no es `@unique`**.
-- `errorMessage String?` (line 6847).
-- `sentAt DateTime @default(now())` (line 6849).
-- `sentBy String?` (line 6851) — userId.
-
-Lo que **falta** vs `DTEEnvio` del brief:
-- `reason` (hoy se mezcla con `kind`).
-- `idempotencyKey String? @unique` — **no existe**. Doble click duplica.
-- `attemptNumber Int` — no existe.
-- `deliveredAt / openedAt / bouncedAt` — no existen.
-- `status` con valores `QUEUED / SENT / DELIVERED / OPENED / BOUNCED / FAILED` — hoy es booleano práctico (sent/failed).
-- `resendId` no es unique, no permite lookup directo desde webhook.
-
-**Recomendación:** extender `FinanceDteEmailLog` con estos campos en lugar de crear `DTEEnvio` paralelo. Convertir los strings (`kind`, `status`, `attachments`) a enums explícitos.
-
-### 1.5 `Tenant` — sin `dteSettings`; usa `TenantDteConfig`
-
-`prisma/schema.prisma:12-106`. El `Tenant` solo tiene `billingEmail` (line 17) y `supportEmail` (line 18) a nivel raíz. **No** tiene `dteSettings Json?` ni `mailDomain`.
-
-`TenantDteConfig` (`prisma/schema.prisma:10424-10529`) cubre 100% de la configuración de facturación:
-- Datos del emisor (`emisorRut`, `emisorRazonSocial`, `emisorGiro`, etc., lines 10455-10463).
-- Resolución SII (`resolNumero`, `resolFecha`, lines 10466-10467).
-- Logo (`logoBase64`, line 10472).
-- **Alertas operativas:** `alertEmails String[]` (line 10477) — para fallos SII, NO para BCC en cada envío.
-- **Backoffice XML:** `defaultXmlRecipientEmails String[]` (line 10482) — contador externo, recibe SOLO el XML, no el PDF.
-- **Templates de DTE:** `emailTemplateSubject / emailTemplateBody` (lines 10491-10492).
-- **Templates de Proforma:** `proformaEmailSubject / proformaEmailIntro` (lines 10498-10499).
-- **Templates de Estado de Pago:** `estadoPagoEmailSubject / estadoPagoEmailIntro / estadoPagoFooterLegal` (lines 10500-10502).
-- **Branding doc cobro:** `billingDocBrandPrimary / Secondary` (lines 10508-10509).
-
-Lo que **falta** vs `TenantDTESettings` del brief:
-- `alwaysBcc String[]` — BCC permanente en cada envío DTE. Hoy se usa el `replyTo` del tenant (env `EMAIL_REPLY_TO`) como BCC implícito; ver §2.2.
-- `fromName` — override del nombre del remitente (hoy es `EMAIL_FROM` global o `emisorRazonSocial`).
-- `replyTo` — está como env var global, no per-tenant en BD.
-- `bodyTemplate` con sintaxis `{{tipoDTE}}` Markdown — hoy es HTML/texto con tokens `{{razonSocial}} {{folio}} {{tipo}} {{total}} {{fecha}} {{receiverName}}`. La sintaxis difiere; hay que migrar tokens.
-
-### 1.6 Otros modelos relacionados (inventario)
-
-Todos en `prisma/schema.prisma`:
-
-| Modelo | Línea | Propósito |
-|---|---|---|
-| `FinanceDte` | 6408 | DTE emitido/recibido. |
-| `FinanceDteLine` | 6576 | Líneas de un DTE. |
-| `FinanceDteAttachment` | 6644 | Adjuntos del usuario (OC, contrato) que viajan con el DTE. |
-| `FinanceDteRecurringTemplate` | 6706 | Plantilla para DTEs recurrentes. |
-| `FinanceDteRecurringTemplateAttachment` | 6680 | Adjuntos de plantilla recurrente. |
-| `FinanceDteRecurringRun` | 6806 | Ejecuciones de plantilla recurrente. |
-| `FinanceDteEmailLog` | 6826 | Histórico de envíos (parcial — ver §1.4). |
-| `TenantDteConfig` | 10424 | Config facturación del tenant. |
-| `TenantDteCertificate` | 10531 | Cert digital .pfx encriptado. |
-| `TenantDteCaf` | 10572 | Archivos CAF (rangos de folios SII). |
-| `TenantDteFolioTracker` | 10592 | Tracker del último folio usado por tipo. |
-| `TenantBillingSigner` | 10556 | Firmantes para PDF de estado de pago. |
-
-### 1.7 Migraciones recientes relevantes
-
-`prisma/migrations/` (últimas con cambios DTE, por nombre de carpeta):
-
-```bash
-ls -1 prisma/migrations | grep -iE 'dte|finance|email|caf' | tail -10
+```prisma
+model CrmContact {
+  id                     String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId               String    @map("tenant_id")
+  accountId              String    @map("account_id") @db.Uuid
+  firstName              String    @map("first_name")
+  lastName               String    @map("last_name")
+  email                  String?
+  phone                  String?
+  roleTitle              String?   @map("role_title")
+  isPrimary              Boolean   @default(false) @map("is_primary")
+  // ...portal/google fields
+  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  // ...relations
+  @@map("contacts")
+  @@schema("crm")
+}
 ```
 
-Hay que correrlo para listar. El schema actual es resultado de muchas migraciones; **no hay** una migración pendiente bloqueante para Fase 1 (ya hay varios `migrate resolve --rolled-back` en `package.json:6`, lo que indica historia compleja — cuidado al agregar migraciones).
+**Ausencias confirmadas** (necesarias en Migración 1.A):
+- `recibeFacturacion Boolean @default(false)` — no existe.
+- `recibeNotasCredito Boolean @default(false)` — no existe.
+- `recibeCobranza Boolean @default(false)` — no existe.
+- `recibeOperacional Boolean @default(false)` — no existe.
+
+**Datos para la data migration:**
+- Hoy la primacía se modela vía `isPrimary` (línea 2306) — el brief lo usa como criterio para marcar `recibeFacturacion = true` + `recibeNotasCredito = true`. Verificable.
+- `contactoEstadoPagoId` en `CrmAccount` (relación `accountsEstadoPago CrmAccount[] @relation("AccountEstadoPagoContact")`, línea 2323) — referenciable como receptor de Cobranza.
+- `FinanceDte.proformaRecipientContactIds String[] @db.Uuid` y `estadoPagoRecipientContactIds` — existen y son citables para la UPDATE del brief.
+
+### 1.2 `TenantDteConfig` (línea **10424**)
+
+Modelo presente con campos relevantes:
+- `emisorRut`, `emisorRazonSocial`, `emisorGiro` (lines 10455-10463)
+- `alertEmails String[] @default([])` (line 10477) — alertas operativas, **no** BCC de cada envío.
+- `defaultXmlRecipientEmails String[]` + `defaultXmlRecipientAlwaysSend Boolean` (lines 10482-10486) — backoffice XML (solo XML al contador), **diferente** del concepto `alwaysBcc`.
+- `emailTemplateSubject` / `emailTemplateBody` (lines 10491-10492) — templates de DTE.
+- `proformaEmailSubject` / `proformaEmailIntro` / `estadoPagoEmail*` (lines 10498-10502) — templates doc cobro.
+
+**Ausencias confirmadas** (necesarias en Migración 1.B):
+- `alwaysBcc String[] @default([]) @map("always_bcc")` — no existe.
+- `fromName String? @map("from_name")` — no existe.
+- `replyTo String? @map("reply_to")` — no existe.
+
+### 1.3 `FinanceDteEmailLog` (línea **6826**)
+
+```prisma
+model FinanceDteEmailLog {
+  id       String     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId String     @map("tenant_id")
+  dteId    String     @map("dte_id") @db.Uuid
+  dte      FinanceDte @relation(fields: [dteId], references: [id], onDelete: Cascade)
+
+  /// "auto_receiver" | "auto_backoffice" | "manual_resend" |
+  /// "manual_override_recipient" | "manual_backoffice"
+  kind        String          // ← String, NO enum
+  to          String[]
+  cc          String[] @default([])
+  bcc         String[] @default([]) @map("bcc")
+  subject     String
+  /// "pdf_xml" | "xml_only" | "pdf_only"
+  attachments String          // ← String, NO enum
+
+  status       String /// "sent" | "failed"   // ← String, NO enum
+  resendId     String? @map("resend_id")      // ← NO @unique
+  errorMessage String? @map("error_message")
+
+  sentAt DateTime @default(now()) @map("sent_at") @db.Timestamptz(6)
+  sentBy String?  @map("sent_by")
+
+  @@index([tenantId, dteId], map: "idx_dte_email_log_dte")
+  @@index([tenantId, sentAt], map: "idx_dte_email_log_sent")
+  @@map("finance_dte_email_logs")
+  @@schema("finance")
+}
+```
+
+**Confirmaciones del brief:**
+- `kind`, `status`, `attachments` son `String` con valores documentados solo en comentario — necesitan migrar a enums `FinanceDteEmailKind` / `FinanceDteEmailStatus` / `FinanceDteEmailAttachments` (Migración 1.C).
+- `resendId` NO tiene `@unique` — sin lookup directo eficiente desde el webhook.
+- Campos ausentes (todos necesarios en Migración 1.C):
+  - `idempotencyKey String? @unique`
+  - `attemptNumber Int @default(1)`
+  - `deliveredAt DateTime?`
+  - `openedAt DateTime?`
+  - `bouncedAt DateTime?`
+  - `complainedAt DateTime?`
+
+**Valores reales en BD** (según comentarios y `dte-email.service.ts:35-71`):
+- `kind` ∈ `auto_receiver | auto_backoffice | manual_resend | manual_override_recipient | manual_backoffice` — coinciden 1:1 con el enum propuesto (`AUTO_RECEIVER`, etc.). La data migration del brief mapea bien.
+- `status` ∈ `sent | failed` — el brief mapea `sent → SENT`, `failed → FAILED`, y todo lo demás (no aplica hoy) `→ QUEUED`. Correcto.
+- `attachments` ∈ `pdf_xml | xml_only | pdf_only` — mapeo directo.
+
+⚠️ **Riesgo a anotar para Carlos:** el `CASE ... END` de migración para `attachments` y `kind` no tiene rama `ELSE`. Si en producción existe un valor fuera de los esperados (legacy), el `UPDATE` deja `NULL` y luego `ALTER ... SET NOT NULL` falla. Recomiendo agregar `ELSE 'PDF_XML'::finance."FinanceDteEmailAttachments"` y `ELSE 'MANUAL_RESEND'::finance."FinanceDteEmailKind"` defensivos antes de aplicar.
+
+### 1.4 `FinanceDte` (línea **6408**)
+
+`pdfR2Key` confirmadamente ausente — `grep pdfR2Key|pdf_r2_key prisma/ src/` devuelve 0 matches.
+
+Campos relacionados al PDF actual:
+- `dteXml Bytes?` (line 6507) — XML firmado + timbrado en BD. Se mantiene; no se mueve a R2.
+- `pdfUrl String?` (line 6501) — legacy / sin uso en el flujo actual.
+- `xmlUrl String?` (line 6502) — idem.
+
+La nueva columna `pdfR2Key String? @map("pdf_r2_key")` (Migración 1.D) es coherente con el patrón ya usado en `FinanceDteAttachment.storageKey` (R2 con clave `${tenantId}/finance/...`).
 
 ---
 
-## 2. Flujo de envío actual
+## 2. Servicio de envío
 
-### 2.1 Único path: `sendDteEmail()`
+### 2.1 `dte-email.service.ts` (393 líneas)
 
-`src/modules/finance/billing/dte-email.service.ts:83-266`.
+`src/modules/finance/billing/dte-email.service.ts` — único path para envío de DTE. Firma actual (líneas 83-92):
 
-Una sola función para emisión inicial **y** reenvío. **No hay duplicación**.
-
-Firma:
 ```ts
 export async function sendDteEmail(
   tenantId: string,
@@ -168,23 +164,24 @@ export async function sendDteEmail(
   triggeredBy?: string,
   bccOverride?: string[],
   excludeAttachmentIds?: string[],
-): Promise<SendDteEmailResult>
+): Promise<SendDteEmailResult>;
 ```
 
-Callers (verificado con `grep -rn "sendDteEmail\b"`):
-- `src/modules/finance/billing/dte-issuer.service.ts:438` — **emisión inicial**, llama con `kind="auto_receiver"` después de que SII acepta el DTE.
-- `src/app/api/finance/billing/issued/[id]/send-email/route.ts:50` — **reenvío manual** desde UI, kind variable.
-- `src/app/api/finance/billing/issued/bulk-resend-email/route.ts:67` — **reenvío bulk**.
+> **Matiz vs brief:** son **8 args posicionales**, no 7 (el brief dice "firma posicional de 7 args"). El refactor a `SendDteEmailInput` propuesto sigue siendo correcto y necesario; solo hay que asegurarse de que todos los callers cubran `excludeAttachmentIds` como parámetro del nuevo objeto (el `send-email/route.ts:50` ya lo pasa hoy).
 
-Variante hermana: `sendDteXmlToBackoffice()` (`dte-email.service.ts:274-...`) — envía solo XML al contador externo (configurado en `TenantDteConfig.defaultXmlRecipientEmails`). Llamada en `dte-issuer.service.ts:468`.
+### 2.2 Callers de `sendDteEmail`
 
-**Conclusión:** el criterio "DTEDispatchService es el único path" **ya se cumple** para DTE. Lo que falta es:
-1. Mejorar la firma (hoy es posicional con 7 args opcionales — propensa a errores).
-2. Sumar idempotencia.
-3. Sumar tracking async (webhook → log).
-4. Eventualmente unificar también `sendBillingDocument` (proforma/estadoPago) y `dte-rejected-alert` bajo un servicio común.
+`grep -rn "sendDteEmail" src/`:
 
-### 2.2 BCC al tenant — ya existe (vía env, no per-tenant)
+| Caller | Línea | Kind | Notas |
+|---|---:|---|---|
+| `src/modules/finance/billing/dte-issuer.service.ts` | **438** | `auto_receiver` | Emisión inicial tras `siiStatus = ACCEPTED`. Pasa solo `tenantId, dte.id, undefined, undefined, "auto_receiver", createdBy`. |
+| `src/app/api/finance/billing/issued/[id]/send-email/route.ts` | **50** | `manual_resend` o `manual_override_recipient` | Reenvío manual desde modal. Pasa los 8 args (con `bccOverride` y `excludeAttachmentIds`). |
+| `src/app/api/finance/billing/issued/bulk-resend-email/route.ts` | **67** | `manual_resend` | Reenvío bulk en batches. Brief anotaba "revisar línea exacta": es línea 67. |
+
+Variante hermana **fuera** del scope del refactor pero relacionada: `sendDteXmlToBackoffice()` (`dte-email.service.ts:274+`), llamada desde `dte-issuer.service.ts:468`. No comparte firma con `sendDteEmail` y el brief no la toca.
+
+### 2.3 BCC actual viene del env (no per-tenant)
 
 `dte-email.service.ts:114-129`:
 
@@ -195,295 +192,180 @@ const emailCfg = await getTenantEmailConfig(tenantId);
 const adminBcc = (emailCfg.replyTo ?? "").trim();
 const rawBcc = [...(bccOverride ?? [])];
 if (adminBcc && EMAIL_RE.test(adminBcc)) rawBcc.push(adminBcc);
-
-const bccList = rawBcc.filter(
-  (e, idx, arr) =>
-    typeof e === "string" &&
-    e.trim() &&
-    e !== primary &&
-    !ccList.includes(e) &&
-    arr.indexOf(e) === idx, // dedupe interno
-);
 ```
 
-El "BCC al tenant" se toma del **replyTo configurado** (env `EMAIL_REPLY_TO`, `.env.example:58`) y se agrega siempre que sea válido y no esté duplicado. **No es per-tenant en BD** — es global por instancia. Para multi-tenant real hay que migrar a `TenantDteConfig.alwaysBcc String[]` (o equivalente) y leerlo aquí.
+`getTenantEmailConfig` lee de env (`EMAIL_REPLY_TO`, `.env.example:58`) — confirma que el BCC es **global de instancia**, no per-tenant. La estrategia del brief (fallback al env cuando `alwaysBcc` está vacío) es retro-compatible y no requiere data migration adicional.
 
-### 2.3 Adjuntos
+### 2.4 PDF se regenera sin persistencia
 
-`dte-email.service.ts:131-175`:
+`dte-email.service.ts:131-138`:
 
-1. **XML + PDF firmados** (líneas 134-138): se leen vía `provider.getXml(dteType, folio)` y `provider.getPdf(...)`. El provider activo es SimpleAPI (`src/modules/finance/shared/adapters/simpleapi.provider.ts`), pero:
-   - `getXml` lee de `FinanceDte.dteXml` directo en BD (no llama a SimpleAPI).
-   - `getPdf` regenera el PDF localmente con `pdf-lib` + `bwip-js` desde el XML guardado (no llama a SimpleAPI).
-2. **Adjuntos de usuario** (líneas 148-175): query a `FinanceDteAttachment` con `kind="USER_UPLOAD"`. Lee `storageKey` (R2) o `data` (BD) y los anexa en base64. Excluibles con `excludeAttachmentIds`.
-
-Filename: `buildDteAttachmentBaseName(tenantId, dte)` arma algo identificable (folio + cliente + instalación). Definido en `src/modules/finance/billing/dte-filename.ts`.
-
-### 2.4 Templates de email
-
-`src/modules/finance/billing/dte-email-template.ts`:
-- `renderDteEmailSubject(template, vars)` y `renderDteEmailHtml(template, vars)`.
-- Tokens: `{{razonSocial}} {{folio}} {{tipo}} {{total}} {{fecha}} {{receiverName}}`.
-- HTML, no Markdown.
-- Templates editables por tenant en `TenantDteConfig.emailTemplateSubject / emailTemplateBody`.
-
-### 2.5 Idempotencia — **NO existe**
-
-Búsqueda explícita:
-```bash
-rg -n "idempotencyKey|idempotency_key|deduplicate" src/modules/finance src/app/api/finance
+```ts
+let xmlBuffer: Buffer;
+let pdfBuffer: Buffer;
+try {
+  const provider = await getDteProvider(tenantId);
+  [xmlBuffer, pdfBuffer] = await Promise.all([
+    provider.getXml(dte.dteType, dte.folio),
+    provider.getPdf(dte.dteType, dte.folio),     // ← regenera cada vez
+  ]);
+}
 ```
-Sin matches relevantes. Doble click en el botón "Reenviar" genera **dos `FinanceDteEmailLog` rows** y dos envíos en Resend. Hay que agregar `idempotencyKey @unique` y short-circuit antes de llamar a Resend.
 
-### 2.6 Llamadas directas a `resend.emails.send` en módulos finance
+Firma del provider: `provider.getPdf(dteType, folio)` (sin `dteId/tenantId/options`). En el adapter SimpleAPI (`src/modules/finance/shared/adapters/simpleapi.provider.ts`) la implementación regenera localmente con `pdf-lib` + `bwip-js` desde `FinanceDte.dteXml`. **No hay persistencia en R2 hoy.**
 
-`grep -rn "resend\.emails\.send" src/modules/finance src/app/api/finance`:
+Cambio propuesto en Fase 2.B (extender firma a `getPdf(dteType, folio, options?: { dteId, tenantId, forceRegenerate })`) es retro-compatible: el `?` mantiene la firma actual.
 
-- `src/modules/finance/billing/dte-email.service.ts:197` — `sendDteEmail` (correcto).
-- `src/modules/finance/billing/dte-email.service.ts:341` — `sendDteXmlToBackoffice` (correcto, mismo servicio).
-- `src/modules/finance/billing/billing-document-send.service.ts:308` — Proforma / Estado de Pago. **Fuera del servicio DTE**.
-- `src/modules/finance/billing/dte-rejected-alert.service.ts:127` — alerta operativa de DTE rechazado (no es envío del DTE en sí).
-- `src/modules/finance/factoring/cession.service.ts:648` — Cesión a factoring.
-
-**Conclusión para el criterio "único path":** se cumple **para DTE emitido al receptor + backoffice XML**. Para alcanzar el espíritu del brief (un solo servicio) habría que también englobar proforma/estado de pago y la alerta de rechazos, pero eso amplía el scope. Recomiendo dejarlo fuera de este PR y trackear como follow-up.
-
-### 2.7 Webhook de Resend — **NO toca `FinanceDteEmailLog`**
-
-`src/app/api/webhook/resend/route.ts` (467 líneas).
-
-Verificación svix con `RESEND_WEBHOOK_SECRET` (líneas 30-50). Eventos manejados: `email.delivered / opened / clicked / bounced / complained`.
-
-El webhook hace lookup en **3 tablas** (líneas 66-139):
-
-1. `prisma.presentation.findFirst({ emailMessageId })` — presentaciones CPQ.
-2. `prisma.crmEmailMessage.findFirst({ resendId })` — emails CRM.
-3. `prisma.opsEmailLog.findFirst({ resendId })` — onboarding/guardias.
-
-**Falta el 4to lookup:** `prisma.financeDteEmailLog.findFirst({ resendId })`. Hoy un bounce de un DTE no actualiza nada en finance. La UI muestra "SENT" para siempre aunque haya rebotado.
-
-**Hay que extender el webhook** (no crear uno nuevo) y, en paralelo, **agregar `resendId @unique`** a `FinanceDteEmailLog` (hoy no lo es) para que el lookup sea barato.
+⚠️ **Anotación para Carlos:** la migración lazy (poblar `pdfR2Key` solo en el próximo envío) significa que para DTEs antiguos el primer reenvío post-deploy hace un round-trip extra (regen + upload). El brief lo asume y propone un hook proactivo en emisión nueva (`dte-issuer.service.ts` antes de `sendDteEmail`); para los históricos queda implícito en demanda. Aceptable.
 
 ---
 
-## 3. UI actual del módulo
+## 3. Webhook Resend — `src/app/api/webhook/resend/route.ts` (467 líneas)
 
-### 3.1 Estructura de archivos
+Header del archivo (líneas 13-17):
 
-Server entry: `src/app/(app)/finanzas/facturacion/dtes/page.tsx` (250 líneas).
+```
+ * Busca en tres entidades:
+ * 1. Presentation (emailMessageId) - presentaciones CPQ
+ * 2. CrmEmailMessage (resendId) - correos CRM / follow-ups
+ * 3. OpsEmailLog (resendId) - onboarding y comunicaciones a guardias
+```
 
-Componentes en `src/components/finance/dtes/`:
+Verificación svix con `RESEND_WEBHOOK_SECRET` confirmada (líneas 30-50). Los 3 lookups están en:
+- Línea **66**: `prisma.presentation.findFirst({ where: { emailMessageId: emailId } })`
+- Línea **93**: `prisma.crmEmailMessage.findFirst({ where: { resendId: emailId } })`
+- Línea **120**: `prisma.opsEmailLog.findFirst({ where: { resendId: emailId } })`
 
-| Archivo | Líneas | Rol |
-|---|---:|---|
-| `DtesEmitidosClient.tsx` | 1173 | Orquestador client-side (filtros, selección, modals, KPIs). |
-| `IssuedDtesTable.tsx` | 388 | Tabla desktop. |
-| `IssuedDtesMobileList.tsx` | 259 | Lista de cards mobile. |
-| `FiltersDrawer.tsx` | 404 | Drawer de filtros avanzados. |
-| `KpiStrip.tsx` | 214 | 5 KPIs con sparklines. |
-| `KpiStripReceived.tsx` | 200 | KPIs versión recibidos. |
-| `BulkActionBar.tsx` | 147 | Barra de acciones masivas. |
-| `DtePaymentTag.tsx` | 136 | Tag estado pago. |
-| `ActiveFilterChips.tsx` | 133 | Chips de filtros activos. |
-| `DtesToolbar.tsx` | 115 | Búsqueda + ordenamiento. |
-| `RelationRow.tsx` | 62 | Referencias a folio original (NC/ND). |
-| `SiiStatusPill.tsx` | 55 | Badge estado SII. |
-| `LinkedNoteBadge.tsx` | 46 | Badge nota crédito vinculada. |
-| `CessionBadge.tsx` | 34 | Badge cesión factoring. |
-| `DocumentTag.tsx` | 25 | Tag tipo DTE. |
-| `IssuedDteSlideOver.tsx` | 24 | Wrapper sheet del detail dialog. |
-| `shared/types.ts`, `shared/constants.ts`, `hooks/useDteFilters.ts` | — | Tipos y filtros compartidos. |
+Y el fallback (línea **141**):
+```ts
+if (!presentation && !crmMessage && !opsEmailLog) {
+  console.warn('⚠️ Ninguna entidad encontrada para emailId:', emailId);
+}
+```
 
-Detalle principal (fuera de `dtes/`): `src/components/finance/IssuedDteDetailDialog.tsx` (**1377 líneas** — monolito), `src/components/finance/SendEmailDialog.tsx` (531 líneas).
+**Ausencia confirmada:** `grep -n "financeDteEmailLog" src/app/api/webhook/resend/route.ts` → 0 matches. Sin 4to lookup. Bounces/opens de DTE se loguean en el `console.warn` y se pierden.
 
-### 3.2 Listado
+El plan de Fase 2.C (sumar lookup en `financeDteEmailLog` antes del fallback) es no-disruptivo: solo agrega una rama; no cambia las 3 existentes.
 
-`src/app/(app)/finanzas/facturacion/dtes/page.tsx:44-60`: carga inicial **50 DTEs** (`INITIAL_PAGE_SIZE`) con `take: 50` Prisma. **No es cursor pagination** — usa offset implícito y client-side filtering.
+> **Recordar en Fase 2.C:** el webhook usa `data.email_id` (campo plano del payload Resend). El brief propone también un header `X-Entity-Ref-ID: log.id` en `resend.emails.send.headers` como alternativa al lookup por `resendId`. Cualquiera de los dos sirve — `resendId @unique` después de la migración 1.C ya lo deja barato.
 
-Desktop: `IssuedDtesTable` (388 líneas) — tabla shadcn con columnas (tipo+folio, status SII, receptor, monto, fecha, pago, aging, menú).
+---
 
-Mobile: `IssuedDtesMobileList` (259 líneas) — **ya usa cards**, no tabla. Pero:
-- **No tiene swipe actions** (no se encontró `touchstart` ni libs swipe).
-- **No tiene pull-to-refresh** (no se encontró `react-pull-to-refresh` ni handlers).
-- **No tiene FAB sticky para "Nuevo"** — el botón vive en el toolbar.
-- **Skeleton loader** no es claro a nivel mobile (hay que verificar manualmente).
-- Selección múltiple existe (checkbox aparece si `selectedIds.size > 0`) pero no es bottom-sheet ni mobile-optimized.
-- Long-press no implementado.
+## 4. UI
 
-### 3.3 Detalle: `IssuedDteDetailDialog.tsx` — 1377 líneas
+### 4.1 Listado server — `src/app/(app)/finanzas/facturacion/dtes/page.tsx` (250 líneas)
 
-`presentation` prop alterna entre `dialog` (modal centrado) y `sheet` (slide-over).
+```ts
+// línea 44
+const INITIAL_PAGE_SIZE = 50;
+// línea 50-53
+const initialWhere = {
+  tenantId,
+  direction: "ISSUED" as const,
+};
+// línea 55-68
+const [dtes, issuedTotal, suppliers] = await Promise.all([
+  prisma.financeDte.findMany({
+    where: initialWhere,
+    include: { lines: true },
+    orderBy: [{ siiStatus: "asc" }, { date: "desc" }, { folio: "desc" }],
+    take: INITIAL_PAGE_SIZE,     // ← offset implícito, sin cursor
+  }),
+  prisma.financeDte.count({ where: initialWhere }),
+  // ...
+]);
+```
 
-Dimensiones (lines 488-502):
-- Sheet mobile (cuando `isMobileViewport`): `max-h-[92vh] rounded-t-2xl` — sí respeta mobile.
-- Sheet desktop: `sm:max-w-xl`.
-- Dialog fallback: `sm:max-w-3xl max-h-[90vh] overflow-y-auto`.
+**Confirmado:** `take: 50` puro, sin `cursor` ni `take: PAGE_SIZE + 1`. Pagination de Fase 2.G (cursor con `{ id: cursor }`, `skip: cursor ? 1 : 0`, response `{ items, nextCursor, hasNextPage }`) es greenfield para este endpoint.
 
-`IssuedDteSlideOver.tsx` (24 líneas) es solo un wrapper que fuerza `presentation="sheet"`.
+⚠️ **Nota:** el `orderBy` actual mezcla `siiStatus: "asc"` con `date desc, folio desc`. Para cursor estable hay que mantener ese orden compuesto y agregar el cursor sobre el `id` (último tiebreaker). El brief simplifica a `orderBy: [{ createdAt: 'desc' }, { id: 'desc' }]` — Carlos: confirmar si está OK perder el "pendientes arriba" o si mantenemos el ordenamiento actual y el cursor incluye los 4 keys. Recomiendo conservar el orden actual y usar un cursor compuesto.
 
-**No tiene tabs** (`Detalle / Envíos / SII / Adjuntos`) — todo está en una vista vertical larga. La timeline de envíos vive embebida; refactorizar en tabs es trabajo nuevo.
+### 4.2 Lista mobile — `src/components/finance/dtes/IssuedDtesMobileList.tsx` (259 líneas)
 
-### 3.4 Reenvío de email: `SendEmailDialog.tsx` (531 líneas)
+Las cards SÍ existen (`<Card key={d.id} ...>`, línea 78). Lo que **falta**, verificado con `grep`:
 
-`src/components/finance/SendEmailDialog.tsx:294-295`:
+| Capacidad | Verificación | Resultado |
+|---|---|---|
+| Swipe-actions | `grep -E "onTouchStart\|TouchEvent\|swipe" IssuedDtesMobileList.tsx` | 0 matches |
+| Pull-to-refresh | `grep -E "pull.*refresh\|PullToRefresh" IssuedDtesMobileList.tsx` | 0 matches |
+| FAB sticky | grep `fixed bottom-` en `IssuedDtesMobileList.tsx` + `DtesEmitidosClient.tsx` | 0 matches en mobile list; en client tampoco hay FAB |
+| `safe-area-inset` | `grep -r "safe-area\|env(safe-area" src/components/finance/dtes/` | 0 matches |
+
+Selección múltiple sí existe (`selectionMode = selectedIds.size > 0` línea 67) pero no es mobile-optimized (checkbox plano dentro de la card, no bottom-sheet).
+
+El layout usa tokens DS parcialmente (`bg-ds-surface-2`, `text-ds-text-2`, `border-ds-border-subtle`) pero tipografía mezcla `text-sm`/`text-xs` con tokens — para la Fase 4 conviene alinear a `[12px]`/`[13px]` que pide AGENTS.md.
+
+### 4.3 Detalle — `src/components/finance/IssuedDteDetailDialog.tsx` (1377 líneas)
+
+`grep -nE "Tabs|TabsTrigger|TabsContent|TabsList" IssuedDteDetailDialog.tsx` → **0 matches.**
+
+Confirmado: NO usa tabs. Sí tiene presentación adaptativa Dialog/Sheet (importa ambos desde `@/components/ui/dialog` y `@/components/ui/sheet`, líneas 21-37) y un `presentation` prop que alterna entre dialog centrado y sheet lateral. El refactor a `dtes/detail/` con 4 tabs (Detalle / Envíos / SII / Adjuntos) es trabajo nuevo.
+
+`IssuedDteSlideOver.tsx` (24 líneas) es solo wrapper que fuerza `presentation="sheet"`.
+
+### 4.4 Modal de reenvío — `src/components/finance/SendEmailDialog.tsx` (531 líneas)
+
+Líneas 294-295:
+
 ```tsx
 <Dialog open={open} onOpenChange={onOpenChange}>
   <DialogContent className="sm:max-w-2xl">
 ```
 
-Es un **Dialog modal** (centrado, max-w-2xl), **no es un bottom sheet mobile**. En iPhone SE (375px) queda comprimido y mal usable. Es el componente principal a sustituir por el **Sender Sheet** del brief.
+Confirmado: es `Dialog`, no `Sheet`. En 375px queda comprimido (modal centrado). El reemplazo por `SenderSheet` mobile-first de Fase 4.A es necesario.
 
-Faltan:
-- Lista de contactos del cliente con checkboxes (hoy es solo input de email).
-- Pre-marcado por flags del tipo de DTE.
-- Bloque "Copia interna (BCC)" expandible.
-- localStorage de emails ad-hoc.
+`grep -rn "SendEmailDialog" src/` (excluyendo el archivo mismo) — usos del componente:
+- `src/components/finance/IssuedDteDetailDialog.tsx` (importado línea ~62: `import { SendEmailDialog } from "./SendEmailDialog"`)
 
-### 3.5 Problemas mobile encontrados
+Solo 1 call site fuera del propio archivo → la eliminación post-migración es de bajo riesgo.
 
-| Problema | Archivo | Detalle |
-|---|---|---|
-| `SendEmailDialog` es `Dialog`, no `Sheet` | `SendEmailDialog.tsx:294-295` | Mal usable en 375px. |
-| `IssuedDteDetailDialog` no tiene tabs | `IssuedDteDetailDialog.tsx` (1377 líneas) | Scroll vertical extenso; difícil llegar a "Envíos" o "Adjuntos". |
-| No hay swipe-actions en cards | `IssuedDtesMobileList.tsx` | Spec pide swipe-left "Reenviar" y swipe-right "Ver PDF". |
-| No hay pull-to-refresh | `dtes/page.tsx` + lista mobile | El usuario necesita refresh manual (¿hard refresh?). |
-| No hay FAB sticky | n/a | Spec pide "Nuevo" como FAB con safe-area. Hoy es botón normal. |
-| No safe-area-inset explícito | grep `safe-area` → 0 matches en `src/components/finance/dtes/` | iPhone 14+ con notch puede tener problemas en bottom actions. |
-| Pagination no es cursor | `page.tsx:44,60` | Si hay 500+ DTEs, el offset pagination puede deteriorar performance. |
+### 4.5 Timeline — `src/components/finance/DteEmailTimeline.tsx` (126 líneas)
 
-### 3.6 Configuración del tenant ya existe
+Confirmado:
+- Existe.
+- Define `type EmailLog` con `status: "sent" | "failed" | string` (línea 18) — sin estados async.
+- Renderiza icono ok/fail según `log.status === "sent"` (línea 71-79).
+- Llama `/api/finance/billing/issued/{dteId}/email-log` (línea 39).
+- Sin badges de delivered/opened/bounced; sin timestamps de tracking.
 
-`src/app/(app)/opai/configuracion/finanzas/dte/page.tsx` y `src/components/finance/DteConfigClient.tsx` (1+ archivos) — hub de configuración DTE existente. Ahí viven los datos del emisor, cert, CAF, templates. **Hay que aprovechar esta página** para sumar la sección "Email" del brief (alwaysBcc, fromName, replyTo). NO crear `/configuracion/facturacion` aparte (duplicaría flujo).
+La estrategia del brief de **no editar este archivo y crear `EnviosTabContent.tsx` nuevo** dentro de `dtes/detail/` es correcta y limpia. Después de la migración se puede borrar `DteEmailTimeline.tsx` si no queda ningún caller (revisar al final del PR con `grep`).
 
 ---
 
-## 4. Integración SII / SimpleAPI
-
-### 4.1 Wrapper
-
-`src/modules/finance/shared/adapters/simpleapi.provider.ts` (~1005 líneas).
-
-Implementa la interfaz `DteProviderAdapter` definida en `src/modules/finance/shared/adapters/dte-provider.adapter.ts`:
-- `issue(req)` — emisión completa (genera + envía sobre).
-- `getStatus(trackId)` — consulta estado al SII.
-- `getXml(dteType, folio)` — lee de BD (`FinanceDte.dteXml`).
-- `getPdf(dteType, folio)` — regenera localmente con `pdf-lib` + `bwip-js` (PDF417 timbre).
-- `cede(req)` — cesión a factoring (delega a SimpleAPI o SII directo según `cessionProvider`).
-
-Flujo de emisión (3 pasos):
-1. `POST api.simpleapi.cl/api/v1/dte/generar` → XML firmado + timbrado.
-2. `POST api.simpleapi.cl/api/v1/envio/generar` → sobre firmado.
-3. Upload al SII: directo vía SOAP (default) o vía SimpleAPI (legacy) según env `SIMPLEAPI_ENVIO_ENVIAR`.
-
-Preflight: `src/modules/finance/billing/dte-preflight.ts` valida cert vigente, password OK, CAF disponible, RUT consistente.
-
-Tests: `src/modules/finance/billing/__tests__/dte-preflight.test.ts` (existe).
-
-### 4.2 Storage del XML/PDF firmados
-
-- **XML firmado:** `FinanceDte.dteXml Bytes?` en BD. **No en R2.** Verificado en `dte-email.service.ts:135-137` (lectura vía provider que lee BD) y en `src/modules/finance/shared/adapters/simpleapi.provider.ts:140` (comentario explícito).
-- **PDF firmado:** **no se persiste**. Se regenera on-demand desde el XML cada vez que se necesita. Decisión razonable (PDF pesa y se puede reconstruir), pero impacta:
-  - El brief dice "PDF adjunto = XML firmado original (no se re-firma ni regenera)". El XML cumple; **el PDF sí se re-renderiza** cada envío. **Carlos debe confirmar si esto es aceptable** o si hay que persistir el PDF también (impacta R2/BD).
-- **Adjuntos de usuario:** en R2 con `storageKey` (formato `${tenantId}/finance/...`). Ver `FinanceDteAttachment.storageKey` y `src/lib/storage.ts:88-119` (`uploadFile`).
-
-R2 client: `src/lib/storage.ts:17-42`. Workaround para R2 checksum CRC32 (`requestChecksumCalculation: "WHEN_REQUIRED"`).
-
----
-
-## 5. Dependencias externas
-
-`package.json`:
-
-| Dependencia | Versión |
-|---|---|
-| `next` | ^16.0.0 (App Router) |
-| `react` | ^19.0.0 |
-| `@prisma/client` | ^6.19.2 |
-| `prisma` | ^6.19.2 |
-| `resend` | ^6.9.1 |
-| `@react-email/components` | ^1.0.7 |
-| `@react-email/render` | ^2.0.4 |
-| `svix` | ^1.88.0 (webhooks) |
-| `zod` | ^4.3.6 |
-| `tailwindcss` | ^3.4.17 |
-| `@radix-ui/react-dialog` | ^1.1.15 |
-| `lucide-react` | ^0.563.0 |
-| `date-fns` | ^4.1.0 |
-| `nanoid` | ^5.1.6 (UUIDs) |
-| `pdf-lib`, `bwip-js`, `xml-crypto` | (presentes, para PDF DTE) |
-| `@aws-sdk/client-s3` | ^3.1007.0 (R2) |
-| `@aws-sdk/s3-request-presigner` | ^3.1045.0 |
-
-**Comentarios:**
-
-- **Next 16 + React 19**: el brief habla de "Next 15"; estamos en 16. La diferencia es mínima para Server Actions y App Router, pero hay que confirmar que las APIs usadas en el plan siguen vigentes.
-- **shadcn `sheet`** disponible en `src/components/ui/sheet.tsx` (verificado). Se usa por ejemplo en `src/components/access-control/AccessControlRecordDetailSheet.tsx:9`.
-- **No hay drawer (vaul)** — `sheet` cumple el rol de bottom sheet en mobile.
-- **`react-pull-to-refresh`** **no está instalada**. Si se quiere PTR hay que decidir entre agregarla o implementación nativa con touchstart/touchmove (más liviano).
-- **`crypto.randomUUID`** (browser) o `nanoid` ya disponibles para idempotencyKey en el cliente.
-
-### 5.1 Variables de entorno (`.env.example`)
+## 5. Env vars — `.env.example`
 
 | Variable | Línea | Estado |
 |---|---:|---|
-| `RESEND_API_KEY` | 54 | ✅ Documentada. |
-| `EMAIL_FROM` | 57 | ✅ Documentada (fallback `OPAI <opai@gard.cl>`). |
-| `EMAIL_REPLY_TO` | 58 | ✅ Documentada (redactada). Usada como BCC implícito en DTE. |
-| `RESEND_WEBHOOK_SECRET` | 63 | ✅ **Ya existe** — el brief asume que no. |
-| `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, `R2_PUBLIC_URL` | 136-140 | ✅ Documentadas. |
-| `DTE_PROVIDER`, `DTE_API_KEY`, `DTE_API_SECRET`, `DTE_API_URL`, `DTE_CERTIFICATE_PASSWORD` | 163-167 | ✅ Documentadas. Provider abstracto, no `SIMPLEAPI_*` hard-coded. |
-| `OCTAVA_INTEGRADOR_RUT`, `OCTAVA_INTEGRADOR_PASSWORD` | 176-178 | ✅ Cesión factoring. |
-| `SIMPLEAPI_ENVIO_ENVIAR` | — | ❌ No documentada explícitamente en `.env.example`, aunque se usa en código (`simpleapi.provider.ts`). Hay que sumarla. |
+| `EMAIL_REPLY_TO` | 58 | ✅ Documentada (usada como BCC implícito por `dte-email.service.ts:118`). |
+| `RESEND_WEBHOOK_SECRET` | 63 | ✅ **Ya existe** (`whsec_xxxxxxxxxxxxxxxxxxxx`). El brief lo confirma. |
+
+No hay env vars nuevas a sumar en este PR; toda la configuración nueva vive en `TenantDteConfig` (per-tenant).
 
 ---
 
-## 6. Hallazgos críticos (ranked)
+## 6. Notas para Fase 1 (decisiones a confirmar antes de migrar)
 
-### P0 — Hay que decidir antes de Fase 1
+1. **Defensive `ELSE` en los `CASE WHEN` de Migración 1.C.** Si hay rows de `kind`/`status`/`attachments` con valores fuera de la lista documentada (legacy), el `ALTER ... SET NOT NULL` falla. Recomiendo añadir `ELSE` defensivos antes de aplicar en producción. Ver §1.3.
 
-1. **`CrmContact` vs `ClienteContacto`**: ¿extender `CrmContact` con los 4 flags `recibe*` o crear `ClienteContacto` paralelo? Recomiendo extender (no duplicar).
-2. **`Tenant.dteSettings Json` vs columnas en `TenantDteConfig`**: ¿añadir `alwaysBcc`/`fromName`/`replyTo` a `TenantDteConfig` o adoptar un campo `Json` en `Tenant`? Recomiendo extender `TenantDteConfig` (consistencia con el resto del modelo).
-3. **`FinanceDteEmailLog` vs `DTEEnvio`**: ¿extender o crear modelo nuevo? Recomiendo extender (agregar `idempotencyKey @unique`, `attemptNumber`, `deliveredAt/openedAt/bouncedAt`, convertir strings a enums). El nombre `DTEEnvio` rompe el namespace `Finance*` actual.
-4. **PDF on-demand vs persistido**: hoy el PDF se regenera cada envío. ¿Aceptable? Si no, hay que sumar persistencia (R2 o BD) y la migración correspondiente.
+2. **Ordenamiento del listado con cursor.** El `orderBy` actual mezcla `siiStatus asc` con `date/folio desc`. El brief simplifica a `createdAt desc, id desc`. Decidir: conservar UX actual (pendientes arriba) con cursor compuesto, o aceptar el cambio del brief. Ver §4.1.
 
-### P1 — Bugs / gaps reales en el flujo actual
+3. **Backfill de `pdfR2Key` para DTEs históricos.** El brief asume migración lazy (primer reenvío). Para tenants con muchos reenvíos simultáneos post-deploy puede haber carga inicial concentrada en SimpleAPI/regen. Aceptable, pero anotable.
 
-5. **No hay idempotencia.** Doble click reenvía. Hay que sumar `idempotencyKey @unique` y short-circuit.
-6. **Webhook de Resend ignora DTE.** Bounces y opens de DTEs no actualizan el log. Hay que extender `src/app/api/webhook/resend/route.ts` con un 4to lookup en `financeDteEmailLog` por `resendId` (y hacer ese campo `@unique`).
-7. **BCC al tenant es global (env), no per-tenant.** Hay que migrarlo a `TenantDteConfig.alwaysBcc String[]` y leerlo en `sendDteEmail`.
-8. **`SendEmailDialog` no es mobile-first.** Es un `Dialog` modal con `sm:max-w-2xl`. Hay que reemplazarlo por un `Sheet` bottom con la estructura del brief.
-9. **Selector de contactos no usa `CrmContact`.** Hoy es un input libre de emails; el brief pide checkboxes pre-marcados por flag. Hay que cargar contactos del cliente al abrir el sheet.
+4. **`emailStatus` en `FinanceDte` (línea 6511) sigue siendo `String?` libre** (`"SENT"` / `"FAILED"` / null). No está en el scope del PR convertirlo a enum, pero queda inconsistente con la migración a enums en `FinanceDteEmailLog`. Trackear como follow-up.
 
-### P2 — Mejoras del listado mobile
-
-10. Sin swipe-actions, sin pull-to-refresh, sin FAB sticky, sin safe-area-inset explícito.
-11. Pagination es offset (50 inicial), no cursor. Con 500+ DTEs degrada.
-12. `IssuedDteDetailDialog.tsx` es un monolito de 1377 líneas sin tabs; refactor a tabs (Detalle / Envíos / SII / Adjuntos) es trabajo de scope sizeable.
-
-### P3 — Limpieza
-
-13. `kind` (`finance_dte_email_logs`), `status`, `attachments` son strings en BD pero deberían ser enums.
-14. `emailStatus` en `FinanceDte` es `String?` libre — debería ser enum.
-15. Templates usan tokens `{{razonSocial}}` HTML; el brief habla de tokens `{{tipoDTE}} {{tenant.razonSocial}}` Markdown. Hay que mapear o migrar.
+5. **Múltiples `migrate resolve --rolled-back` en `package.json`** (history compleja). Las 4 migraciones nuevas hay que aplicarlas con cuidado al staging y verificar `npx prisma migrate status` antes de mergear.
 
 ---
 
-## 7. Próximos pasos
+## 7. STOP
 
-Esta auditoría queda como **draft** para Carlos.
+**Fase 0 completa.** Esperar OK de Carlos para iniciar Fase 1 (4 migraciones Prisma).
 
-**Antes de Fase 1 hay que confirmar:**
+Resumen de archivos a tocar en Fase 1:
+- `prisma/schema.prisma` — extender 4 modelos.
+- `prisma/migrations/<ts>_crm_contacts_recibe_flags/migration.sql` (Migración 1.A).
+- `prisma/migrations/<ts>_tenant_dte_config_email_per_tenant/migration.sql` (Migración 1.B).
+- `prisma/migrations/<ts>_finance_dte_email_log_async_tracking/migration.sql` (Migración 1.C).
+- `prisma/migrations/<ts>_finance_dte_pdf_r2_key/migration.sql` (Migración 1.D).
 
-- [ ] Punto 1 (CrmContact vs ClienteContacto) y los demás 4 P0.
-- [ ] Si la ruta del módulo se mantiene en `(app)/finanzas/facturacion/dtes` o se renombra a `dte-emitidos`.
-- [ ] Si extendemos `FinanceDteEmailLog` o creamos `DTEEnvio` paralelo.
-- [ ] Si persistimos el PDF firmado o asumimos regeneración on-demand.
-- [ ] Si el scope de "unificar envíos" incluye proforma/estadoPago/alertas o solo DTE.
-
-**Una vez aprobado**, Fase 1 toca:
-- Migración Prisma extendiendo `CrmContact` (+ flags), `TenantDteConfig` (+ alwaysBcc/fromName/replyTo) y `FinanceDteEmailLog` (+ idempotencyKey/attempt/deliveredAt/openedAt/bouncedAt/enums).
-- Script de migración de datos (si hay flags por defecto a setear para contactos existentes).
-- UI de configuración: extender la página actual `(app)/opai/configuracion/finanzas/dte` con la sección "Email" — no crear `/configuracion/facturacion`.
-
----
-
-**Fin del reporte.**
+**Fin de Fase 0.**
