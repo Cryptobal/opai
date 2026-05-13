@@ -55,6 +55,16 @@ export async function GET(
           monthlyPositionCost: true,
           baseSalary: true,
           payrollSnapshot: true,
+          serviceGroupId: true,
+          serviceGroup: {
+            select: {
+              id: true,
+              name: true,
+              coveragePattern: true,
+              iconName: true,
+              displayOrder: true,
+            },
+          },
         },
         orderBy: { createdAt: "asc" },
       },
@@ -250,6 +260,11 @@ export async function GET(
           totalLaborCost: costClp,
           salePrice: positionSaleClp,
           hourlyRateSale,
+          serviceGroupId: pos.serviceGroupId ?? null,
+          serviceGroupName: pos.serviceGroup?.name ?? null,
+          serviceGroupPattern: pos.serviceGroup?.coveragePattern ?? null,
+          serviceGroupOrder: pos.serviceGroup?.displayOrder ?? null,
+          serviceGroupIcon: pos.serviceGroup?.iconName ?? null,
         };
       });
 

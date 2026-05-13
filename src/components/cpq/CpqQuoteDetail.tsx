@@ -16,6 +16,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { EmptyState } from "@/components/opai-ds";
 import { CreatePositionModal } from "@/components/cpq/CreatePositionModal";
+import { CpqServiceGroupCard } from "@/components/cpq/CpqServiceGroupCard";
+import { CreateServiceModal } from "@/components/cpq/CreateServiceModal";
 import { CpqPositionCard } from "@/components/cpq/CpqPositionCard";
 import { CpqQuoteCosts } from "@/components/cpq/CpqQuoteCosts";
 import { SendPortalProposalModal } from "@/components/cpq/SendPortalProposalModal";
@@ -40,6 +42,7 @@ import type {
   CpqQuoteVehicle,
   CpqQuoteInfrastructure,
   MarginMode,
+  CpqServiceGroup,
 } from "@/types/cpq";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -150,6 +153,7 @@ export function CpqQuoteDetail({
       : null,
   );
   const [positions, setPositions] = useState<CpqPosition[]>([]);
+  const [serviceGroups, setServiceGroups] = useState<CpqServiceGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [costSummary, setCostSummary] = useState<CpqQuoteCostSummary | null>(null);
   const [costParams, setCostParams] = useState<CpqQuoteParameters | null>(null);
@@ -392,9 +396,10 @@ export function CpqQuoteDetail({
   const refresh = async () => {
     setLoading(true);
     try {
-      const [quoteRes, costsRes] = await Promise.all([
+      const [quoteRes, costsRes, servicesRes] = await Promise.all([
         fetch(`/api/cpq/quotes/${quoteId}`),
         fetch(`/api/cpq/quotes/${quoteId}/costs`),
+        fetch(`/api/cpq/quotes/${quoteId}/services`),
       ]);
       if (!quoteRes.ok) {
         console.error("CPQ quote fetch error", quoteRes.status);
@@ -410,6 +415,14 @@ export function CpqQuoteDetail({
       if (quoteData.success) {
         setQuote(quoteData.data);
         setPositions(quoteData.data.positions || []);
+      }
+      if (servicesRes.ok) {
+        try {
+          const servicesData = await servicesRes.json();
+          if (servicesData.success) setServiceGroups(servicesData.data || []);
+        } catch (e) {
+          console.warn("CPQ service groups parse error (degrading):", e);
+        }
       }
       if (costsData.success) {
         skipAutoSave.current = true;
@@ -1321,6 +1334,37 @@ export function CpqQuoteDetail({
     return map;
   }, [positions, positionSalePrices, monthlyHours]);
 
+  const positionsByGroup = useMemo(() => {
+    const map = new Map<string, CpqPosition[]>();
+    const ungrouped: CpqPosition[] = [];
+    for (const p of positions) {
+      if (p.serviceGroupId) {
+        const arr = map.get(p.serviceGroupId) ?? [];
+        arr.push(p);
+        map.set(p.serviceGroupId, arr);
+      } else {
+        ungrouped.push(p);
+      }
+    }
+    return { map, ungrouped };
+  }, [positions]);
+
+  const handleAutoGroup = useCallback(async () => {
+    if (!confirm("¿Auto-agrupar los puestos sin agrupar por cargo/puesto?")) return;
+    try {
+      const r = await fetch(`/api/cpq/quotes/${quoteId}/services/auto-group`, { method: "POST" });
+      const d = await r.json();
+      if (d.success) {
+        toast.success(`${d.data.created} servicios creados con ${d.data.assigned} turno(s)`);
+        refresh();
+      } else {
+        toast.error(d.error || "No se pudo auto-agrupar");
+      }
+    } catch {
+      toast.error("No se pudo auto-agrupar");
+    }
+  }, [quoteId]);
+
   const headerPersistLabel =
     savingQuote || savingFinancials
       ? "Guardando..."
@@ -2198,7 +2242,8 @@ export function CpqQuoteDetail({
             )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <div onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+              <CreateServiceModal quoteId={quoteId} onCreated={refresh} disabled={isLocked} />
               <CreatePositionModal quoteId={quoteId} onCreated={refresh} disabled={isLocked} />
             </div>
             <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", secPuestos && "rotate-180")} />
@@ -2224,24 +2269,77 @@ export function CpqQuoteDetail({
               <EmptyState
                 icon={Users}
                 title="Sin puestos"
-                description="Agrega el primer puesto para comenzar."
+                description="Crea el primer servicio para comenzar (ej: Acceso Principal 24/7)."
                 compact
               />
             ) : (
-              <div className="space-y-2">
-                {positions.map((position) => (
-                  <CpqPositionCard
-                    key={position.id}
-                    position={position}
-                    quoteId={quoteId}
-                    onUpdated={refresh}
-                    readOnly={isLocked}
-                    salePriceMonthlyForPosition={positionSalePrices.get(position.id) ?? 0}
-                    clientHourlyRate={positionHourlyRates.get(position.id) ?? 0}
-                    displayCurrency={crmContext.currency || "CLP"}
-                    ufValue={ufValue}
-                  />
-                ))}
+              <div className="space-y-3">
+                {serviceGroups
+                  .slice()
+                  .sort(
+                    (a, b) =>
+                      a.displayOrder - b.displayOrder || a.name.localeCompare(b.name)
+                  )
+                  .map((group) => (
+                    <CpqServiceGroupCard
+                      key={group.id}
+                      quoteId={quoteId}
+                      group={group}
+                      shifts={positionsByGroup.map.get(group.id) ?? []}
+                      onRefresh={refresh}
+                      readOnly={isLocked}
+                      displayCurrency={crmContext.currency || "CLP"}
+                      ufValue={ufValue}
+                      onAddShift={(gid) => {
+                        window.dispatchEvent(
+                          new CustomEvent("cpq:open-create-position", {
+                            detail: { serviceGroupId: gid },
+                          })
+                        );
+                      }}
+                    />
+                  ))}
+
+                {positionsByGroup.ungrouped.length > 0 && (
+                  <Card className="overflow-hidden border-dashed border-border/60 bg-muted/10">
+                    <div className="flex items-center justify-between px-3 py-2 border-b border-border/40">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Sin agrupar
+                        </span>
+                        <Badge variant="outline" className="text-[10px]">
+                          {positionsByGroup.ungrouped.length}
+                        </Badge>
+                      </div>
+                      {!isLocked && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs"
+                          onClick={handleAutoGroup}
+                        >
+                          Auto-agrupar
+                        </Button>
+                      )}
+                    </div>
+                    <div className="p-2 space-y-2">
+                      {positionsByGroup.ungrouped.map((position) => (
+                        <CpqPositionCard
+                          key={position.id}
+                          position={position}
+                          quoteId={quoteId}
+                          onUpdated={refresh}
+                          readOnly={isLocked}
+                          salePriceMonthlyForPosition={positionSalePrices.get(position.id) ?? 0}
+                          clientHourlyRate={positionHourlyRates.get(position.id) ?? 0}
+                          displayCurrency={crmContext.currency || "CLP"}
+                          ufValue={ufValue}
+                        />
+                      ))}
+                    </div>
+                  </Card>
+                )}
               </div>
             )}
             {positions.length > 0 && (
@@ -3093,6 +3191,13 @@ export function CpqQuoteDetail({
 
       {/* Mobile spacer for fixed bottom bar */}
       <div className="h-14 lg:hidden" />
+
+      {/* -- Mobile FAB: Agregar Servicio (above bottom bar) -- */}
+      {!isLocked && secPuestos && (
+        <div className="lg:hidden fixed bottom-20 right-4 z-40">
+          <CreateServiceModal quoteId={quoteId} onCreated={refresh} disabled={isLocked} />
+        </div>
+      )}
 
       {/* -- Mobile bottom bar (replaces wizard nav) -- */}
       <MobileBottomBar

@@ -913,6 +913,50 @@ export async function POST(
               }
             }
 
+            // Crear grupos de servicio (CpqServiceGroup) y construir el map
+            //   serviceGroupKey (del JSON Lead) → serviceGroupId (DB) — solo cuando el cliente lo envía.
+            const serviceGroupKeyToId = new Map<string, string>();
+            {
+              const seen = new Map<
+                string,
+                { name: string; pattern: string; icon?: string | null; order: number }
+              >();
+              for (const d of dotacion as Array<{
+                serviceGroupKey?: string;
+                serviceGroupName?: string;
+                serviceGroupPattern?: string;
+                serviceGroupOrder?: number;
+                serviceGroupIcon?: string;
+              }>) {
+                if (typeof d?.serviceGroupKey === "string" && d.serviceGroupKey.trim()) {
+                  const key = d.serviceGroupKey.trim();
+                  if (!seen.has(key)) {
+                    seen.set(key, {
+                      name: d.serviceGroupName || "Servicio",
+                      pattern: d.serviceGroupPattern || "custom",
+                      icon: d.serviceGroupIcon ?? null,
+                      order: typeof d.serviceGroupOrder === "number" ? d.serviceGroupOrder : seen.size,
+                    });
+                  }
+                }
+              }
+              let order = 0;
+              for (const [key, g] of seen) {
+                const group = await tx.cpqServiceGroup.create({
+                  data: {
+                    tenantId: ctx.tenantId,
+                    quoteId: quote.id,
+                    name: g.name,
+                    coveragePattern: g.pattern,
+                    iconName: g.icon || null,
+                    displayOrder: order++,
+                  },
+                  select: { id: true },
+                });
+                serviceGroupKeyToId.set(key, group.id);
+              }
+            }
+
             // Crear posiciones CPQ a partir de la dotación
             for (const d of dotacion) {
               const fallbackPuestoName = (d.puesto || "Guardia de Seguridad").trim();
@@ -1017,9 +1061,16 @@ export async function POST(
                 console.warn("Could not compute employer cost for position during lead approval, defaulting to 0:", costErr);
               }
 
+              const sgKey =
+                typeof (d as { serviceGroupKey?: string }).serviceGroupKey === "string"
+                  ? (d as { serviceGroupKey?: string }).serviceGroupKey
+                  : null;
+              const serviceGroupIdToUse = sgKey ? serviceGroupKeyToId.get(sgKey) ?? null : null;
+
               await tx.cpqPosition.create({
                 data: {
                   quoteId: quote.id,
+                  serviceGroupId: serviceGroupIdToUse,
                   puestoTrabajoId: puestoIdToUse,
                   customName: resolvedPositionName,
                   weekdays,
