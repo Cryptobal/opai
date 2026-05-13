@@ -49,17 +49,15 @@ export function ItemsList({ canManage }: { canManage: boolean }) {
   const [filterKind, setFilterKind] = useState<string>("all");
   const [filterSource, setFilterSource] = useState<string>("all");
   const [search, setSearch] = useState("");
-  // Por default escondemos los auto-generados (contratos, sueldos, IVA,
-  // turnos extra, DTE recurrentes). Esos viven en sus propios módulos y
-  // no se editan desde acá; aparecen en la matriz semanal/mensual igual.
-  const [includeAuto, setIncludeAuto] = useState<boolean>(false);
 
-  // Sources considerados "auto-generados": no se editan desde esta UI,
-  // se derivan de otros datos (dotación, DTEs, contratos CRM, etc.).
-  // El backend rechaza updates de monto/recurrencia/fechas en estos, y
-  // rechaza DELETE — solo se puede tocar nombre/descripción/notas o
-  // desactivarlos.
-  const AUTO_SOURCES = new Set([
+  // Sources que NO se muestran en esta tab. Cada uno vive en su propio
+  // módulo (contratos CRM, dotación, plantillas DTE, F29) y mezclarlos
+  // acá da una vista de dump confusa. La proyección semanal/mensual los
+  // sigue tomando para los totales — esta tab es solo para items que el
+  // usuario gestiona manualmente desde acá. `OTHER` queda incluido como
+  // red de seguridad: es un source legacy que no debería volver a
+  // crearse (los scripts que lo usaban son one-shot ya ejecutados).
+  const HIDDEN_SOURCES = new Set([
     "CONTRACT",
     "PAYROLL",
     "PAYROLL_LIQUIDO",
@@ -67,9 +65,10 @@ export function ItemsList({ canManage }: { canManage: boolean }) {
     "TURNOS_EXTRA",
     "IVA",
     "RECURRING_DTE",
+    "OTHER",
   ]);
 
-  const isAuto = (s: string) => AUTO_SOURCES.has(s);
+  const isAuto = (s: string) => HIDDEN_SOURCES.has(s);
   const [editing, setEditing] = useState<ItemRow | null>(null);
   const [creating, setCreating] = useState(false);
 
@@ -105,7 +104,7 @@ export function ItemsList({ canManage }: { canManage: boolean }) {
   }
 
   const filtered = items.filter((i) => {
-    if (!includeAuto && AUTO_SOURCES.has(i.source)) return false;
+    if (HIDDEN_SOURCES.has(i.source)) return false;
     return search ? i.name.toLowerCase().includes(search.toLowerCase()) : true;
   });
 
@@ -138,18 +137,8 @@ export function ItemsList({ canManage }: { canManage: boolean }) {
               <SelectItem value="all">Origen: todos</SelectItem>
               <SelectItem value="MANUAL">Manual</SelectItem>
               <SelectItem value="SUPPLIER">Proveedor</SelectItem>
-              <SelectItem value="OTHER">Otros</SelectItem>
             </SelectContent>
           </Select>
-          <label className="flex items-center gap-1.5 text-[12px] text-ds-text-3 cursor-pointer h-10 sm:h-9 px-2 rounded-md border border-border bg-background hover:bg-muted/30">
-            <input
-              type="checkbox"
-              checked={includeAuto}
-              onChange={(e) => setIncludeAuto(e.target.checked)}
-              className="rounded border-border"
-            />
-            Incluir auto-generados
-          </label>
         </div>
         {canManage && (
           <Button
