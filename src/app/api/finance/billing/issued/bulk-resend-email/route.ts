@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
           id,
           undefined,
           undefined,
-          "manual_resend",
+          "MANUAL_RESEND",
           ctx.userId,
           undefined,
         ),

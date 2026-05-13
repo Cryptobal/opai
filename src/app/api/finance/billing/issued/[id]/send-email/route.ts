@@ -45,8 +45,8 @@ export async function POST(
   // Distinguir si es reenvío al mismo email del receptor o a otro distinto:
   // permite filtrar logs y mostrar timeline con etiquetas claras.
   const kind = parsed.data.recipientEmail
-    ? "manual_override_recipient"
-    : "manual_resend";
+    ? "MANUAL_OVERRIDE_RECIPIENT"
+    : "MANUAL_RESEND";
   const result = await sendDteEmail(
     ctx.tenantId,
     id,

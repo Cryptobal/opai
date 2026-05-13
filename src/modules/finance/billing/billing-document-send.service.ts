@@ -77,18 +77,25 @@ async function logEmail(
     sentBy: string;
   },
 ) {
+  // Post-Fase 1.C: FinanceDteEmailLog.kind es enum cerrado (AUTO_RECEIVER,
+  // AUTO_BACKOFFICE, MANUAL_RESEND, MANUAL_OVERRIDE_RECIPIENT,
+  // MANUAL_BACKOFFICE) y no admite los valores de billing-doc
+  // (proforma_*, estado_pago_*). Mapeamos a MANUAL_RESEND y dejamos
+  // la discriminación de variante en el subject. La discriminación
+  // proforma vs estado_pago tendrá su propio enum / tabla en Fase 2.
+  void data.kind;
   try {
     await prisma.financeDteEmailLog.create({
       data: {
         tenantId,
         dteId,
-        kind: data.kind,
+        kind: "MANUAL_RESEND",
         to: data.to,
         cc: data.cc,
         bcc: data.bcc,
         subject: data.subject,
-        attachments: "pdf_only",
-        status: data.status,
+        attachments: "PDF_ONLY",
+        status: data.status === "sent" ? "SENT" : "FAILED",
         resendId: data.resendId ?? null,
         errorMessage: data.errorMessage ?? null,
         sentBy: data.sentBy,

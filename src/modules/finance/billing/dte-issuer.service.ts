@@ -440,7 +440,7 @@ export async function issueDte(
         dte.id,
         undefined,
         undefined,
-        "auto_receiver",
+        "AUTO_RECEIVER",
         createdBy,
       );
       if (r.success) {
@@ -468,7 +468,7 @@ export async function issueDte(
     sendDteXmlToBackoffice(tenantId, dte.id, {
       emailsOverride: input.backofficeEmailsOverride,
       triggeredBy: createdBy,
-      kindOverride: "auto_backoffice",
+      kindOverride: "AUTO_BACKOFFICE",
     }).catch((err) => {
       console.error(`[FINANCE] Auto-send backoffice XML failed for DTE ${dte.id}:`, err);
     });

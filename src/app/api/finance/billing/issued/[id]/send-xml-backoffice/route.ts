@@ -34,7 +34,7 @@ export async function POST(
     const result = await sendDteXmlToBackoffice(ctx.tenantId, id, {
       emailsOverride: parsed.data.emailsOverride,
       triggeredBy: ctx.userId,
-      kindOverride: "manual_backoffice",
+      kindOverride: "MANUAL_BACKOFFICE",
     });
 
     if (!result.success) {

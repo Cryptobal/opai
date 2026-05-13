@@ -24,12 +24,15 @@ export interface SendDteEmailResult {
   error?: string;
 }
 
+// Post-Fase 1.C: FinanceDteEmailLog.kind/status/attachments son enums
+// Prisma en MAYÚSCULA. El type local mantiene el mismo set de valores
+// para que el call site no cambie semánticamente; mapea 1:1 al enum.
 export type DteEmailKind =
-  | "auto_receiver"
-  | "auto_backoffice"
-  | "manual_resend"
-  | "manual_override_recipient"
-  | "manual_backoffice";
+  | "AUTO_RECEIVER"
+  | "AUTO_BACKOFFICE"
+  | "MANUAL_RESEND"
+  | "MANUAL_OVERRIDE_RECIPIENT"
+  | "MANUAL_BACKOFFICE";
 
 
 async function logEmail(
@@ -41,8 +44,8 @@ async function logEmail(
     cc: string[];
     bcc?: string[];
     subject: string;
-    attachments: "pdf_xml" | "xml_only" | "pdf_only";
-    status: "sent" | "failed";
+    attachments: "PDF_XML" | "XML_ONLY" | "PDF_ONLY";
+    status: "SENT" | "FAILED";
     resendId?: string | null;
     errorMessage?: string | null;
     sentBy?: string | null;
@@ -85,7 +88,7 @@ export async function sendDteEmail(
   dteId: string,
   recipientEmail?: string,
   ccOverride?: string[],
-  kind: DteEmailKind = "manual_resend",
+  kind: DteEmailKind = "MANUAL_RESEND",
   triggeredBy?: string,
   bccOverride?: string[],
   excludeAttachmentIds?: string[],
@@ -220,8 +223,8 @@ export async function sendDteEmail(
         cc: ccList,
         bcc: bccList,
         subject,
-        attachments: "pdf_xml",
-        status: "failed",
+        attachments: "PDF_XML",
+        status: "FAILED",
         errorMessage: result.error.message,
         sentBy: triggeredBy ?? null,
       });
@@ -238,8 +241,8 @@ export async function sendDteEmail(
       cc: ccList,
       bcc: bccList,
       subject,
-      attachments: "pdf_xml",
-      status: "sent",
+      attachments: "PDF_XML",
+      status: "SENT",
       resendId: result.data?.id,
       sentBy: triggeredBy ?? null,
     });
@@ -256,8 +259,8 @@ export async function sendDteEmail(
       cc: ccList,
       bcc: bccList,
       subject,
-      attachments: "pdf_xml",
-      status: "failed",
+      attachments: "PDF_XML",
+      status: "FAILED",
       errorMessage: message,
       sentBy: triggeredBy ?? null,
     });
@@ -325,7 +328,7 @@ export async function sendDteXmlToBackoffice(
 </p>
 </body></html>`;
 
-  const kind: DteEmailKind = opts?.kindOverride ?? (opts?.triggeredBy ? "manual_backoffice" : "auto_backoffice");
+  const kind: DteEmailKind = opts?.kindOverride ?? (opts?.triggeredBy ? "MANUAL_BACKOFFICE" : "AUTO_BACKOFFICE");
 
   const dteFilenameBase = await buildDteAttachmentBaseName(tenantId, dte);
 
@@ -355,8 +358,8 @@ export async function sendDteXmlToBackoffice(
         cc: [],
         bcc: backofficeBccList ?? [],
         subject,
-        attachments: "xml_only",
-        status: "failed",
+        attachments: "XML_ONLY",
+        status: "FAILED",
         errorMessage: result.error.message,
         sentBy: opts?.triggeredBy ?? null,
       });
@@ -369,8 +372,8 @@ export async function sendDteXmlToBackoffice(
       cc: [],
       bcc: backofficeBccList ?? [],
       subject,
-      attachments: "xml_only",
-      status: "sent",
+      attachments: "XML_ONLY",
+      status: "SENT",
       resendId: result.data?.id,
       sentBy: opts?.triggeredBy ?? null,
     });
@@ -383,8 +386,8 @@ export async function sendDteXmlToBackoffice(
       cc: [],
       bcc: backofficeBccList ?? [],
       subject,
-      attachments: "xml_only",
-      status: "failed",
+      attachments: "XML_ONLY",
+      status: "FAILED",
       errorMessage: message,
       sentBy: opts?.triggeredBy ?? null,
     });

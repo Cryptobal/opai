@@ -22,12 +22,13 @@ type EmailLog = {
   sentBy: string | null;
 };
 
+// Post-Fase 1.C: enum FinanceDteEmailKind en MAYÚSCULA.
 const KIND_LABELS: Record<string, { label: string; auto: boolean }> = {
-  auto_receiver: { label: "Email automático al receptor", auto: true },
-  auto_backoffice: { label: "XML automático al backoffice", auto: true },
-  manual_resend: { label: "Reenvío manual al receptor", auto: false },
-  manual_override_recipient: { label: "Reenvío con email distinto", auto: false },
-  manual_backoffice: { label: "Reenvío XML al backoffice", auto: false },
+  AUTO_RECEIVER: { label: "Email automático al receptor", auto: true },
+  AUTO_BACKOFFICE: { label: "XML automático al backoffice", auto: true },
+  MANUAL_RESEND: { label: "Reenvío manual al receptor", auto: false },
+  MANUAL_OVERRIDE_RECIPIENT: { label: "Reenvío con email distinto", auto: false },
+  MANUAL_BACKOFFICE: { label: "Reenvío XML al backoffice", auto: false },
 };
 
 export function DteEmailTimeline({ dteId }: { dteId: string }) {
@@ -68,7 +69,7 @@ export function DteEmailTimeline({ dteId }: { dteId: string }) {
       <ul className="space-y-3">
         {logs.map((log) => {
           const meta = KIND_LABELS[log.kind] ?? { label: log.kind, auto: false };
-          const isOk = log.status === "sent";
+          const isOk = log.status === "SENT";
           return (
             <li key={log.id} className="flex gap-2 text-sm">
               <div className="shrink-0 mt-0.5">
@@ -96,7 +97,7 @@ export function DteEmailTimeline({ dteId }: { dteId: string }) {
                 </div>
                 <div className="text-xs text-muted-foreground mt-0.5 break-all">
                   <span className="inline-flex items-start gap-1">
-                    {log.attachments === "xml_only" ? (
+                    {log.attachments === "XML_ONLY" ? (
                       <FileCode className="size-3 mt-0.5 shrink-0" />
                     ) : (
                       <Mail className="size-3 mt-0.5 shrink-0" />
