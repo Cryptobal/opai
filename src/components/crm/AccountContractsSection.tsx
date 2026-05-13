@@ -690,12 +690,18 @@ export function AccountContractsSection({
                 ? Number(recurringMonthOfYear)
                 : undefined;
             const isUf = uploadCurrency === "UF";
+            // Modelo nuevo: la plantilla emite siempre en CLP y la
+            // línea declara su propia moneda (`priceCurrency`). Si el
+            // contrato es en UF, la única línea queda marcada UF y el
+            // cron la convierte a CLP en cada run usando la política
+            // de UF de la plantilla.
             const lineItem = {
               itemName: recurringLineDescription.trim() || `Servicios mensuales — ${accountName}`,
               quantity: 1,
               unit: "mes",
               unitPrice: isUf ? 0 : (amt as number),
               unitPriceUf: isUf ? (amt as number) : undefined,
+              priceCurrency: isUf ? "UF" : "CLP",
             };
             const recurringPayload: Record<string, unknown> = {
               name: recurringName.trim(),
@@ -710,7 +716,8 @@ export function AccountContractsSection({
               receiverCiudad: recurringCiudad.trim() || null,
               crmAccountId: accountId,
               installationId: uploadInstallationIds[0] || uploadInstallationId || null,
-              currency: uploadCurrency,
+              // Plantilla siempre CLP: la moneda viaja por línea.
+              currency: "CLP",
               lines: [lineItem],
               notes: uploadNotes.trim() || null,
               frequency: recurringFrequency,

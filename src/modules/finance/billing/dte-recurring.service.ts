@@ -151,6 +151,17 @@ type TemplateLine = {
   unit?: string;
   unitPrice?: number;
   unitPriceUf?: number;
+  /**
+   * Moneda del precio de ESTA línea. Permite mezclar líneas CLP y UF
+   * dentro de una misma plantilla (la plantilla siempre emite el DTE
+   * final en CLP; cada línea UF se convierte usando la `ufFixingPolicy`
+   * de la plantilla al momento del run).
+   *
+   * Backward-compat: si la línea NO trae `priceCurrency` (plantillas
+   * creadas antes de la migración por-línea), inferimos a partir del
+   * `template.currency` global y la presencia de `unitPriceUf`.
+   */
+  priceCurrency?: "CLP" | "UF";
   discountPct?: number;
   discountKind?: "PCT" | "AMOUNT";
   discountAmount?: number;
@@ -160,39 +171,70 @@ type TemplateLine = {
 };
 
 /**
+ * Resuelve la moneda efectiva de una línea para el cron. Si la línea
+ * declara `priceCurrency`, manda. Si no, miramos el `template.currency`
+ * legacy y la presencia de `unitPriceUf` (que en el modelo viejo era
+ * la señal de "línea UF"). Default: CLP.
+ */
+function resolveLinePriceCurrency(
+  line: TemplateLine,
+  templateCurrency: string,
+): "CLP" | "UF" {
+  if (line.priceCurrency === "UF" || line.priceCurrency === "CLP") {
+    return line.priceCurrency;
+  }
+  if (templateCurrency === "UF" || line.unitPriceUf != null) return "UF";
+  return "CLP";
+}
+
+/**
  * Convierte una línea de plantilla a la forma que `DraftDteInput.lines`
- * espera. Aplica el resolver de placeholders al `itemName`/`description`
- * y resuelve `discountKind=AMOUNT` → `discountPct` según el monto bruto
- * del momento.
+ * espera. Aplica el resolver de placeholders al `itemName`/`description`,
+ * resuelve `discountKind=AMOUNT` → `discountPct` según el monto bruto
+ * del momento, y — si la línea es UF — convierte el precio a CLP
+ * usando el valor de UF que el caller resolvió por política.
+ *
+ * El DTE final SIEMPRE viaja en CLP. El `unitPriceUf` se conserva en
+ * la línea solo como auditoría (lo que el usuario tipeó).
  */
 function templateLineToDraftLine(
   line: TemplateLine,
   ctx: PlaceholderContext,
+  opts: { templateCurrency: string; ufValue: number | null },
 ): NonNullable<DraftDteInput["lines"]>[number] {
   const quantity = line.quantity ?? 1;
-  const unitPriceClp = line.unitPrice ?? 0;
+  const linePc = resolveLinePriceCurrency(line, opts.templateCurrency);
   const unitPriceUf = line.unitPriceUf;
 
-  // ufMonto del contexto: si el template es UF, pasamos el unitPriceUf
-  // como referencia para el token {{uf_monto}} (multiplicado por quantity
-  // adentro del resolver).
+  // Conversión UF → CLP entero (regla SII: pesos sin centavos). Si la
+  // UF falló al resolverse (ufValue=null) caemos a 0 — el preview del
+  // borrador lo mostrará y el operador podrá corregir antes de emitir.
+  const unitPriceClp =
+    linePc === "UF"
+      ? Math.round((unitPriceUf ?? 0) * (opts.ufValue ?? 0))
+      : (line.unitPrice ?? 0);
+
+  // Ctx específico de la línea: si la línea es UF, exponemos el monto
+  // UF al resolver para que {{uf_monto}} pueda salir tipo "40,1730 UF".
+  // El `currency` se sobreescribe a "UF" solo para esta línea.
   const lineCtx: PlaceholderContext = {
     ...ctx,
-    ufMonto: ctx.currency === "UF" ? unitPriceUf : undefined,
+    currency: linePc,
+    ufMonto: linePc === "UF" ? unitPriceUf : undefined,
     ufMontoQuantity: quantity,
   };
 
   // Resolución del descuento: si vino discountKind=AMOUNT, convertimos
   // a porcentaje contra el monto bruto de la línea (qty * precio sin
-  // descuento). Para UF, el "precio" es unitPriceUf; para CLP es
-  // unitPrice. Si el bruto es 0, el % efectivo es 0.
+  // descuento). Para UF aplicamos el % contra el bruto UF; el % es
+  // invariante a la conversión así que esto sigue dando el mismo
+  // resultado al convertirse a CLP.
   let discountPct = line.discountPct ?? 0;
   if (line.discountKind === "AMOUNT" && line.discountAmount != null) {
-    const grossPerUnit = ctx.currency === "UF" ? (unitPriceUf ?? 0) : unitPriceClp;
+    const grossPerUnit = linePc === "UF" ? (unitPriceUf ?? 0) : unitPriceClp;
     const gross = quantity * grossPerUnit;
     if (gross > 0) {
       discountPct = Math.round((line.discountAmount / gross) * 10000) / 100;
-      // clamp [0, 100] por seguridad ante input inválido (UI ya lo valida).
       if (discountPct < 0) discountPct = 0;
       if (discountPct > 100) discountPct = 100;
     } else {
@@ -211,7 +253,9 @@ function templateLineToDraftLine(
     quantity,
     unit: line.unit,
     unitPrice: unitPriceClp,
-    unitPriceUf: unitPriceUf,
+    // unitPriceUf se conserva en la línea para auditoría (PDF/UI puede
+    // mostrar "40 UF × $39.485 = $1.579.400"). El SII solo ve CLP.
+    unitPriceUf: linePc === "UF" ? unitPriceUf : undefined,
     discountPct,
     isExempt: line.isExempt ?? false,
     accountId: line.accountId,
@@ -222,9 +266,15 @@ function templateLineToDraftLine(
 function templateToDraftInput(
   t: FinanceDteRecurringTemplate,
   ctx: PlaceholderContext,
+  opts: { ufValue: number | null },
 ): DraftDteInput {
   const rawLines = (t.lines as TemplateLine[] | null) ?? [];
-  const lines = rawLines.map((l) => templateLineToDraftLine(l, ctx));
+  const lines = rawLines.map((l) =>
+    templateLineToDraftLine(l, ctx, {
+      templateCurrency: t.currency,
+      ufValue: opts.ufValue,
+    }),
+  );
 
   const notes = t.notes ? resolvePlaceholders(t.notes, ctx) : undefined;
 
@@ -240,7 +290,10 @@ function templateToDraftInput(
     receiverCiudad: t.receiverCiudad ?? undefined,
     crmAccountId: t.crmAccountId ?? undefined,
     installationId: t.installationId ?? undefined,
-    currency: t.currency,
+    // El DTE final SIEMPRE en CLP: las líneas UF ya quedaron convertidas
+    // arriba. Esto evita que `computeDteAmounts` intente reconvertir
+    // (lo cual fallaría porque no hay un único `currency=UF` global).
+    currency: "CLP",
     lines,
     notes,
     additionalReferences: (t.additionalReferences as DraftDteInput["additionalReferences"]) ?? undefined,
@@ -345,29 +398,32 @@ export async function runTemplate(tenantId: string, templateId: string) {
   }
 
   try {
-    // Si la plantilla es UF, resolvemos la UF según la policy ANTES
-    // de crear el draft. Esto "fija" la UF que verá el borrador (queda
-    // congelada en `ufValueAtIssue` y no cambia aunque el usuario emita
-    // días después).
+    // ¿La plantilla tiene al menos una línea en UF? Necesitamos resolver
+    // la UF si SÍ — tanto para convertir cada línea UF → CLP, como para
+    // que los placeholders {{uf_valor}}/{{uf_fecha}}/{{uf_monto}} se
+    // rendereicen con el valor congelado del run.
     //
-    // Para el resolver de placeholders ({{uf_valor}}, {{uf_fecha}})
-    // necesitamos el valor + fecha incluso cuando policy=RUN_DAY:
-    // si la plantilla NO es UF (currency=CLP) no hay UF que resolver.
-    let ufOverride: number | undefined = undefined;
+    // Backward-compat: plantillas legacy con `currency=UF` se tratan
+    // como "todas las líneas son UF" (la hidratación del form las
+    // remigrará a `priceCurrency` por línea al guardar).
+    const rawLines = (template.lines as TemplateLine[] | null) ?? [];
+    const someLineUf =
+      template.currency === "UF" ||
+      rawLines.some(
+        (l) =>
+          resolveLinePriceCurrency(l, template.currency) === "UF",
+      );
+
     let ufContextValue: number | null = null;
     let ufContextDate: Date | null = null;
-    if (template.currency === "UF") {
+    if (someLineUf) {
       const policy = (template.ufFixingPolicy as UfFixingPolicy) ?? "RUN_DAY";
       const fixedDate = resolveUfDateForPolicy(policy, template.ufFixingDay);
       const { getUfValueForDate, getUfValue } = await import("@/lib/uf");
       if (fixedDate) {
-        ufOverride = await getUfValueForDate(fixedDate);
-        ufContextValue = ufOverride;
+        ufContextValue = await getUfValueForDate(fixedDate);
         ufContextDate = fixedDate;
       } else {
-        // policy=RUN_DAY: ufOverride queda undefined → createDraftDte
-        // resuelve la UF del día. Para el contexto del resolver
-        // necesitamos el mismo valor; lo traemos también.
         const today = new Date();
         try {
           ufContextValue = await getUfValue();
@@ -375,9 +431,9 @@ export async function runTemplate(tenantId: string, templateId: string) {
             Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()),
           );
         } catch {
-          // Si falla el fetch de UF, los placeholders {{uf_valor}}/
-          // {{uf_fecha}} quedan vacíos pero el draft se crea igual
-          // (computeDteAmounts maneja su propia caída de UF).
+          // Si falla el fetch, las líneas UF quedan en 0 CLP. El operador
+          // verá el borrador con monto irreal y podrá corregir antes de
+          // emitir (no se manda al SII automáticamente).
           ufContextValue = null;
           ufContextDate = null;
         }
@@ -406,15 +462,20 @@ export async function runTemplate(tenantId: string, templateId: string) {
             : null,
         cliente: template.receiverName,
         instalacion: installationName,
-        currency: template.currency === "UF" ? "UF" : "CLP",
+        // La plantilla emite siempre en CLP. El override a "UF" lo hace
+        // `templateLineToDraftLine` solo para las líneas que aplican.
+        currency: "CLP",
       }),
     };
 
+    // El draft se crea con currency=CLP y cada línea ya convertida a
+    // pesos. Por eso no pasamos `ufOverride` — `computeDteAmounts` ve
+    // currency=CLP y no intenta resolver UF (no hay UF "global" en este
+    // modelo).
     const draft = await createDraftDte(
       tenantId,
       template.createdBy,
-      templateToDraftInput(template, ctx),
-      { ufOverride },
+      templateToDraftInput(template, ctx, { ufValue: ufContextValue }),
     );
 
     // Copiar adjuntos del template al borrador. Hacemos copy real en R2

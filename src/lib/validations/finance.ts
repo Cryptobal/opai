@@ -130,10 +130,17 @@ const dteLineSchema = z.object({
   quantity: z.number().positive(),
   unit: optNull(z.string().trim().max(20)),
   unitPrice: z.number().min(0),
-  // Cuando currency=UF, unitPriceUf trae el precio en UF que el usuario
-  // ingresó. El servicio convierte a CLP usando la UF del día y guarda
-  // ambos. Para CLP queda undefined.
+  // Cuando currency=UF (DTE one-shot) o priceCurrency=UF (línea de
+  // plantilla recurrente), unitPriceUf trae el precio en UF que el
+  // usuario ingresó. El servicio convierte a CLP usando la UF aplicable
+  // y guarda ambos. Para CLP queda undefined.
   unitPriceUf: z.number().positive().optional(),
+  // Moneda del precio de la línea. Solo aplica en plantillas
+  // recurrentes — permite mezclar líneas CLP y UF en la misma plantilla
+  // (que siempre emite el DTE final en CLP). Si está undefined, el
+  // servicio cae al `template.currency` global por backward-compat con
+  // plantillas creadas antes de este cambio.
+  priceCurrency: z.enum(["CLP", "UF"]).optional(),
   discountPct: z.number().min(0).max(100).optional(),
   // Tipo de descuento que el usuario eligió en el form. Se persiste en
   // el JSON `lines` de plantillas recurrentes para preservar la

@@ -37,6 +37,7 @@ import {
 } from "@/modules/finance/billing/placeholders";
 
 export type DiscountKind = "PCT" | "AMOUNT";
+export type LinePriceCurrency = "CLP" | "UF";
 
 export interface LineDetailValue {
   itemName: string;
@@ -49,6 +50,12 @@ export interface LineDetailValue {
   /** Valor del descuento. Si kind=PCT es 0–100; si kind=AMOUNT es monto. */
   discountValue: string;
   isExempt?: boolean;
+  /**
+   * Moneda del precio de ESTA línea. Solo aplica cuando el caller habilita
+   * `allowPerLineCurrency` (plantillas recurrentes). En DTEs one-shot la
+   * moneda viaja a nivel DTE y este campo queda undefined.
+   */
+  priceCurrency?: LinePriceCurrency;
 }
 
 interface Props {
@@ -57,8 +64,21 @@ interface Props {
   onChange: (next: Partial<LineDetailValue>) => void;
   onRemove: () => void;
   canRemove?: boolean;
-  /** Moneda activa del DTE/plantilla. Afecta sufijo de precio + tokens UF. */
+  /**
+   * Moneda "por defecto" del DTE/plantilla. En modo one-shot manda;
+   * en modo `allowPerLineCurrency`, la moneda efectiva la define
+   * `value.priceCurrency` y este `currency` solo se usa como fallback
+   * cuando la línea aún no decide.
+   */
   currency: "CLP" | "UF";
+  /**
+   * Si true, expone un toggle CLP/UF en cada línea (caso plantillas
+   * recurrentes: la plantilla emite siempre en CLP pero una línea puede
+   * traer su precio en UF y el cron convierte usando la política UF al
+   * momento de generar el borrador). Default false: la moneda viaja a
+   * nivel DTE/plantilla, como hoy en DteForm.
+   */
+  allowPerLineCurrency?: boolean;
   /**
    * Modo de placeholders:
    *   - "literal": en plantillas recurrentes inserta `{{token}}`.
@@ -90,11 +110,18 @@ export function LineDetailSurface({
   onRemove,
   canRemove = true,
   currency,
+  allowPerLineCurrency = false,
   placeholderMode,
   placeholderContext,
   showExempt = false,
   subtotalFormatted,
 }: Props) {
+  // Moneda efectiva de la línea. Cuando el caller habilita
+  // `allowPerLineCurrency`, la línea decide (CLP por default). En modo
+  // one-shot ignoramos `value.priceCurrency` y usamos la moneda global.
+  const lineCurrency: "CLP" | "UF" = allowPerLineCurrency
+    ? value.priceCurrency ?? "CLP"
+    : currency;
   const nameRef = React.useRef<HTMLInputElement | null>(null);
   const descRef = React.useRef<HTMLTextAreaElement | null>(null);
 
@@ -118,17 +145,21 @@ export function LineDetailSurface({
   // Línea-specific context: para que {{uf_monto}} resuelva el monto
   // total de la línea en UF (precio * cantidad). Solo se usa para
   // preview/inserción en el picker; el resolver del cron arma el suyo.
+  // Importante: cuando la línea está en UF (allowPerLineCurrency)
+  // forzamos `currency: "UF"` en el contexto para que el picker exponga
+  // los tokens UF aunque la plantilla en sí emita en CLP.
   const lineCtx: PlaceholderContext | undefined = React.useMemo(() => {
     if (!placeholderContext) return undefined;
     const qty = parseFloat(value.quantity) || 1;
     const ufPrice =
-      currency === "UF" ? parseFloat(value.unitPrice) || 0 : undefined;
+      lineCurrency === "UF" ? parseFloat(value.unitPrice) || 0 : undefined;
     return {
       ...placeholderContext,
+      currency: lineCurrency,
       ufMonto: ufPrice,
       ufMontoQuantity: qty,
     };
-  }, [placeholderContext, value.quantity, value.unitPrice, currency]);
+  }, [placeholderContext, value.quantity, value.unitPrice, lineCurrency]);
 
   const showPreview =
     placeholderMode === "literal" &&
@@ -285,7 +316,7 @@ export function LineDetailSurface({
             id={`line-qty-${index}`}
             type="number"
             min={0.01}
-            step={currency === "UF" ? "0.0001" : "0.01"}
+            step={lineCurrency === "UF" ? "0.0001" : "0.01"}
             inputMode="decimal"
             value={value.quantity}
             onChange={(e) => onChange({ quantity: e.target.value })}
@@ -310,18 +341,39 @@ export function LineDetailSurface({
           />
         </div>
         <div className="space-y-1 col-span-2 sm:col-span-4">
-          <label
-            className="text-[12px] uppercase tracking-wide text-ds-text-3"
-            htmlFor={`line-price-${index}`}
-          >
-            Precio *
-          </label>
+          <div className="flex items-center justify-between">
+            <label
+              className="text-[12px] uppercase tracking-wide text-ds-text-3"
+              htmlFor={`line-price-${index}`}
+            >
+              Precio *
+            </label>
+            {/* Toggle CLP/UF por línea (solo en plantillas recurrentes).
+                Si UF, el cron multiplica unitPriceUf × valor_UF según la
+                política configurada a nivel plantilla y emite en CLP. */}
+            {allowPerLineCurrency && (
+              <Select
+                value={lineCurrency}
+                onValueChange={(v) =>
+                  onChange({ priceCurrency: v as LinePriceCurrency })
+                }
+              >
+                <SelectTrigger className="h-7 w-[88px] text-[12px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="CLP">$ CLP</SelectItem>
+                  <SelectItem value="UF">UF</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+          </div>
           <div className="relative">
             <Input
               id={`line-price-${index}`}
               type="number"
               min={0}
-              step={currency === "UF" ? "0.0001" : "1"}
+              step={lineCurrency === "UF" ? "0.0001" : "1"}
               inputMode="decimal"
               value={value.unitPrice}
               onChange={(e) => onChange({ unitPrice: e.target.value })}
@@ -330,7 +382,7 @@ export function LineDetailSurface({
               autoComplete="off"
             />
             <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[11px] font-mono text-ds-text-3">
-              {currency}
+              {lineCurrency}
             </span>
           </div>
         </div>
@@ -350,7 +402,7 @@ export function LineDetailSurface({
               step={
                 value.discountKind === "PCT"
                   ? "0.01"
-                  : currency === "UF"
+                  : lineCurrency === "UF"
                     ? "0.0001"
                     : "1"
               }
@@ -373,7 +425,7 @@ export function LineDetailSurface({
               <SelectContent>
                 <SelectItem value="PCT">%</SelectItem>
                 <SelectItem value="AMOUNT">
-                  {currency === "UF" ? "UF" : "$"}
+                  {lineCurrency === "UF" ? "UF" : "$"}
                 </SelectItem>
               </SelectContent>
             </Select>

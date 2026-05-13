@@ -77,6 +77,7 @@ const EMPTY_LINE: TemplateLine = {
   discountKind: "PCT",
   discountValue: "0",
   isExempt: false,
+  priceCurrency: "CLP",
 };
 
 interface Props {
@@ -101,6 +102,13 @@ export function RecurringTemplateForm({
   // ── Datos básicos ──
   const [name, setName] = React.useState("");
   const [dteType, setDteType] = React.useState("33");
+  // La plantilla SIEMPRE emite el DTE en CLP. La moneda se decide por
+  // línea (ver `priceCurrency` en cada `LineDetailValue`). Mantenemos el
+  // campo `currency` en el state por compat con BD/zod, pero el form ya
+  // no lo expone como selector. Las plantillas viejas con `currency=UF`
+  // se "migran" en caliente al guardar: el form rehidrata cada línea
+  // con `priceCurrency="UF"` si la plantilla está en UF y la línea no lo
+  // declaraba explícitamente, y al guardar forzamos `currency=CLP`.
   const [currency, setCurrency] = React.useState<"CLP" | "UF">("CLP");
 
   // ── Receptor (CRM o manual) ──
@@ -127,6 +135,15 @@ export function RecurringTemplateForm({
   const [notes, setNotes] = React.useState("");
   const [additionalRefs, setAdditionalRefs] = React.useState<AdditionalRef[]>(
     [],
+  );
+
+  // ¿Hay al menos una línea con moneda UF? Decide si renderizamos la
+  // política UF + si pedimos `ufNow` para previsualización de tokens.
+  // Lo declaramos acá arriba porque el effect que carga ufNow depende
+  // de este valor.
+  const hasUfLine = React.useMemo(
+    () => lines.some((l) => l.priceCurrency === "UF"),
+    [lines],
   );
 
   // ── Recurrencia ──
@@ -158,13 +175,13 @@ export function RecurringTemplateForm({
   >("CURRENT_MONTH");
 
   // UF actual (informativa) — solo para mostrar la previsualización de
-  // {{uf_valor}} en el picker. La UF real al run la define ufFixingPolicy.
+  // {{uf_valor}} en el picker. La UF real al run la define
+  // `ufFixingPolicy`. Carga lazy cuando hay al menos una línea UF;
+  // mantiene el valor en caché entre toggles para no re-fetchear cada
+  // vez que el usuario alterna CLP↔UF en una línea.
   const [ufNow, setUfNow] = React.useState<number | null>(null);
   React.useEffect(() => {
-    if (currency !== "UF") {
-      setUfNow(null);
-      return;
-    }
+    if (!hasUfLine || ufNow != null) return;
     const ctrl = new AbortController();
     fetch("/api/fx/uf", { signal: ctrl.signal })
       .then((r) => r.json())
@@ -174,7 +191,7 @@ export function RecurringTemplateForm({
       })
       .catch(() => {});
     return () => ctrl.abort();
-  }, [currency]);
+  }, [hasUfLine, ufNow]);
 
   const [submitting, setSubmitting] = React.useState(false);
 
@@ -283,19 +300,36 @@ export function RecurringTemplateForm({
                 kind === "AMOUNT"
                   ? String(l.discountAmount ?? "0")
                   : String(l.discountPct ?? "0");
+              // Resolución de moneda POR LÍNEA:
+              //   1) Si la línea declara `priceCurrency` (formato nuevo)
+              //      la respetamos tal cual.
+              //   2) Si no, inferimos por compat: plantilla en UF o
+              //      línea con `unitPriceUf` → "UF"; resto → "CLP".
+              // Así una plantilla legacy con `template.currency=UF` se
+              // rehidrata con cada línea marcada UF.
+              const declared = l.priceCurrency as
+                | "CLP"
+                | "UF"
+                | undefined;
+              const inferredCurrency: "CLP" | "UF" =
+                declared ??
+                (t.currency === "UF" || l.unitPriceUf != null
+                  ? "UF"
+                  : "CLP");
+              const displayPrice =
+                inferredCurrency === "UF"
+                  ? (l.unitPriceUf ?? "")
+                  : (l.unitPrice ?? "");
               return {
                 itemName: String(l.itemName ?? ""),
                 description: String(l.description ?? ""),
                 quantity: String(l.quantity ?? "1"),
                 unit: String(l.unit ?? "UN"),
-                unitPrice: String(
-                  t.currency === "UF" && l.unitPriceUf != null
-                    ? l.unitPriceUf
-                    : (l.unitPrice ?? ""),
-                ),
+                unitPrice: String(displayPrice),
                 discountKind: kind,
                 discountValue: value,
                 isExempt: !!l.isExempt,
+                priceCurrency: inferredCurrency,
               };
             })
           : [{ ...EMPTY_LINE }];
@@ -407,9 +441,20 @@ export function RecurringTemplateForm({
     setLines((prev) => (prev.length <= 1 ? prev : prev.filter((_, i) => i !== index)));
   }, []);
 
-  // ── Total estimado (informativo) ──
-  const totalNet = React.useMemo(() => {
-    return lines.reduce((sum, l) => sum + computeLineSubtotal(l), 0);
+  // ── Totales estimados (informativos) ──
+  // Mantenemos dos buckets (CLP + UF) en vez de un único total: las
+  // líneas pueden tener distintas monedas y sumarlas en bruto da un
+  // número mentiroso. El CLP final se realiza en el cron al multiplicar
+  // unitPriceUf × UF del momento.
+  const totals = React.useMemo(() => {
+    let clp = 0;
+    let uf = 0;
+    for (const l of lines) {
+      const subtotal = computeLineSubtotal(l);
+      if ((l.priceCurrency ?? "CLP") === "UF") uf += subtotal;
+      else clp += subtotal;
+    }
+    return { clp, uf };
   }, [lines]);
 
   /**
@@ -434,8 +479,12 @@ export function RecurringTemplateForm({
       ...buildContext({
         periodPolicy,
         runDate: today,
+        // Pasamos UF al contexto cuando hay al menos una línea UF.
+        // Cada línea decide su moneda efectiva en `_LineDetailSurface`,
+        // pero el `uf` debe estar disponible para que el picker resuelva
+        // {{uf_valor}}/{{uf_fecha}} en líneas UF.
         uf:
-          currency === "UF" && ufNow != null
+          hasUfLine && ufNow != null
             ? {
                 value: ufNow,
                 date: new Date(
@@ -449,13 +498,15 @@ export function RecurringTemplateForm({
             : null,
         cliente: (customer?.name || receiverName || "").trim(),
         instalacion: installationName,
-        currency: currency === "UF" ? "UF" : "CLP",
+        // Currency a nivel ctx queda CLP (la plantilla emite en CLP).
+        // El override por línea (UF) lo hace _LineDetailSurface.
+        currency: "CLP",
       }),
     };
   }, [
     installations,
     installationId,
-    currency,
+    hasUfLine,
     ufNow,
     customer?.name,
     receiverName,
@@ -522,9 +573,14 @@ export function RecurringTemplateForm({
       receiverCiudad: receiverCiudad.trim() || null,
       crmAccountId: customer?.id ?? null,
       installationId: installationId || null,
-      currency,
+      // La plantilla siempre persiste como CLP. La moneda real viaja por
+      // línea en `priceCurrency`. Plantillas legacy con `currency=UF` se
+      // migran al guardar (la hidratación marcó cada línea con
+      // priceCurrency="UF" y acá el global queda en CLP).
+      currency: "CLP",
       lines: validLines.map((l) => {
         const priceNum = parseFloat(l.unitPrice) || 0;
+        const linePc: "CLP" | "UF" = l.priceCurrency ?? "CLP";
         // Persistencia híbrida del descuento (opción C):
         //   - Para kind=AMOUNT, guardamos kind+amount en el JSON para
         //     preservar la intención del usuario entre runs.
@@ -541,8 +597,13 @@ export function RecurringTemplateForm({
           description: l.description.length > 0 ? l.description : null,
           quantity: parseFloat(l.quantity) || 1,
           unit: l.unit.trim() || null,
-          unitPrice: currency === "UF" ? 0 : priceNum,
-          unitPriceUf: currency === "UF" ? priceNum : undefined,
+          // En modo UF por línea, `unitPrice` (CLP) queda en 0 — el cron
+          // lo calcula al generar el borrador multiplicando unitPriceUf
+          // × valor_UF según `ufFixingPolicy`. En modo CLP, viaja el
+          // precio tal cual y `unitPriceUf` queda undefined.
+          unitPrice: linePc === "UF" ? 0 : priceNum,
+          unitPriceUf: linePc === "UF" ? priceNum : undefined,
+          priceCurrency: linePc,
           discountPct: lineDiscountToPct(l),
           discountKind: kind,
           discountAmount: discountAmountNum,
@@ -566,9 +627,12 @@ export function RecurringTemplateForm({
       autoSendEmail,
       autoSendProforma,
       autoSendPaymentStatement,
-      ufFixingPolicy: currency === "UF" ? ufFixingPolicy : "RUN_DAY",
+      // La política UF aplica si AL MENOS UNA línea está en UF. Si todas
+      // son CLP la mandamos como RUN_DAY (default neutro) y el campo
+      // queda inerte en el cron.
+      ufFixingPolicy: hasUfLine ? ufFixingPolicy : "RUN_DAY",
       ufFixingDay:
-        currency === "UF" && ufFixingPolicy === "CUSTOM_DAY"
+        hasUfLine && ufFixingPolicy === "CUSTOM_DAY"
           ? parseInt(ufFixingDay, 10)
           : null,
       periodPolicy,
@@ -636,34 +700,22 @@ export function RecurringTemplateForm({
                   </p>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label>Tipo DTE *</Label>
-                    <Select value={dteType} onValueChange={setDteType}>
-                      <SelectTrigger className="h-10 sm:h-9">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="33">Factura Electrónica (33)</SelectItem>
-                        <SelectItem value="34">Factura Exenta (34)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Moneda *</Label>
-                    <Select
-                      value={currency}
-                      onValueChange={(v) => setCurrency(v as "CLP" | "UF")}
-                    >
-                      <SelectTrigger className="h-10 sm:h-9">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="CLP">CLP (pesos)</SelectItem>
-                        <SelectItem value="UF">UF</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                <div className="space-y-1.5">
+                  <Label>Tipo DTE *</Label>
+                  <Select value={dteType} onValueChange={setDteType}>
+                    <SelectTrigger className="h-10 sm:h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="33">Factura Electrónica (33)</SelectItem>
+                      <SelectItem value="34">Factura Exenta (34)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[12px] text-muted-foreground">
+                    El DTE se emite siempre en CLP. Si una línea viene en
+                    UF, marcala como UF y el sistema convertirá a pesos
+                    automáticamente al generar el borrador.
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -878,8 +930,12 @@ export function RecurringTemplateForm({
               <div className="space-y-3">
                 {lines.map((line, i) => {
                   const subtotal = computeLineSubtotal(line);
+                  // El formato sigue la moneda EFECTIVA de la línea, no
+                  // la del template — una línea CLP en plantilla con
+                  // otras UF se sigue mostrando como pesos.
+                  const lineCurrency = line.priceCurrency ?? "CLP";
                   const subtotalFormatted =
-                    currency === "UF"
+                    lineCurrency === "UF"
                       ? formatUFSuffix(subtotal)
                       : formatCLP(Math.round(subtotal));
                   return (
@@ -890,7 +946,8 @@ export function RecurringTemplateForm({
                       onChange={(partial) => updateLine(i, partial)}
                       onRemove={() => removeLine(i)}
                       canRemove={lines.length > 1}
-                      currency={currency}
+                      currency="CLP"
+                      allowPerLineCurrency
                       placeholderMode="literal"
                       placeholderContext={placeholderCtx}
                       showExempt
@@ -899,11 +956,29 @@ export function RecurringTemplateForm({
                   );
                 })}
                 <Card>
-                  <CardContent className="p-3 text-right font-mono text-sm font-medium tabular-nums">
-                    Total neto estimado:{" "}
-                    {currency === "UF"
-                      ? formatUFSuffix(totalNet)
-                      : formatCLP(Math.round(totalNet))}
+                  <CardContent className="p-3 text-right font-mono text-sm font-medium tabular-nums space-y-0.5">
+                    {totals.clp > 0 && (
+                      <div>
+                        Total neto CLP: {formatCLP(Math.round(totals.clp))}
+                      </div>
+                    )}
+                    {totals.uf > 0 && (
+                      <div>
+                        Total neto UF: {formatUFSuffix(totals.uf)}
+                        {ufNow != null && (
+                          <span className="text-ds-text-3">
+                            {" "}
+                            (≈ {formatCLP(Math.round(totals.uf * ufNow))} a UF{" "}
+                            {formatCLP(Math.round(ufNow))})
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    {totals.clp === 0 && totals.uf === 0 && (
+                      <div className="text-ds-text-3">
+                        Sin líneas con monto.
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </div>
@@ -1168,15 +1243,16 @@ export function RecurringTemplateForm({
                   </div>
                 </div>
 
-                {currency === "UF" && (
+                {hasUfLine && (
                   <div className="rounded-md border border-status-info-border bg-status-info-soft p-3 space-y-2">
                     <p className="text-[13px] font-medium text-status-info-fg">
                       Política de fijación de UF
                     </p>
                     <p className="text-[12px] text-status-info-fg/80">
-                      Define qué UF se usa para convertir a CLP cuando el cron
-                      genera el borrador. Una vez generado, el monto en CLP queda
-                      congelado.
+                      Aplica a las líneas marcadas como UF. Define qué UF se
+                      usa para convertir cada una a CLP cuando el cron genera
+                      el borrador. Una vez generado, el monto en CLP queda
+                      congelado en el borrador.
                     </p>
                     <Select
                       value={ufFixingPolicy}
