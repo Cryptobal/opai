@@ -1989,7 +1989,7 @@ export async function clearTransactionLinks(
  * — la conciliación bancaria ya está hecha; el costo en cashflow es
  * mejor-esfuerzo y se puede regenerar manualmente.
  */
-async function materializeShortfallInCashflow(
+export async function materializeShortfallInCashflow(
   tenantId: string,
   userId: string | null,
   params: {

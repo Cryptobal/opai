@@ -489,12 +489,38 @@ export async function buildProjection(
     const idx = bucketIndex.get(key);
     if (idx === undefined) continue;
     const b = buckets[idx];
-    if (occ.kind === "INCOME") {
-      b.income += occ.amountClp;
-      if (occ.actualAmountClp !== null) b.actualIncome += occ.actualAmountClp;
+    // ¿Esta occurrence ya está "explicada" por el banco real? Eso ocurre
+    // cuando matchOccurrencesToBankLinks la marcó PAID con un
+    // bankTransactionId — la plata YA está sumada en
+    // actualBankIncome/Expense (loop más abajo lee tx.amount directo).
+    // Para evitar doble conteo, salteamos su contribución a
+    // income/expense proyectados.
+    //
+    // EXCEPCIÓN: las occurrences source=AJUSTE (típicamente costos de
+    // factoring/retención generados por bulk reconcile shortfall) NO
+    // representan flujo de banco — son una nota contable virtual que
+    // SÍ debe verse en income/expense aunque tengan bankTransactionId
+    // de referencia. Si las skipearamos, el costo factoring sería
+    // invisible.
+    const alreadyInBankReal =
+      occ.status === "PAID" &&
+      occ.bankTransactionId !== null &&
+      occ.source !== "AJUSTE";
+    if (!alreadyInBankReal) {
+      if (occ.kind === "INCOME") {
+        b.income += occ.amountClp;
+        if (occ.actualAmountClp !== null) b.actualIncome += occ.actualAmountClp;
+      } else {
+        b.expense += occ.amountClp;
+        if (occ.actualAmountClp !== null) b.actualExpense += occ.actualAmountClp;
+      }
     } else {
-      b.expense += occ.amountClp;
-      if (occ.actualAmountClp !== null) b.actualExpense += occ.actualAmountClp;
+      // PAID & en banco real: el monto efectivo es el del bank-tx — lo
+      // exponemos en actualIncome/actualExpense para que la UI muestre
+      // "real cobrado/pagado" sin alterar el total proyectado.
+      const realAmt = occ.actualAmountClp ?? occ.amountClp;
+      if (occ.kind === "INCOME") b.actualIncome += realAmt;
+      else b.actualExpense += realAmt;
     }
     b.net = b.income - b.expense;
     // varianza neta del bucket: (real ingresos − proyectados) − (real egresos − proyectados)
