@@ -308,7 +308,13 @@ export async function GET(request: NextRequest) {
             dteId: { in: dteIds },
             status: { in: ["SUBMITTED", "APPROVED", "FUNDED", "COLLECTED", "CLOSED"] },
           },
-          select: { id: true, code: true, status: true, dteId: true },
+          select: {
+            id: true,
+            code: true,
+            status: true,
+            dteId: true,
+            factoringCompany: true,
+          },
         })
       : [];
     const cessionByDte = new Map(activeCessions.map((c) => [c.dteId, c]));
@@ -461,6 +467,7 @@ export async function GET(request: NextRequest) {
               id: activeCession.id,
               code: activeCession.code,
               status: activeCession.status,
+              factoringCompany: activeCession.factoringCompany,
             }
           : null,
         linkedCreditNote,

@@ -342,7 +342,12 @@ export function DtesEmitidosClient({
               canBeCeded: Boolean(d.canBeCeded),
               activeCession:
                 (d.activeCession as
-                  | { id: string; code: string; status: string }
+                  | {
+                      id: string;
+                      code: string;
+                      status: string;
+                      factoringCompany?: string | null;
+                    }
                   | null) ?? null,
               date:
                 typeof d.date === "string" ? d.date : String(d.date ?? ""),

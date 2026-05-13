@@ -59,7 +59,12 @@ export interface DteActionsRow {
   emailSentAt: string | null;
   hasXml?: boolean;
   canBeCeded?: boolean;
-  activeCession?: { id: string; code: string; status: string } | null;
+  activeCession?: {
+    id: string;
+    code: string;
+    status: string;
+    factoringCompany?: string | null;
+  } | null;
   /**
    * Resumen de NCs vivas que referencian este DTE. Si tiene anulación
    * total (CodRef=1) o saldo agotado, el item "Nota de Crédito" se

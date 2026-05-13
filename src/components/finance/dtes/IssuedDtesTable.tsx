@@ -137,9 +137,20 @@ export function IssuedDtesTable({
               {row.siiStatus === "DRAFT" ? "—" : row.folio}
             </span>
             {row.activeCession && (
-              <CessionBadge code={row.activeCession.code} />
+              <CessionBadge
+                code={row.activeCession.code}
+                factoringName={row.activeCession.factoringCompany}
+              />
             )}
           </div>
+          {row.activeCession?.factoringCompany && (
+            <div
+              className="text-[11px] text-violet-300/90 truncate"
+              title={row.activeCession.factoringCompany}
+            >
+              Cedido a {row.activeCession.factoringCompany}
+            </div>
+          )}
           {row.linkedCreditNote && (
             <LinkedNoteBadge
               count={row.linkedCreditNote.count}

@@ -111,7 +111,10 @@ export function IssuedDtesMobileList({
                     )}
                     <SiiStatusPill siiStatus={d.siiStatus} />
                     {d.activeCession && (
-                      <CessionBadge code={d.activeCession.code} />
+                      <CessionBadge
+                        code={d.activeCession.code}
+                        factoringName={d.activeCession.factoringCompany}
+                      />
                     )}
                     {d.date && (
                       <DteAgingBadge
@@ -140,6 +143,14 @@ export function IssuedDtesMobileList({
                       )}
                     </span>
                   </div>
+                  {d.activeCession?.factoringCompany && (
+                    <p
+                      className="text-[11px] text-violet-300/90 mb-1 truncate"
+                      title={d.activeCession.factoringCompany}
+                    >
+                      Cedido a {d.activeCession.factoringCompany}
+                    </p>
+                  )}
                   {d.linkedCreditNote && (
                     <div className="mb-1">
                       <LinkedNoteBadge

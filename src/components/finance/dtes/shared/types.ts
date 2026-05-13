@@ -36,7 +36,13 @@ export interface DteRow {
   /** Factoring: indica si el DTE puede ser cedido (33/34/43/46 + ACCEPTED + XML + sin cesión activa). */
   canBeCeded?: boolean;
   /** Cesión activa asociada al DTE (si existe). */
-  activeCession?: { id: string; code: string; status: string } | null;
+  activeCession?: {
+    id: string;
+    code: string;
+    status: string;
+    /** Razón social del factoring al que se cedió (snapshot al ceder). */
+    factoringCompany?: string | null;
+  } | null;
   /** Fecha tributaria del DTE (para aging y filtros). */
   date?: string;
   /** Vencimiento (opcional). */

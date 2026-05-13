@@ -127,7 +127,13 @@ export default async function FacturacionPage() {
             dteId: { in: dteIds },
             status: { in: ["SUBMITTED", "APPROVED", "FUNDED", "COLLECTED", "CLOSED"] },
           },
-          select: { id: true, code: true, status: true, dteId: true },
+          select: {
+            id: true,
+            code: true,
+            status: true,
+            dteId: true,
+            factoringCompany: true,
+          },
         })
       : Promise.resolve([]),
     // NCs vivas sobre los DTEs de la página inicial. Una sola query
@@ -223,7 +229,12 @@ export default async function FacturacionPage() {
       // Factoring: cedible + cesión activa (mismo shape que el endpoint /issued).
       canBeCeded,
       activeCession: cession
-        ? { id: cession.id, code: cession.code, status: cession.status }
+        ? {
+            id: cession.id,
+            code: cession.code,
+            status: cession.status,
+            factoringCompany: cession.factoringCompany,
+          }
         : null,
       // Aging: fecha tributaria + due date + payment status (UX 2.5).
       date: d.date.toISOString(),

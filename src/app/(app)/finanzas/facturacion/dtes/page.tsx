@@ -107,7 +107,13 @@ export default async function DtesEmitidosPage({
             dteId: { in: dteIds },
             status: { in: ["SUBMITTED", "APPROVED", "FUNDED", "COLLECTED", "CLOSED"] },
           },
-          select: { id: true, code: true, status: true, dteId: true },
+          select: {
+            id: true,
+            code: true,
+            status: true,
+            dteId: true,
+            factoringCompany: true,
+          },
         })
       : Promise.resolve([]),
     dteIds.length > 0
@@ -207,7 +213,12 @@ export default async function DtesEmitidosPage({
         : null,
       canBeCeded,
       activeCession: cession
-        ? { id: cession.id, code: cession.code, status: cession.status }
+        ? {
+            id: cession.id,
+            code: cession.code,
+            status: cession.status,
+            factoringCompany: cession.factoringCompany,
+          }
         : null,
       date: d.date.toISOString(),
       dueDate: d.dueDate ? d.dueDate.toISOString() : null,
