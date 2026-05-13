@@ -23,7 +23,7 @@ import {
 } from "@/lib/api-auth";
 import { hasFacturacionCapability } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
-import { extractDteIdentity } from "@/lib/dte-xml-parser";
+import { extractDteIdentity, extractDteLines } from "@/lib/dte-xml-parser";
 
 /** Normaliza un RUT chileno para comparar (ej: "76.123.456-7" → "761234567"). */
 function normalizeRut(rut: string | null | undefined): string {
@@ -57,6 +57,7 @@ export async function POST(
         totalAmount: true,
         dteXml: true,
         code: true,
+        _count: { select: { lines: true } },
       },
     });
     if (!dte) {
@@ -166,11 +167,54 @@ export async function POST(
       );
     }
 
+    // Si el DTE fue cargado al sistema sin líneas (caso típico de carga
+    // manual previa a tener el XML firmado), aprovechamos este upload
+    // para poblar FinanceDteLine desde el bloque <Detalle> del XML. Sin
+    // esto, el formulario de NC/ND no puede auto-cargar el detalle y el
+    // usuario tiene que tipear cada línea a mano (ver CreditNoteForm.tsx).
+    //
+    // Best-effort: si el parse falla (XML sin <Detalle>, edge case),
+    // seguimos persistiendo el XML. El usuario queda en el mismo estado
+    // que antes de este endpoint y puede crear la NC tipeando líneas.
+    let linesToCreate: ReturnType<typeof extractDteLines> = [];
+    if (dte._count.lines === 0) {
+      try {
+        linesToCreate = extractDteLines(Buffer.from(xmlText, "utf-8")).filter(
+          (l) => l.itemName.trim().length > 0,
+        );
+      } catch (err) {
+        console.warn(
+          `[Finance/Billing] attach-xml: no se pudieron extraer líneas del XML (DTE ${dte.code}): ${(err as Error).message}`,
+        );
+      }
+    }
+
     // Persistir el XML como Bytes. Buffer es Uint8Array en runtime; el
     // cast es solo para satisfacer Prisma (Bytes? = Uint8Array | null).
+    // Si tenemos líneas extraídas, las creamos en la misma transacción
+    // para que el estado quede consistente (o ambos o ninguno).
     await prisma.financeDte.update({
       where: { id: dte.id },
-      data: { dteXml: new Uint8Array(Buffer.from(xmlText, "utf-8")) },
+      data: {
+        dteXml: new Uint8Array(Buffer.from(xmlText, "utf-8")),
+        ...(linesToCreate.length > 0
+          ? {
+              lines: {
+                create: linesToCreate.map((l) => ({
+                  lineNumber: l.lineNumber,
+                  itemCode: l.itemCode,
+                  itemName: l.itemName,
+                  description: l.description,
+                  quantity: l.quantity,
+                  unit: l.unit,
+                  unitPrice: l.unitPrice,
+                  netAmount: l.netAmount,
+                  isExempt: l.isExempt,
+                })),
+              },
+            }
+          : {}),
+      },
     });
 
     // Audit log: documenta quién subió el XML y para qué DTE. Útil si
@@ -191,17 +235,23 @@ export async function POST(
           dteType: dte.dteType,
           folio: dte.folio,
           xmlBytes: xmlText.length,
+          linesBackfilled: linesToCreate.length,
         },
       });
     } catch {
       // best-effort; no romper el flow si el audit falla
     }
 
+    const linesMsg =
+      linesToCreate.length > 0
+        ? ` Se cargaron ${linesToCreate.length} línea${linesToCreate.length === 1 ? "" : "s"} del detalle desde el XML.`
+        : "";
     return NextResponse.json({
       success: true,
       data: {
-        message: `XML adjuntado correctamente al DTE ${dte.code}. Ya podés cederlo a factoring.`,
+        message: `XML adjuntado correctamente al DTE ${dte.code}. Ya podés cederlo a factoring.${linesMsg}`,
         bytes: xmlText.length,
+        linesBackfilled: linesToCreate.length,
       },
     });
   } catch (error) {
