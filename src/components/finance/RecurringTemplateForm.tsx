@@ -362,14 +362,18 @@ export function RecurringTemplateForm({
     return () => ctrl.abort();
   }, [open, templateId]);
 
-  // Auto-fill direccion/comuna/ciudad/giro desde el customer seleccionado.
-  // Para el giro caemos al `industry` del CRM cuando `giro` está vacío
-  // — eso al menos llena algo razonable hasta que actualicen la ficha.
+  // Auto-fill direccion/comuna/ciudad/giro/email desde el customer
+  // seleccionado. Para el giro caemos al `industry` del CRM cuando
+  // `giro` está vacío. El email viene del contacto primario del CRM
+  // (lo resuelve `customer-search`) — sin esto, el operador veía la
+  // plantilla "sin email" y se confundía aunque el cron sí usara el
+  // del CRM en el submit (fallback `customer?.email || receiverEmail`).
   React.useEffect(() => {
     if (!customer) return;
     if (!receiverDireccion) setReceiverDireccion(customer.address ?? "");
     if (!receiverComuna) setReceiverComuna(customer.commune ?? "");
     if (!receiverCiudad) setReceiverCiudad(customer.city ?? "");
+    if (!receiverEmail && customer.email) setReceiverEmail(customer.email);
     if (!receiverGiro) {
       const giroFromCrm = (customer.giro ?? "").trim();
       const industryFromCrm = (customer.industry ?? "").trim();

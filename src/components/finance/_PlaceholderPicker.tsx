@@ -131,7 +131,11 @@ export function PlaceholderPicker({
       <PopoverContent
         align="end"
         sideOffset={6}
-        className="w-[min(360px,calc(100vw-24px))] p-1 max-h-[60vh] overflow-y-auto"
+        // Ancho generoso para que los labels ("Mes del período",
+        // "Valor UF") quepan sin truncar y la preview a la derecha
+        // muestre el valor completo (ej: "Mayo 2026" / "$ 40.290").
+        // En viewports angostos cae a 100vw - 24px.
+        className="w-[440px] max-w-[calc(100vw-24px)] p-1 max-h-[60vh] overflow-y-auto"
       >
         <div className="space-y-0.5">
           <div className="px-2 py-1.5 text-[12px] font-medium uppercase tracking-wide text-ds-text-3">
@@ -146,11 +150,11 @@ export function PlaceholderPicker({
                 onClick={() => handlePick(it.token)}
                 className="w-full text-left px-2 py-2 rounded hover:bg-accent transition-colors"
               >
-                <div className="flex items-baseline justify-between gap-2 min-w-0">
-                  <span className="text-[13px] font-medium text-ds-text-1 leading-tight truncate">
+                <div className="flex items-baseline justify-between gap-3 min-w-0">
+                  <span className="text-[13px] font-medium text-ds-text-1 leading-tight whitespace-nowrap">
                     {it.label}
                   </span>
-                  <span className="text-[12px] font-mono text-primary leading-tight truncate text-right shrink-0 max-w-[55%]">
+                  <span className="text-[12px] font-mono text-primary leading-tight text-right shrink-0 max-w-[55%] truncate">
                     {previewValue || (
                       <span className="text-ds-text-4 italic">—</span>
                     )}
@@ -159,6 +163,9 @@ export function PlaceholderPicker({
                 <p className="text-[12px] text-ds-text-3 mt-1 leading-snug">
                   {it.description}
                 </p>
+                <code className="text-[11px] font-mono text-ds-text-4 mt-0.5 block">
+                  {it.token}
+                </code>
               </button>
             );
           })}
