@@ -224,6 +224,10 @@ export function ItemDetailRow({
                 itemId: item.itemId,
                 originalDate: v.scheduledDate,
                 amountClp: v.amount,
+                cellStatus: v.cellStatus,
+                dteId: v.dteId ?? null,
+                daysOverdue: v.daysOverdue ?? 0,
+                crmAccountId: item.crmAccountId,
               }
             : null;
         return (

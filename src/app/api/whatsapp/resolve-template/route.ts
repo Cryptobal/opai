@@ -10,7 +10,7 @@ const resolveSchema = z.object({
   /** ID del lead, deal, contact, account o guardia (solo uno aplica según slug) */
   entityId: z.string().optional(),
   entityType: z
-    .enum(["lead", "deal", "contact", "account", "guardia", "quote"])
+    .enum(["lead", "deal", "contact", "account", "guardia", "quote", "dte"])
     .optional(),
   /** Datos adicionales para tokens system.* (portalUrl, portalPin, formUrl, mapsLink, etc.) */
   systemTokens: z.record(z.string(), z.string()).optional(),
@@ -144,6 +144,64 @@ export async function POST(request: NextRequest) {
           code: guardia.code,
         };
         phone = guardia.persona?.phoneMobile || guardia.persona?.phone || null;
+      }
+    } else if (entityType === "dte") {
+      const dte = await prisma.financeDte.findFirst({
+        where: { id: entityId, tenantId: ctx.tenantId },
+        select: {
+          id: true,
+          folio: true,
+          dteType: true,
+          date: true,
+          dueDate: true,
+          totalAmount: true,
+          receiverName: true,
+          receiverRut: true,
+          crmAccountId: true,
+          paymentStatus: true,
+        },
+      });
+      if (dte) {
+        const totalFmt = new Intl.NumberFormat("es-CL", {
+          style: "currency",
+          currency: "CLP",
+          minimumFractionDigits: 0,
+        }).format(Number(dte.totalAmount));
+        const today = new Date();
+        const due = dte.dueDate ? new Date(dte.dueDate) : null;
+        const daysOverdue = due
+          ? Math.max(0, Math.floor((today.getTime() - due.getTime()) / 86400000))
+          : 0;
+        entities.dte = {
+          id: dte.id,
+          folio: String(dte.folio),
+          type: String(dte.dteType),
+          date: dte.date.toISOString().slice(0, 10),
+          dueDate: due ? due.toISOString().slice(0, 10) : "",
+          totalAmount: Number(dte.totalAmount),
+          totalAmountFormatted: totalFmt,
+          receiverName: dte.receiverName,
+          receiverRut: dte.receiverRut,
+          daysOverdue: String(daysOverdue),
+        };
+
+        // Cargar el cliente CRM como `account` (para tokens {{account.*}}) y el
+        // contacto principal si existe — útil para tokens {{contact.*}} en las
+        // plantillas de cobranza.
+        if (dte.crmAccountId) {
+          const account = await prisma.crmAccount.findFirst({
+            where: { id: dte.crmAccountId, tenantId: ctx.tenantId },
+            include: { contacts: { where: { isPrimary: true }, take: 1 } },
+          });
+          if (account) {
+            entities.account = account;
+            const primary = account.contacts[0];
+            if (primary) {
+              entities.contact = primary;
+              if (!phone) phone = primary.phone || null;
+            }
+          }
+        }
       }
     } else if (entityType === "quote") {
       const quote = await prisma.cpqQuote.findFirst({

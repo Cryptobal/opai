@@ -148,6 +148,10 @@ export function ExpandableMatrixRow({
           itemId: item.itemId,
           originalDate: cell.scheduledDate,
           amountClp: cell.amount,
+          cellStatus: cell.cellStatus,
+          dteId: cell.dteId ?? null,
+          daysOverdue: cell.daysOverdue ?? 0,
+          crmAccountId: item.crmAccountId,
         };
       }
     }
