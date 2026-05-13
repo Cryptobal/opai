@@ -40,7 +40,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
 import { AccountPlanCombobox } from "./AccountPlanCombobox";
 import {
   formatCLPInput,
@@ -213,11 +212,18 @@ export function BulkReconcileToDteDialog({
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<DteAllocation[]>([]);
   const [confirming, setConfirming] = useState(false);
-  // Diferencia: cuenta contable + flag para prorratear vs centros de costo
-  // (FinanceDteLine.accountId) de las facturas. Si el usuario no elige
-  // cuenta, no se puede conciliar con falta.
+  // Modo de manejo de la diferencia entre banco y sum(asignado a facturas):
+  //   - "prorate" : cuenta contable + prorrateo entre centros de costo
+  //                 (FinanceDteLine.accountId) de las facturas seleccionadas.
+  //   - "single"  : cuenta contable única, sin prorrateo. Toda la diferencia
+  //                 cae en esa cuenta del libro mayor.
+  //   - "manual"  : no se asigna diferencia ahora; al confirmar, los inputs
+  //                 se bajan al water-fill (cobro parcial) y las facturas
+  //                 quedan PARTIAL. El usuario registra el costo manualmente
+  //                 después con un asiento o ajuste contable.
+  type DiffMode = "prorate" | "single" | "manual";
+  const [diffMode, setDiffMode] = useState<DiffMode>("prorate");
   const [diffAccountPlanId, setDiffAccountPlanId] = useState<string>("");
-  const [diffProrate, setDiffProrate] = useState(true);
   const [diffLabel, setDiffLabel] = useState("");
 
   const signs = new Set(
@@ -242,7 +248,7 @@ export function BulkReconcileToDteDialog({
       setCandidates([]);
       setSelected([]);
       setDiffAccountPlanId("");
-      setDiffProrate(true);
+      setDiffMode("prorate");
       setDiffLabel("");
     }
   }, [open]);
@@ -319,20 +325,38 @@ export function BulkReconcileToDteDialog({
   }, [open, debouncedSearch, isIncome, isMixed, transactions.length, totalAlloc]);
 
   /**
-   * Rebalancea los DTEs no-editados manualmente con water-filling iterativo.
-   * Los DTE editados manualmente conservan su monto. El resto se reparte
-   * proporcional al `amountPending` de cada uno, redistribuyendo el
-   * excedente cuando alguna factura toca su cap.
+   * Default por modo:
+   *   - sum(pendiente seleccionadas) > banco  → MODO SHORTFALL: cada
+   *     input arranca en `amountPending` real. La factura queda PAID
+   *     al confirmar; la diferencia (banco − sum pendientes) se imputa
+   *     como costo (factoring/retención).
+   *   - sum(pendiente seleccionadas) ≤ banco  → MODO COBRO PARCIAL: el
+   *     banco trajo más; water-fill rellena cada input proporcional al
+   *     pendiente hasta saturar el banco. Sobrante = surplus, imputable
+   *     a ingreso extra.
+   *   - El usuario puede editar cualquier input manualmente; ese input
+   *     queda "lockeado" (`manuallyEdited=true`) y los demás se
+   *     recalculan respetando ese valor.
    */
   const rebalance = (list: DteAllocation[]): DteAllocation[] => {
     if (list.length === 0) return list;
+    const sumPending = list.reduce((s, a) => s + a.dte.amountPending, 0);
+    // Modo SHORTFALL: saldar facturas al pendiente. El usuario decide
+    // luego qué hacer con la diferencia (cuenta contable o manual).
+    if (sumPending > totalAlloc + 1) {
+      return list.map((a) => {
+        if (a.manuallyEdited) return a;
+        return {
+          ...a,
+          amountInput: formatCLPInput(String(Math.round(a.dte.amountPending))),
+        };
+      });
+    }
+    // Modo cobro parcial: water-fill respetando caps.
     const caps = list.map((a) => a.dte.amountPending);
     const fixed = list.map((a) =>
       a.manuallyEdited ? parseCLPInput(a.amountInput) ?? 0 : null
     );
-    // El total a repartir es el monto bancario completo; si la suma de
-    // caps disponibles es menor, water-fill saturará caps y dejará un
-    // remaining que el usuario podrá asignar a la cuenta contable.
     const pieces = waterFill(totalAlloc, caps, fixed);
     return list.map((a, i) => {
       if (a.manuallyEdited) return a;
@@ -390,7 +414,16 @@ export function BulkReconcileToDteDialog({
     const v = parseCLPInput(a.amountInput) ?? 0;
     return v > a.dte.amountPending + 0.01;
   });
-  const diffCovered = hasDifference && diffAccountPlanId !== "";
+  // Para confirmar con diferencia:
+  //   - modo prorate/single → exige cuenta contable elegida.
+  //   - modo manual         → siempre OK: en shortfall se baja al water-fill
+  //                           al confirmar (cobro parcial, facturas PARTIAL);
+  //                           en surplus se ignora el sobrante (queda sin
+  //                           imputar en banco-tx — el user lo registra
+  //                           después).
+  const diffCovered =
+    hasDifference &&
+    (diffMode === "manual" || diffAccountPlanId !== "");
   const canConfirm =
     !isMixed &&
     selected.length > 0 &&
@@ -417,41 +450,41 @@ export function BulkReconcileToDteDialog({
     });
   }, [accountPlans, expectsExpenseAccount]);
 
-  /**
-   * Rellena los inputs de todas las facturas (incluyendo las editadas)
-   * al `amountPending` real, dejando cada factura en condición de quedar
-   * PAID. El diferencial respecto al monto bancario se absorbe vía la
-   * cuenta contable elegida (shortfall). Útil para depósitos de factoring
-   * donde el banco recibe neto pero las facturas se ceden brutas.
-   */
-  const fillToPending = () => {
-    setSelected((prev) =>
-      prev.map((a) => ({
-        ...a,
-        amountInput: formatCLPInput(String(Math.round(a.dte.amountPending))),
-        manuallyEdited: true,
-      })),
-    );
-  };
-
   const handleConfirm = async () => {
     if (!canConfirm) return;
     setConfirming(true);
     try {
-      const allocations = selected.map((a) => ({
+      // En modo "manual" con shortfall: bajamos los inputs al water-fill
+      // antes de enviar, para que sum(allocations) = banco y el backend
+      // acepte la conciliación sin differenceAllocation. Las facturas
+      // quedan PARTIAL — el usuario registrará el costo aparte.
+      let allocations = selected.map((a) => ({
         dteId: a.dte.id,
         amount: parseCLPInput(a.amountInput) ?? 0,
       }));
+      if (diffMode === "manual" && hasShortfall) {
+        const caps = selected.map((a) => a.dte.amountPending);
+        const fixed = selected.map(() => null);
+        const pieces = waterFill(totalAlloc, caps, fixed);
+        allocations = selected.map((a, i) => ({
+          dteId: a.dte.id,
+          amount: Math.round(pieces[i]),
+        }));
+      }
       const body: Record<string, unknown> = {
         bankTransactionIds: transactions.map((t) => t.id),
         allocations,
       };
-      if (hasDifference && diffCovered) {
+      if (
+        hasDifference &&
+        diffMode !== "manual" &&
+        diffAccountPlanId !== ""
+      ) {
         body.differenceAllocation = {
           accountPlanId: diffAccountPlanId,
           amount: Math.round(absDelta),
           label: diffLabel.trim() || null,
-          prorateAcrossDteLines: diffProrate,
+          prorateAcrossDteLines: diffMode === "prorate",
           direction: diffDirection,
         };
       }
@@ -584,6 +617,17 @@ export function BulkReconcileToDteDialog({
                           : a.dte.issuerName;
                         const v = parseCLPInput(a.amountInput) ?? 0;
                         const over = v > a.dte.amountPending + 0.01;
+                        // Preview del costo/ingreso extra prorrateado a
+                        // esta factura: factShare × absDelta. Es una
+                        // aproximación (no incluye desglose por línea
+                        // subtotal — eso lo hace el backend) pero
+                        // suficiente como vista previa.
+                        const proratedDiff =
+                          hasDifference &&
+                          diffMode !== "manual" &&
+                          totalAssigned > 0
+                            ? Math.round((v / totalAssigned) * absDelta)
+                            : 0;
                         return (
                           <li
                             key={a.dte.id}
@@ -630,6 +674,21 @@ export function BulkReconcileToDteDialog({
                                     {fmtCLP.format(a.dte.amountPending)}
                                   </span>
                                 </span>
+                                {proratedDiff > 0 && (
+                                  <span
+                                    className={cn(
+                                      "inline-flex items-center gap-1",
+                                      hasShortfall
+                                        ? "text-status-danger-fg"
+                                        : "text-status-ok-fg",
+                                    )}
+                                  >
+                                    {hasShortfall ? "− Costo prorrat." : "+ Ingreso prorrat."}{" "}
+                                    <span className="font-mono tabular-nums">
+                                      {fmtCLP.format(proratedDiff)}
+                                    </span>
+                                  </span>
+                                )}
                               </div>
                             </div>
                             <div className="flex items-center gap-1 shrink-0 self-end sm:self-center">
@@ -662,7 +721,7 @@ export function BulkReconcileToDteDialog({
                     <div
                       className={cn(
                         "rounded-lg border p-3 text-sm space-y-2",
-                        isBalanced && !overflowing
+                        (isBalanced || (hasDifference && diffCovered)) && !overflowing
                           ? "border-status-ok-border bg-status-ok-soft/30"
                           : overflowing
                             ? "border-status-danger-border bg-status-danger-soft/20"
@@ -675,20 +734,21 @@ export function BulkReconcileToDteDialog({
                         </span>
                         <span className="font-mono tabular-nums">
                           {fmtCLP.format(totalAssigned)} de{" "}
-                          {fmtCLP.format(totalAlloc)}
+                          {fmtCLP.format(totalAlloc)}{" "}
+                          <span className="text-muted-foreground">(banco)</span>
                         </span>
                       </div>
                       {hasSurplus && (
                         <p className="text-status-warn-fg text-xs">
-                          Falta asignar {fmtCLP.format(delta)} — elegí abajo
-                          una cuenta contable que absorba el ingreso extra.
+                          El banco trajo {fmtCLP.format(delta)} más que las
+                          facturas. Elegí abajo cómo manejar el ingreso extra.
                         </p>
                       )}
                       {hasShortfall && (
                         <p className="text-status-warn-fg text-xs">
                           Las facturas suman {fmtCLP.format(absDelta)} más que
-                          el banco — imputá esa diferencia a una cuenta de
-                          {isIncome ? " costo (factoring / retención)" : " descuento"}.
+                          el banco {isIncome ? "(costo factoring / retención)" : "(descuento recibido)"}.
+                          Elegí abajo cómo manejarlo.
                         </p>
                       )}
                       {overflowing && (
@@ -697,86 +757,117 @@ export function BulkReconcileToDteDialog({
                           factura. Ajustala.
                         </p>
                       )}
-                      {/* Atajo para saldar facturas completas (modo factoring). */}
-                      {selected.length > 0 && !overflowing && totalAssigned + 1 < selected.reduce((s, a) => s + a.dte.amountPending, 0) && (
-                        <button
-                          type="button"
-                          onClick={fillToPending}
-                          className="text-xs underline text-primary hover:text-primary/80"
-                        >
-                          Saldar facturas al pendiente (
-                          {fmtCLP.format(
-                            selected.reduce((s, a) => s + a.dte.amountPending, 0),
-                          )}
-                          )
-                        </button>
-                      )}
                     </div>
 
-                    {/* Diferencia → cuenta contable */}
+                    {/* Manejo de la diferencia: 3 modos. */}
                     {hasDifference && (
                       <div className="rounded-lg border border-status-warn-border bg-status-warn-soft/10 p-3 space-y-3">
                         <div className="space-y-1">
-                          <Label
-                            htmlFor="diff-account"
-                            className="text-sm font-medium"
-                          >
-                            {hasShortfall
-                              ? `Imputar costo (${fmtCLP.format(absDelta)}) a cuenta contable`
-                              : `Asignar diferencia (${fmtCLP.format(delta)}) a cuenta contable`}
-                          </Label>
+                          <p className="text-sm font-medium">
+                            ¿Cómo manejar la diferencia de{" "}
+                            <span className="font-mono tabular-nums">
+                              {fmtCLP.format(absDelta)}
+                            </span>
+                            ?
+                          </p>
                           <p className="text-[11px] text-muted-foreground">
                             {hasShortfall
-                              ? "Típico: comisión de factoring, retención, descuento aplicado. Las facturas quedan PAID por el bruto; el asiento contable refleja el costo: DEBE Cuenta / HABER Banco."
-                              : "Típico: comisión recibida, ingreso extra, ajuste positivo. El asiento contable se genera automáticamente con esa cuenta."}
+                              ? "El banco recibió menos que el bruto de las facturas (típico: comisión de factoring, retención)."
+                              : "El banco trajo más que la suma de las facturas (típico: comisión recibida, ingreso extra)."}
                           </p>
                         </div>
-                        <AccountPlanCombobox
-                          items={eligibleAccounts}
-                          value={diffAccountPlanId}
-                          onChange={setDiffAccountPlanId}
-                          placeholder={
-                            expectsExpenseAccount
-                              ? "Buscar cuenta de gasto / costo factoring…"
-                              : "Buscar cuenta de ingreso / comisión…"
-                          }
-                          emptyLabel="Seleccionar cuenta"
-                          triggerClassName="w-full"
-                        />
-                        <Input
-                          value={diffLabel}
-                          onChange={(e) => setDiffLabel(e.target.value)}
-                          placeholder={
-                            hasShortfall
-                              ? "Nota del asiento (ej. 'Comisión factoring SCF')"
-                              : "Nota del asiento (ej. 'Ingreso extra cliente')"
-                          }
-                          className="h-10 sm:h-9 text-sm"
-                        />
-                        <label className="flex items-start gap-2 text-xs text-muted-foreground cursor-pointer">
-                          <Checkbox
-                            checked={diffProrate}
-                            onCheckedChange={(c) =>
-                              setDiffProrate(c === true)
-                            }
-                            className="mt-0.5"
-                          />
-                          <span>
-                            <span className="font-medium text-foreground">
-                              Prorratear entre centros de costo de las
-                              facturas
+
+                        {/* Radios */}
+                        <div className="space-y-1.5">
+                          <label className="flex items-start gap-2 text-xs cursor-pointer p-2 rounded-md hover:bg-muted/40">
+                            <input
+                              type="radio"
+                              name="diff-mode"
+                              checked={diffMode === "prorate"}
+                              onChange={() => setDiffMode("prorate")}
+                              className="mt-0.5 accent-primary"
+                            />
+                            <span>
+                              <span className="font-medium text-foreground">
+                                Prorratear por centro de costo
+                              </span>
+                              <span className="block text-muted-foreground mt-0.5">
+                                Reparte la diferencia entre los <code className="text-[11px]">accountId</code>{" "}
+                                de las líneas de cada factura, ponderado por
+                                subtotal × asignación. Ver preview en cada
+                                factura arriba.
+                              </span>
                             </span>
-                            <br />
-                            La diferencia se reparte usando los{" "}
-                            <code className="text-[10px]">accountId</code> de
-                            cada línea de las facturas seleccionadas,
-                            ponderado por el subtotal de la línea y el monto
-                            asignado a la factura. Si una factura no tiene{" "}
-                            <code className="text-[10px]">accountId</code> en
-                            sus líneas, su porción cae en la cuenta elegida
-                            arriba sin sub-detalle.
-                          </span>
-                        </label>
+                          </label>
+
+                          <label className="flex items-start gap-2 text-xs cursor-pointer p-2 rounded-md hover:bg-muted/40">
+                            <input
+                              type="radio"
+                              name="diff-mode"
+                              checked={diffMode === "single"}
+                              onChange={() => setDiffMode("single")}
+                              className="mt-0.5 accent-primary"
+                            />
+                            <span>
+                              <span className="font-medium text-foreground">
+                                Todo a una sola cuenta (sin prorrateo)
+                              </span>
+                              <span className="block text-muted-foreground mt-0.5">
+                                Imputa los {fmtCLP.format(absDelta)} completos
+                                a la cuenta elegida abajo. No desglosa por
+                                centro de costo.
+                              </span>
+                            </span>
+                          </label>
+
+                          <label className="flex items-start gap-2 text-xs cursor-pointer p-2 rounded-md hover:bg-muted/40">
+                            <input
+                              type="radio"
+                              name="diff-mode"
+                              checked={diffMode === "manual"}
+                              onChange={() => setDiffMode("manual")}
+                              className="mt-0.5 accent-primary"
+                            />
+                            <span>
+                              <span className="font-medium text-foreground">
+                                Manual (asignar después)
+                              </span>
+                              <span className="block text-muted-foreground mt-0.5">
+                                {hasShortfall
+                                  ? "No asignar costo ahora. Las facturas quedarán PARTIAL (cobro parcial) y registrás el costo en un asiento contable aparte cuando quieras."
+                                  : "No imputar el ingreso extra ahora. El movimiento queda conciliado por la porción que cubre facturas y el sobrante queda como pendiente de categorizar."}
+                              </span>
+                            </span>
+                          </label>
+                        </div>
+
+                        {/* Cuenta + nota: solo cuando NO es modo manual. */}
+                        {diffMode !== "manual" && (
+                          <div className="space-y-2 pt-1">
+                            <AccountPlanCombobox
+                              items={eligibleAccounts}
+                              value={diffAccountPlanId}
+                              onChange={setDiffAccountPlanId}
+                              placeholder={
+                                expectsExpenseAccount
+                                  ? "Buscar cuenta de gasto / costo factoring…"
+                                  : "Buscar cuenta de ingreso / comisión…"
+                              }
+                              emptyLabel="Seleccionar cuenta"
+                              triggerClassName="w-full"
+                            />
+                            <Input
+                              value={diffLabel}
+                              onChange={(e) => setDiffLabel(e.target.value)}
+                              placeholder={
+                                hasShortfall
+                                  ? "Nota del asiento (ej. 'Comisión factoring SCF')"
+                                  : "Nota del asiento (ej. 'Ingreso extra cliente')"
+                              }
+                              className="h-10 sm:h-9 text-sm"
+                            />
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -944,11 +1035,13 @@ export function BulkReconcileToDteDialog({
               className="h-10 sm:h-9"
             >
               {confirming && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
-              {hasSurplus && diffCovered
-                ? `Conciliar (${fmtCLP.format(totalAssigned)} + ingreso extra)`
-                : hasShortfall && diffCovered
-                  ? `Conciliar (${fmtCLP.format(totalAssigned)} − ${fmtCLP.format(absDelta)} costo)`
-                  : "Conciliar"}
+              {hasDifference && diffMode === "manual"
+                ? "Conciliar (manual)"
+                : hasSurplus && diffCovered
+                  ? `Conciliar (+ ${fmtCLP.format(absDelta)} ingreso extra)`
+                  : hasShortfall && diffCovered
+                    ? `Conciliar (− ${fmtCLP.format(absDelta)} costo)`
+                    : "Conciliar"}
             </Button>
           </div>
         </DialogPrimitive.Content>
