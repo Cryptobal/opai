@@ -77,7 +77,7 @@ export function FilePreviewModal({
                         asChild
                     >
                         <a
-                            href={`${url}?download=true`}
+                            href={`/api/files/download?url=${encodeURIComponent(url)}&name=${encodeURIComponent(fileName)}`}
                             download={fileName}
                             title="Descargar"
                         >
@@ -148,7 +148,10 @@ export function FilePreviewModal({
                                 </a>
                             </Button>
                             <Button variant="outline" asChild>
-                                <a href={`${url}?download=true`} download={fileName}>
+                                <a
+                                    href={`/api/files/download?url=${encodeURIComponent(url)}&name=${encodeURIComponent(fileName)}`}
+                                    download={fileName}
+                                >
                                     <Download className="h-4 w-4 mr-2" />
                                     Descargar
                                 </a>

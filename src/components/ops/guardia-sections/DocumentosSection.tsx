@@ -643,7 +643,11 @@ export default function DocumentosSection({
                       <Eye className="h-3.5 w-3.5" />
                     </Button>
                     <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
-                      <a href={`${doc.fileUrl}?download=true`} download={slot.label} title="Descargar">
+                      <a
+                        href={`/api/files/download?url=${encodeURIComponent(doc.fileUrl)}&name=${encodeURIComponent(slot.label)}`}
+                        download={slot.label}
+                        title="Descargar"
+                      >
                         <Download className="h-3.5 w-3.5" />
                       </a>
                     </Button>
@@ -848,7 +852,11 @@ export default function DocumentosSection({
                       <Search className="h-3.5 w-3.5" />
                     </Button>
                     <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
-                      <a href={`${doc.fileUrl}?download=true`} download={docLabel} title="Descargar">
+                      <a
+                        href={`/api/files/download?url=${encodeURIComponent(doc.fileUrl)}&name=${encodeURIComponent(docLabel)}`}
+                        download={docLabel}
+                        title="Descargar"
+                      >
                         <Download className="h-3.5 w-3.5" />
                       </a>
                     </Button>

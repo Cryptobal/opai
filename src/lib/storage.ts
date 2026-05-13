@@ -172,6 +172,52 @@ export function getFileUrl(storageKey: string): string {
 }
 
 /**
+ * Extrae la storageKey desde un URL público de R2. Devuelve `null` si el
+ * URL no pertenece al bucket público configurado (caso legacy / URL externo).
+ */
+export function extractStorageKeyFromPublicUrl(url: string): string | null {
+  const baseUrl = process.env.R2_PUBLIC_URL?.replace(/\/$/, "");
+  if (!baseUrl) return null;
+  if (!url.startsWith(`${baseUrl}/`)) return null;
+  return url.slice(baseUrl.length + 1).split("?")[0];
+}
+
+/**
+ * Genera un URL firmado GET que fuerza descarga con
+ * `Content-Disposition: attachment`. El atributo `download` en `<a>` es
+ * ignorado para URLs cross-origin; firmar `response-content-disposition`
+ * en la URL es lo único que hace que R2 sirva el archivo como descarga.
+ */
+export async function getPresignedDownloadUrl(opts: {
+  storageKey: string;
+  fileName: string;
+  expiresInSeconds?: number;
+}): Promise<string> {
+  const client = getClient();
+  const bucket = getBucket();
+  const disposition = buildAttachmentDisposition(opts.fileName);
+  const command = new GetObjectCommand({
+    Bucket: bucket,
+    Key: opts.storageKey,
+    ResponseContentDisposition: disposition,
+  });
+  const expiresIn = opts.expiresInSeconds ?? 300;
+  return getSignedUrl(client, command, { expiresIn });
+}
+
+function buildAttachmentDisposition(fileName: string): string {
+  const clean = fileName
+    .replace(/[\\/\x00-\x1f"]/g, "_")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 200) || "archivo";
+  // ASCII fallback + RFC 5987 para soportar caracteres no-ASCII (tildes, ñ).
+  const ascii = clean.replace(/[^\x20-\x7E]/g, "_");
+  const encoded = encodeURIComponent(clean);
+  return `attachment; filename="${ascii}"; filename*=UTF-8''${encoded}`;
+}
+
+/**
  * Descarga un archivo de R2 a un Buffer en memoria.
  * Usar con cuidado: capa el tamaño con `maxBytes` para no agotar memoria.
  * Por defecto 8 MB (suficiente para PDFs/DOCX típicos de contratos).
