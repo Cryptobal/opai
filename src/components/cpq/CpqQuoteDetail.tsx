@@ -3192,6 +3192,13 @@ export function CpqQuoteDetail({
       {/* Mobile spacer for fixed bottom bar */}
       <div className="h-14 lg:hidden" />
 
+      {/* -- Mobile FAB: Agregar Servicio (above bottom bar) -- */}
+      {!isLocked && secPuestos && (
+        <div className="lg:hidden fixed bottom-20 right-4 z-40">
+          <CreateServiceModal quoteId={quoteId} onCreated={refresh} disabled={isLocked} />
+        </div>
+      )}
+
       {/* -- Mobile bottom bar (replaces wizard nav) -- */}
       <MobileBottomBar
         className="lg:hidden"
