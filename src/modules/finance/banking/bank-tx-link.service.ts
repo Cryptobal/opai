@@ -2046,78 +2046,74 @@ export async function materializeShortfallInCashflow(
 
   const baseLabel = diffLabel?.trim() || (kind === "EXPENSE" ? "Costo factoring" : "Descuento recibido");
 
-  // Reparto con corrección de redondeo en el último mov.
-  let assigned = 0;
-  for (let i = 0; i < txs.length; i++) {
-    const t = txs[i];
-    const isLast = i === txs.length - 1;
-    const movAmount = Math.abs(t.amount.toNumber());
-    const movShare = totalMovs > 0 ? movAmount / totalMovs : 0;
-    const movDiffPortion = isLast
-      ? Math.round(diffAmount) - assigned
-      : Math.round(movShare * diffAmount);
-    assigned += movDiffPortion;
-    if (movDiffPortion <= 0) continue;
+  // Elegimos un bank-tx representativo del lote: el más temprano. La
+  // occurrence se vincula a ese tx via bankTransactionId; un solo item
+  // AJUSTE con el TOTAL del costo, en lugar de N items prorrateados.
+  // Esto evita que el flujo de caja crezca verticalmente cuando hay
+  // muchos movs en un mismo lote (factoring con N depósitos).
+  const sortedTxs = [...txs].sort(
+    (a, b) => a.transactionDate.getTime() - b.transactionDate.getTime(),
+  );
+  const repTx = sortedTxs[0];
+  const scheduledDate = new Date(
+    repTx.transactionDate.getUTCFullYear(),
+    repTx.transactionDate.getUTCMonth(),
+    repTx.transactionDate.getUTCDate(),
+  );
+  const totalDiff = Math.round(diffAmount);
+  if (totalDiff <= 0) return;
 
-    // Idempotencia: si ya hay una occurrence para este bank-tx con un item
-    // AJUSTE, saltamos (re-conciliación del mismo lote no debe duplicar).
-    const existing = await prisma.financeCashflowOccurrence.findFirst({
-      where: {
-        tenantId,
-        bankTransactionId: t.id,
-        item: { source: "AJUSTE" },
-      },
-      select: { id: true },
-    });
-    if (existing) continue;
+  // Idempotencia: si ya existe occurrence AJUSTE asociada a CUALQUIERA
+  // de los bank-txs del lote, saltamos (no duplicamos).
+  const bankIds = txs.map((t) => t.id);
+  const existing = await prisma.financeCashflowOccurrence.findFirst({
+    where: {
+      tenantId,
+      bankTransactionId: { in: bankIds },
+      item: { source: "AJUSTE" },
+    },
+    select: { id: true },
+  });
+  if (existing) return;
 
-    const scheduledDate = new Date(
-      t.transactionDate.getUTCFullYear(),
-      t.transactionDate.getUTCMonth(),
-      t.transactionDate.getUTCDate(),
-    );
-
-    try {
-      await prisma.$transaction(async (tx) => {
-        const item = await tx.financeCashflowItem.create({
-          data: {
-            tenantId,
-            categoryId: categoryId!,
-            kind,
-            source: "AJUSTE",
-            name: `${baseLabel} · ${t.description}`.slice(0, 200),
-            description: baseLabel.slice(0, 500),
-            amount: new Decimal(movDiffPortion),
-            currency: "CLP",
-            recurrence: "ONCE",
-            startDate: scheduledDate,
-            isActive: true,
-            notes: `Generado por conciliación masiva shortfall (bank-tx ${t.id})`,
-            createdBy: userId ?? undefined,
-          },
-        });
-        await tx.financeCashflowOccurrence.create({
-          data: {
-            tenantId,
-            itemId: item.id,
-            scheduledDate,
-            effectiveDate: scheduledDate,
-            amountClp: new Decimal(movDiffPortion),
-            status: "PAID",
-            bankTransactionId: t.id,
-            matchedAt: new Date(),
-            matchedBy: userId ?? undefined,
-            notes: baseLabel,
-          },
-        });
+  try {
+    await prisma.$transaction(async (tx) => {
+      const item = await tx.financeCashflowItem.create({
+        data: {
+          tenantId,
+          categoryId: categoryId!,
+          kind,
+          source: "AJUSTE",
+          name: `${baseLabel} · ${txs.length} mov${txs.length === 1 ? "" : "s"}`.slice(0, 200),
+          description: baseLabel.slice(0, 500),
+          amount: new Decimal(totalDiff),
+          currency: "CLP",
+          recurrence: "ONCE",
+          startDate: scheduledDate,
+          isActive: true,
+          notes: `Conciliación masiva shortfall (${txs.length} movs, repTx=${repTx.id})`,
+          createdBy: userId ?? undefined,
+        },
       });
-    } catch (err) {
-      // No frenamos: la conciliación principal ya está confirmada; este
-      // paso es mejor-esfuerzo para el flujo de caja.
-      console.warn(
-        "[bank-tx-link] No se pudo materializar shortfall en cashflow:",
-        err instanceof Error ? err.message : err,
-      );
-    }
+      await tx.financeCashflowOccurrence.create({
+        data: {
+          tenantId,
+          itemId: item.id,
+          scheduledDate,
+          effectiveDate: scheduledDate,
+          amountClp: new Decimal(totalDiff),
+          status: "PAID",
+          bankTransactionId: repTx.id,
+          matchedAt: new Date(),
+          matchedBy: userId ?? undefined,
+          notes: `${baseLabel} · lote ${txs.length} mov${txs.length === 1 ? "" : "s"}`,
+        },
+      });
+    });
+  } catch (err) {
+    console.warn(
+      "[bank-tx-link] No se pudo materializar shortfall en cashflow:",
+      err instanceof Error ? err.message : err,
+    );
   }
 }
