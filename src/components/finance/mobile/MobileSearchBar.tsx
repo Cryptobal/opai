@@ -82,7 +82,7 @@ export function MobileSearchBar({
           <SlidersHorizontal className="h-4 w-4" />
           <span>{filtersLabel}</span>
           {activeFiltersCount > 0 ? (
-            <span className="ml-0.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-mono font-bold uppercase tracking-[0.08em] leading-none">
+            <span className="ml-0.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-primary-foreground text-[11px] font-mono font-bold uppercase tracking-[0.08em] leading-none">
               {activeFiltersCount}
             </span>
           ) : null}
