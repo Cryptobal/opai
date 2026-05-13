@@ -52,11 +52,12 @@ interface IpcPendingMarker {
 
 export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Props) {
   const [weeks, setWeeks] = useState<number>(defaultWeeks);
-  // Semanas hacia ATRÁS desde hoy. 0 = solo futuro (proyección clásica).
-  // >0 = incluye historia (ajustes shortfall, movs conciliados pasados).
-  // El server-side ya hidrata la proyección con weeksBack=0; el override
+  // Semanas hacia ATRÁS desde hoy. 0 = solo futuro. Default 2 para que
+  // siempre se vean las 2 últimas semanas + actual (donde caen los movs
+  // y ajustes shortfall recién conciliados).
+  // El server-side ya hidrata la proyección con weeksBack=2; el override
   // local se re-fetchea cuando el usuario cambia este valor.
-  const [weeksBack, setWeeksBack] = useState<number>(0);
+  const [weeksBack, setWeeksBack] = useState<number>(2);
   const [loading, setLoading] = useState(false);
   const [matching, setMatching] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -409,13 +410,13 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
                       key={b.key}
                       className={`p-2 text-right min-w-[80px] border-b whitespace-nowrap font-mono ${
                         isCurrent
-                          ? "bg-status-info-soft text-status-info-fg border-status-info-fg/30"
+                          ? "bg-status-info-soft text-status-info-fg border-x-2 border-x-status-info-fg ring-1 ring-status-info-fg/40"
                           : "bg-background text-ds-text-3 border-border"
-                      } ${showMonth ? "border-l border-l-border" : ""}`}
+                      } ${showMonth && !isCurrent ? "border-l border-l-border" : ""}`}
                     >
                       <div className="flex flex-col items-end leading-tight">
                         <span className="text-[10px] uppercase tracking-wider opacity-70">
-                          {showMonth ? monthYearShort(b.start) : "·"}
+                          {isCurrent ? "Hoy" : showMonth ? monthYearShort(b.start) : "·"}
                         </span>
                         <span className={isCurrent ? "font-bold" : ""}>
                           {b.label}

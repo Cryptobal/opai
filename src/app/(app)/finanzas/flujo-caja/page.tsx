@@ -37,9 +37,14 @@ export default async function FlujoCajaPage({
   const weeks = Math.max(8, Math.min(104, Number(sp.weeks) || config.horizonWeeksDefault));
   // Permite ver historia: ?weeksBack=N retrocede el origen N semanas para
   // mostrar lo que pasó (movs conciliados, ajustes shortfall) además del
-  // forecast hacia adelante. Clamp [0, 52] para no traer años de historia
-  // en un solo request.
-  const weeksBack = Math.max(0, Math.min(52, Number(sp.weeksBack) || 0));
+  // forecast hacia adelante. Default = 2 semanas (las dos últimas + hoy)
+  // para que el usuario vea de un vistazo lo recién conciliado. Clamp
+  // [0, 52] para no traer años de historia en un solo request.
+  const rawWeeksBack =
+    sp.weeksBack !== undefined && sp.weeksBack !== ""
+      ? Number(sp.weeksBack)
+      : 2;
+  const weeksBack = Math.max(0, Math.min(52, isFinite(rawWeeksBack) ? rawWeeksBack : 2));
   const today = new Date();
   const projection = await buildProjection(tenantId, {
     from: weeksBack > 0 ? subWeeks(today, weeksBack) : today,

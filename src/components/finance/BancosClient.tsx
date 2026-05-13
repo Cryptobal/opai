@@ -1530,19 +1530,45 @@ function TransactionsTab({
           </div>
         </div>
         <div className="space-y-1.5 sm:flex-initial">
-          <Label htmlFor="tx-direction">Tipo</Label>
-          <select
-            id="tx-direction"
-            value={direction}
-            onChange={(e) =>
-              setDirection(e.target.value as "all" | "inflow" | "outflow")
-            }
-            className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-          >
-            <option value="all">Todos</option>
-            <option value="inflow">Solo ingresos</option>
-            <option value="outflow">Solo egresos</option>
-          </select>
+          <Label>Tipo</Label>
+          <div className="flex h-9 rounded-md border border-input overflow-hidden text-[13px]">
+            <button
+              type="button"
+              onClick={() => setDirection("all")}
+              className={
+                "px-3 font-medium transition-colors " +
+                (direction === "all"
+                  ? "bg-primary/15 text-primary"
+                  : "bg-background text-muted-foreground hover:bg-muted/40")
+              }
+            >
+              Todos
+            </button>
+            <button
+              type="button"
+              onClick={() => setDirection("inflow")}
+              className={
+                "px-3 font-medium transition-colors border-l border-input " +
+                (direction === "inflow"
+                  ? "bg-status-ok-soft text-status-ok-fg"
+                  : "bg-background text-muted-foreground hover:bg-muted/40")
+              }
+            >
+              ↑ Ingresos
+            </button>
+            <button
+              type="button"
+              onClick={() => setDirection("outflow")}
+              className={
+                "px-3 font-medium transition-colors border-l border-input " +
+                (direction === "outflow"
+                  ? "bg-status-danger-soft text-status-danger-fg"
+                  : "bg-background text-muted-foreground hover:bg-muted/40")
+              }
+            >
+              ↓ Egresos
+            </button>
+          </div>
         </div>
         <div className="flex items-end gap-2 flex-wrap">
           <Button
