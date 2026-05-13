@@ -1261,7 +1261,7 @@ export function DteForm({ availableTypes, accounts }: Props) {
                     placeholder="Ej: Construcción, Comercio al por mayor..."
                     value={receiverGiro}
                     onChange={(e) => setReceiverGiro(e.target.value)}
-                    maxLength={80}
+                    maxLength={200}
                     className="h-9"
                   />
                 </div>

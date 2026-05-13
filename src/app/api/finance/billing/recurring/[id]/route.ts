@@ -52,6 +52,20 @@ export async function PATCH(
       where: { id, tenantId: ctx.tenantId },
     });
     if (!existing) {
+      // Diagnóstico del 404: loggeamos si la plantilla existe en otro
+      // tenant (caso de datos inconsistentes) o si realmente no existe
+      // (eliminada por otro proceso). Esto no expone datos sensibles
+      // al cliente — el response sigue siendo el mismo 404 genérico.
+      const anywhere = await prisma.financeDteRecurringTemplate.findUnique({
+        where: { id },
+        select: { tenantId: true },
+      });
+      console.error(
+        `[Finance/Recurring] PATCH 404 — id=${id} requesterTenant=${ctx.tenantId} ` +
+          (anywhere
+            ? `templateBelongsToTenant=${anywhere.tenantId} (cross-tenant mismatch)`
+            : `template does not exist anywhere (deleted?)`),
+      );
       return NextResponse.json({ success: false, error: "No encontrada" }, { status: 404 });
     }
 
@@ -108,6 +122,8 @@ export async function PATCH(
         endDate,
         nextRunAt,
         autoSendEmail: body.autoSendEmail,
+        autoSendProforma: body.autoSendProforma,
+        autoSendPaymentStatement: body.autoSendPaymentStatement,
         ufFixingPolicy: body.ufFixingPolicy,
         ufFixingDay:
           body.ufFixingPolicy === "CUSTOM_DAY"

@@ -6750,6 +6750,16 @@ model FinanceDteRecurringTemplate {
   /// generado por esta plantilla.
   autoSendEmail Boolean @default(true) @map("auto_send_email")
 
+  /// Si está activo, al generar el borrador el cron dispara automáticamente
+  /// el envío de la PROFORMA al receptor (preview pre-emisión). Reusa el
+  /// mismo flujo que `POST /api/finance/billing/drafts/[id]/send-as`.
+  autoSendProforma Boolean @default(false) @map("auto_send_proforma")
+
+  /// Si está activo, al generar el borrador el cron dispara automáticamente
+  /// el envío del ESTADO DE PAGO al receptor. Reusa el mismo flujo que
+  /// `POST /api/finance/billing/drafts/[id]/send-as` con variant=ESTADO_DE_PAGO.
+  autoSendPaymentStatement Boolean @default(false) @map("auto_send_payment_statement")
+
   /// Política de fijación de UF cuando currency=UF. Define qué UF se
   /// usa para convertir a CLP al momento de generar el borrador. La
   /// UF queda congelada en el borrador (`ufValueAtIssue`).

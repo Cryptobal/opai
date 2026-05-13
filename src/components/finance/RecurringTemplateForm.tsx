@@ -142,6 +142,8 @@ export function RecurringTemplateForm({
   const [endDate, setEndDate] = React.useState("");
   const [isActive, setIsActive] = React.useState(true);
   const [autoSendEmail, setAutoSendEmail] = React.useState(true);
+  const [autoSendProforma, setAutoSendProforma] = React.useState(false);
+  const [autoSendPaymentStatement, setAutoSendPaymentStatement] = React.useState(false);
 
   // ── UF policy (solo si currency=UF) ──
   const [ufFixingPolicy, setUfFixingPolicy] = React.useState<
@@ -204,6 +206,8 @@ export function RecurringTemplateForm({
     setEndDate("");
     setIsActive(true);
     setAutoSendEmail(true);
+    setAutoSendProforma(false);
+    setAutoSendPaymentStatement(false);
     setUfFixingPolicy("LAST_DAY_PREV_MONTH");
     setUfFixingDay("1");
     setPeriodPolicy("CURRENT_MONTH");
@@ -278,6 +282,8 @@ export function RecurringTemplateForm({
         setEndDate(t.endDate ? String(t.endDate).split("T")[0] : "");
         setIsActive(!!t.isActive);
         setAutoSendEmail(t.autoSendEmail ?? true);
+        setAutoSendProforma(!!t.autoSendProforma);
+        setAutoSendPaymentStatement(!!t.autoSendPaymentStatement);
         setUfFixingPolicy(t.ufFixingPolicy ?? "LAST_DAY_PREV_MONTH");
         setUfFixingDay(t.ufFixingDay != null ? String(t.ufFixingDay) : "1");
         setPeriodPolicy(t.periodPolicy ?? "CURRENT_MONTH");
@@ -525,6 +531,8 @@ export function RecurringTemplateForm({
       startDate,
       endDate: endDate || undefined,
       autoSendEmail,
+      autoSendProforma,
+      autoSendPaymentStatement,
       ufFixingPolicy: currency === "UF" ? ufFixingPolicy : "RUN_DAY",
       ufFixingDay:
         currency === "UF" && ufFixingPolicy === "CUSTOM_DAY"
@@ -678,7 +686,7 @@ export function RecurringTemplateForm({
                       placeholder="Ej: Construcción"
                       value={receiverGiro}
                       onChange={(e) => setReceiverGiro(e.target.value)}
-                      maxLength={80}
+                      maxLength={200}
                       className="h-10 sm:h-9"
                       autoComplete="off"
                     />
@@ -1247,6 +1255,34 @@ export function RecurringTemplateForm({
                   <span>
                     Enviar email automáticamente al receptor cuando emita el
                     borrador (podés desmarcar después en cada emisión).
+                  </span>
+                </label>
+
+                <label className="flex items-start gap-2 text-[13px]">
+                  <input
+                    type="checkbox"
+                    checked={autoSendProforma}
+                    onChange={(e) => setAutoSendProforma(e.target.checked)}
+                    className="mt-0.5 size-4"
+                  />
+                  <span>
+                    Enviar <strong>proforma</strong> al receptor cuando el cron
+                    genere el borrador (antes de emitir la factura al SII).
+                  </span>
+                </label>
+
+                <label className="flex items-start gap-2 text-[13px]">
+                  <input
+                    type="checkbox"
+                    checked={autoSendPaymentStatement}
+                    onChange={(e) =>
+                      setAutoSendPaymentStatement(e.target.checked)
+                    }
+                    className="mt-0.5 size-4"
+                  />
+                  <span>
+                    Enviar <strong>estado de pago</strong> al receptor cuando el
+                    cron genere el borrador.
                   </span>
                 </label>
               </CardContent>

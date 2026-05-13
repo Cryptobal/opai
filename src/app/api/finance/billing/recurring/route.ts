@@ -134,6 +134,8 @@ export async function POST(request: NextRequest) {
         endDate,
         nextRunAt,
         autoSendEmail: body.autoSendEmail,
+        autoSendProforma: body.autoSendProforma,
+        autoSendPaymentStatement: body.autoSendPaymentStatement,
         ufFixingPolicy: body.ufFixingPolicy,
         ufFixingDay:
           body.ufFixingPolicy === "CUSTOM_DAY"

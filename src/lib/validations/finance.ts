@@ -171,7 +171,7 @@ export const issueDteSchema = z.object({
   receiverName: z.string().trim().min(1).max(200),
   receiverEmail: optNull(z.string().email()),
   // Datos del receptor (opcional — el provider usa defaults si no vienen).
-  receiverGiro: optNull(z.string().trim().max(80)),
+  receiverGiro: optNull(z.string().trim().max(200)),
   receiverDireccion: optNull(z.string().trim().max(200)),
   receiverComuna: optNull(z.string().trim().max(80)),
   receiverCiudad: optNull(z.string().trim().max(80)),
@@ -241,7 +241,7 @@ export const recurringTemplateSchema = z.object({
   receiverName: z.string().trim().min(1).max(200),
   receiverEmail: optNull(z.string().email()),
   receiverEmailCc: z.array(z.string().email()).max(10).default([]),
-  receiverGiro: optNull(z.string().trim().max(80)),
+  receiverGiro: optNull(z.string().trim().max(200)),
   receiverDireccion: optNull(z.string().trim().max(200)),
   receiverComuna: optNull(z.string().trim().max(80)),
   receiverCiudad: optNull(z.string().trim().max(80)),
@@ -274,6 +274,11 @@ export const recurringTemplateSchema = z.object({
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha YYYY-MM-DD"),
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   autoSendEmail: z.boolean().default(true),
+  // Cuando el cron genera el borrador, dispara también el envío de la
+  // proforma al receptor (reusa sendBillingDocument con variant=PROFORMA).
+  autoSendProforma: z.boolean().default(false),
+  // Idem para estado de pago (variant=ESTADO_DE_PAGO).
+  autoSendPaymentStatement: z.boolean().default(false),
   // Política de fijación de UF (solo aplica si currency=UF). Default
   // RUN_DAY = comportamiento previo. Ver dte-recurring.service para
   // la semántica de cada policy.

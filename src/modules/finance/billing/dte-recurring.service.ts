@@ -16,6 +16,10 @@ import {
   type PlaceholderContext,
 } from "./placeholders";
 import { getFileBuffer, uploadFile } from "@/lib/storage";
+import {
+  sendBillingDocument,
+  type BillingDocVariant,
+} from "./billing-document-send.service";
 
 export type Frequency = "monthly" | "biweekly" | "weekly" | "yearly";
 
@@ -418,6 +422,33 @@ export async function runTemplate(tenantId: string, templateId: string) {
     // no rompa los borradores ya generados. Si la copia falla por archivo
     // individual, log y seguimos — el borrador no se cae por esto.
     await copyTemplateAttachmentsToDraft(tenantId, template.id, draft.id, template.createdBy);
+
+    // Auto-envío opcional de PROFORMA y/o ESTADO_DE_PAGO al receptor.
+    // Reusan el mismo flujo que el endpoint manual drafts/[id]/send-as.
+    // Si un envío falla, NO rompemos el run — el borrador queda creado
+    // y el operador puede reenviar manualmente.
+    const autoSendVariants: BillingDocVariant[] = [];
+    if (template.autoSendProforma) autoSendVariants.push("PROFORMA");
+    if (template.autoSendPaymentStatement) autoSendVariants.push("ESTADO_DE_PAGO");
+    for (const variant of autoSendVariants) {
+      try {
+        const result = await sendBillingDocument(tenantId, {
+          dteId: draft.id,
+          variant,
+          triggeredBy: template.createdBy,
+        });
+        if (!result.success) {
+          console.error(
+            `[finance/recurring] auto-send ${variant} draft ${draft.id} failed: ${result.error}`,
+          );
+        }
+      } catch (err) {
+        console.error(
+          `[finance/recurring] auto-send ${variant} draft ${draft.id} threw`,
+          err,
+        );
+      }
+    }
 
     const next = computeNextRunAt(template);
     await prisma.financeDteRecurringTemplate.update({
