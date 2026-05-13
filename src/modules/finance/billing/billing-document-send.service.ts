@@ -17,6 +17,11 @@ import { resolveBrandColors } from "@/modules/finance/billing/billing-doc-config
 import { render } from "@react-email/render";
 import { createElement } from "react";
 import { BillingDocumentEmail } from "@/emails/BillingDocumentEmail";
+import {
+  kindToFinanceEmailKind,
+  statusToFinanceEmailStatus,
+  attachmentsToFinanceEmailAttachments,
+} from "./dte-email.service";
 
 export type BillingDocVariant = "PROFORMA" | "ESTADO_DE_PAGO";
 
@@ -82,13 +87,13 @@ async function logEmail(
       data: {
         tenantId,
         dteId,
-        kind: data.kind,
+        kind: kindToFinanceEmailKind(data.kind),
         to: data.to,
         cc: data.cc,
         bcc: data.bcc,
         subject: data.subject,
-        attachments: "pdf_only",
-        status: data.status,
+        attachments: attachmentsToFinanceEmailAttachments("pdf_only"),
+        status: statusToFinanceEmailStatus(data.status),
         resendId: data.resendId ?? null,
         errorMessage: data.errorMessage ?? null,
         sentBy: data.sentBy,

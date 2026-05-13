@@ -22,12 +22,30 @@ type EmailLog = {
   sentBy: string | null;
 };
 
+// Soporta tanto los kinds legacy snake_case que pueda haber en BD (pre-migración
+// 1.C) como los uppercase del enum FinanceDteEmailKind post-migración. Después
+// de aplicar la migración solo deberían llegar los uppercase, pero mantenemos
+// ambos por defensa hasta que se borre este componente en Fase 4 a favor de
+// EnviosTabContent.
 const KIND_LABELS: Record<string, { label: string; auto: boolean }> = {
   auto_receiver: { label: "Email automático al receptor", auto: true },
   auto_backoffice: { label: "XML automático al backoffice", auto: true },
   manual_resend: { label: "Reenvío manual al receptor", auto: false },
   manual_override_recipient: { label: "Reenvío con email distinto", auto: false },
   manual_backoffice: { label: "Reenvío XML al backoffice", auto: false },
+  proforma_sent: { label: "Proforma enviada", auto: false },
+  estado_pago_sent: { label: "Estado de pago enviado", auto: false },
+  proforma_failed: { label: "Proforma falló", auto: false },
+  estado_pago_failed: { label: "Estado de pago falló", auto: false },
+  AUTO_RECEIVER: { label: "Email automático al receptor", auto: true },
+  AUTO_BACKOFFICE: { label: "XML automático al backoffice", auto: true },
+  MANUAL_RESEND: { label: "Reenvío manual al receptor", auto: false },
+  MANUAL_OVERRIDE_RECIPIENT: { label: "Reenvío con email distinto", auto: false },
+  MANUAL_BACKOFFICE: { label: "Reenvío XML al backoffice", auto: false },
+  PROFORMA_SENT: { label: "Proforma enviada", auto: false },
+  ESTADO_PAGO_SENT: { label: "Estado de pago enviado", auto: false },
+  PROFORMA_FAILED: { label: "Proforma falló", auto: false },
+  ESTADO_PAGO_FAILED: { label: "Estado de pago falló", auto: false },
 };
 
 export function DteEmailTimeline({ dteId }: { dteId: string }) {

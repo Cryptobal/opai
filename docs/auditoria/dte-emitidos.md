@@ -357,7 +357,38 @@ No hay env vars nuevas a sumar en este PR; toda la configuración nueva vive en 
 
 ---
 
-## 7. STOP
+## 7. Follow-ups detectados (fuera de scope del PR)
+
+- **`FinanceDte.emailStatus` sigue siendo `String?` libre** (`prisma/schema.prisma:6511`) con valores `"SENT"` / `"FAILED"` / `null`. Después de migrar `FinanceDteEmailLog.status` a enum `FinanceDteEmailStatus` (Migración 1.C), este campo queda como única superficie de strings libres en el dominio email-DTE. Ticket follow-up: convertir a enum `FinanceDteEmailStatus` reutilizando el mismo tipo. **No se incluye en este PR** para mantener scope acotado (cambia un campo expuesto al cliente del listado y forzaría updates en `DtesEmitidosClient` y `IssuedDtesMobileList`).
+
+### 7.1 Hallazgo durante Fase 1: kinds proforma/estado-pago en finance_dte_email_logs
+
+Al correr `tsc --noEmit` post-migración 1.C se detectó que `billing-document-send.service.ts` también escribe a `finance_dte_email_logs` con kinds **fuera** del set documentado en el comentario del schema. Se amplió el enum `FinanceDteEmailKind` con 4 valores adicionales (`PROFORMA_SENT`, `ESTADO_PAGO_SENT`, `PROFORMA_FAILED`, `ESTADO_PAGO_FAILED`) para preservar el historial. Los `CASE WHEN` correspondientes están en `prisma/migrations/20260913100200_finance_dte_email_log_async_tracking/migration.sql`.
+
+**Call sites actualizados en Fase 1** (verificados con `grep -rn` sobre strings legacy):
+
+| Archivo | Línea | Kind legacy → enum |
+|---|---:|---|
+| `src/modules/finance/billing/dte-email.service.ts` | 28-32 | Type `DteEmailKind` ampliado con 4 valores doc-cobro. |
+| `src/modules/finance/billing/dte-email.service.ts` | 88 | Default param `kind = "manual_resend"`. Sin cambio (string legacy se traduce en `logEmail()`). |
+| `src/modules/finance/billing/dte-email.service.ts` | 328 | `kindOverride ?? (triggeredBy ? "manual_backoffice" : "auto_backoffice")`. Idem. |
+| `src/modules/finance/billing/dte-issuer.service.ts` | 443, 471 | `"auto_receiver"`, `kindOverride: "auto_backoffice"`. Strings legacy preservados. |
+| `src/app/api/finance/billing/issued/[id]/send-email/route.ts` | 48-49 | `"manual_override_recipient" \| "manual_resend"`. |
+| `src/app/api/finance/billing/issued/[id]/send-xml-backoffice/route.ts` | 37 | `kindOverride: "manual_backoffice"`. |
+| `src/app/api/finance/billing/issued/bulk-resend-email/route.ts` | 72 | `"manual_resend"`. |
+| `src/modules/finance/billing/billing-document-send.service.ts` | 23-27, 303, 305 | `"proforma_sent" \| "estado_pago_sent" \| "proforma_failed" \| "estado_pago_failed"`. |
+| `src/components/finance/SendEmailDialog.tsx` | 255-256 | Solo comentarios (no afectan compilación). |
+| `src/components/finance/DteEmailTimeline.tsx` | 25-31 | `KIND_LABELS` ampliado con 4 nuevas entradas (uppercase). |
+
+**Estrategia de traducción adoptada (cambio mínimo):**
+
+Los callers siguen pasando strings legacy snake_case (`"auto_receiver"`, `"proforma_sent"`, etc.) — no se reescribe ningún callsite. La conversión a enum `FinanceDteEmailKind` ocurre en una sola función helper `kindToFinanceEmailKind()` definida en `dte-email.service.ts` y reutilizada por `billing-document-send.service.ts`. Mismo patrón para `status` y `attachments`. Esto deja el refactor de Fase 2 (firma object input) con superficie mínima.
+
+**Follow-up adyacente para Fase 2 (anotar):** la traducción `string → enum` puede eliminarse cuando se refactorice `sendDteEmail` a object input; los nuevos callers pasarán `FinanceDteEmailKind` directamente.
+
+---
+
+## 8. STOP
 
 **Fase 0 completa.** Esperar OK de Carlos para iniciar Fase 1 (4 migraciones Prisma).
 

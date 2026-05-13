@@ -10,6 +10,11 @@
  */
 import { prisma } from "@/lib/prisma";
 import { resend, getTenantEmailConfig } from "@/lib/resend";
+import {
+  FinanceDteEmailKind,
+  FinanceDteEmailStatus,
+  FinanceDteEmailAttachments,
+} from "@prisma/client";
 import { getDteProvider } from "../shared/adapters/dte-provider.adapter";
 import { getDteTypeName as dteTypeName } from "../shared/constants/dte-types";
 import { renderDteEmailHtml, renderDteEmailSubject } from "./dte-email-template";
@@ -24,12 +29,63 @@ export interface SendDteEmailResult {
   error?: string;
 }
 
+/**
+ * Union de strings legacy (snake_case) que los callers actuales pasan al
+ * servicio. Se incluyen 4 valores doc-cobro (`proforma_*` / `estado_pago_*`)
+ * porque `billing-document-send.service.ts` escribe a la misma tabla y
+ * comparte el helper `kindToFinanceEmailKind` definido abajo. La Fase 2 del
+ * refactor de email migra los callers a `FinanceDteEmailKind` directamente.
+ */
 export type DteEmailKind =
   | "auto_receiver"
   | "auto_backoffice"
   | "manual_resend"
   | "manual_override_recipient"
-  | "manual_backoffice";
+  | "manual_backoffice"
+  | "proforma_sent"
+  | "estado_pago_sent"
+  | "proforma_failed"
+  | "estado_pago_failed";
+
+const KIND_MAP: Record<DteEmailKind, FinanceDteEmailKind> = {
+  auto_receiver: FinanceDteEmailKind.AUTO_RECEIVER,
+  auto_backoffice: FinanceDteEmailKind.AUTO_BACKOFFICE,
+  manual_resend: FinanceDteEmailKind.MANUAL_RESEND,
+  manual_override_recipient: FinanceDteEmailKind.MANUAL_OVERRIDE_RECIPIENT,
+  manual_backoffice: FinanceDteEmailKind.MANUAL_BACKOFFICE,
+  proforma_sent: FinanceDteEmailKind.PROFORMA_SENT,
+  estado_pago_sent: FinanceDteEmailKind.ESTADO_PAGO_SENT,
+  proforma_failed: FinanceDteEmailKind.PROFORMA_FAILED,
+  estado_pago_failed: FinanceDteEmailKind.ESTADO_PAGO_FAILED,
+};
+
+/** Convierte el string legacy snake_case al enum tipado de Prisma. */
+export function kindToFinanceEmailKind(legacy: DteEmailKind): FinanceDteEmailKind {
+  return KIND_MAP[legacy];
+}
+
+/** Convierte el status legacy snake_case al enum tipado de Prisma. */
+export function statusToFinanceEmailStatus(
+  legacy: "sent" | "failed",
+): FinanceDteEmailStatus {
+  return legacy === "sent"
+    ? FinanceDteEmailStatus.SENT
+    : FinanceDteEmailStatus.FAILED;
+}
+
+/** Convierte el attachments legacy snake_case al enum tipado de Prisma. */
+export function attachmentsToFinanceEmailAttachments(
+  legacy: "pdf_xml" | "xml_only" | "pdf_only",
+): FinanceDteEmailAttachments {
+  switch (legacy) {
+    case "pdf_xml":
+      return FinanceDteEmailAttachments.PDF_XML;
+    case "xml_only":
+      return FinanceDteEmailAttachments.XML_ONLY;
+    case "pdf_only":
+      return FinanceDteEmailAttachments.PDF_ONLY;
+  }
+}
 
 
 async function logEmail(
@@ -53,13 +109,13 @@ async function logEmail(
       data: {
         tenantId,
         dteId,
-        kind: data.kind,
+        kind: kindToFinanceEmailKind(data.kind),
         to: data.to,
         cc: data.cc,
         bcc: data.bcc ?? [],
         subject: data.subject,
-        attachments: data.attachments,
-        status: data.status,
+        attachments: attachmentsToFinanceEmailAttachments(data.attachments),
+        status: statusToFinanceEmailStatus(data.status),
         resendId: data.resendId ?? null,
         errorMessage: data.errorMessage ?? null,
         sentBy: data.sentBy ?? null,
