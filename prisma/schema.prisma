@@ -6552,6 +6552,7 @@ model FinanceDte {
   attachments        FinanceDteAttachment[]
   emailLogs          FinanceDteEmailLog[]
   recurringRuns      FinanceDteRecurringRun[]
+  cashflowOccurrences FinanceCashflowOccurrence[] @relation("OccurrenceToDte")
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -7708,6 +7709,8 @@ model FinanceCashflowOccurrence {
   amountClp         Decimal                         @map("amount_clp") @db.Decimal(14, 2)
   status            FinanceCashflowOccurrenceStatus @default(PROJECTED)
   bankTransactionId String?                         @map("bank_transaction_id") @db.Uuid
+  dteId             String?                         @map("dte_id") @db.Uuid
+  dte               FinanceDte?                     @relation("OccurrenceToDte", fields: [dteId], references: [id], onDelete: SetNull)
   matchedAt         DateTime?                       @map("matched_at") @db.Timestamptz(6)
   matchedBy         String?                         @map("matched_by")
   notes             String?
@@ -7718,6 +7721,7 @@ model FinanceCashflowOccurrence {
   @@index([tenantId, scheduledDate], map: "idx_cashflow_occ_tenant_date")
   @@index([tenantId, status], map: "idx_cashflow_occ_tenant_status")
   @@index([bankTransactionId], map: "idx_cashflow_occ_bank_tx")
+  @@index([tenantId, dteId], map: "idx_cashflow_occ_dte")
   @@map("finance_cashflow_occurrences")
   @@schema("finance")
 }

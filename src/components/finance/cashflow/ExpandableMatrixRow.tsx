@@ -5,6 +5,7 @@ import { ChevronDown, ChevronRight as ChevronRightIcon, Building2, TrendingUp } 
 import type {
   ProjectionRow,
   ProjectionBucket,
+  CashflowCellStatus,
 } from "@/modules/finance/cashflow/types";
 import { CellAmount } from "./CellAmount";
 import { CellActionPopover } from "./CellActionPopover";
@@ -12,6 +13,42 @@ import { useDroppable } from "@dnd-kit/core";
 import { ItemDetailRow } from "./ItemDetailRow";
 
 const fmt = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 });
+
+const CELL_STATUS_RANK: Record<CashflowCellStatus, number> = {
+  PROJECTED: 0,
+  INVOICED: 1,
+  DRAFT: 2,
+  CEDED: 3,
+  PAID: 4,
+};
+
+/**
+ * Para la fila agregada de categoría, mostramos el estado "más informativo"
+ * entre todos los items de la fila en ese bucket. Misma precedencia que el
+ * server-side. INVOICED con mora más alta gana en empate.
+ */
+function aggregateRowStatus(
+  row: ProjectionRow,
+  bucketKey: string,
+): { cellStatus: CashflowCellStatus; daysOverdue: number } {
+  let best: CashflowCellStatus = "PROJECTED";
+  let maxOverdue = 0;
+  for (const item of row.items) {
+    const cell = item.values.find((v) => v.bucketKey === bucketKey);
+    if (!cell?.cellStatus) continue;
+    if (CELL_STATUS_RANK[cell.cellStatus] > CELL_STATUS_RANK[best]) {
+      best = cell.cellStatus;
+      maxOverdue = cell.daysOverdue ?? 0;
+    } else if (
+      cell.cellStatus === "INVOICED" &&
+      best === "INVOICED" &&
+      (cell.daysOverdue ?? 0) > maxOverdue
+    ) {
+      maxOverdue = cell.daysOverdue ?? 0;
+    }
+  }
+  return { cellStatus: best, daysOverdue: maxOverdue };
+}
 
 const STORAGE_PREFIX = "cashflow.expanded.";
 
@@ -156,6 +193,7 @@ export function ExpandableMatrixRow({
                 )
               : false;
 
+          const agg = aggregateRowStatus(row, v.bucketKey);
           const cellContent = (
             <div className="relative inline-flex items-center justify-end gap-1">
               {hasIpcInBucket && (
@@ -169,6 +207,8 @@ export function ExpandableMatrixRow({
                 actual={actual}
                 variance={variance}
                 kind={row.kind as "INCOME" | "EXPENSE"}
+                cellStatus={agg.cellStatus}
+                daysOverdue={agg.daysOverdue}
               />
             </div>
           );

@@ -212,6 +212,8 @@ export function ItemDetailRow({
               actual={v.actualAmount}
               variance={variance}
               kind={kind}
+              cellStatus={v.cellStatus}
+              daysOverdue={v.daysOverdue}
             />
           </span>
         );

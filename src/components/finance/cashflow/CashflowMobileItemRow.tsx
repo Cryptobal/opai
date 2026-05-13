@@ -5,7 +5,7 @@ import type {
   ProjectionRow,
   ProjectionRowItemDetail,
 } from "@/modules/finance/cashflow/types";
-import { fmt } from "./MatrixHelpers";
+import { fmt, StatusBadge } from "./MatrixHelpers";
 import {
   SOURCE_BADGE,
   getStoredExpanded,
@@ -262,6 +262,9 @@ const ItemRow = memo(function ItemRow({
       categoryName: row.categoryName,
       kind,
       canManage,
+      cellStatus: v?.cellStatus,
+      dteId: v?.dteId ?? null,
+      daysOverdue: v?.daysOverdue,
     });
   }, [item, v, bucketKey, amount, actual, row.categoryName, kind, canManage, onOpenItem]);
 
@@ -297,6 +300,10 @@ const ItemRow = memo(function ItemRow({
               IPC
             </span>
           )}
+          <StatusBadge
+            status={v?.cellStatus}
+            daysOverdue={v?.daysOverdue}
+          />
         </div>
       </div>
       <div className="flex flex-col items-end gap-0.5 shrink-0">

@@ -54,6 +54,8 @@ export interface VirtualOccurrence {
   hasIpcAdjustment: boolean;
   /** Frecuencia del reajuste IPC en meses (6, 12, etc). */
   ipcAdjustmentMonths: number | null;
+  /** DTE vinculado a la occurrence materializada (null si proyectada o sin vínculo). */
+  dteId: string | null;
 }
 
 export interface ProjectionRange {
@@ -88,6 +90,21 @@ export interface ProjectionBucket {
   occurrences: VirtualOccurrence[];
 }
 
+/**
+ * Estado de una celda de proyección respecto a su DTE vinculado:
+ *  - PROJECTED: sin DTE vinculado (cuota proyectada del contrato).
+ *  - DRAFT:     DTE en borrador (sin folio asignado) o pendiente envío SII.
+ *  - INVOICED:  DTE aceptado SII, sin factoring activo, no pagado todavía.
+ *  - CEDED:     DTE cedido a factoring (paymentStatus=CEDED o FactoringOperation activa).
+ *  - PAID:      DTE pagado.
+ */
+export type CashflowCellStatus =
+  | "PROJECTED"
+  | "DRAFT"
+  | "INVOICED"
+  | "CEDED"
+  | "PAID";
+
 export interface ProjectionRowItemValue {
   bucketKey: string;
   amount: number;
@@ -98,6 +115,12 @@ export interface ProjectionRowItemValue {
   /** scheduledDate (yyyy-MM-dd) de una cuota representativa del bucket. Permite
    *  materializar al primer move/amount aunque occurrenceId sea null. */
   scheduledDate: string;
+  /** Estado de la celda respecto al DTE vinculado. PROJECTED si no hay vínculo. */
+  cellStatus?: CashflowCellStatus;
+  /** dteId vinculado, si existe — para deep-link al DTE. */
+  dteId?: string | null;
+  /** Días de mora si INVOICED + overdue (positivos), 0 si al día. */
+  daysOverdue?: number;
 }
 
 export interface ProjectionRowItemDetail {
