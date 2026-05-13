@@ -219,11 +219,21 @@ export function RecurringTemplateForm({
     const ctrl = new AbortController();
     setLoading(true);
     fetch(`/api/finance/billing/recurring/${templateId}`, { signal: ctrl.signal })
-      .then((r) => r.json())
-      .then((j) => {
-        const t = j?.data;
+      .then(async (r) => ({ status: r.status, body: await r.json() }))
+      .then(({ status, body }) => {
+        const t = body?.data;
         if (!t) {
-          toast.error("No se pudo cargar la plantilla");
+          // 404 = la plantilla ya no existe (eliminada / nunca persistió).
+          // Cerramos el modal en vez de dejar al usuario rellenar un form
+          // fantasma que va a fallar al hacer PATCH.
+          if (status === 404) {
+            toast.error(
+              "Esta plantilla ya no existe (puede haber sido eliminada). Creá una nueva.",
+            );
+            onClose();
+            return;
+          }
+          toast.error(body?.error ?? "No se pudo cargar la plantilla");
           return;
         }
         setName(t.name ?? "");
