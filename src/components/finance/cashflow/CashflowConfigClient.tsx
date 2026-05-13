@@ -553,15 +553,32 @@ export function CashflowConfigClient({ initialConfig, initialCategories, account
           </div>
           <div>
             <Label>Tipo</Label>
-            <Select value={newCat.kind} onValueChange={(v) => setNewCat((c) => ({ ...c, kind: v as "INCOME" | "EXPENSE" }))}>
-              <SelectTrigger className="h-10 sm:h-9">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="INCOME">Ingreso</SelectItem>
-                <SelectItem value="EXPENSE">Egreso</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex h-10 sm:h-9 rounded-ds-md border border-border overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setNewCat((c) => ({ ...c, kind: "INCOME" }))}
+                className={
+                  "flex-1 text-[13px] font-medium transition-colors " +
+                  (newCat.kind === "INCOME"
+                    ? "bg-status-ok-soft text-status-ok-fg"
+                    : "bg-transparent text-ds-text-3 hover:bg-muted/40")
+                }
+              >
+                ↑ Ingreso
+              </button>
+              <button
+                type="button"
+                onClick={() => setNewCat((c) => ({ ...c, kind: "EXPENSE" }))}
+                className={
+                  "flex-1 text-[13px] font-medium transition-colors border-l border-border " +
+                  (newCat.kind === "EXPENSE"
+                    ? "bg-status-danger-soft text-status-danger-fg"
+                    : "bg-transparent text-ds-text-3 hover:bg-muted/40")
+                }
+              >
+                ↓ Egreso
+              </button>
+            </div>
           </div>
           <Button
             onClick={createCategory}

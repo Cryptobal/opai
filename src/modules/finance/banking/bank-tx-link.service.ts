@@ -72,7 +72,11 @@ async function recomputeDtePaymentAggregate(
   if (paid <= 0) {
     const overdue = dte.dueDate ? dte.dueDate.getTime() < Date.now() : false;
     status = overdue ? "OVERDUE" : "UNPAID";
-  } else if (paid + 0.01 >= total) {
+  } else if (paid + 5 >= total) {
+    // Tolerancia de $5 CLP para absorber residuos de redondeo cuando un
+    // pago se reparte entre N movimientos (bulk reconcile N→M). El
+    // redondeo a entero CLP por mov puede dejar al DTE por debajo de su
+    // totalAmount por algunos pesos sin que sea realmente un cobro parcial.
     status = "PAID";
   } else {
     status = "PARTIAL";
@@ -1254,7 +1258,12 @@ export async function bulkReconcileToDtes(
       // exactamente movAmount entre todos los targets.
       const movShare = totalMovs > 0 ? movAmount / totalMovs : 0;
       const code = await nextPaymentRecordCode(tx2, tenantId, isIncome);
-      const movDtePortion = Math.round(movShare * totalAlloc * 100) / 100;
+      // Pieces en enteros CLP: CLP no usa decimales, y trabajar con enteros
+      // reduce los residuos de redondeo a max $1 por mov en lugar de hasta
+      // $0.01 por mov (que acumulado en N movs llegaba a dejar la factura
+      // PARTIAL por unos centavos). recomputeDtePaymentAggregate tiene
+      // además una tolerancia de $5 para coverage.
+      const movDtePortion = Math.round(movShare * totalAlloc);
       const record = await tx2.financePaymentRecord.create({
         data: {
           tenantId,
@@ -1291,11 +1300,11 @@ export async function bulkReconcileToDtes(
         const share = totalAlloc > 0 ? a.amount / totalAlloc : 0;
         const paymentPiece = isLast
           ? movDtePortion - assignedToPayments
-          : Math.round(movDtePortion * share * 100) / 100;
+          : Math.round(movDtePortion * share);
         assignedToPayments += paymentPiece;
         const linkPiece = isLast
           ? movLinkPool - assignedToLinks
-          : Math.round(movLinkPool * share * 100) / 100;
+          : Math.round(movLinkPool * share);
         assignedToLinks += linkPiece;
 
         await tx2.financePaymentAllocation.create({
@@ -1331,8 +1340,7 @@ export async function bulkReconcileToDtes(
         diffAccount &&
         diffDirection === "surplus"
       ) {
-        const movDiffPortion =
-          Math.round(movShare * diffAmount * 100) / 100;
+        const movDiffPortion = Math.round(movShare * diffAmount);
         if (movDiffPortion > 0) {
           await tx2.financeBankTransactionLink.create({
             data: {
