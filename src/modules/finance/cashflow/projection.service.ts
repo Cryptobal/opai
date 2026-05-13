@@ -137,6 +137,15 @@ export async function buildProjection(
   tenantId: string,
   range: ProjectionRange,
 ): Promise<ProjectionMatrix> {
+  // Alinea `from` al inicio del bucket que lo contiene (lunes ISO en weekly,
+  // día 1 en monthly). Sin esto, si el caller pasa una fecha a mitad de
+  // semana, las bank tx y occurrences del inicio de esa misma semana quedan
+  // fuera del filtro `gte: from` y el bucket actual aparece con varianza
+  // inflada — causa de drifts distintos entre la cuadratura (from=today) y
+  // el header de flujo de caja (from=startOfWeek).
+  const alignedFrom = bucketBoundsFor(range.from, range.granularity).start;
+  range = { ...range, from: alignedFrom };
+
   const config = await getOrCreateCashflowConfig(tenantId);
   const categories = await listCategories(tenantId);
   const categoryMap = new Map(categories.map((c) => [c.id, c]));
