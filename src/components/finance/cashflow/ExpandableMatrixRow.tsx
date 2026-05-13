@@ -395,6 +395,45 @@ function ClientGroup({
   const count = items.length;
   const label = count === 1 ? "1 contrato" : `${count} contratos`;
 
+  // Suma del monto base por moneda. En la práctica un cliente tiene todos
+  // sus contratos en UF o todos en CLP (mezcla es rarísima), pero si pasa
+  // mostramos ambos para no esconder valor.
+  const baseByCurrency: Record<string, number> = {};
+  for (const it of items) {
+    if (it.baseAmount > 0) {
+      baseByCurrency[it.currency] =
+        (baseByCurrency[it.currency] ?? 0) + it.baseAmount;
+    }
+  }
+  const baseLabel = (() => {
+    const parts: string[] = [];
+    if (baseByCurrency.UF) {
+      parts.push(
+        `UF ${new Intl.NumberFormat("es-CL", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        }).format(baseByCurrency.UF)}/mes`,
+      );
+    }
+    if (baseByCurrency.CLP) {
+      parts.push(`$${fmt.format(baseByCurrency.CLP)}/mes`);
+    }
+    return parts.join(" + ");
+  })();
+
+  // Dotación total: sumamos por instalación ÚNICA. Si dos contratos del
+  // mismo cliente comparten instalación, la dotación de esa instalación
+  // se cuenta una sola vez (no es por contrato, es por instalación
+  // física). Items sin installationId no aportan.
+  const headcountByInstallation = new Map<string, number>();
+  for (const it of items) {
+    if (it.installationId && it.headcount > 0) {
+      headcountByInstallation.set(it.installationId, it.headcount);
+    }
+  }
+  let totalHeadcount = 0;
+  for (const h of headcountByInstallation.values()) totalHeadcount += h;
+
   return (
     <>
       <tr className="bg-primary/5 border-t-2 border-primary/30">
@@ -420,6 +459,22 @@ function ClientGroup({
             <span className="text-[10px] font-mono uppercase tracking-[0.06em] px-1.5 py-0.5 rounded-ds-sm bg-primary/15 text-primary shrink-0">
               {label}
             </span>
+            {baseLabel ? (
+              <span
+                className="text-[11px] font-mono tabular-nums text-ds-text-3 shrink-0"
+                title="Suma de montos base de los contratos del cliente"
+              >
+                · {baseLabel}
+              </span>
+            ) : null}
+            {totalHeadcount > 0 ? (
+              <span
+                className="text-[11px] font-mono tabular-nums text-ds-text-3 shrink-0"
+                title="Dotación total del cliente (suma por instalación única, evita duplicar cuando dos contratos comparten instalación)"
+              >
+                · {totalHeadcount} {totalHeadcount === 1 ? "persona" : "personas"}
+              </span>
+            ) : null}
           </button>
         </td>
         {buckets.map((b) => {

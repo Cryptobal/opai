@@ -146,6 +146,10 @@ export interface ProjectionRowItemDetail {
   hasIpcAdjustment: boolean;
   /** Frecuencia del reajuste IPC en meses (6, 12). null si no aplica. */
   ipcAdjustmentMonths: number | null;
+  /** Headcount planificado de la instalación (SUM(requiredGuards) de
+   *  OpsPuestoOperativo activos). 0 si el item no tiene instalación o si
+   *  la instalación no tiene puestos. */
+  headcount: number;
   values: ProjectionRowItemValue[];
   total: number;
   totalActual: number;

@@ -175,6 +175,14 @@ export function ItemDetailRow({
               · {formatBaseAmount(item.baseAmount, item.currency)}
             </span>
           ) : null}
+          {item.headcount > 0 ? (
+            <span
+              className="text-[11px] font-mono tabular-nums text-ds-text-3 shrink-0"
+              title="Dotación planificada (puestos × turnos activos) de la instalación"
+            >
+              · {item.headcount} {item.headcount === 1 ? "persona" : "personas"}
+            </span>
+          ) : null}
           {item.currency === "UF" && (
             <span
               className="text-[10px] font-mono font-semibold uppercase tracking-[0.06em] px-1.5 py-0.5 rounded-ds-sm bg-status-info-soft text-status-info-fg shrink-0"
