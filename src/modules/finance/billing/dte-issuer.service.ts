@@ -474,6 +474,35 @@ export async function issueDte(
     });
   }
 
+  // 10c. Vincular DTE a una occurrence proyectada del flujo de caja
+  // (best-effort, fuera de transacción y no bloqueante). Esto cubre la
+  // emisión DIRECTA — antes el matcher sólo corría en createDraft/
+  // issueDraft, por lo que facturas emitidas sin pasar por borrador
+  // nunca se vinculaban a la proyección.
+  //
+  // Skip NC/ND (56/61): no son items proyectados independientes —
+  // ajustan al DTE original.
+  if (input.dteType !== 56 && input.dteType !== 61) {
+    try {
+      const { matchDraftToOccurrence } = await import(
+        "@/modules/finance/cashflow/draft-occurrence-matcher.service"
+      );
+      await matchDraftToOccurrence({
+        tenantId,
+        dteId: dte.id,
+        crmAccountId: input.crmAccountId ?? null,
+        installationId: input.installationId ?? null,
+        expectedDate: dte.date,
+        amountClp: Number(totalAmount),
+      });
+    } catch (err) {
+      console.error(
+        "[dte-issuer] auto-match cashflow falló (no bloqueante):",
+        err,
+      );
+    }
+  }
+
   // 11. Auto-generate journal entry for facturas (not boletas)
   if (input.dteType === 33 || input.dteType === 34) {
     try {

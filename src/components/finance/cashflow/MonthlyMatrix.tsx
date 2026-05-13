@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useMemo } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, Pencil } from "lucide-react";
 import { Surface } from "@/components/opai-ds";
 import {
   Select,
@@ -345,9 +345,10 @@ export function MonthlyMatrix({ defaultMonths }: Props) {
                         <button
                           type="button"
                           onClick={() => setBankAdjustOpen(true)}
-                          className="hover:underline underline-offset-2 decoration-dotted cursor-pointer"
+                          className="inline-flex items-center gap-1 hover:underline underline-offset-2 decoration-dotted cursor-pointer"
                           title="Ajustar saldo del banco"
                         >
+                          <Pencil className="h-3 w-3 opacity-70" aria-hidden="true" />
                           {content}
                         </button>
                       ) : (

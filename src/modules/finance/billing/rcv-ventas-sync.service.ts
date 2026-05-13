@@ -37,6 +37,39 @@
 import { prisma } from "@/lib/prisma";
 import { decryptBuffer, decryptString } from "@/lib/dte-encryption";
 import { callSimpleApi, detectApiKeyBlocked } from "../shared/adapters/simpleapi-http";
+import { matchDraftToOccurrence } from "@/modules/finance/cashflow/draft-occurrence-matcher.service";
+
+/** Match target acumulado durante el sync para correr el matcher fuera del loop. */
+interface CashflowMatchTarget {
+  dteId: string;
+  crmAccountId: string | null;
+  installationId: string | null;
+  expectedDate: Date;
+  amountClp: number;
+}
+
+/** Mini scheduler: corre `fn` sobre `items` con un máximo de `limit` en
+ *  paralelo. Útil para no saturar la DB con N updates simultáneos cuando un
+ *  sync trae muchos DTEs nuevos. */
+async function runWithConcurrencyLimit<T>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<void>,
+): Promise<void> {
+  const queue = [...items];
+  const workers: Promise<void>[] = [];
+  for (let i = 0; i < Math.min(limit, queue.length); i++) {
+    workers.push(
+      (async () => {
+        while (queue.length > 0) {
+          const item = queue.shift()!;
+          await fn(item);
+        }
+      })(),
+    );
+  }
+  await Promise.allSettled(workers);
+}
 
 export interface RcvVentasSyncResult {
   tenantId: string;
@@ -254,16 +287,38 @@ export async function syncTenantRcvVentas(
 
   result.fetched = allDocs.length;
 
+  const matchTargets: CashflowMatchTarget[] = [];
+
   for (const doc of allDocs) {
     try {
-      const inserted = await upsertIssuedDteFromRcv(tenantId, doc);
-      if (inserted) result.inserted++;
-      else result.skipped++;
+      const r = await upsertIssuedDteFromRcv(tenantId, doc);
+      if (r.inserted) {
+        result.inserted++;
+        if (r.matchTarget) matchTargets.push(r.matchTarget);
+      } else {
+        result.skipped++;
+      }
     } catch (err) {
       result.errors.push(
         `Upsert ${doc.rutReceptor}/${doc.tipoDte}/${doc.folio}: ${err instanceof Error ? err.message : String(err)}`,
       );
     }
+  }
+
+  // Vincular los DTEs nuevos a sus occurrences proyectadas. Best-effort y
+  // con concurrency cap para no saturar la DB con N updates en paralelo
+  // cuando el sync trae muchos meses históricos a la vez.
+  if (matchTargets.length > 0) {
+    await runWithConcurrencyLimit(matchTargets, 10, async (t) => {
+      try {
+        await matchDraftToOccurrence({ tenantId, ...t });
+      } catch (err) {
+        console.error(
+          `[rcv-ventas-sync] match falló para dte ${t.dteId}:`,
+          err,
+        );
+      }
+    });
   }
 
   await prisma.tenantDteConfig.update({
@@ -313,10 +368,17 @@ function computePeriodsToSync(
   return periods.slice(-60);
 }
 
+/** Resultado del upsert: `inserted=false` cuando ya existía; cuando creamos uno
+ *  nuevo, opcionalmente reportamos un target para vincular al flujo de caja. */
+interface UpsertResult {
+  inserted: boolean;
+  matchTarget?: CashflowMatchTarget;
+}
+
 async function upsertIssuedDteFromRcv(
   tenantId: string,
   doc: NormalizedVentaDoc,
-): Promise<boolean> {
+): Promise<UpsertResult> {
   const existing = await prisma.financeDte.findFirst({
     where: {
       tenantId,
@@ -326,7 +388,7 @@ async function upsertIssuedDteFromRcv(
     },
     select: { id: true },
   });
-  if (existing) return false;
+  if (existing) return { inserted: false };
 
   const cleanRut = doc.rutReceptor.replace(/[^\dKk-]/g, "").toUpperCase();
 
@@ -345,7 +407,14 @@ async function upsertIssuedDteFromRcv(
     select: { emisorRut: true, emisorRazonSocial: true },
   });
 
-  await prisma.financeDte.create({
+  // Auto-link al CrmAccount por RUT. Sin esto el matcher de cashflow no
+  // tiene cómo vincular el DTE histórico a una occurrence proyectada.
+  const crmAccount = await prisma.crmAccount.findFirst({
+    where: { tenantId, rut: cleanRut },
+    select: { id: true },
+  });
+
+  const created = await prisma.financeDte.create({
     data: {
       tenantId,
       direction: "ISSUED",
@@ -357,6 +426,7 @@ async function upsertIssuedDteFromRcv(
       issuerName: tenantConfig?.emisorRazonSocial ?? "",
       receiverRut: cleanRut,
       receiverName: doc.razonSocialReceptor,
+      crmAccountId: crmAccount?.id ?? null,
       currency: "CLP",
       netAmount,
       exemptAmount,
@@ -374,7 +444,33 @@ async function upsertIssuedDteFromRcv(
       amountPending: totalAmount,
       createdBy: "system:rcv-ventas-sync",
     },
+    select: {
+      id: true,
+      crmAccountId: true,
+      installationId: true,
+      date: true,
+      totalAmount: true,
+      dteType: true,
+    },
   });
 
-  return true;
+  // Solo proponemos match para tipos que afectan cashflow proyectado.
+  // NC (61) y ND (56) ajustan al DTE original, no son items independientes.
+  const matchable =
+    (created.crmAccountId || created.installationId) &&
+    created.dteType !== 56 &&
+    created.dteType !== 61;
+
+  return {
+    inserted: true,
+    matchTarget: matchable
+      ? {
+          dteId: created.id,
+          crmAccountId: created.crmAccountId,
+          installationId: created.installationId,
+          expectedDate: created.date,
+          amountClp: Number(created.totalAmount),
+        }
+      : undefined,
+  };
 }

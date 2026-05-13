@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useMemo, useRef } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, Pencil } from "lucide-react";
 import { Surface } from "@/components/opai-ds";
 import { Button } from "@/components/ui/button";
 import {
@@ -681,9 +681,10 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
                         <button
                           type="button"
                           onClick={() => setBankAdjustOpen(true)}
-                          className="hover:underline underline-offset-2 decoration-dotted cursor-pointer"
+                          className="inline-flex items-center gap-1 hover:underline underline-offset-2 decoration-dotted cursor-pointer"
                           title="Ajustar saldo del banco"
                         >
+                          <Pencil className="h-3 w-3 opacity-70" aria-hidden="true" />
                           {content}
                         </button>
                       ) : (
