@@ -12,6 +12,8 @@ import {
 import type { ProjectionMatrix } from "@/modules/finance/cashflow/types";
 import { fmt, SectionHeader, SubtotalRow, driftTone, DRIFT_TONE_CLASS } from "./MatrixHelpers";
 import { ExpandableMatrixRow } from "./ExpandableMatrixRow";
+import { BankBalanceAdjustDrawer } from "./BankBalanceAdjustDrawer";
+import { useHasCapability } from "@/lib/permissions-context";
 import { addMonths } from "date-fns";
 
 interface Props {
@@ -29,6 +31,8 @@ export function MonthlyMatrix({ defaultMonths }: Props) {
   const [projection, setProjection] = useState<ProjectionMatrix | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [bankAdjustOpen, setBankAdjustOpen] = useState(false);
+  const canEditBalance = useHasCapability("banking_manage");
   // Ajustes IPC PENDING — mostramos un highlight en la celda (mes × item)
   // donde cae cada `dueDate` para que el reajuste no se pase de fecha.
   const [ipcPending, setIpcPending] = useState<
@@ -156,6 +160,17 @@ export function MonthlyMatrix({ defaultMonths }: Props) {
       }
     }
     return m;
+  }, [projection]);
+
+  // Bucket que contiene hoy. Sirve para habilitar el tap en la celda de
+  // "Saldo banco real" del mes en curso.
+  const currentBucketKey = useMemo<string | null>(() => {
+    if (!projection) return null;
+    const t = Date.now();
+    const found = projection.buckets.find(
+      (b) => b.start.getTime() <= t && t <= b.end.getTime(),
+    );
+    return found?.key ?? null;
   }, [projection]);
 
   if (loading || !projection) {
@@ -304,25 +319,43 @@ export function MonthlyMatrix({ defaultMonths }: Props) {
                 <td className="hidden sm:table-cell sticky right-0 z-40 p-2 text-right font-mono bg-muted/60 whitespace-nowrap">—</td>
               </tr>
 
-              {/* Saldo banco real acumulado — SIEMPRE visible. */}
+              {/* Saldo banco real acumulado — SIEMPRE visible. La celda del
+                  bucket actual es tappable para abrir el drawer de ajuste
+                  manual cuando el usuario tiene banking_manage. */}
               <tr className="bg-card border-t border-border/40">
                 <td className="sticky left-0 z-40 bg-card p-2 whitespace-nowrap text-[12px] text-ds-text-2 border-r border-border/50">
                   Saldo banco real
                 </td>
-                {projection.cumulativePoints.map((p) => (
-                  <td
-                    key={p.bucketKey}
-                    className={`p-2 text-right font-mono whitespace-nowrap text-[12px] bg-card ${
-                      p.realBankClp === null
-                        ? "text-ds-text-4"
-                        : p.realBankClp >= 0
-                          ? "text-status-ok-fg"
-                          : "text-status-warn-fg"
-                    }`}
-                  >
-                    {p.realBankClp === null ? "—" : fmt.format(p.realBankClp)}
-                  </td>
-                ))}
+                {projection.cumulativePoints.map((p) => {
+                  const isCurrent = p.bucketKey === currentBucketKey;
+                  const tone =
+                    p.realBankClp === null
+                      ? "text-ds-text-4"
+                      : p.realBankClp >= 0
+                        ? "text-status-ok-fg"
+                        : "text-status-warn-fg";
+                  const content =
+                    p.realBankClp === null ? "—" : fmt.format(p.realBankClp);
+                  return (
+                    <td
+                      key={p.bucketKey}
+                      className={`p-2 text-right font-mono whitespace-nowrap text-[12px] bg-card ${tone}`}
+                    >
+                      {isCurrent && canEditBalance ? (
+                        <button
+                          type="button"
+                          onClick={() => setBankAdjustOpen(true)}
+                          className="hover:underline underline-offset-2 decoration-dotted cursor-pointer"
+                          title="Ajustar saldo del banco"
+                        >
+                          {content}
+                        </button>
+                      ) : (
+                        content
+                      )}
+                    </td>
+                  );
+                })}
                 <td className="hidden sm:table-cell sticky right-0 z-40 p-2 text-right font-mono bg-card whitespace-nowrap border-l border-border/50">—</td>
               </tr>
 
@@ -353,6 +386,12 @@ export function MonthlyMatrix({ defaultMonths }: Props) {
           </table>
         </div>
       </div>
+
+      <BankBalanceAdjustDrawer
+        open={bankAdjustOpen}
+        onClose={() => setBankAdjustOpen(false)}
+        onSaved={() => setRefreshKey((k) => k + 1)}
+      />
     </Surface>
   );
 }

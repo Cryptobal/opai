@@ -97,4 +97,36 @@ describe("resolveOpeningBalance", () => {
     expect(r.perAccount[0].txDeltaClp).toBe(0);
     expect(r.perAccount[0].txCount).toBe(0);
   });
+
+  // El endpoint POST /bank-balance/adjust crea un snapshot con
+  // source=MANUAL y asOfDate=hoy. La query `findFirst` ordena por
+  // `asOfDate desc, createdAt desc` así que el último MANUAL siempre
+  // gana sobre cartolas (IMPORT) anteriores. Validamos ese contrato.
+  it("usa el snapshot más reciente como ancla (MANUAL gana al ser el último)", async () => {
+    findMany.mockResolvedValueOnce([
+      { id: "a1", bankName: "X", accountNumber: "1", currentBalance: 999 },
+    ]);
+    // Simula el orderBy del service: el findFirst devuelve el snapshot
+    // más reciente. Si el usuario acaba de hacer un ajuste MANUAL hoy
+    // con balance=12_500_000, ese es el que llega.
+    findFirst.mockResolvedValueOnce({
+      asOfDate: new Date("2026-05-13"),
+      balance: 12_500_000,
+    });
+    aggregate.mockResolvedValueOnce({
+      _sum: { amount: null },
+      _count: { _all: 0 },
+    });
+
+    const r = await resolveOpeningBalance("t1", new Date("2026-05-13"));
+    expect(r.perAccount[0].anchorBalanceClp).toBe(12_500_000);
+    expect(r.perAccount[0].resolvedBalanceClp).toBe(12_500_000);
+    expect(r.totalClp).toBe(12_500_000);
+    // El query debe traer el último por asOfDate desc, createdAt desc.
+    expect(findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderBy: [{ asOfDate: "desc" }, { createdAt: "desc" }],
+      }),
+    );
+  });
 });

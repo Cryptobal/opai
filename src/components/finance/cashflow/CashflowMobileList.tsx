@@ -9,6 +9,8 @@ import {
   CashflowMobileBucketHeader,
   CashflowMobileBucketSummary,
 } from "./CashflowMobileBucketHeader";
+import { BankBalanceAdjustDrawer } from "./BankBalanceAdjustDrawer";
+import { useHasCapability } from "@/lib/permissions-context";
 import {
   getChipLabel,
   hydrateProjection,
@@ -170,6 +172,9 @@ export function CashflowMobileList({
   const [drawerTarget, setDrawerTarget] = useState<DrawerItemTarget | null>(
     null,
   );
+  const [bankAdjustOpen, setBankAdjustOpen] = useState(false);
+  const canEditBalance = useHasCapability("banking_manage");
+  const isActiveBucketCurrent = activeIdx >= 0 && activeIdx === currentBucketIdx;
 
   const cumulativePoint = useMemo(
     () =>
@@ -289,6 +294,11 @@ export function CashflowMobileList({
           <CashflowMobileBucketSummary
             bucket={activeBucket}
             cumulativePoint={cumulativePoint}
+            onAdjustBalance={
+              isActiveBucketCurrent && canEditBalance
+                ? () => setBankAdjustOpen(true)
+                : undefined
+            }
           />
         </>
       )}
@@ -303,6 +313,15 @@ export function CashflowMobileList({
         }}
         onActionDone={() => {
           setDrawerTarget(null);
+          router.refresh();
+        }}
+      />
+
+      <BankBalanceAdjustDrawer
+        open={bankAdjustOpen}
+        onClose={() => setBankAdjustOpen(false)}
+        onSaved={() => {
+          setBankAdjustOpen(false);
           router.refresh();
         }}
       />
