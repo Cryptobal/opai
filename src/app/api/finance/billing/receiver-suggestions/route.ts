@@ -16,11 +16,22 @@ import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { canView } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
-/** Normaliza el RUT a la forma `<cuerpo>-<dv>` con DV en mayúscula. */
-function normalizeRut(raw: string): string {
+/**
+ * Devuelve las dos formas canónicas del RUT — con guión y sin guión —
+ * en mayúscula. Cubre la inconsistencia histórica en BD donde la mayoría
+ * de los CrmAccount tienen formato `12345678-9` pero unos pocos fueron
+ * cargados como `123456789` sin guión. Antes el endpoint solo intentaba
+ * la forma con guión y los clientes sin guión devolvían contacts=[]: el
+ * form mostraba la tarjeta verde con el email primario pero NO los chips
+ * de contactos para sumar al CC.
+ */
+function rutLookupForms(raw: string): { withDash: string; raw: string } | null {
   const clean = raw.replace(/[^\dKk]/g, "").toUpperCase();
-  if (clean.length < 2) return "";
-  return `${clean.slice(0, -1)}-${clean.slice(-1)}`;
+  if (clean.length < 2) return null;
+  return {
+    withDash: `${clean.slice(0, -1)}-${clean.slice(-1)}`,
+    raw: clean,
+  };
 }
 
 export async function GET(request: NextRequest) {
@@ -35,17 +46,22 @@ export async function GET(request: NextRequest) {
   }
 
   const rutRaw = request.nextUrl.searchParams.get("rut") ?? "";
-  const rut = normalizeRut(rutRaw);
-  if (!rut || rut.length < 8) {
+  const forms = rutLookupForms(rutRaw);
+  // Mínimo: 7 dígitos + 1 DV. Antes filtrábamos por la forma con guión
+  // (8 chars) — usamos la versión limpia que es 1 char más corta.
+  if (!forms || forms.raw.length < 8) {
     return NextResponse.json({
       success: true,
       data: { account: null, contacts: [] },
     });
   }
 
-  // Buscar account por RUT (case-insensitive en el DV K).
+  // Buscar account por RUT tolerando ambos formatos (con guión y sin).
   const account = await prisma.crmAccount.findFirst({
-    where: { tenantId: ctx.tenantId, rut },
+    where: {
+      tenantId: ctx.tenantId,
+      OR: [{ rut: forms.withDash }, { rut: forms.raw }],
+    },
     select: {
       id: true,
       name: true,
