@@ -117,6 +117,13 @@ type DotacionItem = {
   horaInicio: string;
   horaFin: string;
   dias: string[];
+
+  /** Agrupación de servicio (persistida dentro del JSON meta del Lead). */
+  serviceGroupKey?: string;
+  serviceGroupName?: string;
+  serviceGroupPattern?: "24-7" | "12-7-dia" | "12-7-noche" | "12-7-finde" | "5x2-dia" | "custom";
+  serviceGroupOrder?: number;
+  serviceGroupIcon?: string;
 };
 
 type InstallationDraft = {
@@ -309,6 +316,14 @@ function parseDotacionItemFromMeta(raw: unknown, defaults: InstallationCatalogDe
     horaInicio: typeof d.horaInicio === "string" ? normalizeTimeToHHmm(d.horaInicio, "08:00") : "08:00",
     horaFin: typeof d.horaFin === "string" ? normalizeTimeToHHmm(d.horaFin, "20:00") : "20:00",
     dias: Array.isArray(d.dias) ? normalizeLeadDias(d.dias as string[]) : [...WEEKDAYS],
+    serviceGroupKey: typeof d.serviceGroupKey === "string" ? d.serviceGroupKey : undefined,
+    serviceGroupName: typeof d.serviceGroupName === "string" ? d.serviceGroupName : undefined,
+    serviceGroupPattern:
+      typeof d.serviceGroupPattern === "string"
+        ? (d.serviceGroupPattern as DotacionItem["serviceGroupPattern"])
+        : undefined,
+    serviceGroupOrder: typeof d.serviceGroupOrder === "number" ? d.serviceGroupOrder : undefined,
+    serviceGroupIcon: typeof d.serviceGroupIcon === "string" ? d.serviceGroupIcon : undefined,
   };
 }
 
@@ -1382,6 +1397,11 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
               horaInicio: p.horaInicio,
               horaFin: p.horaFin,
               dias: p.dias,
+              serviceGroupKey: p.serviceGroupKey,
+              serviceGroupName: p.serviceGroupName,
+              serviceGroupPattern: p.serviceGroupPattern,
+              serviceGroupOrder: p.serviceGroupOrder,
+              serviceGroupIcon: p.serviceGroupIcon,
             }))
           : rest.dotacion;
 

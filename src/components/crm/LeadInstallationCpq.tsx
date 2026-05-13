@@ -32,6 +32,15 @@ import type { ServiceTemplate } from "@/lib/cpq/service-templates";
 import { resolveRolIdFromShiftPattern } from "@/lib/cpq/resolve-cpq-role-from-shift-pattern";
 import type { MarginMode } from "@/types/cpq";
 import { AiErrorDialog, type AiErrorPayload } from "@/components/ai/AiErrorDialog";
+import { LeadCreateServiceWizard } from "@/components/crm/LeadCreateServiceWizard";
+import { getCoveragePatternMeta } from "@/lib/cpq/coverage-patterns";
+import {
+  ShieldCheck as IconShieldCheck,
+  CalendarClock as IconCalendarClock,
+  Calendar as IconCalendar,
+  Settings2 as IconSettings2,
+  Pencil,
+} from "lucide-react";
 
 /* ─── Types ─── */
 
@@ -48,6 +57,13 @@ export interface LeadPositionItem {
   horaInicio: string;
   horaFin: string;
   dias: string[];
+
+  /** Agrupación de servicio (persistida dentro del JSON config del Lead). */
+  serviceGroupKey?: string;
+  serviceGroupName?: string;
+  serviceGroupPattern?: "24-7" | "12-7-dia" | "12-7-noche" | "12-7-finde" | "5x2-dia" | "custom";
+  serviceGroupOrder?: number;
+  serviceGroupIcon?: string;
 }
 
 export interface LeadCostItem {
@@ -984,13 +1000,143 @@ export function LeadInstallationCpq({
         </button>
         {secPuestos && (
           <div className="px-3 pb-3 space-y-2">
+            <div className="flex items-center gap-1.5">
+              <LeadCreateServiceWizard
+                cpqPuestos={cpqPuestos}
+                cpqCargos={cpqCargos}
+                cpqRoles={cpqRoles}
+                onCreate={(items) => {
+                  update({ positions: [...config.positions, ...items] });
+                }}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs gap-1"
+                onClick={addPosition}
+              >
+                <Plus className="h-3 w-3" /> Turno suelto
+              </Button>
+            </div>
             <ServiceTemplateButtons
               compact
               onSelect={applyTemplate}
               existingPositionsCount={config.positions.length}
             />
-            {config.positions.map((pos, idx) => (
-              <div key={idx} className="rounded-xl border border-border/60 bg-card/70 p-3 space-y-3">
+            {(() => {
+              const grouped = new Map<
+                string,
+                {
+                  name: string;
+                  pattern: string;
+                  icon?: string;
+                  order: number;
+                  items: { pos: LeadPositionItem; idx: number }[];
+                }
+              >();
+              const ungrouped: { pos: LeadPositionItem; idx: number }[] = [];
+              config.positions.forEach((pos, idx) => {
+                if (pos.serviceGroupKey) {
+                  const g = grouped.get(pos.serviceGroupKey) ?? {
+                    name: pos.serviceGroupName || "Servicio",
+                    pattern: pos.serviceGroupPattern || "custom",
+                    icon: pos.serviceGroupIcon,
+                    order: pos.serviceGroupOrder ?? 0,
+                    items: [],
+                  };
+                  g.items.push({ pos, idx });
+                  grouped.set(pos.serviceGroupKey, g);
+                } else {
+                  ungrouped.push({ pos, idx });
+                }
+              });
+              const groupEntries = Array.from(grouped.entries()).sort(
+                (a, b) => a[1].order - b[1].order || a[1].name.localeCompare(b[1].name)
+              );
+
+              const renderGroupHeader = (
+                key: string,
+                groupName: string,
+                pattern: string,
+                iconName: string | undefined,
+                shiftCount: number,
+                groupGuards: number
+              ) => {
+                const meta = getCoveragePatternMeta(pattern);
+                const Icon =
+                  iconName === "Sun"
+                    ? Sun
+                    : iconName === "Moon"
+                      ? Moon
+                      : iconName === "Calendar"
+                        ? IconCalendar
+                        : iconName === "CalendarClock"
+                          ? IconCalendarClock
+                          : iconName === "Settings2"
+                            ? IconSettings2
+                            : IconShieldCheck;
+                return (
+                  <div className="flex items-center gap-2 px-3 py-2 border-b border-border/40 bg-muted/15">
+                    <Icon className="h-4 w-4 text-primary shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-sm font-semibold truncate">{groupName}</span>
+                        <Badge variant="outline" className="h-5 rounded px-1.5 text-[10px] font-semibold">
+                          {meta.shortLabel}
+                        </Badge>
+                      </div>
+                      <div className="text-[11px] text-muted-foreground">
+                        {shiftCount} turno{shiftCount !== 1 ? "s" : ""} · {groupGuards} guardia
+                        {groupGuards !== 1 ? "s" : ""}
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      title="Renombrar"
+                      onClick={() => {
+                        const next = prompt("Nuevo nombre del servicio", groupName);
+                        if (next === null) return;
+                        const trimmed = next.trim();
+                        if (!trimmed) return;
+                        update({
+                          positions: config.positions.map((p) =>
+                            p.serviceGroupKey === key ? { ...p, serviceGroupName: trimmed } : p
+                          ),
+                        });
+                      }}
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-destructive"
+                      title="Eliminar servicio"
+                      onClick={() => {
+                        if (
+                          !confirm(
+                            `¿Eliminar servicio "${groupName}" y sus ${shiftCount} turno(s)?`
+                          )
+                        )
+                          return;
+                        update({
+                          positions: config.positions.filter((p) => p.serviceGroupKey !== key),
+                        });
+                      }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                );
+              };
+
+              const renderShift = (pos: LeadPositionItem, idx: number) => (
+                <div key={idx} className="rounded-xl border border-border/60 bg-card/70 p-3 space-y-3">
                 <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 items-start">
                   <div className="min-w-0">
                     <span className="text-sm font-semibold text-foreground min-w-0 break-words">{
@@ -1273,10 +1419,80 @@ export function LeadInstallationCpq({
                   );
                 })()}
               </div>
-            ))}
-            <Button variant="outline" size="sm" className="w-full text-xs gap-1" onClick={addPosition}>
-              <Plus className="h-3 w-3" /> Agregar posición
-            </Button>
+              );
+
+              return (
+                <div className="space-y-3">
+                  {groupEntries.map(([key, g]) => {
+                    const groupGuards = g.items.reduce(
+                      (s, it) => s + (it.pos.cantidad || 1) * (it.pos.numPuestos || 1),
+                      0
+                    );
+                    return (
+                      <Card key={key} className="overflow-hidden border-l-4 shadow-sm">
+                        {renderGroupHeader(key, g.name, g.pattern, g.icon, g.items.length, groupGuards)}
+                        <div className="p-2 space-y-2 bg-card/40">
+                          {g.items.map(({ pos, idx }) => renderShift(pos, idx))}
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-7 w-full text-xs gap-1"
+                            onClick={() => {
+                              const last = g.items[g.items.length - 1]?.pos;
+                              const newPos: LeadPositionItem = {
+                                puestoTrabajoId: last?.puestoTrabajoId,
+                                puesto: last?.puesto || "Puesto",
+                                cargoId: last?.cargoId,
+                                rolId: last?.rolId,
+                                baseSalary: last?.baseSalary || 550000,
+                                shiftType: "day",
+                                cantidad: 2,
+                                numPuestos: 1,
+                                horaInicio: "08:00",
+                                horaFin: "20:00",
+                                dias: [
+                                  "lunes",
+                                  "martes",
+                                  "miercoles",
+                                  "jueves",
+                                  "viernes",
+                                  "sabado",
+                                  "domingo",
+                                ],
+                                serviceGroupKey: key,
+                                serviceGroupName: g.name,
+                                serviceGroupPattern: g.pattern as any,
+                                serviceGroupIcon: g.icon,
+                                serviceGroupOrder: g.order,
+                              };
+                              update({ positions: [...config.positions, newPos] });
+                            }}
+                          >
+                            <Plus className="h-3 w-3" /> Agregar turno a este servicio
+                          </Button>
+                        </div>
+                      </Card>
+                    );
+                  })}
+
+                  {ungrouped.length > 0 && (
+                    <Card className="overflow-hidden border-dashed">
+                      {groupEntries.length > 0 && (
+                        <div className="px-3 py-2 border-b border-border/40 bg-muted/15">
+                          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            Sin agrupar ({ungrouped.length})
+                          </span>
+                        </div>
+                      )}
+                      <div className="p-2 space-y-2">
+                        {ungrouped.map(({ pos, idx }) => renderShift(pos, idx))}
+                      </div>
+                    </Card>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         )}
       </Card>
