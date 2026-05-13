@@ -52,6 +52,11 @@ interface IpcPendingMarker {
 
 export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Props) {
   const [weeks, setWeeks] = useState<number>(defaultWeeks);
+  // Semanas hacia ATRÁS desde hoy. 0 = solo futuro (proyección clásica).
+  // >0 = incluye historia (ajustes shortfall, movs conciliados pasados).
+  // El server-side ya hidrata la proyección con weeksBack=0; el override
+  // local se re-fetchea cuando el usuario cambia este valor.
+  const [weeksBack, setWeeksBack] = useState<number>(0);
   const [loading, setLoading] = useState(false);
   const [matching, setMatching] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -99,17 +104,23 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
   // re-fetch para mantener su selección.
   useEffect(() => {
     setOverride(null);
-    if (weeks !== defaultWeeks) {
+    if (weeks !== defaultWeeks || weeksBack > 0) {
       setRefreshKey((k) => k + 1);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- queremos correr solo
-    // cuando llega una proyección nueva del server; `weeks` y `defaultWeeks` se
-    // capturan al ejecutar.
+    // cuando llega una proyección nueva del server; `weeks`/`weeksBack` y
+    // `defaultWeeks` se capturan al ejecutar.
   }, [hydratedInitial]);
 
   const projection: ProjectionMatrix = override ?? hydratedInitial;
 
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const fromDate = useMemo(() => {
+    if (weeksBack === 0) return today;
+    const d = new Date();
+    d.setDate(d.getDate() - weeksBack * 7);
+    return d.toISOString().slice(0, 10);
+  }, [weeksBack, today]);
   const toDate = useMemo(() => {
     const d = new Date();
     d.setDate(d.getDate() + weeks * 7);
@@ -117,9 +128,9 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
   }, [weeks]);
 
   useEffect(() => {
-    if (weeks === defaultWeeks && refreshKey === 0) return;
+    if (weeks === defaultWeeks && weeksBack === 0 && refreshKey === 0) return;
     setLoading(true);
-    fetch(`/api/finance/cashflow/projection?from=${today}&to=${toDate}&granularity=weekly`)
+    fetch(`/api/finance/cashflow/projection?from=${fromDate}&to=${toDate}&granularity=weekly`)
       .then((r) => r.json())
       .then((j) => {
         if (j?.success && j.data) {
@@ -133,7 +144,7 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
         }
       })
       .finally(() => setLoading(false));
-  }, [weeks, defaultWeeks, today, toDate, refreshKey]);
+  }, [weeks, defaultWeeks, fromDate, toDate, refreshKey, weeksBack]);
 
   const incomeRows = projection.rows.filter((r) => r.kind === "INCOME");
   const expenseRows = projection.rows.filter((r) => r.kind === "EXPENSE");
@@ -314,6 +325,18 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
           {projection.buckets.length} semanas · saldo inicial {fmt.format(projection.openingBalanceClp)}
         </p>
         <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+          <Select value={String(weeksBack)} onValueChange={(v) => setWeeksBack(Number(v))}>
+            <SelectTrigger className="h-10 sm:h-9 w-full sm:w-[150px] text-[13px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {[0, 4, 8, 13, 26, 52].map((w) => (
+                <SelectItem key={w} value={String(w)}>
+                  {w === 0 ? "Solo futuro" : `+ ${w} sem. atrás`}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Select value={String(weeks)} onValueChange={(v) => setWeeks(Number(v))}>
             <SelectTrigger className="h-10 sm:h-9 w-full sm:w-[140px] text-[13px]">
               <SelectValue />

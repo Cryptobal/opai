@@ -6,7 +6,7 @@ import Link from "next/link";
 import { getOrCreateCashflowConfig } from "@/modules/finance/cashflow/config.service";
 import { buildProjection } from "@/modules/finance/cashflow/projection.service";
 import { ensureCashflowSynced } from "@/modules/finance/cashflow/auto-sync";
-import { addWeeks } from "date-fns";
+import { addWeeks, subWeeks } from "date-fns";
 import { CashflowTabs } from "@/components/finance/cashflow/CashflowTabs";
 import { CashflowKpis, type KpiData } from "@/components/finance/cashflow/CashflowKpis";
 import { BancaTabsHeader } from "@/components/finance/BancaTabsHeader";
@@ -14,7 +14,7 @@ import { BancaTabsHeader } from "@/components/finance/BancaTabsHeader";
 export default async function FlujoCajaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string; weeks?: string }>;
+  searchParams: Promise<{ tab?: string; weeks?: string; weeksBack?: string }>;
 }) {
   const session = await auth();
   if (!session?.user) redirect("/opai/login?callbackUrl=/finanzas/flujo-caja");
@@ -35,9 +35,14 @@ export default async function FlujoCajaPage({
   await ensureCashflowSynced(tenantId);
 
   const weeks = Math.max(8, Math.min(104, Number(sp.weeks) || config.horizonWeeksDefault));
+  // Permite ver historia: ?weeksBack=N retrocede el origen N semanas para
+  // mostrar lo que pasó (movs conciliados, ajustes shortfall) además del
+  // forecast hacia adelante. Clamp [0, 52] para no traer años de historia
+  // en un solo request.
+  const weeksBack = Math.max(0, Math.min(52, Number(sp.weeksBack) || 0));
   const today = new Date();
   const projection = await buildProjection(tenantId, {
-    from: today,
+    from: weeksBack > 0 ? subWeeks(today, weeksBack) : today,
     to: addWeeks(today, weeks),
     granularity: "weekly",
   });
