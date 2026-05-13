@@ -28,7 +28,6 @@
 import { PrismaClient, Prisma } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
 import { createManualEntry } from "../src/modules/finance/accounting/journal-entry.service";
-import { materializeShortfallInCashflow } from "../src/modules/finance/banking/bank-tx-link.service";
 
 const prisma = new PrismaClient();
 
@@ -266,25 +265,34 @@ async function applyLote(
     }
   }
 
-  // 3. Materializar en cashflow (items AJUSTE por bank-tx del lote).
-  const allBankTxs = await prisma.financeBankTransaction.findMany({
-    where: { id: { in: bankTxIds }, tenantId },
-    select: {
-      id: true,
-      bankAccountId: true,
-      transactionDate: true,
-      description: true,
-      reference: true,
-      amount: true,
+  // 3. Crear UN solo FinanceBankTransactionLink EXPENSE/INCOME en el primer
+  //    mov del lote con la cuenta diff. La proyección lo lee como link
+  //    huérfano y lo suma a la categoría correspondiente.
+  const isIncome = Number(bankTx.amount) > 0;
+  const linkAmount = Math.round(shortfall);
+  const existing = await prisma.financeBankTransactionLink.findFirst({
+    where: {
+      tenantId,
+      bankTransactionId: bankTx.id,
+      accountPlanId: diffAccount.id,
+      targetType: isIncome ? "EXPENSE" : "INCOME",
     },
+    select: { id: true },
   });
-  await materializeShortfallInCashflow(tenantId, userId, {
-    txs: allBankTxs,
-    isIncome: Number(bankTx.amount) > 0,
-    diffAmount: shortfall,
-    diffAccountId: diffAccount.id,
-    diffLabel: "Costo factoring (regen)",
-  });
+  if (!existing && linkAmount > 0) {
+    await prisma.financeBankTransactionLink.create({
+      data: {
+        tenantId,
+        bankTransactionId: bankTx.id,
+        targetType: isIncome ? "EXPENSE" : "INCOME",
+        targetId: null,
+        amount: new Decimal(linkAmount),
+        accountPlanId: diffAccount.id,
+        note: `Diferencia conciliación shortfall (regen)`,
+        createdById: userId,
+      },
+    });
+  }
 }
 
 async function main() {

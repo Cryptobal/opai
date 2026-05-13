@@ -686,18 +686,32 @@ export async function setTransactionLinks(
   }
 
   const txAmountAbs = Math.abs(tx.amount.toNumber());
-  const linksTotal = links.reduce((s, l) => s + l.amount, 0);
-
-  if (linksTotal > txAmountAbs + 0.01) {
+  // Los links de tipo EXPENSE/INCOME pueden ser "ajustes contables" que
+  // no consumen flujo bancario (típico shortfall: DTE-links suman el banco
+  // y el costo factoring va como link EXPENSE adicional con accountPlanId).
+  // Para validar el invariante "links cubren el banco" usamos solo los
+  // links que SÍ representan flujo (DTE_* y categorizaciones manuales sin
+  // DTE en paralelo).
+  const dteOrManualLinksTotal = links.reduce((s, l) => {
+    const isAdjustment =
+      (l.targetType === "EXPENSE" || l.targetType === "INCOME") &&
+      links.some(
+        (other) =>
+          other !== l &&
+          (other.targetType === "DTE_ISSUED" || other.targetType === "DTE_RECEIVED"),
+      );
+    return isAdjustment ? s : s + l.amount;
+  }, 0);
+  if (dteOrManualLinksTotal > txAmountAbs + 0.01) {
     throw new Error(
-      `Suma de vínculos ($${linksTotal.toLocaleString("es-CL")}) supera el monto del movimiento ($${txAmountAbs.toLocaleString("es-CL")})`
+      `Suma de vínculos ($${dteOrManualLinksTotal.toLocaleString("es-CL")}) supera el monto del movimiento ($${txAmountAbs.toLocaleString("es-CL")})`
     );
   }
 
-  const isFullyCovered = Math.abs(linksTotal - txAmountAbs) < 0.01;
+  const isFullyCovered = Math.abs(dteOrManualLinksTotal - txAmountAbs) < 0.01;
   if (!isFullyCovered && !opts.allowPartial) {
     throw new Error(
-      `La suma de vínculos no cubre el monto del movimiento. Faltan $${(txAmountAbs - linksTotal).toLocaleString("es-CL")}. Asigná el resto a una cuenta contable.`
+      `La suma de vínculos no cubre el monto del movimiento. Faltan $${(txAmountAbs - dteOrManualLinksTotal).toLocaleString("es-CL")}. Asigná el resto a una cuenta contable.`
     );
   }
 
@@ -1393,24 +1407,65 @@ export async function bulkReconcileToDtes(
     });
   }
 
-  // En SHORTFALL: además del asiento contable, materializamos el costo en
-  // flujo de caja como N items source=AJUSTE (uno por mov) prorrateados.
-  // En SURPLUS no hace falta: el FinanceBankTransactionLink EXPENSE/INCOME
-  // que ya creamos arriba en el loop transactional es leído por el
-  // projection service y resuelto a la categoría correcta via mapping.
+  // En SHORTFALL: además del asiento contable, exponemos el costo en el
+  // flujo de caja creando UN solo FinanceBankTransactionLink EXPENSE
+  // (o INCOME para egresos shortfall) en el primer mov del lote. La
+  // proyección lo lee como "link huérfano" y lo suma a la categoría
+  // mapeada a la cuenta diff. Esto evita crear items proyectados
+  // virtuales (que el usuario tendría que gestionar en /configuracion).
+  //
+  // El link rompe el invariante "sum links = bankAmount" para ese mov;
+  // setTransactionLinks excluye links EXPENSE/INCOME del cálculo cuando
+  // hay DTE_* en el mismo mov (los DTE-links ya cubren el banco).
   if (
     differenceAllocation &&
     diffAmount > 0 &&
     diffAccount &&
     diffDirection === "shortfall"
   ) {
-    await materializeShortfallInCashflow(tenantId, userId, {
-      txs,
-      isIncome,
-      diffAmount,
-      diffAccountId: diffAccount.id,
-      diffLabel: differenceAllocation.label ?? null,
-    });
+    const sortedTxs = [...txs].sort(
+      (a, b) => a.transactionDate.getTime() - b.transactionDate.getTime(),
+    );
+    const repTx = sortedTxs[0];
+    const linkAmount = Math.round(diffAmount);
+    if (linkAmount > 0) {
+      try {
+        // Idempotencia: si ya existe link EXPENSE/INCOME para ese mov con
+        // la misma cuenta y monto, no duplicamos.
+        const existing = await prisma.financeBankTransactionLink.findFirst({
+          where: {
+            tenantId,
+            bankTransactionId: repTx.id,
+            accountPlanId: diffAccount.id,
+            targetType: isIncome ? "EXPENSE" : "INCOME",
+          },
+          select: { id: true },
+        });
+        if (!existing) {
+          await prisma.financeBankTransactionLink.create({
+            data: {
+              tenantId,
+              bankTransactionId: repTx.id,
+              // shortfall + ingreso → costo (EXPENSE en signo contable)
+              // shortfall + egreso  → descuento (INCOME en signo contable)
+              targetType: isIncome ? "EXPENSE" : "INCOME",
+              targetId: null,
+              amount: new Decimal(linkAmount),
+              accountPlanId: diffAccount.id,
+              note:
+                differenceAllocation.label?.trim() ||
+                `Diferencia conciliación shortfall (${txs.length} mov${txs.length === 1 ? "" : "s"})`,
+              createdById: userId ?? null,
+            },
+          });
+        }
+      } catch (err) {
+        console.warn(
+          "[bank-tx-link] shortfall: no se pudo crear link EXPENSE/INCOME:",
+          err instanceof Error ? err.message : err,
+        );
+      }
+    }
   }
 
   return {
@@ -1969,151 +2024,3 @@ export async function clearTransactionLinks(
   }
 }
 
-/**
- * Materializa el costo (o ingreso opuesto) de una conciliación SHORTFALL
- * masiva en el flujo de caja, como N items source=AJUSTE con su occurrence
- * PAID — uno por movimiento bancario, prorrateado por peso del mov en el
- * total. Esto permite que el costo aparezca en la proyección semanal con
- * la fecha real del mov, vinculado al bank-tx para auditoría y reversibilidad.
- *
- * Idempotente: si ya existe una occurrence con `bankTransactionId=t.id` y
- * source=AJUSTE, no la duplica.
- *
- * Resolución de categoría:
- *   1. Busca la categoría mapeada a `diffAccountId` via
- *      `FinanceCashflowCategoryAccount` (preferencia `isPrimary=true`).
- *   2. Si no hay mapping, cae en la categoría sistema:
- *      EGR_AJUSTE_CONCILIACION (gasto) o ING_AJUSTE_CONCILIACION (ingreso).
- *
- * Si tampoco existe la categoría sistema (seed sin correr), salta sin error
- * — la conciliación bancaria ya está hecha; el costo en cashflow es
- * mejor-esfuerzo y se puede regenerar manualmente.
- */
-export async function materializeShortfallInCashflow(
-  tenantId: string,
-  userId: string | null,
-  params: {
-    txs: Array<{
-      id: string;
-      bankAccountId: string;
-      transactionDate: Date;
-      description: string;
-      reference: string | null;
-      amount: Decimal;
-    }>;
-    isIncome: boolean;
-    diffAmount: number;
-    diffAccountId: string;
-    diffLabel: string | null;
-  },
-): Promise<void> {
-  const { txs, isIncome, diffAmount, diffAccountId, diffLabel } = params;
-  // En SHORTFALL el costo tiene signo OPUESTO al mov:
-  //   ingreso shortfall → kind = EXPENSE (costo factoring)
-  //   egreso  shortfall → kind = INCOME  (descuento recibido)
-  const kind: "INCOME" | "EXPENSE" = isIncome ? "EXPENSE" : "INCOME";
-
-  // 1. Resolver categoría: primero por mapping a la cuenta elegida.
-  let categoryId: string | null = null;
-  const mapping = await prisma.financeCashflowCategoryAccount.findFirst({
-    where: { tenantId, accountPlanId: diffAccountId },
-    orderBy: { isPrimary: "desc" },
-    select: { categoryId: true, category: { select: { kind: true } } },
-  });
-  if (mapping) {
-    categoryId = mapping.categoryId;
-  } else {
-    // Fallback a categoría sistema de ajustes.
-    const fallbackCode =
-      kind === "EXPENSE"
-        ? "EGR_AJUSTE_CONCILIACION"
-        : "ING_AJUSTE_CONCILIACION";
-    const fallback = await prisma.financeCashflowCategory.findFirst({
-      where: { tenantId, code: fallbackCode, isActive: true },
-      select: { id: true },
-    });
-    categoryId = fallback?.id ?? null;
-  }
-  if (!categoryId) {
-    console.warn(
-      "[bank-tx-link] shortfall sin categoría cashflow disponible; no se materializa en flujo de caja",
-    );
-    return;
-  }
-
-  const totalMovs = txs.reduce((s, t) => s + Math.abs(t.amount.toNumber()), 0);
-  if (totalMovs <= 0) return;
-
-  const baseLabel = diffLabel?.trim() || (kind === "EXPENSE" ? "Costo factoring" : "Descuento recibido");
-
-  // Elegimos un bank-tx representativo del lote: el más temprano. La
-  // occurrence se vincula a ese tx via bankTransactionId; un solo item
-  // AJUSTE con el TOTAL del costo, en lugar de N items prorrateados.
-  // Esto evita que el flujo de caja crezca verticalmente cuando hay
-  // muchos movs en un mismo lote (factoring con N depósitos).
-  const sortedTxs = [...txs].sort(
-    (a, b) => a.transactionDate.getTime() - b.transactionDate.getTime(),
-  );
-  const repTx = sortedTxs[0];
-  const scheduledDate = new Date(
-    repTx.transactionDate.getUTCFullYear(),
-    repTx.transactionDate.getUTCMonth(),
-    repTx.transactionDate.getUTCDate(),
-  );
-  const totalDiff = Math.round(diffAmount);
-  if (totalDiff <= 0) return;
-
-  // Idempotencia: si ya existe occurrence AJUSTE asociada a CUALQUIERA
-  // de los bank-txs del lote, saltamos (no duplicamos).
-  const bankIds = txs.map((t) => t.id);
-  const existing = await prisma.financeCashflowOccurrence.findFirst({
-    where: {
-      tenantId,
-      bankTransactionId: { in: bankIds },
-      item: { source: "AJUSTE" },
-    },
-    select: { id: true },
-  });
-  if (existing) return;
-
-  try {
-    await prisma.$transaction(async (tx) => {
-      const item = await tx.financeCashflowItem.create({
-        data: {
-          tenantId,
-          categoryId: categoryId!,
-          kind,
-          source: "AJUSTE",
-          name: `${baseLabel} · ${txs.length} mov${txs.length === 1 ? "" : "s"}`.slice(0, 200),
-          description: baseLabel.slice(0, 500),
-          amount: new Decimal(totalDiff),
-          currency: "CLP",
-          recurrence: "ONCE",
-          startDate: scheduledDate,
-          isActive: true,
-          notes: `Conciliación masiva shortfall (${txs.length} movs, repTx=${repTx.id})`,
-          createdBy: userId ?? undefined,
-        },
-      });
-      await tx.financeCashflowOccurrence.create({
-        data: {
-          tenantId,
-          itemId: item.id,
-          scheduledDate,
-          effectiveDate: scheduledDate,
-          amountClp: new Decimal(totalDiff),
-          status: "PAID",
-          bankTransactionId: repTx.id,
-          matchedAt: new Date(),
-          matchedBy: userId ?? undefined,
-          notes: `${baseLabel} · lote ${txs.length} mov${txs.length === 1 ? "" : "s"}`,
-        },
-      });
-    });
-  } catch (err) {
-    console.warn(
-      "[bank-tx-link] No se pudo materializar shortfall en cashflow:",
-      err instanceof Error ? err.message : err,
-    );
-  }
-}
