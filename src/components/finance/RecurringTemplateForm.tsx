@@ -655,7 +655,7 @@ export function RecurringTemplateForm({
                   // sector comercial interno). Solo silenciamos el banner
                   // si el usuario ya editó el campo manualmente.
                   if (!customer.giro && !receiverGiro.trim()) missing.push("Giro");
-                  if (!customer.city) missing.push("Ciudad");
+                  if (!customer.city && !receiverCiudad.trim()) missing.push("Ciudad");
                   if (missing.length === 0) return null;
                   return (
                     <div className="rounded-md border border-status-warn-border bg-status-warn-soft p-3 text-xs">
